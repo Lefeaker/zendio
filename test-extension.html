@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扩展测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        .test-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.pending {
+            background: #FFC107;
+            color: white;
+        }
+        .status.success {
+            background: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        code {
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .highlight {
+            background: yellow;
+            padding: 2px 4px;
+        }
+        #console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .console-line {
+            margin: 5px 0;
+        }
+        .console-error {
+            color: #f48771;
+        }
+        .console-success {
+            color: #89d185;
+        }
+        .console-info {
+            color: #75beff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 All in Obsidian 测试页面</h1>
+
+    <div class="section">
+        <h2>📋 测试步骤</h2>
+        <div class="test-item">
+            <strong>1. 检查扩展图标</strong>
+            <p>查看浏览器工具栏右上角的扩展图标：</p>
+            <ul>
+                <li>✅ 如果图标是<strong>彩色</strong>的 → 扩展已启用</li>
+                <li>❌ 如果图标是<strong>灰色</strong>的 → 扩展未启用或不可用</li>
+            </ul>
+        </div>
+
+        <div class="test-item">
+            <strong>2. 测试右键菜单</strong>
+            <p>在页面任意位置右键，应该看到：</p>
+            <ul>
+                <li>"剪藏整个页面到 Obsidian"</li>
+                <li>选中下面的文字后右键，应该看到 "✂️ 剪藏选中内容到 Obsidian"</li>
+            </ul>
+            <p class="highlight">这是一段可以选中的测试文字，请选中我然后右键查看菜单！</p>
+        </div>
+
+        <div class="test-item">
+            <strong>3. 测试扩展 API</strong>
+            <button onclick="testExtensionAPI()">运行 API 测试</button>
+            <div id="console-output"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔍 调试信息</h2>
+        <div class="test-item">
+            <strong>当前页面信息：</strong>
+            <ul>
+                <li>URL: <code id="page-url"></code></li>
+                <li>协议: <code id="page-protocol"></code></li>
+                <li>域名: <code id="page-hostname"></code></li>
+            </ul>
+        </div>
+
+        <div class="test-item">
+            <strong>浏览器信息：</strong>
+            <ul>
+                <li>User Agent: <code id="user-agent"></code></li>
+                <li>是否支持 chrome.runtime: <span id="chrome-runtime-support"></span></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📝 测试内容</h2>
+        <div class="test-item">
+            <h3>测试文章标题</h3>
+            <p>这是一段测试内容。你可以：</p>
+            <ol>
+                <li>点击扩展图标来剪藏整个页面</li>
+                <li>右键点击页面选择"剪藏整个页面到 Obsidian"</li>
+                <li>选中部分文字后右键选择"✂️ 剪藏选中内容到 Obsidian"</li>
+            </ol>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p>这是第二段测试内容。包含一些中文字符和 <strong>加粗文字</strong>、<em>斜体文字</em>。</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>❓ 如果扩展图标仍然是灰色</h2>
+        <div class="test-item">
+            <h3>可能的原因：</h3>
+            <ol>
+                <li><strong>扩展未正确重新加载</strong>
+                    <ul>
+                        <li>打开 <code>chrome://extensions/</code></li>
+                        <li>找到 "All in Obsidian"</li>
+                        <li>点击 "重新加载" 按钮（圆形箭头图标）</li>
+                        <li><strong>完全关闭并重新打开浏览器</strong></li>
+                    </ul>
+                </li>
+                <li><strong>Service Worker 未启动</strong>
+                    <ul>
+                        <li>打开 <code>chrome://extensions/</code></li>
+                        <li>找到扩展，点击 "Service Worker" 链接</li>
+                        <li>查看控制台是否有错误</li>
+                    </ul>
+                </li>
+                <li><strong>在受限页面上</strong>
+                    <ul>
+                        <li>扩展无法在 <code>chrome://</code>、<code>edge://</code>、<code>about:</code> 等页面上运行</li>
+                        <li>请在普通网页上测试（如本页面）</li>
+                    </ul>
+                </li>
+                <li><strong>权限问题</strong>
+                    <ul>
+                        <li>打开 <code>chrome://extensions/</code></li>
+                        <li>点击扩展的 "详细信息"</li>
+                        <li>确认 "在无痕模式下启用" 已打开（如果在无痕窗口）</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // 显示页面信息
+        document.getElementById('page-url').textContent = window.location.href;
+        document.getElementById('page-protocol').textContent = window.location.protocol;
+        document.getElementById('page-hostname').textContent = window.location.hostname || '(本地文件)';
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        const hasChromeRuntime = typeof chrome !== 'undefined' && chrome.runtime;
+        document.getElementById('chrome-runtime-support').innerHTML = hasChromeRuntime 
+            ? '<span class="status success">✅ 支持</span>' 
+            : '<span class="status error">❌ 不支持</span>';
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('console-output');
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            line.textContent = `[${timestamp}] ${message}`;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function testExtensionAPI() {
+            const output = document.getElementById('console-output');
+            output.innerHTML = '';
+            
+            log('开始测试扩展 API...', 'info');
+
+            // Test 1: Check if chrome.runtime exists
+            if (typeof chrome === 'undefined' || !chrome.runtime) {
+                log('❌ chrome.runtime 不可用', 'error');
+                log('这可能意味着：', 'error');
+                log('  1. 你在本地文件系统打开此页面（file:// 协议）', 'error');
+                log('  2. 扩展未正确安装', 'error');
+                log('建议：将此文件放到 Web 服务器上，或使用 http-server 等工具', 'info');
+                return;
+            }
+            log('✅ chrome.runtime 可用', 'success');
+
+            // Test 2: Check extension ID
+            try {
+                const extensionId = chrome.runtime.id;
+                log(`✅ 扩展 ID: ${extensionId}`, 'success');
+            } catch (error) {
+                log(`❌ 无法获取扩展 ID: ${error.message}`, 'error');
+            }
+
+            // Test 3: Try to send a message
+            try {
+                log('尝试发送测试消息到扩展...', 'info');
+                chrome.runtime.sendMessage({ type: 'TEST' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        log(`⚠️ 消息发送失败: ${chrome.runtime.lastError.message}`, 'error');
+                        log('这是正常的，因为扩展可能没有处理 TEST 消息', 'info');
+                    } else {
+                        log(`✅ 收到响应: ${JSON.stringify(response)}`, 'success');
+                    }
+                });
+            } catch (error) {
+                log(`❌ 发送消息时出错: ${error.message}`, 'error');
+            }
+
+            log('测试完成！', 'success');
+            log('', 'info');
+            log('如果看到错误，请：', 'info');
+            log('1. 确保扩展已安装并启用', 'info');
+            log('2. 在 chrome://extensions/ 中重新加载扩展', 'info');
+            log('3. 刷新此页面', 'info');
+        }
+
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            setTimeout(testExtensionAPI, 1000);
+        });
+    </script>
+</body>
+</html>
+

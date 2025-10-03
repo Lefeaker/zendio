@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>测试列表结构</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .container { display: flex; gap: 20px; }
+        .column { flex: 1; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        h2 { margin-top: 0; color: #333; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 20px; }
+        button:hover { background: #45a049; }
+        #result { white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; }
+        .test-html { background: #f9f9f9; padding: 15px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>测试列表层级结构</h1>
+    <button onclick="runTest()">运行测试</button>
+    
+    <div class="container">
+        <div class="column">
+            <h2>原始HTML</h2>
+            <div class="test-html" id="testHtml">
+                <ul>
+                    <li>
+                        <p><b>代表产品：Descript</b></p>
+                        <ul>
+                            <li>
+                                <p><b>核心特点：</b></p>
+                                <ul>
+                                    <li><b>高精度转录：</b>上传音视频文件后，Descript 会自动生成带时间戳的文字稿。</li>
+                                    <li><b>通过文本剪辑：</b>用户可以直接在文字稿上进行删除、复制、粘贴等操作。</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <p><b>AI 功能集成：</b></p>
+                                <ul>
+                                    <li><b>Filler Word Removal (填充词去除)：</b>可以一键删除"嗯"、"啊"、"那个"等无意义的口头禅。</li>
+                                    <li><b>Overdub (声音克隆)：</b>可以修正说错的单词。</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="column">
+            <h2>期望的Markdown输出</h2>
+            <div id="expected" style="white-space: pre-wrap; background: #e8f5e9; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6;">
+- **代表产品：Descript**
+  - **核心特点：**
+    - **高精度转录：**上传音视频文件后，Descript 会自动生成带时间戳的文字稿。
+    - **通过文本剪辑：**用户可以直接在文字稿上进行删除、复制、粘贴等操作。
+  - **AI 功能集成：**
+    - **Filler Word Removal (填充词去除)：**可以一键删除"嗯"、"啊"、"那个"等无意义的口头禅。
+    - **Overdub (声音克隆)：**可以修正说错的单词。</div>
+        </div>
+        
+        <div class="column">
+            <h2>实际输出</h2>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        function runTest() {
+            const testHtml = document.getElementById('testHtml');
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const html = testHtml.innerHTML;
+                const markdown = convertHtmlToMarkdown(html);
+                resultDiv.textContent = markdown;
+                resultDiv.style.background = '#f5f5f5';
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message + '\n\n' + error.stack;
+                resultDiv.style.background = '#ffebee';
+            }
+        }
+        
+        // Simplified version of the conversion logic for testing
+        function convertHtmlToMarkdown(html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            return processChildren(tempDiv);
+        }
+        
+        function nodeToMarkdown(node, indent = '') {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent || '';
+            }
+            
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const elem = node;
+                const tagName = elem.tagName.toLowerCase();
+                
+                if (tagName === 'b' || tagName === 'strong') {
+                    return '**' + processChildren(elem, indent) + '**';
+                }
+                
+                if (tagName === 'p') {
+                    return processChildren(elem, indent) + '\n';
+                }
+                
+                if (tagName === 'ul') {
+                    const items = Array.from(elem.children).filter(child => child.tagName.toLowerCase() === 'li');
+                    let result = '\n';
+                    items.forEach((li) => {
+                        const itemContent = processListItem(li, indent + '  ');
+                        result += itemContent;
+                    });
+                    return result;
+                }
+                
+                if (tagName === 'li') {
+                    return processChildren(elem, indent);
+                }
+                
+                if (tagName === 'div') {
+                    return processChildren(elem, indent);
+                }
+                
+                return processChildren(elem, indent);
+            }
+            
+            return '';
+        }
+        
+        function processChildren(elem, indent = '') {
+            let result = '';
+            for (const child of Array.from(elem.childNodes)) {
+                result += nodeToMarkdown(child, indent);
+            }
+            return result;
+        }
+        
+        function processListItem(li, indent) {
+            let result = '';
+            const children = Array.from(li.childNodes);
+            
+            let inlineContent = '';
+            let blockElements = [];
+            
+            for (const child of children) {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    inlineContent += child.textContent || '';
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                    const elem = child;
+                    const tagName = elem.tagName.toLowerCase();
+                    
+                    if (tagName === 'ul' || tagName === 'ol') {
+                        blockElements.push(child);
+                    } else if (tagName === 'p') {
+                        inlineContent += processChildren(elem, indent).trim();
+                    } else {
+                        inlineContent += nodeToMarkdown(child, indent);
+                    }
+                }
+            }
+            
+            const trimmedInline = inlineContent.trim();
+            if (trimmedInline) {
+                result += indent.slice(0, -2) + '- ' + trimmedInline + '\n';
+            }
+            
+            for (const blockElem of blockElements) {
+                const blockContent = nodeToMarkdown(blockElem, indent);
+                result += blockContent;
+            }
+            
+            return result;
+        }
+        
+        // Auto-run on load
+        window.addEventListener('load', runTest);
+    </script>
+</body>
+</html>
+

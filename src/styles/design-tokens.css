@@ -1,0 +1,156 @@
+/**
+ * All in Obsidian - Design Tokens
+ * 设计变量系统 - 基于 uiguide.md 规范
+ */
+
+:root {
+  /* ========================================
+     基础色彩系统
+     ======================================== */
+  
+  /* 背景层级 */
+  --bg: #0B0C12;                    /* 主背景 */
+  --bg-elev-1: #111320;             /* 卡片层 */
+  --bg-elev-2: #14172A;             /* 浮层/模态/输入框 */
+  
+  /* 边框与分隔 */
+  --border: #24273B;                /* 主边框色 */
+  --border-hover: #3a3f5c;          /* 悬浮边框色 */
+  
+  /* 文字颜色 */
+  --text: #E7E8F2;                  /* 主文字 */
+  --text-dim: #A3A8C3;              /* 次要文字/提示 */
+  --text-muted: #6b7280;            /* 更暗的文字 */
+  
+  /* ========================================
+     霓虹主色（与 Logo 一致）
+     ======================================== */
+  
+  --accent-start: #A855F7;          /* 紫色起点 */
+  --accent-mid: #6366F1;            /* 靛蓝中点 */
+  --accent-end: #22D3EE;            /* 青色终点 */
+  --accent-solid: #8B5CF6;          /* 紫色实色（按钮等） */
+  
+  /* 渐变定义 */
+  --gradient-primary: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  --gradient-primary-hover: linear-gradient(135deg, #9333ea, #06b6d4);
+  --gradient-text: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  
+  /* ========================================
+     状态色
+     ======================================== */
+  
+  --ok: #34D399;                    /* 成功/已连接 */
+  --ok-bg: rgba(52, 211, 153, 0.1); /* 成功背景 */
+  --warn: #FBBF24;                  /* 警告 */
+  --warn-bg: rgba(251, 191, 36, 0.1); /* 警告背景 */
+  --err: #F87171;                   /* 错误/失败 */
+  --err-bg: rgba(248, 113, 113, 0.1); /* 错误背景 */
+  
+  /* ========================================
+     圆角系统
+     ======================================== */
+  
+  --radius-lg: 14px;                /* 大圆角：卡片、模态框 */
+  --radius-md: 12px;                /* 中圆角：按钮 */
+  --radius-sm: 10px;                /* 小圆角：输入框 */
+  --radius-xs: 6px;                 /* 超小圆角：徽章、标签 */
+  
+  /* ========================================
+     阴影系统
+     ======================================== */
+  
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-button: 0 6px 20px rgba(122, 84, 255, 0.25);
+  --shadow-button-hover: 0 8px 24px rgba(122, 84, 255, 0.35);
+  
+  /* 霓虹发光效果 */
+  --shadow-neon: 
+    0 0 0 1px rgba(120, 90, 255, 0.4) inset,
+    0 0 22px rgba(120, 90, 255, 0.25);
+  
+  /* Focus 环形发光 */
+  --ring: 0 0 0 3px rgba(124, 58, 237, 0.35);
+  --ring-ok: 0 0 0 3px rgba(52, 211, 153, 0.35);
+  --ring-err: 0 0 0 3px rgba(248, 113, 113, 0.35);
+  
+  /* ========================================
+     间距系统
+     ======================================== */
+  
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  
+  /* ========================================
+     字体系统
+     ======================================== */
+  
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
+  
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 28px;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* ========================================
+     过渡动画
+     ======================================== */
+  
+  --transition-fast: 0.12s ease;
+  --transition-base: 0.15s ease;
+  --transition-slow: 0.2s ease;
+  
+  --ease-out-cubic: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* ========================================
+     Z-index 层级
+     ======================================== */
+  
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-modal-backdrop: 2000;
+  --z-modal: 2010;
+  --z-tooltip: 3000;
+  --z-notification: 9999;
+}
+
+/* ========================================
+   深色主题（默认）
+   ======================================== */
+
+[data-theme="dark"] {
+  /* 继承默认变量 */
+}
+
+/* ========================================
+   浅色主题（预留）
+   ======================================== */
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-elev-1: #f9fafb;
+  --bg-elev-2: #f3f4f6;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --text-dim: #6b7280;
+  --text-muted: #9ca3af;
+}
+

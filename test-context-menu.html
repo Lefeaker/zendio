@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试右键菜单功能</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #7c3aed;
+      margin-bottom: 20px;
+    }
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #7c3aed;
+    }
+    .test-section h2 {
+      margin-top: 0;
+      color: #333;
+      font-size: 18px;
+    }
+    .selectable-text {
+      background: #fff;
+      padding: 15px;
+      border-radius: 6px;
+      border: 2px dashed #7c3aed;
+      margin: 10px 0;
+      user-select: text;
+    }
+    .instructions {
+      background: #e8f4f8;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #2196F3;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #1976D2;
+      font-size: 16px;
+    }
+    .instructions ol {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin: 8px 0;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1976D2;
+    }
+    .status.warning {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 右键菜单功能测试</h1>
+    
+    <div class="instructions">
+      <h3>📋 测试步骤</h3>
+      <ol>
+        <li>确保扩展已经加载到 Chrome 中</li>
+        <li>在 <code>chrome://extensions/</code> 页面中，点击扩展的"重新加载"按钮</li>
+        <li>刷新本页面（F5）</li>
+        <li>在下面的文本框中选中一些文字</li>
+        <li>右键点击选中的文字</li>
+        <li>查看是否出现 <strong>"✂️ 剪藏选中内容到 Obsidian"</strong> 菜单项</li>
+        <li>在页面空白处右键点击</li>
+        <li>查看是否出现 <strong>"剪藏整个页面到 Obsidian"</strong> 菜单项</li>
+      </ol>
+    </div>
+
+    <div class="test-section">
+      <h2>测试 1: 选中文本剪藏</h2>
+      <p>请选中下面的文字，然后右键点击：</p>
+      <div class="selectable-text">
+        这是一段测试文本。请选中这段文字，然后右键点击，应该会看到"✂️ 剪藏选中内容到 Obsidian"菜单项。
+        如果你看到了这个菜单项，说明右键菜单功能正常工作！
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>测试 2: 整页剪藏</h2>
+      <p>在页面空白处（不选中任何文字）右键点击，应该会看到"剪藏整个页面到 Obsidian"菜单项。</p>
+    </div>
+
+    <div class="status info">
+      <strong>💡 提示：</strong>如果看不到右键菜单项，请尝试以下步骤：
+      <ol style="margin: 10px 0; padding-left: 20px;">
+        <li>打开 <code>chrome://extensions/</code></li>
+        <li>找到 "All in Obsidian" 扩展</li>
+        <li>点击"重新加载"按钮（圆形箭头图标）</li>
+        <li>刷新本页面</li>
+        <li>再次尝试右键菜单</li>
+      </ol>
+    </div>
+
+    <div class="status warning">
+      <strong>⚠️ 常见问题：</strong>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>如果右键菜单不显示，可能是扩展没有正确加载</li>
+        <li>检查浏览器控制台（F12）是否有错误信息</li>
+        <li>确保扩展有 <code>contextMenus</code> 权限</li>
+        <li>某些特殊页面（如 chrome:// 页面）无法使用扩展功能</li>
+      </ul>
+    </div>
+
+    <div class="test-section">
+      <h2>调试信息</h2>
+      <p>打开浏览器控制台（F12），查看是否有以下信息：</p>
+      <ul>
+        <li>扩展加载时应该创建右键菜单项</li>
+        <li>点击右键菜单时应该注入 content script</li>
+        <li>如果有错误，会在控制台显示</li>
+      </ul>
+      <button onclick="checkExtension()" style="padding: 10px 20px; background: #7c3aed; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+        检查扩展状态
+      </button>
+      <div id="extensionStatus" style="margin-top: 10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    function checkExtension() {
+      const statusDiv = document.getElementById('extensionStatus');
+      
+      // 检查是否在扩展环境中
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        statusDiv.innerHTML = '<div class="status success">✅ Chrome 扩展 API 可用</div>';
+        
+        // 尝试发送消息到 background script
+        chrome.runtime.sendMessage({ type: 'PING' }, (response) => {
+          if (chrome.runtime.lastError) {
+            statusDiv.innerHTML += '<div class="status warning">⚠️ 无法连接到 background script: ' + chrome.runtime.lastError.message + '</div>';
+          } else {
+            statusDiv.innerHTML += '<div class="status success">✅ Background script 响应正常</div>';
+          }
+        });
+      } else {
+        statusDiv.innerHTML = '<div class="status warning">⚠️ Chrome 扩展 API 不可用（这是正常的，因为这是一个普通网页）</div>';
+      }
+      
+      statusDiv.innerHTML += '<div class="status info">💡 请在浏览器控制台（F12）查看更详细的调试信息</div>';
+    }
+
+    // 页面加载时的提示
+    console.log('🧪 右键菜单测试页面已加载');
+    console.log('📋 请按照页面上的说明进行测试');
+    console.log('🔍 如果遇到问题，请检查扩展是否正确加载');
+  </script>
+</body>
+</html>
+

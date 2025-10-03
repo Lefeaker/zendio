@@ -1,0 +1,24 @@
+{
+  "name": "all-in-obsidian",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "test": "vitest run",
+    "package": "npm run build && node scripts/package.mjs",
+    "release": "npm run build && node scripts/create-release.mjs"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.12",
+    "esbuild": "^0.23.0",
+    "rimraf": "^6.0.0",
+    "vitest": "^1.6.0"
+  }
+}

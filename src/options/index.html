@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All in Obsidian – 设置</title>
+  <link rel="stylesheet" href="../styles/design-tokens.css">
+  <link rel="stylesheet" href="../styles/components.css">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: var(--bg);
+      color: var(--text);
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: var(--space-3xl) var(--space-2xl);
+    }
+
+    /* ========================================
+       页面头部
+       ======================================== */
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-3xl);
+    }
+
+    .page-header img {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .page-header-content h1 {
+      font-size: var(--font-size-4xl);
+      font-weight: var(--font-weight-bold);
+      margin-bottom: var(--space-xs);
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .page-header-content .subtitle {
+      color: var(--text-dim);
+      font-size: var(--font-size-base);
+    }
+
+    /* ========================================
+       区块容器 (Section = Card)
+       ======================================== */
+
+    .section {
+      background: var(--bg-elev-1);
+      padding: var(--space-xl) var(--space-2xl);
+      margin-bottom: var(--space-xl);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+      transition: border-color var(--transition-base);
+    }
+
+    .section:hover {
+      border-color: var(--border-hover);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-xl);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header h2 {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      margin: 0;
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .section-header .icon {
+      font-size: var(--font-size-2xl);
+      line-height: 1;
+    }
+
+    .hint {
+      background: var(--bg);
+      padding: var(--space-md) var(--space-lg);
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-xl);
+      font-size: var(--font-size-sm);
+      color: var(--text-dim);
+      border-left: 3px solid var(--accent-solid);
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       表单元素
+       ======================================== */
+
+    .form-group {
+      margin-bottom: var(--space-xl);
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: var(--space-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--text);
+      font-size: var(--font-size-base);
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: var(--space-xs);
+      color: var(--text-dim);
+      font-size: var(--font-size-xs);
+      line-height: 1.4;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      padding: var(--space-md) 12px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: var(--font-size-base);
+      font-family: var(--font-family);
+      outline: none;
+      transition: box-shadow var(--transition-base), border-color var(--transition-base);
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #6D28D9;
+      box-shadow: var(--ring);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.5;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-right: var(--space-sm);
+      cursor: pointer;
+      vertical-align: middle;
+      accent-color: var(--accent-solid);
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+
+    @media (max-width: 768px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ========================================
+       按钮系统
+       ======================================== */
+
+    button {
+      padding: var(--space-md) var(--space-xl);
+      background: var(--gradient-primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      box-shadow: var(--shadow-button);
+      transition: transform var(--transition-fast),
+                  box-shadow var(--transition-fast),
+                  filter var(--transition-fast);
+      margin-right: var(--space-md);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: saturate(1.1);
+      box-shadow: var(--shadow-button-hover);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-button);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    button.secondary:hover {
+      background: var(--bg-elev-2);
+      border-color: var(--border-hover);
+      transform: none;
+      filter: none;
+      box-shadow: none;
+    }
+
+    button.success {
+      background: var(--ok);
+      box-shadow: 0 6px 20px rgba(52, 211, 153, 0.25);
+    }
+
+    button.success:hover {
+      background: #2bb380;
+    }
+
+    .connection-actions {
+      display: flex;
+      gap: var(--space-md);
+      align-items: center;
+      margin-top: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .connection-actions button {
+      margin-right: 0;
+    }
+
+    .connection-result {
+      flex: 1;
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-elev-2);
+      color: var(--text-dim);
+      font-size: var(--font-size-sm);
+      white-space: pre-wrap;
+      line-height: 1.4;
+      min-height: 38px;
+    }
+
+    .connection-result.success {
+      border-color: var(--ok);
+      background: var(--ok-bg);
+      color: var(--ok);
+    }
+
+    .connection-result.error {
+      border-color: var(--err);
+      background: var(--err-bg);
+      color: var(--err);
+    }
+
+    .connection-result.info {
+      border-color: var(--accent-solid);
+      color: var(--text);
+    }
+
+    button.danger {
+      background: var(--err);
+      box-shadow: 0 6px 20px rgba(248, 113, 113, 0.25);
+    }
+
+    button.danger:hover {
+      background: #f05252;
+    }
+
+    .button-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-top: var(--space-2xl);
+      padding-top: var(--space-2xl);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ========================================
+       消息提示
+       ======================================== */
+
+    .message {
+      display: inline-flex;
+      align-items: center;
+      padding: var(--space-sm) var(--space-lg);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      animation: fadeIn 0.3s var(--ease-out-cubic);
+    }
+
+    .message.success {
+      background: var(--ok-bg);
+      color: var(--ok);
+    }
+
+    .message.error {
+      background: var(--err-bg);
+      color: var(--err);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ========================================
+       徽章
+       ======================================== */
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: 4px var(--space-md);
+      border-radius: var(--radius-xs);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    /* ========================================
+       诊断区域
+       ======================================== */
+
+    .diag-section {
+      background: var(--bg-elev-1);
+      padding: var(--space-xl) var(--space-2xl);
+      margin-top: var(--space-xl);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .diag-output {
+      background: var(--bg);
+      padding: var(--space-lg);
+      border-radius: var(--radius-sm);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: var(--font-mono);
+      font-size: var(--font-size-xs);
+      max-height: 400px;
+      overflow-y: auto;
+      margin: var(--space-lg) 0;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       映射列表（路由规则、额外仓库）
+       ======================================== */
+
+    .mapping-list {
+      margin-top: var(--space-md);
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: var(--space-xs);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .mapping-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .mapping-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .mapping-list::-webkit-scrollbar-thumb:hover {
+      background: var(--border-hover);
+    }
+
+    .mapping-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: var(--space-md);
+      align-items: center;
+      margin-bottom: 0;
+      padding: var(--space-md);
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      transition: border-color var(--transition-base);
+    }
+
+    .mapping-item:hover {
+      border-color: var(--border-hover);
+    }
+
+    .mapping-item input {
+      margin-bottom: 0;
+    }
+
+    .mapping-item button {
+      padding: var(--space-sm) var(--space-md);
+      margin: 0;
+      font-size: var(--font-size-sm);
+    }
+
+    .add-mapping-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: var(--space-sm) var(--space-lg);
+      background: transparent;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--accent-solid);
+      cursor: pointer;
+      margin-top: var(--space-sm);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      transition: all var(--transition-base);
+    }
+
+    .add-mapping-btn:hover {
+      background: rgba(139, 92, 246, 0.1);
+      border-color: var(--accent-solid);
+      border-style: solid;
+      transform: none;
+      filter: none;
+      box-shadow: none;
+    }
+
+    /* ========================================
+       模板变量提示
+       ======================================== */
+
+    .template-vars {
+      background: var(--bg);
+      padding: var(--space-md);
+      border-radius: var(--radius-sm);
+      margin-top: var(--space-sm);
+      font-size: var(--font-size-xs);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      line-height: 1.6;
+    }
+
+    .template-vars code {
+      color: var(--accent-solid);
+      background: var(--bg-elev-2);
+      padding: 2px var(--space-xs);
+      border-radius: 3px;
+      margin: 0 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* ========================================
+       配置传输
+       ======================================== */
+
+    .transfer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+      align-items: center;
+      margin-top: var(--space-md);
+    }
+
+    .transfer-actions button {
+      margin-right: 0;
+    }
+
+    #configTransferMsg {
+      display: inline-block;
+      margin-top: var(--space-md);
+    }
+
+    .transfer-note {
+      margin-top: var(--space-md);
+      font-size: var(--font-size-xs);
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       标签页
+       ======================================== */
+
+    .tabs {
+      display: flex;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xl);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: var(--space-md) var(--space-xl);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      transition: all var(--transition-base);
+      margin: 0;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      background: transparent;
+      transform: none;
+      filter: none;
+      box-shadow: none;
+    }
+
+    .tab.active {
+      color: var(--accent-solid);
+      border-bottom-color: var(--accent-solid);
+      background: transparent;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ========================================
+       Sticky 保存栏
+       ======================================== */
+
+    .savebar {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-elev-1);
+      border-top: 1px solid var(--border);
+      padding: var(--space-xl) var(--space-2xl);
+      margin: var(--space-3xl) calc(-1 * var(--space-2xl)) 0;
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
+      z-index: var(--z-sticky);
+    }
+
+    .savebar button {
+      margin: 0;
+    }
+
+    /* ========================================
+       额外的仓库表单样式
+       ======================================== */
+
+    .vault-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-lg);
+    }
+
+    @media (max-width: 768px) {
+      .vault-form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .vault-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-md);
+      transition: border-color var(--transition-base);
+    }
+
+    .vault-item:hover {
+      border-color: var(--border-hover);
+    }
+
+    .vault-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-sm);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .vault-item-header h3 {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text);
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <img src="../assets/logo/options-logo.png" alt="All in Obsidian Logo">
+      <div class="page-header-content">
+        <h1><span data-i18n="extensionName">All in Obsidian</span></h1>
+        <p class="subtitle" data-i18n="extensionSubtitle">配置你的剪藏插件，让内容管理更智能</p>
+      </div>
+    </div>
+
+    <!-- 语言设置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🌐</span>
+        <h2 data-i18n="languageSettings">语言设置</h2>
+      </div>
+      <div class="hint" data-i18n="languageHint">
+        💡 选择你喜欢的界面语言
+      </div>
+      <div class="form-group">
+        <label data-i18n="languageLabel">界面语言</label>
+        <select id="languageSelect">
+          <option value="zh-CN">简体中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- API 配置（默认仓库） -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🔌</span>
+        <h2 data-i18n="apiConfigTitle">Obsidian Local REST API</h2>
+        <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: var(--accent-solid);" data-i18n="defaultVaultBadge">默认仓库</span>
+      </div>
+      <div class="hint" data-i18n="apiConfigHint">
+        💡 这是默认仓库，不符合路由规则的内容将保存到这里
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label data-i18n="httpsUrlLabel">HTTPS URL</label>
+          <input type="text" id="restHttpsUrl" placeholder="https://127.0.0.1:27124/" />
+          <small data-i18n="httpsUrlHint">通常端口为 27124，适用于安全连接</small>
+        </div>
+        <div class="form-group">
+          <label data-i18n="httpUrlLabel">HTTP URL</label>
+          <input type="text" id="restHttpUrl" placeholder="http://127.0.0.1:27123/" />
+          <small data-i18n="httpUrlHint">通常端口为 27123，作为备用连接</small>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label data-i18n="vaultNameLabel">Vault 名称</label>
+          <input type="text" id="restVault" data-i18n-placeholder="vaultNamePlaceholder" placeholder="YourVault" />
+          <small data-i18n="vaultNameHint">你的 Obsidian 仓库名称</small>
+        </div>
+        <div class="form-group">
+          <label data-i18n="apiKeyLabel">API Key</label>
+          <input type="password" id="restKey" data-i18n-placeholder="apiKeyPlaceholder" placeholder="••••••••" />
+          <small data-i18n="apiKeyHint">在 Obsidian Local REST API 插件中获取</small>
+        </div>
+      </div>
+      <div class="connection-actions">
+        <button id="testConnectionBtn" class="secondary" data-i18n="testConnectionButton">⚡ 测试连接</button>
+        <div id="connectionResult" class="connection-result" aria-live="polite" hidden></div>
+      </div>
+    </div>
+
+    <!-- 额外仓库配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">📦</span>
+        <h2 data-i18n="additionalVaultsTitle">额外仓库</h2>
+      </div>
+      <div class="hint" data-i18n="additionalVaultsHint">
+        💡 添加更多仓库，通过路由规则自动分配内容
+      </div>
+      <div id="additionalVaultsList"></div>
+      <button class="add-mapping-btn" id="addAdditionalVaultBtn" data-i18n="addVaultButton">+ 添加仓库</button>
+    </div>
+
+    <!-- 路由规则 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🔀</span>
+        <h2 data-i18n="routingRulesTitle">路由规则</h2>
+      </div>
+      <div class="hint" data-i18n="routingRulesHint">
+        💡 根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库
+      </div>
+      <div id="routingRulesList"></div>
+      <button class="add-mapping-btn" id="addRoutingRuleBtn" data-i18n="addRuleButton">+ 添加规则</button>
+    </div>
+
+    <style>
+      .vault-form-row, .rule-form-row {
+        border: 1px solid #3e3e42;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 16px;
+        background: #1e1e1e;
+      }
+
+      .vault-form-row .row, .rule-form-row .row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .vault-form-row .row:last-of-type, .rule-form-row .row:last-of-type {
+        margin-bottom: 0;
+      }
+
+      .vault-form-row .form-group, .rule-form-row .form-group {
+        flex: 1;
+      }
+
+      .vault-form-row label, .rule-form-row label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #cccccc;
+        font-size: 14px;
+      }
+
+      .vault-form-row small, .rule-form-row small {
+        display: block;
+        margin-top: 6px;
+        color: #888;
+        font-size: 12px;
+      }
+
+      .vault-form-row input, .rule-form-row input,
+      .vault-form-row select, .rule-form-row select {
+        width: 100%;
+        padding: 10px 12px;
+        background: #252526;
+        border: 1px solid #3e3e42;
+        border-radius: 4px;
+        color: #d4d4d4;
+        font-size: 14px;
+        font-family: inherit;
+        transition: border-color 0.2s;
+      }
+
+      .vault-form-row input:focus, .rule-form-row input:focus,
+      .vault-form-row select:focus, .rule-form-row select:focus {
+        outline: none;
+        border-color: #0e639c;
+      }
+
+      .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #3e3e42;
+      }
+
+      .form-actions button {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+
+      .btn-remove {
+        background: #dc3545;
+        color: white;
+      }
+
+      .btn-remove:hover {
+        background: #c82333;
+      }
+    </style>
+
+    <!-- 模板配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">📝</span>
+        <h2 data-i18n="templateConfigTitle">路径模板配置</h2>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="articleTemplateLabel">文章路径模板</label>
+        <input type="text" id="tplArticle" placeholder="Articles/{domain}/{yyyy}/{slug}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
+        </div>
+        <small data-i18n="articleTemplateHint">用于完整的网页文章剪藏</small>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="fragmentTemplateLabel">片段路径模板</label>
+        <input type="text" id="tplFragment" placeholder="Fragments/{yyyy}/{mm}/{dd}/{title}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
+        </div>
+        <small data-i18n="fragmentTemplateHint">用于选中文本片段的快速剪藏</small>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="aiTemplateLabel">AI 对话路径模板</label>
+        <input type="text" id="tplAI" placeholder="AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{platform}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{title}</code>
+        </div>
+        <small data-i18n="aiTemplateHint">用于 AI 聊天对话的剪藏</small>
+      </div>
+    </div>
+
+    <!-- Domain 映射 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🌐</span>
+        <h2 data-i18n="domainMappingTitle">域名映射</h2>
+      </div>
+      <div class="hint" data-i18n="domainMappingHint">
+        💡 将网站域名映射为更友好的名称，例如将 mp.weixin.qq.com 映射为 "公众号"
+      </div>
+      <div id="domainMappings" class="mapping-list"></div>
+      <button class="add-mapping-btn" id="addMappingBtn" data-i18n="addMappingButton">+ 添加映射</button>
+    </div>
+    <!-- AI 对话配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">💬</span>
+        <h2 data-i18n="aiChatConfigTitle">AI 对话剪藏配置</h2>
+      </div>
+      <div class="hint" data-i18n="aiChatConfigHint">
+        💡 自定义 AI 对话的剪藏格式和内容
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="aiIncludeTimestamps" />
+          <span data-i18n="includeTimestampsLabel">包含消息时间戳</span>
+        </label>
+        <small data-i18n="includeTimestampsHint">在每条消息后显示发送时间（如果可用）</small>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="userNameLabel">用户名称</label>
+        <input type="text" id="aiUserName" data-i18n-placeholder="userNamePlaceholder" placeholder="USER" />
+        <small data-i18n="userNameHint">自定义用户消息的显示名称，默认为 "USER"</small>
+      </div>
+    </div>
+
+    <!-- Gemini Deep Research 配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🔬</span>
+        <h2 data-i18n="deepResearchConfigTitle">Gemini Deep Research 配置</h2>
+      </div>
+      <div class="hint" data-i18n="deepResearchConfigHint">
+        💡 自定义 Deep Research 报告的捕捉方式
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="deepResearchPureMode" />
+          <span data-i18n="pureModeLabel">提纯模式（只捕捉报告内容）</span>
+        </label>
+        <small data-i18n="pureModeHint">启用后，只捕捉 Deep Research 报告内容，不包含对话消息</small>
+      </div>
+
+      <div class="hint" style="background: #2d2d30; border-left-color: #ffa500;" data-i18n="multipleReportsInfo">
+        ℹ️ <strong>关于多个报告:</strong> Gemini 一次只能显示一个完整报告。如需保存多个报告，请分别打开每个报告并点击剪藏。
+      </div>
+    </div>
+
+    <!-- 片段剪藏配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">✂️</span>
+        <h2>片段剪藏配置</h2>
+      </div>
+      <div class="hint">
+        💡 自定义选中文本剪藏的格式和行为
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentUseFootnote" />
+          <span>使用脚注格式（推荐）</span>
+        </label>
+        <small>启用后，评论将以 Obsidian 脚注格式保存，兼容 Sidebar Highlights 插件</small>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentCaptureContext" />
+          <span>捕捉上下文</span>
+        </label>
+        <small>启用后，会捕捉选中文字周围的上下文，并用 <code>==高亮==</code> 标记实际选中的部分</small>
+      </div>
+
+      <div class="form-group" id="contextLengthGroup" style="display: none;">
+        <label>上下文长度</label>
+        <input type="number" id="fragmentContextLength" min="50" max="1000" step="50" placeholder="200" />
+        <small>上下文的字符数（默认 200）</small>
+      </div>
+
+      <div class="form-group" id="contextModeGroup" style="display: none;">
+        <label>上下文模式</label>
+        <select id="fragmentContextMode">
+          <option value="chars">按字符数</option>
+          <option value="sentences">按句子数</option>
+        </select>
+        <small>选择如何计算上下文长度</small>
+      </div>
+
+      <div class="hint" style="background: #2d2d30; border-left-color: #4ade80;">
+        ✨ <strong>脚注格式示例：</strong><br>
+        <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
+          这是选中的文本内容[^1]<br><br>
+          [^1]: 这是我的评论
+        </code>
+      </div>
+
+      <div class="hint" style="background: #2d2d30; border-left-color: #60a5fa;">
+        ✨ <strong>上下文高亮示例：</strong><br>
+        <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
+          前面的上下文 ==这是选中的文本== 后面的上下文
+        </code>
+      </div>
+    </div>
+
+    <!-- 分类器配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">🤖</span>
+        <h2 data-i18n="classifierConfigTitle">AI 分类器</h2>
+      </div>
+      <div class="hint" data-i18n="classifierConfigHint">
+        💡 使用 LLM 自动分类和标记剪藏内容
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="clsEnable" />
+          <span data-i18n="enableClassifierLabel">启用 AI 自动分类</span>
+        </label>
+      </div>
+
+      <div id="classifierConfig">
+        <div class="row">
+          <div class="form-group">
+            <label data-i18n="providerLabel">Provider</label>
+            <select id="clsProvider">
+              <option value="ollama">Ollama (本地)</option>
+              <option value="openai">OpenAI</option>
+              <option value="compatible">兼容接口</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="endpointLabel">Endpoint</label>
+            <input type="text" id="clsEndpoint" data-i18n-placeholder="endpointPlaceholder" placeholder="http://localhost:11434/api/chat" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label data-i18n="modelLabel">Model</label>
+            <input type="text" id="clsModel" data-i18n-placeholder="modelPlaceholder" placeholder="llama3.1 / gpt-4o-mini" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="apiKeyLabel">API Key</label>
+            <input type="password" id="clsKey" data-i18n-placeholder="apiKeyPlaceholder" placeholder="••••••••" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label data-i18n="taxonomyLabel">Taxonomy (JSON)</label>
+          <textarea id="clsTax" rows="8"></textarea>
+          <small data-i18n="taxonomyHint">定义分类体系，JSON 格式</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- 配置导入导出 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">📦</span>
+        <h2 data-i18n="configTransferTitle">配置同步</h2>
+      </div>
+      <div class="hint" data-i18n="configTransferHint">
+        💡 在不同浏览器之间复制配置，快速完成同步
+      </div>
+      <div class="transfer-actions">
+        <button id="copyConfigBtn" data-i18n="copyConfigButton">复制配置</button>
+        <button id="importConfigBtn" class="success" data-i18n="importConfigButton">导入并保存</button>
+      </div>
+      <p class="transfer-note" data-i18n="configTransferNote">复制和导入操作会直接使用剪贴板内容，请确保目标浏览器已授权剪贴板访问。</p>
+      <span id="configTransferMsg" class="message"></span>
+    </div>
+
+    <!-- Sticky 保存栏 -->
+    <div class="savebar">
+      <button id="saveBtn" data-i18n="saveButton">💾 保存配置</button>
+      <button id="diagBtn" class="secondary" data-i18n="diagnoseButton">🔍 诊断配置</button>
+      <span id="msg"></span>
+    </div>
+
+    <!-- 诊断区域 -->
+    <div id="diagSection" class="diag-section" style="display: none;">
+      <div class="section-header">
+        <span class="icon">🔍</span>
+        <h2 data-i18n="diagnosisTitle">配置诊断</h2>
+      </div>
+      <div id="diagOutput" class="diag-output"></div>
+      <div class="button-group" style="margin-top: 0; padding-top: 0; border-top: none;">
+        <button id="fixBtn" class="success" data-i18n="fixButton">🔧 修复配置</button>
+        <button id="reloadBtn" class="secondary" data-i18n="reloadButton">🔄 重新加载</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

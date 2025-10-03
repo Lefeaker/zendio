@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试嵌套列表解析</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .column {
+            flex: 1;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            white-space: pre-wrap;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            min-height: 200px;
+        }
+        .test-content {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>测试嵌套列表解析</h1>
+    
+    <button onclick="testConversion()">测试转换</button>
+    
+    <div class="container">
+        <div class="column">
+            <h2>原始HTML内容</h2>
+            <div class="test-content" id="testContent">
+                <ul>
+                    <li>
+                        <p><b>代表产品：Descript</b></p>
+                        <ul>
+                            <li>
+                                <p><b>核心特点：</b></p>
+                                <ul>
+                                    <li><b>高精度转录：</b>上传音视频文件后，Descript 会自动生成带时间戳的文字稿。</li>
+                                    <li><b>通过文本剪辑：</b>用户可以直接在文字稿上进行删除、复制、粘贴等操作。你删掉一段文字，其对应的音视频片段就会被实时剪掉。</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <p><b>AI 功能集成：</b></p>
+                                <ul>
+                                    <li><b>Filler Word Removal (填充词去除)：</b>可以一键删除"嗯"、"啊"、"那个"等无意义的口头禅。</li>
+                                    <li><b>Overdub (声音克隆)：</b>可以修正说错的单词，甚至通过输入文字生成与你声音几乎一致的音频。</li>
+                                    <li><b>AI Green Screen (AI 绿幕)：</b>自动去除视频背景。</li>
+                                    <li><b>Studio Sound (录音室音质)：</b>通过 AI 算法优化音频质量，消除背景噪音和回声。</li>
+                                </ul>
+                            </li>
+                            <li><b>缺点/与你想法的差异：</b>Descript 的 AI 更侧重于"修正"和"优化"，比如去除填充词、改善音质。它<b>不具备</b>根据你给出的高阶内容结构（如"帮我把这段采访重组成一个关于产品经理的挑战'的故事"）进行<b>智能重排和叙事构建</b>的能力。用户<i>仍然需要</i>自己判断内容的逻辑和保留哪些部分。</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p>其他类似产品：Adobe Premiere Pro (Text-Based Editing 功能)：Adobe 在其旗舰剪辑软件 Premiere Pro 中也加入了类似 Descript 的功能，允许用户在转录的文本上进行剪辑。这说明"基于文本的剪辑"已经成为行业趋势。Final Cut Pro: 苹果的专业剪辑软件也增加了类似的功能。</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="column">
+            <h2>转换后的Markdown</h2>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the conversion function
+        async function testConversion() {
+            const testContent = document.getElementById('testContent');
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Get the HTML content
+                const html = testContent.innerHTML;
+                
+                // Dynamically import the parse module
+                const module = await import('./dist/content/index.js');
+                
+                // Since we can't directly access the internal function,
+                // we'll create a simple test here
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                
+                // Use a simplified version for testing
+                const markdown = convertToMarkdown(tempDiv);
+                
+                resultDiv.textContent = markdown;
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                console.error(error);
+            }
+        }
+        
+        // Simplified conversion function for testing
+        function convertToMarkdown(node, indent = '') {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent || '';
+            }
+            
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const elem = node;
+                const tagName = elem.tagName.toLowerCase();
+                
+                if (tagName === 'b' || tagName === 'strong') {
+                    return '**' + processChildren(elem, indent) + '**';
+                }
+                
+                if (tagName === 'i' || tagName === 'em') {
+                    return '*' + processChildren(elem, indent) + '*';
+                }
+                
+                if (tagName === 'p') {
+                    return processChildren(elem, indent) + '\n\n';
+                }
+                
+                if (tagName === 'ul') {
+                    const items = Array.from(elem.children).filter(child => child.tagName.toLowerCase() === 'li');
+                    let result = '\n';
+                    items.forEach((li) => {
+                        const itemContent = convertToMarkdown(li, indent + '  ');
+                        const lines = itemContent.trim().split('\n');
+                        result += indent + `- ${lines[0]}\n`;
+                        for (let i = 1; i < lines.length; i++) {
+                            if (lines[i].trim()) {
+                                result += indent + '  ' + lines[i] + '\n';
+                            }
+                        }
+                    });
+                    return result;
+                }
+                
+                if (tagName === 'li') {
+                    return processChildren(elem, indent);
+                }
+                
+                if (tagName === 'div') {
+                    return processChildren(elem, indent);
+                }
+                
+                return processChildren(elem, indent);
+            }
+            
+            return '';
+        }
+        
+        function processChildren(elem, indent = '') {
+            let result = '';
+            for (const child of Array.from(elem.childNodes)) {
+                result += convertToMarkdown(child, indent);
+            }
+            return result;
+        }
+        
+        // Make function available globally
+        window.testConversion = testConversion;
+    </script>
+</body>
+</html>
+

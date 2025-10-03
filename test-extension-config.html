@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>检查扩展配置</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #ffffff;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .section {
+      background: #252526;
+      padding: 24px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #3e3e42;
+    }
+
+    .section h2 {
+      color: #ffffff;
+      font-size: 18px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #3e3e42;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      background: #1177bb;
+    }
+
+    pre {
+      background: #1e1e1e;
+      padding: 16px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #ce9178;
+      border: 1px solid #3e3e42;
+      margin-top: 16px;
+    }
+
+    .status {
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .status.success {
+      background: #1e3a1e;
+      border: 1px solid #28a745;
+      color: #4ec9b0;
+    }
+
+    .status.error {
+      background: #3a1e1e;
+      border: 1px solid #dc3545;
+      color: #f48771;
+    }
+
+    .status.warning {
+      background: #3a2e1e;
+      border: 1px solid #ffc107;
+      color: #dcdcaa;
+    }
+
+    .hint {
+      background: #1e1e1e;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #4ec9b0;
+      border-left: 3px solid #4ec9b0;
+    }
+
+    .key-value {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #3e3e42;
+    }
+
+    .key-value:last-child {
+      border-bottom: none;
+    }
+
+    .key {
+      font-weight: 600;
+      color: #9cdcfe;
+    }
+
+    .value {
+      color: #ce9178;
+      word-break: break-all;
+    }
+
+    .value.masked {
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 扩展配置检查</h1>
+    <p class="subtitle">检查 All in Obsidian 扩展的配置是否正确保存</p>
+
+    <div class="section">
+      <h2>📋 操作</h2>
+      <button onclick="checkConfig()">检查配置</button>
+      <button onclick="checkRawStorage()">查看原始存储</button>
+      <button onclick="testConnection()">测试连接</button>
+      
+      <div id="status"></div>
+    </div>
+
+    <div class="section">
+      <h2>⚙️ REST API 配置</h2>
+      <div class="hint">
+        💡 这些是扩展在剪藏时实际使用的配置
+      </div>
+      <div id="restConfig"></div>
+    </div>
+
+    <div class="section">
+      <h2>📝 模板配置</h2>
+      <div id="templateConfig"></div>
+    </div>
+
+    <div class="section">
+      <h2>🗂️ 多仓库配置</h2>
+      <div id="vaultConfig"></div>
+    </div>
+
+    <div class="section">
+      <h2>📦 原始数据</h2>
+      <pre id="rawData">点击"查看原始存储"按钮查看完整配置</pre>
+    </div>
+  </div>
+
+  <script>
+    // 检查是否在扩展环境中运行
+    const isExtensionContext = typeof chrome !== 'undefined' && chrome.storage;
+
+    async function checkConfig() {
+      if (!isExtensionContext) {
+        showStatus('❌ 请在扩展环境中打开此页面\n\n方法：\n1. 打开 chrome://extensions/\n2. 找到 "All in Obsidian" 扩展\n3. 点击 "详细信息"\n4. 在地址栏输入: chrome-extension://<扩展ID>/test-extension-config.html', 'error');
+        return;
+      }
+
+      try {
+        const result = await chrome.storage.sync.get('options');
+        
+        if (!result.options) {
+          showStatus('⚠️ 未找到配置！请先在扩展选项页面保存配置。', 'warning');
+          return;
+        }
+
+        const opt = result.options;
+        
+        // 显示 REST API 配置
+        const restHtml = `
+          <div class="key-value">
+            <div class="key">Base URL:</div>
+            <div class="value">${opt.rest?.baseUrl || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">HTTPS URL:</div>
+            <div class="value">${opt.rest?.httpsUrl || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">HTTP URL:</div>
+            <div class="value">${opt.rest?.httpUrl || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">Vault:</div>
+            <div class="value">${opt.rest?.vault || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">API Key:</div>
+            <div class="value masked">${opt.rest?.apiKey ? '●●●●●●●●' + opt.rest.apiKey.slice(-8) : '(未设置)'}</div>
+          </div>
+        `;
+        document.getElementById('restConfig').innerHTML = restHtml;
+
+        // 显示模板配置
+        const templateHtml = `
+          <div class="key-value">
+            <div class="key">文章模板:</div>
+            <div class="value">${opt.templates?.article || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">片段模板:</div>
+            <div class="value">${opt.templates?.fragment || '(未设置)'}</div>
+          </div>
+          <div class="key-value">
+            <div class="key">AI 对话模板:</div>
+            <div class="value">${opt.templates?.ai || '(未设置)'}</div>
+          </div>
+        `;
+        document.getElementById('templateConfig').innerHTML = templateHtml;
+
+        // 显示多仓库配置
+        const vaultHtml = opt.vaultRouter?.vaults?.length > 0
+          ? `<div class="key-value">
+              <div class="key">额外仓库数量:</div>
+              <div class="value">${opt.vaultRouter.vaults.length}</div>
+            </div>
+            <div class="key-value">
+              <div class="key">路由规则数量:</div>
+              <div class="value">${opt.vaultRouter.rules?.length || 0}</div>
+            </div>`
+          : '<div class="value">未配置额外仓库</div>';
+        document.getElementById('vaultConfig').innerHTML = vaultHtml;
+
+        // 检查配置完整性
+        const issues = [];
+        if (!opt.rest?.apiKey) issues.push('API Key 未设置');
+        if (!opt.rest?.vault) issues.push('Vault 名称未设置');
+        if (!opt.rest?.httpsUrl && !opt.rest?.httpUrl && !opt.rest?.baseUrl) {
+          issues.push('未设置任何 URL');
+        }
+
+        if (issues.length > 0) {
+          showStatus('⚠️ 配置不完整:\n' + issues.join('\n'), 'warning');
+        } else {
+          showStatus('✅ 配置检查完成！所有必需字段都已设置。', 'success');
+        }
+      } catch (error) {
+        showStatus('❌ 检查失败: ' + error.message, 'error');
+      }
+    }
+
+    async function checkRawStorage() {
+      try {
+        const result = await chrome.storage.sync.get('options');
+        document.getElementById('rawData').textContent = JSON.stringify(result, null, 2);
+        showStatus('✅ 原始数据已显示', 'success');
+      } catch (error) {
+        showStatus('❌ 获取失败: ' + error.message, 'error');
+      }
+    }
+
+    async function testConnection() {
+      try {
+        showStatus('⏳ 正在测试连接...', 'success');
+        
+        const response = await chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' });
+        
+        if (response.success) {
+          showStatus('✅ ' + response.message, 'success');
+        } else {
+          showStatus('❌ ' + response.message, 'error');
+        }
+      } catch (error) {
+        showStatus('❌ 测试失败: ' + error.message, 'error');
+      }
+    }
+
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+    }
+
+    // 页面加载时自动检查
+    window.addEventListener('load', checkConfig);
+  </script>
+</body>
+</html>
+

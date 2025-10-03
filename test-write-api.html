@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试 Obsidian REST API 写入</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #ffffff;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .section {
+      background: #252526;
+      padding: 24px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #3e3e42;
+    }
+
+    .section h2 {
+      color: #ffffff;
+      font-size: 18px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #3e3e42;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #cccccc;
+      font-size: 14px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: #1e1e1e;
+      border: 1px solid #3e3e42;
+      border-radius: 4px;
+      color: #d4d4d4;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #0e639c;
+    }
+
+    textarea {
+      min-height: 120px;
+      font-family: 'Courier New', monospace;
+      resize: vertical;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #0e639c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+      margin-right: 10px;
+    }
+
+    button:hover {
+      background: #1177bb;
+    }
+
+    button.secondary {
+      background: #3e3e42;
+    }
+
+    button.secondary:hover {
+      background: #4e4e52;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .result.success {
+      background: #1e3a1e;
+      border: 1px solid #28a745;
+      color: #4ec9b0;
+    }
+
+    .result.error {
+      background: #3a1e1e;
+      border: 1px solid #dc3545;
+      color: #f48771;
+    }
+
+    .result.info {
+      background: #1e2a3a;
+      border: 1px solid #0e639c;
+      color: #9cdcfe;
+    }
+
+    .hint {
+      background: #1e1e1e;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #4ec9b0;
+      border-left: 3px solid #4ec9b0;
+    }
+
+    code {
+      background: #1e1e1e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #ce9178;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Obsidian REST API 写入测试</h1>
+    <p class="subtitle">测试 Local REST API 插件的文件写入功能</p>
+
+    <div class="section">
+      <h2>📝 API 配置</h2>
+      <div class="hint">
+        💡 从扩展设置页面复制你的配置，或者手动填写
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>HTTPS URL</label>
+          <input type="text" id="httpsUrl" placeholder="https://127.0.0.1:27124/" value="https://127.0.0.1:27124/">
+        </div>
+        <div class="form-group">
+          <label>HTTP URL</label>
+          <input type="text" id="httpUrl" placeholder="http://127.0.0.1:27123/" value="http://127.0.0.1:27123/">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Vault 名称</label>
+          <input type="text" id="vault" placeholder="blog" value="blog">
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="apiKey" placeholder="your-api-key-here">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📄 文件内容</h2>
+      
+      <div class="form-group">
+        <label>文件路径</label>
+        <input type="text" id="filePath" placeholder="Test/test-file.md" value="Test/test-write-api.md">
+      </div>
+
+      <div class="form-group">
+        <label>文件内容（Markdown）</label>
+        <textarea id="content">---
+type: test
+created: 2025-01-15
+---
+
+# 测试文件
+
+这是一个测试文件，用于验证 Obsidian Local REST API 的写入功能。
+
+## 测试内容
+
+- 列表项 1
+- 列表项 2
+- 列表项 3
+
+**粗体文本** 和 *斜体文本*
+
+```javascript
+console.log('Hello, Obsidian!');
+```
+
+> 这是一个引用块
+
+测试时间：${new Date().toLocaleString('zh-CN')}
+</textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🚀 执行测试</h2>
+      <button onclick="testWrite()">测试写入</button>
+      <button class="secondary" onclick="loadFromExtension()">从扩展加载配置</button>
+      <button class="secondary" onclick="clearResult()">清除结果</button>
+      
+      <div id="result"></div>
+    </div>
+  </div>
+
+  <script>
+    // 从扩展加载配置
+    async function loadFromExtension() {
+      try {
+        const result = await chrome.storage.sync.get('options');
+        if (result.options) {
+          const opt = result.options;
+          document.getElementById('httpsUrl').value = opt.rest?.httpsUrl || '';
+          document.getElementById('httpUrl').value = opt.rest?.httpUrl || '';
+          document.getElementById('vault').value = opt.rest?.vault || '';
+          document.getElementById('apiKey').value = opt.rest?.apiKey || '';
+          showResult('✅ 配置已从扩展加载', 'success');
+        } else {
+          showResult('⚠️ 未找到扩展配置', 'error');
+        }
+      } catch (error) {
+        showResult('❌ 加载配置失败: ' + error.message, 'error');
+      }
+    }
+
+    // 测试写入
+    async function testWrite() {
+      const httpsUrl = document.getElementById('httpsUrl').value.trim();
+      const httpUrl = document.getElementById('httpUrl').value.trim();
+      const vault = document.getElementById('vault').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const filePath = document.getElementById('filePath').value.trim();
+      const content = document.getElementById('content').value;
+
+      if (!vault || !apiKey || !filePath) {
+        showResult('❌ 请填写所有必填字段', 'error');
+        return;
+      }
+
+      if (!httpsUrl && !httpUrl) {
+        showResult('❌ 请至少填写一个 URL（HTTPS 或 HTTP）', 'error');
+        return;
+      }
+
+      showResult('⏳ 正在测试写入...', 'info');
+
+      // 编码文件路径
+      const encodedPath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+
+      // 准备要尝试的 URL
+      const urlsToTry = [];
+      if (httpsUrl) {
+        const url = `${httpsUrl.replace(/\/$/, '')}/vault/${encodeURIComponent(vault)}/${encodedPath}`;
+        urlsToTry.push({ url, protocol: 'HTTPS' });
+      }
+      if (httpUrl) {
+        const url = `${httpUrl.replace(/\/$/, '')}/vault/${encodeURIComponent(vault)}/${encodedPath}`;
+        urlsToTry.push({ url, protocol: 'HTTP' });
+      }
+
+      const errors = [];
+
+      // 依次尝试
+      for (const { url, protocol } of urlsToTry) {
+        try {
+          console.log(`Trying ${protocol}:`, url);
+          
+          const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'text/markdown; charset=utf-8'
+            },
+            body: content
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => response.statusText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+
+          const responseText = await response.text().catch(() => '(no response body)');
+          
+          showResult(
+            `✅ 写入成功！\n\n` +
+            `协议: ${protocol}\n` +
+            `URL: ${url}\n` +
+            `状态码: ${response.status}\n` +
+            `文件路径: ${filePath}\n` +
+            `响应: ${responseText}\n\n` +
+            `请在 Obsidian 中检查文件是否已创建。`,
+            'success'
+          );
+          return;
+        } catch (error) {
+          const errorMsg = `${protocol}: ${error.message}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+        }
+      }
+
+      // 所有尝试都失败
+      showResult(
+        `❌ 写入失败\n\n` +
+        `已尝试的协议:\n${errors.join('\n')}\n\n` +
+        `请检查:\n` +
+        `1. Obsidian 是否正在运行\n` +
+        `2. Local REST API 插件是否已启用\n` +
+        `3. API Key 是否正确\n` +
+        `4. Vault 名称是否正确\n` +
+        `5. 防火墙是否阻止了连接`,
+        'error'
+      );
+    }
+
+    function showResult(message, type) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.textContent = message;
+      resultDiv.className = `result ${type}`;
+    }
+
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+      document.getElementById('result').className = 'result';
+    }
+  </script>
+</body>
+</html>
+

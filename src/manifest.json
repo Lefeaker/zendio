@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "All in Obsidian",
+  "version": "0.1.0",
+  "action": { "default_title": "Clip to Obsidian" },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "permissions": [
+    "activeTab", "scripting", "storage",
+    "contextMenus", "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1/*",
+    "https://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "background/index.js" },
+  "options_ui": { "page": "options/index.html", "open_in_tab": true },
+  "incognito": "spanning"
+}
