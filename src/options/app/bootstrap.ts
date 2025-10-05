@@ -1,6 +1,6 @@
 import { initI18n, getCurrentLanguage, setCurrentLanguage, getMessages } from '../../i18n';
 import { renderOptionsForm, collectOptionsFromForm, bindOptionsFormEvents } from '../components/optionsForm';
-import { addMappingRow } from '../components/domainMappings';
+import { addMappingRow, resetDomainMappingLabels } from '../components/domainMappings';
 import {
   renderAdditionalVaults,
   renderRoutingRules,
@@ -19,10 +19,12 @@ import {
 } from '../state/optionsStore';
 import { initializeVaultRouterStore } from '../state/vaultRouterStore';
 import type { StoredOptions } from '../../shared/types/options';
+import { initializeUsageDashboard } from '../components/usageDashboard';
 
 export async function bootstrapOptionsApp(): Promise<void> {
   bindEventHandlers();
   await initI18n();
+  await initializeUsageDashboard();
   await refreshUIFromStorage();
 }
 
@@ -44,6 +46,8 @@ async function applyOptionsToUI(options: StoredOptions): Promise<void> {
   renderOptionsForm(options);
   await renderAdditionalVaults();
   await renderRoutingRules();
+  forceDisableChatTimestamps();
+  updateClassifierUnstableNote();
   clearTransferMessage();
 }
 
@@ -56,12 +60,14 @@ function bindEventHandlers(): void {
     const newLang = (event.target as HTMLSelectElement).value as Parameters<typeof setCurrentLanguage>[0];
     await setCurrentLanguage(newLang);
     await initI18n();
+    await initializeUsageDashboard();
+    resetDomainMappingLabels();
     await refreshUIFromStorage();
   });
 
   const addMappingBtn = document.getElementById('addMappingBtn');
   addMappingBtn?.addEventListener('click', () => {
-    addMappingRow();
+    addMappingRow('', '', { autoFocus: true });
   });
 
   const copyBtn = document.getElementById('copyConfigBtn');
@@ -87,6 +93,11 @@ function bindEventHandlers(): void {
 
   const reloadBtn = document.getElementById('reloadBtn');
   reloadBtn?.addEventListener('click', () => { void handleReload(); });
+
+  const classifierToggle = document.getElementById('clsEnable') as HTMLInputElement | null;
+  classifierToggle?.addEventListener('change', () => {
+    updateClassifierUnstableNote();
+  });
 }
 
 async function handleCopyConfig(): Promise<void> {
@@ -142,4 +153,22 @@ async function handleFix(): Promise<void> {
 async function handleReload(): Promise<void> {
   await refreshUIFromStorage();
   await runDiagnostics();
+}
+
+function forceDisableChatTimestamps(): void {
+  const checkbox = document.getElementById('aiIncludeTimestamps') as HTMLInputElement | null;
+  if (checkbox) {
+    checkbox.checked = false;
+  }
+}
+
+function updateClassifierUnstableNote(): void {
+  const toggle = document.getElementById('clsEnable') as HTMLInputElement | null;
+  const note = document.getElementById('classifierUnstableNote');
+  if (!note) {
+    return;
+  }
+
+  const enabled = Boolean(toggle?.checked);
+  note.style.display = enabled ? 'block' : 'none';
 }

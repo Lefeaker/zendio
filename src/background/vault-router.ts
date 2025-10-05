@@ -1,40 +1,8 @@
+import type { ClipContext, RoutingRule, VaultConfig, VaultRouterConfig } from '../shared/types';
+
 /**
  * Vault Router - 智能路由系统，根据规则自动选择目标仓库
  */
-
-export type VaultConfig = {
-  id: string;                    // 唯一标识
-  name: string;                  // 仓库名称（用户友好）
-  httpsUrl: string;              // HTTPS URL
-  httpUrl: string;               // HTTP URL
-  vault: string;                 // Obsidian vault 名称
-  apiKey: string;                // API Key
-  isDefault?: boolean;           // 是否为默认仓库
-};
-
-export type RoutingRule = {
-  id: string;                    // 规则唯一标识
-  vaultId: string;               // 目标仓库 ID
-  type: 'domain' | 'keyword' | 'url-pattern';  // 规则类型
-  pattern: string;               // 匹配模式
-  enabled: boolean;              // 是否启用
-  priority: number;              // 优先级（数字越大优先级越高）
-  description?: string;          // 规则描述
-};
-
-export type VaultRouterConfig = {
-  vaults: VaultConfig[];         // 所有仓库配置
-  rules: RoutingRule[];          // 路由规则
-  defaultVaultId?: string;       // 默认仓库 ID
-};
-
-export interface ClipContext {
-  url: string;                   // 页面 URL
-  domain: string;                // 域名
-  title: string;                 // 页面标题
-  content: string;               // 内容
-  type: 'article' | 'ai_chat';   // 内容类型
-}
 
 /**
  * 仓库路由器
@@ -66,20 +34,7 @@ export class VaultRouter {
       }
     }
 
-    // 3. 使用默认仓库
-    const defaultVault = this.getDefaultVault();
-    if (defaultVault) {
-      console.log(`[VaultRouter] Using default vault: ${defaultVault.name}`);
-      return defaultVault;
-    }
-
-    // 4. 使用第一个仓库
-    if (this.config.vaults.length > 0) {
-      console.log(`[VaultRouter] Using first vault: ${this.config.vaults[0].name}`);
-      return this.config.vaults[0];
-    }
-
-    console.error('[VaultRouter] No vault available');
+    console.log('[VaultRouter] No routing rule matched; falling back to primary REST settings');
     return null;
   }
 
@@ -126,7 +81,15 @@ export class VaultRouter {
    * 在标题和内容中搜索关键词
    */
   private matchKeyword(pattern: string, context: ClipContext): boolean {
-    const keywords = pattern.split(',').map(k => k.trim().toLowerCase());
+    const keywords = pattern
+      .split(',')
+      .map(k => k.trim().toLowerCase())
+      .filter(keyword => keyword.length > 0);
+
+    if (keywords.length === 0) {
+      return false;
+    }
+
     const searchText = `${context.title} ${context.content}`.toLowerCase();
 
     // 任意关键词匹配即可
@@ -138,8 +101,13 @@ export class VaultRouter {
    * 支持正则表达式
    */
   private matchUrlPattern(pattern: string, url: string): boolean {
+    const trimmedPattern = pattern.trim();
+    if (trimmedPattern.length === 0) {
+      return false;
+    }
+
     try {
-      const regex = new RegExp(pattern, 'i');
+      const regex = new RegExp(trimmedPattern, 'i');
       return regex.test(url);
     } catch (error) {
       console.error(`[VaultRouter] Invalid regex pattern: ${pattern}`, error);
@@ -275,4 +243,3 @@ export function migrateFromLegacyConfig(legacyRest: any): VaultRouterConfig {
     defaultVaultId: vaultId
   };
 }
-

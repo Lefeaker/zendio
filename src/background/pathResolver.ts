@@ -1,19 +1,19 @@
 import type { Options } from './store';
-import type { ClipPayload } from './types/messages';
+import type { ClipPayload } from '../shared/types';
 import type { ClassificationResult } from './services/classificationService';
 
-type TemplateConfig = Options['templates'] & { clipper?: string };
+type TemplateConfig = Options['templates'];
 
 type DomainMappings = Record<string, string> | undefined;
 
-type TemplateKey = 'article' | 'fragment' | 'ai' | 'clipper';
+type TemplateKey = 'article' | 'fragment' | 'reading' | 'ai';
 
 type TemplateValueGetter = (templates: TemplateConfig, key: TemplateKey) => string;
 
 const defaultTemplates: Record<TemplateKey, string> = {
   ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md',
-  fragment: 'Fragments/{yyyy}/{mm}/{dd}/{title}.md',
-  clipper: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+  fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+  reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   article: 'Articles/{domain}/{yyyy}/{slug}.md'
 };
 
@@ -60,38 +60,51 @@ export function resolvePath(
     case 'fragment': {
       const template = getTemplateValue(templates, 'fragment');
       const domain = resolveDomain(payload, domainMappings);
-      return template
-        .replace('{domain}', safe(domain))
-        .replace('{yyyy}', String(yyyy))
-        .replace('{mm}', mm)
-        .replace('{dd}', dd)
-        .replace('{slug}', slug(title))
-        .replace('{title}', safe(title));
+      return populateTemplate(template, {
+        domain: safe(domain),
+        yyyy: String(yyyy),
+        mm,
+        dd,
+        slug: slug(title),
+        title: safe(title)
+      });
     }
 
     case 'clipper': {
-      const template = getTemplateValue(templates, 'clipper');
+      const templateKey: TemplateKey = payload.meta?.readerMode ? 'reading' : 'fragment';
+      const template = getTemplateValue(templates, templateKey);
       const domain = resolveDomain(payload, domainMappings);
-      return template
-        .replace('{domain}', safe(domain))
-        .replace('{yyyy}', String(yyyy))
-        .replace('{mm}', mm)
-        .replace('{dd}', dd)
-        .replace('{slug}', slug(title));
+      return populateTemplate(template, {
+        domain: safe(domain),
+        yyyy: String(yyyy),
+        mm,
+        dd,
+        slug: slug(title),
+        title: safe(title)
+      });
     }
 
     default: {
       const template = getTemplateValue(templates, 'article');
       const domain = resolveDomain(payload, domainMappings);
-      return template
-        .replace('{domain}', safe(domain))
-        .replace('{yyyy}', String(yyyy))
-        .replace('{mm}', mm)
-        .replace('{dd}', dd)
-        .replace('{slug}', slug(title))
-        .replace('{title}', safe(title));
+      return populateTemplate(template, {
+        domain: safe(domain),
+        yyyy: String(yyyy),
+        mm,
+        dd,
+        slug: slug(title),
+        title: safe(title)
+      });
     }
   }
+}
+
+function populateTemplate(template: string, values: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(values)) {
+    result = result.replaceAll(`{${key}}`, value);
+  }
+  return result;
 }
 
 function resolveDomain(payload: ClipPayload, domainMappings?: DomainMappings): string {

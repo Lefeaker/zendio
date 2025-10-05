@@ -1,7 +1,9 @@
 import { build, context } from 'esbuild';
 import { mkdir, cp, readFile, writeFile } from 'fs/promises';
 
-const watch = process.argv.includes('--watch');
+const args = process.argv.slice(2);
+const watch = args.includes('--watch');
+const prod = args.includes('--mode=prod') || args.includes('--prod');
 
 await mkdir('dist', { recursive: true });
 
@@ -15,8 +17,8 @@ const buildOptions = {
   outdir: 'dist',
   platform: 'browser',
   format: 'iife',
-  sourcemap: true,
-  minify: false,
+  sourcemap: watch || !prod,
+  minify: prod && !watch
 };
 
 if (watch) {
@@ -38,6 +40,15 @@ await cp('src/styles/components.css', 'dist/styles/components.css');
 await mkdir('dist/options', { recursive: true });
 await cp('src/options/index.html', 'dist/options/index.html');
 
+try {
+  await cp('_locales', 'dist/_locales', { recursive: true });
+} catch (error) {
+  if (error.code !== 'ENOENT') {
+    throw error;
+  }
+}
+
 const manifest = JSON.parse(await readFile('src/manifest.json', 'utf8'));
 await writeFile('dist/manifest.json', JSON.stringify(manifest, null, 2));
-console.log('✅ Build done');
+
+console.log(`✅ Build done${prod ? ' (production mode)' : ''}`);

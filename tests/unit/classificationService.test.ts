@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { OptionsState } from '../../src/shared/types/options';
 
 const classifyMock = vi.fn();
 
@@ -19,6 +20,7 @@ describe('classificationService', () => {
 
     const result = await classifyClip(options, payload);
     expect(result.type).toBe(payload.type);
+    expect(result.fallbackReason).toBe('disabled');
     expect(classifyMock).not.toHaveBeenCalled();
   });
 
@@ -43,6 +45,7 @@ describe('classificationService', () => {
 
     const result = await classifyClip(options, payload);
     expect(result.type).toBe(payload.type);
+    expect(result.fallbackReason).toBe('error');
   });
 
   it('limits preview length to 4000 characters', async () => {
@@ -55,7 +58,16 @@ describe('classificationService', () => {
   });
 });
 
-function createOptions(classifierOverrides: Partial<{ enabled: boolean }> = {}) {
+function createOptions(classifierOverrides: Partial<{ enabled: boolean }> = {}): OptionsState {
+  const classifier = {
+    enabled: classifierOverrides.enabled ?? true,
+    provider: 'ollama' as const,
+    endpoint: 'http://localhost:11434/api/chat',
+    apiKey: '',
+    model: 'llama3.1',
+    taxonomy: {}
+  };
+
   return {
     rest: {
       baseUrl: 'https://127.0.0.1:27124/',
@@ -68,17 +80,12 @@ function createOptions(classifierOverrides: Partial<{ enabled: boolean }> = {}) 
     templates: {
       article: '',
       ai: '',
-      fragment: ''
+      fragment: '',
+      clipper: '',
+      reading: ''
     },
     domainMappings: {},
-    classifier: {
-      enabled: classifierOverrides.enabled ?? true,
-      provider: 'ollama',
-      endpoint: 'http://localhost:11434/api/chat',
-      apiKey: '',
-      model: 'llama3.1',
-      taxonomy: {}
-    },
+    classifier,
     deepResearch: undefined,
     vaultRouter: undefined,
     fragmentClipper: undefined

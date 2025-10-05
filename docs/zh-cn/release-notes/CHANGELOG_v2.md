@@ -105,7 +105,7 @@ const DEFAULTS: Options = {
 #### 新增文档
 - ✅ `设置页面使用指南.md` - 详细的使用说明
 - ✅ `新功能演示.md` - 功能演示和案例
-- ✅ `test-domain-mapping.html` - 功能测试页面
+- ✅ `tests/manual/test-domain-mapping.html` - 功能测试页面
 - ✅ `CHANGELOG_v2.md` - 本更新日志
 
 #### 文档内容
@@ -246,4 +246,3 @@ const DEFAULTS: Options = {
 **状态**: 稳定版
 
 🎉 享受新版本带来的更好体验！
-

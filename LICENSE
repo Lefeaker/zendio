@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 All in Obsidian
+Copyright (c) 2024 All in Ob
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,5 +32,18 @@ This project incorporates code from the following open-source projects:
    Copyright (c) 2024 Obsidian
    Licensed under MIT License
 
+3. Mozilla Readability (https://github.com/mozilla/readability)
+   Copyright (c) 2010 Arc90 Inc
+   Licensed under Apache License 2.0
+
+4. Turndown (https://github.com/mixmark-io/turndown)
+   Copyright (c) 2017 Dom Christie
+   Licensed under MIT License
+
+5. @mixmark-io/domino (https://github.com/mixmark-io/domino)
+   Copyright (c) 2011 The Mozilla Foundation
+   Licensed under BSD 2-Clause License
+
 The full license texts for these components can be found in their respective
-directories under src/third_party/.
+directories under src/third_party/ or node_modules, and are bundled with the
+distribution package.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All in Obsidian – 设置</title>
+  <title>All in Ob – 设置</title>
   <link rel="stylesheet" href="../styles/design-tokens.css">
   <link rel="stylesheet" href="../styles/components.css">
   <style>
@@ -34,12 +34,22 @@
 
     .page-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: var(--space-lg);
+      gap: var(--space-2xl);
       margin-bottom: var(--space-3xl);
+      flex-wrap: wrap;
     }
 
-    .page-header img {
+    .page-header-main {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      flex: 1 1 auto;
+      min-width: 280px;
+    }
+
+    .page-header-main img {
       width: 64px;
       height: 64px;
       border-radius: var(--radius-md);
@@ -61,14 +71,233 @@
       font-size: var(--font-size-base);
     }
 
+    .page-header-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .page-header-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      color: #eef1ff;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      background: rgba(122, 84, 255, 0.16);
+      box-shadow: 0 10px 24px rgba(122, 84, 255, 0.18);
+      transition: background var(--transition-base), transform var(--transition-base), color var(--transition-base);
+    }
+
+    .page-header-link:hover,
+    .page-header-link:focus-visible {
+      background: var(--gradient-primary);
+      color: #ffffff;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .page-header-link__icon {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+      mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      -webkit-mask-size: contain;
+    }
+
+    .page-header-link:focus-visible .page-header-link__icon,
+    .page-header-link:hover .page-header-link__icon {
+      background: #ffffff;
+    }
+
+    .page-header-link__icon[data-icon="ko-fi"] {
+      mask-image: url('../assets/icontrs/ko-fi.svg');
+      -webkit-mask-image: url('../assets/icontrs/ko-fi.svg');
+    }
+
+    .page-header-link__icon[data-icon="afdian"] {
+      mask-image: url('../assets/icontrs/aifadian-line-copy.svg');
+      -webkit-mask-image: url('../assets/icontrs/aifadian-line-copy.svg');
+    }
+
+    .page-header-link__icon[data-icon="github"] {
+      mask-image: url('../assets/icontrs/github-fill.svg');
+      -webkit-mask-image: url('../assets/icontrs/github-fill.svg');
+    }
+
+    /* ========================================
+       使用看板
+       ======================================== */
+
+    .usage-dashboard {
+      background: var(--bg-elev-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-2xl);
+      margin-bottom: var(--space-3xl);
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .usage-dashboard__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-xl);
+      margin-bottom: var(--space-xl);
+      flex-wrap: wrap;
+    }
+
+    .usage-dashboard__title {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: var(--space-xs);
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .usage-dashboard__subtitle {
+      color: var(--text-dim);
+      font-size: var(--font-size-sm);
+    }
+
+    .usage-dashboard__cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--space-lg);
+      margin-bottom: var(--space-xl);
+    }
+
+    .usage-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg) var(--space-xl);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-lg);
+      transition: transform var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .usage-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-hover);
+    }
+
+    .usage-card__label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--text-dim);
+    }
+
+    .usage-card__value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text);
+    }
+
+    .usage-dashboard__chart {
+      display: flex;
+      gap: var(--space-sm);
+      align-items: stretch;
+      margin-bottom: var(--space-xl);
+    }
+
+    .usage-dashboard__axis {
+      width: 52px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: var(--font-size-xs);
+      color: var(--text-dim);
+      padding: 6px 0;
+    }
+
+    .usage-axis--hidden {
+      visibility: hidden;
+    }
+
+    .usage-axis__tick {
+      position: relative;
+      padding-right: var(--space-xs);
+    }
+
+    .usage-axis__tick::after {
+      content: '';
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      width: 8px;
+      height: 1px;
+      background: var(--border);
+      opacity: 0.5;
+      transform: translateY(-50%);
+    }
+
+    .usage-dashboard__graph {
+      flex: 1;
+      position: relative;
+      height: 160px;
+    }
+
+    .usage-dashboard__graph svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .usage-dashboard__graph path {
+      fill: none;
+      stroke: var(--accent-solid);
+      stroke-width: 3;
+      opacity: 0.85;
+      transition: d 0.3s ease;
+    }
+
+    .usage-dashboard__graph .usage-grid-line {
+      stroke: var(--border);
+      stroke-width: 1;
+      opacity: 0.16;
+    }
+
+    .usage-dashboard__graph .usage-point {
+      fill: var(--accent-solid);
+      opacity: 0.9;
+    }
+
+    .usage-dashboard__graph text {
+      font-size: var(--font-size-xxs);
+      fill: var(--text-dim);
+    }
+
+    @media (max-width: 768px) {
+      .usage-dashboard__cards {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+    }
+
     /* ========================================
        区块容器 (Section = Card)
        ======================================== */
 
     .section {
       background: var(--bg-elev-1);
-      padding: var(--space-xl) var(--space-2xl);
-      margin-bottom: var(--space-xl);
+      padding: var(--space-xl) var(--space-2xl) var(--space-lg);
+      margin-bottom: var(--space-lg);
       border-radius: var(--radius-lg);
       border: 1px solid var(--border);
       box-shadow: var(--shadow-card);
@@ -79,6 +308,17 @@
       border-color: var(--border-hover);
     }
 
+    .section--compact {
+      padding: var(--space-md) var(--space-2xl) var(--space-sm);
+      margin-bottom: var(--space-sm);
+    }
+
+    .section--compact .section-header {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
     .section-header {
       display: flex;
       align-items: center;
@@ -86,6 +326,66 @@
       margin-bottom: var(--space-xl);
       padding-bottom: var(--space-md);
       border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .section-header__title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      min-width: 0;
+    }
+
+    .section-header__extras {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      font-size: var(--font-size-sm);
+      flex-wrap: wrap;
+    }
+
+    .section-header__note {
+      color: var(--text-dim);
+    }
+
+    .section-header__status {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(249, 115, 22, 0.12);
+      color: #f97316;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+    }
+
+    .section-header__action {
+      width: auto;
+      min-width: 160px;
+      flex: 0 0 auto;
+    }
+
+    .hint-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    @media (max-width: 720px) {
+      .section-header__extras {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+        padding-top: var(--space-sm);
+      }
+
+      .section-header__action {
+        min-width: 0;
+        width: 100%;
+        flex: 1 1 100%;
+      }
     }
 
     .section-header h2 {
@@ -101,6 +401,32 @@
     .section-header .icon {
       font-size: var(--font-size-2xl);
       line-height: 1;
+    }
+
+    .section-header .icon.icon-img {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+    }
+
+    .section-header .icon.icon-img img {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .hint {
@@ -136,6 +462,44 @@
       color: var(--text-dim);
       font-size: var(--font-size-xs);
       line-height: 1.4;
+    }
+
+    .form-inline {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .form-inline label {
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      color: var(--text);
+    }
+
+    .form-inline input[type="text"],
+    .form-inline input[type="password"],
+    .form-inline select {
+      width: auto;
+      flex: 1;
+    }
+
+    .form-group--inline {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .form-group--inline .inline-note {
+      font-size: var(--font-size-xs);
+      color: var(--text-dim);
+    }
+
+    .form-hint.warning {
+      color: #f97316;
     }
 
     input[type="text"],
@@ -435,11 +799,16 @@
       background: var(--bg);
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
-      transition: border-color var(--transition-base);
+      transition: border-color var(--transition-base), box-shadow var(--transition-base);
     }
 
     .mapping-item:hover {
       border-color: var(--border-hover);
+    }
+
+    .mapping-item.flash {
+      border-color: var(--accent-solid);
+      box-shadow: 0 0 0 2px rgba(91, 63, 135, 0.2);
     }
 
     .mapping-item input {
@@ -498,6 +867,27 @@
       border-radius: 3px;
       margin: 0 4px;
       font-family: var(--font-mono);
+    }
+
+    .template-reading-controls {
+      display: flex;
+      gap: var(--space-sm);
+      align-items: center;
+      margin-top: var(--space-sm);
+    }
+
+    .template-reading-controls select {
+      min-width: 150px;
+      width: auto;
+      flex: 0 0 auto;
+    }
+
+    .template-reading-controls input {
+      flex: 1;
+    }
+
+    .template-reading-controls input[disabled] {
+      opacity: 0.65;
     }
 
     /* ========================================
@@ -586,12 +976,13 @@
       background: var(--bg-elev-1);
       border-top: 1px solid var(--border);
       padding: var(--space-xl) var(--space-2xl);
-      margin: var(--space-3xl) calc(-1 * var(--space-2xl)) 0;
+      margin: var(--space-3xl) 0 0;
       display: flex;
       align-items: center;
       gap: var(--space-md);
       box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
       z-index: var(--z-sticky);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
 
     .savebar button {
@@ -644,46 +1035,108 @@
       margin: 0;
     }
   </style>
+  <style>
+    #usageXAxis text {
+      font-size: var(--font-size-xs);
+      dominant-baseline: middle;
+    }
+  </style>
+
 </head>
 <body>
   <div class="container">
     <!-- 页面头部 -->
     <div class="page-header">
-      <img src="../assets/logo/options-logo.png" alt="All in Obsidian Logo">
-      <div class="page-header-content">
-        <h1><span data-i18n="extensionName">All in Obsidian</span></h1>
-        <p class="subtitle" data-i18n="extensionSubtitle">配置你的剪藏插件，让内容管理更智能</p>
+      <div class="page-header-main">
+        <img src="../assets/icons/bannerlogo-128.png" alt="All in Ob Logo">
+        <div class="page-header-content">
+          <h1><span data-i18n="extensionName">All in Ob</span></h1>
+          <p class="subtitle" data-i18n="extensionSubtitle">配置你的剪藏插件，让内容管理更智能</p>
+        </div>
+      </div>
+      <div class="page-header-links" aria-label="支持与反馈">
+        <a class="page-header-link" href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer">
+          <span class="page-header-link__icon" data-icon="ko-fi" aria-hidden="true"></span>
+          <span>Ko-fi</span>
+        </a>
+        <a class="page-header-link" href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer">
+          <span class="page-header-link__icon" data-icon="afdian" aria-hidden="true"></span>
+          <span>爱发电</span>
+        </a>
+        <a class="page-header-link" href="https://github.com/Lefeaker/AllinOB/issues" target="_blank" rel="noopener noreferrer">
+          <span class="page-header-link__icon" data-icon="github" aria-hidden="true"></span>
+          <span>反馈</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="usage-dashboard" id="usageDashboard" aria-live="polite">
+      <div class="usage-dashboard__header">
+        <div>
+          <h2 class="usage-dashboard__title" data-i18n="usageDashboardTitle">使用统计看板</h2>
+          <p class="usage-dashboard__subtitle" data-i18n="usageDashboardSubtitle">了解内容保存的次数和类型</p>
+        </div>
+      </div>
+      <div class="usage-dashboard__cards">
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageTotalLabel">总计保存</span>
+          <span class="usage-card__value" id="usageTotalCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageAiLabel">AI 对话</span>
+          <span class="usage-card__value" id="usageAiCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageFragmentLabel">碎片+阅读</span>
+          <span class="usage-card__value" id="usageFragmentCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageArticleLabel">文章</span>
+          <span class="usage-card__value" id="usageArticleCount">0</span>
+        </div>
+      </div>
+      <div class="usage-dashboard__chart">
+        <div class="usage-dashboard__axis usage-axis--hidden" id="usageAxis"></div>
+        <div class="usage-dashboard__graph">
+          <svg id="usageWave" viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet">
+            <g id="usageGrid"></g>
+            <path id="usageWavePath" d="M0 150 L200 150" vector-effect="non-scaling-stroke"></path>
+            <g id="usagePoints"></g>
+            <g id="usageXAxis"></g>
+          </svg>
+        </div>
       </div>
     </div>
 
     <!-- 语言设置 -->
-    <div class="section">
+    <div class="section section--compact">
       <div class="section-header">
-        <span class="icon">🌐</span>
-        <h2 data-i18n="languageSettings">语言设置</h2>
-      </div>
-      <div class="hint" data-i18n="languageHint">
-        💡 选择你喜欢的界面语言
-      </div>
-      <div class="form-group">
-        <label data-i18n="languageLabel">界面语言</label>
-        <select id="languageSelect">
-          <option value="zh-CN">简体中文</option>
-          <option value="en">English</option>
-          <option value="ja">日本語</option>
-        </select>
+        <div class="section-header__title">
+          <span class="icon">🌐</span>
+          <h2 data-i18n="languageSettings">语言设置</h2>
+        </div>
+        <div class="section-header__extras">
+          <label class="sr-only" for="languageSelect" data-i18n="languageLabel">界面语言</label>
+          <select id="languageSelect" class="section-header__action">
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
       </div>
     </div>
 
     <!-- API 配置（默认仓库） -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">🔌</span>
-        <h2 data-i18n="apiConfigTitle">Obsidian Local REST API</h2>
-        <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: var(--accent-solid);" data-i18n="defaultVaultBadge">默认仓库</span>
-      </div>
-      <div class="hint" data-i18n="apiConfigHint">
-        💡 这是默认仓库，不符合路由规则的内容将保存到这里
+        <div class="section-header__title">
+          <span class="icon">🔌</span>
+          <h2 data-i18n="apiConfigTitle">Obsidian Local REST API</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="apiConfigHint">这是默认仓库，不符合路由规则的内容将保存到这里</span>
+          <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: var(--accent-solid);" data-i18n="defaultVaultBadge">默认仓库</span>
+        </div>
       </div>
       <div class="row">
         <div class="form-group">
@@ -718,11 +1171,14 @@
     <!-- 额外仓库配置 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">📦</span>
-        <h2 data-i18n="additionalVaultsTitle">额外仓库</h2>
-      </div>
-      <div class="hint" data-i18n="additionalVaultsHint">
-        💡 添加更多仓库，通过路由规则自动分配内容
+        <div class="section-header__title">
+          <span class="icon">📦</span>
+          <h2 data-i18n="additionalVaultsTitle">额外仓库</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="additionalVaultsHint">添加更多仓库，通过路由规则自动分配内容</span>
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
       </div>
       <div id="additionalVaultsList"></div>
       <button class="add-mapping-btn" id="addAdditionalVaultBtn" data-i18n="addVaultButton">+ 添加仓库</button>
@@ -731,11 +1187,14 @@
     <!-- 路由规则 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">🔀</span>
-        <h2 data-i18n="routingRulesTitle">路由规则</h2>
-      </div>
-      <div class="hint" data-i18n="routingRulesHint">
-        💡 根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库
+        <div class="section-header__title">
+          <span class="icon">🔀</span>
+          <h2 data-i18n="routingRulesTitle">路由规则</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="routingRulesHint">根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库</span>
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
       </div>
       <div id="routingRulesList"></div>
       <button class="add-mapping-btn" id="addRoutingRuleBtn" data-i18n="addRuleButton">+ 添加规则</button>
@@ -743,17 +1202,18 @@
 
     <style>
       .vault-form-row, .rule-form-row {
-        border: 1px solid #3e3e42;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 16px;
-        background: #1e1e1e;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: var(--space-xl);
+        margin-bottom: var(--space-lg);
+        background: var(--bg-elev-1);
+        box-shadow: var(--shadow-card);
       }
 
       .vault-form-row .row, .rule-form-row .row {
         display: flex;
-        gap: 16px;
-        margin-bottom: 16px;
+        gap: var(--space-lg);
+        margin-bottom: var(--space-lg);
       }
 
       .vault-form-row .row:last-of-type, .rule-form-row .row:last-of-type {
@@ -766,64 +1226,50 @@
 
       .vault-form-row label, .rule-form-row label {
         display: block;
-        margin-bottom: 8px;
-        font-weight: 500;
-        color: #cccccc;
-        font-size: 14px;
+        margin-bottom: var(--space-xs);
+        font-weight: var(--font-weight-medium);
+        color: var(--text);
+        font-size: var(--font-size-sm);
       }
 
       .vault-form-row small, .rule-form-row small {
         display: block;
-        margin-top: 6px;
-        color: #888;
-        font-size: 12px;
+        margin-top: var(--space-xs);
+        color: var(--text-dim);
+        font-size: var(--font-size-xs);
       }
 
       .vault-form-row input, .rule-form-row input,
       .vault-form-row select, .rule-form-row select {
         width: 100%;
-        padding: 10px 12px;
-        background: #252526;
-        border: 1px solid #3e3e42;
-        border-radius: 4px;
-        color: #d4d4d4;
-        font-size: 14px;
+        padding: var(--space-sm) var(--space-md);
+        background: var(--bg-elev-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-size: var(--font-size-sm);
         font-family: inherit;
-        transition: border-color 0.2s;
+        transition: border-color var(--transition-base), box-shadow var(--transition-base);
       }
 
       .vault-form-row input:focus, .rule-form-row input:focus,
       .vault-form-row select:focus, .rule-form-row select:focus {
         outline: none;
-        border-color: #0e639c;
+        border-color: var(--accent-solid);
+        box-shadow: var(--ring);
       }
 
       .form-actions {
         display: flex;
         justify-content: flex-end;
-        gap: 8px;
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px solid #3e3e42;
+        gap: var(--space-sm);
+        margin-top: var(--space-md);
+        padding-top: var(--space-md);
+        border-top: 1px solid var(--border);
       }
 
       .form-actions button {
-        padding: 8px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: background 0.2s;
-      }
-
-      .btn-remove {
-        background: #dc3545;
-        color: white;
-      }
-
-      .btn-remove:hover {
-        background: #c82333;
+        margin-left: auto;
       }
     </style>
 
@@ -840,16 +1286,26 @@
         <div class="template-vars">
           <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
         </div>
-        <small data-i18n="articleTemplateHint">用于完整的网页文章剪藏</small>
       </div>
 
       <div class="form-group">
         <label data-i18n="fragmentTemplateLabel">片段路径模板</label>
-        <input type="text" id="tplFragment" placeholder="Fragments/{yyyy}/{mm}/{dd}/{title}.md" />
+        <input type="text" id="tplFragment" placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" />
         <div class="template-vars">
           <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
         </div>
-        <small data-i18n="fragmentTemplateHint">用于选中文本片段的快速剪藏</small>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="readingTemplateLabel">阅读模式路径模板</label>
+        <div class="template-reading-controls">
+          <select id="tplReadingMode">
+            <option value="article" data-i18n="readingTemplateOptionArticle">与文章路径相同</option>
+            <option value="fragment" data-i18n="readingTemplateOptionFragment">与片段路径相同</option>
+            <option value="custom" data-i18n="readingTemplateOptionCustom">自定义</option>
+          </select>
+          <input type="text" id="tplReadingCustom" placeholder="Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" disabled />
+        </div>
       </div>
 
       <div class="form-group">
@@ -858,43 +1314,38 @@
         <div class="template-vars">
           <span data-i18n="availableVariables">可用变量：</span><code>{platform}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{title}</code>
         </div>
-        <small data-i18n="aiTemplateHint">用于 AI 聊天对话的剪藏</small>
       </div>
     </div>
 
     <!-- Domain 映射 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">🌐</span>
-        <h2 data-i18n="domainMappingTitle">域名映射</h2>
-      </div>
-      <div class="hint" data-i18n="domainMappingHint">
-        💡 将网站域名映射为更友好的名称，例如将 mp.weixin.qq.com 映射为 "公众号"
+        <div class="section-header__title">
+          <span class="icon">🌐</span>
+          <h2 data-i18n="domainMappingTitle">域名映射</h2>
+        </div>
+        <div class="section-header__extras">
+          <button class="add-mapping-btn" id="addMappingBtn" data-i18n="addMappingButton">+ 添加映射</button>
+        </div>
       </div>
       <div id="domainMappings" class="mapping-list"></div>
-      <button class="add-mapping-btn" id="addMappingBtn" data-i18n="addMappingButton">+ 添加映射</button>
     </div>
     <!-- AI 对话配置 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">💬</span>
-        <h2 data-i18n="aiChatConfigTitle">AI 对话剪藏配置</h2>
-      </div>
-      <div class="hint" data-i18n="aiChatConfigHint">
-        💡 自定义 AI 对话的剪藏格式和内容
-      </div>
-
-      <div class="form-group">
-        <label class="checkbox-label">
-          <input type="checkbox" id="aiIncludeTimestamps" />
-          <span data-i18n="includeTimestampsLabel">包含消息时间戳</span>
-        </label>
-        <small data-i18n="includeTimestampsHint">在每条消息后显示发送时间（如果可用）</small>
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../assets/icontrs/allinob_icon_aitr.png" alt="" /></span>
+          <h2 data-i18n="aiChatConfigTitle">AI 对话剪藏配置</h2>
+        </div>
       </div>
 
+      <input type="checkbox" id="aiIncludeTimestamps" hidden />
+
       <div class="form-group">
-        <label data-i18n="userNameLabel">用户名称</label>
-        <input type="text" id="aiUserName" data-i18n-placeholder="userNamePlaceholder" placeholder="USER" />
+        <div class="form-inline">
+          <label for="aiUserName" data-i18n="userNameLabel">用户名称</label>
+          <input type="text" id="aiUserName" data-i18n-placeholder="userNamePlaceholder" placeholder="USER" />
+        </div>
         <small data-i18n="userNameHint">自定义用户消息的显示名称，默认为 "USER"</small>
       </div>
     </div>
@@ -902,19 +1353,22 @@
     <!-- Gemini Deep Research 配置 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">🔬</span>
-        <h2 data-i18n="deepResearchConfigTitle">Gemini Deep Research 配置</h2>
-      </div>
-      <div class="hint" data-i18n="deepResearchConfigHint">
-        💡 自定义 Deep Research 报告的捕捉方式
+        <div class="section-header__title">
+          <span class="icon">🔬</span>
+          <h2 data-i18n="deepResearchConfigTitle">Gemini Deep Research 配置</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="deepResearchConfigHint">自定义 Deep Research 报告的捕捉方式</span>
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group form-group--inline">
         <label class="checkbox-label">
           <input type="checkbox" id="deepResearchPureMode" />
           <span data-i18n="pureModeLabel">提纯模式（只捕捉报告内容）</span>
         </label>
-        <small data-i18n="pureModeHint">启用后，只捕捉 Deep Research 报告内容，不包含对话消息</small>
+        <span class="inline-note" data-i18n="pureModeHint">启用后，只捕捉 Deep Research 报告内容，不包含对话消息</span>
       </div>
 
       <div class="hint" style="background: #2d2d30; border-left-color: #ffa500;" data-i18n="multipleReportsInfo">
@@ -922,14 +1376,38 @@
       </div>
     </div>
 
+    <!-- 阅读模式配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../assets/icontrs/allinob_icon_readingt.png" alt="" /></span>
+          <h2 data-i18n="readingConfigTitle">阅读模式</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="readingConfigHint">选择导出阅读模式时保存的内容形式</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="readingExportMode" data-i18n="readingExportModeLabel">导出内容</label>
+        <select id="readingExportMode">
+          <option value="highlights" data-i18n="readingExportModeHighlights">仅保存高亮片段</option>
+          <option value="full" data-i18n="readingExportModeFull">保存全文并标注高亮</option>
+        </select>
+        <small data-i18n="readingExportModeDescription">选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。</small>
+      </div>
+    </div>
+
     <!-- 片段剪藏配置 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">✂️</span>
-        <h2>片段剪藏配置</h2>
-      </div>
-      <div class="hint">
-        💡 自定义选中文本剪藏的格式和行为
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../assets/icontrs/allinob_icon_clipt.png" alt="" /></span>
+          <h2>片段剪藏配置</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="fragmentConfigHint">自定义选中文本剪藏的格式和行为</span>
+        </div>
       </div>
 
       <div class="form-group">
@@ -943,56 +1421,46 @@
       <div class="form-group">
         <label class="checkbox-label">
           <input type="checkbox" id="fragmentCaptureContext" />
-          <span>捕捉上下文</span>
+          <span data-i18n="captureContextLabel">捕捉上下文（该功能尚不稳定）</span>
         </label>
         <small>启用后，会捕捉选中文字周围的上下文，并用 <code>==高亮==</code> 标记实际选中的部分</small>
       </div>
 
-      <div class="form-group" id="contextLengthGroup" style="display: none;">
-        <label>上下文长度</label>
-        <input type="number" id="fragmentContextLength" min="50" max="1000" step="50" placeholder="200" />
-        <small>上下文的字符数（默认 200）</small>
-      </div>
+      <div class="hint-row">
+        <div class="hint" style="background: #2d2d30; border-left-color: #4ade80;">
+          ✨ <strong>脚注格式示例：</strong><br>
+          <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
+            这是选中的文本内容[^1]<br><br>
+            [^1]: 这是我的评论
+          </code>
+        </div>
 
-      <div class="form-group" id="contextModeGroup" style="display: none;">
-        <label>上下文模式</label>
-        <select id="fragmentContextMode">
-          <option value="chars">按字符数</option>
-          <option value="sentences">按句子数</option>
-        </select>
-        <small>选择如何计算上下文长度</small>
-      </div>
-
-      <div class="hint" style="background: #2d2d30; border-left-color: #4ade80;">
-        ✨ <strong>脚注格式示例：</strong><br>
-        <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
-          这是选中的文本内容[^1]<br><br>
-          [^1]: 这是我的评论
-        </code>
-      </div>
-
-      <div class="hint" style="background: #2d2d30; border-left-color: #60a5fa;">
-        ✨ <strong>上下文高亮示例：</strong><br>
-        <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
-          前面的上下文 ==这是选中的文本== 后面的上下文
-        </code>
+        <div class="hint" style="background: #2d2d30; border-left-color: #60a5fa;">
+          ✨ <strong>上下文高亮示例：</strong><br>
+          <code style="display: block; margin-top: 8px; padding: 8px; background: #1a1a1d; border-radius: 4px; font-size: 12px;">
+            前面的上下文 ==这是选中的文本== 后面的上下文
+          </code>
+        </div>
       </div>
     </div>
 
     <!-- 分类器配置 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">🤖</span>
-        <h2 data-i18n="classifierConfigTitle">AI 分类器</h2>
-      </div>
-      <div class="hint" data-i18n="classifierConfigHint">
-        💡 使用 LLM 自动分类和标记剪藏内容
+        <div class="section-header__title">
+          <span class="icon">🤖</span>
+          <h2 data-i18n="classifierConfigTitle">AI辅助分类与总结</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
       </div>
       <div class="form-group">
         <label class="checkbox-label">
           <input type="checkbox" id="clsEnable" />
           <span data-i18n="enableClassifierLabel">启用 AI 自动分类</span>
         </label>
+        <small id="classifierUnstableNote" class="form-hint warning" style="display: none;" data-i18n="classifierUnstableNotice">⚠️ 该部分功能尚不稳定，启用后可能影响剪藏速度</small>
       </div>
 
       <div id="classifierConfig">
@@ -1031,11 +1499,13 @@
     <!-- 配置导入导出 -->
     <div class="section">
       <div class="section-header">
-        <span class="icon">📦</span>
-        <h2 data-i18n="configTransferTitle">配置同步</h2>
-      </div>
-      <div class="hint" data-i18n="configTransferHint">
-        💡 在不同浏览器之间复制配置，快速完成同步
+        <div class="section-header__title">
+          <span class="icon">📦</span>
+          <h2 data-i18n="configTransferTitle">配置同步</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="configTransferHint">在不同浏览器之间复制配置，快速完成同步</span>
+        </div>
       </div>
       <div class="transfer-actions">
         <button id="copyConfigBtn" data-i18n="copyConfigButton">复制配置</button>

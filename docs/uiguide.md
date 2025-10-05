@@ -132,7 +132,7 @@ Toggle（开关）
 
 <header class="page-header">
   <img src="logo_128.png" alt="" />
-  <div class="title">All in Obsidian</div>
+  <div class="title">All in Ob</div>
   <div class="subtitle">配置你的剪藏插件，让内容管理更智能</div>
 </header>
 

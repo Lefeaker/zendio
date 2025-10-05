@@ -12,7 +12,7 @@
 
 ```
 1. 打开 chrome://extensions/
-2. 找到 "All in Obsidian"
+2. 找到 "All in Ob"
 3. 点击刷新按钮 🔄
 4. 确认扩展已重新加载
 ```

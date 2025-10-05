@@ -1,5 +1,5 @@
 /**
- * All in Obsidian - Component Styles
+ * All in Ob - Component Styles
  * 通用组件样式 - 基于 uiguide.md 规范
  */
 
@@ -279,6 +279,52 @@
 }
 
 /* ========================================
+   模态对话框
+   ======================================== */
+
+.options-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 12, 18, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  backdrop-filter: blur(3px);
+}
+
+.options-modal {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--space-2xl);
+  width: min(480px, calc(100vw - 48px));
+  max-width: 520px;
+  animation: fadeIn var(--transition-base);
+}
+
+.options-modal__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-md);
+  color: var(--text);
+}
+
+.options-modal__message {
+  font-size: var(--font-size-base);
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0 0 var(--space-xl) 0;
+}
+
+.options-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+/* ========================================
    工具类
    ======================================== */
 
@@ -308,4 +354,3 @@
     grid-template-columns: 1fr;
   }
 }
-

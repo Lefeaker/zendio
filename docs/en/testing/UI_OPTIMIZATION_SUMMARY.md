@@ -242,7 +242,7 @@ npm run build
 ## 📝 注意事项
 
 1. **CSS 变量**：所有页面都引用了 `design-tokens.css` 和 `components.css`
-2. **Logo 文件**：已从 `AiiinOB/allinobsidian_128x128.png` 复制到 `assets/logo/options-logo.png`
+2. **Logo 文件**：设置页直接使用 `assets/icons/bannerlogo-128.png`，原始高清图保存在 `marketing/logo/`
 3. **构建脚本**：已更新以自动复制 CSS 和 Logo 文件
 4. **浏览器兼容性**：使用了现代 CSS 特性（CSS 变量、backdrop-filter 等）
 5. **响应式设计**：添加了移动端适配（768px 断点）

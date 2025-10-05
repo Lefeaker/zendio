@@ -61,23 +61,31 @@ if (text.match(/^(Kimi|moonshot|kimi)[\s-]*(k2|k1|plus)?$/i)) {
 ### 🔧 技术改进
 
 #### 0. AI聊天页面检测 ⚠️ 重要修复
-更新了 `src/content/detect.ts` 中的 `isAIChat` 函数，添加了中国AI平台的URL检测：
+更新了 `src/content/detect.ts` 中的 `isAIChat` 函数，现在仅对以下平台执行自动识别：
+
+- [ChatGPT](https://chat.openai.com)
+- [Claude](https://claude.ai)
+- [Gemini](https://gemini.google.com)
+- [Kimi](https://kimi.moonshot.cn)
+- [DeepSeek](https://chat.deepseek.com)
+- [通义千问](https://tongyi.aliyun.com)
 
 ```typescript
-export const isAIChat = (url: string, doc: Document) => {
-  // Check for known AI chat platforms
-  if (/(chatgpt\.com|chat\.openai\.com|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com|perplexity\.ai|poe\.com)/i.test(url)) return true;
+const AI_CHAT_URL_PATTERNS = [
+  /(chatgpt\.com|chat\.openai\.com)/i,
+  /claude\.ai/i,
+  /gemini\.google\.com/i,
+  /kimi\.(moonshot\.cn|com)/i,
+  /deepseek\.com/i,
+  /tongyi\.(aliyun\.com|com)/i
+];
 
-  // Check for Chinese AI platforms
-  if (/(tongyi\.aliyun\.com|chat\.deepseek\.com|kimi\.moonshot\.cn)/i.test(url)) return true;
-
-  // Fallback: check for common chat UI elements
-  const hasQA = doc.querySelector('article, [data-message-author], [class*=prose] pre code');
-  return !!hasQA;
+export const isAIChat = (url: string, _doc: Document) => {
+  return AI_CHAT_URL_PATTERNS.some((pattern) => pattern.test(url));
 };
 ```
 
-**重要性**：这个修复确保了中国AI平台的页面能被正确识别为AI聊天页面，而不是普通文章页面。
+**重要性**：这个修复确保了进入上述平台时会被判定为 AI 对话页面，同时避免误把 [Medium](https://medium.com) 等普通站点识别为 AI 聊天。
 
 #### 1. 通用选择器策略
 为所有中国平台实现了灵活的选择器策略，以应对页面结构变化：

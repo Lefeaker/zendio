@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-declare global {
-  // eslint-disable-next-line no-var
-  var chrome: any;
-}
+const storageSyncMock = {
+  get: vi.fn(),
+  set: vi.fn(),
+  remove: vi.fn(),
+  clear: vi.fn()
+};
 
 describe('optionsStore', () => {
   beforeEach(() => {
@@ -11,24 +13,29 @@ describe('optionsStore', () => {
 
     globalThis.structuredClone = globalThis.structuredClone || ((value: unknown) => JSON.parse(JSON.stringify(value)));
 
+    storageSyncMock.get.mockReset();
+    storageSyncMock.set.mockReset();
+    storageSyncMock.remove.mockReset();
+    storageSyncMock.clear.mockReset();
+
     globalThis.chrome = {
       storage: {
-        sync: {
-          get: vi.fn(),
-          set: vi.fn()
-        }
+        sync: storageSyncMock as unknown as typeof chrome.storage.sync
       }
-    };
+    } as unknown as typeof chrome;
   });
 
   afterEach(() => {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete globalThis.chrome;
+    Reflect.deleteProperty(globalThis as Record<string, unknown>, 'chrome');
   });
 
   it('loads options from storage and caches a deep clone', async () => {
-    const stored = { rest: { baseUrl: 'https://127.0.0.1:27124/' }, templates: { article: 'A' } };
-    globalThis.chrome.storage.sync.get.mockResolvedValue({ options: stored });
+    const stored = {
+      rest: { baseUrl: 'https://127.0.0.1:27124/' },
+      templates: { article: 'A', fragment: 'F', clipper: 'C', reading: 'R', ai: 'AI' },
+      domainMappings: {}
+    };
+    storageSyncMock.get.mockResolvedValue({ options: stored });
 
     const module = await import('../../src/options/state/optionsStore');
     const loaded = await module.loadOptionsFromStorage();
@@ -54,8 +61,8 @@ describe('optionsStore', () => {
 
     await module.saveOptionsToStorage(options);
 
-    expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledTimes(1);
-    const argument = globalThis.chrome.storage.sync.set.mock.calls[0][0];
+    expect(storageSyncMock.set).toHaveBeenCalledTimes(1);
+    const argument = storageSyncMock.set.mock.calls[0][0];
     expect(argument.options).toEqual(options);
     expect(argument.options).not.toBe(options);
 

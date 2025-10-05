@@ -1,10 +1,10 @@
 import { handleClipResult } from '../pipelines/clipPipeline';
 import { handleConnectionTest } from '../pipelines/connectionTest';
 import { notifyExtractionError } from '../services/notifications';
-import { isClipErrorMessage, isClipResultMessage, isTestConnectionMessage } from '../types/messages';
+import { isClipErrorMessage, isClipResultMessage, isTestConnectionMessage } from '../../shared/types';
 
 export function registerRuntimeMessageListener(): void {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (isTestConnectionMessage(message)) {
       handleConnectionTest()
         .then(result => sendResponse(result))
@@ -23,7 +23,7 @@ export function registerRuntimeMessageListener(): void {
     }
 
     if (isClipResultMessage(message)) {
-      void handleClipResult(message);
+      void handleClipResult(message, sender.tab?.id);
       return;
     }
   });

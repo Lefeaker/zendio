@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { selectVaultForClip, buildClipContext } from '../../src/background/services/vaultRouterService';
 import type { Options } from '../../src/background/store';
-import type { ClipPayload } from '../../src/background/types/messages';
-import type { VaultRouterConfig } from '../../src/background/vault-router';
+import type { ClipPayload, VaultRouterConfig } from '../../src/shared/types';
 
 function createBaseOptions(): Options {
   return {
@@ -17,7 +16,9 @@ function createBaseOptions(): Options {
     templates: {
       article: '',
       ai: '',
-      fragment: ''
+      fragment: '',
+      clipper: '',
+      reading: ''
     },
     domainMappings: {},
     classifier: undefined,
@@ -98,5 +99,47 @@ describe('vaultRouterService', () => {
     expect(context.title).toBe('Title');
     expect(context.content.length).toBeGreaterThan(0);
     expect(context.type).toBe('article');
+  });
+
+  it('falls back to default rest config when router rule does not match', () => {
+    const options = createBaseOptions();
+
+    const routerConfig: VaultRouterConfig = {
+      vaults: [
+        {
+          id: 'vault-1',
+          name: 'Articles Vault',
+          httpsUrl: 'https://vault.example.com:27124/',
+          httpUrl: 'http://vault.example.com:27123/',
+          vault: 'Articles',
+          apiKey: 'vault-key',
+          isDefault: false
+        }
+      ],
+      rules: [
+        {
+          id: 'rule-1',
+          vaultId: 'vault-1',
+          type: 'domain',
+          pattern: 'news.example.com',
+          enabled: true,
+          priority: 10
+        }
+      ],
+      defaultVaultId: 'vault-1'
+    };
+
+    options.vaultRouter = routerConfig;
+
+    const payload: ClipPayload = {
+      markdown: '# Routed',
+      title: 'Example',
+      meta: { domain: 'example.com', url: 'https://example.com/post' }
+    };
+
+    const result = selectVaultForClip(options, payload);
+
+    expect(result.vault).toBeNull();
+    expect(result.restConfig).toBe(options.rest);
   });
 });

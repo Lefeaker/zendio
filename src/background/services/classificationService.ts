@@ -1,5 +1,5 @@
 import type { Options } from '../store';
-import type { ClipPayload } from '../types/messages';
+import type { ClipPayload } from '../../shared/types';
 import { classify } from '../llm/classifier';
 
 export interface ClassificationResult {
@@ -7,6 +7,7 @@ export interface ClassificationResult {
   topics?: string[];
   ai_platform?: string;
   tags?: string[];
+  fallbackReason?: 'disabled' | 'error';
   [key: string]: unknown;
 }
 
@@ -17,7 +18,7 @@ export function createClassificationPreview(payload: ClipPayload): string {
 }
 
 export async function classifyClip(options: Options, payload: ClipPayload): Promise<ClassificationResult> {
-  const fallback: ClassificationResult = {
+  const fallbackBase: ClassificationResult = {
     type: payload.type,
     ai_platform: payload.meta?.platform,
     topics: [],
@@ -25,7 +26,10 @@ export async function classifyClip(options: Options, payload: ClipPayload): Prom
   };
 
   if (!options.classifier?.enabled) {
-    return fallback;
+    return {
+      ...fallbackBase,
+      fallbackReason: 'disabled'
+    };
   }
 
   try {
@@ -44,5 +48,8 @@ export async function classifyClip(options: Options, payload: ClipPayload): Prom
     console.error('[classification] Failed to classify clip:', error);
   }
 
-  return fallback;
+  return {
+    ...fallbackBase,
+    fallbackReason: 'error'
+  };
 }

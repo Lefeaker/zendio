@@ -1,15 +1,22 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { readFile, mkdir, cp, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { access, readFile, mkdir, cp, writeFile, rm } from 'fs/promises';
+import { constants as fsConstants } from 'fs';
+import { resolve } from 'path';
+import { zipDirectory } from './utils/archive.mjs';
 
-const execAsync = promisify(exec);
+async function pathExists(targetPath) {
+  try {
+    await access(targetPath, fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function createRelease() {
   console.log('🎁 开始创建发布包...');
 
   // 检查 dist 目录是否存在
-  if (!existsSync('dist')) {
+  if (!(await pathExists('dist'))) {
     console.error('❌ dist 目录不存在，请先运行 npm run build');
     process.exit(1);
   }
@@ -19,7 +26,7 @@ async function createRelease() {
   const version = manifest.version;
   const name = manifest.name.replace(/\s+/g, '-').toLowerCase();
   const releaseName = `${name}-v${version}-release`;
-  const releaseDir = `releases/${releaseName}`;
+  const releaseDir = resolve('releases', releaseName);
 
   console.log(`📝 扩展名称: ${manifest.name}`);
   console.log(`📝 版本号: ${version}`);
@@ -30,8 +37,8 @@ async function createRelease() {
     await mkdir('releases', { recursive: true });
 
     // 删除旧的发布目录（如果存在）
-    if (existsSync(releaseDir)) {
-      await execAsync(`rm -rf ${releaseDir}`);
+    if (await pathExists(releaseDir)) {
+      await rm(releaseDir, { recursive: true, force: true });
       console.log('🗑️  删除旧的发布包');
     }
 
@@ -44,7 +51,7 @@ async function createRelease() {
     console.log('📋 复制扩展文件');
 
     // 复制安装指南
-    if (existsSync('INSTALL_GUIDE.md')) {
+    if (await pathExists('INSTALL_GUIDE.md')) {
       await cp('INSTALL_GUIDE.md', `${releaseDir}/安装指南.md`);
       console.log('📋 复制安装指南');
     }
@@ -76,19 +83,20 @@ async function createRelease() {
 
     // 创建 zip 文件
     const zipName = `${releaseName}.zip`;
+    const zipPath = resolve('releases', zipName);
     console.log('🔨 正在创建 zip 文件...');
-    
+
     // 删除旧的 zip 文件
-    if (existsSync(`releases/${zipName}`)) {
-      await execAsync(`rm releases/${zipName}`);
+    if (await pathExists(zipPath)) {
+      await rm(zipPath, { force: true });
     }
 
-    await execAsync(`cd releases && zip -r ${zipName} ${releaseName} -x "*.DS_Store"`);
+    await zipDirectory(releaseDir, zipPath, { ignore: ['**/.DS_Store'] });
 
     console.log('✅ 发布包创建完成！');
     console.log('');
     console.log('📦 发布包位置:');
-    console.log(`   ${process.cwd()}/releases/${zipName}`);
+    console.log(`   ${zipPath}`);
     console.log('');
     console.log('📂 发布包内容:');
     console.log(`   - extension/          (扩展文件夹)`);
@@ -96,7 +104,7 @@ async function createRelease() {
     console.log(`   - README.txt          (快速开始)`);
     console.log('');
     console.log('💡 使用方法:');
-    console.log(`   1. 将 releases/${zipName} 发送给你的朋友`);
+    console.log(`   1. 将 ${zipPath} 发送给你的朋友`);
     console.log('   2. 让他们解压后查看 README.txt 或 安装指南.md');
     console.log('   3. 按照说明加载 extension 文件夹即可');
     console.log('');
@@ -108,4 +116,3 @@ async function createRelease() {
 }
 
 createRelease();
-

@@ -18,11 +18,16 @@ export function registerContextMenuListeners(): void {
       title: msgs.clipSelection,
       contexts: ['selection']
     });
+
   });
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (!tab?.id) return;
     await injectClipper(tab.id);
+    await delay(50);
+    await chrome.tabs.sendMessage(tab.id, { action: 'clipFull' }).catch((error) => {
+      console.error('[action] Failed to send clipFull message:', error);
+    });
   });
 
   chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -35,6 +40,14 @@ export function registerContextMenuListeners(): void {
       await delay(100);
       await chrome.tabs.sendMessage(tab.id, { action: 'clipSelection' }).catch((error) => {
         console.error('[contextMenu] Failed to send clipSelection message:', error);
+      });
+      return;
+    }
+
+    if (info.menuItemId === 'clip-current') {
+      await delay(50);
+      await chrome.tabs.sendMessage(tab.id, { action: 'clipFull' }).catch((error) => {
+        console.error('[contextMenu] Failed to send clipFull message:', error);
       });
     }
   });

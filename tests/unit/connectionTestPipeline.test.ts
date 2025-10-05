@@ -6,11 +6,6 @@ vi.mock('../../src/background/store', () => ({
   getOptions: getOptionsMock
 }));
 
-declare global {
-  // eslint-disable-next-line no-var
-  var fetch: typeof globalThis.fetch;
-}
-
 describe('connectionTest pipeline', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -34,7 +29,7 @@ describe('connectionTest pipeline', () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       status: 200,
       text: () => Promise.resolve('OK')
-    }) as unknown as typeof fetch;
+    }) as unknown as typeof globalThis.fetch;
 
     const result = await handleConnectionTest();
     expect(result.success).toBe(true);

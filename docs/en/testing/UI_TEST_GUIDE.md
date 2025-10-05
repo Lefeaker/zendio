@@ -237,7 +237,7 @@ npm run build
 **症状：** 设置页面顶部没有 Logo
 
 **解决方法：**
-1. 检查 `dist/assets/logo/options-logo.png` 是否存在
+1. 检查 `dist/assets/icons/bannerlogo-128.png` 是否存在
 2. 检查文件权限
 3. 重新运行 `npm run build`
 

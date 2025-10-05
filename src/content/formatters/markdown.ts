@@ -6,7 +6,7 @@ type Msg = {
 };
 
 /**
- * Format date to local timezone in format: YYYY-MM-DD HH:mm:ss
+ * Format date to local timezone in format: YYYY-MM-DDTHH:mm:ss
  */
 function formatLocalDateTime(date: Date): string {
   const year = date.getFullYear();
@@ -16,7 +16,7 @@ function formatLocalDateTime(date: Date): string {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
 
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
 export function buildChatMarkdown({

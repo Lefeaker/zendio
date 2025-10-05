@@ -1,6 +1,6 @@
 import type { Options } from '../store';
-import { VaultRouter, type VaultConfig, type ClipContext } from '../vault-router';
-import type { ClipPayload } from '../types/messages';
+import { VaultRouter } from '../vault-router';
+import type { ClipPayload, ClipContext, VaultConfig } from '../../shared/types';
 
 export interface VaultSelectionResult {
   vault: VaultConfig | null;

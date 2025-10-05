@@ -227,8 +227,20 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   turndownService.remove(['style', 'script', 'button']);
   
   // Keep certain elements as HTML
-  turndownService.keep(['iframe', 'video', 'audio', 'sup', 'sub', 'svg']);
+  const keepElements: Array<keyof HTMLElementTagNameMap> = ['iframe', 'video', 'audio', 'sup', 'sub'];
+  turndownService.keep(keepElements);
+  turndownService.keep((node) => isSvgElement(node));
 }
+
+function isSvgElement(node: unknown): node is Element {
+  if (!node || typeof node !== 'object') {
+    return false;
+  }
+  const element = node as Element;
+  const nodeName = typeof element.nodeName === 'string' ? element.nodeName : '';
+  return nodeName.toLowerCase() === 'svg';
+}
+
 
 /**
  * Helper function to clean up table HTML for complex tables

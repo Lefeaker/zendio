@@ -125,7 +125,7 @@ platform: chatgpt
 model: GPT-4
 url: "https://chat.openai.com/c/..."
 message_count: 4
-clipped_at: "2025-10-02T14:23:45.000Z"
+clipped_at: "2025-10-02T14:23:45"
 tags: [ai, chat, chatgpt]
 ---
 

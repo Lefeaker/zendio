@@ -2,7 +2,7 @@
 
 ## 🎉 新功能：多语言支持
 
-All in Obsidian 现在支持 **简体中文**、**English** 和 **日本語**！
+All in Ob 现在支持 **简体中文**、**English** 和 **日本語**！
 
 ## 🚀 快速使用
 
@@ -10,7 +10,7 @@ All in Obsidian 现在支持 **简体中文**、**English** 和 **日本語**！
 
 ```
 1. 打开 chrome://extensions/
-2. 找到 "All in Obsidian"
+2. 找到 "All in Ob"
 3. 点击 "重新加载" 按钮 🔄
 ```
 

@@ -1,12 +1,12 @@
-export const isAIChat = (url: string, doc: Document) => {
-  // Check for known AI chat platforms
-  if (/(chatgpt\.com|chat\.openai\.com|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com|perplexity\.ai|poe\.com)/i.test(url)) return true;
+const AI_CHAT_URL_PATTERNS = [
+  /(chatgpt\.com|chat\.openai\.com)/i,
+  /claude\.ai/i,
+  /gemini\.google\.com/i,
+  /kimi\.(moonshot\.cn|com)/i,
+  /deepseek\.com/i,
+  /tongyi\.(aliyun\.com|com)/i
+];
 
-  // Check for Chinese AI platforms
-  // Note: tongyi.com (not tongyi.aliyun.com) is the actual domain
-  if (/(tongyi\.com|tongyi\.aliyun\.com|chat\.deepseek\.com|deepseek\.com|kimi\.moonshot\.cn)/i.test(url)) return true;
-
-  // Fallback: check for common chat UI elements
-  const hasQA = doc.querySelector('article, [data-message-author], [class*=prose] pre code');
-  return !!hasQA;
+export const isAIChat = (url: string, _doc: Document) => {
+  return AI_CHAT_URL_PATTERNS.some((pattern) => pattern.test(url));
 };

@@ -8,7 +8,7 @@
 
 1. 打开 Chrome 浏览器
 2. 访问 `chrome://extensions/`
-3. 找到 "All in Obsidian" 扩展
+3. 找到 "All in Ob" 扩展
 4. 点击 🔄 **刷新** 按钮
 
 > ⚠️ **重要**：如果不重新加载，新功能将不会生效！
@@ -141,7 +141,7 @@ npm run build
 - [测试指南](./测试指南-中国AI平台.md) - 完整的测试步骤
 
 ### 测试工具
-- [可视化测试页面](../../test-chinese-ai-platforms.html) - 打开查看所有支持的平台
+- [可视化测试页面](../../tests/manual/test-chinese-ai-platforms.html) - 打开查看所有支持的平台
 
 ### 更新记录
 - [中国AI平台更新日志](./中国AI平台更新日志.md) - 详细的变更记录
@@ -156,7 +156,7 @@ npm run build
 2. ✅ 功能已测试
 3. ✅ 文档已阅读
 
-开始享受在中国AI平台上使用 All in Obsidian 的便利吧！
+开始享受在中国AI平台上使用 All in Ob 的便利吧！
 
 ## 💬 反馈与支持
 
@@ -187,4 +187,3 @@ npm run build
 ---
 
 **祝你使用愉快！** 🎊
-

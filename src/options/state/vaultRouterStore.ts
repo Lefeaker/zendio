@@ -1,5 +1,5 @@
 import { deepClone } from '../utils/clone';
-import type { VaultRouterConfig, VaultConfig, RoutingRule } from '../../background/vault-router';
+import type { VaultRouterConfig, VaultConfig, RoutingRule } from '../../shared/types';
 import { generateId } from '../../background/vault-router';
 
 let additionalVaults: VaultConfig[] = [];
@@ -81,7 +81,7 @@ export function addRoutingRule(initial?: Partial<RoutingRule>): RoutingRule {
     vaultId: fallbackVaultId,
     type: initial?.type ?? 'domain',
     pattern: initial?.pattern ?? '',
-    enabled: initial?.enabled ?? true,
+    enabled: initial?.enabled ?? false,
     priority: initial?.priority ?? 10,
     description: initial?.description
   };

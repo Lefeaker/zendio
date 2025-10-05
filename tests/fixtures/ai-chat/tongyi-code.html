@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>代码块测试 - 通义</title>
+</head>
+<body>
+  <div class="questionItem--UrcRIuHd">
+    <div class="text">请给出 TypeScript 和 Python 示例。</div>
+  </div>
+  <div class="contentBox--ahlydjOG">
+    <div class="tongyi-markdown">
+      <pre style="background: none;">
+        <div class="contain-layout-style rounded-12 bg-capsule relative flex min-h-[2em] flex-col">
+          <div class="rounded-[12px] bg-[#fff]">
+            <div class="h-[42px] sticky top-0 z-10 bg-capsule">
+              <div class="flex items-center h-[42px] p-3 text-[14px] border border-[var(--ty-line-border)]" style="background-color: rgb(250, 250, 251); border-radius: 12px 12px 0 0; border-bottom: transparent;">
+                <span class="font-medium mr-auto first-letter:uppercase text-[rgba(17,17,51,0.7)]">TypeScript</span>
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center justify-center gap-[2px] cursor-pointer text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon size-4"></span>
+                    <span class="mt-[2px] text-[12px]">预览</span>
+                  </div>
+                  <div class="flex items-center justify-center gap-[2px] cursor-pointer text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon size-4 cursor-pointer"></span>
+                  </div>
+                  <div class="flex cursor-pointer gap-1 text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon"></span>
+                  </div>
+                  <span role="img" tabindex="-1" class="anticon flex cursor-pointer items-center text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]"></span>
+                </div>
+              </div>
+            </div>
+            <pre style="display: block; overflow: hidden; padding: 0px 8px; background: rgb(255, 255, 255); color: black; border-bottom: 1px solid var(--ty-line-border); border-left: 1px solid var(--ty-line-border); border-right: 1px solid var(--ty-line-border); margin: 0px; font-size: 13px; border-radius: 0px 0px 12px 12px;">
+              <code style="white-space: pre; background-color: transparent; overflow: auto;">
+                <span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">1</span><span>// Define an AI model interface
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">2</span><span>interface AIModel {
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">3</span><span>  name: string;
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">4</span><span>  modelType: 'chat' | 'completion';
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">5</span><span>  generate(input: string): string;
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">6</span><span>}
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">7</span><span>
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">8</span><span>class GPT4 implements AIModel {
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">9</span><span>  name = 'GPT-4';
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">10</span><span>  modelType: 'chat' = 'chat';
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">11</span><span>
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">12</span><span>  generate(input: string): string {
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">13</span><span>    return `Generated response for: ${input}`;
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">14</span><span>  }
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">15</span><span>}
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">16</span><span>
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">17</span><span>const gpt4 = new GPT4();
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">18</span><span>console.log(gpt4.generate('Tell me about AI'));
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">19</span><span>// Output: Generated response for: Tell me about AI
+</span>              </code>
+            </pre>
+          </div>
+        </div>
+      </pre>
+      <pre style="background: none;">
+        <div class="contain-layout-style rounded-12 bg-capsule relative flex min-h-[2em] flex-col">
+          <div class="rounded-[12px] bg-[#fff]">
+            <div class="h-[42px] sticky top-0 z-10 bg-capsule">
+              <div class="flex items-center h-[42px] p-3 text-[14px] border border-[var(--ty-line-border)]" style="background-color: rgb(250, 250, 251); border-radius: 12px 12px 0 0; border-bottom: transparent;">
+                <span class="font-medium mr-auto first-letter:uppercase text-[rgba(17,17,51,0.7)]">python</span>
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center justify-center gap-[2px] cursor-pointer text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon size-4"></span>
+                    <span class="mt-[2px] text-[12px]">预览</span>
+                  </div>
+                  <div class="flex items-center justify-center gap-[2px] cursor-pointer text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon size-4 cursor-pointer"></span>
+                  </div>
+                  <div class="flex cursor-pointer gap-1 text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]">
+                    <span role="img" class="anticon"></span>
+                  </div>
+                  <span role="img" tabindex="-1" class="anticon flex cursor-pointer items-center text-[rgba(17,17,51,0.7)] hover:text-[#4433ff]"></span>
+                </div>
+              </div>
+            </div>
+            <pre style="display: block; overflow: hidden; padding: 0px 8px; background: rgb(255, 255, 255); color: black; border-bottom: 1px solid var(--ty-line-border); border-left: 1px solid var(--ty-line-border); border-right: 1px solid var(--ty-line-border); margin: 0px; font-size: 13px; border-radius: 0px 0px 12px 12px;">
+              <code style="white-space: pre; background-color: transparent; overflow: auto;">
+                <span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">1</span><span># Simple AI model simulation in Python
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">2</span><span>class AIModel:
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">3</span><span>    def __init__(self, name, model_type):
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">4</span><span>        self.name = name
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">5</span><span>        self.model_type = model_type
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">6</span><span>
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">7</span><span>    def infer(self, question: str) -> str:
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">8</span><span>        return f"[{self.name}] Response to '{question}': This is a simulated AI output."
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">9</span><span>
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">10</span><span>claude = AIModel('Claude-3', 'chat')
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">11</span><span>print(claude.infer('What is deep learning?'))
+</span><span class="comment linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 20px; text-align: right; user-select: none; color: rgb(205, 205, 205); font-size: 13px;">12</span><span># Output: [Claude-3] Response to 'What is deep learning?': This is a simulated AI output.
+</span>              </code>
+            </pre>
+          </div>
+        </div>
+      </pre>
+    </div>
+  </div>
+</body>
+</html>

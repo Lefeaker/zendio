@@ -8,19 +8,28 @@
 - ✅ `assets/icons/icon16.png` - 16x16 工具栏图标
 - ✅ `assets/icons/icon48.png` - 48x48 扩展管理页面图标  
 - ✅ `assets/icons/icon128.png` - 128x128 Chrome 应用商店图标
-- ✅ `assets/logo/options-logo.png` - 设置页面 logo (256x256)
+- ✅ `assets/icons/bannerlogo-128.png` - 选项页 logo
+- ✅ `marketing/logo/options-logo.png` - 256x256 备用营销 logo
 
 #### 源文件
-使用了 `/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/allinobsidian_256x256.png` 作为源文件，通过 macOS 的 `sips` 工具生成了不同尺寸的图标。
+使用了 `/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/marketing/icons/allinob_256x256.png` 作为源文件，通过 macOS 的 `sips` 工具生成了不同尺寸的图标。
 
 #### manifest.json 更新
 更新了 `src/manifest.json` 中的图标配置：
 
 ```json
-"icons": { 
-  "16": "assets/icons/icon16.png",
-  "48": "assets/icons/icon48.png",
-  "128": "assets/icons/icon128.png"
+"action": {
+  "default_icon": {
+    "16": "assets/icons/bannerlogo-16.png",
+    "32": "assets/icons/bannerlogo-32.png",
+    "48": "assets/icons/bannerlogo-48.png",
+    "128": "assets/icons/bannerlogo-128.png"
+  }
+},
+"icons": {
+  "16": "assets/icons/bannerlogo-16.png",
+  "48": "assets/icons/bannerlogo-48.png",
+  "128": "assets/icons/bannerlogo-128.png"
 }
 ```
 
@@ -31,13 +40,13 @@
 ##### `scripts/package.mjs`
 - 功能：快速打包扩展为 zip 文件
 - 命令：`npm run package`
-- 输出：`all-in-obsidian-v{version}.zip`
+- 输出：`all-in-ob-v{version}.zip`
 - 特点：仅包含扩展文件，适合快速分发
 
 ##### `scripts/create-release.mjs`
 - 功能：创建完整的发布包
 - 命令：`npm run release`
-- 输出：`releases/all-in-obsidian-v{version}-release.zip`
+- 输出：`releases/all-in-ob-v{version}-release.zip`
 - 特点：包含扩展文件、安装指南和快速开始文档
 
 #### 新增文档
@@ -93,7 +102,7 @@ npm run package
 1. 运行 `npm run release`
 2. 找到生成的文件：
    ```
-   releases/all-in-obsidian-v0.1.0-release.zip
+   releases/all-in-ob-v0.1.0-release.zip
    ```
 3. 将这个 zip 文件发送给朋友
 4. 朋友解压后会看到：
@@ -116,12 +125,18 @@ npm run package
 ```
 your-extension/
 ├── assets/
-│   ├── icons/
-│   │   ├── icon16.png          # 新 logo (16x16)
-│   │   ├── icon48.png          # 新 logo (48x48)
-│   │   └── icon128.png         # 新 logo (128x128)
-│   └── logo/
-│       └── options-logo.png    # 设置页面 logo (256x256)
+│   └── icons/
+│       ├── icon16.png          # 工具栏图标 (16x16)
+│       ├── icon48.png          # 扩展管理页图标 (48x48)
+│       ├── icon128.png         # Chrome 商店图标 (128x128)
+│       ├── bannerlogo-16.png   # 扩展动作图标 (16x16)
+│       ├── bannerlogo-32.png   # 扩展动作图标 (32x32)
+│       ├── bannerlogo-48.png   # 扩展动作图标 (48x48)
+│       └── bannerlogo-128.png  # 选项页 / 扩展动作 (128x128)
+├── marketing/
+│   ├── banner.png              # Chrome 商店宣传图
+│   ├── icons/                  # 归档的旧图标、favicon
+│   └── logo/options-logo.png   # 256x256 营销 logo
 ├── src/
 │   └── manifest.json           # 已更新图标配置
 ├── scripts/
@@ -130,7 +145,7 @@ your-extension/
 │   └── create-release.mjs  # 发布包脚本（新）
 ├── dist/                   # 构建输出（运行 build 后生成）
 ├── releases/               # 发布包（运行 release 后生成）
-│   └── all-in-obsidian-v0.1.0-release/
+│   └── all-in-ob-v0.1.0-release/
 │       ├── extension/      # 扩展文件
 │       ├── 安装指南.md
 │       └── README.txt
@@ -154,7 +169,7 @@ your-extension/
 ### 📦 可分发的文件
 
 当前已生成：
-- `releases/all-in-obsidian-v0.1.0-release.zip` (322KB)
+- `releases/all-in-ob-v0.1.0-release.zip` (322KB)
 
 这个文件可以直接发送给朋友使用！
 
@@ -180,7 +195,7 @@ your-extension/
 
 1. 替换源文件：
    ```bash
-   cp 新logo.png /path/to/allinobsidian_256x256.png
+   cp 新logo.png /path/to/allinob_256x256.png
    ```
 
 2. 重新生成图标：
@@ -243,7 +258,7 @@ your-extension/
 **所有功能已完成并测试通过！** ✨
 
 生成的发布包位于：
-`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/all-in-obsidian-v0.1.0-release.zip`
+`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/all-in-ob-v0.1.0-release.zip`
 
 可以直接将这个文件发送给朋友使用！
 

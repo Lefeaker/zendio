@@ -1,12 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "All in Obsidian",
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
   "version": "0.1.0",
-  "action": { "default_title": "Clip to Obsidian" },
+  "default_locale": "en",
+  "action": {
+    "default_title": "Clip to Obsidian",
+    "default_icon": {
+      "16": "assets/icons/bannerlogo-16.png",
+      "32": "assets/icons/bannerlogo-32.png",
+      "48": "assets/icons/bannerlogo-48.png",
+      "128": "assets/icons/bannerlogo-128.png"
+    }
+  },
   "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
+    "16": "assets/icons/bannerlogo-16.png",
+    "32": "assets/icons/bannerlogo-32.png",
+    "48": "assets/icons/bannerlogo-48.png",
+    "128": "assets/icons/bannerlogo-128.png",
+    "256": "assets/icons/bannerlogo-256.png"
   },
   "permissions": [
     "activeTab", "scripting", "storage",
@@ -19,5 +31,16 @@
   ],
   "background": { "service_worker": "background/index.js" },
   "options_ui": { "page": "options/index.html", "open_in_tab": true },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/icons/*",
+        "assets/icontrs/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
   "incognito": "spanning"
 }

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2021", "DOM"],
+    "types": ["chrome"],
+    "baseUrl": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["tests", "dist", "node_modules"]
+}
