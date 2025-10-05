@@ -1,5 +1,4 @@
-[中文 README 在这里 (Chinese version)](README.zh-CN.md)
-[日本語 README はこちら (Japanese version)](README.ja-JP.md)
+[中文](README.zh-CN.md)｜[日本語](README.ja-JP.md)
 
 <p align="center">
   <img src="marketing/banner.png" alt="All in Ob Banner" width="600"/>
