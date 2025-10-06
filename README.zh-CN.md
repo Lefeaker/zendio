@@ -10,7 +10,7 @@
 - **解决的问题**：
   - 不再手工复制粘贴网页和对话内容
   - 连同上下文、批注、源链接一并保存，防止信息丢失
-  - 自动生成 YAML / Properties，完美适配 Obsidian Bases 与 HiNote
+  - 自动生成 YAML / Properties，完美适配 Obsidian Bases 与 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)
 - **适合谁**：研究者、工程师、写作者、知识管理者、重度 Obsidian 用户
 
 ## 最新更新 | Latest Enhancements
@@ -51,8 +51,8 @@
 - 自定义规则优先级与回退策略，实时通知目标仓库
 - 全新本地化选项构建器提供安全预览与确认流程，避免配置误操作
 
-### 🔗 HiNote 兼容
-- 导出高亮与片段时自动补充 HiNote 所需字段
+### 🔗 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) 兼容
+- 导出高亮与片段时自动补充 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) 所需字段
 - YAML frontmatter 可直接用于 Bases、Dataview 等插件
 
 ### 🌍 多语言与自定义
@@ -63,7 +63,7 @@
 
 1. **安装 Chrome 扩展**  
    目前处于开发阶段，可下载源码后在 Chrome “开发者模式”中加载 `dist/` 目录。（发布链接预留）
-2. **配置 Obsidian Local REST API**  
+2. **配置 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)**  
    - 在 Obsidian 中安装 [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) 插件
    - 启用插件、设置 API Key，并确认监听地址（默认 `https://127.0.0.1:27124`）
 3. **完成扩展设置**  
@@ -81,7 +81,7 @@
 | `contextMenus` | 添加右键菜单项“保存到 Obsidian” | 不跟踪历史点击，仅用于触发操作 |
 | `notifications` | 剪藏完成后推送桌面通知 | 不发送外部请求，提示即刻消失 |
 | `host_permissions: <all_urls>` | 允许在任意页面运行剪藏脚本 | 只在用户触发时访问页面内容 |
-| `host_permissions: https://127.0.0.1/*` | 调用 Obsidian Local REST API | 仅与本机 Obsidian 实例通信 |
+| `host_permissions: https://127.0.0.1/*` | 调用 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | 仅与本机 Obsidian 实例通信 |
 
 ## 使用指南 | Quick Start
 
@@ -172,7 +172,7 @@ compiled_at: "2024-01-01T14:00:00"
 
 ## 致谢与许可 | Credits
 
-- 灵感来源：[Readwise](https://github.com/readwiseio/obsidian-readwise)、[HiNote](https://github.com/CatMuse/HiNote)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
+- 灵感来源：[Readwise](https://github.com/readwiseio/obsidian-readwise)、[Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - 第三方组件：[AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[Mozilla Readability](https://github.com/mozilla/readability)、[Turndown](https://github.com/mixmark-io/turndown)
 - License：MIT（详见 `LICENSE`）
 - 作者：AiiinOB 团队 · 欢迎通过 Issue / PR / Discussions 与我们交流

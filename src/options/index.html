@@ -1297,6 +1297,14 @@
       </div>
 
       <div class="form-group">
+        <label data-i18n="clipperTemplateLabel">快捷剪藏路径模板</label>
+        <input type="text" id="tplClipper" placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label data-i18n="readingTemplateLabel">阅读模式路径模板</label>
         <div class="template-reading-controls">
           <select id="tplReadingMode">

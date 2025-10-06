@@ -1,5 +1,7 @@
 # All-in-Obsidian 用户支持与联系指引
 
+公开访问版本：https://github.com/Lefeaker/AllinOB
+
 最后更新：2025-02-14
 
 面向 All-in-Obsidian Chrome 扩展用户的支持与沟通流程说明。可将本页托管至官网或 GitHub Pages，供审核提交及用户快速定位帮助渠道。

@@ -10,7 +10,7 @@
 - **解決する課題**:
   - ウェブや対話の内容を手動でコピー＆ペーストする作業をなくす
   - コンテキスト、注釈、ソースリンクを保持し、洞察を失わないようにする
-  - Obsidian Bases と HiNote に合わせた YAML / Properties を自動生成
+  - Obsidian Bases と [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) に合わせた YAML / Properties を自動生成
 - **対象ユーザー**: 研究者、エンジニア、ライター、ナレッジワーカー、Obsidian のヘビーユーザー
 
 ## 最新アップデート | Latest Enhancements
@@ -51,8 +51,8 @@
 - ルールの優先度やフォールバック、通知を調整し、すべてのクリップを最適な Vault に送る
 - ローカライズされた新しいオプションビルダーで安全なプレビューと確認フローを提供し、設定ミスを防止
 
-### 🔗 HiNote 互換性
-- HiNote のワークフローに必要なフィールドを含めてハイライトをエクスポート
+### 🔗 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) 互換性
+- [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) のワークフローに必要なフィールドを含めてハイライトをエクスポート
 - YAML frontmatter は Bases、Dataview などのプラグインでそのまま利用可能
 
 ### 🌍 ローカライズとカスタマイズ
@@ -63,7 +63,7 @@
 
 1. **Chrome 拡張機能をインストール**  
    現在は開発ビルドのみ提供。リポジトリをダウンロードし、Chrome のデベロッパーモードで `dist/` ディレクトリを読み込んでください。（ストアリンクは準備中）
-2. **Obsidian Local REST API を設定**  
+2. **[Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) を設定**  
    - Obsidian に [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) プラグインをインストール
    - プラグインを有効化し、API キーを設定してエンドポイントを確認（デフォルトは `https://127.0.0.1:27124`）
 3. **拡張機能の設定を完了**  
@@ -81,7 +81,7 @@
 | `contextMenus` | 右クリックメニューに「Save to Obsidian」を追加 | 利用時以外に履歴を追跡しません |
 | `notifications` | クリップ完了のトースト通知を表示 | 外部通信は行わず、通知は即座に消えます |
 | `host_permissions: <all_urls>` | 任意のページでクリップ機能を有効化 | ユーザー操作時にのみページへアクセス |
-| `host_permissions: https://127.0.0.1/*` | Obsidian Local REST API と通信 | ローカルの Obsidian インスタンスにのみ接続 |
+| `host_permissions: https://127.0.0.1/*` | [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) と通信 | ローカルの Obsidian インスタンスにのみ接続 |
 
 ## クイックスタートガイド | Quick Start
 
@@ -172,7 +172,7 @@ compiled_at: "2024-01-01T14:00:00"
 
 ## クレジットとライセンス | Credits
 
-- インスピレーション: [Readwise](https://github.com/readwiseio/obsidian-readwise)、[HiNote](https://github.com/CatMuse/HiNote)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
+- インスピレーション: [Readwise](https://github.com/readwiseio/obsidian-readwise)、[Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - サードパーティコンポーネント: [AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[Mozilla Readability](https://github.com/mozilla/readability)、[Turndown](https://github.com/mixmark-io/turndown)
 - ライセンス: MIT（`LICENSE` を参照）
 - 作者: AiiinOB チーム — Issue・PR・Discussions から気軽にご連絡ください

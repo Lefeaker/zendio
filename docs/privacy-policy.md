@@ -1,5 +1,7 @@
 # All-in-Obsidian Chrome 扩展隐私政策
 
+公开访问版本：https://github.com/Lefeaker/AllinOB
+
 最后更新：2025-02-14
 
 欢迎您使用 All-in-Obsidian（以下简称“本扩展”）。本隐私政策旨在帮助您了解我们如何处理与您使用本扩展相关的信息。我们深知隐私与数据安全的重要性，并承诺严格遵守适用法律法规，保护您的数据权益。

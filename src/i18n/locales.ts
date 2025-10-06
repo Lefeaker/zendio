@@ -45,6 +45,7 @@ export interface Messages {
   articleTemplateHint: string;
   fragmentTemplateLabel: string;
   fragmentTemplateHint: string;
+  clipperTemplateLabel: string;
   readingTemplateLabel: string;
   readingTemplateHint: string;
   readingTemplateOptionArticle: string;
@@ -254,6 +255,7 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: '用于完整的网页文章剪藏',
     fragmentTemplateLabel: '片段路径模板',
     fragmentTemplateHint: '用于选中文本片段与快捷剪藏',
+    clipperTemplateLabel: '快捷剪藏路径模板',
     readingTemplateLabel: '阅读模式路径模板',
     readingTemplateHint: '配置阅读模式导出的保存路径',
     readingTemplateOptionArticle: '与文章路径相同',
@@ -458,6 +460,7 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: 'For full webpage article clipping',
     fragmentTemplateLabel: 'Fragment Path Template',
     fragmentTemplateHint: 'For quick clipping via selection or the clipper panel',
+    clipperTemplateLabel: 'Clipper Path Template',
     readingTemplateLabel: 'Reading Mode Path Template',
     readingTemplateHint: 'Choose where reading-mode exports should be saved',
     readingTemplateOptionArticle: 'Same as article path',
@@ -662,6 +665,7 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: '完全なウェブページ記事のクリッピング用',
     fragmentTemplateLabel: 'フラグメントパステンプレート',
     fragmentTemplateHint: '選択範囲やクリッパーパネルでの保存に使用',
+    clipperTemplateLabel: 'クリッパーパステンプレート',
     readingTemplateLabel: '読書モードパステンプレート',
     readingTemplateHint: '読書モードで保存するファイルの保存先を設定',
     readingTemplateOptionArticle: '記事テンプレートと同じ',

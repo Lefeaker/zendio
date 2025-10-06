@@ -10,7 +10,7 @@
 - **Problems we solve**:
   - Stop copying & pasting web or conversation content by hand
   - Preserve context, annotations, and source links so insights never get lost
-  - Auto-create YAML / Properties tailor-made for Obsidian Bases and HiNote
+  - Auto-create YAML / Properties tailor-made for Obsidian Bases and [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)
 - **Who benefits**: researchers, engineers, writers, knowledge workers, and heavy Obsidian users
 
 ## Latest Enhancements
@@ -51,8 +51,8 @@
 - Customize rule priority, fallbacks, and notifications so every clip lands in the right vault
 - Redesigned options builder introduces localized modal flows and safer previews for rule changes
 
-### 🔗 HiNote Compatibility
-- Export highlights with the fields HiNote expects for flashcards and review workflows
+### 🔗 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) Compatibility
+- Export highlights with the fields [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) expects for flashcards and review workflows
 - YAML frontmatter works out of the box with Bases, Dataview, and similar plugins
 
 ### 🌍 Localization & Customization
@@ -63,7 +63,7 @@
 
 1. **Install the Chrome extension**  
    Development build only for now—download the repository and load the `dist/` directory in Chrome Developer Mode. (Store link coming soon.)
-2. **Configure the Obsidian Local REST API**  
+2. **Configure the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)**  
    - Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) plugin inside Obsidian
    - Enable the plugin, set an API key, and confirm the endpoint (default `https://127.0.0.1:27124`)
 3. **Finish extension setup**  
@@ -81,7 +81,7 @@
 | `contextMenus` | Add the “Save to Obsidian” right-click entry | No history tracking—only used on demand |
 | `notifications` | Show completion toasts after clipping | No external calls; notifications vanish instantly |
 | `host_permissions: <all_urls>` | Allow clipping on any page | Access occurs only when you trigger a clip |
-| `host_permissions: https://127.0.0.1/*` | Talk to the Obsidian Local REST API | Communicates solely with your local Obsidian instance |
+| `host_permissions: https://127.0.0.1/*` | Talk to the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | Communicates solely with your local Obsidian instance |
 
 ## Quick Start Guide
 
@@ -172,7 +172,7 @@ compiled_at: "2024-01-01T14:00:00"
 
 ## Credits & License
 
-- Inspiration: [Readwise](https://github.com/readwiseio/obsidian-readwise), [HiNote](https://github.com/CatMuse/HiNote), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Obsidian Bases](https://github.com/hadynz/obsidian-bases)
+- Inspiration: [Readwise](https://github.com/readwiseio/obsidian-readwise), [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - Third-party components: [AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter), [Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper), [Mozilla Readability](https://github.com/mozilla/readability), [Turndown](https://github.com/mixmark-io/turndown)
 - License: MIT (see `LICENSE`)
 - Authors: AiiinOB team — reach out via Issues, PRs, or Discussions
