@@ -101,7 +101,8 @@ describe('deepseek ai chat integration', () => {
           httpUrl: 'http://default.local:27123/',
           vault: 'Default',
           apiKey: 'default-key',
-          isDefault: true
+          isDefault: true,
+          rules: []
         },
         {
           id: 'deepseek-ai',
@@ -109,17 +110,17 @@ describe('deepseek ai chat integration', () => {
           httpsUrl: 'https://deepseek.local:27124/',
           httpUrl: 'http://deepseek.local:27123/',
           vault: 'DeepSeekAI',
-          apiKey: 'deepseek-key'
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-deepseek',
-          vaultId: 'deepseek-ai',
-          type: 'domain',
-          pattern: '*.deepseek.com',
-          enabled: true,
-          priority: 90
+          apiKey: 'deepseek-key',
+          rules: [
+            {
+              id: 'rule-deepseek',
+              vaultId: 'deepseek-ai',
+              type: 'domain',
+              pattern: '*.deepseek.com',
+              enabled: true,
+              priority: 90
+            }
+          ]
         }
       ],
       defaultVaultId: 'default'

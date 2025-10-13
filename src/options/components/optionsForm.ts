@@ -19,6 +19,7 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   'domainMappings',
   'aiChat',
   'deepResearch',
+  'video',
   'fragmentClipper',
   'readingSession',
   'classifier',
@@ -79,6 +80,7 @@ export function collectOptionsFromForm(previous: StoredOptions | null): Complete
   const domainMappings = sectionResults.domainMappings ? { ...sectionResults.domainMappings } : { ...DEFAULT_OPTIONS.domainMappings };
   const aiChat = sectionResults.aiChat ?? DEFAULT_OPTIONS.aiChat;
   const deepResearch = sectionResults.deepResearch ?? DEFAULT_OPTIONS.deepResearch;
+  const video = sectionResults.video ?? DEFAULT_OPTIONS.video;
   const fragmentClipper = sectionResults.fragmentClipper ?? DEFAULT_OPTIONS.fragmentClipper;
   const readingSession = sectionResults.readingSession ?? DEFAULT_OPTIONS.readingSession;
   const classifier = sectionResults.classifier ?? DEFAULT_OPTIONS.classifier;
@@ -89,6 +91,7 @@ export function collectOptionsFromForm(previous: StoredOptions | null): Complete
     domainMappings,
     aiChat,
     deepResearch,
+    video,
     fragmentClipper,
     readingSession,
     classifier

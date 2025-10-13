@@ -1,3 +1,5 @@
+import type { VaultConfig } from './vault';
+
 export interface ClipMeta {
   url?: string;
   domain?: string;
@@ -37,7 +39,17 @@ export interface TestConnectionMessage {
   type: 'TEST_CONNECTION';
 }
 
-export type RuntimeMessage = ClipResultMessage | ClipErrorMessage | TestConnectionMessage;
+export interface TestVaultConnectionMessage {
+  type: 'TEST_VAULT_CONNECTION';
+  vaultId: string;
+  vault?: VaultConfig;
+}
+
+export type RuntimeMessage =
+  | ClipResultMessage
+  | ClipErrorMessage
+  | TestConnectionMessage
+  | TestVaultConnectionMessage;
 
 export function isClipResultMessage(message: unknown): message is ClipResultMessage {
   return typeof message === 'object' && message !== null && (message as { type?: unknown }).type === 'CLIP_RESULT';
@@ -49,4 +61,13 @@ export function isClipErrorMessage(message: unknown): message is ClipErrorMessag
 
 export function isTestConnectionMessage(message: unknown): message is TestConnectionMessage {
   return typeof message === 'object' && message !== null && (message as { type?: unknown }).type === 'TEST_CONNECTION';
+}
+
+export function isTestVaultConnectionMessage(message: unknown): message is TestVaultConnectionMessage {
+  if (typeof message !== 'object' || message === null) {
+    return false;
+  }
+
+  const candidate = message as { type?: unknown; vaultId?: unknown };
+  return candidate.type === 'TEST_VAULT_CONNECTION' && typeof candidate.vaultId === 'string' && candidate.vaultId.length > 0;
 }

@@ -98,7 +98,8 @@ describe('kimi ai chat integration', () => {
           httpUrl: 'http://default.local:27123/',
           vault: 'Default',
           apiKey: 'default-key',
-          isDefault: true
+          isDefault: true,
+          rules: []
         },
         {
           id: 'kimi-ai',
@@ -106,17 +107,17 @@ describe('kimi ai chat integration', () => {
           httpsUrl: 'https://kimi.local:27124/',
           httpUrl: 'http://kimi.local:27123/',
           vault: 'KimiAI',
-          apiKey: 'kimi-key'
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-kimi',
-          vaultId: 'kimi-ai',
-          type: 'domain',
-          pattern: '*.kimi.com',
-          enabled: true,
-          priority: 90
+          apiKey: 'kimi-key',
+          rules: [
+            {
+              id: 'rule-kimi',
+              vaultId: 'kimi-ai',
+              type: 'domain',
+              pattern: '*.kimi.com',
+              enabled: true,
+              priority: 90
+            }
+          ]
         }
       ],
       defaultVaultId: 'default'

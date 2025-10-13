@@ -24,4 +24,12 @@ describe('isAIChat', () => {
     const result = isAIChat('https://medium.com/some-article', document);
     expect(result).toBe(false);
   });
+
+  it('ignores chatgpt domain appearing in query parameters', () => {
+    const result = isAIChat(
+      'https://pubs.rsc.org/en/content/articlelanding/2024/tc/d4tc01327a?utm_source=chatgpt.com',
+      document
+    );
+    expect(result).toBe(false);
+  });
 });

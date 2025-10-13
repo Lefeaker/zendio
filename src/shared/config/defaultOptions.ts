@@ -12,7 +12,6 @@ export const DEFAULT_OPTIONS: OptionsState = {
   templates: {
     article: 'Articles/{domain}/{yyyy}/{slug}.md',
     fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-    clipper: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
     reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
     ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
   },
@@ -36,9 +35,15 @@ export const DEFAULT_OPTIONS: OptionsState = {
     useFootnoteFormat: true,
     captureContext: false,
     contextLength: 200,
-    contextMode: 'chars'
+    contextMode: 'chars',
+    selectionModifierEnabled: false,
+    selectionModifierKeys: []
   },
   readingSession: {
-    exportMode: 'highlights'
+    exportMode: 'highlights',
+    highlightTheme: 'gradient'
+  },
+  video: {
+    floatingPromptEnabled: true
   }
 };

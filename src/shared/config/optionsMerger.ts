@@ -5,7 +5,9 @@ import type {
   FragmentClipperOptions,
   ReadingSessionOptions,
   DeepResearchOptions,
-  AiChatOptions
+  AiChatOptions,
+  VideoOptions,
+  ReaderHighlightTheme
 } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 
@@ -26,6 +28,20 @@ function mergeClassifierOptions(source?: StoredOptions['classifier']): Classifie
   };
 }
 
+const READER_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
+  'gradient',
+  'purple',
+  'neonYellow',
+  'neonGreen',
+  'neonOrange'
+];
+
+function resolveReaderHighlightTheme(theme: unknown, fallback: ReaderHighlightTheme): ReaderHighlightTheme {
+  return READER_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
+    ? (theme as ReaderHighlightTheme)
+    : fallback;
+}
+
 function mergeFragmentClipperOptions(source?: StoredOptions['fragmentClipper']): FragmentClipperOptions | undefined {
   const defaults = DEFAULT_OPTIONS.fragmentClipper;
   if (!defaults && !source) {
@@ -33,11 +49,20 @@ function mergeFragmentClipperOptions(source?: StoredOptions['fragmentClipper']):
   }
 
   const base = source ?? {};
+  const rawKeys = Array.isArray(base.selectionModifierKeys)
+    ? base.selectionModifierKeys
+    : defaults?.selectionModifierKeys ?? [];
+  const selectionModifierKeys = rawKeys.filter((key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
+    return key === 'alt' || key === 'meta' || key === 'ctrl' || key === 'shift';
+  });
+
   return {
     useFootnoteFormat: base.useFootnoteFormat ?? defaults?.useFootnoteFormat ?? true,
     captureContext: base.captureContext ?? defaults?.captureContext ?? false,
     contextLength: base.contextLength ?? defaults?.contextLength ?? 200,
-    contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars'
+    contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars',
+    selectionModifierEnabled: base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
+    selectionModifierKeys
   };
 }
 
@@ -49,7 +74,11 @@ function mergeReadingSessionOptions(source?: StoredOptions['readingSession']): R
 
   const base = source ?? {};
   return {
-    exportMode: base.exportMode ?? defaults?.exportMode ?? 'highlights'
+    exportMode: base.exportMode ?? defaults?.exportMode ?? 'highlights',
+    highlightTheme: resolveReaderHighlightTheme(
+      base.highlightTheme ?? defaults?.highlightTheme,
+      defaults?.highlightTheme ?? 'gradient'
+    )
   };
 }
 
@@ -78,6 +107,18 @@ function mergeAiChatOptions(source?: StoredOptions['aiChat']): AiChatOptions | u
   };
 }
 
+function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.video;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  return {
+    floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true
+  };
+}
+
 export function mergeOptions(stored?: StoredOptions | null): OptionsState {
   const source = stored ?? {};
   const defaults = DEFAULT_OPTIONS;
@@ -91,12 +132,18 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     rootDir: source.rest?.rootDir ?? defaults.rest.rootDir
   };
 
+  const storedTemplates = source.templates ?? {};
+  const legacyClipper = typeof storedTemplates === 'object'
+    ? (storedTemplates as Record<string, unknown>).clipper
+    : undefined;
+  const legacyClipperString = typeof legacyClipper === 'string' ? legacyClipper : undefined;
+
   const templates = {
     article: source.templates?.article || defaults.templates.article,
-    fragment: source.templates?.fragment || defaults.templates.fragment,
-    clipper: source.templates?.clipper || source.templates?.fragment || defaults.templates.clipper,
+    fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
     reading: source.templates?.reading
       || source.templates?.fragment
+      || legacyClipperString
       || defaults.templates.reading,
     ai: source.templates?.ai || defaults.templates.ai
   };
@@ -112,6 +159,7 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     fragmentClipper: mergeFragmentClipperOptions(source.fragmentClipper),
     readingSession: mergeReadingSessionOptions(source.readingSession),
     aiChat: mergeAiChatOptions(source.aiChat),
+    video: mergeVideoOptions(source.video),
     vaultRouter: source.vaultRouter
   };
 

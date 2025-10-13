@@ -1,12 +1,32 @@
 import { handleClipResult } from '../pipelines/clipPipeline';
-import { handleConnectionTest } from '../pipelines/connectionTest';
+import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { notifyExtractionError } from '../services/notifications';
-import { isClipErrorMessage, isClipResultMessage, isTestConnectionMessage } from '../../shared/types';
+import {
+  isClipErrorMessage,
+  isClipResultMessage,
+  isTestConnectionMessage,
+  isTestVaultConnectionMessage
+} from '../../shared/types';
 
 export function registerRuntimeMessageListener(): void {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.onMessage) {
+    console.warn('[runtimeMessages] Chrome runtime messaging unavailable; skipping listener registration.');
+    return;
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (isTestConnectionMessage(message)) {
       handleConnectionTest()
+        .then(result => sendResponse(result))
+        .catch((error) => {
+          const msg = error instanceof Error ? error.message : String(error);
+          sendResponse({ success: false, error: msg, message: `连接失败: ${msg}` });
+        });
+      return true;
+    }
+
+    if (isTestVaultConnectionMessage(message)) {
+      handleVaultConnectionTest(message)
         .then(result => sendResponse(result))
         .catch((error) => {
           const msg = error instanceof Error ? error.message : String(error);

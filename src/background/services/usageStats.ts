@@ -2,20 +2,26 @@ import type { ClipPayload } from '../../shared/types';
 import type { UsageStats, UsageStatCategory, UsageStatsHistoryEntry } from '../../shared/types';
 import { USAGE_STATS_STORAGE_KEY, DEFAULT_USAGE_STATS, normalizeUsageStats } from '../../shared/constants';
 
-let memoryStats: UsageStats = { ...DEFAULT_USAGE_STATS };
+let memoryStats: UsageStats = cloneStats(DEFAULT_USAGE_STATS);
 
 export async function getUsageStats(): Promise<UsageStats> {
   const storage = getLocalStorageArea();
   if (!storage) {
-    return {
-      ...memoryStats,
-      history: memoryStats.history.map(entry => ({ ...entry }))
-    };
+    return cloneStats(memoryStats);
   }
 
-  const stored = await storage.get(USAGE_STATS_STORAGE_KEY);
-  const rawValue = stored[USAGE_STATS_STORAGE_KEY];
-  return normalizeUsageStats(rawValue);
+  try {
+    const stored = await storage.get(USAGE_STATS_STORAGE_KEY);
+    const rawValue = stored[USAGE_STATS_STORAGE_KEY];
+    const normalized = normalizeUsageStats(rawValue);
+    updateMemoryStats(normalized);
+    return cloneStats(memoryStats);
+  } catch (error) {
+    if (isRecoverableStorageError(error)) {
+      return cloneStats(memoryStats);
+    }
+    throw error;
+  }
 }
 
 export async function recordClipUsage(payload: ClipPayload): Promise<UsageStats | null> {
@@ -37,28 +43,40 @@ export async function recordClipUsage(payload: ClipPayload): Promise<UsageStats 
 
   const storage = getLocalStorageArea();
   if (storage) {
-    await storage.set({ [USAGE_STATS_STORAGE_KEY]: updated });
-  } else {
-    memoryStats = {
-      ...updated,
-      history: updated.history.map(entry => ({ ...entry }))
-    };
+    try {
+      await storage.set({ [USAGE_STATS_STORAGE_KEY]: updated });
+    } catch (error) {
+      if (!isRecoverableStorageError(error)) {
+        throw error;
+      }
+    }
   }
+  updateMemoryStats(updated);
   return updated;
 }
 
 export async function ensureUsageStatsInitialized(): Promise<void> {
   const storage = getLocalStorageArea();
-  if (storage) {
+  if (!storage) {
+    updateMemoryStats(DEFAULT_USAGE_STATS);
+    return;
+  }
+
+  try {
     const stored = await storage.get(USAGE_STATS_STORAGE_KEY);
     if (!stored[USAGE_STATS_STORAGE_KEY]) {
       await storage.set({ [USAGE_STATS_STORAGE_KEY]: { ...DEFAULT_USAGE_STATS } });
+      updateMemoryStats(DEFAULT_USAGE_STATS);
+      return;
     }
-  } else {
-    memoryStats = {
-      ...DEFAULT_USAGE_STATS,
-      history: []
-    };
+    const normalized = normalizeUsageStats(stored[USAGE_STATS_STORAGE_KEY]);
+    updateMemoryStats(normalized);
+  } catch (error) {
+    if (isRecoverableStorageError(error)) {
+      updateMemoryStats(DEFAULT_USAGE_STATS);
+      return;
+    }
+    throw error;
   }
 }
 
@@ -78,6 +96,28 @@ function getLocalStorageArea(): chrome.storage.LocalStorageArea | null {
     return null;
   }
   return chrome.storage.local;
+}
+
+function cloneStats(stats: UsageStats): UsageStats {
+  return {
+    ...stats,
+    history: Array.isArray(stats.history) ? stats.history.map(entry => ({ ...entry })) : []
+  };
+}
+
+function updateMemoryStats(stats: UsageStats): void {
+  memoryStats = cloneStats(stats);
+}
+
+function isRecoverableStorageError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (!message) {
+    return false;
+  }
+  return message.includes('No SW') || message.includes('No service worker');
 }
 
 function updateHistory(

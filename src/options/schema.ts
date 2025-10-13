@@ -1,6 +1,7 @@
 import { DEFAULT_CLASSIFIER_TAXONOMY, DEFAULT_DOMAIN_MAPPINGS } from './utils/defaults';
 import { renderDomainMappings, collectDomainMappings } from './components/domainMappings';
 import { parseClassifierTaxonomy } from './services/validation';
+import { applyReadingTemplateControls, collectReadingTemplateValue } from './components/readingTemplateControls';
 import type {
   AiChatOptions,
   ClassifierOptions,
@@ -9,6 +10,7 @@ import type {
   ReadingSessionOptions,
   RestOptions,
   TemplateOptions,
+  VideoOptions,
   StoredOptions
 } from '../shared/types/options';
 
@@ -18,6 +20,7 @@ export type OptionSection =
   | 'domainMappings'
   | 'aiChat'
   | 'deepResearch'
+  | 'video'
   | 'readingSession'
   | 'fragmentClipper'
   | 'classifier';
@@ -66,6 +69,7 @@ export interface SectionOptions {
   domainMappings: Record<string, string>;
   aiChat: AiChatOptions;
   deepResearch: DeepResearchOptions;
+  video: VideoOptions;
   readingSession: ReadingSessionOptions;
   fragmentClipper: FragmentClipperOptions;
   classifier: ClassifierOptions;
@@ -77,6 +81,7 @@ export interface SectionStoredOptions {
   domainMappings: StoredOptions['domainMappings'];
   aiChat: StoredOptions['aiChat'];
   deepResearch: StoredOptions['deepResearch'];
+  video: StoredOptions['video'];
   readingSession: StoredOptions['readingSession'];
   fragmentClipper: StoredOptions['fragmentClipper'];
   classifier: StoredOptions['classifier'];
@@ -84,9 +89,15 @@ export interface SectionStoredOptions {
 
 const ARTICLE_TEMPLATE_DEFAULT = 'Articles/{domain}/{yyyy}/{slug}.md';
 const FRAGMENT_TEMPLATE_DEFAULT = 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md';
-const CLIPPER_TEMPLATE_DEFAULT = 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md';
 const READING_TEMPLATE_DEFAULT = 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md';
 const AI_TEMPLATE_DEFAULT = 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md';
+const READER_HIGHLIGHT_THEMES: ReadonlyArray<ReadingSessionOptions['highlightTheme']> = [
+  'gradient',
+  'purple',
+  'neonYellow',
+  'neonGreen',
+  'neonOrange'
+];
 
 export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
   {
@@ -119,7 +130,28 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
     fields: [
       createTextField('templates', 'article', 'tplArticle', ARTICLE_TEMPLATE_DEFAULT),
       createTextField('templates', 'fragment', 'tplFragment', FRAGMENT_TEMPLATE_DEFAULT),
-      createTextField('templates', 'clipper', 'tplClipper', CLIPPER_TEMPLATE_DEFAULT),
+      {
+        kind: 'custom',
+        section: 'templates',
+        optionKey: 'reading',
+        defaultValue: READING_TEMPLATE_DEFAULT,
+        apply: (value, resolvedDefault) => {
+          const templates = value as Partial<TemplateOptions> | undefined;
+          applyReadingTemplateControls({
+            template: templates?.reading,
+            defaultTemplate: resolvedDefault as string,
+            articleDefault: ARTICLE_TEMPLATE_DEFAULT,
+            fragmentDefault: FRAGMENT_TEMPLATE_DEFAULT
+          });
+        },
+        collect: () => {
+          return collectReadingTemplateValue({
+            defaultTemplate: READING_TEMPLATE_DEFAULT,
+            articleDefault: ARTICLE_TEMPLATE_DEFAULT,
+            fragmentDefault: FRAGMENT_TEMPLATE_DEFAULT
+          });
+        }
+      },
       createTextField('templates', 'ai', 'tplAI', AI_TEMPLATE_DEFAULT)
     ],
     finalize: (draft, context) => {
@@ -127,7 +159,6 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
       return {
         article: coerceString(draft.article) || previous?.article || ARTICLE_TEMPLATE_DEFAULT,
         fragment: coerceString(draft.fragment) || previous?.fragment || FRAGMENT_TEMPLATE_DEFAULT,
-        clipper: coerceString(draft.clipper) || previous?.clipper || coerceString(draft.fragment) || FRAGMENT_TEMPLATE_DEFAULT,
         reading: coerceString(draft.reading) || previous?.reading || READING_TEMPLATE_DEFAULT,
         ai: coerceString(draft.ai) || previous?.ai || AI_TEMPLATE_DEFAULT
       };
@@ -181,6 +212,16 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
     }
   },
   {
+    section: 'video',
+    fields: [createCheckboxField('video', 'floatingPromptEnabled', 'videoFloatingPrompt', true)],
+    finalize: (draft, context) => {
+      const previous = (context.previous ?? {}) as Partial<VideoOptions> | undefined;
+      return {
+        floatingPromptEnabled: Boolean(draft.floatingPromptEnabled ?? previous?.floatingPromptEnabled ?? true)
+      };
+    }
+  },
+  {
     section: 'readingSession',
     fields: [
       {
@@ -204,13 +245,93 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
           const raw = (element as HTMLSelectElement).value || fallback;
           return raw as ReadingSessionOptions['exportMode'];
         }
+      },
+      {
+        kind: 'custom',
+        section: 'readingSession',
+        optionKey: 'highlightTheme',
+        defaultValue: 'gradient',
+        apply: (value, resolvedDefault) => {
+          const container = document.getElementById('readingHighlightTheme');
+          if (!(container instanceof HTMLElement)) {
+            return;
+          }
+
+          const fallback = resolvedDefault as ReadingSessionOptions['highlightTheme'];
+          const incoming = typeof value === 'string' ? value : undefined;
+          const initialTheme = incoming && READER_HIGHLIGHT_THEMES.includes(incoming as ReadingSessionOptions['highlightTheme'])
+            ? (incoming as ReadingSessionOptions['highlightTheme'])
+            : fallback;
+
+          const updateSelection = (theme: ReadingSessionOptions['highlightTheme']): void => {
+            const normalized = READER_HIGHLIGHT_THEMES.includes(theme) ? theme : fallback;
+            container.dataset.selectedTheme = normalized;
+            container
+              .querySelectorAll<HTMLButtonElement>('[data-theme]')
+              .forEach((button) => {
+                const buttonTheme = button.dataset.theme as ReadingSessionOptions['highlightTheme'] | undefined;
+                const isCurrent = buttonTheme === normalized;
+                button.classList.toggle('is-selected', isCurrent);
+                button.setAttribute('aria-checked', isCurrent ? 'true' : 'false');
+                button.tabIndex = isCurrent ? 0 : -1;
+              });
+          };
+
+          updateSelection(initialTheme);
+
+          if (!container.dataset.bound) {
+            container.addEventListener('click', (event) => {
+              const target = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-theme]');
+              if (!target) {
+                return;
+              }
+              const theme = target.dataset.theme as ReadingSessionOptions['highlightTheme'] | undefined;
+              if (!theme || !READER_HIGHLIGHT_THEMES.includes(theme)) {
+                return;
+              }
+              updateSelection(theme);
+            });
+
+            container.addEventListener('keydown', (event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+                return;
+              }
+              event.preventDefault();
+              const current = container.dataset.selectedTheme as ReadingSessionOptions['highlightTheme'] | undefined;
+              const currentIndex = current ? READER_HIGHLIGHT_THEMES.indexOf(current) : -1;
+              if (currentIndex === -1) {
+                return;
+              }
+              const isPrevious = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+              const nextIndex = (currentIndex + (isPrevious ? -1 : 1) + READER_HIGHLIGHT_THEMES.length) % READER_HIGHLIGHT_THEMES.length;
+              const nextTheme = READER_HIGHLIGHT_THEMES[nextIndex];
+              updateSelection(nextTheme);
+              container.querySelector<HTMLButtonElement>(`[data-theme="${nextTheme}"]`)?.focus();
+            });
+
+            container.dataset.bound = 'true';
+          }
+        },
+        collect: () => {
+          const container = document.getElementById('readingHighlightTheme');
+          const selected = container?.dataset.selectedTheme as ReadingSessionOptions['highlightTheme'] | undefined;
+          return selected && READER_HIGHLIGHT_THEMES.includes(selected) ? selected : 'gradient';
+        }
       }
     ],
     finalize: (draft, context) => {
       const previous = (context.previous ?? {}) as Partial<ReadingSessionOptions> | undefined;
       const mode = draft.exportMode as ReadingSessionOptions['exportMode'] | undefined;
+      const theme = draft.highlightTheme as ReadingSessionOptions['highlightTheme'] | undefined;
+      const previousTheme = previous?.highlightTheme;
+      const resolvedTheme = theme && READER_HIGHLIGHT_THEMES.includes(theme)
+        ? theme
+        : previousTheme && READER_HIGHLIGHT_THEMES.includes(previousTheme)
+          ? previousTheme
+          : 'gradient';
       return {
-        exportMode: mode || previous?.exportMode || 'highlights'
+        exportMode: mode || previous?.exportMode || 'highlights',
+        highlightTheme: resolvedTheme
       };
     }
   },
@@ -218,21 +339,65 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
     section: 'fragmentClipper',
     fields: [
       createCheckboxField('fragmentClipper', 'useFootnoteFormat', 'fragmentUseFootnote', true),
-      createCheckboxField('fragmentClipper', 'captureContext', 'fragmentCaptureContext', false)
+      createCheckboxField('fragmentClipper', 'captureContext', 'fragmentCaptureContext', false),
+      {
+        ...createCheckboxField('fragmentClipper', 'selectionModifierEnabled', 'fragmentModifierToggle', false),
+        effects: [
+          {
+            type: 'toggleDisplay',
+            targetIds: ['fragmentModifierKeysGroup'],
+            predicate: (value: unknown) => Boolean(value)
+          }
+        ]
+      },
+      {
+        kind: 'custom',
+        section: 'fragmentClipper',
+        optionKey: 'selectionModifierKeys',
+        defaultValue: () => [],
+        apply: (value, resolvedDefault) => {
+          const section = value as Partial<FragmentClipperOptions> | undefined;
+          const configured = Array.isArray(section?.selectionModifierKeys)
+            ? section.selectionModifierKeys
+            : (resolvedDefault as FragmentClipperOptions['selectionModifierKeys']);
+          document
+            .querySelectorAll<HTMLInputElement>('[data-fragment-modifier-key]')
+            .forEach(input => {
+              const key = input.dataset.fragmentModifierKey as FragmentClipperOptions['selectionModifierKeys'][number] | undefined;
+              input.checked = key ? configured.includes(key) : false;
+            });
+        },
+        collect: () => {
+          const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-fragment-modifier-key]'));
+          return inputs
+            .filter(input => input.checked)
+            .map(input => input.dataset.fragmentModifierKey)
+            .filter((key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
+              return key === 'alt' || key === 'meta' || key === 'ctrl' || key === 'shift';
+            });
+        }
+      }
     ],
     finalize: (draft, context) => {
       const previous = (context.previous ?? {}) as Partial<FragmentClipperOptions> | undefined;
       const contextMode = typeof draft.contextMode === 'string'
         ? (draft.contextMode as FragmentClipperOptions['contextMode'])
         : previous?.contextMode ?? 'chars';
+      const selectionModifierKeys = Array.isArray(draft.selectionModifierKeys)
+        ? (draft.selectionModifierKeys as FragmentClipperOptions['selectionModifierKeys'])
+        : previous?.selectionModifierKeys ?? [];
       return {
         useFootnoteFormat: Boolean(draft.useFootnoteFormat ?? previous?.useFootnoteFormat ?? true),
         captureContext: Boolean(draft.captureContext ?? previous?.captureContext ?? false),
         contextLength: typeof draft.contextLength === 'number' ? draft.contextLength : previous?.contextLength ?? 200,
-        contextMode
+        contextMode,
+        selectionModifierEnabled: Boolean(draft.selectionModifierEnabled ?? previous?.selectionModifierEnabled ?? false),
+        selectionModifierKeys: [...selectionModifierKeys]
       };
     }
   },
+  /*
+   * 分类器配置暂时隐藏，保留默认配置即可
   {
     section: 'classifier',
     fields: [
@@ -311,6 +476,7 @@ export const OPTIONS_FORM_SCHEMA: SectionSchema[] = [
       };
     }
   }
+  */
 ];
 
 export function isPrimitiveFieldSchema(field: OptionsFieldSchema): field is PrimitiveFieldSchema<unknown> {

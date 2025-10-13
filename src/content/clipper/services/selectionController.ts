@@ -1,124 +1,163 @@
-import type { FragmentClipperOptions } from '../../../shared/types/options';
-import { ClipperDialog } from '../components/dialog';
 import { extractSelectionClip, type SelectionClipResult } from '../../extractors/selectionExtractor';
-import { ReaderSession, ADD_HIGHLIGHT_EVENT } from '../../reader/session';
+import type { ReaderBootstrapHighlight } from '../../reader/types';
+import type { ClipPromptGateway } from '../application/clipPromptGateway';
+import { ADD_HIGHLIGHT_EVENT } from '../../reader/constants';
+import { loadFragmentConfig } from './fragmentConfig';
 
-const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions = {
-  useFootnoteFormat: true,
-  captureContext: false,
-  contextLength: 200,
-  contextMode: 'chars'
-};
+export interface ReaderSessionAdapter {
+  ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void;
+  start(initialHighlight: ReaderBootstrapHighlight): Promise<void>;
+}
 
-export async function handleSelectionClip(
-  doc: Document,
-  url: string,
-  selection: Selection
-): Promise<SelectionClipResult | null> {
-  if (!selection.rangeCount) {
-    throw new Error('No text selected');
-  }
+export interface VideoSessionAdapter {
+  start(): Promise<void>;
+  ingestTextCapture(selectedHtml: string, selectedText: string, comment: string, selectionRange: Range): void;
+}
 
-  const selectedText = selection.toString().trim();
-  if (!selectedText) {
-    throw new Error('Selected text is empty');
-  }
+export interface SelectionClipDependencies {
+  prompt: ClipPromptGateway;
+  createReaderSession(doc: Document, url: string): ReaderSessionAdapter;
+  createVideoSession(doc: Document): VideoSessionAdapter;
+}
 
-  const range = selection.getRangeAt(0);
-  const savedRange = range.cloneRange();
+export interface SelectionController {
+  handleSelectionClip(doc: Document, url: string, selection: Selection): Promise<SelectionClipResult | null>;
+  handleVideoSelectionClip(doc: Document, url: string, selection: Selection): Promise<void>;
+  handleVideoSelectionClipFromData(
+    doc: Document,
+    url: string,
+    selectedHtml: string,
+    selectedText: string,
+    comment?: string
+  ): Promise<void>;
+}
 
-  const container = document.createElement('div');
-  container.appendChild(range.cloneContents());
-  const selectedHtml = container.innerHTML;
+export function createSelectionController(deps: SelectionClipDependencies): SelectionController {
+  async function handleSelectionClip(
+    doc: Document,
+    url: string,
+    selection: Selection
+  ): Promise<SelectionClipResult | null> {
+    if (!selection.rangeCount) {
+      throw new Error('No text selected');
+    }
 
-  const dialog = new ClipperDialog();
-  const existingSession = window.__aiobReaderController;
-  const readerPanel = doc.getElementById('aiob-reader-panel');
-  const readerFlag = doc.documentElement?.dataset?.aiobReaderActive === 'true';
-  const hasReaderSession = Boolean(existingSession || readerPanel || window.__aiobReaderActive || readerFlag);
-  const dialogResult = await dialog.show(selectedText, {
-    readerModeBehavior: hasReaderSession ? 'append' : 'start',
-    allowReaderMode: true
-  });
-  const action = resolveDialogAction(dialogResult);
-  const comment = (dialogResult.comment ?? '').trim();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+      throw new Error('Selected text is empty');
+    }
 
-  if (action === 'cancel') {
-    selection.removeAllRanges();
-    return null;
-  }
+    const range = selection.getRangeAt(0);
+    const savedRange = range.cloneRange();
 
-  if (action === 'reader') {
-    if (existingSession) {
-      existingSession.ingestExternalHighlight(savedRange, selectedHtml, selectedText, comment);
-    } else if (hasReaderSession) {
-      const event = new CustomEvent(ADD_HIGHLIGHT_EVENT, {
-        detail: {
+    const container = document.createElement('div');
+    container.appendChild(range.cloneContents());
+    const selectedHtml = container.innerHTML;
+
+    const existingSession = window.__aiobReaderController as ReaderSessionAdapter | undefined;
+    const readerPanel = doc.getElementById('aiob-reader-panel');
+    const readerFlag = doc.documentElement?.dataset?.aiobReaderActive === 'true';
+    const hasReaderSession = Boolean(existingSession || readerPanel || window.__aiobReaderActive || readerFlag);
+
+    const promptResult = await deps.prompt.requestSelectionAction({
+      selectedText,
+      allowReaderMode: true,
+      readerModeBehavior: hasReaderSession ? 'append' : 'start'
+    });
+    const action = promptResult.action;
+    const comment = promptResult.comment.trim();
+
+    if (action === 'cancel') {
+      selection.removeAllRanges();
+      return null;
+    }
+
+    if (action === 'reader') {
+      if (existingSession) {
+        existingSession.ingestExternalHighlight(savedRange, selectedHtml, selectedText, comment);
+      } else if (hasReaderSession) {
+        const event = new CustomEvent(ADD_HIGHLIGHT_EVENT, {
+          detail: {
+            range: savedRange,
+            selectedHtml,
+            selectedText,
+            comment
+          }
+        });
+        doc.dispatchEvent(event);
+      } else {
+        const session = deps.createReaderSession(doc, url);
+        await session.start({
           range: savedRange,
           selectedHtml,
           selectedText,
           comment
-        }
-      });
-      doc.dispatchEvent(event);
-    } else {
-      const session = new ReaderSession(doc, url);
-      await session.start({
-        range: savedRange,
-        selectedHtml,
-        selectedText,
-        comment
-      });
+        });
+      }
+      selection.removeAllRanges();
+      return null;
     }
+
+    const fragmentConfig = await loadFragmentConfig();
+
+    return extractSelectionClip({
+      doc,
+      url,
+      selectedHtml,
+      selectedText,
+      userComment: comment,
+      config: fragmentConfig,
+      selectionRange: savedRange
+    });
+  }
+
+  async function handleVideoSelectionClip(
+    doc: Document,
+    url: string,
+    selection: Selection
+  ): Promise<void> {
+    if (!selection.rangeCount) {
+      throw new Error('No text selected');
+    }
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+      throw new Error('Selected text is empty');
+    }
+
+    const range = selection.getRangeAt(0);
+    const savedRange = range.cloneRange();
+
+    const container = document.createElement('div');
+    container.appendChild(range.cloneContents());
+    const selectedHtml = container.innerHTML;
+
+    let session = window.__aiobVideoController as VideoSessionAdapter | undefined;
+    if (!session) {
+      session = deps.createVideoSession(doc);
+      await session.start();
+    }
+
+    session.ingestTextCapture(selectedHtml, selectedText, '', savedRange);
     selection.removeAllRanges();
-    return null;
   }
 
-  const fragmentConfig = await loadFragmentConfig();
+  return {
+    handleSelectionClip,
+    handleVideoSelectionClip,
+    handleVideoSelectionClipFromData: async (doc, url, selectedHtml, selectedText, comment = '') => {
+      const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
+      if (!normalizedText) {
+        throw new Error('Selected text is empty');
+      }
 
-  return extractSelectionClip({
-    doc,
-    url,
-    selectedHtml,
-    selectedText,
-    userComment: comment,
-    config: fragmentConfig,
-    selectionRange: savedRange
-  });
-}
+      let session = window.__aiobVideoController as VideoSessionAdapter | undefined;
+      if (!session) {
+        session = deps.createVideoSession(doc);
+        await session.start();
+      }
 
-async function loadFragmentConfig(): Promise<FragmentClipperOptions> {
-  try {
-    const { options } = await chrome.storage.sync.get('options');
-    const fragmentConfig = options?.fragmentClipper as FragmentClipperOptions | undefined;
-    const merged = {
-      ...DEFAULT_FRAGMENT_CONFIG,
-      ...fragmentConfig
-    };
-    return {
-      useFootnoteFormat: merged.useFootnoteFormat,
-      captureContext: merged.captureContext,
-      contextLength: 200,
-      contextMode: 'chars'
-    };
-  } catch (error) {
-    console.warn('[selectionController] Failed to load fragment config:', error);
-    return DEFAULT_FRAGMENT_CONFIG;
-  }
-}
-
-interface DialogLikeResult {
-  action?: string;
-  confirmed?: boolean;
-  comment?: string;
-}
-
-function resolveDialogAction(result: DialogLikeResult): 'clip' | 'cancel' | 'reader' {
-  if (result.action === 'reader') {
-    return 'reader';
-  }
-  if (result.action === 'cancel' || result.confirmed === false) {
-    return 'cancel';
-  }
-  return 'clip';
+      session.ingestTextCapture(selectedHtml, normalizedText, comment, undefined);
+    }
+  };
 }

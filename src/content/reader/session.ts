@@ -1,8 +1,13 @@
-import { ClipperDialog } from '../clipper/components/dialog';
+import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { InlineStyleManager } from '../clipper/shared/styleManager';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { READER_STYLES } from './styles';
-import { ReaderPanel, ReaderPanelTexts } from './ui/panel';
+import type { ReaderPanelHighlight, ReaderPanelTexts } from './application/readerPanelModel';
+import type {
+  ReaderSessionView,
+  ReaderSessionViewFactory
+} from './application/readerSessionView';
+import { createReaderPanelViewFactory } from './presentation/readerPanelView';
 import {
   buildReaderHighlightsMarkdown,
   buildReaderFullMarkdown,
@@ -10,7 +15,21 @@ import {
   type ReaderMarkdownPayload
 } from './utils/markdownBuilder';
 import { getMessages } from '../../i18n';
-import type { ReadingSessionOptions } from '../../shared/types/options';
+import type {
+  ReaderHighlightTheme,
+  ReadingSessionOptions,
+  StoredOptions
+} from '../../shared/types/options';
+import {
+  DEFAULT_FRAGMENT_CONFIG,
+  createModifierState,
+  loadFragmentConfig,
+  resetModifierState,
+  shouldTriggerSelectionWithModifiers,
+  syncModifierState
+} from '../clipper/services/fragmentConfig';
+import { ADD_HIGHLIGHT_EVENT } from './constants';
+import type { ReaderBootstrapHighlight } from './types';
 
 interface ReaderHighlight {
   id: string;
@@ -20,13 +39,6 @@ interface ReaderHighlight {
   fragmentUrl: string;
   wrapper: HTMLElement;
   footnoteIndex?: number;
-}
-
-export interface ReaderBootstrapHighlight {
-  range: Range;
-  selectedHtml: string;
-  selectedText: string;
-  comment: string;
 }
 
 interface SessionMessages {
@@ -45,7 +57,14 @@ const DEFAULT_SESSION_MESSAGES: SessionMessages = {
     counterZero: 'Collected 0 highlights',
     finish: 'Finish & export',
     cancel: 'Cancel',
-    hint: 'Tip: release the mouse to open the annotation dialog; leave it blank to save highlight only.'
+    hint: 'Tip: release the mouse to open the annotation dialog; leave it blank to save highlight only.',
+    highlightEditLabel: 'Edit note',
+    highlightDeleteLabel: 'Remove highlight',
+    highlightNoComment: 'No note yet',
+    highlightSaveLabel: 'Save note',
+    highlightCancelLabel: 'Cancel',
+    highlightEditPlaceholder: 'Update the note here...',
+    highlightFocusLabel: 'Jump to highlight {index}'
   },
   hintNoHighlights: 'No highlights yet. Select some text first.',
   hintExporting: 'Generating Markdown...',
@@ -53,21 +72,52 @@ const DEFAULT_SESSION_MESSAGES: SessionMessages = {
   hintSelectionFailure: 'Failed to highlight, please try again.'
 };
 
-const DEFAULT_READING_CONFIG: ReadingSessionOptions = {
-  exportMode: 'highlights'
+export interface ReaderSessionDependencies {
+  viewFactory: ReaderSessionViewFactory;
+}
+
+const defaultReaderSessionDependencies: ReaderSessionDependencies = {
+  viewFactory: createReaderPanelViewFactory()
 };
+
+const DEFAULT_READING_CONFIG: ReadingSessionOptions = {
+  exportMode: 'highlights',
+  highlightTheme: 'gradient'
+};
+
+const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
+  'gradient',
+  'purple',
+  'neonYellow',
+  'neonGreen',
+  'neonOrange'
+];
+
+function resolveHighlightTheme(theme: unknown): ReaderHighlightTheme {
+  return AVAILABLE_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
+    ? (theme as ReaderHighlightTheme)
+    : DEFAULT_READING_CONFIG.highlightTheme;
+}
+
+function resolveReadingConfig(raw?: Partial<ReadingSessionOptions> | null): ReadingSessionOptions {
+  if (!raw) {
+    return { ...DEFAULT_READING_CONFIG };
+  }
+  return {
+    exportMode: raw.exportMode === 'full' ? 'full' : DEFAULT_READING_CONFIG.exportMode,
+    highlightTheme: resolveHighlightTheme(raw.highlightTheme)
+  };
+}
 
 async function loadReadingConfig(): Promise<ReadingSessionOptions> {
   try {
     const { options } = await chrome.storage.sync.get('options');
-    const reading = options?.readingSession as ReadingSessionOptions | undefined;
-    if (reading?.exportMode === 'full') {
-      return { exportMode: 'full' };
-    }
+    const reading = options?.readingSession as Partial<ReadingSessionOptions> | undefined;
+    return resolveReadingConfig(reading);
   } catch (error) {
     console.warn('[ReaderSession] Failed to load reading config, using defaults:', error);
   }
-  return DEFAULT_READING_CONFIG;
+  return { ...DEFAULT_READING_CONFIG };
 }
 
 declare global {
@@ -77,8 +127,6 @@ declare global {
   }
 }
 
-export const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
-
 interface ExternalHighlightPayload {
   range: Range;
   selectedHtml: string;
@@ -87,15 +135,31 @@ interface ExternalHighlightPayload {
 }
 
 export class ReaderSession {
+  private readonly clipPrompt: ClipPromptGateway;
   private highlights: ReaderHighlight[] = [];
-  private panel: ReaderPanel | null = null;
+  private panel: ReaderSessionView | null = null;
   private styleManager: InlineStyleManager;
   private handlingSelection = false;
   private exporting = false;
   private messages: SessionMessages = DEFAULT_SESSION_MESSAGES;
   private externalHighlightHandler: ((event: Event) => void) | null = null;
+  private highlightFocusTimeout: number | null = null;
+  private fragmentConfig = DEFAULT_FRAGMENT_CONFIG;
+  private storageChangeHandler: ((changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void) | null = null;
+  private modifierState = createModifierState();
+  private selectionModifierActive = false;
+  private modifierKeyHandler: ((event: KeyboardEvent) => void) | null = null;
+  private windowBlurHandler: (() => void) | null = null;
+  private selectionStartHandler: ((event: MouseEvent) => void) | null = null;
+  private readingConfig: ReadingSessionOptions = { ...DEFAULT_READING_CONFIG };
 
-  constructor(private readonly doc: Document, private readonly url: string) {
+  constructor(
+    private readonly doc: Document,
+    private readonly url: string,
+    clipPromptGateway: ClipPromptGateway,
+    private readonly dependencies: ReaderSessionDependencies = defaultReaderSessionDependencies
+  ) {
+    this.clipPrompt = clipPromptGateway;
     this.styleManager = new InlineStyleManager(doc);
   }
 
@@ -107,6 +171,9 @@ export class ReaderSession {
     window.__aiobReaderActive = true;
     this.doc.documentElement.dataset.aiobReaderActive = 'true';
 
+    const fragmentConfigPromise = loadFragmentConfig().catch(() => DEFAULT_FRAGMENT_CONFIG);
+    const readingConfigPromise = loadReadingConfig().catch(() => ({ ...DEFAULT_READING_CONFIG }));
+
     try {
       const msgs = await getMessages();
       this.messages = {
@@ -117,7 +184,14 @@ export class ReaderSession {
           counterZero: msgs.readerPanelCounterZero,
           finish: msgs.readerPanelFinish,
           cancel: msgs.readerPanelCancel,
-          hint: msgs.readerPanelHint
+          hint: msgs.readerPanelHint,
+          highlightEditLabel: msgs.readerHighlightEditLabel,
+          highlightDeleteLabel: msgs.readerHighlightDeleteLabel,
+          highlightNoComment: msgs.readerHighlightNoComment,
+          highlightSaveLabel: msgs.readerHighlightSaveLabel,
+          highlightCancelLabel: msgs.readerHighlightCancelLabel,
+          highlightEditPlaceholder: msgs.readerHighlightEditPlaceholder,
+          highlightFocusLabel: msgs.readerHighlightFocusLabel
         },
         hintNoHighlights: msgs.readerHintNoHighlights,
         hintExporting: msgs.readerHintExporting,
@@ -129,14 +203,80 @@ export class ReaderSession {
       this.messages = DEFAULT_SESSION_MESSAGES;
     }
 
+    this.fragmentConfig = await fragmentConfigPromise;
+    this.readingConfig = await readingConfigPromise;
+    this.applyHighlightTheme(this.readingConfig.highlightTheme);
+    if (!this.fragmentConfig.selectionModifierEnabled) {
+      this.selectionModifierActive = false;
+      resetModifierState(this.modifierState);
+    }
+
+    if (chrome?.storage?.onChanged?.addListener) {
+      this.storageChangeHandler = (changes, areaName) => {
+        if (areaName !== 'sync' || !changes.options) {
+          return;
+        }
+        void loadFragmentConfig()
+          .then((config) => {
+            this.fragmentConfig = config;
+            if (!this.fragmentConfig.selectionModifierEnabled) {
+              this.selectionModifierActive = false;
+              resetModifierState(this.modifierState);
+            }
+          })
+          .catch(() => {
+            this.fragmentConfig = DEFAULT_FRAGMENT_CONFIG;
+          });
+        const newOptions = (changes.options.newValue ?? null) as StoredOptions | null;
+        if (newOptions && Object.prototype.hasOwnProperty.call(newOptions, 'readingSession')) {
+          const nextReadingConfig = resolveReadingConfig(newOptions.readingSession as Partial<ReadingSessionOptions> | undefined);
+          this.readingConfig = nextReadingConfig;
+          this.applyHighlightTheme(nextReadingConfig.highlightTheme);
+        }
+      };
+      chrome.storage.onChanged.addListener(this.storageChangeHandler);
+    } else {
+      this.storageChangeHandler = null;
+    }
+
     this.styleManager.mount(READER_STYLES);
 
-    this.panel = new ReaderPanel({
+    this.panel = this.dependencies.viewFactory.createView({
       onFinish: () => void this.finish(),
-      onCancel: () => this.cancel()
+      onCancel: () => this.cancel(),
+      onDeleteHighlight: (id) => this.removeHighlightById(id),
+      onSubmitHighlightEdit: (id, comment) => this.submitHighlightEdit(id, comment),
+      onFocusHighlight: (id) => this.focusHighlight(id)
     }, this.messages.panel);
     this.panel.updateCount(0);
+    this.panel.setHighlights([]);
 
+    this.selectionStartHandler = (event: MouseEvent) => {
+      if (event.button !== 0) {
+        this.selectionModifierActive = false;
+        return;
+      }
+      syncModifierState(this.modifierState, event);
+      if (!this.fragmentConfig.selectionModifierEnabled) {
+        this.selectionModifierActive = false;
+        return;
+      }
+      this.selectionModifierActive = shouldTriggerSelectionWithModifiers(this.fragmentConfig, this.modifierState);
+    };
+
+    this.modifierKeyHandler = (event: KeyboardEvent) => {
+      syncModifierState(this.modifierState, event);
+    };
+
+    this.windowBlurHandler = () => {
+      resetModifierState(this.modifierState);
+      this.selectionModifierActive = false;
+    };
+
+    this.doc.addEventListener('mousedown', this.selectionStartHandler, true);
+    this.doc.addEventListener('keydown', this.modifierKeyHandler, true);
+    this.doc.addEventListener('keyup', this.modifierKeyHandler, true);
+    this.doc.defaultView?.addEventListener('blur', this.windowBlurHandler, true);
     this.doc.addEventListener('mouseup', this.handleMouseUp, true);
     this.doc.addEventListener('keydown', this.handleKeydown, true);
 
@@ -164,8 +304,11 @@ export class ReaderSession {
     window.__aiobReaderController = this;
   }
 
-  private handleMouseUp = async (_event: MouseEvent): Promise<void> => {
+  private handleMouseUp = async (event: MouseEvent): Promise<void> => {
     if (this.handlingSelection || this.exporting) {
+      return;
+    }
+    if (event.button !== 0) {
       return;
     }
 
@@ -189,6 +332,15 @@ export class ReaderSession {
       return;
     }
 
+    syncModifierState(this.modifierState, event);
+    const modifierRequired = this.fragmentConfig.selectionModifierEnabled;
+    const modifiersSatisfied = this.selectionModifierActive
+      || shouldTriggerSelectionWithModifiers(this.fragmentConfig, this.modifierState);
+    if (modifierRequired && !modifiersSatisfied) {
+      this.selectionModifierActive = false;
+      return;
+    }
+
     const range = selection.getRangeAt(0);
     const savedRange = range.cloneRange();
 
@@ -199,25 +351,32 @@ export class ReaderSession {
     this.handlingSelection = true;
 
     try {
-      const dialog = new ClipperDialog();
-      const dialogResult = await dialog.show(selectedText, { allowReaderMode: false });
-      if (dialogResult.action !== 'clip') {
+      const promptResult = await this.clipPrompt.requestSelectionAction({
+        selectedText,
+        allowReaderMode: false,
+        readerModeBehavior: 'start'
+      });
+      if (promptResult.action !== 'clip') {
         selection.removeAllRanges();
         return;
       }
 
-      this.addHighlightFromRange(savedRange, selectedHtml, selectedText, dialogResult.comment.trim());
+      this.addHighlightFromRange(savedRange, selectedHtml, selectedText, promptResult.comment.trim());
       selection.removeAllRanges();
     } catch (error) {
       console.error('[ReaderSession] Failed to capture selection:', error);
       this.panel?.updateHint(this.messages.hintSelectionFailure);
     } finally {
       this.handlingSelection = false;
+      this.selectionModifierActive = false;
     }
   };
 
   private handleKeydown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
+      if (this.panel?.isEditing()) {
+        return;
+      }
       event.preventDefault();
       this.cancel();
       return;
@@ -286,6 +445,7 @@ export class ReaderSession {
     });
     this.panel?.updateCount(this.highlights.length);
     this.panel?.updateHint(this.messages.panel.hint);
+    this.syncHighlightsUi();
   }
 
   ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void {
@@ -356,6 +516,7 @@ export class ReaderSession {
 
     try {
       const readingConfig = await loadReadingConfig();
+      this.readingConfig = readingConfig;
       const highlightRecords = this.prepareHighlightsForExport();
       const pageTitle = this.doc.title || new URL(this.url).hostname;
 
@@ -396,10 +557,29 @@ export class ReaderSession {
   private cleanup(): void {
     this.doc.removeEventListener('mouseup', this.handleMouseUp, true);
     this.doc.removeEventListener('keydown', this.handleKeydown, true);
+    if (this.selectionStartHandler) {
+      this.doc.removeEventListener('mousedown', this.selectionStartHandler, true);
+      this.selectionStartHandler = null;
+    }
+    if (this.modifierKeyHandler) {
+      this.doc.removeEventListener('keydown', this.modifierKeyHandler, true);
+      this.doc.removeEventListener('keyup', this.modifierKeyHandler, true);
+      this.modifierKeyHandler = null;
+    }
+    if (this.windowBlurHandler) {
+      this.doc.defaultView?.removeEventListener('blur', this.windowBlurHandler, true);
+      this.windowBlurHandler = null;
+    }
     if (this.externalHighlightHandler) {
       this.doc.removeEventListener(ADD_HIGHLIGHT_EVENT, this.externalHighlightHandler as EventListener);
       this.externalHighlightHandler = null;
     }
+    if (this.storageChangeHandler && chrome?.storage?.onChanged?.removeListener) {
+      chrome.storage.onChanged.removeListener(this.storageChangeHandler);
+      this.storageChangeHandler = null;
+    }
+    resetModifierState(this.modifierState);
+    this.selectionModifierActive = false;
 
     for (const highlight of this.highlights) {
       this.unwrapHighlight(highlight.wrapper);
@@ -413,8 +593,13 @@ export class ReaderSession {
     window.__aiobReaderActive = false;
     window.__aiobReaderController = undefined;
     delete this.doc.documentElement.dataset.aiobReaderActive;
+    delete this.doc.documentElement.dataset.aiobReaderHighlight;
     this.exporting = false;
     this.handlingSelection = false;
+    if (this.highlightFocusTimeout !== null) {
+      window.clearTimeout(this.highlightFocusTimeout);
+      this.highlightFocusTimeout = null;
+    }
 
     const selection = window.getSelection();
     selection?.removeAllRanges();
@@ -446,5 +631,140 @@ export class ReaderSession {
         resolve();
       });
     });
+  }
+
+  private sortHighlightsByDocumentOrder(): void {
+    this.highlights.sort((a, b) => {
+      if (a.wrapper === b.wrapper) {
+        return 0;
+      }
+      if (!a.wrapper.isConnected) {
+        return 1;
+      }
+      if (!b.wrapper.isConnected) {
+        return -1;
+      }
+      const position = a.wrapper.compareDocumentPosition(b.wrapper);
+      if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+        return 1;
+      }
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return -1;
+      }
+      return 0;
+    });
+  }
+
+  private buildExcerpt(text: string, limit = 80): string {
+    const normalized = this.normalizeSelectedText(text);
+    if (!normalized) {
+      return '[empty]';
+    }
+    if (normalized.length <= limit) {
+      return normalized;
+    }
+    return `${normalized.slice(0, limit - 3)}...`;
+  }
+
+  private buildCommentPreview(comment: string, limit = 120): string {
+    const normalized = comment.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.length <= limit) {
+      return normalized;
+    }
+    return `${normalized.slice(0, limit - 3)}...`;
+  }
+
+  private applyHighlightTheme(theme: ReaderHighlightTheme): void {
+    this.doc.documentElement.dataset.aiobReaderHighlight = theme;
+  }
+
+  private syncHighlightsUi(): void {
+    this.sortHighlightsByDocumentOrder();
+    const panelHighlights: ReaderPanelHighlight[] = this.highlights.map((highlight, index) => ({
+      id: highlight.id,
+      excerpt: this.buildExcerpt(highlight.selectedText),
+      comment: highlight.comment,
+      fullText: this.normalizeSelectedText(highlight.selectedText),
+      commentPreview: this.buildCommentPreview(highlight.comment),
+      index: index + 1
+    }));
+    this.panel?.setHighlights(panelHighlights);
+  }
+
+  private focusHighlight(id: string): void {
+    const highlight = this.highlights.find((item) => item.id === id);
+    if (!highlight) {
+      return;
+    }
+    const { wrapper } = highlight;
+    if (!wrapper.isConnected) {
+      return;
+    }
+
+    try {
+      wrapper.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    } catch {
+      wrapper.scrollIntoView();
+    }
+
+    if (this.highlightFocusTimeout !== null) {
+      window.clearTimeout(this.highlightFocusTimeout);
+      this.highlightFocusTimeout = null;
+    }
+    this.doc.querySelectorAll<HTMLElement>('.aiob-reader-highlight--focus').forEach((element) => {
+      element.classList.remove('aiob-reader-highlight--focus');
+    });
+    wrapper.classList.add('aiob-reader-highlight--focus');
+    this.highlightFocusTimeout = window.setTimeout(() => {
+      wrapper.classList.remove('aiob-reader-highlight--focus');
+      this.highlightFocusTimeout = null;
+    }, 1600);
+  }
+
+  private removeHighlightById(id: string): void {
+    if (this.exporting) {
+      return;
+    }
+    const index = this.highlights.findIndex((highlight) => highlight.id === id);
+    if (index === -1) {
+      return;
+    }
+    const [removed] = this.highlights.splice(index, 1);
+    this.unwrapHighlight(removed.wrapper);
+    this.panel?.updateCount(this.highlights.length);
+    this.panel?.updateHint(this.highlights.length ? this.messages.panel.hint : this.messages.hintNoHighlights);
+    this.syncHighlightsUi();
+  }
+
+  private submitHighlightEdit(id: string, nextComment: string): void {
+    if (this.exporting) {
+      return;
+    }
+    const highlight = this.highlights.find((item) => item.id === id);
+    if (!highlight) {
+      this.panel?.stopEditing();
+      return;
+    }
+
+    const trimmedComment = nextComment.trim();
+    highlight.comment = trimmedComment;
+    highlight.footnoteIndex = undefined;
+    delete highlight.wrapper.dataset.readerFootnote;
+    if (trimmedComment) {
+      highlight.wrapper.dataset.readerComment = trimmedComment;
+    } else {
+      delete highlight.wrapper.dataset.readerComment;
+    }
+
+    this.panel?.updateHint(this.messages.panel.hint);
+    this.syncHighlightsUi();
+    this.panel?.stopEditing();
+  }
+
+  private normalizeSelectedText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
   }
 }

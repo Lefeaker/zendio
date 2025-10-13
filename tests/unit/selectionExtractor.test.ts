@@ -36,7 +36,9 @@ describe('selectionExtractor', () => {
         useFootnoteFormat: false,
         captureContext: false,
         contextLength: 200,
-        contextMode: 'chars'
+        contextMode: 'chars',
+        selectionModifierEnabled: false,
+        selectionModifierKeys: []
       },
       selectionRange: range
     });

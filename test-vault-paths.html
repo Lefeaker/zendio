@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>REST Vault Path Tester</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 2rem auto;
+      max-width: 720px;
+      padding: 0 1rem;
+      color: #1f2933;
+      background: #f8f9fc;
+    }
+    h1 {
+      margin-bottom: 1.5rem;
+      font-size: 1.75rem;
+    }
+    fieldset {
+      border: 1px solid #d2d6dc;
+      border-radius: 10px;
+      padding: 1.5rem;
+      background: #ffffff;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cbd5f5;
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      background: #f7f9ff;
+      transition: border-color 0.18s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #7c5dfa;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(124, 93, 250, 0.15);
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.4rem;
+      background: linear-gradient(135deg, #7c5dfa, #41b4ff);
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 12px 25px rgba(124, 93, 250, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 30px rgba(124, 93, 250, 0.45);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    textarea {
+      height: 220px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, SFMono, 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    }
+    .note {
+      font-size: 0.88rem;
+      color: #64748b;
+      margin-top: -0.4rem;
+      margin-bottom: 1rem;
+    }
+    code {
+      background: rgba(124, 93, 250, 0.12);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }
+    .result-ok {
+      color: #038373;
+    }
+    .result-error {
+      color: #d92d20;
+    }
+    ul {
+      padding-left: 1.2rem;
+      margin: 0.6rem 0 1rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <h1>Obsidian Local REST 路径测试</h1>
+
+  <fieldset>
+    <legend>测试配置</legend>
+    <label for="baseUrl">Base URL</label>
+    <input id="baseUrl" type="text" placeholder="例如：https://127.0.0.1:27124" value="https://127.0.0.1:27124">
+
+    <label for="vault">Vault 名称 / ID</label>
+    <input id="vault" type="text" placeholder="Obsidian Local REST 插件里的 vault id，例如：test">
+
+    <label for="relativePath">仓库内相对路径</label>
+    <input id="relativePath" type="text" placeholder="Fragments/2025/10/11/sample.md">
+
+    <label for="apiKey">API Key（可选）</label>
+    <input id="apiKey" type="password" placeholder="如果插件启用了鉴权，请填写">
+
+    <label>HTTP 方法</label>
+    <div style="display:flex; gap:1.5rem; margin-bottom:0.8rem;">
+      <label style="font-weight:500;">
+        <input type="radio" name="method" value="PUT" checked>
+        PUT（写入测试）
+      </label>
+      <label style="font-weight:500;">
+        <input type="radio" name="method" value="GET">
+        GET（读取测试）
+      </label>
+    </div>
+
+    <label for="payload">写入内容（仅 PUT 使用）</label>
+    <textarea id="payload"># REST 写入测试
+
+- 时间：${new Date().toISOString()}
+- 生成自 test-vault-paths.html</textarea>
+    <p class="note">
+      说明：如果选择 GET，请确保目标文件已存在，否则返回 404 属于正常行为。PUT 会尝试写入该文件，成功会在仓库中生成对应 Markdown。
+    </p>
+
+    <p class="note">
+      点击下方按钮后会按所选方法依次测试以下几种 URL：<br>
+    </p>
+    <ul>
+      <li><code>{base}/{relativePath}</code></li>
+      <li><code>{base}/{vault}/{relativePath}</code></li>
+      <li><code>{base}/vault/{relativePath}</code></li>
+      <li><code>{base}/vault/{vault}/{relativePath}</code>（官方规范）</li>
+    </ul>
+  </fieldset>
+
+  <button id="runBtn">开始测试</button>
+
+  <fieldset>
+    <legend>测试结果</legend>
+    <textarea id="output" readonly></textarea>
+  </fieldset>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+
+    function stripTrailingSlash(value) {
+      return value.replace(/\/+$/, '');
+    }
+
+    function sanitizePath(value) {
+      return value.replace(/^[\\/]+/, '').replace(/[\\/]+/g, '/');
+    }
+
+    async function runTests() {
+      const baseUrl = $('#baseUrl').value.trim();
+      const vault = $('#vault').value.trim();
+      const rel = sanitizePath($('#relativePath').value.trim());
+      const apiKey = $('#apiKey').value.trim();
+      const method = document.querySelector('input[name="method"]:checked')?.value ?? 'PUT';
+      const bodyPayload = $('#payload').value;
+      const output = $('#output');
+
+      output.value = '';
+
+      if (!baseUrl || !rel) {
+        output.value = '⚠️ Base URL 和 相对路径 都必须填写。\n';
+        return;
+      }
+
+      const urls = [];
+      const base = stripTrailingSlash(baseUrl);
+
+      urls.push({
+        label: '直接路径',
+        url: `${base}/${rel}`
+      });
+
+      if (vault) {
+        urls.push({
+          label: 'Base + Vault 名称',
+          url: `${base}/${vault}/${rel}`
+        });
+      }
+
+      urls.push({
+        label: 'Base + /vault/',
+        url: `${base}/vault/${rel}`
+      });
+
+      if (vault) {
+        urls.push({
+          label: '官方规范 /vault/{vault}/',
+          url: `${base}/vault/${vault}/${rel}`
+        });
+      }
+
+      const headers = {};
+      if (apiKey) {
+        headers.Authorization = `Bearer ${apiKey}`;
+      }
+
+      $('#runBtn').disabled = true;
+
+      for (const item of urls) {
+        output.value += `▶️ ${item.label}  —  ${method}\n`;
+        output.value += `URL: ${item.url}\n`;
+        try {
+          const requestInit = { method, headers };
+          if (method === 'PUT') {
+            requestInit.body = bodyPayload || `# REST 写入测试\n\n生成于 ${new Date().toISOString()}`;
+            headers['Content-Type'] = 'text/markdown; charset=utf-8';
+          }
+
+          const res = await fetch(item.url, requestInit);
+          const textSnippet = await res.text().catch(() => '');
+          const snippet = textSnippet ? `Body 前 120 字符: ${textSnippet.slice(0, 120)}\n` : '';
+          const statusLine = `状态: ${res.status} ${res.statusText}`;
+          const statusMark = res.ok ? '✅' : (res.status >= 400 ? '❌' : '⚠️');
+          output.value += `${statusMark} ${statusLine}\n${snippet}\n`;
+        } catch (error) {
+          output.value += `❌ 请求失败: ${error instanceof Error ? error.message : String(error)}\n\n`;
+        }
+      }
+
+      $('#runBtn').disabled = false;
+    }
+
+    $('#runBtn').addEventListener('click', () => {
+      void runTests();
+    });
+  </script>
+</body>
+</html>

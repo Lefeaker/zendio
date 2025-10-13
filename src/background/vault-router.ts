@@ -19,7 +19,7 @@ export class VaultRouter {
    */
   selectVault(context: ClipContext): VaultConfig | null {
     // 1. 按优先级排序规则
-    const sortedRules = [...this.config.rules]
+    const sortedRules = this.getActiveRules()
       .filter(rule => rule.enabled)
       .sort((a, b) => b.priority - a.priority);
 
@@ -62,18 +62,22 @@ export class VaultRouter {
    * 支持精确匹配和通配符
    */
   private matchDomain(pattern: string, domain: string): boolean {
-    // 精确匹配
-    if (pattern === domain) {
-      return true;
+    const normalizedDomain = domain.trim().toLowerCase();
+
+    if (!normalizedDomain) {
+      return false;
     }
 
-    // 通配符匹配 (*.example.com)
-    if (pattern.startsWith('*.')) {
-      const suffix = pattern.substring(2);
-      return domain.endsWith(suffix) || domain === suffix;
+    const candidates = pattern
+      .split(';')
+      .map(part => part.trim().toLowerCase())
+      .filter(part => part.length > 0);
+
+    if (candidates.length === 0) {
+      return false;
     }
 
-    return false;
+    return candidates.some(candidate => this.matchSingleDomainPattern(candidate, normalizedDomain));
   }
 
   /**
@@ -94,6 +98,39 @@ export class VaultRouter {
 
     // 任意关键词匹配即可
     return keywords.some(keyword => searchText.includes(keyword));
+  }
+
+  private matchSingleDomainPattern(pattern: string, normalizedDomain: string): boolean {
+    if (pattern.includes('*')) {
+      try {
+        const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+        const regex = new RegExp(`^${escaped}$`, 'i');
+        return regex.test(normalizedDomain);
+      } catch (error) {
+        console.error('[VaultRouter] Invalid wildcard pattern:', pattern, error);
+        return false;
+      }
+    }
+
+    if (normalizedDomain === pattern) {
+      return true;
+    }
+
+    if (normalizedDomain.endsWith(`.${pattern}`)) {
+      return true;
+    }
+
+    const index = normalizedDomain.indexOf(pattern);
+    if (index !== -1) {
+      const before = index === 0 || normalizedDomain[index - 1] === '.';
+      const afterIndex = index + pattern.length;
+      const after = afterIndex === normalizedDomain.length || normalizedDomain[afterIndex] === '.';
+      if (before && after) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -151,7 +188,7 @@ export class VaultRouter {
    * 获取所有规则
    */
   getAllRules(): RoutingRule[] {
-    return this.config.rules;
+    return this.getActiveRules().map(rule => ({ ...rule }));
   }
 
   /**
@@ -173,7 +210,7 @@ export class VaultRouter {
     }
 
     // 检查规则引用的仓库是否存在
-    for (const rule of this.config.rules) {
+    for (const rule of this.getActiveRules()) {
       if (!this.config.vaults.find(v => v.id === rule.vaultId)) {
         errors.push(`规则 "${rule.description || rule.id}" 引用了不存在的仓库: ${rule.vaultId}`);
       }
@@ -189,6 +226,34 @@ export class VaultRouter {
       errors
     };
   }
+  /**
+   * 获取合并后的规则列表，兼容旧版配置结构
+   */
+  private getActiveRules(): RoutingRule[] {
+    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
+
+    const rulesFromVaults = this.config.vaults.flatMap(vault =>
+      (vault.rules ?? []).map(rule => ({
+        ...rule,
+        vaultId: rule.vaultId ?? vault.id
+      }))
+    );
+
+    const merged = [...legacyRules, ...rulesFromVaults];
+    const seen = new Set<string>();
+
+    return merged.filter(rule => {
+      if (!rule.id) {
+        return true;
+      }
+      if (seen.has(rule.id)) {
+        return false;
+      }
+      seen.add(rule.id);
+      return true;
+    });
+  }
+
 }
 
 /**
@@ -213,10 +278,10 @@ export function createDefaultVaultRouterConfig(): VaultRouterConfig {
         httpUrl: 'http://127.0.0.1:27123/',
         vault: 'YourVault',
         apiKey: '',
-        isDefault: true
+        isDefault: true,
+        rules: []
       }
     ],
-    rules: [],
     defaultVaultId
   };
 }
@@ -236,10 +301,10 @@ export function migrateFromLegacyConfig(legacyRest: any): VaultRouterConfig {
         httpUrl: legacyRest.httpUrl || 'http://127.0.0.1:27123/',
         vault: legacyRest.vault || 'YourVault',
         apiKey: legacyRest.apiKey || '',
-        isDefault: true
+        isDefault: true,
+        rules: []
       }
     ],
-    rules: [],
     defaultVaultId: vaultId
   };
 }

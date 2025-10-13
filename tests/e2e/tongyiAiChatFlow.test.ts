@@ -114,7 +114,8 @@ describe('tongyi ai chat integration', () => {
           httpUrl: 'http://default.local:27123/',
           vault: 'Default',
           apiKey: 'default-key',
-          isDefault: true
+          isDefault: true,
+          rules: []
         },
         {
           id: 'tongyi-ai',
@@ -122,17 +123,17 @@ describe('tongyi ai chat integration', () => {
           httpsUrl: 'https://tongyi.local:27124/',
           httpUrl: 'http://tongyi.local:27123/',
           vault: 'TongyiAI',
-          apiKey: 'tongyi-key'
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-tongyi',
-          vaultId: 'tongyi-ai',
-          type: 'domain',
-          pattern: '*.tongyi.aliyun.com',
-          enabled: true,
-          priority: 90
+          apiKey: 'tongyi-key',
+          rules: [
+            {
+              id: 'rule-tongyi',
+              vaultId: 'tongyi-ai',
+              type: 'domain',
+              pattern: 'tongyi.aliyun.com',
+              enabled: true,
+              priority: 90
+            }
+          ]
         }
       ],
       defaultVaultId: 'default'

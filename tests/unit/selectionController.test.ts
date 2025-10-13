@@ -3,33 +3,34 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const extractSelectionClipMock = vi.fn();
-let dialogShowMock: ReturnType<typeof vi.fn>;
+let promptMock: ReturnType<typeof vi.fn>;
 
 const storageGetMock = vi.fn();
 const storageSyncMock = {
   get: storageGetMock
+};
+const storageAddListenerMock = vi.fn();
+const storageRemoveListenerMock = vi.fn();
+const storageOnChangedMock = {
+  addListener: storageAddListenerMock,
+  removeListener: storageRemoveListenerMock
 };
 
 vi.mock('../../src/content/extractors/selectionExtractor', () => ({
   extractSelectionClip: extractSelectionClipMock
 }));
 
-vi.mock('../../src/content/clipper/components/dialog', () => ({
-  ClipperDialog: vi.fn().mockImplementation(() => ({
-    show: (selectedText: string) => dialogShowMock(selectedText)
-  }))
-}));
-
 describe('content selectionController service', () => {
   beforeEach(() => {
-    dialogShowMock = vi.fn();
+    promptMock = vi.fn();
     extractSelectionClipMock.mockReset();
     storageGetMock.mockReset();
     storageGetMock.mockResolvedValue({ options: {} });
 
     globalThis.chrome = {
       storage: {
-        sync: storageSyncMock as unknown as typeof chrome.storage.sync
+        sync: storageSyncMock as unknown as typeof chrome.storage.sync,
+        onChanged: storageOnChangedMock as unknown as typeof chrome.storage.onChanged
       }
     } as unknown as typeof chrome;
   });
@@ -55,19 +56,39 @@ describe('content selectionController service', () => {
     return selection;
   }
 
+  async function createController() {
+    const module = await import('../../src/content/clipper/services/selectionController');
+    const readerSessionFactory = vi.fn().mockReturnValue({
+      ingestExternalHighlight: vi.fn(),
+      start: vi.fn()
+    });
+    const videoSessionFactory = vi.fn().mockReturnValue({
+      start: vi.fn(),
+      ingestTextCapture: vi.fn()
+    });
+    const controller = module.createSelectionController({
+      prompt: {
+        requestSelectionAction: promptMock
+      },
+      createReaderSession: readerSessionFactory,
+      createVideoSession: videoSessionFactory
+    });
+    return { controller, readerSessionFactory, videoSessionFactory };
+  }
+
   it('returns null when dialog is cancelled', async () => {
-    dialogShowMock.mockResolvedValue({ confirmed: false, comment: '' });
+    promptMock.mockResolvedValue({ action: 'cancel', comment: '' });
     const selection = createSelection('Selected text');
 
-    const module = await import('../../src/content/clipper/services/selectionController');
-    const result = await module.handleSelectionClip(document, 'https://example.com', selection!);
+    const { controller } = await createController();
+    const result = await controller.handleSelectionClip(document, 'https://example.com', selection!);
 
     expect(result).toBeNull();
     expect(extractSelectionClipMock).not.toHaveBeenCalled();
   });
 
   it('extracts selection clip with merged configuration when confirmed', async () => {
-    dialogShowMock.mockResolvedValue({ confirmed: true, comment: 'note' });
+    promptMock.mockResolvedValue({ action: 'clip', comment: 'note' });
     const selection = createSelection('Selected text');
 
     extractSelectionClipMock.mockResolvedValue({ type: 'clipper', markdown: '# note' });
@@ -83,8 +104,8 @@ describe('content selectionController service', () => {
       }
     });
 
-    const module = await import('../../src/content/clipper/services/selectionController');
-    const result = await module.handleSelectionClip(document, 'https://example.com', selection!);
+    const { controller } = await createController();
+    const result = await controller.handleSelectionClip(document, 'https://example.com', selection!);
 
     expect(result).toEqual({ type: 'clipper', markdown: '# note' });
     expect(extractSelectionClipMock).toHaveBeenCalledTimes(1);
@@ -94,24 +115,26 @@ describe('content selectionController service', () => {
       useFootnoteFormat: false,
       captureContext: true,
       contextLength: 200,
-      contextMode: 'chars'
+      contextMode: 'chars',
+      selectionModifierEnabled: false,
+      selectionModifierKeys: []
     });
   });
 
   it('throws when selection is empty', async () => {
-    dialogShowMock.mockResolvedValue({ confirmed: true, comment: '' });
+    promptMock.mockResolvedValue({ action: 'clip', comment: '' });
     const selection = createSelection('   ');
 
-    const module = await import('../../src/content/clipper/services/selectionController');
-    await expect(module.handleSelectionClip(document, 'https://example.com', selection!)).rejects.toThrow('Selected text is empty');
+    const { controller } = await createController();
+    await expect(controller.handleSelectionClip(document, 'https://example.com', selection!)).rejects.toThrow('Selected text is empty');
   });
 
   it('throws when there are no selection ranges', async () => {
-    dialogShowMock.mockResolvedValue({ confirmed: true, comment: '' });
+    promptMock.mockResolvedValue({ action: 'clip', comment: '' });
     const selection = window.getSelection();
     selection?.removeAllRanges();
 
-    const module = await import('../../src/content/clipper/services/selectionController');
-    await expect(module.handleSelectionClip(document, 'https://example.com', selection!)).rejects.toThrow('No text selected');
+    const { controller } = await createController();
+    await expect(controller.handleSelectionClip(document, 'https://example.com', selection!)).rejects.toThrow('No text selected');
   });
 });

@@ -102,7 +102,7 @@ npm run package
 1. 运行 `npm run release`
 2. 找到生成的文件：
    ```
-   releases/all-in-ob-v0.1.0-release.zip
+   releases/all-in-ob-v0.2.0-release.zip
    ```
 3. 将这个 zip 文件发送给朋友
 4. 朋友解压后会看到：
@@ -145,7 +145,7 @@ your-extension/
 │   └── create-release.mjs  # 发布包脚本（新）
 ├── dist/                   # 构建输出（运行 build 后生成）
 ├── releases/               # 发布包（运行 release 后生成）
-│   └── all-in-ob-v0.1.0-release/
+│   └── all-in-ob-v0.2.0-release/
 │       ├── extension/      # 扩展文件
 │       ├── 安装指南.md
 │       └── README.txt
@@ -169,7 +169,7 @@ your-extension/
 ### 📦 可分发的文件
 
 当前已生成：
-- `releases/all-in-ob-v0.1.0-release.zip` (322KB)
+- `releases/all-in-ob-v0.2.0-release.zip` (322KB)
 
 这个文件可以直接发送给朋友使用！
 
@@ -258,7 +258,6 @@ your-extension/
 **所有功能已完成并测试通过！** ✨
 
 生成的发布包位于：
-`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/all-in-ob-v0.1.0-release.zip`
+`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/all-in-ob-v0.2.0-release.zip`
 
 可以直接将这个文件发送给朋友使用！
-

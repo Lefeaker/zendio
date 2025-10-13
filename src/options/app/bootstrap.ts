@@ -3,9 +3,7 @@ import { renderOptionsForm, collectOptionsFromForm, bindOptionsFormEvents } from
 import { addMappingRow, resetDomainMappingLabels } from '../components/domainMappings';
 import {
   renderAdditionalVaults,
-  renderRoutingRules,
-  handleAddAdditionalVault,
-  handleAddRoutingRule
+  handleAddAdditionalVault
 } from '../components/vaultRouterSection';
 import { showTransferMessage, clearTransferMessage, showStatusMessage, formatOptionsError } from '../components/messages';
 import { runDiagnostics, fixConfiguration } from '../components/diagnostics';
@@ -20,6 +18,7 @@ import {
 import { initializeVaultRouterStore } from '../state/vaultRouterStore';
 import type { StoredOptions } from '../../shared/types/options';
 import { initializeUsageDashboard } from '../components/usageDashboard';
+import { normalizeOptionsForTransfer } from '../utils/optionsTransfer';
 
 export async function bootstrapOptionsApp(): Promise<void> {
   bindEventHandlers();
@@ -45,7 +44,6 @@ async function applyOptionsToUI(options: StoredOptions): Promise<void> {
 
   renderOptionsForm(options);
   await renderAdditionalVaults();
-  await renderRoutingRules();
   forceDisableChatTimestamps();
   updateClassifierUnstableNote();
   clearTransferMessage();
@@ -79,9 +77,6 @@ function bindEventHandlers(): void {
   const addVaultBtn = document.getElementById('addAdditionalVaultBtn');
   addVaultBtn?.addEventListener('click', () => { void handleAddAdditionalVault(); });
 
-  const addRuleBtn = document.getElementById('addRoutingRuleBtn');
-  addRuleBtn?.addEventListener('click', () => { void handleAddRoutingRule(); });
-
   const saveBtn = document.getElementById('saveBtn');
   saveBtn?.addEventListener('click', () => { void handleSave(); });
 
@@ -106,7 +101,8 @@ async function handleCopyConfig(): Promise<void> {
 
   try {
     const options = collectOptionsFromForm(getLastLoadedOptions());
-    await copyOptionsToClipboard(options);
+    const payload = normalizeOptionsForTransfer(options);
+    await copyOptionsToClipboard(payload);
     showTransferMessage('success', msgs.copyConfigSuccess);
   } catch (error) {
     showTransferMessage('error', formatOptionsError(error, msgs));
@@ -120,11 +116,12 @@ async function handleImportConfig(): Promise<void> {
   try {
     const raw = await readConfigTextFromClipboard();
     const parsed = parseConfigInput(raw);
-    await applyOptionsToUI(parsed);
+    const normalized = normalizeOptionsForTransfer(parsed);
+    await applyOptionsToUI(normalized);
 
-    const normalized = collectOptionsFromForm(parsed);
-    await saveOptionsToStorage(normalized);
-    setLastLoadedOptions(normalized);
+    const completed = collectOptionsFromForm(normalized);
+    await saveOptionsToStorage(completed);
+    setLastLoadedOptions(completed);
 
     showTransferMessage('success', msgs.importSuccess);
     showStatusMessage('success', msgs.importSuccess);

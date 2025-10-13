@@ -6,6 +6,15 @@ import { resolveContextRange, collectListPath } from '../../src/content/clipper/
 import type { FragmentClipperOptions } from '../../src/shared/types/options';
 
 describe('contextCapture services', () => {
+  const baseConfig: FragmentClipperOptions = {
+    useFootnoteFormat: true,
+    captureContext: false,
+    contextLength: 200,
+    contextMode: 'chars',
+    selectionModifierEnabled: false,
+    selectionModifierKeys: []
+  };
+
   beforeEach(() => {
     document.body.innerHTML = `
       <ul>
@@ -49,10 +58,8 @@ describe('contextCapture services', () => {
     range.selectNodeContents(strong);
 
     const config: FragmentClipperOptions = {
-      useFootnoteFormat: true,
-      captureContext: true,
-      contextLength: 200,
-      contextMode: 'chars'
+      ...baseConfig,
+      captureContext: true
     };
 
     const result = extractContextFromRange(range, config);
@@ -70,10 +77,9 @@ describe('contextCapture services', () => {
     range.selectNodeContents(strong);
 
     const config: FragmentClipperOptions = {
-      useFootnoteFormat: true,
+      ...baseConfig,
       captureContext: false,
-      contextLength: 40,
-      contextMode: 'chars'
+      contextLength: 40
     };
 
     const result = extractContextFromRange(range, config);
@@ -98,10 +104,9 @@ describe('contextCapture services', () => {
     range.selectNodeContents(span);
 
     const config: FragmentClipperOptions = {
-      useFootnoteFormat: true,
+      ...baseConfig,
       captureContext: true,
-      contextLength: 20,
-      contextMode: 'chars'
+      contextLength: 20
     };
 
     const result = extractContextFromRange(range, config);
@@ -133,10 +138,9 @@ describe('contextCapture services', () => {
     range.selectNodeContents(target);
 
     const config: FragmentClipperOptions = {
-      useFootnoteFormat: true,
+      ...baseConfig,
       captureContext: true,
-      contextLength: 120,
-      contextMode: 'chars'
+      contextLength: 120
     };
 
     const result = extractContextFromRange(range, config);
@@ -164,10 +168,9 @@ describe('contextCapture services', () => {
     range.selectNodeContents(target);
 
     const config: FragmentClipperOptions = {
-      useFootnoteFormat: true,
+      ...baseConfig,
       captureContext: true,
-      contextLength: 80,
-      contextMode: 'chars'
+      contextLength: 80
     };
 
     expect(() => extractContextFromRange(range, config)).not.toThrow();

@@ -1,33 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const getOptionsMock = vi.fn();
-const selectVaultMock = vi.fn();
-const classifyClipMock = vi.fn();
-const resolvePathMock = vi.fn();
-const writeMarkdownMock = vi.fn();
 const notifySuccessMock = vi.fn();
 const notifyFailureMock = vi.fn();
-
-const templateOptions = { article: '', fragment: '', clipper: '', reading: '', ai: '' } as const;
+const processClipPayloadMock = vi.fn();
+const sendMessageMock = vi.fn();
 
 vi.mock('../../src/background/store', () => ({
   getOptions: getOptionsMock
-}));
-
-vi.mock('../../src/background/services/vaultRouterService', () => ({
-  selectVaultForClip: selectVaultMock
-}));
-
-vi.mock('../../src/background/services/classificationService', () => ({
-  classifyClip: classifyClipMock
-}));
-
-vi.mock('../../src/background/pathResolver', () => ({
-  resolvePath: resolvePathMock
-}));
-
-vi.mock('../../src/background/services/obsidianWriter', () => ({
-  writeMarkdownToVault: writeMarkdownMock
 }));
 
 vi.mock('../../src/background/services/notifications', () => ({
@@ -35,16 +15,31 @@ vi.mock('../../src/background/services/notifications', () => ({
   notifyClipFailure: notifyFailureMock
 }));
 
+vi.mock('../../src/background/application/clipProcessor', () => ({
+  processClipPayload: processClipPayloadMock
+}));
+
 describe('background clipPipeline', () => {
   beforeEach(() => {
     vi.resetModules();
     getOptionsMock.mockReset();
-    selectVaultMock.mockReset();
-    classifyClipMock.mockReset();
-    resolvePathMock.mockReset();
-    writeMarkdownMock.mockReset();
     notifySuccessMock.mockReset();
     notifyFailureMock.mockReset();
+    processClipPayloadMock.mockReset();
+    sendMessageMock.mockReset();
+    sendMessageMock.mockImplementation((_tabId, _message, callback?: () => void) => {
+      if (typeof callback === 'function') {
+        callback();
+      }
+    });
+    (globalThis as unknown as { chrome?: unknown }).chrome = {
+      tabs: {
+        sendMessage: sendMessageMock
+      },
+      runtime: {
+        lastError: undefined
+      }
+    };
   });
 
   function createMessage(payloadOverrides: Partial<Record<string, unknown>> = {}) {
@@ -61,26 +56,18 @@ describe('background clipPipeline', () => {
   }
 
   it('writes markdown to selected vault and notifies success', async () => {
-    getOptionsMock.mockResolvedValue({
-      templates: templateOptions,
-      domainMappings: {},
-      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    processClipPayloadMock.mockResolvedValue({
+      filePath: 'Articles/foo.md',
+      vaultName: 'Secondary Vault',
+      restVault: 'Secondary'
     });
-    selectVaultMock.mockReturnValue({
-      vault: { name: 'Secondary Vault' },
-      restConfig: { baseUrl: 'https://vault', vault: 'Secondary', apiKey: 'key' },
-      context: {}
-    });
-    classifyClipMock.mockResolvedValue({ type: 'article' });
-    resolvePathMock.mockReturnValue('Articles/foo.md');
-    writeMarkdownMock.mockResolvedValue(undefined);
 
     const { handleClipResult } = await import('../../src/background/pipelines/clipPipeline');
     await handleClipResult(createMessage());
 
-    expect(writeMarkdownMock).toHaveBeenCalledWith({ baseUrl: 'https://vault', vault: 'Secondary', apiKey: 'key' }, 'Articles/foo.md', '# note');
     expect(notifySuccessMock).toHaveBeenCalledWith('Articles/foo.md', 'Secondary Vault');
     expect(notifyFailureMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).toHaveBeenCalled();
   });
 
   it('rejects payloads without markdown', async () => {
@@ -88,28 +75,23 @@ describe('background clipPipeline', () => {
     await handleClipResult(createMessage({ markdown: undefined }));
 
     expect(notifyFailureMock).toHaveBeenCalledWith('Invalid clip payload: missing markdown content');
-    expect(writeMarkdownMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
 
   it('notifies failure when writing to vault throws', async () => {
+    processClipPayloadMock.mockRejectedValue(new Error('network'));
     getOptionsMock.mockResolvedValue({
-      templates: templateOptions,
-      domainMappings: {},
-      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+      rest: { vault: 'FallbackVault' }
     });
-    selectVaultMock.mockReturnValue({
-      vault: null,
-      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
-      context: {}
-    });
-    classifyClipMock.mockResolvedValue({ type: 'article' });
-    resolvePathMock.mockReturnValue('Articles/fail.md');
-    writeMarkdownMock.mockRejectedValue(new Error('network'));
 
     const { handleClipResult } = await import('../../src/background/pipelines/clipPipeline');
     await handleClipResult(createMessage());
 
-    expect(writeMarkdownMock).toHaveBeenCalled();
     expect(notifyFailureMock).toHaveBeenCalled();
+    expect(processClipPayloadMock).toHaveBeenCalled();
+  });
+
+  afterEach(() => {
+    delete (globalThis as { chrome?: unknown }).chrome;
   });
 });

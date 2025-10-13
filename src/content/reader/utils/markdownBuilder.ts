@@ -7,6 +7,7 @@ import {
   cleanBulletArtifacts,
   ensureLeadingBullet,
   appendFootnoteRef,
+  appendLocatorLink,
   buildFootnote,
   ensureListWrapped
 } from '../../clipper/utils/markdown';
@@ -46,7 +47,7 @@ export function buildReaderHighlightsMarkdown(params: ReaderMarkdownParams): Rea
   const clippedAt = formatDateTime(now);
   const clipTitle = generateClipperTitle(pageTitle, now);
 
-  const { body, footnotes } = buildHighlightSection(pageUrl, highlights);
+  const { body, footnotes } = buildHighlightSection(pageUrl, highlights, { includeFragmentLinks: true });
 
   let markdown = `---\n` +
     `type: clipper\n` +
@@ -175,10 +176,15 @@ export function buildReaderFullMarkdown(params: ReaderFullMarkdownParams): Reade
   };
 }
 
-function buildHighlightSection(pageUrl: string, highlights: ReaderHighlightInput[]): HighlightSectionResult {
+function buildHighlightSection(
+  pageUrl: string,
+  highlights: ReaderHighlightInput[],
+  options: { includeFragmentLinks?: boolean } = {}
+): HighlightSectionResult {
   const turndown = createClipperTurndown(pageUrl);
   const highlightBlocks: string[] = [];
   const footnotes: string[] = [];
+  const { includeFragmentLinks = false } = options;
 
   for (const highlight of highlights) {
     const markdown = turndown.turndown(ensureListWrapped(highlight.selectedHtml));
@@ -191,6 +197,10 @@ function buildHighlightSection(pageUrl: string, highlights: ReaderHighlightInput
       if (footnote.definition) {
         footnotes.push(footnote.definition);
       }
+    }
+
+    if (includeFragmentLinks && highlight.fragmentUrl) {
+      highlighted = appendLocatorLink(highlighted, highlight.fragmentUrl);
     }
 
     highlightBlocks.push(highlighted);

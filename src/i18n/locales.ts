@@ -30,6 +30,7 @@ export interface Messages {
   apiConfigHint: string;
   httpsUrlLabel: string;
   httpsUrlHint: string;
+  additionalVaultHttpsHint: string;
   httpUrlLabel: string;
   httpUrlHint: string;
   vaultNameLabel: string;
@@ -45,7 +46,6 @@ export interface Messages {
   articleTemplateHint: string;
   fragmentTemplateLabel: string;
   fragmentTemplateHint: string;
-  clipperTemplateLabel: string;
   readingTemplateLabel: string;
   readingTemplateHint: string;
   readingTemplateOptionArticle: string;
@@ -82,6 +82,7 @@ export interface Messages {
   // AI Chat Configuration
   aiChatConfigTitle: string;
   aiChatConfigHint: string;
+  aiSupportedPlatformsToggle: string;
   includeTimestampsLabel: string;
   includeTimestampsHint: string;
   userNameLabel: string;
@@ -103,9 +104,24 @@ export interface Messages {
   readingExportModeHighlights: string;
   readingExportModeFull: string;
   readingExportModeDescription: string;
+  readingHighlightThemeLabel: string;
+  readingHighlightThemeDescription: string;
+  readingHighlightThemeGradient: string;
+  readingHighlightThemePurple: string;
+  readingHighlightThemeNeonYellow: string;
+  readingHighlightThemeNeonGreen: string;
+  readingHighlightThemeNeonOrange: string;
 
   // Fragment Capture Config
   fragmentConfigHint: string;
+  fragmentModifierToggleLabel: string;
+  fragmentModifierToggleDescription: string;
+  fragmentModifierKeysLabel: string;
+  fragmentModifierKeysDescription: string;
+  fragmentModifierKeyAlt: string;
+  fragmentModifierKeyMeta: string;
+  fragmentModifierKeyCtrl: string;
+  fragmentModifierKeyShift: string;
   
   // Classifier Configuration
   classifierConfigTitle: string;
@@ -134,6 +150,7 @@ export interface Messages {
   fixFailed: string;
   reloadPrompt: string;
   connectionTesting: string;
+  portConflictDetected: string;
 
   // Diagnosis
   diagnosisTitle: string;
@@ -158,10 +175,51 @@ export interface Messages {
   readerPanelCancel: string;
   readerPanelCounter: string;
   readerPanelCounterZero: string;
+  readerHighlightEditLabel: string;
+  readerHighlightDeleteLabel: string;
+  readerHighlightNoComment: string;
+  readerHighlightSaveLabel: string;
+  readerHighlightCancelLabel: string;
+  readerHighlightEditPlaceholder: string;
+  readerHighlightFocusLabel: string;
   readerHintNoHighlights: string;
   readerHintExporting: string;
   readerHintFailure: string;
   readerHintSelectionFailure: string;
+
+  // Video Mode
+  contextMenuVideoMode: string;
+  videoPanelTitle: string;
+  videoPanelStatus: string;
+  videoPanelHint: string;
+  videoPanelAdd: string;
+  videoPanelFinish: string;
+  videoPanelCancel: string;
+  videoPanelCounter: string;
+  videoPanelCounterZero: string;
+  videoConfigTitle: string;
+  videoConfigHint: string;
+  videoFloatingPromptLabel: string;
+  videoFloatingPromptHint: string;
+  videoTimestampSectionTitle: string;
+  videoFragmentSectionTitle: string;
+  videoCaptureEditLabel: string;
+  videoCaptureDeleteLabel: string;
+  videoCaptureNoComment: string;
+  videoCaptureSaveLabel: string;
+  videoCaptureCancelLabel: string;
+  videoCaptureEditPlaceholder: string;
+  videoCaptureFocusLabel: string;
+  videoHintNoVideo: string;
+  videoHintReady: string;
+  videoHintNoCaptures: string;
+  videoHintSaving: string;
+  videoHintExporting: string;
+  videoHintFailure: string;
+  clipSelectionVideo: string;
+  videoPromptTitle: string;
+  videoPromptDescription: string;
+  videoPromptAction: string;
 
   // Dialog
   clipDialogTitle: string;
@@ -187,6 +245,8 @@ export interface Messages {
   // Routing Rules
   routingRulesTitle: string;
   routingRulesHint: string;
+  vaultRulesTitle: string;
+  ruleEmptyPlaceholder: string;
   addRuleButton: string;
   ruleTypeLabel: string;
   ruleTypeDomain: string;
@@ -240,6 +300,7 @@ export const messages: Record<Language, Messages> = {
     apiConfigHint: '这是默认仓库，不符合路由规则的内容将保存到这里',
     httpsUrlLabel: 'HTTPS URL',
     httpsUrlHint: '通常端口为 27124，适用于安全连接',
+    additionalVaultHttpsHint: '请勿与其他仓库相同',
     httpUrlLabel: 'HTTP URL',
     httpUrlHint: '通常端口为 27123，作为备用连接',
     vaultNameLabel: 'Vault 名称',
@@ -255,7 +316,6 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: '用于完整的网页文章剪藏',
     fragmentTemplateLabel: '片段路径模板',
     fragmentTemplateHint: '用于选中文本片段与快捷剪藏',
-    clipperTemplateLabel: '快捷剪藏路径模板',
     readingTemplateLabel: '阅读模式路径模板',
     readingTemplateHint: '配置阅读模式导出的保存路径',
     readingTemplateOptionArticle: '与文章路径相同',
@@ -292,6 +352,7 @@ export const messages: Record<Language, Messages> = {
     // AI Chat Configuration
     aiChatConfigTitle: 'AI 对话剪藏配置',
     aiChatConfigHint: '自定义 AI 对话的剪藏格式和内容',
+    aiSupportedPlatformsToggle: '查看适配AI平台',
     includeTimestampsLabel: '包含消息时间戳',
     includeTimestampsHint: '在每条消息后显示发送时间（如果可用）',
     userNameLabel: '用户名称',
@@ -309,11 +370,26 @@ export const messages: Record<Language, Messages> = {
     readingConfigTitle: '阅读模式',
     readingConfigHint: '选择导出阅读模式时保存的内容形式',
     readingExportModeLabel: '导出内容',
-    readingExportModeHighlights: '仅保存高亮片段',
-    readingExportModeFull: '保存全文并标注高亮',
-    readingExportModeDescription: '选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。',
+   readingExportModeHighlights: '仅保存高亮片段',
+   readingExportModeFull: '保存全文并标注高亮',
+   readingExportModeDescription: '选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。',
+    readingHighlightThemeLabel: '高亮颜色',
+    readingHighlightThemeDescription: '仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。',
+    readingHighlightThemeGradient: '渐变紫蓝（默认）',
+    readingHighlightThemePurple: '纯紫色',
+    readingHighlightThemeNeonYellow: '荧光黄',
+    readingHighlightThemeNeonGreen: '荧光绿',
+    readingHighlightThemeNeonOrange: '荧光橙',
 
     fragmentConfigHint: '自定义选中文本剪藏的格式和行为',
+    fragmentModifierToggleLabel: '启用辅助键触发剪藏/阅读',
+    fragmentModifierToggleDescription: '按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或阅读模式高亮。',
+    fragmentModifierKeysLabel: '辅助键设置',
+    fragmentModifierKeysDescription: '需要同时按下所有勾选的辅助键才会触发自动操作。',
+    fragmentModifierKeyAlt: 'Option / Alt',
+    fragmentModifierKeyMeta: 'Command',
+    fragmentModifierKeyCtrl: 'Control',
+    fragmentModifierKeyShift: 'Shift',
 
     // Classifier Configuration
     classifierConfigTitle: 'AI辅助分类与总结',
@@ -342,6 +418,7 @@ export const messages: Record<Language, Messages> = {
     fixFailed: '❌ 修复失败',
     reloadPrompt: '请重新加载页面查看修复后的配置',
     connectionTesting: '正在测试连接...',
+    portConflictDetected: '⚠️ 检测到端口冲突：{ports}。请在 Obsidian 中为每个仓库配置不同的端口后再试一次。',
     
     // Diagnosis
     diagnosisTitle: '配置诊断',
@@ -357,6 +434,7 @@ export const messages: Record<Language, Messages> = {
     clipFullPage: '剪藏整个页面到 Obsidian',
     clipSelection: '剪藏选中内容到 Obsidian',
     readerStart: '🖍️ 开启阅读高亮模式',
+    contextMenuVideoMode: '🎬 进入视频捕捉模式',
 
     // Reader Mode
     readerPanelTitle: '阅读高亮中',
@@ -366,10 +444,50 @@ export const messages: Record<Language, Messages> = {
     readerPanelCancel: '取消',
     readerPanelCounter: '已收集 {count} 条高亮',
     readerPanelCounterZero: '已收集 0 条高亮',
+    readerHighlightEditLabel: '修改批注',
+    readerHighlightDeleteLabel: '删除高亮',
+    readerHighlightNoComment: '暂无批注',
+    readerHighlightSaveLabel: '保存批注',
+    readerHighlightCancelLabel: '取消',
+    readerHighlightEditPlaceholder: '在这里编辑批注...',
+    readerHighlightFocusLabel: '滚动到第 {index} 条高亮',
     readerHintNoHighlights: '还没有高亮内容，先选中文本试试。',
     readerHintExporting: '正在生成 Markdown...',
     readerHintFailure: '导出失败，请稍后重试。',
     readerHintSelectionFailure: '高亮失败，请重试。',
+
+    // Video Mode
+    videoPanelTitle: '视频片段捕捉',
+    videoPanelStatus: '记录时间点与文本片段',
+    videoPanelHint: '提示：选中文本会自动保存到面板；按 Enter 两次保存批注，Esc 取消编辑。',
+    videoPanelAdd: '捕捉当前时间点',
+    videoPanelFinish: '完成并导出',
+    videoPanelCancel: '退出',
+    videoPanelCounter: '已保存 {count} 条记录',
+    videoPanelCounterZero: '已保存 0 条记录',
+    videoConfigTitle: '视频模式',
+    videoConfigHint: '可在视频网站自动提示进入视频笔记模式',
+    videoFloatingPromptLabel: '在视频网站显示浮动提示按钮',
+    videoFloatingPromptHint: '支持 YouTube 与哔哩哔哩，默认在右下角显示提醒，点击即可开启视频模式。',
+    videoTimestampSectionTitle: '视频时间点',
+    videoFragmentSectionTitle: '文本摘录',
+    videoCaptureEditLabel: '编辑备注',
+    videoCaptureDeleteLabel: '删除时间点',
+    videoCaptureNoComment: '暂无备注',
+    videoCaptureSaveLabel: '保存备注',
+    videoCaptureCancelLabel: '取消',
+    videoCaptureEditPlaceholder: '为这个时间点补充备注...',
+    videoCaptureFocusLabel: '定位到第 {index} 条记录',
+    videoHintNoVideo: '等待视频加载中...',
+    videoHintReady: '点击 + 保存当前时间点，备注会自动保存。',
+    videoHintNoCaptures: '还没有保存记录，先点一下左上角的 + 试试。',
+    videoHintSaving: '正在保存...',
+    videoHintExporting: '正在生成 Markdown...',
+    videoHintFailure: '操作失败，请稍后重试。',
+    clipSelectionVideo: '剪藏到片段捕捉',
+    videoPromptTitle: '可开启视频模式',
+    videoPromptDescription: '点击开启视频模式，记录当前视频时间点和笔记。',
+    videoPromptAction: '开启视频模式',
 
     // Dialog
     clipDialogTitle: '剪藏选中内容',
@@ -398,13 +516,15 @@ export const messages: Record<Language, Messages> = {
     // Routing Rules
     routingRulesTitle: '路由规则',
     routingRulesHint: '根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库',
+    vaultRulesTitle: '路由规则',
+    ruleEmptyPlaceholder: '暂无规则，点击右侧按钮为该仓库添加规则',
     addRuleButton: '+ 添加规则',
     ruleTypeLabel: '规则类型',
     ruleTypeDomain: '域名匹配',
     ruleTypeKeyword: '关键词匹配',
     ruleTypeUrlPattern: 'URL 模式',
     rulePatternLabel: '匹配模式',
-    rulePatternPlaceholder: '例如：example.com 或 关键词1,关键词2',
+    rulePatternPlaceholder: '例如：example.com;news.example.com 或 关键词1,关键词2',
     ruleTargetVaultLabel: '目标仓库',
     rulePriorityLabel: '优先级',
     rulePriorityHint: '数字越大优先级越高',
@@ -445,6 +565,7 @@ export const messages: Record<Language, Messages> = {
     apiConfigHint: 'This is the default vault; anything outside the routing rules will fall back here.',
     httpsUrlLabel: 'HTTPS URL',
     httpsUrlHint: 'Usually port 27124, for secure connections',
+    additionalVaultHttpsHint: 'Use a unique port; do not share with other vaults',
     httpUrlLabel: 'HTTP URL',
     httpUrlHint: 'Usually port 27123, as fallback connection',
     vaultNameLabel: 'Vault Name',
@@ -460,7 +581,6 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: 'For full webpage article clipping',
     fragmentTemplateLabel: 'Fragment Path Template',
     fragmentTemplateHint: 'For quick clipping via selection or the clipper panel',
-    clipperTemplateLabel: 'Clipper Path Template',
     readingTemplateLabel: 'Reading Mode Path Template',
     readingTemplateHint: 'Choose where reading-mode exports should be saved',
     readingTemplateOptionArticle: 'Same as article path',
@@ -497,6 +617,7 @@ export const messages: Record<Language, Messages> = {
     // AI Chat Configuration
     aiChatConfigTitle: 'AI Chat Clipping Configuration',
     aiChatConfigHint: 'Customize the format and content of AI chat clips',
+    aiSupportedPlatformsToggle: 'View supported AI platforms',
     includeTimestampsLabel: 'Include message timestamps',
     includeTimestampsHint: 'Show send time after each message (if available)',
     userNameLabel: 'User Name',
@@ -517,8 +638,23 @@ export const messages: Record<Language, Messages> = {
     readingExportModeHighlights: 'Only highlighted passages',
     readingExportModeFull: 'Full article with highlights',
     readingExportModeDescription: 'When selecting “Full article”, the cleaned article body is saved with your highlights and footnotes embedded.',
+    readingHighlightThemeLabel: 'Highlight color',
+    readingHighlightThemeDescription: 'Only affects highlight styling inside reader mode; exported Markdown stays unchanged.',
+    readingHighlightThemeGradient: 'Purple–blue gradient (default)',
+    readingHighlightThemePurple: 'Solid purple',
+    readingHighlightThemeNeonYellow: 'Neon yellow',
+    readingHighlightThemeNeonGreen: 'Neon green',
+    readingHighlightThemeNeonOrange: 'Neon orange',
 
     fragmentConfigHint: 'Customize how text selections are clipped and formatted',
+    fragmentModifierToggleLabel: 'Enable modifier key trigger for clipping/reading',
+    fragmentModifierToggleDescription: 'When you hold the chosen modifier keys and drag to select text, the clipper dialog or reading highlight will open automatically.',
+    fragmentModifierKeysLabel: 'Modifier key selection',
+    fragmentModifierKeysDescription: 'All checked modifier keys must be held down together to trigger the automatic action.',
+    fragmentModifierKeyAlt: 'Option / Alt',
+    fragmentModifierKeyMeta: 'Command',
+    fragmentModifierKeyCtrl: 'Control',
+    fragmentModifierKeyShift: 'Shift',
 
     // Classifier Configuration
     classifierConfigTitle: 'AI-assisted Classification & Summaries',
@@ -547,6 +683,7 @@ export const messages: Record<Language, Messages> = {
     fixFailed: '❌ Fix failed',
     reloadPrompt: 'Please reload the page to see the fixed configuration',
     connectionTesting: 'Testing connection...',
+    portConflictDetected: '⚠️ Port conflict detected: {ports}. Please assign unique ports in Obsidian before trying again.',
     
     // Diagnosis
     diagnosisTitle: 'Configuration Diagnosis',
@@ -562,6 +699,7 @@ export const messages: Record<Language, Messages> = {
     clipFullPage: 'Clip full page to Obsidian',
     clipSelection: 'Clip selection to Obsidian',
     readerStart: '🖍️ Start inline reading capture',
+    contextMenuVideoMode: '🎬 Enter video capture mode',
 
     // Reader Mode
     readerPanelTitle: 'Reading session active',
@@ -571,10 +709,50 @@ export const messages: Record<Language, Messages> = {
     readerPanelCancel: 'Cancel',
     readerPanelCounter: 'Collected {count} highlights',
     readerPanelCounterZero: 'Collected 0 highlights',
+    readerHighlightEditLabel: 'Edit note',
+    readerHighlightDeleteLabel: 'Remove highlight',
+    readerHighlightNoComment: 'No note yet',
+    readerHighlightSaveLabel: 'Save note',
+    readerHighlightCancelLabel: 'Cancel',
+    readerHighlightEditPlaceholder: 'Edit the note here...',
+    readerHighlightFocusLabel: 'Jump to highlight {index}',
     readerHintNoHighlights: 'No highlights yet. Select some text first.',
     readerHintExporting: 'Generating Markdown...',
     readerHintFailure: 'Export failed, please try again later.',
     readerHintSelectionFailure: 'Failed to highlight, please try again.',
+
+    // Video Mode
+    videoPanelTitle: 'Video capture mode',
+    videoPanelStatus: 'Capture timestamps and quick notes',
+    videoPanelHint: 'Tip: Selecting text adds it automatically; press Enter twice to save notes, Esc to cancel.',
+    videoPanelAdd: 'Capture current timestamp',
+    videoPanelFinish: 'Finish & export',
+    videoPanelCancel: 'Cancel',
+    videoPanelCounter: 'Saved {count} entries',
+    videoPanelCounterZero: 'Saved 0 entries',
+    videoConfigTitle: 'Video mode',
+    videoConfigHint: 'Show prompts on supported video sites to capture timestamps and notes',
+    videoFloatingPromptLabel: 'Display floating prompt on video pages',
+    videoFloatingPromptHint: 'Works on YouTube and Bilibili. A shortcut bubble appears in the lower-right corner.',
+    videoTimestampSectionTitle: 'Video timestamps',
+    videoFragmentSectionTitle: 'Captured fragments',
+    videoCaptureEditLabel: 'Edit note',
+    videoCaptureDeleteLabel: 'Remove capture',
+    videoCaptureNoComment: 'No note yet',
+    videoCaptureSaveLabel: 'Save note',
+    videoCaptureCancelLabel: 'Cancel',
+    videoCaptureEditPlaceholder: 'Add a note for this timestamp...',
+    videoCaptureFocusLabel: 'Jump to capture {index}',
+    videoHintNoVideo: 'Waiting for video element to be ready...',
+    videoHintReady: 'Click + to capture current timestamp. Notes are saved automatically.',
+    videoHintNoCaptures: 'No captures yet. Start by clicking the + button.',
+    videoHintSaving: 'Saving capture...',
+    videoHintExporting: 'Generating Markdown export...',
+    videoHintFailure: 'Something went wrong. Please try again.',
+    clipSelectionVideo: 'Clip to video capture panel',
+    videoPromptTitle: 'Video mode available',
+    videoPromptDescription: 'Click to launch video mode and start saving timestamps and notes.',
+    videoPromptAction: 'Start video mode',
 
     // Dialog
     clipDialogTitle: 'Clip Selection',
@@ -603,13 +781,15 @@ export const messages: Record<Language, Messages> = {
     // Routing Rules
     routingRulesTitle: 'Routing Rules',
     routingRulesHint: 'Automatically choose a target vault by domain, keywords, or URL patterns. Items that do not match go to the default vault.',
+    vaultRulesTitle: 'Routing Rules',
+    ruleEmptyPlaceholder: 'No rules yet. Add one to route clips into this vault.',
     addRuleButton: '+ Add Rule',
     ruleTypeLabel: 'Rule Type',
     ruleTypeDomain: 'Domain Match',
     ruleTypeKeyword: 'Keyword Match',
     ruleTypeUrlPattern: 'URL Pattern',
     rulePatternLabel: 'Match Pattern',
-    rulePatternPlaceholder: 'e.g., example.com or keyword1,keyword2',
+    rulePatternPlaceholder: 'e.g., example.com;news.example.com or keyword1,keyword2',
     ruleTargetVaultLabel: 'Target Vault',
     rulePriorityLabel: 'Priority',
     rulePriorityHint: 'Higher numbers indicate higher priority.',
@@ -650,6 +830,7 @@ export const messages: Record<Language, Messages> = {
     apiConfigHint: 'ここは既定の Vault です。ルーティングルールに一致しないクリップはすべてここに保存されます。',
     httpsUrlLabel: 'HTTPS URL',
     httpsUrlHint: '通常はポート 27124、セキュア接続用',
+    additionalVaultHttpsHint: '他の Vault と同じポートを使用しないでください',
     httpUrlLabel: 'HTTP URL',
     httpUrlHint: '通常はポート 27123、フォールバック接続用',
     vaultNameLabel: 'Vault 名',
@@ -665,7 +846,6 @@ export const messages: Record<Language, Messages> = {
     articleTemplateHint: '完全なウェブページ記事のクリッピング用',
     fragmentTemplateLabel: 'フラグメントパステンプレート',
     fragmentTemplateHint: '選択範囲やクリッパーパネルでの保存に使用',
-    clipperTemplateLabel: 'クリッパーパステンプレート',
     readingTemplateLabel: '読書モードパステンプレート',
     readingTemplateHint: '読書モードで保存するファイルの保存先を設定',
     readingTemplateOptionArticle: '記事テンプレートと同じ',
@@ -702,6 +882,7 @@ export const messages: Record<Language, Messages> = {
     // AI Chat Configuration
     aiChatConfigTitle: 'AI チャットクリップ設定',
     aiChatConfigHint: 'AI チャットクリップの形式と内容をカスタマイズ',
+    aiSupportedPlatformsToggle: '対応AIプラットフォームを表示',
     includeTimestampsLabel: 'メッセージのタイムスタンプを含める',
     includeTimestampsHint: '各メッセージの後に送信時刻を表示（利用可能な場合）',
     userNameLabel: 'ユーザー名',
@@ -722,8 +903,23 @@ export const messages: Record<Language, Messages> = {
     readingExportModeHighlights: 'ハイライトのみ保存',
     readingExportModeFull: '全文を保存しハイライトを残す',
     readingExportModeDescription: '「全文」を選択すると、整形済みの原文も保存され、全文にハイライトと脚注が残ります。',
+    readingHighlightThemeLabel: 'ハイライトカラー',
+    readingHighlightThemeDescription: '読書モードページのハイライト背景のみ変更され、エクスポートされる Markdown には影響しません。',
+    readingHighlightThemeGradient: 'パープル×ブルーのグラデーション（デフォルト）',
+    readingHighlightThemePurple: 'パープル（単色）',
+    readingHighlightThemeNeonYellow: 'ネオンイエロー',
+    readingHighlightThemeNeonGreen: 'ネオングリーン',
+    readingHighlightThemeNeonOrange: 'ネオンオレンジ',
 
     fragmentConfigHint: '選択したテキストのクリップ形式や挙動をカスタマイズ',
+    fragmentModifierToggleLabel: '修飾キーで自動クリップ/読書を有効にする',
+    fragmentModifierToggleDescription: '選択した修飾キーを押しながらテキストをドラッグすると、クリッパーダイアログや読書モードのハイライトが自動的に開きます。',
+    fragmentModifierKeysLabel: '修飾キーの設定',
+    fragmentModifierKeysDescription: '自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。',
+    fragmentModifierKeyAlt: 'Option / Alt',
+    fragmentModifierKeyMeta: 'Command',
+    fragmentModifierKeyCtrl: 'Control',
+    fragmentModifierKeyShift: 'Shift',
 
     // Classifier Configuration
     classifierConfigTitle: 'AI 補助分類とサマリー',
@@ -752,6 +948,7 @@ export const messages: Record<Language, Messages> = {
     fixFailed: '❌ 修復に失敗しました',
     reloadPrompt: '修復された設定を確認するにはページを再読み込みしてください',
     connectionTesting: '接続をテストしています...',
+    portConflictDetected: '⚠️ ポート競合を検出しました: {ports}。Obsidian で各ボルトに異なるポートを設定してから再試行してください。',
     
     // Diagnosis
     diagnosisTitle: '設定診断',
@@ -767,6 +964,7 @@ export const messages: Record<Language, Messages> = {
     clipFullPage: 'ページ全体を Obsidian にクリップ',
     clipSelection: '選択範囲を Obsidian にクリップ',
     readerStart: '🖍️ 読書ハイライトモードを開始',
+    contextMenuVideoMode: '🎬 動画キャプチャーモードを開始',
 
     // Reader Mode
     readerPanelTitle: '読書ハイライト中',
@@ -776,10 +974,50 @@ export const messages: Record<Language, Messages> = {
     readerPanelCancel: 'キャンセル',
     readerPanelCounter: 'ハイライト {count} 件を収集',
     readerPanelCounterZero: 'ハイライト 0 件を収集',
+    readerHighlightEditLabel: '注釈を編集',
+    readerHighlightDeleteLabel: 'ハイライトを削除',
+    readerHighlightNoComment: '注釈はありません',
+    readerHighlightSaveLabel: '注釈を保存',
+    readerHighlightCancelLabel: 'キャンセル',
+    readerHighlightEditPlaceholder: 'ここに注釈を編集...',
+    readerHighlightFocusLabel: 'ハイライト {index} に移動',
     readerHintNoHighlights: 'まだハイライトがありません。先にテキストを選択してください。',
     readerHintExporting: 'Markdown を生成しています...',
     readerHintFailure: 'エクスポートに失敗しました。後でもう一度お試しください。',
     readerHintSelectionFailure: 'ハイライトに失敗しました。もう一度お試しください。',
+
+    // Video Mode
+    videoPanelTitle: '動画キャプチャーモード',
+    videoPanelStatus: '重要なタイムポイントやテキスト抜粋を記録',
+    videoPanelHint: 'ヒント: テキストを選択すると自動で追加されます。Enter を 2 回押すと保存、Esc でキャンセルします。',
+    videoPanelAdd: '現在のタイムスタンプを保存',
+    videoPanelFinish: '完了してエクスポート',
+    videoPanelCancel: '終了',
+    videoPanelCounter: '{count} 件のエントリを保存済み',
+    videoPanelCounterZero: '0 件のエントリを保存済み',
+    videoConfigTitle: '動画モード',
+    videoConfigHint: '対応する動画サイトでメモ用のプロンプトを表示できます',
+    videoFloatingPromptLabel: '動画ページにフローティングボタンを表示する',
+    videoFloatingPromptHint: 'YouTube と bilibili をサポート。右下にショートカットが表示されます。',
+    videoTimestampSectionTitle: '動画タイムスタンプ',
+    videoFragmentSectionTitle: 'テキスト抜粋',
+    videoCaptureEditLabel: 'メモを編集',
+    videoCaptureDeleteLabel: 'タイムスタンプを削除',
+    videoCaptureNoComment: 'メモはまだありません',
+    videoCaptureSaveLabel: 'メモを保存',
+    videoCaptureCancelLabel: 'キャンセル',
+    videoCaptureEditPlaceholder: 'このタイムスタンプのメモを入力...',
+    videoCaptureFocusLabel: '{index} 番目のエントリへ移動',
+    videoHintNoVideo: '動画の読み込みを待機中...',
+    videoHintReady: '＋を押して現在のタイムスタンプを保存。メモは自動で保存されます。',
+    videoHintNoCaptures: 'まだ保存したタイムスタンプはありません。左上の＋を押してみましょう。',
+    videoHintSaving: '保存中...',
+    videoHintExporting: 'Markdown を生成中...',
+    videoHintFailure: 'エラーが発生しました。もう一度お試しください。',
+    clipSelectionVideo: '動画キャプチャにクリップ',
+    videoPromptTitle: '動画モードが利用できます',
+    videoPromptDescription: '動画モードを開始して、タイムスタンプとメモを記録しましょう。',
+    videoPromptAction: '動画モードを開く',
 
     // Dialog
     clipDialogTitle: '選択範囲をクリップ',
@@ -808,13 +1046,15 @@ export const messages: Record<Language, Messages> = {
     // Routing Rules
     routingRulesTitle: 'ルーティングルール',
     routingRulesHint: 'ドメイン、キーワード、または URL パターンでターゲット Vault を自動選択します。一致しない場合は既定の Vault に保存されます。',
+    vaultRulesTitle: 'ルーティングルール',
+    ruleEmptyPlaceholder: 'ルールがまだありません。この Vault に振り分けるルールを追加してください。',
     addRuleButton: '+ ルールを追加',
     ruleTypeLabel: 'ルールタイプ',
     ruleTypeDomain: 'ドメインマッチ',
     ruleTypeKeyword: 'キーワードマッチ',
     ruleTypeUrlPattern: 'URL パターン',
     rulePatternLabel: 'マッチパターン',
-    rulePatternPlaceholder: '例：example.com または キーワード1,キーワード2',
+    rulePatternPlaceholder: '例：example.com;news.example.com または キーワード1,キーワード2',
     ruleTargetVaultLabel: 'ターゲット Vault',
     rulePriorityLabel: '優先度',
     rulePriorityHint: '数値が大きいほど優先度が高くなります。',

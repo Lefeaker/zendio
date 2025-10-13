@@ -1,18 +1,52 @@
 import type { Messages } from '../../i18n/locales';
-import { getMessages, initI18n } from '../../i18n';
+import { getMessages, initI18n, formatMessage } from '../../i18n';
 import { createElement, getElementById } from '../utils/dom';
 import {
   addAdditionalVault,
   addRoutingRule,
-  getRulesSnapshot,
   getVaultsSnapshot,
   removeAdditionalVault,
   removeRoutingRule,
   updateAdditionalVault,
   updateRoutingRule
 } from '../state/vaultRouterStore';
-import type { VaultConfig, RoutingRule } from '../../shared/types';
+import type { VaultConfig, RoutingRule, ConnectionTestResult } from '../../shared/types';
 import { showConfirmDialog } from './confirmDialog';
+import { isVaultConnectionTestRunning, requestVaultConnectionTest } from '../services/connectionTester';
+import { collectOptionsFromForm } from './optionsForm';
+import { getLastLoadedOptions, saveOptionsToStorage, setLastLoadedOptions } from '../state/optionsStore';
+import { collectPortEntriesFromConfig, findDuplicatePorts } from '../utils/ports';
+
+let autoSaveTimer: number | undefined;
+
+function scheduleVaultRouterAutoSave(): void {
+  if (typeof window !== 'undefined') {
+    if (autoSaveTimer !== undefined) {
+      window.clearTimeout(autoSaveTimer);
+    }
+    autoSaveTimer = window.setTimeout(() => {
+      void persistVaultRouterOptions();
+    }, 400);
+  } else {
+    void persistVaultRouterOptions();
+  }
+}
+
+async function persistVaultRouterOptions(): Promise<void> {
+  try {
+    autoSaveTimer = undefined;
+    if (typeof document === 'undefined' || !document.getElementById('restHttpsUrl')) {
+      return;
+    }
+
+    const previous = getLastLoadedOptions();
+    const options = collectOptionsFromForm(previous);
+    await saveOptionsToStorage(options);
+    setLastLoadedOptions(options);
+  } catch (error) {
+    console.error('[vaultRouter] Failed to auto-save vault router configuration:', error);
+  }
+}
 
 export async function renderAdditionalVaults(): Promise<void> {
   const container = getElementById<HTMLDivElement>('additionalVaultsList');
@@ -28,29 +62,7 @@ export async function renderAdditionalVaults(): Promise<void> {
   const fragment = document.createDocumentFragment();
 
   for (const vault of vaults) {
-    fragment.appendChild(createVaultRow(vault, msgs));
-  }
-
-  container.appendChild(fragment);
-  await initI18n();
-}
-
-export async function renderRoutingRules(): Promise<void> {
-  const container = getElementById<HTMLDivElement>('routingRulesList');
-  container.innerHTML = '';
-
-  const rules = getRulesSnapshot();
-  if (rules.length === 0) {
-    await initI18n();
-    return;
-  }
-
-  const msgs = await getMessages();
-  const vaults = getVaultsSnapshot();
-  const fragment = document.createDocumentFragment();
-
-  for (const rule of rules) {
-    fragment.appendChild(createRuleRow(rule, vaults, msgs));
+    fragment.appendChild(createVaultEntry(vault, msgs));
   }
 
   container.appendChild(fragment);
@@ -60,66 +72,30 @@ export async function renderRoutingRules(): Promise<void> {
 export async function handleAddAdditionalVault(): Promise<void> {
   addAdditionalVault();
   await renderAdditionalVaults();
-  await renderRoutingRules();
+  scheduleVaultRouterAutoSave();
 }
 
-export async function handleAddRoutingRule(): Promise<void> {
-  const vaults = getVaultsSnapshot();
-  const msgs = await getMessages();
+function createVaultEntry(vault: VaultConfig, msgs: Messages): HTMLDivElement {
+  const entry = createElement('div');
+  entry.className = 'vault-entry';
+  entry.dataset.id = vault.id;
 
-  if (vaults.length === 0) {
-    await showConfirmDialog({
-      title: msgs.infoDialogTitle,
-      message: msgs.ruleAddVaultPrompt,
-      confirmLabel: msgs.infoDialogConfirm,
-      focusCancel: false
-    });
-    return;
-  }
+  entry.appendChild(createVaultForm(vault, msgs));
+  entry.appendChild(createVaultRulesBlock(vault, msgs));
 
-  const [firstVault] = vaults;
-  addRoutingRule({ vaultId: firstVault.id });
-  await renderRoutingRules();
+  return entry;
 }
 
-function createVaultRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
-  const row = createElement('div');
-  row.className = 'vault-form-row';
-  row.dataset.id = vault.id;
+function createVaultForm(vault: VaultConfig, msgs: Messages): HTMLDivElement {
+  const form = createElement('div');
+  form.className = 'vault-form-row';
+  form.dataset.id = vault.id;
 
-  row.appendChild(createVaultNameRow(vault, msgs));
-  row.appendChild(createVaultUrlRow(vault, msgs));
-  row.appendChild(createVaultMetaRow(vault, msgs));
-  row.appendChild(createVaultActionsRow(vault, msgs));
+  form.appendChild(createVaultUrlRow(vault, msgs));
+  form.appendChild(createVaultMetaRow(vault, msgs));
+  form.appendChild(createVaultActionsRow(vault, msgs));
 
-  return row;
-}
-
-function createVaultNameRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
-  const row = createRow();
-  const group = createFormGroup();
-
-  const label = createElement('label');
-  setI18nText(label, 'multiVaultNameLabel', msgs);
-  group.appendChild(label);
-
-  const input = createElement('input');
-  input.type = 'text';
-  input.className = 'vault-name';
-  input.value = vault.name;
-  setI18nPlaceholder(input, 'multiVaultNamePlaceholder', msgs);
-  group.appendChild(input);
-
-  const hint = createElement('small');
-  setI18nText(hint, 'multiVaultNameHint', msgs);
-  group.appendChild(hint);
-
-  input.addEventListener('input', () => {
-    updateAdditionalVault(vault.id, { name: input.value });
-  });
-
-  row.appendChild(group);
-  return row;
+  return form;
 }
 
 function createVaultUrlRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
@@ -138,11 +114,12 @@ function createVaultUrlRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
   httpsGroup.appendChild(httpsInput);
 
   const httpsHint = createElement('small');
-  setI18nText(httpsHint, 'httpsUrlHint', msgs);
+  setI18nText(httpsHint, 'additionalVaultHttpsHint', msgs);
   httpsGroup.appendChild(httpsHint);
 
   httpsInput.addEventListener('input', () => {
     updateAdditionalVault(vault.id, { httpsUrl: httpsInput.value });
+    scheduleVaultRouterAutoSave();
   });
 
   row.appendChild(httpsGroup);
@@ -165,6 +142,7 @@ function createVaultUrlRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
 
   httpInput.addEventListener('input', () => {
     updateAdditionalVault(vault.id, { httpUrl: httpInput.value });
+    scheduleVaultRouterAutoSave();
   });
 
   row.appendChild(httpGroup);
@@ -191,7 +169,9 @@ function createVaultMetaRow(vault: VaultConfig, msgs: Messages): HTMLDivElement 
   nameGroup.appendChild(vaultHint);
 
   vaultInput.addEventListener('input', () => {
-    updateAdditionalVault(vault.id, { vault: vaultInput.value });
+    const value = vaultInput.value;
+    updateAdditionalVault(vault.id, { vault: value, name: value });
+    scheduleVaultRouterAutoSave();
   });
 
   row.appendChild(nameGroup);
@@ -214,6 +194,7 @@ function createVaultMetaRow(vault: VaultConfig, msgs: Messages): HTMLDivElement 
 
   apiInput.addEventListener('input', () => {
     updateAdditionalVault(vault.id, { apiKey: apiInput.value });
+    scheduleVaultRouterAutoSave();
   });
 
   row.appendChild(apiGroup);
@@ -221,19 +202,39 @@ function createVaultMetaRow(vault: VaultConfig, msgs: Messages): HTMLDivElement 
 }
 
 function createVaultActionsRow(vault: VaultConfig, msgs: Messages): HTMLDivElement {
-  const row = createElement('div');
-  row.className = 'form-actions';
+  const actions = createElement('div');
+  actions.className = 'connection-actions';
 
-  const button = createElement('button');
-  button.type = 'button';
-  button.className = 'btn-remove danger';
-  button.dataset.id = vault.id;
+  const testButton = createElement('button');
+  testButton.type = 'button';
+  testButton.className = 'secondary';
+  testButton.dataset.id = vault.id;
+  testButton.dataset.state = 'idle';
 
-  const label = createElement('span');
-  setI18nText(label, 'deleteVaultButton', msgs);
-  button.appendChild(label);
+  const testLabel = createElement('span');
+  setI18nText(testLabel, 'testConnectionButton', msgs);
+  testButton.appendChild(testLabel);
 
-  button.addEventListener('click', async () => {
+  const deleteButton = createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'btn-remove danger';
+  deleteButton.dataset.id = vault.id;
+
+  const deleteLabel = createElement('span');
+  setI18nText(deleteLabel, 'deleteVaultButton', msgs);
+  deleteButton.appendChild(deleteLabel);
+
+  const result = createElement('div');
+  result.className = 'connection-result';
+  result.hidden = true;
+  result.textContent = '';
+  result.setAttribute('aria-live', 'polite');
+
+  testButton.addEventListener('click', () => {
+    void handleVaultConnectionTestClick(vault.id, testButton, result, msgs);
+  });
+
+  deleteButton.addEventListener('click', async () => {
     const confirmed = await showConfirmDialog({
       title: msgs.deleteVaultDialogTitle,
       message: msgs.deleteVaultConfirm,
@@ -247,116 +248,238 @@ function createVaultActionsRow(vault: VaultConfig, msgs: Messages): HTMLDivEleme
 
     removeAdditionalVault(vault.id);
     await renderAdditionalVaults();
-    await renderRoutingRules();
+    scheduleVaultRouterAutoSave();
   });
 
-  row.appendChild(button);
-  return row;
+  actions.append(testButton, deleteButton, result);
+  return actions;
 }
 
-function createRuleRow(rule: RoutingRule, vaults: VaultConfig[], msgs: Messages): HTMLDivElement {
+async function handleVaultConnectionTestClick(
+  vaultId: string,
+  button: HTMLButtonElement,
+  result: HTMLDivElement,
+  msgs: Messages
+): Promise<void> {
+  if (isVaultConnectionTestRunning(vaultId)) {
+    return;
+  }
+
+  const vaultsSnapshot = getVaultsSnapshot();
+  const latestVault = vaultsSnapshot.find(item => item.id === vaultId);
+  if (!latestVault) {
+    result.hidden = false;
+    result.className = 'connection-result error';
+    result.textContent = `${msgs.connectionFailed}: 未找到仓库配置`;
+    return;
+  }
+
+  const restConfig = getRestEndpointsSnapshot();
+  const portEntries = collectPortEntriesFromConfig(restConfig, vaultsSnapshot);
+  const duplicatePorts = findDuplicatePorts(portEntries, latestVault.id);
+  if (duplicatePorts.length > 0) {
+    result.hidden = false;
+    result.className = 'connection-result error';
+    result.textContent = formatMessage(msgs.portConflictDetected, { ports: duplicatePorts.join(', ') });
+    button.disabled = false;
+    button.dataset.state = 'idle';
+    return;
+  }
+
+  button.disabled = true;
+  button.dataset.state = 'running';
+
+  result.hidden = false;
+  result.className = 'connection-result info';
+  result.textContent = msgs.connectionTesting;
+
+  try {
+    const response = await requestVaultConnectionTest(latestVault);
+    result.className = response.success ? 'connection-result success' : 'connection-result error';
+    result.textContent = formatConnectionDetails(response).join('\n');
+  } catch (error) {
+    result.className = 'connection-result error';
+    const message = error instanceof Error ? error.message : String(error);
+    result.textContent = `${msgs.connectionFailed}: ${message}`;
+  } finally {
+    button.disabled = false;
+    button.dataset.state = 'idle';
+  }
+}
+
+function formatConnectionDetails(response: ConnectionTestResult): string[] {
+  const details = [response.message];
+
+  if (response.status !== undefined) {
+    details.push(`状态码: ${response.status}`);
+  }
+
+  if (response.response) {
+    details.push(`响应片段: ${response.response}`);
+  }
+
+  if (!response.success && response.error) {
+    details.push(`错误: ${response.error}`);
+  }
+
+  return details;
+}
+
+function getRestEndpointsSnapshot(): { httpsUrl?: string; httpUrl?: string } {
+  return {
+    httpsUrl: readInputValue('restHttpsUrl'),
+    httpUrl: readInputValue('restHttpUrl')
+  };
+}
+
+function readInputValue(id: string): string | undefined {
+  const element = document.getElementById(id) as HTMLInputElement | null;
+  if (!element) {
+    return undefined;
+  }
+
+  const value = element.value.trim();
+  return value ? value : undefined;
+}
+
+function createVaultRulesBlock(vault: VaultConfig, msgs: Messages): HTMLDivElement {
+  const block = createElement('div');
+  block.className = 'vault-rules-block';
+  block.dataset.id = vault.id;
+
+  const header = createElement('div');
+  header.className = 'vault-rules-block__header';
+
+  const titleGroup = createElement('div');
+  titleGroup.className = 'vault-rules-block__title-group';
+
+  const title = createElement('h4');
+  title.className = 'vault-rules-block__title';
+  title.textContent = vault.name || vault.vault;
+  titleGroup.appendChild(title);
+
+  const subtitle = createElement('span');
+  subtitle.className = 'vault-rules-block__subtitle';
+  setI18nText(subtitle, 'routingRulesTitle', msgs);
+  titleGroup.appendChild(subtitle);
+
+  header.appendChild(titleGroup);
+
+  const addButton = createElement('button');
+  addButton.type = 'button';
+  addButton.className = 'add-mapping-btn';
+  setI18nText(addButton, 'addRuleButton', msgs);
+  addButton.addEventListener('click', async () => {
+    addRoutingRule({ vaultId: vault.id });
+    await renderAdditionalVaults();
+    scheduleVaultRouterAutoSave();
+  });
+  header.appendChild(addButton);
+
+  block.appendChild(header);
+
+  const rules = vault.rules ?? [];
+  if (rules.length === 0) {
+    const empty = createElement('div');
+    empty.className = 'vault-rules-empty';
+    setI18nText(empty, 'ruleEmptyPlaceholder', msgs);
+    block.appendChild(empty);
+    return block;
+  }
+
+  const table = createElement('div');
+  table.className = 'vault-rules-table';
+  table.appendChild(createVaultRulesHeaderRow(msgs));
+
+  for (const rule of rules) {
+    table.appendChild(createVaultRulesRow(vault, rule, msgs));
+  }
+
+  block.appendChild(table);
+  return block;
+}
+
+function createVaultRulesHeaderRow(msgs: Messages): HTMLDivElement {
+  const headerRow = createElement('div');
+  headerRow.className = 'vault-rules-header';
+
+  const enabledHeader = createElement('span');
+  setI18nText(enabledHeader, 'ruleEnabledLabel', msgs);
+  headerRow.appendChild(enabledHeader);
+
+  const typeHeader = createElement('span');
+  setI18nText(typeHeader, 'ruleTypeLabel', msgs);
+  headerRow.appendChild(typeHeader);
+
+  const patternHeader = createElement('span');
+  setI18nText(patternHeader, 'rulePatternLabel', msgs);
+  headerRow.appendChild(patternHeader);
+
+  const priorityHeader = createElement('span');
+  setI18nText(priorityHeader, 'rulePriorityLabel', msgs);
+  headerRow.appendChild(priorityHeader);
+
+  const actionsHeader = createElement('span');
+  actionsHeader.textContent = '';
+  headerRow.appendChild(actionsHeader);
+
+  return headerRow;
+}
+
+function createVaultRulesRow(vault: VaultConfig, rule: RoutingRule, msgs: Messages): HTMLDivElement {
   const row = createElement('div');
-  row.className = 'rule-form-row';
+  row.className = 'vault-rules-row';
   row.dataset.id = rule.id;
-  updateRuleOpacity(row, rule.enabled);
+  updateRuleRowState(row, rule.enabled);
 
-  row.appendChild(createRuleTypeRow(rule, msgs));
-  row.appendChild(createRuleTargetRow(rule, vaults, msgs));
-  row.appendChild(createRuleMetaRow(rule, msgs, row));
-  row.appendChild(createRuleActionsRow(rule, msgs));
+  const enabledCell = createElement('div');
+  enabledCell.className = 'rule-enabled-checkbox';
+  const enabledLabel = createElement('label');
+  const enabledCheckbox = createElement('input');
+  enabledCheckbox.type = 'checkbox';
+  enabledCheckbox.checked = rule.enabled;
+  enabledCheckbox.addEventListener('change', () => {
+    const enabled = enabledCheckbox.checked;
+    updateRoutingRule(rule.id, { enabled });
+    updateRuleRowState(row, enabled);
+    scheduleVaultRouterAutoSave();
+  });
+  const enabledText = createElement('span');
+  setI18nText(enabledText, 'ruleEnabledLabel', msgs);
+  enabledLabel.append(enabledCheckbox, enabledText);
+  enabledCell.appendChild(enabledLabel);
+  row.appendChild(enabledCell);
 
-  return row;
-}
-
-function createRuleTypeRow(rule: RoutingRule, msgs: Messages): HTMLDivElement {
-  const row = createRow();
-
-  const typeGroup = createFormGroup();
-  const typeLabel = createElement('label');
-  setI18nText(typeLabel, 'ruleTypeLabel', msgs);
-  typeGroup.appendChild(typeLabel);
-
+  const typeCell = createElement('div');
   const typeSelect = createElement('select');
   typeSelect.className = 'rule-type';
-
   const domainOption = createOption('domain', 'ruleTypeDomain', msgs);
   const keywordOption = createOption('keyword', 'ruleTypeKeyword', msgs);
   const urlPatternOption = createOption('url-pattern', 'ruleTypeUrlPattern', msgs);
-
   typeSelect.append(domainOption, keywordOption, urlPatternOption);
   typeSelect.value = rule.type;
-
   typeSelect.addEventListener('change', () => {
     updateRoutingRule(rule.id, { type: typeSelect.value as RoutingRule['type'] });
+    scheduleVaultRouterAutoSave();
   });
+  typeCell.appendChild(typeSelect);
+  row.appendChild(typeCell);
 
-  typeGroup.appendChild(typeSelect);
-  row.appendChild(typeGroup);
-
-  const patternGroup = createFormGroup();
-  const patternLabel = createElement('label');
-  setI18nText(patternLabel, 'rulePatternLabel', msgs);
-  patternGroup.appendChild(patternLabel);
-
+  const patternCell = createElement('div');
   const patternInput = createElement('input');
   patternInput.type = 'text';
   patternInput.className = 'rule-pattern';
   patternInput.value = rule.pattern;
   setI18nPlaceholder(patternInput, 'rulePatternPlaceholder', msgs);
-  patternGroup.appendChild(patternInput);
-
-  const patternHint = createElement('small');
-  setI18nText(patternHint, 'rulePatternPlaceholder', msgs);
-  patternGroup.appendChild(patternHint);
-
+  patternInput.title = msgs.rulePatternPlaceholder;
   patternInput.addEventListener('input', () => {
     updateRoutingRule(rule.id, { pattern: patternInput.value });
+    scheduleVaultRouterAutoSave();
   });
+  patternCell.appendChild(patternInput);
+  row.appendChild(patternCell);
 
-  row.appendChild(patternGroup);
-  return row;
-}
-
-function createRuleTargetRow(rule: RoutingRule, vaults: VaultConfig[], msgs: Messages): HTMLDivElement {
-  const row = createRow();
-
-  const targetGroup = createFormGroup();
-  const targetLabel = createElement('label');
-  setI18nText(targetLabel, 'ruleTargetVaultLabel', msgs);
-  targetGroup.appendChild(targetLabel);
-
-  const vaultSelect = createElement('select');
-  vaultSelect.className = 'rule-vault';
-
-  if (vaults.length === 0) {
-    const option = createOption('', 'ruleNoVaultOption', msgs);
-    option.disabled = true;
-    option.selected = true;
-    vaultSelect.appendChild(option);
-  } else {
-    for (const vault of vaults) {
-      const option = createElement('option');
-      option.value = vault.id;
-      option.textContent = vault.name;
-      vaultSelect.appendChild(option);
-    }
-    if (vaults.some(v => v.id === rule.vaultId)) {
-      vaultSelect.value = rule.vaultId;
-    }
-  }
-
-  vaultSelect.addEventListener('change', () => {
-    updateRoutingRule(rule.id, { vaultId: vaultSelect.value });
-  });
-
-  targetGroup.appendChild(vaultSelect);
-  row.appendChild(targetGroup);
-
-  const priorityGroup = createFormGroup();
-  const priorityLabel = createElement('label');
-  setI18nText(priorityLabel, 'rulePriorityLabel', msgs);
-  priorityGroup.appendChild(priorityLabel);
-
+  const priorityCell = createElement('div');
   const priorityInput = createElement('input');
   priorityInput.type = 'number';
   priorityInput.className = 'rule-priority';
@@ -364,83 +487,19 @@ function createRuleTargetRow(rule: RoutingRule, vaults: VaultConfig[], msgs: Mes
   priorityInput.min = '0';
   priorityInput.max = '100';
   priorityInput.placeholder = '10';
-  priorityGroup.appendChild(priorityInput);
-
-  const priorityHint = createElement('small');
-  setI18nText(priorityHint, 'rulePriorityHint', msgs);
-  priorityGroup.appendChild(priorityHint);
-
   priorityInput.addEventListener('input', () => {
     const value = parseInt(priorityInput.value, 10);
     updateRoutingRule(rule.id, { priority: Number.isFinite(value) ? value : 10 });
+    scheduleVaultRouterAutoSave();
   });
+  priorityCell.appendChild(priorityInput);
+  row.appendChild(priorityCell);
 
-  row.appendChild(priorityGroup);
-  return row;
-}
-
-function createRuleMetaRow(rule: RoutingRule, msgs: Messages, rowElement: HTMLElement): HTMLDivElement {
-  const metaRow = createRow();
-
-  const descriptionGroup = createFormGroup();
-  const descriptionLabel = createElement('label');
-  setI18nText(descriptionLabel, 'ruleDescriptionLabel', msgs);
-  descriptionGroup.appendChild(descriptionLabel);
-
-  const descriptionInput = createElement('input');
-  descriptionInput.type = 'text';
-  descriptionInput.className = 'rule-description';
-  descriptionInput.value = rule.description ?? '';
-  setI18nPlaceholder(descriptionInput, 'ruleDescriptionPlaceholder', msgs);
-  descriptionGroup.appendChild(descriptionInput);
-
-  const descriptionHint = createElement('small');
-  setI18nText(descriptionHint, 'ruleDescriptionHint', msgs);
-  descriptionGroup.appendChild(descriptionHint);
-
-  descriptionInput.addEventListener('input', () => {
-    const value = descriptionInput.value.trim();
-    updateRoutingRule(rule.id, { description: value || undefined });
-  });
-
-  metaRow.appendChild(descriptionGroup);
-
-  const enabledGroup = createFormGroup();
-  const enabledLabel = createElement('label');
-  const enabledCheckbox = createElement('input');
-  enabledCheckbox.type = 'checkbox';
-  enabledCheckbox.className = 'rule-enabled';
-  enabledCheckbox.checked = rule.enabled;
-
-  enabledCheckbox.addEventListener('change', () => {
-    const enabled = enabledCheckbox.checked;
-    updateRoutingRule(rule.id, { enabled });
-    updateRuleOpacity(rowElement, enabled);
-  });
-
-  const enabledText = createElement('span');
-  setI18nText(enabledText, 'ruleEnabledLabel', msgs);
-
-  enabledLabel.append(enabledCheckbox, enabledText);
-  enabledGroup.appendChild(enabledLabel);
-  metaRow.appendChild(enabledGroup);
-
-  return metaRow;
-}
-
-function createRuleActionsRow(rule: RoutingRule, msgs: Messages): HTMLDivElement {
-  const actionRow = createElement('div');
-  actionRow.className = 'form-actions';
-
+  const actionsCell = createElement('div');
   const removeButton = createElement('button');
   removeButton.type = 'button';
   removeButton.className = 'btn-remove danger';
-  removeButton.dataset.id = rule.id;
-
-  const removeLabel = createElement('span');
-  setI18nText(removeLabel, 'deleteRuleButton', msgs);
-  removeButton.appendChild(removeLabel);
-
+  setI18nText(removeButton, 'deleteRuleButton', msgs);
   removeButton.addEventListener('click', async () => {
     const confirmed = await showConfirmDialog({
       title: msgs.deleteRuleDialogTitle,
@@ -454,11 +513,17 @@ function createRuleActionsRow(rule: RoutingRule, msgs: Messages): HTMLDivElement
     }
 
     removeRoutingRule(rule.id);
-    await renderRoutingRules();
+    await renderAdditionalVaults();
+    scheduleVaultRouterAutoSave();
   });
+  actionsCell.appendChild(removeButton);
+  row.appendChild(actionsCell);
 
-  actionRow.appendChild(removeButton);
-  return actionRow;
+  return row;
+}
+
+function updateRuleRowState(row: HTMLElement, enabled: boolean): void {
+  row.style.opacity = enabled ? '1' : '0.6';
 }
 
 function createRow(): HTMLDivElement {
@@ -488,8 +553,4 @@ function setI18nText(element: HTMLElement, key: keyof Messages, msgs: Messages):
 function setI18nPlaceholder(element: HTMLInputElement | HTMLTextAreaElement, key: keyof Messages, msgs: Messages): void {
   element.dataset.i18nPlaceholder = key;
   element.placeholder = msgs[key];
-}
-
-function updateRuleOpacity(element: HTMLElement, enabled: boolean): void {
-  element.style.opacity = enabled ? '1' : '0.6';
 }

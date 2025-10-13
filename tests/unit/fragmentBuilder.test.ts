@@ -10,7 +10,9 @@ describe('buildFragmentMarkdown', () => {
     useFootnoteFormat: true,
     captureContext: false,
     contextLength: 200,
-    contextMode: 'chars'
+    contextMode: 'chars',
+    selectionModifierEnabled: false,
+    selectionModifierKeys: []
   };
 
   it('generates footnote markdown with metadata', () => {

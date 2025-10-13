@@ -102,7 +102,8 @@ describe('claude ai chat integration', () => {
           httpUrl: 'http://default.local:27123/',
           vault: 'Default',
           apiKey: 'default-key',
-          isDefault: true
+          isDefault: true,
+          rules: []
         },
         {
           id: 'claude-ai',
@@ -110,17 +111,17 @@ describe('claude ai chat integration', () => {
           httpsUrl: 'https://claude.local:27124/',
           httpUrl: 'http://claude.local:27123/',
           vault: 'ClaudeAI',
-          apiKey: 'claude-key'
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-claude',
-          vaultId: 'claude-ai',
-          type: 'domain',
-          pattern: '*.claude.ai',
-          enabled: true,
-          priority: 90
+          apiKey: 'claude-key',
+          rules: [
+            {
+              id: 'rule-claude',
+              vaultId: 'claude-ai',
+              type: 'domain',
+              pattern: 'claude.ai',
+              enabled: true,
+              priority: 90
+            }
+          ]
         }
       ],
       defaultVaultId: 'default'

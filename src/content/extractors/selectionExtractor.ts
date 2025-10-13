@@ -1,4 +1,5 @@
 import type { FragmentClipperOptions } from '../../shared/types/options';
+import { DEFAULT_FRAGMENT_CONFIG } from '../clipper/services/fragmentConfig';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { generateClipperTitle, formatDateTime } from '../clipper/utils/datetime';
 import { extractContextFromRange } from '../clipper/services/contextCapture';
@@ -32,13 +33,6 @@ export interface SelectionClipResult {
     selectedTextPreview: string;
   };
 }
-
-const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions = {
-  useFootnoteFormat: true,
-  captureContext: false,
-  contextLength: 200,
-  contextMode: 'chars'
-};
 
 export async function extractSelectionClip(params: SelectionClipParams): Promise<SelectionClipResult> {
   const {

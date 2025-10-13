@@ -115,7 +115,7 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
 ` +
     `clipped_at: "${clippedAt}"
 ` +
-    `tags: [clipping, fragment]
+    `tags: [clipping]
 ` +
     `---
 

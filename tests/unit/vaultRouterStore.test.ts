@@ -36,9 +36,10 @@ describe('vaultRouterStore', () => {
     expect(config).toBeDefined();
     expect(config?.vaults).toHaveLength(1);
     expect(config?.vaults[0].name).toBe('Secondary Vault');
-    expect(config?.rules).toHaveLength(1);
-    expect(config?.rules[0].description).toBe('Example domain');
-    expect(config?.rules[0].enabled).toBe(false);
+    expect(config?.vaults[0].rules).toHaveLength(1);
+    expect(config?.vaults[0].rules?.[0].description).toBe('Example domain');
+    expect(config?.vaults[0].rules?.[0].enabled).toBe(false);
+    expect(config?.rules).toBeUndefined();
     expect(config?.defaultVaultId).toBe(vault.id);
   });
 

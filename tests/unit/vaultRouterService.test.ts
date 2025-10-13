@@ -52,18 +52,18 @@ describe('vaultRouterService', () => {
           httpUrl: 'http://vault.example.com:27123/',
           vault: 'Articles',
           apiKey: 'vault-key',
-          isDefault: false
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-1',
-          vaultId: 'vault-1',
-          type: 'domain',
-          pattern: 'example.com',
-          enabled: true,
-          priority: 10,
-          description: 'Route example.com'
+          isDefault: false,
+          rules: [
+            {
+              id: 'rule-1',
+              vaultId: 'vault-1',
+              type: 'domain',
+              pattern: 'example.com',
+              enabled: true,
+              priority: 10,
+              description: 'Route example.com'
+            }
+          ]
         }
       ],
       defaultVaultId: 'vault-1'
@@ -113,17 +113,17 @@ describe('vaultRouterService', () => {
           httpUrl: 'http://vault.example.com:27123/',
           vault: 'Articles',
           apiKey: 'vault-key',
-          isDefault: false
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-1',
-          vaultId: 'vault-1',
-          type: 'domain',
-          pattern: 'news.example.com',
-          enabled: true,
-          priority: 10
+          isDefault: false,
+          rules: [
+            {
+              id: 'rule-1',
+              vaultId: 'vault-1',
+              type: 'domain',
+              pattern: 'news.example.com',
+              enabled: true,
+              priority: 10
+            }
+          ]
         }
       ],
       defaultVaultId: 'vault-1'

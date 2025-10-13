@@ -464,6 +464,114 @@
       line-height: 1.4;
     }
 
+    .ai-platforms-details {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-elev-1);
+      padding: var(--space-md) var(--space-lg);
+    }
+
+    .ai-platforms-details summary {
+      cursor: pointer;
+      font-weight: var(--font-weight-medium);
+      color: var(--accent-solid);
+    }
+
+    .ai-platforms-details summary::-webkit-details-marker {
+      color: var(--accent-solid);
+    }
+
+    .ai-platforms-details[open] summary {
+      margin-bottom: var(--space-md);
+    }
+
+    .ai-platforms-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      padding-left: 0;
+      margin: 0;
+    }
+
+    .ai-platforms-list a {
+      display: inline-flex;
+      align-items: center;
+      color: var(--text);
+      background: var(--bg-elev-2);
+      border-radius: var(--radius-sm);
+      padding: var(--space-xs) var(--space-sm);
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: border-color var(--transition-fast), color var(--transition-fast);
+    }
+
+    .ai-platforms-list a:hover,
+    .ai-platforms-list a:focus {
+      color: var(--accent-solid);
+      border-color: var(--accent-solid);
+    }
+
+    .highlight-theme-options {
+      display: flex;
+      gap: var(--space-md);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .highlight-theme-button {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      padding: 0;
+      cursor: pointer;
+      position: relative;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+      background: transparent;
+      --swatch-color: rgba(124, 92, 255, 0.85);
+    }
+
+    .highlight-theme-button::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      background: var(--swatch-color);
+    }
+
+    .highlight-theme-button[data-theme="gradient"] {
+      --swatch-color: linear-gradient(135deg, rgba(124, 92, 255, 0.9), rgba(87, 205, 255, 0.8));
+    }
+
+    .highlight-theme-button[data-theme="purple"] {
+      --swatch-color: rgba(124, 92, 255, 0.85);
+    }
+
+    .highlight-theme-button[data-theme="neonYellow"] {
+      --swatch-color: rgba(255, 248, 0, 0.9);
+    }
+
+    .highlight-theme-button[data-theme="neonGreen"] {
+      --swatch-color: rgba(48, 255, 173, 0.9);
+    }
+
+    .highlight-theme-button[data-theme="neonOrange"] {
+      --swatch-color: rgba(255, 176, 72, 0.9);
+    }
+
+    .highlight-theme-button.is-selected {
+      border-color: var(--accent-solid);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.45);
+      transform: scale(1.05);
+    }
+
+    .highlight-theme-button:focus-visible {
+      outline: none;
+      border-color: rgba(124, 92, 255, 0.85);
+      box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.35);
+    }
+
     .form-inline {
       display: flex;
       align-items: center;
@@ -1177,54 +1285,40 @@
         </div>
         <div class="section-header__extras">
           <span class="section-header__note" data-i18n="additionalVaultsHint">添加更多仓库，通过路由规则自动分配内容</span>
-          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
         </div>
       </div>
       <div id="additionalVaultsList"></div>
       <button class="add-mapping-btn" id="addAdditionalVaultBtn" data-i18n="addVaultButton">+ 添加仓库</button>
     </div>
 
-    <!-- 路由规则 -->
-    <div class="section">
-      <div class="section-header">
-        <div class="section-header__title">
-          <span class="icon">🔀</span>
-          <h2 data-i18n="routingRulesTitle">路由规则</h2>
-        </div>
-        <div class="section-header__extras">
-          <span class="section-header__note" data-i18n="routingRulesHint">根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库</span>
-          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
-        </div>
-      </div>
-      <div id="routingRulesList"></div>
-      <button class="add-mapping-btn" id="addRoutingRuleBtn" data-i18n="addRuleButton">+ 添加规则</button>
-    </div>
-
     <style>
-      .vault-form-row, .rule-form-row {
+      .vault-entry {
+        margin-bottom: var(--space-xl);
+      }
+
+      .vault-form-row {
         border: 1px solid var(--border);
         border-radius: var(--radius-md);
         padding: var(--space-xl);
-        margin-bottom: var(--space-lg);
         background: var(--bg-elev-1);
         box-shadow: var(--shadow-card);
       }
 
-      .vault-form-row .row, .rule-form-row .row {
+      .vault-form-row .row {
         display: flex;
         gap: var(--space-lg);
         margin-bottom: var(--space-lg);
       }
 
-      .vault-form-row .row:last-of-type, .rule-form-row .row:last-of-type {
+      .vault-form-row .row:last-of-type {
         margin-bottom: 0;
       }
 
-      .vault-form-row .form-group, .rule-form-row .form-group {
+      .vault-form-row .form-group {
         flex: 1;
       }
 
-      .vault-form-row label, .rule-form-row label {
+      .vault-form-row label {
         display: block;
         margin-bottom: var(--space-xs);
         font-weight: var(--font-weight-medium);
@@ -1232,15 +1326,15 @@
         font-size: var(--font-size-sm);
       }
 
-      .vault-form-row small, .rule-form-row small {
+      .vault-form-row small {
         display: block;
         margin-top: var(--space-xs);
         color: var(--text-dim);
         font-size: var(--font-size-xs);
       }
 
-      .vault-form-row input, .rule-form-row input,
-      .vault-form-row select, .rule-form-row select {
+      .vault-form-row input,
+      .vault-form-row select {
         width: 100%;
         padding: var(--space-sm) var(--space-md);
         background: var(--bg-elev-2);
@@ -1252,8 +1346,8 @@
         transition: border-color var(--transition-base), box-shadow var(--transition-base);
       }
 
-      .vault-form-row input:focus, .rule-form-row input:focus,
-      .vault-form-row select:focus, .rule-form-row select:focus {
+      .vault-form-row input:focus,
+      .vault-form-row select:focus {
         outline: none;
         border-color: var(--accent-solid);
         box-shadow: var(--ring);
@@ -1270,6 +1364,136 @@
 
       .form-actions button {
         margin-left: auto;
+      }
+
+      .vault-rules-block {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-top: var(--space-lg);
+        background: var(--bg-elev-1);
+        box-shadow: var(--shadow-card);
+      }
+
+      .vault-rules-block__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-md);
+        flex-wrap: wrap;
+        padding: var(--space-md) var(--space-lg);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .vault-rules-block__title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .vault-rules-block__title {
+        margin: 0;
+        font-size: var(--font-size-md);
+        font-weight: var(--font-weight-medium);
+      }
+
+      .vault-rules-block__subtitle {
+        flex: 1 1 100%;
+        font-size: var(--font-size-xs);
+        color: var(--text-dim);
+        line-height: 1.4;
+      }
+
+      .vault-rules-table {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .vault-rules-header,
+      .vault-rules-row {
+        display: grid;
+        grid-template-columns: 80px 160px minmax(220px, 1fr) 120px 80px;
+        align-items: center;
+        gap: var(--space-md);
+        padding: var(--space-md) var(--space-lg);
+      }
+
+      .vault-rules-header {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-medium);
+        color: var(--text-dim);
+        background: var(--bg-elev-2);
+      }
+
+      .vault-rules-row:not(:last-of-type) {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .vault-rules-row input,
+      .vault-rules-row select {
+        width: 100%;
+        padding: var(--space-sm) var(--space-md);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-size: var(--font-size-sm);
+        font-family: inherit;
+        transition: border-color var(--transition-base), box-shadow var(--transition-base);
+      }
+
+      .vault-rules-row input:focus,
+      .vault-rules-row select:focus {
+        outline: none;
+        border-color: var(--accent-solid);
+        box-shadow: var(--ring);
+      }
+
+      .vault-rules-row button {
+        margin: 0;
+        padding: var(--space-sm) var(--space-md);
+      }
+
+      .vault-rules-row .rule-enabled-checkbox {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+      }
+
+      .vault-rules-row .rule-enabled-checkbox label {
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        font-size: var(--font-size-sm);
+      }
+
+      .vault-rules-row .rule-enabled-checkbox input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+      }
+
+      .vault-rules-empty {
+        padding: var(--space-lg);
+        color: var(--text-dim);
+        font-size: var(--font-size-sm);
+      }
+
+      @media (max-width: 768px) {
+        .vault-rules-header,
+        .vault-rules-row {
+          grid-template-columns: 1fr 1fr;
+          row-gap: var(--space-md);
+        }
+
+        .vault-rules-header span:nth-child(n+3),
+        .vault-rules-row > :nth-child(n+3) {
+          grid-column: span 2;
+        }
+
+        .vault-rules-row .rule-enabled-checkbox {
+          justify-content: flex-start;
+        }
+      }
       }
     </style>
 
@@ -1291,14 +1515,6 @@
       <div class="form-group">
         <label data-i18n="fragmentTemplateLabel">片段路径模板</label>
         <input type="text" id="tplFragment" placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" />
-        <div class="template-vars">
-          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label data-i18n="clipperTemplateLabel">快捷剪藏路径模板</label>
-        <input type="text" id="tplClipper" placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" />
         <div class="template-vars">
           <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{slug}</code><code>{title}</code>
         </div>
@@ -1350,6 +1566,22 @@
       <input type="checkbox" id="aiIncludeTimestamps" hidden />
 
       <div class="form-group">
+        <details class="ai-platforms-details">
+          <summary data-i18n="aiSupportedPlatformsToggle">查看适配AI平台</summary>
+          <ul class="ai-platforms-list">
+            <li><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a></li>
+            <li><a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Claude</a></li>
+            <li><a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini</a></li>
+            <li><a href="https://kimi.moonshot.cn/" target="_blank" rel="noopener noreferrer">Kimi</a></li>
+            <li><a href="https://chat.deepseek.com/" target="_blank" rel="noopener noreferrer">DeepSeek</a></li>
+            <li><a href="https://tongyi.aliyun.com/" target="_blank" rel="noopener noreferrer">Tongyi</a></li>
+            <li><a href="https://www.doubao.com/chat/" target="_blank" rel="noopener noreferrer">Doubao</a></li>
+            <li><a href="https://monica.im/" target="_blank" rel="noopener noreferrer">Monica</a></li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="form-group">
         <div class="form-inline">
           <label for="aiUserName" data-i18n="userNameLabel">用户名称</label>
           <input type="text" id="aiUserName" data-i18n-placeholder="userNamePlaceholder" placeholder="USER" />
@@ -1384,6 +1616,27 @@
       </div>
     </div>
 
+    <!-- 视频模式配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🎬</span>
+          <h2 data-i18n="videoConfigTitle">视频模式</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="videoConfigHint">可在视频网站自动提示进入视频笔记模式</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label" for="videoFloatingPrompt">
+          <input type="checkbox" id="videoFloatingPrompt" />
+          <span data-i18n="videoFloatingPromptLabel">在视频网站显示浮动提示按钮</span>
+        </label>
+        <small data-i18n="videoFloatingPromptHint">支持 YouTube 与哔哩哔哩，默认在右下角显示提醒，点击即可开启视频模式。</small>
+      </div>
+    </div>
+
     <!-- 阅读模式配置 -->
     <div class="section">
       <div class="section-header">
@@ -1403,6 +1656,33 @@
           <option value="full" data-i18n="readingExportModeFull">保存全文并标注高亮</option>
         </select>
         <small data-i18n="readingExportModeDescription">选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。</small>
+      </div>
+
+      <div class="form-group">
+        <label id="readingHighlightThemeLabel" data-i18n="readingHighlightThemeLabel">高亮颜色</label>
+        <div
+          id="readingHighlightTheme"
+          class="highlight-theme-options"
+          role="radiogroup"
+          aria-labelledby="readingHighlightThemeLabel"
+        >
+          <button type="button" class="highlight-theme-button" data-theme="gradient" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeGradient">渐变紫蓝（默认）</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="purple" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemePurple">纯紫色</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonYellow" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonYellow">荧光黄</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonGreen" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonGreen">荧光绿</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonOrange" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonOrange">荧光橙</span>
+          </button>
+        </div>
+        <small data-i18n="readingHighlightThemeDescription">仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。</small>
       </div>
     </div>
 
@@ -1434,6 +1714,37 @@
         <small>启用后，会捕捉选中文字周围的上下文，并用 <code>==高亮==</code> 标记实际选中的部分</small>
       </div>
 
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentModifierToggle" />
+          <span data-i18n="fragmentModifierToggleLabel">启用辅助键触发剪藏/阅读操作</span>
+        </label>
+        <small data-i18n="fragmentModifierToggleDescription">按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或添加阅读模式高亮。</small>
+      </div>
+
+      <div class="form-group" id="fragmentModifierKeysGroup" style="display: none;">
+        <label data-i18n="fragmentModifierKeysLabel">辅助键设置</label>
+        <div>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="alt" />
+            <span data-i18n="fragmentModifierKeyAlt">Option / Alt</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="meta" />
+            <span data-i18n="fragmentModifierKeyMeta">Command</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="ctrl" />
+            <span data-i18n="fragmentModifierKeyCtrl">Control</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="shift" />
+            <span data-i18n="fragmentModifierKeyShift">Shift</span>
+          </label>
+        </div>
+        <small data-i18n="fragmentModifierKeysDescription">同时按下所有选中的辅助键才会触发自动剪藏或阅读高亮。</small>
+      </div>
+
       <div class="hint-row">
         <div class="hint" style="background: #2d2d30; border-left-color: #4ade80;">
           ✨ <strong>脚注格式示例：</strong><br>
@@ -1452,7 +1763,7 @@
       </div>
     </div>
 
-    <!-- 分类器配置 -->
+    <!-- 分类器配置（暂时隐藏）
     <div class="section">
       <div class="section-header">
         <div class="section-header__title">
@@ -1503,6 +1814,7 @@
         </div>
       </div>
     </div>
+    -->
 
     <!-- 配置导入导出 -->
     <div class="section">

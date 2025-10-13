@@ -13,25 +13,37 @@ export interface RestCandidate {
 
 const LOCAL_HOST_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)/;
 
-export function buildVaultUrl(baseUrl: string, vault: string, encodedPath: string): string {
-  return `${baseUrl.replace(/\/$/, '')}/vault/${encodeURIComponent(vault)}/${encodedPath}`;
+export function buildVaultUrl(baseUrl: string, _vault: string, encodedPath: string): string {
+  const trimmed = baseUrl.trim();
+  const normalizedBase = stripTrailingSlash(trimmed);
+  if (/\/vault(?:\/[^/?#]+)?$/i.test(normalizedBase)) {
+    return joinUrl(normalizedBase, encodedPath);
+  }
+  return joinUrl(joinUrl(normalizedBase, 'vault'), encodedPath);
 }
 
 export function isLocalAddress(url: string): boolean {
   return LOCAL_HOST_PATTERN.test(url);
 }
 
-export function createRestCandidates(config: RestConfig, encodedPath: string): RestCandidate[] {
+export function createRestCandidates(config: RestConfig, encodedPath: string, directPath?: string): RestCandidate[] {
   const urlsToTry: RestCandidate[] = [];
 
   const pushCandidate = (targetUrl: string | undefined, protocol: string) => {
     if (!targetUrl) return;
     const trimmed = targetUrl.trim();
     if (!trimmed) return;
-    urlsToTry.push({
-      url: buildVaultUrl(trimmed, config.vault, encodedPath),
-      protocol
-    });
+
+    const normalizedBase = stripTrailingSlash(trimmed);
+    const effectivePath = directPath ?? encodedPath;
+
+    const directUrl = joinUrl(normalizedBase, effectivePath);
+    addUniqueCandidate(urlsToTry, directUrl, protocol);
+
+    if (!hasVaultPrefix(normalizedBase)) {
+      const fallbackUrl = buildVaultUrl(trimmed, config.vault, encodedPath);
+      addUniqueCandidate(urlsToTry, fallbackUrl, `${protocol} (vault)`);
+    }
   };
 
   const { httpsUrl, httpUrl, baseUrl } = config;
@@ -80,4 +92,34 @@ export function maskApiKey(target: string, apiKey: string): string {
     return target;
   }
   return target.split(apiKey).join('***');
+}
+
+function addUniqueCandidate(list: RestCandidate[], url: string, protocol: string): void {
+  if (list.some(candidate => candidate.url === url)) {
+    return;
+  }
+  list.push({ url, protocol });
+}
+
+function stripTrailingSlash(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+function joinUrl(base: string, segment: string): string {
+  const normalizedBase = stripTrailingSlash(base);
+  const normalizedSegment = segment.replace(/^[\/]+/, '');
+  if (!normalizedSegment) {
+    return normalizedBase;
+  }
+  return `${normalizedBase}/${normalizedSegment}`;
+}
+
+function hasVaultPrefix(url: string): boolean {
+  try {
+    const parsed = new URL(url, 'http://placeholder');
+    const pathname = stripTrailingSlash(parsed.pathname);
+    return /\/vault(?:\/[^/?#]+)?$/i.test(pathname);
+  } catch {
+    return /\/vault(?:\/[^/?#]+)?$/i.test(stripTrailingSlash(url));
+  }
 }

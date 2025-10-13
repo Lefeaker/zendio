@@ -1,4 +1,7 @@
 import { getElementById } from '../utils/dom';
+import { getMessages, formatMessage } from '../../i18n';
+import type { VaultConfig, RoutingRule, VaultRouterConfig } from '../../shared/types';
+import { collectPortEntriesFromConfig, findDuplicatePorts } from '../utils/ports';
 
 export async function runDiagnostics(): Promise<void> {
   const diagSection = getElementById<HTMLElement>('diagSection');
@@ -8,6 +11,7 @@ export async function runDiagnostics(): Promise<void> {
   diagOutput.textContent = '正在诊断...\n';
 
   try {
+    const msgs = await getMessages();
     const { options } = await chrome.storage.sync.get('options');
     diagOutput.textContent += '\n📋 当前配置:\n';
     diagOutput.textContent += JSON.stringify(options, null, 2) + '\n';
@@ -54,13 +58,32 @@ export async function runDiagnostics(): Promise<void> {
       } else {
         diagOutput.textContent += `✅ 额外仓库数量: ${router.vaults.length}\n`;
       }
-      if (!router.rules || router.rules.length === 0) {
+      const routerConfig = router as VaultRouterConfig;
+      const legacyRulesCount = routerConfig.rules?.length ?? 0;
+      const nestedRulesCount = routerConfig.vaults
+        ? routerConfig.vaults.reduce((total: number, vault: VaultConfig & { rules?: RoutingRule[] }) => {
+            return total + (vault.rules?.length ?? 0);
+          }, 0)
+        : 0;
+      const totalRules = legacyRulesCount + nestedRulesCount;
+
+      if (totalRules === 0) {
         diagOutput.textContent += 'ℹ️ 未配置路由规则\n';
       } else {
-        diagOutput.textContent += `✅ 路由规则数量: ${router.rules.length}\n`;
+        diagOutput.textContent += `✅ 路由规则数量: ${totalRules}\n`;
       }
     } else {
       diagOutput.textContent += '\nℹ️ 未配置多仓库\n';
+    }
+
+    diagOutput.textContent += '\n🔌 端口检查:\n';
+    const portEntries = collectPortEntriesFromConfig(options.rest, options.vaultRouter?.vaults);
+    const portConflicts = findDuplicatePorts(portEntries);
+    if (portConflicts.length > 0) {
+      const message = formatMessage(msgs.portConflictDetected, { ports: portConflicts.join(', ') });
+      diagOutput.textContent += `${message}\n`;
+    } else {
+      diagOutput.textContent += '✅ 仓库端口配置正常\n';
     }
 
     diagOutput.textContent += '\n诊断完成\n';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { VaultRouter } from '../../src/background/vault-router';
-import type { ClipContext, VaultRouterConfig } from '../../src/shared/types';
+import type { ClipContext, VaultRouterConfig, RoutingRule } from '../../src/shared/types';
 
 describe('VaultRouter', () => {
   const baseVaults = [
@@ -11,7 +11,8 @@ describe('VaultRouter', () => {
       httpUrl: 'http://default:27123/',
       vault: 'Default',
       apiKey: 'default',
-      isDefault: true
+      isDefault: true,
+      rules: []
     },
     {
       id: 'tech',
@@ -19,7 +20,8 @@ describe('VaultRouter', () => {
       httpsUrl: 'https://tech:27124/',
       httpUrl: 'http://tech:27123/',
       vault: 'Tech',
-      apiKey: 'tech'
+      apiKey: 'tech',
+      rules: []
     }
   ] as const;
 
@@ -31,33 +33,67 @@ describe('VaultRouter', () => {
     type: 'article'
   };
 
+  const createConfig = (rulesForTech: RoutingRule[]): VaultRouterConfig => ({
+    vaults: [
+      { ...baseVaults[0], rules: [] },
+      { ...baseVaults[1], rules: rulesForTech.map(rule => ({ ...rule, vaultId: 'tech' })) }
+    ],
+    defaultVaultId: 'default'
+  });
+
   it('matches domain rule before default', () => {
-    const config: VaultRouterConfig = {
-      vaults: [...baseVaults],
-      rules: [
-        {
-          id: 'rule-1',
-          vaultId: 'tech',
-          type: 'domain',
-          pattern: 'example.com',
-          enabled: true,
-          priority: 10
-        }
-      ],
-      defaultVaultId: 'default'
-    };
+    const config = createConfig([
+      {
+        id: 'rule-1',
+        vaultId: 'tech',
+        type: 'domain',
+        pattern: 'example.com',
+        enabled: true,
+        priority: 10
+      }
+    ]);
 
     const router = new VaultRouter(config);
     const vault = router.selectVault(context);
     expect(vault?.id).toBe('tech');
   });
 
+  it('matches subdomains when rule omits wildcard', () => {
+    const config = createConfig([
+      {
+        id: 'rule-1',
+        vaultId: 'tech',
+        type: 'domain',
+        pattern: 'example.com',
+        enabled: true,
+        priority: 10
+      }
+    ]);
+
+    const router = new VaultRouter(config);
+    const vault = router.selectVault({ ...context, domain: 'www.example.com' });
+    expect(vault?.id).toBe('tech');
+  });
+
+  it('matches semicolon separated domain patterns', () => {
+    const config = createConfig([
+      {
+        id: 'rule-many',
+        vaultId: 'tech',
+        type: 'domain',
+        pattern: 'news.example.com;blog.example.com',
+        enabled: true,
+        priority: 15
+      }
+    ]);
+
+    const router = new VaultRouter(config);
+    const vault = router.selectVault({ ...context, domain: 'blog.example.com' });
+    expect(vault?.id).toBe('tech');
+  });
+
   it('returns null when no rule matches', () => {
-    const config: VaultRouterConfig = {
-      vaults: [...baseVaults],
-      rules: [],
-      defaultVaultId: 'default'
-    };
+    const config = createConfig([]);
 
     const router = new VaultRouter(config);
     const vault = router.selectVault({ ...context, domain: 'unknown.com' });
@@ -65,20 +101,16 @@ describe('VaultRouter', () => {
   });
 
   it('ignores keyword rules with blank patterns', () => {
-    const config: VaultRouterConfig = {
-      vaults: [...baseVaults],
-      rules: [
-        {
-          id: 'keyword-blank',
-          vaultId: 'tech',
-          type: 'keyword',
-          pattern: '   ',
-          enabled: true,
-          priority: 20
-        }
-      ],
-      defaultVaultId: 'default'
-    };
+    const config = createConfig([
+      {
+        id: 'keyword-blank',
+        vaultId: 'tech',
+        type: 'keyword',
+        pattern: '   ',
+        enabled: true,
+        priority: 20
+      }
+    ]);
 
     const router = new VaultRouter(config);
     const vault = router.selectVault({ ...context, domain: 'no-match.com' });
@@ -86,20 +118,16 @@ describe('VaultRouter', () => {
   });
 
   it('ignores url pattern rules with blank patterns', () => {
-    const config: VaultRouterConfig = {
-      vaults: [...baseVaults],
-      rules: [
-        {
-          id: 'url-blank',
-          vaultId: 'tech',
-          type: 'url-pattern',
-          pattern: '\t',
-          enabled: true,
-          priority: 20
-        }
-      ],
-      defaultVaultId: 'default'
-    };
+    const config = createConfig([
+      {
+        id: 'url-blank',
+        vaultId: 'tech',
+        type: 'url-pattern',
+        pattern: '\t',
+        enabled: true,
+        priority: 20
+      }
+    ]);
 
     const router = new VaultRouter(config);
     const vault = router.selectVault({ ...context, domain: 'no-match.com' });

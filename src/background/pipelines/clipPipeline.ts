@@ -1,12 +1,8 @@
 import { getOptions } from '../store';
-import { resolvePath } from '../pathResolver';
-import { selectVaultForClip } from '../services/vaultRouterService';
-import { classifyClip } from '../services/classificationService';
-import { writeMarkdownToVault } from '../services/obsidianWriter';
 import { notifyClipFailure, notifyClipSuccess } from '../services/notifications';
-import { recordClipUsage } from '../services/usageStats';
 import type { ClipResultMessage } from '../../shared/types';
 import { SHOW_SUPPORT_PROMPT } from '../../shared/types';
+import { processClipPayload } from '../application/clipProcessor';
 
 function dispatchSupportPrompt(
   tabId: number | undefined,
@@ -39,26 +35,15 @@ export async function handleClipResult(message: ClipResultMessage, tabId?: numbe
   }
 
   try {
-    const options = await getOptions();
-    const { vault, restConfig } = selectVaultForClip(options, payload);
-    const classification = await classifyClip(options, payload);
-    const filePath = resolvePath(options.templates, payload, classification, options.domainMappings);
-
-    await writeMarkdownToVault(restConfig, filePath, payload.markdown);
-
+    const result = await processClipPayload(payload);
     try {
-      await recordClipUsage(payload);
-    } catch (usageError) {
-      console.warn('[clipPipeline] Failed to record usage stats:', usageError);
-    }
-
-    try {
-      await notifyClipSuccess(filePath, vault?.name);
+      await notifyClipSuccess(result.filePath, result.vaultName);
     } catch (notificationError) {
       console.warn('[clipPipeline] Success notification failed:', notificationError);
     }
 
-    dispatchSupportPrompt(tabId, payload?.type, vault?.name ?? restConfig.vault, 'success');
+    const supportVault = result.vaultName ?? result.restVault;
+    dispatchSupportPrompt(tabId, payload?.type, supportVault, 'success');
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error('[clipPipeline] Clip failed:', error);

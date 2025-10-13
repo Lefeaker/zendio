@@ -1,11 +1,27 @@
 import { createRestCandidates, maskApiKey, buildVaultUrl } from '../utils/restCandidates';
 
-export async function writeFile(
-  rest: { baseUrl: string; httpsUrl?: string; httpUrl?: string; vault: string; apiKey: string },
-  filePath: string,
-  content: string
-) {
-  const encodedPath = filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+class RestResponseError extends Error {
+  status: number;
+  protocol: string;
+
+  constructor(status: number, protocol: string, message: string) {
+    super(`REST write failed (${protocol}): ${status} ${message}`);
+    this.status = status;
+    this.protocol = protocol;
+    this.name = 'RestResponseError';
+  }
+}
+
+interface RestConfig {
+  baseUrl: string;
+  httpsUrl?: string;
+  httpUrl?: string;
+  vault: string;
+  apiKey: string;
+}
+
+export async function writeFile(rest: RestConfig, filePath: string, content: string) {
+  const [encodedPath, directEncodedPath] = buildCandidatePaths(filePath, rest.vault);
 
   console.log('Writing to Obsidian:', {
     filePath,
@@ -16,7 +32,7 @@ export async function writeFile(
     hasApiKey: Boolean(rest.apiKey)
   });
 
-  const candidates = createRestCandidates(rest, encodedPath);
+  const candidates = createRestCandidates(rest, encodedPath, directEncodedPath);
   if (candidates.length === 0) {
     candidates.push({
       url: buildVaultUrl(rest.baseUrl, rest.vault, encodedPath),
@@ -35,6 +51,10 @@ export async function writeFile(
       const err = error as Error;
       console.warn(`❌ ${candidate.protocol} failed:`, err.message);
       errors.push({ protocol: candidate.protocol, error: err });
+
+      if (err instanceof RestResponseError) {
+        continue;
+      }
 
       if (!err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
         throw err;
@@ -74,8 +94,30 @@ async function doPut(url: string, protocol: string, apiKey: string, content: str
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => res.statusText);
-    throw new Error(`REST write failed (${protocol}): ${res.status} ${errorText}`);
+    throw new RestResponseError(res.status, protocol, errorText);
   }
 
   return res;
+}
+
+function buildCandidatePaths(filePath: string, vaultName: string): [string, string] {
+  const normalized = normalizeVaultRelativePath(filePath, vaultName);
+  const encoded = normalized.split('/').map(encodeURIComponent).join('/');
+  return [encoded, encoded];
+}
+
+function normalizeVaultRelativePath(input: string, vaultName: string): string {
+  let path = input.replace(/^[\\/]+/, '');
+
+  if (!path) {
+    return '';
+  }
+
+  const escapedVault = vaultName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefixRegex = new RegExp(`^${escapedVault}[\\/]+`, 'i');
+  path = path.replace(prefixRegex, '');
+
+  path = path.replace(/[\\/]+/g, '/');
+
+  return path;
 }

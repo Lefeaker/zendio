@@ -14,7 +14,6 @@ export interface RestOptions {
 export interface TemplateOptions {
   article: string;
   fragment: string;
-  clipper: string;
   reading: string;
   ai: string;
 }
@@ -30,10 +29,19 @@ export interface DeepResearchOptions {
 
 export type FragmentContextMode = 'chars';
 
+export type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
+
 export type ReadingExportMode = 'highlights' | 'full';
+
+export type ReaderHighlightTheme = 'gradient' | 'purple' | 'neonYellow' | 'neonGreen' | 'neonOrange';
 
 export interface ReadingSessionOptions {
   exportMode: ReadingExportMode;
+  highlightTheme: ReaderHighlightTheme;
+}
+
+export interface VideoOptions {
+  floatingPromptEnabled: boolean;
 }
 
 export interface FragmentClipperOptions {
@@ -41,6 +49,8 @@ export interface FragmentClipperOptions {
   captureContext: boolean;
   contextLength: number;
   contextMode: FragmentContextMode;
+  selectionModifierEnabled: boolean;
+  selectionModifierKeys: FragmentModifierKey[];
 }
 
 export interface ClassifierOptions {
@@ -60,6 +70,7 @@ export interface StoredOptions {
   deepResearch?: Partial<DeepResearchOptions>;
   fragmentClipper?: Partial<FragmentClipperOptions>;
   readingSession?: Partial<ReadingSessionOptions>;
+  video?: Partial<VideoOptions>;
   classifier?: Partial<ClassifierOptions>;
   vaultRouter?: VaultRouterConfig;
   [key: string]: unknown;
@@ -72,6 +83,7 @@ export interface CompleteOptions extends StoredOptions {
   deepResearch: DeepResearchOptions;
   fragmentClipper: FragmentClipperOptions;
   readingSession: ReadingSessionOptions;
+  video: VideoOptions;
   classifier: ClassifierOptions;
   domainMappings: Record<string, string>;
 }
@@ -84,6 +96,7 @@ export interface OptionsState {
   deepResearch?: DeepResearchOptions;
   fragmentClipper?: FragmentClipperOptions;
   readingSession?: ReadingSessionOptions;
+  video?: VideoOptions;
   classifier?: ClassifierOptions;
   vaultRouter?: VaultRouterConfig;
 }

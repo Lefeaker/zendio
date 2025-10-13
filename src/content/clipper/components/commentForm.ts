@@ -9,7 +9,7 @@ export interface CommentFormElements {
   preview: HTMLDivElement;
 }
 
-export function createCommentForm(messages: CommentFormMessages, selectedText: string): CommentFormElements {
+export function createCommentForm(messages: CommentFormMessages, selectedText: string, initialComment = ''): CommentFormElements {
   const container = document.createElement('div');
   container.style.cssText = `
     padding: var(--space-xl, 24px) var(--space-2xl, 28px) var(--space-2xl, 28px) var(--space-2xl, 28px);
@@ -66,6 +66,10 @@ export function createCommentForm(messages: CommentFormMessages, selectedText: s
 
   const placeholderStyle = document.createElement('style');
   placeholderStyle.textContent = `#${textarea.id}::placeholder { color: var(--text-muted, rgba(242, 244, 255, 0.55)); }`;
+
+  if (initialComment) {
+    textarea.value = initialComment;
+  }
 
   textarea.addEventListener('focus', () => {
     textarea.style.boxShadow = 'var(--ring, 0 0 0 3px rgba(124, 92, 255, 0.35))';

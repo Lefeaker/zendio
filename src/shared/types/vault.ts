@@ -6,6 +6,7 @@ export type VaultConfig = {
   vault: string;
   apiKey: string;
   isDefault?: boolean;
+  rules?: RoutingRule[];
 };
 
 export type RoutingRuleType = 'domain' | 'keyword' | 'url-pattern';
@@ -22,7 +23,10 @@ export type RoutingRule = {
 
 export type VaultRouterConfig = {
   vaults: VaultConfig[];
-  rules: RoutingRule[];
+  /**
+   * @deprecated Rules are now stored on each vault via VaultConfig.rules. This field is kept for legacy data.
+   */
+  rules?: RoutingRule[];
   defaultVaultId?: string;
 };
 

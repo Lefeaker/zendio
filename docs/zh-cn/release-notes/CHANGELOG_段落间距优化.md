@@ -166,5 +166,4 @@ if (contentMarkdown.trim().length > 500) {
 
 - **修改日期**: 2025-10-02
 - **修改人**: AI Assistant
-- **版本**: v0.1.0
-
+- **版本**: v0.2.0

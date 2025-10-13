@@ -37,6 +37,26 @@ export function appendFootnoteRef(block: string, ref: string): string {
   return lines.join('\n');
 }
 
+export function appendLocatorLink(block: string, url: string): string {
+  if (!url || !block.trim()) {
+    return block;
+  }
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) {
+    return block;
+  }
+
+  const lines = block.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].trim()) {
+      lines[i] = `${lines[i]}    [](${trimmedUrl})`;
+      break;
+    }
+  }
+  return lines.join('\n');
+}
+
 function highlightMarkdownLine(line: string): string {
   if (!line.trim()) {
     return line;

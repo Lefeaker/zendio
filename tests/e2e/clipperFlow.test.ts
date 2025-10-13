@@ -49,7 +49,8 @@ describe('clipper end-to-end simulation', () => {
           httpUrl: 'http://default.local:27123/',
           vault: 'Default',
           apiKey: 'default-key',
-          isDefault: true
+          isDefault: true,
+          rules: []
         },
         {
           id: 'tech',
@@ -57,17 +58,17 @@ describe('clipper end-to-end simulation', () => {
           httpsUrl: 'https://tech.local:27124/',
           httpUrl: 'http://tech.local:27123/',
           vault: 'Tech',
-          apiKey: 'tech-key'
-        }
-      ],
-      rules: [
-        {
-          id: 'rule-domain',
-          vaultId: 'tech',
-          type: 'domain',
-          pattern: '*.example.com',
-          enabled: true,
-          priority: 50
+          apiKey: 'tech-key',
+          rules: [
+            {
+              id: 'rule-domain',
+              vaultId: 'tech',
+              type: 'domain',
+              pattern: '*.example.com',
+              enabled: true,
+              priority: 50
+            }
+          ]
         }
       ],
       defaultVaultId: 'default'

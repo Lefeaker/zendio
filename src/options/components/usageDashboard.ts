@@ -158,6 +158,36 @@ interface ChartGeometry {
 
 const X_AXIS_LABEL_OFFSET = 12;
 
+function formatCoord(value: number): string {
+  return value.toFixed(2);
+}
+
+export function buildSmoothPath(points: ChartPoint[]): string {
+  if (points.length === 0) {
+    return '';
+  }
+
+  const pathSegments: string[] = [`M${formatCoord(points[0].x)} ${formatCoord(points[0].y)}`];
+
+  for (let index = 0; index < points.length - 1; index++) {
+    const current = points[index];
+    const next = points[index + 1];
+    const previous = index > 0 ? points[index - 1] : current;
+    const after = index + 2 < points.length ? points[index + 2] : next;
+
+    const control1X = current.x + (next.x - previous.x) / 6;
+    const control1Y = current.y + (next.y - previous.y) / 6;
+    const control2X = next.x - (after.x - current.x) / 6;
+    const control2Y = next.y - (after.y - current.y) / 6;
+
+    pathSegments.push(
+      `C${formatCoord(control1X)} ${formatCoord(control1Y)} ${formatCoord(control2X)} ${formatCoord(control2Y)} ${formatCoord(next.x)} ${formatCoord(next.y)}`
+    );
+  }
+
+  return pathSegments.join(' ');
+}
+
 function updateWave(history: UsageStats['history']): ChartGeometry {
   const geometry = computeChartGeometry(history);
   if (!elements.wavePath) {
@@ -183,9 +213,7 @@ function updateWave(history: UsageStats['history']): ChartGeometry {
     const path = `M${startX.toFixed(2)} ${y.toFixed(2)} L${endX.toFixed(2)} ${y.toFixed(2)}`;
     elements.wavePath.setAttribute('d', path);
   } else {
-    const path = points
-      .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-      .join(' ');
+    const path = buildSmoothPath(points);
     elements.wavePath.setAttribute('d', path);
   }
 

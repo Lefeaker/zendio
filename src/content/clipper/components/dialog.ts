@@ -25,6 +25,12 @@ export interface ClipperDialogResult {
 
 type ReaderModeBehavior = 'start' | 'append';
 
+interface ClipperDialogOptions {
+  allowReaderMode?: boolean;
+  readerModeBehavior?: ReaderModeBehavior;
+  initialComment?: string;
+}
+
 export class ClipperDialog {
   private static activeDialog: ClipperDialog | null = null;
   private dialog: HTMLDivElement | null = null;
@@ -39,14 +45,16 @@ export class ClipperDialog {
   private currentY = 0;
   private allowReaderMode = true;
   private readerModeBehavior: ReaderModeBehavior = 'start';
+  private initialComment = '';
 
-  async show(selectedText: string, options?: { allowReaderMode?: boolean; readerModeBehavior?: ReaderModeBehavior }): Promise<ClipperDialogResult> {
+  async show(selectedText: string, options?: ClipperDialogOptions): Promise<ClipperDialogResult> {
     return new Promise((resolve) => {
       ClipperDialog.activeDialog?.remove();
       ClipperDialog.activeDialog = this;
       this.resolve = resolve;
       this.allowReaderMode = options?.allowReaderMode ?? true;
       this.readerModeBehavior = options?.readerModeBehavior ?? 'start';
+      this.initialComment = options?.initialComment ?? '';
       void this.createDialog(selectedText);
     });
   }
@@ -73,6 +81,7 @@ export class ClipperDialog {
     this.content = null;
     this.allowReaderMode = true;
     this.readerModeBehavior = 'start';
+    this.initialComment = '';
     delete document.documentElement.dataset.aiobClipperDialog;
     if (this.previousActiveElement) {
       const target = this.previousActiveElement;
@@ -165,7 +174,7 @@ export class ClipperDialog {
     const { container: formContainer, textarea } = createCommentForm({
       commentLabel: msgs.commentLabel,
       commentPlaceholder: msgs.commentPlaceholder
-    }, selectedText);
+    }, selectedText, this.initialComment);
 
     if (textarea) {
       textarea.setAttribute('aria-label', msgs.commentLabel);
