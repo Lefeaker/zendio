@@ -1,6 +1,6 @@
 import { getService } from '../../di';
 import { TOKENS } from '../../di/tokens';
-import type { AppError, ErrorReporter } from '../types';
+import { ErrorSeverity, type AppError, type ErrorReporter } from '../types';
 import { sanitizeErrorForAnalytics } from './dataSanitizer';
 
 export interface SentryReporterConfig {
@@ -50,7 +50,9 @@ function parseDsn(dsn: string): ParsedDsn {
   }
 
   const basePath = pathSegments.slice(0, -1).join('/');
-  const endpointPath = basePath ? `/${basePath}/api/${projectId}/envelope/` : `/api/${projectId}/envelope/`;
+  const endpointPath = basePath
+    ? `/${basePath}/api/${projectId}/envelope/`
+    : `/api/${projectId}/envelope/`;
 
   return {
     endpoint: `${url.protocol}//${url.host}${endpointPath}`,
@@ -62,18 +64,20 @@ function createEventId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID().replace(/-/g, '');
   }
-  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 18)}`.padEnd(32, '0').slice(0, 32);
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 18)}`
+    .padEnd(32, '0')
+    .slice(0, 32);
 }
 
 function mapSeverity(severity: AppError['severity']): SentryEventPayload['level'] {
   switch (severity) {
-    case 'info':
+    case ErrorSeverity.INFO:
       return 'info';
-    case 'warning':
+    case ErrorSeverity.WARNING:
       return 'warning';
-    case 'critical':
+    case ErrorSeverity.CRITICAL:
       return 'fatal';
-    case 'error':
+    case ErrorSeverity.ERROR:
     default:
       return 'error';
   }

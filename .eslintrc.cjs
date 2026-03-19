@@ -24,7 +24,8 @@ module.exports = {
     'tmp/',
     '*.config.ts',
     'node_modules/',
-    'trash/'
+    'trash/',
+    'scripts/setup-error-analytics.js'
   ],
   rules: {
     // 暂时将所有规则都设为警告，确保构建通过
