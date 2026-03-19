@@ -102,3 +102,20 @@ claude.md
 docs/change-classification-2026-03-19.md
 docs/docs-rewrite-candidates-2026-03-19.md
 src/options/optionuicsssuggest.md
+
+# Internal planning / debt / migration archives
+docs/251126-design-system-poc/
+docs/**/*-plan*.md
+docs/**/*-roadmap*.md
+docs/**/*-checklist*.md
+docs/**/*-analysis-report*.md
+docs/**/*-remediation-guide*.md
+docs/**/*-migration-plan*.md
+docs/**/*-training-checklist*.md
+docs/**/*suggestion*.md
+docs/**/*technical-debt*.md
+docs/**/*债务*.md
+docs/**/*路线图*.md
+docs/**/*任务指导书*.md
+docs/**/*选型建议*.md
+docs/**/*执行手册*.md
