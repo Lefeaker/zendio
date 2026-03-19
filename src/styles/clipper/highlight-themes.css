@@ -1,0 +1,144 @@
+/**
+ * 共享高亮主题样式
+ * 用于阅读模式和视频模式的高亮功能
+ */
+
+/* 高亮主题颜色定义 */
+:root {
+  --reader-highlight-gradient: linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35));
+  --reader-highlight-purple: rgba(124, 92, 255, 0.35);
+  --reader-highlight-neon-yellow: rgba(255, 248, 0, 0.55);
+  --reader-highlight-neon-green: rgba(48, 255, 173, 0.45);
+  --reader-highlight-neon-orange: rgba(255, 176, 72, 0.5);
+  --reader-highlight-bg: var(--reader-highlight-gradient);
+  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
+  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.2);
+}
+
+/* 渐变主题 */
+:root[data-aiob-reader-highlight="gradient"] {
+  --reader-highlight-bg: var(--reader-highlight-gradient);
+  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
+  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.2);
+}
+
+/* 紫色主题 */
+:root[data-aiob-reader-highlight="purple"] {
+  --reader-highlight-bg: var(--reader-highlight-purple);
+  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
+  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.22);
+}
+
+/* 荧黄色主题 */
+:root[data-aiob-reader-highlight="neonYellow"] {
+  --reader-highlight-bg: var(--reader-highlight-neon-yellow);
+  --reader-highlight-focus-color: rgba(255, 248, 0, 0.55);
+  --reader-highlight-focus-color-soft: rgba(255, 248, 0, 0.22);
+}
+
+/* 荧绿色主题 */
+:root[data-aiob-reader-highlight="neonGreen"] {
+  --reader-highlight-bg: var(--reader-highlight-neon-green);
+  --reader-highlight-focus-color: rgba(48, 255, 173, 0.45);
+  --reader-highlight-focus-color-soft: rgba(48, 255, 173, 0.18);
+}
+
+/* 荧橙色主题 */
+:root[data-aiob-reader-highlight="neonOrange"] {
+  --reader-highlight-bg: var(--reader-highlight-neon-orange);
+  --reader-highlight-focus-color: rgba(255, 176, 72, 0.5);
+  --reader-highlight-focus-color-soft: rgba(255, 176, 72, 0.18);
+}
+
+/* 阅读模式高亮样式 */
+.aiob-reader-highlight {
+  position: relative;
+  display: inline;
+  border-radius: 3px;
+  padding: 1px 0;
+  background: var(--reader-highlight-bg);
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  background-clip: border-box;
+  background-color: transparent !important;
+  color: inherit !important;
+  transition: box-shadow 0.3s ease;
+  isolation: isolate;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.aiob-reader-highlight,
+.aiob-reader-highlight * {
+  color: inherit !important;
+}
+
+/* 高亮焦点动画 */
+.aiob-reader-highlight.aiob-reader-highlight--focus {
+  animation: aiob-reader-highlight-focus 1.4s ease-out;
+}
+
+@keyframes aiob-reader-highlight-focus {
+  0% {
+    box-shadow: 0 0 0 0 var(--reader-highlight-focus-color);
+  }
+  50% {
+    box-shadow: 0 0 0 8px var(--reader-highlight-focus-color-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* 视频模式高亮样式 */
+.aiob-video-highlight {
+  position: relative;
+  display: inline;
+  border-radius: 3px;
+  padding: 1px 0;
+  background: var(--reader-highlight-bg);
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  background-clip: border-box;
+  background-color: transparent !important;
+  color: inherit !important;
+  transition: box-shadow 0.3s ease;
+  isolation: isolate;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.aiob-video-highlight,
+.aiob-video-highlight * {
+  color: inherit !important;
+}
+
+/* 视频高亮焦点动画 */
+.aiob-video-highlight.aiob-video-highlight--focus {
+  animation: aiob-video-highlight-focus 1.4s ease-out;
+}
+
+@keyframes aiob-video-highlight-focus {
+  0% {
+    box-shadow: 0 0 0 0 var(--reader-highlight-focus-color);
+  }
+  50% {
+    box-shadow: 0 0 0 8px var(--reader-highlight-focus-color-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Shadow DOM 中的高亮样式（用于视频模式） */
+@keyframes aiob-video-shadow-highlight-focus {
+  0% {
+    box-shadow: 0 0 0 0 var(--reader-highlight-focus-color);
+  }
+  50% {
+    box-shadow: 0 0 0 8px var(--reader-highlight-focus-color-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

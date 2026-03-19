@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zag.js Focus Test (Simplified)</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .combobox-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        .test-info {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧪 Zag.js 焦点管理测试</h1>
+
+    <div class="test-info">
+        <strong>测试目标:</strong> 验证在频繁状态更新时，输入框不会失去焦点
+        <br><strong>操作步骤:</strong>
+        <ol>
+            <li>在输入框中输入文字（例如 "test"）</li>
+            <li>观察输入框是否始终保持焦点</li>
+            <li>点击"强制更新10次"按钮，观察输入框焦点是否丢失</li>
+        </ol>
+        <strong>预期结果:</strong> 输入框应始终保持焦点，能持续输入
+    </div>
+
+    <div class="combobox-container">
+        <h3>测试输入框</h3>
+        <div id="combobox-root"></div>
+        <button id="force-update-btn">🔄 强制更新10次（模拟频繁状态变化）</button>
+        <div class="result" id="result">
+            状态更新次数: 0<br>
+            当前焦点元素: -
+        </div>
+    </div>
+
+    <script type="module">
+        // 简化版 Combobox，模拟 Zag.js 的核心逻辑
+        class SimpleCombobox {
+            constructor(container) {
+                this.container = container;
+                this.updateCount = 0;
+
+                // Phase A: 创建 DOM 结构（仅一次）
+                this.mount();
+
+                // Phase B: 模拟状态机的订阅
+                this.simulateStateUpdates();
+            }
+
+            mount() {
+                // ✅ 正确方式：创建元素一次，不销毁
+                this.label = document.createElement('label');
+                this.label.textContent = '搜索:';
+                this.label.style.display = 'block';
+                this.label.style.marginBottom = '8px';
+
+                this.input = document.createElement('input');
+                this.input.type = 'text';
+                this.input.placeholder = '输入以搜索...';
+
+                this.container.appendChild(this.label);
+                this.container.appendChild(this.input);
+
+                // 监听输入事件，模拟状态变化
+                this.input.addEventListener('input', () => {
+                    this.updateAttributes();
+                });
+            }
+
+            updateAttributes() {
+                // ✅ 正确方式：只更新属性，不重新创建元素
+                this.updateCount++;
+
+                const value = this.input.value;
+                this.input.setAttribute('aria-expanded', value.length > 0 ? 'true' : 'false');
+                this.input.setAttribute('data-update-count', this.updateCount);
+
+                this.logStatus();
+            }
+
+            simulateStateUpdates() {
+                // 模拟 Zag.js 的频繁状态更新
+                setInterval(() => {
+                    if (document.activeElement === this.input) {
+                        this.updateAttributes();
+                    }
+                }, 100);
+            }
+
+            forceUpdate(times) {
+                // 强制触发多次更新，测试焦点是否丢失
+                for (let i = 0; i < times; i++) {
+                    this.updateAttributes();
+                }
+            }
+
+            logStatus() {
+                const resultEl = document.getElementById('result');
+                const focusedEl = document.activeElement;
+                resultEl.innerHTML = `
+          状态更新次数: ${this.updateCount}<br>
+          当前焦点元素: ${focusedEl.tagName} ${focusedEl === this.input ? '✅ (测试输入框)' : '❌ (焦点丢失!)'}
+        `;
+            }
+        }
+
+        // 初始化
+        const combobox = new SimpleCombobox(document.getElementById('combobox-root'));
+
+        // 强制更新按钮
+        document.getElementById('force-update-btn').addEventListener('click', () => {
+            combobox.input.focus();
+            combobox.forceUpdate(10);
+        });
+    </script>
+</body>
+
+</html>

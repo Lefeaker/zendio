@@ -107,7 +107,7 @@ let pendingCodeLanguageLabel: string | null = null;
 function resolveLanguageLabel(label: string): string | null {
   if (!label) return null;
 
-  const trimmed = label.trim().replace(/[：:]+$/u, '');
+  const trimmed = label.trim().replace(/[：:]+$/, '');
   if (!trimmed) return null;
 
   const lower = trimmed.toLowerCase();
@@ -155,7 +155,7 @@ function findAssociatedPreElement(elem: HTMLElement): HTMLElement | null {
     break;
   }
 
-  const parent = elem.parentElement as HTMLElement | null;
+  const parent = elem.parentElement;
   if (parent) {
     const candidate = parent.querySelector('pre');
     if (candidate) {
@@ -251,8 +251,6 @@ function captureLanguageLabelFromTextNode(node: Node, rawText: string): boolean 
   if (!resolvedLabel) {
     return false;
   }
-
-  const text = rawText.trim().replace(/[：:]+$/u, '') || resolvedLabel;
 
   let sibling: Node | null = node.nextSibling;
   while (sibling) {
@@ -364,7 +362,7 @@ function nodeToMarkdown(node: Node, indent = ''): string {
                 const baseText = Array.from(childElem.childNodes)
                   .filter(n => n.nodeType === Node.TEXT_NODE ||
                     (n.nodeType === Node.ELEMENT_NODE &&
-                     !(n as HTMLElement).classList.contains('msupsub')))
+                      !(n as HTMLElement).classList.contains('msupsub')))
                   .map(n => n.textContent)
                   .join('');
 
@@ -541,7 +539,7 @@ function nodeToMarkdown(node: Node, indent = ''): string {
       elem.classList.contains('image-container')) {
       const imgElement = elem.querySelector('img');
       if (imgElement) {
-        let src = imgElement.getAttribute('src') ||
+        const src = imgElement.getAttribute('src') ||
           imgElement.getAttribute('data-src') ||
           imgElement.getAttribute('data-original-src') || '';
         const alt = imgElement.getAttribute('alt') || 'Image';
@@ -551,7 +549,7 @@ function nodeToMarkdown(node: Node, indent = ''): string {
         }
       }
 
-      let imageUrl = elem.getAttribute('data-image-url') ||
+      const imageUrl = elem.getAttribute('data-image-url') ||
         elem.getAttribute('data-src') ||
         elem.getAttribute('data-url') ||
         elem.getAttribute('src') || '';
@@ -868,9 +866,6 @@ export function chatHtmlToMarkdown(html: string): string {
   }
 
   let markdown = processChildren(tempDiv);
-  if (markdown.includes('TypeScript') || markdown.includes('typescript')) {
-    console.debug('[markdown] intermediate result:', markdown);
-  }
 
   markdown = markdown
     .replace(/&lt;/g, '<')
@@ -885,10 +880,6 @@ export function chatHtmlToMarkdown(html: string): string {
     .replace(/^\s+|\s+$/g, '');
 
   markdown = fixDanglingLanguageLabels(markdown);
-
-  if (markdown.includes('```TypeScript')) {
-    console.debug('[markdown] final result:', markdown);
-  }
 
   return markdown;
 }

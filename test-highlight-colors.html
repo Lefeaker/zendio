@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高亮颜色测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .theme-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        
+        .theme-button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .theme-button.active {
+            background: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+        
+        .color-preview {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border: 1px solid #ddd;
+        }
+        
+        .debug-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-controls">
+        <h4>高亮主题测试</h4>
+        <button class="theme-button active" data-theme="gradient">
+            <span class="color-preview" style="background: linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35));"></span>
+            渐变色
+        </button>
+        <button class="theme-button" data-theme="purple">
+            <span class="color-preview" style="background: rgba(124, 92, 255, 0.35);"></span>
+            紫色
+        </button>
+        <button class="theme-button" data-theme="neonYellow">
+            <span class="color-preview" style="background: rgba(255, 248, 0, 0.55);"></span>
+            荧黄色
+        </button>
+        <button class="theme-button" data-theme="neonGreen">
+            <span class="color-preview" style="background: rgba(48, 255, 173, 0.45);"></span>
+            荧绿色
+        </button>
+        <button class="theme-button" data-theme="neonOrange">
+            <span class="color-preview" style="background: rgba(255, 176, 72, 0.5);"></span>
+            荧橙色
+        </button>
+        
+        <div class="debug-info" id="debug-info">
+            当前主题: <span id="current-theme">gradient</span><br>
+            data-aiob-reader-highlight: <span id="data-attr">未设置</span><br>
+            CSS变量值: <span id="css-var">未检测</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>高亮颜色测试页面</h2>
+        <p>这是一个用于测试阅读模式高亮颜色的页面。请选择一些文本进行高亮，然后切换不同的主题来观察颜色变化。</p>
+        
+        <h3>测试文本段落</h3>
+        <p>这是第一段测试文本。<strong>这里有一些加粗的文字</strong>，还有<em>一些斜体文字</em>。你可以选择这些文字来测试高亮功能。</p>
+        
+        <p>这是第二段测试文本，包含了<span style="color: #007acc;">一些有颜色的文字</span>和普通文字的混合内容。</p>
+        
+        <blockquote>
+            <p>这是一个引用块，里面的文字也可以被高亮。引用块通常用来展示重要的内容或者引用其他来源的文字。</p>
+        </blockquote>
+        
+        <h3>中英文混合测试</h3>
+        <p>This is a paragraph with mixed Chinese and English content. 这段文字包含了中英文混合的内容，可以用来测试高亮功能在不同语言下的表现。</p>
+        
+        <ul>
+            <li>列表项目一：包含一些可以高亮的文字</li>
+            <li>列表项目二：List item with English text</li>
+            <li>列表项目三：混合语言的列表项 with mixed languages</li>
+        </ul>
+    </div>
+
+    <script>
+        // 尝试加载构建后的高亮主题CSS
+        const loadHighlightStyles = async () => {
+            const urls = [
+                './build/dist/styles/clipper/highlight-themes.css',
+                './src/styles/clipper/highlight-themes.css'
+            ];
+
+            for (const url of urls) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const css = await response.text();
+                        const styleElement = document.createElement('style');
+                        styleElement.textContent = css;
+                        document.head.appendChild(styleElement);
+                        console.log('✅ 高亮主题样式已加载:', url);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 无法从', url, '加载样式:', error);
+                }
+            }
+
+            console.warn('⚠️ 无法加载高亮主题样式，使用备用样式');
+                // 备用样式定义
+                const CSS_VARIABLES = `
+                    :root {
+                      --reader-highlight-gradient: linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35));
+                      --reader-highlight-purple: rgba(124, 92, 255, 0.35);
+                      --reader-highlight-neon-yellow: rgba(255, 248, 0, 0.55);
+                      --reader-highlight-neon-green: rgba(48, 255, 173, 0.45);
+                      --reader-highlight-neon-orange: rgba(255, 176, 72, 0.5);
+                      --reader-highlight-bg: var(--reader-highlight-gradient);
+                    }
+
+                    :root[data-aiob-reader-highlight="gradient"] {
+                      --reader-highlight-bg: var(--reader-highlight-gradient);
+                    }
+
+                    :root[data-aiob-reader-highlight="purple"] {
+                      --reader-highlight-bg: var(--reader-highlight-purple);
+                    }
+
+                    :root[data-aiob-reader-highlight="neonYellow"] {
+                      --reader-highlight-bg: var(--reader-highlight-neon-yellow);
+                    }
+
+                    :root[data-aiob-reader-highlight="neonGreen"] {
+                      --reader-highlight-bg: var(--reader-highlight-neon-green);
+                    }
+
+                    :root[data-aiob-reader-highlight="neonOrange"] {
+                      --reader-highlight-bg: var(--reader-highlight-neon-orange);
+                    }
+
+                    .aiob-reader-highlight {
+                      position: relative;
+                      display: inline;
+                      border-radius: 3px;
+                      padding: 1px 0;
+                      background: var(--reader-highlight-bg);
+                      background-repeat: no-repeat;
+                      background-origin: border-box;
+                      background-clip: border-box;
+                      background-color: transparent !important;
+                      color: inherit !important;
+                    }
+                `;
+                const styleElement = document.createElement('style');
+                styleElement.textContent = CSS_VARIABLES;
+                document.head.appendChild(styleElement);
+            });
+        };
+
+        // 加载样式
+        loadHighlightStyles();
+
+        // 主题切换功能
+        const themeButtons = document.querySelectorAll('.theme-button');
+        const debugInfo = {
+            theme: document.getElementById('current-theme'),
+            dataAttr: document.getElementById('data-attr'),
+            cssVar: document.getElementById('css-var')
+        };
+
+        function updateTheme(theme) {
+            // 更新data属性
+            document.documentElement.setAttribute('data-aiob-reader-highlight', theme);
+            
+            // 更新按钮状态
+            themeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === theme);
+            });
+            
+            // 更新调试信息
+            updateDebugInfo(theme);
+        }
+
+        function updateDebugInfo(theme) {
+            debugInfo.theme.textContent = theme;
+            debugInfo.dataAttr.textContent = document.documentElement.getAttribute('data-aiob-reader-highlight') || '未设置';
+            
+            // 获取CSS变量值
+            const computedStyle = getComputedStyle(document.documentElement);
+            const bgValue = computedStyle.getPropertyValue('--reader-highlight-bg').trim();
+            debugInfo.cssVar.textContent = bgValue || '未检测到';
+        }
+
+        // 绑定主题切换事件
+        themeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const theme = button.dataset.theme;
+                updateTheme(theme);
+            });
+        });
+
+        // 初始化
+        updateTheme('gradient');
+
+        // 模拟高亮功能
+        document.addEventListener('mouseup', () => {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const selectedText = selection.toString().trim();
+                
+                if (selectedText.length > 0) {
+                    try {
+                        const mark = document.createElement('mark');
+                        mark.className = 'aiob-reader-highlight';
+                        mark.appendChild(range.extractContents());
+                        range.insertNode(mark);
+                        selection.removeAllRanges();
+                    } catch (error) {
+                        console.warn('高亮创建失败:', error);
+                    }
+                }
+            }
+        });
+
+        // 定期更新调试信息
+        setInterval(() => {
+            const currentTheme = document.documentElement.getAttribute('data-aiob-reader-highlight');
+            if (currentTheme) {
+                updateDebugInfo(currentTheme);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

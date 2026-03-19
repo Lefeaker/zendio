@@ -1,87 +1,74 @@
-import { access, readFile, copyFile, mkdir, rm } from 'fs/promises';
-import { constants as fsConstants } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { readFile, rm, writeFile } from 'fs/promises';
+import { join, resolve } from 'path';
 import { zipDirectory } from './utils/archive.mjs';
+import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
+import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
 
-async function pathExists(targetPath) {
-  try {
-    await access(targetPath, fsConstants.F_OK);
-    return true;
-  } catch {
-    return false;
+/**
+ * 获取试用天数参数
+ */
+function getTrialDays() {
+  const trialArg = process.argv.find(arg => arg.startsWith('--trial-days='));
+  if (trialArg) {
+    const days = parseInt(trialArg.split('=')[1]);
+    return isNaN(days) ? 7 : days;
   }
+  return 7; // 默认7天
 }
 
-async function resolveMessage(value, manifest, distDir) {
-  const match = /^__MSG_(.*)__$/.exec(value);
-  if (!match) {
-    return value;
-  }
+/**
+ * 注入试用配置到扩展中
+ */
+async function injectTrialConfig(distDir, trialDays) {
+  const trialConfigPath = join(distDir, 'trial-config.json');
+  const now = Date.now();
+  const expirationTime = now + (trialDays * 24 * 60 * 60 * 1000);
 
-  const locale = manifest.default_locale;
-  if (!locale) {
-    return value;
-  }
+  const trialConfig = {
+    isTrial: true,
+    expirationTime,
+    trialDays,
+    createdAt: now,
+    version: 'trial'
+  };
 
-  const messagesPath = join(distDir, '_locales', locale, 'messages.json');
-
-  try {
-    const messages = JSON.parse(await readFile(messagesPath, 'utf8'));
-    return messages?.[match[1]]?.message ?? value;
-  } catch {
-    return value;
-  }
-}
-
-async function prepareLicenseArtifacts(distDir) {
-  const licensesDir = join(distDir, 'licenses');
-
-  if (await pathExists(licensesDir)) {
-    await rm(licensesDir, { recursive: true, force: true });
-  }
-
-  const licenseMappings = [
-    { src: 'LICENSE', dest: join(distDir, 'LICENSE'), required: true },
-    { src: 'THIRD_PARTY_NOTICES.md', dest: join(distDir, 'THIRD_PARTY_NOTICES.md'), required: true },
-    { src: join('src', 'third_party', 'ai-chat-exporter', 'LICENSE'), dest: join(licensesDir, 'ai-chat-exporter', 'LICENSE'), required: true },
-    { src: join('src', 'third_party', 'obsidian-clipper', 'LICENSE'), dest: join(licensesDir, 'obsidian-clipper', 'LICENSE'), required: true },
-    { src: join('node_modules', '@mozilla', 'readability', 'LICENSE.md'), dest: join(licensesDir, 'mozilla-readability', 'LICENSE.md'), required: true },
-    { src: join('node_modules', 'turndown', 'LICENSE'), dest: join(licensesDir, 'turndown', 'LICENSE'), required: true },
-    { src: join('node_modules', '@mixmark-io', 'domino', 'LICENSE'), dest: join(licensesDir, 'mixmark-io-domino', 'LICENSE'), required: true }
-  ];
-
-  for (const mapping of licenseMappings) {
-    if (!(await pathExists(mapping.src))) {
-      const message = `未找到许可文件: ${mapping.src}`;
-      if (mapping.required) {
-        throw new Error(message);
-      } else {
-        console.warn(`⚠️  ${message}`);
-        continue;
-      }
-    }
-
-    await mkdir(dirname(mapping.dest), { recursive: true });
-    await copyFile(mapping.src, mapping.dest);
-  }
+  await writeFile(trialConfigPath, JSON.stringify(trialConfig, null, 2));
+  console.log(`✅ 试用配置已注入，过期时间: ${new Date(expirationTime).toLocaleString('zh-CN')}`);
 }
 
 async function packageExtension() {
   console.log('📦 开始打包扩展...');
 
-  // 检查 dist 目录是否存在
-  if (!(await pathExists('dist'))) {
-    console.error('❌ dist 目录不存在，请先运行 npm run build');
+  // 检查 build/dist 目录是否存在
+  if (!(await pathExists('build/dist'))) {
+    console.error('❌ build/dist 目录不存在，请先运行 npm run build');
     process.exit(1);
   }
 
-  const distDir = 'dist';
+  const distDir = 'build/dist';
   await prepareLicenseArtifacts(distDir);
 
   // 读取版本号
-  const manifest = JSON.parse(await readFile(join(distDir, 'manifest.json'), 'utf8'));
-  const version = manifest.version;
-  const resolvedName = await resolveMessage(manifest.name, manifest, distDir);
+  const manifestPath = join(distDir, 'manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const manifestWithHosts = applyRestHostPermissions(manifest);
+
+  // 检查是否为试用版本打包
+  const isTrialBuild = process.argv.includes('--trial');
+  const trialDays = getTrialDays();
+
+  if (isTrialBuild) {
+    console.log(`🔄 正在创建 ${trialDays} 天试用版本...`);
+    await injectTrialConfig(distDir, trialDays);
+    manifestWithHosts.name = manifestWithHosts.name + ' (试用版)';
+    // Chrome 扩展版本号必须是数字格式，不能包含文本后缀
+    // 我们在名称中标识试用版本，版本号保持原样
+  }
+
+  await writeFile(manifestPath, JSON.stringify(manifestWithHosts, null, 2));
+
+  const version = manifestWithHosts.version;
+  const resolvedName = await resolveMessage(manifestWithHosts.name, manifestWithHosts, distDir);
   const zipSafeName = resolvedName.replace(/\s+/g, '-').toLowerCase();
   const zipName = `${zipSafeName}-v${version}.zip`;
   const zipPath = resolve(zipName);
@@ -99,13 +86,22 @@ async function packageExtension() {
 
     // 创建 zip 文件
     console.log('🔨 正在创建 zip 文件...');
-    await zipDirectory('dist', zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+    await zipDirectory('build/dist', zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
 
     console.log('✅ 打包完成！');
     console.log('');
     console.log('📦 打包文件位置:');
     console.log(`   ${zipPath}`);
     console.log('');
+
+    if (isTrialBuild) {
+      console.log('🔄 试用版本信息:');
+      console.log(`   试用期限: ${trialDays} 天`);
+      console.log(`   过期时间: ${new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleString('zh-CN')}`);
+      console.log('   ⚠️  试用版本会在过期后自动限制功能');
+      console.log('');
+    }
+
     console.log('📖 安装说明:');
     console.log('   1. 打开 Chrome 浏览器');
     console.log('   2. 访问 chrome://extensions/');
@@ -113,7 +109,7 @@ async function packageExtension() {
     console.log('   4. 点击"加载已解压的扩展程序"');
     console.log(`   5. 选择解压后的文件夹，或者直接拖拽 ${zipName} 到页面上`);
     console.log('');
-    console.log('💡 提示: 也可以将 dist 文件夹直接发送给朋友，让他们加载该文件夹');
+    console.log('💡 提示: 也可以将 build/dist 文件夹直接发送给朋友，让他们加载该文件夹');
   } catch (error) {
     console.error('❌ 打包失败:', error.message);
     process.exit(1);

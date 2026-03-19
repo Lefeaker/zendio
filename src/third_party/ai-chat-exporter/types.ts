@@ -5,7 +5,9 @@ export type PlatformId =
   | 'gemini'
   | 'tongyi'
   | 'deepseek'
-  | 'kimi';
+  | 'kimi'
+  | 'doubao'
+  | 'monica';
 
 export type ParsedMessage = {
   id: string;

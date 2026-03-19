@@ -24,11 +24,140 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency boundary audit report
+        continue-on-error: true
+        run: npm run audit:deps:report
+
+      - name: Platform services allowlist audit report
+        continue-on-error: true
+        run: npm run audit:platform-services:report
+
+      - name: Design token alignment audit report
+        continue-on-error: true
+        run: npm run audit:design-tokens:report
+
+      - name: Locale source alignment audit report
+        continue-on-error: true
+        run: npm run audit:locales:report
+
+      - name: Audit Options CSS naming
+        run: |
+          npm run report:options-legacy
+          npm run lint:options-css
+
+      - name: Check Stage 3 migration progress
+        run: |
+          bash scripts/check-migration-progress.sh
+          bash scripts/check-unmigrated-buttons.sh
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Lint source and tests
+        run: npm run lint
+
+      - name: Enforce lint warning guard
+        run: npm run lint:warnings-guard
+
+      - name: Run unit tests with coverage thresholds
+        run: npm run test:coverage
+
+      - name: Print coverage summary
+        run: |
+          node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync('coverage/coverage-summary.json','utf8')).total;console.log('Lines:',s.lines.pct+'%');console.log('Statements:',s.statements.pct+'%');console.log('Functions:',s.functions.pct+'%');console.log('Branches:',s.branches.pct+'%');"
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage/coverage-summary.json
+            coverage/lcov.info
+          if-no-files-found: error
+
+      - name: Comment PR with coverage summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8')).total;
+            const body = [
+              '## Coverage Summary',
+              '',
+              `- Lines: ${summary.lines.pct}%`,
+              `- Statements: ${summary.statements.pct}%`,
+              `- Functions: ${summary.functions.pct}%`,
+              `- Branches: ${summary.branches.pct}%`
+            ].join('\n');
+            const marker = '<!-- aiiinob-coverage-summary -->';
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number
+            });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            const fullBody = `${marker}\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body: fullBody
+              });
+            }
+
       - name: Build production bundle
         run: npm run build
 
-      - name: Run unit and e2e tests
-        run: npm run test:ci
+      - name: Verify generated Chrome locales are up to date
+        run: |
+          npm run i18n:generate
+          git diff --exit-code -- public/_locales
+
+      - name: Verify generated browser manifests are up to date
+        run: |
+          npm run manifest:generate
+          git diff --exit-code -- public/manifest.json public/manifest.firefox.json
+
+      - name: Validate text budgets
+        run: npm run validate:i18n:budgets
+
+      - name: Inspect layout across locales
+        run: npm run layout:report
+
+      - name: Generate layout summary
+        run: npm run report:layout
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run i18n visual regression tests
+        run: npm run visual:test
+
+      - name: Run end-to-end tests
+        run: |
+          npm run test:e2e
+          npm run test:e2e:browser
+
+      - name: Upload i18n reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-reports
+          path: |
+            build/reports/
+            tests/visual/__output__/
+            build/reports/playwright/
+          if-no-files-found: ignore
 
       - name: Package extension artifacts
         run: npm run package:ci

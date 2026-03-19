@@ -6,6 +6,8 @@ import { geminiParser } from './platforms/gemini';
 import { tongyiParser } from './platforms/tongyi';
 import { deepseekParser } from './platforms/deepseek';
 import { kimiParser } from './platforms/kimi';
+import { doubaoParser } from './platforms/doubao';
+import { monicaParser } from './platforms/monica';
 import type { ChatPlatformParser, ParsedResult } from './types';
 
 const registeredParsers: ChatPlatformParser[] = [
@@ -15,7 +17,9 @@ const registeredParsers: ChatPlatformParser[] = [
   geminiParser,
   tongyiParser,
   deepseekParser,
-  kimiParser
+  kimiParser,
+  doubaoParser,
+  monicaParser
 ];
 
 const parserMap = new Map<string, ChatPlatformParser>();

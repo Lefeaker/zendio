@@ -1,24 +1,23 @@
 import { mergeOptions } from '../../shared/config';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { deepClone } from './clone';
+import { normalizeYamlConfigOverrides } from '../../shared/services/yamlConfigService';
 
 const PRESERVED_KEYS = new Set([
   'rest',
   'templates',
   'domainMappings',
   'aiChat',
-  'deepResearch',
   'fragmentClipper',
   'readingSession',
   'video',
-  'classifier',
   'vaultRouter'
 ]);
 
 export function normalizeOptionsForTransfer(
   options: StoredOptions | CompleteOptions | null | undefined
 ): StoredOptions {
-  const base = deepClone(options ?? {}) as StoredOptions;
+  const base = deepClone(options ?? {});
   const merged = mergeOptions(base);
 
   const normalized: StoredOptions = {
@@ -27,15 +26,37 @@ export function normalizeOptionsForTransfer(
     domainMappings: deepClone(merged.domainMappings)
   };
 
-  normalized.aiChat = merged.aiChat ? deepClone(merged.aiChat) : undefined;
-  normalized.deepResearch = merged.deepResearch ? deepClone(merged.deepResearch) : undefined;
-  normalized.fragmentClipper = merged.fragmentClipper ? deepClone(merged.fragmentClipper) : undefined;
-  normalized.readingSession = merged.readingSession ? deepClone(merged.readingSession) : undefined;
-  normalized.video = merged.video ? deepClone(merged.video) : undefined;
-  normalized.classifier = merged.classifier ? deepClone(merged.classifier) : undefined;
-  normalized.vaultRouter = merged.vaultRouter ? deepClone(merged.vaultRouter) : undefined;
+  // Fix exactOptionalPropertyTypes error by conditionally assigning optional properties
+  if (merged.aiChat) {
+    normalized.aiChat = deepClone(merged.aiChat);
+  }
+  if (merged.fragmentClipper) {
+    normalized.fragmentClipper = deepClone(merged.fragmentClipper);
+  }
+  if (merged.readingSession) {
+    normalized.readingSession = deepClone(merged.readingSession);
+  }
+  if (merged.video) {
+    normalized.video = deepClone(merged.video);
+    const originalShortcut = (base as StoredOptions | CompleteOptions)?.video?.promptShortcut;
+    if (originalShortcut && normalized.video?.promptShortcut) {
+      normalized.video.promptShortcut = normalized.video.promptShortcut.toUpperCase();
+    }
+  }
+  if (merged.vaultRouter) {
+    normalized.vaultRouter = deepClone(merged.vaultRouter);
+  }
 
   Object.entries(base).forEach(([key, value]) => {
+    if (key === 'yamlConfig') {
+      const sanitized = normalizeYamlConfigOverrides((value ?? null) as StoredOptions['yamlConfig']);
+      if (sanitized) {
+        normalized.yamlConfig = deepClone(sanitized);
+      } else {
+        normalized.yamlConfig = null;
+      }
+      return;
+    }
     if (PRESERVED_KEYS.has(key)) {
       return;
     }

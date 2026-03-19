@@ -1,4 +1,4 @@
-import { VideoPanel } from '../ui/panel';
+import { VideoDialogPanel } from '../ui/VideoDialogPanel';
 import type {
   VideoPanelCallbacks,
   VideoPanelCapture,
@@ -10,7 +10,7 @@ import type {
 } from '../application/videoSessionView';
 
 class VideoPanelViewAdapter implements VideoSessionView {
-  constructor(private readonly panel: VideoPanel) {}
+  constructor(private readonly panel: VideoDialogPanel) {}
 
   updateCount(count: number): void {
     this.panel.updateCount(count);
@@ -22,6 +22,10 @@ class VideoPanelViewAdapter implements VideoSessionView {
 
   updateHint(message: string): void {
     this.panel.updateHint(message);
+  }
+
+  updateTexts(texts: VideoPanelTexts): void {
+    this.panel.updateTexts(texts);
   }
 
   beginEditingCapture(captureId: string, comment: string): void {
@@ -39,7 +43,10 @@ class VideoPanelViewAdapter implements VideoSessionView {
 
 export const createVideoPanelViewFactory = (): VideoSessionViewFactory => ({
   createView(callbacks: VideoPanelCallbacks, texts: VideoPanelTexts): VideoSessionView {
-    const panel = new VideoPanel(callbacks, texts);
+    const panel = new VideoDialogPanel({
+      callbacks,
+      texts,
+    });
     return new VideoPanelViewAdapter(panel);
   }
 });

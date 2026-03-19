@@ -1,6 +1,8 @@
 import type { Options } from '../store';
 import { VaultRouter } from '../vault-router';
 import type { ClipPayload, ClipContext, VaultConfig } from '../../shared/types';
+import type { RestOptions } from '../../shared/types/options';
+import { tryParseUrl } from '../../shared/url';
 
 export interface VaultSelectionResult {
   vault: VaultConfig | null;
@@ -33,23 +35,24 @@ export function selectVaultForClip(options: Options, payload: ClipPayload): Vaul
     return { vault: null, restConfig: defaultRest, context };
   }
 
-  const restConfig: Options['rest'] = {
-    baseUrl: selectedVault.httpsUrl || selectedVault.httpUrl || defaultRest.baseUrl,
-    httpsUrl: selectedVault.httpsUrl || defaultRest.httpsUrl,
-    httpUrl: selectedVault.httpUrl || defaultRest.httpUrl,
+  const httpsUrl = selectedVault.httpsUrl || defaultRest.httpsUrl;
+  const httpUrl = selectedVault.httpUrl || defaultRest.httpUrl;
+  const baseUrl = selectedVault.httpsUrl || selectedVault.httpUrl || defaultRest.baseUrl;
+  const apiKey = selectedVault.apiKey?.trim() || defaultRest.apiKey;
+
+  const restConfig: RestOptions = {
+    baseUrl,
     vault: selectedVault.vault,
-    apiKey: selectedVault.apiKey,
-    rootDir: defaultRest.rootDir
+    apiKey,
+    ...(httpsUrl ? { httpsUrl } : {}),
+    ...(httpUrl ? { httpUrl } : {}),
+    ...(defaultRest.rootDir ? { rootDir: defaultRest.rootDir } : {})
   };
 
   return { vault: selectedVault, restConfig, context };
 }
 
 function deriveDomain(url?: string): string {
-  if (!url) return '';
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return '';
-  }
+  const parsed = tryParseUrl(url);
+  return parsed?.hostname ?? '';
 }

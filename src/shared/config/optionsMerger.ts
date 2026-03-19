@@ -7,9 +7,12 @@ import type {
   DeepResearchOptions,
   AiChatOptions,
   VideoOptions,
-  ReaderHighlightTheme
+  ReaderHighlightTheme,
+  RestOptions
 } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
+import { resolveTaxonomy } from './taxonomyMigration';
+import { VaultRouterConfigSchema } from '../schemas/vault.schema';
 
 function mergeClassifierOptions(source?: StoredOptions['classifier']): ClassifierOptions | undefined {
   const defaults = DEFAULT_OPTIONS.classifier;
@@ -24,7 +27,7 @@ function mergeClassifierOptions(source?: StoredOptions['classifier']): Classifie
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
     apiKey: base.apiKey || defaults?.apiKey || '',
     model: base.model || defaults?.model || 'llama3.1',
-    taxonomy: base.taxonomy ?? defaults?.taxonomy ?? {}
+    taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
 }
 
@@ -62,7 +65,8 @@ function mergeFragmentClipperOptions(source?: StoredOptions['fragmentClipper']):
     contextLength: base.contextLength ?? defaults?.contextLength ?? 200,
     contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars',
     selectionModifierEnabled: base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
-    selectionModifierKeys
+    selectionModifierKeys,
+    keyboardShortcutsEnabled: base.keyboardShortcutsEnabled ?? defaults?.keyboardShortcutsEnabled ?? true
   };
 }
 
@@ -115,22 +119,56 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
 
   const base = source ?? {};
   return {
-    floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true
+    floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true,
+    promptButtonLabel: (base.promptButtonLabel ?? defaults?.promptButtonLabel ?? '').trim() || defaults?.promptButtonLabel || '开启视频笔记',
+    promptShortcut: (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() || defaults?.promptShortcut || 'Alt+V'
   };
+}
+
+function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOptions['vaultRouter'] {
+  if (source === undefined) {
+    return undefined;
+  }
+  const parsed = VaultRouterConfigSchema.safeParse(source);
+  return parsed.success ? (parsed.data as StoredOptions['vaultRouter']) : undefined;
 }
 
 export function mergeOptions(stored?: StoredOptions | null): OptionsState {
   const source = stored ?? {};
   const defaults = DEFAULT_OPTIONS;
 
-  const rest = {
+  const rest: RestOptions = {
     baseUrl: source.rest?.baseUrl || defaults.rest.baseUrl,
-    httpsUrl: source.rest?.httpsUrl || defaults.rest.httpsUrl,
-    httpUrl: source.rest?.httpUrl || defaults.rest.httpUrl,
     vault: source.rest?.vault || defaults.rest.vault,
-    apiKey: source.rest?.apiKey || defaults.rest.apiKey,
-    rootDir: source.rest?.rootDir ?? defaults.rest.rootDir
+    apiKey: source.rest?.apiKey || defaults.rest.apiKey
   };
+
+  const sourceHttpsUrl = source.rest?.httpsUrl;
+  const defaultHttpsUrl = defaults.rest.httpsUrl;
+  if (sourceHttpsUrl !== undefined || defaultHttpsUrl !== undefined) {
+    const resolvedHttpsUrl = sourceHttpsUrl || defaultHttpsUrl;
+    if (resolvedHttpsUrl !== undefined) {
+      rest.httpsUrl = resolvedHttpsUrl;
+    }
+  }
+
+  const sourceHttpUrl = source.rest?.httpUrl;
+  const defaultHttpUrl = defaults.rest.httpUrl;
+  if (sourceHttpUrl !== undefined || defaultHttpUrl !== undefined) {
+    const resolvedHttpUrl = sourceHttpUrl || defaultHttpUrl;
+    if (resolvedHttpUrl !== undefined) {
+      rest.httpUrl = resolvedHttpUrl;
+    }
+  }
+
+  const sourceRootDir = source.rest?.rootDir;
+  const defaultRootDir = defaults.rest.rootDir;
+  if (sourceRootDir !== undefined || defaultRootDir !== undefined) {
+    const resolvedRootDir = sourceRootDir ?? defaultRootDir;
+    if (resolvedRootDir !== undefined) {
+      rest.rootDir = resolvedRootDir;
+    }
+  }
 
   const storedTemplates = source.templates ?? {};
   const legacyClipper = typeof storedTemplates === 'object'
@@ -153,15 +191,51 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
   const options: OptionsState = {
     rest,
     templates,
-    domainMappings,
-    classifier: mergeClassifierOptions(source.classifier),
-    deepResearch: mergeDeepResearchOptions(source.deepResearch),
-    fragmentClipper: mergeFragmentClipperOptions(source.fragmentClipper),
-    readingSession: mergeReadingSessionOptions(source.readingSession),
-    aiChat: mergeAiChatOptions(source.aiChat),
-    video: mergeVideoOptions(source.video),
-    vaultRouter: source.vaultRouter
+    domainMappings
   };
+
+  const classifier = mergeClassifierOptions(source.classifier);
+  if (classifier !== undefined) {
+    options.classifier = classifier;
+  }
+
+  const deepResearch = mergeDeepResearchOptions(source.deepResearch);
+  if (deepResearch !== undefined) {
+    options.deepResearch = deepResearch;
+  }
+
+  const fragmentClipper = mergeFragmentClipperOptions(source.fragmentClipper);
+  if (fragmentClipper !== undefined) {
+    options.fragmentClipper = fragmentClipper;
+  }
+
+  const readingSession = mergeReadingSessionOptions(source.readingSession);
+  if (readingSession !== undefined) {
+    options.readingSession = readingSession;
+  }
+
+  const aiChat = mergeAiChatOptions(source.aiChat);
+  if (aiChat !== undefined) {
+    options.aiChat = aiChat;
+  }
+
+  const video = mergeVideoOptions(source.video);
+  if (video !== undefined) {
+    options.video = video;
+  }
+
+  const vaultRouter = sanitizeVaultRouter(source.vaultRouter);
+  if (vaultRouter !== undefined) {
+    options.vaultRouter = vaultRouter;
+  }
+
+  if (source.yamlConfig !== undefined) {
+    options.yamlConfig = source.yamlConfig;
+  }
 
   return options;
 }
+
+export const optionsMerger = {
+  merge: (stored?: StoredOptions | null) => mergeOptions(stored ?? null)
+};

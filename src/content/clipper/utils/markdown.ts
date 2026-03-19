@@ -76,7 +76,7 @@ function highlightMarkdownLine(line: string): string {
     return `${listMatch[1]}==${listMatch[2]}==`;
   }
 
-  const orderedListMatch = line.match(/^(\s*\d+[\.)]\s+)(.*)$/);
+  const orderedListMatch = line.match(/^(\s*\d+[.)]\s+)(.*)$/);
   if (orderedListMatch) {
     return `${orderedListMatch[1]}==${orderedListMatch[2]}==`;
   }

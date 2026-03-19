@@ -4,3 +4,8 @@ export * from './clip';
 export * from './vault';
 export * from './external';
 export * from './usage';
+export * from './extraction';
+export * from './result';
+export * from './taxonomy';
+export * from './analytics';
+export * from './yamlConfig';

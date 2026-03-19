@@ -1,7 +1,8 @@
 import { getOptions } from '../store';
 import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { TestVaultConnectionMessage, VaultConfig } from '../../shared/types';
-import { createRestCandidates, buildVaultUrl } from '../utils/restCandidates';
+import type { RestOptions } from '../../shared/types/options';
+import { createRestCandidates, type RestConfig } from '../utils/restCandidates';
 
 interface UrlCandidate {
   url: string;
@@ -17,19 +18,21 @@ interface ConnectionTestConfig {
   label?: string;
 }
 
-export async function handleConnectionTest(): Promise<ConnectionTestResult> {
+export async function handleConnectionTest(restDraft?: Partial<RestOptions>): Promise<ConnectionTestResult> {
   try {
     const options = await getOptions();
-    const rest = options.rest;
+    const rest = mergeRestOptions(options.rest, restDraft);
     try {
-      return await executeConnectionTest({
+      const config: ConnectionTestConfig = {
         baseUrl: rest.baseUrl,
-        httpsUrl: rest.httpsUrl,
-        httpUrl: rest.httpUrl,
         apiKey: rest.apiKey,
         vault: rest.vault,
-        label: rest.vault
-      });
+        label: rest.vault,
+        ...(rest.httpsUrl ? { httpsUrl: rest.httpsUrl } : {}),
+        ...(rest.httpUrl ? { httpUrl: rest.httpUrl } : {})
+      };
+
+      return await executeConnectionTest(config);
     } catch (error) {
       return buildFailureResult(error, rest.vault);
     }
@@ -41,7 +44,8 @@ export async function handleConnectionTest(): Promise<ConnectionTestResult> {
 export async function handleVaultConnectionTest(message: TestVaultConnectionMessage): Promise<ConnectionTestResult> {
   try {
     const options = await getOptions();
-    const vault = resolveVaultConfig(message, options.vaultRouter?.vaults ?? []);
+    const activeVaults = (options.vaultRouter?.vaults ?? []).filter(v => v.enabled !== false);
+    const vault = resolveVaultConfig(message, activeVaults);
     const httpsUrl = sanitizeUrl(vault.httpsUrl);
     const httpUrl = sanitizeUrl(vault.httpUrl);
     if (!httpsUrl && !httpUrl) {
@@ -53,14 +57,16 @@ export async function handleVaultConnectionTest(message: TestVaultConnectionMess
     const apiKey = (vault.apiKey ?? '').trim();
 
     try {
-      return await executeConnectionTest({
+      const config: ConnectionTestConfig = {
         baseUrl,
-        httpsUrl,
-        httpUrl,
         apiKey,
         vault: vault.vault,
-        label
-      });
+        label,
+        ...(httpsUrl ? { httpsUrl } : {}),
+        ...(httpUrl ? { httpUrl } : {})
+      };
+
+      return await executeConnectionTest(config);
     } catch (error) {
       return buildFailureResult(error, label);
     }
@@ -78,17 +84,28 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
     throw new Error('未配置可用的基础地址');
   }
 
+  const vaultName = (config.vault ?? '').trim();
+  if (!vaultName) {
+    throw new Error('未配置 Vault 名称');
+  }
+
   if (!config.apiKey || config.apiKey.trim() === '') {
     throw new Error('未配置 API Key');
   }
 
-  const restConfig = {
+  const restConfig: RestConfig = {
     baseUrl: baseForConfig,
-    httpsUrl,
-    httpUrl,
-    vault: config.vault,
+    vault: vaultName,
     apiKey: config.apiKey
   };
+
+  if (httpsUrl !== undefined) {
+    restConfig.httpsUrl = httpsUrl;
+  }
+
+  if (httpUrl !== undefined) {
+    restConfig.httpUrl = httpUrl;
+  }
 
   const urlsToTry = createConnectionCandidates(restConfig);
   const prefix = config.label ? `[${config.label}] ` : '';
@@ -96,6 +113,8 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
 
   for (const candidate of urlsToTry) {
     try {
+      // createConnectionCandidates 已经返回正确格式的URL，直接使用
+      console.log(`[connectionTest] Testing URL (${candidate.protocol}):`, candidate.url);
       const { response, text } = await testConnection(candidate.url, config.apiKey);
       if (!response.ok) {
         const snippet = text.slice(0, 200).trim();
@@ -141,14 +160,42 @@ async function testConnection(url: string, apiKey: string) {
   return { response, text };
 }
 
-function createConnectionCandidates(config: {
-  baseUrl: string;
-  httpsUrl?: string;
-  httpUrl?: string;
-  vault: string;
-  apiKey: string;
-}): UrlCandidate[] {
-  const candidates = createRestCandidates(config, '');
+function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): RestOptions {
+  if (!draft) {
+    return { ...rest };
+  }
+
+  const httpsUrl = sanitizeUrl(draft.httpsUrl) ?? rest.httpsUrl;
+  const httpUrl = sanitizeUrl(draft.httpUrl) ?? rest.httpUrl;
+  const vault =
+    draft.vault !== undefined
+      ? draft.vault.trim()
+      : rest.vault;
+  const apiKey =
+    draft.apiKey !== undefined
+      ? draft.apiKey.trim()
+      : rest.apiKey;
+  const baseUrl =
+    sanitizeUrl(draft.baseUrl) ??
+    httpsUrl ??
+    httpUrl ??
+    sanitizeUrl(rest.baseUrl) ??
+    rest.baseUrl;
+
+  return {
+    baseUrl,
+    vault,
+    apiKey,
+    ...(httpsUrl !== undefined && { httpsUrl }),
+    ...(httpUrl !== undefined && { httpUrl }),
+    ...(rest.rootDir !== undefined && { rootDir: rest.rootDir })
+  };
+}
+
+function createConnectionCandidates(config: RestConfig): UrlCandidate[] {
+  // ===== 修复:连接测试应该测试根端点,不拼接 vault 路径 =====
+  // 传入 null 作为特殊标记,让 createRestCandidates 跳过 vault 路径拼接
+  const candidates = createRestCandidates(config, '', null);
   if (candidates.length > 0) {
     return candidates.map(candidate => ({
       url: candidate.url,
@@ -156,7 +203,9 @@ function createConnectionCandidates(config: {
     }));
   }
 
-  const fallbackUrl = buildVaultUrl(config.baseUrl, config.vault, '');
+  // Fallback:直接使用 baseUrl,不拼接 vault
+  const trimmed = config.baseUrl.trim();
+  const fallbackUrl = trimmed.replace(/\/+$/, '') + '/';
   return [{
     url: fallbackUrl,
     protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Parse</title>
+</head>
+<body>
+  <div id="test">
+    <li><p><b>AI 功能集成</b>：</p><ul><li><p><b>Filler Word Removal (填充词去除)</b>：可以一键删除"嗯"、"啊"、"那个"等无意义的口头禅。</p></li><li><p><b>Overdub (声音克隆)</b>：可以修正说错的单词，甚至通过输入文字生成与你声音几乎一致的音频。</p></li><li><p><b>AI Green Screen (AI 绿幕)</b>：自动去除视频背景。</p></li><li><p><b>Studio Sound (录音室音质)</b>：通过 AI 算法优化音频质量，消除背景噪音和回声。</p></li></ul></li>
+  </div>
+
+  <script>
+    // 简化版的解析函数用于测试
+    function processChildren(elem, indent = '') {
+      let result = '';
+      for (const child of Array.from(elem.childNodes)) {
+        result += nodeToMarkdown(child, indent);
+      }
+      return result;
+    }
+
+    function nodeToMarkdown(node, indent = '') {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const elem = node;
+        const tagName = elem.tagName.toLowerCase();
+
+        if (tagName === 'strong' || tagName === 'b') {
+          return '**' + processChildren(elem, indent) + '**';
+        }
+
+        if (tagName === 'p') {
+          const content = processChildren(elem, indent);
+          return content + '\n';
+        }
+
+        if (tagName === 'ul') {
+          const items = Array.from(elem.children).filter(child => child.tagName.toLowerCase() === 'li');
+          const isTopLevel = indent === '';
+
+          let result = '\n';
+          items.forEach((li, index) => {
+            const itemContent = processListItem(li, indent + '  ');
+            result += itemContent;
+
+            if (isTopLevel && index < items.length - 1) {
+              result += '\n';
+            }
+          });
+          return result;
+        }
+
+        if (tagName === 'li') {
+          return processChildren(elem, indent);
+        }
+
+        return processChildren(elem, indent);
+      }
+
+      return '';
+    }
+
+    function processListItem(li, indent, itemNumber) {
+      let result = '';
+      const children = Array.from(li.childNodes);
+
+      let inlineContent = '';
+      let blockElements = [];
+
+      for (const child of children) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          inlineContent += child.textContent || '';
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const elem = child;
+          const tagName = elem.tagName.toLowerCase();
+
+          if (tagName === 'ul' || tagName === 'ol') {
+            blockElements.push(child);
+          } else if (tagName === 'p') {
+            inlineContent += processChildren(elem, indent).trim();
+          } else {
+            inlineContent += nodeToMarkdown(child, indent);
+          }
+        }
+      }
+
+      const trimmedInline = inlineContent.trim();
+      if (trimmedInline) {
+        const marker = itemNumber !== undefined ? `${itemNumber}. ` : '- ';
+        const baseIndent = itemNumber !== undefined ? indent.slice(0, -3) : indent.slice(0, -2);
+        
+        console.log(`processListItem: indent="${indent}" (len=${indent.length}), baseIndent="${baseIndent}" (len=${baseIndent.length}), text="${trimmedInline.substring(0, 30)}"`);
+        
+        result += baseIndent + marker + trimmedInline + '\n';
+      }
+
+      for (const blockElem of blockElements) {
+        if (trimmedInline) {
+          result += '\n';
+        }
+        console.log(`Processing nested list with indent="${indent}" (len=${indent.length})`);
+        const blockContent = nodeToMarkdown(blockElem, indent);
+        result += blockContent;
+      }
+
+      return result;
+    }
+
+    // 测试
+    const testDiv = document.getElementById('test');
+    const li = testDiv.querySelector('li');
+    
+    console.log('=== 开始解析 ===');
+    const markdown = processListItem(li, '  ');
+    console.log('\n=== 输出的 Markdown ===');
+    console.log(markdown);
+    console.log('\n=== 带可见空格的输出 ===');
+    console.log(markdown.replace(/ /g, '·').replace(/\n/g, '↵\n'));
+  </script>
+</body>
+</html>
+

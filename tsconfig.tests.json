@@ -2,9 +2,18 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2021", "DOM"],
-    "types": ["node", "vitest/globals", "jsdom", "chrome"],
-    "baseUrl": "./"
+    "types": ["node", "vitest/globals", "jsdom", "chrome", "firefox-webext-browser", "@playwright/test"],
+    "baseUrl": "./",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@content/*": ["src/content/*"],
+      "@options/*": ["src/options/*"],
+      "@i18n": ["src/i18n/index.ts"],
+      "@i18n/*": ["src/i18n/*"],
+      "@platform/*": ["src/platform/*"],
+      "@third-party/*": ["src/third_party/*"]
+    }
   },
-  "include": ["tests/**/*.ts", "tests/types/**/*.d.ts"],
+  "include": ["tests/**/*.ts", "tests/types/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "src/env.d.ts"],
   "exclude": ["dist", "node_modules"]
 }

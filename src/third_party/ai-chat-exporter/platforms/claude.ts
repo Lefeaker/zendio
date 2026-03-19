@@ -15,7 +15,7 @@ function extractClaudeChatData(doc: Document): ParsedResult {
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
-  let title = doc.title.replace(/ - Claude$/, '').trim() || DEFAULT_CHAT_TITLE;
+  const title = doc.title.replace(/ - Claude$/, '').trim() || DEFAULT_CHAT_TITLE;
 
   let model = '';
   const buttons = Array.from(doc.querySelectorAll('button'));
@@ -55,19 +55,30 @@ function extractClaudeChatData(doc: Document): ParsedResult {
         const markdown = chatHtmlToMarkdown(html);
 
         if (markdown.trim()) {
-          messages.push({
+          const message: ParsedMessage = {
             id: `msg-${chatIndex++}`,
             role: 'assistant',
-            html,
             md: markdown,
             text: markdown
-          });
+          };
+
+          if (html) {
+            message.html = html;
+          }
+
+          messages.push(message);
         }
       }
     }
   });
 
-  return { title, messages, assets: [], model };
+  const parsedResult: ParsedResult = { title, messages, assets: [] };
+
+  if (model.trim()) {
+    parsedResult.model = model.trim();
+  }
+
+  return parsedResult;
 }
 
 export const claudeParser: ChatPlatformParser = {

@@ -1,3 +1,7 @@
 {
-  "extends": "./tsconfig.app.json"
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["chrome", "firefox-webext-browser", "node"]
+  }
 }

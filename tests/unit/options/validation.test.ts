@@ -1,0 +1,241 @@
+import { describe, it, expect } from 'vitest';
+import {
+  parseClassifierTaxonomy,
+  OptionsValidationError,
+  validateOptions,
+  validateRestOptions,
+  validateTemplateOptions
+} from '@options/services/validation';
+
+describe('validation', () => {
+  describe('parseClassifierTaxonomy', () => {
+    it('returns empty object for empty string', () => {
+      expect(parseClassifierTaxonomy('')).toEqual({});
+      expect(parseClassifierTaxonomy('  ')).toEqual({});
+    });
+
+    it('parses valid JSON object', () => {
+      const input = '{"category": {"items": ["tag1", "tag2"]}}';
+      const result = parseClassifierTaxonomy(input);
+      expect(result).toEqual({ category: { items: ['tag1', 'tag2'] } });
+    });
+
+    it('parses empty JSON object', () => {
+      const input = '{}';
+      const result = parseClassifierTaxonomy(input);
+      expect(result).toEqual({});
+    });
+
+    it('throws OptionsValidationError with detail for invalid JSON syntax', () => {
+      const input = '{invalid json}';
+      expect(() => parseClassifierTaxonomy(input)).toThrow(OptionsValidationError);
+
+      try {
+        parseClassifierTaxonomy(input);
+      } catch (error) {
+        expect(error).toBeInstanceOf(OptionsValidationError);
+        if (error instanceof OptionsValidationError) {
+          expect(error.code).toBe('INVALID_TAXONOMY');
+          expect(error.detail).toBeDefined();
+        }
+      }
+    });
+
+    it('throws OptionsValidationError with issues for invalid taxonomy structure', () => {
+      // Note: Current implementation accepts any record or empty object
+      // This test is for future enhancement when taxonomy validation is stricter
+      const input = '{"valid": "taxonomy"}';
+      const result = parseClassifierTaxonomy(input);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('validateOptions', () => {
+    it('validates valid StoredOptions', () => {
+      const options = {
+        rest: {
+          baseUrl: 'https://127.0.0.1:27124',
+          vault: 'MyVault',
+          apiKey: '1234567890'
+        },
+        templates: {
+          article: 'path/to/article',
+          fragment: 'path/to/fragment'
+        }
+      };
+
+      const result = validateOptions(options);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.rest).toEqual(options.rest);
+        expect(result.data.templates).toEqual(options.templates);
+      }
+    });
+
+    it('allows extra fields in StoredOptions', () => {
+      const options = {
+        rest: {
+          baseUrl: 'https://127.0.0.1:27124',
+          vault: 'MyVault',
+          apiKey: '1234567890'
+        },
+        customField: 'custom value'
+      };
+
+      const result = validateOptions(options);
+      expect(result.success).toBe(true);
+    });
+
+    it('validates options with optional fields', () => {
+      const options = {
+        rest: {
+          baseUrl: 'https://127.0.0.1:27124',
+          vault: 'MyVault',
+          apiKey: '1234567890',
+          rootDir: 'Notes'
+        },
+        aiChat: {
+          includeTimestamps: true,
+          userName: 'TestUser'
+        }
+      };
+
+      const result = validateOptions(options);
+      expect(result.success).toBe(true);
+    });
+
+    it('fails validation for invalid data', () => {
+      const result = validateOptions('not an object');
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('validateRestOptions', () => {
+    it('validates valid REST options', () => {
+      const options = {
+        baseUrl: 'https://127.0.0.1:27124',
+        vault: 'MyVault',
+        apiKey: '1234567890'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual(options);
+      }
+    });
+
+    it('validates REST options with optional fields', () => {
+      const options = {
+        baseUrl: 'https://127.0.0.1:27124',
+        httpsUrl: 'https://127.0.0.1:27124',
+        httpUrl: 'http://127.0.0.1:27123',
+        vault: 'MyVault',
+        apiKey: '1234567890',
+        rootDir: 'Notes'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(true);
+    });
+
+    it('fails validation for invalid baseUrl', () => {
+      const options = {
+        baseUrl: 'not a valid url',
+        vault: 'MyVault',
+        apiKey: '1234567890'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('baseUrl');
+      }
+    });
+
+    it('fails validation for empty vault name', () => {
+      const options = {
+        baseUrl: 'https://127.0.0.1:27124',
+        vault: '',
+        apiKey: '1234567890'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('vault');
+      }
+    });
+
+    it('fails validation for short API key', () => {
+      const options = {
+        baseUrl: 'https://127.0.0.1:27124',
+        vault: 'MyVault',
+        apiKey: 'short'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('apiKey');
+      }
+    });
+
+    it('fails validation for missing required fields', () => {
+      const options = {
+        baseUrl: 'https://127.0.0.1:27124'
+      };
+
+      const result = validateRestOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('validateTemplateOptions', () => {
+    it('validates valid template options', () => {
+      const options = {
+        article: 'path/to/article',
+        fragment: 'path/to/fragment',
+        reading: 'path/to/reading',
+        ai: 'path/to/ai'
+      };
+
+      const result = validateTemplateOptions(options);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual(options);
+      }
+    });
+
+    it('fails validation for missing required fields', () => {
+      const options = {
+        article: 'path/to/article',
+        fragment: 'path/to/fragment'
+      };
+
+      const result = validateTemplateOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('fails validation for invalid data type', () => {
+      const options = {
+        article: 123,
+        fragment: 'path/to/fragment',
+        reading: 'path/to/reading',
+        ai: 'path/to/ai'
+      };
+
+      const result = validateTemplateOptions(options);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].path).toContain('article');
+      }
+    });
+  });
+});

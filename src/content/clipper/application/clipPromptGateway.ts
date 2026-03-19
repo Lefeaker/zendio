@@ -1,9 +1,10 @@
-export type ClipPromptAction = 'clip' | 'cancel' | 'reader';
+export type ClipPromptAction = 'clip' | 'cancel' | 'reader' | 'video';
 
 export interface ClipPromptRequest {
   selectedText: string;
   allowReaderMode: boolean;
   readerModeBehavior: 'start' | 'append';
+  allowVideoMode?: boolean;
   initialComment?: string;
 }
 

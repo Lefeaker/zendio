@@ -12,7 +12,7 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  let title = doc.title.replace(CHATGPT_TITLE_REPLACE_TEXT, '').trim() || DEFAULT_CHAT_TITLE;
+  const title = doc.title.replace(CHATGPT_TITLE_REPLACE_TEXT, '').trim() || DEFAULT_CHAT_TITLE;
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
@@ -102,7 +102,14 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
     });
   }
 
-  return { title, messages, assets: [], model: model || undefined };
+  const parsedResult: ParsedResult = { title, messages, assets: [] };
+
+  const resolvedModel = model || undefined;
+  if (resolvedModel) {
+    parsedResult.model = resolvedModel;
+  }
+
+  return parsedResult;
 }
 
 export const chatgptParser: ChatPlatformParser = {

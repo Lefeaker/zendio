@@ -1,4 +1,6 @@
 import type { VaultRouterConfig } from './vault';
+import type { TaxonomyConfig, ReadonlyDeep } from './taxonomy';
+import type { YamlConfigOverrides } from './yamlConfig';
 
 export type ClassifierProvider = 'openai' | 'compatible' | 'ollama';
 
@@ -27,7 +29,7 @@ export interface DeepResearchOptions {
   pureMode: boolean;
 }
 
-export type FragmentContextMode = 'chars';
+export type FragmentContextMode = 'chars' | 'sentences';
 
 export type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
@@ -42,6 +44,9 @@ export interface ReadingSessionOptions {
 
 export interface VideoOptions {
   floatingPromptEnabled: boolean;
+  promptButtonLabel: string;
+  promptShortcut: string;
+  promptPosition?: { x: number; y: number };
 }
 
 export interface FragmentClipperOptions {
@@ -51,6 +56,7 @@ export interface FragmentClipperOptions {
   contextMode: FragmentContextMode;
   selectionModifierEnabled: boolean;
   selectionModifierKeys: FragmentModifierKey[];
+  keyboardShortcutsEnabled: boolean;
 }
 
 export interface ClassifierOptions {
@@ -59,7 +65,7 @@ export interface ClassifierOptions {
   endpoint: string;
   apiKey: string;
   model: string;
-  taxonomy: unknown;
+  taxonomy: ReadonlyDeep<TaxonomyConfig>;
 }
 
 export interface StoredOptions {
@@ -73,6 +79,7 @@ export interface StoredOptions {
   video?: Partial<VideoOptions>;
   classifier?: Partial<ClassifierOptions>;
   vaultRouter?: VaultRouterConfig;
+  yamlConfig?: YamlConfigOverrides | null;
   [key: string]: unknown;
 }
 
@@ -99,4 +106,5 @@ export interface OptionsState {
   video?: VideoOptions;
   classifier?: ClassifierOptions;
   vaultRouter?: VaultRouterConfig;
+  yamlConfig?: YamlConfigOverrides | null;
 }

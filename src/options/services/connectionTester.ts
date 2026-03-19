@@ -1,11 +1,47 @@
 import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { VaultConfig } from '../../shared/types';
+import type { RestOptions } from '../../shared/types/options';
+import type { IMessagingRepository } from '../../shared/repositories';
+import { resolveRepository } from '../../shared/di/serviceRegistry';
+import { DI_TOKENS } from '../../shared/di/tokens';
+import { errorHandler, isAppError, optionsErrors } from '../../shared/errors';
 
 type TestState = 'idle' | 'pending';
 type TestKey = string;
 
 const DEFAULT_KEY = '__default__';
 const states = new Map<TestKey, TestState>();
+
+type ConnectionContext = Parameters<typeof optionsErrors.connectionInProgress>[0];
+
+interface ConnectionTestMessage {
+  type: 'TEST_CONNECTION';
+  rest?: Partial<RestOptions>;
+}
+
+interface VaultConnectionTestMessage {
+  type: 'TEST_VAULT_CONNECTION';
+  vaultId: string;
+  vault: VaultConfig;
+}
+
+type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessage;
+
+let overrideMessagingRepo: IMessagingRepository | null = null;
+
+export function setConnectionTesterMessagingRepository(repo: IMessagingRepository | null): void {
+  overrideMessagingRepo = repo;
+}
+
+function resolveMessagingRepository(provided?: IMessagingRepository): IMessagingRepository {
+  if (provided) {
+    return provided;
+  }
+  if (overrideMessagingRepo) {
+    return overrideMessagingRepo;
+  }
+  return resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+}
 
 export function isConnectionTestRunning(): boolean {
   return isTestRunning(DEFAULT_KEY);
@@ -15,15 +51,50 @@ export function isVaultConnectionTestRunning(vaultId: string): boolean {
   return isTestRunning(buildKey(vaultId));
 }
 
-export async function requestConnectionTest(): Promise<ConnectionTestResult> {
-  return requestTest({ type: 'TEST_CONNECTION' }, DEFAULT_KEY);
+export async function requestConnectionTest(
+  restDraft?: Partial<RestOptions>,
+  messagingRepo?: IMessagingRepository
+): Promise<ConnectionTestResult> {
+  const message: ConnectionTestMessage = { type: 'TEST_CONNECTION' };
+
+  if (restDraft && Object.keys(restDraft).length > 0) {
+    message.rest = sanitizeRestDraft(restDraft);
+  }
+
+  return requestTest(
+    message,
+    DEFAULT_KEY,
+    {
+      scope: 'global',
+      messageType: 'TEST_CONNECTION'
+    },
+    messagingRepo
+  );
 }
 
-export async function requestVaultConnectionTest(vault: VaultConfig): Promise<ConnectionTestResult> {
+export async function requestVaultConnectionTest(
+  vault: VaultConfig,
+  messagingRepo?: IMessagingRepository
+): Promise<ConnectionTestResult> {
   if (!vault?.id) {
-    throw new Error('缺少仓库配置');
+    const error = optionsErrors.invalidVaultConfig({
+      scope: 'vault',
+      vaultId: vault?.id
+    });
+    await errorHandler.handle(error, { suppressNotifications: true });
+    throw error;
   }
-  return requestTest({ type: 'TEST_VAULT_CONNECTION', vaultId: vault.id, vault }, buildKey(vault.id));
+  const message: VaultConnectionTestMessage = { type: 'TEST_VAULT_CONNECTION', vaultId: vault.id, vault };
+  return requestTest(
+    message,
+    buildKey(vault.id),
+    {
+      scope: 'vault',
+      vaultId: vault.id,
+      messageType: 'TEST_VAULT_CONNECTION'
+    },
+    messagingRepo
+  );
 }
 
 function buildKey(vaultId?: string): TestKey {
@@ -38,36 +109,115 @@ function setState(key: TestKey, state: TestState): void {
   states.set(key, state);
 }
 
-async function requestTest(message: Record<string, unknown>, key: TestKey): Promise<ConnectionTestResult> {
+async function requestTest(
+  message: RuntimeConnectionMessage,
+  key: TestKey,
+  context: ConnectionContext,
+  messagingRepo?: IMessagingRepository
+): Promise<ConnectionTestResult> {
   if (isTestRunning(key)) {
-    throw new Error('Connection test is already running');
+    const error = optionsErrors.connectionInProgress(context);
+    await errorHandler.handle(error, { suppressNotifications: true });
+    throw error;
   }
 
   setState(key, 'pending');
 
   try {
-    const response = await chrome.runtime.sendMessage(message);
-    return validateResponse(response);
+    const repo = resolveMessagingRepository(messagingRepo);
+    const response = await repo.send<ConnectionTestResult>(message);
+    return validateResponse(response, context);
+  } catch (error) {
+    const appError = isAppError(error)
+      ? error
+      : optionsErrors.requestDispatchFailed(error, {
+          ...context,
+          originalError: error
+        });
+    await errorHandler.handle(appError, { suppressNotifications: true });
+    throw appError;
   } finally {
     setState(key, 'idle');
   }
 }
 
-function validateResponse(response: unknown): ConnectionTestResult {
+function validateResponse(response: unknown, context: ConnectionContext): ConnectionTestResult {
   if (!response || typeof response !== 'object') {
-    throw new Error('无效的连接测试返回结果');
+    throw optionsErrors.responseInvalid('Response payload is not an object.', {
+      ...context,
+      response
+    });
   }
 
   const candidate = response as Partial<ConnectionTestResult>;
   if (typeof candidate.success !== 'boolean' || typeof candidate.message !== 'string') {
-    throw new Error('连接测试返回数据缺失必要字段');
+    throw optionsErrors.responseInvalid('Missing required fields.', {
+      ...context,
+      response
+    });
   }
 
-  return {
+  if (candidate.status !== undefined && typeof candidate.status !== 'number') {
+    throw optionsErrors.responseInvalid('Field "status" must be a number.', {
+      ...context,
+      response
+    });
+  }
+  if (candidate.response !== undefined && typeof candidate.response !== 'string') {
+    throw optionsErrors.responseInvalid('Field "response" must be a string.', {
+      ...context,
+      response
+    });
+  }
+  if (candidate.error !== undefined && typeof candidate.error !== 'string') {
+    throw optionsErrors.responseInvalid('Field "error" must be a string.', {
+      ...context,
+      response
+    });
+  }
+
+  const result: ConnectionTestResult = {
     success: candidate.success,
-    message: candidate.message,
-    status: candidate.status,
-    response: candidate.response,
-    error: candidate.error
+    message: candidate.message
   };
+
+  if (candidate.status !== undefined) {
+    result.status = candidate.status;
+  }
+  if (candidate.response !== undefined) {
+    result.response = candidate.response;
+  }
+  if (candidate.error !== undefined) {
+    result.error = candidate.error;
+  }
+
+  return result;
+}
+
+/** @internal */
+export function __resetConnectionTesterStateForTests(): void {
+  states.clear();
+  overrideMessagingRepo = null;
+}
+
+function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
+  const sanitized: Partial<RestOptions> = {};
+
+  if (draft.baseUrl?.trim()) {
+    sanitized.baseUrl = draft.baseUrl.trim();
+  }
+  if (draft.httpsUrl?.trim()) {
+    sanitized.httpsUrl = draft.httpsUrl.trim();
+  }
+  if (draft.httpUrl?.trim()) {
+    sanitized.httpUrl = draft.httpUrl.trim();
+  }
+  if (draft.vault?.trim()) {
+    sanitized.vault = draft.vault.trim();
+  }
+  if (draft.apiKey?.trim()) {
+    sanitized.apiKey = draft.apiKey.trim();
+  }
+
+  return sanitized;
 }

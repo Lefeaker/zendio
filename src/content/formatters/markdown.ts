@@ -1,3 +1,5 @@
+import { generateYamlFrontMatter } from '../../shared/utils/yamlGenerator';
+
 type Msg = {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -20,7 +22,6 @@ function formatLocalDateTime(date: Date): string {
 }
 
 export function buildChatMarkdown({
-  title,
   platform,
   url,
   messages,
@@ -28,7 +29,6 @@ export function buildChatMarkdown({
   createdAt,
   options
 }: {
-  title: string;
   platform: string;
   url: string;
   messages: Msg[];
@@ -45,20 +45,30 @@ export function buildChatMarkdown({
   // Format timestamps to local timezone
   const clippedAtFormatted = formatLocalDateTime(new Date());
   const createdAtFormatted = createdAt ? formatLocalDateTime(new Date(createdAt)) : null;
+  let domain: string | undefined;
+  try {
+    domain = new URL(url).hostname;
+  } catch {
+    domain = undefined;
+  }
 
-  const fm = [
-    '---',
-    'type: ai_chat',
-    `platform: ${platform}`,
-    model ? `model: ${model}` : null,
-    `url: "${url}"`,
-    `message_count: ${messages.length}`,
-    createdAtFormatted ? `created_at: "${createdAtFormatted}"` : null,
-    `clipped_at: "${clippedAtFormatted}"`,
-    'tags: [ai, chat, ' + platform + ']',
-    '---',
-    ''
-  ].filter(line => line !== null).join('\n');
+  const frontMatter = generateYamlFrontMatter(
+    'ai_chat',
+    {
+      type: 'ai_chat',
+      platform,
+      model,
+      url,
+      message_count: messages.length,
+      ...(createdAtFormatted !== undefined && { created_at: createdAtFormatted }),
+      clipped_at: clippedAtFormatted,
+      tags: ['ai', 'chat', platform],
+      ...(domain !== undefined && { domain })
+    },
+    {
+      ...(domain !== undefined && { domain })
+    }
+  );
 
   const body = messages.map((m, i) => {
     // Use h1 for USER/ASSISTANT headings
@@ -84,5 +94,5 @@ export function buildChatMarkdown({
     return `${heading}\n\n${content}\n`;
   }).join('\n');
 
-  return `${fm}\n${body}\n`;
+  return `${frontMatter}\n\n${body}\n`;
 }

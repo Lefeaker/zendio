@@ -4,7 +4,9 @@ const AI_CHAT_HOST_PATTERNS = [
   /gemini\.google\.com$/i,
   /kimi\.(moonshot\.cn|com)$/i,
   /deepseek\.com$/i,
-  /tongyi\.(aliyun\.com|com)$/i
+  /tongyi\.(aliyun\.com|com)$/i,
+  /(?:^|\.)doubao\.com$/i,
+  /(?:^|\.)monica\.im$/i
 ];
 
 function extractHostname(url: string, doc?: Document): string | null {

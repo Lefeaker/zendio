@@ -1,0 +1,454 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html.aobx-preview {
+        color-scheme: light dark;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+        .aobx-btn,
+        .aobx-link,
+        .aobx-textarea {
+            transition: none;
+        }
+    }
+}
+
+@layer components {
+
+    /* ========================================
+     Card
+     ======================================== */
+    .card {
+        @apply bg-bg-1 border border-border rounded-lg shadow-card p-xl mb-xl transition-colors duration-base;
+    }
+
+    .card:hover {
+        @apply border-border-hover;
+    }
+
+    .card--title {
+        @apply flex items-center gap-md font-semibold text-xl text-text mb-lg pb-md border-b border-border;
+    }
+
+    .card--title .icon {
+        @apply text-2xl leading-none;
+    }
+
+    .card--title .label {
+        @apply bg-gradient-text bg-clip-text text-transparent font-semibold;
+    }
+
+    .card--hint {
+        @apply text-text-dim text-sm leading-relaxed bg-bg px-lg py-md rounded-sm mb-xl border-l-[3px] border-accent-solid;
+    }
+
+    /* ========================================
+     Form Elements
+     ======================================== */
+    .input,
+    .select,
+    .textarea {
+        @apply w-full bg-bg-2 border border-border text-text rounded-sm px-[12px] py-md text-base font-ui outline-none transition-all duration-base;
+    }
+
+    .input:focus,
+    .select:focus,
+    .textarea:focus {
+        @apply border-[#6D28D9] shadow-[var(--ring)];
+    }
+
+    .input:disabled,
+    .select:disabled,
+    .textarea:disabled {
+        @apply opacity-50 cursor-not-allowed;
+    }
+
+    .textarea {
+        @apply resize-y min-h-[100px] leading-relaxed;
+    }
+
+    .helper {
+        @apply text-text-dim text-xs mt-xs leading-snug;
+    }
+
+    .form-group {
+        @apply mb-xl;
+    }
+
+    .form-group label {
+        @apply block mb-sm font-medium text-text text-base;
+    }
+
+    /* ========================================
+     Buttons
+     ======================================== */
+    .btn-primary {
+        @apply bg-gradient-primary text-white border-0 rounded-md px-lg py-md font-semibold text-base shadow-button cursor-pointer transition-all duration-fast whitespace-nowrap;
+    }
+
+    .btn-primary:hover {
+        @apply -translate-y-[1px] shadow-button-hover saturate-[1.1];
+    }
+
+    .btn-primary:active {
+        @apply translate-y-0 shadow-button;
+    }
+
+    .btn-primary:disabled {
+        @apply opacity-50 cursor-not-allowed transform-none;
+    }
+
+    .btn-adaptive {
+        @apply inline-block min-w-fit max-w-full whitespace-normal break-words overflow-anywhere leading-[1.35];
+    }
+
+    .btn-adaptive.compact {
+        @apply max-w-[12rem] text-sm;
+    }
+
+    .btn-adaptive.truncated {
+        @apply whitespace-nowrap overflow-hidden text-ellipsis;
+    }
+
+    .btn-adaptive[data-adapted='overflow'] {
+        @apply underline decoration-dotted;
+    }
+
+    .btn-ghost {
+        @apply bg-transparent border border-border text-text rounded-md px-lg py-md font-medium text-base cursor-pointer transition-colors duration-base whitespace-nowrap;
+    }
+
+    .btn-ghost:hover {
+        @apply bg-bg-2 border-border-hover;
+    }
+
+    .btn-ghost:active {
+        @apply bg-bg-1;
+    }
+
+    .btn-success {
+        @apply bg-ok text-white border-0 rounded-md px-lg py-md font-semibold text-base cursor-pointer transition-all duration-base;
+    }
+
+    .btn-success:hover {
+        @apply bg-[#2bb380] -translate-y-[1px];
+    }
+
+    .btn-danger {
+        @apply bg-err text-white border-0 rounded-md px-lg py-md font-semibold text-base cursor-pointer transition-all duration-base;
+    }
+
+    .btn-danger:hover {
+        @apply bg-[#f05252] -translate-y-[1px];
+    }
+
+    .btn-small {
+        @apply px-md py-sm text-sm;
+    }
+
+    /* ========================================
+     Badges & Status
+     ======================================== */
+    .badge {
+        @apply inline-flex items-center gap-xs px-md py-[4px] rounded-xs text-xs font-medium whitespace-nowrap;
+    }
+
+    .badge.ok {
+        @apply bg-ok-bg text-ok;
+    }
+
+    .badge.warn {
+        @apply bg-warn-bg text-warn;
+    }
+
+    .badge.err {
+        @apply bg-err-bg text-err;
+    }
+
+    .status-dot {
+        @apply inline-block w-2 h-2 rounded-full mr-xs;
+    }
+
+    .status-dot.ok {
+        @apply bg-ok shadow-[0_0_8px_var(--ok)];
+    }
+
+    .status-dot.warn {
+        @apply bg-warn shadow-[0_0_8px_var(--warn)];
+    }
+
+    .status-dot.err {
+        @apply bg-err shadow-[0_0_8px_var(--err)];
+    }
+
+    /* ========================================
+     Modals
+     ======================================== */
+    :is(.aob-modal-backdrop, .aobx-modal-backdrop) {
+        @apply fixed inset-0 bg-[rgba(11, 12, 18, 0.55)] flex items-center justify-center z-modal backdrop-blur-[3px];
+    }
+
+    :is(.aob-modal, .aobx-modal) {
+        @apply bg-bg-2 border border-border rounded-lg shadow-soft p-2xl w-[min(480px,_calc(100vw-48px))] max-w-[520px] animate-[fadeIn_var(--transition-base)];
+    }
+
+    :is(.aob-modal__title, .aobx-modal__title) {
+        @apply text-xl font-semibold mb-md text-text;
+    }
+
+    :is(.aob-modal__message, .aobx-modal__message) {
+        @apply text-base text-text-dim leading-relaxed m-0 mb-xl;
+    }
+
+    :is(.aob-modal__actions, .aobx-modal__actions) {
+        @apply flex justify-end gap-md;
+    }
+
+    /* ========================================
+     Onboarding
+     ======================================== */
+    body[data-route='onboarding'] {
+        @apply min-h-screen overflow-x-hidden bg-bg text-text font-ui;
+    }
+
+    .progress-indicator {
+        @apply fixed inset-x-0 top-0 h-1 bg-bg-2 z-[1000];
+    }
+
+    .progress-bar {
+        @apply h-full w-0 bg-gradient-primary transition-[width] duration-300 ease-in-out;
+    }
+
+    .onboarding-container {
+        @apply mx-auto flex min-h-screen w-full max-w-[900px] flex-col px-2xl py-2xl;
+    }
+
+    .onboarding-header {
+        @apply mb-3xl py-3xl text-center;
+    }
+
+    .onboarding-header img {
+        @apply mx-auto mb-xl h-20 w-20 rounded-lg shadow-soft;
+    }
+
+    .onboarding-header h1 {
+        @apply mb-md bg-gradient-text bg-clip-text font-bold text-transparent [font-size:var(--font-size-4xl)] md:[font-size:var(--font-size-5xl)];
+    }
+
+    .onboarding-header .subtitle {
+        @apply mb-lg text-lg text-text-dim md:text-xl;
+    }
+
+    .onboarding-header .welcome-message {
+        @apply mx-auto max-w-[600px] text-base leading-relaxed text-text;
+    }
+
+    .onboarding-steps {
+        @apply flex flex-1 flex-col gap-2xl;
+    }
+
+    .onboarding-step {
+        @apply rounded-lg border border-border bg-bg-1 p-2xl shadow-card transition-[transform,border-color] duration-base;
+    }
+
+    .onboarding-step:hover {
+        @apply -translate-y-[2px] border-border-hover;
+    }
+
+    .step-header {
+        @apply mb-xl flex items-center gap-lg;
+    }
+
+    .step-number {
+        @apply relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-xl font-bold text-white;
+    }
+
+    .step-title {
+        @apply m-0 text-2xl font-semibold text-text;
+    }
+
+    .step-content {
+        @apply ml-16;
+    }
+
+    .step-description {
+        @apply mb-lg text-base leading-relaxed text-text-dim;
+    }
+
+    .step-details {
+        @apply mb-lg rounded-md border border-border bg-bg p-lg;
+    }
+
+    .step-details ul {
+        @apply m-0 list-none p-0;
+    }
+
+    .step-details li {
+        @apply border-b border-border py-sm text-sm text-text-dim last:border-b-0;
+    }
+
+    .step-details code {
+        @apply rounded-[3px] bg-bg-2 px-xs py-[2px] font-mono text-xs text-accent-solid;
+    }
+
+    .step-action {
+        @apply flex flex-wrap items-center gap-md;
+    }
+
+    .step-action button {
+        @apply btn-primary inline-flex items-center gap-sm px-xl;
+    }
+
+    .step-action .secondary {
+        @apply btn-ghost shadow-none;
+    }
+
+    .onboarding-footer {
+        @apply mt-3xl border-t border-border py-2xl text-center;
+    }
+
+    .footer-actions {
+        @apply mb-lg flex flex-wrap justify-center gap-lg;
+    }
+
+    .footer-actions button {
+        @apply min-w-[160px];
+    }
+
+    .footer-note {
+        @apply text-sm leading-relaxed text-text-dim;
+    }
+
+    .feature-section {
+        @apply mb-xl rounded-md border-l-4 border-accent-solid bg-bg-2 p-lg last:mb-0;
+    }
+
+    .feature-section h5 {
+        @apply mb-md text-lg font-semibold text-accent-solid;
+    }
+
+    .feature-section ul {
+        @apply m-0;
+    }
+
+    .feature-section li {
+        @apply mb-sm leading-relaxed last:mb-0;
+    }
+
+    .footer-links {
+        @apply mt-xl flex flex-wrap justify-center gap-6 py-lg;
+    }
+
+    .footer-link {
+        @apply cursor-pointer text-sm text-accent-solid underline transition-colors duration-base;
+    }
+
+    .footer-link:hover {
+        @apply text-accent-mid;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .step-completed .step-number {
+        background: var(--ok);
+    }
+
+    .step-completed .step-number::after {
+        content: '✓';
+        font-size: var(--font-size-lg);
+    }
+
+    .step-completed .step-number span {
+        display: none;
+    }
+
+    .support-modal {
+        @apply fixed inset-0 z-modal flex items-center justify-center bg-[rgba(11,12,18,0.55)] p-lg backdrop-blur-[3px];
+    }
+
+    .support-modal-content {
+        @apply flex w-[min(420px,_calc(100vw-32px))] flex-col gap-lg rounded-lg border border-border bg-bg-2 p-2xl shadow-soft;
+    }
+
+    .support-modal-header {
+        @apply flex items-center justify-between gap-md;
+    }
+
+    .support-modal-header h3 {
+        @apply m-0 text-lg font-semibold text-text;
+    }
+
+    .support-modal-close {
+        @apply border-0 bg-transparent text-2xl leading-none text-text-muted cursor-pointer;
+    }
+
+    .support-modal-body {
+        @apply flex flex-col gap-lg;
+    }
+
+    .support-modal-body p {
+        @apply m-0 leading-relaxed text-text-dim;
+    }
+
+    .support-options {
+        @apply flex flex-wrap gap-md;
+    }
+
+    .support-link {
+        @apply inline-flex items-center gap-sm rounded-md border border-border px-lg py-md text-text no-underline transition-colors duration-base;
+    }
+
+    .support-link:hover {
+        @apply border-border-hover bg-bg-1;
+    }
+
+    @media (max-width: 768px) {
+        .onboarding-container {
+            @apply px-lg;
+        }
+
+        .step-header {
+            @apply flex-col text-center;
+        }
+
+        .step-content {
+            @apply ml-0 mt-lg;
+        }
+
+        .footer-actions {
+            @apply items-center;
+            flex-direction: column;
+        }
+
+        .footer-actions button {
+            @apply w-full max-w-[300px];
+        }
+    }
+
+    /* ========================================
+     Utilities
+     ======================================== */
+    .text-gradient {
+        @apply bg-gradient-text bg-clip-text text-transparent;
+    }
+
+    .divider-gradient {
+        @apply h-px bg-gradient-primary border-none my-xl;
+    }
+
+    .grid-two {
+        @apply grid grid-cols-2 gap-lg;
+    }
+
+    @media (max-width: 768px) {
+        .grid-two {
+            @apply grid-cols-1;
+        }
+    }
+}

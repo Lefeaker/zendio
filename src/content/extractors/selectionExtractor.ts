@@ -5,9 +5,9 @@ import { generateClipperTitle, formatDateTime } from '../clipper/utils/datetime'
 import { extractContextFromRange } from '../clipper/services/contextCapture';
 import { resolveContextRange, collectListPath } from '../clipper/shared/contextDom';
 import { buildAncestorListMarkdown } from '../clipper/shared/contextSerialization';
-import { escapeQuotes } from '../shared/markdown';
 import { createClipperTurndown } from '../clipper/shared/turndownFactory';
-import { buildFragmentMarkdown } from '../clipper/markdown/fragmentBuilder';
+import { buildFragmentMarkdown, type FragmentMarkdownParams } from '../clipper/markdown/fragmentBuilder';
+import { tryParseUrl } from '../../shared/url';
 
 export interface SelectionClipParams {
   doc: Document;
@@ -31,10 +31,12 @@ export interface SelectionClipResult {
     clippedAtISO: string;
     hasComment: boolean;
     selectedTextPreview: string;
+    sourceUrl: string;
+    resolvedUrl: string;
   };
 }
 
-export async function extractSelectionClip(params: SelectionClipParams): Promise<SelectionClipResult> {
+export function extractSelectionClip(params: SelectionClipParams): Promise<SelectionClipResult> {
   const {
     doc,
     url,
@@ -50,13 +52,17 @@ export async function extractSelectionClip(params: SelectionClipParams): Promise
     ...config
   };
 
+  const originalBaseUri = doc.baseURI ?? undefined;
+  const parsedUrl = tryParseUrl(url, originalBaseUri);
+  const resolvedUrl = parsedUrl?.href ?? originalBaseUri ?? url;
+
   const turndown = createClipperTurndown(url);
 
-  const pageTitle = doc.title || new URL(url).hostname;
+  const pageTitle = doc.title || parsedUrl?.hostname || 'Untitled';
   const now = new Date();
   const clipTitle = generateClipperTitle(pageTitle, now);
   const clippedAt = formatDateTime(now);
-  const fragmentUrl = generateTextFragmentUrl(url, selectedText);
+  const fragmentUrl = generateTextFragmentUrl(resolvedUrl, selectedText);
 
   const contextRange = resolveContextRange(selectionRange);
   const context = contextRange ? extractContextFromRange(contextRange, clipperConfig) : null;
@@ -65,31 +71,37 @@ export async function extractSelectionClip(params: SelectionClipParams): Promise
     ? buildAncestorListMarkdown(listPath, turndown)
     : { markdown: '', depth: listPath.length ? listPath.length - 1 : 0 };
 
-  const markdown = buildFragmentMarkdown({
+  const baseFragmentParams: Omit<FragmentMarkdownParams, 'userComment'> = {
     pageTitle,
     fragmentUrl,
     clippedAt,
     selectedHtml,
-    userComment,
     config: clipperConfig,
     turndown,
     context,
     ancestorMarkdown: ancestorInfo.markdown,
     ancestorDepth: ancestorInfo.depth
-  });
+  };
 
-  return {
+  const fragmentParams: FragmentMarkdownParams =
+    userComment !== undefined ? { ...baseFragmentParams, userComment } : baseFragmentParams;
+
+  const markdown = buildFragmentMarkdown(fragmentParams);
+
+  return Promise.resolve({
     type: 'clipper',
     title: clipTitle,
     pageTitle,
     markdown,
     meta: {
-      url,
+      url: resolvedUrl,
       fragmentUrl,
-      domain: new URL(url).hostname,
+      domain: parsedUrl?.hostname ?? '',
       clippedAtISO: clippedAt,
       hasComment: Boolean(userComment?.trim()),
-      selectedTextPreview: selectedText.substring(0, 100)
+      selectedTextPreview: selectedText.substring(0, 100),
+      sourceUrl: url,
+      resolvedUrl
     }
-  };
+  });
 }

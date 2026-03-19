@@ -2,8 +2,17 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2021", "DOM"],
-    "types": ["chrome"],
-    "baseUrl": "./src"
+    "types": ["chrome", "firefox-webext-browser", "node"],
+    "baseUrl": "./src",
+    "paths": {
+      "@shared/*": ["shared/*"],
+      "@content/*": ["content/*"],
+      "@options/*": ["options/*"],
+      "@i18n": ["i18n/index.ts"],
+      "@i18n/*": ["i18n/*"],
+      "@platform/*": ["platform/*"],
+      "@third-party/*": ["third_party/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["tests", "dist", "node_modules"]

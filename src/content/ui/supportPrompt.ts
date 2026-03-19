@@ -1,392 +1,352 @@
-import { InlineStyleManager } from '../clipper/shared/styleManager';
+import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
+import type { AppError } from '../../shared/errors';
+import { ErrorSeverity } from '../../shared/errors';
+import type { TrackUsageEventPayload } from '../../shared/types/analytics';
+import { getService, resolveRepository } from '../../shared/di';
+import { TOKENS, DI_TOKENS } from '../../shared/di/tokens';
+import type { PlatformServices } from '../../platform/types';
+import type { IMessagingRepository } from '../../shared/repositories';
+import { SupportPromptToastController } from './supportPrompt/SupportPromptToastController';
+import { SupportPromptView } from './supportPrompt/SupportPromptView';
+import type {
+  LikeToastVariant,
+  PromptStatus,
+  ResolvedStatusMessage,
+  ReviewPromptState,
+  SupportLink,
+  SupportPromptMessages,
+  SupportPromptOptions
+} from './supportPrompt/types';
 
-const SUPPORT_PROMPT_STYLES = `
-#aiob-support-prompt {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 2147483647;
-  width: 280px;
-  border-radius: 16px;
-  padding: 16px;
-  background: rgba(20, 23, 42, 0.94);
-  border: 0.75px solid rgba(116, 141, 231, 0.35);
-  box-shadow: 0 14px 32px rgba(17, 22, 45, 0.5);
-  color: #d8dcff;
-  text-shadow: 0 0 10px rgba(124, 92, 255, 0.35);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  backdrop-filter: blur(18px);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+const REVIEW_BASE_URL = 'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
+const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
+
+const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
+  dialogLabel: '支持 All in Ob',
+  title: '支持 All in Ob',
+  koFiTitle: 'Ko-fi',
+  koFiDescription: '请我喝杯咖啡',
+  afdianTitle: '爱发电',
+  afdianDescription: '国内赞助渠道',
+  githubTitle: 'GitHub',
+  githubDescription: '提交反馈',
+  feedbackGroupLabel: '快速反馈',
+  likeLabel: '赞一个',
+  dislikeLabel: '倒赞',
+  dismiss: '点击页面其他区域即可关闭',
+  statusSuccess: '发送成功',
+  statusSuccessWithVault: '成功发送到 {vault}',
+  statusWarning: '已保存，但分类结果已回退',
+  statusWarningWithReason: '已保存，但分类失败：{reason}',
+  statusFailure: '发送失败',
+  statusFailureWithReason: '发送失败，{reason}',
+  likeThankYou: '感谢鼓励！',
+  reviewLinkLabel: '撰写评论',
+  reviewAcknowledgedLabel: '我已写过评论',
+  dislikeToastTitle: '反馈问题',
+  dislikeRedditLinkLabel: '在 Reddit 讨论',
+  dislikeQrLinkLabel: '加入小红书群',
+  dislikeQrPlaceholder: '二维码稍后提供'
+};
+
+const SEVERITY_STATUS_MAP: Record<ErrorSeverity, PromptStatus> = {
+  [ErrorSeverity.INFO]: 'success',
+  [ErrorSeverity.WARNING]: 'warning',
+  [ErrorSeverity.ERROR]: 'failure',
+  [ErrorSeverity.CRITICAL]: 'failure'
+};
+
+interface SupportPromptDependencies {
+  storage: PlatformServices['storage'];
+  runtime: PlatformServices['runtime'];
+  messaging: IMessagingRepository;
 }
 
-#aiob-support-prompt h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #eef0ff;
-  text-shadow: 0 0 12px rgba(124, 92, 255, 0.4);
+function resolveSupportPromptDependencies(): SupportPromptDependencies {
+  const platformServices = getService<PlatformServices>(TOKENS.platformServices);
+  return {
+    storage: platformServices.storage,
+    runtime: platformServices.runtime,
+    messaging: resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository)
+  };
 }
 
-#aiob-support-prompt .aiob-support-links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  align-items: stretch;
+function mapSeverityToStatus(severity: ErrorSeverity): PromptStatus {
+  return SEVERITY_STATUS_MAP[severity] ?? 'success';
 }
 
-#aiob-support-prompt .aiob-support-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: rgba(64, 55, 207, 0.08);
-  transition: background 0.18s ease, transform 0.18s ease;
-  color: #e4e7ff;
-  box-sizing: border-box;
-  text-shadow: 0 0 8px rgba(124, 92, 255, 0.3);
+function resolveReason(error?: AppError, fallback?: string): string | undefined {
+  const candidate = error?.userMessage ?? error?.message ?? fallback;
+  if (typeof candidate === 'string' && candidate.trim().length > 0) {
+    return candidate.trim();
+  }
+  return undefined;
 }
 
-#aiob-support-prompt .aiob-support-link:hover {
-  background: rgba(64, 55, 207, 0.15);
-  transform: translateY(-1px);
-}
+function resolveStatusMessage(input: {
+  status: PromptStatus;
+  vaultLabel?: string;
+  reason?: string;
+  messages: SupportPromptMessages;
+  error?: AppError;
+}): ResolvedStatusMessage {
+  const { status, vaultLabel, reason, messages, error } = input;
+  let text: string;
 
-#aiob-support-prompt .aiob-support-icon {
-  width: 26px;
-  height: 26px;
-  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
-  mask-size: contain;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-}
-
-#aiob-support-prompt .aiob-support-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-#aiob-support-prompt .aiob-support-text strong {
-  font-size: 13px;
-  color: #f2f3ff;
-  text-shadow: 0 0 10px rgba(138, 92, 246, 0.35);
-}
-
-#aiob-support-prompt .aiob-support-text span {
-  font-size: 12px;
-  color: rgba(215, 219, 255, 0.72);
-  text-shadow: 0 0 6px rgba(99, 102, 241, 0.25);
-}
-
-#aiob-support-prompt .aiob-support-feedback {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  align-items: stretch;
-  height: 100%;
-}
-
-#aiob-support-prompt .aiob-support-feedback-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 44px;
-  border-radius: 12px;
-  border: none;
-  background: rgba(64, 55, 207, 0.08);
-  padding: 8px 0;
-  cursor: pointer;
-  transition: background 0.18s ease, transform 0.18s ease;
-  color: inherit;
-}
-
-#aiob-support-prompt .aiob-support-feedback-btn:hover {
-  background: rgba(64, 55, 207, 0.16);
-  transform: translateY(-1px);
-}
-
-#aiob-support-prompt .aiob-support-feedback-btn:focus-visible {
-  outline: 2px solid rgba(124, 92, 255, 0.5);
-  outline-offset: 2px;
-}
-
-#aiob-support-prompt .aiob-support-feedback-icon {
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
-  mask-size: contain;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-}
-
-#aiob-support-prompt .aiob-support-feedback-icon--dislike {
-  transform: scaleY(-1);
-}
-
-#aiob-support-prompt .aiob-support-footer {
-  margin-top: 6px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-#aiob-support-prompt .aiob-support-status {
-  font-size: 12px;
-  color: rgba(230, 233, 255, 0.88);
-  text-shadow: 0 0 10px rgba(138, 92, 246, 0.35);
-}
-
-#aiob-support-prompt .aiob-support-status[data-status="failure"] {
-  color: rgba(255, 186, 196, 0.95);
-  text-shadow: 0 0 10px rgba(244, 114, 182, 0.35);
-}
-
-#aiob-support-prompt .aiob-support-dismiss {
-  font-size: 11px;
-  color: rgba(216, 220, 255, 0.42);
-  text-shadow: none;
-  margin-left: auto;
-  text-align: right;
-}
-`;
-
-interface SupportLink {
-  icon: string;
-  title: string;
-  description?: string;
-  url: string;
-}
-
-type PromptStatus = 'success' | 'failure';
-
-export class SupportPrompt {
-  private container: HTMLDivElement | null = null;
-  private readonly styleManager: InlineStyleManager;
-  private stylesMounted = false;
-
-  private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (!this.container) {
-      return;
+  const fill = (template: string, token: string, value: string): string => {
+    const pattern = new RegExp(`\\{${token}\\}`, 'g');
+    if (pattern.test(template)) {
+      return template.replace(pattern, value);
     }
-    const target = event.target;
-    if (target instanceof Node && this.container.contains(target)) {
-      return;
-    }
-    this.hide();
+    return `${template}${template.endsWith('：') || template.endsWith(':') ? '' : '：'}${value}`;
   };
 
-  private readonly handleKeydown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape') {
-      this.hide();
-    }
-  };
-
-  constructor(private readonly doc: Document) {
-    this.styleManager = new InlineStyleManager(doc);
+  if (status === 'failure') {
+    text = reason ? fill(messages.statusFailureWithReason, 'reason', reason) : messages.statusFailure;
+  } else if (status === 'warning') {
+    text = reason ? fill(messages.statusWarningWithReason, 'reason', reason) : messages.statusWarning;
+  } else {
+    text = vaultLabel ? fill(messages.statusSuccessWithVault, 'vault', vaultLabel) : messages.statusSuccess;
   }
 
-  show(options?: { vaultName?: string; status?: PromptStatus; errorMessage?: string }): void {
-    this.hide();
+  const contextMessage = typeof error?.context?.contextMessage === 'string'
+    ? error.context.contextMessage.trim()
+    : undefined;
 
-    if (!this.stylesMounted) {
-      this.styleManager.mount(SUPPORT_PROMPT_STYLES);
-      this.stylesMounted = true;
-    }
+  const result: ResolvedStatusMessage = { text };
+  if (error && status !== 'success') {
+    result.codeSuffix = `（代码: ${error.code}）`;
+  }
+  if (contextMessage && contextMessage.length > 0) {
+    result.extraLine = contextMessage;
+  }
+  return result;
+}
+
+export class SupportPrompt {
+  private view: SupportPromptView | null = null;
+  private readonly deps: SupportPromptDependencies;
+  private readonly toastController: SupportPromptToastController;
+  private reviewStatePromise: Promise<ReviewPromptState> | null = null;
+
+  constructor(private readonly doc: Document) {
+    this.deps = resolveSupportPromptDependencies();
+    this.toastController = new SupportPromptToastController({
+      doc,
+      resolveReviewUrl: () => this.resolveReviewUrl(),
+      onReviewLinkClick: async (variant) => {
+        await this.trackUsageEvent('support_review_link_clicked', { variant });
+        await this.updateReviewState({ hasClickedReview: true });
+        window.open(this.resolveReviewUrl(), '_blank', 'noopener');
+      },
+      onReviewAcknowledgedClick: async (variant) => {
+        await this.trackUsageEvent('support_review_acknowledged_clicked', { variant });
+        await this.updateReviewState({ hasClickedReview: true, hasConfirmedReview: true });
+        this.toastController.dismissToast();
+      },
+      onDislikeRedditClick: () => {
+        void this.trackUsageEvent('support_dislike_reddit_clicked');
+      },
+      onDislikeQrClick: () => {
+        void this.trackUsageEvent('support_dislike_qr_clicked');
+      },
+      onLikeToastShown: (variant) => {
+        void this.trackUsageEvent('support_like_toast_shown', { variant });
+      },
+      onDislikeToastShown: () => {
+        void this.trackUsageEvent('support_dislike_toast_shown');
+      }
+    });
+  }
+
+  async show(options?: SupportPromptOptions): Promise<void> {
+    this.hide();
+    const messages = await this.resolveMessages();
+    const resolvedError = options?.error;
+    const promptStatus = options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
+    const reason = resolveReason(resolvedError, options?.errorMessage);
+    const vaultLabel = options?.vaultName?.trim();
+    const statusMessage = resolveStatusMessage({
+      status: promptStatus,
+      ...(vaultLabel ? { vaultLabel } : {}),
+      ...(reason !== undefined && { reason }),
+      messages,
+      ...(resolvedError !== undefined && { error: resolvedError })
+    });
 
     const links: SupportLink[] = [
       {
-        icon: chrome.runtime.getURL('assets/icontrs/ko-fi.svg'),
-        title: 'Ko-fi',
-        description: 'Buy me a coffee',
+        icon: this.resolveAssetUrl('icons/ko-fi.svg'),
+        title: messages.koFiTitle,
+        description: messages.koFiDescription,
         url: 'https://ko-fi.com/xiannian'
       },
       {
-        icon: chrome.runtime.getURL('assets/icontrs/aifadian-line-copy.svg'),
-        title: '爱发电',
-        description: '',
+        icon: this.resolveAssetUrl('icons/aifadian-line-copy.svg'),
+        title: messages.afdianTitle,
+        description: messages.afdianDescription,
         url: 'https://afdian.com/a/LefShi'
       },
       {
-        icon: chrome.runtime.getURL('assets/icontrs/github-fill.svg'),
-        title: 'GitHub',
-        description: '提交反馈',
+        icon: this.resolveAssetUrl('icons/github-fill.svg'),
+        title: messages.githubTitle,
+        description: messages.githubDescription,
         url: 'https://github.com/Lefeaker/AllinOB/issues'
       }
     ];
 
-    const container = this.doc.createElement('div');
-    container.id = 'aiob-support-prompt';
-    container.setAttribute('role', 'dialog');
-    container.setAttribute('aria-label', '支持 All in Ob');
-    container.tabIndex = -1;
-
-    const title = this.doc.createElement('h3');
-    title.textContent = '支持 All in Ob';
-
-    const linksWrapper = this.doc.createElement('div');
-    linksWrapper.className = 'aiob-support-links';
-
-    const donationLinks = links.slice(0, 2);
-    for (const link of donationLinks) {
-      const anchor = this.doc.createElement('a');
-      anchor.className = 'aiob-support-link';
-      anchor.href = link.url;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener noreferrer';
-
-      const icon = this.doc.createElement('span');
-      icon.className = 'aiob-support-icon';
-      icon.style.maskImage = `url(${link.icon})`;
-      icon.style.webkitMaskImage = `url(${link.icon})`;
-
-      const textWrap = this.doc.createElement('div');
-      textWrap.className = 'aiob-support-text';
-
-      const strong = this.doc.createElement('strong');
-      strong.textContent = link.title;
-
-      textWrap.append(strong);
-
-      if (link.description) {
-        const description = this.doc.createElement('span');
-        description.textContent = link.description;
-        textWrap.appendChild(description);
-      }
-      anchor.append(icon, textWrap);
-      linksWrapper.appendChild(anchor);
-    }
-
-    const githubLink = (() => {
-      const link = links[2];
-      const anchor = this.doc.createElement('a');
-      anchor.className = 'aiob-support-link';
-      anchor.href = link.url;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener noreferrer';
-
-      const icon = this.doc.createElement('span');
-      icon.className = 'aiob-support-icon';
-      icon.style.maskImage = `url(${link.icon})`;
-      icon.style.webkitMaskImage = `url(${link.icon})`;
-
-      const textWrap = this.doc.createElement('div');
-      textWrap.className = 'aiob-support-text';
-
-      const strong = this.doc.createElement('strong');
-      strong.textContent = link.title;
-
-      textWrap.append(strong);
-
-      if (link.description) {
-        const description = this.doc.createElement('span');
-        description.textContent = link.description;
-        textWrap.appendChild(description);
-      }
-      anchor.append(icon, textWrap);
-      return anchor;
-    })();
-
-    linksWrapper.appendChild(githubLink);
-
-    const feedbackGroup = this.doc.createElement('div');
-    feedbackGroup.className = 'aiob-support-feedback';
-    feedbackGroup.setAttribute('role', 'group');
-    feedbackGroup.setAttribute('aria-label', '快速反馈');
-
-    const likeIconPath = chrome.runtime.getURL('assets/icontrs/赞.svg');
-
-    const likeBtn = this.doc.createElement('button');
-    likeBtn.type = 'button';
-    likeBtn.className = 'aiob-support-feedback-btn';
-    likeBtn.title = '赞一个';
-    likeBtn.setAttribute('aria-label', '赞一个');
-    likeBtn.addEventListener('click', () => {
-      window.open('https://github.com/Lefeaker/AllinOB/issues/new?labels=feedback&title=%5B赞%5D%20反馈', '_blank', 'noopener');
-      this.hide();
+    this.view = new SupportPromptView({
+      messages,
+      links,
+      status: promptStatus,
+      statusMessage,
+      onLike: () => { void this.handleLikeClick(); },
+      onDislike: () => { void this.handleDislikeClick(); },
+      onClose: () => this.hide(),
+      onLinkClick: (url) => { void this.trackUsageEvent('support_link_clicked', { url }); }
     });
 
-    const likeIcon = this.doc.createElement('span');
-    likeIcon.className = 'aiob-support-feedback-icon';
-    likeIcon.style.maskImage = `url(${likeIconPath})`;
-    likeIcon.style.webkitMaskImage = `url(${likeIconPath})`;
-    likeBtn.appendChild(likeIcon);
-
-    const dislikeBtn = this.doc.createElement('button');
-    dislikeBtn.type = 'button';
-    dislikeBtn.className = 'aiob-support-feedback-btn';
-    dislikeBtn.title = '倒赞';
-    dislikeBtn.setAttribute('aria-label', '倒赞');
-    dislikeBtn.addEventListener('click', () => {
-      window.open('https://github.com/Lefeaker/AllinOB/issues/new?labels=feedback&title=%5B吐槽%5D%20反馈', '_blank', 'noopener');
-      this.hide();
-    });
-
-    const dislikeIcon = this.doc.createElement('span');
-    dislikeIcon.className = 'aiob-support-feedback-icon aiob-support-feedback-icon--dislike';
-    dislikeIcon.style.maskImage = `url(${likeIconPath})`;
-    dislikeIcon.style.webkitMaskImage = `url(${likeIconPath})`;
-    dislikeBtn.appendChild(dislikeIcon);
-
-    feedbackGroup.append(likeBtn, dislikeBtn);
-
-    linksWrapper.appendChild(feedbackGroup);
-
-    const footer = this.doc.createElement('div');
-    footer.className = 'aiob-support-footer';
-
-    const status = this.doc.createElement('div');
-    const isFailure = options?.status === 'failure';
-    status.className = 'aiob-support-status';
-    if (isFailure) {
-      status.textContent = options?.errorMessage
-        ? `发送失败，${options.errorMessage}`
-        : '发送失败';
-      status.dataset.status = 'failure';
-    } else {
-      const vaultLabel = options?.vaultName?.trim();
-      status.textContent = vaultLabel ? `成功发送到 ${vaultLabel}` : '发送成功';
-      status.dataset.status = 'success';
-    }
-
-    const dismiss = this.doc.createElement('div');
-    dismiss.className = 'aiob-support-dismiss';
-    dismiss.textContent = '点击页面其他区域即可关闭';
-
-    footer.append(status, dismiss);
-
-    container.append(title, linksWrapper, footer);
-    this.doc.body.appendChild(container);
-    this.container = container;
-
-    container.focus();
-
-    this.doc.addEventListener('pointerdown', this.handlePointerDown, true);
-    this.doc.addEventListener('keydown', this.handleKeydown, true);
+    const host = this.view.render();
+    host.id = 'aiob-support-prompt';
+    this.view.show();
+    queueMicrotask(() => host.focus());
   }
 
   hide(): void {
-    if (!this.container) {
-      return;
-    }
+    this.view?.destroy();
+    this.view = null;
+  }
 
-    this.container.remove();
-    this.container = null;
-    this.doc.removeEventListener('pointerdown', this.handlePointerDown, true);
-    this.doc.removeEventListener('keydown', this.handleKeydown, true);
+  destroy(): void {
+    this.hide();
+    this.toastController.destroy();
+  }
+
+  private async handleLikeClick(): Promise<void> {
+    const messages = await this.resolveMessages();
+    const state = await this.getReviewState();
+    const variant: LikeToastVariant = state.hasConfirmedReview
+      ? 'acknowledged'
+      : state.hasClickedReview
+        ? 'returning'
+        : 'first';
+
+    this.toastController.showLikeToast(messages, variant);
+    await this.trackUsageEvent('support_like_clicked', { variant });
+    this.hide();
+  }
+
+  private async handleDislikeClick(): Promise<void> {
+    const messages = await this.resolveMessages();
+    this.toastController.showDislikeToast(messages);
+    await this.trackUsageEvent('support_dislike_clicked');
+    this.hide();
+  }
+
+  private async resolveMessages(): Promise<SupportPromptMessages> {
+    try {
+      await ensureContentI18n(this.doc);
+      const resource = getContentI18nResource();
+      const messages = resource?.messages ?? await getContentMessages();
+      return {
+        dialogLabel: messages.supportPromptDialogLabel,
+        title: messages.supportPromptTitle,
+        koFiTitle: messages.supportPromptKoFiTitle,
+        koFiDescription: messages.supportPromptKoFiDescription,
+        afdianTitle: messages.supportPromptAfdianTitle,
+        afdianDescription: messages.supportPromptAfdianDescription,
+        githubTitle: messages.supportPromptGithubTitle,
+        githubDescription: messages.supportPromptGithubDescription,
+        feedbackGroupLabel: messages.supportPromptFeedbackGroupLabel,
+        likeLabel: messages.supportPromptLikeLabel,
+        dislikeLabel: messages.supportPromptDislikeLabel,
+        dismiss: messages.supportPromptDismiss,
+        statusSuccess: messages.supportPromptStatusSuccess,
+        statusSuccessWithVault: messages.supportPromptStatusSuccessWithVault,
+        statusWarning: messages.supportPromptStatusWarning,
+        statusWarningWithReason: messages.supportPromptStatusWarningWithReason,
+        statusFailure: messages.supportPromptStatusFailure,
+        statusFailureWithReason: messages.supportPromptStatusFailureWithReason,
+        likeThankYou: messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
+        reviewLinkLabel: messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
+        reviewAcknowledgedLabel: messages.supportPromptReviewAcknowledgedLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,
+        dislikeToastTitle: messages.supportPromptDislikeToastTitle ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeToastTitle,
+        dislikeRedditLinkLabel: messages.supportPromptDislikeRedditLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
+        dislikeQrLinkLabel: messages.supportPromptDislikeQrLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
+        dislikeQrPlaceholder: messages.supportPromptDislikeQrPlaceholder ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
+      };
+    } catch (error) {
+      console.warn('[support-prompt] Failed to load i18n messages:', error);
+      return FALLBACK_SUPPORT_PROMPT_MESSAGES;
+    }
+  }
+
+  private resolveAssetUrl(path: string): string {
+    try {
+      return this.deps.runtime.getURL(path);
+    } catch {
+      return path;
+    }
+  }
+
+  private resolveReviewUrl(): string {
+    const locale = this.resolveReviewLocale();
+    return `${REVIEW_BASE_URL}/reviews?reviewId=0&hl=${encodeURIComponent(locale)}`;
+  }
+
+  private resolveReviewLocale(): string {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage) {
+        return chrome.i18n.getUILanguage();
+      }
+    } catch {
+      // ignore
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.language === 'string') {
+      return navigator.language || 'en';
+    }
+    return 'en';
+  }
+
+  private async getReviewState(): Promise<ReviewPromptState> {
+    if (this.reviewStatePromise === null) {
+      this.reviewStatePromise = this.loadReviewState();
+    }
+    return this.reviewStatePromise;
+  }
+
+  private async loadReviewState(): Promise<ReviewPromptState> {
+    try {
+      const stored = await this.deps.storage.local.get<ReviewPromptState>(REVIEW_STATE_STORAGE_KEY);
+      return stored ?? {};
+    } catch (error) {
+      console.warn('[support-prompt] Failed to load review prompt state:', error);
+      return {};
+    }
+  }
+
+  private async updateReviewState(updates: Partial<ReviewPromptState>): Promise<void> {
+    const current = await this.getReviewState();
+    const next: ReviewPromptState = { ...current, ...updates };
+    try {
+      await this.deps.storage.local.set(REVIEW_STATE_STORAGE_KEY, next);
+      this.reviewStatePromise = Promise.resolve(next);
+    } catch (error) {
+      console.warn('[support-prompt] Failed to update review prompt state:', error);
+    }
+  }
+
+  private async trackUsageEvent(name: string, params?: TrackUsageEventPayload['params']): Promise<void> {
+    try {
+      await this.deps.messaging.send({
+        type: 'track',
+        event: name,
+        ...(params !== undefined && { params })
+      });
+    } catch (error) {
+      console.debug('[support-prompt] Failed to send analytics event:', error);
+    }
   }
 }
+
+export type { SupportPromptMessages, SupportPromptOptions } from './supportPrompt/types';

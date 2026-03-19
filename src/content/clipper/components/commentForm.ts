@@ -1,3 +1,5 @@
+import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
+
 export interface CommentFormMessages {
   commentLabel: string;
   commentPlaceholder: string;
@@ -7,83 +9,80 @@ export interface CommentFormElements {
   container: HTMLDivElement;
   textarea: HTMLTextAreaElement;
   preview: HTMLDivElement;
+  handles: I18nBindingHandle[];
 }
 
-export function createCommentForm(messages: CommentFormMessages, selectedText: string, initialComment = ''): CommentFormElements {
+type CommentLabelKey = Extract<keyof Messages, 'commentLabel'>;
+type CommentPlaceholderKey = Extract<keyof Messages, 'commentPlaceholder'>;
+
+export function createCommentForm(
+  messages: CommentFormMessages,
+  selectedText: string,
+  initialComment = '',
+  binder: I18nBinder | null = null
+): CommentFormElements {
   const container = document.createElement('div');
-  container.style.cssText = `
-    padding: var(--space-xl, 24px) var(--space-2xl, 28px) var(--space-2xl, 28px) var(--space-2xl, 28px);
-    max-height: calc(80vh - 100px);
-    overflow-y: auto;
-  `;
+  container.className = 'clipper-comment-form p-[24px_28px] max-h-[calc(80vh-100px)] overflow-y-auto';
 
   const preview = document.createElement('div');
-  preview.style.cssText = `
-    background: var(--bg-elev-1, rgba(12, 15, 30, 0.94));
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-    border-left: 3px solid var(--accent-solid, #8B5CF6);
-    padding: var(--space-md, 14px) var(--space-xl, 22px);
-    margin-bottom: var(--space-xl, 24px);
-    border-radius: var(--radius-sm, 10px);
-    max-height: 150px;
-    overflow-y: auto;
-    font-size: var(--font-size-base, 14px);
-    color: var(--text-dim, rgba(242, 244, 255, 0.75));
-    line-height: 1.6;
-  `;
-  preview.textContent = selectedText.substring(0, 500) + (selectedText.length > 500 ? '...' : '');
+  preview.className = 'clipper-comment-preview bg-[#0c0f1e]/94 border border-white/12 border-l-[3px] border-l-[#8B5CF6] p-[14px_22px] mb-6 rounded-[10px] max-h-[150px] overflow-y-auto text-sm text-[#f2f4ff]/75 leading-relaxed';
+  const truncated = selectedText.length > 500
+    ? selectedText.substring(0, 501) + '...'
+    : selectedText;
+  preview.textContent = truncated;
 
   const label = document.createElement('label');
-  label.textContent = messages.commentLabel;
-  label.style.cssText = `
-    display: block;
-    margin-bottom: var(--space-sm, 12px);
-    font-size: var(--font-size-base, 14px);
-    font-weight: var(--font-weight-medium, 500);
-    color: var(--text, #f2f4ff);
-  `;
+  label.className = 'clipper-comment-label block mb-3 text-sm font-medium text-[#f2f4ff]';
 
   const textarea = document.createElement('textarea');
   textarea.id = 'clipper-comment-input';
-  textarea.placeholder = messages.commentPlaceholder;
-  textarea.style.cssText = `
-    width: 100%;
-    min-height: 120px;
-    padding: var(--space-md, 14px);
-    background: var(--bg-elev-1, rgba(12, 15, 30, 0.94));
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-    border-radius: var(--radius-sm, 10px);
-    font-size: var(--font-size-base, 14px);
-    font-family: inherit;
-    color: var(--text, #f2f4ff);
-    resize: vertical;
-    box-sizing: border-box;
-    margin-bottom: var(--space-xl, 24px);
-    transition: box-shadow var(--transition-base, 0.2s ease), border-color var(--transition-base, 0.2s ease);
-  `;
-
-  textarea.style.caretColor = 'var(--accent-solid, #8B5CF6)';
-
-  const placeholderStyle = document.createElement('style');
-  placeholderStyle.textContent = `#${textarea.id}::placeholder { color: var(--text-muted, rgba(242, 244, 255, 0.55)); }`;
+  textarea.className = 'clipper-comment-textarea w-full min-h-[120px] p-[14px] bg-[#0c0f1e]/94 border border-white/12 rounded-[10px] text-sm font-inherit text-[#f2f4ff] resize-y box-border mb-6 transition-[box-shadow,border-color] duration-200 ease-out caret-[#8B5CF6] placeholder:text-[#f2f4ff]/55 focus:shadow-[0_0_0_3px_rgba(124,92,255,0.35)] focus:border-[#8B5CF6] focus:outline-none';
 
   if (initialComment) {
     textarea.value = initialComment;
   }
 
-  textarea.addEventListener('focus', () => {
-    textarea.style.boxShadow = 'var(--ring, 0 0 0 3px rgba(124, 92, 255, 0.35))';
-    textarea.style.borderColor = 'var(--accent-solid, #8B5CF6)';
-  });
-  textarea.addEventListener('blur', () => {
-    textarea.style.boxShadow = 'none';
-    textarea.style.borderColor = 'var(--border, rgba(255, 255, 255, 0.12))';
-  });
+  const handles: I18nBindingHandle[] = [];
+
+  bindText(label, 'commentLabel', messages.commentLabel, binder, handles);
+  bindPlaceholder(textarea, 'commentPlaceholder', messages.commentPlaceholder, binder, handles);
 
   container.appendChild(preview);
   container.appendChild(label);
   container.appendChild(textarea);
-  container.appendChild(placeholderStyle);
 
-  return { container, textarea, preview };
+  const hint = document.createElement('div');
+  hint.className = 'clipper-comment-completed-hint hidden mt-2 text-xs text-[#f2f4ff]/70';
+  hint.hidden = true;
+  container.appendChild(hint);
+
+  return { container, textarea, preview, handles };
+}
+
+function bindText(
+  element: HTMLElement,
+  key: CommentLabelKey,
+  fallback: string,
+  binder: I18nBinder | null,
+  handles: I18nBindingHandle[]
+): void {
+  element.textContent = fallback;
+  element.dataset.i18n = key;
+  if (binder) {
+    handles.push(binder.bindText(element, key));
+  }
+}
+
+function bindPlaceholder(
+  element: HTMLTextAreaElement,
+  key: CommentPlaceholderKey,
+  fallback: string,
+  binder: I18nBinder | null,
+  handles: I18nBindingHandle[]
+): void {
+  element.placeholder = fallback;
+  element.dataset.i18nPlaceholder = key;
+  if (binder) {
+    handles.push(binder.bindAttr(element, 'placeholder', key));
+  }
 }

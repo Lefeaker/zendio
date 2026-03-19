@@ -1,5 +1,5 @@
-import type { FragmentClipperOptions } from '../../../shared/types/options';
-import { resolveContextRange, findPreviousBlockElement, getCleanTextContent } from '../shared/contextDom';
+import type { FragmentClipperOptions } from '@shared/types/options';
+import { findPreviousBlockElement, getCleanTextContent } from '../shared/contextDom';
 import { wrapListFragment, serializeFragment, serializeElement } from '../shared/contextSerialization';
 
 const CONTEXT_CONTAINER_PRIORITY: Record<string, number> = {
@@ -219,7 +219,7 @@ function collectAncestorSegments(
 ): number {
   let current: Element | null = container;
   while (current && current !== document.body && remaining > 0) {
-    const parent = current.parentElement;
+    const parent: HTMLElement | null = current.parentElement;
     if (!parent || parent === document.body) {
       break;
     }
@@ -269,8 +269,6 @@ function joinSegments(segments: ContextSegment[], reverse: boolean): string {
   const list = reverse ? segments.slice().reverse() : segments;
   return list.map(segment => segment.html).join('');
 }
-
-
 
 
 

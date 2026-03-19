@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": false,
+    "isolatedModules": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@shared/*": ["shared/*"],
+      "@content/*": ["content/*"],
+      "@options/*": ["options/*"],
+      "@i18n": ["i18n/index.ts"],
+      "@i18n/*": ["i18n/*"],
+      "@platform/*": ["platform/*"],
+      "@third-party/*": ["third_party/*"]
+    }
+  },
+  "include": [
+    "src/shared/**/*",
+    "src/platform/**/*",
+    "src/background/**/*",
+    "src/options/**/*",
+    "src/content/**/*"
+  ]
+}

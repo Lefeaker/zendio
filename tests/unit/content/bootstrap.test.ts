@@ -1,0 +1,191 @@
+/* @vitest-environment jsdom */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StorageService } from '../../../src/platform/interfaces/storage';
+
+const addBrowserClassToHtmlMock = vi.hoisted(() => vi.fn());
+const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'error-handler' })));
+const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'global-state' })));
+const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
+const createDialogRegistryMock = vi.hoisted(() => vi.fn(() => ({ closeAll: vi.fn() })));
+const clipperInitializeMock = vi.hoisted(() => vi.fn());
+const panelInitializeMock = vi.hoisted(() => vi.fn());
+const getPlatformServicesMock = vi.hoisted(() => vi.fn(() => ({ kind: 'platform-services' })));
+const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => vi.fn()));
+const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
+const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
+const storageMock = vi.hoisted(() => ({
+  local: { kind: 'local' },
+  sync: { kind: 'sync' }
+})) as unknown as StorageService;
+const registryState = vi.hoisted(() => ({ hasPlatform: false }));
+const registryMock = vi.hoisted(() => ({
+  has: vi.fn((token?: symbol) => token?.description === 'platformServices' ? registryState.hasPlatform : false),
+  register: vi.fn((token: symbol) => {
+    if (token.description === 'platformServices') {
+      registryState.hasPlatform = true;
+    }
+  })
+}));
+const scopedRegistryMock = vi.hoisted(() => ({
+  register: vi.fn(),
+  resolve: vi.fn(),
+  has: vi.fn(() => false),
+  disposeScope: vi.fn()
+}));
+const createScopedRegistryMock = vi.hoisted(() => vi.fn(() => scopedRegistryMock));
+const TOKENS = vi.hoisted(() => ({
+  platformServices: Symbol('platformServices'),
+  errorHandler: Symbol('errorHandler'),
+  globalStateManager: Symbol('globalStateManager'),
+  dialogRegistry: Symbol('dialogRegistry')
+}));
+
+vi.mock('../../../src/shared/di', () => ({
+  createScopedRegistry: createScopedRegistryMock,
+  registry: registryMock,
+  TOKENS
+}));
+vi.mock('../../../src/shared/errors/errorHandler', () => ({ createErrorHandler: createErrorHandlerMock }));
+vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
+  registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
+}));
+vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
+  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock
+}));
+vi.mock('../../../src/shared/errors/analytics', () => ({
+  initializeErrorAnalytics: initializeErrorAnalyticsMock
+}));
+vi.mock('../../../src/shared/state/globalStateManager', () => ({
+  createGlobalStateManager: createGlobalStateManagerMock,
+  configureGlobalStateManagerStorage: configureGlobalStateManagerStorageMock
+}));
+vi.mock('../../../src/content/clipper/shared/dialogRegistry', () => ({ createDialogRegistry: createDialogRegistryMock }));
+vi.mock('../../../src/shared/utils/browserDetection', () => ({ addBrowserClassToHtml: addBrowserClassToHtmlMock }));
+vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({ clipperStyleSheetManager: { initialize: clipperInitializeMock } }));
+vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({ panelStyleSheetManager: { initialize: panelInitializeMock } }));
+vi.mock('../../../src/platform', () => ({ getPlatformServices: getPlatformServicesMock }));
+
+describe('content/bootstrap', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    registryState.hasPlatform = true;
+    document.body.innerHTML = '';
+  });
+
+  afterEach(async () => {
+    const mod = await import('../../../src/content/bootstrap');
+    mod.resetGlobalContentContext();
+    mod.__setContentBootstrapLoadersForTests(null);
+  });
+
+  it('bootstraps scoped services and style managers on context construction', async () => {
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+    const context = new ContentScriptContext(storageMock);
+
+    expect(createScopedRegistryMock).toHaveBeenCalledWith(registryMock);
+    expect(addBrowserClassToHtmlMock).toHaveBeenCalledTimes(1);
+    expect(configureGlobalStateManagerStorageMock).toHaveBeenCalledTimes(1);
+    expect(configureAnalyticsConfigManagerMock).toHaveBeenCalledTimes(1);
+    expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.errorHandler, expect.any(Function));
+    expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(expect.objectContaining({
+      domain: 'content',
+      metadata: expect.objectContaining({ extensionContext: 'content' }),
+      target: window
+    }));
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
+    expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.globalStateManager, createGlobalStateManagerMock);
+    expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.dialogRegistry, createDialogRegistryMock);
+    expect(clipperInitializeMock).toHaveBeenCalledTimes(1);
+    expect(panelInitializeMock).toHaveBeenCalledTimes(1);
+    expect(context.disposed).toBe(false);
+
+    context.dispose();
+  });
+
+  it('exposes services, reacts to visibility changes, and disposes on beforeunload', async () => {
+    const dialogRegistry = { closeAll: vi.fn() };
+    const customToken = Symbol('custom');
+    scopedRegistryMock.has.mockImplementation((token?: symbol) => token === TOKENS.dialogRegistry);
+    scopedRegistryMock.resolve.mockImplementation((token: symbol) => {
+      if (token === TOKENS.dialogRegistry) {
+        return dialogRegistry;
+      }
+      if (token === customToken) {
+        return { ok: true };
+      }
+      return null;
+    });
+
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+    const context = new ContentScriptContext(storageMock);
+    expect(context.getService<{ ok: boolean }>(customToken)).toEqual({ ok: true });
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(dialogRegistry.closeAll).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new Event('beforeunload'));
+    expect(context.disposed).toBe(true);
+    expect(scopedRegistryMock.disposeScope).toHaveBeenCalledTimes(1);
+    expect(() => context.getService(customToken)).toThrow(/disposed/);
+  });
+
+  it('reuses and resets the global content context helpers', async () => {
+    const mod = await import('../../../src/content/bootstrap');
+    mod.__setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+    mod.configureContentBootstrapStorage(storageMock);
+    const first = mod.getGlobalContentContext();
+    const second = mod.getGlobalContentContext();
+    expect(second).toBe(first);
+    expect(mod.bootstrapContentScript()).toBe(first);
+
+    mod.resetGlobalContentContext();
+    const third = mod.getGlobalContentContext();
+    expect(third).not.toBe(first);
+  });
+
+  it('requires explicit storage configuration before bootstrap', async () => {
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+
+    expect(() => new ContentScriptContext()).toThrow(
+      '[ContentScript] StorageService is required for bootstrap.'
+    );
+  });
+});

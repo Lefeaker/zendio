@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>CSS 变量穿透测试</title>
+  <style>
+    :root {
+      --test-color: hsl(257 86% 63%);
+      --test-size: 24px;
+    }
+
+    .host-btn {
+      color: var(--test-color);
+      font-size: var(--test-size);
+      padding: 0.5rem 1rem;
+      border: 2px solid currentColor;
+      border-radius: 0.5rem;
+    }
+  </style>
+</head>
+
+<body class="p-8">
+  <h1 class="text-2xl font-bold mb-4">CSS 变量穿透测试</h1>
+
+  <!-- 宿主页面中的按钮 -->
+  <button class="host-btn">宿主页面按钮</button>
+
+  <!-- Shadow DOM -->
+  <div id="shadow-host"></div>
+
+  <script>
+    const host = document.getElementById('shadow-host');
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    // 注入样式（使用 CSS 变量）
+    const styleSheet = new CSSStyleSheet();
+    styleSheet.replaceSync(`
+      .shadow-btn {
+        color: var(--test-color);         /* ✅ 继承自 :root */
+        font-size: var(--test-size);      /* ✅ 继承自 :root */
+        padding: 0.5rem 1rem;
+        border: 2px solid currentColor;
+        border-radius: 0.5rem;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .shadow-btn:hover {
+        background: color-mix(in srgb, var(--test-color) 10%, transparent);
+      }
+    `);
+
+    shadow.adoptedStyleSheets = [styleSheet];
+
+    // 创建按钮
+    shadow.innerHTML = `
+      <button class="shadow-btn">Shadow DOM 按钮</button>
+    `;
+  </script>
+</body>
+
+</html>

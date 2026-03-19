@@ -41,11 +41,13 @@ export function collectPortEntriesFromConfig(
   addPortEntry(entries, rest?.httpsUrl, '__default__');
   addPortEntry(entries, rest?.httpUrl, '__default__');
 
-  (vaults ?? []).forEach((vault, index) => {
-    const vaultId = vault.id ?? `vault-${index}`;
-    addPortEntry(entries, vault.httpsUrl, vaultId);
-    addPortEntry(entries, vault.httpUrl, vaultId);
-  });
+  (vaults ?? [])
+    .filter(vault => vault.enabled !== false)
+    .forEach((vault, index) => {
+      const vaultId = vault.id ?? `vault-${index}`;
+      addPortEntry(entries, vault.httpsUrl, vaultId);
+      addPortEntry(entries, vault.httpUrl, vaultId);
+    });
 
   return entries;
 }
@@ -63,7 +65,10 @@ export function findDuplicatePorts(entries: PortUsageEntry[], targetId?: string)
       usage.set(entry.port, new Set());
     }
 
-    usage.get(entry.port)!.add(entry.id);
+    const ids = usage.get(entry.port);
+    if (ids) {
+      ids.add(entry.id);
+    }
   });
 
   usage.forEach((ids, port) => {

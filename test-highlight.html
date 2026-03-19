@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高亮测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>高亮断裂问题测试页面</h1>
+    
+    <div class="test-section">
+        <div class="test-title">测试场景1：跨标签的文本选择</div>
+        <p>银行、金店都能买到<strong>投资金条。</strong>这是最"实在"的产品，购买也很方便。在手机银行即可预约，付款后，携带身份证到约好的网点提货，包装不要拆，<em>凭证千万别丢</em>，今后回购时要用。</p>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">测试场景2：跨多个元素的长文本</div>
+        <p>买，<span>1克就能投资，也可以按金额买入</span>。交易时间与股票相同，<strong>黄金ETF近期热度很高</strong>。和买股票一样，在证券账户里就能操作。</p>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">测试场景3：包含标点符号的复杂文本</div>
+        <p>这是一个<em>复杂的</em>测试文本，包含了<strong>多种标签</strong>和<span>不同的</span>格式，用来测试高亮功能是否能够正确处理跨越多个DOM节点的文本选择。</p>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">测试场景4：中英文混合</div>
+        <p>This is a <strong>mixed content</strong> test with 中文和English混合的内容，用来测试<em>highlight functionality</em>在处理不同语言时的表现。</p>
+    </div>
+
+    <script>
+        // 添加一些调试信息
+        console.log('高亮测试页面已加载');
+        
+        // 监听选择变化
+        document.addEventListener('selectionchange', () => {
+            const selection = window.getSelection();
+            if (selection && selection.toString().trim()) {
+                console.log('选中文本:', selection.toString());
+                console.log('选择范围数量:', selection.rangeCount);
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    console.log('起始容器:', range.startContainer);
+                    console.log('结束容器:', range.endContainer);
+                    console.log('跨越的节点数量:', getTextNodesInRange(range).length);
+                }
+            }
+        });
+
+        function getTextNodesInRange(range) {
+            const textNodes = [];
+            const walker = document.createTreeWalker(
+                range.commonAncestorContainer,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (node) => {
+                        if (range.intersectsNode(node)) {
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                }
+            );
+
+            let node;
+            while (node = walker.nextNode()) {
+                textNodes.push(node);
+            }
+            return textNodes;
+        }
+    </script>
+</body>
+</html>

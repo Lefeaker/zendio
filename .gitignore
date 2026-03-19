@@ -3,6 +3,7 @@ dist/
 build/
 releases/
 *.crx
+*.xpi
 *.pem
 
 # Dependencies
@@ -48,11 +49,21 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# Analytics Configuration (contains sensitive data)
+src/shared/errors/analytics/analyticsConfig.ts
+
 # Temporary files
 *.tmp
 *.temp
 .cache/
 .temp/
+.claude/
+.archive/
+tests/visual/__output__/
+build/reports/playwright/
+playwright-report/
+test-results/
+tmp/
 trash/
 
 # Test coverage
@@ -73,3 +84,21 @@ coverage/
 
 # Yarn Integrity file
 .yarn-integrity
+
+# Tailwind CSS Output
+src/options/styles/tailwind.css
+src/styles/clipper/clipper.tailwind.css
+
+# Local test vaults
+Testvault/
+testvault/
+
+# Temporary working notes and one-off summaries
+HIGHLIGHT_FIX_SUMMARY.md
+HIGHLIGHT_THEME_FIX_SUMMARY.md
+LINT_FIX_SUMMARY.md
+agent.md
+claude.md
+docs/change-classification-2026-03-19.md
+docs/docs-rewrite-candidates-2026-03-19.md
+src/options/optionuicsssuggest.md

@@ -1,4 +1,9 @@
-import { bootstrapPage } from './app/routing';
-import { bootstrapOptionsApp } from './app/bootstrap';
+import { bootstrapPage } from '@options/app/routing';
+import { bootstrapOptionsApp, configureOptionsAppBootstrapStorage } from '@options/app/bootstrap';
+import { getPlatformServices } from '../platform';
 
-bootstrapPage('options', bootstrapOptionsApp);
+bootstrapPage('options', () => bootstrapOptionsApp({
+  storage: getPlatformServices().storage
+}));
+
+configureOptionsAppBootstrapStorage(getPlatformServices().storage);

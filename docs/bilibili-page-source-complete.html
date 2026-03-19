@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-vue-meta-server-rendered="true">
+<head>
+    <meta charset="utf-8">
+    <title>在家打三份工！老婆都不知道的三个月创业历程_哔哩哔哩_bilibili</title>
+    <meta name="description" content="毕业后在家做了三个项目：兽医助手、AI量化、开源记忆管理助手，也聊了聊自己的感受，最贵的成本是自己的时间成本。">
+    <meta name="keywords" content="创业,程序员,AI,开源,记忆管理,量化交易,兽医助手">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta name="renderer" content="webkit">
+    <meta name="force-rendering" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="theme-color" content="#f25d8e">
+    <link rel="apple-touch-icon" href="//static.hdslb.com/mobile/img/512.png">
+    <link rel="shortcut icon" href="//static.hdslb.com/images/favicon.ico">
+    <link rel="search" type="application/opensearchdescription+xml" href="//static.hdslb.com/opensearch.xml" title="哔哩哔哩">
+    
+    <!-- CSS样式 -->
+    <style>
+        /* 评论区相关样式 */
+        .comment-container {
+            margin-top: 24px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .comment-count {
+            font-size: 18px;
+            font-weight: 500;
+            color: #18191c;
+        }
+        
+        .comment-sort-tab {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .comment-sort-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .comment-sort-item.active {
+            background: #00aeec;
+            color: #fff;
+        }
+        
+        .comment-send {
+            margin-bottom: 24px;
+            border: 1px solid #e3e5e7;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .comment-send-textarea textarea {
+            width: 100%;
+            min-height: 80px;
+            border: none;
+            outline: none;
+            resize: vertical;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .comment-send-btn {
+            background: #00aeec;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        /* Shadow DOM内部样式（实际在Shadow Root中） */
+        .comment-thread {
+            margin-bottom: 16px;
+            border-bottom: 1px solid #f1f2f3;
+            padding-bottom: 16px;
+        }
+        
+        .comment-item, .reply-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .comment-avatar, .reply-avatar {
+            flex-shrink: 0;
+        }
+        
+        .avatar-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        
+        .comment-content, .reply-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .comment-user-info, .reply-user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .comment-user-name, .reply-user-name {
+            font-weight: 500;
+            color: #61666d;
+            font-size: 13px;
+        }
+        
+        .comment-user-level {
+            background: #fb7299;
+            color: #fff;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        
+        .rich-text-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #18191c;
+            margin-bottom: 8px;
+            word-wrap: break-word;
+        }
+        
+        .text-node {
+            /* 普通文本节点 */
+        }
+        
+        .reply-target {
+            color: #00aeec;
+            margin-right: 4px;
+        }
+        
+        .comment-actions, .reply-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+            color: #9499a0;
+        }
+        
+        .comment-time, .reply-time {
+            color: #9499a0;
+        }
+        
+        .comment-like, .reply-like {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .comment-reply {
+            cursor: pointer;
+            color: #9499a0;
+        }
+        
+        .comment-replies {
+            margin-left: 52px;
+            margin-top: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+        }
+    </style>
+    
+    <!-- 页面初始状态数据 -->
+    <script>
+        window.__INITIAL_STATE__ = {
+            "aid": 113456789,
+            "bvid": "BV1dt4TzhEYQ",
+            "cid": 1234567890,
+            "title": "在家打三份工！老婆都不知道的三个月创业历程",
+            "desc": "毕业后在家做了三个项目：兽医助手、AI量化、开源记忆管理助手，也聊了聊自己的感受，最贵的成本是自己的时间成本。",
+            "videoData": {
+                "embedPlayer": true,
+                "aid": 113456789,
+                "bvid": "BV1dt4TzhEYQ",
+                "cid": 1234567890,
+                "title": "在家打三份工！老婆都不知道的三个月创业历程",
+                "pubdate": 1729209364,
+                "duration": 1234,
+                "owner": {
+                    "mid": 12345678,
+                    "name": "创业程序员",
+                    "face": "//i0.hdslb.com/bfs/face/member/noface.jpg"
+                },
+                "stat": {
+                    "view": 60747,
+                    "danmaku": 123,
+                    "reply": 456,
+                    "favorite": 789,
+                    "coin": 234,
+                    "share": 56,
+                    "like": 1234
+                }
+            },
+            "pageVersion": "new_video",
+            "insertScripts": ["//s1.hdslb.com/bfs/static/player/main.xxx.js"]
+        };
+    </script>
+</head>
+<body class="win">
+    <!-- 页面主体结构 -->
+    <div id="app">
+        <!-- 顶部导航栏 -->
+        <div class="bili-header">
+            <div class="bili-header__bar">
+                <div class="left-entry">
+                    <div class="default-entry">
+                        <div class="mini-header__title">
+                            <a href="//www.bilibili.com" class="logo">
+                                <svg class="bili-header__logo" width="100" height="28" viewBox="0 0 100 28">
+                                    <!-- B站Logo SVG路径 -->
+                                    <path fill="#00aeec" d="M12.3,2.4c0.4-0.4,1-0.4,1.4,0l2.1,2.1c0.4,0.4,0.4,1,0,1.4l-8.5,8.5c-0.4,0.4-1,0.4-1.4,0L3.8,12.3c-0.4-0.4-0.4-1,0-1.4L12.3,2.4z"/>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="center-search-container">
+                    <div class="nav-search-box">
+                        <input class="nav-search-input" placeholder="搜索你感兴趣的内容" value="">
+                        <div class="nav-search-btn">
+                            <svg class="nav-search-icon" width="17" height="17" viewBox="0 0 17 17">
+                                <path fill="#9499a0" d="M16.3,15.2l-3.8-3.8c1.1-1.4,1.8-3.2,1.8-5.1C14.3,2.8,11.5,0,8,0S1.7,2.8,1.7,6.3s2.8,6.3,6.3,6.3c1.9,0,3.7-0.7,5.1-1.8l3.8,3.8c0.3,0.3,0.8,0.3,1.1,0l0.3-0.3C16.6,16,16.6,15.5,16.3,15.2z M8,11.1c-2.6,0-4.8-2.1-4.8-4.8S5.4,1.5,8,1.5s4.8,2.1,4.8,4.8S10.6,11.1,8,11.1z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="right-entry">
+                    <div class="right-entry__outside">
+                        <div class="header-avatar-wrap">
+                            <div class="header-avatar">
+                                <img src="//i0.hdslb.com/bfs/face/member/noface.jpg" class="header-avatar-img">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="video-container">
+            <!-- 视频播放器区域 -->
+            <div class="left-container">
+                <div class="video-info-container">
+                    <!-- 视频播放器 -->
+                    <div class="bpx-player-container">
+                        <div class="bpx-player-primary-area">
+                            <div class="bpx-player-video-area">
+                                <div class="bpx-player-video-wrap">
+                                    <video class="bpx-player-video" 
+                                           src="//upos-sz-mirrorhw.bilivideo.com/upgcxcode/49/67/1234567849/1234567849-1-208.mp4"
+                                           poster="//i0.hdslb.com/bfs/archive/4e33988091304f9f206fbb14f355397ea4be0a56.jpg">
+                                    </video>
+                                </div>
+                            </div>
+                            <!-- 播放器控制栏 -->
+                            <div class="bpx-player-control-wrap">
+                                <div class="bpx-player-control-entity">
+                                    <div class="bpx-player-control-bottom">
+                                        <div class="bpx-player-control-bottom-left">
+                                            <div class="bpx-player-ctrl-play">
+                                                <svg class="bpx-player-ctrl-play-icon" viewBox="0 0 16 16">
+                                                    <path fill="#fff" d="M3,2v12l10-6L3,2z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div class="bpx-player-control-bottom-center">
+                                            <div class="bpx-player-progress-wrap">
+                                                <div class="bpx-player-progress">
+                                                    <div class="bpx-player-progress-schedule" style="transform: scaleX(0.3);"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bpx-player-control-bottom-right">
+                                            <div class="bpx-player-ctrl-time">
+                                                <span class="bpx-player-ctrl-time-current">05:23</span>
+                                                <span class="bpx-player-ctrl-time-duration">18:45</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 视频信息 -->
+                    <div class="video-info-meta">
+                        <h1 class="video-title" title="在家打三份工！老婆都不知道的三个月创业历程">在家打三份工！老婆都不知道的三个月创业历程</h1>
+                        <div class="video-info-detail">
+                            <div class="video-info-detail-list">
+                                <span class="view-count" title="60747">6.0万观看</span>
+                                <span class="dm-count" title="123">123弹幕</span>
+                                <span class="pubdate" title="2024-10-18 08:56:04">2024-10-18 08:56</span>
+                            </div>
+                        </div>
+                        <!-- 点赞投币收藏分享按钮 -->
+                        <div class="video-toolbar">
+                            <div class="video-toolbar-left">
+                                <div class="video-like">
+                                    <span class="video-like-info">
+                                        <svg class="video-like-icon" width="22" height="22" viewBox="0 0 22 22">
+                                            <path fill="#9499a0" d="M11,2l2.4,7.4h7.6l-6.2,4.5l2.4,7.4L11,16.8l-6.2,4.5l2.4-7.4L1,9.4h7.6L11,2z"/>
+                                        </svg>
+                                        <span class="video-like-count">1234</span>
+                                    </span>
+                                </div>
+                                <div class="video-coin">
+                                    <span class="video-coin-info">
+                                        <svg class="video-coin-icon" width="22" height="22" viewBox="0 0 22 22">
+                                            <circle fill="#9499a0" cx="11" cy="11" r="9"/>
+                                        </svg>
+                                        <span class="video-coin-count">234</span>
+                                    </span>
+                                </div>
+                                <div class="video-fav">
+                                    <span class="video-fav-info">
+                                        <svg class="video-fav-icon" width="22" height="22" viewBox="0 0 22 22">
+                                            <path fill="#9499a0" d="M11,2l2.4,7.4h7.6l-6.2,4.5l2.4,7.4L11,16.8l-6.2,4.5l2.4-7.4L1,9.4h7.6L11,2z"/>
+                                        </svg>
+                                        <span class="video-fav-count">789</span>
+                                    </span>
+                                </div>
+                                <div class="video-share">
+                                    <span class="video-share-info">
+                                        <svg class="video-share-icon" width="22" height="22" viewBox="0 0 22 22">
+                                            <path fill="#9499a0" d="M18,16c-1.1,0-2.1,0.4-2.8,1.1l-6.4-3.7c0.1-0.3,0.2-0.6,0.2-0.9s-0.1-0.6-0.2-0.9l6.4-3.7C15.9,8.4,16.9,8.8,18,8.8c2.2,0,4-1.8,4-4s-1.8-4-4-4s-4,1.8-4,4c0,0.3,0.1,0.6,0.2,0.9L7.8,9.4C7.1,8.4,6.1,8,5,8c-2.2,0-4,1.8-4,4s1.8,4,4,4c1.1,0,2.1-0.4,2.8-1.1l6.4,3.7c-0.1,0.3-0.2,0.6-0.2,0.9c0,2.2,1.8,4,4,4s4-1.8,4-4S20.2,16,18,16z"/>
+                                        </svg>
+                                        <span class="video-share-count">56</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 评论区 - 这是关键部分，使用Shadow DOM的Web Components -->
+                <div class="comment-container">
+                    <div class="comment-header">
+                        <div class="comment-header-title">
+                            <span class="comment-count">评论 456</span>
+                        </div>
+                        <div class="comment-header-sort">
+                            <div class="comment-sort-tab">
+                                <span class="comment-sort-item active">热门</span>
+                                <span class="comment-sort-item">最新</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 评论输入框 -->
+                    <div class="comment-send">
+                        <div class="comment-send-wrap">
+                            <div class="comment-send-textarea">
+                                <textarea placeholder="发一条友善的评论"></textarea>
+                            </div>
+                            <div class="comment-send-footer">
+                                <div class="comment-send-actions">
+                                    <button class="comment-send-btn">发布</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 评论列表 - 使用Shadow DOM的Web Components -->
+                    <div class="comment-list">
+                        <!-- 第一条评论线程 -->
+                        <bili-comment-thread-renderer data-thread-id="thread-001">
+                            <!--
+                            Shadow DOM内容（实际在#shadow-root中，这里用注释展示结构）:
+                            #shadow-root (open)
+                              <div class="comment-thread">
+                                <bili-comment-renderer data-comment-id="comment-001">
+                                  #shadow-root (open)
+                                    <div class="comment-item">
+                                      <div class="comment-avatar">
+                                        <bili-avatar data-mid="12345">
+                                          #shadow-root (open)
+                                            <img src="//i0.hdslb.com/bfs/face/user1.jpg" class="avatar-img" alt="用户头像">
+                                        </bili-avatar>
+                                      </div>
+                                      <div class="comment-content">
+                                        <div class="comment-user-info">
+                                          <span class="comment-user-name">技术爱好者小王</span>
+                                          <span class="comment-user-level">LV6</span>
+                                        </div>
+                                        <bili-rich-text data-content="这个创业经历很真实，特别是关于时间成本的思考很深刻[doge]期待后续分享！">
+                                          #shadow-root (open)
+                                            <div class="rich-text-content">
+                                              <span class="text-node">这个创业经历很真实，特别是关于时间成本的思考很深刻</span>
+                                              <bili-emoji data-emoji="[doge]" data-url="//i0.hdslb.com/bfs/emote/3087d273a78ccaff4bb1e9972e2ba2a7583c9f11.png">
+                                                #shadow-root (open)
+                                                  <img src="//i0.hdslb.com/bfs/emote/3087d273a78ccaff4bb1e9972e2ba2a7583c9f11.png" alt="[doge]" class="emoji-img">
+                                              </bili-emoji>
+                                              <span class="text-node">期待后续分享！</span>
+                                            </div>
+                                        </bili-rich-text>
+                                        <div class="comment-actions">
+                                          <span class="comment-time">2024-10-18 12:30</span>
+                                          <span class="comment-like">👍 89</span>
+                                          <span class="comment-reply">回复</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                </bili-comment-renderer>
+
+                                <!-- 回复列表 -->
+                                <div class="comment-replies">
+                                  <bili-comment-reply-renderer data-reply-id="reply-001">
+                                    #shadow-root (open)
+                                      <div class="reply-item">
+                                        <div class="reply-avatar">
+                                          <bili-avatar data-mid="67890">
+                                            #shadow-root (open)
+                                              <img src="//i0.hdslb.com/bfs/face/user2.jpg" class="avatar-img" alt="用户头像">
+                                          </bili-avatar>
+                                        </div>
+                                        <div class="reply-content">
+                                          <div class="reply-user-info">
+                                            <span class="reply-user-name">程序员老李</span>
+                                          </div>
+                                          <bili-rich-text data-content="@技术爱好者小王 确实，创业最大的成本就是机会成本">
+                                            #shadow-root (open)
+                                              <div class="rich-text-content">
+                                                <span class="reply-target">@技术爱好者小王</span>
+                                                <span class="text-node"> 确实，创业最大的成本就是机会成本</span>
+                                              </div>
+                                          </bili-rich-text>
+                                          <div class="reply-actions">
+                                            <span class="reply-time">2024-10-18 13:15</span>
+                                            <span class="reply-like">👍 23</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                  </bili-comment-reply-renderer>
+                                </div>
+                              </div>
+                            -->
+                        </bili-comment-thread-renderer>
+
+                        <!-- 第二条评论线程 -->
+                        <bili-comment-thread-renderer data-thread-id="thread-002">
+                            <!--
+                            Shadow DOM内容:
+                            #shadow-root (open)
+                              <div class="comment-thread">
+                                <bili-comment-renderer data-comment-id="comment-002">
+                                  #shadow-root (open)
+                                    <div class="comment-item">
+                                      <div class="comment-avatar">
+                                        <bili-avatar data-mid="11111">
+                                          #shadow-root (open)
+                                            <img src="//i0.hdslb.com/bfs/face/user3.jpg" class="avatar-img" alt="用户头像">
+                                        </bili-avatar>
+                                      </div>
+                                      <div class="comment-content">
+                                        <div class="comment-user-info">
+                                          <span class="comment-user-name">独立开发者张三</span>
+                                          <span class="comment-user-level">LV5</span>
+                                        </div>
+                                        <bili-rich-text data-content="兽医助手这个项目很有意思，能分享一下技术栈吗？[思考]">
+                                          #shadow-root (open)
+                                            <div class="rich-text-content">
+                                              <span class="text-node">兽医助手这个项目很有意思，能分享一下技术栈吗？</span>
+                                              <bili-emoji data-emoji="[思考]" data-url="//i0.hdslb.com/bfs/emote/thinking.png">
+                                                #shadow-root (open)
+                                                  <img src="//i0.hdslb.com/bfs/emote/thinking.png" alt="[思考]" class="emoji-img">
+                                              </bili-emoji>
+                                            </div>
+                                        </bili-rich-text>
+                                        <div class="comment-actions">
+                                          <span class="comment-time">2024-10-18 14:20</span>
+                                          <span class="comment-like">👍 45</span>
+                                          <span class="comment-reply">回复</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                </bili-comment-renderer>
+                              </div>
+                            -->
+                        </bili-comment-thread-renderer>
+
+                        <!-- 更多评论会在滚动时动态加载 -->
+                        <div class="comment-loading" style="display: none;">
+                            <div class="loading-spinner">加载更多评论...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧推荐视频区域 -->
+            <div class="right-container">
+                <div class="rec-list">
+                    <div class="rec-title">相关推荐</div>
+                    <div class="rec-item">
+                        <div class="rec-img">
+                            <img src="//i0.hdslb.com/bfs/archive/rec1.jpg" alt="推荐视频1">
+                        </div>
+                        <div class="rec-info">
+                            <div class="rec-title-text">程序员副业指南</div>
+                            <div class="rec-author">技术UP主</div>
+                            <div class="rec-stat">1.2万观看 · 3天前</div>
+                        </div>
+                    </div>
+                    <!-- 更多推荐视频... -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页面底部 -->
+    <div class="footer">
+        <div class="footer-wrap">
+            <div class="footer-links">
+                <a href="//www.bilibili.com/blackboard/help.html">帮助中心</a>
+                <a href="//www.bilibili.com/blackboard/contact.html">联系我们</a>
+                <a href="//www.bilibili.com/blackboard/privacy.html">隐私政策</a>
+            </div>
+            <div class="footer-copyright">
+                <span>© 2024 bilibili</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript加载 -->
+    <script>
+        // 页面初始化脚本
+        window.webAbTest = window.webAbTest || {};
+
+        // 模拟评论区Web Components的注册
+        if (typeof customElements !== 'undefined') {
+            // 这些是B站实际使用的Web Components
+            // 实际的实现会更复杂，包含完整的Shadow DOM逻辑
+
+            class BiliCommentThreadRenderer extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+
+                connectedCallback() {
+                    // 实际会渲染评论线程的完整结构
+                    this.shadowRoot.innerHTML = `
+                        <style>
+                            .comment-thread { margin-bottom: 16px; border-bottom: 1px solid #f1f2f3; padding-bottom: 16px; }
+                            .comment-item, .reply-item { display: flex; gap: 12px; margin-bottom: 12px; }
+                            .comment-avatar, .reply-avatar { flex-shrink: 0; }
+                            .avatar-img { width: 40px; height: 40px; border-radius: 50%; }
+                            .comment-content, .reply-content { flex: 1; min-width: 0; }
+                            .comment-user-info, .reply-user-info { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+                            .comment-user-name, .reply-user-name { font-weight: 500; color: #61666d; font-size: 13px; }
+                            .comment-user-level { background: #fb7299; color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 2px; }
+                            .rich-text-content { font-size: 14px; line-height: 1.6; color: #18191c; margin-bottom: 8px; word-wrap: break-word; }
+                            .reply-target { color: #00aeec; margin-right: 4px; }
+                            .comment-actions, .reply-actions { display: flex; align-items: center; gap: 16px; font-size: 12px; color: #9499a0; }
+                            .comment-time, .reply-time { color: #9499a0; }
+                            .comment-like, .reply-like { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+                            .comment-reply { cursor: pointer; color: #9499a0; }
+                            .comment-replies { margin-left: 52px; margin-top: 12px; background: #f8f9fa; border-radius: 8px; padding: 12px; }
+                            .emoji-img { width: 20px; height: 20px; vertical-align: middle; }
+                        </style>
+                        <div class="comment-thread">
+                            <slot></slot>
+                        </div>
+                    `;
+                }
+            }
+
+            class BiliCommentRenderer extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+
+                connectedCallback() {
+                    // 实际会渲染单条评论的完整结构
+                    const commentId = this.getAttribute('data-comment-id') || 'unknown';
+                    this.shadowRoot.innerHTML = `
+                        <style>
+                            .comment-item { display: flex; gap: 12px; margin-bottom: 12px; }
+                            .comment-avatar { flex-shrink: 0; }
+                            .avatar-img { width: 40px; height: 40px; border-radius: 50%; }
+                            .comment-content { flex: 1; min-width: 0; }
+                            .comment-user-info { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+                            .comment-user-name { font-weight: 500; color: #61666d; font-size: 13px; }
+                            .comment-user-level { background: #fb7299; color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 2px; }
+                            .rich-text-content { font-size: 14px; line-height: 1.6; color: #18191c; margin-bottom: 8px; word-wrap: break-word; }
+                            .comment-actions { display: flex; align-items: center; gap: 16px; font-size: 12px; color: #9499a0; }
+                            .comment-time { color: #9499a0; }
+                            .comment-like { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+                            .comment-reply { cursor: pointer; color: #9499a0; }
+                        </style>
+                        <div class="comment-item" data-comment-id="${commentId}">
+                            <div class="comment-avatar">
+                                <bili-avatar data-mid="12345">
+                                    <img src="//i0.hdslb.com/bfs/face/member/noface.jpg" class="avatar-img" alt="用户头像">
+                                </bili-avatar>
+                            </div>
+                            <div class="comment-content">
+                                <div class="comment-user-info">
+                                    <span class="comment-user-name">示例用户</span>
+                                    <span class="comment-user-level">LV6</span>
+                                </div>
+                                <bili-rich-text>
+                                    <div class="rich-text-content">
+                                        <span class="text-node">这是一条示例评论内容</span>
+                                    </div>
+                                </bili-rich-text>
+                                <div class="comment-actions">
+                                    <span class="comment-time">2024-10-18 12:30</span>
+                                    <span class="comment-like">👍 89</span>
+                                    <span class="comment-reply">回复</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            class BiliRichText extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+
+                connectedCallback() {
+                    // 实际会渲染富文本内容
+                    const content = this.getAttribute('data-content') || this.textContent || '富文本内容';
+                    this.shadowRoot.innerHTML = `
+                        <style>
+                            .rich-text-content { font-size: 14px; line-height: 1.6; color: #18191c; word-wrap: break-word; }
+                            .text-node { /* 普通文本节点 */ }
+                            .reply-target { color: #00aeec; margin-right: 4px; }
+                            .emoji-img { width: 20px; height: 20px; vertical-align: middle; }
+                        </style>
+                        <div class="rich-text-content">
+                            <span class="text-node">${content}</span>
+                        </div>
+                    `;
+                }
+            }
+
+            class BiliEmoji extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+
+                connectedCallback() {
+                    const emoji = this.getAttribute('data-emoji') || '[表情]';
+                    const url = this.getAttribute('data-url') || '//i0.hdslb.com/bfs/emote/default.png';
+                    this.shadowRoot.innerHTML = `
+                        <style>
+                            .emoji-img { width: 20px; height: 20px; vertical-align: middle; }
+                        </style>
+                        <img src="${url}" alt="${emoji}" class="emoji-img">
+                    `;
+                }
+            }
+
+            class BiliAvatar extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                }
+
+                connectedCallback() {
+                    const mid = this.getAttribute('data-mid') || '0';
+                    this.shadowRoot.innerHTML = `
+                        <style>
+                            .avatar-img { width: 40px; height: 40px; border-radius: 50%; }
+                        </style>
+                        <img src="//i0.hdslb.com/bfs/face/member/noface.jpg" class="avatar-img" alt="用户头像">
+                    `;
+                }
+            }
+
+            // 注册Web Components
+            if (!customElements.get('bili-comment-thread-renderer')) {
+                customElements.define('bili-comment-thread-renderer', BiliCommentThreadRenderer);
+            }
+            if (!customElements.get('bili-comment-renderer')) {
+                customElements.define('bili-comment-renderer', BiliCommentRenderer);
+            }
+            if (!customElements.get('bili-comment-reply-renderer')) {
+                customElements.define('bili-comment-reply-renderer', BiliCommentRenderer);
+            }
+            if (!customElements.get('bili-rich-text')) {
+                customElements.define('bili-rich-text', BiliRichText);
+            }
+            if (!customElements.get('bili-emoji')) {
+                customElements.define('bili-emoji', BiliEmoji);
+            }
+            if (!customElements.get('bili-avatar')) {
+                customElements.define('bili-avatar', BiliAvatar);
+            }
+        }
+
+        // 其他初始化代码...
+        console.log('Bilibili video page loaded with Shadow DOM components');
+
+        // 模拟评论区动态加载
+        setTimeout(() => {
+            console.log('Comments loaded');
+        }, 1000);
+    </script>
+</body>
+</html>
