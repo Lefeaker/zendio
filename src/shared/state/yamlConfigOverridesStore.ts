@@ -1,6 +1,7 @@
 import type { IOptionsRepository } from '../repositories/IOptionsRepository';
 import type { YamlConfigOverrides } from '../types/yamlConfig';
 import { normalizeYamlConfigOverrides } from '../services/yamlConfigService';
+import { cloneValue } from '../utils/cloneValue';
 
 type OverridesListener = (overrides: YamlConfigOverrides | null) => void;
 
@@ -10,20 +11,10 @@ let unsubscribeRepo: (() => void) | null = null;
 let repositoryInitialized = false;
 let repositoryUnavailable = false;
 
-const clone = <T>(value: T): T => {
-  if (value === undefined || value === null) {
-    return value;
-  }
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(value);
-  }
-  return JSON.parse(JSON.stringify(value)) as T;
-};
-
 const notifyListeners = (): void => {
   for (const listener of listeners) {
     try {
-      listener(overridesSnapshot ? clone(overridesSnapshot) : null);
+      listener(overridesSnapshot ? cloneValue(overridesSnapshot) : null);
     } catch (error) {
       console.error('[yamlConfigOverridesStore] Listener error', error);
     }
@@ -31,7 +22,7 @@ const notifyListeners = (): void => {
 };
 
 const applyOverrides = (value: YamlConfigOverrides | null): void => {
-  overridesSnapshot = value ? clone(value) : null;
+  overridesSnapshot = value ? cloneValue(value) : null;
   notifyListeners();
 };
 
@@ -70,7 +61,10 @@ const subscribeToOptionsRepository = (): void => {
         applyOverrides(normalized);
       })
       .catch((error) => {
-        console.warn('[yamlConfigOverridesStore] Failed to hydrate overrides from repository', error);
+        console.warn(
+          '[yamlConfigOverridesStore] Failed to hydrate overrides from repository',
+          error
+        );
       });
 
     unsubscribeRepo = optionsRepository.onChange((snapshot) => {
@@ -84,7 +78,7 @@ subscribeToOptionsRepository();
 
 export function getYamlConfigOverrides(): YamlConfigOverrides | null {
   subscribeToOptionsRepository();
-  return overridesSnapshot ? clone(overridesSnapshot) : null;
+  return overridesSnapshot ? cloneValue(overridesSnapshot) : null;
 }
 
 export function setYamlConfigOverrides(value: YamlConfigOverrides | null): void {
@@ -96,7 +90,7 @@ export function setYamlConfigOverrides(value: YamlConfigOverrides | null): void 
 export function subscribeYamlConfigOverrides(listener: OverridesListener): () => void {
   subscribeToOptionsRepository();
   listeners.add(listener);
-  listener(overridesSnapshot ? clone(overridesSnapshot) : null);
+  listener(overridesSnapshot ? cloneValue(overridesSnapshot) : null);
   return () => {
     listeners.delete(listener);
   };

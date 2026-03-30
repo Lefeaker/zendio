@@ -25,6 +25,7 @@ npm run visual:test
 ### Options flows
 
 Representative files:
+
 - `tests/e2e/optionsFragmentAutoSave.test.ts`
 - `tests/e2e/optionsTemplatesAutoSave.test.ts`
 - `tests/e2e/optionsVaultRouterAutoSave.test.ts`
@@ -35,6 +36,7 @@ Representative files:
 ### Content flows
 
 Representative files:
+
 - `tests/e2e/clipperFlow.test.ts`
 - `tests/e2e/readerPanelFlow.test.ts`
 - `tests/e2e/videoPanelFlow.test.ts`
@@ -44,9 +46,10 @@ Representative files:
 ### Site-oriented / integration checks
 
 Representative files:
-- `tests/e2e/reader-panel-site.spec.ts`
-- `tests/e2e/reader-panel-complete.spec.ts`
+
 - AI chat extraction flows under `tests/e2e/*AiChatFlow.test.ts`
+- `tests/e2e/videoPanelFlow.test.ts`
+- `tests/e2e/content-scripts-repository.test.ts`
 
 ## How to add a new flow test
 
@@ -59,6 +62,7 @@ Representative files:
 ### Keep flows narrow
 
 A good flow test should prove one user-facing path, for example:
+
 - open UI
 - perform a meaningful interaction
 - assert persisted state or visible outcome
@@ -68,6 +72,7 @@ Avoid building giant scenario tests that cover unrelated branches.
 ### Prefer stable assertions
 
 Assert against:
+
 - saved repository state
 - emitted messages
 - visible status text
@@ -78,6 +83,7 @@ Avoid asserting implementation-only CSS details unless the test is explicitly vi
 ## CI behavior
 
 CI runs flow checks after unit coverage passes. If a flow fails:
+
 - fix the behavioral regression first
 - only update snapshots or expected fixtures when product behavior intentionally changed
 

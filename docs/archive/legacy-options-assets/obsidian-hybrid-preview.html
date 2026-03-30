@@ -1,0 +1,1615 @@
+<!-- Archived legacy preview asset.
+  Current purpose: historical layout/reference preview only.
+  Production build: NOT used.
+  Plan: retain as archive fixture until all preview comparisons move to harness pages.
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" style="height: 100%; overflow: hidden;">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>All in Ob – 设置预览</title>
+  <link rel="stylesheet" href="./obsidian-clipper-style.css">
+  <style>
+    :root {
+      color-scheme: light dark;
+
+      --aobx-accent-h: 212;
+      --aobx-accent-s: 60%;
+      --aobx-accent-l: 52%;
+      --aobx-accent: hsl(var(--aobx-accent-h) var(--aobx-accent-s) var(--aobx-accent-l));
+      --aobx-accent-weak: hsl(var(--aobx-accent-h) 50% 60%);
+
+      --aobx-surface-0: hsl(220 12% 97%);
+      --aobx-surface-1: hsl(220 12% 95%);
+      --aobx-surface-2: hsl(220 12% 92%);
+      --aobx-border: hsl(220 15% 86%);
+      --aobx-divider: hsl(220 15% 82%);
+      --aobx-text: hsl(220 18% 22%);
+      --aobx-text-muted: hsl(220 12% 45%);
+
+      --aobx-radius-s: 6px;
+      --aobx-radius-m: 8px;
+      --aobx-radius-l: 12px;
+      --aobx-shadow-1: 0 1px 2px rgba(15, 18, 30, 0.08);
+      --aobx-focus: 0 0 0 2px color-mix(in hsl, var(--aobx-accent) 35%, transparent);
+
+      --aobx-font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+      --aobx-fs-sm: 13px;
+      --aobx-fs-md: 14px;
+      --aobx-fs-lg: 16px;
+
+      --aobx-space-1: 4px;
+      --aobx-space-2: 8px;
+      --aobx-space-3: 12px;
+      --aobx-space-4: 16px;
+
+      --aobx-input-h: 32px;
+      --aobx-icon: 16px;
+
+      --background-primary: var(--aobx-surface-1);
+      --background-primary-alt: var(--aobx-surface-0);
+      --background-secondary: var(--aobx-surface-2);
+      --background-modifier-border: var(--aobx-border);
+      --background-modifier-border-hover: color-mix(in hsl, var(--aobx-accent) 25%, var(--aobx-border));
+      --background-modifier-border-focus: color-mix(in hsl, var(--aobx-accent) 40%, var(--aobx-border));
+      --background-modifier-form-field: var(--aobx-surface-0);
+
+      --interactive-accent: var(--aobx-accent);
+      --interactive-accent-hover: color-mix(in hsl, var(--aobx-accent) 70%, white 30%);
+
+      --text-normal: var(--aobx-text);
+      --text-muted: var(--aobx-text-muted);
+      --text-faint: color-mix(in hsl, var(--aobx-text) 55%, transparent);
+      --text-accent: var(--aobx-accent);
+      --text-accent-hover: color-mix(in hsl, var(--aobx-accent) 80%, white 10%);
+      --text-on-accent: #ffffff;
+
+      --radius-s: var(--aobx-radius-s);
+      --radius-m: var(--aobx-radius-m);
+      --radius-l: var(--aobx-radius-l);
+
+      --shadow-soft: var(--aobx-shadow-1);
+      --shadow-card: var(--aobx-shadow-1);
+      --shadow-button: var(--aobx-shadow-1);
+      --shadow-button-hover: var(--aobx-shadow-1);
+
+      --space-xs: var(--aobx-space-1);
+      --space-sm: var(--aobx-space-2);
+      --space-md: var(--aobx-space-3);
+      --space-lg: var(--aobx-space-4);
+      --space-xl: calc(var(--aobx-space-4) + 6px);
+      --space-2xl: calc(var(--aobx-space-4) * 1.6);
+      --space-3xl: calc(var(--aobx-space-4) * 2.2);
+
+      --font-family: var(--aobx-font-ui);
+      --font-size-xxs: 11px;
+      --font-size-xs: var(--aobx-fs-sm);
+      --font-size-sm: var(--aobx-fs-sm);
+      --font-size-base: var(--aobx-fs-md);
+      --font-size-md: var(--aobx-fs-md);
+      --font-size-lg: var(--aobx-fs-lg);
+      --font-size-xl: calc(var(--aobx-fs-lg) + 2px);
+      --font-size-2xl: calc(var(--aobx-fs-lg) + 6px);
+      --font-size-4xl: calc(var(--aobx-fs-lg) + 12px);
+
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+      --font-weight-bold: 700;
+
+      --gradient-text: linear-gradient(135deg, var(--aobx-accent), color-mix(in hsl, var(--aobx-accent) 65%, white));
+      --gradient-primary: linear-gradient(135deg, var(--aobx-accent), color-mix(in hsl, var(--aobx-accent) 55%, white));
+      --transition-base: 160ms ease;
+      --transition-fast: 120ms ease-out;
+      --ring: var(--aobx-focus);
+
+      --bg: var(--aobx-surface-0);
+      --bg-elev-1: var(--aobx-surface-1);
+      --bg-elev-2: var(--aobx-surface-2);
+      --accent: var(--aobx-accent);
+      --accent-hover: color-mix(in hsl, var(--aobx-accent) 70%, white 30%);
+      --accent-solid: var(--aobx-accent);
+      --accent-soft: var(--aobx-accent-weak);
+
+      --z-modal: 1400;
+      --z-sticky: 1200;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --aobx-surface-0: hsl(220 10% 12%);
+        --aobx-surface-1: hsl(220 10% 14%);
+        --aobx-surface-2: hsl(220 10% 18%);
+        --aobx-border: hsl(220 8% 28%);
+        --aobx-divider: hsl(220 8% 32%);
+        --aobx-text: hsl(0 0% 92%);
+        --aobx-text-muted: hsl(0 0% 70%);
+        --aobx-shadow-1: 0 1px 1px rgba(0, 0, 0, 0.34);
+      }
+    }
+  </style>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      font: 400 var(--aobx-fs-md)/1.5 var(--aobx-font-ui);
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    a {
+      color: var(--aobx-accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: color-mix(in hsl, var(--aobx-accent) 80%, white 15%);
+    }
+
+    h1, h2, h3, h4 {
+      color: var(--aobx-text);
+      margin: 0;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    #settings {
+      height: 100%;
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+    }
+
+    #settings-container {
+      display: flex;
+      height: 100vh;
+      max-height: 100vh;
+      background: var(--aobx-surface-0);
+      border-top: 1px solid var(--aobx-border);
+      border-bottom: 1px solid var(--aobx-border);
+    }
+
+    #sidebar {
+      width: 240px;
+      padding: var(--aobx-space-4) var(--aobx-space-3);
+      background: var(--aobx-surface-1);
+      border-right: 1px solid var(--aobx-border);
+      display: flex;
+      flex-direction: column;
+      gap: var(--aobx-space-3);
+    }
+
+    #sidebar ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: var(--aobx-space-2);
+    }
+
+    #sidebar li {
+      padding: var(--aobx-space-2) var(--aobx-space-3);
+      border-radius: var(--aobx-radius-m);
+      color: var(--aobx-text-muted);
+      font-size: var(--aobx-fs-sm);
+      cursor: pointer;
+      transition: background var(--transition-base), color var(--transition-base);
+    }
+
+    #sidebar li:hover,
+    #sidebar li.active {
+      background: var(--aobx-surface-2);
+      color: var(--aobx-text);
+    }
+
+    #sidebar .sidebar-heading {
+      font-size: var(--aobx-fs-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--aobx-text);
+      padding: 0 var(--aobx-space-3);
+      margin-top: var(--aobx-space-3);
+    }
+
+    #sidebar .mod-cta {
+      align-self: stretch;
+      border-radius: var(--aobx-radius-m);
+      border: 1px solid color-mix(in hsl, var(--aobx-accent) 40%, transparent);
+      background: var(--aobx-accent);
+      color: #fff;
+      height: var(--aobx-input-h);
+      padding: 0 var(--aobx-space-3);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--aobx-space-4) var(--aobx-space-4) var(--aobx-space-3);
+      background: var(--aobx-surface-0);
+    }
+
+    .content-stack {
+      display: grid;
+      gap: var(--aobx-space-4);
+    }
+
+    #navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      padding: 0 0 var(--aobx-space-3);
+    }
+
+    #navbar-title {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      color: var(--aobx-text-muted);
+      font-size: var(--aobx-fs-sm);
+    }
+
+    #navbar svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .hamburger-menu {
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .page-header {
+      background: var(--aobx-surface-1);
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-l);
+      padding: var(--aobx-space-4);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--aobx-space-4);
+      margin-bottom: var(--aobx-space-4);
+      box-shadow: var(--aobx-shadow-1);
+    }
+
+    .page-header-main {
+      display: flex;
+      align-items: center;
+      gap: var(--aobx-space-3);
+      flex: 1 1 280px;
+    }
+
+    .page-header-main img {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--aobx-radius-m);
+      box-shadow: var(--aobx-shadow-1);
+    }
+
+    .page-header-content h1 {
+      font-size: calc(var(--aobx-fs-lg) * 1.4);
+      font-weight: var(--font-weight-semibold);
+      color: var(--aobx-text);
+      background: none;
+    }
+
+    .page-header-content .subtitle {
+      color: var(--aobx-text-muted);
+      font-size: var(--aobx-fs-sm);
+    }
+
+    .page-header-links {
+      display: flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      flex-wrap: wrap;
+    }
+
+    .page-header-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      height: var(--aobx-input-h);
+      padding: 0 var(--aobx-space-3);
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+      font-size: var(--aobx-fs-sm);
+      transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base);
+    }
+
+    .page-header-link:hover,
+    .page-header-link:focus-visible {
+      border-color: var(--aobx-accent);
+      color: var(--aobx-accent);
+      outline: none;
+    }
+
+    .usage-dashboard,
+    .settings-section,
+    .section,
+    .diag-section {
+      background: var(--aobx-surface-1);
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-l);
+      padding: var(--aobx-space-4);
+      margin-bottom: var(--aobx-space-4);
+      box-shadow: var(--aobx-shadow-1);
+    }
+
+    .usage-dashboard__cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--aobx-space-3);
+    }
+
+    .usage-card {
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      padding: var(--aobx-space-3);
+      display: grid;
+      gap: var(--aobx-space-1);
+      box-shadow: none;
+    }
+
+    .usage-card__label {
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+    }
+
+    .usage-card__value {
+      font-size: calc(var(--aobx-fs-lg) + 6px);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .section-header,
+    .settings-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--aobx-space-3);
+      margin-bottom: var(--aobx-space-3);
+    }
+
+    .section-header__title {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      font-size: var(--aobx-fs-lg);
+    }
+
+    .section-header__extras,
+    .section-header__note,
+    .section-header__status {
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 var(--aobx-space-2);
+      height: var(--aobx-input-h);
+      border-radius: var(--aobx-radius-m);
+      border: 1px solid color-mix(in hsl, var(--aobx-accent) 30%, transparent);
+      background: var(--aobx-accent-weak);
+      color: var(--aobx-text);
+      font-size: var(--aobx-fs-sm);
+    }
+
+    .badge--accent {
+      background: var(--aobx-accent-weak);
+      border-color: color-mix(in hsl, var(--aobx-accent) 40%, transparent);
+      color: var(--aobx-text);
+    }
+
+    .setting-item {
+      display: grid;
+      grid-template-columns: minmax(180px, 260px) 1fr;
+      gap: var(--aobx-space-3);
+      align-items: start;
+      padding: var(--aobx-space-3) 0;
+      border-top: 1px solid var(--aobx-divider);
+    }
+
+    .setting-item:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .setting-item-info label {
+      font-size: var(--aobx-fs-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--aobx-text);
+      display: inline-block;
+      margin-bottom: var(--aobx-space-1);
+    }
+
+    .setting-item-description {
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+      line-height: 1.5;
+    }
+
+    .setting-item-control {
+      display: flex;
+      gap: var(--aobx-space-2);
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .section form > div,
+    .settings-section form > div {
+      display: grid;
+      gap: var(--aobx-space-3);
+    }
+
+    .form-group {
+      display: grid;
+      gap: var(--aobx-space-2);
+    }
+
+    .form-group label,
+    .inline-note {
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .form-group small,
+    .form-hint,
+    .inline-note,
+    .template-vars__note,
+    .transfer-note,
+    .message,
+    .aobx-connection-result {
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+      line-height: 1.5;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--aobx-space-3);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      font: inherit;
+      height: var(--aobx-input-h);
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+      padding: 0 var(--aobx-space-2);
+      transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+    }
+
+    textarea {
+      min-height: 96px;
+      padding: var(--aobx-space-2);
+      resize: vertical;
+    }
+
+    input:hover,
+    select:hover,
+    textarea:hover {
+      border-color: var(--aobx-divider);
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: none;
+      box-shadow: var(--aobx-focus);
+      border-color: color-mix(in hsl, var(--aobx-accent) 45%, var(--aobx-border));
+      background: var(--aobx-surface-0);
+    }
+
+    button,
+    .btn {
+      height: var(--aobx-input-h);
+      padding: 0 var(--aobx-space-3);
+      border-radius: var(--aobx-radius-m);
+      border: 1px solid var(--aobx-border);
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+      font: inherit;
+      cursor: pointer;
+      transition: border-color var(--transition-base), background var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
+    }
+
+    button:hover,
+    .btn:hover {
+      border-color: var(--aobx-divider);
+    }
+
+    button:focus-visible,
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--aobx-focus);
+    }
+
+    .mod-cta,
+    .aobx-btn--primary {
+      background: var(--aobx-accent);
+      border-color: color-mix(in hsl, var(--aobx-accent) 60%, transparent);
+      color: #fff;
+    }
+
+    .mod-warning {
+      background: var(--aobx-accent-weak);
+      border-color: color-mix(in hsl, var(--aobx-accent-weak) 65%, transparent);
+      color: var(--aobx-text);
+    }
+
+    .transfer-actions {
+      display: flex;
+      gap: var(--aobx-space-2);
+      flex-wrap: wrap;
+    }
+
+    .button-group {
+      display: flex;
+      gap: var(--aobx-space-2);
+      justify-content: flex-end;
+      margin-top: var(--aobx-space-3);
+    }
+
+    .mapping-list {
+      display: grid;
+      gap: var(--aobx-space-2);
+      border: 1px dashed var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      padding: var(--aobx-space-3);
+    }
+
+    .mapping-item {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--aobx-space-2);
+      align-items: center;
+      padding: var(--aobx-space-2);
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-1);
+    }
+
+    .highlight-theme-options {
+      display: inline-flex;
+      gap: var(--aobx-space-2);
+      flex-wrap: wrap;
+    }
+
+    .highlight-theme-button {
+      width: 32px;
+      height: 20px;
+      border-radius: var(--aobx-radius-s);
+      border: 1px solid var(--aobx-border);
+      background: var(--aobx-surface-0);
+      cursor: pointer;
+      transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    }
+
+    .highlight-theme-button[aria-checked="true"] {
+      border-color: var(--aobx-accent);
+      box-shadow: var(--aobx-focus);
+    }
+
+    details {
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      padding: var(--aobx-space-2) var(--aobx-space-3);
+    }
+
+    details summary {
+      cursor: pointer;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .ai-platforms-list {
+      margin: var(--aobx-space-2) 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--aobx-space-2);
+    }
+
+    .ai-platforms-list a {
+      height: var(--aobx-input-h);
+      border-radius: var(--aobx-radius-m);
+      border: 1px solid var(--aobx-border);
+      background: var(--aobx-surface-0);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--aobx-fs-sm);
+    }
+
+    .hint {
+      display: block;
+      padding: var(--aobx-space-2) var(--aobx-space-3);
+      border-radius: var(--aobx-radius-m);
+      border-left: 3px solid var(--aobx-accent-weak);
+      background: var(--aobx-surface-2);
+      color: var(--aobx-text-muted);
+      margin: var(--aobx-space-2) 0;
+    }
+
+    .hint--warning {
+      border-left-color: hsl(30 90% 55%);
+    }
+
+    .hint--success {
+      border-left-color: hsl(140 60% 45%);
+    }
+
+    .hint--info {
+      border-left-color: hsl(205 75% 55%);
+    }
+
+    .template-vars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--aobx-space-1);
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+    }
+
+    .template-vars code {
+      padding: 0 var(--aobx-space-1);
+      border-radius: var(--aobx-radius-s);
+      background: var(--aobx-surface-2);
+    }
+
+    .code-block {
+      display: block;
+      margin-top: var(--aobx-space-2);
+      padding: var(--aobx-space-2);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-2);
+      font-size: var(--aobx-fs-sm);
+      line-height: 1.45;
+    }
+
+    .vault-entry {
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-l);
+      background: var(--aobx-surface-0);
+      padding: var(--aobx-space-3);
+      display: grid;
+      gap: var(--aobx-space-3);
+    }
+
+    .vault-form-row {
+      display: grid;
+      gap: var(--aobx-space-3);
+    }
+
+    .vault-rules-block {
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      display: grid;
+      gap: 0;
+    }
+
+    .vault-rules-header,
+    .vault-rules-row {
+      display: grid;
+      grid-template-columns: 100px 160px minmax(200px, 1fr) 120px auto;
+      gap: var(--aobx-space-2);
+      align-items: center;
+      padding: var(--aobx-space-2) var(--aobx-space-3);
+    }
+
+    .vault-rules-header {
+      background: var(--aobx-surface-1);
+      font-size: var(--aobx-fs-sm);
+      color: var(--aobx-text-muted);
+      border-bottom: 1px solid var(--aobx-border);
+    }
+
+    .vault-rules-row {
+      border-bottom: 1px solid var(--aobx-border);
+    }
+
+    .vault-rules-row:last-of-type {
+      border-bottom: 0;
+    }
+
+    .savebar {
+      position: sticky;
+      bottom: 0;
+      background: var(--aobx-surface-1);
+      border-top: 1px solid var(--aobx-border);
+      padding: var(--aobx-space-2) 0;
+      display: flex;
+      gap: var(--aobx-space-2);
+      justify-content: flex-end;
+    }
+
+    .aobx-legacy-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--aobx-space-4);
+      background: rgba(15, 18, 30, 0.55);
+      backdrop-filter: blur(6px);
+      z-index: 1200;
+    }
+
+    .aobx-legacy-modal.show {
+      display: flex;
+    }
+
+    .aobx-legacy-modal .aobx-modal__dialog {
+      width: min(520px, calc(100vw - 40px));
+      max-height: 90vh;
+      background: var(--aobx-surface-1);
+      border: 1px solid color-mix(in srgb, var(--aobx-border) 85%, transparent);
+      border-radius: var(--aobx-radius-lg);
+      box-shadow: var(--aobx-shadow-card);
+      padding: var(--aobx-space-4);
+      gap: var(--aobx-space-3);
+    }
+
+    .support-options,
+    .suggestions-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--aobx-space-2);
+    }
+
+    .support-link,
+    .suggestions-card {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--aobx-space-2);
+      height: var(--aobx-input-h);
+      padding: 0 var(--aobx-space-3);
+      border-radius: var(--aobx-radius-m);
+      border: 1px solid var(--aobx-border);
+      background: var(--aobx-surface-0);
+      color: var(--aobx-text);
+    }
+
+    .support-link {
+      background: var(--aobx-accent);
+      color: #fff;
+      border: none;
+    }
+
+    .suggestions-card:hover {
+      border-color: var(--aobx-accent);
+      color: var(--aobx-accent);
+    }
+
+    code {
+      font-family: var(--aobx-font-ui);
+      font-size: var(--aobx-fs-sm);
+    }
+
+    #usage-chart {
+      border: 1px solid var(--aobx-border);
+      border-radius: var(--aobx-radius-m);
+      background: var(--aobx-surface-0);
+      min-height: 140px;
+    }
+
+    #usageXAxis text {
+      font-size: var(--aobx-fs-sm);
+      dominant-baseline: middle;
+      fill: var(--aobx-text-muted);
+    }
+
+    @media (max-width: 960px) {
+      #settings-container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      #sidebar {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--aobx-border);
+        gap: var(--aobx-space-2);
+      }
+
+      #sidebar ul {
+        display: inline-flex;
+      }
+
+      #sidebar .sidebar-heading {
+        display: none;
+      }
+
+      .setting-item {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header,
+      .settings-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--aobx-space-2);
+      }
+    }
+  </style>
+<body style="height: 100%; overflow: hidden;">
+  <div id="settings">
+    <div id="settings-container">
+      <div id="sidebar">
+        <ul>
+          <li class="sidebar-heading">All in Ob</li>
+          <li class="active" data-section="overview">概览</li>
+          <li data-section="usage">使用统计</li>
+          <li data-section="language">界面与语言</li>
+          <li data-section="modules">模块管理</li>
+          <li data-section="privacy">隐私与诊断</li>
+          <li class="sidebar-heading">帮助</li>
+        </ul>
+        <button type="button" class="mod-cta">打开使用指南</button>
+        <ul>
+          <li data-section="support">支持我们</li>
+        </ul>
+      </div>
+
+      <div id="content">
+        <div id="navbar">
+          <div id="navbar-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="logo" fill="none" viewBox="0 0 256 256">
+              <path class="purple" d="M94.82 149.44c6.53-1.94 17.13-4.9 29.26-5.71a102.97 102.97 0 0 1-7.64-48.84c1.63-16.51 7.54-30.38 13.25-42.1l3.47-7.14 4.48-9.18c2.35-5 4.08-9.38 4.9-13.56.81-4.07.81-7.64-.2-11.11-1.03-3.47-3.07-7.14-7.15-11.21a17.02 17.02 0 0 0-15.8 3.77l-52.81 47.5a17.12 17.12 0 0 0-5.5 10.2l-4.5 30.18a149.26 149.26 0 0 1 38.24 57.2ZM54.45 106l-1.02 3.06-27.94 62.2a17.33 17.33 0 0 0 3.27 18.96l43.94 45.16a88.7 88.7 0 0 0 8.97-88.5A139.47 139.47 0 0 0 54.45 106Z"/>
+              <path class="purple" d="m82.9 240.79 2.34.2c8.26.2 22.33 1.02 33.64 3.06 9.28 1.73 27.73 6.83 42.82 11.21 11.52 3.47 23.45-5.8 25.08-17.73 1.23-8.67 3.57-18.46 7.75-27.53a94.81 94.81 0 0 0-25.9-40.99 56.48 56.48 0 0 0-29.56-13.35 96.55 96.55 0 0 0-40.99 4.79 98.89 98.89 0 0 1-15.29 80.34h.1Z"/>
+              <path class="purple" d="M201.87 197.76a574.87 574.87 0 0 0 19.78-31.6 8.67 8.67 0 0 0-.61-9.48 185.58 185.58 0 0 1-21.82-35.9c-5.91-14.16-6.73-36.08-6.83-46.69 0-4.07-1.22-8.05-3.77-11.21l-34.16-43.33c0 1.94-.4 3.87-.81 5.81a76.42 76.42 0 0 1-5.71 15.9l-4.7 9.8-3.36 6.72a111.95 111.95 0 0 0-12.03 38.23 93.9 93.9 0 0 0 8.67 47.92 67.9 67.9 0 0 1 39.56 16.52 99.4 99.4 0 0 1 25.8 37.31Z"/>
+            </svg>
+            <span>All in Ob 控制中心</span>
+          </div>
+          <button id="hamburger-menu" class="hamburger-menu">
+            <span class="hamburger-icon"></span>
+          </button>
+        </div>
+        <div class="content-stack">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <div class="page-header-main">
+        <img src="../icons/bannerlogo-128.png" alt="All in Ob Logo">
+        <div class="page-header-content">
+          <div class="page-header-title-row">
+            <h1><span data-i18n="extensionName">All in Ob</span></h1>
+            <a href="#" id="versionLink" class="version-link" title="查看更新日志">
+              <span data-i18n="versionNumber">v0.2.0</span>
+            </a>
+          </div>
+          <p class="subtitle" data-i18n="extensionSubtitle">配置你的剪藏插件，让内容管理更智能</p>
+        </div>
+      </div>
+      <div class="page-header-links" aria-label="支持与反馈">
+        <a class="page-header-link page-header-link--text-only" href="../onboarding/index.html" target="_blank" rel="noopener noreferrer">
+          <span data-i18n="onboardingLinkText">引导</span>
+        </a>
+        <a class="page-header-link page-header-link--text-only" href="#" id="suggestionsLink">
+          <span data-i18n="footerSuggestionsLink">提出建议</span>
+        </a>
+        <a class="page-header-link page-header-link--text-only" href="#" id="supportLink">
+          <span data-i18n="footerSupportLink">感谢支持</span>
+        </a>
+        <a class="page-header-link page-header-link--text-only" href="#" id="contactLink">
+          <span data-i18n="footerContactLink">联系作者</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="usage-dashboard" id="usageDashboard" aria-live="polite">
+      <div class="usage-dashboard__header">
+        <div>
+          <h2 class="usage-dashboard__title" data-i18n="usageDashboardTitle">使用统计看板</h2>
+          <p class="usage-dashboard__subtitle" data-i18n="usageDashboardSubtitle">了解内容保存的次数和类型</p>
+        </div>
+      </div>
+      <div class="usage-dashboard__cards">
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageTotalLabel">总计保存</span>
+          <span class="usage-card__value" id="usageTotalCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageAiLabel">AI 对话</span>
+          <span class="usage-card__value" id="usageAiCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageFragmentLabel">阅读+视频+碎片</span>
+          <span class="usage-card__value" id="usageFragmentCount">0</span>
+        </div>
+        <div class="usage-card">
+          <span class="usage-card__label" data-i18n="usageArticleLabel">文章</span>
+          <span class="usage-card__value" id="usageArticleCount">0</span>
+        </div>
+      </div>
+      <div class="usage-dashboard__chart">
+        <div class="usage-dashboard__axis usage-axis--hidden" id="usageAxis"></div>
+        <div class="usage-dashboard__graph">
+          <svg id="usageWave" viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet">
+            <g id="usageGrid"></g>
+            <path id="usageWavePath" d="M0 150 L200 150" vector-effect="non-scaling-stroke"></path>
+            <g id="usagePoints"></g>
+            <g id="usageXAxis"></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 语言设置 -->
+    <div class="section section--compact">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🌐</span>
+          <h2 data-i18n="languageSettings">语言设置</h2>
+        </div>
+        <div class="section-header__extras">
+          <label class="sr-only" for="languageSelect" data-i18n="languageLabel">界面语言</label>
+          <select id="languageSelect" class="section-header__action">
+            <option value="zh-CN">简体中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 隐私设置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🔒</span>
+          <h2 data-i18n="privacySettingsTitle">隐私与数据</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="privacySettingsNote">控制数据收集和错误报告</span>
+        </div>
+      </div>
+      <div id="privacySettingsContainer"></div>
+    </div>
+
+    <!-- API 配置（默认仓库） -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🔌</span>
+          <h2 data-i18n="apiConfigTitle">Obsidian Local REST API</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="apiConfigHint">这是默认仓库，不符合路由规则的内容将保存到这里</span>
+          <span class="badge badge--accent" data-i18n="defaultVaultBadge">默认仓库</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label data-i18n="httpsUrlLabel">HTTPS URL</label>
+          <input type="text" id="restHttpsUrl" />
+          <small data-i18n="httpsUrlHint">通常端口为 27124，适用于安全连接</small>
+        </div>
+        <div class="form-group">
+          <label data-i18n="httpUrlLabel">HTTP URL</label>
+          <input type="text" id="restHttpUrl" />
+          <small data-i18n="httpUrlHint">通常端口为 27123，作为备用连接</small>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label data-i18n="vaultNameLabel">Vault 名称</label>
+          <input type="text" id="restVault" data-i18n-placeholder="vaultNamePlaceholder" />
+          <small data-i18n="vaultNameHint">你的 Obsidian 仓库名称</small>
+        </div>
+        <div class="form-group">
+          <label data-i18n="apiKeyLabel">API Key</label>
+          <input type="password" id="restKey" data-i18n-placeholder="apiKeyPlaceholder" placeholder="••••••••" />
+          <small data-i18n="apiKeyHint">在 Obsidian Local REST API 插件中获取</small>
+        </div>
+      </div>
+      <div class="connection-actions">
+        <button id="testConnectionBtn" class="secondary btn-adaptive" data-i18n="testConnectionButton">⚡ 测试连接</button>
+        <div id="connectionResult" class="aobx-connection-result" aria-live="polite" hidden></div>
+      </div>
+    </div>
+
+    <!-- 额外仓库配置 -->
+    <section class="aobx-panel">
+      <div class="aobx-section-header">
+        <div class="aobx-section-title">
+          <h2 data-i18n="additionalVaultsTitle">额外仓库</h2>
+        </div>
+        <div class="aobx-section-meta" data-i18n="additionalVaultsHint">添加更多仓库，通过路由规则自动分配内容</div>
+      </div>
+      <div class="aobx-section-pad">
+        <div class="aobx-table-wrapper">
+          <div class="aobx-table aobx-table--rest">
+            <div class="aobx-table__header">
+              <span>启用</span>
+              <span>仓库名称</span>
+              <span>HTTPS URL</span>
+              <span>HTTP URL</span>
+              <span>API Key</span>
+              <span>操作</span>
+            </div>
+            <div class="aobx-table__row aobx-table__row--default">
+              <label><input type="checkbox" checked disabled></label>
+              <input class="aobx-input" type="text" placeholder="默认仓库">
+              <input class="aobx-input" type="text" placeholder="https://127.0.0.1:27124/">
+              <input class="aobx-input" type="text" placeholder="http://127.0.0.1:27123/">
+              <input class="aobx-input" type="password" placeholder="••••••••">
+              <button class="aobx-btn">测试连接</button>
+            </div>
+          </div>
+        </div>
+        <button class="aobx-btn">+ 添加仓库</button>
+        <div class="aobx-connection-result success" aria-live="polite">连接成功</div>
+        <p class="aobx-note">提示：第一行是默认仓库，不符合路由规则的内容将保存到这里。测试连接会验证所有已启用的仓库。</p>
+      </div>
+    </section>
+
+    <!-- 多仓库路由 -->
+    <section class="aobx-panel">
+      <div class="aobx-section-header">
+        <div class="aobx-section-title">
+          <h2 data-i18n="routingRulesTitle">多仓库路由</h2>
+        </div>
+        <div class="aobx-section-meta" data-i18n="routingRulesHint">根据域名或路径规则自动选择目标 Vault</div>
+      </div>
+      <div class="aobx-section-pad">
+        <div class="aobx-route-entry">
+          <div class="aobx-vault-card">
+            <div class="aobx-form-grid aobx-vault-grid">
+              <div class="aobx-form-field">
+                <div class="aobx-label">HTTPS URL</div>
+                <input class="aobx-input" type="text" value="https://127.0.0.1:27123/">
+                <div class="aobx-hint">示例：配置本地 HTTPS 端点</div>
+              </div>
+              <div class="aobx-form-field">
+                <div class="aobx-label">HTTP URL</div>
+                <input class="aobx-input" type="text" value="http://127.0.0.1:27124/">
+                <div class="aobx-hint">若未启用 HTTPS，可填写 HTTP 端点</div>
+              </div>
+              <div class="aobx-form-field">
+                <div class="aobx-label">Vault ID</div>
+                <input class="aobx-input" type="text" value="Archive">
+                <div class="aobx-hint">用于展示的仓库标识</div>
+              </div>
+              <div class="aobx-form-field">
+                <div class="aobx-label">API Key</div>
+                <input class="aobx-input" type="password" value="••••••••">
+                <div class="aobx-hint">请妥善保管 API Key</div>
+              </div>
+            </div>
+            <div class="aobx-vault-actions">
+              <div class="aobx-control">
+                <button class="aobx-btn aobx-btn--secondary">测试连接</button>
+                <button class="aobx-btn aobx-btn--danger">删除仓库</button>
+              </div>
+              <div class="aobx-connection-result success">连接成功</div>
+            </div>
+          </div>
+
+          <div class="aobx-route-block">
+            <div class="aobx-route-block__header">
+              <div class="aobx-route-block__title-group">
+                <h3 class="aobx-route-block__title">Archive</h3>
+                <span class="aobx-route-block__subtitle">路由规则</span>
+              </div>
+              <button class="aobx-btn aobx-btn--primary">+ 添加规则</button>
+            </div>
+            <div class="aobx-route-table">
+              <div class="aobx-route-header">
+                <span>启用</span>
+                <span>类型</span>
+                <span>匹配模式</span>
+                <span>优先级</span>
+                <span>操作</span>
+              </div>
+              <div class="aobx-route-row">
+                <label class="aobx-route-checkbox">
+                  <input type="checkbox" checked>
+                </label>
+                <select class="aobx-select aobx-route-type">
+                  <option>domain</option>
+                  <option>keyword</option>
+                </select>
+                <input class="aobx-input aobx-route-pattern" type="text" value="developer.apple.com">
+                <input class="aobx-input aobx-route-priority" type="number" value="10">
+                <div class="aobx-route-cell aobx-route-cell--actions">
+                  <button class="aobx-btn aobx-btn--danger">删除</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 模板配置 -->
+    <div class="section">
+      <div class="section-header">
+        <span class="icon">📝</span>
+        <h2 data-i18n="templateConfigTitle">文章、视频路径配置</h2>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="articleTemplateLabel">文章、视频路径模板</label>
+        <input type="text" id="tplArticle" placeholder="Articles/{domain}/{yyyy}/{slug}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+        </div>
+        <small class="template-vars__note" data-i18n="templateVariableNote">{slug} 表示标题的短链写法；{HHmmss}/{HHmm} 可插入保存时间，{mm} 仍代表月份。</small>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="fragmentTemplateLabel">片段路径模板</label>
+        <input type="text" id="tplFragment" placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="readingTemplateLabel">阅读模式路径模板</label>
+        <div class="template-reading-controls">
+          <select id="tplReadingMode">
+            <option value="article" data-i18n="readingTemplateOptionArticle">与文章路径相同</option>
+            <option value="fragment" data-i18n="readingTemplateOptionFragment">与片段路径相同</option>
+            <option value="custom" data-i18n="readingTemplateOptionCustom">自定义</option>
+          </select>
+          <input type="text" id="tplReadingCustom" placeholder="Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" disabled />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="aiTemplateLabel">AI 对话路径模板</label>
+        <input type="text" id="tplAI" placeholder="AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md" />
+        <div class="template-vars">
+          <span data-i18n="availableVariables">可用变量：</span><code>{platform}</code><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Domain 映射 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🌐</span>
+          <h2 data-i18n="domainMappingTitle">域名映射</h2>
+        </div>
+        <div class="section-header__extras">
+          <button class="add-mapping-btn" id="addMappingBtn" data-i18n="addMappingButton">+ 添加映射</button>
+        </div>
+      </div>
+      <div id="domainMappings" class="mapping-list"></div>
+    </div>
+    <!-- AI 对话配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../icons/allinob_icon_aitr.png" alt="" /></span>
+          <h2 data-i18n="aiChatConfigTitle">AI 对话剪藏配置</h2>
+        </div>
+      </div>
+
+      <input type="checkbox" id="aiIncludeTimestamps" hidden />
+
+      <div class="form-group">
+        <details class="ai-platforms-details">
+          <summary data-i18n="aiSupportedPlatformsToggle">查看适配AI平台</summary>
+          <ul class="ai-platforms-list">
+            <li><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a></li>
+            <li><a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Claude</a></li>
+            <li><a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">Gemini</a></li>
+            <li><a href="https://kimi.moonshot.cn/" target="_blank" rel="noopener noreferrer">Kimi</a></li>
+            <li><a href="https://chat.deepseek.com/" target="_blank" rel="noopener noreferrer">DeepSeek</a></li>
+            <li><a href="https://tongyi.aliyun.com/" target="_blank" rel="noopener noreferrer">Tongyi</a></li>
+            <li><a href="https://www.doubao.com/chat/" target="_blank" rel="noopener noreferrer">Doubao</a></li>
+            <li><a href="https://monica.im/" target="_blank" rel="noopener noreferrer">Monica</a></li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="form-group">
+        <div class="form-inline">
+          <label for="aiUserName" data-i18n="userNameLabel">用户名称</label>
+          <input type="text" id="aiUserName" data-i18n-placeholder="userNamePlaceholder" placeholder="USER" />
+        </div>
+        <small data-i18n="userNameHint">自定义用户消息的显示名称，默认为 "USER"</small>
+      </div>
+    </div>
+
+    <!-- Gemini Deep Research 配置（暂时注释）
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🔬</span>
+          <h2 data-i18n="deepResearchConfigTitle">Gemini Deep Research 配置</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="deepResearchConfigHint">自定义 Deep Research 报告的捕捉方式</span>
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
+      </div>
+
+      <div class="form-group form-group--inline">
+        <label class="checkbox-label">
+          <input type="checkbox" id="deepResearchPureMode" />
+          <span data-i18n="pureModeLabel">提纯模式（只捕捉报告内容）</span>
+        </label>
+        <span class="inline-note" data-i18n="pureModeHint">启用后，只捕捉 Deep Research 报告内容，不包含对话消息</span>
+      </div>
+
+      <div class="hint hint--warning" data-i18n="multipleReportsInfo">
+        ℹ️ <strong>关于多个报告:</strong> Gemini 一次只能显示一个完整报告。如需保存多个报告，请分别打开每个报告并点击剪藏。
+      </div>
+    </div>
+    -->
+
+    <!-- 视频模式配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🎬</span>
+          <h2 data-i18n="videoConfigTitle">视频模式</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="videoConfigHint">可在视频网站自动提示进入视频笔记模式</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label" for="videoFloatingPrompt">
+          <input type="checkbox" id="videoFloatingPrompt" />
+          <span data-i18n="videoFloatingPromptLabel">在视频网站显示浮动提示按钮</span>
+        </label>
+        <small data-i18n="videoFloatingPromptHint">支持 YouTube 与哔哩哔哩，默认在右下角显示提醒，点击即可开启视频模式。</small>
+      </div>
+    </div>
+
+    <!-- 阅读模式配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../icons/allinob_icon_readingt.png" alt="" /></span>
+          <h2 data-i18n="readingConfigTitle">阅读模式</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="readingConfigHint">选择导出阅读模式时保存的内容形式</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="readingExportMode" data-i18n="readingExportModeLabel">导出内容</label>
+        <select id="readingExportMode">
+          <option value="highlights" data-i18n="readingExportModeHighlights">仅保存高亮片段</option>
+          <option value="full" data-i18n="readingExportModeFull">保存全文并标注高亮</option>
+        </select>
+        <small data-i18n="readingExportModeDescription">选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。</small>
+      </div>
+
+      <div class="form-group">
+        <label id="readingHighlightThemeLabel" data-i18n="readingHighlightThemeLabel">高亮颜色</label>
+        <div
+          id="readingHighlightTheme"
+          class="highlight-theme-options"
+          role="radiogroup"
+          aria-labelledby="readingHighlightThemeLabel"
+        >
+          <button type="button" class="highlight-theme-button" data-theme="gradient" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeGradient">渐变紫蓝（默认）</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="purple" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemePurple">纯紫色</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonYellow" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonYellow">荧光黄</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonGreen" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonGreen">荧光绿</span>
+          </button>
+          <button type="button" class="highlight-theme-button" data-theme="neonOrange" role="radio" aria-checked="false">
+            <span class="sr-only" data-i18n="readingHighlightThemeNeonOrange">荧光橙</span>
+          </button>
+        </div>
+        <small data-i18n="readingHighlightThemeDescription">仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。</small>
+      </div>
+    </div>
+
+    <!-- 片段剪藏配置 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon icon-img"><img src="../icons/allinob_icon_clipt.png" alt="" /></span>
+          <h2 data-i18n="fragmentConfigTitle">片段剪藏配置</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="fragmentConfigHint">自定义选中文本剪藏的格式和行为</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentUseFootnote" />
+          <span data-i18n="fragmentUseFootnoteLabel">使用脚注格式（推荐）</span>
+        </label>
+        <small data-i18n="fragmentUseFootnoteHint">启用后，评论将以 Obsidian 脚注格式保存，兼容 Sidebar Highlights 插件</small>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentCaptureContext" />
+          <span data-i18n="captureContextLabel">捕捉上下文（该功能尚不稳定）</span>
+        </label>
+        <small data-i18n="fragmentCaptureContextHint">启用后，会捕捉选中文字周围的上下文，并用 ==高亮== 标记实际选中的部分</small>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentModifierToggle" />
+          <span data-i18n="fragmentModifierToggleLabel">启用辅助键触发剪藏/阅读操作</span>
+        </label>
+        <small data-i18n="fragmentModifierToggleDescription">按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或添加阅读模式高亮。</small>
+      </div>
+
+      <div class="form-group" id="fragmentModifierKeysGroup" style="display: none;">
+        <label data-i18n="fragmentModifierKeysLabel">辅助键设置</label>
+        <div>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="alt" />
+            <span data-i18n="fragmentModifierKeyAlt">Option / Alt</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="meta" />
+            <span data-i18n="fragmentModifierKeyMeta">Command</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="ctrl" />
+            <span data-i18n="fragmentModifierKeyCtrl">Control</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" data-fragment-modifier-key="shift" />
+            <span data-i18n="fragmentModifierKeyShift">Shift</span>
+          </label>
+        </div>
+        <small data-i18n="fragmentModifierKeysDescription">同时按下所有选中的辅助键才会触发自动剪藏或阅读高亮。</small>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="fragmentKeyboardShortcutsEnabled" />
+          <span data-i18n="fragmentKeyboardShortcutsLabel">启用剪藏对话框快捷键</span>
+        </label>
+        <small data-i18n="fragmentKeyboardShortcutsHint">在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏</small>
+      </div>
+
+      <div class="hint-row">
+        <div class="hint hint--success">
+          ✨ <strong data-i18n="fragmentFootnoteExampleTitle">脚注格式示例：</strong><br>
+          <code class="code-block">
+            <span data-i18n="fragmentFootnoteExampleContent">这是选中的文本内容</span>[^1]<br><br>
+            [^1]: <span data-i18n="fragmentFootnoteExampleComment">这是我的评论</span>
+          </code>
+        </div>
+
+        <div class="hint hint--info">
+          ✨ <strong data-i18n="fragmentContextHighlightExampleTitle">上下文高亮示例：</strong><br>
+          <code class="code-block">
+            <span data-i18n="fragmentContextHighlightExampleContent">前面的上下文 ==这是选中的文本== 后面的上下文</span>
+          </code>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类器配置（暂时隐藏）
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">🤖</span>
+          <h2 data-i18n="classifierConfigTitle">AI辅助分类与总结</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__status" data-i18n="featureUntestedNote">功能未测试，暂不稳定</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="clsEnable" />
+          <span data-i18n="enableClassifierLabel">启用 AI 自动分类</span>
+        </label>
+        <small id="classifierUnstableNote" class="form-hint warning" style="display: none;" data-i18n="classifierUnstableNotice">⚠️ 该部分功能尚不稳定，启用后可能影响剪藏速度</small>
+      </div>
+
+      <div id="classifierConfig">
+        <div class="row">
+          <div class="form-group">
+            <label data-i18n="providerLabel">Provider</label>
+            <select id="clsProvider">
+              <option value="ollama">Ollama (本地)</option>
+              <option value="openai">OpenAI</option>
+              <option value="compatible">兼容接口</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="endpointLabel">Endpoint</label>
+            <input type="text" id="clsEndpoint" data-i18n-placeholder="endpointPlaceholder" placeholder="http://localhost:11434/api/chat" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label data-i18n="modelLabel">Model</label>
+            <input type="text" id="clsModel" data-i18n-placeholder="modelPlaceholder" placeholder="llama3.1 / gpt-4o-mini" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="apiKeyLabel">API Key</label>
+            <input type="password" id="clsKey" data-i18n-placeholder="apiKeyPlaceholder" placeholder="••••••••" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label data-i18n="taxonomyLabel">Taxonomy (JSON)</label>
+          <textarea id="clsTax" rows="8"></textarea>
+          <small data-i18n="taxonomyHint">定义分类体系，JSON 格式</small>
+        </div>
+      </div>
+    </div>
+    -->
+
+    <!-- 配置导入导出 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-header__title">
+          <span class="icon">📦</span>
+          <h2 data-i18n="configTransferTitle">配置同步</h2>
+        </div>
+        <div class="section-header__extras">
+          <span class="section-header__note" data-i18n="configTransferHint">在不同浏览器之间复制配置，快速完成同步</span>
+        </div>
+      </div>
+      <div class="transfer-actions">
+        <button id="copyConfigBtn" data-i18n="copyConfigButton">复制配置</button>
+        <button id="importConfigBtn" class="success" data-i18n="importConfigButton">导入并保存</button>
+      </div>
+      <p class="transfer-note" data-i18n="configTransferNote">复制和导入操作会直接使用剪贴板内容，请确保目标浏览器已授权剪贴板访问。</p>
+      <span id="configTransferMsg" class="message"></span>
+    </div>
+
+    <!-- Sticky 保存栏 -->
+    <div class="savebar">
+      <button id="saveBtn" data-i18n="saveButton">💾 保存配置</button>
+      <button id="diagBtn" class="secondary" data-i18n="diagnoseButton">🔍 诊断配置</button>
+      <span id="msg"></span>
+    </div>
+
+    <!-- 诊断区域 -->
+    <div id="diagSection" class="diag-section" style="display: none;">
+      <div class="section-header">
+        <span class="icon">🔍</span>
+        <h2 data-i18n="diagnosisTitle">配置诊断</h2>
+      </div>
+      <div id="diagOutput" class="diag-output"></div>
+      <div class="button-group" style="margin-top: 0; padding-top: 0; border-top: none;">
+        <button id="fixBtn" class="success" data-i18n="fixButton">🔧 修复配置</button>
+        <button id="reloadBtn" class="secondary" data-i18n="reloadButton">🔄 重新加载</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Modal -->
+  <div id="supportModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--narrow" role="dialog" aria-modal="true" aria-labelledby="hybridSupportTitle">
+      <div class="aobx-modal__header">
+        <h3 id="hybridSupportTitle" class="aobx-modal__title" data-i18n="supportModalTitle">感谢支持</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">&times;</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description" data-i18n="supportModalDescription">开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：</p>
+        <div class="support-options">
+          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
+            <span class="support-icon" data-icon="ko-fi"></span>
+            <span data-i18n="supportLinkKofi">Ko-fi</span>
+          </a>
+          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
+            <span class="support-icon" data-icon="afdian"></span>
+            <span data-i18n="supportLinkAfdian">爱发电</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suggestions Modal -->
+  <div id="suggestionsModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--medium" role="dialog" aria-modal="true" aria-labelledby="hybridSuggestionsTitle">
+      <div class="aobx-modal__header">
+        <h3 id="hybridSuggestionsTitle" class="aobx-modal__title" data-role="suggestions-title">提出建议</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">×</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description" data-role="suggestions-description">感谢你愿意反馈想法，以下渠道都可以快速联系到作者：</p>
+        <div class="suggestions-options">
+          <a class="suggestions-card" href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">
+            <span class="suggestions-icon" data-icon="reddit"></span>
+            <span data-role="suggestions-reddit">Reddit 社区</span>
+          </a>
+          <button type="button" class="suggestions-card suggestions-card--button" id="suggestionsXhsTrigger">
+            <span class="suggestions-icon" data-icon="xiaohongshu"></span>
+            <span data-role="suggestions-xhs">小红书交流</span>
+          </button>
+          <a class="suggestions-card" href="https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5B建议%5D%20" target="_blank" rel="noopener noreferrer">
+            <span class="suggestions-icon" data-icon="github"></span>
+            <span data-role="suggestions-github">GitHub Issue</span>
+          </a>
+        </div>
+        <div id="suggestionsXhsQr" class="suggestions-qr" hidden>
+          <div class="suggestions-qr__content">
+            <p data-role="suggestions-qr-placeholder">二维码稍后提供，欢迎暂时通过 Reddit 联系作者。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Modal -->
+  <div id="contactModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--narrow" role="dialog" aria-modal="true" aria-labelledby="hybridContactTitle">
+      <div class="aobx-modal__header">
+        <h3 id="hybridContactTitle" class="aobx-modal__title" data-i18n="contactModalTitle">联系作者</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">×</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description" data-i18n-html="contactModalDescription">
+          如果你认可该产品，或想要与作者交流，欢迎 <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> 交流，或添加微信：Lefeaker，请注明来处，作者正在求职（秋招人拼了）
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Changelog Modal -->
+  <div id="changelogModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--medium" role="dialog" aria-modal="true" aria-labelledby="hybridChangelogTitle">
+      <div class="aobx-modal__header">
+        <h3 id="hybridChangelogTitle" class="aobx-modal__title" data-i18n="changelogModalTitle">更新日志</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">×</button>
+      </div>
+      <div class="aobx-modal__body">
+        <div class="changelog-content" id="changelogContent">
+          <!-- 更新日志内容将通过 JavaScript 动态加载 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>

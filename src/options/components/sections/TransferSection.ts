@@ -3,8 +3,8 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import type { IOptionsRepository } from '@shared/repositories';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
-import { createButton } from '../shared/DaisyUIHelpers';
-import { DaisyAlert } from '../shared/DaisyAlert';
+import { createOptionsButtonElement as createDaisyButtonElement } from '../../../ui/primitives/button';
+import { UiAlert as DaisyAlert } from '../../../ui/primitives/alert';
 import {
   copyConfig as copyConfigAction,
   importConfig as importConfigAction
@@ -28,13 +28,13 @@ export class TransferSection extends BaseSection<SectionRenderContext> {
   private repoUnsubscribe: (() => void) | null = null;
   private cachedTransferLog: TransferLogSnapshot['transferLog'] | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(): HTMLElement {
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     const header = this.buildHeader();
     const body = this.buildBody();
 
@@ -59,23 +59,16 @@ export class TransferSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.configTransferTitle ?? '配置同步';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-sm text-base-content/60');
-    subtitle.textContent = this.messages?.configTransferHint ?? '在不同浏览器之间复制配置，快速完成同步';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.configTransferTitle ?? '配置同步',
+      description: this.messages?.configTransferHint ?? '在不同浏览器之间复制配置，快速完成同步',
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      descriptionClassName: 'text-base-content/60 text-md'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
+    const wrapper = this.createSectionBody();
 
     wrapper.append(this.buildActionRow());
     wrapper.append(this.buildMessageArea());
@@ -86,14 +79,18 @@ export class TransferSection extends BaseSection<SectionRenderContext> {
   private buildActionRow(): HTMLElement {
     const actionRow = this.createElement('div', 'flex flex-wrap gap-3 items-center mt-4');
 
-    const copyButton = createButton(this.messages?.copyConfigButton ?? '复制配置', { variant: 'primary' });
-    copyButton.type = 'button';
-    copyButton.id = 'copyConfigBtn';
+    const copyButton = createDaisyButtonElement({
+      label: this.messages?.copyConfigButton ?? '复制配置',
+      variant: 'primary',
+      id: 'copyConfigBtn'
+    });
     copyButton.addEventListener('click', this.handleCopy);
 
-    const importButton = createButton(this.messages?.importConfigButton ?? '导入并保存', { variant: 'outline' });
-    importButton.type = 'button';
-    importButton.id = 'importConfigBtn';
+    const importButton = createDaisyButtonElement({
+      label: this.messages?.importConfigButton ?? '导入并保存',
+      variant: 'outline',
+      id: 'importConfigBtn'
+    });
     importButton.addEventListener('click', this.handleImport);
 
     this.copyButton = copyButton;

@@ -1,6 +1,17 @@
-import { deepClone } from '../utils/clone';
 import type { OptionsState, OptionsStateUpdate, StateListener, StateManager } from './types';
 import { defaultOptionsState } from './types';
+import { areStateValuesEqual, cloneStateValue } from './stateValue';
+
+function cloneOptionsState(state: OptionsState): OptionsState {
+  return {
+    language: state.language,
+    options: cloneStateValue(state.options),
+    usage: cloneStateValue(state.usage),
+    activeSection: state.activeSection,
+    mountedSections: { ...state.mountedSections },
+    isInitialized: state.isInitialized
+  };
+}
 
 export class OptionsStateManager implements StateManager {
   private state: OptionsState;
@@ -8,31 +19,35 @@ export class OptionsStateManager implements StateManager {
   private readonly listeners = new Set<StateListener>();
 
   constructor(initialState: OptionsState = defaultOptionsState) {
-    this.initialState = deepClone(initialState);
-    this.state = deepClone(initialState);
+    this.initialState = cloneOptionsState(initialState);
+    this.state = cloneOptionsState(initialState);
   }
 
   getState(): OptionsState {
-    return deepClone(this.state);
+    return cloneOptionsState(this.state);
   }
 
   setState(update: OptionsStateUpdate): void {
     const nextState: OptionsState = {
       ...this.state,
       ...update,
-      mountedSections: this.cloneMountedSections(update.mountedSections ?? this.state.mountedSections)
+      mountedSections: this.cloneMountedSections(
+        update.mountedSections ?? this.state.mountedSections
+      )
     };
     this.replaceState(nextState);
   }
 
   update(mutator: (draft: OptionsState) => void): void {
-    const draft = deepClone(this.state);
+    const draft = cloneOptionsState(this.state);
     mutator(draft);
     this.replaceState(draft);
   }
 
   reset(nextState?: OptionsState): void {
-    const baseline = nextState ? deepClone(nextState) : deepClone(this.initialState);
+    const baseline = nextState
+      ? cloneOptionsState(nextState)
+      : cloneOptionsState(this.initialState);
     this.replaceState(baseline);
   }
 
@@ -49,13 +64,14 @@ export class OptionsStateManager implements StateManager {
     if (!hasChanged) {
       return;
     }
-    this.state = deepClone(next);
+    this.state = cloneOptionsState(next);
     this.notify();
   }
 
   private notify(): void {
+    const snapshot = this.getState();
     for (const listener of this.listeners) {
-      listener(this.getState());
+      listener(snapshot);
     }
   }
 
@@ -78,15 +94,10 @@ export class OptionsStateManager implements StateManager {
       return false;
     }
 
-    // For complex fields fall back to JSON string comparison to avoid deep dependency.
-    try {
-      return (
-        JSON.stringify(current.options) === JSON.stringify(next.options) &&
-        JSON.stringify(current.usage) === JSON.stringify(next.usage)
-      );
-    } catch {
-      return false;
-    }
+    return (
+      areStateValuesEqual(current.options ?? null, next.options ?? null) &&
+      areStateValuesEqual(current.usage ?? null, next.usage ?? null)
+    );
   }
 
   private areMountedSectionsEqual(

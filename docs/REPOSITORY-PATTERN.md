@@ -42,13 +42,13 @@
 
 ## 名词解释
 
-| 术语 | 说明 | 例子 |
-|------|------|------|
-| Repository | 负责持久化或远程通信的抽象接口 | `IOptionsRepository` |
-| Provider | Repository 的具体实现 | `ChromeOptionsRepository` |
-| Consumer | 使用 Repository 的 UI 或 Service | `YamlConfigSection` |
-| DI Token | 标识接口的 Symbol | `DI_TOKENS.IYamlRepository` |
-| Adapter | 将 Repository 数据映射为领域模型 | `YamlConfigService` |
+| 术语       | 说明                             | 例子                        |
+| ---------- | -------------------------------- | --------------------------- |
+| Repository | 负责持久化或远程通信的抽象接口   | `IOptionsRepository`        |
+| Provider   | Repository 的具体实现            | `ChromeOptionsRepository`   |
+| Consumer   | 使用 Repository 的 UI 或 Service | `YamlConfigSection`         |
+| DI Token   | 标识接口的 Symbol                | `DI_TOKENS.IYamlRepository` |
+| Adapter    | 将 Repository 数据映射为领域模型 | `YamlConfigService`         |
 
 命名规则：接口统一 `I{Name}Repository`，Chrome 实现 `Chrome{Name}Repository`，Mock 实现 `Mock{Name}Repository`。
 
@@ -82,11 +82,11 @@
 
 ## 分层职责矩阵
 
-| 层级 | 允许依赖 | 禁止依赖 | 职责 |
-|------|----------|----------|------|
-| UI / Service | Repository 接口、领域 Service | `chrome.*`, `getPlatformServices()` | 展示、交互 |
-| Repository 接口 | TypeScript 类型 | 具体实现 | 定义契约 |
-| Infrastructure | 平台 API、fetch | UI 组件 | 实现差异化逻辑 |
+| 层级            | 允许依赖                      | 禁止依赖                            | 职责           |
+| --------------- | ----------------------------- | ----------------------------------- | -------------- |
+| UI / Service    | Repository 接口、领域 Service | `chrome.*`, `getPlatformServices()` | 展示、交互     |
+| Repository 接口 | TypeScript 类型               | 具体实现                            | 定义契约       |
+| Infrastructure  | 平台 API、fetch               | UI 组件                             | 实现差异化逻辑 |
 
 规则：所有 `chrome.*` 只允许在 Infrastructure 或 Platform 辅助文件中出现；`getPlatformServices()` 只允许在入口或 DI 注册。
 
@@ -99,7 +99,7 @@ export const DI_TOKENS = {
   IOptionsRepository: Symbol('IOptionsRepository'),
   IYamlRepository: Symbol('IYamlRepository'),
   IMessagingRepository: Symbol('IMessagingRepository'),
-  IVideoClipRepository: Symbol('IVideoClipRepository'),
+  IVideoClipRepository: Symbol('IVideoClipRepository')
 };
 ```
 
@@ -155,12 +155,12 @@ const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository)
 
 ## 错误与异常处理
 
-| 错误 | 触发条件 | 行动 |
-|------|----------|------|
-| `RepositoryError` | 基础异常包装 | 记录日志，提示重试 |
-| `StorageError` | storage 权限或空间不足 | 引导用户开启同步或释放空间 |
-| `MessagingError` | Service Worker 未响应 | 重试 + 提示刷新页面 |
-| `ValidationError` | UI 违规输入 | UI 层前置校验 |
+| 错误              | 触发条件               | 行动                       |
+| ----------------- | ---------------------- | -------------------------- |
+| `RepositoryError` | 基础异常包装           | 记录日志，提示重试         |
+| `StorageError`    | storage 权限或空间不足 | 引导用户开启同步或释放空间 |
+| `MessagingError`  | Service Worker 未响应  | 重试 + 提示刷新页面        |
+| `ValidationError` | UI 违规输入            | UI 层前置校验              |
 
 处理规范：Repository 捕获原始错误 -> 转换为语义异常 -> 附带 context（数据 key、payload 大小）。
 
@@ -220,11 +220,11 @@ const resolved = service.resolveConfig('article', overrides, { domain: location.
 
 ## Video Repository 生态
 
-| Repository | 责任 | 订阅事件 |
-|------------|------|----------|
-| `IVideoSessionRepository` | 保存剪藏 Session | Prompt mount/Unmount |
-| `IVideoClipRepository` | 缓存剪辑 payload | `appendClip`, `flush` |
-| `IVideoPromptPositionRepository` | 持久化浮窗位置 | MutationObserver |
+| Repository                       | 责任             | 订阅事件              |
+| -------------------------------- | ---------------- | --------------------- |
+| `IVideoSessionRepository`        | 保存剪藏 Session | Prompt mount/Unmount  |
+| `IVideoClipRepository`           | 缓存剪辑 payload | `appendClip`, `flush` |
+| `IVideoPromptPositionRepository` | 持久化浮窗位置   | MutationObserver      |
 
 ```ts
 const clipRepo = resolveRepository<IVideoClipRepository>(DI_TOKENS.IVideoClipRepository);
@@ -246,7 +246,7 @@ Mock 设计：
 const mockRepo = new MockOptionsRepository({
   initialData,
   latencyMs: 20,
-  failNextSet: true,
+  failNextSet: true
 });
 ```
 
@@ -295,24 +295,24 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ## 附录 A: 接口一览
 
-| 接口 | 说明 |
-|------|------|
-| `IOptionsRepository` | 管理 Options 配置 |
-| `IYamlRepository` | 管理 YAML Overrides |
-| `IVideoClipRepository` | 视频剪辑缓存 |
-| `IVaultRouterRepository` | Vault Router 配置 |
-| `IMessagingRepository` | Runtime Messaging |
-| `IUsageStatsRepository` | 使用统计数据 |
-| `IFragmentRepository` | Clipper 片段管理 |
+| 接口                     | 说明                |
+| ------------------------ | ------------------- |
+| `IOptionsRepository`     | 管理 Options 配置   |
+| `IYamlRepository`        | 管理 YAML Overrides |
+| `IVideoClipRepository`   | 视频剪辑缓存        |
+| `IVaultRouterRepository` | Vault Router 配置   |
+| `IMessagingRepository`   | Runtime Messaging   |
+| `IUsageStatsRepository`  | 使用统计数据        |
+| `IFragmentRepository`    | Clipper 片段管理    |
 
 ## 附录 B: 代码示例索引
 
-| 场景 | 文件 |
-|------|------|
+| 场景                   | 文件                                                  |
+| ---------------------- | ----------------------------------------------------- |
 | Templates Section 注入 | `src/options/components/sections/TemplatesSection.ts` |
-| Video Session 导出 | `src/content/video/videoSessionExporter.ts` |
-| Repository 注册 | `src/shared/di/serviceRegistry.ts` |
-| Mock Repository | `tests/utils/repositories/mockOptionsRepository.ts` |
+| Video Session 导出     | `src/content/video/videoSessionExporter.ts`           |
+| Repository 注册        | `src/shared/di/serviceRegistry.ts`                    |
+| Mock Repository        | `tests/utils/repositories/mockOptionsRepository.ts`   |
 
 ## 附录 C: Review 模板
 
@@ -326,13 +326,13 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ## 附录 D: 架构决策记录
 
-| 编号 | 决策 | 说明 |
-|------|------|------|
-| ADR-001 | UI 禁止使用 chrome.* | 保障多浏览器兼容 |
-| ADR-002 | Repository 统一通过 DI 注册 | 保证替换能力 |
-| ADR-003 | onChange 需要去重 | 避免 UI 重渲染 |
-| ADR-004 | 错误统一语义 | 方便日志聚合 |
-| ADR-005 | Mock 必须与 Chrome 行为一致 | 保障测试可信度 |
+| 编号    | 决策                        | 说明             |
+| ------- | --------------------------- | ---------------- |
+| ADR-001 | UI 禁止使用 chrome.\*       | 保障多浏览器兼容 |
+| ADR-002 | Repository 统一通过 DI 注册 | 保证替换能力     |
+| ADR-003 | onChange 需要去重           | 避免 UI 重渲染   |
+| ADR-004 | 错误统一语义                | 方便日志聚合     |
+| ADR-005 | Mock 必须与 Chrome 行为一致 | 保障测试可信度   |
 
 ## 进阶实践
 
@@ -404,7 +404,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 - [进阶实践 64] 对 Vault Router 这类关键配置增删提供事务性操作。
 - [进阶实践 65] Repository 需要提供 `export()`/`import()` 接口，便于备份。
 - [进阶实践 66] 对 Messaging Repository 加入超时与重试策略。
-- [进阶实践 67] 定期运行 `npm run check:migration` 确认无遗留。
+- [进阶实践 67] 定期运行 `npm run audit:platform-services:report` 与 `npm run audit:repository-composition:report` 确认无回流。
 - [进阶实践 68] 在 CI 中锁定 Repository 相关文件的代码所有者，提升review质量。
 - [进阶实践 69] 对 Options Shell 使用 Repository snapshot 初始化状态。
 - [进阶实践 70] Repository 变更后需要更新 `docs/REPO-MONTH*-EXECUTION-PLAN.md`。
@@ -476,31 +476,31 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ## 附录 G: 迁移指标追踪
 
-| 指标 | 目标 | 当前值 | 更新频率 |
-|------|------|--------|----------|
-| Shared 层 chrome.* 调用 | 0 | 0 | 每周 |
-| Options 层 getPlatformServices | 0 | 0 | 每周 |
-| Repository 单测覆盖率 | ≥90% | 92% | 每次 CI |
-| YamlConfigService 行数 | ≤450 | 438 | 每次提交 |
-| ChromeYamlRepository 行数 | ≥80 | 82 | 关键提交 |
-| 文档同步状态 | 100% | 100% | 每次发布前 |
+| 指标                           | 目标 | 当前值 | 更新频率   |
+| ------------------------------ | ---- | ------ | ---------- |
+| Shared 层 chrome.\* 调用       | 0    | 0      | 每周       |
+| Options 层 getPlatformServices | 0    | 0      | 每周       |
+| Repository 单测覆盖率          | ≥90% | 92%    | 每次 CI    |
+| YamlConfigService 行数         | ≤450 | 438    | 每次提交   |
+| ChromeYamlRepository 行数      | ≥80  | 82     | 关键提交   |
+| 文档同步状态                   | 100% | 100%   | 每次发布前 |
 
 指标存放在 `docs/251126-design-system-poc/WEEK*-COMPLETION-REPORT.md`，供审核与回溯。
 
 ## 附录 H: 实用脚本
 
-- `npm run check:migration`：审计遗留 `getPlatformServices()`。
-- `node scripts/verify-p2-2-completion.mjs`：验证 Repository 迁移范围。
-- `bash scripts/check-unmigrated-buttons.sh`：确保 Options 按钮均使用 Repository 数据源。
+- `npm run audit:platform-services:report`：审计遗留 `getPlatformServices()` 与平台调用回流。
+- `npm run audit:repository-composition:report`：验证 composition root / repository 注册边界。
+- `npm run audit:components:report`：确保 Options / content 基础控件入口不回退。
 
 ## 附录 I: 学习资源
 
-| 主题 | 链接 |
-|------|------|
-| 依赖倒置原则 | https://martinfowler.com/articles/dip.html |
+| 主题                      | 链接                                                      |
+| ------------------------- | --------------------------------------------------------- |
+| 依赖倒置原则              | https://martinfowler.com/articles/dip.html                |
 | Chrome Storage Promise 化 | https://developer.chrome.com/docs/extensions/mv3/storage/ |
-| Repository Pattern 概述 | https://www.martinfowler.com/eaaCatalog/repository.html |
-| Vitest Mock 指南 | https://vitest.dev/guide/mocking.html |
+| Repository Pattern 概述   | https://www.martinfowler.com/eaaCatalog/repository.html   |
+| Vitest Mock 指南          | https://vitest.dev/guide/mocking.html                     |
 
 > 文档完结。
 > 文档完结。

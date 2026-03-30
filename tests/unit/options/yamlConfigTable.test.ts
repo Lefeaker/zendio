@@ -4,13 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createYamlConfigController,
   type YamlConfigController
-} from '@options/components/controls/yamlConfigTable';
+} from '../../../src/ui/domains/yaml-config/yamlConfigTable';
 import {
   createToggleMap,
   parseDefaultValueWithValidation
-} from '@options/components/controls/yamlConfigTableModel';
-import { validateYamlConfig } from '@options/components/controls/yamlConfigTableValidation';
-import type { DomainOverrideEntry, FieldRow } from '@options/components/controls/yamlConfigTableTypes';
+} from '../../../src/ui/domains/yaml-config/yamlConfigTableModel';
+import { validateYamlConfig } from '../../../src/ui/domains/yaml-config/yamlConfigTableValidation';
+import type {
+  DomainOverrideEntry,
+  FieldRow
+} from '../../../src/ui/domains/yaml-config/yamlConfigTableTypes';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 
 const HOST_TEMPLATE = `
@@ -119,7 +122,9 @@ describe('yamlConfigTable validation', () => {
   });
 
   it('blocks collection when custom field is incomplete', () => {
-    document.getElementById('yamlAddFieldBtn')?.dispatchEvent(new Event('click', { bubbles: true }));
+    document
+      .getElementById('yamlAddFieldBtn')
+      ?.dispatchEvent(new Event('click', { bubbles: true }));
     expect(() => controller?.collect()).toThrowError();
   });
 
@@ -143,7 +148,9 @@ describe('yamlConfigTable validation', () => {
       caught = error;
     }
     if (caught) {
-      const messages = Array.from(document.querySelectorAll('.yaml-row-errors li')).map((node) => node.textContent ?? '');
+      const messages = Array.from(document.querySelectorAll('.yaml-row-errors li')).map(
+        (node) => node.textContent ?? ''
+      );
       throw new Error(messages.join(' | ') || String(caught));
     }
     expect(overrides).not.toBeNull();
@@ -152,9 +159,9 @@ describe('yamlConfigTable validation', () => {
   });
 
   it('collects domain overrides after adding a domain rule and field', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -189,7 +196,9 @@ describe('yamlConfigTable validation', () => {
 
     const secondRow = document.querySelector<HTMLElement>(`div[data-row-id="${secondId}"]`);
     expect(secondRow).toBeTruthy();
-    const moveUpButton = Array.from(secondRow?.querySelectorAll('button') ?? []).find((button) => button.textContent === '↑');
+    const moveUpButton = Array.from(secondRow?.querySelectorAll('button') ?? []).find(
+      (button) => button.textContent === '↑'
+    );
     expect(moveUpButton).toBeTruthy();
     moveUpButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -207,7 +216,11 @@ describe('yamlConfigTable validation', () => {
 
     const overrides = controller.collect();
     const articleCustom = overrides?.contentTypes?.article?.customFields ?? [];
-    expect(articleCustom.map((field) => field.name)).toEqual(['status', 'custom_beta', 'custom_alpha']);
+    expect(articleCustom.map((field) => field.name)).toEqual([
+      'status',
+      'custom_beta',
+      'custom_alpha'
+    ]);
     expect(firstId).not.toEqual(secondId);
   });
 
@@ -217,13 +230,12 @@ describe('yamlConfigTable validation', () => {
 
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
-
   });
 
   it('validates domain override value paths and allows removing invalid domain rules', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -242,7 +254,9 @@ describe('yamlConfigTable validation', () => {
     expect(addFieldButton).toBeTruthy();
     addFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const valuePathInput = document.querySelector<HTMLInputElement>('.aobx-domain__value-path-input');
+    const valuePathInput = document.querySelector<HTMLInputElement>(
+      '.aobx-domain__value-path-input'
+    );
     expect(valuePathInput).toBeTruthy();
     if (!valuePathInput) {
       throw new Error('Expected domain value path input');
@@ -254,10 +268,9 @@ describe('yamlConfigTable validation', () => {
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
 
-
-    const removeRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('删除规则')
-    );
+    const removeRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('删除规则'));
     expect(removeRuleButton).toBeTruthy();
     removeRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -268,22 +281,24 @@ describe('yamlConfigTable validation', () => {
     expect(overrides?.contentTypes?.article?.domainOverrides).toBeUndefined();
   });
 
-
   it('filters, sorts, and deletes custom fields without leaking removed rows into collect', () => {
-    const alphaRowId = requireRowId(createCustomField('custom_alpha_delete'), 'Missing alpha row id');
+    const alphaRowId = requireRowId(
+      createCustomField('custom_alpha_delete'),
+      'Missing alpha row id'
+    );
     createCustomField('custom_beta_keep');
 
-    const filterButton = Array.from(document.querySelectorAll<HTMLButtonElement>('#yamlConfigTable button')).find(
-      (button) => button.textContent?.trim() === 'Article'
-    );
+    const filterButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('#yamlConfigTable button')
+    ).find((button) => button.textContent?.trim() === 'Article');
     expect(filterButton).toBeTruthy();
     filterButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
     const alphaRow = document.querySelector<HTMLElement>(`div[data-row-id="${alphaRowId}"]`);
     expect(alphaRow).toBeTruthy();
-    const deleteButton = Array.from(alphaRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.title === 'Delete'
-    );
+    const deleteButton = Array.from(
+      alphaRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.title === 'Delete');
     expect(deleteButton).toBeTruthy();
     deleteButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -311,7 +326,8 @@ describe('yamlConfigTable validation', () => {
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     const refreshedRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const arrayInput = refreshedRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
+    const arrayInput =
+      refreshedRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
     expect(arrayInput).toBeTruthy();
     if (!arrayInput) {
       throw new Error('Expected array input');
@@ -344,12 +360,15 @@ describe('yamlConfigTable validation', () => {
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
     const refreshedRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const errors = Array.from(refreshedRow?.querySelectorAll('.yaml-row-errors li') ?? []).map((node) => node.textContent ?? '');
+    const errors = Array.from(refreshedRow?.querySelectorAll('.yaml-row-errors li') ?? []).map(
+      (node) => node.textContent ?? ''
+    );
     const globalWarning = document.querySelector('.aobx-table__global-errors')?.textContent ?? '';
-    expect(errors.some((message) => message.includes('Enable at least one content type')) || globalWarning.length > 0).toBe(true);
+    expect(
+      errors.some((message) => message.includes('Enable at least one content type')) ||
+        globalWarning.length > 0
+    ).toBe(true);
   });
-
-
 
   it('rejects duplicate custom field names and surfaces row errors', () => {
     createCustomField('custom_duplicate_name');
@@ -358,9 +377,14 @@ describe('yamlConfigTable validation', () => {
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
 
-    const rowErrors = Array.from(document.querySelectorAll('.yaml-row-errors li')).map((node) => node.textContent ?? '');
+    const rowErrors = Array.from(document.querySelectorAll('.yaml-row-errors li')).map(
+      (node) => node.textContent ?? ''
+    );
     const globalWarning = document.querySelector('.aobx-table__global-errors')?.textContent ?? '';
-    expect(rowErrors.some((message) => message.includes('Duplicate field name')) || globalWarning.length > 0).toBe(true);
+    expect(
+      rowErrors.some((message) => message.includes('Duplicate field name')) ||
+        globalWarning.length > 0
+    ).toBe(true);
   });
 
   it('validates custom field default values and advanced value paths', () => {
@@ -378,9 +402,12 @@ describe('yamlConfigTable validation', () => {
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     const refreshedRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const defaultInput = Array.from(refreshedRow?.querySelectorAll<HTMLInputElement>('input[type="text"]:not(.aobx-table__advanced-input)') ?? []).find(
-      (input) => input.value !== 'custom_number_field'
-    ) ?? null;
+    const defaultInput =
+      Array.from(
+        refreshedRow?.querySelectorAll<HTMLInputElement>(
+          'input[type="text"]:not(.aobx-table__advanced-input)'
+        ) ?? []
+      ).find((input) => input.value !== 'custom_number_field') ?? null;
     expect(defaultInput).toBeTruthy();
     if (!defaultInput) {
       throw new Error('Expected default value input');
@@ -404,12 +431,14 @@ describe('yamlConfigTable validation', () => {
 
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
-    const errors = Array.from(document.querySelectorAll('.yaml-row-errors li')).map((node) => node.textContent ?? '');
+    const errors = Array.from(document.querySelectorAll('.yaml-row-errors li')).map(
+      (node) => node.textContent ?? ''
+    );
     const globalWarning = document.querySelector('.aobx-table__global-errors')?.textContent ?? '';
     expect(
       errors.some((message) => message.includes('Default value does not match')) ||
-      errors.some((message) => message.includes('cannot contain spaces')) ||
-      globalWarning.length > 0
+        errors.some((message) => message.includes('cannot contain spaces')) ||
+        globalWarning.length > 0
     ).toBe(true);
   });
 
@@ -418,7 +447,9 @@ describe('yamlConfigTable validation', () => {
     const secondRowId = requireRowId(createCustomField('custom_second'), 'Missing second row id');
 
     const secondRow = document.querySelector<HTMLElement>(`div[data-row-id="${secondRowId}"]`);
-    const moveUpButton = Array.from(secondRow?.querySelectorAll<HTMLButtonElement>('button') ?? [])[1];
+    const moveUpButton = Array.from(
+      secondRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    )[1];
     expect(moveUpButton).toBeTruthy();
     moveUpButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -432,16 +463,19 @@ describe('yamlConfigTable validation', () => {
     expect(articleCustom).toEqual(['custom_second', 'custom_first']);
   });
 
-
   it('removes deleted custom rows from collected overrides', () => {
     createCustomField('custom_keep');
     createCustomField('custom_delete');
 
-    const rowToDelete = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'custom_delete';
-    });
-    const deleteButton = Array.from(rowToDelete?.querySelectorAll<HTMLButtonElement>('button') ?? []).at(-1);
+    const rowToDelete = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'custom_delete';
+      }
+    );
+    const deleteButton = Array.from(
+      rowToDelete?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).at(-1);
     expect(deleteButton).toBeTruthy();
     deleteButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -449,15 +483,17 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
     const overrides = controller.collect();
-    const customNames = (overrides.contentTypes?.article?.customFields ?? []).map((field) => field.name);
+    const customNames = (overrides.contentTypes?.article?.customFields ?? []).map(
+      (field) => field.name
+    );
     expect(customNames).toContain('custom_keep');
     expect(customNames).not.toContain('custom_delete');
   });
 
   it('allows collection after removing an invalid domain override card', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -474,7 +510,9 @@ describe('yamlConfigTable validation', () => {
     expect(addFieldButton).toBeTruthy();
     addFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const valuePathInput = document.querySelector<HTMLInputElement>('.aobx-domain__value-path-input');
+    const valuePathInput = document.querySelector<HTMLInputElement>(
+      '.aobx-domain__value-path-input'
+    );
     expect(valuePathInput).toBeTruthy();
     if (!valuePathInput) {
       throw new Error('Expected domain value path input');
@@ -486,7 +524,9 @@ describe('yamlConfigTable validation', () => {
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
 
-    const removeDomainButton = document.querySelector<HTMLButtonElement>('.aobx-domain__remove-btn');
+    const removeDomainButton = document.querySelector<HTMLButtonElement>(
+      '.aobx-domain__remove-btn'
+    );
     expect(removeDomainButton).toBeTruthy();
     removeDomainButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -499,11 +539,10 @@ describe('yamlConfigTable validation', () => {
     expect(document.querySelector('.aobx-table__global-errors')).toBeNull();
   });
 
-
   it('drops unsupported domain fields after switching domain override content type', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -538,11 +577,15 @@ describe('yamlConfigTable validation', () => {
 
     expect(document.querySelector('.aobx-domain__field-empty')).toBeTruthy();
 
-    const replacementAddButton = document.querySelector<HTMLButtonElement>('.aobx-domain__add-field-btn');
+    const replacementAddButton = document.querySelector<HTMLButtonElement>(
+      '.aobx-domain__add-field-btn'
+    );
     expect(replacementAddButton).toBeTruthy();
     replacementAddButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const replacementSelect = document.querySelector<HTMLSelectElement>('.aobx-domain__field-select');
+    const replacementSelect = document.querySelector<HTMLSelectElement>(
+      '.aobx-domain__field-select'
+    );
     expect(replacementSelect).toBeTruthy();
     expect(replacementSelect?.value).not.toBe('author');
 
@@ -550,16 +593,17 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
     const overrides = controller.collect();
-    const videoOverride = overrides.contentTypes?.video?.domainOverrides?.['docs.example.com'] ?? [];
+    const videoOverride =
+      overrides.contentTypes?.video?.domainOverrides?.['docs.example.com'] ?? [];
     expect(videoOverride).toHaveLength(1);
     expect(videoOverride[0]?.name).not.toBe('author');
     expect(overrides.contentTypes?.article?.domainOverrides).toBeUndefined();
   });
 
   it('removes individual domain fields and surfaces the empty-field validation state', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -576,7 +620,9 @@ describe('yamlConfigTable validation', () => {
     expect(addFieldButton).toBeTruthy();
     addFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const removeFieldButton = document.querySelector<HTMLButtonElement>('.aobx-domain__field-remove');
+    const removeFieldButton = document.querySelector<HTMLButtonElement>(
+      '.aobx-domain__field-remove'
+    );
     expect(removeFieldButton).toBeTruthy();
     removeFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -584,17 +630,18 @@ describe('yamlConfigTable validation', () => {
 
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
-    const cardErrors = Array.from(document.querySelectorAll('.aobx-domain__errors li')).map((node) => node.textContent ?? '');
+    const cardErrors = Array.from(document.querySelectorAll('.aobx-domain__errors li')).map(
+      (node) => node.textContent ?? ''
+    );
     const globalWarning = document.querySelector('.aobx-table__global-errors')?.textContent ?? '';
     expect(document.querySelector('.aobx-domain__field-empty')).toBeTruthy();
     expect(cardErrors.length > 0 || globalWarning.length > 0).toBe(true);
   });
 
-
   it('switches domain fields to array editors and normalizes collected defaults', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -619,7 +666,9 @@ describe('yamlConfigTable validation', () => {
     fieldSelect.value = 'tags';
     fieldSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-    const arrayInput = document.querySelector<HTMLInputElement>('.aobx-domain__field-body .aobx-table__array-input');
+    const arrayInput = document.querySelector<HTMLInputElement>(
+      '.aobx-domain__field-body .aobx-table__array-input'
+    );
     expect(arrayInput).toBeTruthy();
     if (!arrayInput) {
       throw new Error('Expected array input');
@@ -637,19 +686,21 @@ describe('yamlConfigTable validation', () => {
     ]);
   });
 
-
-
   it('disables custom row move buttons while filter or sort modes are active', () => {
     createCustomField('move_alpha');
     createCustomField('move_beta');
 
-    const customRows = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).filter((row) => {
+    const customRows = Array.from(
+      document.querySelectorAll<HTMLElement>('div[data-row-id]')
+    ).filter((row) => {
       const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
       return input?.value === 'move_alpha' || input?.value === 'move_beta';
     });
     expect(customRows).toHaveLength(2);
 
-    const firstRowButtons = Array.from(customRows[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    const firstRowButtons = Array.from(
+      customRows[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    );
     const moveDown = firstRowButtons.find((button) => button.textContent === '↓');
     expect(moveDown?.disabled).toBe(false);
 
@@ -659,13 +710,15 @@ describe('yamlConfigTable validation', () => {
     expect(articleFilter).toBeTruthy();
     articleFilter?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const filteredRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'move_alpha';
-    });
-    const filteredMoveDown = Array.from(filteredRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.textContent === '↓'
+    const filteredRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'move_alpha';
+      }
     );
+    const filteredMoveDown = Array.from(
+      filteredRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.textContent === '↓');
     expect(filteredMoveDown?.disabled).toBe(true);
 
     articleFilter?.dispatchEvent(new Event('click', { bubbles: true }));
@@ -675,13 +728,15 @@ describe('yamlConfigTable validation', () => {
     expect(sortArticle).toBeTruthy();
     sortArticle?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const sortedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'move_alpha';
-    });
-    const sortedMoveDown = Array.from(sortedRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.textContent === '↓'
+    const sortedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'move_alpha';
+      }
     );
+    const sortedMoveDown = Array.from(
+      sortedRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.textContent === '↓');
     expect(sortedMoveDown?.disabled).toBe(true);
   });
 
@@ -699,47 +754,55 @@ describe('yamlConfigTable validation', () => {
 
     controller?.render(initial);
 
-    const customRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'source_meta';
-    });
+    const customRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'source_meta';
+      }
+    );
     expect(customRow).toBeTruthy();
     expect(customRow?.querySelector('.aobx-table__advanced-input')).toBeTruthy();
 
-    const advancedButton = Array.from(customRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.textContent?.includes('Hide source')
-    );
+    const advancedButton = Array.from(
+      customRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.textContent?.includes('Hide source'));
     expect(advancedButton?.className).toContain('text-accent');
     advancedButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const closedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'source_meta';
-    });
+    const closedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'source_meta';
+      }
+    );
     expect(closedRow?.querySelector('.aobx-table__advanced-input')).toBeNull();
 
-    const reopenButton = Array.from(closedRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.textContent?.includes('Show source')
-    );
+    const reopenButton = Array.from(
+      closedRow?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.textContent?.includes('Show source'));
     reopenButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const reopenedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find((row) => {
-      const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
-      return input?.value === 'source_meta';
-    });
+    const reopenedRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
+      (row) => {
+        const input = row.querySelector<HTMLInputElement>('input[type="text"]:not([disabled])');
+        return input?.value === 'source_meta';
+      }
+    );
     expect(reopenedRow?.querySelector('.aobx-table__advanced-input')).toBeTruthy();
     expect(reopenedRow?.querySelector('.aobx-table__advanced-examples')).toBeTruthy();
   });
 
   it('validates empty and case-insensitive duplicate domain rules', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     expect(domainInputs).toHaveLength(2);
     domainInputs[0].value = 'Docs.Example.com';
     domainInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
@@ -748,10 +811,16 @@ describe('yamlConfigTable validation', () => {
     domainInputs[1].dispatchEvent(new Event('input', { bubbles: true }));
     domainInputs[1].dispatchEvent(new Event('blur', { bubbles: true }));
 
-    const addFieldButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn'));
-    addFieldButtons.forEach((button) => button.dispatchEvent(new Event('click', { bubbles: true })));
+    const addFieldButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn')
+    );
+    addFieldButtons.forEach((button) =>
+      button.dispatchEvent(new Event('click', { bubbles: true }))
+    );
 
-    const refreshedDomainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const refreshedDomainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     refreshedDomainInputs[0].value = '   ';
     refreshedDomainInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
     refreshedDomainInputs[0].dispatchEvent(new Event('blur', { bubbles: true }));
@@ -760,7 +829,9 @@ describe('yamlConfigTable validation', () => {
     expect(() => controller?.collect()).toThrowError();
     expect(document.querySelector('.aobx-table__global-errors')).toBeTruthy();
 
-    const duplicateDomainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const duplicateDomainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     duplicateDomainInputs[0].value = 'Docs.Example.com';
     duplicateDomainInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
     duplicateDomainInputs[0].dispatchEvent(new Event('blur', { bubbles: true }));
@@ -781,7 +852,9 @@ describe('yamlConfigTable validation', () => {
     addDomainRule();
     addDomainRule();
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     expect(domainInputs).toHaveLength(2);
     domainInputs.forEach((input) => {
       input.value = 'docs.example.com';
@@ -791,7 +864,9 @@ describe('yamlConfigTable validation', () => {
 
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
-    const cardErrors = Array.from(document.querySelectorAll('.aobx-domain__errors li')).map((node) => node.textContent ?? '');
+    const cardErrors = Array.from(document.querySelectorAll('.aobx-domain__errors li')).map(
+      (node) => node.textContent ?? ''
+    );
     const globalWarning = document.querySelector('.aobx-table__global-errors')?.textContent ?? '';
     expect(cardErrors.length > 0 || globalWarning.length > 0).toBe(true);
   });
@@ -799,7 +874,9 @@ describe('yamlConfigTable validation', () => {
     const row = createCustomField('1invalid_name');
     const rowId = requireRowId(row, 'Missing invalid row id');
     const refreshedRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const checkboxes = Array.from(refreshedRow?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []);
+    const checkboxes = Array.from(
+      refreshedRow?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]') ?? []
+    );
     const enabledCheckbox = checkboxes.find((checkbox) => checkbox.checked) ?? checkboxes[0];
     expect(enabledCheckbox).toBeTruthy();
     if (!enabledCheckbox) {
@@ -811,13 +888,15 @@ describe('yamlConfigTable validation', () => {
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
     expect(document.querySelector('.aobx-table__global-errors')).toBeTruthy();
-    expect(document.querySelectorAll('.aobx-table__global-errors, .yaml-row-errors li').length).toBeGreaterThan(0);
+    expect(
+      document.querySelectorAll('.aobx-table__global-errors, .yaml-row-errors li').length
+    ).toBeGreaterThan(0);
   });
 
   it('preserves trimmed valuePath for valid domain entries', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     expect(addDomainRuleButton).toBeTruthy();
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
@@ -834,7 +913,9 @@ describe('yamlConfigTable validation', () => {
     expect(addFieldButton).toBeTruthy();
     addFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const valuePathInput = document.querySelector<HTMLInputElement>('.aobx-domain__value-path-input');
+    const valuePathInput = document.querySelector<HTMLInputElement>(
+      '.aobx-domain__value-path-input'
+    );
     expect(valuePathInput).toBeTruthy();
     if (!valuePathInput) {
       throw new Error('Expected domain value path input');
@@ -863,7 +944,9 @@ describe('yamlConfigTable validation', () => {
     addDomainRule();
     addDomainRule();
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     expect(domainInputs).toHaveLength(2);
     domainInputs[0].value = ' DOCS.EXAMPLE.COM ';
     domainInputs[1].value = 'docs.example.com';
@@ -874,7 +957,9 @@ describe('yamlConfigTable validation', () => {
 
     vi.runAllTimers();
     expect(() => controller?.collect()).toThrowError();
-    const errors = Array.from(document.querySelectorAll('.aobx-domain__errors li, .aobx-table__global-errors')).map((node) => node.textContent ?? '');
+    const errors = Array.from(
+      document.querySelectorAll('.aobx-domain__errors li, .aobx-table__global-errors')
+    ).map((node) => node.textContent ?? '');
     expect(errors.length).toBeGreaterThan(0);
   });
 
@@ -896,7 +981,9 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
     const overrides = controller.collect();
-    const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map((field) => field.name);
+    const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map(
+      (field) => field.name
+    );
     expect(customNames).toContain('custom_keep_after_delete');
     expect(customNames).not.toContain('1bad_name');
     expect(document.querySelector('.aobx-table__global-errors')).toBeNull();
@@ -913,7 +1000,8 @@ describe('yamlConfigTable validation', () => {
     advancedToggle?.dispatchEvent(new Event('click', { bubbles: true }));
 
     const refreshedRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const advancedInput = refreshedRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    const advancedInput =
+      refreshedRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
     expect(advancedInput).toBeTruthy();
     if (!advancedInput) {
       throw new Error('Expected advanced value path input');
@@ -922,9 +1010,9 @@ describe('yamlConfigTable validation', () => {
     advancedInput.dispatchEvent(new Event('input', { bubbles: true }));
     advancedInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    const typeSelect = Array.from(refreshedRow?.querySelectorAll<HTMLSelectElement>('select') ?? []).find((select) =>
-      Array.from(select.options).some((option) => option.value === 'array')
-    );
+    const typeSelect = Array.from(
+      refreshedRow?.querySelectorAll<HTMLSelectElement>('select') ?? []
+    ).find((select) => Array.from(select.options).some((option) => option.value === 'array'));
     expect(typeSelect).toBeTruthy();
     if (!typeSelect) {
       throw new Error('Expected type select');
@@ -933,7 +1021,8 @@ describe('yamlConfigTable validation', () => {
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     const finalRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-    const arrayInput = finalRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
+    const arrayInput =
+      finalRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
     expect(arrayInput).toBeTruthy();
     if (!arrayInput) {
       throw new Error('Expected array input');
@@ -946,14 +1035,17 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
     const overrides = controller.collect();
-    const field = (overrides?.contentTypes?.article?.customFields ?? []).find((item) => item.name === 'custom_with_source_path');
+    const field = (overrides?.contentTypes?.article?.customFields ?? []).find(
+      (item) => item.name === 'custom_with_source_path'
+    );
     expect(field?.valuePath).toBe('meta.path');
     expect(field?.defaultValue).toEqual(['one', 'two', 'three']);
   });
 
-
   it('throws when tableHost is missing and safely no-ops render lookup fallbacks', () => {
-    expect(() => createYamlConfigController({ tableHost: null })).toThrow('[YamlConfigController] tableHost is required.');
+    expect(() => createYamlConfigController({ tableHost: null })).toThrow(
+      '[YamlConfigController] tableHost is required.'
+    );
 
     const host = document.getElementById('yamlConfigTable');
     const add = document.getElementById('yamlAddFieldBtn');
@@ -962,12 +1054,14 @@ describe('yamlConfigTable validation', () => {
     add?.remove();
     domain?.remove();
 
-    const state = (createYamlConfigController({
-      tableHost: document.createElement('div'),
-      domainHost: null,
-      addFieldButton: null,
-      onDirty: vi.fn()
-    }) as unknown as { controller: { render: (initial: YamlConfigOverrides | null) => void } }).controller;
+    const state = (
+      createYamlConfigController({
+        tableHost: document.createElement('div'),
+        domainHost: null,
+        addFieldButton: null,
+        onDirty: vi.fn()
+      }) as unknown as { controller: { render: (initial: YamlConfigOverrides | null) => void } }
+    ).controller;
     expect(() => state.render(null)).not.toThrow();
   });
 
@@ -977,10 +1071,13 @@ describe('yamlConfigTable validation', () => {
     const firstId = requireRowId(firstRow, 'Expected first row id');
     const secondId = requireRowId(secondRow, 'Expected second row id');
 
-    const firstToggle = Array.from(firstRow.querySelectorAll<HTMLButtonElement>('button')).find((button) => /Show source|Hide source/.test(button.textContent ?? ''));
+    const firstToggle = Array.from(firstRow.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => /Show source|Hide source/.test(button.textContent ?? '')
+    );
     firstToggle?.dispatchEvent(new Event('click', { bubbles: true }));
     const firstRefreshed = document.querySelector<HTMLElement>(`div[data-row-id="${firstId}"]`);
-    const advancedInput = firstRefreshed?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    const advancedInput =
+      firstRefreshed?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
     expect(advancedInput).toBeTruthy();
     if (!advancedInput) throw new Error('Missing advanced input');
     advancedInput.value = '   ';
@@ -993,29 +1090,38 @@ describe('yamlConfigTable validation', () => {
     expect(advancedInput.value).toBe('meta.author');
 
     const secondRefreshed = document.querySelector<HTMLElement>(`div[data-row-id="${secondId}"]`);
-    const typeSelect = Array.from(secondRefreshed?.querySelectorAll<HTMLSelectElement>('select') ?? []).find((select) =>
-      Array.from(select.options).some((option) => option.value === 'array')
-    );
+    const typeSelect = Array.from(
+      secondRefreshed?.querySelectorAll<HTMLSelectElement>('select') ?? []
+    ).find((select) => Array.from(select.options).some((option) => option.value === 'array'));
     if (!typeSelect) throw new Error('Missing type select');
     typeSelect.value = 'array';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     const secondFinal = document.querySelector<HTMLElement>(`div[data-row-id="${secondId}"]`);
-    const arrayInput = secondFinal?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
+    const arrayInput =
+      secondFinal?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
     if (!arrayInput) throw new Error('Missing array input');
     arrayInput.value = ' one ;; two ; ; three ;  ';
     arrayInput.dispatchEvent(new Event('input', { bubbles: true }));
     arrayInput.dispatchEvent(new Event('blur', { bubbles: true }));
     expect(arrayInput.value).toBe('one; two; three');
 
-    const sortArticle = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Article');
+    const sortArticle = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Article'
+    );
     sortArticle?.dispatchEvent(new Event('click', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
     const overrides = controller.collect();
-    const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map((field) => field.name);
+    const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map(
+      (field) => field.name
+    );
     expect(customNames.slice(-2)).toEqual(['z_last', 'a_first']);
-    const zLast = (overrides?.contentTypes?.article?.customFields ?? []).find((field) => field.name === 'z_last');
-    const aFirst = (overrides?.contentTypes?.article?.customFields ?? []).find((field) => field.name === 'a_first');
+    const zLast = (overrides?.contentTypes?.article?.customFields ?? []).find(
+      (field) => field.name === 'z_last'
+    );
+    const aFirst = (overrides?.contentTypes?.article?.customFields ?? []).find(
+      (field) => field.name === 'a_first'
+    );
     expect(zLast?.valuePath).toBe('meta.author');
     expect(aFirst?.defaultValue).toEqual(['one', 'two', 'three']);
   });
@@ -1030,7 +1136,9 @@ describe('yamlConfigTable validation', () => {
     addDomainRule();
     addDomainRule();
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
     domainInputs[0].value = ' Docs.Example.com ';
     domainInputs[1].value = 'docs.example.com';
     domainInputs.forEach((input) => {
@@ -1042,15 +1150,13 @@ describe('yamlConfigTable validation', () => {
     expect(document.querySelector('.aobx-table__global-errors')).toBeTruthy();
 
     const cards = Array.from(document.querySelectorAll<HTMLElement>('.aobx-domain__card'));
-    const deleteButton = Array.from(cards[1]?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => button.title === 'Delete' || button.textContent?.includes('删除')
-    );
+    const deleteButton = Array.from(
+      cards[1]?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => button.title === 'Delete' || button.textContent?.includes('删除'));
     deleteButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
     expect(() => controller?.collect()).toThrowError();
   });
-
-
 
   it('disables custom row move buttons while sort or filter mode is active', () => {
     const row = createCustomField('custom_move_blocked');
@@ -1058,28 +1164,34 @@ describe('yamlConfigTable validation', () => {
 
     const getMoveButtons = () => {
       const currentRow = document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
-      return Array.from(currentRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).filter((button) => {
-        const text = button.textContent?.trim() ?? '';
-        return text === '↑' || text === '↓';
-      });
+      return Array.from(currentRow?.querySelectorAll<HTMLButtonElement>('button') ?? []).filter(
+        (button) => {
+          const text = button.textContent?.trim() ?? '';
+          return text === '↑' || text === '↓';
+        }
+      );
     };
 
-    const filterButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Article');
+    const filterButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Article'
+    );
     expect(filterButton).toBeTruthy();
     filterButton?.dispatchEvent(new Event('click', { bubbles: true }));
     expect(getMoveButtons().every((button) => button.disabled)).toBe(true);
 
     filterButton?.dispatchEvent(new Event('click', { bubbles: true }));
-    const sortButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Article ↑' || button.textContent?.trim() === 'Article');
+    const sortButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) =>
+        button.textContent?.trim() === 'Article ↑' || button.textContent?.trim() === 'Article'
+    );
     sortButton?.dispatchEvent(new Event('click', { bubbles: true }));
     expect(getMoveButtons().every((button) => button.disabled)).toBe(true);
   });
 
-
   it('clears domain valuePath validation after trimming spaces away', () => {
-    const addDomainRuleButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('添加域名规则')
-    );
+    const addDomainRuleButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.includes('添加域名规则'));
     addDomainRuleButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
     const domainInput = document.querySelector<HTMLInputElement>('.aobx-domain__domain-input');
@@ -1091,7 +1203,9 @@ describe('yamlConfigTable validation', () => {
     const addFieldButton = document.querySelector<HTMLButtonElement>('.aobx-domain__add-field-btn');
     addFieldButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    const valuePathInput = document.querySelector<HTMLInputElement>('.aobx-domain__value-path-input');
+    const valuePathInput = document.querySelector<HTMLInputElement>(
+      '.aobx-domain__value-path-input'
+    );
     if (!valuePathInput) throw new Error('Expected valuePath input');
     valuePathInput.value = 'invalid path';
     valuePathInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1106,9 +1220,10 @@ describe('yamlConfigTable validation', () => {
 
     if (!controller) throw new Error('Controller missing');
     const overrides = controller.collect();
-    expect(overrides.contentTypes?.article?.domainOverrides?.['docs.example.com']?.[0]).toMatchObject({ valuePath: 'meta.author' });
+    expect(
+      overrides.contentTypes?.article?.domainOverrides?.['docs.example.com']?.[0]
+    ).toMatchObject({ valuePath: 'meta.author' });
   });
-
 
   it('clears normalized duplicate-domain errors after editing one rule to a unique host', () => {
     const addDomainRule = () => {
@@ -1121,8 +1236,12 @@ describe('yamlConfigTable validation', () => {
     addDomainRule();
     addDomainRule();
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
-    const addFieldButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
+    const addFieldButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn')
+    );
     domainInputs[0].value = ' Docs.Example.com ';
     domainInputs[1].value = 'docs.example.com';
     domainInputs.forEach((input) => {
@@ -1147,18 +1266,18 @@ describe('yamlConfigTable validation', () => {
     expect(document.querySelectorAll('.aobx-domain__errors')).toHaveLength(0);
   });
 
-
-
   it('clears stale default values when switching custom field types before collect', () => {
     const row = createCustomField('type_switch_field');
     const rowId = requireRowId(row, 'Missing type-switch row id');
     const getRow = () => document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
 
     let currentRow = getRow();
-    const textInput = Array.from(currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []).find(
-      (input) => input.value === 'type_switch_field'
-    );
-    const defaultInput = Array.from(currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []).find(
+    const textInput = Array.from(
+      currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []
+    ).find((input) => input.value === 'type_switch_field');
+    const defaultInput = Array.from(
+      currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []
+    ).find(
       (input) => input !== textInput && !input.classList.contains('aobx-table__advanced-input')
     );
     const typeSelect = currentRow?.querySelector<HTMLSelectElement>('select');
@@ -1171,9 +1290,9 @@ describe('yamlConfigTable validation', () => {
     typeSelect.value = 'boolean';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     currentRow = getRow();
-    const booleanInput = Array.from(currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []).find(
-      (input) => input.value !== 'type_switch_field'
-    );
+    const booleanInput = Array.from(
+      currentRow?.querySelectorAll<HTMLInputElement>('input[type="text"]') ?? []
+    ).find((input) => input.value !== 'type_switch_field');
     expect(booleanInput?.value ?? '').toBe('');
     if (!booleanInput) throw new Error('Missing boolean input');
     booleanInput.value = 'true';
@@ -1181,7 +1300,9 @@ describe('yamlConfigTable validation', () => {
     booleanInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const field = controller.collect()?.contentTypes?.article?.customFields?.find((item) => item.name === 'type_switch_field');
+    const field = controller
+      .collect()
+      ?.contentTypes?.article?.customFields?.find((item) => item.name === 'type_switch_field');
     expect(field).toMatchObject({ type: 'boolean', defaultValue: true });
   });
 
@@ -1190,13 +1311,14 @@ describe('yamlConfigTable validation', () => {
     const rowId = requireRowId(row, 'Missing advanced row id');
     const getRow = () => document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
 
-    const advancedToggle = Array.from(getRow()?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => /Show source|Hide source/.test(button.textContent ?? '')
-    );
+    const advancedToggle = Array.from(
+      getRow()?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => /Show source|Hide source/.test(button.textContent ?? ''));
     advancedToggle?.dispatchEvent(new Event('click', { bubbles: true }));
 
     let currentRow = getRow();
-    let advancedInput = currentRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    let advancedInput =
+      currentRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
     const typeSelect = currentRow?.querySelector<HTMLSelectElement>('select');
     if (!advancedInput || !typeSelect) throw new Error('Missing advanced controls');
     advancedInput.value = ' meta.author ';
@@ -1206,27 +1328,41 @@ describe('yamlConfigTable validation', () => {
     typeSelect.value = 'array';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     currentRow = getRow();
-    advancedInput = currentRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
-    const arrayInput = currentRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
+    advancedInput =
+      currentRow?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    const arrayInput =
+      currentRow?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
     if (!advancedInput || !arrayInput) throw new Error('Missing post-switch controls');
     expect(advancedInput.value).toBe('meta.author');
     arrayInput.value = ' one\n\n two ; three ';
     arrayInput.dispatchEvent(new Event('input', { bubbles: true }));
     arrayInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    const filterButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Article');
+    const filterButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Article'
+    );
     filterButton?.dispatchEvent(new Event('click', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const field = controller.collect()?.contentTypes?.article?.customFields?.find((item) => item.name === 'value_path_switch');
-    expect(field).toMatchObject({ type: 'array', valuePath: 'meta.author', defaultValue: ['one two', 'three'] });
+    const field = controller
+      .collect()
+      ?.contentTypes?.article?.customFields?.find((item) => item.name === 'value_path_switch');
+    expect(field).toMatchObject({
+      type: 'array',
+      valuePath: 'meta.author',
+      defaultValue: ['one two', 'three']
+    });
   });
 
   it('clears global warnings after deleting an invalid custom row', () => {
     const addButton = document.getElementById('yamlAddFieldBtn');
     if (!addButton) throw new Error('Expected add button');
 
-    const before = new Set(Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).map((row) => requireRowId(row, 'Missing row id')));
+    const before = new Set(
+      Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).map((row) =>
+        requireRowId(row, 'Missing row id')
+      )
+    );
     addButton.dispatchEvent(new Event('click', { bubbles: true }));
 
     const invalidRow = Array.from(document.querySelectorAll<HTMLElement>('div[data-row-id]')).find(
@@ -1251,25 +1387,29 @@ describe('yamlConfigTable validation', () => {
     const rowId = requireRowId(row, 'Missing blank valuePath row id');
     const getRow = () => document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
 
-    const advancedToggle = Array.from(getRow()?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
-      (button) => /Show source|Hide source/.test(button.textContent ?? '')
-    );
+    const advancedToggle = Array.from(
+      getRow()?.querySelectorAll<HTMLButtonElement>('button') ?? []
+    ).find((button) => /Show source|Hide source/.test(button.textContent ?? ''));
     advancedToggle?.dispatchEvent(new Event('click', { bubbles: true }));
 
-    let advancedInput = getRow()?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    let advancedInput =
+      getRow()?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
     if (!advancedInput) throw new Error('Missing advanced input');
     advancedInput.value = ' meta.author ';
     advancedInput.dispatchEvent(new Event('input', { bubbles: true }));
     advancedInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    advancedInput = getRow()?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
+    advancedInput =
+      getRow()?.querySelector<HTMLInputElement>('.aobx-table__advanced-input') ?? null;
     if (!advancedInput) throw new Error('Missing advanced input after first blur');
     advancedInput.value = '   ';
     advancedInput.dispatchEvent(new Event('input', { bubbles: true }));
     advancedInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const field = controller.collect()?.contentTypes?.article?.customFields?.find((item) => item.name === 'blank_value_path');
+    const field = controller
+      .collect()
+      ?.contentTypes?.article?.customFields?.find((item) => item.name === 'blank_value_path');
     expect(field?.valuePath).toBeUndefined();
   });
 
@@ -1283,22 +1423,25 @@ describe('yamlConfigTable validation', () => {
     typeSelect.value = 'array';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-    const arrayInput = getRow()?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
+    const arrayInput =
+      getRow()?.querySelector<HTMLInputElement>('.aobx-table__array-input') ?? null;
     if (!arrayInput) throw new Error('Missing array input');
     arrayInput.value = ' alpha ;; , \n beta , , ; gamma ; ';
     arrayInput.dispatchEvent(new Event('input', { bubbles: true }));
     arrayInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const field = controller.collect()?.contentTypes?.article?.customFields?.find((item) => item.name === 'mixed_array_segments');
+    const field = controller
+      .collect()
+      ?.contentTypes?.article?.customFields?.find((item) => item.name === 'mixed_array_segments');
     expect(field?.defaultValue).toEqual(['alpha', 'beta', 'gamma']);
     expect(arrayInput.value).toBe('alpha; beta; gamma');
   });
 
   it('clears duplicate-domain warnings after deleting one conflicting rule', () => {
     const addRule = () => {
-      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((candidate) =>
-        candidate.textContent?.includes('添加域名规则')
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => candidate.textContent?.includes('添加域名规则')
       );
       button?.dispatchEvent(new Event('click', { bubbles: true }));
     };
@@ -1306,30 +1449,33 @@ describe('yamlConfigTable validation', () => {
     addRule();
     addRule();
 
-    const domainInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input'));
-    const addFieldButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn'));
+    const domainInputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>('.aobx-domain__domain-input')
+    );
+    const addFieldButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.aobx-domain__add-field-btn')
+    );
     domainInputs[0].value = ' Docs.Example.com ';
     domainInputs[1].value = 'docs.example.com';
     domainInputs.forEach((input) => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('blur', { bubbles: true }));
     });
-    addFieldButtons.forEach((button) => button.dispatchEvent(new Event('click', { bubbles: true })));
+    addFieldButtons.forEach((button) =>
+      button.dispatchEvent(new Event('click', { bubbles: true }))
+    );
 
     expect(() => controller?.collect()).toThrowError();
     expect(document.querySelector('.aobx-table__global-errors')).toBeTruthy();
 
-    const removeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.aobx-domain__remove-btn, .aobx-btn')).filter((button) =>
-      button.textContent?.includes('删除规则')
-    );
+    const removeButtons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.aobx-domain__remove-btn, .aobx-btn')
+    ).filter((button) => button.textContent?.includes('删除规则'));
     removeButtons.at(-1)?.dispatchEvent(new Event('click', { bubbles: true }));
 
     expect(() => controller?.collect()).not.toThrow();
     expect(document.querySelectorAll('.aobx-domain__errors')).toHaveLength(0);
   });
-
-
-
 
   it('clears stale default values when switching custom field types repeatedly', () => {
     const row = createCustomField('switch_default_reset');
@@ -1337,12 +1483,14 @@ describe('yamlConfigTable validation', () => {
     const getRow = () => document.querySelector<HTMLElement>(`div[data-row-id="${rowId}"]`);
 
     let currentRow = getRow();
-    const typeSelect = Array.from(currentRow?.querySelectorAll<HTMLSelectElement>('select') ?? []).find((select) =>
-      Array.from(select.options).some((option) => option.value === 'array')
-    );
+    const typeSelect = Array.from(
+      currentRow?.querySelectorAll<HTMLSelectElement>('select') ?? []
+    ).find((select) => Array.from(select.options).some((option) => option.value === 'array'));
     if (!typeSelect) throw new Error('Missing type select');
 
-    const textInput = currentRow?.querySelector<HTMLInputElement>('.aobx-table__value-container input:not(.aobx-table__array-input)');
+    const textInput = currentRow?.querySelector<HTMLInputElement>(
+      '.aobx-table__value-container input:not(.aobx-table__array-input)'
+    );
     if (!textInput) throw new Error('Missing text default input');
     textInput.value = 'alpha';
     textInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1351,9 +1499,15 @@ describe('yamlConfigTable validation', () => {
     typeSelect.value = 'number';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     currentRow = getRow();
-    expect(currentRow?.querySelector<HTMLInputElement>('.aobx-table__value-container input:not(.aobx-table__array-input)')?.value ?? '').toBe('');
+    expect(
+      currentRow?.querySelector<HTMLInputElement>(
+        '.aobx-table__value-container input:not(.aobx-table__array-input)'
+      )?.value ?? ''
+    ).toBe('');
 
-    const numberInput = currentRow?.querySelector<HTMLInputElement>('.aobx-table__value-container input:not(.aobx-table__array-input)');
+    const numberInput = currentRow?.querySelector<HTMLInputElement>(
+      '.aobx-table__value-container input:not(.aobx-table__array-input)'
+    );
     if (!numberInput) throw new Error('Missing numeric default input');
     numberInput.value = '42';
     numberInput.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1362,14 +1516,19 @@ describe('yamlConfigTable validation', () => {
     typeSelect.value = 'text';
     typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
     currentRow = getRow();
-    expect(currentRow?.querySelector<HTMLInputElement>('.aobx-table__value-container input:not(.aobx-table__array-input)')?.value ?? '').toBe('');
+    expect(
+      currentRow?.querySelector<HTMLInputElement>(
+        '.aobx-table__value-container input:not(.aobx-table__array-input)'
+      )?.value ?? ''
+    ).toBe('');
 
     if (!controller) throw new Error('Controller missing');
-    const field = controller.collect()?.contentTypes?.article?.customFields?.find((item) => item.name === 'switch_default_reset');
+    const field = controller
+      .collect()
+      ?.contentTypes?.article?.customFields?.find((item) => item.name === 'switch_default_reset');
     expect(field).toMatchObject({ type: 'text' });
     expect(field).not.toHaveProperty('defaultValue');
   });
-
 });
 
 describe('yamlConfigTable pure validation helpers', () => {
@@ -1421,7 +1580,12 @@ describe('yamlConfigTable pure validation helpers', () => {
     const result = validateYamlConfig({
       rows: [
         makeRow({ id: 'row-1', name: 'dup_name', defaultValue: 'abc', type: 'number' }),
-        makeRow({ id: 'row-2', name: 'dup_name', enabled: createToggleMap(false), valuePath: 'bad path' })
+        makeRow({
+          id: 'row-2',
+          name: 'dup_name',
+          enabled: createToggleMap(false),
+          valuePath: 'bad path'
+        })
       ],
       domainEntries: [],
       tableLabels,

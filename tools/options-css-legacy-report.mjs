@@ -9,7 +9,7 @@ const INCLUDED_EXTS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.html', '.
 const IGNORE_PATHS = new Set(
   [
     'src/options/aob-option-preview.html',
-    'src/options/obsidian-hybrid-preview.html',
+    'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html',
     'src/options/styles/aob-option-preview.css'
   ].map((p) => path.resolve(p))
 );

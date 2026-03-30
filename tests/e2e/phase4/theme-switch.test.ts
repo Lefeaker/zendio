@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThemeSwitcher } from '@options/components/shared/ThemeSwitcher';
+import { ThemeSwitcher } from '../../../src/ui/domains/theme';
 import { withDomEnvironment, type DomGlobalKey } from '../../utils/domEnvironment';
 
 const DOM_GLOBALS: DomGlobalKey[] = [
@@ -96,7 +96,9 @@ describe('phase4/theme switcher', () => {
               expect(events.length).toBeGreaterThan(0);
               const lastEvent = events.at(-1);
               expect(lastEvent?.detail.theme).toBe('light');
-              expect(document.documentElement.classList.contains('theme-transitioning')).toBe(false);
+              expect(document.documentElement.classList.contains('theme-transitioning')).toBe(
+                false
+              );
             } finally {
               switcher.destroy();
             }
@@ -120,7 +122,9 @@ function stubMatchMedia(window: Window & typeof globalThis, matches: boolean): v
     removeEventListener: () => undefined,
     dispatchEvent: () => false
   };
-  window.matchMedia = vi.fn().mockReturnValue(mediaQueryList) as unknown as typeof window.matchMedia;
+  window.matchMedia = vi
+    .fn()
+    .mockReturnValue(mediaQueryList) as unknown as typeof window.matchMedia;
 }
 
 async function withGlobalLocalStorage<T>(

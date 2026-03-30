@@ -5,6 +5,14 @@ import { FormSectionRegistry } from '@options/components/formSections/formSectio
 import { MainContent } from '@options/components/layout/MainContent';
 import { createOptionsStateManager } from '@options/state/StateManager';
 import type { OptionsStateManager } from '@options/state/StateManager';
+import {
+  registerFallbackRepositories,
+  resetGlobalRegistry,
+  registerService,
+  TOKENS
+} from '@shared/di';
+import { createMemoryStorageService } from '@platform/preview/memoryStorage';
+import { createPreviewPlatformServices } from '@platform/preview/services';
 import { ensureSvgElementConstructors } from '../../../utils/svgElementPolyfill';
 
 ensureSvgElementConstructors();
@@ -16,6 +24,10 @@ describe('MainContent lifecycle management', () => {
   let registry: FormSectionRegistry;
 
   beforeEach(() => {
+    const storage = createMemoryStorageService();
+    resetGlobalRegistry();
+    registerService(TOKENS.platformServices, () => createPreviewPlatformServices(storage));
+    registerFallbackRepositories();
     container = document.createElement('div');
     document.body.append(container);
     mainContent = new MainContent(container);
@@ -31,6 +43,7 @@ describe('MainContent lifecycle management', () => {
     mainContent.destroy();
     registry.clear();
     container.remove();
+    resetGlobalRegistry();
   });
 
   it('allows sections to be unmounted and remounted', async () => {
@@ -68,9 +81,12 @@ describe('MainContent lifecycle management', () => {
   });
 
   it('preloads section constructors to avoid repeated dynamic imports', async () => {
-    const records = (mainContent as unknown as { sectionDefinitions: Array<{ id: string; load: () => Promise<unknown> }> })
-      .sectionDefinitions;
-    const usageDefinition = records.find(def => def.id === 'usage');
+    const records = (
+      mainContent as unknown as {
+        sectionDefinitions: Array<{ id: string; load: () => Promise<unknown> }>;
+      }
+    ).sectionDefinitions;
+    const usageDefinition = records.find((def) => def.id === 'usage');
     expect(usageDefinition).toBeDefined();
     if (!usageDefinition) {
       throw new Error('usage definition missing');

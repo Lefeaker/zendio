@@ -1,8 +1,11 @@
 import type { AppError } from '../../shared/errors';
 import { isSupportPromptMessage } from '../../shared/types';
 import { isAppError } from '../../shared/errors';
-import type { MessageListener, MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
-import type { VideoSession } from '../video/session';
+import type {
+  MessageListener,
+  MessagePayload,
+  MessagingService
+} from '../../platform/interfaces/messaging';
 import type { ActiveSelectionInfo, SelectionSnapshot } from './contentSelectionTracker';
 
 type SupportPromptStatus = 'success' | 'failure' | 'warning';
@@ -17,6 +20,10 @@ interface SupportPromptOptions {
 
 interface SupportPromptLike {
   show(options?: SupportPromptOptions): Promise<void> | void;
+}
+
+interface VideoSessionLike {
+  start(): Promise<void>;
 }
 
 interface VideoSelectionController {
@@ -37,9 +44,9 @@ export interface CreateContentMessageRouterOptions {
   setClipMode: (mode: ClipMode) => void;
   runClip: () => void;
   selectionController: VideoSelectionController;
-  createVideoSession: () => VideoSession;
+  createVideoSession: () => VideoSessionLike;
   isVideoSessionActive: () => boolean;
-  getVideoSession: () => VideoSession | null;
+  getVideoSession: () => VideoSessionLike | null;
   resolveActiveSelection: () => ActiveSelectionInfo | null;
   restoreSelectionFromSnapshot: (snapshot: SelectionSnapshot | null) => ActiveSelectionInfo | null;
   getLastSelectionSnapshot: () => SelectionSnapshot | null;
@@ -113,7 +120,8 @@ export function createContentMessageRouter(
         return { success: true, alreadyActive: true } satisfies MessagePayload;
       }
       const session = createVideoSession();
-      return session.start()
+      return session
+        .start()
         .then(() => ({ success: true }))
         .catch((error: unknown) => {
           console.error('[content] Failed to start video mode:', error);
@@ -141,27 +149,39 @@ export function createContentMessageRouter(
         const selectedHtml = container.innerHTML;
         const selectedText = selection.toString();
 
-        void messaging.send({
-          type: 'AIIOB_FORWARD_VIDEO_SELECTION',
-          payload: {
-            selectedHtml,
-            selectedText,
-            sourceUrl: location.href
-          }
-        }).catch(() => undefined);
+        void messaging
+          .send({
+            type: 'AIIOB_FORWARD_VIDEO_SELECTION',
+            payload: {
+              selectedHtml,
+              selectedText,
+              sourceUrl: location.href
+            }
+          })
+          .catch(() => undefined);
 
         selection.removeAllRanges();
         return { success: true, forwarded: true } satisfies MessagePayload;
       }
 
       let selectionInfo = resolveActiveSelection();
-      if ((!selectionInfo || selectionInfo.selection.rangeCount === 0 || selectionInfo.selection.isCollapsed) && getLastSelectionSnapshot()) {
+      if (
+        (!selectionInfo ||
+          selectionInfo.selection.rangeCount === 0 ||
+          selectionInfo.selection.isCollapsed) &&
+        getLastSelectionSnapshot()
+      ) {
         selectionInfo = restoreSelectionFromSnapshot(getLastSelectionSnapshot());
       }
-      if (!selectionInfo || selectionInfo.selection.rangeCount === 0 || selectionInfo.selection.isCollapsed) {
+      if (
+        !selectionInfo ||
+        selectionInfo.selection.rangeCount === 0 ||
+        selectionInfo.selection.isCollapsed
+      ) {
         return { success: false, error: 'No text selected' } satisfies MessagePayload;
       }
-      return selectionController.handleVideoSelectionClip(document, location.href, selectionInfo.selection)
+      return selectionController
+        .handleVideoSelectionClip(document, location.href, selectionInfo.selection)
         .then(() => {
           clearLastSelectionSnapshot();
           return { success: true } as const;
@@ -177,7 +197,8 @@ export function createContentMessageRouter(
       const payload = message.payload as Record<string, unknown> | undefined;
       const selectedHtml = typeof payload?.selectedHtml === 'string' ? payload.selectedHtml : '';
       const selectedText = typeof payload?.selectedText === 'string' ? payload.selectedText : '';
-      return selectionController.handleVideoSelectionClipFromData(document, location.href, selectedHtml, selectedText)
+      return selectionController
+        .handleVideoSelectionClipFromData(document, location.href, selectedHtml, selectedText)
         .then(() => ({ success: true }))
         .catch((error: unknown) => {
           console.error('[content] Remote video selection clip failed:', error);

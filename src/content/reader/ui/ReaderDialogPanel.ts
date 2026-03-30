@@ -3,14 +3,28 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
-import { ReaderDialog, type ReaderDialogHighlight } from '../components/ReaderDialog';
+import { ReaderDialog, type ReaderDialogHighlight } from '../../../ui/domains/reading';
+import type { UiMountable } from '../../../ui/hosts/shared/contract';
 
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
   texts: ReaderPanelTexts;
 }
 
-export class ReaderDialogPanel {
+export class ReaderDialogPanel
+  implements
+    UiMountable<
+      HTMLElement | undefined,
+      | {
+          texts?: ReaderPanelTexts;
+          count?: number;
+          hint?: string;
+          highlights?: ReaderPanelHighlight[];
+        }
+      | undefined,
+      HTMLElement
+    >
+{
   private readonly dialog: ReaderDialog;
   private readonly renderRoot: HTMLElement;
   private texts: ReaderPanelTexts;
@@ -45,6 +59,37 @@ export class ReaderDialogPanel {
   }
 
   get element(): HTMLElement {
+    return this.renderRoot;
+  }
+
+  mount(target: HTMLElement = document.body): HTMLElement {
+    if (!this.renderRoot.isConnected) {
+      target.append(this.renderRoot);
+    }
+    return this.renderRoot;
+  }
+
+  update(payload?: {
+    texts?: ReaderPanelTexts;
+    count?: number;
+    hint?: string;
+    highlights?: ReaderPanelHighlight[];
+  }): HTMLElement {
+    if (!payload) {
+      return this.renderRoot;
+    }
+    if (payload.texts) {
+      this.updateTexts(payload.texts);
+    }
+    if (typeof payload.count === 'number') {
+      this.updateCount(payload.count);
+    }
+    if (typeof payload.hint === 'string') {
+      this.updateHint(payload.hint);
+    }
+    if (payload.highlights) {
+      this.setHighlights(payload.highlights);
+    }
     return this.renderRoot;
   }
 

@@ -27,7 +27,7 @@
 - 当前代码虽然缩小了选择器，但仍然在每次评论加载时遍历整棵 DOM，缺少基于评论容器的作用域限定与重复观察的去重。
 
 ### 3.3 文本提取与语义恢复
-- 页面示例（`docs/bilibili-page-source-complete.html`）显示主评在 `bili-rich-text` 中有 `span.text-node` 与 `bili-emoji` 混合；实际线上还会出现 `bili-link`, `bili-at`, `bili-dyn-content` 等节点。目前的 `extractBilibiliSelection` 仅处理 `.text-node`/`.reply-target`，遗漏其它文本入口。
+- 页面示例（`docs/reference-fixtures/bilibili-page-source-complete.html`）显示主评在 `bili-rich-text` 中有 `span.text-node` 与 `bili-emoji` 混合；实际线上还会出现 `bili-link`, `bili-at`, `bili-dyn-content` 等节点。目前的 `extractBilibiliSelection` 仅处理 `.text-node`/`.reply-target`，遗漏其它文本入口。
 - `data-content` 字段中包含 `[]` 表情占位与 JSON 片段，需要优先解析后再 fallback 至 DOM。
 - 选中回复时需要保留引用的昵称（`@xxx`），与正文一起合并，避免高亮回放时文本丢失。
 
@@ -52,7 +52,7 @@
 
 ### Phase 0：调试与基线
 1. 在 `video/session.ts` 中为 `window` 与评论 ShadowRoot 注册 `selectionchange` 与 `mouseup` 日志，确认何时 selection 被清空。
-2. 复刻 `docs/bilibili-page-source-complete.html` 中的结构到本地 `test-bilibili-comments.html`，用于离线调试。
+2. 复刻 `docs/reference-fixtures/bilibili-page-source-complete.html` 中的结构到本地 `test-bilibili-comments.html`，用于离线调试。
 3. 在现有 `extractBilibiliSelection` 中加入失败监控（日志 + Sentry hook），收集真实页面上失败时的 `event.composedPath()`。
 
 ### Phase 1：安全的 Shadow DOM 监听
@@ -93,7 +93,7 @@
    - 刷新页面后旧数据能否恢复高亮。
    - 对比开启/关闭「减少动态效果」系统设置下的表现。
 2. 自动化测试：
-   - 为 `extractRichText` 与 `matchTokensInShadow` 编写单元测试（基于 `bilibili-page-source-complete.html` 中的片段）。
+   - 为 `extractRichText` 与 `matchTokensInShadow` 编写单元测试（基于 `reference-fixtures/bilibili-page-source-complete.html` 中的片段）。
    - 在 e2e 中构造包含 Shadow DOM 的伪页面（使用 jsdom + web-component polyfill 或 Puppeteer + 真实页面）。
 3. 性能监测：
    - 使用 Performance API 记录 `observeShadowRoots` 调用耗时与数量。
@@ -121,8 +121,7 @@
 
 - `src/content/video/session.ts`
 - `src/content/video/prompt.ts`
-- `docs/bilibili-page-source-complete.html`
+- `docs/reference-fixtures/bilibili-page-source-complete.html`
 - `docs/bilibili-comment-shadow-dom-fix.md`
 
 > ⚠️ 本指南尚未在代码层面落地，执行前需与团队确认优先级与排期。完成实现后，请将测试结果与性能数据补充回本文件或另建跟进文档。
-

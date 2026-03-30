@@ -1,5 +1,10 @@
 import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
 import { createIcon, Icons } from '@shared/utils/iconHelpers';
+import {
+  createContentActionRow,
+  createContentLayoutElement,
+  createContentSurfacePanel
+} from '../../../ui/primitives/layout';
 import { createCommentForm } from './commentForm';
 import type { ReaderModeBehavior } from './dialogTypes';
 import { getModifierLabel } from './dialogShortcuts';
@@ -83,14 +88,16 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
 
-  const content = document.createElement('div');
-  content.className =
-    'obsidian-clipper-content absolute bg-black/90 backdrop-blur-xl border border-white/20 rounded-[14px] p-0 max-w-[600px] w-[90%] max-h-[80vh] shadow-[0_18px_45px_rgba(0,0,0,0.6)] pointer-events-auto transition-shadow duration-200 ease-out transform translate-0 animate-[scaleIn_0.2s_ease_0.2s_1]';
+  const content = createContentSurfacePanel({
+    className:
+      'obsidian-clipper-content absolute max-h-[80vh] max-w-[600px] w-[90%] translate-0 transform rounded-[14px] border border-white/20 bg-black/90 p-0 shadow-[0_18px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl pointer-events-auto transition-shadow duration-200 ease-out animate-[scaleIn_0.2s_ease_0.2s_1]'
+  });
   setInitialDialogPosition(content);
 
-  const header = document.createElement('div');
-  header.className =
-    'clipper-dialog-header p-[24px_28px_18px_28px] cursor-move select-none rounded-t-[14px] transition-colors duration-200 ease-out flex items-center gap-2 hover:bg-text/5';
+  const header = createContentActionRow({
+    className:
+      'clipper-dialog-header flex cursor-move items-center gap-2 rounded-t-[14px] p-[24px_28px_18px_28px] select-none transition-colors duration-200 ease-out hover:bg-text/5'
+  });
 
   const title = document.createElement('h2');
   title.className = 'clipper-dialog-title';
@@ -118,8 +125,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   );
   content.appendChild(instructions);
 
-  const divider = document.createElement('div');
-  divider.className = 'clipper-dialog-divider';
+  const divider = createContentLayoutElement({ className: 'clipper-dialog-divider' });
   content.appendChild(divider);
 
   const commentForm = createCommentForm(
@@ -142,18 +148,17 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
     getFallback('commentLabel'),
     binder
   );
-  const hintElement =
-    commentForm.container.querySelector<HTMLDivElement>('.clipper-comment-completed-hint');
+  const hintElement = commentForm.container.querySelector<HTMLDivElement>(
+    '.clipper-comment-completed-hint'
+  );
   content.appendChild(commentForm.container);
 
-  dialog.setAttribute(
-    'aria-describedby',
-    [textarea.id, instructions.id].filter(Boolean).join(' ')
-  );
+  dialog.setAttribute('aria-describedby', [textarea.id, instructions.id].filter(Boolean).join(' '));
 
-  const actions = document.createElement('div');
-  actions.className =
-    'clipper-dialog-actions flex justify-end gap-3 p-[16px_24px_24px_24px] border-t border-white/10 bg-[#0c0f1e]/94 rounded-b-[14px]';
+  const actions = createContentActionRow({
+    className:
+      'clipper-dialog-actions flex justify-end gap-3 rounded-b-[14px] border-t border-white/10 bg-[#0c0f1e]/94 p-[16px_24px_24px_24px]'
+  });
 
   if (allowReaderMode) {
     const readerIcon = createIcon(Icons.ChevronRight, {
@@ -182,14 +187,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
     });
     videoIcon.setAttribute('aria-hidden', 'true');
     actions.appendChild(
-      createGhostButton(
-        binder,
-        'openVideoModeButton',
-        '进入视频模式',
-        videoIcon,
-        bindings,
-        onVideo
-      )
+      createGhostButton(binder, 'openVideoModeButton', '进入视频模式', videoIcon, bindings, onVideo)
     );
   }
 
@@ -295,7 +293,9 @@ export function addButtonShortcutHints(
     escapeAction: string;
   }
 ): void {
-  const buttons = dialog.querySelectorAll<HTMLButtonElement>('.clipper-dialog-actions .clipper-btn');
+  const buttons = dialog.querySelectorAll<HTMLButtonElement>(
+    '.clipper-dialog-actions .clipper-btn'
+  );
   buttons.forEach((element) => {
     if (element.parentElement?.classList.contains('clipper-btn-wrapper')) {
       return;

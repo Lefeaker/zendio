@@ -1,11 +1,12 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { YamlConfigControllerOptions } from '@options/components/controls/yamlConfigTable';
-import { YamlConfigView } from '@options/components/controls/YamlConfigView';
+import type { YamlConfigControllerOptions } from '../../../src/ui/domains/yaml-config/yamlConfigTable';
+import { YamlConfigView } from '../../../src/ui/domains/yaml-config';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: unknown[]) => unknown>() =>
+  vi.fn<Parameters<T>, ReturnType<T>>();
 
 type ControllerStub = {
   render: ReturnType<typeof createMockFn<(value: YamlConfigOverrides | null) => void>>;
@@ -16,7 +17,7 @@ type ControllerStub = {
 const controllerStubs: ControllerStub[] = [];
 let lastControllerOptions: YamlConfigControllerOptions | undefined;
 
-vi.mock('@options/components/controls/yamlConfigTable', () => ({
+vi.mock('../../../src/ui/domains/yaml-config/yamlConfigTable', () => ({
   createYamlConfigController: vi.fn((options: YamlConfigControllerOptions) => {
     lastControllerOptions = options;
     const stub: ControllerStub = {
@@ -72,7 +73,9 @@ describe('YamlConfigView', () => {
       yamlFieldSaveBlockedWarning: 'Fix errors'
     } as never);
 
-    const overrides: YamlConfigOverrides = { contentTypes: { article: { fields: [{ name: 'title', type: 'text', enabled: true }] } } };
+    const overrides: YamlConfigOverrides = {
+      contentTypes: { article: { fields: [{ name: 'title', type: 'text', enabled: true }] } }
+    };
     const onDirty = vi.fn();
     view.render({ overrides, onDirty });
     view.render({ overrides: null, onDirty });
@@ -83,7 +86,9 @@ describe('YamlConfigView', () => {
     expect(controllerStubs[0].render).toHaveBeenNthCalledWith(1, overrides);
     expect(controllerStubs[0].render).toHaveBeenNthCalledWith(2, null);
 
-    const collected = { contentTypes: { video: { fields: [{ name: 'duration', type: 'number', enabled: true }] } } } as YamlConfigOverrides;
+    const collected = {
+      contentTypes: { video: { fields: [{ name: 'duration', type: 'number', enabled: true }] } }
+    } as YamlConfigOverrides;
     controllerStubs[0].collect.mockReturnValue(collected);
     expect(view.collect()).toEqual(collected);
 

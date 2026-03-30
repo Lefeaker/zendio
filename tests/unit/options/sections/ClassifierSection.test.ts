@@ -9,27 +9,16 @@ import type { OptionsStateManager } from '@options/state/StateManager';
 import { MockOptionsRepository } from '../../../utils/repositories';
 
 const classifierMocks = vi.hoisted(() => {
-  const registerSync = vi.fn();
-  const unregisterSync = vi.fn();
   const scheduleAutoSave = vi.fn();
   const parseTaxonomy = vi.fn();
   return {
-    registerSync,
-    unregisterSync,
     scheduleAutoSave,
     parseTaxonomy
   };
 }) as {
-  registerSync: ReturnType<typeof vi.fn>;
-  unregisterSync: ReturnType<typeof vi.fn>;
   scheduleAutoSave: ReturnType<typeof vi.fn>;
   parseTaxonomy: ReturnType<typeof vi.fn>;
 };
-
-vi.mock('@options/components/sectionRegistry', () => ({
-  registerClassifierSync: classifierMocks.registerSync,
-  unregisterClassifierSync: classifierMocks.unregisterSync
-}));
 
 vi.mock('@options/app/optionsControllerContext', () => ({
   getOptionsController: () => ({
@@ -82,7 +71,7 @@ describe('ClassifierSection', () => {
     expect(enableInput.checked).toBe(false);
     expect(configWrapper.style.display).toBe('none');
     expect(unstableNote.style.display).toBe('none');
-    expect(classifierMocks.registerSync).toHaveBeenCalledTimes(1);
+    section.syncNoticeState();
 
     enableInput.checked = true;
     enableInput.dispatchEvent(new Event('change', { bubbles: true }));
@@ -92,7 +81,6 @@ describe('ClassifierSection', () => {
     expect(classifierMocks.scheduleAutoSave).toHaveBeenCalledTimes(1);
 
     section.destroy();
-    expect(classifierMocks.unregisterSync).toHaveBeenCalledTimes(1);
   });
 
   it('applies snapshot and collects classifier changes with taxonomy fallback', async () => {
@@ -117,7 +105,9 @@ describe('ClassifierSection', () => {
 
     expect(providerSelect.value).toBe('openai');
     expect(endpointInput.value).toBe('https://api.openai.com/v1');
-    expect(JSON.parse(taxonomyTextarea.value)).toEqual(JSON.parse(JSON.stringify(DEFAULT_TAXONOMY_CONFIG)));
+    expect(JSON.parse(taxonomyTextarea.value)).toEqual(
+      JSON.parse(JSON.stringify(DEFAULT_TAXONOMY_CONFIG))
+    );
 
     providerSelect.value = 'ollama';
     endpointInput.value = 'http://localhost:11434/api/chat';
@@ -152,7 +142,10 @@ describe('ClassifierSection', () => {
 
   it('updates UI when repository snapshot changes and stops after destroy', async () => {
     const { section, repo } = renderSection();
-    const applySpy = vi.spyOn(section as unknown as { applySnapshot: (options: StoredOptions) => void }, 'applySnapshot');
+    const applySpy = vi.spyOn(
+      section as unknown as { applySnapshot: (options: StoredOptions) => void },
+      'applySnapshot'
+    );
 
     await repo.set({
       classifier: {
@@ -184,7 +177,6 @@ describe('ClassifierSection', () => {
     } as Partial<CompleteOptions>);
     expect(applySpy).not.toHaveBeenCalled();
   });
-
 
   it('schedules auto save for each value input and restores defaults on sparse snapshots', async () => {
     const { section } = renderSection();
@@ -250,9 +242,10 @@ describe('ClassifierSection', () => {
       throw new Error('blank taxonomy');
     });
 
-    const changes = registry.collect({ classifier: { taxonomy: DEFAULT_TAXONOMY_CONFIG } } as StoredOptions);
+    const changes = registry.collect({
+      classifier: { taxonomy: DEFAULT_TAXONOMY_CONFIG }
+    } as StoredOptions);
     expect(changes.classifier?.taxonomy).toEqual(DEFAULT_TAXONOMY_CONFIG);
     section.destroy();
   });
-
 });

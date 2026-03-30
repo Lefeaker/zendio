@@ -3,7 +3,7 @@ import {
   applyManagedShadowStyle,
   createManagedStyleSheet,
   supportsAdoptedStyleSheets
-} from '../../shared/shadowStyleBridge';
+} from '../../../ui/foundation/style-host';
 
 const CLIPPER_BRIDGE_KEY = 'clipper-tailwind';
 
@@ -64,7 +64,12 @@ class ClipperStyleSheetManager {
   }
 
   applyTo(shadowRoot: ShadowRoot): void {
-    applyManagedShadowStyle(shadowRoot, CLIPPER_BRIDGE_KEY, this.clipperStyles ?? '', this.clipperSheet);
+    applyManagedShadowStyle(
+      shadowRoot,
+      CLIPPER_BRIDGE_KEY,
+      this.clipperStyles ?? '',
+      this.clipperSheet
+    );
   }
 
   destroy(): void {

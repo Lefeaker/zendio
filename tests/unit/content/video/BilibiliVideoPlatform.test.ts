@@ -2,6 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
+import {
+  flattenBilibiliContentNode,
+  parseBilibiliDataContent,
+  resolveBilibiliRichTextContainer,
+  serializeBilibiliRichTextFragment
+} from '@content/video/platforms/bilibiliRichText';
 import type { PlatformSelectionInput, VideoPlatformContext } from '@content/video/platforms';
 
 type VideoPlatformContextWithMocks = VideoPlatformContext & {
@@ -46,13 +52,16 @@ describe('BilibiliVideoPlatform', () => {
   it('activates on bilibili hosts and formats bilibili titles', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
 
-    expect(platform.shouldActivate({ location: { hostname: 'www.bilibili.com' } } as Document)).toBe(true);
+    expect(
+      platform.shouldActivate({ location: { hostname: 'www.bilibili.com' } } as Document)
+    ).toBe(true);
     expect(platform.formatVideoTitle('测试视频___哔哩哔哩_bilibili')).toBe('测试视频');
     expect(platform.formatVideoTitle('   ')).toBeNull();
   });
 
   it('builds timestamp urls with active episode fallback', () => {
-    document.body.innerHTML = '<div class="video-episode-card__entry is-active" data-index="2"></div>';
+    document.body.innerHTML =
+      '<div class="video-episode-card__entry is-active" data-index="2"></div>';
     const platform = new BilibiliVideoPlatform(createContext(document));
 
     const url = platform.buildTimestampUrl(135, {
@@ -149,13 +158,12 @@ describe('BilibiliVideoPlatform', () => {
 
   it('parses structured data-content JSON and preserves mentions', () => {
     const host = document.createElement('bili-rich-text');
-    host.setAttribute('data-content', JSON.stringify({
-      rich_text_nodes: [
-        { text: 'Hello ' },
-        { type: 'at', name: 'Alice' },
-        { text: ' world' }
-      ]
-    }));
+    host.setAttribute(
+      'data-content',
+      JSON.stringify({
+        rich_text_nodes: [{ text: 'Hello ' }, { type: 'at', name: 'Alice' }, { text: ' world' }]
+      })
+    );
     document.body.appendChild(host);
 
     const event = new MouseEvent('mouseup', { bubbles: true });
@@ -165,7 +173,12 @@ describe('BilibiliVideoPlatform', () => {
     });
 
     const platform = new BilibiliVideoPlatform(createContext(document));
-    const result = platform.resolveSelection({ range: null, selectedText: '', selectedHtml: '', event } as PlatformSelectionInput);
+    const result = platform.resolveSelection({
+      range: null,
+      selectedText: '',
+      selectedHtml: '',
+      event
+    } as PlatformSelectionInput);
 
     expect(result?.text).toBe('Hello @Alice world');
     expect(result?.html).toContain('Hello @Alice world');
@@ -189,7 +202,6 @@ describe('BilibiliVideoPlatform', () => {
 
     expect(range?.toString()).toContain('nested text');
   });
-
 
   it('observes comment shadow roots and delegates highlight/restore through base behavior', () => {
     const context = createContext(document);
@@ -217,11 +229,21 @@ describe('BilibiliVideoPlatform', () => {
     range.setStart(textNode, 0);
     range.setEnd(textNode, 'Observed'.length);
 
-    expect(platform.highlight(range, 'capture-1', 'https://example.com/#:~:text=Observed')).toBe('wrapper-1');
-    const { ensureHighlightStyles, registerShadowSelectionBridge, observeWithFragmentObserver, highlightSelection } = context.__mocks;
+    expect(platform.highlight(range, 'capture-1', 'https://example.com/#:~:text=Observed')).toBe(
+      'wrapper-1'
+    );
+    const {
+      ensureHighlightStyles,
+      registerShadowSelectionBridge,
+      observeWithFragmentObserver,
+      highlightSelection
+    } = context.__mocks;
     expect(ensureHighlightStyles).toHaveBeenCalledWith(commentRoot);
     expect(registerShadowSelectionBridge).toHaveBeenCalledWith(commentRoot);
-    expect(observeWithFragmentObserver).toHaveBeenCalledWith(commentRoot, { childList: true, subtree: true });
+    expect(observeWithFragmentObserver).toHaveBeenCalledWith(commentRoot, {
+      childList: true,
+      subtree: true
+    });
     expect(ensureHighlightStyles.mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(highlightSelection).toHaveBeenCalled();
 
@@ -279,7 +301,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
-
   it('polls pending comment hosts until a shadow root becomes available', () => {
     vi.useFakeTimers();
     const context = createContext(document);
@@ -314,7 +335,10 @@ describe('BilibiliVideoPlatform', () => {
 
     expect(context.__mocks.ensureHighlightStyles).toHaveBeenCalledWith(root);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
-    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, { childList: true, subtree: true });
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
+      childList: true,
+      subtree: true
+    });
     expect(context.__mocks.scheduleFragmentHighlightRestore).toHaveBeenCalled();
   });
 
@@ -346,7 +370,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(context.__mocks.ensureHighlightStyles).not.toHaveBeenCalled();
     expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
   });
-
 
   it('does not schedule restore for disconnected pending hosts', () => {
     vi.useFakeTimers();
@@ -403,7 +426,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(restored).toBe('missing-wrapper');
   });
 
-
   it('returns null when no bilibili selection text can be resolved', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
 
@@ -452,31 +474,26 @@ describe('BilibiliVideoPlatform', () => {
     expect(result?.html).toContain('<a href="https://example.com"');
   });
 
-
   it('parses additional structured content node shapes and ignores invalid payloads', () => {
-    const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as {
-      parseBilibiliDataContent: (raw: string) => { text: string; html: string } | null;
-      tryParseBilibiliContentJson: (raw: string) => string | null;
-      flattenBilibiliContentNode: (node: unknown) => string;
-    };
-
-    expect(platformAny.parseBilibiliDataContent('   ')).toBeNull();
-    expect(platformAny.tryParseBilibiliContentJson('plain text')).toBeNull();
-    expect(platformAny.tryParseBilibiliContentJson('{bad')).toBeNull();
-    expect(platformAny.flattenBilibiliContentNode({ raw_text: 'raw text' })).toBe('raw text');
-    expect(platformAny.flattenBilibiliContentNode({ content: 'content text' })).toBe('content text');
-    expect(platformAny.flattenBilibiliContentNode({ display_text: 'display text' })).toBe('display text');
-    expect(platformAny.flattenBilibiliContentNode({ name: 'Bob', type: 'user' })).toBe('');
-    expect(platformAny.flattenBilibiliContentNode([{ text: 'A' }, { ops: [{ insert: 'B' }] }, true, 3])).toBe('ABtrue3');
-    expect(platformAny.parseBilibiliDataContent(JSON.stringify({ ops: [{ insert: 'Hello' }, { insert: { name: 'Alice', type: 'at' } }] }))?.text).toBe('Hello@Alice');
+    expect(parseBilibiliDataContent('   ', (value) => value)).toBeNull();
+    expect(parseBilibiliDataContent('plain text', (value) => value)?.text).toBe('plain text');
+    expect(parseBilibiliDataContent('{bad', (value) => value)?.text).toBe('{bad');
+    expect(flattenBilibiliContentNode({ raw_text: 'raw text' })).toBe('raw text');
+    expect(flattenBilibiliContentNode({ content: 'content text' })).toBe('content text');
+    expect(flattenBilibiliContentNode({ display_text: 'display text' })).toBe('display text');
+    expect(flattenBilibiliContentNode({ name: 'Bob', type: 'user' })).toBe('');
+    expect(flattenBilibiliContentNode([{ text: 'A' }, { ops: [{ insert: 'B' }] }, true, 3])).toBe(
+      'ABtrue3'
+    );
+    expect(
+      parseBilibiliDataContent(
+        JSON.stringify({ ops: [{ insert: 'Hello' }, { insert: { name: 'Alice', type: 'at' } }] }),
+        (value) => value
+      )?.text
+    ).toBe('Hello@Alice');
   });
 
   it('serializes img alt, reply-target mentions, dyn content, text nodes, and skips inert nodes', () => {
-    const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as {
-      serializeBilibiliRichTextFragment: (root: Element | ShadowRoot) => { text: string; html: string };
-    };
     const host = document.createElement('div');
     host.innerHTML = [
       '<style>.x{}</style>',
@@ -488,7 +505,7 @@ describe('BilibiliVideoPlatform', () => {
       '<span></span>'
     ].join('');
 
-    const result = platformAny.serializeBilibiliRichTextFragment(host);
+    const result = serializeBilibiliRichTextFragment(host, (value) => value);
     expect(result.text).toContain('[开心]');
     expect(result.text).toContain('@Carol');
     expect(result.text).toContain('dyn text');
@@ -502,14 +519,13 @@ describe('BilibiliVideoPlatform', () => {
   it('falls back when rich text containers or ranges cannot be resolved', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
     const platformAny = platform as unknown as {
-      resolveBilibiliRichTextContainer: (root: ShadowRoot) => HTMLElement | null;
       extractBilibiliSelection: (range: Range) => { text: string; html: string } | null;
       buildRangeCoveringBilibiliRichText: (host: HTMLElement) => Range | null;
     };
     const emptyHost = document.createElement('bili-rich-text');
     const shadowRoot = emptyHost.attachShadow({ mode: 'open' });
     shadowRoot.append(document.createElement('style'));
-    expect(platformAny.resolveBilibiliRichTextContainer(shadowRoot)).toBeNull();
+    expect(resolveBilibiliRichTextContainer(shadowRoot)).toBeNull();
     expect(platformAny.buildRangeCoveringBilibiliRichText(emptyHost)).toBeNull();
 
     const orphan = document.createTextNode('orphan');
@@ -522,9 +538,17 @@ describe('BilibiliVideoPlatform', () => {
   it('returns null for invalid timestamp base urls and ignores unrelated mutations', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(createContext(document), scheduleRestore));
+    const platform = new BilibiliVideoPlatform(
+      withScheduledRestore(createContext(document), scheduleRestore)
+    );
 
-    expect(platform.buildTimestampUrl(15, { canonicalUrl: 'not-a-url', currentUrl: 'still-bad', videoId: null })).toBeNull();
+    expect(
+      platform.buildTimestampUrl(15, {
+        canonicalUrl: 'not-a-url',
+        currentUrl: 'still-bad',
+        videoId: null
+      })
+    ).toBeNull();
 
     platform.handleMutations([
       {
@@ -588,17 +612,19 @@ describe('BilibiliVideoPlatform', () => {
     expect(result).toBeUndefined();
   });
 
-
-
   it('does not activate on non-bilibili hosts and preserves existing page param in timestamp urls', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
 
-    expect(platform.shouldActivate({ location: { hostname: 'example.com' } } as Document)).toBe(false);
-    expect(platform.buildTimestampUrl(45, {
-      canonicalUrl: 'https://www.bilibili.com/video/BV1xx411c7mD?p=4',
-      currentUrl: document.location.href,
-      videoId: 'BV1xx411c7mD'
-    })).toBe('https://www.bilibili.com/video/BV1xx411c7mD?p=4&t=45');
+    expect(platform.shouldActivate({ location: { hostname: 'example.com' } } as Document)).toBe(
+      false
+    );
+    expect(
+      platform.buildTimestampUrl(45, {
+        canonicalUrl: 'https://www.bilibili.com/video/BV1xx411c7mD?p=4',
+        currentUrl: document.location.href,
+        videoId: 'BV1xx411c7mD'
+      })
+    ).toBe('https://www.bilibili.com/video/BV1xx411c7mD?p=4&t=45');
   });
 
   it('returns undefined when highlight or restore cannot resolve a fragment target', () => {
@@ -613,16 +639,20 @@ describe('BilibiliVideoPlatform', () => {
     range.setStart(textNode, 0);
     range.setEnd(textNode, textNode.textContent?.length ?? 0);
 
-    expect(platform.highlight(range, 'capture-missing', 'https://example.com/#:~:text=missing')).toBeUndefined();
-    expect(platform.restoreHighlight({
-      kind: 'fragment',
-      id: 'fragment-none',
-      comment: '',
-      selectedText: 'still missing',
-      selectedHtml: '<p>still missing</p>',
-      fragmentUrl: 'https://example.com/#:~:text=still%20missing',
-      createdAt: 1
-    })).toBeUndefined();
+    expect(
+      platform.highlight(range, 'capture-missing', 'https://example.com/#:~:text=missing')
+    ).toBeUndefined();
+    expect(
+      platform.restoreHighlight({
+        kind: 'fragment',
+        id: 'fragment-none',
+        comment: '',
+        selectedText: 'still missing',
+        selectedHtml: '<p>still missing</p>',
+        fragmentUrl: 'https://example.com/#:~:text=still%20missing',
+        createdAt: 1
+      })
+    ).toBeUndefined();
   });
 
   it('keeps range-derived selection when event fallback also exists and ignores non-childList mutations', () => {
@@ -647,8 +677,15 @@ describe('BilibiliVideoPlatform', () => {
     });
 
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(createContext(document), scheduleRestore));
-    const result = platform.resolveSelection({ range, selectedText: '', selectedHtml: '', event } as PlatformSelectionInput);
+    const platform = new BilibiliVideoPlatform(
+      withScheduledRestore(createContext(document), scheduleRestore)
+    );
+    const result = platform.resolveSelection({
+      range,
+      selectedText: '',
+      selectedHtml: '',
+      event
+    } as PlatformSelectionInput);
     expect(result?.text).toBe('Range wins');
     expect(result?.range?.toString()).toBe('Range wins');
 
@@ -676,9 +713,6 @@ describe('BilibiliVideoPlatform', () => {
     document.body.appendChild(wrapper);
     context.__mocks.getElementByIdDeep.mockReturnValue(wrapper);
     const platform = new BilibiliVideoPlatform(context);
-    const platformAny = platform as unknown as {
-      serializeBilibiliRichTextFragment: (root: Element | ShadowRoot) => { text: string; html: string };
-    };
 
     const root = document.createElement('div');
     root.innerHTML = '<span class="text-node">Hello </span><a href="https://example.com">link</a>';
@@ -688,7 +722,7 @@ describe('BilibiliVideoPlatform', () => {
     emoji.setAttribute('alt', '[smile]');
     root.append(mention, emoji);
 
-    const serialized = platformAny.serializeBilibiliRichTextFragment(root);
+    const serialized = serializeBilibiliRichTextFragment(root, (value) => value);
     expect(serialized.text).toContain('Hello');
     expect(serialized.text).toContain('link');
     expect(serialized.text).toContain('@Alice');
@@ -709,7 +743,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(restored).toBe('existing-wrapper');
   });
 
-
   it('uses current url when canonical url is missing, keeps page param, and returns null for empty formatted titles', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
     const activeEpisode = document.createElement('div');
@@ -717,18 +750,22 @@ describe('BilibiliVideoPlatform', () => {
     activeEpisode.setAttribute('data-index', '0');
     document.body.appendChild(activeEpisode);
 
-    expect(platform.buildTimestampUrl(33, {
-      canonicalUrl: '',
-      currentUrl: 'https://www.bilibili.com/video/BV1xx411c7mD?p=2',
-      videoId: 'BV1xx411c7mD'
-    })).toBe('https://www.bilibili.com/video/BV1xx411c7mD?p=2&t=33');
+    expect(
+      platform.buildTimestampUrl(33, {
+        canonicalUrl: '',
+        currentUrl: 'https://www.bilibili.com/video/BV1xx411c7mD?p=2',
+        videoId: 'BV1xx411c7mD'
+      })
+    ).toBe('https://www.bilibili.com/video/BV1xx411c7mD?p=2&t=33');
     expect(platform.formatVideoTitle('____哔哩哔哩')).toBeNull();
   });
 
   it('keeps polling state stable for repeated pending hosts and ignores disconnected hosts before restore', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(createContext(document), scheduleRestore));
+    const platform = new BilibiliVideoPlatform(
+      withScheduledRestore(createContext(document), scheduleRestore)
+    );
     const host = document.createElement('bili-rich-text');
     const wrapper = document.createElement('div');
     wrapper.className = 'comment-wrap';
@@ -764,7 +801,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(scheduleRestore).toHaveBeenCalledTimes(1);
   });
 
-
   it('wraps normalized plain text when html cannot be recovered and keeps non-childList mutations inert', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
     const textNode = document.createTextNode('Hello bilibili world');
@@ -785,7 +821,9 @@ describe('BilibiliVideoPlatform', () => {
     });
 
     const scheduleRestore = vi.fn();
-    const inertPlatform = new BilibiliVideoPlatform(withScheduledRestore(createContext(document), scheduleRestore));
+    const inertPlatform = new BilibiliVideoPlatform(
+      withScheduledRestore(createContext(document), scheduleRestore)
+    );
     inertPlatform.handleMutations([
       {
         type: 'attributes',
@@ -809,8 +847,6 @@ describe('BilibiliVideoPlatform', () => {
     const range = platform.findTextRange('Alpha [smile] Beta');
     expect(range?.toString()).toBe('Alpha Beta');
   });
-
-
 
   it('restores existing fragment wrappers by data attribute when wrapper id is missing', () => {
     const context = createContext(document);
@@ -907,10 +943,20 @@ describe('BilibiliVideoPlatform', () => {
 
     const platformAny = platform as unknown as {
       extractBilibiliSelection: (range: Range) => { text: string; html: string } | null;
-      extractBilibiliSelectionFromEvent: (event: MouseEvent, range: Range | null) => { text: string; html: string; range?: Range } | null;
+      extractBilibiliSelectionFromEvent: (
+        event: MouseEvent,
+        range: Range | null
+      ) => { text: string; html: string; range?: Range } | null;
     };
-    vi.spyOn(platformAny, 'extractBilibiliSelection').mockReturnValue({ text: 'range text', html: '' });
-    vi.spyOn(platformAny, 'extractBilibiliSelectionFromEvent').mockReturnValue({ text: '', html: '<p>event html</p>', range });
+    vi.spyOn(platformAny, 'extractBilibiliSelection').mockReturnValue({
+      text: 'range text',
+      html: ''
+    });
+    vi.spyOn(platformAny, 'extractBilibiliSelectionFromEvent').mockReturnValue({
+      text: '',
+      html: '<p>event html</p>',
+      range
+    });
 
     const result = platform.resolveSelection({
       range,
@@ -936,10 +982,20 @@ describe('BilibiliVideoPlatform', () => {
 
     const platformAny = platform as unknown as {
       extractBilibiliSelection: (range: Range) => { text: string; html: string } | null;
-      extractBilibiliSelectionFromEvent: (event: MouseEvent, range: Range | null) => { text: string; html: string; range?: Range } | null;
+      extractBilibiliSelectionFromEvent: (
+        event: MouseEvent,
+        range: Range | null
+      ) => { text: string; html: string; range?: Range } | null;
     };
-    vi.spyOn(platformAny, 'extractBilibiliSelection').mockReturnValue({ text: '', html: '<p>range html</p>' });
-    vi.spyOn(platformAny, 'extractBilibiliSelectionFromEvent').mockReturnValue({ text: 'event text', html: '', range });
+    vi.spyOn(platformAny, 'extractBilibiliSelection').mockReturnValue({
+      text: '',
+      html: '<p>range html</p>'
+    });
+    vi.spyOn(platformAny, 'extractBilibiliSelectionFromEvent').mockReturnValue({
+      text: 'event text',
+      html: '',
+      range
+    });
 
     const result = platform.resolveSelection({
       range,
@@ -967,10 +1023,15 @@ describe('BilibiliVideoPlatform', () => {
     document.body.appendChild(commentHost);
 
     const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as { buildSearchCandidates: (normalized: string) => string[] };
+    const platformAny = platform as unknown as {
+      buildSearchCandidates: (normalized: string) => string[];
+    };
 
     expect(platformAny.buildSearchCandidates('Alpha Beta')).toEqual(['Alpha Beta']);
-    expect(platformAny.buildSearchCandidates('Alpha [smile] Beta')).toEqual(['Alpha [smile] Beta', 'Alpha Beta']);
+    expect(platformAny.buildSearchCandidates('Alpha [smile] Beta')).toEqual([
+      'Alpha [smile] Beta',
+      'Alpha Beta'
+    ]);
     expect(platform.findTextRange('Alpha [smile] Beta')?.toString()).toBe('Alpha Beta');
   });
 
@@ -1002,9 +1063,6 @@ describe('BilibiliVideoPlatform', () => {
     expect(scheduleRestore).toHaveBeenCalledTimes(1);
   });
 
-
-
-
   it('keeps trimmed raw titles when bilibili suffix stripping does not apply', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
     expect(platform.formatVideoTitle('  Plain Raw Title  ')).toBe('Plain Raw Title');
@@ -1013,7 +1071,8 @@ describe('BilibiliVideoPlatform', () => {
   it('renders tables wrapped inside pre blocks as tables instead of plain fences', () => {
     const host = document.createElement('div');
     host.id = 'comment';
-    host.innerHTML = '<pre><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table></pre>';
+    host.innerHTML =
+      '<pre><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table></pre>';
     document.body.appendChild(host);
 
     const platform = new BilibiliVideoPlatform(createContext(document));
@@ -1021,5 +1080,4 @@ describe('BilibiliVideoPlatform', () => {
 
     expect(range?.toString()).toBe('1');
   });
-
 });

@@ -1,4 +1,4 @@
-import { BaseComponent } from '../shared/BaseComponent';
+import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
 import { Sidebar, type SidebarConfig, type SidebarFooterLink } from './Sidebar';
 import { MainContent } from './MainContent';
 import type { NavigationItem } from './Navigation';
@@ -37,7 +37,10 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
     this.stateManager = config.stateManager;
     this.formRegistry = config.formRegistry;
 
-    const shell = this.createElement('div', 'aobx-shell grid grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)] h-screen min-h-screen overflow-hidden');
+    const shell = this.createElement(
+      'div',
+      'aobx-shell grid grid-cols-1 lg:grid-cols-[252px_minmax(0,1fr)] h-screen min-h-screen overflow-hidden'
+    );
 
     const sidebarHost = this.createElement('div');
     this.sidebar = new Sidebar(sidebarHost);
@@ -45,8 +48,28 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
       this.sidebar.setMessages(this.messages);
     }
     const sidebarElement = this.sidebar.render(this.buildSidebarConfig(config));
-    const sidebarNode = (sidebarElement ?? sidebarHost.firstElementChild ?? sidebarHost) as HTMLElement;
-    sidebarNode.classList.add('aobx-shell__sidebar', 'border-b', 'lg:border-b-0', 'lg:border-r', 'border-base-300', 'bg-base-100', 'p-6', 'pb-4', 'flex', 'flex-col', 'gap-5', 'lg:sticky', 'lg:top-0', 'lg:h-screen', 'lg:max-h-screen', 'lg:self-start', 'lg:overflow-y-auto');
+    const sidebarNode = (sidebarElement ??
+      sidebarHost.firstElementChild ??
+      sidebarHost) as HTMLElement;
+    sidebarNode.classList.add(
+      'aobx-shell__sidebar',
+      'border-b',
+      'lg:border-b-0',
+      'lg:border-r',
+      'border-base-300',
+      'bg-base-100',
+      'p-6',
+      'pb-4',
+      'flex',
+      'flex-col',
+      'gap-5',
+      'lg:sticky',
+      'lg:top-0',
+      'lg:h-screen',
+      'lg:max-h-screen',
+      'lg:self-start',
+      'lg:overflow-y-auto'
+    );
 
     if (!this.stateManager) {
       throw new Error('[OptionsApp] State manager missing during render.');
@@ -61,8 +84,19 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
       ...(config.initialSection !== undefined && { initialSection: config.initialSection }),
       formRegistry: this.formRegistry
     });
-    const contentNode = (contentElement ?? contentHost.firstElementChild ?? contentHost) as HTMLElement;
-    contentNode.classList.add('aobx-shell__content', 'min-h-screen', 'h-auto', 'lg:h-screen', 'lg:overflow-y-auto', 'bg-base-200', 'p-6', 'px-[clamp(24px,4vw,48px)]');
+    const contentNode = (contentElement ??
+      contentHost.firstElementChild ??
+      contentHost) as HTMLElement;
+    contentNode.classList.add(
+      'aobx-shell__content',
+      'min-h-screen',
+      'h-auto',
+      'lg:h-screen',
+      'lg:overflow-y-auto',
+      'bg-base-200',
+      'p-6',
+      'px-[clamp(24px,4vw,48px)]'
+    );
 
     shell.append(sidebarNode, contentNode);
     this.container.classList.add(
@@ -167,7 +201,9 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
 
     return {
       title: this.messages.extensionName ?? 'All in Obsidian',
-      ...(this.messages.extensionSubtitle !== undefined && { subtitle: this.messages.extensionSubtitle }),
+      ...(this.messages.extensionSubtitle !== undefined && {
+        subtitle: this.messages.extensionSubtitle
+      }),
       ...(this.messages.versionNumber !== undefined && { version: this.messages.versionNumber }),
       logoUrl: '../icons/bannerlogo-128.png'
     };

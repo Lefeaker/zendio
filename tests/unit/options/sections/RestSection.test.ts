@@ -43,10 +43,13 @@ vi.mock('../../../../src/options/app/i18nContext', () => ({
 
 vi.mock('../../../../src/options/state/vaultRouterStore', () => {
   const defaultVault = restFixtures.defaultVault;
-  type MockRouterSnapshot = { vaults: typeof defaultVault[]; defaultVaultId: string };
+  type MockRouterSnapshot = { vaults: (typeof defaultVault)[]; defaultVaultId: string };
   const listeners: Array<(state: MockRouterSnapshot) => void> = [];
   const state: MockRouterSnapshot = { vaults: [defaultVault], defaultVaultId: defaultVault.id };
-  const emit = () => listeners.forEach((listener) => listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId }));
+  const emit = () =>
+    listeners.forEach((listener) =>
+      listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId })
+    );
   restFixtures.setRouterSnapshot = (snapshot: unknown) => {
     const next = snapshot as MockRouterSnapshot;
     state.vaults = next.vaults;
@@ -74,7 +77,7 @@ vi.mock('../../../../src/options/state/vaultRouterStore', () => {
       };
     }),
     getVaultRouterConfig: vi.fn(() => ({
-      vaults: state.vaults.map(vault => ({ ...vault })),
+      vaults: state.vaults.map((vault) => ({ ...vault })),
       defaultVaultId: state.defaultVaultId
     })),
     initializeVaultRouterStore: restFixtures.initializeVaultRouterStoreMock
@@ -121,7 +124,6 @@ describe('RestSection', () => {
     return section;
   };
 
-
   it('falls back to default vault snapshot when router state is empty and ignores repo updates after destroy', async () => {
     const section = await renderSection({
       rest: {
@@ -146,9 +148,15 @@ describe('RestSection', () => {
     restFixtures.setRouterSnapshot({ vaults: [], defaultVaultId: null });
 
     await vi.waitFor(() => {
-      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe('https://fallback.example.com/');
-      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe('http://fallback.example.com/');
-      expect((document.getElementById('restVault') as HTMLInputElement).value).toBe('FallbackVault');
+      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe(
+        'https://fallback.example.com/'
+      );
+      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe(
+        'http://fallback.example.com/'
+      );
+      expect((document.getElementById('restVault') as HTMLInputElement).value).toBe(
+        'FallbackVault'
+      );
       expect((document.getElementById('restKey') as HTMLInputElement).value).toBe('fallback-key');
     });
 
@@ -192,8 +200,12 @@ describe('RestSection', () => {
     } as Partial<CompleteOptions>);
 
     await vi.waitFor(() => {
-      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe('https://repo-update.example.com/');
-      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe('http://repo-update.example.com/');
+      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe(
+        'https://repo-update.example.com/'
+      );
+      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe(
+        'http://repo-update.example.com/'
+      );
     });
 
     const collected = registry.collect(null) as StoredOptions;
@@ -241,7 +253,9 @@ describe('RestSection', () => {
       expect(nameInput.value).toBe('TeamVault');
       expect(keyInput.value).toBe('secret-token');
     });
-    expect(restFixtures.initializeVaultRouterStoreMock).toHaveBeenLastCalledWith(snapshot.vaultRouter);
+    expect(restFixtures.initializeVaultRouterStoreMock).toHaveBeenLastCalledWith(
+      snapshot.vaultRouter
+    );
 
     section.destroy();
   });
@@ -384,7 +398,6 @@ describe('RestSection', () => {
     section.destroy();
   });
 
-
   it('renders connection test success messages from messaging responses', async () => {
     const section = await renderSection();
     messagingRepo.setMockResponse('TEST_CONNECTION', {
@@ -462,7 +475,9 @@ describe('RestSection', () => {
     } as StoredOptions);
 
     expect(collected.rest?.rootDir).toBe('/persist/me');
-    expect(messagingRepo.getSentMessages().map(entry => entry.message.type)).toContain('TEST_CONNECTION');
+    expect(messagingRepo.getSentMessages().map((entry) => entry.message.type)).toContain(
+      'TEST_CONNECTION'
+    );
 
     section.destroy();
   });
@@ -485,7 +500,6 @@ describe('RestSection', () => {
 
     section.destroy();
   });
-
 
   it('applies external repository snapshots without scheduling extra autosave while dirty', async () => {
     const section = await renderSection();
@@ -536,7 +550,6 @@ describe('RestSection', () => {
     expect(messagingRepo.getSentMessages()).toHaveLength(1);
   });
 
-
   it('collects enabled additional vault configs from rows and falls back when row is missing', async () => {
     restFixtures.setRouterSnapshot({
       defaultVaultId: 'vault-default',
@@ -565,9 +578,13 @@ describe('RestSection', () => {
       ]
     });
     const section = await renderSection();
-    const sectionAny = section as unknown as { collectAdditionalVaultConfigsForTest: () => Array<Record<string, unknown>> };
+    const sectionAny = section as unknown as {
+      collectAdditionalVaultConfigsForTest: () => Array<Record<string, unknown>>;
+    };
 
-    const extraName = document.querySelector<HTMLInputElement>('[data-vault-id="vault-2"] .rest-vault-name');
+    const extraName = document.querySelector<HTMLInputElement>(
+      '[data-vault-id="vault-2"] .rest-vault-name'
+    );
     expect(extraName).toBeTruthy();
     if (!extraName) {
       throw new Error('Expected extra vault row');
@@ -579,7 +596,12 @@ describe('RestSection', () => {
 
     const configs = sectionAny.collectAdditionalVaultConfigsForTest();
     expect(configs).toEqual([
-      expect.objectContaining({ id: 'vault-2', vault: 'EditedExtraVault', name: 'EditedExtraVault', enabled: true })
+      expect.objectContaining({
+        id: 'vault-2',
+        vault: 'EditedExtraVault',
+        name: 'EditedExtraVault',
+        enabled: true
+      })
     ]);
 
     section.destroy();
@@ -604,7 +626,9 @@ describe('RestSection', () => {
     });
     const section = await renderSection();
 
-    const extraName = document.querySelector<HTMLInputElement>('[data-vault-id="vault-2"] .rest-vault-name');
+    const extraName = document.querySelector<HTMLInputElement>(
+      '[data-vault-id="vault-2"] .rest-vault-name'
+    );
     expect(extraName).toBeTruthy();
     if (!extraName) {
       throw new Error('Expected extra vault row');
@@ -633,7 +657,6 @@ describe('RestSection', () => {
     section.destroy();
   });
 
-
   it('falls back to defaults when collecting blank rest fields and swallows persist failures', async () => {
     const section = await renderSection();
     const sectionAny = section as unknown as {
@@ -643,7 +666,9 @@ describe('RestSection', () => {
     const httpInput = document.getElementById('restHttpUrl') as HTMLInputElement;
     const nameInput = document.getElementById('restVault') as HTMLInputElement;
     const keyInput = document.getElementById('restKey') as HTMLInputElement;
-    const repoSetSpy = vi.spyOn(optionsRepo, 'set').mockRejectedValueOnce(new Error('persist failed'));
+    const repoSetSpy = vi
+      .spyOn(optionsRepo, 'set')
+      .mockRejectedValueOnce(new Error('persist failed'));
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     httpsInput.value = '   ';
@@ -678,7 +703,6 @@ describe('RestSection', () => {
     });
   });
 
-
   it('uses snapshot fallbacks for default vault resolution and supports missing rows in draft readers', async () => {
     restFixtures.setRouterSnapshot({
       defaultVaultId: null,
@@ -707,7 +731,10 @@ describe('RestSection', () => {
       defaultVaultId: string | null;
       collectAdditionalVaultConfigsForTest: () => Array<Record<string, unknown>>;
       readRowValue: (row: HTMLElement, selector: string, trim?: boolean) => string | null;
-      updateDefaultVaultField: (field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey', value: string) => void;
+      updateDefaultVaultField: (
+        field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
+        value: string
+      ) => void;
     };
 
     expect(sectionAny.defaultVaultId).toBe('default-from-flag');
@@ -750,7 +777,10 @@ describe('RestSection', () => {
     const sectionAny = section as unknown as {
       additionalRowsHost: HTMLElement | null;
       additionalEmptyHint: HTMLElement | null;
-      renderAdditionalVaultRows: (vaults: Array<Record<string, unknown>>, defaultVaultId?: string) => void;
+      renderAdditionalVaultRows: (
+        vaults: Array<Record<string, unknown>>,
+        defaultVaultId?: string
+      ) => void;
       initializeConnectionTester: () => void;
       connectionTester: unknown;
       connectionResultHost: HTMLDivElement | null;
@@ -787,7 +817,6 @@ describe('RestSection', () => {
     expect(httpsInput.value).toBe(DEFAULT_OPTIONS.rest.httpsUrl ?? '');
   });
 
-
   it('collects empty rest draft, keeps raw api key, and logs repository persistence failures', async () => {
     const section = await renderSection();
     const sectionAny = section as unknown as {
@@ -816,7 +845,9 @@ describe('RestSection', () => {
     }
     const failingSection = new RestSection(container, failingRepo, messagingRepo);
     failingSection.render({ stateManager: noopStateManager, formRegistry: registry });
-    const failingAny = failingSection as unknown as { persistRest: (partial: Partial<StoredOptions>) => void };
+    const failingAny = failingSection as unknown as {
+      persistRest: (partial: Partial<StoredOptions>) => void;
+    };
 
     failingAny.persistRest({ rest: { baseUrl: '', vault: 'BrokenVault', apiKey: '' } });
 
@@ -950,7 +981,9 @@ describe('RestSection', () => {
       vault: DEFAULT_OPTIONS.rest.vault
     });
     expect(sectionAny.collectAdditionalVaultConfigsForTest()).toEqual([]);
-    expect(() => sectionAny.applySnapshot({ rest: { vault: 'AfterDestroy' } })).toThrow('destroyed');
+    expect(() => sectionAny.applySnapshot({ rest: { vault: 'AfterDestroy' } })).toThrow(
+      'destroyed'
+    );
   });
 
   it('applies router fallbacks and filters disabled additional vaults', async () => {
@@ -988,11 +1021,18 @@ describe('RestSection', () => {
 
     sectionAny.applySnapshot({ rest: { apiKey: 'override-key' } });
     expect((document.getElementById('restVault') as HTMLInputElement).value).toBe('Vault A');
-    expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe('https://a.example.com/');
-    expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe('http://a.example.com/');
+    expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe(
+      'https://a.example.com/'
+    );
+    expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe(
+      'http://a.example.com/'
+    );
     expect((document.getElementById('restKey') as HTMLInputElement).value).toBe('override-key');
 
-    const enabledToggle = document.querySelector<HTMLElement>('[data-vault-id="vault-a"]')?.querySelector<HTMLInputElement>('.rest-vault-enabled') ?? null;
+    const enabledToggle =
+      document
+        .querySelector<HTMLElement>('[data-vault-id="vault-a"]')
+        ?.querySelector<HTMLInputElement>('.rest-vault-enabled') ?? null;
     expect(enabledToggle).toBeTruthy();
     if (enabledToggle) {
       enabledToggle.checked = false;
@@ -1025,7 +1065,7 @@ describe('RestSection', () => {
 
     const resultHost = document.createElement('div');
     resultHost.id = 'connectionResult';
-      document.getElementById('rest-section')?.appendChild(resultHost);
+    document.getElementById('rest-section')?.appendChild(resultHost);
     document.getElementById('testConnectionBtn')?.remove();
     sectionAny.initializeConnectionTester();
     expect(sectionAny.connectionTester).toBeNull();
@@ -1101,7 +1141,7 @@ describe('RestSection', () => {
     row.querySelector<HTMLInputElement>('.rest-vault-http')?.remove();
     const nameInput = row.querySelector<HTMLInputElement>('.rest-vault-name');
     if (nameInput) {
-      nameInput.value = '  '; 
+      nameInput.value = '  ';
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -1119,7 +1159,6 @@ describe('RestSection', () => {
 
     section.destroy();
   });
-
 
   it('resolves repositories from DI and honors isDefault router fallbacks during first render', async () => {
     const container = document.getElementById('rest-section');
@@ -1159,7 +1198,7 @@ describe('RestSection', () => {
     testRegistry.register(DI_TOKENS.IMessagingRepository, () => messagingRepo);
 
     await withTestRegistry(testRegistry, () => {
-      const section = new RestSection(container);
+      const section = new RestSection(container, optionsRepo, messagingRepo);
       const sectionAny = section as unknown as { messages: Record<string, string> | null };
       sectionAny.messages = {
         apiConfigTitle: 'Custom REST Title',
@@ -1233,9 +1272,15 @@ describe('RestSection', () => {
 
     await vi.waitFor(() => {
       expect((document.getElementById('restVault') as HTMLInputElement).value).toBe('RouterFirst');
-      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe('https://router-first.example.com/');
-      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe('http://router-first.example.com/');
-      expect((document.getElementById('restKey') as HTMLInputElement).value).toBe('router-first-key');
+      expect((document.getElementById('restHttpsUrl') as HTMLInputElement).value).toBe(
+        'https://router-first.example.com/'
+      );
+      expect((document.getElementById('restHttpUrl') as HTMLInputElement).value).toBe(
+        'http://router-first.example.com/'
+      );
+      expect((document.getElementById('restKey') as HTMLInputElement).value).toBe(
+        'router-first-key'
+      );
     });
 
     const row = document.querySelector<HTMLElement>('[data-vault-id="vault-extra"]');
@@ -1284,9 +1329,15 @@ describe('RestSection', () => {
     const sectionAny = section as unknown as {
       connectionTester: { dispose: () => void } | null;
       unsubscribeRepo: (() => void) | null;
-      renderAdditionalVaultRows: (vaults: Array<Record<string, unknown>>, defaultVaultId?: string) => void;
+      renderAdditionalVaultRows: (
+        vaults: Array<Record<string, unknown>>,
+        defaultVaultId?: string
+      ) => void;
       initializeConnectionTester: () => void;
-      updateDefaultVaultField: (field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey', value: string) => void;
+      updateDefaultVaultField: (
+        field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
+        value: string
+      ) => void;
       renderConnectionTestResult: (type: 'success' | 'error' | 'info', text: string) => void;
       resetConnectionTestResult: () => void;
     };
@@ -1305,24 +1356,20 @@ describe('RestSection', () => {
     expect(() => sectionAny.resetConnectionTestResult()).not.toThrow();
   });
 
+  it('keeps connection tester initialization safe when the result host is detached after capture', async () => {
+    const section = await renderSection();
+    const sectionAny = section as unknown as {
+      initializeConnectionTester: () => void;
+      connectionResultHost: HTMLDivElement | null;
+      connectionTester: object | null;
+    };
 
+    const resultHost = document.getElementById('connectionResult');
+    resultHost?.remove();
+    sectionAny.connectionResultHost = resultHost as HTMLDivElement | null;
+    sectionAny.initializeConnectionTester();
 
-
-it('keeps connection tester initialization safe when the result host is detached after capture', async () => {
-  const section = await renderSection();
-  const sectionAny = section as unknown as {
-    initializeConnectionTester: () => void;
-    connectionResultHost: HTMLDivElement | null;
-    connectionTester: object | null;
-  };
-
-  const resultHost = document.getElementById('connectionResult');
-  resultHost?.remove();
-  sectionAny.connectionResultHost = resultHost as HTMLDivElement | null;
-  sectionAny.initializeConnectionTester();
-
-  expect(sectionAny.connectionTester).toBeNull();
-  section.destroy();
-});
-
+    expect(sectionAny.connectionTester).toBeNull();
+    section.destroy();
+  });
 });

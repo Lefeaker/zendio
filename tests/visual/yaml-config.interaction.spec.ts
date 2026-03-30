@@ -65,6 +65,16 @@ async function mountHarness(page: Page): Promise<void> {
   await page.waitForSelector('.aobx-table__row');
 }
 
+async function triggerFirstMatchingClick(page: Page, selector: string): Promise<void> {
+  await page.evaluate((target) => {
+    const element = document.querySelector<HTMLElement>(target);
+    if (!element) {
+      throw new Error(`Element not found: ${target}`);
+    }
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  }, selector);
+}
+
 test.describe('YAML configuration browser interactions', () => {
   test.beforeEach(({ page }) => {
     page.on('console', (message) => {
@@ -86,8 +96,10 @@ test.describe('YAML configuration browser interactions', () => {
     await card.locator('.aobx-domain__domain-input').fill('example.com');
     await card.locator('.aobx-domain__type-select').selectOption('article');
 
-    await card.locator('.aobx-domain__add-field-btn').click();
+    await triggerFirstMatchingClick(page, '.aobx-domain__card .aobx-domain__add-field-btn');
     const tagsField = card.locator('.aobx-domain__field').nth(0);
+    await expect(card.locator('.aobx-domain__field')).toHaveCount(1);
+    await expect(tagsField.locator('.aobx-domain__field-select')).toBeVisible();
     await tagsField.locator('.aobx-domain__field-select').selectOption('tags');
 
     const tagsInput = tagsField.locator('input.aobx-table__array-input');
@@ -95,8 +107,10 @@ test.describe('YAML configuration browser interactions', () => {
     await tagsInput.blur();
     await expect(tagsInput).toHaveValue('alpha; beta; gamma');
 
-    await card.locator('.aobx-domain__add-field-btn').click();
+    await triggerFirstMatchingClick(page, '.aobx-domain__card .aobx-domain__add-field-btn');
     const authorField = card.locator('.aobx-domain__field').nth(1);
+    await expect(card.locator('.aobx-domain__field')).toHaveCount(2);
+    await expect(authorField.locator('.aobx-domain__field-select')).toBeVisible();
     await authorField.locator('.aobx-domain__field-select').selectOption('author');
 
     const enabledToggle = authorField.locator('.aobx-domain__field-enabled input[type="checkbox"]');

@@ -99,9 +99,36 @@ describe('optionsStore sanitization', () => {
     await optionsStore.save(next);
 
     expect(setMock).toHaveBeenCalledTimes(1);
-    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({
-      rest: expect.objectContaining({ baseUrl: 'https://options.example.com/' })
-    }));
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rest: expect.objectContaining({
+          baseUrl: 'https://options.example.com/'
+        }) as CompleteOptions['rest']
+      }) as Partial<CompleteOptions>
+    );
   });
 
+  it('does not re-emit identical snapshots to subscribers', async () => {
+    const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
+    const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: getMock,
+      set: setMock,
+      onChange: onChangeMock
+    }));
+    const { optionsStore } = await import('../../../src/options/state/optionsStore');
+    optionsStore.reset();
+
+    const listener = vi.fn();
+    const unsubscribe = optionsStore.subscribe(listener);
+    listener.mockClear();
+
+    const snapshot = clone(DEFAULT_OPTIONS as CompleteOptions);
+    optionsStore.replace(snapshot);
+    optionsStore.replace(clone(snapshot));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
 });

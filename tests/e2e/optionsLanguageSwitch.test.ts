@@ -3,7 +3,10 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createDefaultPageI18nController, type PageI18nController } from '../../src/i18n';
 import { setOptionsI18nContext } from '../../src/options/app/i18nContext';
-import { initializeVaultRouterStore, resetVaultRouterStore } from '../../src/options/state/vaultRouterStore';
+import {
+  initializeVaultRouterStore,
+  resetVaultRouterStore
+} from '../../src/options/state/vaultRouterStore';
 import { RestSection } from '../../src/options/components/sections/RestSection';
 import optionsStore from '../../src/options/state/optionsStore';
 import { e2ePlatformHarness } from './setup';
@@ -12,6 +15,7 @@ import { FormSectionRegistry } from '../../src/options/components/formSections/f
 import type { StoredOptions } from '../../src/shared/types/options';
 import { withDomEnvironment } from '../utils/domEnvironment';
 import { createOptionsStateManager } from '../../src/options/state/StateManager';
+import type { IOptionsRepository, IMessagingRepository } from '../../src/shared/repositories';
 
 const restDefaults = getRestDefaults();
 
@@ -36,7 +40,14 @@ describe('options language switching e2e', () => {
       `,
       {
         url: 'https://options.test/',
-        globals: ['document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLButtonElement', 'Node']
+        globals: [
+          'document',
+          'navigator',
+          'HTMLElement',
+          'HTMLInputElement',
+          'HTMLButtonElement',
+          'Node'
+        ]
       },
       async ({ window }) => {
         initializeVaultRouterStore({
@@ -59,11 +70,30 @@ describe('options language switching e2e', () => {
         const controller: PageI18nController = createDefaultPageI18nController();
         const formRegistry = new FormSectionRegistry();
         const container = window.document.getElementById('rest-section');
-          if (!container) {
-            throw new Error('rest section container missing');
+        if (!container) {
+          throw new Error('rest section container missing');
+        }
+        const optionsRepo: IOptionsRepository = {
+          async get() {
+            return {
+              rest: { baseUrl: restDefaults.baseUrl ?? '', apiKey: 'secret', vault: 'VaultOne' }
+            } as never;
+          },
+          async set() {},
+          onChange() {
+            return () => undefined;
           }
-          const restSection = new RestSection(container);
-          try {
+        };
+        const messagingRepo: IMessagingRepository = {
+          async send() {
+            return undefined as never;
+          },
+          onMessage() {
+            return () => undefined;
+          }
+        };
+        const restSection = new RestSection(container, optionsRepo, messagingRepo);
+        try {
           await controller.load();
           controller.mount(window.document);
           setOptionsI18nContext(controller.getBinder(), controller.getCurrentResource());

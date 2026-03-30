@@ -86,7 +86,7 @@ function mapSeverity(severity: AppError['severity']): SentryEventPayload['level'
 function resolveExtensionVersion(): string | undefined {
   try {
     const platform = getService<ManifestVersionReader>(TOKENS.platformServices);
-    return platform.runtime.getManifest()?.version;
+    return platform.runtime.getManifest?.()?.version;
   } catch {
     return undefined;
   }
@@ -94,7 +94,7 @@ function resolveExtensionVersion(): string | undefined {
 
 export class SentryErrorReporter implements ErrorReporter {
   private readonly parsedDsn: ParsedDsn;
-  private readonly extensionVersion?: string;
+  private readonly extensionVersion: string | undefined;
 
   constructor(private readonly config: SentryReporterConfig) {
     this.parsedDsn = parseDsn(config.dsn);

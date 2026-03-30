@@ -76,11 +76,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'AI 채팅 경로 템플릿',
   aiTemplateHint: 'AI 채팅 대화를 저장하기 위한',
   availableVariables: '사용 가능한 변수:',
-  templateVariableNote: '{slug} 는 제목을 슬러그 형태로 변환한 값입니다. {HHmmss} 또는 {HHmm} 으로 캡처 시간을 포함할 수 있으며, 소문자 {mm} 는 여전히 월을 의미합니다.',
+  templateVariableNote:
+    '{slug} 는 제목을 슬러그 형태로 변환한 값입니다. {HHmmss} 또는 {HHmm} 으로 캡처 시간을 포함할 수 있으며, 소문자 {mm} 는 여전히 월을 의미합니다.',
 
   // Domain Mapping
   domainMappingTitle: '도메인 매핑 구성',
-  domainMappingHint: '자주 사용하는 도메인에 대해 친숙한 폴더 이름을 구성하세요 (예: medium.com을 "Medium"으로 매핑)',
+  domainMappingHint:
+    '자주 사용하는 도메인에 대해 친숙한 폴더 이름을 구성하세요 (예: medium.com을 "Medium"으로 매핑)',
   domainLabel: '도메인',
   folderNameLabel: '폴더 이름',
   addMappingButton: '+ 매핑 추가',
@@ -125,13 +127,15 @@ const runtime: Messages = {
   configTransferHint: '한 번 복사하고 어디서나 가져와서 브라우저를 동기화하세요.',
   copyConfigButton: '구성 복사',
   importConfigButton: '클립보드에서 가져오기',
-  configTransferNote: '이 작업들은 시스템 클립보드를 사용합니다—브라우저에 접근 권한이 있는지 확인하세요.',
+  configTransferNote:
+    '이 작업들은 시스템 클립보드를 사용합니다—브라우저에 접근 권한이 있는지 확인하세요.',
   copyConfigSuccess: '✅ 구성이 클립보드에 복사됨',
   importSuccess: '✅ 구성이 가져와지고 저장됨',
   importParseFailed: '❌ 구성 파싱 실패',
   emptyImportError: '클립보드가 비어있습니다. 먼저 구성을 복사하세요',
   clipboardUnavailable: '클립보드를 사용할 수 없습니다. 수동으로 복사하세요',
-  clipboardReadUnavailable: '클립보드를 읽을 수 없습니다. 클립보드 권한을 부여하고 다시 시도하세요.',
+  clipboardReadUnavailable:
+    '클립보드를 읽을 수 없습니다. 클립보드 권한을 부여하고 다시 시도하세요.',
   invalidTaxonomy: '분류기 분류법은 유효한 JSON이어야 합니다',
 
   // AI Chat Configuration
@@ -150,16 +154,19 @@ const runtime: Messages = {
   deepResearchConfigHint: 'Deep Research 보고서가 캡처되는 방식을 구성하세요',
   pureModeLabel: '순수 모드 (보고서 내용만 캡처)',
   pureModeHint: '활성화되면 Deep Research 보고서 내용만 캡처하고 대화 메시지는 제외합니다',
-  multipleReportsInfo: 'ℹ️ 여러 보고서에 대해: Gemini는 한 번에 하나의 완전한 보고서만 표시할 수 있습니다. 여러 보고서를 저장하려면 각 보고서를 별도로 열고 저장하세요.',
+  multipleReportsInfo:
+    'ℹ️ 여러 보고서에 대해: Gemini는 한 번에 하나의 완전한 보고서만 표시할 수 있습니다. 여러 보고서를 저장하려면 각 보고서를 별도로 열고 저장하세요.',
 
   readingConfigTitle: '읽기 모드',
   readingConfigHint: '읽기 세션 내보내기가 콘텐츠를 캡처하는 방식을 선택하세요',
   readingExportModeLabel: '콘텐츠 내보내기',
   readingExportModeHighlights: '하이라이트된 발췌문만',
   readingExportModeFull: '하이라이트가 포함된 전체 기사',
-  readingExportModeDescription: '"전체 기사"를 선택하면 정리된 기사 본문이 임베드된 하이라이트와 각주와 함께 저장됩니다.',
+  readingExportModeDescription:
+    '"전체 기사"를 선택하면 정리된 기사 본문이 임베드된 하이라이트와 각주와 함께 저장됩니다.',
   readingHighlightThemeLabel: '하이라이트 색상',
-  readingHighlightThemeDescription: '읽기 모드의 하이라이트 스타일에만 영향을 줍니다. 내보낸 Markdown은 변경되지 않습니다.',
+  readingHighlightThemeDescription:
+    '읽기 모드의 하이라이트 스타일에만 영향을 줍니다. 내보낸 Markdown은 변경되지 않습니다.',
   readingHighlightThemeGradient: '보라-파랑 그라데이션 (기본값)',
   readingHighlightThemePurple: '단색 보라',
   readingHighlightThemeNeonYellow: '네온 노랑',
@@ -169,11 +176,14 @@ const runtime: Messages = {
   fragmentConfigTitle: '조각 저장 구성',
   fragmentConfigHint: '텍스트 선택이 저장되고 형식화되는 방식을 구성하세요',
   fragmentUseFootnoteLabel: '각주 형식 사용 (권장)',
-  fragmentUseFootnoteHint: '활성화되면 댓글이 Obsidian 각주 형식으로 저장되어 Sidebar Highlights 플러그인과 호환됩니다',
-  fragmentCaptureContextHint: '활성화되면 선택된 텍스트 주변의 컨텍스트를 캡처하고 실제 하이라이트를 ==하이라이트==로 표시합니다',
+  fragmentUseFootnoteHint:
+    '활성화되면 댓글이 Obsidian 각주 형식으로 저장되어 Sidebar Highlights 플러그인과 호환됩니다',
+  fragmentCaptureContextHint:
+    '활성화되면 선택된 텍스트 주변의 컨텍스트를 캡처하고 실제 하이라이트를 ==하이라이트==로 표시합니다',
   fragmentFootnoteExampleTitle: '각주 형식 예시:',
   fragmentModifierToggleLabel: '저장/읽기를 위한 수정키 활성화 사용',
-  fragmentModifierToggleDescription: '선택된 수정키를 누르고 드래그하여 텍스트를 선택하면 클리퍼 대화상자나 읽기 하이라이트가 자동으로 열립니다.',
+  fragmentModifierToggleDescription:
+    '선택된 수정키를 누르고 드래그하여 텍스트를 선택하면 클리퍼 대화상자나 읽기 하이라이트가 자동으로 열립니다.',
   fragmentModifierKeysLabel: '수정키 선택',
   fragmentModifierKeysDescription: '체크된 모든 수정키를 함께 눌러야 자동 작업이 활성화됩니다.',
   fragmentModifierKeyAlt: 'Option / Alt',
@@ -181,10 +191,12 @@ const runtime: Messages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: '클리퍼 대화상자 키보드 단축키 활성화',
-  fragmentKeyboardShortcutsHint: '클리퍼 대화상자에서: 더블 엔터로 읽기 모드, Cmd+엔터 (Mac) 또는 Alt+엔터 (Windows)로 직접 저장',
+  fragmentKeyboardShortcutsHint:
+    '클리퍼 대화상자에서: 더블 엔터로 읽기 모드, Cmd+엔터 (Mac) 또는 Alt+엔터 (Windows)로 직접 저장',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: '댓글 편집이 완료되었습니다. 키보드 단축키를 사용하여 다음 작업을 수행할 수 있습니다:',
+  clipperCommentEditCompleted:
+    '댓글 편집이 완료되었습니다. 키보드 단축키를 사용하여 다음 작업을 수행할 수 있습니다:',
   clipperShortcutHintDoubleEnter: '더블 엔터',
   clipperShortcutHintModifierEnter: '직접 저장',
   clipperShortcutHintEscape: '취소',
@@ -224,7 +236,8 @@ const runtime: Messages = {
   reloadPrompt: '수정된 구성을 보려면 페이지를 새로고침하세요',
   connectionTesting: '연결 테스트 중...',
   connectionSuccessShort: '연결 성공',
-  portConflictDetected: '⚠️ 포트 충돌 감지됨: {ports}. 다시 시도하기 전에 Obsidian에서 고유한 포트를 할당하세요.',
+  portConflictDetected:
+    '⚠️ 포트 충돌 감지됨: {ports}. 다시 시도하기 전에 Obsidian에서 고유한 포트를 할당하세요.',
   connectionFailureHintsTitle: '다음 단계: ',
   connectionFailureHintCheckApiKey: 'API 키가 Local REST API 설정과 일치하는지 확인하세요',
   connectionFailureHintCheckVault: '볼트 이름이 Local REST API 플러그인과 일치하는지 확인하세요',
@@ -233,6 +246,11 @@ const runtime: Messages = {
 
   // Diagnosis
   diagnosisTitle: '구성 진단',
+  diagnosisDescription:
+    '“구성 진단” 버튼을 누르면 검사 결과와 복구 제안을 여기에서 확인할 수 있습니다.',
+  diagnosisSummaryHint:
+    '진단은 REST API, 경로 템플릿, 도메인 매핑, 멀티 볼트 라우팅 등의 설정을 점검하고 자세한 보고서를 출력합니다.',
+  diagnosisResultTitle: '진단 결과',
 
   // Notifications
   clipSuccess: 'Obsidian에 저장됨',
@@ -253,7 +271,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: '읽기 세션 활성',
   readerPanelStatus: '텍스트를 선택하여 하이라이트하고 주석을 달아보세요',
-  readerPanelHint: '팁: 마우스를 놓으면 주석 대화상자가 열립니다. 비워두면 하이라이트만 저장됩니다.',
+  readerPanelHint:
+    '팁: 마우스를 놓으면 주석 대화상자가 열립니다. 비워두면 하이라이트만 저장됩니다.',
   readerPanelFinish: '완료 및 내보내기',
   readerPanelCancel: '취소',
   readerPanelCounter: '{count}개 하이라이트 수집됨',
@@ -275,14 +294,18 @@ const runtime: Messages = {
   privacySettingsDescription: '분석 수집 및 익명 오류 보고 기본 설정을 관리하세요.',
   privacySettingsNote: '데이터 수집 및 오류 보고 관리',
   analyticsDebugTitle: '디버그 모드',
-  analyticsDebugDescription: '활성화되면 GA4 DebugView로 이벤트를 보내고 콘솔에 요청 세부사항을 기록합니다. 문제 해결 시에만 사용하세요.',
-  analyticsDebugDisabledHint: '디버그 모드를 활성화하기 전에 "사용 분석"과 "오류 보고"를 모두 활성화하세요.',
+  analyticsDebugDescription:
+    '활성화되면 GA4 DebugView로 이벤트를 보내고 콘솔에 요청 세부사항을 기록합니다. 문제 해결 시에만 사용하세요.',
+  analyticsDebugDisabledHint:
+    '디버그 모드를 활성화하기 전에 "사용 분석"과 "오류 보고"를 모두 활성화하세요.',
   analyticsDebugEnabled: '디버그 모드가 활성화되었습니다. 디버깅 후 비활성화하는 것을 잊지 마세요.',
   analyticsDebugDisabled: '디버그 모드가 비활성화되었습니다.',
   analyticsConsentTitle: '사용 분석',
-  analyticsConsentDescription: '확장 프로그램 개선을 위해 익명화된 사용 메트릭을 수집합니다. 개인 정보는 저장되지 않습니다.',
+  analyticsConsentDescription:
+    '확장 프로그램 개선을 위해 익명화된 사용 메트릭을 수집합니다. 개인 정보는 저장되지 않습니다.',
   errorReportingConsentTitle: '오류 보고',
-  errorReportingConsentDescription: '문제를 빠르게 진단할 수 있도록 정리된 오류 보고서를 자동으로 전송합니다.',
+  errorReportingConsentDescription:
+    '문제를 빠르게 진단할 수 있도록 정리된 오류 보고서를 자동으로 전송합니다.',
   errorReportingDetailsTitle: '포함된 내용 알아보기',
   errorReportingCollectedTitle: '수집되는 정보:',
   errorReportingCollectedError: '오류 유형 및 심각도',
@@ -296,7 +319,8 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: '비밀번호 또는 민감한 양식 데이터',
   savePrivacySettings: '설정 저장',
   clearAllAnalyticsData: '모든 데이터 지우기',
-  privacyFooterText: '우리는 귀하의 개인정보 보호에 전념하고 있습니다. 언제든지 이 설정을 업데이트하거나 수집된 데이터의 삭제를 요청할 수 있습니다.',
+  privacyFooterText:
+    '우리는 귀하의 개인정보 보호에 전념하고 있습니다. 언제든지 이 설정을 업데이트하거나 수집된 데이터의 삭제를 요청할 수 있습니다.',
   privacyPolicyLink: '개인정보 처리방침',
   dataUsageLink: '데이터 사용 세부사항',
   privacySettingsSaved: '개인정보 설정 저장됨',
@@ -309,7 +333,8 @@ const runtime: Messages = {
   // Video Mode
   videoPanelTitle: '비디오 캡처 모드',
   videoPanelStatus: '타임스탬프와 빠른 노트를 캡처하세요',
-  videoPanelHint: '팁: 텍스트를 선택하면 자동으로 추가됩니다. 엔터를 두 번 눌러 노트를 저장하고, Esc로 취소하세요.',
+  videoPanelHint:
+    '팁: 텍스트를 선택하면 자동으로 추가됩니다. 엔터를 두 번 눌러 노트를 저장하고, Esc로 취소하세요.',
   videoPanelAdd: '현재 타임스탬프 캡처',
   videoPanelFinish: '완료 및 내보내기',
   videoPanelCancel: '취소',
@@ -318,7 +343,26 @@ const runtime: Messages = {
   videoConfigTitle: '비디오 모드',
   videoConfigHint: '지원되는 비디오 사이트에서 타임스탬프와 노트를 캡처하기 위한 프롬프트 표시',
   videoFloatingPromptLabel: '비디오 페이지에서 플로팅 프롬프트 표시',
-  videoFloatingPromptHint: 'YouTube와 Bilibili에서 작동합니다. 오른쪽 하단 모서리에 빠른 액세스 버블이 나타납니다.',
+  videoFloatingPromptHint:
+    'YouTube와 Bilibili에서 작동합니다. 오른쪽 하단 모서리에 빠른 액세스 버블이 나타납니다.',
+  videoPromptCustomizationTitle: '플로팅 프롬프트 문구와 단축키',
+  videoPromptLabelTitle: '프롬프트 버튼 문구',
+  videoPromptLabelPlaceholder: '예: 비디오 노트 시작',
+  videoPromptLabelHint:
+    '플로팅 버튼의 aria-label 로 표시되어 스크린 리더와 호버 힌트에 사용됩니다.',
+  videoPromptShortcutTitle: '프롬프트 단축키',
+  videoPromptShortcutPlaceholder: '예: Alt+V',
+  videoPromptShortcutHint: '플로팅 프롬프트에 표시됩니다. 기억하기 쉬운 Alt/Cmd 조합을 권장합니다.',
+  videoSupportedPlatformsTitle: '지원 플랫폼',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: '비디오 노트 활성화',
+  videoSaveConfigButton: '비디오 설정 저장',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'watch / short 페이지를 지원하며, 플로팅 프롬프트를 자동으로 감지해 한 번에 비디오 노트 모드로 진입할 수 있습니다.',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'BV/AV 페이지를 지원하며, 단축키 안내와 함께 탄막 영역 공간을 유지합니다.',
   videoTimestampSectionTitle: '비디오 타임스탬프',
   videoFragmentSectionTitle: '캡처된 조각',
   videoCaptureEditLabel: '노트 편집',
@@ -369,7 +413,8 @@ const runtime: Messages = {
 
   // Dialog
   clipDialogTitle: '선택 항목 클립',
-  clipDialogInstructions: 'Tab을 사용하여 컨트롤 간에 이동하세요. Alt + 화살표 키를 눌러 대화상자를 재배치하세요.',
+  clipDialogInstructions:
+    'Tab을 사용하여 컨트롤 간에 이동하세요. Alt + 화살표 키를 눌러 대화상자를 재배치하세요.',
   commentLabel: '댓글 추가 (선택사항)',
   commentPlaceholder: '생각, 노트 또는 댓글을 여기에 입력하세요...',
   cancelButton: '취소',
@@ -395,7 +440,8 @@ const runtime: Messages = {
 
   yamlConfigTitle: 'YAML 구성',
   yamlConfigNote: 'YAML 필드에 대한 통합 구성을 정의합니다(미리보기)',
-  yamlConfigPlaceholder: '이 기능은 아직 기획 단계입니다. 현재 레이아웃은 미리보기이며, 향후 업데이트에서 사용자 정의 필드 유형, 적용 콘텐츠 유형 및 기본값을 지원할 예정입니다.',
+  yamlConfigPlaceholder:
+    '이 기능은 아직 기획 단계입니다. 현재 레이아웃은 미리보기이며, 향후 업데이트에서 사용자 정의 필드 유형, 적용 콘텐츠 유형 및 기본값을 지원할 예정입니다.',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -415,7 +461,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -428,7 +475,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: '라우팅 규칙',
-  routingRulesHint: '도메인, 키워드 또는 URL 패턴으로 대상 볼트를 자동으로 선택하세요. 일치하지 않는 항목은 기본 볼트로 이동합니다.',
+  routingRulesHint:
+    '도메인, 키워드 또는 URL 패턴으로 대상 볼트를 자동으로 선택하세요. 일치하지 않는 항목은 기본 볼트로 이동합니다.',
+  routingRulesPriorityNote:
+    '팁: 우선순위가 높은 규칙이 먼저 매칭되며, 대상 볼트는 활성화 상태여야 합니다.',
   vaultRulesTitle: '라우팅 규칙',
   ruleEmptyPlaceholder: '아직 규칙이 없습니다. 이 볼트로 클립을 라우팅하려면 규칙을 추가하세요.',
   addRuleButton: '+ 규칙 추가',
@@ -454,11 +504,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: 'All in Ob에 오신 것을 환영합니다',
   onboardingSubtitle: '클리퍼 확장 프로그램을 빠르게 설정해 보겠습니다',
-  onboardingWelcomeMessage: 'All in Ob를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
+  onboardingWelcomeMessage:
+    'All in Ob를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
 
   // Step 1: API Configuration
   step1Title: 'Obsidian Local REST API 구성 (필수)',
-  step1Description: '먼저 Obsidian에서 Local REST API 플러그인을 설치하고 구성해야 합니다. 이것은 확장 프로그램과 Obsidian 사이의 다리입니다.',
+  step1Description:
+    '먼저 Obsidian에서 Local REST API 플러그인을 설치하고 구성해야 합니다. 이것은 확장 프로그램과 Obsidian 사이의 다리입니다.',
 
   step1Detail1: 'Obsidian에서 "Local REST API" 플러그인을 설치하고 활성화하세요',
   step1Detail2: '플러그인 설정에서 "암호화되지 않은 서버 (HTTP)"를 활성화하세요',
@@ -471,7 +523,8 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: '추가 볼트 구성 (선택사항)',
-  step2Description: '여러 Obsidian 볼트가 있는 경우 추가 볼트를 구성하고 라우팅 규칙을 설정하여 다양한 유형의 콘텐츠를 해당 볼트에 자동으로 저장할 수 있습니다.',
+  step2Description:
+    '여러 Obsidian 볼트가 있는 경우 추가 볼트를 구성하고 라우팅 규칙을 설정하여 다양한 유형의 콘텐츠를 해당 볼트에 자동으로 저장할 수 있습니다.',
 
   step2Detail1: '여러 Obsidian 볼트 지원',
   step2Detail2: '도메인, 키워드 또는 URL 패턴을 기반으로 라우팅 규칙 설정',
@@ -482,31 +535,43 @@ const runtime: Messages = {
 
   // Step 3: Main Features
   step3Title: '주요 기능',
-  step3Description: '확장 프로그램의 주요 기능을 빠르게 배워서 더 잘 사용할 수 있도록 도와드리겠습니다.',
+  step3Description:
+    '확장 프로그램의 주요 기능을 빠르게 배워서 더 잘 사용할 수 있도록 도와드리겠습니다.',
 
   step3Section1Title: '웹 클리핑',
-  step3Section1Detail1: '웹페이지의 빈 영역을 클릭하여 전체 페이지를 클립하세요 (페이지가 완전히 로드될 때까지 기다리고 스크롤하여 모든 이미지를 로드하세요)',
+  step3Section1Detail1:
+    '웹페이지의 빈 영역을 클릭하여 전체 페이지를 클립하세요 (페이지가 완전히 로드될 때까지 기다리고 스크롤하여 모든 이미지를 로드하세요)',
   step3Section1Detail2: '주요 AI 채팅 대화를 자동으로 인식하고 형식화된 AI 대화 기록을 저장합니다',
   step3Section2Title: '클리핑/읽기 모드',
-  step3Section2Detail1: '선택된 텍스트를 우클릭하거나 보조 키를 사용하여 콘텐츠를 선택하고, 댓글을 추가하고, 주석이 달린 선택된 콘텐츠를 Obsidian에 저장하세요',
-  step3Section2Detail2: '읽기 모드에 진입하여 같은 페이지에서 여러 조각을 선택하고, 댓글을 달고, Obsidian에 함께 저장하세요',
-  step3Section2Detail3: '읽기 모드는 페이지 레이아웃에 따라 텍스트 조각을 자동으로 정리하며, 조각 번호를 클릭하여 빠른 탐색이 가능합니다',
-  step3Section2Detail4: '읽기 모드는 선택된 콘텐츠가 하이라이트된 전체 텍스트를 Obsidian에 저장할 수 있습니다',
-  step3Section2Detail5: '조각이든 읽기 모드 선택이든, 정확한 페이지 링크가 저장되어 한 번의 클릭으로 웹 위치로 돌아갈 수 있습니다',
-  step3Section2Detail6: 'Obsidian에 sidebar highlights 플러그인을 설치하여 더 편리한 주석 시각화를 이용하세요',
+  step3Section2Detail1:
+    '선택된 텍스트를 우클릭하거나 보조 키를 사용하여 콘텐츠를 선택하고, 댓글을 추가하고, 주석이 달린 선택된 콘텐츠를 Obsidian에 저장하세요',
+  step3Section2Detail2:
+    '읽기 모드에 진입하여 같은 페이지에서 여러 조각을 선택하고, 댓글을 달고, Obsidian에 함께 저장하세요',
+  step3Section2Detail3:
+    '읽기 모드는 페이지 레이아웃에 따라 텍스트 조각을 자동으로 정리하며, 조각 번호를 클릭하여 빠른 탐색이 가능합니다',
+  step3Section2Detail4:
+    '읽기 모드는 선택된 콘텐츠가 하이라이트된 전체 텍스트를 Obsidian에 저장할 수 있습니다',
+  step3Section2Detail5:
+    '조각이든 읽기 모드 선택이든, 정확한 페이지 링크가 저장되어 한 번의 클릭으로 웹 위치로 돌아갈 수 있습니다',
+  step3Section2Detail6:
+    'Obsidian에 sidebar highlights 플러그인을 설치하여 더 편리한 주석 시각화를 이용하세요',
   step3Section3Title: '비디오 모드',
-  step3Section3Detail1: 'YouTube 또는 Bilibili의 적응된 재생 페이지에서 비디오 모드를 열어 비디오 타임스탬프를 기록하고 언제든지 노트를 추가하세요',
+  step3Section3Detail1:
+    'YouTube 또는 Bilibili의 적응된 재생 페이지에서 비디오 모드를 열어 비디오 타임스탬프를 기록하고 언제든지 노트를 추가하세요',
   step3Section3Detail2: '타임스탬프 옆의 번호를 클릭하여 한 번의 클릭으로 탐색하고 반복 시청하세요',
   step3Section3Detail3: '페이지 텍스트를 선택하고 흥미로운 댓글을 한 번의 클릭으로 캡처하세요',
-  step3Section3Detail4: 'Obsidian에 저장한 후 언제든지 한 번의 클릭으로 정확한 비디오 타임스탬프로 돌아가세요',
+  step3Section3Detail4:
+    'Obsidian에 저장한 후 언제든지 한 번의 클릭으로 정확한 비디오 타임스탬프로 돌아가세요',
   step3ActionPrimary: '자세한 설정 보기',
   step3ActionSecondary: '나중에 배우기',
 
   // Step 4: Auxiliary Features
   step4Title: '보조 기능',
-  step4Description: '확장 프로그램은 또한 경험을 더 편리하게 만들어주는 다양한 보조 기능을 제공합니다.',
+  step4Description:
+    '확장 프로그램은 또한 경험을 더 편리하게 만들어주는 다양한 보조 기능을 제공합니다.',
 
-  step4Detail1: '같은 기기의 여러 브라우저: 현재 구성을 한 번의 클릭으로 복사하고, 붙여넣어 동기화하세요. 반복 구성이 필요 없습니다',
+  step4Detail1:
+    '같은 기기의 여러 브라우저: 현재 구성을 한 번의 클릭으로 복사하고, 붙여넣어 동기화하세요. 반복 구성이 필요 없습니다',
   step4Detail2: '도메인 매핑: 일반적인 웹사이트를 친숙한 폴더 이름으로 매핑하세요',
   step4Detail3: '사용자 정의 경로 구성, 필요에 따라 경로를 조정하세요',
   step4Detail4: '스마트 진단: 구성 문제가 있나요? 빠른 문제 해결을 위한 스마트 진단',
@@ -515,7 +580,8 @@ const runtime: Messages = {
 
   // Step 5: More Features
   step5Title: '더 많은 흥미로운 기능, 지속적인 반복',
-  step5Description: '확장 프로그램은 더 스마트한 기능을 제공하기 위해 지속적으로 발전하고 있습니다.',
+  step5Description:
+    '확장 프로그램은 더 스마트한 기능을 제공하기 위해 지속적으로 발전하고 있습니다.',
 
   step5Detail1: '더 부드럽고 스마트한 경험을 위한 AI 기능 도입',
   step5Detail2: '양방향 상호작용, 더 이상 노트 저장만이 아닌 브라우저와 Obsidian 사이의 다리',
@@ -528,7 +594,8 @@ const runtime: Messages = {
   completeOnboarding: '가이드 완료',
   onboardingFooterNote: '언제든지 설정 페이지에서 이러한 옵션을 다시 구성할 수 있습니다.',
   onboardingCompleted: '가이드 완료!',
-  onboardingCompletedMessage: '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 All in Ob를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
+  onboardingCompletedMessage:
+    '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 All in Ob를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
   onboardingLinkText: '가이드',
 
   // Footer links
@@ -537,20 +604,24 @@ const runtime: Messages = {
   footerContactLink: '작성자 연락',
 
   suggestionsModalTitle: '제안 공유',
-  suggestionsModalDescription: 'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+  suggestionsModalDescription:
+    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   suggestionsModalReddit: 'Reddit에서 채팅',
   suggestionsModalXiaohongshu: 'Xiaohongshu 가입',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'QR 코드가 곧 추가됩니다. 그동안 Reddit을 통해 메시지를 보내주세요.',
+  suggestionsModalQrPlaceholder:
+    'QR 코드가 곧 추가됩니다. 그동안 Reddit을 통해 메시지를 보내주세요.',
 
   // Contact modal
   contactModalTitle: '작성자 연락',
-  contactModalDescription: '이 제품을 높이 평가하거나 연결하고 싶으시다면, <br><a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>에서 연락해 주세요.<br>작성자는 현재 구직 중입니다—소식을 퍼뜨려 주셔서 감사합니다!',
+  contactModalDescription:
+    '이 제품을 높이 평가하거나 연결하고 싶으시다면, <br><a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>에서 연락해 주세요.<br>작성자는 현재 구직 중입니다—소식을 퍼뜨려 주셔서 감사합니다!',
   contactModalCloseButton: '닫기',
 
   // Support modal (onboarding)
   supportModalTitle: '지원해 주셔서 감사합니다',
-  supportModalDescription: '개발이 쉽지 않습니다. 이 플러그인이 도움이 된다면 다음과 같은 방법으로 지원해 주세요:',
+  supportModalDescription:
+    '개발이 쉽지 않습니다. 이 플러그인이 도움이 된다면 다음과 같은 방법으로 지원해 주세요:',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -562,7 +633,7 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: '이것은 선택된 텍스트의 내용입니다',
   fragmentFootnoteExampleComment: '이것은 내 댓글입니다',
   fragmentContextHighlightExampleTitle: '컨텍스트 하이라이트 예시:',
-  fragmentContextHighlightExampleContent: '앞 컨텍스트 ==이것은 선택된 텍스트입니다== 뒤 컨텍스트',
+  fragmentContextHighlightExampleContent: '앞 컨텍스트 ==이것은 선택된 텍스트입니다== 뒤 컨텍스트'
 };
 
 const ko: LocaleDefinition = {

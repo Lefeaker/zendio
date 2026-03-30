@@ -1,7 +1,7 @@
 import { mergeOptions } from '../../shared/config';
+import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { deepClone } from './clone';
-import { normalizeYamlConfigOverrides } from '../../shared/services/yamlConfigService';
 
 const PRESERVED_KEYS = new Set([
   'rest',
@@ -49,7 +49,7 @@ export function normalizeOptionsForTransfer(
 
   Object.entries(base).forEach(([key, value]) => {
     if (key === 'yamlConfig') {
-      const sanitized = normalizeYamlConfigOverrides((value ?? null) as StoredOptions['yamlConfig']);
+      const sanitized = sanitizeYamlConfigValue((value ?? null) as StoredOptions['yamlConfig']);
       if (sanitized) {
         normalized.yamlConfig = deepClone(sanitized);
       } else {

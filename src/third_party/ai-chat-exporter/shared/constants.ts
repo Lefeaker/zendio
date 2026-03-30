@@ -11,5 +11,6 @@ export const SUPPORTED_PLATFORMS: PlatformId[] = [
   'deepseek',
   'kimi',
   'doubao',
-  'monica'
+  'monica',
+  'perplexity'
 ];

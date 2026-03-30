@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { createCommentForm } from '@content/clipper/components/commentForm';
+import { COMMENT_FORM_CLASSES } from '@content/clipper/components/commentFormStyles';
 
 const SAMPLE_MESSAGES = {
   commentLabel: 'Comment',
@@ -18,7 +19,12 @@ describe('commentForm component', () => {
     expect(preview.classList.contains('clipper-comment-preview')).toBe(true);
     expect(container.querySelector('.clipper-comment-label')).not.toBeNull();
     expect(textarea.classList.contains('clipper-comment-textarea')).toBe(true);
+    expect(container.className).toBe(COMMENT_FORM_CLASSES.container);
+    expect(preview.className).toBe(COMMENT_FORM_CLASSES.preview);
+    expect(textarea.className).toBe(COMMENT_FORM_CLASSES.textarea);
     expect(textarea.placeholder).toBe(SAMPLE_MESSAGES.commentPlaceholder);
+    expect(preview.className).not.toContain('[#');
+    expect(textarea.className).not.toContain('[#');
 
     // structure should not rely on inline styles
     expect(container.getAttribute('style')).toBeNull();
@@ -43,5 +49,10 @@ describe('commentForm component', () => {
     expect(textarea.value).toBe('Existing note');
     expect(preview.textContent).toHaveLength(504); // 500 chars + ellipsis
     expect(preview.textContent?.endsWith('...')).toBe(true);
+  });
+
+  it('moves visual contract into shared class definitions without raw color literals', () => {
+    expect(COMMENT_FORM_CLASSES.preview).not.toContain('#');
+    expect(COMMENT_FORM_CLASSES.textarea).not.toContain('#');
   });
 });

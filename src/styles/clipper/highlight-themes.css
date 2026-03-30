@@ -4,8 +4,12 @@
  */
 
 /* 高亮主题颜色定义 */
-:root {
-  --reader-highlight-gradient: linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35));
+body {
+  --reader-highlight-gradient: linear-gradient(
+    90deg,
+    rgba(124, 92, 255, 0.45),
+    rgba(87, 205, 255, 0.35)
+  );
   --reader-highlight-purple: rgba(124, 92, 255, 0.35);
   --reader-highlight-neon-yellow: rgba(255, 248, 0, 0.55);
   --reader-highlight-neon-green: rgba(48, 255, 173, 0.45);
@@ -16,35 +20,35 @@
 }
 
 /* 渐变主题 */
-:root[data-aiob-reader-highlight="gradient"] {
+body[data-aiob-reader-highlight='gradient'] {
   --reader-highlight-bg: var(--reader-highlight-gradient);
   --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
   --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.2);
 }
 
 /* 紫色主题 */
-:root[data-aiob-reader-highlight="purple"] {
+body[data-aiob-reader-highlight='purple'] {
   --reader-highlight-bg: var(--reader-highlight-purple);
   --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
   --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.22);
 }
 
 /* 荧黄色主题 */
-:root[data-aiob-reader-highlight="neonYellow"] {
+body[data-aiob-reader-highlight='neonYellow'] {
   --reader-highlight-bg: var(--reader-highlight-neon-yellow);
   --reader-highlight-focus-color: rgba(255, 248, 0, 0.55);
   --reader-highlight-focus-color-soft: rgba(255, 248, 0, 0.22);
 }
 
 /* 荧绿色主题 */
-:root[data-aiob-reader-highlight="neonGreen"] {
+body[data-aiob-reader-highlight='neonGreen'] {
   --reader-highlight-bg: var(--reader-highlight-neon-green);
   --reader-highlight-focus-color: rgba(48, 255, 173, 0.45);
   --reader-highlight-focus-color-soft: rgba(48, 255, 173, 0.18);
 }
 
 /* 荧橙色主题 */
-:root[data-aiob-reader-highlight="neonOrange"] {
+body[data-aiob-reader-highlight='neonOrange'] {
   --reader-highlight-bg: var(--reader-highlight-neon-orange);
   --reader-highlight-focus-color: rgba(255, 176, 72, 0.5);
   --reader-highlight-focus-color-soft: rgba(255, 176, 72, 0.18);

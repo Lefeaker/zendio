@@ -3,7 +3,7 @@ import {
   applyManagedShadowStyle,
   createManagedStyleSheet,
   supportsAdoptedStyleSheets
-} from '../shadowStyleBridge';
+} from '../../../ui/foundation/style-host';
 
 const PANEL_CLIPPER_BRIDGE_KEY = 'panel-clipper-tailwind';
 const PANEL_VIDEO_BRIDGE_KEY = 'panel-video-tailwind';
@@ -73,7 +73,12 @@ class PanelStyleSheetManager {
       void this.initialize();
     }
     this.readerRoots.add(shadowRoot);
-    applyManagedShadowStyle(shadowRoot, PANEL_CLIPPER_BRIDGE_KEY, this.clipperStyles ?? '', this.clipperSheet);
+    applyManagedShadowStyle(
+      shadowRoot,
+      PANEL_CLIPPER_BRIDGE_KEY,
+      this.clipperStyles ?? '',
+      this.clipperSheet
+    );
   }
 
   applyVideoStyles(shadowRoot: ShadowRoot): void {
@@ -82,8 +87,18 @@ class PanelStyleSheetManager {
     }
     this.videoRoots.add(shadowRoot);
 
-    applyManagedShadowStyle(shadowRoot, PANEL_CLIPPER_BRIDGE_KEY, this.clipperStyles ?? '', this.clipperSheet);
-    applyManagedShadowStyle(shadowRoot, PANEL_VIDEO_BRIDGE_KEY, this.videoStyles ?? '', this.videoSheet);
+    applyManagedShadowStyle(
+      shadowRoot,
+      PANEL_CLIPPER_BRIDGE_KEY,
+      this.clipperStyles ?? '',
+      this.clipperSheet
+    );
+    applyManagedShadowStyle(
+      shadowRoot,
+      PANEL_VIDEO_BRIDGE_KEY,
+      this.videoStyles ?? '',
+      this.videoSheet
+    );
   }
 
   destroy(): void {
@@ -103,7 +118,12 @@ class PanelStyleSheetManager {
         this.readerRoots.delete(root);
         return;
       }
-      applyManagedShadowStyle(root, PANEL_CLIPPER_BRIDGE_KEY, this.clipperStyles ?? '', this.clipperSheet);
+      applyManagedShadowStyle(
+        root,
+        PANEL_CLIPPER_BRIDGE_KEY,
+        this.clipperStyles ?? '',
+        this.clipperSheet
+      );
     });
 
     this.videoRoots.forEach((root) => {
@@ -111,8 +131,18 @@ class PanelStyleSheetManager {
         this.videoRoots.delete(root);
         return;
       }
-      applyManagedShadowStyle(root, PANEL_CLIPPER_BRIDGE_KEY, this.clipperStyles ?? '', this.clipperSheet);
-      applyManagedShadowStyle(root, PANEL_VIDEO_BRIDGE_KEY, this.videoStyles ?? '', this.videoSheet);
+      applyManagedShadowStyle(
+        root,
+        PANEL_CLIPPER_BRIDGE_KEY,
+        this.clipperStyles ?? '',
+        this.clipperSheet
+      );
+      applyManagedShadowStyle(
+        root,
+        PANEL_VIDEO_BRIDGE_KEY,
+        this.videoStyles ?? '',
+        this.videoSheet
+      );
     });
   }
 

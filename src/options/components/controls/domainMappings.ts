@@ -1,5 +1,9 @@
-import { BaseComponent } from '../shared/BaseComponent';
-import { createListEditor, type ListEditor, type ListRowDescriptor } from '../shared/listBuilder';
+import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import {
+  createListEditor,
+  type ListEditor,
+  type ListRowDescriptor
+} from '../infrastructure/listBuilder';
 import { queryHTMLInputElement } from '@shared/guards';
 
 export interface DomainMappingsRenderConfig {
@@ -57,7 +61,7 @@ export class DomainMappingsController extends BaseComponent<DomainMappingsRender
     const rows = this.ensureEditor().getRows();
     const result: Record<string, string> = {};
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const domainInput = queryHTMLInputElement(row, '.field-domain');
       const nameInput = queryHTMLInputElement(row, '.field-name');
       const domain = domainInput?.value.trim();
@@ -144,7 +148,8 @@ export class DomainMappingsController extends BaseComponent<DomainMappingsRender
             key: 'domainMappingDeleteButton',
             fallback: this.messages?.domainMappingDeleteButton ?? DEFAULT_DELETE_LABEL
           },
-          className: 'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2',
+          className:
+            'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2',
           onClick: (rowElement) => {
             this.editor?.removeRow(rowElement);
             this.notifyChange();

@@ -5,6 +5,10 @@ import type { PlatformServices } from '@platform/types';
 const STYLE_DIRECTORY = 'styles/clipper';
 const styleCache = new Map<string, Promise<string>>();
 
+function isJsdomRuntime(): boolean {
+  return /jsdom/i.test(globalThis.navigator?.userAgent ?? '');
+}
+
 function resolveStyleUrl(name: string): string {
   const normalized = name.endsWith('.css') ? name : `${name}.css`;
   try {
@@ -16,10 +20,15 @@ function resolveStyleUrl(name: string): string {
 }
 
 async function fetchStyle(name: string): Promise<string> {
+  if (isJsdomRuntime()) {
+    return '';
+  }
   const url = resolveStyleUrl(name);
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
-    throw new Error(`[styleRegistry] Failed to load clipper style "${name}": ${response.status} ${response.statusText}`);
+    throw new Error(
+      `[styleRegistry] Failed to load clipper style "${name}": ${response.status} ${response.statusText}`
+    );
   }
   return await response.text();
 }
@@ -32,7 +41,7 @@ export function loadClipperStyle(name: string): Promise<string> {
     });
     styleCache.set(name, entry);
   }
-  return styleCache.get(name)!;
+  return styleCache.get(name);
 }
 
 export function clearClipperStyleCache(): void {

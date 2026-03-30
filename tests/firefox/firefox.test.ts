@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { detectBrowser, isFirefox, addBrowserClassToHtml } from '../../src/shared/utils/browserDetection';
+import {
+  detectBrowser,
+  isFirefox,
+  addBrowserClassToHtml
+} from '../../src/shared/utils/browserDetection';
 import {
   createFirefoxRuntimeMock,
   createChromeRuntimeMock,
@@ -29,7 +33,8 @@ function mockChromeEnvironment(): void {
   chromeHandle?.restore();
   chromeHandle = createChromeRuntimeMock();
   Object.defineProperty(navigator, 'userAgent', {
-    value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    value:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     configurable: true
   });
 }
@@ -60,7 +65,7 @@ describe('Firefox 浏览器检测', () => {
 
   it('应该为 Firefox 添加正确的 CSS 类', () => {
     mockFirefoxEnvironment();
-    
+
     // Mock document.documentElement
     globalAny.document = {} as Document;
     const mockHtmlElement = {
@@ -69,7 +74,7 @@ describe('Firefox 浏览器检测', () => {
         add: vi.fn()
       }
     };
-    
+
     Object.defineProperty(document, 'documentElement', {
       value: mockHtmlElement,
       configurable: true
@@ -94,11 +99,11 @@ describe('Firefox 平台服务', () => {
 
   it('应该使用 Firefox storage API', async () => {
     const { firefoxStorageService } = await import('../../src/platform/firefox/storage');
-    
+
     const testKey = 'key';
     const testValue = 'value';
     await firefoxStorageService.sync.set(testKey, testValue);
-    
+
     if (!firefoxHandle) {
       throw new Error('Firefox mock 尚未初始化');
     }
@@ -110,10 +115,10 @@ describe('Firefox 平台服务', () => {
 
   it('应该使用 Firefox messaging API', async () => {
     const { firefoxMessagingService } = await import('../../src/platform/firefox/messaging');
-    
+
     const testMessage = { action: 'test' };
     await firefoxMessagingService.send(testMessage);
-    
+
     if (!firefoxHandle) {
       throw new Error('Firefox mock 尚未初始化');
     }
@@ -173,10 +178,12 @@ describe('Firefox 平台服务', () => {
 
     const listener = vi.fn();
     const dispose = firefoxActionService.onClicked(listener);
-    expect(addListener).toHaveBeenCalledWith(listener);
+    expect(addListener).toHaveBeenCalledWith(expect.any(Function));
+    const wrappedListener = addListener.mock.calls[0]?.[0];
+    expect(typeof wrappedListener).toBe('function');
 
     dispose();
-    expect(removeListener).toHaveBeenCalledWith(listener);
+    expect(removeListener).toHaveBeenCalledWith(wrappedListener);
   });
 });
 

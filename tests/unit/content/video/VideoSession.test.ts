@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VideoSession, initializeDefaultVideoSessionDependencies } from '@content/video/session';
+import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
@@ -12,60 +12,70 @@ import {
 } from '@content/runtime/contentSessionRegistry';
 
 const ensureContentI18nMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({
-    registerDynamic: vi.fn(),
-    destroy: vi.fn()
-  }))
+  vi.fn(() =>
+    Promise.resolve({
+      registerDynamic: vi.fn(),
+      destroy: vi.fn()
+    })
+  )
 );
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => null));
-const getContentMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({
-  videoPanelTitle: DEFAULT_SESSION_MESSAGES.panel.title,
-  videoPanelStatus: DEFAULT_SESSION_MESSAGES.panel.status,
-  videoPanelCounter: DEFAULT_SESSION_MESSAGES.panel.counter,
-  videoPanelCounterZero: DEFAULT_SESSION_MESSAGES.panel.counterZero,
-  videoPanelAdd: DEFAULT_SESSION_MESSAGES.panel.add,
-  videoPanelFinish: DEFAULT_SESSION_MESSAGES.panel.finish,
-  videoPanelCancel: DEFAULT_SESSION_MESSAGES.panel.cancel,
-  videoPanelHint: DEFAULT_SESSION_MESSAGES.panel.hint,
-  videoCaptureEditLabel: DEFAULT_SESSION_MESSAGES.panel.captureEditLabel,
-  videoCaptureDeleteLabel: DEFAULT_SESSION_MESSAGES.panel.captureDeleteLabel,
-  videoCaptureNoComment: DEFAULT_SESSION_MESSAGES.panel.captureNoComment,
-  videoCaptureSaveLabel: DEFAULT_SESSION_MESSAGES.panel.captureSaveLabel,
-  videoCaptureCancelLabel: DEFAULT_SESSION_MESSAGES.panel.captureCancelLabel,
-  videoCaptureEditPlaceholder: DEFAULT_SESSION_MESSAGES.panel.captureEditPlaceholder,
-  videoCaptureFocusLabel: DEFAULT_SESSION_MESSAGES.panel.captureFocusLabel,
-  videoHintNoVideo: DEFAULT_SESSION_MESSAGES.hintNoVideo,
-  videoHintReady: DEFAULT_SESSION_MESSAGES.hintReady,
-  videoHintNoCaptures: DEFAULT_SESSION_MESSAGES.hintNoCaptures,
-  videoHintSaving: DEFAULT_SESSION_MESSAGES.hintSaving,
-  videoHintExporting: DEFAULT_SESSION_MESSAGES.hintExporting,
-  videoHintFailure: DEFAULT_SESSION_MESSAGES.hintFailure,
-  videoTimestampSectionTitle: DEFAULT_SESSION_MESSAGES.timestampSectionTitle,
-  videoFragmentSectionTitle: DEFAULT_SESSION_MESSAGES.fragmentSectionTitle
-})));
+const getContentMessagesMock = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      videoPanelTitle: DEFAULT_SESSION_MESSAGES.panel.title,
+      videoPanelStatus: DEFAULT_SESSION_MESSAGES.panel.status,
+      videoPanelCounter: DEFAULT_SESSION_MESSAGES.panel.counter,
+      videoPanelCounterZero: DEFAULT_SESSION_MESSAGES.panel.counterZero,
+      videoPanelAdd: DEFAULT_SESSION_MESSAGES.panel.add,
+      videoPanelFinish: DEFAULT_SESSION_MESSAGES.panel.finish,
+      videoPanelCancel: DEFAULT_SESSION_MESSAGES.panel.cancel,
+      videoPanelHint: DEFAULT_SESSION_MESSAGES.panel.hint,
+      videoCaptureEditLabel: DEFAULT_SESSION_MESSAGES.panel.captureEditLabel,
+      videoCaptureDeleteLabel: DEFAULT_SESSION_MESSAGES.panel.captureDeleteLabel,
+      videoCaptureNoComment: DEFAULT_SESSION_MESSAGES.panel.captureNoComment,
+      videoCaptureSaveLabel: DEFAULT_SESSION_MESSAGES.panel.captureSaveLabel,
+      videoCaptureCancelLabel: DEFAULT_SESSION_MESSAGES.panel.captureCancelLabel,
+      videoCaptureEditPlaceholder: DEFAULT_SESSION_MESSAGES.panel.captureEditPlaceholder,
+      videoCaptureFocusLabel: DEFAULT_SESSION_MESSAGES.panel.captureFocusLabel,
+      videoHintNoVideo: DEFAULT_SESSION_MESSAGES.hintNoVideo,
+      videoHintReady: DEFAULT_SESSION_MESSAGES.hintReady,
+      videoHintNoCaptures: DEFAULT_SESSION_MESSAGES.hintNoCaptures,
+      videoHintSaving: DEFAULT_SESSION_MESSAGES.hintSaving,
+      videoHintExporting: DEFAULT_SESSION_MESSAGES.hintExporting,
+      videoHintFailure: DEFAULT_SESSION_MESSAGES.hintFailure,
+      videoTimestampSectionTitle: DEFAULT_SESSION_MESSAGES.timestampSectionTitle,
+      videoFragmentSectionTitle: DEFAULT_SESSION_MESSAGES.fragmentSectionTitle
+    })
+  )
+);
 const loadFragmentConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
 const saveCaptureDataMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const loadStoredCaptureDataMock = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
-const detectVideoIdentityMock = vi.hoisted(() => vi.fn((url: string) => ({
-  platform: 'bilibili',
-  videoId: 'BV1xx411c7mD',
-  canonicalUrl: url,
-  storageKey: 'video:test'
-})));
+const detectVideoIdentityMock = vi.hoisted(() =>
+  vi.fn((url: string) => ({
+    platform: 'bilibili',
+    videoId: 'BV1xx411c7mD',
+    canonicalUrl: url,
+    storageKey: 'video:test'
+  }))
+);
 const exportMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ success: true })));
-const createVideoPlatformAdapterMock = vi.hoisted(() => vi.fn(() => ({
-  platform: 'bilibili',
-  shouldActivate: vi.fn(() => true),
-  resolveSelection: vi.fn(() => null),
-  findTextRange: vi.fn(() => null),
-  highlight: vi.fn(() => undefined),
-  restoreHighlight: vi.fn(() => undefined),
-  observeDomChanges: vi.fn(),
-  handleMutations: vi.fn(),
-  buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
-  formatVideoTitle: vi.fn((title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null),
-  dispose: vi.fn()
-})));
+const createVideoPlatformAdapterMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    platform: 'bilibili',
+    shouldActivate: vi.fn(() => true),
+    resolveSelection: vi.fn(() => null),
+    findTextRange: vi.fn(() => null),
+    highlight: vi.fn(() => undefined),
+    restoreHighlight: vi.fn(() => undefined),
+    observeDomChanges: vi.fn(),
+    handleMutations: vi.fn(),
+    buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
+    formatVideoTitle: vi.fn((title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null),
+    dispose: vi.fn()
+  }))
+);
 
 vi.mock('../../../../src/content/i18n/context', () => ({
   ensureContentI18n: ensureContentI18nMock,
@@ -73,14 +83,18 @@ vi.mock('../../../../src/content/i18n/context', () => ({
   getContentMessages: getContentMessagesMock
 }));
 vi.mock('../../../../src/content/clipper/services/fragmentConfig', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/content/clipper/services/fragmentConfig')>('../../../../src/content/clipper/services/fragmentConfig');
+  const actual = await vi.importActual<
+    typeof import('../../../../src/content/clipper/services/fragmentConfig')
+  >('../../../../src/content/clipper/services/fragmentConfig');
   return {
     ...actual,
     loadFragmentConfig: loadFragmentConfigMock
   };
 });
 vi.mock('../../../../src/content/video/captureStorage', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/content/video/captureStorage')>('../../../../src/content/video/captureStorage');
+  const actual = await vi.importActual<
+    typeof import('../../../../src/content/video/captureStorage')
+  >('../../../../src/content/video/captureStorage');
   return {
     ...actual,
     saveCaptureData: saveCaptureDataMock,
@@ -88,21 +102,27 @@ vi.mock('../../../../src/content/video/captureStorage', async () => {
   };
 });
 vi.mock('../../../../src/content/video/utils', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/content/video/utils')>('../../../../src/content/video/utils');
+  const actual = await vi.importActual<typeof import('../../../../src/content/video/utils')>(
+    '../../../../src/content/video/utils'
+  );
   return {
     ...actual,
     detectVideoIdentity: detectVideoIdentityMock
   };
 });
 vi.mock('../../../../src/content/video/platforms', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/content/video/platforms')>('../../../../src/content/video/platforms');
+  const actual = await vi.importActual<typeof import('../../../../src/content/video/platforms')>(
+    '../../../../src/content/video/platforms'
+  );
   return {
     ...actual,
     createVideoPlatformAdapter: createVideoPlatformAdapterMock
   };
 });
 vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
-  const actual = await vi.importActual<typeof import('../../../../src/content/video/videoSessionExporter')>('../../../../src/content/video/videoSessionExporter');
+  const actual = await vi.importActual<
+    typeof import('../../../../src/content/video/videoSessionExporter')
+  >('../../../../src/content/video/videoSessionExporter');
   return {
     ...actual,
     VideoSessionExporter: vi.fn().mockImplementation(() => ({
@@ -196,16 +216,9 @@ describe('VideoSession', () => {
     vi.clearAllMocks();
   });
 
-  it('throws without initialized default dependencies and can initialize them once', () => {
-    expect(() => new VideoSession(document)).toThrow('VideoSession dependencies have not been initialized');
-
+  it('requires explicit dependencies', () => {
     const deps = createDependencies();
-    initializeDefaultVideoSessionDependencies({
-      optionsRepository: deps.optionsRepository,
-      storage: deps.storage
-    } as never);
-
-    expect(() => new VideoSession(document)).not.toThrow();
+    expect(() => new VideoSession(document, deps)).not.toThrow();
   });
 
   it('returns early when a session is already active', async () => {
@@ -227,11 +240,14 @@ describe('VideoSession', () => {
 
     await session.start();
 
-    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]?.value as TestView | undefined;
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
     expect(isVideoSessionActive(document)).toBe(true);
-    expect(view?.updateTexts).toHaveBeenCalledWith(expect.objectContaining({
-      title: DEFAULT_SESSION_MESSAGES.panel.title
-    }));
+    expect(view?.updateTexts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: DEFAULT_SESSION_MESSAGES.panel.title
+      })
+    );
 
     sessionApi.cleanup();
   });
@@ -245,14 +261,18 @@ describe('VideoSession', () => {
 
     await session.start();
 
-    const video = document.querySelector('video') as HTMLVideoElement;
+    const video = document.querySelector('video');
     Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
 
     await sessionApi.handleAddCapture();
 
-    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]?.value as TestView | undefined;
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
     expect(saveCaptureDataMock).toHaveBeenCalledTimes(1);
-    expect(view?.beginEditingCapture).toHaveBeenCalledWith(expect.stringContaining('aiob-video-'), '');
+    expect(view?.beginEditingCapture).toHaveBeenCalledWith(
+      expect.stringContaining('aiob-video-'),
+      ''
+    );
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -264,39 +284,48 @@ describe('VideoSession', () => {
     const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
 
     await session.start();
-    sessionApi.captures = [{
-      kind: 'timestamp',
-      id: 'timestamp-1',
-      timeSec: 12,
-      comment: '',
-      url: 'https://video.example/watch?t=12',
-      createdAt: 1
-    }];
+    sessionApi.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 12,
+        comment: '',
+        url: 'https://video.example/watch?t=12',
+        createdAt: 1
+      }
+    ];
 
     await sessionApi.finish();
 
-    expect(exportMock).toHaveBeenCalledWith(expect.objectContaining({
-      storageKey: 'video:test',
-      videoTitle: 'Video Title'
-    }));
+    expect(exportMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageKey: 'video:test',
+        videoTitle: 'Video Title'
+      })
+    );
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
   it('keeps the session alive when export fails', async () => {
-    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as { success: boolean; error: string });
+    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
+      success: boolean;
+      error: string;
+    });
     const session = new VideoSession(document, createDependencies());
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
 
     await session.start();
-    sessionApi.captures = [{
-      kind: 'timestamp',
-      id: 'timestamp-1',
-      timeSec: 12,
-      comment: '',
-      url: 'https://video.example/watch?t=12',
-      createdAt: 1
-    }];
+    sessionApi.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 12,
+        comment: '',
+        url: 'https://video.example/watch?t=12',
+        createdAt: 1
+      }
+    ];
 
     await sessionApi.finish();
 

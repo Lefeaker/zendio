@@ -98,31 +98,33 @@ function createSessionContext() {
   const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
-      document.documentElement.dataset.aiobReaderHighlight = theme;
+      document.body.dataset.aiobReaderHighlight = theme;
     }),
-    createHighlight: vi.fn((options: {
-      id: string;
-      selectedHtml: string;
-      selectedText: string;
-      comment: string;
-      fragmentUrl: string;
-    }) => {
-      const wrapper = document.createElement('mark');
-      wrapper.className = 'aiob-reader-highlight';
-      wrapper.dataset.readerHighlightId = options.id;
-      wrapper.dataset.readerComment = options.comment.trim();
-      wrapper.textContent = options.selectedText;
-      return {
-        id: options.id,
-        selectedHtml: options.selectedHtml,
-        selectedText: options.selectedText,
-        comment: options.comment.trim(),
-        fragmentUrl: options.fragmentUrl,
-        wrapper,
-        wrapperSegments: [wrapper],
-        createdAt: Date.now()
-      } satisfies ReaderHighlightRecord;
-    }),
+    createHighlight: vi.fn(
+      (options: {
+        id: string;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        const wrapper = document.createElement('mark');
+        wrapper.className = 'aiob-reader-highlight';
+        wrapper.dataset.readerHighlightId = options.id;
+        wrapper.dataset.readerComment = options.comment.trim();
+        wrapper.textContent = options.selectedText;
+        return {
+          id: options.id,
+          selectedHtml: options.selectedHtml,
+          selectedText: options.selectedText,
+          comment: options.comment.trim(),
+          fragmentUrl: options.fragmentUrl,
+          wrapper,
+          wrapperSegments: [wrapper],
+          createdAt: Date.now()
+        } satisfies ReaderHighlightRecord;
+      }
+    ),
     updateComment: vi.fn((highlight: ReaderHighlightRecord, comment: string) => {
       highlight.comment = comment.trim();
       if (highlight.comment) {
@@ -133,17 +135,19 @@ function createSessionContext() {
       delete highlight.footnoteIndex;
       delete highlight.wrapper.dataset.readerFootnote;
     }),
-    assignFootnote: vi.fn((highlight: ReaderHighlightRecord, comment: string, footnoteIndex?: number) => {
-      highlight.comment = comment.trim();
-      highlight.wrapper.dataset.readerComment = highlight.comment;
-      if (footnoteIndex === undefined) {
-        delete highlight.footnoteIndex;
-        delete highlight.wrapper.dataset.readerFootnote;
-        return;
+    assignFootnote: vi.fn(
+      (highlight: ReaderHighlightRecord, comment: string, footnoteIndex?: number) => {
+        highlight.comment = comment.trim();
+        highlight.wrapper.dataset.readerComment = highlight.comment;
+        if (footnoteIndex === undefined) {
+          delete highlight.footnoteIndex;
+          delete highlight.wrapper.dataset.readerFootnote;
+          return;
+        }
+        highlight.footnoteIndex = footnoteIndex;
+        highlight.wrapper.dataset.readerFootnote = String(footnoteIndex);
       }
-      highlight.footnoteIndex = footnoteIndex;
-      highlight.wrapper.dataset.readerFootnote = String(footnoteIndex);
-    }),
+    ),
     unwrapHighlight: vi.fn(),
     sortByDocumentOrder: vi.fn(),
     reconstructText: vi.fn((highlight: ReaderHighlightRecord) => highlight.selectedText),
@@ -211,7 +215,12 @@ function createSessionContext() {
   };
 
   const clipPrompt = createClipPrompt();
-  const session = new ReaderSession(document, 'https://example.com/article', clipPrompt, dependencies);
+  const session = new ReaderSession(
+    document,
+    'https://example.com/article',
+    clipPrompt,
+    dependencies
+  );
 
   return {
     session,
@@ -233,8 +242,8 @@ describe('ReaderSession', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     document.documentElement.removeAttribute('data-aiob-reader-active');
-    document.documentElement.removeAttribute('data-aiob-reader-highlight');
-    document.documentElement.removeAttribute('data-aiob-reader-highlight-theme');
+    document.body.removeAttribute('data-aiobReaderHighlight');
+    document.body.removeAttribute('data-aiobReaderHighlightTheme');
     __resetContentSessionRegistryForTests(document);
   });
 
@@ -246,7 +255,7 @@ describe('ReaderSession', () => {
     expect(isReaderSessionActive(document)).toBe(true);
     expect(getReaderSession()).toBe(context.session);
     expect(document.documentElement.dataset.aiobReaderActive).toBe('true');
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBe('gradient');
+    expect(document.body.dataset.aiobReaderHighlight).toBe('gradient');
     expect(context.environment.start).toHaveBeenCalledTimes(1);
     expect(context.getCallbacks()).toBeDefined();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
@@ -265,7 +274,7 @@ describe('ReaderSession', () => {
     expect(isReaderSessionActive(document)).toBe(false);
     expect(getReaderSession()).toBeNull();
     expect(document.documentElement.dataset.aiobReaderActive).toBeUndefined();
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBeUndefined();
+    expect(document.body.dataset.aiobReaderHighlight).toBeUndefined();
   });
 
   it('panel callbacks delegate to finish, cancel, delete, edit, and focus flows', async () => {
@@ -279,18 +288,23 @@ describe('ReaderSession', () => {
     const wrapper = document.createElement('mark');
     wrapper.dataset.readerHighlightId = 'h-1';
     wrapper.textContent = 'Hello';
-    (wrapper as HTMLElement & { scrollIntoView: ReturnType<typeof vi.fn> }).scrollIntoView = vi.fn();
+    (wrapper as HTMLElement & { scrollIntoView: ReturnType<typeof vi.fn> }).scrollIntoView =
+      vi.fn();
     document.body.appendChild(wrapper);
-    (context.session as {
-      __setTestHighlights(records: Array<{
-        id: string;
-        selectedHtml: string;
-        selectedText: string;
-        comment: string;
-        fragmentUrl: string;
-        wrapper: HTMLElement;
-      }>): void;
-    }).__setTestHighlights([
+    (
+      context.session as {
+        __setTestHighlights(
+          records: Array<{
+            id: string;
+            selectedHtml: string;
+            selectedText: string;
+            comment: string;
+            fragmentUrl: string;
+            wrapper: HTMLElement;
+          }>
+        ): void;
+      }
+    ).__setTestHighlights([
       {
         id: 'h-1',
         selectedHtml: '<mark>Hello</mark>',
@@ -310,7 +324,9 @@ describe('ReaderSession', () => {
 
     callbacks.onDeleteHighlight('h-1');
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
-    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintNoHighlights);
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(
+      DEFAULT_SESSION_MESSAGES.hintNoHighlights
+    );
 
     callbacks.onCancel();
     expect(context.view.destroy).toHaveBeenCalled();
@@ -319,19 +335,24 @@ describe('ReaderSession', () => {
   it('captures selection through the selection controller and trims annotation comments', async () => {
     const context = createSessionContext();
     await context.session.initialize();
-    context.clipPrompt.requestSelectionAction.mockResolvedValue({ action: 'clip', comment: '  hello  ' });
+    context.clipPrompt.requestSelectionAction.mockResolvedValue({
+      action: 'clip',
+      comment: '  hello  '
+    });
 
     const content = document.getElementById('content');
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    await ((context.session as unknown) as { handleSelection(payload: unknown): Promise<void> }).handleSelection(
-      createSelectionPayload(content.firstChild)
-    );
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
 
-    const highlights = (context.session as {
-      __testHighlights: Array<{ comment: string; selectedText: string }>;
-    }).__testHighlights;
+    const highlights = (
+      context.session as {
+        __testHighlights: Array<{ comment: string; selectedText: string }>;
+      }
+    ).__testHighlights;
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.comment).toBe('hello');
     expect(highlights[0]?.selectedText).toContain('Hello reader session world.');
@@ -347,21 +368,29 @@ describe('ReaderSession', () => {
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({ action: 'cancel', comment: '' });
-    await ((context.session as unknown) as { handleSelection(payload: unknown): Promise<void> }).handleSelection(
-      createSelectionPayload(content.firstChild)
-    );
+    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
+      action: 'cancel',
+      comment: ''
+    });
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toHaveLength(0);
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({ action: 'clip', comment: '' });
+    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
+      action: 'clip',
+      comment: ''
+    });
     context.highlightManager.createHighlight.mockImplementationOnce(() => {
       throw new Error('network');
     });
-    await ((context.session as unknown) as { handleSelection(payload: unknown): Promise<void> }).handleSelection(
-      createSelectionPayload(content.firstChild)
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
+    expect(context.view.updateHint).toHaveBeenCalledWith(
+      DEFAULT_SESSION_MESSAGES.hintSelectionFailure
     );
-    expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintSelectionFailure);
     errorSpy.mockRestore();
   });
 
@@ -380,9 +409,11 @@ describe('ReaderSession', () => {
 
     context.session.ingestExternalHighlight(range, '<p>ext</p>', 'ext', 'memo');
 
-    const highlights = (context.session as {
-      __testHighlights: Array<{ selectedText: string; comment: string }>;
-    }).__testHighlights;
+    const highlights = (
+      context.session as {
+        __testHighlights: Array<{ selectedText: string; comment: string }>;
+      }
+    ).__testHighlights;
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.comment).toBe('memo');
     expect(removeSpy).toHaveBeenCalledTimes(1);
@@ -407,7 +438,7 @@ describe('ReaderSession', () => {
 
     await context.session.initialize();
 
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBe('gradient');
+    expect(document.body.dataset.aiobReaderHighlight).toBe('gradient');
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
@@ -418,7 +449,7 @@ describe('ReaderSession', () => {
 
     context.emitReadingConfig({ exportMode: 'highlights', highlightTheme: 'neonGreen' });
 
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBe('neonGreen');
+    expect(document.body.dataset.aiobReaderHighlight).toBe('neonGreen');
   });
 
   it('finish exports markdown and cleans up the session', async () => {
@@ -430,16 +461,20 @@ describe('ReaderSession', () => {
     wrapper.dataset.readerHighlightId = 'h-export';
     wrapper.textContent = 'Export me';
     document.body.appendChild(wrapper);
-    (context.session as {
-      __setTestHighlights(records: Array<{
-        id: string;
-        selectedHtml: string;
-        selectedText: string;
-        comment: string;
-        fragmentUrl: string;
-        wrapper: HTMLElement;
-      }>): void;
-    }).__setTestHighlights([
+    (
+      context.session as {
+        __setTestHighlights(
+          records: Array<{
+            id: string;
+            selectedHtml: string;
+            selectedText: string;
+            comment: string;
+            fragmentUrl: string;
+            wrapper: HTMLElement;
+          }>
+        ): void;
+      }
+    ).__setTestHighlights([
       {
         id: 'h-export',
         selectedHtml: '<mark>Export me</mark>',

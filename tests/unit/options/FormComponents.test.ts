@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { AobFormGroup, AobTable } from '@options/components/shared/FormComponents';
+import { AobFormGroup, AobTable } from '../../../src/ui/patterns/form-components';
 
 describe('FormComponents', () => {
   beforeEach(() => {
@@ -45,9 +45,7 @@ describe('FormComponents', () => {
         { key: 'name', label: 'Name', width: '120px' },
         { key: 'value', label: 'Value', className: 'value-col' }
       ],
-      rows: [
-        { key: 'row-1', cells: [{ content: 'Alpha' }, { content: 'Enabled' }] }
-      ]
+      rows: [{ key: 'row-1', cells: [{ content: 'Alpha' }, { content: 'Enabled' }] }]
     });
 
     expect(host.querySelector('caption')?.textContent).toBe('Config table');

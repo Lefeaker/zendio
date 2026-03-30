@@ -9,13 +9,9 @@ import { MockOptionsRepository } from '../../../utils/repositories';
 
 const aiMocks = vi.hoisted(() => {
   const scheduleAutoSave = vi.fn();
-  const registerEnforcer = vi.fn();
-  const unregisterEnforcer = vi.fn();
-  return { scheduleAutoSave, registerEnforcer, unregisterEnforcer };
+  return { scheduleAutoSave };
 }) as {
   scheduleAutoSave: ReturnType<typeof vi.fn>;
-  registerEnforcer: ReturnType<typeof vi.fn>;
-  unregisterEnforcer: ReturnType<typeof vi.fn>;
 };
 
 vi.mock('@options/app/optionsControllerContext', () => ({
@@ -23,20 +19,6 @@ vi.mock('@options/app/optionsControllerContext', () => ({
     scheduleAutoSave: aiMocks.scheduleAutoSave
   }),
   markPendingAutoSave: vi.fn()
-}));
-
-vi.mock('@options/components/sectionRegistry', () => ({
-  registerAiTimestampEnforcer: (handler: () => void) => {
-    aiMocks.registerEnforcer(handler);
-  },
-  unregisterAiTimestampEnforcer: (handler: () => void) => {
-    aiMocks.unregisterEnforcer(handler);
-  },
-  enforceAiTimestampsDisabled: vi.fn(),
-  syncClassifierNote: vi.fn(),
-  highlightFragmentShortcuts: vi.fn(),
-  refreshPrivacySettings: vi.fn(),
-  savePrivacySettings: vi.fn()
 }));
 
 const noopStateManager = {} as OptionsStateManager;
@@ -69,7 +51,7 @@ describe('AiSection', () => {
 
   it('applies snapshot, enforces timestamps, persists changes via repository, and cleans up listeners', async () => {
     const section = renderSection();
-    expect(aiMocks.registerEnforcer).toHaveBeenCalledTimes(1);
+    section.syncTimestampPolicy();
 
     const snapshot = {
       aiChat: {
@@ -108,12 +90,13 @@ describe('AiSection', () => {
       });
     });
 
-    const listenersBeforeDestroy = (mockRepo as unknown as { listeners: Set<unknown> }).listeners.size;
+    const listenersBeforeDestroy = (mockRepo as unknown as { listeners: Set<unknown> }).listeners
+      .size;
     expect(listenersBeforeDestroy).toBeGreaterThan(0);
 
     section.destroy();
-    expect(aiMocks.unregisterEnforcer).toHaveBeenCalledWith(expect.any(Function));
-    const listenersAfterDestroy = (mockRepo as unknown as { listeners: Set<unknown> }).listeners.size;
+    const listenersAfterDestroy = (mockRepo as unknown as { listeners: Set<unknown> }).listeners
+      .size;
     expect(listenersAfterDestroy).toBe(0);
   });
 

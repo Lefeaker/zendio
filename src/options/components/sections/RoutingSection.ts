@@ -3,9 +3,13 @@ import type { VaultConfig, RoutingRule, RoutingRuleType } from '@shared/types/va
 import type { IOptionsRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
-import { subscribeVaultRouter, getVaultRouterConfig, initializeVaultRouterStore } from '../../state/vaultRouterStore';
+import {
+  subscribeVaultRouter,
+  getVaultRouterConfig,
+  initializeVaultRouterStore
+} from '../../state/vaultRouterStore';
 import { VaultRouterController } from '../controls/vaultRouterController';
-import { VaultRouterView } from '../controls/VaultRouterView';
+import { VaultRouterView } from '../../../ui/domains/vault-router';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
 import type { SectionRenderContext } from './BaseSection';
@@ -16,16 +20,15 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
   private readonly vaultRouterController = new VaultRouterController();
   private vaultRouterView: VaultRouterView | null = null;
   private unsubscribeVaultStore: (() => void) | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private unsubscribeRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
 
     if (this.messages) {
       this.vaultRouterController.setMessages(this.messages);
@@ -56,11 +59,7 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
   override destroy(): void {
     this.unsubscribeVaultStore?.();
     this.unsubscribeVaultStore = null;
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('routing', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = null;
     this.vaultRouterView?.destroy();
@@ -70,26 +69,19 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.routingRulesTitle ?? '路由规则';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent = this.messages?.routingRulesHint ?? '根据域名、关键词或 URL 模式自动选择目标仓库。';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.routingRulesTitle ?? '路由规则',
+      description:
+        this.messages?.routingRulesHint ?? '根据域名、关键词或 URL 模式自动选择目标仓库。'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const pad = this.createElement('div', 'mt-6 space-y-6');
+    const pad = this.createSectionBody();
     const viewHost = this.createElement('div', 'space-y-4', { id: 'vaultRouterViewHost' });
     const note = this.createElement('p', 'text-sm text-base-content/60');
-    note.textContent = '提示：优先级越低越先匹配，目标仓库需保持启用。';
+    note.textContent =
+      this.messages?.routingRulesPriorityNote ?? '提示：优先级越高越先匹配，目标仓库需保持启用。';
     pad.append(viewHost, note);
     return pad;
   }
@@ -117,7 +109,9 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
         addRule: this.messages?.addRuleButton ?? '+ 添加规则',
         deleteRule: this.messages?.deleteRuleButton ?? '删除',
         empty: this.messages?.ruleEmptyPlaceholder ?? '暂无规则，点击右侧按钮为仓库添加规则',
-        patternPlaceholder: this.messages?.rulePatternPlaceholder ?? '例如：example.com;news.example.com 或 关键词1,关键词2',
+        patternPlaceholder:
+          this.messages?.rulePatternPlaceholder ??
+          '例如：example.com;news.example.com 或 关键词1,关键词2',
         defaultVaultBadge: this.messages?.defaultVaultBadge ?? '默认仓库',
         typeDomain: this.messages?.ruleTypeDomain ?? '域名匹配',
         typeKeyword: this.messages?.ruleTypeKeyword ?? '关键词匹配',
@@ -146,7 +140,8 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
       }
     }
 
-    const resolvedDefaultId = defaultVaultId ?? vaults.find((vault) => vault.isDefault)?.id ?? vaults[0]?.id ?? '';
+    const resolvedDefaultId =
+      defaultVaultId ?? vaults.find((vault) => vault.isDefault)?.id ?? vaults[0]?.id ?? '';
     const defaultBadge = this.messages?.defaultVaultBadge ?? '默认仓库';
     const vaultOptions = vaults.map((vault) => {
       const trimmedName = vault.name?.trim() ?? '';
@@ -170,11 +165,6 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('routing', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         initializeVaultRouterStore(options.vaultRouter ?? null);
@@ -188,14 +178,15 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
         return {};
       }
     };
-
-    registry.register('routing', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('routing', binding);
   }
 
   private handleAddRule = (): void => {
     const snapshot = getVaultRouterConfig();
-    const defaultVaultId = snapshot?.defaultVaultId ?? snapshot?.vaults?.find((vault) => vault.isDefault)?.id ?? snapshot?.vaults?.[0]?.id;
+    const defaultVaultId =
+      snapshot?.defaultVaultId ??
+      snapshot?.vaults?.find((vault) => vault.isDefault)?.id ??
+      snapshot?.vaults?.[0]?.id;
     this.vaultRouterController.addRule(defaultVaultId ? { vaultId: defaultVaultId } : {});
     this.triggerAutoSave();
   };
@@ -255,7 +246,10 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
       vaultRouter: config
     };
     void this.optionsRepo.set(payload).catch((error) => {
-      console.error('[RoutingSection] Failed to persist vault router config via repository:', error);
+      console.error(
+        '[RoutingSection] Failed to persist vault router config via repository:',
+        error
+      );
     });
   }
 }

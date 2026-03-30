@@ -1,11 +1,16 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEFAULT_HIGHLIGHT_THEME, FragmentHighlighter, resolveHighlightTheme } from '@content/video/fragmentHighlighter';
+import {
+  DEFAULT_HIGHLIGHT_THEME,
+  FragmentHighlighter,
+  resolveHighlightTheme
+} from '@content/video/fragmentHighlighter';
 
 describe('FragmentHighlighter', () => {
   afterEach(() => {
-    document.documentElement.removeAttribute('data-aiob-reader-highlight');
+    document.body.removeAttribute('data-aiobReaderHighlight');
+    document.body.removeAttribute('data-aiobReaderHighlightTheme');
     document.body.innerHTML = '';
   });
 
@@ -45,7 +50,9 @@ describe('FragmentHighlighter', () => {
 
     const deep = shadow.getElementById('deep-highlight');
     expect(deep?.classList.contains('aiob-reader-highlight')).toBe(true);
-    expect(shadow.querySelector('style')?.textContent).toContain('aiob-video-shadow-highlight-focus');
+    expect(shadow.querySelector('style')?.textContent).toContain(
+      'aiob-video-shadow-highlight-focus'
+    );
   });
 
   it('refreshes or removes shadow styles based on host connectivity', () => {
@@ -61,7 +68,7 @@ describe('FragmentHighlighter', () => {
     expect(style).toBeTruthy();
 
     highlighter.setTheme('purple');
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBe('purple');
+    expect(document.body.dataset.aiobReaderHighlight).toBe('purple');
     expect(style?.textContent).toContain('aiob-reader-highlight');
 
     host.remove();
@@ -72,9 +79,9 @@ describe('FragmentHighlighter', () => {
   it('clears document theme state on reset', () => {
     const highlighter = new FragmentHighlighter(document);
     highlighter.setTheme('neonGreen');
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBe('neonGreen');
+    expect(document.body.dataset.aiobReaderHighlight).toBe('neonGreen');
 
     highlighter.reset();
-    expect(document.documentElement.dataset.aiobReaderHighlight).toBeUndefined();
+    expect(document.body.dataset.aiobReaderHighlight).toBeUndefined();
   });
 });

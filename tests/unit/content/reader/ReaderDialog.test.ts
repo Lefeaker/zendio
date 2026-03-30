@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderPanelTexts } from '@content/reader/application/readerPanelModel';
-import { ReaderDialog, type ReaderDialogHighlight } from '@content/reader/components/ReaderDialog';
+import { ReaderDialog, type ReaderDialogHighlight } from '../../../../src/ui/domains/reading';
 
 vi.mock('focus-trap', () => {
   const noop = () => {};
@@ -113,9 +113,10 @@ describe('ReaderDialog', () => {
 
   it('enters edit mode and submits drafted comment', async () => {
     vi.useFakeTimers();
-    const onSubmit = vi.fn<Parameters<typeof baseConfig.onSubmitHighlightEdit>, ReturnType<typeof baseConfig.onSubmitHighlightEdit>>(
-      () => Promise.resolve()
-    );
+    const onSubmit = vi.fn<
+      Parameters<typeof baseConfig.onSubmitHighlightEdit>,
+      ReturnType<typeof baseConfig.onSubmitHighlightEdit>
+    >(() => Promise.resolve());
     const dialog = createDialog({ onSubmitHighlightEdit: onSubmit });
     const host = appendDialog(dialog);
     dialog.updateHighlights([createHighlight({ comment: 'Old comment' })]);
@@ -135,10 +136,7 @@ describe('ReaderDialog', () => {
       shadow.querySelector<HTMLElement>('[data-role="highlight-item"]'),
       'highlight item (editing)'
     );
-    const textarea = requireValue(
-      item.querySelector<HTMLTextAreaElement>('textarea'),
-      'textarea'
-    );
+    const textarea = requireValue(item.querySelector<HTMLTextAreaElement>('textarea'), 'textarea');
     textarea.value = 'Updated comment';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -168,5 +166,36 @@ describe('ReaderDialog', () => {
     );
     removeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onDelete).toHaveBeenCalledWith('h-1');
+  });
+
+  it('clears pending enter timers when destroyed mid-edit', async () => {
+    vi.useFakeTimers();
+    const dialog = createDialog();
+    const host = appendDialog(dialog);
+    dialog.updateHighlights([createHighlight({ comment: 'Draft' })]);
+
+    const shadow = requireValue(host.shadowRoot, 'shadowRoot');
+    const item = requireValue(
+      shadow.querySelector<HTMLElement>('[data-role="highlight-item"]'),
+      'highlight item'
+    );
+    const commentRow = requireValue(
+      item.querySelector<HTMLElement>('div[tabindex="0"]'),
+      'comment row'
+    );
+    commentRow.click();
+
+    const textarea = requireValue(
+      shadow.querySelector<HTMLTextAreaElement>('textarea'),
+      'textarea'
+    );
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    dialog.destroy();
+    vi.runOnlyPendingTimers();
+    await Promise.resolve();
+
+    expect(host.isConnected).toBe(false);
+    vi.useRealTimers();
   });
 });

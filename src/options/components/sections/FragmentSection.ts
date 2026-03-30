@@ -1,18 +1,22 @@
 import type { CompleteOptions, FragmentClipperOptions, StoredOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { configProvider } from '@shared/config';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { registerFragmentShortcutsHighlighter, unregisterFragmentShortcutsHighlighter } from '../sectionRegistry';
-import { DaisyInput } from '../shared/DaisyInput';
-import { DaisyCheckbox } from '../shared/DaisyCheckbox';
+import { getKeyboardModifierLabel } from '../../../ui/foundation/keyboard';
+import { UiInput as DaisyInput } from '../../../ui/primitives/input';
+import { UiCheckbox as DaisyCheckbox } from '../../../ui/primitives/checkbox';
+import { UiSelect as DaisySelect } from '../../../ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
 const FRAGMENT_DEFAULTS = configProvider.getFragmentClipperDefaults();
-const MODIFIER_KEYS: Array<FragmentClipperOptions['selectionModifierKeys'][number]> = ['alt', 'meta', 'ctrl', 'shift'];
+const MODIFIER_KEYS: Array<FragmentClipperOptions['selectionModifierKeys'][number]> = [
+  'alt',
+  'meta',
+  'ctrl',
+  'shift'
+];
 const CONTEXT_MODES: Array<FragmentClipperOptions['contextMode']> = ['chars', 'sentences'];
 
 interface EventBinding {
@@ -34,25 +38,22 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   private contextLengthInput: HTMLInputElement | null = null;
   private contextModeSelect: HTMLSelectElement | null = null;
   private highlightCleanup: (() => void) | null = null;
-  private isRegistered = false;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private eventBindings: EventBinding[] = [];
   private unsubscribeRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
     this.disposeListeners();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
 
     const header = this.buildHeader();
     const body = this.buildBody();
 
     this.container.replaceChildren(header, body);
-    this.registerHighlighter();
     this.bindEvents();
     this.registerFormIntegration();
     this.subscribeToRepository();
@@ -62,35 +63,20 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   override destroy(): void {
     this.disposeHighlight();
     this.disposeListeners();
-    if (this.isRegistered) {
-      unregisterFragmentShortcutsHighlighter(this.highlightShortcuts);
-      this.isRegistered = false;
-    }
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('fragmentClipper', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = null;
     super.destroy();
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('fragmentClipper', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('fragmentClipper', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('fragmentClipper', binding);
   }
 
   private bindEvents(): void {
@@ -103,7 +89,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     if (this.modifierToggle) {
       this.bindEvent(this.modifierToggle, 'change', this.handleModifierToggleChange);
     }
-    this.modifierKeyCheckboxes.forEach(checkbox => {
+    this.modifierKeyCheckboxes.forEach((checkbox) => {
       this.bindEvent(checkbox, 'change', this.handleValueChanged);
     });
     if (this.keyboardShortcutsCheckbox) {
@@ -141,38 +127,30 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.fragmentConfigTitle ?? '片段剪藏配置';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-sm text-base-content/60');
-    subtitle.textContent =
-      this.messages?.fragmentConfigHint ?? '自定义选中文本剪藏的格式和行为';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.fragmentConfigTitle ?? '片段剪藏配置',
+      description: this.messages?.fragmentConfigHint ?? '自定义选中文本剪藏的格式和行为',
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      descriptionClassName: 'text-base-content/60 text-md'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
-    const settings = this.createElement('div', 'grid gap-6');
+    const wrapper = this.createSectionBody();
+    const settings = this.createSectionSettings();
 
     settings.append(
       this.buildCheckboxSetting(
         'fragmentUseFootnote',
         this.messages?.fragmentUseFootnoteLabel ?? '使用脚注格式（推荐）',
         this.messages?.fragmentUseFootnoteHint ??
-        '启用后，评论将以 Obsidian 脚注格式保存，兼容 Sidebar Highlights 插件。'
+          '启用后，评论将以 Obsidian 脚注格式保存，兼容 Sidebar Highlights 插件。'
       ),
       this.buildCheckboxSetting(
         'fragmentCaptureContext',
         this.messages?.captureContextLabel ?? '捕捉上下文（该功能尚不稳定）',
         this.messages?.fragmentCaptureContextHint ??
-        '启用后，会捕捉选中文字周围的上下文，并用 ==高亮== 标记实际选中的部分。'
+          '启用后，会捕捉选中文字周围的上下文，并用 ==高亮== 标记实际选中的部分。'
       ),
       this.buildModifierToggleSetting(),
       this.buildModifierKeysSetting(),
@@ -182,7 +160,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
         'fragmentKeyboardShortcutsEnabled',
         this.messages?.fragmentKeyboardShortcutsLabel ?? '启用剪藏对话框快捷键',
         this.messages?.fragmentKeyboardShortcutsHint ??
-        '在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏。'
+          '在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏。'
       ),
       this.buildExamplesSetting()
     );
@@ -194,7 +172,10 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildCheckboxSetting(inputId: string, labelText: string, hintText: string): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0');
+    const setting = this.createElement(
+      'div',
+      'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0'
+    );
     const control = this.createElement('div', 'flex flex-wrap justify-start gap-2');
     const checkboxHost = this.createElement('div');
     const checkboxComponent = new DaisyCheckbox(checkboxHost);
@@ -219,24 +200,17 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildModifierToggleSetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0');
+    const setting = this.createElement(
+      'div',
+      'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0'
+    );
     const control = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    const checkboxLabel = this.createElement(
-      'label',
-      ['inline-flex', 'items-center', 'gap-2', 'text-sm', 'text-base-content', 'cursor-pointer'].join(' ')
-    );
-    // ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.id = 'fragmentModifierToggle';
-    input.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
-    checkboxLabel.append(
-      input,
-      document.createTextNode(
-        this.messages?.fragmentModifierToggleLabel ?? '启用辅助键触发剪藏/阅读操作'
-      )
-    );
-    control.append(checkboxLabel);
+    const checkboxHost = this.createElement('div');
+    const input = new DaisyCheckbox(checkboxHost).render({
+      id: 'fragmentModifierToggle',
+      label: this.messages?.fragmentModifierToggleLabel ?? '启用辅助键触发剪藏/阅读操作'
+    });
+    control.append(checkboxHost);
     const hint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
     hint.textContent =
       this.messages?.fragmentModifierToggleDescription ??
@@ -247,32 +221,25 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildModifierKeysSetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     setting.id = 'fragmentModifierKeysGroup';
     setting.style.display = 'none';
     this.modifierKeysGroup = setting;
 
-    const label = this.createElement('div', ['text-sm', 'text-base-content/60', 'font-semibold'].join(' '));
+    const label = this.createElement(
+      'div',
+      ['text-sm', 'text-base-content/60', 'font-semibold'].join(' ')
+    );
     label.textContent = this.messages?.fragmentModifierKeysLabel ?? '辅助键设置';
 
     const control = this.createElement('div', 'flex flex-wrap gap-2');
     MODIFIER_KEYS.forEach((key) => {
-      const toggle = this.createElement(
-        'label',
-        ['inline-flex', 'items-center', 'gap-2', 'text-sm', 'text-base-content', 'cursor-pointer'].join(' ')
-      );
-      // ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
+      const toggleHost = this.createElement('div');
+      const checkbox = new DaisyCheckbox(toggleHost).render({
+        label: this.resolveModifierLabel(key)
+      });
       checkbox.setAttribute('data-fragment-modifier-key', key);
-      toggle.append(
-        checkbox,
-        document.createTextNode(
-          this.resolveModifierLabel(key)
-        )
-      );
-      control.append(toggle);
+      control.append(toggleHost);
       this.modifierKeyCheckboxes.push(checkbox);
     });
 
@@ -286,7 +253,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildContextLengthSetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     setting.id = 'fragmentContextLengthGroup';
     setting.style.display = 'none';
     this.contextLengthGroup = setting;
@@ -313,15 +280,14 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
 
     const hint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
     hint.textContent =
-      this.messages?.fragmentContextLengthHint ??
-      '控制上下文捕捉的最大长度；建议在 50~1000 之间。';
+      this.messages?.fragmentContextLengthHint ?? '控制上下文捕捉的最大长度；建议在 50~1000 之间。';
 
     setting.append(label, field, hint);
     return setting;
   }
 
   private buildContextModeSetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     setting.id = 'fragmentContextModeGroup';
     setting.style.display = 'none';
     this.contextModeGroup = setting;
@@ -330,24 +296,23 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     label.setAttribute('for', 'fragmentContextMode');
     label.textContent = this.messages?.fragmentContextModeLabel ?? '上下文单位';
 
-    const selectWrapper = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    // ✅ Phase 1 DaisyUI migration: 使用 .select 基类
-    const select = document.createElement('select');
-    select.id = 'fragmentContextMode';
-    select.className = 'select select-bordered w-full min-h-[36px]';
-    CONTEXT_MODES.forEach((mode) => {
-      const option = document.createElement('option');
-      option.value = mode;
-      option.textContent =
-        mode === 'sentences'
-          ? this.messages?.fragmentContextModeSentences ?? '按句子数'
-          : this.messages?.fragmentContextModeChars ?? '按字符数';
-      select.append(option);
+    const selectWrapper = this.createElement('div', 'flex flex-wrap justify-start gap-2 w-full');
+    const selectHost = this.createElement('div', 'w-full');
+    const select = new DaisySelect(selectHost).render({
+      id: 'fragmentContextMode',
+      value: FRAGMENT_DEFAULTS.contextMode ?? 'chars',
+      disabled: true,
+      className: 'min-h-[36px]',
+      options: CONTEXT_MODES.map((mode) => ({
+        value: mode,
+        label:
+          mode === 'sentences'
+            ? (this.messages?.fragmentContextModeSentences ?? '按句子数')
+            : (this.messages?.fragmentContextModeChars ?? '按字符数')
+      }))
     });
-    select.value = FRAGMENT_DEFAULTS.contextMode ?? 'chars';
-    select.disabled = true;
     this.contextModeSelect = select;
-    selectWrapper.append(select);
+    selectWrapper.append(selectHost);
 
     const hint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
     hint.textContent =
@@ -358,16 +323,18 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     return setting;
   }
 
-  private resolveModifierLabel(key: FragmentClipperOptions['selectionModifierKeys'][number]): string {
+  private resolveModifierLabel(
+    key: FragmentClipperOptions['selectionModifierKeys'][number]
+  ): string {
     switch (key) {
       case 'alt':
-        return this.messages?.fragmentModifierKeyAlt ?? 'Option / Alt';
+        return this.messages?.fragmentModifierKeyAlt ?? getKeyboardModifierLabel('alt');
       case 'meta':
-        return this.messages?.fragmentModifierKeyMeta ?? 'Command';
+        return this.messages?.fragmentModifierKeyMeta ?? getKeyboardModifierLabel('meta');
       case 'ctrl':
-        return this.messages?.fragmentModifierKeyCtrl ?? 'Control';
+        return this.messages?.fragmentModifierKeyCtrl ?? getKeyboardModifierLabel('ctrl');
       case 'shift':
-        return this.messages?.fragmentModifierKeyShift ?? 'Shift';
+        return this.messages?.fragmentModifierKeyShift ?? getKeyboardModifierLabel('shift');
       default:
         return key;
     }
@@ -408,8 +375,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
       ].join(' ')
     );
     const footnoteTitle = document.createElement('strong');
-    footnoteTitle.textContent =
-      this.messages?.fragmentFootnoteExampleTitle ?? '脚注格式示例：';
+    footnoteTitle.textContent = this.messages?.fragmentFootnoteExampleTitle ?? '脚注格式示例：';
     const footnoteCode = document.createElement('code');
     footnoteCode.className = [
       'block',
@@ -464,8 +430,10 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     return setting;
   }
 
-  private highlightShortcuts = (): boolean => {
-    const checkbox = this.container.querySelector<HTMLInputElement>('#fragmentKeyboardShortcutsEnabled');
+  highlightKeyboardShortcuts = (): boolean => {
+    const checkbox = this.container.querySelector<HTMLInputElement>(
+      '#fragmentKeyboardShortcutsEnabled'
+    );
     const target =
       checkbox?.closest<HTMLElement>('.grid') ?? // Assuming .grid is the setting container
       checkbox?.closest<HTMLElement>('label') ??
@@ -510,14 +478,6 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
       this.highlightCleanup();
       this.highlightCleanup = null;
     }
-  }
-
-  private registerHighlighter(): void {
-    if (this.isRegistered) {
-      unregisterFragmentShortcutsHighlighter(this.highlightShortcuts);
-    }
-    registerFragmentShortcutsHighlighter(this.highlightShortcuts);
-    this.isRegistered = true;
   }
 
   private handleValueChanged = (): void => {
@@ -586,23 +546,26 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     const fragment = options.fragmentClipper ?? ({} as FragmentClipperOptions);
 
     if (this.footnoteCheckbox) {
-      this.footnoteCheckbox.checked = fragment.useFootnoteFormat ?? FRAGMENT_DEFAULTS.useFootnoteFormat;
+      this.footnoteCheckbox.checked =
+        fragment.useFootnoteFormat ?? FRAGMENT_DEFAULTS.useFootnoteFormat;
     }
     if (this.captureContextCheckbox) {
-      this.captureContextCheckbox.checked = fragment.captureContext ?? FRAGMENT_DEFAULTS.captureContext;
+      this.captureContextCheckbox.checked =
+        fragment.captureContext ?? FRAGMENT_DEFAULTS.captureContext;
     }
     if (this.keyboardShortcutsCheckbox) {
       this.keyboardShortcutsCheckbox.checked =
         fragment.keyboardShortcutsEnabled ?? FRAGMENT_DEFAULTS.keyboardShortcutsEnabled;
     }
     if (this.modifierToggle) {
-      this.modifierToggle.checked = fragment.selectionModifierEnabled ?? FRAGMENT_DEFAULTS.selectionModifierEnabled;
+      this.modifierToggle.checked =
+        fragment.selectionModifierEnabled ?? FRAGMENT_DEFAULTS.selectionModifierEnabled;
     }
     if (this.contextLengthInput) {
       const nextLength =
         typeof fragment.contextLength === 'number' && fragment.contextLength > 0
           ? fragment.contextLength
-          : FRAGMENT_DEFAULTS.contextLength ?? 200;
+          : (FRAGMENT_DEFAULTS.contextLength ?? 200);
       this.contextLengthInput.value = String(nextLength);
     }
     if (this.contextModeSelect) {
@@ -613,8 +576,10 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
     const configuredKeys = Array.isArray(fragment.selectionModifierKeys)
       ? fragment.selectionModifierKeys
       : FRAGMENT_DEFAULTS.selectionModifierKeys;
-    this.modifierKeyCheckboxes.forEach(checkbox => {
-      const key = checkbox.dataset.fragmentModifierKey as FragmentClipperOptions['selectionModifierKeys'][number] | undefined;
+    this.modifierKeyCheckboxes.forEach((checkbox) => {
+      const key = checkbox.dataset.fragmentModifierKey as
+        | FragmentClipperOptions['selectionModifierKeys'][number]
+        | undefined;
       checkbox.checked = key ? configuredKeys.includes(key) : false;
     });
     this.updateModifierGroupVisibility(Boolean(this.modifierToggle?.checked));
@@ -624,29 +589,41 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   private collectChanges(previous: StoredOptions | null): Partial<CompleteOptions> {
     const previousFragment = previous?.fragmentClipper;
     const resolvedContextLength = this.normalizeContextLength(previousFragment?.contextLength);
-    const modeValue = this.contextModeSelect?.value ?? previousFragment?.contextMode ?? FRAGMENT_DEFAULTS.contextMode ?? 'chars';
+    const modeValue =
+      this.contextModeSelect?.value ??
+      previousFragment?.contextMode ??
+      FRAGMENT_DEFAULTS.contextMode ??
+      'chars';
     const resolvedContextMode: FragmentClipperOptions['contextMode'] = CONTEXT_MODES.includes(
       modeValue as FragmentClipperOptions['contextMode']
     )
       ? (modeValue as FragmentClipperOptions['contextMode'])
       : 'chars';
     const selectionKeys = this.modifierKeyCheckboxes
-      .filter(checkbox => checkbox.checked)
-      .map(checkbox => checkbox.dataset.fragmentModifierKey)
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => checkbox.dataset.fragmentModifierKey)
       .filter((key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
-        return Boolean(key) && MODIFIER_KEYS.includes(key as FragmentClipperOptions['selectionModifierKeys'][number]);
+        return (
+          Boolean(key) &&
+          MODIFIER_KEYS.includes(key as FragmentClipperOptions['selectionModifierKeys'][number])
+        );
       });
 
     const partial: Partial<CompleteOptions> = {
       fragmentClipper: {
-        useFootnoteFormat: this.footnoteCheckbox?.checked ?? previousFragment?.useFootnoteFormat ?? true,
-        captureContext: this.captureContextCheckbox?.checked ?? previousFragment?.captureContext ?? false,
+        useFootnoteFormat:
+          this.footnoteCheckbox?.checked ?? previousFragment?.useFootnoteFormat ?? true,
+        captureContext:
+          this.captureContextCheckbox?.checked ?? previousFragment?.captureContext ?? false,
         contextLength: resolvedContextLength,
         contextMode: resolvedContextMode,
-        selectionModifierEnabled: this.modifierToggle?.checked ?? previousFragment?.selectionModifierEnabled ?? false,
+        selectionModifierEnabled:
+          this.modifierToggle?.checked ?? previousFragment?.selectionModifierEnabled ?? false,
         selectionModifierKeys: [...selectionKeys],
         keyboardShortcutsEnabled:
-          this.keyboardShortcutsCheckbox?.checked ?? previousFragment?.keyboardShortcutsEnabled ?? true
+          this.keyboardShortcutsCheckbox?.checked ??
+          previousFragment?.keyboardShortcutsEnabled ??
+          true
       }
     };
     this.persistFragmentClipper(partial);
@@ -661,10 +638,11 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistFragmentClipper(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo
-      .set(partial)
-      .catch((error) => {
-        console.error('[FragmentSection] Failed to persist fragment clipper options via repository:', error);
-      });
+    void this.optionsRepo.set(partial).catch((error) => {
+      console.error(
+        '[FragmentSection] Failed to persist fragment clipper options via repository:',
+        error
+      );
+    });
   }
 }

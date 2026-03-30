@@ -60,30 +60,46 @@ try {
   process.exit(1);
 }
 
+await rm('build/dist', { recursive: true, force: true });
 await mkdir('build/dist', { recursive: true });
 
-const buildOptions = {
-  entryPoints: [
-    'src/background/index.ts',
-    'src/content/index.ts',
-    'src/options/index.ts',
-    'src/onboarding/index.ts'
-  ],
+const CONTENT_LOADER_SOURCE = `
+(() => {
+  const scope = globalThis;
+  const runtime = scope.chrome?.runtime ?? scope.browser?.runtime;
+  const resolve = (path) => {
+    if (runtime?.getURL) {
+      return runtime.getURL(path);
+    }
+    return new URL(path, scope.location?.href ?? 'http://localhost/').href;
+  };
+  const key = '__AIIINOB_CONTENT_RUNTIME_PROMISE__';
+  if (!scope[key]) {
+    scope[key] = import(resolve('content/runtime.js'));
+  }
+  Promise.resolve(scope[key]).catch((error) => {
+    console.error('[content-loader] Failed to bootstrap content runtime:', error);
+  });
+})();
+`.trimStart();
+
+const sharedBuildOptions = {
   bundle: true,
   outdir: 'build/dist',
   platform: 'browser',
-  format: 'iife',
   sourcemap: watch || !prod,
   minify: prod && !watch,
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
-    '__DEV__': prod ? 'false' : 'true',
-    '__AIIINOB_SENTRY_DSN__': JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
-    '__AIIINOB_SENTRY_ENVIRONMENT__': JSON.stringify(
+    __DEV__: prod ? 'false' : 'true',
+    __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
+    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
       process.env.AIIINOB_SENTRY_ENVIRONMENT ?? (prod ? 'production' : 'development')
     ),
-    '__AIIINOB_SENTRY_RELEASE__': JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
-    '__AIIINOB_SENTRY_ENABLED__': resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED) ? 'true' : 'false'
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
+    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
+      ? 'true'
+      : 'false'
   },
   charset: 'utf8',
   loader: {
@@ -92,13 +108,50 @@ const buildOptions = {
   plugins: [cssTextPlugin()]
 };
 
+const backgroundBuildOptions = {
+  ...sharedBuildOptions,
+  entryPoints: ['src/background/index.ts'],
+  format: 'iife'
+};
+
+const contentRuntimeBuildOptions = {
+  ...sharedBuildOptions,
+  entryPoints: {
+    'content/runtime': 'src/content/index.ts'
+  },
+  format: 'esm',
+  splitting: true,
+  chunkNames: 'chunks/[name]-[hash]'
+};
+
+const uiBuildOptions = {
+  ...sharedBuildOptions,
+  entryPoints: {
+    'options/index': 'src/options/index.ts',
+    'onboarding/index': 'src/onboarding/index.ts',
+    'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
+    'content-orchestrator-harness': 'src/dev/contentOrchestratorHarness.ts',
+    'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts'
+  },
+  format: 'esm',
+  splitting: true,
+  chunkNames: 'chunks/[name]-[hash]'
+};
+
 if (watch) {
-  const ctx = await context(buildOptions);
-  await ctx.watch();
+  const backgroundCtx = await context(backgroundBuildOptions);
+  const contentCtx = await context(contentRuntimeBuildOptions);
+  const uiCtx = await context(uiBuildOptions);
+  await Promise.all([backgroundCtx.watch(), contentCtx.watch(), uiCtx.watch()]);
   console.log('👀 Watching for changes...');
 } else {
-  await build(buildOptions);
+  await build(backgroundBuildOptions);
+  await build(contentRuntimeBuildOptions);
+  await build(uiBuildOptions);
 }
+
+await mkdir('build/dist/content', { recursive: true });
+await writeFile('build/dist/content/index.js', CONTENT_LOADER_SOURCE);
 
 await cp('public', 'build/dist', { recursive: true });
 
@@ -109,9 +162,15 @@ await cp('src/styles/design-tokens.css', 'build/dist/styles/design-tokens.css');
 await cp('src/styles/global.tailwind.css', 'build/dist/styles/global.tailwind.css');
 try {
   await mkdir('build/dist/styles/clipper', { recursive: true });
-  await cp('src/styles/clipper/clipper.tailwind.css', 'build/dist/styles/clipper/clipper.tailwind.css');
+  await cp(
+    'src/styles/clipper/clipper.tailwind.css',
+    'build/dist/styles/clipper/clipper.tailwind.css'
+  );
   await cp('src/styles/clipper/video.tailwind.css', 'build/dist/styles/clipper/video.tailwind.css');
-  await cp('src/styles/clipper/highlight-themes.css', 'build/dist/styles/clipper/highlight-themes.css');
+  await cp(
+    'src/styles/clipper/highlight-themes.css',
+    'build/dist/styles/clipper/highlight-themes.css'
+  );
 } catch (error) {
   if (error?.code !== 'ENOENT') {
     throw error;

@@ -1,7 +1,5 @@
 import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
-import { chromeTabsService } from '../../platform/chrome/tabs';
-import { chromeRuntimeService } from '../../platform/chrome/runtime';
 import type { INavigationRepository } from '../../shared/repositories/INavigationRepository';
 
 /**
@@ -9,8 +7,8 @@ import type { INavigationRepository } from '../../shared/repositories/INavigatio
  */
 export class ChromeNavigationRepository implements INavigationRepository {
   constructor(
-    private readonly tabs: TabsService = chromeTabsService,
-    private readonly runtime: RuntimeService = chromeRuntimeService
+    private readonly tabs: TabsService,
+    private readonly runtime: RuntimeService
   ) {}
 
   async openVault(url?: string): Promise<void> {

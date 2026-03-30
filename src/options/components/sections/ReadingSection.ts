@@ -4,10 +4,11 @@ import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { DaisyButton } from '../shared/DaisyButton';
-import { DaisyCard } from '../shared/DaisyCard';
-import { DaisyRadioGroup } from '../shared/DaisyRadioGroup';
-import { DaisySelect } from '../shared/DaisySelect';
+import { UiButton as DaisyButton } from '../../../ui/primitives/button';
+import { DaisyCard } from '../../../ui/primitives/card';
+import { createOptionsHintText } from '../../../ui/primitives/layout';
+import { DaisyRadioGroup } from '../../../ui/primitives/radio-group';
+import { UiSelect as DaisySelect } from '../../../ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -28,17 +29,16 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
   private selectedTheme: string = HIGHLIGHT_THEMES[0];
   private previewHighlightSwatch: HTMLElement | null = null;
   private previewModeText: HTMLElement | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private unsubscribeRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
     this.dispose();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card', 'transition-opacity', 'duration-200');
+    this.applySectionChrome(['transition-opacity', 'duration-200']);
 
     const header = this.buildHeader();
     const body = this.buildBody();
@@ -53,11 +53,7 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
 
   override destroy(): void {
     this.dispose();
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('readingSession', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     super.destroy();
   }
 
@@ -76,45 +72,30 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('readingSession', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('readingSession', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('readingSession', binding);
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.readingConfigTitle ?? '阅读模式';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent =
-      this.messages?.readingConfigHint ?? '选择导出阅读模式时保存的内容形式';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.readingConfigTitle ?? '阅读模式',
+      description: this.messages?.readingConfigHint ?? '选择导出阅读模式时保存的内容形式'
+    });
   }
 
   private buildBody(): HTMLElement {
     const wrapper = this.createElement('div', 'grid gap-6');
-    const settings = this.createElement('div', 'grid gap-6');
+    const settings = this.createSectionSettings();
 
-    const modeSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
-    const modeLabel = this.createElement('label', 'text-sm font-medium text-base-content/60', { for: 'readingExportMode' });
+    const modeSetting = this.createSettingRow();
+    const modeLabel = this.createElement('label', 'text-sm font-medium text-base-content/60', {
+      for: 'readingExportMode'
+    });
     modeLabel.textContent = this.messages?.readingExportModeLabel ?? '导出内容';
     const modeControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
     const modeSelectHost = this.createElement('div', 'w-full');
@@ -132,7 +113,7 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
       ]
     });
     modeControl.append(modeSelectHost);
-    const modeHint = this.createElement('div', 'text-sm text-base-content/60 mt-2');
+    const modeHint = createOptionsHintText({ tag: 'div' });
     modeHint.textContent =
       this.messages?.readingExportModeDescription ??
       '选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。';
@@ -140,7 +121,7 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     settings.append(modeSetting);
     this.exportModeSelect = modeSelect;
 
-    const themeSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const themeSetting = this.createSettingRow();
     const themeLabel = this.createElement('div', 'text-sm font-medium text-base-content/60');
     themeLabel.id = 'readingHighlightThemeLabel';
     themeLabel.textContent = this.messages?.readingHighlightThemeLabel ?? '高亮颜色';
@@ -160,8 +141,10 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
         this.handleValueChanged();
       }
     });
-    this.themeButtons = Array.from(themeOptions.querySelectorAll<HTMLButtonElement>('button[role="radio"]'));
-    const themeHint = this.createElement('div', 'text-sm text-base-content/60 mt-2');
+    this.themeButtons = Array.from(
+      themeOptions.querySelectorAll<HTMLButtonElement>('button[role="radio"]')
+    );
+    const themeHint = createOptionsHintText({ tag: 'div' });
     themeHint.textContent =
       this.messages?.readingHighlightThemeDescription ??
       '仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。';
@@ -197,7 +180,9 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     if (!this.themeButtons.length) {
       return;
     }
-    const currentIndex = this.themeButtons.findIndex(button => button.dataset.theme === this.selectedTheme);
+    const currentIndex = this.themeButtons.findIndex(
+      (button) => button.dataset.theme === this.selectedTheme
+    );
     if (currentIndex === -1) {
       return;
     }
@@ -227,12 +212,12 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
       return;
     }
 
-    const normalized = HIGHLIGHT_THEMES.includes(theme as typeof HIGHLIGHT_THEMES[number])
+    const normalized = HIGHLIGHT_THEMES.includes(theme as (typeof HIGHLIGHT_THEMES)[number])
       ? theme
       : HIGHLIGHT_THEMES[0];
     this.selectedTheme = normalized;
     this.themeContainer.dataset.selectedTheme = normalized;
-    this.themeButtons.forEach(button => {
+    this.themeButtons.forEach((button) => {
       const isCurrent = button.dataset.theme === normalized;
       if (isCurrent) {
         button.classList.add('ring-2', 'ring-accent', 'ring-offset-2', 'ring-offset-surface-0');
@@ -260,9 +245,11 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     const previousReading = previous?.readingSession;
 
     const exportMode = this.exportModeSelect?.value ?? previousReading?.exportMode ?? 'highlights';
-    const highlightTheme = HIGHLIGHT_THEMES.includes(this.selectedTheme as typeof HIGHLIGHT_THEMES[number])
-      ? this.selectedTheme as typeof HIGHLIGHT_THEMES[number]
-      : previousReading?.highlightTheme ?? 'gradient';
+    const highlightTheme = HIGHLIGHT_THEMES.includes(
+      this.selectedTheme as (typeof HIGHLIGHT_THEMES)[number]
+    )
+      ? (this.selectedTheme as (typeof HIGHLIGHT_THEMES)[number])
+      : (previousReading?.highlightTheme ?? 'gradient');
 
     const partial: Partial<CompleteOptions> = {
       readingSession: {
@@ -287,7 +274,17 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     );
     const highlightSwatch = this.createElement(
       'span',
-      ['inline-flex', 'items-center', 'px-3', 'py-1', 'text-xs', 'font-semibold', 'text-base-100', 'rounded-full', 'shadow-sm'].join(' ')
+      [
+        'inline-flex',
+        'items-center',
+        'px-3',
+        'py-1',
+        'text-xs',
+        'font-semibold',
+        'text-base-100',
+        'rounded-full',
+        'shadow-sm'
+      ].join(' ')
     );
     highlightSwatch.textContent = this.messages?.readingHighlightThemeLabel ?? '示例高亮';
     highlightPreview.append(highlightSwatch);
@@ -310,7 +307,9 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
   private buildActionRow(): HTMLElement {
     const actionRow = this.createElement(
       'div',
-      ['flex', 'flex-wrap', 'gap-3', 'items-center', 'border-t', 'border-base-300', 'pt-4'].join(' ')
+      ['flex', 'flex-wrap', 'gap-3', 'items-center', 'border-t', 'border-base-300', 'pt-4'].join(
+        ' '
+      )
     );
     const saveHost = this.createElement('div');
     // ✅ Stage 3 Week 4: Migrated save button to DaisyButton (ReadingSection)
@@ -332,19 +331,19 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     if (!this.previewHighlightSwatch || !this.previewModeText) {
       return;
     }
-    const theme = HIGHLIGHT_THEMES.includes(this.selectedTheme as typeof HIGHLIGHT_THEMES[number])
-      ? (this.selectedTheme as typeof HIGHLIGHT_THEMES[number])
+    const theme = HIGHLIGHT_THEMES.includes(this.selectedTheme as (typeof HIGHLIGHT_THEMES)[number])
+      ? (this.selectedTheme as (typeof HIGHLIGHT_THEMES)[number])
       : HIGHLIGHT_THEMES[0];
-    this.previewHighlightSwatch.className =
-      `inline-flex items-center px-3 py-1 text-xs font-semibold text-base-100 rounded-full shadow-sm ${HIGHLIGHT_THEME_CLASS_MAP[theme]}`;
+    this.previewHighlightSwatch.className = `inline-flex items-center px-3 py-1 text-xs font-semibold text-base-100 rounded-full shadow-sm ${HIGHLIGHT_THEME_CLASS_MAP[theme]}`;
     const modeValue = this.exportModeSelect?.value ?? 'highlights';
-    const modeLabel = modeValue === 'full'
-      ? (this.messages?.readingExportModeFull ?? '保存全文并标注高亮')
-      : (this.messages?.readingExportModeHighlights ?? '仅保存高亮片段');
+    const modeLabel =
+      modeValue === 'full'
+        ? (this.messages?.readingExportModeFull ?? '保存全文并标注高亮')
+        : (this.messages?.readingExportModeHighlights ?? '仅保存高亮片段');
     this.previewModeText.textContent = `${modeLabel} · ${this.resolveThemeLabel(theme)}`;
   }
 
-  private resolveThemeLabel(theme: typeof HIGHLIGHT_THEMES[number]): string {
+  private resolveThemeLabel(theme: (typeof HIGHLIGHT_THEMES)[number]): string {
     switch (theme) {
       case 'purple':
         return this.messages?.readingHighlightThemePurple ?? '纯紫色';
@@ -368,10 +367,8 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistReading(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo
-      .set(partial)
-      .catch((error) => {
-        console.error('[ReadingSection] Failed to persist reading options via repository:', error);
-      });
+    void this.optionsRepo.set(partial).catch((error) => {
+      console.error('[ReadingSection] Failed to persist reading options via repository:', error);
+    });
   }
 }

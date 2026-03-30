@@ -1,79 +1,40 @@
-# 设计系统文档索引 | Design System Documentation Index
+# 设计系统文档索引
 
-> **创建日期**：2025-11-26
-> **状态**：✅ 文档完整，POC 验证待开始
+> 最后更新：2026-03-29
+> 口径：当前工程真值优先，其次才是历史 POC 与归档资料
 
----
+## 当前正式文档
 
-## 📂 完整文档集
+- [`design-system-governance.md`](./design-system-governance.md)
+  当前 `src/ui` 分层、兼容层、归档资产与守门基线
+- [`architecture-boundaries.md`](./architecture-boundaries.md)
+  UI 宿主、domains / features 依赖方向与 composition root 边界
+- [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+  当前守门命令、构建/测试入口与浏览器 harness 入口
+- [`目标架构迁移执行方案-2026-03-29.md`](./目标架构迁移执行方案-2026-03-29.md)
+  本轮目标架构迁移的执行基线
+- [`目标架构迁移-milestone-核查清单-2026-03-29.md`](./目标架构迁移-milestone-核查清单-2026-03-29.md)
+  本轮迁移的台账与回写入口
+- [`final-acceptance-report-2026-03-29.md`](./final-acceptance-report-2026-03-29.md)
+  本轮目标架构迁移的最终验收结论
+- [`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
+  本轮迁移收口后的长期维护议题池
 
-所有设计系统相关的技术文档已集中到：
+## 历史参考资料
 
-**[`docs/251126-design-system-poc/`](./251126-design-system-poc/)**
+- [`251126-design-system-poc/`](./251126-design-system-poc/)
+- [`archive/execution-baselines/`](./archive/execution-baselines/)
+- [`archive/legacy-options-assets/`](./archive/legacy-options-assets/)
 
----
+## 阅读顺序
 
-## 🚀 快速开始
+1. 先读 [`design-system-governance.md`](./design-system-governance.md)
+2. 再读 [`architecture-boundaries.md`](./architecture-boundaries.md)
+3. 需要执行迁移核查时看执行方案与 checklist
+4. 需要跑守门与回归时查看 [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+5. 需要核对最终状态时查看最新验收报告与长期 backlog
 
-### 如果你是第一次阅读
+## 维护规则
 
-1. 阅读 [`README.md`](./251126-design-system-poc/README.md) - 了解整体概览
-2. 重点阅读 [`design-system-technical-details.md`](./251126-design-system-poc/design-system-technical-details.md) ⭐ - 关键技术细节（必读）
-3. 查看 POC 测试文件：[`tests/visual/`](../tests/visual/)
-
-### 如果你要执行 POC 验证
-
-👉 **直接阅读 [`POC-IMPLEMENTATION-PLAN.md`](./251126-design-system-poc/POC-IMPLEMENTATION-PLAN.md)** ⭐
-
-这是一份完整的可独立执行的实施手册，包含：
-- 环境验证和依赖安装（Step 1）
-- DaisyUI 配置详细步骤（Step 2）
-- 4 个测试的完整执行流程（Step 3）
-- 结果汇总和提交指南（Step 4）
-- 完整的故障排查指南
-
-**预计耗时**：1-2 天
-
----
-
-## 📋 文档清单
-
-| 文档 | 用途 | 阅读时长 |
-|------|------|----------|
-| [`POC-IMPLEMENTATION-PLAN.md`](./251126-design-system-poc/POC-IMPLEMENTATION-PLAN.md) ⭐ | **POC 实施手册（可独立执行）** | **1-2 天** |
-| [`design-system-consultation-brief.md`](./251126-design-system-poc/design-system-consultation-brief.md) | 咨询准备材料 | 15 分钟 |
-| [`design-system-suggestion.md`](./251126-design-system-poc/design-system-suggestion.md) | 专家初始建议 | 20 分钟 |
-| [`design-system-suggestion-review.md`](./251126-design-system-poc/design-system-suggestion-review.md) | 审核报告 | 25 分钟 |
-| [`design-system-suggestion-revised.md`](./251126-design-system-poc/design-system-suggestion-revised.md) | 修订方案 | 35 分钟 |
-| [`design-system-technical-details.md`](./251126-design-system-poc/design-system-technical-details.md) ⭐ | **技术细节（必读）** | **40 分钟** |
-
----
-
-## 🎯 核心推荐
-
-- **样式架构**：Tailwind CSS + DaisyUI
-- **交互逻辑**：原生 TS + Zag.js（按需）
-- **图标系统**：Lucide Icons
-- **颜色方案**：HSL 分离（推荐）
-
----
-
-## 🧪 POC 测试
-
-- [`tests/visual/daisyui-opacity-test.html`](../tests/visual/daisyui-opacity-test.html)
-- [`tests/visual/zagjs-combobox-test.html`](../tests/visual/zagjs-combobox-test.html)
-- [`tests/visual/lucide-shadow-dom-test.html`](../tests/visual/lucide-shadow-dom-test.html)
-- [`tests/visual/css-vars-penetration-test.html`](../tests/visual/css-vars-penetration-test.html)
-
----
-
-## ⚠️ 关键警告
-
-1. **🚨 Zag.js 焦点丢失陷阱**：必须分离 Mount 和 Update，详见技术细节文档 §2
-2. **⚠️ DaisyUI 透明度修饰符**：需要使用分离的 HSL 值，详见技术细节文档 §1
-3. **⚡ 性能优化**：使用脏检查避免不必要的 DOM 操作，详见技术细节文档 §2
-
----
-
-**维护者**：项目技术团队
-**最后更新**：2025-11-26
+- 如果 `src/ui/*` 正式入口、compat wrapper、token 真值或守门脚本发生变化，必须同步更新本索引
+- 历史 POC、archive 资料与正式文档冲突时，以正式文档、最终验收报告和长期 backlog 为准

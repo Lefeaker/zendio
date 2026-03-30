@@ -8,8 +8,6 @@ import type { OptionsStateManager } from '@options/state/StateManager';
 import { MockOptionsRepository } from '../../../utils/repositories';
 
 const fragmentMocks = vi.hoisted(() => {
-  const registerHighlighter = vi.fn();
-  const unregisterHighlighter = vi.fn();
   const scheduleAutoSave = vi.fn();
   const getFragmentDefaults = vi.fn(() => ({
     useFootnoteFormat: true,
@@ -21,22 +19,13 @@ const fragmentMocks = vi.hoisted(() => {
     keyboardShortcutsEnabled: true
   }));
   return {
-    registerHighlighter,
-    unregisterHighlighter,
     scheduleAutoSave,
     getFragmentDefaults
   };
 }) as {
-  registerHighlighter: ReturnType<typeof vi.fn>;
-  unregisterHighlighter: ReturnType<typeof vi.fn>;
   scheduleAutoSave: ReturnType<typeof vi.fn>;
   getFragmentDefaults: ReturnType<typeof vi.fn>;
 };
-
-vi.mock('@options/components/sectionRegistry', () => ({
-  registerFragmentShortcutsHighlighter: fragmentMocks.registerHighlighter,
-  unregisterFragmentShortcutsHighlighter: fragmentMocks.unregisterHighlighter
-}));
 
 vi.mock('@shared/config', async () => {
   const actual = await vi.importActual<typeof import('@shared/config')>('@shared/config');
@@ -104,12 +93,16 @@ describe('FragmentSection', () => {
     return { section, repo };
   };
 
-  it('registers highlighter and toggles modifier keys visibility on change', () => {
+  it('toggles modifier keys visibility on change and exposes shortcut reveal helper', () => {
     const { section } = renderSection();
     const toggle = getInput('fragmentModifierToggle');
     const modifierGroup = getElement('fragmentModifierKeysGroup');
     expect(modifierGroup.style.display).toBe('none');
-    expect(fragmentMocks.registerHighlighter).toHaveBeenCalledTimes(1);
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn()
+    });
+    expect(section.highlightKeyboardShortcuts()).toBe(true);
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event('change', { bubbles: true }));
@@ -118,7 +111,6 @@ describe('FragmentSection', () => {
     expect(fragmentMocks.scheduleAutoSave).toHaveBeenCalledTimes(1);
 
     section.destroy();
-    expect(fragmentMocks.unregisterHighlighter).toHaveBeenCalledTimes(1);
   });
 
   it('applies snapshot defaults and collects updated fragment settings', async () => {
@@ -162,10 +154,14 @@ describe('FragmentSection', () => {
     const modifierCheckboxes = Array.from(
       document.querySelectorAll<HTMLInputElement>('[data-fragment-modifier-key]')
     );
-    const enabledKeys = modifierCheckboxes.filter(input => input.checked).map(input => input.dataset.fragmentModifierKey);
+    const enabledKeys = modifierCheckboxes
+      .filter((input) => input.checked)
+      .map((input) => input.dataset.fragmentModifierKey);
     expect(enabledKeys).toEqual(['ctrl', 'shift']);
 
-    const altCheckbox = modifierCheckboxes.find(input => input.dataset.fragmentModifierKey === 'alt');
+    const altCheckbox = modifierCheckboxes.find(
+      (input) => input.dataset.fragmentModifierKey === 'alt'
+    );
     expect(altCheckbox).toBeDefined();
     if (altCheckbox) {
       altCheckbox.checked = true;
@@ -219,7 +215,9 @@ describe('FragmentSection', () => {
     expect(contextModeGroup.style.display).toBe('grid');
     expect(contextLengthInput.disabled).toBe(false);
     expect(contextModeSelect.disabled).toBe(false);
-    expect(fragmentMocks.scheduleAutoSave.mock.calls.length).toBeGreaterThanOrEqual(initialCalls + 1);
+    expect(fragmentMocks.scheduleAutoSave.mock.calls.length).toBeGreaterThanOrEqual(
+      initialCalls + 1
+    );
 
     captureCheckbox.checked = false;
     captureCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
@@ -227,7 +225,9 @@ describe('FragmentSection', () => {
     expect(contextModeGroup.style.display).toBe('none');
     expect(contextLengthInput.disabled).toBe(true);
     expect(contextModeSelect.disabled).toBe(true);
-    expect(fragmentMocks.scheduleAutoSave.mock.calls.length).toBeGreaterThanOrEqual(initialCalls + 2);
+    expect(fragmentMocks.scheduleAutoSave.mock.calls.length).toBeGreaterThanOrEqual(
+      initialCalls + 2
+    );
 
     section.destroy();
   });
@@ -307,5 +307,4 @@ describe('FragmentSection', () => {
 
     section.destroy();
   });
-
 });

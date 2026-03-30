@@ -7,7 +7,8 @@ import { TOKENS, DI_TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
 import type { IMessagingRepository } from '../../shared/repositories';
 import { SupportPromptToastController } from './supportPrompt/SupportPromptToastController';
-import { SupportPromptView } from './supportPrompt/SupportPromptView';
+import { SupportPromptView } from '../../ui/domains/video';
+import type { UiMountable } from '../../ui/hosts/shared/contract';
 import type {
   LikeToastVariant,
   PromptStatus,
@@ -18,7 +19,8 @@ import type {
   SupportPromptOptions
 } from './supportPrompt/types';
 
-const REVIEW_BASE_URL = 'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
+const REVIEW_BASE_URL =
+  'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
@@ -102,16 +104,23 @@ function resolveStatusMessage(input: {
   };
 
   if (status === 'failure') {
-    text = reason ? fill(messages.statusFailureWithReason, 'reason', reason) : messages.statusFailure;
+    text = reason
+      ? fill(messages.statusFailureWithReason, 'reason', reason)
+      : messages.statusFailure;
   } else if (status === 'warning') {
-    text = reason ? fill(messages.statusWarningWithReason, 'reason', reason) : messages.statusWarning;
+    text = reason
+      ? fill(messages.statusWarningWithReason, 'reason', reason)
+      : messages.statusWarning;
   } else {
-    text = vaultLabel ? fill(messages.statusSuccessWithVault, 'vault', vaultLabel) : messages.statusSuccess;
+    text = vaultLabel
+      ? fill(messages.statusSuccessWithVault, 'vault', vaultLabel)
+      : messages.statusSuccess;
   }
 
-  const contextMessage = typeof error?.context?.contextMessage === 'string'
-    ? error.context.contextMessage.trim()
-    : undefined;
+  const contextMessage =
+    typeof error?.context?.contextMessage === 'string'
+      ? error.context.contextMessage.trim()
+      : undefined;
 
   const result: ResolvedStatusMessage = { text };
   if (error && status !== 'success') {
@@ -123,7 +132,10 @@ function resolveStatusMessage(input: {
   return result;
 }
 
-export class SupportPrompt {
+export class SupportPrompt
+  implements
+    UiMountable<SupportPromptOptions | undefined, SupportPromptOptions | undefined, Promise<void>>
+{
   private view: SupportPromptView | null = null;
   private readonly deps: SupportPromptDependencies;
   private readonly toastController: SupportPromptToastController;
@@ -163,7 +175,8 @@ export class SupportPrompt {
     this.hide();
     const messages = await this.resolveMessages();
     const resolvedError = options?.error;
-    const promptStatus = options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
+    const promptStatus =
+      options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
     const reason = resolveReason(resolvedError, options?.errorMessage);
     const vaultLabel = options?.vaultName?.trim();
     const statusMessage = resolveStatusMessage({
@@ -200,16 +213,30 @@ export class SupportPrompt {
       links,
       status: promptStatus,
       statusMessage,
-      onLike: () => { void this.handleLikeClick(); },
-      onDislike: () => { void this.handleDislikeClick(); },
+      onLike: () => {
+        void this.handleLikeClick();
+      },
+      onDislike: () => {
+        void this.handleDislikeClick();
+      },
       onClose: () => this.hide(),
-      onLinkClick: (url) => { void this.trackUsageEvent('support_link_clicked', { url }); }
+      onLinkClick: (url) => {
+        void this.trackUsageEvent('support_link_clicked', { url });
+      }
     });
 
     const host = this.view.render();
     host.id = 'aiob-support-prompt';
     this.view.show();
     queueMicrotask(() => host.focus());
+  }
+
+  mount(options?: SupportPromptOptions): Promise<void> {
+    return this.show(options);
+  }
+
+  update(options?: SupportPromptOptions): Promise<void> {
+    return this.show(options);
   }
 
   hide(): void {
@@ -247,7 +274,7 @@ export class SupportPrompt {
     try {
       await ensureContentI18n(this.doc);
       const resource = getContentI18nResource();
-      const messages = resource?.messages ?? await getContentMessages();
+      const messages = resource?.messages ?? (await getContentMessages());
       return {
         dialogLabel: messages.supportPromptDialogLabel,
         title: messages.supportPromptTitle,
@@ -267,13 +294,25 @@ export class SupportPrompt {
         statusWarningWithReason: messages.supportPromptStatusWarningWithReason,
         statusFailure: messages.supportPromptStatusFailure,
         statusFailureWithReason: messages.supportPromptStatusFailureWithReason,
-        likeThankYou: messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
-        reviewLinkLabel: messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
-        reviewAcknowledgedLabel: messages.supportPromptReviewAcknowledgedLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,
-        dislikeToastTitle: messages.supportPromptDislikeToastTitle ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeToastTitle,
-        dislikeRedditLinkLabel: messages.supportPromptDislikeRedditLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
-        dislikeQrLinkLabel: messages.supportPromptDislikeQrLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
-        dislikeQrPlaceholder: messages.supportPromptDislikeQrPlaceholder ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
+        likeThankYou:
+          messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
+        reviewLinkLabel:
+          messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
+        reviewAcknowledgedLabel:
+          messages.supportPromptReviewAcknowledgedLabel ??
+          FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,
+        dislikeToastTitle:
+          messages.supportPromptDislikeToastTitle ??
+          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeToastTitle,
+        dislikeRedditLinkLabel:
+          messages.supportPromptDislikeRedditLinkLabel ??
+          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
+        dislikeQrLinkLabel:
+          messages.supportPromptDislikeQrLinkLabel ??
+          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
+        dislikeQrPlaceholder:
+          messages.supportPromptDislikeQrPlaceholder ??
+          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
       };
     } catch (error) {
       console.warn('[support-prompt] Failed to load i18n messages:', error);
@@ -336,7 +375,10 @@ export class SupportPrompt {
     }
   }
 
-  private async trackUsageEvent(name: string, params?: TrackUsageEventPayload['params']): Promise<void> {
+  private async trackUsageEvent(
+    name: string,
+    params?: TrackUsageEventPayload['params']
+  ): Promise<void> {
     try {
       await this.deps.messaging.send({
         type: 'track',

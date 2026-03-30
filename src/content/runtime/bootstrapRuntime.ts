@@ -4,7 +4,6 @@ import type { SelectionController } from '../clipper/services/selectionControlle
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
 import type { ContentMessageRouter } from './contentMessageRouter';
-import type { SupportPrompt } from '../ui/supportPrompt';
 import { initClipFlow } from './clipFlow';
 import { wireDomEvents } from './domEvents';
 import { registerMessageRouter } from './messageRouter';
@@ -17,7 +16,6 @@ export interface CreateContentRuntimeOptions {
   selectionTracker: ContentSelectionTracker;
   selectionController: SelectionController;
   extractorRegistry: ExtractorRegistryApi;
-  supportPrompt: SupportPrompt;
   createRouter: (runClip: () => void) => ContentMessageRouter;
 }
 
@@ -27,7 +25,16 @@ export interface ContentRuntime {
 }
 
 export function createContentRuntime(options: CreateContentRuntimeOptions): ContentRuntime {
-  const { document, window, messaging, runtimeState, selectionTracker, selectionController, extractorRegistry, createRouter } = options;
+  const {
+    document,
+    window,
+    messaging,
+    runtimeState,
+    selectionTracker,
+    selectionController,
+    extractorRegistry,
+    createRouter
+  } = options;
 
   let domDisposer: { dispose(): void } | null = null;
   let messageDisposer: { dispose(): void } | null = null;
@@ -44,7 +51,9 @@ export function createContentRuntime(options: CreateContentRuntimeOptions): Cont
         extractorRegistry
       });
 
-      const router = createRouter(() => { void clipFlow.handleClip(); });
+      const router = createRouter(() => {
+        void clipFlow.handleClip();
+      });
       messageDisposer = registerMessageRouter({ messaging, router });
 
       domDisposer = wireDomEvents({

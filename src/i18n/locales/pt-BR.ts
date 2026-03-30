@@ -24,7 +24,8 @@ const runtime: Messages = {
 
   // API Configuration
   apiConfigTitle: 'Obsidian Local REST API',
-  apiConfigHint: 'Este é o cofre padrão; qualquer coisa que não corresponda às regras de roteamento será salva aqui.',
+  apiConfigHint:
+    'Este é o cofre padrão; qualquer coisa que não corresponda às regras de roteamento será salva aqui.',
   httpsUrlLabel: 'URL HTTPS',
   httpsUrlHint: 'Geralmente porta 27124, para conexões seguras',
   additionalVaultHttpsHint: 'Use uma porta única; não compartilhe com outros cofres',
@@ -76,11 +77,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'Modelo de caminho do chat de IA',
   aiTemplateHint: 'Para salvar conversas de chat de IA',
   availableVariables: 'Variáveis disponíveis:',
-  templateVariableNote: '{slug} é o título em formato slug. Use {HHmmss} ou {HHmm} para incluir a hora de captura; {mm} minúsculo continua representando o mês.',
+  templateVariableNote:
+    '{slug} é o título em formato slug. Use {HHmmss} ou {HHmm} para incluir a hora de captura; {mm} minúsculo continua representando o mês.',
 
   // Domain Mapping
   domainMappingTitle: 'Configuração de mapeamento de domínio',
-  domainMappingHint: 'Configure nomes de pasta amigáveis para domínios frequentes (ex: mapear medium.com para "Medium")',
+  domainMappingHint:
+    'Configure nomes de pasta amigáveis para domínios frequentes (ex: mapear medium.com para "Medium")',
   domainLabel: 'Domínio',
   folderNameLabel: 'Nome da pasta',
   addMappingButton: '+ Adicionar mapeamento',
@@ -95,7 +98,8 @@ const runtime: Messages = {
   yamlFieldValuePathExamplesTitle: 'Chaves de contexto comuns',
   yamlFieldValuePathExamples: 'meta.author\nstats.wordCount\nextra.notes[0]',
   yamlDomainTitle: 'Overrides por domínio',
-  yamlDomainHint: 'Adicione overrides de YAML por domínio. Eles têm prioridade sobre as configurações globais.',
+  yamlDomainHint:
+    'Adicione overrides de YAML por domínio. Eles têm prioridade sobre as configurações globais.',
   yamlDomainAddRule: '+ Adicionar regra de domínio',
   yamlDomainEmpty: 'Ainda não há regras específicas por domínio.',
   yamlDomainPlaceholder: 'ex.: example.com ou *.example.com',
@@ -125,13 +129,15 @@ const runtime: Messages = {
   configTransferHint: 'Copie uma vez e importe em qualquer lugar para sincronizar navegadores.',
   copyConfigButton: 'Copiar configuração',
   importConfigButton: 'Importar da área de transferência',
-  configTransferNote: 'Essas ações usam a área de transferência do sistema—certifique-se de que o navegador tenha permissão de acesso.',
+  configTransferNote:
+    'Essas ações usam a área de transferência do sistema—certifique-se de que o navegador tenha permissão de acesso.',
   copyConfigSuccess: '✅ Configuração copiada para a área de transferência',
   importSuccess: '✅ Configuração importada e salva',
   importParseFailed: '❌ Falha ao analisar configuração',
   emptyImportError: 'Área de transferência vazia, por favor copie a configuração primeiro',
   clipboardUnavailable: 'Área de transferência indisponível, por favor copie manualmente',
-  clipboardReadUnavailable: 'Não é possível ler a área de transferência. Conceda permissões da área de transferência e tente novamente.',
+  clipboardReadUnavailable:
+    'Não é possível ler a área de transferência. Conceda permissões da área de transferência e tente novamente.',
   invalidTaxonomy: 'A taxonomia do classificador deve ser um JSON válido',
 
   // AI Chat Configuration
@@ -149,17 +155,21 @@ const runtime: Messages = {
   deepResearchConfigTitle: 'Configuração do Gemini Deep Research',
   deepResearchConfigHint: 'Configure como os relatórios do Deep Research são capturados',
   pureModeLabel: 'Modo puro (capturar apenas conteúdo do relatório)',
-  pureModeHint: 'Quando habilitado, captura apenas o conteúdo do relatório do Deep Research, excluindo mensagens de conversa',
-  multipleReportsInfo: 'ℹ️ Sobre múltiplos relatórios: O Gemini pode exibir apenas um relatório completo por vez. Para salvar múltiplos relatórios, abra cada relatório separadamente e salve-os.',
+  pureModeHint:
+    'Quando habilitado, captura apenas o conteúdo do relatório do Deep Research, excluindo mensagens de conversa',
+  multipleReportsInfo:
+    'ℹ️ Sobre múltiplos relatórios: O Gemini pode exibir apenas um relatório completo por vez. Para salvar múltiplos relatórios, abra cada relatório separadamente e salve-os.',
 
   readingConfigTitle: 'Modo de leitura',
   readingConfigHint: 'Escolha como a exportação da sessão de leitura deve capturar o conteúdo',
   readingExportModeLabel: 'Exportar conteúdo',
   readingExportModeHighlights: 'Apenas trechos destacados',
   readingExportModeFull: 'Artigo completo com destaques',
-  readingExportModeDescription: 'Ao escolher "Artigo completo", o corpo limpo do artigo é salvo com destaques incorporados e notas de rodapé.',
+  readingExportModeDescription:
+    'Ao escolher "Artigo completo", o corpo limpo do artigo é salvo com destaques incorporados e notas de rodapé.',
   readingHighlightThemeLabel: 'Cor do destaque',
-  readingHighlightThemeDescription: 'Afeta apenas o estilo do destaque no modo de leitura; o Markdown exportado permanece inalterado.',
+  readingHighlightThemeDescription:
+    'Afeta apenas o estilo do destaque no modo de leitura; o Markdown exportado permanece inalterado.',
   readingHighlightThemeGradient: 'Gradiente roxo-azul (padrão)',
   readingHighlightThemePurple: 'Roxo sólido',
   readingHighlightThemeNeonYellow: 'Amarelo neon',
@@ -169,22 +179,28 @@ const runtime: Messages = {
   fragmentConfigTitle: 'Configuração de salvamento de fragmentos',
   fragmentConfigHint: 'Configure como as seleções de texto são salvas e formatadas',
   fragmentUseFootnoteLabel: 'Usar formato de nota de rodapé (recomendado)',
-  fragmentUseFootnoteHint: 'Quando habilitado, comentários serão salvos no formato de notas de rodapé do Obsidian, compatível com o plugin Sidebar Highlights',
-  fragmentCaptureContextHint: 'Quando habilitado, captura contexto ao redor do texto selecionado e marca o destaque real com ==destaque==',
+  fragmentUseFootnoteHint:
+    'Quando habilitado, comentários serão salvos no formato de notas de rodapé do Obsidian, compatível com o plugin Sidebar Highlights',
+  fragmentCaptureContextHint:
+    'Quando habilitado, captura contexto ao redor do texto selecionado e marca o destaque real com ==destaque==',
   fragmentFootnoteExampleTitle: 'Exemplo de formato de nota de rodapé:',
   fragmentModifierToggleLabel: 'Habilitar ativação por tecla modificadora para salvar/ler',
-  fragmentModifierToggleDescription: 'Quando você mantém as teclas modificadoras selecionadas e arrasta para selecionar texto, o diálogo do clipper ou destaque de leitura abrirá automaticamente.',
+  fragmentModifierToggleDescription:
+    'Quando você mantém as teclas modificadoras selecionadas e arrasta para selecionar texto, o diálogo do clipper ou destaque de leitura abrirá automaticamente.',
   fragmentModifierKeysLabel: 'Seleção de tecla modificadora',
-  fragmentModifierKeysDescription: 'Todas as teclas modificadoras marcadas devem ser mantidas juntas para ativar a ação automática.',
+  fragmentModifierKeysDescription:
+    'Todas as teclas modificadoras marcadas devem ser mantidas juntas para ativar a ação automática.',
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: 'Habilitar atalhos de teclado do diálogo do clipper',
-  fragmentKeyboardShortcutsHint: 'No diálogo do clipper: Duplo Enter para entrar no modo de leitura, Cmd+Enter (Mac) ou Alt+Enter (Windows) para salvar diretamente',
+  fragmentKeyboardShortcutsHint:
+    'No diálogo do clipper: Duplo Enter para entrar no modo de leitura, Cmd+Enter (Mac) ou Alt+Enter (Windows) para salvar diretamente',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: 'Edição de comentário concluída, você pode usar atalhos de teclado para executar as seguintes ações:',
+  clipperCommentEditCompleted:
+    'Edição de comentário concluída, você pode usar atalhos de teclado para executar as seguintes ações:',
   clipperShortcutHintDoubleEnter: 'Duplo Enter',
   clipperShortcutHintModifierEnter: 'Salvar diretamente',
   clipperShortcutHintEscape: 'Cancelar',
@@ -224,15 +240,24 @@ const runtime: Messages = {
   reloadPrompt: 'Por favor, recarregue a página para ver a configuração corrigida',
   connectionTesting: 'Testando conexão...',
   connectionSuccessShort: 'Conexão bem-sucedida',
-  portConflictDetected: '⚠️ Conflito de porta detectado: {ports}. Por favor, atribua portas únicas no Obsidian antes de tentar novamente.',
+  portConflictDetected:
+    '⚠️ Conflito de porta detectado: {ports}. Por favor, atribua portas únicas no Obsidian antes de tentar novamente.',
   connectionFailureHintsTitle: 'Próximos passos: ',
-  connectionFailureHintCheckApiKey: 'Verifique se a chave da API corresponde às configurações do Local REST API',
-  connectionFailureHintCheckVault: 'Confirme se o nome do cofre corresponde ao plugin Local REST API',
-  connectionFailureHintCheckService: 'Certifique-se de que o Obsidian e o plugin Local REST API estão em execução',
+  connectionFailureHintCheckApiKey:
+    'Verifique se a chave da API corresponde às configurações do Local REST API',
+  connectionFailureHintCheckVault:
+    'Confirme se o nome do cofre corresponde ao plugin Local REST API',
+  connectionFailureHintCheckService:
+    'Certifique-se de que o Obsidian e o plugin Local REST API estão em execução',
   connectionFailureHintGeneric: 'Verifique a rede ou reinicie o serviço Local REST API',
 
   // Diagnosis
   diagnosisTitle: 'Diagnóstico de configuração',
+  diagnosisDescription:
+    'Clique em “Diagnosticar configuração” para ver aqui os resultados das verificações e as sugestões de correção.',
+  diagnosisSummaryHint:
+    'O diagnóstico verifica REST API, modelos de caminho, mapeamentos de domínio, roteamento multi-vault e configurações relacionadas, e então mostra um relatório detalhado.',
+  diagnosisResultTitle: 'Resultados do diagnóstico',
 
   // Notifications
   clipSuccess: 'Salvo no Obsidian',
@@ -253,7 +278,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: 'Sessão de leitura ativa',
   readerPanelStatus: 'Selecione texto para destacar e anotar',
-  readerPanelHint: 'Dica: solte o mouse para abrir o diálogo de anotação; deixe vazio para salvar apenas o destaque.',
+  readerPanelHint:
+    'Dica: solte o mouse para abrir o diálogo de anotação; deixe vazio para salvar apenas o destaque.',
   readerPanelFinish: 'Finalizar e exportar',
   readerPanelCancel: 'Cancelar',
   readerPanelCounter: 'Coletados {count} destaques',
@@ -272,17 +298,23 @@ const runtime: Messages = {
 
   // Privacy Settings
   privacySettingsTitle: 'Privacidade e dados',
-  privacySettingsDescription: 'Gerencie a coleta de análises e preferências de relatório de erro anônimo.',
+  privacySettingsDescription:
+    'Gerencie a coleta de análises e preferências de relatório de erro anônimo.',
   privacySettingsNote: 'Gerenciar coleta de dados e relatório de erros',
   analyticsDebugTitle: 'Modo de depuração',
-  analyticsDebugDescription: 'Quando habilitado, enviamos eventos para o GA4 DebugView e registramos detalhes da solicitação no console. Use apenas ao solucionar problemas.',
-  analyticsDebugDisabledHint: 'Habilite tanto "Análise de uso" quanto "Relatório de erros" antes de habilitar o modo de depuração.',
-  analyticsDebugEnabled: 'Modo de depuração habilitado. Lembre-se de desabilitá-lo após terminar a depuração.',
+  analyticsDebugDescription:
+    'Quando habilitado, enviamos eventos para o GA4 DebugView e registramos detalhes da solicitação no console. Use apenas ao solucionar problemas.',
+  analyticsDebugDisabledHint:
+    'Habilite tanto "Análise de uso" quanto "Relatório de erros" antes de habilitar o modo de depuração.',
+  analyticsDebugEnabled:
+    'Modo de depuração habilitado. Lembre-se de desabilitá-lo após terminar a depuração.',
   analyticsDebugDisabled: 'Modo de depuração desabilitado.',
   analyticsConsentTitle: 'Análise de uso',
-  analyticsConsentDescription: 'Coletar métricas de uso anonimizadas para melhorar a extensão. Nenhuma informação pessoal é armazenada.',
+  analyticsConsentDescription:
+    'Coletar métricas de uso anonimizadas para melhorar a extensão. Nenhuma informação pessoal é armazenada.',
   errorReportingConsentTitle: 'Relatório de erros',
-  errorReportingConsentDescription: 'Enviar automaticamente relatórios de erro limpos para que possamos diagnosticar problemas rapidamente.',
+  errorReportingConsentDescription:
+    'Enviar automaticamente relatórios de erro limpos para que possamos diagnosticar problemas rapidamente.',
   errorReportingDetailsTitle: 'Saiba o que está incluído',
   errorReportingCollectedTitle: 'Informações coletadas:',
   errorReportingCollectedError: 'Tipo de erro e gravidade',
@@ -296,11 +328,13 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: 'Senhas ou dados sensíveis de formulários',
   savePrivacySettings: 'Salvar configurações',
   clearAllAnalyticsData: 'Limpar todos os dados',
-  privacyFooterText: 'Estamos comprometidos em proteger sua privacidade. Você pode atualizar essas configurações a qualquer momento ou solicitar a exclusão dos dados coletados.',
+  privacyFooterText:
+    'Estamos comprometidos em proteger sua privacidade. Você pode atualizar essas configurações a qualquer momento ou solicitar a exclusão dos dados coletados.',
   privacyPolicyLink: 'Política de privacidade',
   dataUsageLink: 'Detalhes de uso de dados',
   privacySettingsSaved: 'Configurações de privacidade salvas',
-  privacyDataWillBeCleared: 'Coleta de dados desabilitada. A análise existente será limpa em 24 horas.',
+  privacyDataWillBeCleared:
+    'Coleta de dados desabilitada. A análise existente será limpa em 24 horas.',
   privacySettingsError: 'Falha ao salvar configurações, tente novamente.',
   confirmClearAllData: 'Limpar todos os dados de análise? Esta ação não pode ser desfeita.',
   allDataCleared: 'Todos os dados de análise foram limpos.',
@@ -309,7 +343,8 @@ const runtime: Messages = {
   // Video Mode
   videoPanelTitle: 'Modo de captura de vídeo',
   videoPanelStatus: 'Capture timestamps e notas rápidas',
-  videoPanelHint: 'Dica: Selecionar texto o adiciona automaticamente; pressione Enter duas vezes para salvar notas, Esc para cancelar.',
+  videoPanelHint:
+    'Dica: Selecionar texto o adiciona automaticamente; pressione Enter duas vezes para salvar notas, Esc para cancelar.',
   videoPanelAdd: 'Capturar timestamp atual',
   videoPanelFinish: 'Finalizar e exportar',
   videoPanelCancel: 'Cancelar',
@@ -318,7 +353,27 @@ const runtime: Messages = {
   videoConfigTitle: 'Modo de vídeo',
   videoConfigHint: 'Mostrar prompts em sites de vídeo suportados para capturar timestamps e notas',
   videoFloatingPromptLabel: 'Mostrar prompt flutuante em páginas de vídeo',
-  videoFloatingPromptHint: 'Funciona no YouTube e Bilibili. Aparece uma bolha de acesso rápido no canto inferior direito.',
+  videoFloatingPromptHint:
+    'Funciona no YouTube e Bilibili. Aparece uma bolha de acesso rápido no canto inferior direito.',
+  videoPromptCustomizationTitle: 'Texto e atalho do prompt flutuante',
+  videoPromptLabelTitle: 'Texto do botão do prompt',
+  videoPromptLabelPlaceholder: 'ex.: Iniciar notas de vídeo',
+  videoPromptLabelHint:
+    'Exibido como aria-label do botão flutuante para leitores de tela e dicas ao passar o mouse.',
+  videoPromptShortcutTitle: 'Atalho do prompt',
+  videoPromptShortcutPlaceholder: 'ex.: Alt+V',
+  videoPromptShortcutHint:
+    'Exibido no prompt flutuante. Prefira combinações Alt/Cmd para facilitar a memorização.',
+  videoSupportedPlatformsTitle: 'Plataformas compatíveis',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: 'Ativar notas de vídeo',
+  videoSaveConfigButton: 'Salvar configurações de vídeo',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'Compatível com páginas watch / short, detecta o prompt flutuante automaticamente e permite entrar no modo de notas de vídeo com um clique.',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'Compatível com páginas BV/AV, preserva espaço para a área de danmaku e mostra a dica de atalho.',
   videoTimestampSectionTitle: 'Timestamps de vídeo',
   videoFragmentSectionTitle: 'Fragmentos capturados',
   videoCaptureEditLabel: 'Editar nota',
@@ -336,7 +391,8 @@ const runtime: Messages = {
   videoHintFailure: 'Algo deu errado. Tente novamente.',
   clipSelectionVideo: 'Recortar para painel de captura de vídeo',
   videoPromptTitle: 'Modo de vídeo disponível',
-  videoPromptDescription: 'Clique para lançar o modo de vídeo e começar a salvar timestamps e notas.',
+  videoPromptDescription:
+    'Clique para lançar o modo de vídeo e começar a salvar timestamps e notas.',
   videoPromptAction: 'Iniciar modo de vídeo',
   videoPromptDismiss: 'Dispensar prompt de vídeo',
 
@@ -369,7 +425,8 @@ const runtime: Messages = {
 
   // Dialog
   clipDialogTitle: 'Recortar seleção',
-  clipDialogInstructions: 'Use Tab para mover entre controles. Pressione Alt + teclas de seta para reposicionar o diálogo.',
+  clipDialogInstructions:
+    'Use Tab para mover entre controles. Pressione Alt + teclas de seta para reposicionar o diálogo.',
   commentLabel: 'Adicionar um comentário (opcional)',
   commentPlaceholder: 'Digite seus pensamentos, notas ou comentários aqui...',
   cancelButton: 'Cancelar',
@@ -388,14 +445,16 @@ const runtime: Messages = {
   multiVaultNamePlaceholder: 'Meu cofre de notas',
   multiVaultNameHint: 'Nome amigável para identificar este cofre',
   deleteVaultButton: 'Excluir',
-  deleteVaultConfirm: 'Excluir este cofre? Regras de roteamento relacionadas também serão excluídas.',
+  deleteVaultConfirm:
+    'Excluir este cofre? Regras de roteamento relacionadas também serão excluídas.',
   defaultVaultBadge: 'Cofre padrão',
   deleteVaultDialogTitle: 'Excluir cofre',
   deleteRuleDialogTitle: 'Excluir regra',
 
   yamlConfigTitle: 'Configuração YAML',
   yamlConfigNote: 'Definir uma configuração unificada para campos YAML (prévia)',
-  yamlConfigPlaceholder: 'Este recurso ainda está em planejamento. O layout atual é uma prévia; versões futuras permitirão tipos de campo personalizados, tipos de conteúdo aplicáveis e valores padrão.',
+  yamlConfigPlaceholder:
+    'Este recurso ainda está em planejamento. O layout atual é uma prévia; versões futuras permitirão tipos de campo personalizados, tipos de conteúdo aplicáveis e valores padrão.',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -415,7 +474,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -428,7 +488,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: 'Regras de roteamento',
-  routingRulesHint: 'Escolha automaticamente um cofre de destino por domínio, palavras-chave ou padrões de URL. Itens que não correspondem vão para o cofre padrão.',
+  routingRulesHint:
+    'Escolha automaticamente um cofre de destino por domínio, palavras-chave ou padrões de URL. Itens que não correspondem vão para o cofre padrão.',
+  routingRulesPriorityNote:
+    'Dica: regras com prioridade mais alta são correspondidas primeiro, e os cofres de destino devem permanecer ativados.',
   vaultRulesTitle: 'Regras de roteamento',
   ruleEmptyPlaceholder: 'Ainda não há regras. Adicione uma para rotear clipes para este cofre.',
   addRuleButton: '+ Adicionar regra',
@@ -454,11 +517,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: 'Bem-vindo ao All in Ob',
   onboardingSubtitle: 'Vamos configurar rapidamente sua extensão clipper',
-  onboardingWelcomeMessage: 'Obrigado por instalar o All in Ob! Este guia ajudará você a configurar rapidamente a extensão para que possa salvar facilmente conteúdo web e conversas de IA no Obsidian.',
+  onboardingWelcomeMessage:
+    'Obrigado por instalar o All in Ob! Este guia ajudará você a configurar rapidamente a extensão para que possa salvar facilmente conteúdo web e conversas de IA no Obsidian.',
 
   // Step 1: API Configuration
   step1Title: 'Configurar Obsidian Local REST API (Obrigatório)',
-  step1Description: 'Primeiro, você precisa instalar e configurar o plugin Local REST API no Obsidian. Esta é a ponte entre a extensão e o Obsidian.',
+  step1Description:
+    'Primeiro, você precisa instalar e configurar o plugin Local REST API no Obsidian. Esta é a ponte entre a extensão e o Obsidian.',
 
   step1Detail1: 'Instale e habilite o plugin "Local REST API" no Obsidian',
   step1Detail2: 'Habilite "Servidor não criptografado (HTTP)" nas configurações do plugin',
@@ -471,64 +536,89 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: 'Configurar cofres adicionais (Opcional)',
-  step2Description: 'Se você tem múltiplos cofres Obsidian, pode configurar cofres adicionais e estabelecer regras de roteamento para salvar automaticamente diferentes tipos de conteúdo nos cofres correspondentes.',
+  step2Description:
+    'Se você tem múltiplos cofres Obsidian, pode configurar cofres adicionais e estabelecer regras de roteamento para salvar automaticamente diferentes tipos de conteúdo nos cofres correspondentes.',
 
   step2Detail1: 'Suporte para múltiplos cofres Obsidian',
-  step2Detail2: 'Estabelecer regras de roteamento baseadas em domínio, palavras-chave ou padrões de URL',
-  step2Detail3: 'Exemplo: Salvar artigos de tecnologia no cofre de trabalho, conteúdo pessoal no cofre pessoal',
+  step2Detail2:
+    'Estabelecer regras de roteamento baseadas em domínio, palavras-chave ou padrões de URL',
+  step2Detail3:
+    'Exemplo: Salvar artigos de tecnologia no cofre de trabalho, conteúdo pessoal no cofre pessoal',
   step2Detail4: 'Conteúdo que não corresponde a nenhuma regra será salvo no cofre padrão',
   step2ActionPrimary: 'Configurar cofres adicionais',
   step2ActionSecondary: 'Pular este passo',
 
   // Step 3: Main Features
   step3Title: 'Recursos principais',
-  step3Description: 'Vamos aprender rapidamente sobre os recursos principais da extensão para ajudá-lo a usá-la melhor.',
+  step3Description:
+    'Vamos aprender rapidamente sobre os recursos principais da extensão para ajudá-lo a usá-la melhor.',
 
   step3Section1Title: 'Clipping web',
-  step3Section1Detail1: 'Clique em áreas em branco de páginas web para recortar páginas completas (aguarde o carregamento completo da página e role para carregar todas as imagens)',
-  step3Section1Detail2: 'Reconhece automaticamente conversas de chat de IA principais e salva registros de diálogo de IA formatados',
+  step3Section1Detail1:
+    'Clique em áreas em branco de páginas web para recortar páginas completas (aguarde o carregamento completo da página e role para carregar todas as imagens)',
+  step3Section1Detail2:
+    'Reconhece automaticamente conversas de chat de IA principais e salva registros de diálogo de IA formatados',
   step3Section2Title: 'Modo de recorte/leitura',
-  step3Section2Detail1: 'Clique com o botão direito em texto selecionado ou use teclas auxiliares para selecionar conteúdo, adicionar comentários e salvar conteúdo selecionado com anotações no Obsidian',
-  step3Section2Detail2: 'Entre no modo de leitura para selecionar múltiplos fragmentos na mesma página, comentá-los e salvá-los juntos no Obsidian',
-  step3Section2Detail3: 'O modo de leitura organiza automaticamente fragmentos de texto de acordo com o layout da página, clique nos números dos fragmentos para navegação rápida',
-  step3Section2Detail4: 'O modo de leitura pode salvar texto completo no Obsidian com conteúdo selecionado destacado',
-  step3Section2Detail5: 'Sejam fragmentos ou seleções do modo de leitura, links precisos de página são salvos para retornar com um clique às posições web',
-  step3Section2Detail6: 'Instale o plugin sidebar highlights no Obsidian para visualização de anotações mais conveniente',
+  step3Section2Detail1:
+    'Clique com o botão direito em texto selecionado ou use teclas auxiliares para selecionar conteúdo, adicionar comentários e salvar conteúdo selecionado com anotações no Obsidian',
+  step3Section2Detail2:
+    'Entre no modo de leitura para selecionar múltiplos fragmentos na mesma página, comentá-los e salvá-los juntos no Obsidian',
+  step3Section2Detail3:
+    'O modo de leitura organiza automaticamente fragmentos de texto de acordo com o layout da página, clique nos números dos fragmentos para navegação rápida',
+  step3Section2Detail4:
+    'O modo de leitura pode salvar texto completo no Obsidian com conteúdo selecionado destacado',
+  step3Section2Detail5:
+    'Sejam fragmentos ou seleções do modo de leitura, links precisos de página são salvos para retornar com um clique às posições web',
+  step3Section2Detail6:
+    'Instale o plugin sidebar highlights no Obsidian para visualização de anotações mais conveniente',
   step3Section3Title: 'Modo de vídeo',
-  step3Section3Detail1: 'Páginas de reprodução adaptadas do YouTube ou Bilibili, abra o modo de vídeo para gravar timestamps de vídeo e adicionar notas a qualquer momento',
-  step3Section3Detail2: 'Clique nos números ao lado dos timestamps para navegação com um clique e visualização repetida',
-  step3Section3Detail3: 'Selecione texto da página e capture comentários emocionantes com um clique',
-  step3Section3Detail4: 'Após salvar no Obsidian, retorne com um clique aos timestamps precisos do vídeo a qualquer momento',
+  step3Section3Detail1:
+    'Páginas de reprodução adaptadas do YouTube ou Bilibili, abra o modo de vídeo para gravar timestamps de vídeo e adicionar notas a qualquer momento',
+  step3Section3Detail2:
+    'Clique nos números ao lado dos timestamps para navegação com um clique e visualização repetida',
+  step3Section3Detail3:
+    'Selecione texto da página e capture comentários emocionantes com um clique',
+  step3Section3Detail4:
+    'Após salvar no Obsidian, retorne com um clique aos timestamps precisos do vídeo a qualquer momento',
   step3ActionPrimary: 'Ver configurações detalhadas',
   step3ActionSecondary: 'Aprender mais tarde',
 
   // Step 4: Auxiliary Features
   step4Title: 'Recursos auxiliares',
-  step4Description: 'A extensão também fornece vários recursos auxiliares para tornar sua experiência mais conveniente.',
+  step4Description:
+    'A extensão também fornece vários recursos auxiliares para tornar sua experiência mais conveniente.',
 
-  step4Detail1: 'Múltiplos navegadores no mesmo dispositivo: copie a configuração atual com um clique, cole para sincronizar, sem necessidade de configuração repetida',
+  step4Detail1:
+    'Múltiplos navegadores no mesmo dispositivo: copie a configuração atual com um clique, cole para sincronizar, sem necessidade de configuração repetida',
   step4Detail2: 'Mapeamento de domínios: mapeie sites comuns para nomes de pasta amigáveis',
-  step4Detail3: 'Configuração de caminho personalizado, ajuste caminhos de acordo com suas necessidades',
-  step4Detail4: 'Diagnóstico inteligente: problemas de configuração? Diagnóstico inteligente para resolução rápida de problemas',
+  step4Detail3:
+    'Configuração de caminho personalizado, ajuste caminhos de acordo com suas necessidades',
+  step4Detail4:
+    'Diagnóstico inteligente: problemas de configuração? Diagnóstico inteligente para resolução rápida de problemas',
   step4ActionPrimary: 'Ver configurações detalhadas',
   step4ActionSecondary: 'Aprender mais tarde',
 
   // Step 5: More Features
   step5Title: 'Mais recursos emocionantes, iteração contínua',
-  step5Description: 'A extensão está evoluindo constantemente para trazer recursos mais inteligentes.',
+  step5Description:
+    'A extensão está evoluindo constantemente para trazer recursos mais inteligentes.',
 
   step5Detail1: 'Introduzindo recursos de IA para uma experiência mais suave e inteligente',
-  step5Detail2: 'Interação bidirecional, não mais apenas salvar notas, mas uma ponte entre navegador e Obsidian',
-  step5Detail3: 'Bem-vindo a sugerir melhorias, o desenvolvimento não é fácil, obrigado pelo seu apoio',
+  step5Detail2:
+    'Interação bidirecional, não mais apenas salvar notas, mas uma ponte entre navegador e Obsidian',
+  step5Detail3:
+    'Bem-vindo a sugerir melhorias, o desenvolvimento não é fácil, obrigado pelo seu apoio',
   step5ActionPrimary: 'Enviar sugestões',
   step5ActionSecondary: 'Mostrar apoio',
 
   // Onboarding Actions
   skipOnboarding: 'Pular guia',
   completeOnboarding: 'Completar guia',
-  onboardingFooterNote: 'Você pode reconfigurar essas opções na página de configurações a qualquer momento.',
+  onboardingFooterNote:
+    'Você pode reconfigurar essas opções na página de configurações a qualquer momento.',
   onboardingCompleted: 'Guia concluído!',
-  onboardingCompletedMessage: 'Você concluiu com sucesso o guia de configuração da extensão. Agora pode começar a usar o All in Ob para salvar seu conteúdo web!',
+  onboardingCompletedMessage:
+    'Você concluiu com sucesso o guia de configuração da extensão. Agora pode começar a usar o All in Ob para salvar seu conteúdo web!',
   onboardingLinkText: 'Guia',
 
   // Footer links
@@ -537,20 +627,24 @@ const runtime: Messages = {
   footerContactLink: 'Contatar autor',
 
   suggestionsModalTitle: 'Compartilhe suas sugestões',
-  suggestionsModalDescription: 'Obrigado por ajudar a melhorar o All in Ob. Você pode contatar o autor através de qualquer um dos seguintes canais:',
+  suggestionsModalDescription:
+    'Obrigado por ajudar a melhorar o All in Ob. Você pode contatar o autor através de qualquer um dos seguintes canais:',
   suggestionsModalReddit: 'Conversar no Reddit',
   suggestionsModalXiaohongshu: 'Juntar-se ao Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'O código QR será adicionado em breve. Por enquanto, sinta-se à vontade para enviar mensagem via Reddit.',
+  suggestionsModalQrPlaceholder:
+    'O código QR será adicionado em breve. Por enquanto, sinta-se à vontade para enviar mensagem via Reddit.',
 
   // Contact modal
   contactModalTitle: 'Contatar autor',
-  contactModalDescription: 'Se você aprecia este produto ou quer se conectar, <br>sinta-se à vontade para entrar em contato no <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>O autor está atualmente procurando trabalho—obrigado por espalhar a palavra!',
+  contactModalDescription:
+    'Se você aprecia este produto ou quer se conectar, <br>sinta-se à vontade para entrar em contato no <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>O autor está atualmente procurando trabalho—obrigado por espalhar a palavra!',
   contactModalCloseButton: 'Fechar',
 
   // Support modal (onboarding)
   supportModalTitle: 'Obrigado pelo seu apoio',
-  supportModalDescription: 'O desenvolvimento não é fácil. Se este plugin ajuda você, bem-vindo a apoiar das seguintes maneiras:',
+  supportModalDescription:
+    'O desenvolvimento não é fácil. Se este plugin ajuda você, bem-vindo a apoiar das seguintes maneiras:',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -562,14 +656,16 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: 'Este é o conteúdo do texto selecionado',
   fragmentFootnoteExampleComment: 'Este é meu comentário',
   fragmentContextHighlightExampleTitle: 'Exemplo de destaque de contexto:',
-  fragmentContextHighlightExampleContent: 'Contexto antes ==este é o texto selecionado== contexto depois',
+  fragmentContextHighlightExampleContent:
+    'Contexto antes ==este é o texto selecionado== contexto depois'
 };
 
 const ptBR: LocaleDefinition = {
   runtime,
   static: {
     extName: 'All in Ob',
-    extDescription: 'Clipper web aprimorado por IA para salvar chats, fragmentos e artigos no Obsidian.'
+    extDescription:
+      'Clipper web aprimorado por IA para salvar chats, fragmentos e artigos no Obsidian.'
   }
 };
 

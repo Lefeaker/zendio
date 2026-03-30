@@ -17,6 +17,7 @@
 - Scope: `tests/unit/**/*.test.ts`
 
 Use unit tests for:
+
 - repository behavior and error wrapping
 - options store / merger normalization
 - section controllers and view-model logic
@@ -29,6 +30,7 @@ Use unit tests for:
 - Scope: `tests/e2e/**/*.test.ts`
 
 Use flow tests for:
+
 - autosave and sync flows in Options
 - Reader / Video / Support Prompt user journeys
 - repository-backed content script integration
@@ -39,6 +41,7 @@ Use flow tests for:
 - Command: `npm run visual:test`
 
 Use browser-based checks for:
+
 - Shadow DOM rendering regressions
 - YAML config interaction harness
 - locale layout / visual regressions
@@ -52,6 +55,9 @@ Run before merging substantial changes:
 ```bash
 npm run typecheck
 npm run lint
+npm run audit:components:report
+npm run audit:interaction-contract:report
+npm run audit:platform-services:report
 npm run lint:warnings-guard
 npm run test:coverage
 npm run test:e2e
@@ -109,3 +115,13 @@ The GitHub Actions workflow in `.github/workflows/ci.yml` now checks:
 - build, i18n, and packaging steps
 
 Pull requests also receive a coverage summary comment based on `coverage/coverage-summary.json`.
+
+## Current Baseline
+
+The current handoff baseline is documented in:
+
+- [`README.md`](./README.md)
+- [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)
+- [`performance-baseline.md`](./performance-baseline.md)
+- [`final-acceptance-report-2026-03-20.md`](./final-acceptance-report-2026-03-20.md)

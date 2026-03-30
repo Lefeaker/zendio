@@ -1,27 +1,27 @@
 # Options 组件目录说明
 
-> 开发须知：所有 Options/Clipper 样式与组件改动都要先跑完 `docs/options-pre-251120-checklist.md`，并在 PR 中附上 `tmp/tailwind-baseline/` 日志；Tailwind 迁移细节参考 `docs/tailwind-pre-migration-check.md`、`docs/clipper-tailwind-migration-plan.md`。
+> 开发须知：所有 Options/Clipper 样式与组件改动都要先跑完 `docs/options-pre-251120-checklist.md`，并在 PR 中附上 `tmp/tailwind-baseline/` 日志；Tailwind 迁移细节参考 `docs/251126-design-system-poc/archived/tailwind-migration/251120/1-options-style-baseline-validation-guide.md`、`docs/clipper-tailwind-migration-plan.md`。
 
 ## 目录结构
 
 ```
 src/options/components/
-├── shared/          # 可复用的 DaisyUI 组件封装
-│   ├── DaisyButton.ts
-│   ├── DaisyInput.ts
-│   ├── DaisyCard.ts
-│   ├── DaisyBadge.ts
-│   ├── DaisyAlert.ts
-│   ├── DaisyDialog.ts
-│   └── BaseComponent.ts
 ├── controls/        # 可复用的业务控制组件
 ├── sections/        # Options 页面的各个配置区块
-├── layout/          # Options 页面布局组件（新增）
+├── layout/          # Options 页面布局组件
 │   ├── OptionsApp.ts      # 根容器
 │   ├── Navigation.ts      # 左侧导航
 │   └── MainContent.ts     # 右侧内容区
-└── formSections/    # 表单区块管理器（新增）
+├── infrastructure/  # Options 专属基础设施与列表编辑器
+└── formSections/    # 表单区块管理器
     └── formSectionManager.ts
+
+src/ui/
+├── foundation/      # BaseComponent、tokens、icons、a11y、style-host
+├── primitives/      # button / input / select / checkbox / dialog / card / table ...
+├── patterns/        # section-shell / confirm-flow / form-components ...
+├── hosts/           # options / content / shadow
+└── domains/         # vault-router / yaml-config / privacy / reading / video / theme
 ```
 
 ## app/ 目录（应用层）
@@ -36,20 +36,21 @@ src/options/app/
 ```
 
 **职责**：
+
 - 协调 layout/ 和 sections/ 的渲染
 - 管理全局状态（optionsStore）
 - 处理用户操作（保存、重置、导入/导出）
 
 ## 如何查找代码？
 
-| 需求 | 位置 |
-|------|------|
-| 修改某个 Section 的 UI | `src/options/components/sections/` |
-| 添加新的可复用组件 | `src/options/components/shared/` |
-| 修改页面布局（导航、主内容区） | `src/options/components/layout/` |
-| 修改启动逻辑 | `src/options/app/bootstrap.ts` |
-| 修改保存/重置逻辑 | `src/options/app/optionsActions.ts` |
-| 添加新的配置项 | `src/shared/types/options.ts` |
+| 需求                           | 位置                                       |
+| ------------------------------ | ------------------------------------------ |
+| 修改某个 Section 的 UI         | `src/options/components/sections/`         |
+| 添加新的可复用基础组件         | `src/ui/primitives/` 或 `src/ui/patterns/` |
+| 修改页面布局（导航、主内容区） | `src/options/components/layout/`           |
+| 修改启动逻辑                   | `src/options/app/bootstrap.ts`             |
+| 修改保存/重置逻辑              | `src/options/app/optionsActions.ts`        |
+| 添加新的配置项                 | `src/shared/types/options.ts`              |
 
 本目录按功能职责划分为以下子目录，便于定位组件类型与依赖：
 
@@ -57,7 +58,7 @@ src/options/app/
   包含页面框架与导航相关组件，例如 `OptionsApp`、`MainContent`、`Sidebar`、`NavigationController` 等，负责整体布局、Section 挂载和导航高亮。
 
 - `controls/`  
-  可在多个 Section 复用的控件与业务控制器，如 `domainMappings.ts`、`vaultRouterController.ts`、`privacySettings.ts`、`yamlConfigTable.ts` 等，通常负责具体表单或交互逻辑。
+  可在多个 Section 复用的控件与业务控制器，如 `domainMappings.ts`、`vaultRouterController.ts` 等，通常负责具体表单或交互逻辑。
 
 - `sections/`  
   选项页面的具体 Section 组件以及关联的工具文件（例如 `usageDashboard.utils.ts`）。每个 Section 继承 `BaseSection`，封装对应设置区域的渲染与状态处理。
@@ -68,66 +69,73 @@ src/options/app/
 - `formSections/`  
   表单 Section 统一注册与快照应用的基础设施，例如 `formSectionManager.ts`。
 
-- `shared/`
-  面向组件层的共享基类与通用构建器，如 `BaseComponent.ts`、`FormComponents.ts`、`listBuilder.ts`、`DaisyUIHelpers.ts` 等。
-  - `DaisyUIHelpers.ts`: DaisyUI 组件工厂函数，提供 `createButton()`、`createInput()`、`createAlert()` 等方法，用于统一创建 DaisyUI 风格的组件（Phase 1 + Phase 1B 迁移完成）。
+- `src/ui/`
+  正式基础 UI 入口，新增业务代码必须优先复用：
+  - `src/ui/primitives/*`: button / input / select / checkbox / textarea / toggle / badge / alert / dialog / layout / table / card / radio-group
+  - `src/ui/patterns/*`: section-shell / setting-row / form-components / list-editor / confirm-flow
+  - `src/ui/domains/*`: vault-router / yaml-config / privacy / reading / video / theme
 
 ## DaisyUI 迁移状态
 
 本项目正在进行 DaisyUI 设计系统迁移，详细计划和进度见 `docs/251126-design-system-poc/migration-log.md`。
 
-### Phase 1 + Phase 1.5 (✅ 已完成)
-- ✅ **Button 组件**: 100% 使用 `createButton()` 工厂函数（18/18 处）
-- ✅ **Input 组件**: 100% 使用 DaisyUI `.input`, `.checkbox`, `.select`, `.textarea` 类（27/27 处）
-- ✅ **Alert 组件**: 6 处使用 DaisyUI `.alert` 类，超过目标（3+ 处）
-- ✅ **Card 组件**: `AobFormGroup` 已迁移到 DaisyUI `.card` 结构
-- ✅ **包体积影响**: +2.1 KB CSS (+0.27%)
-- ✅ **测试覆盖**: 537/537 通过
+### 当前统一口径
+
+- 新增基础控件必须优先使用 `src/ui/primitives/*`。
+- 新增组合结构必须优先使用 `src/ui/patterns/*`。
+- Theme switcher 现位于 `src/ui/domains/theme/ThemeSwitcher.ts`。
+- DomainMappings list editor 现位于 `src/options/components/infrastructure/listBuilder.ts`。
+- Token 真值源固定为 `src/styles/design-tokens.css`；`src/options/styles/design-tokens.css` 已删除。
 
 ### Phase 2 (✅ 已完成)
+
 - ✅ **Stats 组件**: `UsageSection.ts` 已迁移到 DaisyUI `.stats`, `.stat`, `.stat-title`, `.stat-value`（Line 126-172）
-- ✅ **Table 组件优化**: `yamlConfigTable.ts` 已优化颜色类，使用 DaisyUI 主题变量（`bg-base-*`, `border-base-*`, `text-base-content/*`）
+- ✅ **Table 组件优化**: YAML config 表格实现已迁移到 `src/ui/domains/yaml-config/*`，继续使用 DaisyUI 主题变量（`bg-base-*`, `border-base-*`, `text-base-content/*`）
 - ✅ **包体积影响**: 0% 增长
 - ✅ **测试覆盖**: 537/537 通过
 
 ### 组件使用指南
 
-**使用 DaisyUI 组件工厂函数**（推荐用于动态创建场景）:
+**使用基础组件类**（推荐）:
+
 ```typescript
-import { createButton, createInput, createAlert } from '../shared/DaisyUIHelpers';
+import { createOptionsButtonElement } from '../../../ui/primitives/button';
+import { createInputElement } from '../../../ui/primitives/input';
+import { createCheckboxElement } from '../../../ui/primitives/checkbox';
 
 // 创建按钮
-const saveBtn = createButton('保存', { variant: 'primary', size: 'sm' });
-const cancelBtn = createButton('取消', { variant: 'ghost' });
-const deleteBtn = createButton('删除', { variant: 'danger' });
+const saveHost = document.createElement('div');
+const saveBtn = new DaisyButton(saveHost).render({ label: '保存', variant: 'primary', size: 'sm' });
 
 // 创建输入框
-const emailInput = createInput({ type: 'email', placeholder: '输入邮箱', size: 'sm' });
+const inputHost = document.createElement('div');
+const emailInput = new DaisyInput(inputHost).render({
+  type: 'email',
+  placeholder: '输入邮箱',
+  size: 'sm'
+});
 
-// 创建警告提示
-const successAlert = createAlert('操作成功', { type: 'success', dismissible: true });
+// 创建复选框
+const checkboxHost = document.createElement('div');
+const enabledInput = new DaisyCheckbox(checkboxHost).render({ label: '启用' });
 ```
 
-**直接使用 DaisyUI 语义类**（推荐用于静态 HTML 场景）:
+**DOM-heavy 场景**（如表格行、对话框 footer）:
+
 ```typescript
-const input = document.createElement('input');
-input.className = 'input input-bordered w-full min-h-[36px]';
+import { createDaisyButtonElement } from '../shared/DaisyButton';
 
-const checkbox = document.createElement('input');
-checkbox.type = 'checkbox';
-checkbox.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
-
-const stat = document.createElement('div');
-stat.className = 'stat';
-const statTitle = document.createElement('div');
-statTitle.className = 'stat-title';
-const statValue = document.createElement('div');
-statValue.className = 'stat-value';
+const saveButton = createDaisyButtonElement({
+  label: '保存',
+  variant: 'primary',
+  size: 'sm'
+});
 ```
 
 ### 迁移标记规范
 
 所有 DaisyUI 迁移代码应添加清晰的标记注释：
+
 ```typescript
 // ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
 checkbox.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
@@ -297,7 +305,7 @@ cardBody.className = 'card-body';
 card.append(cardBody);
 
 // After
-import { DaisyCard } from '../shared/DaisyCard';
+import { DaisyCard } from '../../../ui/primitives/card';
 
 // ✅ Stage 3 Week X: Migrated to DaisyCard
 const cardHost = document.createElement('div');

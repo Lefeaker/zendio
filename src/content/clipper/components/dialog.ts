@@ -5,7 +5,17 @@ import { contentErrors, type ErrorHandler } from '@shared/errors';
 import type { IClipRepository, FragmentConfig } from '@shared/repositories/IClipRepository';
 import { ensureContentI18n, getContentI18nBinder, getContentMessages } from '../../i18n/context';
 import { FocusTrapController } from '../../shared/focusTrap';
-import { createClipperDialogDependencies, type ClipperDialogDependencies } from './dialogDependencies';
+import {
+  createClipperDialogDependencies,
+  type ClipperDialogDependencies
+} from './dialogDependencies';
+import {
+  incrementShortcutUsage,
+  initializeDialogFragmentConfig,
+  loadShortcutUsageCount,
+  safeGetDialogMessages,
+  subscribeToDialogFragmentConfig
+} from './dialogServices';
 import {
   addButtonShortcutHints,
   applyReadonlyTextareaPresentation,
@@ -16,8 +26,6 @@ import {
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
-  SHORTCUT_USAGE_THRESHOLD,
-  USAGE_COUNT_STORAGE_KEY,
   detectReaderMode,
   getModifierLabel,
   isModifierSubmitEvent,
@@ -122,9 +130,17 @@ export class ClipperDialog {
     this.sessionState.applyOptions(options);
     this.dialogRegistry = options?.dialogRegistry ?? null;
 
-    await this.loadShortcutUsageCount();
-    await this.initializeFragmentConfig();
-    this.subscribeToFragmentConfig();
+    await loadShortcutUsageCount(this.sessionState, this.storageService, this.errorHandler);
+    await initializeDialogFragmentConfig({
+      clipRepo: this.clipRepo,
+      state: this.sessionState,
+      errorHandler: this.errorHandler
+    });
+    this.unsubscribeFragmentConfig = subscribeToDialogFragmentConfig({
+      clipRepo: this.clipRepo,
+      state: this.sessionState,
+      previous: this.unsubscribeFragmentConfig
+    });
 
     if (this.dialogRegistry) {
       this.unregisterDialog = this.dialogRegistry.register(this);
@@ -202,7 +218,7 @@ export class ClipperDialog {
   private async buildDialog(selectedText: string): Promise<void> {
     await ensureContentI18n(document);
     const binder = getContentI18nBinder();
-    this.messages = await this.safeGetMessages();
+    this.messages = await safeGetDialogMessages(this.errorHandler);
     this.disposeI18nHandles();
 
     await clipperStyleSheetManager.initialize();
@@ -321,7 +337,7 @@ export class ClipperDialog {
       this.sessionState.shortcutsTemporarilyActivated
     ) {
       if (this.sessionState.shortcutsTemporarilyActivated) {
-        void this.incrementShortcutUsage();
+        void incrementShortcutUsage(this.sessionState, this.storageService, this.errorHandler);
       }
       this.finalize('reader', this.getCurrentComment());
       return;
@@ -432,10 +448,7 @@ export class ClipperDialog {
         'clipperShortcutDoubleEnter',
         this.getFallback('clipperShortcutDoubleEnter')
       ),
-      modifierAction: this.getMessage(
-        'clipperShortcutModifierEnter',
-        getModifierLabel('button')
-      ),
+      modifierAction: this.getMessage('clipperShortcutModifierEnter', getModifierLabel('button')),
       escapeAction: this.getMessage('clipperShortcutEsc', this.getFallback('clipperShortcutEsc'))
     });
   }
@@ -448,7 +461,7 @@ export class ClipperDialog {
     event.preventDefault();
     event.stopPropagation();
     if (this.sessionState.shortcutsTemporarilyActivated) {
-      void this.incrementShortcutUsage();
+      void incrementShortcutUsage(this.sessionState, this.storageService, this.errorHandler);
     }
     this.finalize('clip', this.getCurrentComment());
     return true;
@@ -460,64 +473,6 @@ export class ClipperDialog {
     }
 
     return normalizeDialogComment(this.textarea.value);
-  }
-
-  private async loadShortcutUsageCount(): Promise<void> {
-    try {
-      const stored = await this.storageService.local.get<number>(USAGE_COUNT_STORAGE_KEY);
-      this.sessionState.shortcutUsageCount = stored ?? 0;
-    } catch (error) {
-      const appError = contentErrors.storageOperationFailed(
-        'load',
-        USAGE_COUNT_STORAGE_KEY,
-        { component: 'ClipperDialog', action: 'loadShortcutUsageCount' },
-        { cause: error }
-      );
-      await this.errorHandler.handle(appError, { suppressNotifications: true });
-      this.sessionState.shortcutUsageCount = 0;
-    }
-  }
-
-  private async saveShortcutUsageCount(): Promise<void> {
-    try {
-      await this.storageService.local.set(
-        USAGE_COUNT_STORAGE_KEY,
-        this.sessionState.shortcutUsageCount
-      );
-    } catch (error) {
-      const appError = contentErrors.storageOperationFailed(
-        'save',
-        USAGE_COUNT_STORAGE_KEY,
-        {
-          component: 'ClipperDialog',
-          action: 'saveShortcutUsageCount',
-          value: this.sessionState.shortcutUsageCount
-        },
-        { cause: error }
-      );
-      await this.errorHandler.handle(appError, { suppressNotifications: true });
-    }
-  }
-
-  private async incrementShortcutUsage(): Promise<void> {
-    this.sessionState.shortcutUsageCount += 1;
-    if (this.sessionState.shortcutUsageCount <= SHORTCUT_USAGE_THRESHOLD) {
-      await this.saveShortcutUsageCount();
-    }
-  }
-
-  private async safeGetMessages(): Promise<Messages | null> {
-    try {
-      return await getContentMessages();
-    } catch (error) {
-      const appError = contentErrors.componentInitializationFailed(
-        'content-messages',
-        { component: 'ClipperDialog', action: 'getContentMessages' },
-        { cause: error }
-      );
-      await this.errorHandler.handle(appError, { suppressNotifications: true });
-      return null;
-    }
   }
 
   private resolveAssetUrl(path: string): string {
@@ -582,31 +537,5 @@ export class ClipperDialog {
   private detachDragHandlers(): void {
     this.dragController?.detach();
     this.dragController = null;
-  }
-
-  private applyFragmentConfig(config: FragmentConfig): void {
-    this.sessionState.keyboardShortcutsEnabled = config.keyboardShortcutsEnabled;
-  }
-
-  private async initializeFragmentConfig(): Promise<void> {
-    try {
-      const config = await this.clipRepo.getFragmentConfig();
-      this.applyFragmentConfig(config);
-    } catch (error) {
-      const appError = contentErrors.componentInitializationFailed(
-        'fragment-config',
-        { component: 'ClipperDialog', action: 'initializeFragmentConfig' },
-        { cause: error }
-      );
-      await this.errorHandler.handle(appError, { suppressNotifications: true });
-      this.sessionState.keyboardShortcutsEnabled = true;
-    }
-  }
-
-  private subscribeToFragmentConfig(): void {
-    this.unsubscribeFragmentConfig?.();
-    this.unsubscribeFragmentConfig = this.clipRepo.onConfigChange((config) => {
-      this.applyFragmentConfig(config);
-    });
   }
 }

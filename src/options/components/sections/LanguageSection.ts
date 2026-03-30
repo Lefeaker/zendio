@@ -2,7 +2,7 @@ import { getAvailableLanguages, type Language } from '@i18n';
 import type { IOptionsRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
-import { DaisySelect } from '../shared/DaisySelect';
+import { UiSelect as DaisySelect } from '../../../ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 import { changeLanguage } from '../../app/optionsActions';
@@ -22,13 +22,13 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
   private pendingPersistLanguage: Language | null = null;
   private currentLanguage: Language = 'en';
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(context: SectionRenderContext): HTMLElement {
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     const header = this.buildHeader();
     const body = this.buildBody();
     this.container.replaceChildren(header, body);
@@ -59,15 +59,7 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.languageSettings ?? 'Language Settings';
-    titleWrapper.append(title);
-
-    const meta = this.createElement('div', 'text-sm text-base-content/60');
+    const meta = this.createElement('div', 'text-base-content/60 text-md');
     const selectHost = this.createElement('div');
     const select = new DaisySelect(selectHost).render({
       id: 'languageSelect',
@@ -77,15 +69,21 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
     select.addEventListener('change', this.handleLanguageChange);
 
     meta.append(selectHost);
-    header.append(titleWrapper, meta);
-
     this.select = select;
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.languageSettings ?? 'Language Settings',
+      actions: [meta],
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      titleWrapperClassName: 'flex items-center justify-between gap-3 text-base-content flex-wrap'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
-    const hint = this.createElement('p', 'text-sm text-base-content/60 bg-base-200 border border-base-300 rounded-md p-3 my-3');
+    const wrapper = this.createSectionBody();
+    const hint = this.createElement(
+      'p',
+      'text-sm text-base-content/60 bg-base-200 border border-base-300 rounded-md p-3 my-3'
+    );
     hint.textContent =
       this.messages?.languageSettings ??
       '修改下拉框后会重新加载界面文字；若翻译未实时更新，请稍候或再次尝试。';
@@ -102,7 +100,9 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
         ...(language.nativeName ? { nativeName: language.nativeName } : {}),
         ...(language.englishName ? { englishName: language.englishName } : {}),
         ...(language.region ? { region: language.region } : {}),
-        ...(typeof language.textExpansion === 'number' ? { textExpansion: String(language.textExpansion) } : {})
+        ...(typeof language.textExpansion === 'number'
+          ? { textExpansion: String(language.textExpansion) }
+          : {})
       }
     }));
   }
@@ -157,7 +157,9 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
   private subscribeToRepository(): void {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
-      const snapshot = this.extractLanguagePreference(options as Partial<LanguagePreferenceSnapshot>);
+      const snapshot = this.extractLanguagePreference(
+        options as Partial<LanguagePreferenceSnapshot>
+      );
       if (!snapshot) {
         return;
       }

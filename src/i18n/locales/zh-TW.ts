@@ -76,7 +76,8 @@ const runtime: Messages = {
   aiTemplateLabel: 'AI 聊天路徑範本',
   aiTemplateHint: '用於保存 AI 聊天對話',
   availableVariables: '可用變數：',
-  templateVariableNote: '{slug} 表示將標題轉為適合路徑的短鏈；{HHmmss}/{HHmm} 可插入保存時間，小寫 {mm} 依舊代表月份。',
+  templateVariableNote:
+    '{slug} 表示將標題轉為適合路徑的短鏈；{HHmmss}/{HHmm} 可插入保存時間，小寫 {mm} 依舊代表月份。',
 
   // Domain Mapping
   domainMappingTitle: '網域對應配置',
@@ -150,7 +151,8 @@ const runtime: Messages = {
   deepResearchConfigHint: '配置 Deep Research 報告的擷取方式',
   pureModeLabel: '純淨模式（僅擷取報告內容）',
   pureModeHint: '啟用時，僅擷取 Deep Research 報告內容，排除對話訊息',
-  multipleReportsInfo: 'ℹ️ 對於多個報告：Gemini 一次只能顯示一個完整報告。要保存多個報告，請分別開啟並保存每個報告。',
+  multipleReportsInfo:
+    'ℹ️ 對於多個報告：Gemini 一次只能顯示一個完整報告。要保存多個報告，請分別開啟並保存每個報告。',
 
   readingConfigTitle: '閱讀模式',
   readingConfigHint: '選擇閱讀會話匯出如何擷取內容',
@@ -173,7 +175,8 @@ const runtime: Messages = {
   fragmentCaptureContextHint: '啟用時，擷取選取文字周圍的上下文，並用 ==高亮== 標記實際高亮',
   fragmentFootnoteExampleTitle: '腳註格式範例：',
   fragmentModifierToggleLabel: '啟用修飾鍵進行保存/閱讀',
-  fragmentModifierToggleDescription: '按住選定的修飾鍵並拖曳選取文字將自動開啟剪藏對話框或閱讀高亮。',
+  fragmentModifierToggleDescription:
+    '按住選定的修飾鍵並拖曳選取文字將自動開啟剪藏對話框或閱讀高亮。',
   fragmentModifierKeysLabel: '選擇修飾鍵',
   fragmentModifierKeysDescription: '所有選中的修飾鍵必須一起按下才能啟動自動操作。',
   fragmentModifierKeyAlt: 'Option / Alt',
@@ -181,7 +184,8 @@ const runtime: Messages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: '啟用剪藏對話框鍵盤快捷鍵',
-  fragmentKeyboardShortcutsHint: '在剪藏對話框中：雙擊 Enter 進入閱讀模式，Cmd+Enter（Mac）或 Alt+Enter（Windows）直接保存',
+  fragmentKeyboardShortcutsHint:
+    '在剪藏對話框中：雙擊 Enter 進入閱讀模式，Cmd+Enter（Mac）或 Alt+Enter（Windows）直接保存',
 
   // Clipper dialog keyboard shortcuts
   clipperCommentEditCompleted: '註解編輯完成。您可以使用鍵盤快捷鍵執行以下操作：',
@@ -233,6 +237,9 @@ const runtime: Messages = {
 
   // Diagnosis
   diagnosisTitle: '配置診斷',
+  diagnosisDescription: '點擊「診斷配置」後可在此查看檢查結果與修復建議。',
+  diagnosisSummaryHint: '診斷會檢視 REST API、路徑模板、網域映射、多倉路由等配置，並輸出詳細報告。',
+  diagnosisResultTitle: '診斷結果',
 
   // Notifications
   clipSuccess: '已保存到 Obsidian',
@@ -275,7 +282,8 @@ const runtime: Messages = {
   privacySettingsDescription: '管理分析收集和匿名錯誤報告的偏好設定。',
   privacySettingsNote: '管理資料收集和錯誤報告',
   analyticsDebugTitle: '除錯模式',
-  analyticsDebugDescription: '啟用時，向 GA4 DebugView 發送事件並在控制台記錄請求詳情。僅用於故障排除。',
+  analyticsDebugDescription:
+    '啟用時，向 GA4 DebugView 發送事件並在控制台記錄請求詳情。僅用於故障排除。',
   analyticsDebugDisabledHint: '在啟用除錯模式前，請先啟用「使用分析」和「錯誤報告」。',
   analyticsDebugEnabled: '除錯模式已啟用。記得在除錯後停用。',
   analyticsDebugDisabled: '除錯模式已停用。',
@@ -319,6 +327,22 @@ const runtime: Messages = {
   videoConfigHint: '在支援的影片網站上顯示提示以擷取時間戳和筆記',
   videoFloatingPromptLabel: '在影片頁面顯示浮動提示',
   videoFloatingPromptHint: '適用於 YouTube 和 Bilibili。快速存取氣泡會出現在右下角。',
+  videoPromptCustomizationTitle: '浮動提示文案與快捷鍵',
+  videoPromptLabelTitle: '提示按鈕文案',
+  videoPromptLabelPlaceholder: '例如：開啟影片筆記',
+  videoPromptLabelHint: '會作為浮動按鈕的 aria-label，供螢幕閱讀器與懸浮提示使用。',
+  videoPromptShortcutTitle: '提示快捷鍵',
+  videoPromptShortcutPlaceholder: '例如：Alt+V',
+  videoPromptShortcutHint: '會顯示在浮動提示中，建議使用 Alt/Cmd 組合鍵，方便記憶。',
+  videoSupportedPlatformsTitle: '已支援平台',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: '啟用影片筆記',
+  videoSaveConfigButton: '儲存影片設定',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    '支援 watch / short 頁面，自動識別浮動提示按鈕，點擊即可進入影片筆記模式。',
+  videoPlatformBilibiliName: '嗶哩嗶哩',
+  videoPlatformBilibiliDescription: '支援 BV/AV 影片頁，保留彈幕區空間並附帶快捷鍵提示。',
   videoTimestampSectionTitle: '影片時間戳',
   videoFragmentSectionTitle: '擷取的片段',
   videoCaptureEditLabel: '編輯筆記',
@@ -395,7 +419,8 @@ const runtime: Messages = {
   // YAML Config (Preview)
   yamlConfigTitle: 'YAML 設定',
   yamlConfigNote: '為 YAML 欄位制定統一設定（預覽）',
-  yamlConfigPlaceholder: '此功能仍在規劃中，當前顯示為預覽版面。後續將支援自訂欄位型態、適用內容類型與預設值。',
+  yamlConfigPlaceholder:
+    '此功能仍在規劃中，當前顯示為預覽版面。後續將支援自訂欄位型態、適用內容類型與預設值。',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -415,7 +440,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -429,6 +455,7 @@ const runtime: Messages = {
   // Routing Rules
   routingRulesTitle: '路由規則',
   routingRulesHint: '根據網域、關鍵字或 URL 模式自動選擇目標庫。不符合的項目會進入預設庫。',
+  routingRulesPriorityNote: '提示：優先級越高越先匹配，目標庫需保持啟用。',
   vaultRulesTitle: '路由規則',
   ruleEmptyPlaceholder: '尚無規則。新增一個以將剪藏路由到此庫。',
   addRuleButton: '+ 新增規則',
@@ -454,11 +481,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: '歡迎使用 All in Ob',
   onboardingSubtitle: '讓我們快速設定您的剪藏器擴充功能',
-  onboardingWelcomeMessage: '感謝您安裝 All in Ob！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
+  onboardingWelcomeMessage:
+    '感謝您安裝 All in Ob！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
 
   // Step 1: API Configuration
   step1Title: '配置 Obsidian Local REST API（必需）',
-  step1Description: '首先，您需要在 Obsidian 中安裝並配置 Local REST API 外掛。這是擴充功能與 Obsidian 之間的橋樑。',
+  step1Description:
+    '首先，您需要在 Obsidian 中安裝並配置 Local REST API 外掛。這是擴充功能與 Obsidian 之間的橋樑。',
 
   step1Detail1: '在 Obsidian 中安裝並啟用「Local REST API」外掛',
   step1Detail2: '在外掛設定中啟用「未加密伺服器（HTTP）」',
@@ -471,7 +500,8 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: '配置額外庫（可選）',
-  step2Description: '如果您有多個 Obsidian 庫，可以配置額外庫並建立路由規則，以自動將不同類型的內容保存到對應的庫中。',
+  step2Description:
+    '如果您有多個 Obsidian 庫，可以配置額外庫並建立路由規則，以自動將不同類型的內容保存到對應的庫中。',
 
   step2Detail1: '支援多個 Obsidian 庫',
   step2Detail2: '建立基於網域、關鍵字或 URL 模式的路由規則',
@@ -488,14 +518,16 @@ const runtime: Messages = {
   step3Section1Detail1: '點擊網頁的空白區域以剪藏完整頁面（等待頁面完全載入並滾動以載入所有圖片）',
   step3Section1Detail2: '自動識別主要 AI 聊天對話並保存格式化的 AI 對話記錄',
   step3Section2Title: '剪藏/閱讀模式',
-  step3Section2Detail1: '右鍵點擊選取的文字或使用輔助鍵選取內容、新增註解，並將帶註解的選取內容保存到 Obsidian',
+  step3Section2Detail1:
+    '右鍵點擊選取的文字或使用輔助鍵選取內容、新增註解，並將帶註解的選取內容保存到 Obsidian',
   step3Section2Detail2: '進入閱讀模式以在同一頁面選取多個片段、註解並一起保存到 Obsidian',
   step3Section2Detail3: '閱讀模式根據頁面佈局自動整理文字片段，點擊片段編號可快速導航',
   step3Section2Detail4: '閱讀模式可將完整文字與選取內容高亮一起保存到 Obsidian',
   step3Section2Detail5: '無論是片段還是閱讀模式選取，都會保存精確的頁面連結，一鍵返回網頁位置',
   step3Section2Detail6: '在 Obsidian 中安裝 sidebar highlights 外掛以獲得更便利的註解視覺化',
   step3Section3Title: '影片模式',
-  step3Section3Detail1: '適配的 YouTube 或 Bilibili 播放頁面，開啟影片模式以記錄影片時間戳並隨時新增筆記',
+  step3Section3Detail1:
+    '適配的 YouTube 或 Bilibili 播放頁面，開啟影片模式以記錄影片時間戳並隨時新增筆記',
   step3Section3Detail2: '點擊時間戳旁的編號可一鍵導航和重複觀看',
   step3Section3Detail3: '選取頁面文字並一鍵擷取有趣的評論',
   step3Section3Detail4: '保存到 Obsidian 後，隨時一鍵返回精確的影片時間戳',
@@ -528,7 +560,8 @@ const runtime: Messages = {
   completeOnboarding: '完成指南',
   onboardingFooterNote: '您可以隨時在設定頁面重新配置這些選項。',
   onboardingCompleted: '指南完成！',
-  onboardingCompletedMessage: '您已成功完成擴充功能設定指南。現在可以開始使用 All in Ob 保存您的網頁內容！',
+  onboardingCompletedMessage:
+    '您已成功完成擴充功能設定指南。現在可以開始使用 All in Ob 保存您的網頁內容！',
   onboardingLinkText: '指南',
 
   // Footer links
@@ -545,7 +578,8 @@ const runtime: Messages = {
 
   // Contact modal
   contactModalTitle: '聯絡作者',
-  contactModalDescription: '如果您欣賞此產品或想要聯繫，<br>歡迎在 <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> 上聯絡。<br>作者目前正在求職—感謝您傳播消息！',
+  contactModalDescription:
+    '如果您欣賞此產品或想要聯繫，<br>歡迎在 <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> 上聯絡。<br>作者目前正在求職—感謝您傳播消息！',
   contactModalCloseButton: '關閉',
 
   // Support modal (onboarding)
@@ -562,7 +596,7 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: '這是選取文字的內容',
   fragmentFootnoteExampleComment: '這是我的註解',
   fragmentContextHighlightExampleTitle: '上下文高亮範例：',
-  fragmentContextHighlightExampleContent: '前面上下文 ==這是選取的文字== 後面上下文',
+  fragmentContextHighlightExampleContent: '前面上下文 ==這是選取的文字== 後面上下文'
 };
 
 const zhTW: LocaleDefinition = {

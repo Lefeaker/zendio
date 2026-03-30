@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { withDomEnvironment } from '../../../utils/domEnvironment';
-import { DaisyAlert } from '@options/components/shared/DaisyAlert';
+import { UiAlert } from '../../../../src/ui/primitives/alert';
 
 const MARKUP = '<!DOCTYPE html><html><body></body></html>';
 
 describe('DaisyAlert', () => {
   it('applies type classes', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
-      const alert = new DaisyAlert(document.body);
+      const alert = new UiAlert(document.body);
       const element = alert.render({ type: 'success', message: 'Saved' });
 
       expect(element.className).toContain('alert');
@@ -17,7 +17,7 @@ describe('DaisyAlert', () => {
 
   it('renders message and description', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
-      const alert = new DaisyAlert(document.body);
+      const alert = new UiAlert(document.body);
       const element = alert.render({
         type: 'info',
         message: 'Heads up',
@@ -31,7 +31,7 @@ describe('DaisyAlert', () => {
 
   it('includes icon by default', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
-      const alert = new DaisyAlert(document.body);
+      const alert = new UiAlert(document.body);
       const element = alert.render({ type: 'warning', message: 'Careful' });
 
       expect(element.querySelector('svg')).not.toBeNull();
@@ -44,7 +44,7 @@ describe('DaisyAlert', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const alert = new DaisyAlert(container);
+      const alert = new UiAlert(container);
       const element = alert.render({
         type: 'error',
         message: 'Oops',

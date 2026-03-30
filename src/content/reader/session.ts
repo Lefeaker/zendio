@@ -1,13 +1,8 @@
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
-import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { DEFAULT_FRAGMENT_CONFIG } from '../clipper/services/fragmentConfig';
 import { ADD_HIGHLIGHT_EVENT } from './constants';
 import { handleReaderKeydown, isNodeInsideReaderUi } from './sessionDom';
-import {
-  createReaderSessionDependencies,
-  type ReaderSessionPlatformDependencies
-} from './sessionDependencies';
-import { createReaderHighlightId, ReaderSessionState, resolveReadingConfig } from './sessionState';
+import { ReaderSessionState, resolveReadingConfig } from './sessionState';
 import type { ReaderBootstrapHighlight } from './types';
 import type { ExternalHighlightPayload } from './types';
 import type { ReaderSelectionPayload } from './services/selectionController';
@@ -22,41 +17,21 @@ import {
   isReaderSessionActive,
   registerReaderSession
 } from '../runtime/contentSessionRegistry';
+import { clearHighlightThemeState } from '../shared/highlightThemeState';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
+import {
+  addReaderHighlightFromRange,
+  cancelReaderSession,
+  finishReaderSession,
+  focusReaderHighlight,
+  handleReaderSessionMouseUp,
+  handleReaderSessionSelection,
+  ingestExternalReaderHighlight,
+  removeReaderHighlight,
+  submitReaderHighlightEdit
+} from './sessionOperations';
 
 export type { ReaderSessionDependencies } from './sessionTypes';
-
-let defaultReaderSessionDependencies: FullReaderSessionDependencies | null = null;
-
-export function initializeDefaultReaderSessionDependencies(
-  platform: ReaderSessionPlatformDependencies
-): FullReaderSessionDependencies {
-  const dependencies = createReaderSessionDependencies(platform);
-  defaultReaderSessionDependencies = dependencies;
-  return dependencies;
-}
-
-function getDefaultReaderSessionDependencies(): FullReaderSessionDependencies {
-  if (!defaultReaderSessionDependencies) {
-    throw new Error('ReaderSession dependencies have not been initialized');
-  }
-  return defaultReaderSessionDependencies;
-}
-
-function resolveReaderSessionDependencies(
-  overrides?: Partial<FullReaderSessionDependencies>
-): FullReaderSessionDependencies {
-  if (!overrides) {
-    return getDefaultReaderSessionDependencies();
-  }
-  if (!defaultReaderSessionDependencies) {
-    return overrides as FullReaderSessionDependencies;
-  }
-  return {
-    ...defaultReaderSessionDependencies,
-    ...overrides
-  };
-}
 
 export class ReaderSession {
   private readonly state = new ReaderSessionState();
@@ -67,13 +42,27 @@ export class ReaderSession {
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
 
+  private get operationContext() {
+    return {
+      session: this,
+      doc: this.doc,
+      url: this.url,
+      clipPrompt: this.clipPrompt,
+      state: this.state,
+      highlightManager: this.highlightManager,
+      panelCoordinator: this.panelCoordinator,
+      lifecycle: this.lifecycle,
+      dependencies: this.dependencies
+    };
+  }
+
   constructor(
     private readonly doc: Document,
     private readonly url: string,
     private readonly clipPrompt: ClipPromptGateway,
-    dependencyOverrides?: Partial<FullReaderSessionDependencies>
+    dependencies: FullReaderSessionDependencies
   ) {
-    this.dependencies = resolveReaderSessionDependencies(dependencyOverrides);
+    this.dependencies = dependencies;
     this.highlightManager = this.dependencies.createHighlightManager(this.doc);
     this.panelCoordinator = this.dependencies.createPanelCoordinator({
       viewFactory: this.dependencies.viewFactory,
@@ -90,7 +79,8 @@ export class ReaderSession {
       doc: this.doc,
       fragmentConfig: DEFAULT_FRAGMENT_CONFIG,
       canHandleSelection: () => !this.state.handlingSelection && !this.state.exporting,
-      isNodeInsideUi: (node) => isNodeInsideReaderUi(node, this.panelCoordinator.getElement(), this.doc),
+      isNodeInsideUi: (node) =>
+        isNodeInsideReaderUi(node, this.panelCoordinator.getElement(), this.doc),
       onSelectionReady: (payload) => {
         void this.handleSelection(payload);
       }
@@ -135,7 +125,9 @@ export class ReaderSession {
     );
   }
 
-  async initialize(initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]): Promise<void> {
+  async initialize(
+    initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
+  ): Promise<void> {
     await this.start(initialHighlights);
   }
 
@@ -143,14 +135,16 @@ export class ReaderSession {
     this.cancel();
   }
 
-  __setTestHighlights(records: Array<{
-    id: string;
-    selectedHtml: string;
-    selectedText: string;
-    comment: string;
-    fragmentUrl: string;
-    wrapper: HTMLElement;
-  }>): void {
+  __setTestHighlights(
+    records: Array<{
+      id: string;
+      selectedHtml: string;
+      selectedText: string;
+      comment: string;
+      fragmentUrl: string;
+      wrapper: HTMLElement;
+    }>
+  ): void {
     this.state.highlights = records.map((record) => ({
       id: record.id,
       selectedHtml: record.selectedHtml,
@@ -175,7 +169,9 @@ export class ReaderSession {
     return this.state.highlights;
   }
 
-  async start(initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]): Promise<void> {
+  async start(
+    initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
+  ): Promise<void> {
     if (isReaderSessionActive(this.doc)) {
       return;
     }
@@ -194,9 +190,13 @@ export class ReaderSession {
     }
   }
 
-  private bootstrapHighlights(initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]): void {
+  private bootstrapHighlights(
+    initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
+  ): void {
     const bootHighlights = initialHighlights
-      ? (Array.isArray(initialHighlights) ? initialHighlights : [initialHighlights])
+      ? Array.isArray(initialHighlights)
+        ? initialHighlights
+        : [initialHighlights]
       : [];
 
     for (const highlight of bootHighlights) {
@@ -224,9 +224,11 @@ export class ReaderSession {
 
   private watchReadingConfig(): void {
     this.state.stopReadingConfigWatcher?.();
-    this.state.stopReadingConfigWatcher = this.dependencies.readerRepository.onConfigChange((config) => {
-      this.applyReadingConfig(resolveReadingConfig(config));
-    });
+    this.state.stopReadingConfigWatcher = this.dependencies.readerRepository.onConfigChange(
+      (config) => {
+        this.applyReadingConfig(resolveReadingConfig(config));
+      }
+    );
   }
 
   private applyReadingConfig(config: ReturnType<typeof resolveReadingConfig>): void {
@@ -235,68 +237,11 @@ export class ReaderSession {
   }
 
   private async handleSelection(payload: ReaderSelectionPayload): Promise<void> {
-    this.state.handlingSelection = true;
-
-    try {
-      const promptResult = await this.clipPrompt.requestSelectionAction({
-        selectedText: payload.selectedText,
-        allowReaderMode: false,
-        readerModeBehavior: 'start'
-      });
-      if (promptResult.action !== 'clip') {
-        this.doc.defaultView?.getSelection()?.removeAllRanges();
-        return;
-      }
-
-      this.addHighlightFromRange(
-        payload.range,
-        payload.selectedHtml,
-        payload.selectedText,
-        promptResult.comment.trim()
-      );
-      this.doc.defaultView?.getSelection()?.removeAllRanges();
-    } catch (error) {
-      console.error('[ReaderSession] Failed to capture selection:', error);
-      this.panelCoordinator.applyHint('selectionFailure', this.state.highlights.length);
-    } finally {
-      this.state.handlingSelection = false;
-    }
+    await handleReaderSessionSelection(this.operationContext, payload);
   }
 
   private async handleMouseUp(event: MouseEvent): Promise<void> {
-    if (this.state.handlingSelection || this.state.exporting || event.button !== 0) {
-      return;
-    }
-
-    const selection = this.doc.defaultView?.getSelection() ?? window.getSelection();
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      return;
-    }
-
-    if (
-      isNodeInsideReaderUi(selection.anchorNode, this.panelCoordinator.getElement(), this.doc) ||
-      isNodeInsideReaderUi(selection.focusNode, this.panelCoordinator.getElement(), this.doc)
-    ) {
-      selection.removeAllRanges();
-      return;
-    }
-
-    const selectedText = selection.toString().trim();
-    if (!selectedText) {
-      selection.removeAllRanges();
-      return;
-    }
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const container = this.doc.createElement('div');
-    container.appendChild(range.cloneContents());
-
-    await this.handleSelection({
-      range,
-      selectedHtml: container.innerHTML,
-      selectedText,
-      event
-    });
+    await handleReaderSessionMouseUp(this.operationContext, event);
   }
 
   private addHighlightFromRange(
@@ -305,57 +250,20 @@ export class ReaderSession {
     selectedText: string,
     comment: string
   ): void {
-    const id = createReaderHighlightId();
-    const fragmentUrl = generateTextFragmentUrl(this.url, selectedText);
-    const highlight =
-      this.highlightManager.createHighlight({
-        id,
-        range,
-        selectedHtml,
-        selectedText,
-        comment,
-        fragmentUrl
-      }) ?? this.createDetachedHighlight(id, selectedHtml, selectedText, comment, fragmentUrl);
-    this.state.highlights.push(highlight);
-    this.syncHighlightsUi();
-    this.panelCoordinator.applyHint('panel', this.state.highlights.length);
+    addReaderHighlightFromRange(this.operationContext, range, selectedHtml, selectedText, comment);
   }
 
-  private createDetachedHighlight(
-    id: string,
+  ingestExternalHighlight(
+    range: Range,
     selectedHtml: string,
     selectedText: string,
-    comment: string,
-    fragmentUrl: string
-  ): ReaderHighlightRecord {
-    const wrapper = this.doc.createElement('mark');
-    wrapper.className = 'aiob-reader-highlight';
-    wrapper.dataset.readerHighlightId = id;
-    const trimmedComment = comment.trim();
-    if (trimmedComment) {
-      wrapper.dataset.readerComment = trimmedComment;
-    }
-    wrapper.textContent = selectedText;
-
-    return {
-      id,
-      selectedHtml,
-      selectedText,
-      comment: trimmedComment,
-      fragmentUrl,
-      wrapper,
-      wrapperSegments: [wrapper],
-      createdAt: Date.now()
-    };
-  }
-
-  ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void {
+    comment: string
+  ): void {
     this.ingestExternalHighlightPayload({ range, selectedHtml, selectedText, comment });
   }
 
   private ingestExternalHighlightPayload(payload: ExternalHighlightPayload): void {
-    this.addHighlightFromRange(payload.range, payload.selectedHtml, payload.selectedText, payload.comment);
-    this.doc.defaultView?.getSelection()?.removeAllRanges();
+    ingestExternalReaderHighlight(this.operationContext, payload);
   }
 
   private syncHighlightsUi(): void {
@@ -364,56 +272,15 @@ export class ReaderSession {
   }
 
   private async finish(): Promise<void> {
-    if (this.state.exporting) {
-      return;
-    }
-
-    if (!this.state.highlights.length) {
-      this.panelCoordinator.applyHint('noHighlights', 0);
-      return;
-    }
-
-    this.state.exporting = true;
-    this.panelCoordinator.applyHint('exporting', this.state.highlights.length);
-
-    try {
-      this.applyReadingConfig(await this.loadReadingConfig());
-      const highlights = this.dependencies.exporter.prepareHighlights(
-        this.state.highlights,
-        this.highlightManager
-      );
-      const pageTitle = this.doc.title || new URL(this.url).hostname;
-      const documentClone =
-        this.state.readingConfig.exportMode === 'full'
-          ? (this.doc.cloneNode(true) as Document)
-          : undefined;
-
-      if (documentClone) {
-        this.dependencies.exporter.applyTokens(documentClone, highlights);
-      }
-
-      const payload = this.dependencies.exporter.buildMarkdown({
-        mode: this.state.readingConfig.exportMode,
-        pageTitle,
-        pageUrl: this.url,
-        highlights,
-        ...(documentClone !== undefined && { documentClone })
-      });
-
-      await this.dependencies.dispatchClipResult(payload);
-      this.cleanup();
-    } catch (error) {
-      console.error('[ReaderSession] Export failed:', error);
-      this.panelCoordinator.applyHint('failure', this.state.highlights.length);
-      this.state.exporting = false;
-    }
+    await finishReaderSession(
+      this.operationContext,
+      () => this.loadReadingConfig(),
+      (config) => this.applyReadingConfig(config)
+    );
   }
 
   private cancel(): void {
-    if (this.state.exporting) {
-      return;
-    }
-    this.cleanup();
+    cancelReaderSession(this.operationContext);
   }
 
   private cleanup(): void {
@@ -429,8 +296,7 @@ export class ReaderSession {
     clearReaderSession(this, this.doc);
     this.state.exporting = false;
     this.state.handlingSelection = false;
-    delete this.doc.documentElement.dataset.aiobReaderHighlight;
-    delete this.doc.documentElement.dataset.aiobReaderHighlightTheme;
+    clearHighlightThemeState(this.doc);
 
     if (this.state.highlightFocusTimeout !== null) {
       this.doc.defaultView?.clearTimeout(this.state.highlightFocusTimeout);
@@ -441,52 +307,15 @@ export class ReaderSession {
   }
 
   private focusHighlight(id: string): void {
-    const highlight = this.findHighlight(id);
-    if (!highlight) {
-      return;
-    }
-
-    this.state.highlightFocusTimeout = this.highlightManager.focusHighlight(
-      highlight,
-      this.state.highlightFocusTimeout,
-      this.doc.defaultView ?? window
-    );
+    focusReaderHighlight(this.operationContext, id);
   }
 
   private removeHighlightById(id: string): void {
-    if (this.state.exporting) {
-      return;
-    }
-
-    const index = this.state.highlights.findIndex((highlight) => highlight.id === id);
-    if (index === -1) {
-      return;
-    }
-
-    const [removed] = this.state.highlights.splice(index, 1);
-    this.highlightManager.unwrapHighlight(removed);
-    this.syncHighlightsUi();
-    this.panelCoordinator.applyHint(
-      this.state.highlights.length ? 'panel' : 'noHighlights',
-      this.state.highlights.length
-    );
+    removeReaderHighlight(this.operationContext, id);
   }
 
   private submitHighlightEdit(id: string, nextComment: string): void {
-    if (this.state.exporting) {
-      return;
-    }
-
-    const highlight = this.findHighlight(id);
-    if (!highlight) {
-      this.panelCoordinator.stopEditing();
-      return;
-    }
-
-    this.highlightManager.updateComment(highlight, nextComment);
-    this.syncHighlightsUi();
-    this.panelCoordinator.applyHint('panel', this.state.highlights.length);
-    this.panelCoordinator.stopEditing();
+    submitReaderHighlightEdit(this.operationContext, id, nextComment);
   }
 
   private findHighlight(id: string): ReaderHighlightRecord | undefined {

@@ -24,7 +24,8 @@ const runtime: Messages = {
 
   // API Configuration
   apiConfigTitle: 'Obsidian Local REST API',
-  apiConfigHint: 'This is the default vault; anything outside the routing rules will fall back here.',
+  apiConfigHint:
+    'This is the default vault; anything outside the routing rules will fall back here.',
   httpsUrlLabel: 'HTTPS URL',
   httpsUrlHint: 'Usually port 27124, for secure connections',
   additionalVaultHttpsHint: 'Use a unique port; do not share with other vaults',
@@ -75,11 +76,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'AI Chat Path Template',
   aiTemplateHint: 'For AI chat conversation clipping',
   availableVariables: 'Available variables:',
-  templateVariableNote: '{slug} is the slugified title. Use {HHmmss} or {HHmm} to embed capture time; lowercase {mm} continues to represent the month in date patterns.',
+  templateVariableNote:
+    '{slug} is the slugified title. Use {HHmmss} or {HHmm} to embed capture time; lowercase {mm} continues to represent the month in date patterns.',
 
   // Domain Mapping
   domainMappingTitle: 'Domain Mapping Configuration',
-  domainMappingHint: 'Customize friendly folder names for frequent domains (for example, map medium.com to "Medium")',
+  domainMappingHint:
+    'Customize friendly folder names for frequent domains (for example, map medium.com to "Medium")',
   domainLabel: 'Domain',
   folderNameLabel: 'Folder Name',
   addMappingButton: '+ Add Mapping',
@@ -94,7 +97,8 @@ const runtime: Messages = {
   yamlFieldValuePathExamplesTitle: 'Common context keys',
   yamlFieldValuePathExamples: 'meta.author\nstats.wordCount\nextra.notes[0]',
   yamlDomainTitle: 'Domain Overrides',
-  yamlDomainHint: 'Add per-domain overrides for YAML fields. These overrides take precedence over global settings.',
+  yamlDomainHint:
+    'Add per-domain overrides for YAML fields. These overrides take precedence over global settings.',
   yamlDomainAddRule: '+ Add domain rule',
   yamlDomainEmpty: 'No domain-specific rules yet.',
   yamlDomainPlaceholder: 'e.g., example.com or *.example.com',
@@ -124,13 +128,15 @@ const runtime: Messages = {
   configTransferHint: 'Copy once and import anywhere to keep browsers in sync.',
   copyConfigButton: 'Copy configuration',
   importConfigButton: 'Import from clipboard',
-  configTransferNote: 'These actions use the system clipboard—ensure the browser is allowed to access it.',
+  configTransferNote:
+    'These actions use the system clipboard—ensure the browser is allowed to access it.',
   copyConfigSuccess: '✅ Configuration copied to clipboard',
   importSuccess: '✅ Configuration imported and saved',
   importParseFailed: '❌ Failed to parse configuration',
   emptyImportError: 'Clipboard is empty, please copy a configuration first',
   clipboardUnavailable: 'Clipboard unavailable, please copy manually',
-  clipboardReadUnavailable: 'Unable to read the clipboard. Grant clipboard permissions and try again.',
+  clipboardReadUnavailable:
+    'Unable to read the clipboard. Grant clipboard permissions and try again.',
   invalidTaxonomy: 'Classifier taxonomy must be valid JSON',
 
   // AI Chat Configuration
@@ -148,17 +154,21 @@ const runtime: Messages = {
   deepResearchConfigTitle: 'Gemini Deep Research Configuration',
   deepResearchConfigHint: 'Customize how Deep Research reports are captured',
   pureModeLabel: 'Pure Mode (capture report content only)',
-  pureModeHint: 'When enabled, only capture Deep Research report content, excluding conversation messages',
-  multipleReportsInfo: 'ℹ️ About multiple reports: Gemini can only display one complete report at a time. To save multiple reports, open each report separately and clip them.',
+  pureModeHint:
+    'When enabled, only capture Deep Research report content, excluding conversation messages',
+  multipleReportsInfo:
+    'ℹ️ About multiple reports: Gemini can only display one complete report at a time. To save multiple reports, open each report separately and clip them.',
 
   readingConfigTitle: 'Reading Mode',
   readingConfigHint: 'Choose how the reading session export should capture content',
   readingExportModeLabel: 'Export content',
   readingExportModeHighlights: 'Only highlighted passages',
   readingExportModeFull: 'Full article with highlights',
-  readingExportModeDescription: 'When selecting “Full article”, the cleaned article body is saved with your highlights and footnotes embedded.',
+  readingExportModeDescription:
+    'When selecting “Full article”, the cleaned article body is saved with your highlights and footnotes embedded.',
   readingHighlightThemeLabel: 'Highlight color',
-  readingHighlightThemeDescription: 'Only affects highlight styling inside reader mode; exported Markdown stays unchanged.',
+  readingHighlightThemeDescription:
+    'Only affects highlight styling inside reader mode; exported Markdown stays unchanged.',
   readingHighlightThemeGradient: 'Purple–blue gradient (default)',
   readingHighlightThemePurple: 'Solid purple',
   readingHighlightThemeNeonYellow: 'Neon yellow',
@@ -168,22 +178,28 @@ const runtime: Messages = {
   fragmentConfigTitle: 'Fragment Clipping Configuration',
   fragmentConfigHint: 'Customize how text selections are clipped and formatted',
   fragmentUseFootnoteLabel: 'Use footnote format (recommended)',
-  fragmentUseFootnoteHint: 'When enabled, comments will be saved in Obsidian footnote format, compatible with Sidebar Highlights plugin',
-  fragmentCaptureContextHint: 'When enabled, captures context around selected text and marks the actual selection with ==highlights==',
+  fragmentUseFootnoteHint:
+    'When enabled, comments will be saved in Obsidian footnote format, compatible with Sidebar Highlights plugin',
+  fragmentCaptureContextHint:
+    'When enabled, captures context around selected text and marks the actual selection with ==highlights==',
   fragmentFootnoteExampleTitle: 'Footnote format example:',
   fragmentModifierToggleLabel: 'Enable modifier key trigger for clipping/reading',
-  fragmentModifierToggleDescription: 'When you hold the chosen modifier keys and drag to select text, the clipper dialog or reading highlight will open automatically.',
+  fragmentModifierToggleDescription:
+    'When you hold the chosen modifier keys and drag to select text, the clipper dialog or reading highlight will open automatically.',
   fragmentModifierKeysLabel: 'Modifier key selection',
-  fragmentModifierKeysDescription: 'All checked modifier keys must be held down together to trigger the automatic action.',
+  fragmentModifierKeysDescription:
+    'All checked modifier keys must be held down together to trigger the automatic action.',
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: 'Enable clipper dialog keyboard shortcuts',
-  fragmentKeyboardShortcutsHint: 'In clipper dialog: Double-Enter to enter reader mode, Cmd+Enter (Mac) or Alt+Enter (Windows) to clip directly',
+  fragmentKeyboardShortcutsHint:
+    'In clipper dialog: Double-Enter to enter reader mode, Cmd+Enter (Mac) or Alt+Enter (Windows) to clip directly',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: 'Comment editing completed, you can use keyboard shortcuts to complete the following actions:',
+  clipperCommentEditCompleted:
+    'Comment editing completed, you can use keyboard shortcuts to complete the following actions:',
   clipperShortcutHintDoubleEnter: 'Double-Enter',
   clipperShortcutHintModifierEnter: 'Clip directly',
   clipperShortcutHintEscape: 'Cancel',
@@ -223,7 +239,8 @@ const runtime: Messages = {
   reloadPrompt: 'Please reload the page to see the fixed configuration',
   connectionTesting: 'Testing connection...',
   connectionSuccessShort: 'Connection successful',
-  portConflictDetected: '⚠️ Port conflict detected: {ports}. Please assign unique ports in Obsidian before trying again.',
+  portConflictDetected:
+    '⚠️ Port conflict detected: {ports}. Please assign unique ports in Obsidian before trying again.',
   connectionFailureHintsTitle: 'Next steps: ',
   connectionFailureHintCheckApiKey: 'Verify the API key matches the Local REST API settings',
   connectionFailureHintCheckVault: 'Confirm the vault name matches the Local REST API plugin',
@@ -232,6 +249,10 @@ const runtime: Messages = {
 
   // Diagnosis
   diagnosisTitle: 'Configuration Diagnosis',
+  diagnosisDescription: 'Click “Diagnose Configuration” to review checks and repair suggestions.',
+  diagnosisSummaryHint:
+    'Diagnosis checks REST API, path templates, domain mappings, multi-vault routing, and related settings, then prints a detailed report.',
+  diagnosisResultTitle: 'Diagnosis Results',
 
   // Notifications
   clipSuccess: 'Saved to Obsidian',
@@ -252,7 +273,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: 'Reading session active',
   readerPanelStatus: 'Select text to highlight and annotate',
-  readerPanelHint: 'Tip: release the mouse to open the annotation dialog; leave it blank to save highlight only.',
+  readerPanelHint:
+    'Tip: release the mouse to open the annotation dialog; leave it blank to save highlight only.',
   readerPanelFinish: 'Finish & export',
   readerPanelCancel: 'Cancel',
   readerPanelCounter: 'Collected {count} highlights',
@@ -271,17 +293,22 @@ const runtime: Messages = {
 
   // Privacy Settings
   privacySettingsTitle: 'Privacy & Data',
-  privacySettingsDescription: 'Control analytics collection and anonymous error reporting preferences.',
+  privacySettingsDescription:
+    'Control analytics collection and anonymous error reporting preferences.',
   privacySettingsNote: 'Control data collection and error reporting',
   analyticsDebugTitle: 'Debug mode',
-  analyticsDebugDescription: 'When enabled we send events to GA4 DebugView and log request details in the console. Use only while troubleshooting.',
-  analyticsDebugDisabledHint: 'Enable both “Usage analytics” and “Error reporting” before turning on debug mode.',
+  analyticsDebugDescription:
+    'When enabled we send events to GA4 DebugView and log request details in the console. Use only while troubleshooting.',
+  analyticsDebugDisabledHint:
+    'Enable both “Usage analytics” and “Error reporting” before turning on debug mode.',
   analyticsDebugEnabled: 'Debug mode enabled. Remember to switch it off once you finish debugging.',
   analyticsDebugDisabled: 'Debug mode disabled.',
   analyticsConsentTitle: 'Usage analytics',
-  analyticsConsentDescription: 'Collect anonymized usage metrics to improve the extension. No personal-identifiable information is stored.',
+  analyticsConsentDescription:
+    'Collect anonymized usage metrics to improve the extension. No personal-identifiable information is stored.',
   errorReportingConsentTitle: 'Error reporting',
-  errorReportingConsentDescription: 'Automatically send sanitized error reports so we can quickly diagnose issues.',
+  errorReportingConsentDescription:
+    'Automatically send sanitized error reports so we can quickly diagnose issues.',
   errorReportingDetailsTitle: 'Learn what is included',
   errorReportingCollectedTitle: 'Collected information:',
   errorReportingCollectedError: 'Error type and severity',
@@ -295,11 +322,13 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: 'Passwords or sensitive form data',
   savePrivacySettings: 'Save settings',
   clearAllAnalyticsData: 'Clear all data',
-  privacyFooterText: 'We are committed to protecting your privacy. You can update these settings anytime or request deletion of collected data.',
+  privacyFooterText:
+    'We are committed to protecting your privacy. You can update these settings anytime or request deletion of collected data.',
   privacyPolicyLink: 'Privacy policy',
   dataUsageLink: 'Data usage details',
   privacySettingsSaved: 'Privacy settings saved',
-  privacyDataWillBeCleared: 'Data collection disabled. Existing analytics will be purged within 24 hours.',
+  privacyDataWillBeCleared:
+    'Data collection disabled. Existing analytics will be purged within 24 hours.',
   privacySettingsError: 'Failed to save settings, please try again.',
   confirmClearAllData: 'Clear all analytics data? This action cannot be undone.',
   allDataCleared: 'All analytics data has been cleared.',
@@ -308,7 +337,8 @@ const runtime: Messages = {
   // Video Mode
   videoPanelTitle: 'Video capture mode',
   videoPanelStatus: 'Capture timestamps and quick notes',
-  videoPanelHint: 'Tip: Selecting text adds it automatically; press Enter twice to save notes, Esc to cancel.',
+  videoPanelHint:
+    'Tip: Selecting text adds it automatically; press Enter twice to save notes, Esc to cancel.',
   videoPanelAdd: 'Capture current timestamp',
   videoPanelFinish: 'Finish & export',
   videoPanelCancel: 'Cancel',
@@ -317,7 +347,27 @@ const runtime: Messages = {
   videoConfigTitle: 'Video mode',
   videoConfigHint: 'Show prompts on supported video sites to capture timestamps and notes',
   videoFloatingPromptLabel: 'Display floating prompt on video pages',
-  videoFloatingPromptHint: 'Works on YouTube and Bilibili. A shortcut bubble appears in the lower-right corner.',
+  videoFloatingPromptHint:
+    'Works on YouTube and Bilibili. A shortcut bubble appears in the lower-right corner.',
+  videoPromptCustomizationTitle: 'Floating prompt copy and shortcut',
+  videoPromptLabelTitle: 'Prompt button label',
+  videoPromptLabelPlaceholder: 'e.g. Start video notes',
+  videoPromptLabelHint:
+    'Shown as the floating button aria-label for screen readers and hover hints.',
+  videoPromptShortcutTitle: 'Prompt shortcut',
+  videoPromptShortcutPlaceholder: 'e.g. Alt+V',
+  videoPromptShortcutHint:
+    'Displayed in the floating prompt. Prefer Alt/Cmd combinations for easier recall.',
+  videoSupportedPlatformsTitle: 'Supported platforms',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: 'Enable video notes',
+  videoSaveConfigButton: 'Save video settings',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'Supports watch / short pages, detects the floating prompt automatically, and lets you enter video note mode in one click.',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'Supports BV/AV pages, keeps room for the danmaku area, and shows the shortcut hint.',
   videoTimestampSectionTitle: 'Video timestamps',
   videoFragmentSectionTitle: 'Captured fragments',
   videoCaptureEditLabel: 'Edit note',
@@ -368,7 +418,8 @@ const runtime: Messages = {
 
   // Dialog
   clipDialogTitle: 'Clip Selection',
-  clipDialogInstructions: 'Use Tab to move between controls. Press Alt + Arrow keys to reposition the dialog.',
+  clipDialogInstructions:
+    'Use Tab to move between controls. Press Alt + Arrow keys to reposition the dialog.',
   commentLabel: 'Add a comment (optional)',
   commentPlaceholder: 'Write your thoughts, notes or comments here...',
   cancelButton: 'Cancel',
@@ -394,7 +445,8 @@ const runtime: Messages = {
 
   yamlConfigTitle: 'YAML Configuration',
   yamlConfigNote: 'Manage the YAML fields exported for each content type.',
-  yamlConfigPlaceholder: 'Toggle, disable, or add YAML fields so each export includes the metadata you expect.',
+  yamlConfigPlaceholder:
+    'Toggle, disable, or add YAML fields so each export includes the metadata you expect.',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -414,7 +466,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -427,7 +480,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: 'Routing Rules',
-  routingRulesHint: 'Automatically choose a target vault by domain, keywords, or URL patterns. Items that do not match go to the default vault.',
+  routingRulesHint:
+    'Automatically choose a target vault by domain, keywords, or URL patterns. Items that do not match go to the default vault.',
+  routingRulesPriorityNote:
+    'Tip: higher priority rules match first, and target vaults must stay enabled.',
   vaultRulesTitle: 'Routing Rules',
   ruleEmptyPlaceholder: 'No rules yet. Add one to route clips into this vault.',
   addRuleButton: '+ Add Rule',
@@ -452,12 +508,14 @@ const runtime: Messages = {
 
   // Onboarding Page
   onboardingTitle: 'Welcome to All in Ob',
-  onboardingSubtitle: 'Let\'s quickly set up your clipper extension',
-  onboardingWelcomeMessage: 'Thank you for installing All in Ob! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
+  onboardingSubtitle: "Let's quickly set up your clipper extension",
+  onboardingWelcomeMessage:
+    'Thank you for installing All in Ob! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
 
   // Step 1: API Configuration
   step1Title: 'Configure Obsidian Local REST API (Required)',
-  step1Description: 'First, you need to install and configure the Local REST API plugin in Obsidian. This is the bridge between the extension and Obsidian.',
+  step1Description:
+    'First, you need to install and configure the Local REST API plugin in Obsidian. This is the bridge between the extension and Obsidian.',
 
   step1Detail1: 'Install and enable the "Local REST API" plugin in Obsidian',
   step1Detail2: 'Enable "Non-encrypted (HTTP) Server" in the plugin settings',
@@ -470,45 +528,61 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: 'Configure Additional Vaults (Optional)',
-  step2Description: 'If you have multiple Obsidian vaults, you can configure additional vaults and set routing rules to automatically save different types of content to corresponding vaults.',
+  step2Description:
+    'If you have multiple Obsidian vaults, you can configure additional vaults and set routing rules to automatically save different types of content to corresponding vaults.',
 
   step2Detail1: 'Support for multiple Obsidian vaults',
   step2Detail2: 'Set routing rules based on domain, keywords, or URL patterns',
   step2Detail3: 'Example: Save tech articles to work vault, personal content to personal vault',
-  step2Detail4: 'Content that doesn\'t match any rules will be saved to the default vault',
+  step2Detail4: "Content that doesn't match any rules will be saved to the default vault",
   step2ActionPrimary: 'Configure Additional Vaults',
   step2ActionSecondary: 'Skip This Step',
 
   // Step 3: Main Features
   step3Title: 'Main Features',
-  step3Description: 'Let\'s quickly learn about the main features of the extension to help you use it better.',
+  step3Description:
+    "Let's quickly learn about the main features of the extension to help you use it better.",
 
   step3Section1Title: 'Web Clipping',
-  step3Section1Detail1: 'Click on blank areas of web pages to clip entire pages (wait for page to load completely and scroll to load all images)',
-  step3Section1Detail2: 'Automatically recognize mainstream AI chat conversations and save formatted AI dialogue records',
+  step3Section1Detail1:
+    'Click on blank areas of web pages to clip entire pages (wait for page to load completely and scroll to load all images)',
+  step3Section1Detail2:
+    'Automatically recognize mainstream AI chat conversations and save formatted AI dialogue records',
   step3Section2Title: 'Clipping/Reading Mode',
-  step3Section2Detail1: 'Right-click selected text or use auxiliary keys to select content, add comments, and save selected content with annotations to Obsidian',
-  step3Section2Detail2: 'Enter reading mode to select multiple fragments on the same page, comment on them, and save together to Obsidian',
-  step3Section2Detail3: 'Reading mode automatically arranges text fragments according to page layout, click fragment numbers for quick navigation',
-  step3Section2Detail4: 'Reading mode can save full text to Obsidian with selected content highlighted',
-  step3Section2Detail5: 'Whether fragments or reading mode selections, precise page links are saved for one-click return to web positions',
-  step3Section2Detail6: 'Install sidebar highlights plugin in Obsidian for more convenient annotation viewing',
+  step3Section2Detail1:
+    'Right-click selected text or use auxiliary keys to select content, add comments, and save selected content with annotations to Obsidian',
+  step3Section2Detail2:
+    'Enter reading mode to select multiple fragments on the same page, comment on them, and save together to Obsidian',
+  step3Section2Detail3:
+    'Reading mode automatically arranges text fragments according to page layout, click fragment numbers for quick navigation',
+  step3Section2Detail4:
+    'Reading mode can save full text to Obsidian with selected content highlighted',
+  step3Section2Detail5:
+    'Whether fragments or reading mode selections, precise page links are saved for one-click return to web positions',
+  step3Section2Detail6:
+    'Install sidebar highlights plugin in Obsidian for more convenient annotation viewing',
   step3Section3Title: 'Video Mode',
-  step3Section3Detail1: 'YouTube or Bilibili adapted playback pages, open video mode to record video timestamps and add notes anytime',
-  step3Section3Detail2: 'Click numbers next to timestamps for one-click navigation and repeated viewing',
+  step3Section3Detail1:
+    'YouTube or Bilibili adapted playback pages, open video mode to record video timestamps and add notes anytime',
+  step3Section3Detail2:
+    'Click numbers next to timestamps for one-click navigation and repeated viewing',
   step3Section3Detail3: 'Select page text and capture exciting comments with one click',
-  step3Section3Detail4: 'After saving to Obsidian, one-click return to precise video timestamps anytime',
+  step3Section3Detail4:
+    'After saving to Obsidian, one-click return to precise video timestamps anytime',
   step3ActionPrimary: 'View Detailed Settings',
   step3ActionSecondary: 'Learn Later',
 
   // Step 4: Auxiliary Features
   step4Title: 'Auxiliary Features',
-  step4Description: 'The extension also provides various auxiliary features to make your experience more convenient.',
+  step4Description:
+    'The extension also provides various auxiliary features to make your experience more convenient.',
 
-  step4Detail1: 'Multiple browsers on the same device: one-click copy current configuration, paste to sync, no need for repeated setup',
+  step4Detail1:
+    'Multiple browsers on the same device: one-click copy current configuration, paste to sync, no need for repeated setup',
   step4Detail2: 'Domain mapping: map common websites to friendly folder names',
   step4Detail3: 'Custom path configuration, adjust paths according to your needs',
-  step4Detail4: 'Smart diagnostics: configuration issues? Smart diagnostics for quick troubleshooting',
+  step4Detail4:
+    'Smart diagnostics: configuration issues? Smart diagnostics for quick troubleshooting',
   step4ActionPrimary: 'View Detailed Settings',
   step4ActionSecondary: 'Learn Later',
 
@@ -517,8 +591,10 @@ const runtime: Messages = {
   step5Description: 'The extension is constantly evolving to bring you more intelligent features.',
 
   step5Detail1: 'Introducing AI features for smoother, more intelligent experience',
-  step5Detail2: 'Bidirectional interaction, no longer just saving notes, but a bridge between browser and Obsidian',
-  step5Detail3: 'Welcome to suggest improvements, development is not easy, thank you for your support',
+  step5Detail2:
+    'Bidirectional interaction, no longer just saving notes, but a bridge between browser and Obsidian',
+  step5Detail3:
+    'Welcome to suggest improvements, development is not easy, thank you for your support',
   step5ActionPrimary: 'Submit Suggestions',
   step5ActionSecondary: 'Show Support',
 
@@ -527,7 +603,8 @@ const runtime: Messages = {
   completeOnboarding: 'Complete Guide',
   onboardingFooterNote: 'You can reconfigure these options in the settings page at any time.',
   onboardingCompleted: 'Guide Completed!',
-  onboardingCompletedMessage: 'You have successfully completed the extension configuration guide. Now you can start using All in Ob to save your web content!',
+  onboardingCompletedMessage:
+    'You have successfully completed the extension configuration guide. Now you can start using All in Ob to save your web content!',
   onboardingLinkText: 'Guide',
 
   // Footer links
@@ -536,20 +613,24 @@ const runtime: Messages = {
   footerContactLink: 'Contact Author',
 
   suggestionsModalTitle: 'Share Your Suggestions',
-  suggestionsModalDescription: 'Thank you for helping improve All in Ob. You can reach the author through any of the following channels:',
+  suggestionsModalDescription:
+    'Thank you for helping improve All in Ob. You can reach the author through any of the following channels:',
   suggestionsModalReddit: 'Chat on Reddit',
   suggestionsModalXiaohongshu: 'Join Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'QR code will be added soon. For now, feel free to message via Reddit.',
+  suggestionsModalQrPlaceholder:
+    'QR code will be added soon. For now, feel free to message via Reddit.',
 
   // Contact modal
   contactModalTitle: 'Contact Author',
-  contactModalDescription: 'If you appreciate this product or want to connect, <br>feel free to reach out on <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>The author is currently job hunting—thanks for spreading the word!',
+  contactModalDescription:
+    'If you appreciate this product or want to connect, <br>feel free to reach out on <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>The author is currently job hunting—thanks for spreading the word!',
   contactModalCloseButton: 'Close',
 
   // Support modal (onboarding)
   supportModalTitle: 'Thank You for Your Support',
-  supportModalDescription: 'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+  supportModalDescription:
+    'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -561,14 +642,16 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: 'This is the selected text content',
   fragmentFootnoteExampleComment: 'This is my comment',
   fragmentContextHighlightExampleTitle: 'Context Highlight Example:',
-  fragmentContextHighlightExampleContent: 'Context before ==this is the selected text== context after',
+  fragmentContextHighlightExampleContent:
+    'Context before ==this is the selected text== context after'
 };
 
 const en: LocaleDefinition = {
   runtime,
   static: {
     extName: 'All in Ob',
-    extDescription: 'AI-enhanced web clipper for saving chats, fragments, and articles into Obsidian.'
+    extDescription:
+      'AI-enhanced web clipper for saving chats, fragments, and articles into Obsidian.'
   }
 };
 

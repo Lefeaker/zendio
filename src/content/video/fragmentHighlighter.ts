@@ -4,6 +4,7 @@ import {
   createManagedStyleSheet,
   removeManagedShadowStyle
 } from '../shared/shadowStyleBridge';
+import { applyHighlightThemeState, clearHighlightThemeState } from '../shared/highlightThemeState';
 
 const VIDEO_HIGHLIGHT_BRIDGE_KEY = 'video-fragment-highlight';
 
@@ -36,7 +37,7 @@ export class FragmentHighlighter {
 
   setTheme(theme: ReaderHighlightTheme): void {
     this.currentTheme = theme;
-    this.doc.documentElement.dataset.aiobReaderHighlight = theme;
+    applyHighlightThemeState(this.doc, theme);
     this.refreshShadowHighlightStyles();
   }
 
@@ -172,7 +173,7 @@ export class FragmentHighlighter {
     }
     this.shadowHighlightStyles = [];
     this.highlightSheet = null;
-    delete this.doc.documentElement.dataset.aiobReaderHighlight;
+    clearHighlightThemeState(this.doc);
   }
 
   private ensureHighlightStylesForNode(node: Node | null): void {
@@ -186,7 +187,8 @@ export class FragmentHighlighter {
   }
 
   private buildHighlightCss(): string {
-    const backgroundFallback = 'linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35))';
+    const backgroundFallback =
+      'linear-gradient(90deg, rgba(124, 92, 255, 0.45), rgba(87, 205, 255, 0.35))';
     const focusFallback = 'rgba(124, 92, 255, 0.45)';
     const focusSoftFallback = 'rgba(124, 92, 255, 0.2)';
     return [
@@ -224,7 +226,10 @@ export class FragmentHighlighter {
     ].join('\n');
   }
 
-  private traverseShadowInclusive<T>(node: Node | null, visitor: (node: Node) => T | null): T | null {
+  private traverseShadowInclusive<T>(
+    node: Node | null,
+    visitor: (node: Node) => T | null
+  ): T | null {
     if (!node) {
       return null;
     }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { withDomEnvironment } from '../../../utils/domEnvironment';
-import { DaisyInput } from '@options/components/shared/DaisyInput';
+import { UiInput } from '../../../../src/ui/primitives/input';
 
 const MARKUP = '<!DOCTYPE html><html><body></body></html>';
 
@@ -10,7 +10,7 @@ describe('DaisyInput', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const input = new DaisyInput(container);
+      const input = new UiInput(container);
       const element = input.render({
         variant: 'ghost',
         size: 'lg'
@@ -27,7 +27,7 @@ describe('DaisyInput', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const input = new DaisyInput(container);
+      const input = new UiInput(container);
       const element = input.render({
         type: 'email'
       });
@@ -42,7 +42,7 @@ describe('DaisyInput', () => {
       document.body.append(container);
 
       const handleChange = vi.fn();
-      const input = new DaisyInput(container);
+      const input = new UiInput(container);
       const element = input.render({
         onChange: handleChange
       });
@@ -60,7 +60,7 @@ describe('DaisyInput', () => {
       document.body.append(container);
 
       const handleBlur = vi.fn();
-      const input = new DaisyInput(container);
+      const input = new UiInput(container);
       const element = input.render({
         onBlur: handleBlur
       });
@@ -77,7 +77,7 @@ describe('DaisyInput', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const input = new DaisyInput(container);
+      const input = new UiInput(container);
       const element = input.render({
         disabled: true,
         required: true
@@ -85,6 +85,23 @@ describe('DaisyInput', () => {
 
       expect(element.disabled).toBe(true);
       expect(element.required).toBe(true);
+    });
+  });
+
+  it('applies validation state and aria metadata', async () => {
+    await withDomEnvironment(MARKUP, {}, ({ document }) => {
+      const container = document.createElement('div');
+      document.body.append(container);
+
+      const input = new UiInput(container);
+      const element = input.render({
+        validationState: 'error',
+        ariaDescribedBy: 'field-error'
+      });
+
+      expect(element.className).toContain('input-error');
+      expect(element.getAttribute('aria-invalid')).toBe('true');
+      expect(element.getAttribute('aria-describedby')).toBe('field-error');
     });
   });
 });

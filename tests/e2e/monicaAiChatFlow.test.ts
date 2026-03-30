@@ -67,7 +67,9 @@ describe('monica ai chat integration', () => {
 
     installJsdom(dom);
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: monicaUrl });
 
@@ -148,7 +150,12 @@ describe('monica ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/monica/2025/03/04/AI 对话摘要.md');
   });
 });

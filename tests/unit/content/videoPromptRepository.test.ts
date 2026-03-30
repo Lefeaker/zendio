@@ -93,7 +93,8 @@ describe('VideoPrompt repository integration helpers', () => {
     const deps: VideoPromptDependencies = {
       storage,
       runtime,
-      videoRepo: mockRepo
+      videoRepo: mockRepo,
+      createVideoSession: vi.fn(() => ({ start: vi.fn(() => Promise.resolve()) }))
     };
     setDependenciesForTests(deps);
     setPromptStateForTests({ left: 40, top: 60, side: 'right', hasCustomPosition: false });

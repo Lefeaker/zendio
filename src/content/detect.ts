@@ -6,7 +6,8 @@ const AI_CHAT_HOST_PATTERNS = [
   /deepseek\.com$/i,
   /tongyi\.(aliyun\.com|com)$/i,
   /(?:^|\.)doubao\.com$/i,
-  /(?:^|\.)monica\.im$/i
+  /(?:^|\.)monica\.im$/i,
+  /(?:^|\.)perplexity\.ai$/i
 ];
 
 function extractHostname(url: string, doc?: Document): string | null {

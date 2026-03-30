@@ -1,33 +1,28 @@
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { registerAiTimestampEnforcer, unregisterAiTimestampEnforcer } from '../sectionRegistry';
-import { DaisyBadge } from '../shared/DaisyBadge';
-import { DaisyCheckbox } from '../shared/DaisyCheckbox';
-import { DaisyInput } from '../shared/DaisyInput';
+import { UiBadge as DaisyBadge } from '../../../ui/primitives/badge';
+import { UiCheckbox as DaisyCheckbox } from '../../../ui/primitives/checkbox';
+import { UiInput as DaisyInput } from '../../../ui/primitives/input';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
 export class AiSection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
   private userNameInput: HTMLInputElement | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private timestampToggle: HTMLInputElement | null = null;
   private timestampHint: HTMLElement | null = null;
-  private timestampEnforcer: (() => void) | null = null;
   private unsubscribeFromRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
     this.dispose();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     this.container.replaceChildren(this.buildHeader(), this.buildBody());
     this.registerFormIntegration();
     this.subscribeToRepository();
@@ -40,14 +35,7 @@ export class AiSection extends BaseSection<SectionRenderContext> {
   }
 
   private dispose(): void {
-    if (this.formSectionBinding) {
-      this.requireFormRegistry().unregister('aiChat', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
-    if (this.timestampEnforcer) {
-      unregisterAiTimestampEnforcer(this.timestampEnforcer);
-      this.timestampEnforcer = null;
-    }
+    this.unregisterManagedFormSection();
     if (this.userNameInput) {
       this.userNameInput.removeEventListener('input', this.handleInput);
       this.userNameInput = null;
@@ -61,31 +49,26 @@ export class AiSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.aiChatConfigTitle ?? 'AI 对话剪藏配置';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-sm text-base-content/60');
-    subtitle.textContent =
-      this.messages?.aiChatConfigHint ?? '识别各平台对话结构，控制时间戳与高亮策略';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.aiChatConfigTitle ?? 'AI 对话剪藏配置',
+      description: this.messages?.aiChatConfigHint ?? '识别各平台对话结构，控制时间戳与高亮策略',
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      descriptionClassName: 'text-base-content/60 text-md'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
-    const settings = this.createElement('div', 'grid gap-6');
+    const wrapper = this.createSectionBody();
+    const settings = this.createSectionSettings();
 
-    const platformsSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0');
+    const platformsSetting = this.createElement(
+      'div',
+      'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0'
+    );
     platformsSetting.append(this.buildPlatformsDetails());
     settings.append(platformsSetting);
 
-    const nameSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const nameSetting = this.createSettingRow();
     const nameLabel = this.createElement('div', 'text-sm text-base-content/60 font-semibold');
     nameLabel.textContent = this.messages?.userNameLabel ?? '用户名称';
     const nameControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
@@ -104,26 +87,24 @@ export class AiSection extends BaseSection<SectionRenderContext> {
     this.userNameInput = nameInput;
     nameControl.append(nameInputHost);
     const nameHint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
-    nameHint.textContent = this.messages?.userNameHint ?? '自定义用户消息的显示名称，默认为 "USER"。';
+    nameHint.textContent =
+      this.messages?.userNameHint ?? '自定义用户消息的显示名称，默认为 "USER"。';
     nameSetting.append(nameLabel, nameControl, nameHint);
     settings.append(nameSetting);
 
     settings.append(this.buildTimestampSetting());
 
-    this.timestampEnforcer = () => {
-      this.enforceTimestampPolicy();
-    };
-    registerAiTimestampEnforcer(this.timestampEnforcer);
-    this.enforceTimestampPolicy();
+    this.syncTimestampPolicy();
 
     wrapper.append(settings);
     return wrapper;
   }
 
   private buildTimestampSetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     const labelText = this.messages?.includeTimestampsLabel ?? 'Include message timestamps';
-    const hintText = this.messages?.includeTimestampsHint ?? 'Show send time after each message (if available)';
+    const hintText =
+      this.messages?.includeTimestampsHint ?? 'Show send time after each message (if available)';
     const label = this.createElement('div', 'text-sm text-base-content/60 font-semibold');
     label.textContent = labelText;
 
@@ -148,20 +129,13 @@ export class AiSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('aiChat', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('aiChat', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('aiChat', binding);
   }
 
   private buildPlatformsDetails(): HTMLElement {
@@ -188,7 +162,8 @@ export class AiSection extends BaseSection<SectionRenderContext> {
 
     for (const { name, url } of platforms) {
       const link = document.createElement('a');
-      link.className = 'no-underline transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 rounded-md';
+      link.className =
+        'no-underline transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 rounded-md';
       link.href = url;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
@@ -221,12 +196,13 @@ export class AiSection extends BaseSection<SectionRenderContext> {
       this.timestampToggle.checked = Boolean(aiChat?.includeTimestamps);
       this.timestampToggle.disabled = false;
     }
-    this.enforceTimestampPolicy();
+    this.syncTimestampPolicy();
   }
 
   private collectChanges(previous: StoredOptions | null): Partial<CompleteOptions> {
     const previousAiChat = previous?.aiChat;
-    const userName = (this.userNameInput?.value ?? previousAiChat?.userName ?? 'USER').trim() || 'USER';
+    const userName =
+      (this.userNameInput?.value ?? previousAiChat?.userName ?? 'USER').trim() || 'USER';
     const partial: Partial<CompleteOptions> = {
       aiChat: {
         includeTimestamps: false,
@@ -237,7 +213,7 @@ export class AiSection extends BaseSection<SectionRenderContext> {
     return partial;
   }
 
-  private enforceTimestampPolicy(): void {
+  syncTimestampPolicy(): void {
     if (this.timestampToggle) {
       this.timestampToggle.checked = false;
       this.timestampToggle.disabled = true;

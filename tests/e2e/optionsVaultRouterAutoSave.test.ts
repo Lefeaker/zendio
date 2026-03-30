@@ -14,6 +14,7 @@ import {
 import { RoutingSection } from '../../src/options/components/sections/RoutingSection';
 import { FormSectionRegistry } from '../../src/options/components/formSections/formSectionManager';
 import { createOptionsStateManager } from '../../src/options/state/StateManager';
+import type { IOptionsRepository } from '../../src/shared/repositories';
 
 interface TestVaultState {
   vaults: VaultConfig[];
@@ -115,8 +116,11 @@ vi.mock('../../src/options/state/vaultRouterStore', () => ({
       vaultId: initial?.vaultId ?? storeMocks.getState().defaultVaultId
     };
     const targetVault =
-      storeMocks.getState().vaults.find((vault) => vault.id === (initial?.vaultId ?? storeMocks.getState().defaultVaultId)) ??
-      storeMocks.getState().vaults[0];
+      storeMocks
+        .getState()
+        .vaults.find(
+          (vault) => vault.id === (initial?.vaultId ?? storeMocks.getState().defaultVaultId)
+        ) ?? storeMocks.getState().vaults[0];
     if (!targetVault.rules) {
       targetVault.rules = [];
     }
@@ -264,7 +268,17 @@ describe('options vault router auto-save e2e', () => {
       throw new Error('routing section container missing');
     }
 
-    const section = new RoutingSection(container);
+    const optionsRepo: IOptionsRepository = {
+      async get() {
+        return (await persistence.load()) as never;
+      },
+      async set() {},
+      onChange() {
+        return () => undefined;
+      }
+    };
+
+    const section = new RoutingSection(container, optionsRepo);
     const stateManager = createOptionsStateManager();
     section.render({ stateManager, formRegistry });
 

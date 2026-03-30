@@ -6,6 +6,11 @@ import {
   type VideoPlatformContext
 } from './baseVideoPlatform';
 import type { VideoFragmentCapture } from '../types';
+import {
+  parseBilibiliDataContent,
+  resolveBilibiliRichTextContainer,
+  serializeBilibiliRichTextFragment
+} from './bilibiliRichText';
 
 const BILIBILI_SHADOW_HOST_TAGS = [
   'bili-comment-thread-renderer',
@@ -203,29 +208,11 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     }
 
     try {
-      BILIBILI_COMMENT_HOST_SELECTORS.forEach((selector) => {
-        const hosts = this.document.querySelectorAll<HTMLElement>(selector);
-        hosts.forEach((host) => this.ensureShadowHostObservation(host));
-      });
-
-      this.discoverAndObserveShadowHosts();
+      const hosts = this.document.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
+      hosts.forEach((host) => this.ensureShadowHostObservation(host));
     } catch (error) {
       console.warn('[BilibiliVideoPlatform] Failed to observe shadow roots:', error);
     }
-  }
-
-  private discoverAndObserveShadowHosts(): void {
-    if (!BILIBILI_SHADOW_HOST_SELECTOR) {
-      return;
-    }
-    const hosts = this.document.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
-    hosts.forEach((host) => {
-      try {
-        this.ensureShadowHostObservation(host);
-      } catch (error) {
-        console.warn('[BilibiliVideoPlatform] Failed to observe dynamic shadow host:', error);
-      }
-    });
   }
 
   private ensureShadowHostObservation(host: Element): void {
@@ -321,7 +308,10 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     }
     variants.add(normalized);
 
-    const strippedEmoji = normalized.replace(/\[[^\]]+\]/g, ' ').replace(/\s+/g, ' ').trim();
+    const strippedEmoji = normalized
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (strippedEmoji && !variants.has(strippedEmoji)) {
       variants.add(strippedEmoji);
     }
@@ -371,18 +361,14 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     const normalizedLowerBuilder: string[] = [];
     let lastWasWhitespace = true;
 
-    const walker = this.document.createTreeWalker(
-      root,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          if (this.shouldSkipTextNode(node as Text)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return NodeFilter.FILTER_ACCEPT;
+    const walker = this.document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        if (this.shouldSkipTextNode(node as Text)) {
+          return NodeFilter.FILTER_REJECT;
         }
+        return NodeFilter.FILTER_ACCEPT;
       }
-    );
+    });
 
     let node: Text | null;
     while ((node = walker.nextNode() as Text | null)) {
@@ -509,11 +495,12 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
         return current;
       }
 
-      const root = current instanceof Element
-        ? current.getRootNode()
-        : current instanceof Text
-          ? current.parentElement?.getRootNode() ?? null
-          : null;
+      const root =
+        current instanceof Element
+          ? current.getRootNode()
+          : current instanceof Text
+            ? (current.parentElement?.getRootNode() ?? null)
+            : null;
 
       if (root instanceof ShadowRoot) {
         const host = root.host as HTMLElement | null;
@@ -538,19 +525,23 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     return null;
   }
 
-  private extractTextFromBilibiliRichText(host: HTMLElement): { text: string; html: string } | null {
+  private extractTextFromBilibiliRichText(
+    host: HTMLElement
+  ): { text: string; html: string } | null {
     const dataContent = host.getAttribute('data-content');
     if (dataContent && dataContent.trim()) {
-      const parsed = this.parseBilibiliDataContent(dataContent);
+      const parsed = parseBilibiliDataContent(dataContent, (value) => this.escapeHtml(value));
       if (parsed) {
         return parsed;
       }
     }
 
     if (host.shadowRoot) {
-      const container = this.resolveBilibiliRichTextContainer(host.shadowRoot);
+      const container = resolveBilibiliRichTextContainer(host.shadowRoot);
       const target = container ?? host.shadowRoot;
-      const serialized = this.serializeBilibiliRichTextFragment(target);
+      const serialized = serializeBilibiliRichTextFragment(target, (value) =>
+        this.escapeHtml(value)
+      );
       if (serialized.text) {
         return serialized;
       }
@@ -593,26 +584,22 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
   }
 
   private buildRangeCoveringBilibiliRichText(host: HTMLElement): Range | null {
-    const container = host.shadowRoot ? this.resolveBilibiliRichTextContainer(host.shadowRoot) : null;
+    const container = host.shadowRoot ? resolveBilibiliRichTextContainer(host.shadowRoot) : null;
     const target = container ?? host.shadowRoot ?? host;
     if (!target) {
       return null;
     }
     const textNodes: Text[] = [];
-    const walker = this.document.createTreeWalker(
-      target,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          if (this.shouldSkipTextNode(node as Text)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return node.textContent && node.textContent.trim()
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP;
+    const walker = this.document.createTreeWalker(target, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        if (this.shouldSkipTextNode(node as Text)) {
+          return NodeFilter.FILTER_REJECT;
         }
+        return node.textContent && node.textContent.trim()
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
       }
-    );
+    });
     let current = walker.nextNode() as Text | null;
     while (current) {
       if (current.textContent && current.textContent.trim()) {
@@ -628,246 +615,5 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     const lastNode = textNodes[textNodes.length - 1];
     range.setEnd(lastNode, lastNode.textContent?.length ?? 0);
     return range;
-  }
-
-  private resolveBilibiliRichTextContainer(root: ShadowRoot): HTMLElement | null {
-    const selectors = [
-      '.rich-text-content',
-      '#contents',
-      '[id="contents"]',
-      '.content',
-      '.rich-text'
-    ];
-    for (const selector of selectors) {
-      const element = root.querySelector<HTMLElement>(selector);
-      if (element) {
-        return element;
-      }
-    }
-    const firstChild = Array.from(root.children).find((element) => {
-      const tag = element.tagName.toLowerCase();
-      return tag !== 'style' && tag !== 'script' && tag !== 'template';
-    });
-    return firstChild instanceof HTMLElement ? firstChild : null;
-  }
-
-  private parseBilibiliDataContent(raw: string): { text: string; html: string } | null {
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const extractedFromJson = this.tryParseBilibiliContentJson(trimmed);
-    const text = (extractedFromJson || trimmed).replace(/\s+/g, ' ').trim();
-    if (!text) {
-      return null;
-    }
-    return {
-      text,
-      html: this.escapeHtml(text)
-    };
-  }
-
-  private tryParseBilibiliContentJson(raw: string): string | null {
-    if (!raw || (raw[0] !== '{' && raw[0] !== '[')) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      const flattened = this.flattenBilibiliContentNode(parsed).trim();
-      return flattened || null;
-    } catch {
-      return null;
-    }
-  }
-
-  private flattenBilibiliContentNode(node: unknown): string {
-    if (node == null) {
-      return '';
-    }
-    if (typeof node === 'string') {
-      return node;
-    }
-    if (typeof node === 'number' || typeof node === 'boolean') {
-      return String(node);
-    }
-    if (Array.isArray(node)) {
-      return node.map(item => this.flattenBilibiliContentNode(item)).join('');
-    }
-    if (typeof node === 'object') {
-      const record = node as Record<string, unknown>;
-      if (typeof record.text === 'string' && record.text.trim()) {
-        return record.text;
-      }
-      if (typeof record.raw_text === 'string' && record.raw_text.trim()) {
-        return record.raw_text;
-      }
-      if (typeof record.content === 'string' && record.content.trim()) {
-        return record.content;
-      }
-      if (typeof record.display_text === 'string' && record.display_text.trim()) {
-        return record.display_text;
-      }
-      if (typeof record.name === 'string' && record.name.trim()) {
-        const type = typeof record.type === 'string' ? record.type.toLowerCase() : '';
-        if (type.includes('mention') || type === 'at') {
-          const value = record.name;
-          return value.startsWith('@') ? value : `@${value}`;
-        }
-      }
-      if (Array.isArray(record.rich_text_nodes)) {
-        return (record.rich_text_nodes as unknown[])
-          .map(item => this.flattenBilibiliContentNode(item))
-          .join('');
-      }
-      if (Array.isArray(record.ops)) {
-        return (record.ops as unknown[])
-          .map(item => {
-            if (item && typeof item === 'object' && 'insert' in (item as Record<string, unknown>)) {
-              return this.flattenBilibiliContentNode((item as Record<string, unknown>).insert);
-            }
-            return this.flattenBilibiliContentNode(item);
-          })
-          .join('');
-      }
-    }
-    return '';
-  }
-
-  private serializeBilibiliRichTextFragment(root: Element | ShadowRoot): { text: string; html: string } {
-    const textParts: string[] = [];
-    const htmlParts: string[] = [];
-
-    const append = (raw: string | null | undefined, htmlOverride?: string) => {
-      if (raw == null) {
-        return;
-      }
-      if (raw.trim().length === 0) {
-        if (raw.length > 0) {
-          textParts.push(' ');
-          htmlParts.push(' ');
-        }
-        return;
-      }
-      textParts.push(raw);
-      htmlParts.push(htmlOverride ?? this.escapeHtml(raw));
-    };
-
-    const walk = (node: Node): void => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        append(node.textContent);
-        return;
-      }
-      if (!(node instanceof Element)) {
-        return;
-      }
-
-      const tagName = node.tagName.toLowerCase();
-      if (tagName === 'style' || tagName === 'script' || tagName === 'template') {
-        return;
-      }
-
-      if (tagName === 'bili-emoji') {
-        const emojiText =
-          node.getAttribute('data-emoji') ||
-          node.getAttribute('alt') ||
-          node.getAttribute('title') ||
-          ((node as HTMLElement).shadowRoot?.querySelector('img')?.getAttribute('alt')) ||
-          node.querySelector('img')?.getAttribute('alt') ||
-          node.textContent ||
-          '';
-        if (emojiText) {
-          const escaped = this.escapeHtml(emojiText);
-          append(
-            emojiText,
-            `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`
-          );
-        }
-        return;
-      }
-
-      if (tagName === 'img') {
-        const alt =
-          node.getAttribute('data-emoji') ||
-          node.getAttribute('alt') ||
-          node.getAttribute('title') ||
-          node.getAttribute('aria-label') ||
-          '';
-        if (alt) {
-          const escaped = this.escapeHtml(alt);
-          append(
-            alt,
-            `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`
-          );
-          return;
-        }
-      }
-
-      if (tagName === 'bili-at' || node.matches('.reply-target, .at-user')) {
-        const mentionText =
-          node.getAttribute('data-user-name') ||
-          node.getAttribute('data-name') ||
-          node.getAttribute('data-text') ||
-          node.textContent ||
-          '';
-        if (mentionText) {
-          const normalized = mentionText.startsWith('@') ? mentionText : `@${mentionText}`;
-          const escaped = this.escapeHtml(normalized);
-          append(normalized, `<span data-aiob-fragment="mention">${escaped}</span>`);
-        }
-        return;
-      }
-
-      if (tagName === 'bili-link' || tagName === 'a') {
-        const hrefRaw =
-          node.getAttribute('href') ||
-          node.getAttribute('data-href') ||
-          node.getAttribute('data-url') ||
-          node.getAttribute('data-uri') ||
-          '';
-        const href = hrefRaw.trim();
-        const linkText =
-          node.getAttribute('data-title') ||
-          node.getAttribute('title') ||
-          node.textContent ||
-          href;
-        if (linkText) {
-          const normalized = linkText.trim();
-          if (normalized) {
-            const escapedText = this.escapeHtml(normalized);
-            const html = href
-              ? `<a href="${this.escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapedText}</a>`
-              : escapedText;
-            append(normalized, html);
-          }
-        }
-        return;
-      }
-
-      if (tagName === 'bili-dyn-content') {
-        Array.from(node.childNodes).forEach((child) => walk(child));
-        return;
-      }
-
-      if (node.matches('.text-node')) {
-        append(node.textContent);
-        return;
-      }
-
-      if (node.childNodes.length === 0) {
-        append(node.textContent);
-        return;
-      }
-
-      Array.from(node.childNodes).forEach((child) => walk(child));
-    };
-
-    Array.from(root.childNodes).forEach((child) => walk(child));
-
-    const combined = textParts.join('');
-    return {
-      text: combined.replace(/\s+/g, ' ').trim(),
-      html: htmlParts.join('')
-    };
   }
 }

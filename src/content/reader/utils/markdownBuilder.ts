@@ -87,7 +87,9 @@ export function buildReaderHighlightsMarkdown(params: ReaderMarkdownParams): Rea
   const clippedAt = formatDateTime(now);
   const clipTitle = generateClipperTitle(pageTitle, now);
 
-  const { body, footnotes } = buildHighlightSection(pageUrl, highlights, { includeFragmentLinks: true });
+  const { body, footnotes } = buildHighlightSection(pageUrl, highlights, {
+    includeFragmentLinks: true
+  });
   const domain = deriveDomain(pageUrl);
   const normalizedDomain = domain === 'unknown' ? undefined : domain;
   const frontMatter = generateYamlFrontMatter(
@@ -113,7 +115,7 @@ export function buildReaderHighlightsMarkdown(params: ReaderMarkdownParams): Rea
     markdown += `\n\n${footnotes.join('\n\n')}`;
   }
 
-  const commentCount = highlights.filter(h => h.comment).length;
+  const commentCount = highlights.filter((h) => h.comment).length;
 
   return {
     type: 'clipper',
@@ -124,7 +126,7 @@ export function buildReaderHighlightsMarkdown(params: ReaderMarkdownParams): Rea
       domain,
       highlightCount: highlights.length,
       commentCount,
-      fragmentUrls: highlights.map(h => h.fragmentUrl),
+      fragmentUrls: highlights.map((h) => h.fragmentUrl),
       clippedAtISO: clippedAt,
       readerMode: true,
       exportMode: 'highlights'
@@ -153,35 +155,12 @@ export function buildReaderFullMarkdown(params: ReaderFullMarkdownParams): Reade
 
   const turndown = createClipperTurndown(pageUrl);
   turndown.addRule('readerHighlightMark', {
-    filter: (node: HTMLElement) => node.nodeName === 'MARK' && node.classList.contains('aiob-reader-highlight'),
+    filter: (node: HTMLElement) =>
+      node.nodeName === 'MARK' && node.classList.contains('aiob-reader-highlight'),
     replacement: (content: string, node: Node) => {
       // Cast to HTMLElement to access dataset property
       const element = node as HTMLElement;
-      let role = element.dataset.readerSegmentRole ?? 'single';
-      if (role === 'single') {
-        const highlightId = element.dataset.readerHighlightId;
-        if (highlightId) {
-          const segments = Array.from(
-            element.ownerDocument?.querySelectorAll<HTMLElement>(
-              `mark.aiob-reader-highlight[data-reader-highlight-id="${highlightId}"]`
-            ) ?? []
-          );
-          if (segments.length > 1) {
-            const rawCurrent = Number.parseInt(element.dataset.segmentIndex ?? '0', 10);
-            const rawMax = Math.max(...segments.map((segment) => Number.parseInt(segment.dataset.segmentIndex ?? '0', 10)));
-            const fallbackCurrent = Math.max(segments.indexOf(element), 0);
-            const currentIndex = Number.isNaN(rawCurrent) ? fallbackCurrent : rawCurrent;
-            const maxIndex = Number.isFinite(rawMax) && !Number.isNaN(rawMax) ? rawMax : segments.length - 1;
-            if (currentIndex === 0) {
-              role = 'start';
-            } else if (currentIndex === maxIndex) {
-              role = 'end';
-            } else {
-              role = 'middle';
-            }
-          }
-        }
-      }
+      const role = inferReaderSegmentRole(element);
       const index = element.dataset.readerFootnote;
       const inner = content.trim();
       if (!inner) {
@@ -242,7 +221,7 @@ export function buildReaderFullMarkdown(params: ReaderFullMarkdownParams): Reade
     markdown += `\n\n${footnotes.join('\n\n')}`;
   }
 
-  const commentCount = highlights.filter(h => h.comment).length;
+  const commentCount = highlights.filter((h) => h.comment).length;
 
   return {
     type: 'clipper',
@@ -253,7 +232,7 @@ export function buildReaderFullMarkdown(params: ReaderFullMarkdownParams): Reade
       domain,
       highlightCount: highlights.length,
       commentCount,
-      fragmentUrls: highlights.map(h => h.fragmentUrl),
+      fragmentUrls: highlights.map((h) => h.fragmentUrl),
       clippedAtISO: clippedAt,
       readerMode: true,
       exportMode: 'full'
@@ -322,7 +301,9 @@ function normalizeHighlightSegments(doc: Document, highlights: ReaderHighlightIn
     }
     processed.add(id);
     const segments = Array.from(
-      doc.querySelectorAll<HTMLElement>(`mark.aiob-reader-highlight[data-reader-highlight-id="${id}"]`)
+      doc.querySelectorAll<HTMLElement>(
+        `mark.aiob-reader-highlight[data-reader-highlight-id="${id}"]`
+      )
     );
     if (!segments.length) {
       continue;
@@ -461,10 +442,7 @@ function unwrapNode(node: HTMLElement): void {
 }
 
 function applyHighlightTokens(markdown: string): string {
-  const unescaped = markdown
-    .replace(/\\\[/g, '[')
-    .replace(/\\\]/g, ']')
-    .replace(/\\_/g, '_');
+  const unescaped = markdown.replace(/\\\[/g, '[').replace(/\\\]/g, ']').replace(/\\_/g, '_');
 
   const processedStart = unescaped.replace(/\[\[AIIOB_HL:[^\]:]+:S\]\]\s*/g, '==');
 
@@ -482,7 +460,10 @@ function stripInlineFormattingBetweenTokens(startToken: Node, endToken: Node): v
   let current: Node | null = startToken.nextSibling;
   while (current && current !== endToken) {
     const next = current.nextSibling;
-    if (current.nodeType === Node.ELEMENT_NODE && shouldUnwrapInlineElement(current as HTMLElement)) {
+    if (
+      current.nodeType === Node.ELEMENT_NODE &&
+      shouldUnwrapInlineElement(current as HTMLElement)
+    ) {
       unwrapNode(current as HTMLElement);
     }
     current = next;
@@ -499,6 +480,51 @@ function shouldUnwrapInlineElement(element: HTMLElement): boolean {
   return false;
 }
 
+function inferReaderSegmentRole(element: HTMLElement): 'single' | 'start' | 'middle' | 'end' {
+  const explicitRole = element.dataset.readerSegmentRole;
+  if (
+    explicitRole === 'single' ||
+    explicitRole === 'start' ||
+    explicitRole === 'middle' ||
+    explicitRole === 'end'
+  ) {
+    return explicitRole;
+  }
+
+  const highlightId = element.dataset.readerHighlightId;
+  const segmentIndex = Number.parseInt(element.dataset.segmentIndex ?? '', 10);
+  if (!highlightId || Number.isNaN(segmentIndex)) {
+    return 'single';
+  }
+
+  const hasMatchingSibling = (
+    sibling: Element | null,
+    direction: 'previousElementSibling' | 'nextElementSibling'
+  ): boolean => {
+    let current = sibling;
+    while (current) {
+      if (current instanceof HTMLElement && current.tagName === 'MARK') {
+        return current.dataset.readerHighlightId === highlightId;
+      }
+      current = current[direction];
+    }
+    return false;
+  };
+
+  const hasPrevious = hasMatchingSibling(element.previousElementSibling, 'previousElementSibling');
+  const hasNext = hasMatchingSibling(element.nextElementSibling, 'nextElementSibling');
+
+  if (hasPrevious && hasNext) {
+    return 'middle';
+  }
+  if (hasPrevious) {
+    return 'end';
+  }
+  if (hasNext) {
+    return 'start';
+  }
+  return 'single';
+}
 
 export const __readerMarkdownBuilderTestUtils = {
   deriveDomain,
@@ -509,5 +535,6 @@ export const __readerMarkdownBuilderTestUtils = {
   unwrapNode,
   applyHighlightTokens,
   stripInlineFormattingBetweenTokens,
-  shouldUnwrapInlineElement
+  shouldUnwrapInlineElement,
+  inferReaderSegmentRole
 };

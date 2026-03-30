@@ -22,24 +22,6 @@ import type { FragmentClipperOptions } from '@shared/types/options';
 const promptMock = vi.hoisted(() => vi.fn());
 const platformHarness: TestPlatformHarness = testPlatformHarness;
 
-vi.mock('../../../src/content/reader/ui/panel', () => ({
-  ReaderPanel: vi.fn().mockImplementation(() => {
-    const element = document.createElement('div');
-    element.id = 'aiob-reader-panel';
-    document.body.appendChild(element);
-    return {
-      element,
-      updateCount: vi.fn(),
-      setHighlights: vi.fn(),
-      updateHint: vi.fn(),
-      updateTexts: vi.fn(),
-      stopEditing: vi.fn(),
-      isEditing: vi.fn().mockReturnValue(false),
-      destroy: vi.fn()
-    };
-  })
-}));
-
 vi.mock('../../../src/content/clipper/shared/styleManager', () => ({
   InlineStyleManager: vi.fn().mockImplementation(() => ({
     mount: vi.fn(),
@@ -98,9 +80,9 @@ vi.mock('../../../src/content/i18n/context', () => ({
 }));
 
 vi.mock('../../../src/content/clipper/services/fragmentConfig', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/content/clipper/services/fragmentConfig')>(
-    '../../src/content/clipper/services/fragmentConfig'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../../src/content/clipper/services/fragmentConfig')
+  >('../../src/content/clipper/services/fragmentConfig');
   return {
     ...actual,
     loadFragmentConfig: vi.fn()

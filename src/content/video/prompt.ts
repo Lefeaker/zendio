@@ -1,14 +1,13 @@
 import type { Messages } from '../../i18n';
-import { VideoSession } from './session';
 import type { VideoOptions } from '../../shared/types/options';
 import { detectVideoIdentity } from './utils';
 import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
 import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { DEFAULT_OPTIONS } from '../../shared/config';
 import type { VideoPromptDependencies } from './videoPromptDependencies';
-import { createVideoPromptDependencies, type VideoPromptPlatformDependencies } from './videoPromptDependencies';
 import {
   observeVideoElements,
+  disconnectVideoObserver,
   matchesSupportedVideoHost,
   hasPlayableVideo,
   isValidVideoPlayPage
@@ -23,11 +22,7 @@ import {
   DRAG_ACTIVATE_DISTANCE,
   type PromptSide
 } from './videoPromptPosition';
-import {
-  createPromptElement,
-  attachDragHandlers,
-  updatePromptLabels
-} from './videoPromptRenderer';
+import { createPromptElement, attachDragHandlers, updatePromptLabels } from './videoPromptRenderer';
 import {
   createPromptLayoutState,
   setLayoutState,
@@ -49,19 +44,11 @@ const PROMPT_ID = 'aiob-video-floating-prompt';
 const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
 const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
 
-let defaultVideoPromptDependencies: VideoPromptDependencies | null = null;
 let videoPromptDependencies: VideoPromptDependencies | null = null;
-
-export function initializeDefaultVideoPromptDependencies(platform: VideoPromptPlatformDependencies): VideoPromptDependencies {
-  const dependencies = createVideoPromptDependencies(platform);
-  defaultVideoPromptDependencies = dependencies;
-  videoPromptDependencies ??= dependencies;
-  return dependencies;
-}
 
 function getVideoPromptDependencies(): VideoPromptDependencies {
   if (!videoPromptDependencies) {
-    throw new Error('VideoPrompt dependencies have not been initialized');
+    throw new Error('VideoPrompt dependencies have not been configured');
   }
   return videoPromptDependencies;
 }
@@ -71,7 +58,7 @@ export function __setVideoPromptDependenciesForTests(deps: VideoPromptDependenci
 }
 
 export function __resetVideoPromptDependenciesForTests(): void {
-  videoPromptDependencies = defaultVideoPromptDependencies;
+  videoPromptDependencies = null;
 }
 
 function getVideoRepository() {
@@ -98,6 +85,8 @@ let stopLanguageWatcher: (() => void) | null = null;
 const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
+let urlPollTimer: number | null = null;
+let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
 type VideoPromptDebugState = {
@@ -121,7 +110,9 @@ type VideoPromptDebugState = {
 
 let promptDebugState: VideoPromptDebugState | null = null;
 
-function setPromptStateForTests(state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>): void {
+function setPromptStateForTests(
+  state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>
+): void {
   setLayoutState(layoutState, state as Partial<PromptLayoutState>);
   if (promptElement) {
     applyStoredPosition(layoutState, promptElement);
@@ -129,7 +120,12 @@ function setPromptStateForTests(state: Partial<{ left: number; top: number; side
   }
 }
 
-function getPromptStateSnapshot(): { left: number; top: number; side: PromptSide; hasCustomPosition: boolean } {
+function getPromptStateSnapshot(): {
+  left: number;
+  top: number;
+  side: PromptSide;
+  hasCustomPosition: boolean;
+} {
   return getLayoutStateSnapshot(layoutState);
 }
 
@@ -137,7 +133,7 @@ async function getPromptMessages(): Promise<Messages> {
   if (!messagesCache) {
     await ensureContentI18n(document);
     const resource = getContentI18nResource();
-    messagesCache = resource?.messages ?? await getContentMessages();
+    messagesCache = resource?.messages ?? (await getContentMessages());
   }
   return messagesCache;
 }
@@ -152,6 +148,23 @@ function handleWindowResize(): void {
   }
   adjustLayoutForResize(layoutState, promptElement);
   updateDebugPosition();
+}
+
+function ensureUrlPollTimer(): void {
+  if (urlPollTimer !== null) {
+    return;
+  }
+  urlPollTimer = window.setInterval(() => {
+    evaluatePrompt();
+  }, 1200);
+}
+
+function clearUrlPollTimer(): void {
+  if (urlPollTimer === null) {
+    return;
+  }
+  window.clearInterval(urlPollTimer);
+  urlPollTimer = null;
 }
 
 function updateDebugPosition(): void {
@@ -178,7 +191,9 @@ async function savePromptPosition(): Promise<void> {
   }
 }
 
-function applyPromptPositionFromConfig(position: { x: number; y: number } | null | undefined): void {
+function applyPromptPositionFromConfig(
+  position: { x: number; y: number } | null | undefined
+): void {
   if (!position) {
     setLayoutState(layoutState, { hasCustomPosition: false });
     return;
@@ -297,10 +312,10 @@ async function mountPrompt(): Promise<void> {
   const shouldAbortMount = (): boolean =>
     Boolean(
       promptElement ||
-      promptSuppressed ||
-      !promptEnabled ||
-      isVideoSessionActive(document) ||
-      window !== window.top
+        promptSuppressed ||
+        !promptEnabled ||
+        isVideoSessionActive(document) ||
+        window !== window.top
     );
 
   promptMountTask = (async () => {
@@ -402,14 +417,14 @@ async function mountPrompt(): Promise<void> {
 }
 
 async function startVideoSession(): Promise<void> {
-  if (sessionStarting || getVideoSession<VideoSession>()) {
+  if (sessionStarting || getVideoSession()) {
     return;
   }
 
   sessionStarting = true;
   try {
     console.info('[VideoPrompt] Starting video session…');
-    const session = new VideoSession(document);
+    const session = getVideoPromptDependencies().createVideoSession(document);
     await session.start();
     console.info('[VideoPrompt] Video session started.');
     evaluatePrompt(true);
@@ -457,8 +472,58 @@ function setupLanguageListener(): void {
   });
 }
 
-export async function initVideoPrompt(): Promise<void> {
-  if (typeof window === 'undefined' || window !== window.top) {
+function handleVisibilityChange(): void {
+  evaluatePrompt();
+}
+
+function handlePageHide(): void {
+  teardownPromptWatchers();
+  removePrompt();
+}
+
+function handlePageShow(): void {
+  if (!videoPromptDependencies || !matchesSupportedVideoHost(window.location.href)) {
+    return;
+  }
+  setupVideoConfigListener();
+  setupLanguageListener();
+  observeVideoElements(() => evaluatePrompt());
+  void refreshSettings();
+  void loadPromptPosition();
+  ensureUrlPollTimer();
+  evaluatePrompt(true);
+}
+
+function ensureLifecycleListeners(): void {
+  if (lifecycleListenersRegistered) {
+    return;
+  }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
+  window.addEventListener('pagehide', handlePageHide, { passive: true });
+  window.addEventListener('pageshow', handlePageShow, { passive: true });
+  lifecycleListenersRegistered = true;
+}
+
+function teardownPromptWatchers(): void {
+  stopSettingsWatcher?.();
+  stopSettingsWatcher = null;
+  stopLanguageWatcher?.();
+  stopLanguageWatcher = null;
+  clearUrlPollTimer();
+  disconnectVideoObserver();
+}
+
+export async function initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void> {
+  if (dependencies) {
+    videoPromptDependencies = dependencies;
+  }
+
+  if (
+    typeof window === 'undefined' ||
+    window !== window.top ||
+    !matchesSupportedVideoHost(window.location.href)
+  ) {
     return;
   }
 
@@ -468,29 +533,14 @@ export async function initVideoPrompt(): Promise<void> {
   setupVideoConfigListener();
   setupLanguageListener();
   observeVideoElements(() => evaluatePrompt());
+  ensureUrlPollTimer();
+  ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
     window.addEventListener('resize', handleWindowResize, { passive: true });
     resizeListenerRegistered = true;
   }
-  window.addEventListener('visibilitychange', () => evaluatePrompt(), { passive: true });
-
-  // Poll for URL changes (SPA navigation)
-  window.setInterval(() => {
-    evaluatePrompt();
-  }, 1200);
 
   evaluatePrompt(true);
-
-  window.addEventListener('pagehide', () => {
-    stopSettingsWatcher?.();
-    stopSettingsWatcher = null;
-  }, { passive: true });
-
-  window.addEventListener('pageshow', () => {
-    setupVideoConfigListener();
-    void refreshSettings();
-    void loadPromptPosition();
-  }, { passive: true });
 }
 
 function resolvePromptLabel(value?: string): string {
@@ -524,7 +574,8 @@ export const __videoPromptTestUtils = {
   computeTentativePosition,
   computeSnapSide,
   applySideClass,
-  setPromptSide: (side: PromptSide, element?: HTMLDivElement | null) => setPromptSide(layoutState, side, element ?? null),
+  setPromptSide: (side: PromptSide, element?: HTMLDivElement | null) =>
+    setPromptSide(layoutState, side, element ?? null),
   computeDockedPlacement,
   EDGE_MARGIN,
   DRAG_BOUNDARY_PADDING,
@@ -541,7 +592,11 @@ export const __videoPromptTestUtils = {
   },
   savePromptPositionForTests: savePromptPosition,
   loadPromptPositionForTests: loadPromptPosition,
-  setupVideoConfigListenerForTests
+  setupVideoConfigListenerForTests,
+  cleanupPromptForTests: () => {
+    teardownPromptWatchers();
+    removePrompt();
+  }
 };
 
 export { isValidVideoPlayPage };

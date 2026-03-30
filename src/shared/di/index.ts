@@ -11,6 +11,7 @@ import {
   repositoryContainer,
   container,
   registerRepositories,
+  registerFallbackRepositories,
   registerMockRepositories,
   resolveRepository
 } from './serviceRegistry';
@@ -24,6 +25,7 @@ export {
   repositoryContainer,
   container,
   registerRepositories,
+  registerFallbackRepositories,
   registerMockRepositories,
   resolveRepository,
   TOKENS,
@@ -31,6 +33,64 @@ export {
   getTokenName,
   type ServiceToken
 };
+
+function createFallbackRegistry(): ServiceRegistry {
+  const services = new Map<
+    symbol,
+    { factory: () => unknown; instance?: unknown; resolved: boolean }
+  >();
+  const disposeInstance = (instance: unknown): void => {
+    if (
+      typeof instance === 'object' &&
+      instance !== null &&
+      'dispose' in instance &&
+      typeof (instance as { dispose?: unknown }).dispose === 'function'
+    ) {
+      (instance as { dispose: () => void }).dispose();
+    }
+  };
+
+  return {
+    register<T>(token: symbol, factory: () => T): void {
+      services.set(token, { factory, resolved: false });
+    },
+    resolve<T>(token: symbol): T {
+      const entry = services.get(token);
+      if (!entry) {
+        throw new Error(`[ServiceRegistry] Service not registered: ${String(token)}`);
+      }
+      if (!entry.resolved) {
+        entry.instance = entry.factory();
+        entry.resolved = true;
+      }
+      return entry.instance as T;
+    },
+    has(token: symbol): boolean {
+      return services.has(token);
+    },
+    dispose(token: symbol): void {
+      const entry = services.get(token);
+      if (entry) {
+        disposeInstance(entry.instance);
+        entry.instance = undefined;
+        entry.resolved = false;
+      }
+    },
+    reset(): void {
+      for (const entry of services.values()) {
+        disposeInstance(entry.instance);
+      }
+      services.clear();
+    }
+  };
+}
+
+function instantiateRegistry(): ServiceRegistry {
+  if (typeof createServiceRegistry === 'function') {
+    return createServiceRegistry();
+  }
+  return createFallbackRegistry();
+}
 
 class ProxyServiceRegistry implements ServiceRegistry {
   constructor(private active: ServiceRegistry) {}
@@ -64,7 +124,7 @@ class ProxyServiceRegistry implements ServiceRegistry {
   }
 }
 
-const proxyRegistry = new ProxyServiceRegistry(createServiceRegistry());
+const proxyRegistry = new ProxyServiceRegistry(createFallbackRegistry());
 
 /**
  * 全局服务注册表实例
@@ -90,11 +150,11 @@ export async function withTestRegistry<T>(
   fn: () => T | Promise<T>
 ): Promise<T> {
   const originalRegistry = proxyRegistry.getActiveRegistry();
-  
+
   try {
     // 临时替换全局注册表
     setGlobalRegistry(testRegistry);
-    
+
     // 执行测试函数
     return await fn();
   } finally {
@@ -107,12 +167,12 @@ export async function withTestRegistry<T>(
  * 创建测试用的注册表，预配置常用的mock服务
  */
 export function createTestRegistry(): ServiceRegistry {
-  const testRegistry = createServiceRegistry();
-  
+  const testRegistry = instantiateRegistry();
+
   // 可以在这里预注册一些常用的测试mock
   // 例如：
   // testRegistry.register(TOKENS.platformServices, () => createMockPlatformServices());
-  
+
   return testRegistry;
 }
 
@@ -150,7 +210,9 @@ export function registerService<T>(token: symbol, factory: () => T): void {
  */
 export function getLegacySingleton<T>(token: symbol, factory: () => T): T {
   if (!registry.has(token)) {
-    console.warn(`[DI] Auto-registering legacy singleton for ${getTokenName(token)}. Consider explicit registration.`);
+    console.warn(
+      `[DI] Auto-registering legacy singleton for ${getTokenName(token)}. Consider explicit registration.`
+    );
     registry.register(token, factory);
   }
   return registry.resolve<T>(token);

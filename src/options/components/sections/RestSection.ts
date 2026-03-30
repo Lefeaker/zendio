@@ -11,19 +11,18 @@ import {
 } from '../../state/vaultRouterStore';
 import { VaultRouterController } from '../controls/vaultRouterController';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { DaisyButton } from '../shared/DaisyButton';
-import { DaisyAlert } from '../shared/DaisyAlert';
-import { DaisyInput } from '../shared/DaisyInput';
-import { DaisyCard } from '../shared/DaisyCard';
-import { DaisyTable } from '../shared/DaisyTable';
+import { UiButton as DaisyButton } from '../../../ui/primitives/button';
+import { UiAlert as DaisyAlert } from '../../../ui/primitives/alert';
+import { UiInput as DaisyInput } from '../../../ui/primitives/input';
+import { DaisyCard } from '../../../ui/primitives/card';
+import { DaisyTable } from '../../../ui/primitives/table';
+import { UiCheckbox as DaisyCheckbox } from '../../../ui/primitives/checkbox';
+import { createOptionsActionRow } from '../../../ui/primitives/layout';
 import { getOptionsMessages } from '../../app/i18nContext';
 import { markPendingAutoSave } from '../../app/optionsControllerContext';
 import { createConnectionTester, type ConnectionTester } from '../controls/connectionTest';
 import type { ConnectionResultType } from '../../services/connectionTestRunner';
-import {
-  requestConnectionTest,
-  requestVaultConnectionTest
-} from '../../services/connectionTester';
+import { requestConnectionTest, requestVaultConnectionTest } from '../../services/connectionTester';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -37,7 +36,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   private additionalRowsHost: HTMLElement | null = null;
   private additionalEmptyHint: HTMLElement | null = null;
   private unsubscribeVaultStore: (() => void) | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private connectionTester: ConnectionTester | null = null;
   private connectionResultHost: HTMLDivElement | null = null;
   private unsubscribeRepo: (() => void) | null = null;
@@ -50,13 +48,12 @@ export class RestSection extends BaseSection<SectionRenderContext> {
 
   constructor(
     container: HTMLElement,
-    optionsRepo?: IOptionsRepository,
-    messagingRepo?: IMessagingRepository
+    optionsRepo: IOptionsRepository,
+    messagingRepo: IMessagingRepository
   ) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-    this.messagingRepo =
-      messagingRepo ?? resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+    this.optionsRepo = optionsRepo;
+    this.messagingRepo = messagingRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
@@ -64,7 +61,7 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       this.vaultRouterController.setMessages(this.messages);
     }
     this.vaultRouterController.render();
-    this.container.classList.add('aobx-section');
+    this.applySectionChrome();
 
     this.defaultNameInput = null;
     this.defaultHttpsInput = null;
@@ -80,7 +77,7 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeVaultStore = subscribeVaultRouter((state) => {
       this.defaultVaultId =
         state.defaultVaultId ??
-        state.vaults.find(vault => vault.isDefault)?.id ??
+        state.vaults.find((vault) => vault.isDefault)?.id ??
         state.vaults[0]?.id ??
         null;
       this.renderAdditionalVaultRows(state.vaults, state.defaultVaultId);
@@ -89,7 +86,7 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     const snapshot = getVaultRouterConfig();
     this.defaultVaultId =
       snapshot?.defaultVaultId ??
-      snapshot?.vaults?.find(vault => vault.isDefault)?.id ??
+      snapshot?.vaults?.find((vault) => vault.isDefault)?.id ??
       snapshot?.vaults?.[0]?.id ??
       null;
     this.renderAdditionalVaultRows(snapshot?.vaults ?? [], snapshot?.defaultVaultId);
@@ -110,37 +107,26 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.connectionResultHost = null;
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = null;
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('rest', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     this.vaultRouterController.dispose();
     super.destroy();
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.apiConfigTitle ?? 'Obsidian Local REST API';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent =
-      this.messages?.apiConfigHint ?? '配置默认仓库和额外仓库的连接信息';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.apiConfigTitle ?? 'Obsidian Local REST API',
+      description: this.messages?.apiConfigHint ?? '配置默认仓库和额外仓库的连接信息'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const pad = this.createElement('div', 'mt-6 space-y-6');
+    const pad = this.createSectionBody();
 
     this.additionalRowsHost = this.createElement('div', 'divide-y divide-border/50');
-    this.additionalEmptyHint = this.createElement('div', 'p-8 text-center text-base-content/60 italic');
+    this.additionalEmptyHint = this.createElement(
+      'div',
+      'p-8 text-center text-base-content/60 italic'
+    );
     this.additionalEmptyHint.hidden = true;
     this.additionalEmptyHint.textContent =
       this.messages?.additionalVaultsHint ?? '添加更多仓库，通过路由规则自动分配内容';
@@ -157,7 +143,8 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     pad.append(this.buildConnectionResult());
 
     const note = this.createElement('p', 'text-sm text-base-content/60');
-    note.textContent = '提示：第一行是默认仓库，不符合路由规则的内容将保存到这里。测试连接会验证表格中所有已启用的仓库。';
+    note.textContent =
+      '提示：第一行是默认仓库，不符合路由规则的内容将保存到这里。测试连接会验证表格中所有已启用的仓库。';
     pad.append(note);
 
     return pad;
@@ -173,7 +160,10 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       '操作'
     ];
 
-    const headerRow = this.createElement('div', 'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 bg-base-200 border-b border-base-300 font-medium text-base-content/60');
+    const headerRow = this.createElement(
+      'div',
+      'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 bg-base-200 border-b border-base-300 font-medium text-base-content/60'
+    );
     for (const label of labels) {
       const cell = document.createElement('span');
       cell.textContent = label;
@@ -190,19 +180,23 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     badge.textContent = this.messages?.defaultVaultBadge ?? '默认仓库';
     heading.append(badge);
 
-    const enabledLabel = document.createElement('label');
-    enabledLabel.className = 'flex items-center gap-2 cursor-not-allowed opacity-50 text-sm text-base-content/60';
-    // ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
-    const enabledCheckbox = document.createElement('input');
-    enabledCheckbox.type = 'checkbox';
-    enabledCheckbox.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
+    const enabledHost = this.createElement('div');
+    const enabledCheckbox = new DaisyCheckbox(enabledHost).render({
+      label: this.messages?.ruleEnabledLabel ?? '启用',
+      checked: true,
+      disabled: true,
+      labelClassName: 'text-base-content/60',
+      inputClassName: 'pointer-events-none'
+    });
     enabledCheckbox.checked = true;
     enabledCheckbox.disabled = true;
-    enabledLabel.append(enabledCheckbox, document.createTextNode(this.messages?.ruleEnabledLabel ?? '启用'));
-    heading.append(enabledLabel);
+    heading.append(enabledHost);
     row.append(heading);
 
-    const fields = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4');
+    const fields = this.createElement(
+      'div',
+      'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4'
+    );
 
     const nameCell = this.buildRestInputCell(
       'restVault',
@@ -217,28 +211,28 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     fields.append(this.wrapDefaultField(this.messages?.vaultNameLabel ?? '仓库名称', nameCell));
 
     fields.append(
-      this.wrapDefaultField(this.messages?.httpsUrlLabel ?? 'HTTPS URL', this.buildRestInputCell(
-        'restHttpsUrl',
-        'https://127.0.0.1:27124/',
-        'text',
-        (value) => this.updateDefaultVaultField('httpsUrl', value)
-      ))
+      this.wrapDefaultField(
+        this.messages?.httpsUrlLabel ?? 'HTTPS URL',
+        this.buildRestInputCell('restHttpsUrl', 'https://127.0.0.1:27124/', 'text', (value) =>
+          this.updateDefaultVaultField('httpsUrl', value)
+        )
+      )
     );
     fields.append(
-      this.wrapDefaultField(this.messages?.httpUrlLabel ?? 'HTTP URL', this.buildRestInputCell(
-        'restHttpUrl',
-        'http://127.0.0.1:27123/',
-        'text',
-        (value) => this.updateDefaultVaultField('httpUrl', value)
-      ))
+      this.wrapDefaultField(
+        this.messages?.httpUrlLabel ?? 'HTTP URL',
+        this.buildRestInputCell('restHttpUrl', 'http://127.0.0.1:27123/', 'text', (value) =>
+          this.updateDefaultVaultField('httpUrl', value)
+        )
+      )
     );
     fields.append(
-      this.wrapDefaultField(this.messages?.apiKeyLabel ?? 'API Key', this.buildRestInputCell(
-        'restKey',
-        '••••••••',
-        'password',
-        (value) => this.updateDefaultVaultField('apiKey', value)
-      ))
+      this.wrapDefaultField(
+        this.messages?.apiKeyLabel ?? 'API Key',
+        this.buildRestInputCell('restKey', '••••••••', 'password', (value) =>
+          this.updateDefaultVaultField('apiKey', value)
+        )
+      )
     );
     row.append(fields);
 
@@ -304,7 +298,7 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildVaultControls(): HTMLElement {
-    const controls = this.createElement('div', 'flex flex-wrap gap-2 pt-2');
+    const controls = createOptionsActionRow();
 
     // ✅ Stage 3 Week 3: Migrated add vault button to DaisyButton (RestSection)
     const addButtonHost = this.createElement('div');
@@ -385,13 +379,11 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     const additional = vaults.filter((vault) => vault.id !== (defaultVaultId ?? vaults[0]?.id));
 
     const existingRows = new Map<string, HTMLElement>();
-    this.additionalRowsHost
-      .querySelectorAll<HTMLElement>('[data-vault-id]')
-      .forEach((row) => {
-        if (row.dataset.vaultId) {
-          existingRows.set(row.dataset.vaultId, row);
-        }
-      });
+    this.additionalRowsHost.querySelectorAll<HTMLElement>('[data-vault-id]').forEach((row) => {
+      if (row.dataset.vaultId) {
+        existingRows.set(row.dataset.vaultId, row);
+      }
+    });
 
     const seen = new Set<string>();
 
@@ -415,20 +407,25 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildVaultRow(vault: VaultConfig): HTMLElement {
-    const row = this.createElement('div', 'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors');
+    const row = this.createElement(
+      'div',
+      'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors'
+    );
     row.dataset.vaultId = vault.id;
 
-    const enabledCell = document.createElement('label');
-    enabledCell.className = 'flex items-center justify-center cursor-pointer';
-    // ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
-    const enabledCheckbox = document.createElement('input');
-    enabledCheckbox.type = 'checkbox';
-    enabledCheckbox.classList.add('rest-vault-enabled', 'checkbox', 'checkbox-accent', 'w-[18px]', 'h-[18px]');
+    const enabledCell = this.createElement('div', 'flex items-center justify-center');
+    const enabledCheckboxHost = this.createElement('div');
+    const enabledCheckbox = new DaisyCheckbox(enabledCheckboxHost).render({
+      checked: vault.enabled !== false,
+      ariaLabel: this.messages?.ruleEnabledLabel ?? '启用',
+      labelClassName: 'justify-center',
+      inputClassName: 'rest-vault-enabled'
+    });
     enabledCheckbox.checked = vault.enabled !== false;
     enabledCheckbox.addEventListener('change', () => {
       this.vaultRouterController.updateVault(vault.id, { enabled: enabledCheckbox.checked });
     });
-    enabledCell.append(enabledCheckbox);
+    enabledCell.append(enabledCheckboxHost);
     row.append(enabledCell);
 
     row.append(
@@ -572,20 +569,13 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('rest', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('rest', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('rest', binding);
   }
 
   private applySnapshot(options: StoredOptions | CompleteOptions): void {
@@ -593,8 +583,9 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     const rest = (options.rest ?? {}) as Partial<RestOptions>;
     const router = getVaultRouterConfig();
     const defaultVault =
-      router?.vaults.find(vault => vault.id === (router.defaultVaultId ?? this.defaultVaultId ?? '')) ??
-      router?.vaults[0];
+      router?.vaults.find(
+        (vault) => vault.id === (router.defaultVaultId ?? this.defaultVaultId ?? '')
+      ) ?? router?.vaults[0];
 
     const resolvedName = rest.vault ?? defaultVault?.vault ?? REST_DEFAULTS.vault;
     const resolvedHttps = rest.httpsUrl ?? defaultVault?.httpsUrl ?? '';
@@ -705,7 +696,9 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     return vaults
       .filter((vault) => vault.id !== defaultId)
       .map((vault) => {
-        const row = this.additionalRowsHost?.querySelector<HTMLElement>(`[data-vault-id="${vault.id}"]`);
+        const row = this.additionalRowsHost?.querySelector<HTMLElement>(
+          `[data-vault-id="${vault.id}"]`
+        );
         if (!row) {
           return vault;
         }
@@ -718,9 +711,21 @@ export class RestSection extends BaseSection<SectionRenderContext> {
 
         return {
           ...vault,
-          ...(enabledToggle ? { enabled: enabledToggle.checked } : vault.enabled !== undefined ? { enabled: vault.enabled } : {}),
-          ...(https !== null ? { httpsUrl: https } : vault.httpsUrl !== undefined ? { httpsUrl: vault.httpsUrl } : {}),
-          ...(http !== null ? { httpUrl: http } : vault.httpUrl !== undefined ? { httpUrl: vault.httpUrl } : {}),
+          ...(enabledToggle
+            ? { enabled: enabledToggle.checked }
+            : vault.enabled !== undefined
+              ? { enabled: vault.enabled }
+              : {}),
+          ...(https !== null
+            ? { httpsUrl: https }
+            : vault.httpsUrl !== undefined
+              ? { httpsUrl: vault.httpsUrl }
+              : {}),
+          ...(http !== null
+            ? { httpUrl: http }
+            : vault.httpUrl !== undefined
+              ? { httpUrl: vault.httpUrl }
+              : {}),
           vault: name ?? vault.vault,
           name: name ?? vault.name,
           apiKey: apiKey ?? vault.apiKey
@@ -746,10 +751,8 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistRest(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo
-      .set(partial)
-      .catch((error) => {
-        console.error('[RestSection] Failed to persist REST options via repository:', error);
-      });
+    void this.optionsRepo.set(partial).catch((error) => {
+      console.error('[RestSection] Failed to persist REST options via repository:', error);
+    });
   }
 }

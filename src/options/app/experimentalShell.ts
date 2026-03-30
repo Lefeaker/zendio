@@ -1,7 +1,11 @@
 import { OptionsApp, type OptionsAppUIConfig } from '../components/layout/OptionsApp';
 import { createOptionsStateManager } from '../state/StateManager';
 import { defaultOptionsState, type OptionsState } from '../state/types';
-import { DEFAULT_USAGE_STATS, USAGE_STATS_STORAGE_KEY, normalizeUsageStats } from '../../shared/constants';
+import {
+  DEFAULT_USAGE_STATS,
+  USAGE_STATS_STORAGE_KEY,
+  normalizeUsageStats
+} from '../../shared/constants';
 import { getOptionsMessages } from './i18nContext';
 import { getCurrentLanguage } from '../../i18n';
 import type { UsageStats } from '../../shared/types/usage';
@@ -27,9 +31,12 @@ export interface MountedOptionsShell {
   configureUI: (config: OptionsAppUIConfig) => void;
   initialSection: string;
   mountAllSections: () => Promise<void>;
+  getMountedSection: (sectionId: string) => unknown | null;
 }
 
-export async function mountExperimentalShell(formRegistry: FormSectionRegistry): Promise<MountedOptionsShell | null> {
+export async function mountExperimentalShell(
+  formRegistry: FormSectionRegistry
+): Promise<MountedOptionsShell | null> {
   if (typeof document === 'undefined') {
     throw new Error('[OptionsShell] document is unavailable during shell mount.');
   }
@@ -157,6 +164,12 @@ export async function mountExperimentalShell(formRegistry: FormSectionRegistry):
         return;
       }
       await app.preloadSections(sectionIds);
+    },
+    getMountedSection: (sectionId: string) => {
+      if (disposed) {
+        return null;
+      }
+      return app.getMountedSection(sectionId);
     }
   };
 }
@@ -229,7 +242,9 @@ function resolveInitialSection(): string {
   return 'usage';
 }
 
-async function bindOptionsState(stateManager: ReturnType<typeof createOptionsStateManager>): Promise<Array<() => void>> {
+async function bindOptionsState(
+  stateManager: ReturnType<typeof createOptionsStateManager>
+): Promise<Array<() => void>> {
   const disposers: Array<() => void> = [];
 
   try {
@@ -255,7 +270,9 @@ async function bindOptionsState(stateManager: ReturnType<typeof createOptionsSta
 
 const USAGE_STATE_KEY = 'optionsShell.usageStats';
 
-async function bindUsageState(stateManager: ReturnType<typeof createOptionsStateManager>): Promise<Array<() => void>> {
+async function bindUsageState(
+  stateManager: ReturnType<typeof createOptionsStateManager>
+): Promise<Array<() => void>> {
   const disposers: Array<() => void> = [];
   const manager = getGlobalStateManager();
   const store = manager.getStore<UsageStats | undefined>(USAGE_STATE_KEY);
@@ -270,13 +287,17 @@ async function bindUsageState(stateManager: ReturnType<typeof createOptionsState
   });
   disposers.push(unsubscribeStore);
 
-  const synced = await manager.syncWithStorage<UsageStats, UsageStats>(USAGE_STATE_KEY, USAGE_STATS_STORAGE_KEY, {
-    area: 'local',
-    deserialize: (value) => normalizeUsageStats(value ?? DEFAULT_USAGE_STATS),
-    onError: (error) => {
-      console.warn('[OptionsShell] 同步 usage 数据失败:', error);
+  const synced = await manager.syncWithStorage<UsageStats, UsageStats>(
+    USAGE_STATE_KEY,
+    USAGE_STATS_STORAGE_KEY,
+    {
+      area: 'local',
+      deserialize: (value) => normalizeUsageStats(value ?? DEFAULT_USAGE_STATS),
+      onError: (error) => {
+        console.warn('[OptionsShell] 同步 usage 数据失败:', error);
+      }
     }
-  });
+  );
 
   if (!synced) {
     handleUpdate();

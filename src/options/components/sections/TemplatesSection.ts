@@ -6,11 +6,16 @@ import { configProvider } from '@shared/config';
 import { DEFAULT_DOMAIN_MAPPINGS } from '../../utils/defaults';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { DomainMappingsController } from '../controls/domainMappings';
-import { createReadingTemplateController, type ReadingTemplateController } from '../controls/readingTemplateControls';
+import {
+  createReadingTemplateController,
+  type ReadingTemplateController
+} from '../controls/readingTemplateControls';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { DaisyButton } from '../shared/DaisyButton';
-import { DaisyCard } from '../shared/DaisyCard';
-import { DaisyInput } from '../shared/DaisyInput';
+import { UiButton as DaisyButton } from '../../../ui/primitives/button';
+import { DaisyCard } from '../../../ui/primitives/card';
+import { UiInput as DaisyInput } from '../../../ui/primitives/input';
+import { createOptionsHintText } from '../../../ui/primitives/layout';
+import { createSelectElement as createDaisySelectElement } from '../../../ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -48,19 +53,17 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
 
   private readingController: ReadingTemplateController | null = null;
   private domainMappingsController: DomainMappingsController | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
-
   private eventBindings: EventBinding[] = [];
   private unsubscribeRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
     this.disposeControllers();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card', 'transition-opacity', 'duration-200');
+    this.applySectionChrome(['transition-opacity', 'duration-200']);
 
     const header = this.buildHeader();
     const body = this.buildBody();
@@ -75,43 +78,29 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
 
   override destroy(): void {
     this.disposeControllers();
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('templates', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = null;
     super.destroy();
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.templateConfigTitle ?? '文章、视频路径配置';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent =
-      this.messages?.templateConfigHint ?? '为不同类型的剪藏指定文件命名';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.templateConfigTitle ?? '文章、视频路径配置',
+      description: this.messages?.templateConfigHint ?? '为不同类型的剪藏指定文件命名'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const body = this.createElement('div', 'mt-6 space-y-6');
+    const body = this.createSectionBody();
     body.append(this.buildTemplateSettings(), this.buildDomainMappingsSection());
     return body;
   }
 
   private buildTemplateSettings(): HTMLElement {
-    const settings = this.createElement('div', 'grid gap-6');
+    const settings = this.createSectionSettings();
 
-    const articleSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const articleSetting = this.createSettingRow();
     const articleLabel = this.createElement('div', 'text-sm font-medium text-base-content/60');
     articleLabel.textContent = this.messages?.articleTemplateLabel ?? '文章、视频路径模板';
     const articleControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
@@ -128,14 +117,14 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
     this.articleInput = articleInput;
     this.bindEvent(articleInput, 'input', this.handleFieldChanged);
     const articleVars = this.buildTemplateVars();
-    const articleHint = this.createElement('div', 'text-sm text-base-content/60 mt-2');
+    const articleHint = createOptionsHintText({ tag: 'div' });
     articleHint.textContent =
       this.messages?.templateVariableNote ??
       '{slug} 表示标题的短链写法；{HHmmss}/{HHmm} 可插入保存时间，{mm} 仍代表月份。';
     articleSetting.append(articleLabel, articleControl, articleVars, articleHint);
     settings.append(articleSetting);
 
-    const fragmentSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const fragmentSetting = this.createSettingRow();
     const fragmentLabel = this.createElement('div', 'text-sm font-medium text-base-content/60');
     fragmentLabel.textContent = this.messages?.fragmentTemplateLabel ?? '片段路径模板';
     const fragmentControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
@@ -154,22 +143,27 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
     fragmentSetting.append(fragmentLabel, fragmentControl, this.buildTemplateVars());
     settings.append(fragmentSetting);
 
-    const readingSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const readingSetting = this.createSettingRow();
     const readingLabel = this.createElement('div', 'text-sm font-medium text-base-content/60');
     readingLabel.textContent = this.messages?.readingTemplateLabel ?? '阅读模式路径模板';
     const readingControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    const readingSelect = document.createElement('select');
-    readingSelect.className = 'w-full min-h-[40px] px-3 rounded-md border border-base-300 bg-base-100 text-base-content transition-colors hover:border-base-300 focus-visible:outline-none focus-visible:border-accent/60 focus-visible:ring-2 focus-visible:ring-accent/20';
-    const optionArticle = document.createElement('option');
-    optionArticle.value = 'article';
-    optionArticle.textContent = this.messages?.readingTemplateOptionArticle ?? '与文章路径相同';
-    const optionFragment = document.createElement('option');
-    optionFragment.value = 'fragment';
-    optionFragment.textContent = this.messages?.readingTemplateOptionFragment ?? '与片段路径相同';
-    const optionCustom = document.createElement('option');
-    optionCustom.value = 'custom';
-    optionCustom.textContent = this.messages?.readingTemplateOptionCustom ?? '自定义';
-    readingSelect.append(optionArticle, optionFragment, optionCustom);
+    const readingSelect = createDaisySelectElement({
+      className: 'w-full',
+      options: [
+        {
+          value: 'article',
+          label: this.messages?.readingTemplateOptionArticle ?? '与文章路径相同'
+        },
+        {
+          value: 'fragment',
+          label: this.messages?.readingTemplateOptionFragment ?? '与片段路径相同'
+        },
+        {
+          value: 'custom',
+          label: this.messages?.readingTemplateOptionCustom ?? '自定义'
+        }
+      ]
+    });
     const readingInputHost = this.createElement('div', 'w-full');
     // ✅ Stage 3 Week 4: Migrated reading template input to DaisyInput (TemplatesSection)
     const readingInput = new DaisyInput(readingInputHost).render({
@@ -187,7 +181,7 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
     this.readingCustomInput = readingInput;
     settings.append(readingSetting);
 
-    const aiSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const aiSetting = this.createSettingRow();
     const aiLabel = this.createElement('div', 'text-sm font-medium text-base-content/60');
     aiLabel.textContent = this.messages?.aiTemplateLabel ?? 'AI 对话路径模板';
     const aiControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
@@ -213,7 +207,8 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
     const body = this.createElement('div', 'space-y-3');
     const hint = this.createElement('div', 'text-sm text-base-content/60');
     hint.textContent =
-      this.messages?.domainMappingHint ?? '为常见站点配置更友好的名称，例如将 mp.weixin.qq.com 映射为 “公众号”。';
+      this.messages?.domainMappingHint ??
+      '为常见站点配置更友好的名称，例如将 mp.weixin.qq.com 映射为 “公众号”。';
 
     const listContainer = this.createElement('div', 'grid gap-2');
     this.domainMappingsHost = listContainer;
@@ -280,20 +275,13 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('templates', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('templates', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('templates', binding);
   }
 
   private applyInitialSnapshot(): void {
@@ -390,7 +378,8 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
       '{title}'
     ].forEach((token) => {
       const code = document.createElement('code');
-      code.className = 'mx-1 px-1 py-0.5 rounded bg-base-200 border border-base-300/50 font-mono text-[10px] text-accent';
+      code.className =
+        'mx-1 px-1 py-0.5 rounded bg-base-200 border border-base-300/50 font-mono text-[10px] text-accent';
       code.textContent = token;
       wrapper.append(code);
     });
@@ -433,10 +422,8 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistTemplates(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo
-      .set(partial)
-      .catch((error) => {
-        console.error('[TemplatesSection] Failed to persist template options via repository:', error);
-      });
+    void this.optionsRepo.set(partial).catch((error) => {
+      console.error('[TemplatesSection] Failed to persist template options via repository:', error);
+    });
   }
 }

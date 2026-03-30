@@ -1,7 +1,7 @@
 import {
   createYamlConfigController,
   type YamlConfigController
-} from '@options/components/controls/yamlConfigTable';
+} from '../../../src/ui/domains/yaml-config/yamlConfigTable';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 
 const autoSaveLog: string[] = [];
@@ -50,7 +50,11 @@ function ensureHosts(): { table: HTMLElement; domain: HTMLElement; addButton: HT
   const table = document.getElementById('yamlConfigTable');
   const domain = document.getElementById('yamlDomainOverrides');
   const addButton = document.getElementById('yamlAddFieldBtn');
-  if (!(table instanceof HTMLElement) || !(domain instanceof HTMLElement) || !(addButton instanceof HTMLButtonElement)) {
+  if (
+    !(table instanceof HTMLElement) ||
+    !(domain instanceof HTMLElement) ||
+    !(addButton instanceof HTMLButtonElement)
+  ) {
     throw new Error('yaml harness hosts missing');
   }
   return { table, domain, addButton };

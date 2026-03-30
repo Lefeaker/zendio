@@ -1,4 +1,5 @@
 import type { ReaderHighlightTheme } from '@shared/types/options';
+import { applyHighlightThemeState } from '../../shared/highlightThemeState';
 
 const BLOCK_LEVEL_TAGS = new Set([
   'ADDRESS',
@@ -71,9 +72,7 @@ export class ReaderHighlightManager {
       return;
     }
     this.currentTheme = theme;
-    this.doc.documentElement.dataset.aiobReaderHighlight = theme;
-    // 兼容旧数据属性，方便现有脚本读取
-    this.doc.documentElement.dataset.aiobReaderHighlightTheme = theme;
+    applyHighlightThemeState(this.doc, theme);
   }
 
   createHighlight(options: CreateHighlightOptions): ReaderHighlightRecord | null {
@@ -204,7 +203,7 @@ export class ReaderHighlightManager {
       return highlight.selectedText;
     }
 
-    const connectedSegments = highlight.wrapperSegments.filter(segment => segment.isConnected);
+    const connectedSegments = highlight.wrapperSegments.filter((segment) => segment.isConnected);
     if (!connectedSegments.length) {
       return highlight.selectedText;
     }
@@ -225,7 +224,7 @@ export class ReaderHighlightManager {
       return 0;
     });
 
-    const segmentTexts = connectedSegments.map(segment => segment.textContent || '');
+    const segmentTexts = connectedSegments.map((segment) => segment.textContent || '');
     let reconstructedText = '';
 
     for (let i = 0; i < segmentTexts.length; i++) {
@@ -280,21 +279,17 @@ export class ReaderHighlightManager {
   private createHighlightWrappers(range: Range, highlightId: string): HTMLElement[] {
     const baseRange = range.cloneRange();
     const textNodes: Text[] = [];
-    const walker = this.doc.createTreeWalker(
-      range.commonAncestorContainer,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          if (!range.intersectsNode(node)) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          if (!node.textContent?.trim()) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return NodeFilter.FILTER_ACCEPT;
+    const walker = this.doc.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        if (!range.intersectsNode(node)) {
+          return NodeFilter.FILTER_REJECT;
         }
+        if (!node.textContent?.trim()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
       }
-    );
+    });
 
     while (walker.nextNode()) {
       textNodes.push(walker.currentNode as Text);
@@ -358,7 +353,7 @@ export class ReaderHighlightManager {
   }
 
   private mergeWrapperSegments(segments: HTMLElement[], highlightId: string): HTMLElement[] {
-    const connectedSegments = segments.filter(segment => segment.isConnected);
+    const connectedSegments = segments.filter((segment) => segment.isConnected);
     if (connectedSegments.length <= 1) {
       return connectedSegments.length ? connectedSegments : segments;
     }
@@ -366,7 +361,7 @@ export class ReaderHighlightManager {
     const referenceBlock = this.findBlockContainer(connectedSegments[0]);
     const canMerge =
       !!referenceBlock &&
-      connectedSegments.every(segment => this.findBlockContainer(segment) === referenceBlock);
+      connectedSegments.every((segment) => this.findBlockContainer(segment) === referenceBlock);
 
     if (!canMerge) {
       return connectedSegments;
@@ -441,7 +436,9 @@ export class ReaderHighlightManager {
   }
 
   private flattenNestedHighlightMarks(wrapper: HTMLElement): void {
-    const nestedMarks = Array.from(wrapper.querySelectorAll<HTMLElement>('mark.aiob-reader-highlight'));
+    const nestedMarks = Array.from(
+      wrapper.querySelectorAll<HTMLElement>('mark.aiob-reader-highlight')
+    );
     for (const nested of nestedMarks) {
       if (nested === wrapper) {
         continue;

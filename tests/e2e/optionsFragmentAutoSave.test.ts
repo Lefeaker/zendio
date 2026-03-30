@@ -4,11 +4,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { StoredOptions } from '../../src/shared/types/options';
 import { createOptionsController } from '../../src/options/app/optionsController';
 import { createOptionsFormAdapter } from '../../src/options/components/optionsFormAdapter';
-import { registerOptionsController, resetOptionsController } from '../../src/options/app/optionsControllerContext';
+import {
+  registerOptionsController,
+  resetOptionsController
+} from '../../src/options/app/optionsControllerContext';
 import { FragmentSection } from '../../src/options/components/sections/FragmentSection';
 import { FormSectionRegistry } from '../../src/options/components/formSections/formSectionManager';
 import { withDomEnvironment } from '../utils/domEnvironment';
 import { createOptionsStateManager } from '../../src/options/state/StateManager';
+import type { IOptionsRepository } from '../../src/shared/repositories';
 
 const fragmentMocks = vi.hoisted(() => ({
   registerHighlighter: vi.fn(),
@@ -44,12 +48,12 @@ describe('options fragment auto-save e2e', () => {
             vault: 'VaultOne',
             apiKey: 'secret'
           },
-        templates: {
-          article: 'Articles/{slug}.md',
-          fragment: 'Fragments/{slug}.md',
-          reading: 'Reading/{slug}.md',
-          ai: 'AI/{slug}.md'
-        },
+          templates: {
+            article: 'Articles/{slug}.md',
+            fragment: 'Fragments/{slug}.md',
+            reading: 'Reading/{slug}.md',
+            ai: 'AI/{slug}.md'
+          },
           fragmentClipper: {
             useFootnoteFormat: true,
             captureContext: false,
@@ -82,7 +86,15 @@ describe('options fragment auto-save e2e', () => {
       `,
       {
         url: 'https://options.test/',
-        globals: ['document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'HTMLButtonElement', 'Node']
+        globals: [
+          'document',
+          'navigator',
+          'HTMLElement',
+          'HTMLInputElement',
+          'HTMLSelectElement',
+          'HTMLButtonElement',
+          'Node'
+        ]
       },
       async ({ window }) => {
         const formRegistry = new FormSectionRegistry();
@@ -106,15 +118,28 @@ describe('options fragment auto-save e2e', () => {
             throw new Error('fragment section container missing');
           }
 
-          section = new FragmentSection(container);
+          const optionsRepo: IOptionsRepository = {
+            async get() {
+              return (await persistence.load()) as never;
+            },
+            async set() {},
+            onChange() {
+              return () => undefined;
+            }
+          };
+
+          section = new FragmentSection(container, optionsRepo);
           const stateManager = createOptionsStateManager();
           section.render({ stateManager, formRegistry });
 
           await controller.applyToForm(initial);
 
-          const captureCheckbox = container.querySelector<HTMLInputElement>('#fragmentCaptureContext');
-          const contextLengthInput = container.querySelector<HTMLInputElement>('#fragmentContextLength');
-          const contextModeSelect = container.querySelector<HTMLSelectElement>('#fragmentContextMode');
+          const captureCheckbox =
+            container.querySelector<HTMLInputElement>('#fragmentCaptureContext');
+          const contextLengthInput =
+            container.querySelector<HTMLInputElement>('#fragmentContextLength');
+          const contextModeSelect =
+            container.querySelector<HTMLSelectElement>('#fragmentContextMode');
 
           if (!captureCheckbox || !contextLengthInput || !contextModeSelect) {
             throw new Error('fragment inputs not found');

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { DiagnosisSection } from '@options/components/sections/DiagnosisSection';
 import { OptionsStateManager } from '@options/state/StateManager';
+import en from '@i18n/locales/en';
 
 const runDiagnosticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const fixConfigurationMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -26,12 +27,19 @@ describe('DiagnosisSection', () => {
     const container = document.getElementById('diagnosis');
     if (!(container instanceof HTMLElement)) throw new Error('missing container');
     const section = new DiagnosisSection(container);
-    section.render({ stateManager: new OptionsStateManager(), formRegistry: new FormSectionRegistry() });
+    section.setMessages(en.runtime);
+    section.render({
+      stateManager: new OptionsStateManager(),
+      formRegistry: new FormSectionRegistry()
+    });
 
     expect(container.querySelector('#diagBtn')).not.toBeNull();
     expect(container.querySelector('#fixBtn')).not.toBeNull();
     expect(container.querySelector('#reloadBtn')).not.toBeNull();
     expect(container.querySelector('#diagOutput')?.getAttribute('aria-live')).toBe('polite');
+    expect(container.textContent).toContain(en.runtime.diagnosisDescription);
+    expect(container.textContent).toContain(en.runtime.diagnosisSummaryHint);
+    expect(container.textContent).toContain(en.runtime.diagnosisResultTitle);
   });
 
   it('invokes actions and clears listeners on destroy', async () => {
@@ -39,12 +47,19 @@ describe('DiagnosisSection', () => {
     const container = document.getElementById('diagnosis');
     if (!(container instanceof HTMLElement)) throw new Error('missing container');
     const section = new DiagnosisSection(container);
-    section.render({ stateManager: new OptionsStateManager(), formRegistry: new FormSectionRegistry() });
+    section.render({
+      stateManager: new OptionsStateManager(),
+      formRegistry: new FormSectionRegistry()
+    });
 
     const diagnoseButton = container.querySelector('#diagBtn');
     const fixButton = container.querySelector('#fixBtn');
     const reloadButton = container.querySelector('#reloadBtn');
-    if (!(diagnoseButton instanceof HTMLButtonElement) || !(fixButton instanceof HTMLButtonElement) || !(reloadButton instanceof HTMLButtonElement)) {
+    if (
+      !(diagnoseButton instanceof HTMLButtonElement) ||
+      !(fixButton instanceof HTMLButtonElement) ||
+      !(reloadButton instanceof HTMLButtonElement)
+    ) {
       throw new Error('buttons missing');
     }
     diagnoseButton.click();

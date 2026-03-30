@@ -24,7 +24,8 @@ const runtime: Messages = {
 
   // API Configuration
   apiConfigTitle: 'Obsidian Local REST API',
-  apiConfigHint: 'Это хранилище по умолчанию; всё, что не попадает под правила маршрутизации, будет сохранено здесь.',
+  apiConfigHint:
+    'Это хранилище по умолчанию; всё, что не попадает под правила маршрутизации, будет сохранено здесь.',
   httpsUrlLabel: 'HTTPS URL',
   httpsUrlHint: 'Обычно порт 27124, для безопасных соединений',
   additionalVaultHttpsHint: 'Используйте уникальный порт; не делитесь с другими хранилищами',
@@ -76,11 +77,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'Шаблон пути ИИ-чата',
   aiTemplateHint: 'Для сохранения разговоров ИИ-чата',
   availableVariables: 'Доступные переменные:',
-  templateVariableNote: '{slug} — это преобразованный в slug заголовок. Используйте {HHmmss} или {HHmm}, чтобы вставить время сохранения; строчные {mm} по-прежнему обозначают месяц.',
+  templateVariableNote:
+    '{slug} — это преобразованный в slug заголовок. Используйте {HHmmss} или {HHmm}, чтобы вставить время сохранения; строчные {mm} по-прежнему обозначают месяц.',
 
   // Domain Mapping
   domainMappingTitle: 'Настройка сопоставления доменов',
-  domainMappingHint: 'Настройте дружественные имена папок для частых доменов (например, сопоставьте medium.com с "Medium")',
+  domainMappingHint:
+    'Настройте дружественные имена папок для частых доменов (например, сопоставьте medium.com с "Medium")',
   domainLabel: 'Домен',
   folderNameLabel: 'Имя папки',
   addMappingButton: '+ Добавить сопоставление',
@@ -95,7 +98,8 @@ const runtime: Messages = {
   yamlFieldValuePathExamplesTitle: 'Популярные ключи контекста',
   yamlFieldValuePathExamples: 'meta.author\nstats.wordCount\nextra.notes[0]',
   yamlDomainTitle: 'Переопределения по домену',
-  yamlDomainHint: 'Добавьте переопределения полей YAML для доменов. Они имеют приоритет над глобальными настройками.',
+  yamlDomainHint:
+    'Добавьте переопределения полей YAML для доменов. Они имеют приоритет над глобальными настройками.',
   yamlDomainAddRule: '+ Добавить правило домена',
   yamlDomainEmpty: 'Пока нет правил для доменов.',
   yamlDomainPlaceholder: 'например, example.com или *.example.com',
@@ -122,16 +126,19 @@ const runtime: Messages = {
 
   // Config Transfer
   configTransferTitle: 'Синхронизация конфигурации',
-  configTransferHint: 'Скопируйте один раз и импортируйте где угодно, чтобы синхронизировать браузеры.',
+  configTransferHint:
+    'Скопируйте один раз и импортируйте где угодно, чтобы синхронизировать браузеры.',
   copyConfigButton: 'Копировать конфигурацию',
   importConfigButton: 'Импортировать из буфера обмена',
-  configTransferNote: 'Эти действия используют системный буфер обмена—убедитесь, что браузер имеет разрешение на доступ.',
+  configTransferNote:
+    'Эти действия используют системный буфер обмена—убедитесь, что браузер имеет разрешение на доступ.',
   copyConfigSuccess: '✅ Конфигурация скопирована в буфер обмена',
   importSuccess: '✅ Конфигурация импортирована и сохранена',
   importParseFailed: '❌ Не удалось разобрать конфигурацию',
   emptyImportError: 'Буфер обмена пуст, пожалуйста, сначала скопируйте конфигурацию',
   clipboardUnavailable: 'Буфер обмена недоступен, пожалуйста, скопируйте вручную',
-  clipboardReadUnavailable: 'Невозможно прочитать буфер обмена. Предоставьте разрешения буфера обмена и попробуйте снова.',
+  clipboardReadUnavailable:
+    'Невозможно прочитать буфер обмена. Предоставьте разрешения буфера обмена и попробуйте снова.',
   invalidTaxonomy: 'Таксономия классификатора должна быть валидным JSON',
 
   // AI Chat Configuration
@@ -142,24 +149,29 @@ const runtime: Messages = {
   includeTimestampsHint: 'Показывать время отправки после каждого сообщения (если доступно)',
   userNameLabel: 'Имя пользователя',
   userNamePlaceholder: 'ПОЛЬЗОВАТЕЛЬ',
-  userNameHint: 'Настройте отображаемое имя для сообщений пользователя, по умолчанию "ПОЛЬЗОВАТЕЛЬ"',
+  userNameHint:
+    'Настройте отображаемое имя для сообщений пользователя, по умолчанию "ПОЛЬЗОВАТЕЛЬ"',
   captureContextLabel: 'Захватывать окружающий контекст (экспериментально)',
 
   // Deep Research Configuration
   deepResearchConfigTitle: 'Настройка Gemini Deep Research',
   deepResearchConfigHint: 'Настройте, как захватываются отчёты Deep Research',
   pureModeLabel: 'Чистый режим (захватывать только содержимое отчёта)',
-  pureModeHint: 'Когда включено, захватывает только содержимое отчёта Deep Research, исключая сообщения разговора',
-  multipleReportsInfo: 'ℹ️ О множественных отчётах: Gemini может отображать только один полный отчёт за раз. Чтобы сохранить несколько отчётов, откройте каждый отчёт отдельно и сохраните их.',
+  pureModeHint:
+    'Когда включено, захватывает только содержимое отчёта Deep Research, исключая сообщения разговора',
+  multipleReportsInfo:
+    'ℹ️ О множественных отчётах: Gemini может отображать только один полный отчёт за раз. Чтобы сохранить несколько отчётов, откройте каждый отчёт отдельно и сохраните их.',
 
   readingConfigTitle: 'Режим чтения',
   readingConfigHint: 'Выберите, как экспорт сессии чтения должен захватывать содержимое',
   readingExportModeLabel: 'Экспортировать содержимое',
   readingExportModeHighlights: 'Только выделенные отрывки',
   readingExportModeFull: 'Полная статья с выделениями',
-  readingExportModeDescription: 'При выборе "Полная статья" очищенное тело статьи сохраняется с встроенными выделениями и сносками.',
+  readingExportModeDescription:
+    'При выборе "Полная статья" очищенное тело статьи сохраняется с встроенными выделениями и сносками.',
   readingHighlightThemeLabel: 'Цвет выделения',
-  readingHighlightThemeDescription: 'Влияет только на стиль выделения в режиме чтения; экспортированный Markdown остаётся неизменным.',
+  readingHighlightThemeDescription:
+    'Влияет только на стиль выделения в режиме чтения; экспортированный Markdown остаётся неизменным.',
   readingHighlightThemeGradient: 'Фиолетово-синий градиент (по умолчанию)',
   readingHighlightThemePurple: 'Сплошной фиолетовый',
   readingHighlightThemeNeonYellow: 'Неоновый жёлтый',
@@ -169,22 +181,28 @@ const runtime: Messages = {
   fragmentConfigTitle: 'Настройка сохранения фрагментов',
   fragmentConfigHint: 'Настройте, как выделения текста сохраняются и форматируются',
   fragmentUseFootnoteLabel: 'Использовать формат сноски (рекомендуется)',
-  fragmentUseFootnoteHint: 'Когда включено, комментарии будут сохранены в формате сносок Obsidian, совместимом с плагином Sidebar Highlights',
-  fragmentCaptureContextHint: 'Когда включено, захватывает контекст вокруг выделенного текста и отмечает фактическое выделение ==подсветкой==',
+  fragmentUseFootnoteHint:
+    'Когда включено, комментарии будут сохранены в формате сносок Obsidian, совместимом с плагином Sidebar Highlights',
+  fragmentCaptureContextHint:
+    'Когда включено, захватывает контекст вокруг выделенного текста и отмечает фактическое выделение ==подсветкой==',
   fragmentFootnoteExampleTitle: 'Пример формата сноски:',
   fragmentModifierToggleLabel: 'Включить активацию клавишей-модификатором для сохранения/чтения',
-  fragmentModifierToggleDescription: 'Когда вы удерживаете выбранные клавиши-модификаторы и перетаскиваете для выделения текста, диалог клиппера или выделение чтения откроется автоматически.',
+  fragmentModifierToggleDescription:
+    'Когда вы удерживаете выбранные клавиши-модификаторы и перетаскиваете для выделения текста, диалог клиппера или выделение чтения откроется автоматически.',
   fragmentModifierKeysLabel: 'Выбор клавиши-модификатора',
-  fragmentModifierKeysDescription: 'Все отмеченные клавиши-модификаторы должны удерживаться вместе для активации автоматического действия.',
+  fragmentModifierKeysDescription:
+    'Все отмеченные клавиши-модификаторы должны удерживаться вместе для активации автоматического действия.',
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: 'Включить горячие клавиши диалога клиппера',
-  fragmentKeyboardShortcutsHint: 'В диалоге клиппера: Двойной Enter для входа в режим чтения, Cmd+Enter (Mac) или Alt+Enter (Windows) для прямого сохранения',
+  fragmentKeyboardShortcutsHint:
+    'В диалоге клиппера: Двойной Enter для входа в режим чтения, Cmd+Enter (Mac) или Alt+Enter (Windows) для прямого сохранения',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: 'Редактирование комментария завершено, вы можете использовать горячие клавиши для выполнения следующих действий:',
+  clipperCommentEditCompleted:
+    'Редактирование комментария завершено, вы можете использовать горячие клавиши для выполнения следующих действий:',
   clipperShortcutHintDoubleEnter: 'Двойной Enter',
   clipperShortcutHintModifierEnter: 'Сохранить напрямую',
   clipperShortcutHintEscape: 'Отменить',
@@ -197,9 +215,11 @@ const runtime: Messages = {
 
   // Classifier Configuration
   classifierConfigTitle: 'ИИ-классификация и резюме',
-  classifierConfigHint: 'Используйте LLM для автоматической классификации и резюмирования сохранённого содержимого',
+  classifierConfigHint:
+    'Используйте LLM для автоматической классификации и резюмирования сохранённого содержимого',
   enableClassifierLabel: 'Включить умную классификацию',
-  classifierUnstableNotice: '⚠️ Эта функция классификации экспериментальна и может быть нестабильной.',
+  classifierUnstableNotice:
+    '⚠️ Эта функция классификации экспериментальна и может быть нестабильной.',
   providerLabel: 'Провайдер LLM',
   endpointLabel: 'API Endpoint',
   endpointPlaceholder: 'http://localhost:11434/api/chat',
@@ -224,15 +244,23 @@ const runtime: Messages = {
   reloadPrompt: 'Пожалуйста, перезагрузите страницу, чтобы увидеть исправленную конфигурацию',
   connectionTesting: 'Проверка соединения...',
   connectionSuccessShort: 'Соединение успешно',
-  portConflictDetected: '⚠️ Обнаружен конфликт портов: {ports}. Пожалуйста, назначьте уникальные порты в Obsidian перед повторной попыткой.',
+  portConflictDetected:
+    '⚠️ Обнаружен конфликт портов: {ports}. Пожалуйста, назначьте уникальные порты в Obsidian перед повторной попыткой.',
   connectionFailureHintsTitle: 'Следующие шаги: ',
-  connectionFailureHintCheckApiKey: 'Проверьте, что API ключ соответствует настройкам Local REST API',
-  connectionFailureHintCheckVault: 'Подтвердите, что имя хранилища соответствует плагину Local REST API',
+  connectionFailureHintCheckApiKey:
+    'Проверьте, что API ключ соответствует настройкам Local REST API',
+  connectionFailureHintCheckVault:
+    'Подтвердите, что имя хранилища соответствует плагину Local REST API',
   connectionFailureHintCheckService: 'Убедитесь, что Obsidian и плагин Local REST API запущены',
   connectionFailureHintGeneric: 'Проверьте сеть или перезапустите службу Local REST API',
 
   // Diagnosis
   diagnosisTitle: 'Диагностика конфигурации',
+  diagnosisDescription:
+    'Нажмите «Диагностировать конфигурацию», чтобы увидеть здесь результаты проверки и предложения по исправлению.',
+  diagnosisSummaryHint:
+    'Диагностика проверяет REST API, шаблоны путей, сопоставления доменов, multi-vault routing и связанные настройки, а затем выводит подробный отчёт.',
+  diagnosisResultTitle: 'Результаты диагностики',
 
   // Notifications
   clipSuccess: 'Сохранено в Obsidian',
@@ -253,7 +281,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: 'Сессия чтения активна',
   readerPanelStatus: 'Выделите текст для подсветки и аннотирования',
-  readerPanelHint: 'Совет: отпустите мышь, чтобы открыть диалог аннотации; оставьте пустым, чтобы сохранить только подсветку.',
+  readerPanelHint:
+    'Совет: отпустите мышь, чтобы открыть диалог аннотации; оставьте пустым, чтобы сохранить только подсветку.',
   readerPanelFinish: 'Завершить и экспортировать',
   readerPanelCancel: 'Отменить',
   readerPanelCounter: 'Собрано {count} подсветок',
@@ -272,17 +301,23 @@ const runtime: Messages = {
 
   // Privacy Settings
   privacySettingsTitle: 'Конфиденциальность и данные',
-  privacySettingsDescription: 'Управляйте сбором аналитики и предпочтениями анонимной отчётности об ошибках.',
+  privacySettingsDescription:
+    'Управляйте сбором аналитики и предпочтениями анонимной отчётности об ошибках.',
   privacySettingsNote: 'Управление сбором данных и отчётностью об ошибках',
   analyticsDebugTitle: 'Режим отладки',
-  analyticsDebugDescription: 'Когда включено, мы отправляем события в GA4 DebugView и записываем детали запросов в консоль. Используйте только при устранении неполадок.',
-  analyticsDebugDisabledHint: 'Включите и "Аналитику использования", и "Отчётность об ошибках" перед включением режима отладки.',
-  analyticsDebugEnabled: 'Режим отладки включён. Не забудьте выключить его после завершения отладки.',
+  analyticsDebugDescription:
+    'Когда включено, мы отправляем события в GA4 DebugView и записываем детали запросов в консоль. Используйте только при устранении неполадок.',
+  analyticsDebugDisabledHint:
+    'Включите и "Аналитику использования", и "Отчётность об ошибках" перед включением режима отладки.',
+  analyticsDebugEnabled:
+    'Режим отладки включён. Не забудьте выключить его после завершения отладки.',
   analyticsDebugDisabled: 'Режим отладки отключён.',
   analyticsConsentTitle: 'Аналитика использования',
-  analyticsConsentDescription: 'Собирать анонимизированные метрики использования для улучшения расширения. Личная информация не сохраняется.',
+  analyticsConsentDescription:
+    'Собирать анонимизированные метрики использования для улучшения расширения. Личная информация не сохраняется.',
   errorReportingConsentTitle: 'Отчётность об ошибках',
-  errorReportingConsentDescription: 'Автоматически отправлять очищенные отчёты об ошибках, чтобы мы могли быстро диагностировать проблемы.',
+  errorReportingConsentDescription:
+    'Автоматически отправлять очищенные отчёты об ошибках, чтобы мы могли быстро диагностировать проблемы.',
   errorReportingDetailsTitle: 'Узнайте, что включено',
   errorReportingCollectedTitle: 'Собираемая информация:',
   errorReportingCollectedError: 'Тип ошибки и серьёзность',
@@ -296,11 +331,13 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: 'Пароли или чувствительные данные форм',
   savePrivacySettings: 'Сохранить настройки',
   clearAllAnalyticsData: 'Очистить все данные',
-  privacyFooterText: 'Мы привержены защите вашей конфиденциальности. Вы можете обновить эти настройки в любое время или запросить удаление собранных данных.',
+  privacyFooterText:
+    'Мы привержены защите вашей конфиденциальности. Вы можете обновить эти настройки в любое время или запросить удаление собранных данных.',
   privacyPolicyLink: 'Политика конфиденциальности',
   dataUsageLink: 'Детали использования данных',
   privacySettingsSaved: 'Настройки конфиденциальности сохранены',
-  privacyDataWillBeCleared: 'Сбор данных отключён. Существующая аналитика будет очищена в течение 24 часов.',
+  privacyDataWillBeCleared:
+    'Сбор данных отключён. Существующая аналитика будет очищена в течение 24 часов.',
   privacySettingsError: 'Не удалось сохранить настройки, пожалуйста, попробуйте снова.',
   confirmClearAllData: 'Очистить все данные аналитики? Это действие нельзя отменить.',
   allDataCleared: 'Все данные аналитики были очищены.',
@@ -309,16 +346,38 @@ const runtime: Messages = {
   // Video Mode
   videoPanelTitle: 'Режим захвата видео',
   videoPanelStatus: 'Захватывайте временные метки и быстрые заметки',
-  videoPanelHint: 'Совет: Выделение текста автоматически добавляет его; нажмите Enter дважды для сохранения заметок, Esc для отмены.',
+  videoPanelHint:
+    'Совет: Выделение текста автоматически добавляет его; нажмите Enter дважды для сохранения заметок, Esc для отмены.',
   videoPanelAdd: 'Захватить текущую временную метку',
   videoPanelFinish: 'Завершить и экспортировать',
   videoPanelCancel: 'Отменить',
   videoPanelCounter: 'Сохранено {count} записей',
   videoPanelCounterZero: 'Сохранено 0 записей',
   videoConfigTitle: 'Режим видео',
-  videoConfigHint: 'Показывать подсказки на поддерживаемых видео-сайтах для захвата временных меток и заметок',
+  videoConfigHint:
+    'Показывать подсказки на поддерживаемых видео-сайтах для захвата временных меток и заметок',
   videoFloatingPromptLabel: 'Показывать плавающую подсказку на видео-страницах',
-  videoFloatingPromptHint: 'Работает на YouTube и Bilibili. Появляется пузырь быстрого доступа в правом нижнем углу.',
+  videoFloatingPromptHint:
+    'Работает на YouTube и Bilibili. Появляется пузырь быстрого доступа в правом нижнем углу.',
+  videoPromptCustomizationTitle: 'Текст плавающей подсказки и сочетание клавиш',
+  videoPromptLabelTitle: 'Текст кнопки подсказки',
+  videoPromptLabelPlaceholder: 'например: Начать видеозаметки',
+  videoPromptLabelHint:
+    'Показывается как aria-label плавающей кнопки для скринридеров и всплывающих подсказок.',
+  videoPromptShortcutTitle: 'Сочетание клавиш подсказки',
+  videoPromptShortcutPlaceholder: 'например: Alt+V',
+  videoPromptShortcutHint:
+    'Показывается в плавающей подсказке. Лучше использовать комбинации Alt/Cmd, чтобы их было проще запомнить.',
+  videoSupportedPlatformsTitle: 'Поддерживаемые платформы',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: 'Включить видеозаметки',
+  videoSaveConfigButton: 'Сохранить настройки видео',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'Поддерживает страницы watch / short, автоматически распознаёт плавающую подсказку и позволяет в один клик перейти в режим видеозаметок.',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'Поддерживает страницы BV/AV, сохраняет место для зоны danmaku и показывает подсказку по сочетанию клавиш.',
   videoTimestampSectionTitle: 'Временные метки видео',
   videoFragmentSectionTitle: 'Захваченные фрагменты',
   videoCaptureEditLabel: 'Редактировать заметку',
@@ -329,14 +388,16 @@ const runtime: Messages = {
   videoCaptureEditPlaceholder: 'Добавить заметку для этой временной метки...',
   videoCaptureFocusLabel: 'Перейти к захвату {index}',
   videoHintNoVideo: 'Ожидание готовности видео-элемента...',
-  videoHintReady: 'Нажмите + для захвата текущей временной метки. Заметки сохраняются автоматически.',
+  videoHintReady:
+    'Нажмите + для захвата текущей временной метки. Заметки сохраняются автоматически.',
   videoHintNoCaptures: 'Захватов пока нет. Начните с нажатия кнопки +.',
   videoHintSaving: 'Сохранение захвата...',
   videoHintExporting: 'Генерация Markdown экспорта...',
   videoHintFailure: 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   clipSelectionVideo: 'Обрезать в панель захвата видео',
   videoPromptTitle: 'Режим видео доступен',
-  videoPromptDescription: 'Нажмите для запуска режима видео и начала сохранения временных меток и заметок.',
+  videoPromptDescription:
+    'Нажмите для запуска режима видео и начала сохранения временных меток и заметок.',
   videoPromptAction: 'Запустить режим видео',
   videoPromptDismiss: 'Отклонить подсказку видео',
 
@@ -369,7 +430,8 @@ const runtime: Messages = {
 
   // Dialog
   clipDialogTitle: 'Обрезать выделение',
-  clipDialogInstructions: 'Используйте Tab для перемещения между элементами управления. Нажмите Alt + клавиши стрелок для перемещения диалога.',
+  clipDialogInstructions:
+    'Используйте Tab для перемещения между элементами управления. Нажмите Alt + клавиши стрелок для перемещения диалога.',
   commentLabel: 'Добавить комментарий (необязательно)',
   commentPlaceholder: 'Введите ваши мысли, заметки или комментарии здесь...',
   cancelButton: 'Отменить',
@@ -382,7 +444,8 @@ const runtime: Messages = {
 
   // Multi-Vault
   additionalVaultsTitle: 'Дополнительные хранилища',
-  additionalVaultsHint: 'Добавьте больше хранилищ и автоматически направляйте контент с помощью правил.',
+  additionalVaultsHint:
+    'Добавьте больше хранилищ и автоматически направляйте контент с помощью правил.',
   addVaultButton: '+ Добавить хранилище',
   multiVaultNameLabel: 'Имя хранилища',
   multiVaultNamePlaceholder: 'Моё хранилище заметок',
@@ -416,7 +479,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -429,7 +493,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: 'Правила маршрутизации',
-  routingRulesHint: 'Автоматически выбирайте целевое хранилище по домену, ключевым словам или шаблонам URL. Элементы, не соответствующие правилам, попадают в хранилище по умолчанию.',
+  routingRulesHint:
+    'Автоматически выбирайте целевое хранилище по домену, ключевым словам или шаблонам URL. Элементы, не соответствующие правилам, попадают в хранилище по умолчанию.',
+  routingRulesPriorityNote:
+    'Подсказка: правила с более высоким приоритетом срабатывают первыми, а целевые хранилища должны оставаться включёнными.',
   vaultRulesTitle: 'Правила маршрутизации',
   ruleEmptyPlaceholder: 'Правил пока нет. Добавьте одно для направления клипов в это хранилище.',
   addRuleButton: '+ Добавить правило',
@@ -455,11 +522,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: 'Добро пожаловать в All in Ob',
   onboardingSubtitle: 'Давайте быстро настроим ваше расширение-клиппер',
-  onboardingWelcomeMessage: 'Спасибо за установку All in Ob! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
+  onboardingWelcomeMessage:
+    'Спасибо за установку All in Ob! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
 
   // Step 1: API Configuration
   step1Title: 'Настроить Obsidian Local REST API (Обязательно)',
-  step1Description: 'Сначала вам нужно установить и настроить плагин Local REST API в Obsidian. Это мост между расширением и Obsidian.',
+  step1Description:
+    'Сначала вам нужно установить и настроить плагин Local REST API в Obsidian. Это мост между расширением и Obsidian.',
 
   step1Detail1: 'Установите и включите плагин "Local REST API" в Obsidian',
   step1Detail2: 'Включите "Незашифрованный сервер (HTTP)" в настройках плагина',
@@ -472,45 +541,65 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: 'Настроить дополнительные хранилища (Необязательно)',
-  step2Description: 'Если у вас есть несколько хранилищ Obsidian, вы можете настроить дополнительные хранилища и установить правила маршрутизации для автоматического сохранения различных типов контента в соответствующие хранилища.',
+  step2Description:
+    'Если у вас есть несколько хранилищ Obsidian, вы можете настроить дополнительные хранилища и установить правила маршрутизации для автоматического сохранения различных типов контента в соответствующие хранилища.',
 
   step2Detail1: 'Поддержка нескольких хранилищ Obsidian',
   step2Detail2: 'Установка правил маршрутизации на основе домена, ключевых слов или шаблонов URL',
-  step2Detail3: 'Пример: Сохранить технические статьи в рабочее хранилище, личный контент в личное хранилище',
-  step2Detail4: 'Контент, не соответствующий никаким правилам, будет сохранён в хранилище по умолчанию',
+  step2Detail3:
+    'Пример: Сохранить технические статьи в рабочее хранилище, личный контент в личное хранилище',
+  step2Detail4:
+    'Контент, не соответствующий никаким правилам, будет сохранён в хранилище по умолчанию',
   step2ActionPrimary: 'Настроить дополнительные хранилища',
   step2ActionSecondary: 'Пропустить этот шаг',
 
   // Step 3: Main Features
   step3Title: 'Основные функции',
-  step3Description: 'Давайте быстро изучим основные функции расширения, чтобы помочь вам лучше его использовать.',
+  step3Description:
+    'Давайте быстро изучим основные функции расширения, чтобы помочь вам лучше его использовать.',
 
   step3Section1Title: 'Веб-клиппинг',
-  step3Section1Detail1: 'Нажмите на пустые области веб-страниц для клиппинга полных страниц (дождитесь полной загрузки страницы и прокрутите для загрузки всех изображений)',
-  step3Section1Detail2: 'Автоматически распознаёт основные ИИ-чат разговоры и сохраняет форматированные записи ИИ-диалогов',
+  step3Section1Detail1:
+    'Нажмите на пустые области веб-страниц для клиппинга полных страниц (дождитесь полной загрузки страницы и прокрутите для загрузки всех изображений)',
+  step3Section1Detail2:
+    'Автоматически распознаёт основные ИИ-чат разговоры и сохраняет форматированные записи ИИ-диалогов',
   step3Section2Title: 'Режим клиппинга/чтения',
-  step3Section2Detail1: 'Щёлкните правой кнопкой мыши на выделенном тексте или используйте вспомогательные клавиши для выбора контента, добавления комментариев и сохранения выделенного контента с аннотациями в Obsidian',
-  step3Section2Detail2: 'Войдите в режим чтения для выбора нескольких фрагментов на одной странице, комментирования их и сохранения вместе в Obsidian',
-  step3Section2Detail3: 'Режим чтения автоматически организует текстовые фрагменты согласно макету страницы, нажмите номера фрагментов для быстрой навигации',
-  step3Section2Detail4: 'Режим чтения может сохранить полный текст в Obsidian с выделенным выбранным контентом',
-  step3Section2Detail5: 'Будь то фрагменты или выборки режима чтения, сохраняются точные ссылки на страницы для возврата одним кликом к веб-позициям',
-  step3Section2Detail6: 'Установите плагин sidebar highlights в Obsidian для более удобной визуализации аннотаций',
+  step3Section2Detail1:
+    'Щёлкните правой кнопкой мыши на выделенном тексте или используйте вспомогательные клавиши для выбора контента, добавления комментариев и сохранения выделенного контента с аннотациями в Obsidian',
+  step3Section2Detail2:
+    'Войдите в режим чтения для выбора нескольких фрагментов на одной странице, комментирования их и сохранения вместе в Obsidian',
+  step3Section2Detail3:
+    'Режим чтения автоматически организует текстовые фрагменты согласно макету страницы, нажмите номера фрагментов для быстрой навигации',
+  step3Section2Detail4:
+    'Режим чтения может сохранить полный текст в Obsidian с выделенным выбранным контентом',
+  step3Section2Detail5:
+    'Будь то фрагменты или выборки режима чтения, сохраняются точные ссылки на страницы для возврата одним кликом к веб-позициям',
+  step3Section2Detail6:
+    'Установите плагин sidebar highlights в Obsidian для более удобной визуализации аннотаций',
   step3Section3Title: 'Режим видео',
-  step3Section3Detail1: 'Адаптированные страницы воспроизведения YouTube или Bilibili, откройте режим видео для записи временных меток видео и добавления заметок в любое время',
-  step3Section3Detail2: 'Нажмите номера рядом с временными метками для навигации одним кликом и повторного просмотра',
-  step3Section3Detail3: 'Выделите текст страницы и захватите захватывающие комментарии одним кликом',
-  step3Section3Detail4: 'После сохранения в Obsidian вернитесь одним кликом к точным временным меткам видео в любое время',
+  step3Section3Detail1:
+    'Адаптированные страницы воспроизведения YouTube или Bilibili, откройте режим видео для записи временных меток видео и добавления заметок в любое время',
+  step3Section3Detail2:
+    'Нажмите номера рядом с временными метками для навигации одним кликом и повторного просмотра',
+  step3Section3Detail3:
+    'Выделите текст страницы и захватите захватывающие комментарии одним кликом',
+  step3Section3Detail4:
+    'После сохранения в Obsidian вернитесь одним кликом к точным временным меткам видео в любое время',
   step3ActionPrimary: 'Посмотреть детальные настройки',
   step3ActionSecondary: 'Изучить позже',
 
   // Step 4: Auxiliary Features
   step4Title: 'Вспомогательные функции',
-  step4Description: 'Расширение также предоставляет различные вспомогательные функции, чтобы сделать ваш опыт более удобным.',
+  step4Description:
+    'Расширение также предоставляет различные вспомогательные функции, чтобы сделать ваш опыт более удобным.',
 
-  step4Detail1: 'Несколько браузеров на одном устройстве: копируйте текущую конфигурацию одним кликом, вставляйте для синхронизации, без необходимости повторной настройки',
-  step4Detail2: 'Сопоставление доменов: сопоставляйте общие веб-сайты с дружественными именами папок',
+  step4Detail1:
+    'Несколько браузеров на одном устройстве: копируйте текущую конфигурацию одним кликом, вставляйте для синхронизации, без необходимости повторной настройки',
+  step4Detail2:
+    'Сопоставление доменов: сопоставляйте общие веб-сайты с дружественными именами папок',
   step4Detail3: 'Настройка пользовательского пути, настройте пути согласно вашим потребностям',
-  step4Detail4: 'Умная диагностика: проблемы с конфигурацией? Умная диагностика для быстрого решения проблем',
+  step4Detail4:
+    'Умная диагностика: проблемы с конфигурацией? Умная диагностика для быстрого решения проблем',
   step4ActionPrimary: 'Посмотреть детальные настройки',
   step4ActionSecondary: 'Изучить позже',
 
@@ -519,8 +608,10 @@ const runtime: Messages = {
   step5Description: 'Расширение постоянно развивается, чтобы принести вам более умные функции.',
 
   step5Detail1: 'Внедрение ИИ-функций для более плавного и умного опыта',
-  step5Detail2: 'Двунаправленное взаимодействие, больше не только сохранение заметок, но и мост между браузером и Obsidian',
-  step5Detail3: 'Добро пожаловать предлагать улучшения, разработка нелегка, спасибо за вашу поддержку',
+  step5Detail2:
+    'Двунаправленное взаимодействие, больше не только сохранение заметок, но и мост между браузером и Obsidian',
+  step5Detail3:
+    'Добро пожаловать предлагать улучшения, разработка нелегка, спасибо за вашу поддержку',
   step5ActionPrimary: 'Отправить предложения',
   step5ActionSecondary: 'Показать поддержку',
 
@@ -529,7 +620,8 @@ const runtime: Messages = {
   completeOnboarding: 'Завершить руководство',
   onboardingFooterNote: 'Вы можете перенастроить эти опции на странице настроек в любое время.',
   onboardingCompleted: 'Руководство завершено!',
-  onboardingCompletedMessage: 'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать All in Ob для сохранения вашего веб-контента!',
+  onboardingCompletedMessage:
+    'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать All in Ob для сохранения вашего веб-контента!',
   onboardingLinkText: 'Руководство',
 
   // Footer links
@@ -538,20 +630,24 @@ const runtime: Messages = {
   footerContactLink: 'Связаться с автором',
 
   suggestionsModalTitle: 'Поделитесь вашими предложениями',
-  suggestionsModalDescription: 'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+  suggestionsModalDescription:
+    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
   suggestionsModalReddit: 'Чат на Reddit',
   suggestionsModalXiaohongshu: 'Присоединиться к Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'QR-код будет добавлен скоро. А пока не стесняйтесь отправлять сообщения через Reddit.',
+  suggestionsModalQrPlaceholder:
+    'QR-код будет добавлен скоро. А пока не стесняйтесь отправлять сообщения через Reddit.',
 
   // Contact modal
   contactModalTitle: 'Связаться с автором',
-  contactModalDescription: 'Если вы цените этот продукт или хотите связаться, <br>не стесняйтесь обращаться на <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>Автор в настоящее время ищет работу—спасибо за распространение информации!',
+  contactModalDescription:
+    'Если вы цените этот продукт или хотите связаться, <br>не стесняйтесь обращаться на <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>Автор в настоящее время ищет работу—спасибо за распространение информации!',
   contactModalCloseButton: 'Закрыть',
 
   // Support modal (onboarding)
   supportModalTitle: 'Спасибо за вашу поддержку',
-  supportModalDescription: 'Разработка нелегка. Если этот плагин помогает вам, добро пожаловать поддержать следующими способами:',
+  supportModalDescription:
+    'Разработка нелегка. Если этот плагин помогает вам, добро пожаловать поддержать следующими способами:',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -563,14 +659,15 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: 'Это содержимое выделенного текста',
   fragmentFootnoteExampleComment: 'Это мой комментарий',
   fragmentContextHighlightExampleTitle: 'Пример выделения контекста:',
-  fragmentContextHighlightExampleContent: 'Контекст до ==это выделенный текст== контекст после',
+  fragmentContextHighlightExampleContent: 'Контекст до ==это выделенный текст== контекст после'
 };
 
 const ru: LocaleDefinition = {
   runtime,
   static: {
     extName: 'All in Ob',
-    extDescription: 'ИИ-улучшенный веб-клиппер для сохранения чатов, фрагментов и статей в Obsidian.'
+    extDescription:
+      'ИИ-улучшенный веб-клиппер для сохранения чатов, фрагментов и статей в Obsidian.'
   }
 };
 

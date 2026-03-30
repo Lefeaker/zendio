@@ -7,6 +7,7 @@
 ## 📋 网页结构分析
 
 ### **页面整体结构**
+
 ```html
 <div id="app">
   <div class="bili-header">...</div>
@@ -35,83 +36,85 @@
 ## 🔍 根本原因分析
 
 ### **Shadow DOM结构复杂**
+
 Bilibili评论区使用了多层嵌套的Shadow DOM Web Components：
 
 #### **完整的评论区DOM结构**
+
 ```html
 <div class="comment-container">
   <div class="comment-list">
     <!-- 评论线程渲染器 -->
     <bili-comment-thread-renderer>
       #shadow-root (open)
-        <div class="comment-thread">
-          <!-- 主评论渲染器 -->
-          <bili-comment-renderer data-comment-id="123456">
-            #shadow-root (open)
-              <div class="comment-item">
-                <div class="comment-avatar">
-                  <bili-avatar>
+      <div class="comment-thread">
+        <!-- 主评论渲染器 -->
+        <bili-comment-renderer data-comment-id="123456">
+          #shadow-root (open)
+          <div class="comment-item">
+            <div class="comment-avatar">
+              <bili-avatar>
+                #shadow-root (open)
+                <img src="avatar.jpg" class="avatar-img" />
+              </bili-avatar>
+            </div>
+            <div class="comment-content">
+              <div class="comment-user-info">
+                <span class="comment-user-name">用户名</span>
+                <span class="comment-user-level">LV6</span>
+              </div>
+              <!-- 评论文本内容 -->
+              <bili-rich-text>
+                #shadow-root (open)
+                <div class="rich-text-content">
+                  <span class="text-node">这是评论内容</span>
+                  <bili-emoji data-emoji="[doge]">
                     #shadow-root (open)
-                      <img src="avatar.jpg" class="avatar-img">
-                  </bili-avatar>
+                    <img src="doge.png" alt="[doge]" />
+                  </bili-emoji>
+                  <span class="text-node">更多文本</span>
                 </div>
-                <div class="comment-content">
-                  <div class="comment-user-info">
-                    <span class="comment-user-name">用户名</span>
-                    <span class="comment-user-level">LV6</span>
+              </bili-rich-text>
+              <div class="comment-actions">
+                <span class="comment-time">2024-10-18 12:00</span>
+                <span class="comment-like">👍 123</span>
+                <span class="comment-reply">回复</span>
+              </div>
+            </div>
+          </div>
+        </bili-comment-renderer>
+
+        <!-- 回复列表 -->
+        <div class="comment-replies">
+          <bili-comment-reply-renderer data-reply-id="789012">
+            #shadow-root (open)
+            <div class="reply-item">
+              <div class="reply-avatar">
+                <bili-avatar>
+                  #shadow-root (open)
+                  <img src="reply-avatar.jpg" class="avatar-img" />
+                </bili-avatar>
+              </div>
+              <div class="reply-content">
+                <div class="reply-user-info">
+                  <span class="reply-user-name">回复用户</span>
+                </div>
+                <bili-rich-text>
+                  #shadow-root (open)
+                  <div class="rich-text-content">
+                    <span class="reply-target">@原评论用户</span>
+                    <span class="text-node">这是回复内容</span>
                   </div>
-                  <!-- 评论文本内容 -->
-                  <bili-rich-text>
-                    #shadow-root (open)
-                      <div class="rich-text-content">
-                        <span class="text-node">这是评论内容</span>
-                        <bili-emoji data-emoji="[doge]">
-                          #shadow-root (open)
-                            <img src="doge.png" alt="[doge]">
-                        </bili-emoji>
-                        <span class="text-node">更多文本</span>
-                      </div>
-                  </bili-rich-text>
-                  <div class="comment-actions">
-                    <span class="comment-time">2024-10-18 12:00</span>
-                    <span class="comment-like">👍 123</span>
-                    <span class="comment-reply">回复</span>
-                  </div>
+                </bili-rich-text>
+                <div class="reply-actions">
+                  <span class="reply-time">2024-10-18 12:30</span>
+                  <span class="reply-like">👍 45</span>
                 </div>
               </div>
-          </bili-comment-renderer>
-
-          <!-- 回复列表 -->
-          <div class="comment-replies">
-            <bili-comment-reply-renderer data-reply-id="789012">
-              #shadow-root (open)
-                <div class="reply-item">
-                  <div class="reply-avatar">
-                    <bili-avatar>
-                      #shadow-root (open)
-                        <img src="reply-avatar.jpg" class="avatar-img">
-                    </bili-avatar>
-                  </div>
-                  <div class="reply-content">
-                    <div class="reply-user-info">
-                      <span class="reply-user-name">回复用户</span>
-                    </div>
-                    <bili-rich-text>
-                      #shadow-root (open)
-                        <div class="rich-text-content">
-                          <span class="reply-target">@原评论用户</span>
-                          <span class="text-node">这是回复内容</span>
-                        </div>
-                    </bili-rich-text>
-                    <div class="reply-actions">
-                      <span class="reply-time">2024-10-18 12:30</span>
-                      <span class="reply-like">👍 45</span>
-                    </div>
-                  </div>
-                </div>
-            </bili-comment-reply-renderer>
-          </div>
+            </div>
+          </bili-comment-reply-renderer>
         </div>
+      </div>
     </bili-comment-thread-renderer>
 
     <!-- 更多评论线程... -->
@@ -124,6 +127,7 @@ Bilibili评论区使用了多层嵌套的Shadow DOM Web Components：
 基于实际网页分析，B站评论区使用的主要Web Components包括：
 
 #### **评论相关组件**
+
 - `bili-comment-thread-renderer` - 评论线程渲染器（最外层）
 - `bili-comment-renderer` - 主评论渲染器
 - `bili-comment-reply-renderer` - 回复评论渲染器
@@ -132,6 +136,7 @@ Bilibili评论区使用了多层嵌套的Shadow DOM Web Components：
 - `bili-avatar` - 头像组件
 
 #### **其他可能的组件**
+
 - `bili-comment-area` - 评论区域容器
 - `bili-comment-list` - 评论列表
 - `bili-comment-item` - 评论项
@@ -141,6 +146,7 @@ Bilibili评论区使用了多层嵌套的Shadow DOM Web Components：
 ### **当前实现的问题**
 
 #### 1. **选择器不完整**
+
 ```typescript
 const BILIBILI_COMMENT_HOST_SELECTORS = [
   'bili-comment-thread-renderer',
@@ -151,23 +157,27 @@ const BILIBILI_COMMENT_HOST_SELECTORS = [
 ```
 
 **缺少的关键选择器：**
+
 - `bili-emoji` - 表情组件，包含alt文本
 - `bili-avatar` - 头像组件
 - `bili-user-info` - 用户信息
 - 其他动态加载的组件
 
 #### 2. **文本查找算法局限**
+
 - `window.find()` 无法搜索Shadow DOM内容
 - `traverseShadowInclusive` 可能存在遍历不完整的问题
 - 没有处理表情符号的alt文本
 - 没有正确处理@用户的回复引用
 
 #### 3. **Shadow Root观察不及时**
+
 - 评论区是动态加载的，滚动时才加载更多评论
 - Shadow Root创建时没有及时观察到
 - 新回复的动态插入没有被监控
 
 #### 4. **文本内容提取不完整**
+
 - 表情符号只显示为图片，丢失了原始文本（如[doge]）
 - @用户引用的处理不正确
 - 多段文本节点的合并问题
@@ -177,48 +187,50 @@ const BILIBILI_COMMENT_HOST_SELECTORS = [
 ### **方案1：增强Shadow DOM选择器**
 
 #### 1.1 扩展选择器列表
+
 ```typescript
 const BILIBILI_COMMENT_HOST_SELECTORS = [
   // 核心评论组件
-  'bili-comment-thread-renderer',    // 评论线程渲染器（最外层）
-  'bili-comment-renderer',           // 主评论渲染器
-  'bili-comment-reply-renderer',     // 回复评论渲染器
-  'bili-rich-text',                  // 富文本内容组件
+  'bili-comment-thread-renderer', // 评论线程渲染器（最外层）
+  'bili-comment-renderer', // 主评论渲染器
+  'bili-comment-reply-renderer', // 回复评论渲染器
+  'bili-rich-text', // 富文本内容组件
 
   // 内容相关组件
-  'bili-emoji',                      // 表情组件（包含alt文本）
-  'bili-avatar',                     // 头像组件
-  'bili-user-info',                  // 用户信息组件
+  'bili-emoji', // 表情组件（包含alt文本）
+  'bili-avatar', // 头像组件
+  'bili-user-info', // 用户信息组件
 
   // 可能的其他组件
-  'bili-comment-area',               // 评论区域容器
-  'bili-comment-list',               // 评论列表
-  'bili-comment-item',               // 评论项
-  'bili-comment-content',            // 评论内容
-  'bili-comment-text',               // 评论文本
-  'bili-comment-reply-list',         // 回复列表
-  'bili-comment-reply-item',         // 回复项
-  'bili-dynamic-content',            // 动态内容
-  'bili-at-user',                    // @用户组件
-  'bili-link',                       // 链接组件
-  'bili-video-card'                  // 视频卡片组件
+  'bili-comment-area', // 评论区域容器
+  'bili-comment-list', // 评论列表
+  'bili-comment-item', // 评论项
+  'bili-comment-content', // 评论内容
+  'bili-comment-text', // 评论文本
+  'bili-comment-reply-list', // 回复列表
+  'bili-comment-reply-item', // 回复项
+  'bili-dynamic-content', // 动态内容
+  'bili-at-user', // @用户组件
+  'bili-link', // 链接组件
+  'bili-video-card' // 视频卡片组件
 ] as const;
 ```
 
 #### 1.2 动态发现Shadow Host
+
 ```typescript
 private discoverShadowHosts(): HTMLElement[] {
   const hosts: HTMLElement[] = [];
-  
+
   // 查找所有自定义元素
   const customElements = this.doc.querySelectorAll('*');
   Array.from(customElements).forEach(element => {
-    if (element.tagName.toLowerCase().startsWith('bili-') && 
+    if (element.tagName.toLowerCase().startsWith('bili-') &&
         element.shadowRoot) {
       hosts.push(element as HTMLElement);
     }
   });
-  
+
   return hosts;
 }
 ```
@@ -226,6 +238,7 @@ private discoverShadowHosts(): HTMLElement[] {
 ### **方案2：改进文本查找算法**
 
 #### 2.1 增强Shadow DOM遍历
+
 ```typescript
 private findTextRangeInShadowDOM(text: string): Range | null {
   const normalized = text.replace(/\s+/g, ' ').trim();
@@ -233,39 +246,40 @@ private findTextRangeInShadowDOM(text: string): Range | null {
 
   // 收集所有Shadow Root
   const shadowRoots = this.collectAllShadowRoots();
-  
+
   // 在每个Shadow Root中搜索
   for (const root of shadowRoots) {
     const range = this.searchInShadowRoot(root, normalized);
     if (range) return range;
   }
-  
+
   return null;
 }
 
 private collectAllShadowRoots(): ShadowRoot[] {
   const roots: ShadowRoot[] = [];
   const visited = new Set<ShadowRoot>();
-  
+
   const traverse = (node: Node) => {
     if (node instanceof Element && node.shadowRoot && !visited.has(node.shadowRoot)) {
       roots.push(node.shadowRoot);
       visited.add(node.shadowRoot);
-      
+
       // 递归遍历Shadow Root内的元素
       Array.from(node.shadowRoot.querySelectorAll('*')).forEach(traverse);
     }
-    
+
     // 遍历子节点
     Array.from(node.childNodes).forEach(traverse);
   };
-  
+
   traverse(this.doc.documentElement);
   return roots;
 }
 ```
 
 #### 2.2 专门的评论文本提取
+
 ```typescript
 private extractCommentText(element: Element): string[] {
   const texts: string[] = [];
@@ -354,6 +368,7 @@ private extractBilibiliCommentText(shadowRoot: ShadowRoot): string[] {
 ### **方案3：实时监控评论区变化**
 
 #### 3.1 增强MutationObserver
+
 ```typescript
 private initCommentObserver(): void {
   if (this.commentObserver) return;
@@ -432,7 +447,8 @@ private initCommentContainerObserver(): void {
 ### **方案4：调试和诊断工具**
 
 #### 4.1 添加调试日志
-```typescript
+
+````typescript
 private debugShadowDOMStructure(): void {
   if (!window.__AIOB_DEBUG__) return;
 
@@ -521,12 +537,13 @@ private startShadowDOMMonitoring(): void {
 }
 
 private lastCommentHostCount = 0;
-```
+````
 
 ### **方案5：B站特定优化**
 
 #### 5.1 针对B站评论区的特殊处理
-```typescript
+
+````typescript
 // B站特定的评论区检测和处理
 private initBilibiliSpecificHandling(): void {
   // 检测是否为B站页面
@@ -657,11 +674,12 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 
   return texts.filter(text => text && text.length > 0);
 }
-```
+````
 
 ## 🚀 实施计划
 
 ### **阶段1：诊断和分析（预计1-2天）**
+
 1. **启用调试模式**
    - 在开发环境中设置 `window.__AIOB_DEBUG__ = true`
    - 添加调试工具，分析Bilibili评论区的实际DOM结构
@@ -679,6 +697,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
    - 测试滚动加载对功能的影响
 
 ### **阶段2：增强选择器和观察（预计2-3天）**
+
 1. **扩展选择器列表**
    - 更新 `BILIBILI_COMMENT_HOST_SELECTORS`
    - 实现动态Shadow Host发现
@@ -695,6 +714,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
    - 拦截Web Components的注册过程
 
 ### **阶段3：改进文本查找（预计2-3天）**
+
 1. **增强文本提取**
    - 实现专门的Shadow DOM文本查找算法
    - 添加B站评论文本提取逻辑
@@ -711,6 +731,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
    - 减少不必要的DOM查询
 
 ### **阶段4：测试和优化（预计2-3天）**
+
 1. **功能测试**
    - 在实际Bilibili页面测试所有功能
    - 验证评论选择和高亮功能
@@ -727,6 +748,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
    - 长时间使用的稳定性测试
 
 ### **阶段5：部署和监控（预计1天）**
+
 1. **代码审查和部署**
    - 代码审查和文档更新
    - 创建测试用例和回归测试
@@ -740,6 +762,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 ## 📋 详细测试清单
 
 ### **基础功能测试**
+
 - [ ] **评论文本选择**
   - [ ] 主评论文本可以被选择
   - [ ] 回复评论文本可以被选择
@@ -763,6 +786,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
   - [ ] 高亮在页面滚动后仍然有效
 
 ### **动态内容测试**
+
 - [ ] **滚动加载**
   - [ ] 向下滚动加载的新评论可以被选择
   - [ ] 新加载的评论高亮功能正常
@@ -775,6 +799,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
   - [ ] 发布新评论后功能不受影响
 
 ### **特殊内容测试**
+
 - [ ] **表情符号**
   - [ ] 标准B站表情（如[doge]）正确处理
   - [ ] 自定义表情正确处理
@@ -792,6 +817,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
   - [ ] 长文本评论的处理正确
 
 ### **性能和稳定性测试**
+
 - [ ] **性能表现**
   - [ ] 页面加载时无明显卡顿
   - [ ] 滚动过程中性能良好
@@ -805,6 +831,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
   - [ ] 控制台无错误日志
 
 ### **兼容性测试**
+
 - [ ] **浏览器兼容性**
   - [ ] Chrome浏览器功能正常
   - [ ] Firefox浏览器功能正常
@@ -818,6 +845,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
   - [ ] 不同UP主的视频页面功能正常
 
 ### **用户体验测试**
+
 - [ ] **交互体验**
   - [ ] 选择操作响应及时
   - [ ] 高亮效果自然流畅
@@ -833,32 +861,38 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 ## 🔧 相关文件
 
 ### **主要修改文件**
+
 - `AiiinOB/src/content/video/session.ts` - 视频会话管理，主要的Shadow DOM处理逻辑
 - `AiiinOB/src/content/index.ts` - Shadow DOM选择器定义和初始化
 - `AiiinOB/src/content/video/ui/panel.ts` - 右侧边栏显示逻辑
 - `AiiinOB/src/content/video/ui/highlight.ts` - 文本高亮功能实现
 
 ### **新增文件建议**
+
 - `AiiinOB/src/content/video/bilibili-adapter.ts` - B站特定的适配器
 - `AiiinOB/src/content/shadow-dom/observer.ts` - Shadow DOM观察器
 - `AiiinOB/src/content/shadow-dom/text-extractor.ts` - 文本提取器
 - `AiiinOB/src/utils/debug.ts` - 调试工具
 
 ### **配置文件**
+
 - `AiiinOB/src/config/selectors.ts` - 选择器配置
 - `AiiinOB/src/config/sites.ts` - 站点特定配置
 
 ### **测试文件**
+
 - `AiiinOB/tests/bilibili-comments.test.ts` - B站评论功能测试
 - `AiiinOB/tests/shadow-dom.test.ts` - Shadow DOM处理测试
 
 ## 📄 参考文档
 
 ### **网页结构分析**
-- `AiiinOB/docs/bilibili-page-source-complete.html` - 完整的B站视频页面源码结构
-- `AiiinOB/docs/bilibili-page-source-initial.html` - 初始页面结构
+
+- `AiiinOB/docs/reference-fixtures/bilibili-page-source-complete.html` - 完整的B站视频页面源码结构
+- `AiiinOB/docs/reference-fixtures/bilibili-page-source-initial.html` - 初始页面结构
 
 ### **技术文档**
+
 - [Shadow DOM API文档](https://developer.mozilla.org/en-US/docs/Web/API/Shadow_DOM_API)
 - [Web Components规范](https://www.w3.org/TR/components-intro/)
 - [MutationObserver API](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver)
@@ -868,6 +902,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 这个修复方案通过以下几个关键改进来解决Bilibili评论区Shadow DOM的问题：
 
 ### **核心改进**
+
 1. **完整的选择器覆盖** - 识别所有B站评论相关的Web Components
 2. **智能的Shadow DOM观察** - 实时监控Shadow DOM的创建和变化
 3. **专门的文本提取算法** - 正确处理表情符号、@用户引用等特殊内容
@@ -875,6 +910,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 5. **强大的调试工具** - 帮助开发者快速定位和解决问题
 
 ### **预期效果**
+
 - ✅ 评论区所有文本内容都可以被正确选择
 - ✅ 选中的文本准确显示在右侧边栏
 - ✅ 高亮功能在所有评论类型中都能正常工作
@@ -882,6 +918,7 @@ private extractBilibiliCommentTextAdvanced(element: Element): string[] {
 - ✅ 性能优化，用户体验流畅
 
 ### **长期维护**
+
 - 🔧 模块化的代码结构，便于维护和扩展
 - 🔧 完善的测试覆盖，确保功能稳定
 - 🔧 详细的调试工具，快速定位问题

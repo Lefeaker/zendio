@@ -18,13 +18,14 @@ const runtime: Messages = {
   settingsTitle: 'Impostazioni',
   languageSettings: 'Impostazioni lingua',
   languageLabel: 'Lingua interfaccia',
-  languageHint: 'Seleziona la lingua da utilizzare per l\'interfaccia',
+  languageHint: "Seleziona la lingua da utilizzare per l'interfaccia",
   featureUnstableNote: 'Funzione instabile',
   featureUntestedNote: 'Non ancora testata, potrebbe essere instabile',
 
   // API Configuration
   apiConfigTitle: 'Obsidian Local REST API',
-  apiConfigHint: 'Questo è il vault predefinito. Tutto ciò che non corrisponde alle regole di routing verrà salvato qui.',
+  apiConfigHint:
+    'Questo è il vault predefinito. Tutto ciò che non corrisponde alle regole di routing verrà salvato qui.',
   httpsUrlLabel: 'URL HTTPS',
   httpsUrlHint: 'Solitamente porta 27124, per connessioni sicure',
   additionalVaultHttpsHint: 'Usa una porta unica. Non condividere con altri vault',
@@ -76,11 +77,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'Template percorso chat AI',
   aiTemplateHint: 'Per salvare conversazioni di chat AI',
   availableVariables: 'Variabili disponibili:',
-  templateVariableNote: '{slug} è il titolo trasformato in slug. Usa {HHmmss} o {HHmm} per inserire l’ora di acquisizione; {mm} minuscolo continua a rappresentare il mese.',
+  templateVariableNote:
+    '{slug} è il titolo trasformato in slug. Usa {HHmmss} o {HHmm} per inserire l’ora di acquisizione; {mm} minuscolo continua a rappresentare il mese.',
 
   // Domain Mapping
   domainMappingTitle: 'Configurazione mappatura domini',
-  domainMappingHint: 'Configura nomi di cartelle amichevoli per domini utilizzati frequentemente (es. mappa medium.com a "Medium")',
+  domainMappingHint:
+    'Configura nomi di cartelle amichevoli per domini utilizzati frequentemente (es. mappa medium.com a "Medium")',
   domainLabel: 'Dominio',
   folderNameLabel: 'Nome cartella',
   addMappingButton: '+ Aggiungi mappatura',
@@ -95,7 +98,8 @@ const runtime: Messages = {
   yamlFieldValuePathExamplesTitle: 'Chiavi di contesto comuni',
   yamlFieldValuePathExamples: 'meta.author\nstats.wordCount\nextra.notes[0]',
   yamlDomainTitle: 'Override per dominio',
-  yamlDomainHint: 'Aggiungi override YAML per dominio. Hanno priorità rispetto alle impostazioni globali.',
+  yamlDomainHint:
+    'Aggiungi override YAML per dominio. Hanno priorità rispetto alle impostazioni globali.',
   yamlDomainAddRule: '+ Aggiungi regola dominio',
   yamlDomainEmpty: 'Non ci sono ancora regole specifiche per dominio.',
   yamlDomainPlaceholder: 'es., example.com o *.example.com',
@@ -125,13 +129,15 @@ const runtime: Messages = {
   configTransferHint: 'Copia una volta e importa ovunque per sincronizzare i browser.',
   copyConfigButton: 'Copia configurazione',
   importConfigButton: 'Importa da appunti',
-  configTransferNote: 'Queste operazioni utilizzano gli appunti di sistema—assicurati che il browser abbia i permessi di accesso.',
+  configTransferNote:
+    'Queste operazioni utilizzano gli appunti di sistema—assicurati che il browser abbia i permessi di accesso.',
   copyConfigSuccess: '✅ Configurazione copiata negli appunti',
   importSuccess: '✅ Configurazione importata e salvata',
   importParseFailed: '❌ Parsing configurazione fallito',
   emptyImportError: 'Gli appunti sono vuoti. Copia prima una configurazione',
   clipboardUnavailable: 'Appunti non disponibili. Copia manualmente',
-  clipboardReadUnavailable: 'Impossibile leggere gli appunti. Concedi i permessi degli appunti e riprova.',
+  clipboardReadUnavailable:
+    'Impossibile leggere gli appunti. Concedi i permessi degli appunti e riprova.',
   invalidTaxonomy: 'La tassonomia del classificatore deve essere JSON valido',
 
   // AI Chat Configuration
@@ -139,27 +145,32 @@ const runtime: Messages = {
   aiChatConfigHint: 'Configura il formato e il contenuto del salvataggio delle chat AI',
   aiSupportedPlatformsToggle: 'Visualizza piattaforme AI supportate',
   includeTimestampsLabel: 'Includi timestamp messaggi',
-  includeTimestampsHint: 'Mostra l\'ora di invio dopo ogni messaggio (quando disponibile)',
+  includeTimestampsHint: "Mostra l'ora di invio dopo ogni messaggio (quando disponibile)",
   userNameLabel: 'Nome utente',
   userNamePlaceholder: 'Utente',
-  userNameHint: 'Personalizza il nome visualizzato per i messaggi utente. Il predefinito è "Utente"',
+  userNameHint:
+    'Personalizza il nome visualizzato per i messaggi utente. Il predefinito è "Utente"',
   captureContextLabel: 'Cattura contesto circostante (sperimentale)',
 
   // Deep Research Configuration
   deepResearchConfigTitle: 'Configurazione Gemini Deep Research',
   deepResearchConfigHint: 'Configura come vengono catturati i report Deep Research',
   pureModeLabel: 'Modalità pura (cattura solo contenuto report)',
-  pureModeHint: 'Quando abilitata, cattura solo il contenuto del report Deep Research, escludendo i messaggi di conversazione',
-  multipleReportsInfo: 'ℹ️ Per report multipli: Gemini può mostrare solo un report completo alla volta. Per salvare più report, apri e salva ogni report separatamente.',
+  pureModeHint:
+    'Quando abilitata, cattura solo il contenuto del report Deep Research, escludendo i messaggi di conversazione',
+  multipleReportsInfo:
+    'ℹ️ Per report multipli: Gemini può mostrare solo un report completo alla volta. Per salvare più report, apri e salva ogni report separatamente.',
 
   readingConfigTitle: 'Modalità lettura',
   readingConfigHint: 'Scegli come le esportazioni delle sessioni di lettura catturano il contenuto',
   readingExportModeLabel: 'Esportazione contenuto',
   readingExportModeHighlights: 'Solo estratti evidenziati',
   readingExportModeFull: 'Articolo completo con evidenziazioni',
-  readingExportModeDescription: 'Selezionando "Articolo completo" salverà il corpo dell\'articolo pulito con evidenziazioni incorporate e note a piè di pagina.',
+  readingExportModeDescription:
+    'Selezionando "Articolo completo" salverà il corpo dell\'articolo pulito con evidenziazioni incorporate e note a piè di pagina.',
   readingHighlightThemeLabel: 'Colore evidenziazione',
-  readingHighlightThemeDescription: 'Influisce solo sullo stile delle evidenziazioni in modalità lettura. Il Markdown esportato rimane invariato.',
+  readingHighlightThemeDescription:
+    'Influisce solo sullo stile delle evidenziazioni in modalità lettura. Il Markdown esportato rimane invariato.',
   readingHighlightThemeGradient: 'Gradiente viola-blu (predefinito)',
   readingHighlightThemePurple: 'Viola solido',
   readingHighlightThemeNeonYellow: 'Giallo neon',
@@ -169,22 +180,28 @@ const runtime: Messages = {
   fragmentConfigTitle: 'Configurazione salvataggio frammenti',
   fragmentConfigHint: 'Configura come le selezioni di testo vengono salvate e formattate',
   fragmentUseFootnoteLabel: 'Usa formato note a piè di pagina (raccomandato)',
-  fragmentUseFootnoteHint: 'Quando abilitato, i commenti vengono salvati nel formato note a piè di pagina di Obsidian, compatibile con il plugin Sidebar Highlights',
-  fragmentCaptureContextHint: 'Quando abilitato, cattura il contesto attorno al testo selezionato e marca l\'evidenziazione effettiva con ==evidenziazione==',
+  fragmentUseFootnoteHint:
+    'Quando abilitato, i commenti vengono salvati nel formato note a piè di pagina di Obsidian, compatibile con il plugin Sidebar Highlights',
+  fragmentCaptureContextHint:
+    "Quando abilitato, cattura il contesto attorno al testo selezionato e marca l'evidenziazione effettiva con ==evidenziazione==",
   fragmentFootnoteExampleTitle: 'Esempio formato note a piè di pagina:',
   fragmentModifierToggleLabel: 'Abilita tasti modificatori per salvare/leggere',
-  fragmentModifierToggleDescription: 'Tenere premuti i tasti modificatori selezionati e trascinare per selezionare il testo aprirà automaticamente il dialogo clipper o l\'evidenziazione di lettura.',
+  fragmentModifierToggleDescription:
+    "Tenere premuti i tasti modificatori selezionati e trascinare per selezionare il testo aprirà automaticamente il dialogo clipper o l'evidenziazione di lettura.",
   fragmentModifierKeysLabel: 'Seleziona tasti modificatori',
-  fragmentModifierKeysDescription: 'Tutti i tasti modificatori selezionati devono essere premuti insieme per attivare l\'azione automatica.',
+  fragmentModifierKeysDescription:
+    "Tutti i tasti modificatori selezionati devono essere premuti insieme per attivare l'azione automatica.",
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: 'Abilita scorciatoie tastiera dialogo clipper',
-  fragmentKeyboardShortcutsHint: 'Nel dialogo clipper: doppio invio per modalità lettura, Cmd+invio (Mac) o Alt+invio (Windows) per salvare direttamente',
+  fragmentKeyboardShortcutsHint:
+    'Nel dialogo clipper: doppio invio per modalità lettura, Cmd+invio (Mac) o Alt+invio (Windows) per salvare direttamente',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: 'Modifica commento completata. Puoi usare le scorciatoie tastiera per le seguenti azioni:',
+  clipperCommentEditCompleted:
+    'Modifica commento completata. Puoi usare le scorciatoie tastiera per le seguenti azioni:',
   clipperShortcutHintDoubleEnter: 'Doppio invio',
   clipperShortcutHintModifierEnter: 'Salva direttamente',
   clipperShortcutHintEscape: 'Annulla',
@@ -193,13 +210,14 @@ const runtime: Messages = {
   clipperShortcutDoubleEnter: 'Doppio ↵',
   clipperShortcutModifierEnter: 'Cmd ↵',
   clipperShortcutEsc: 'Esc',
-  clipperShortcutSetupLink: 'Configura scorciatoie tastiera per un\'esperienza più fluida',
+  clipperShortcutSetupLink: "Configura scorciatoie tastiera per un'esperienza più fluida",
 
   // Classifier Configuration
   classifierConfigTitle: 'Classificazione e riassunto AI',
   classifierConfigHint: 'Usa LLM per classificare e riassumere automaticamente i contenuti salvati',
   enableClassifierLabel: 'Abilita classificazione intelligente',
-  classifierUnstableNotice: '⚠️ Questa funzione di classificazione è sperimentale e potrebbe essere instabile.',
+  classifierUnstableNotice:
+    '⚠️ Questa funzione di classificazione è sperimentale e potrebbe essere instabile.',
   providerLabel: 'Provider LLM',
   endpointLabel: 'Endpoint API',
   endpointPlaceholder: 'http://localhost:11434/api/chat',
@@ -224,15 +242,24 @@ const runtime: Messages = {
   reloadPrompt: 'Ricarica la pagina per vedere la configurazione corretta',
   connectionTesting: 'Test connessione in corso...',
   connectionSuccessShort: 'Connessione riuscita',
-  portConflictDetected: '⚠️ Conflitto porte rilevato: {ports}. Assegna porte uniche in Obsidian prima di riprovare.',
+  portConflictDetected:
+    '⚠️ Conflitto porte rilevato: {ports}. Assegna porte uniche in Obsidian prima di riprovare.',
   connectionFailureHintsTitle: 'Prossimi passi: ',
-  connectionFailureHintCheckApiKey: 'Verifica che la chiave API corrisponda alle impostazioni Local REST API',
-  connectionFailureHintCheckVault: 'Verifica che il nome vault corrisponda al plugin Local REST API',
-  connectionFailureHintCheckService: 'Verifica che Obsidian e il plugin Local REST API siano in esecuzione',
+  connectionFailureHintCheckApiKey:
+    'Verifica che la chiave API corrisponda alle impostazioni Local REST API',
+  connectionFailureHintCheckVault:
+    'Verifica che il nome vault corrisponda al plugin Local REST API',
+  connectionFailureHintCheckService:
+    'Verifica che Obsidian e il plugin Local REST API siano in esecuzione',
   connectionFailureHintGeneric: 'Controlla la rete o riavvia il servizio Local REST API',
 
   // Diagnosis
   diagnosisTitle: 'Diagnosi configurazione',
+  diagnosisDescription:
+    'Fai clic su “Diagnostica configurazione” per vedere qui i risultati dei controlli e i suggerimenti di correzione.',
+  diagnosisSummaryHint:
+    'La diagnosi controlla REST API, modelli di percorso, mappature di dominio, instradamento multi-vault e impostazioni correlate, quindi mostra un report dettagliato.',
+  diagnosisResultTitle: 'Risultati diagnosi',
 
   // Notifications
   clipSuccess: 'Salvato in Obsidian',
@@ -253,7 +280,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: 'Sessione lettura attiva',
   readerPanelStatus: 'Seleziona testo per evidenziare e annotare',
-  readerPanelHint: 'Suggerimento: rilasciare il mouse aprirà il dialogo annotazione. Lasciare vuoto salverà solo l\'evidenziazione.',
+  readerPanelHint:
+    "Suggerimento: rilasciare il mouse aprirà il dialogo annotazione. Lasciare vuoto salverà solo l'evidenziazione.",
   readerPanelFinish: 'Completa ed esporta',
   readerPanelCancel: 'Annulla',
   readerPanelCounter: '{count} evidenziazioni raccolte',
@@ -264,7 +292,7 @@ const runtime: Messages = {
   readerHighlightSaveLabel: 'Salva nota',
   readerHighlightCancelLabel: 'Annulla',
   readerHighlightEditPlaceholder: 'Modifica la tua nota qui...',
-  readerHighlightFocusLabel: 'Vai all\'evidenziazione {index}',
+  readerHighlightFocusLabel: "Vai all'evidenziazione {index}",
   readerHintNoHighlights: 'Nessuna evidenziazione ancora. Seleziona prima del testo.',
   readerHintExporting: 'Generazione Markdown...',
   readerHintFailure: 'Esportazione fallita, riprova più tardi.',
@@ -272,23 +300,28 @@ const runtime: Messages = {
 
   // Privacy Settings
   privacySettingsTitle: 'Privacy e dati',
-  privacySettingsDescription: 'Gestisci le preferenze per la raccolta di analisi e la segnalazione anonima di errori.',
+  privacySettingsDescription:
+    'Gestisci le preferenze per la raccolta di analisi e la segnalazione anonima di errori.',
   privacySettingsNote: 'Gestisci raccolta dati e segnalazione errori',
   analyticsDebugTitle: 'Modalità debug',
-  analyticsDebugDescription: 'Quando abilitata, invia eventi a GA4 DebugView e registra dettagli richieste nella console. Usa solo per risoluzione problemi.',
-  analyticsDebugDisabledHint: 'Abilita sia "Analisi utilizzo" che "Segnalazione errori" prima di abilitare la modalità debug.',
+  analyticsDebugDescription:
+    'Quando abilitata, invia eventi a GA4 DebugView e registra dettagli richieste nella console. Usa solo per risoluzione problemi.',
+  analyticsDebugDisabledHint:
+    'Abilita sia "Analisi utilizzo" che "Segnalazione errori" prima di abilitare la modalità debug.',
   analyticsDebugEnabled: 'Modalità debug abilitata. Ricorda di disabilitarla dopo il debug.',
   analyticsDebugDisabled: 'Modalità debug disabilitata.',
   analyticsConsentTitle: 'Analisi utilizzo',
-  analyticsConsentDescription: 'Raccoglie metriche di utilizzo anonimizzate per migliorare l\'estensione. Nessuna informazione personale viene memorizzata.',
+  analyticsConsentDescription:
+    "Raccoglie metriche di utilizzo anonimizzate per migliorare l'estensione. Nessuna informazione personale viene memorizzata.",
   errorReportingConsentTitle: 'Segnalazione errori',
-  errorReportingConsentDescription: 'Invia automaticamente report errori sanitizzati per aiutarci a diagnosticare rapidamente i problemi.',
+  errorReportingConsentDescription:
+    'Invia automaticamente report errori sanitizzati per aiutarci a diagnosticare rapidamente i problemi.',
   errorReportingDetailsTitle: 'Scopri cosa è incluso',
   errorReportingCollectedTitle: 'Informazioni raccolte:',
   errorReportingCollectedError: 'Tipo di errore e gravità',
   errorReportingCollectedBrowser: 'Nome browser e versione principale',
   errorReportingCollectedExtension: 'Versione estensione',
-  errorReportingCollectedTimestamp: 'Quando si è verificato l\'errore',
+  errorReportingCollectedTimestamp: "Quando si è verificato l'errore",
   errorReportingNotCollectedTitle: 'Cosa non raccogliamo:',
   errorReportingNotCollectedPersonal: 'Informazioni di identificazione personale',
   errorReportingNotCollectedUrls: 'URL esatti che visiti',
@@ -296,20 +329,24 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: 'Password o dati sensibili dei moduli',
   savePrivacySettings: 'Salva impostazioni',
   clearAllAnalyticsData: 'Cancella tutti i dati',
-  privacyFooterText: 'Siamo impegnati nella tua privacy. Puoi aggiornare queste impostazioni in qualsiasi momento o richiedere la cancellazione dei dati raccolti.',
+  privacyFooterText:
+    'Siamo impegnati nella tua privacy. Puoi aggiornare queste impostazioni in qualsiasi momento o richiedere la cancellazione dei dati raccolti.',
   privacyPolicyLink: 'Informativa privacy',
   dataUsageLink: 'Dettagli utilizzo dati',
   privacySettingsSaved: 'Impostazioni privacy salvate',
-  privacyDataWillBeCleared: 'Raccolta dati disabilitata. Le analisi esistenti verranno cancellate entro 24 ore.',
+  privacyDataWillBeCleared:
+    'Raccolta dati disabilitata. Le analisi esistenti verranno cancellate entro 24 ore.',
   privacySettingsError: 'Salvataggio impostazioni fallito, riprova.',
-  confirmClearAllData: 'Cancellare tutti i dati di analisi? Questa azione non può essere annullata.',
+  confirmClearAllData:
+    'Cancellare tutti i dati di analisi? Questa azione non può essere annullata.',
   allDataCleared: 'Tutti i dati di analisi sono stati cancellati.',
   clearDataError: 'Cancellazione dati fallita, riprova.',
 
   // Video Mode
   videoPanelTitle: 'Modalità cattura video',
   videoPanelStatus: 'Cattura timestamp e note rapide',
-  videoPanelHint: 'Suggerimento: selezionare testo lo aggiunge automaticamente; premi Invio due volte per salvare note, Esc per annullare.',
+  videoPanelHint:
+    'Suggerimento: selezionare testo lo aggiunge automaticamente; premi Invio due volte per salvare note, Esc per annullare.',
   videoPanelAdd: 'Cattura timestamp corrente',
   videoPanelFinish: 'Completa ed esporta',
   videoPanelCancel: 'Annulla',
@@ -318,7 +355,27 @@ const runtime: Messages = {
   videoConfigTitle: 'Modalità video',
   videoConfigHint: 'Mostra prompt sui siti video supportati per catturare timestamp e note',
   videoFloatingPromptLabel: 'Mostra prompt fluttuante sulle pagine video',
-  videoFloatingPromptHint: 'Funziona su YouTube e Bilibili. Una bolla di accesso rapido appare nell\'angolo in basso a destra.',
+  videoFloatingPromptHint:
+    "Funziona su YouTube e Bilibili. Una bolla di accesso rapido appare nell'angolo in basso a destra.",
+  videoPromptCustomizationTitle: 'Testo e scorciatoia del prompt fluttuante',
+  videoPromptLabelTitle: 'Etichetta del pulsante prompt',
+  videoPromptLabelPlaceholder: 'es. Avvia note video',
+  videoPromptLabelHint:
+    'Mostrato come aria-label del pulsante fluttuante per screen reader e suggerimenti hover.',
+  videoPromptShortcutTitle: 'Scorciatoia del prompt',
+  videoPromptShortcutPlaceholder: 'es. Alt+V',
+  videoPromptShortcutHint:
+    'Mostrata nel prompt fluttuante. Preferisci combinazioni Alt/Cmd per ricordarla più facilmente.',
+  videoSupportedPlatformsTitle: 'Piattaforme supportate',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: 'Abilita note video',
+  videoSaveConfigButton: 'Salva impostazioni video',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'Supporta le pagine watch / short, rileva automaticamente il prompt fluttuante e ti fa entrare nella modalità note video con un clic.',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'Supporta le pagine BV/AV, lascia spazio all’area danmaku e mostra il suggerimento della scorciatoia.',
   videoTimestampSectionTitle: 'Timestamp video',
   videoFragmentSectionTitle: 'Frammenti catturati',
   videoCaptureEditLabel: 'Modifica nota',
@@ -328,15 +385,17 @@ const runtime: Messages = {
   videoCaptureCancelLabel: 'Annulla',
   videoCaptureEditPlaceholder: 'Aggiungi una nota per questo timestamp...',
   videoCaptureFocusLabel: 'Vai alla cattura {index}',
-  videoHintNoVideo: 'In attesa che l\'elemento video sia pronto...',
-  videoHintReady: 'Clicca + per catturare il timestamp corrente. Le note vengono salvate automaticamente.',
+  videoHintNoVideo: "In attesa che l'elemento video sia pronto...",
+  videoHintReady:
+    'Clicca + per catturare il timestamp corrente. Le note vengono salvate automaticamente.',
   videoHintNoCaptures: 'Nessuna cattura ancora. Inizia cliccando il pulsante +.',
   videoHintSaving: 'Salvataggio cattura...',
   videoHintExporting: 'Generazione esportazione Markdown...',
   videoHintFailure: 'Qualcosa è andato storto. Riprova.',
   clipSelectionVideo: 'Clip al pannello cattura video',
   videoPromptTitle: 'Modalità video disponibile',
-  videoPromptDescription: 'Clicca per avviare la modalità video e iniziare a salvare timestamp e note.',
+  videoPromptDescription:
+    'Clicca per avviare la modalità video e iniziare a salvare timestamp e note.',
   videoPromptAction: 'Avvia modalità video',
   videoPromptDismiss: 'Ignora prompt video',
 
@@ -359,7 +418,7 @@ const runtime: Messages = {
   supportPromptStatusWarningWithReason: 'Salvato, ma classificazione fallita: {reason}',
   supportPromptStatusFailure: 'Invio fallito',
   supportPromptStatusFailureWithReason: 'Invio fallito, {reason}',
-  supportPromptLikeThankYou: 'Grazie per l\'incoraggiamento!',
+  supportPromptLikeThankYou: "Grazie per l'incoraggiamento!",
   supportPromptReviewLinkLabel: 'Scrivi una recensione',
   supportPromptReviewAcknowledgedLabel: 'Ho già lasciato una recensione',
   supportPromptDislikeToastTitle: 'Condividi il tuo feedback',
@@ -369,7 +428,8 @@ const runtime: Messages = {
 
   // Dialog
   clipDialogTitle: 'Clip selezione',
-  clipDialogInstructions: 'Usa Tab per navigare tra i controlli. Premi Alt + tasti freccia per riposizionare il dialogo.',
+  clipDialogInstructions:
+    'Usa Tab per navigare tra i controlli. Premi Alt + tasti freccia per riposizionare il dialogo.',
   commentLabel: 'Aggiungi commento (opzionale)',
   commentPlaceholder: 'Digita i tuoi pensieri, note o commenti qui...',
   cancelButton: 'Annulla',
@@ -388,14 +448,16 @@ const runtime: Messages = {
   multiVaultNamePlaceholder: 'Il mio vault note',
   multiVaultNameHint: 'Nome amichevole per identificare questo vault',
   deleteVaultButton: 'Elimina',
-  deleteVaultConfirm: 'Eliminare questo vault? Anche le regole di routing associate verranno eliminate.',
+  deleteVaultConfirm:
+    'Eliminare questo vault? Anche le regole di routing associate verranno eliminate.',
   defaultVaultBadge: 'Vault predefinito',
   deleteVaultDialogTitle: 'Elimina vault',
   deleteRuleDialogTitle: 'Elimina regola',
 
   yamlConfigTitle: 'Configurazione YAML',
   yamlConfigNote: 'Definisci un set unificato per i campi YAML (anteprima)',
-  yamlConfigPlaceholder: 'Questa funzione è ancora in pianificazione. L’attuale layout è un’anteprima; le versioni future permetteranno tipi di campo personalizzati, tipi di contenuto applicabili e valori predefiniti.',
+  yamlConfigPlaceholder:
+    'Questa funzione è ancora in pianificazione. L’attuale layout è un’anteprima; le versioni future permetteranno tipi di campo personalizzati, tipi di contenuto applicabili e valori predefiniti.',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -415,7 +477,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -428,7 +491,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: 'Regole routing',
-  routingRulesHint: 'Scegli automaticamente un vault di destinazione per dominio, parole chiave o pattern URL. Gli elementi che non corrispondono vanno nel vault predefinito.',
+  routingRulesHint:
+    'Scegli automaticamente un vault di destinazione per dominio, parole chiave o pattern URL. Gli elementi che non corrispondono vanno nel vault predefinito.',
+  routingRulesPriorityNote:
+    'Suggerimento: le regole con priorità più alta corrispondono per prime e i vault di destinazione devono restare abilitati.',
   vaultRulesTitle: 'Regole routing',
   ruleEmptyPlaceholder: 'Nessuna regola ancora. Aggiungi una per instradare clip a questo vault.',
   addRuleButton: '+ Aggiungi regola',
@@ -454,81 +520,105 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: 'Benvenuto in All in Ob',
   onboardingSubtitle: 'Configuriamo rapidamente la tua estensione clipper',
-  onboardingWelcomeMessage: 'Grazie per aver installato All in Ob! Questa guida ti aiuterà a configurare rapidamente l\'estensione in modo da poter facilmente salvare contenuti web e conversazioni AI in Obsidian.',
+  onboardingWelcomeMessage:
+    "Grazie per aver installato All in Ob! Questa guida ti aiuterà a configurare rapidamente l'estensione in modo da poter facilmente salvare contenuti web e conversazioni AI in Obsidian.",
 
   // Step 1: API Configuration
   step1Title: 'Configura Obsidian Local REST API (Richiesto)',
-  step1Description: 'Prima, devi installare e configurare il plugin Local REST API in Obsidian. Questo è il ponte tra l\'estensione e Obsidian.',
+  step1Description:
+    "Prima, devi installare e configurare il plugin Local REST API in Obsidian. Questo è il ponte tra l'estensione e Obsidian.",
 
   step1Detail1: 'Installa e abilita il plugin "Local REST API" in Obsidian',
   step1Detail2: 'Abilita "Server non crittografato (HTTP)" nelle impostazioni del plugin',
-  step1Detail3: 'Annota l\'URL HTTPS (solitamente https://127.0.0.1:27124)',
-  step1Detail4: 'Annota l\'URL HTTP (solitamente http://127.0.0.1:27123)',
+  step1Detail3: "Annota l'URL HTTPS (solitamente https://127.0.0.1:27124)",
+  step1Detail4: "Annota l'URL HTTP (solitamente http://127.0.0.1:27123)",
   step1Detail5: 'Registra il nome del tuo vault Obsidian e copia la chiave Local REST API',
-  step1Detail6: 'Compila le informazioni sopra nell\'estensione ed esegui il test di connessione',
+  step1Detail6: "Compila le informazioni sopra nell'estensione ed esegui il test di connessione",
   step1ActionPrimary: 'Configura API',
   step1ActionSecondary: 'Configura più tardi',
 
   // Step 2: Additional Vaults
   step2Title: 'Configura vault aggiuntivi (Opzionale)',
-  step2Description: 'Se hai più vault Obsidian, puoi configurare vault aggiuntivi e stabilire regole di routing per salvare automaticamente diversi tipi di contenuto nei vault corrispondenti.',
+  step2Description:
+    'Se hai più vault Obsidian, puoi configurare vault aggiuntivi e stabilire regole di routing per salvare automaticamente diversi tipi di contenuto nei vault corrispondenti.',
 
   step2Detail1: 'Supporto per più vault Obsidian',
   step2Detail2: 'Stabilisci regole di routing basate su dominio, parole chiave o pattern URL',
-  step2Detail3: 'Esempio: Salva articoli tech nel vault lavoro, contenuto personale nel vault personale',
-  step2Detail4: 'Il contenuto che non corrisponde a nessuna regola verrà salvato nel vault predefinito',
+  step2Detail3:
+    'Esempio: Salva articoli tech nel vault lavoro, contenuto personale nel vault personale',
+  step2Detail4:
+    'Il contenuto che non corrisponde a nessuna regola verrà salvato nel vault predefinito',
   step2ActionPrimary: 'Configura vault aggiuntivi',
   step2ActionSecondary: 'Salta questo passaggio',
 
   // Step 3: Main Features
   step3Title: 'Funzioni principali',
-  step3Description: 'Impariamo rapidamente le funzioni principali dell\'estensione per aiutarti a usarla meglio.',
+  step3Description:
+    "Impariamo rapidamente le funzioni principali dell'estensione per aiutarti a usarla meglio.",
 
   step3Section1Title: 'Clipping web',
-  step3Section1Detail1: 'Clicca sulle aree vuote delle pagine web per clippare pagine complete (aspetta che la pagina si carichi completamente e scorri per caricare tutte le immagini)',
-  step3Section1Detail2: 'Riconosce automaticamente le principali conversazioni di chat AI e salva record di dialogo AI formattati',
+  step3Section1Detail1:
+    'Clicca sulle aree vuote delle pagine web per clippare pagine complete (aspetta che la pagina si carichi completamente e scorri per caricare tutte le immagini)',
+  step3Section1Detail2:
+    'Riconosce automaticamente le principali conversazioni di chat AI e salva record di dialogo AI formattati',
   step3Section2Title: 'Modalità clipping/lettura',
-  step3Section2Detail1: 'Clicca destro sul testo selezionato o usa tasti ausiliari per selezionare contenuto, aggiungere commenti e salvare contenuto selezionato con annotazioni in Obsidian',
-  step3Section2Detail2: 'Entra in modalità lettura per selezionare più frammenti sulla stessa pagina, commentarli e salvarli insieme in Obsidian',
-  step3Section2Detail3: 'La modalità lettura organizza automaticamente i frammenti di testo secondo il layout della pagina, clicca sui numeri dei frammenti per navigazione rapida',
-  step3Section2Detail4: 'La modalità lettura può salvare il testo completo in Obsidian con il contenuto selezionato evidenziato',
-  step3Section2Detail5: 'Che si tratti di frammenti o selezioni modalità lettura, vengono salvati link di pagina precisi per tornare alle posizioni web con un clic',
-  step3Section2Detail6: 'Installa il plugin sidebar highlights in Obsidian per visualizzazione annotazioni più conveniente',
+  step3Section2Detail1:
+    'Clicca destro sul testo selezionato o usa tasti ausiliari per selezionare contenuto, aggiungere commenti e salvare contenuto selezionato con annotazioni in Obsidian',
+  step3Section2Detail2:
+    'Entra in modalità lettura per selezionare più frammenti sulla stessa pagina, commentarli e salvarli insieme in Obsidian',
+  step3Section2Detail3:
+    'La modalità lettura organizza automaticamente i frammenti di testo secondo il layout della pagina, clicca sui numeri dei frammenti per navigazione rapida',
+  step3Section2Detail4:
+    'La modalità lettura può salvare il testo completo in Obsidian con il contenuto selezionato evidenziato',
+  step3Section2Detail5:
+    'Che si tratti di frammenti o selezioni modalità lettura, vengono salvati link di pagina precisi per tornare alle posizioni web con un clic',
+  step3Section2Detail6:
+    'Installa il plugin sidebar highlights in Obsidian per visualizzazione annotazioni più conveniente',
   step3Section3Title: 'Modalità video',
-  step3Section3Detail1: 'Pagine di riproduzione adattate YouTube o Bilibili, apri modalità video per registrare timestamp video e aggiungere note in qualsiasi momento',
-  step3Section3Detail2: 'Clicca sui numeri accanto ai timestamp per navigazione con un clic e visione ripetuta',
+  step3Section3Detail1:
+    'Pagine di riproduzione adattate YouTube o Bilibili, apri modalità video per registrare timestamp video e aggiungere note in qualsiasi momento',
+  step3Section3Detail2:
+    'Clicca sui numeri accanto ai timestamp per navigazione con un clic e visione ripetuta',
   step3Section3Detail3: 'Seleziona testo della pagina e cattura commenti interessanti con un clic',
-  step3Section3Detail4: 'Dopo aver salvato in Obsidian, torna ai timestamp video precisi con un clic in qualsiasi momento',
+  step3Section3Detail4:
+    'Dopo aver salvato in Obsidian, torna ai timestamp video precisi con un clic in qualsiasi momento',
   step3ActionPrimary: 'Vedi impostazioni dettagliate',
   step3ActionSecondary: 'Impara più tardi',
 
   // Step 4: Auxiliary Features
   step4Title: 'Funzioni ausiliarie',
-  step4Description: 'L\'estensione fornisce anche varie funzioni ausiliarie per rendere la tua esperienza più conveniente.',
+  step4Description:
+    "L'estensione fornisce anche varie funzioni ausiliarie per rendere la tua esperienza più conveniente.",
 
-  step4Detail1: 'Più browser sullo stesso dispositivo: copia la configurazione corrente con un clic, incolla per sincronizzare, non serve configurazione ripetuta',
+  step4Detail1:
+    'Più browser sullo stesso dispositivo: copia la configurazione corrente con un clic, incolla per sincronizzare, non serve configurazione ripetuta',
   step4Detail2: 'Mappatura domini: mappa siti web comuni a nomi cartelle amichevoli',
   step4Detail3: 'Configurazione percorso personalizzato, regola i percorsi secondo le tue esigenze',
-  step4Detail4: 'Diagnosi intelligente: problemi di configurazione? Diagnosi intelligente per risoluzione rapida problemi',
+  step4Detail4:
+    'Diagnosi intelligente: problemi di configurazione? Diagnosi intelligente per risoluzione rapida problemi',
   step4ActionPrimary: 'Vedi impostazioni dettagliate',
   step4ActionSecondary: 'Impara più tardi',
 
   // Step 5: More Features
   step5Title: 'Più funzioni interessanti, iterazione continua',
-  step5Description: 'L\'estensione si evolve costantemente per portarti funzioni più intelligenti.',
+  step5Description: "L'estensione si evolve costantemente per portarti funzioni più intelligenti.",
 
   step5Detail1: 'Introduzione di funzioni AI per esperienza più fluida e intelligente',
-  step5Detail2: 'Interazione bidirezionale, non più solo salvare note, ma un ponte tra browser e Obsidian',
-  step5Detail3: 'Benvenuto a suggerire miglioramenti, lo sviluppo non è facile, grazie per il tuo supporto',
+  step5Detail2:
+    'Interazione bidirezionale, non più solo salvare note, ma un ponte tra browser e Obsidian',
+  step5Detail3:
+    'Benvenuto a suggerire miglioramenti, lo sviluppo non è facile, grazie per il tuo supporto',
   step5ActionPrimary: 'Invia suggerimenti',
   step5ActionSecondary: 'Mostra supporto',
 
   // Onboarding Actions
   skipOnboarding: 'Salta guida',
   completeOnboarding: 'Completa guida',
-  onboardingFooterNote: 'Puoi riconfigurare queste opzioni nella pagina impostazioni in qualsiasi momento.',
+  onboardingFooterNote:
+    'Puoi riconfigurare queste opzioni nella pagina impostazioni in qualsiasi momento.',
   onboardingCompleted: 'Guida completata!',
-  onboardingCompletedMessage: 'Hai completato con successo la guida di configurazione dell\'estensione. Ora puoi iniziare a usare All in Ob per salvare i tuoi contenuti web!',
+  onboardingCompletedMessage:
+    "Hai completato con successo la guida di configurazione dell'estensione. Ora puoi iniziare a usare All in Ob per salvare i tuoi contenuti web!",
   onboardingLinkText: 'Guida',
 
   // Footer links
@@ -537,20 +627,24 @@ const runtime: Messages = {
   footerContactLink: 'Contatta autore',
 
   suggestionsModalTitle: 'Condividi i tuoi suggerimenti',
-  suggestionsModalDescription: 'Grazie per aver aiutato a migliorare All in Ob. Puoi contattare l\'autore tramite uno dei seguenti canali:',
+  suggestionsModalDescription:
+    "Grazie per aver aiutato a migliorare All in Ob. Puoi contattare l'autore tramite uno dei seguenti canali:",
   suggestionsModalReddit: 'Chatta su Reddit',
   suggestionsModalXiaohongshu: 'Unisciti a Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'Il codice QR verrà aggiunto presto. Nel frattempo, sentiti libero di inviare un messaggio tramite Reddit.',
+  suggestionsModalQrPlaceholder:
+    'Il codice QR verrà aggiunto presto. Nel frattempo, sentiti libero di inviare un messaggio tramite Reddit.',
 
   // Contact modal
   contactModalTitle: 'Contatta autore',
-  contactModalDescription: 'Se apprezzi questo prodotto o vuoi connetterti, <br>sentiti libero di contattare su <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>L\'autore sta attualmente cercando lavoro—grazie per spargere la voce!',
+  contactModalDescription:
+    'Se apprezzi questo prodotto o vuoi connetterti, <br>sentiti libero di contattare su <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>L\'autore sta attualmente cercando lavoro—grazie per spargere la voce!',
   contactModalCloseButton: 'Chiudi',
 
   // Support modal (onboarding)
   supportModalTitle: 'Grazie per il tuo supporto',
-  supportModalDescription: 'Lo sviluppo non è facile. Se questo plugin ti aiuta, benvenuto a supportare nei seguenti modi:',
+  supportModalDescription:
+    'Lo sviluppo non è facile. Se questo plugin ti aiuta, benvenuto a supportare nei seguenti modi:',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -562,14 +656,16 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: 'Questo è il contenuto del testo selezionato',
   fragmentFootnoteExampleComment: 'Questo è il mio commento',
   fragmentContextHighlightExampleTitle: 'Esempio evidenziazione contesto:',
-  fragmentContextHighlightExampleContent: 'Contesto prima ==questo è il testo selezionato== contesto dopo',
+  fragmentContextHighlightExampleContent:
+    'Contesto prima ==questo è il testo selezionato== contesto dopo'
 };
 
 const it: LocaleDefinition = {
   runtime,
   static: {
     extName: 'All in Ob',
-    extDescription: 'Clipper web potenziato da AI per salvare chat, frammenti e articoli in Obsidian.'
+    extDescription:
+      'Clipper web potenziato da AI per salvare chat, frammenti e articoli in Obsidian.'
   }
 };
 

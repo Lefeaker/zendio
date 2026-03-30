@@ -1,5 +1,4 @@
 import type { StorageService } from '../../platform/interfaces/storage';
-import { chromeStorageService } from '../../platform/chrome/storage';
 import { optionsMerger } from '../../shared/config';
 import type { IOptionsRepository } from '../../shared/repositories';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
@@ -21,7 +20,8 @@ function sanitizeStoredOptions(stored: unknown): StoredOptions | null {
     return parsed.data as StoredOptions;
   }
 
-  const fallback = typeof stored === 'object' && stored !== null ? { ...(stored as Record<string, unknown>) } : {};
+  const fallback =
+    typeof stored === 'object' && stored !== null ? { ...(stored as Record<string, unknown>) } : {};
   delete fallback.vaultRouter;
 
   const reparsed = StoredOptionsSchema.safeParse(fallback);
@@ -42,7 +42,7 @@ function sanitizeStoredOptions(stored: unknown): StoredOptions | null {
  */
 export class ChromeOptionsRepository implements IOptionsRepository {
   private readonly changeListeners = new Set<(options: CompleteOptions) => void>();
-  constructor(private readonly storage: StorageService = chromeStorageService) {}
+  constructor(private readonly storage: StorageService) {}
 
   async get(): Promise<CompleteOptions> {
     try {

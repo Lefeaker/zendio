@@ -1,20 +1,26 @@
 import { createSelectionController } from './clipper/services/selectionController';
 import { createClipperDialogPromptGateway } from './clipper/presentation/clipperDialogPrompt';
-import { VideoSession, initializeDefaultVideoSessionDependencies } from './video/session';
-import { ReaderSession, initializeDefaultReaderSessionDependencies } from './reader/session';
-import { SupportPrompt } from './ui/supportPrompt';
-import { AppError } from '../shared/errors';
-import { initVideoPrompt, initializeDefaultVideoPromptDependencies } from './video/prompt';
 import { getPlatformServices } from '../platform';
-import { ensureContentI18n } from './i18n/context';
-import { createDefaultExtractorRegistry } from './extractors/registry';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
-import { getVideoSession, isReaderSessionActive, isVideoSessionActive, markContentRuntimeInitialized } from './runtime/contentSessionRegistry';
+import {
+  getVideoSession,
+  isReaderSessionActive,
+  isVideoSessionActive,
+  markContentRuntimeInitialized
+} from './runtime/contentSessionRegistry';
 import { createContentRuntimeState } from './runtime/contentRuntimeState';
 import { createContentMessageRouter } from './runtime/contentMessageRouter';
 import { createContentSelectionTracker } from './runtime/contentSelectionTracker';
 import { createContentRuntime } from './runtime/bootstrapRuntime';
+import {
+  createLazyExtractorRegistry,
+  createLazyReaderSessionFactory,
+  createLazySupportPrompt,
+  createLazyVideoSessionFactory,
+  initializeVideoPromptOnDemand
+} from './runtime/contentLazyRuntime';
 import { resolveRepository } from '../shared/di/serviceRegistry';
+import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 
@@ -25,42 +31,46 @@ if (markContentRuntimeInitialized(document)) {
 function initializeClipperRuntime(): void {
   // 引导内容脚本的依赖注入系统
   const platform = getPlatformServices();
+  registerRepositories({
+    storage: platform.storage,
+    messaging: platform.messaging,
+    tabs: platform.tabs,
+    runtime: platform.runtime
+  });
   configureContentBootstrapStorage(platform.storage);
   bootstrapContentScript();
   const { messaging } = platform;
-  const primaryOptionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-
-  const videoSessionDependencies = initializeDefaultVideoSessionDependencies({
-    optionsRepository: primaryOptionsRepository,
-    storage: platform.storage
-  });
-  initializeDefaultReaderSessionDependencies({
-    optionsRepository: primaryOptionsRepository,
-    storage: platform.storage,
-    messaging: platform.messaging
-  });
-  initializeDefaultVideoPromptDependencies({
-    storage: platform.storage,
-    runtime: platform.runtime
-  });
-
-  void ensureContentI18n(document);
-
-  const supportPrompt = new SupportPrompt(document);
+  const primaryOptionsRepository = resolveRepository<IOptionsRepository>(
+    DI_TOKENS.IOptionsRepository
+  );
   const runtimeState = createContentRuntimeState({
     optionsRepository: primaryOptionsRepository,
     window
   });
   const clipPromptGateway = createClipperDialogPromptGateway();
+  const supportPrompt = createLazySupportPrompt(document);
+  const createReaderSession = createLazyReaderSessionFactory({
+    document,
+    optionsRepository: primaryOptionsRepository,
+    storage: platform.storage,
+    messaging: platform.messaging,
+    runtime: platform.runtime,
+    promptGateway: clipPromptGateway
+  });
+  const createVideoSession = createLazyVideoSessionFactory({
+    document,
+    optionsRepository: primaryOptionsRepository,
+    storage: platform.storage,
+    messaging: platform.messaging,
+    runtime: platform.runtime
+  });
   const selectionController = createSelectionController({
     prompt: clipPromptGateway,
     optionsRepository: primaryOptionsRepository,
-    createReaderSession: (doc, url) => new ReaderSession(doc, url, clipPromptGateway),
-    createVideoSession: (doc) => new VideoSession(doc, videoSessionDependencies)
+    createReaderSession,
+    createVideoSession
   });
-  const extractorRegistry = createDefaultExtractorRegistry({
-    optionsRepository: primaryOptionsRepository
-  });
+  const extractorRegistry = createLazyExtractorRegistry(primaryOptionsRepository);
   const selectionTracker = createContentSelectionTracker({
     document,
     window,
@@ -72,7 +82,14 @@ function initializeClipperRuntime(): void {
   // composition below moved to runtime/bootstrapRuntime
 
   void runtimeState.refreshFragmentConfig();
-  void initVideoPrompt();
+  void initializeVideoPromptOnDemand(
+    {
+      optionsRepository: primaryOptionsRepository,
+      storage: platform.storage,
+      runtime: platform.runtime
+    },
+    window.location.href
+  );
 
   const runtime = createContentRuntime({
     document,
@@ -82,23 +99,24 @@ function initializeClipperRuntime(): void {
     selectionTracker,
     selectionController,
     extractorRegistry,
-    supportPrompt,
-    createRouter: (runClip) => createContentMessageRouter({
-      document,
-      window,
-      messaging,
-      supportPrompt,
-      setClipMode: (mode) => runtimeState.setClipMode(mode),
-      runClip,
-      selectionController,
-      createVideoSession: () => new VideoSession(document, videoSessionDependencies),
-      isVideoSessionActive: () => isVideoSessionActive(document),
-      getVideoSession: () => getVideoSession<VideoSession>(),
-      resolveActiveSelection: () => selectionTracker.resolveActiveSelection(),
-      restoreSelectionFromSnapshot: (snapshot) => selectionTracker.restoreSelectionFromSnapshot(snapshot),
-      getLastSelectionSnapshot: () => runtimeState.getLastSelectionSnapshot(),
-      clearLastSelectionSnapshot: () => runtimeState.setLastSelectionSnapshot(null)
-    })
+    createRouter: (runClip) =>
+      createContentMessageRouter({
+        document,
+        window,
+        messaging,
+        supportPrompt,
+        setClipMode: (mode) => runtimeState.setClipMode(mode),
+        runClip,
+        selectionController,
+        createVideoSession: () => createVideoSession(document),
+        isVideoSessionActive: () => isVideoSessionActive(document),
+        getVideoSession: () => getVideoSession<ReturnType<typeof createVideoSession>>(),
+        resolveActiveSelection: () => selectionTracker.resolveActiveSelection(),
+        restoreSelectionFromSnapshot: (snapshot) =>
+          selectionTracker.restoreSelectionFromSnapshot(snapshot),
+        getLastSelectionSnapshot: () => runtimeState.getLastSelectionSnapshot(),
+        clearLastSelectionSnapshot: () => runtimeState.setLastSelectionSnapshot(null)
+      })
   });
   runtime.start();
   window.addEventListener('pagehide', () => runtime.stop(), { passive: true });

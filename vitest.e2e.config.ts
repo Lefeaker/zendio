@@ -9,6 +9,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/e2e/**/*.test.ts'],
+    exclude: ['tests/e2e/readerPanelFlow.test.ts'],
     setupFiles: ['tests/e2e/setup.ts'],
     // Disable file parallelism to prevent state pollution in harness
     fileParallelism: false

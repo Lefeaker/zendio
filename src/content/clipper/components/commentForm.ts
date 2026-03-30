@@ -1,4 +1,10 @@
 import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
+import {
+  createContentHintText,
+  createContentLayoutElement,
+  createContentSurfacePanel
+} from '../../../ui/primitives/layout';
+import { COMMENT_FORM_CLASSES } from './commentFormStyles';
 
 export interface CommentFormMessages {
   commentLabel: string;
@@ -21,22 +27,25 @@ export function createCommentForm(
   initialComment = '',
   binder: I18nBinder | null = null
 ): CommentFormElements {
-  const container = document.createElement('div');
-  container.className = 'clipper-comment-form p-[24px_28px] max-h-[calc(80vh-100px)] overflow-y-auto';
+  const container = createContentLayoutElement({
+    className: COMMENT_FORM_CLASSES.container
+  });
 
-  const preview = document.createElement('div');
-  preview.className = 'clipper-comment-preview bg-[#0c0f1e]/94 border border-white/12 border-l-[3px] border-l-[#8B5CF6] p-[14px_22px] mb-6 rounded-[10px] max-h-[150px] overflow-y-auto text-sm text-[#f2f4ff]/75 leading-relaxed';
-  const truncated = selectedText.length > 500
-    ? selectedText.substring(0, 501) + '...'
-    : selectedText;
+  const preview = createContentSurfacePanel({
+    className: COMMENT_FORM_CLASSES.preview
+  });
+  const truncated =
+    selectedText.length > 500 ? selectedText.substring(0, 501) + '...' : selectedText;
   preview.textContent = truncated;
 
-  const label = document.createElement('label');
-  label.className = 'clipper-comment-label block mb-3 text-sm font-medium text-[#f2f4ff]';
+  const label = createContentLayoutElement({
+    tag: 'label',
+    className: COMMENT_FORM_CLASSES.label
+  });
 
   const textarea = document.createElement('textarea');
   textarea.id = 'clipper-comment-input';
-  textarea.className = 'clipper-comment-textarea w-full min-h-[120px] p-[14px] bg-[#0c0f1e]/94 border border-white/12 rounded-[10px] text-sm font-inherit text-[#f2f4ff] resize-y box-border mb-6 transition-[box-shadow,border-color] duration-200 ease-out caret-[#8B5CF6] placeholder:text-[#f2f4ff]/55 focus:shadow-[0_0_0_3px_rgba(124,92,255,0.35)] focus:border-[#8B5CF6] focus:outline-none';
+  textarea.className = COMMENT_FORM_CLASSES.textarea;
 
   if (initialComment) {
     textarea.value = initialComment;
@@ -51,8 +60,10 @@ export function createCommentForm(
   container.appendChild(label);
   container.appendChild(textarea);
 
-  const hint = document.createElement('div');
-  hint.className = 'clipper-comment-completed-hint hidden mt-2 text-xs text-[#f2f4ff]/70';
+  const hint = createContentHintText({
+    tag: 'div',
+    className: COMMENT_FORM_CLASSES.completedHint
+  });
   hint.hidden = true;
   container.appendChild(hint);
 

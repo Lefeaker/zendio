@@ -60,7 +60,10 @@ type StorageAreaStub = {
   setMany: (entries: Record<string, unknown>) => Promise<void>;
   remove: (key: string | string[]) => Promise<void>;
   clear: () => Promise<void>;
-  watchKey: (key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => () => void;
+  watchKey: (
+    key: string,
+    callback: (value: unknown, change: StorageChangeSnapshot) => void
+  ) => () => void;
   watchAll: (callback: (changes: Record<string, StorageChangeSnapshot>) => void) => () => void;
 };
 
@@ -86,7 +89,9 @@ type VideoRepositoryStub = {
   onConfigChange: (callback: (config: VideoOptionsStub) => void) => () => void;
 };
 
-const loadClipperStyleMock = vi.hoisted(() => vi.fn((name: string) => Promise.resolve(`.${name}{display:block;}`)));
+const loadClipperStyleMock = vi.hoisted(() =>
+  vi.fn((name: string) => Promise.resolve(`.${name}{display:block;}`))
+);
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
   loadClipperStyle: loadClipperStyleMock
 }));
@@ -117,6 +122,7 @@ vi.mock('../../../src/content/video/utils', () => ({
 }));
 
 const observerCallbacks = vi.hoisted(() => [] as Array<() => void>);
+const disconnectVideoObserverMock = vi.hoisted(() => vi.fn());
 const matchesSupportedVideoHostMock = vi.hoisted(() => vi.fn(() => true));
 const hasPlayableVideoMock = vi.hoisted(() => vi.fn(() => true));
 const isValidVideoPlayPageMock = vi.hoisted(() => vi.fn(() => true));
@@ -125,6 +131,7 @@ vi.mock('../../../src/content/video/videoPromptObserver', () => ({
     observerCallbacks.push(callback);
     return { disconnect: vi.fn() };
   }),
+  disconnectVideoObserver: disconnectVideoObserverMock,
   matchesSupportedVideoHost: matchesSupportedVideoHostMock,
   hasPlayableVideo: hasPlayableVideoMock,
   isValidVideoPlayPage: isValidVideoPlayPageMock
@@ -174,9 +181,14 @@ const setIntervalSpy = vi.hoisted(() => vi.fn());
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function getPromptFromShadowDom(): HTMLElement | null {
-  return Array.from(document.body.children)
-    .map((element) => element.shadowRoot?.querySelector<HTMLElement>('#aiob-video-floating-prompt') ?? null)
-    .find((element): element is HTMLElement => element !== null) ?? null;
+  return (
+    Array.from(document.body.children)
+      .map(
+        (element) =>
+          element.shadowRoot?.querySelector<HTMLElement>('#aiob-video-floating-prompt') ?? null
+      )
+      .find((element): element is HTMLElement => element !== null) ?? null
+  );
 }
 
 type PromptStateSnapshot = {
@@ -189,10 +201,11 @@ type VideoPromptTestUtils = {
   setDependenciesForTests(deps: VideoPromptDependencies): void;
   resetDependenciesForTests(): void;
   getPromptStateForTests(): PromptStateSnapshot;
+  cleanupPromptForTests(): void;
 };
 
 type VideoPromptTestModule = {
-  initVideoPrompt(): Promise<void>;
+  initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void>;
   __videoPromptTestUtils: VideoPromptTestUtils;
 };
 
@@ -205,6 +218,7 @@ type TestDeps = {
   storage: StorageServiceStub;
   runtime: RuntimeStub;
   videoRepo: VideoRepositoryStub;
+  createVideoSession: typeof videoSessionFactoryMock;
   emitConfigChange: (config: VideoOptionsStub) => void;
   triggerLanguageChange: () => void;
 };
@@ -216,9 +230,11 @@ const createStorageAreaStub = (): StorageAreaStub => ({
   setMany: vi.fn(() => Promise.resolve(undefined)),
   remove: vi.fn(() => Promise.resolve(undefined)),
   clear: vi.fn(() => Promise.resolve(undefined)),
-  watchKey: vi.fn((key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
-    return vi.fn(() => callback(undefined, {}));
-  }),
+  watchKey: vi.fn(
+    (key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
+      return vi.fn(() => callback(undefined, {}));
+    }
+  ),
   watchAll: vi.fn(() => vi.fn())
 });
 
@@ -231,12 +247,14 @@ function createTestDependencies(): TestDeps {
     local: createStorageAreaStub(),
     session: createStorageAreaStub()
   };
-  storage.sync.watchKey = vi.fn((key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
-    if (key === 'language') {
-      languageWatcher = () => callback(undefined, { oldValue: undefined, newValue: undefined });
+  storage.sync.watchKey = vi.fn(
+    (key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
+      if (key === 'language') {
+        languageWatcher = () => callback(undefined, { oldValue: undefined, newValue: undefined });
+      }
+      return vi.fn();
     }
-    return vi.fn();
-  });
+  );
 
   const runtime: RuntimeStub = {
     getURL: vi.fn<[string], string>((path) => `chrome-extension://mock/${path}`),
@@ -254,7 +272,9 @@ function createTestDependencies(): TestDeps {
       promptPosition: { x: 90, y: 150 }
     }),
     savePromptPosition: vi.fn<[PromptPosition], Promise<void>>(() => Promise.resolve()),
-    getPromptPosition: vi.fn<[], Promise<PromptPosition | null>>().mockResolvedValue({ x: 120, y: 200 }),
+    getPromptPosition: vi
+      .fn<[], Promise<PromptPosition | null>>()
+      .mockResolvedValue({ x: 120, y: 200 }),
     sendVideoClip: vi.fn(),
     onConfigChange: vi.fn<[(config: VideoOptionsStub) => void], () => void>((callback) => {
       configListener = callback;
@@ -266,9 +286,10 @@ function createTestDependencies(): TestDeps {
     storage,
     runtime,
     videoRepo,
+    createVideoSession: videoSessionFactoryMock,
     emitConfigChange: (config) => configListener?.(config),
     triggerLanguageChange: () => languageWatcher?.()
-  };
+  } as TestDeps & { createVideoSession: typeof videoSessionFactoryMock };
 }
 
 describe('video prompt', () => {
@@ -281,12 +302,15 @@ describe('video prompt', () => {
     observerCallbacks.length = 0;
     dragHandlersRef.current = null;
     lastRendererConfig.current = null;
+    disconnectVideoObserverMock.mockClear();
     matchesSupportedVideoHostMock.mockClear();
     hasPlayableVideoMock.mockClear();
     isValidVideoPlayPageMock.mockClear();
     updatePromptLabelsMock.mockClear();
     loadClipperStyleMock.mockClear();
-    loadClipperStyleMock.mockImplementation((name: string) => Promise.resolve(`.${name}{display:block;}`));
+    loadClipperStyleMock.mockImplementation((name: string) =>
+      Promise.resolve(`.${name}{display:block;}`)
+    );
     ensureContentI18nMock.mockClear();
     getContentI18nResourceMock.mockClear();
     getContentMessagesMock.mockClear();
@@ -301,6 +325,7 @@ describe('video prompt', () => {
   });
 
   afterEach(() => {
+    currentTestUtils?.cleanupPromptForTests();
     vi.restoreAllMocks();
     currentTestUtils?.resetDependenciesForTests();
     currentTestUtils = null;
@@ -415,9 +440,34 @@ describe('video prompt', () => {
     observerCallbacks.forEach((callback) => callback());
     await flushMicrotasks();
 
-    const host = Array.from(document.body.children).find((element) => element.shadowRoot?.querySelector('#aiob-video-floating-prompt'));
+    const host = Array.from(document.body.children).find((element) =>
+      element.shadowRoot?.querySelector('#aiob-video-floating-prompt')
+    );
     const shadow = host?.shadowRoot ?? null;
     expect(shadow).toBeTruthy();
-    expect(shadow?.querySelector('style[data-aiob-style-bridge="panel-video-tailwind"]')?.textContent).toContain('.video-ready');
+    expect(
+      shadow?.querySelector('style[data-aiob-style-bridge="panel-video-tailwind"]')?.textContent
+    ).toContain('.video-ready');
+  });
+
+  it('tears down prompt DOM on pagehide and restores it on pageshow', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    observerCallbacks.forEach((callback) => callback());
+    await flushMicrotasks();
+    expect(getPromptFromShadowDom()).not.toBeNull();
+
+    window.dispatchEvent(new Event('pagehide'));
+    await flushMicrotasks();
+    expect(getPromptFromShadowDom()).toBeNull();
+
+    window.dispatchEvent(new Event('pageshow'));
+    observerCallbacks.forEach((callback) => callback());
+    await flushMicrotasks();
+    expect(getPromptFromShadowDom()).not.toBeNull();
   });
 });

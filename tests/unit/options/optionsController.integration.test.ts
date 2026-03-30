@@ -2,6 +2,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { StoredOptions } from '@shared/types/options';
+import type { IOptionsRepository } from '@shared/repositories';
 import type { OptionsPersistenceService } from '@options/services/persistence';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { TemplatesSection } from '@options/components/sections/TemplatesSection';
@@ -11,6 +12,22 @@ import { testPlatformHarness } from '../../setup/globalSetup';
 const setupFixtures = vi.hoisted(() => {
   const markPendingAutoSave = vi.fn();
   const savedOptions: StoredOptions[] = [];
+  const optionsRepository: IOptionsRepository = {
+    async get() {
+      return {
+        templates: {
+          article: 'Articles/{slug}.md',
+          fragment: 'Fragments/{slug}.md',
+          reading: 'Reading/{slug}.md',
+          ai: 'AI/{slug}.md'
+        }
+      } as never;
+    },
+    async set() {},
+    onChange() {
+      return () => undefined;
+    }
+  };
 
   const persistence: OptionsPersistenceService = {
     load: vi.fn(() =>
@@ -30,7 +47,7 @@ const setupFixtures = vi.hoisted(() => {
     getCached: vi.fn(() => undefined)
   };
 
-  return { markPendingAutoSave, savedOptions, persistence };
+  return { markPendingAutoSave, savedOptions, persistence, optionsRepository };
 });
 
 const controllerSlot: { current: unknown } = { current: null };
@@ -51,16 +68,16 @@ vi.mock('@options/components/controls/connectionTest', () => ({
 }));
 
 vi.mock('@options/components/controls/readingTemplateControls', async () => {
-  const actual = await vi.importActual<typeof import('@options/components/controls/readingTemplateControls')>(
-    '@options/components/controls/readingTemplateControls'
-  );
+  const actual = await vi.importActual<
+    typeof import('@options/components/controls/readingTemplateControls')
+  >('@options/components/controls/readingTemplateControls');
   return actual;
 });
 
 vi.mock('@options/components/controls/domainMappings', async () => {
-  const actual = await vi.importActual<typeof import('@options/components/controls/domainMappings')>(
-    '@options/components/controls/domainMappings'
-  );
+  const actual = await vi.importActual<
+    typeof import('@options/components/controls/domainMappings')
+  >('@options/components/controls/domainMappings');
   return actual;
 });
 
@@ -96,30 +113,18 @@ describe('OptionsController integration', () => {
     configureGlobalStateManagerStorage(testPlatformHarness.storage);
     resetGlobalState();
 
-    ({
-      createOptionsFormAdapter
-    } = await import('@options/components/optionsFormAdapter'));
-    ({
-      createOptionsController
-    } = await import('@options/app/optionsController'));
-    ({
-      FormSectionRegistry
-    } = await import('@options/components/formSections/formSectionManager'));
-    ({
-      TemplatesSection: TemplatesSectionCtor
-    } = await import('@options/components/sections/TemplatesSection'));
-    ({
-      RoutingSection: RoutingSectionCtor
-    } = await import('@options/components/sections/RoutingSection'));
-    ({
-      registerOptionsController
-    } = await import('@options/app/optionsControllerContext'));
-    ({
-      DEFAULT_OPTIONS
-    } = await import('@shared/config'));
-    ({
-      createOptionsStateManager
-    } = await import('@options/state/StateManager'));
+    ({ createOptionsFormAdapter } = await import('@options/components/optionsFormAdapter'));
+    ({ createOptionsController } = await import('@options/app/optionsController'));
+    ({ FormSectionRegistry } = await import('@options/components/formSections/formSectionManager'));
+    ({ TemplatesSection: TemplatesSectionCtor } = await import(
+      '@options/components/sections/TemplatesSection'
+    ));
+    ({ RoutingSection: RoutingSectionCtor } = await import(
+      '@options/components/sections/RoutingSection'
+    ));
+    ({ registerOptionsController } = await import('@options/app/optionsControllerContext'));
+    ({ DEFAULT_OPTIONS } = await import('@shared/config'));
+    ({ createOptionsStateManager } = await import('@options/state/StateManager'));
 
     formRegistry = new FormSectionRegistry();
     stateManager = createOptionsStateManager();
@@ -138,7 +143,7 @@ describe('OptionsController integration', () => {
     if (!container) {
       throw new Error('templates container missing');
     }
-    const section = new TemplatesSectionCtor(container);
+    const section = new TemplatesSectionCtor(container, setupFixtures.optionsRepository);
     section.render({ stateManager, formRegistry });
     return section as unknown as TemplatesSection;
   };
@@ -148,7 +153,7 @@ describe('OptionsController integration', () => {
     if (!container) {
       throw new Error('routing container missing');
     }
-    const section = new RoutingSectionCtor(container);
+    const section = new RoutingSectionCtor(container, setupFixtures.optionsRepository);
     section.render({ stateManager, formRegistry });
   };
 

@@ -7,7 +7,7 @@ vi.mock('@shared/utils/iconHelpers', () => ({
   createIcon: vi.fn((_icon: string, _opts: unknown) => document.createElement('span'))
 }));
 
-import { ThemeSwitcher } from '@options/components/shared/ThemeSwitcher';
+import { ThemeSwitcher } from '../../../src/ui/domains/theme';
 
 function installLocalStorageMock(): void {
   const storage = new Map<string, string>();
@@ -93,7 +93,10 @@ describe('ThemeSwitcher', () => {
     toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
     expect(setItemSpy).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith('[ThemeSwitcher] Failed to save theme preference:', expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[ThemeSwitcher] Failed to save theme preference:',
+      expect.any(Error)
+    );
 
     switcher.destroy();
     expect(container.childElementCount).toBe(0);

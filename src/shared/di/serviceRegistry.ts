@@ -5,6 +5,7 @@ import { ChromeClipRepository } from '../../infrastructure/repositories/ChromeCl
 import { ChromeVideoRepository } from '../../infrastructure/repositories/ChromeVideoRepository';
 import { ChromeReaderRepository } from '../../infrastructure/repositories/ChromeReaderRepository';
 import { ChromeNavigationRepository } from '../../infrastructure/repositories/ChromeNavigationRepository';
+import { mergeOptions } from '../config/optionsMerger';
 import type {
   IMessagingRepository,
   IOptionsRepository,
@@ -15,6 +16,12 @@ import type {
   INavigationRepository
 } from '../repositories';
 import { DI_TOKENS } from './tokens';
+import type { CompleteOptions } from '../types/options';
+import type { YamlConfigOverrides } from '../types/yamlConfig';
+import type { MessagingService } from '../../platform/interfaces/messaging';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
+import type { StorageService } from '../../platform/interfaces/storage';
+import type { TabsService } from '../../platform/interfaces/tabs';
 
 /**
  * 轻量级依赖注入容器
@@ -65,7 +72,9 @@ interface Disposable {
 }
 
 const isDisposable = (value: unknown): value is Disposable =>
-  typeof value === 'object' && value !== null && typeof (value as Disposable).dispose === 'function';
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as Disposable).dispose === 'function';
 
 function disposeServiceInstance(instance: unknown, token: symbol, scope: string): void {
   if (!isDisposable(instance)) {
@@ -85,7 +94,7 @@ export class DefaultServiceRegistry implements ServiceRegistry {
     if (this.services.has(token)) {
       console.warn('[ServiceRegistry] Overriding existing service registration', token.toString());
     }
-    
+
     this.services.set(token, {
       factory,
       resolved: false
@@ -103,7 +112,9 @@ export class DefaultServiceRegistry implements ServiceRegistry {
         entry.instance = entry.factory();
         entry.resolved = true;
       } catch (error) {
-        throw new Error(`[ServiceRegistry] Failed to resolve service ${token.toString()}: ${error}`);
+        throw new Error(
+          `[ServiceRegistry] Failed to resolve service ${token.toString()}: ${error}`
+        );
       }
     }
 
@@ -128,7 +139,7 @@ export class DefaultServiceRegistry implements ServiceRegistry {
     for (const [token] of this.services) {
       this.dispose(token);
     }
-    
+
     // 清空注册表
     this.services.clear();
   }
@@ -165,7 +176,9 @@ export class ScopedServiceRegistry implements ServiceRegistry {
           localEntry.instance = localEntry.factory();
           localEntry.resolved = true;
         } catch (error) {
-          throw new Error(`[ScopedServiceRegistry] Failed to resolve local service ${token.toString()}: ${error}`);
+          throw new Error(
+            `[ScopedServiceRegistry] Failed to resolve local service ${token.toString()}: ${error}`
+          );
         }
       }
       return localEntry.instance as T;
@@ -253,54 +266,198 @@ class RepositoryServiceContainer {
 export const repositoryContainer = new RepositoryServiceContainer();
 export const container = repositoryContainer;
 
-let defaultsRegistered = false;
+function createFallbackOptionsRepository(): IOptionsRepository {
+  let snapshot = mergeOptions(null) as CompleteOptions;
+  const listeners = new Set<(options: CompleteOptions) => void>();
 
-function registerRepositorySingletons(
-  implementations: {
-    options: () => IOptionsRepository;
-    messaging: () => IMessagingRepository;
-    yaml: () => IYamlRepository;
-    clip: () => IClipRepository;
-    video: () => IVideoRepository;
-    reader: () => IReaderRepository;
-    navigation: () => INavigationRepository;
-  }
-): void {
+  const emit = (): void => {
+    for (const listener of listeners) {
+      listener(snapshot);
+    }
+  };
+
+  return {
+    async get() {
+      return snapshot;
+    },
+    async set(options) {
+      snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;
+      emit();
+    },
+    onChange(callback) {
+      listeners.add(callback);
+      callback(snapshot);
+      return () => {
+        listeners.delete(callback);
+      };
+    }
+  };
+}
+
+function createFallbackMessagingRepository(): IMessagingRepository {
+  return {
+    async send<T>() {
+      return undefined as T;
+    },
+    onMessage() {
+      return () => {};
+    }
+  };
+}
+
+function createFallbackYamlRepository(): IYamlRepository {
+  let overrides: YamlConfigOverrides | null = null;
+  const listeners = new Set<(value: YamlConfigOverrides | null) => void>();
+  const emit = (): void => {
+    for (const listener of listeners) {
+      listener(overrides);
+    }
+  };
+
+  return {
+    async getOverrides() {
+      return overrides;
+    },
+    async setOverrides(nextOverrides) {
+      overrides = nextOverrides;
+      emit();
+    },
+    onChange(callback) {
+      listeners.add(callback);
+      callback(overrides);
+      return () => {
+        listeners.delete(callback);
+      };
+    }
+  };
+}
+
+function createFallbackNavigationRepository(): INavigationRepository {
+  return {
+    async openVault() {},
+    async openOptions() {},
+    async openExternalLink() {}
+  };
+}
+
+function createFallbackVideoRepository(): IVideoRepository {
+  return {
+    async getVideoConfig() {
+      return {
+        floatingPromptEnabled: true,
+        promptButtonLabel: '开启视频笔记',
+        promptShortcut: 'Alt+V'
+      };
+    },
+    async savePromptPosition() {},
+    async getPromptPosition() {
+      return null;
+    },
+    async sendVideoClip() {
+      return { success: true };
+    },
+    onConfigChange(callback) {
+      void callback;
+      return () => {};
+    }
+  };
+}
+
+export interface RepositoryPlatformServices {
+  storage: StorageService;
+  messaging: MessagingService;
+  tabs: TabsService;
+  runtime: RuntimeService;
+}
+
+function registerRepositorySingletons(implementations: {
+  options: () => IOptionsRepository;
+  messaging: () => IMessagingRepository;
+  yaml: () => IYamlRepository;
+  clip: () => IClipRepository;
+  video: () => IVideoRepository;
+  reader: () => IReaderRepository;
+  navigation: () => INavigationRepository;
+}): void {
   repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, implementations.options);
   repositoryContainer.registerSingleton(DI_TOKENS.IMessagingRepository, implementations.messaging);
   repositoryContainer.registerSingleton(DI_TOKENS.IYamlRepository, implementations.yaml);
   repositoryContainer.registerSingleton(DI_TOKENS.IClipRepository, implementations.clip);
   repositoryContainer.registerSingleton(DI_TOKENS.IVideoRepository, implementations.video);
   repositoryContainer.registerSingleton(DI_TOKENS.IReaderRepository, implementations.reader);
-  repositoryContainer.registerSingleton(DI_TOKENS.INavigationRepository, implementations.navigation);
+  repositoryContainer.registerSingleton(
+    DI_TOKENS.INavigationRepository,
+    implementations.navigation
+  );
 }
 
-export function registerRepositories(): void {
+export function registerRepositories(services: RepositoryPlatformServices): void {
   registerRepositorySingletons({
-    options: () => new ChromeOptionsRepository(),
-    messaging: () => new ChromeMessagingRepository(),
+    options: () => new ChromeOptionsRepository(services.storage),
+    messaging: () => new ChromeMessagingRepository(services.messaging),
     yaml: () => {
-      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
       return new ChromeYamlRepository(optionsRepo);
     },
     clip: () => {
-      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
       return new ChromeClipRepository(optionsRepo, messagingRepo);
     },
     video: () => {
-      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
       return new ChromeVideoRepository(optionsRepo, messagingRepo);
     },
     reader: () => {
-      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
       return new ChromeReaderRepository(optionsRepo, messagingRepo);
     },
-    navigation: () => new ChromeNavigationRepository()
+    navigation: () => new ChromeNavigationRepository(services.tabs, services.runtime)
   });
-  defaultsRegistered = true;
+}
+
+export function registerFallbackRepositories(): void {
+  registerRepositorySingletons({
+    options: createFallbackOptionsRepository,
+    messaging: createFallbackMessagingRepository,
+    yaml: createFallbackYamlRepository,
+    clip: () => {
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
+      return new ChromeClipRepository(optionsRepo, messagingRepo);
+    },
+    video: createFallbackVideoRepository,
+    reader: () => {
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
+      return new ChromeReaderRepository(optionsRepo, messagingRepo);
+    },
+    navigation: createFallbackNavigationRepository
+  });
 }
 
 export function registerMockRepositories(constructors: {
@@ -324,9 +481,10 @@ export function registerMockRepositories(constructors: {
 }
 
 export function resolveRepository<T>(token: symbol): T {
+  if (!repositoryContainer.has(token)) {
+    throw new Error(
+      `[RepositoryContainer] Repository not registered for token: ${String(token)}. Register repositories in the composition root first.`
+    );
+  }
   return repositoryContainer.resolve<T>(token);
-}
-
-if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined' && !defaultsRegistered) {
-  registerRepositories();
 }

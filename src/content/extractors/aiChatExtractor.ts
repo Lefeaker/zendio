@@ -1,5 +1,5 @@
 import { buildChatMarkdown } from '../formatters/markdown';
-import { parseChatDOM, chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/parse';
+import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/parse';
 import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
 import type { StoredOptions, OptionsState } from '../../shared/types/options';
@@ -32,7 +32,9 @@ function isLegacyOptionsRepository(
   return 'load' in repository && typeof repository.load === 'function';
 }
 
-function createOptionsProviderFromRepository(repository: OptionsRepository | IOptionsRepository): OptionsProvider {
+function createOptionsProviderFromRepository(
+  repository: OptionsRepository | IOptionsRepository
+): OptionsProvider {
   let cached: StoredOptions | undefined;
   let pending: Promise<StoredOptions> | null = null;
   let unsubscribe: (() => void) | null = null;
@@ -64,8 +66,8 @@ function createOptionsProviderFromRepository(repository: OptionsRepository | IOp
       if (pending === null) {
         pending = (isLegacyOptionsRepository(repository) ? repository.load() : repository.get())
           .then((value) => {
-            cached = value as StoredOptions;
-            return value as StoredOptions;
+            cached = value;
+            return value;
           })
           .finally(() => {
             pending = null;
@@ -85,7 +87,7 @@ function createOptionsProviderFromRepository(repository: OptionsRepository | IOp
 
 function createEmptyOptionsProvider(): OptionsProvider {
   return {
-    get: async () => ({} as StoredOptions),
+    get: async () => ({}) as StoredOptions,
     reset: () => undefined
   };
 }
@@ -128,7 +130,8 @@ interface ChatMarkdownInput {
 
 function normalizeMessages(messages: ParsedMessage[]): ChatMarkdownMessage[] {
   return messages.map((message, index) => {
-    const text = message.md ?? (message.html ? chatHtmlToMarkdown(message.html) : message.text ?? '');
+    const text =
+      message.md ?? (message.html ? chatHtmlToMarkdown(message.html) : (message.text ?? ''));
     const normalized: ChatMarkdownMessage = {
       id: message.id || `m${index}`,
       role: message.role,
@@ -144,8 +147,11 @@ function normalizeMessages(messages: ParsedMessage[]): ChatMarkdownMessage[] {
 }
 
 export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): ContentExtractor => {
-  const optionsProvider = deps?.optionsProvider ??
-    (deps?.optionsRepository ? createOptionsProviderFromRepository(deps.optionsRepository) : createEmptyOptionsProvider());
+  const optionsProvider =
+    deps?.optionsProvider ??
+    (deps?.optionsRepository
+      ? createOptionsProviderFromRepository(deps.optionsRepository)
+      : createEmptyOptionsProvider());
 
   const resolvedDeps: ResolvedAIChatExtractorDeps = {
     optionsProvider,
@@ -164,7 +170,14 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       }
     };
 
-    const { title, messages, assets, model, createdAt } = parseChatDOM(platform, document, parseConfig);
+    const { parseChatDOMAsync } = await import(
+      '../../third_party/ai-chat-exporter/runtimeRegistry'
+    );
+    const { title, messages, assets, model, createdAt } = await parseChatDOMAsync(
+      platform,
+      document,
+      parseConfig
+    );
     const aiChatOptions: ChatMarkdownOptions = {
       includeTimestamps: options?.aiChat?.includeTimestamps ?? false,
       userName: options?.aiChat?.userName || 'USER'
@@ -216,7 +229,9 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 export async function extractAIChat(
   doc: Document,
   url: string,
-  deps?: Partial<Pick<AIChatExtractorDeps, 'optionsRepository' | 'optionsProvider' | 'detectPlatform' | 'now'>>
+  deps?: Partial<
+    Pick<AIChatExtractorDeps, 'optionsRepository' | 'optionsProvider' | 'detectPlatform' | 'now'>
+  >
 ) {
   return createAIChatExtractor(deps).extract({ document: doc, url });
 }

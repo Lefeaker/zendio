@@ -1,21 +1,25 @@
-import { createDefaultPageI18nController, type PageI18nController, configureI18nStorage } from '../i18n';
+import {
+  createDefaultPageI18nController,
+  type PageI18nController,
+  configureI18nStorage
+} from '../i18n';
 import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
+import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import type { PlatformServices } from '../platform/types';
 
 let declarativeI18nController: PageI18nController | null = null;
 
-type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>
+type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 
 function getBrowserLocalStorage(): BrowserStorageLike | null {
   const storage = globalThis.localStorage as BrowserStorageLike | undefined;
   return storage ?? null;
 }
-
 
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
   if (!declarativeI18nController) {
@@ -41,12 +45,87 @@ interface OnboardingControllerDependencies {
   tabs: TabsService;
 }
 
-function resolveOnboardingDependencies(): OnboardingControllerDependencies {
-  const platform = getService<PlatformServices>(TOKENS.platformServices);
+function createMemoryStorageArea(): StorageAreaService {
+  const values = new Map<string, unknown>();
   return {
-    storage: platform.storage,
-    tabs: platform.tabs
+    async get<T = unknown>(key: string): Promise<T | undefined> {
+      return values.get(key) as T | undefined;
+    },
+    async set<T = unknown>(key: string, value: T): Promise<void> {
+      values.set(key, value);
+    },
+    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
+      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
+    },
+    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
+      for (const [key, value] of Object.entries(entries)) {
+        values.set(key, value);
+      }
+    },
+    async remove(key: string | string[]): Promise<void> {
+      for (const currentKey of Array.isArray(key) ? key : [key]) {
+        values.delete(currentKey);
+      }
+    },
+    async clear(): Promise<void> {
+      values.clear();
+    },
+    watchKey(): () => void {
+      return () => {};
+    },
+    watchAll(): () => void {
+      return () => {};
+    }
   };
+}
+
+function createPreviewDependencies(): OnboardingControllerDependencies {
+  const sync = createMemoryStorageArea();
+  const local = createMemoryStorageArea();
+  const session = createMemoryStorageArea();
+
+  return {
+    storage: { sync, local, session },
+    tabs: {
+      async create() {
+        return undefined;
+      },
+      async remove() {},
+      async getCurrent() {
+        return undefined;
+      },
+      async get() {
+        return undefined;
+      },
+      async query() {
+        return [];
+      },
+      async sendMessage() {
+        return undefined;
+      },
+      onActivated() {
+        return () => {};
+      },
+      onUpdated() {
+        return () => {};
+      },
+      onRemoved() {
+        return () => {};
+      }
+    }
+  };
+}
+
+function resolveOnboardingDependencies(): OnboardingControllerDependencies {
+  try {
+    const platform = getService<PlatformServices>(TOKENS.platformServices);
+    return {
+      storage: platform.storage,
+      tabs: platform.tabs
+    };
+  } catch {
+    return createPreviewDependencies();
+  }
 }
 
 export class OnboardingController {
@@ -211,9 +290,8 @@ function markStepCompleted(stepNumber: number): void {
 function getCompletedSteps(): number[] {
   try {
     const storage = getBrowserLocalStorage();
-    const stored = typeof storage?.getItem === 'function'
-      ? storage.getItem('onboardingCompletedSteps')
-      : null;
+    const stored =
+      typeof storage?.getItem === 'function' ? storage.getItem('onboardingCompletedSteps') : null;
     if (!stored) {
       return [];
     }

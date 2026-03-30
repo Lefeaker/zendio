@@ -73,7 +73,13 @@ function resolveMarkdown(context: ExtractionContext, timestamp: Date) {
             // fall through to raw src
           }
         }
-        return hasDisallowedProtocol(src, baseUrl?.href ?? originalBaseUri, DISALLOWED_URL_PROTOCOLS) ? '' : src;
+        return hasDisallowedProtocol(
+          src,
+          baseUrl?.href ?? originalBaseUri,
+          DISALLOWED_URL_PROTOCOLS
+        )
+          ? ''
+          : src;
       })();
 
       if (!resolvedSrc) {
@@ -85,10 +91,11 @@ function resolveMarkdown(context: ExtractionContext, timestamp: Date) {
     }
   });
 
-  const fallbackHtml = sanitizeFallbackHtml(cloned);
   const fallbackText = doc.body?.textContent?.trim() ?? '';
-  const contentHtml = rd?.content?.trim() || fallbackHtml;
-  const markdownSource = contentHtml || (fallbackText ? `<p>${escapeHtml(fallbackText)}</p>` : `<p>${escapeHtml(url)}</p>`);
+  const contentHtml = rd?.content?.trim() || sanitizeFallbackHtml(cloned);
+  const markdownSource =
+    contentHtml ||
+    (fallbackText ? `<p>${escapeHtml(fallbackText)}</p>` : `<p>${escapeHtml(url)}</p>`);
   const bodyMd = turndown.turndown(markdownSource);
 
   const rawTitle = rd?.title || doc.title || baseUrl?.hostname || 'Untitled';

@@ -1,3 +1,10 @@
+const sentryBuildEnv = globalThis as typeof globalThis & {
+  __AIIINOB_SENTRY_DSN__?: string;
+  __AIIINOB_SENTRY_ENVIRONMENT__?: string;
+  __AIIINOB_SENTRY_RELEASE__?: string;
+  __AIIINOB_SENTRY_ENABLED__?: boolean;
+};
+
 export interface SentryBuildConfig {
   enabled: boolean;
   dsn?: string;
@@ -10,16 +17,12 @@ function readString(value: unknown): string | undefined {
 }
 
 export function getSentryBuildConfig(): SentryBuildConfig {
-  const dsn = readString(typeof __AIIINOB_SENTRY_DSN__ !== 'undefined' ? __AIIINOB_SENTRY_DSN__ : undefined);
-  const environment = readString(
-    typeof __AIIINOB_SENTRY_ENVIRONMENT__ !== 'undefined' ? __AIIINOB_SENTRY_ENVIRONMENT__ : undefined
-  ) ?? 'production';
-  const release = readString(
-    typeof __AIIINOB_SENTRY_RELEASE__ !== 'undefined' ? __AIIINOB_SENTRY_RELEASE__ : undefined
-  );
+  const dsn = readString(sentryBuildEnv.__AIIINOB_SENTRY_DSN__);
+  const environment = readString(sentryBuildEnv.__AIIINOB_SENTRY_ENVIRONMENT__) ?? 'production';
+  const release = readString(sentryBuildEnv.__AIIINOB_SENTRY_RELEASE__);
   const enabledFlag =
-    typeof __AIIINOB_SENTRY_ENABLED__ === 'boolean'
-      ? __AIIINOB_SENTRY_ENABLED__
+    typeof sentryBuildEnv.__AIIINOB_SENTRY_ENABLED__ === 'boolean'
+      ? sentryBuildEnv.__AIIINOB_SENTRY_ENABLED__
       : dsn !== undefined;
 
   return {

@@ -75,7 +75,8 @@ const runtime: Messages = {
   aiTemplateLabel: 'AI 对话路径模板',
   aiTemplateHint: '用于 AI 聊天对话的剪藏',
   availableVariables: '可用变量：',
-  templateVariableNote: '{slug} 表示将标题转为更适合路径的短链；{HHmmss}/{HHmm} 可插入保存时间，小写 {mm} 依旧代表月份。',
+  templateVariableNote:
+    '{slug} 表示将标题转为更适合路径的短链；{HHmmss}/{HHmm} 可插入保存时间，小写 {mm} 依旧代表月份。',
 
   // Domain Mapping
   domainMappingTitle: '域名映射配置',
@@ -149,14 +150,16 @@ const runtime: Messages = {
   deepResearchConfigHint: '自定义 Gemini Deep Research 报告的捕捉方式',
   pureModeLabel: '提纯模式（只捕捉报告内容）',
   pureModeHint: '启用后，只捕捉 Deep Research 报告内容，不包含对话消息',
-  multipleReportsInfo: 'ℹ️ 关于多个报告: Gemini 一次只能显示一个完整报告。如需保存多个报告，请分别打开每个报告并点击剪藏。',
+  multipleReportsInfo:
+    'ℹ️ 关于多个报告: Gemini 一次只能显示一个完整报告。如需保存多个报告，请分别打开每个报告并点击剪藏。',
 
   readingConfigTitle: '阅读模式',
   readingConfigHint: '选择导出阅读模式时保存的内容形式',
   readingExportModeLabel: '导出内容',
   readingExportModeHighlights: '仅保存高亮片段',
   readingExportModeFull: '保存全文并标注高亮',
-  readingExportModeDescription: '选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。',
+  readingExportModeDescription:
+    '选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。',
   readingHighlightThemeLabel: '高亮颜色',
   readingHighlightThemeDescription: '仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。',
   readingHighlightThemeGradient: '渐变紫蓝（默认）',
@@ -169,10 +172,12 @@ const runtime: Messages = {
   fragmentConfigHint: '自定义选中文本剪藏的格式和行为',
   fragmentUseFootnoteLabel: '使用脚注格式（推荐）',
   fragmentUseFootnoteHint: '启用后，评论将以 Obsidian 脚注格式保存，兼容 Sidebar Highlights 插件',
-  fragmentCaptureContextHint: '启用后，会捕捉选中文字周围的上下文，并用 ==高亮== 标记实际选中的部分',
+  fragmentCaptureContextHint:
+    '启用后，会捕捉选中文字周围的上下文，并用 ==高亮== 标记实际选中的部分',
   fragmentFootnoteExampleTitle: '脚注格式示例：',
   fragmentModifierToggleLabel: '启用辅助键触发剪藏/阅读',
-  fragmentModifierToggleDescription: '按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或阅读模式高亮。',
+  fragmentModifierToggleDescription:
+    '按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或阅读模式高亮。',
   fragmentModifierKeysLabel: '辅助键设置',
   fragmentModifierKeysDescription: '需要同时按下所有勾选的辅助键才会触发自动操作。',
   fragmentModifierKeyAlt: 'Option / Alt',
@@ -180,7 +185,8 @@ const runtime: Messages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: '启用剪藏对话框快捷键',
-  fragmentKeyboardShortcutsHint: '在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏',
+  fragmentKeyboardShortcutsHint:
+    '在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏',
 
   // Clipper dialog keyboard shortcuts
   clipperCommentEditCompleted: '批注编辑已完成，可以使用快捷键来完成以下操作：',
@@ -223,7 +229,8 @@ const runtime: Messages = {
   reloadPrompt: '请重新加载页面查看修复后的配置',
   connectionTesting: '正在测试连接...',
   connectionSuccessShort: '连接成功',
-  portConflictDetected: '⚠️ 检测到端口冲突：{ports}。请在 Obsidian 中为每个仓库配置不同的端口后再试一次。',
+  portConflictDetected:
+    '⚠️ 检测到端口冲突：{ports}。请在 Obsidian 中为每个仓库配置不同的端口后再试一次。',
   connectionFailureHintsTitle: '处理建议：',
   connectionFailureHintCheckApiKey: '请确认 API Key 与 Obsidian Local REST API 中的设置一致',
   connectionFailureHintCheckVault: '请确认 Vault 名称与 Obsidian Local REST API 插件中的配置一致',
@@ -232,6 +239,9 @@ const runtime: Messages = {
 
   // Diagnosis
   diagnosisTitle: '配置诊断',
+  diagnosisDescription: '点击“诊断配置”按钮后可在此查看检查结果与修复建议。',
+  diagnosisSummaryHint: '诊断会检视 REST API、路径模板、域名映射、多仓路由等配置，并输出详细报告。',
+  diagnosisResultTitle: '诊断结果',
 
   // Notifications
   clipSuccess: '已保存到 Obsidian',
@@ -274,7 +284,8 @@ const runtime: Messages = {
   privacySettingsDescription: '配置匿名使用分析与错误报告的收集偏好。',
   privacySettingsNote: '控制数据收集和错误报告',
   analyticsDebugTitle: '调试模式',
-  analyticsDebugDescription: '开启后，事件会发送到 GA4 DebugView 并在控制台输出请求详情，仅用于排查问题。',
+  analyticsDebugDescription:
+    '开启后，事件会发送到 GA4 DebugView 并在控制台输出请求详情，仅用于排查问题。',
   analyticsDebugDisabledHint: '需先启用“使用分析”和“错误报告”才能打开调试模式。',
   analyticsDebugEnabled: '调试模式已开启，请及时关闭以免影响正式统计。',
   analyticsDebugDisabled: '调试模式已关闭。',
@@ -318,6 +329,22 @@ const runtime: Messages = {
   videoConfigHint: '可在视频网站自动提示进入视频笔记模式',
   videoFloatingPromptLabel: '在视频网站显示浮动提示按钮',
   videoFloatingPromptHint: '支持 YouTube 与哔哩哔哩，默认在右下角显示提醒，点击即可开启视频模式。',
+  videoPromptCustomizationTitle: '浮动提示文案与快捷键',
+  videoPromptLabelTitle: '提示按钮文案',
+  videoPromptLabelPlaceholder: '例如：开启视频笔记',
+  videoPromptLabelHint: '将显示在浮动按钮的 aria-label，用于屏幕阅读器与悬浮提示。',
+  videoPromptShortcutTitle: '提示快捷键',
+  videoPromptShortcutPlaceholder: '例如：Alt+V',
+  videoPromptShortcutHint: '会显示在悬浮提示中，建议使用 Alt/Cmd 组合键，便于记忆。',
+  videoSupportedPlatformsTitle: '已适配平台',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: '启用视频笔记',
+  videoSaveConfigButton: '保存视频配置',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    '支持 watch / short 页面，自动识别浮动提示按钮，点击即可进入视频笔记模式。',
+  videoPlatformBilibiliName: '哔哩哔哩',
+  videoPlatformBilibiliDescription: '支持 BV/AV 视频页，保留弹幕区域空间并附带快捷键提示。',
   videoTimestampSectionTitle: '视频时间点',
   videoFragmentSectionTitle: '文本摘录',
   videoCaptureEditLabel: '编辑备注',
@@ -426,7 +453,9 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: '路由规则',
-  routingRulesHint: '根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库',
+  routingRulesHint:
+    '根据域名、关键词或 URL 模式自动选择目标仓库。不符合任何规则的内容将保存到默认仓库',
+  routingRulesPriorityNote: '提示：优先级越高越先匹配，目标仓库需保持启用。',
   vaultRulesTitle: '路由规则',
   ruleEmptyPlaceholder: '暂无规则，点击右侧按钮为该仓库添加规则',
   addRuleButton: '+ 添加规则',
@@ -452,11 +481,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: '欢迎使用 All in Ob',
   onboardingSubtitle: '让我们快速配置您的剪藏插件',
-  onboardingWelcomeMessage: '感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
+  onboardingWelcomeMessage:
+    '感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
 
   // Step 1: API Configuration
   step1Title: '配置 Obsidian Local REST API（必须配置）',
-  step1Description: '首先需要在 Obsidian 中安装并配置 Local REST API 插件，这是连接插件与 Obsidian 的桥梁。',
+  step1Description:
+    '首先需要在 Obsidian 中安装并配置 Local REST API 插件，这是连接插件与 Obsidian 的桥梁。',
 
   step1Detail1: '在 Obsidian 中安装并启用 "Local REST API" 插件',
   step1Detail2: '打开插件中的 Enable Non-encrypted (HTTP) Server',
@@ -469,10 +500,12 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: '配置额外仓库（可选）',
-  step2Description: '如果您有多个 Obsidian 仓库，可以配置额外仓库并设置路由规则，让不同类型的内容自动保存到对应的仓库中。',
+  step2Description:
+    '如果您有多个 Obsidian 仓库，可以配置额外仓库并设置路由规则，让不同类型的内容自动保存到对应的仓库中。',
 
   step2Detail1: '仓库配置方法和上面一致',
-  step2Detail2: '可根据域名、关键词或 URL 模式设置路由规则：将特定域名或含有特定关键词的内容保存到额外仓库中',
+  step2Detail2:
+    '可根据域名、关键词或 URL 模式设置路由规则：将特定域名或含有特定关键词的内容保存到额外仓库中',
   step2Detail3: '不符合规则的内容会保存到默认仓库',
   step2Detail4: '',
   step2ActionPrimary: '配置额外仓库',
@@ -483,17 +516,22 @@ const runtime: Messages = {
   step3Description: '让我们快速了解一下插件的主要功能，帮助您更好地使用插件。',
 
   step3Section1Title: '网页剪藏',
-  step3Section1Detail1: '点击网页空白处，即可剪藏整个网页（请等待网页加载完毕，并滚动网页使得图片资源完全加载）',
+  step3Section1Detail1:
+    '点击网页空白处，即可剪藏整个网页（请等待网页加载完毕，并滚动网页使得图片资源完全加载）',
   step3Section1Detail2: '自动识别主流 AI 聊天对话，格式化保存 AI 对话记录',
   step3Section2Title: '剪藏/阅读模式',
-  step3Section2Detail1: '选中文本后右键，或打开辅助键后，按下辅助键选择内容，即可对内容进行评论，并将选中内容与批注一起保存到 Obsidian 里',
-  step3Section2Detail2: '亦可进入阅读模式，在同一页面中选取多个片段进行评论，一同保存到 Obsidian 里',
-  step3Section2Detail3: '阅读模式中根据页面排布，自动排列文字片段顺序，点击选中文字的序号，一键定位',
+  step3Section2Detail1:
+    '选中文本后右键，或打开辅助键后，按下辅助键选择内容，即可对内容进行评论，并将选中内容与批注一起保存到 Obsidian 里',
+  step3Section2Detail2:
+    '亦可进入阅读模式，在同一页面中选取多个片段进行评论，一同保存到 Obsidian 里',
+  step3Section2Detail3:
+    '阅读模式中根据页面排布，自动排列文字片段顺序，点击选中文字的序号，一键定位',
   step3Section2Detail4: '阅读模式可保存全文到 Obsidian 里，选中内容以高亮形式显示',
   step3Section2Detail5: '无论片段还是阅读模式选中内容，保存页面精准链接，随时一键返回网页位置',
   step3Section2Detail6: '在 Obsidian 里安装 sidebar highlights 插件，查看批注内容更方便',
   step3Section3Title: '视频模式',
-  step3Section3Detail1: 'YouTube 或 Bilibili 适配播放页面，打开视频模式，随时记录视频时间点并添加笔记',
+  step3Section3Detail1:
+    'YouTube 或 Bilibili 适配播放页面，打开视频模式，随时记录视频时间点并添加笔记',
   step3Section3Detail2: '点击时间点旁边的序号，一键定位反复观看',
   step3Section3Detail3: '勾选页面文字，精彩评论，一键捕捉',
   step3Section3Detail4: '保存到 Obsidian 后，随时一键回溯视频精准时间点',
@@ -526,7 +564,8 @@ const runtime: Messages = {
   completeOnboarding: '完成引导',
   onboardingFooterNote: '您可以随时在设置页面中重新配置这些选项。',
   onboardingCompleted: '引导已完成！',
-  onboardingCompletedMessage: '您已成功完成插件配置引导。现在可以开始使用 All in Ob 来保存您的网页内容了！',
+  onboardingCompletedMessage:
+    '您已成功完成插件配置引导。现在可以开始使用 All in Ob 来保存您的网页内容了！',
   onboardingLinkText: '引导',
 
   // Footer links
@@ -543,7 +582,8 @@ const runtime: Messages = {
 
   // Contact modal
   contactModalTitle: '联系作者',
-  contactModalDescription: '如果你认可该产品，或想要与作者交流，<br>欢迎前往 <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> ，或添加微信：Lefeaker<br>请注明来处，作者正在求职（秋招人拼了）',
+  contactModalDescription:
+    '如果你认可该产品，或想要与作者交流，<br>欢迎前往 <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> ，或添加微信：Lefeaker<br>请注明来处，作者正在求职（秋招人拼了）',
   contactModalCloseButton: '关闭',
 
   // Support modal (onboarding)
@@ -560,7 +600,7 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: '这是选中的文本内容',
   fragmentFootnoteExampleComment: '这是我的评论',
   fragmentContextHighlightExampleTitle: '上下文高亮示例：',
-  fragmentContextHighlightExampleContent: '前面的上下文 ==这是选中的文本== 后面的上下文',
+  fragmentContextHighlightExampleContent: '前面的上下文 ==这是选中的文本== 后面的上下文'
 };
 
 const zhCN: LocaleDefinition = {

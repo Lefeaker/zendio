@@ -8,16 +8,18 @@ import { testPlatformHarness } from './setup';
 import type { ParseConfig, ParsedResult } from '../../../src/third_party/ai-chat-exporter/types';
 import type { buildChatMarkdown } from '@content/formatters/markdown';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
-const mockParseChatDOM = vi.fn((_platform: string, _doc: Document, _config?: ParseConfig): ParsedResult => ({
-  title: 'Chat Session',
-  messages: [
-    { id: 'first', role: 'user', md: 'Hello AI', timestamp: '2024-01-01T00:00:00Z' },
-    { id: 'second', role: 'assistant', html: '<p>Hi there</p>' }
-  ],
-  assets: [{ url: 'asset-1' }],
-  model: 'gpt-4',
-  createdAt: '2024-01-02T00:00:00Z'
-}));
+const mockParseChatDOMAsync = vi.fn(
+  async (_platform: string, _doc: Document, _config?: ParseConfig): Promise<ParsedResult> => ({
+    title: 'Chat Session',
+    messages: [
+      { id: 'first', role: 'user', md: 'Hello AI', timestamp: '2024-01-01T00:00:00Z' },
+      { id: 'second', role: 'assistant', html: '<p>Hi there</p>' }
+    ],
+    assets: [{ url: 'asset-1' }],
+    model: 'gpt-4',
+    createdAt: '2024-01-02T00:00:00Z'
+  })
+);
 
 const mockChatHtmlToMarkdown = vi.fn((_html: string) => 'Hi there');
 type BuildChatMarkdownInput = Parameters<typeof buildChatMarkdown>[0];
@@ -27,8 +29,11 @@ vi.mock('@content/formatters/markdown', () => ({
   buildChatMarkdown: mockBuildChatMarkdown
 }));
 
+vi.mock('../../../src/third_party/ai-chat-exporter/runtimeRegistry', () => ({
+  parseChatDOMAsync: mockParseChatDOMAsync
+}));
+
 vi.mock('../../../src/third_party/ai-chat-exporter/parse', () => ({
-  parseChatDOM: mockParseChatDOM,
   chatHtmlToMarkdown: mockChatHtmlToMarkdown
 }));
 
@@ -48,9 +53,14 @@ describe('extractAIChat', () => {
 
   function createOptionsRepository() {
     return {
-      get: vi.fn(async () => (await testPlatformHarness.storage.sync.get<StoredOptions>('options') ?? {}) as CompleteOptions),
+      get: vi.fn(
+        async () =>
+          ((await testPlatformHarness.storage.sync.get<StoredOptions>('options')) ??
+            {}) as CompleteOptions
+      ),
       set: vi.fn(async (options: Partial<CompleteOptions>) => {
-        const current = await testPlatformHarness.storage.sync.get<StoredOptions>('options') ?? {};
+        const current =
+          (await testPlatformHarness.storage.sync.get<StoredOptions>('options')) ?? {};
         await testPlatformHarness.storage.sync.set('options', { ...current, ...options });
       }),
       onChange: vi.fn(() => () => undefined)
@@ -63,7 +73,7 @@ describe('extractAIChat', () => {
       optionsRepository: createOptionsRepository()
     });
 
-    expect(mockParseChatDOM).toHaveBeenCalledWith(
+    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
       'chatgpt',
       document,
       expect.objectContaining({ deepResearch: { pureMode: true } })
@@ -89,7 +99,7 @@ describe('extractAIChat', () => {
   });
 
   it('detects Kimi domains and forwards the correct platform', async () => {
-    mockParseChatDOM.mockReturnValueOnce({
+    mockParseChatDOMAsync.mockResolvedValueOnce({
       title: 'Kimi Chat',
       messages: [
         { id: 'u1', role: 'user', md: 'hello kimi', timestamp: '2024-01-01T00:00:00Z' },
@@ -104,7 +114,7 @@ describe('extractAIChat', () => {
       optionsRepository: createOptionsRepository()
     });
 
-    expect(mockParseChatDOM).toHaveBeenCalledWith(
+    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
       'kimi',
       document,
       expect.objectContaining({ deepResearch: { pureMode: true } })
@@ -129,8 +139,14 @@ describe('extractAIChat', () => {
       now: () => new Date('2024-01-01T00:00:00Z')
     });
 
-    const canHandleChat = await extractor.canHandle({ url: 'https://chat.openai.com/chat', document });
-    const canHandleArticle = await extractor.canHandle({ url: 'https://example.com/article', document });
+    const canHandleChat = await extractor.canHandle({
+      url: 'https://chat.openai.com/chat',
+      document
+    });
+    const canHandleArticle = await extractor.canHandle({
+      url: 'https://example.com/article',
+      document
+    });
 
     expect(canHandleChat).toBe(true);
     expect(canHandleArticle).toBe(false);

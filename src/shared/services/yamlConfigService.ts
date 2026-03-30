@@ -1,4 +1,5 @@
 import { DEFAULT_YAML_CONFIG } from '../config/yamlDefaults';
+import { cloneValue } from '../utils/cloneValue';
 import type {
   ContentTypeYamlConfig,
   PartialContentTypeYamlConfig,
@@ -14,24 +15,30 @@ export interface ResolveYamlConfigOptions {
   domain?: string;
 }
 
-const FIELD_TYPES: ReadonlySet<YamlFieldType> = new Set(['text', 'number', 'boolean', 'date', 'array']);
-const CONTENT_TYPE_KEYS: ReadonlySet<YamlContentType> = new Set(['ai_chat', 'article', 'clipper', 'video']);
+const FIELD_TYPES: ReadonlySet<YamlFieldType> = new Set([
+  'text',
+  'number',
+  'boolean',
+  'date',
+  'array'
+]);
+const CONTENT_TYPE_KEYS: ReadonlySet<YamlContentType> = new Set([
+  'ai_chat',
+  'article',
+  'clipper',
+  'video'
+]);
 const FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
-const isYamlContentType = (value: string): value is YamlContentType => CONTENT_TYPE_KEYS.has(value as YamlContentType);
+const isYamlContentType = (value: string): value is YamlContentType =>
+  CONTENT_TYPE_KEYS.has(value as YamlContentType);
 
 const toFieldType = (value: unknown): YamlFieldType =>
-  (typeof value === 'string' && FIELD_TYPES.has(value as YamlFieldType) ? (value as YamlFieldType) : 'text');
+  typeof value === 'string' && FIELD_TYPES.has(value as YamlFieldType)
+    ? (value as YamlFieldType)
+    : 'text';
 
-const jsonClone = <T>(value: T): T => {
-  if (value === undefined || value === null) {
-    return value;
-  }
-  if (typeof globalThis.structuredClone === 'function') {
-    return globalThis.structuredClone(value);
-  }
-  return JSON.parse(JSON.stringify(value)) as T;
-};
+const jsonClone = <T>(value: T): T => cloneValue(value);
 
 const toBoolean = (value: unknown, fallback?: boolean): boolean | undefined => {
   if (typeof value === 'boolean') {
@@ -97,7 +104,10 @@ const sanitizeFieldName = (name: unknown): string | null => {
   return trimmed;
 };
 
-const sanitizeField = (field: unknown, fallbackType: YamlFieldType = 'text'): YamlFieldConfig | null => {
+const sanitizeField = (
+  field: unknown,
+  fallbackType: YamlFieldType = 'text'
+): YamlFieldConfig | null => {
   if (!field || typeof field !== 'object') {
     return null;
   }
@@ -195,8 +205,12 @@ const sanitizeContentTypeOverrides = (
   }
 
   const fields = sanitizeFieldList((raw as PartialContentTypeYamlConfig).fields);
-  const customFields = sanitizeFieldList((raw as PartialContentTypeYamlConfig).customFields, { markCustom: true });
-  const domainOverrides = sanitizeDomainOverrideMap((raw as PartialContentTypeYamlConfig).domainOverrides);
+  const customFields = sanitizeFieldList((raw as PartialContentTypeYamlConfig).customFields, {
+    markCustom: true
+  });
+  const domainOverrides = sanitizeDomainOverrideMap(
+    (raw as PartialContentTypeYamlConfig).domainOverrides
+  );
 
   const result: PartialContentTypeYamlConfig = {};
   if (fields.length) {
@@ -247,7 +261,10 @@ export const normalizeYamlConfigOverrides = (input: unknown): YamlConfigOverride
         return;
       }
       const sanitized = sanitizeContentTypeOverrides(contentType, entry);
-      if (sanitized && (sanitized.fields?.length || sanitized.customFields?.length || sanitized.domainOverrides)) {
+      if (
+        sanitized &&
+        (sanitized.fields?.length || sanitized.customFields?.length || sanitized.domainOverrides)
+      ) {
         contentTypeMap[contentType] = sanitized;
       }
     });
@@ -257,7 +274,10 @@ export const normalizeYamlConfigOverrides = (input: unknown): YamlConfigOverride
         return;
       }
       const sanitized = sanitizeContentTypeOverrides(key, value);
-      if (sanitized && (sanitized.fields?.length || sanitized.customFields?.length || sanitized.domainOverrides)) {
+      if (
+        sanitized &&
+        (sanitized.fields?.length || sanitized.customFields?.length || sanitized.domainOverrides)
+      ) {
         contentTypeMap[key] = sanitized;
       }
     });
@@ -444,7 +464,10 @@ const mergeContentTypeConfig = (
   }
 
   let mergedFields = mergeFields(base?.fields ?? [], override?.fields);
-  const mergedDomainOverrides = mergeDomainOverrides(base?.domainOverrides, override?.domainOverrides);
+  const mergedDomainOverrides = mergeDomainOverrides(
+    base?.domainOverrides,
+    override?.domainOverrides
+  );
   const mergedCustomFields = mergeFields(base?.customFields ?? [], override?.customFields);
 
   if (mergedFields.length && base?.fields?.length) {
@@ -463,12 +486,16 @@ const mergeContentTypeConfig = (
   return {
     contentType,
     fields: mergedFields,
-    ...(mergedDomainOverrides.size ? { domainOverrides: Object.fromEntries(mergedDomainOverrides) } : {}),
+    ...(mergedDomainOverrides.size
+      ? { domainOverrides: Object.fromEntries(mergedDomainOverrides) }
+      : {}),
     ...(mergedCustomFields.length ? { customFields: mergedCustomFields } : {})
   };
 };
 
-const cloneConfig = (config: ContentTypeYamlConfig | undefined): ContentTypeYamlConfig | undefined => {
+const cloneConfig = (
+  config: ContentTypeYamlConfig | undefined
+): ContentTypeYamlConfig | undefined => {
   /* c8 ignore next 2 -- defensive guard when defaults are tampered at runtime */
   if (!config) {
     return undefined;
@@ -479,7 +506,10 @@ const cloneConfig = (config: ContentTypeYamlConfig | undefined): ContentTypeYaml
     ...(config.domainOverrides
       ? {
           domainOverrides: Object.fromEntries(
-            Object.entries(config.domainOverrides).map(([key, fields]) => [key, fields.map(cloneField)])
+            Object.entries(config.domainOverrides).map(([key, fields]) => [
+              key,
+              fields.map(cloneField)
+            ])
           )
         }
       : {}),

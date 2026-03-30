@@ -24,7 +24,8 @@ const runtime: Messages = {
 
   // API Configuration
   apiConfigTitle: 'Obsidian Local REST API',
-  apiConfigHint: 'ここは既定の Vault です。ルーティングルールに一致しないクリップはすべてここに保存されます。',
+  apiConfigHint:
+    'ここは既定の Vault です。ルーティングルールに一致しないクリップはすべてここに保存されます。',
   httpsUrlLabel: 'HTTPS URL',
   httpsUrlHint: '通常はポート 27124、セキュア接続用',
   additionalVaultHttpsHint: '他の Vault と同じポートを使用しないでください',
@@ -76,11 +77,13 @@ const runtime: Messages = {
   aiTemplateLabel: 'AI チャットパステンプレート',
   aiTemplateHint: 'AI チャット会話のクリッピング用',
   availableVariables: '利用可能な変数：',
-  templateVariableNote: '{slug} はタイトルをスラッグ化した文字列です。{HHmmss}/{HHmm} で保存時刻を埋め込み、小文字 {mm} は引き続き月を表します。',
+  templateVariableNote:
+    '{slug} はタイトルをスラッグ化した文字列です。{HHmmss}/{HHmm} で保存時刻を埋め込み、小文字 {mm} は引き続き月を表します。',
 
   // Domain Mapping
   domainMappingTitle: 'ドメインマッピング設定',
-  domainMappingHint: 'よく使うドメインにわかりやすい別名を設定できます（例: medium.com → 「Medium」）',
+  domainMappingHint:
+    'よく使うドメインにわかりやすい別名を設定できます（例: medium.com → 「Medium」）',
   domainLabel: 'ドメイン',
   folderNameLabel: 'フォルダ名',
   addMappingButton: '+ マッピングを追加',
@@ -90,12 +93,14 @@ const runtime: Messages = {
 
   // YAML Configuration
   yamlFieldArrayPlaceholder: '1 行に 1 項目',
-  yamlFieldArrayHint: '1 行につき 1 項目を入力します。エクスポート時に YAML 配列として出力されます。',
+  yamlFieldArrayHint:
+    '1 行につき 1 項目を入力します。エクスポート時に YAML 配列として出力されます。',
   yamlFieldArrayPreviewEmpty: '項目はまだありません',
   yamlFieldValuePathExamplesTitle: 'よく使うコンテキストキー',
   yamlFieldValuePathExamples: 'meta.author\nstats.wordCount\nextra.notes[0]',
   yamlDomainTitle: 'ドメイン別設定',
-  yamlDomainHint: 'ドメインごとに YAML フィールドを上書きできます。グローバル設定より優先されます。',
+  yamlDomainHint:
+    'ドメインごとに YAML フィールドを上書きできます。グローバル設定より優先されます。',
   yamlDomainAddRule: '+ ドメインルールを追加',
   yamlDomainEmpty: 'ドメイン固有のルールはまだありません。',
   yamlDomainPlaceholder: '例: example.com または *.example.com',
@@ -125,13 +130,15 @@ const runtime: Messages = {
   configTransferHint: '一度コピーすれば、どのブラウザでもすぐに同期できます。',
   copyConfigButton: '設定をコピー',
   importConfigButton: 'クリップボードから保存',
-  configTransferNote: '操作ではシステムのクリップボードを使用します。ブラウザに権限が付与されているか確認してください。',
+  configTransferNote:
+    '操作ではシステムのクリップボードを使用します。ブラウザに権限が付与されているか確認してください。',
   copyConfigSuccess: '✅ 設定をクリップボードにコピーしました',
   importSuccess: '✅ 設定をインポートして保存しました',
   importParseFailed: '❌ 設定の解析に失敗しました',
   emptyImportError: 'クリップボードが空です。先に設定をコピーしてください',
   clipboardUnavailable: 'クリップボードにアクセスできません。手動でコピーしてください',
-  clipboardReadUnavailable: 'クリップボードを読み取れません。ブラウザで権限を許可してから再試行してください',
+  clipboardReadUnavailable:
+    'クリップボードを読み取れません。ブラウザで権限を許可してから再試行してください',
   invalidTaxonomy: '分類器のタクソノミーは有効な JSON である必要があります',
 
   // AI Chat Configuration
@@ -149,17 +156,21 @@ const runtime: Messages = {
   deepResearchConfigTitle: 'Gemini Deep Research 設定',
   deepResearchConfigHint: 'Deep Research レポートのキャプチャ方法をカスタマイズ',
   pureModeLabel: 'ピュアモード（レポート内容のみキャプチャ）',
-  pureModeHint: '有効にすると、Deep Research レポートの内容のみをキャプチャし、会話メッセージは含めません',
-  multipleReportsInfo: 'ℹ️ 複数のレポートについて: Gemini は一度に 1 つの完全なレポートのみを表示できます。複数のレポートを保存するには、各レポートを個別に開いてクリップしてください。',
+  pureModeHint:
+    '有効にすると、Deep Research レポートの内容のみをキャプチャし、会話メッセージは含めません',
+  multipleReportsInfo:
+    'ℹ️ 複数のレポートについて: Gemini は一度に 1 つの完全なレポートのみを表示できます。複数のレポートを保存するには、各レポートを個別に開いてクリップしてください。',
 
   readingConfigTitle: '読書モード',
   readingConfigHint: '読書モードで保存する内容を選択します',
   readingExportModeLabel: 'エクスポート内容',
   readingExportModeHighlights: 'ハイライトのみ保存',
   readingExportModeFull: '全文を保存しハイライトを残す',
-  readingExportModeDescription: '「全文」を選択すると、整形済みの原文も保存され、全文にハイライトと脚注が残ります。',
+  readingExportModeDescription:
+    '「全文」を選択すると、整形済みの原文も保存され、全文にハイライトと脚注が残ります。',
   readingHighlightThemeLabel: 'ハイライトカラー',
-  readingHighlightThemeDescription: '読書モードページのハイライト背景のみ変更され、エクスポートされる Markdown には影響しません。',
+  readingHighlightThemeDescription:
+    '読書モードページのハイライト背景のみ変更され、エクスポートされる Markdown には影響しません。',
   readingHighlightThemeGradient: 'パープル×ブルーのグラデーション（デフォルト）',
   readingHighlightThemePurple: 'パープル（単色）',
   readingHighlightThemeNeonYellow: 'ネオンイエロー',
@@ -169,22 +180,28 @@ const runtime: Messages = {
   fragmentConfigTitle: 'フラグメントクリップ設定',
   fragmentConfigHint: '選択したテキストのクリップ形式や挙動をカスタマイズ',
   fragmentUseFootnoteLabel: '脚注形式を使用（推奨）',
-  fragmentUseFootnoteHint: '有効にすると、コメントがObsidian脚注形式で保存され、Sidebar Highlightsプラグインと互換性があります',
-  fragmentCaptureContextHint: '有効にすると、選択したテキストの周囲のコンテキストを取得し、実際の選択部分を==ハイライト==でマークします',
+  fragmentUseFootnoteHint:
+    '有効にすると、コメントがObsidian脚注形式で保存され、Sidebar Highlightsプラグインと互換性があります',
+  fragmentCaptureContextHint:
+    '有効にすると、選択したテキストの周囲のコンテキストを取得し、実際の選択部分を==ハイライト==でマークします',
   fragmentFootnoteExampleTitle: '脚注形式の例：',
   fragmentModifierToggleLabel: '修飾キーで自動クリップ/読書を有効にする',
-  fragmentModifierToggleDescription: '選択した修飾キーを押しながらテキストをドラッグすると、クリッパーダイアログや読書モードのハイライトが自動的に開きます。',
+  fragmentModifierToggleDescription:
+    '選択した修飾キーを押しながらテキストをドラッグすると、クリッパーダイアログや読書モードのハイライトが自動的に開きます。',
   fragmentModifierKeysLabel: '修飾キーの設定',
-  fragmentModifierKeysDescription: '自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。',
+  fragmentModifierKeysDescription:
+    '自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。',
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyShift: 'Shift',
   fragmentKeyboardShortcutsLabel: 'クリッパーダイアログのキーボードショートカットを有効にする',
-  fragmentKeyboardShortcutsHint: 'クリッパーダイアログで：ダブルEnterでリーダーモードに入る、Cmd+Enter（Mac）またはAlt+Enter（Windows）で直接クリップ',
+  fragmentKeyboardShortcutsHint:
+    'クリッパーダイアログで：ダブルEnterでリーダーモードに入る、Cmd+Enter（Mac）またはAlt+Enter（Windows）で直接クリップ',
 
   // Clipper dialog keyboard shortcuts
-  clipperCommentEditCompleted: 'コメント編集が完了しました。以下のキーボードショートカットを使用できます：',
+  clipperCommentEditCompleted:
+    'コメント編集が完了しました。以下のキーボードショートカットを使用できます：',
   clipperShortcutHintDoubleEnter: 'ダブルEnter',
   clipperShortcutHintModifierEnter: '直接クリップ',
   clipperShortcutHintEscape: 'キャンセル',
@@ -199,7 +216,8 @@ const runtime: Messages = {
   classifierConfigTitle: 'AI 補助分類とサマリー',
   classifierConfigHint: 'LLM を利用してクリップ内容を自動分類し、サマリー化します',
   enableClassifierLabel: 'スマート分類を有効にする',
-  classifierUnstableNotice: '⚠️ この分類機能はまだ安定しておらず、動作が不安定になる可能性があります。',
+  classifierUnstableNotice:
+    '⚠️ この分類機能はまだ安定しておらず、動作が不安定になる可能性があります。',
   providerLabel: 'LLM プロバイダー',
   endpointLabel: 'API エンドポイント',
   endpointPlaceholder: 'http://localhost:11434/api/chat',
@@ -224,15 +242,24 @@ const runtime: Messages = {
   reloadPrompt: '修復された設定を確認するにはページを再読み込みしてください',
   connectionTesting: '接続をテストしています...',
   connectionSuccessShort: '接続に成功しました',
-  portConflictDetected: '⚠️ ポート競合を検出しました: {ports}。Obsidian で各ボルトに異なるポートを設定してから再試行してください。',
+  portConflictDetected:
+    '⚠️ ポート競合を検出しました: {ports}。Obsidian で各ボルトに異なるポートを設定してから再試行してください。',
   connectionFailureHintsTitle: '対処方法：',
-  connectionFailureHintCheckApiKey: 'Obsidian Local REST API の設定と API キーが一致しているか確認してください',
-  connectionFailureHintCheckVault: 'Vault 名が Obsidian Local REST API プラグインの設定と一致しているか確認してください',
-  connectionFailureHintCheckService: 'Obsidian と Local REST API プラグインが起動しているか確認してください',
-  connectionFailureHintGeneric: 'ネットワーク状況を確認し、必要に応じて Local REST API を再起動してください',
+  connectionFailureHintCheckApiKey:
+    'Obsidian Local REST API の設定と API キーが一致しているか確認してください',
+  connectionFailureHintCheckVault:
+    'Vault 名が Obsidian Local REST API プラグインの設定と一致しているか確認してください',
+  connectionFailureHintCheckService:
+    'Obsidian と Local REST API プラグインが起動しているか確認してください',
+  connectionFailureHintGeneric:
+    'ネットワーク状況を確認し、必要に応じて Local REST API を再起動してください',
 
   // Diagnosis
   diagnosisTitle: '設定診断',
+  diagnosisDescription: '「設定を診断」をクリックすると、検査結果と修復候補をここで確認できます。',
+  diagnosisSummaryHint:
+    '診断では REST API、パステンプレート、ドメインマッピング、マルチボールトルーティングなどを確認し、詳細レポートを表示します。',
+  diagnosisResultTitle: '診断結果',
 
   // Notifications
   clipSuccess: 'Obsidian に保存されました',
@@ -253,7 +280,8 @@ const runtime: Messages = {
   // Reader Mode
   readerPanelTitle: '読書ハイライト中',
   readerPanelStatus: 'テキストを選択してハイライトと注釈を追加',
-  readerPanelHint: 'ヒント：テキストを選択してマウスを離すと注釈ダイアログが表示され、空欄のままでハイライトのみ保存できます。',
+  readerPanelHint:
+    'ヒント：テキストを選択してマウスを離すと注釈ダイアログが表示され、空欄のままでハイライトのみ保存できます。',
   readerPanelFinish: '完了してエクスポート',
   readerPanelCancel: 'キャンセル',
   readerPanelCounter: 'ハイライト {count} 件を収集',
@@ -275,14 +303,18 @@ const runtime: Messages = {
   privacySettingsDescription: '匿名の利用状況とエラー報告の収集設定をここで管理します。',
   privacySettingsNote: 'データ収集とエラー報告の制御',
   analyticsDebugTitle: 'デバッグモード',
-  analyticsDebugDescription: '有効にすると GA4 DebugView へイベントを送信し、コンソールにリクエスト詳細を出力します。問題調査時のみ利用してください。',
-  analyticsDebugDisabledHint: '「利用状況の分析」と「エラー報告」を有効にしてからデバッグモードをオンにできます。',
+  analyticsDebugDescription:
+    '有効にすると GA4 DebugView へイベントを送信し、コンソールにリクエスト詳細を出力します。問題調査時のみ利用してください。',
+  analyticsDebugDisabledHint:
+    '「利用状況の分析」と「エラー報告」を有効にしてからデバッグモードをオンにできます。',
   analyticsDebugEnabled: 'デバッグモードを有効にしました。調査が終わったら必ずオフにしてください。',
   analyticsDebugDisabled: 'デバッグモードを無効にしました。',
   analyticsConsentTitle: '利用状況の分析',
-  analyticsConsentDescription: '匿名化された利用統計を収集し、拡張機能の改善に役立てます。個人を特定できる情報は取得しません。',
+  analyticsConsentDescription:
+    '匿名化された利用統計を収集し、拡張機能の改善に役立てます。個人を特定できる情報は取得しません。',
   errorReportingConsentTitle: 'エラー報告',
-  errorReportingConsentDescription: 'サニタイズされたエラー情報を自動送信し、問題解析を支援します。',
+  errorReportingConsentDescription:
+    'サニタイズされたエラー情報を自動送信し、問題解析を支援します。',
   errorReportingDetailsTitle: '収集される内容',
   errorReportingCollectedTitle: '収集される情報:',
   errorReportingCollectedError: 'エラーの種類と重大度',
@@ -296,11 +328,13 @@ const runtime: Messages = {
   errorReportingNotCollectedPasswords: 'パスワードや機密データ',
   savePrivacySettings: '設定を保存',
   clearAllAnalyticsData: 'すべてのデータを削除',
-  privacyFooterText: '私たちはあなたのプライバシーを大切にします。いつでも設定を変更したり、収集済みデータの削除を依頼できます。',
+  privacyFooterText:
+    '私たちはあなたのプライバシーを大切にします。いつでも設定を変更したり、収集済みデータの削除を依頼できます。',
   privacyPolicyLink: 'プライバシーポリシー',
   dataUsageLink: 'データ利用について',
   privacySettingsSaved: 'プライバシー設定を保存しました',
-  privacyDataWillBeCleared: 'データ収集を停止しました。既存の分析データは 24 時間以内に削除されます。',
+  privacyDataWillBeCleared:
+    'データ収集を停止しました。既存の分析データは 24 時間以内に削除されます。',
   privacySettingsError: '設定の保存に失敗しました。もう一度お試しください。',
   confirmClearAllData: '分析データをすべて削除しますか？この操作は元に戻せません。',
   allDataCleared: '分析データをすべて削除しました。',
@@ -309,7 +343,8 @@ const runtime: Messages = {
   // Video Mode
   videoPanelTitle: '動画キャプチャーモード',
   videoPanelStatus: '重要なタイムポイントやテキスト抜粋を記録',
-  videoPanelHint: 'ヒント: テキストを選択すると自動で追加されます。Enter を 2 回押すと保存、Esc でキャンセルします。',
+  videoPanelHint:
+    'ヒント: テキストを選択すると自動で追加されます。Enter を 2 回押すと保存、Esc でキャンセルします。',
   videoPanelAdd: '現在のタイムスタンプを保存',
   videoPanelFinish: '完了してエクスポート',
   videoPanelCancel: '終了',
@@ -319,6 +354,25 @@ const runtime: Messages = {
   videoConfigHint: '対応する動画サイトでメモ用のプロンプトを表示できます',
   videoFloatingPromptLabel: '動画ページにフローティングボタンを表示する',
   videoFloatingPromptHint: 'YouTube と bilibili をサポート。右下にショートカットが表示されます。',
+  videoPromptCustomizationTitle: 'フローティングプロンプト文言とショートカット',
+  videoPromptLabelTitle: 'プロンプトボタンの文言',
+  videoPromptLabelPlaceholder: '例：動画メモを開始',
+  videoPromptLabelHint:
+    'スクリーンリーダーやホバー表示で使う、フローティングボタンの aria-label として表示されます。',
+  videoPromptShortcutTitle: 'プロンプトのショートカット',
+  videoPromptShortcutPlaceholder: '例：Alt+V',
+  videoPromptShortcutHint:
+    'フローティングプロンプトに表示されます。覚えやすい Alt/Cmd の組み合わせがおすすめです。',
+  videoSupportedPlatformsTitle: '対応プラットフォーム',
+  videoPlatformSupportedBadge: 'SUPPORTED',
+  videoEnableButton: '動画メモを有効化',
+  videoSaveConfigButton: '動画設定を保存',
+  videoPlatformYoutubeName: 'YouTube',
+  videoPlatformYoutubeDescription:
+    'watch / short ページに対応し、フローティングプロンプトを自動検出してワンクリックで動画メモモードに入れます。',
+  videoPlatformBilibiliName: 'Bilibili',
+  videoPlatformBilibiliDescription:
+    'BV/AV ページに対応し、弾幕エリアの余白を保ったままショートカット案内を表示します。',
   videoTimestampSectionTitle: '動画タイムスタンプ',
   videoFragmentSectionTitle: 'テキスト抜粋',
   videoCaptureEditLabel: 'メモを編集',
@@ -395,7 +449,8 @@ const runtime: Messages = {
 
   yamlConfigTitle: 'YAML 設定',
   yamlConfigNote: 'YAML フィールドの統一設定（プレビュー）',
-  yamlConfigPlaceholder: 'この機能は計画中のため、現在はレイアウトプレビューを表示しています。今後、カスタムフィールドタイプ、対象コンテンツタイプ、既定値をサポート予定です。',
+  yamlConfigPlaceholder:
+    'この機能は計画中のため、現在はレイアウトプレビューを表示しています。今後、カスタムフィールドタイプ、対象コンテンツタイプ、既定値をサポート予定です。',
   yamlConfigHint: 'Manage the YAML fields exported for each content type.',
   yamlFieldNameLabel: 'Field',
   yamlFieldTypeLabel: 'Type',
@@ -415,7 +470,8 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
-  yamlFieldAvailabilityNote: 'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',
   yamlFilterAllLabel: 'All',
   yamlCustomGroupLabel: 'Custom fields',
@@ -428,7 +484,10 @@ const runtime: Messages = {
 
   // Routing Rules
   routingRulesTitle: 'ルーティングルール',
-  routingRulesHint: 'ドメイン、キーワード、または URL パターンでターゲット Vault を自動選択します。一致しない場合は既定の Vault に保存されます。',
+  routingRulesHint:
+    'ドメイン、キーワード、または URL パターンでターゲット Vault を自動選択します。一致しない場合は既定の Vault に保存されます。',
+  routingRulesPriorityNote:
+    'ヒント：優先度が高いルールほど先に一致し、対象ボールトは有効のままにしてください。',
   vaultRulesTitle: 'ルーティングルール',
   ruleEmptyPlaceholder: 'ルールがまだありません。この Vault に振り分けるルールを追加してください。',
   addRuleButton: '+ ルールを追加',
@@ -454,11 +513,13 @@ const runtime: Messages = {
   // Onboarding Page
   onboardingTitle: 'All in Ob へようこそ',
   onboardingSubtitle: 'クリッパー拡張機能を素早く設定しましょう',
-  onboardingWelcomeMessage: 'All in Ob をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
+  onboardingWelcomeMessage:
+    'All in Ob をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
 
   // Step 1: API Configuration
   step1Title: 'Obsidian Local REST API の設定（必須）',
-  step1Description: 'まず、ObsidianにLocal REST APIプラグインをインストールして設定する必要があります。これは拡張機能とObsidianの橋渡しです。',
+  step1Description:
+    'まず、ObsidianにLocal REST APIプラグインをインストールして設定する必要があります。これは拡張機能とObsidianの橋渡しです。',
 
   step1Detail1: 'Obsidianで「Local REST API」プラグインをインストールして有効化',
   step1Detail2: 'プラグイン設定で「Enable Non-encrypted (HTTP) Server」を有効にする',
@@ -471,7 +532,8 @@ const runtime: Messages = {
 
   // Step 2: Additional Vaults
   step2Title: '追加Vaultの設定（オプション）',
-  step2Description: '複数のObsidian Vaultがある場合、追加のVaultを設定してルーティングルールを設定し、異なるタイプのコンテンツを対応するVaultに自動保存できます。',
+  step2Description:
+    '複数のObsidian Vaultがある場合、追加のVaultを設定してルーティングルールを設定し、異なるタイプのコンテンツを対応するVaultに自動保存できます。',
 
   step2Detail1: '複数のObsidian Vaultをサポート',
   step2Detail2: 'ドメイン、キーワード、URLパターンに基づくルーティングルールの設定',
@@ -485,20 +547,30 @@ const runtime: Messages = {
   step3Description: '拡張機能の主要機能について素早く学んで、より良く使用できるようにしましょう。',
 
   step3Section1Title: 'ウェブクリッピング',
-  step3Section1Detail1: 'ウェブページの空白部分をクリックして、ページ全体をクリップ（ページの読み込み完了を待ち、画像リソースが完全に読み込まれるようにスクロール）',
+  step3Section1Detail1:
+    'ウェブページの空白部分をクリックして、ページ全体をクリップ（ページの読み込み完了を待ち、画像リソースが完全に読み込まれるようにスクロール）',
   step3Section1Detail2: '主要なAIチャット対話を自動認識し、フォーマットされたAI対話記録を保存',
   step3Section2Title: 'クリッピング/リーディングモード',
-  step3Section2Detail1: 'テキストを選択して右クリック、または補助キーを開いて補助キーを押してコンテンツを選択し、コンテンツにコメントを追加して、選択したコンテンツと注釈をObsidianに保存',
-  step3Section2Detail2: 'リーディングモードに入り、同じページで複数のフラグメントを選択してコメントし、一緒にObsidianに保存',
-  step3Section2Detail3: 'リーディングモードでページレイアウトに応じてテキストフラグメントを自動配置、選択したテキストの番号をクリックしてワンクリック位置決め',
-  step3Section2Detail4: 'リーディングモードで全文をObsidianに保存、選択したコンテンツをハイライト形式で表示',
-  step3Section2Detail5: 'フラグメントでもリーディングモードの選択コンテンツでも、ページの正確なリンクを保存し、いつでもワンクリックでウェブページの位置に戻る',
-  step3Section2Detail6: 'Obsidianにsidebar highlightsプラグインをインストールして、注釈コンテンツをより便利に表示',
+  step3Section2Detail1:
+    'テキストを選択して右クリック、または補助キーを開いて補助キーを押してコンテンツを選択し、コンテンツにコメントを追加して、選択したコンテンツと注釈をObsidianに保存',
+  step3Section2Detail2:
+    'リーディングモードに入り、同じページで複数のフラグメントを選択してコメントし、一緒にObsidianに保存',
+  step3Section2Detail3:
+    'リーディングモードでページレイアウトに応じてテキストフラグメントを自動配置、選択したテキストの番号をクリックしてワンクリック位置決め',
+  step3Section2Detail4:
+    'リーディングモードで全文をObsidianに保存、選択したコンテンツをハイライト形式で表示',
+  step3Section2Detail5:
+    'フラグメントでもリーディングモードの選択コンテンツでも、ページの正確なリンクを保存し、いつでもワンクリックでウェブページの位置に戻る',
+  step3Section2Detail6:
+    'Obsidianにsidebar highlightsプラグインをインストールして、注釈コンテンツをより便利に表示',
   step3Section3Title: 'ビデオモード',
-  step3Section3Detail1: 'YouTubeやbilibiliの再生ページに対応、ビデオモードを開いて、いつでもビデオのタイムスタンプを記録してメモを追加',
-  step3Section3Detail2: 'タイムスタンプの横の番号をクリックして、ワンクリック位置決めで繰り返し視聴',
+  step3Section3Detail1:
+    'YouTubeやbilibiliの再生ページに対応、ビデオモードを開いて、いつでもビデオのタイムスタンプを記録してメモを追加',
+  step3Section3Detail2:
+    'タイムスタンプの横の番号をクリックして、ワンクリック位置決めで繰り返し視聴',
   step3Section3Detail3: 'ページテキストを選択して、素晴らしいコメントをワンクリックキャプチャ',
-  step3Section3Detail4: 'Obsidianに保存後、いつでもワンクリックでビデオの正確なタイムスタンプに戻る',
+  step3Section3Detail4:
+    'Obsidianに保存後、いつでもワンクリックでビデオの正確なタイムスタンプに戻る',
   step3ActionPrimary: '詳細設定を表示',
   step3ActionSecondary: '後で学ぶ',
 
@@ -506,7 +578,8 @@ const runtime: Messages = {
   step4Title: '補助機能',
   step4Description: '拡張機能は様々な補助機能も提供し、使用体験をより便利にします。',
 
-  step4Detail1: '同じデバイスの複数ブラウザで、現在の設定をワンクリックコピー、ペーストして同期、重複設定不要',
+  step4Detail1:
+    '同じデバイスの複数ブラウザで、現在の設定をワンクリックコピー、ペーストして同期、重複設定不要',
   step4Detail2: 'ドメインマッピング：一般的なウェブサイトをフレンドリーなフォルダ名にマッピング',
   step4Detail3: 'カスタムパス設定、必要に応じてパスを調整',
   step4Detail4: 'スマート診断：設定に問題？スマート診断で迅速なトラブルシューティング',
@@ -518,7 +591,8 @@ const runtime: Messages = {
   step5Description: '拡張機能は継続的に発展し、より多くのインテリジェント機能をお届けします。',
 
   step5Detail1: 'AI機能を導入し、よりスムーズで、よりインテリジェントに',
-  step5Detail2: '双方向インタラクション、もはやメモを保存するだけでなく、ブラウザとObsidianの架け橋',
+  step5Detail2:
+    '双方向インタラクション、もはやメモを保存するだけでなく、ブラウザとObsidianの架け橋',
   step5Detail3: '改善提案を歓迎、開発は容易ではありません、サポートに感謝',
   step5ActionPrimary: '提案を提出',
   step5ActionSecondary: 'サポートを表示',
@@ -528,7 +602,8 @@ const runtime: Messages = {
   completeOnboarding: 'ガイドを完了',
   onboardingFooterNote: 'これらのオプションは設定ページでいつでも再設定できます。',
   onboardingCompleted: 'ガイド完了！',
-  onboardingCompletedMessage: '拡張機能の設定ガイドが正常に完了しました。これでAll in Obを使用してウェブコンテンツを保存できます！',
+  onboardingCompletedMessage:
+    '拡張機能の設定ガイドが正常に完了しました。これでAll in Obを使用してウェブコンテンツを保存できます！',
   onboardingLinkText: 'ガイド',
 
   // Footer links
@@ -537,20 +612,24 @@ const runtime: Messages = {
   footerContactLink: '作者に連絡',
 
   suggestionsModalTitle: 'ご意見をお寄せください',
-  suggestionsModalDescription: 'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+  suggestionsModalDescription:
+    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   suggestionsModalReddit: 'Reddit で交流',
   suggestionsModalXiaohongshu: '小紅書コミュニティ',
   suggestionsModalGithub: 'GitHub Issue',
-  suggestionsModalQrPlaceholder: 'QR コードは近日追加予定です。まずは Reddit でのご連絡をお待ちしています。',
+  suggestionsModalQrPlaceholder:
+    'QR コードは近日追加予定です。まずは Reddit でのご連絡をお待ちしています。',
 
   // Contact modal
   contactModalTitle: '作者に連絡',
-  contactModalDescription: 'このプロダクトを応援いただける方、作者と交流したい方は、<br><a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> で気軽に声をかけてください。<br>作者は現在就職活動中です。応援いただけると励みになります。',
+  contactModalDescription:
+    'このプロダクトを応援いただける方、作者と交流したい方は、<br><a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> で気軽に声をかけてください。<br>作者は現在就職活動中です。応援いただけると励みになります。',
   contactModalCloseButton: '閉じる',
 
   // Support modal (onboarding)
   supportModalTitle: 'ご支援ありがとうございます',
-  supportModalDescription: '開発は簡単ではありません。このプラグインがお役に立てば、以下の方法でご支援いただけると幸いです：',
+  supportModalDescription:
+    '開発は簡単ではありません。このプラグインがお役に立てば、以下の方法でご支援いただけると幸いです：',
   supportLinkKofi: 'Ko-fi',
   supportLinkAfdian: 'Afdian',
 
@@ -562,14 +641,16 @@ const runtime: Messages = {
   fragmentFootnoteExampleContent: 'これは選択されたテキストの内容です',
   fragmentFootnoteExampleComment: 'これは私のコメントです',
   fragmentContextHighlightExampleTitle: 'コンテキストハイライトの例：',
-  fragmentContextHighlightExampleContent: '前のコンテキスト ==これは選択されたテキスト== 後のコンテキスト',
+  fragmentContextHighlightExampleContent:
+    '前のコンテキスト ==これは選択されたテキスト== 後のコンテキスト'
 };
 
 const jaJP: LocaleDefinition = {
   runtime,
   static: {
     extName: 'All in Ob',
-    extDescription: 'AI強化のウェブクリッパーで、チャットやスニペット、記事をObsidianに保存できます。'
+    extDescription:
+      'AI強化のウェブクリッパーで、チャットやスニペット、記事をObsidianに保存できます。'
   }
 };
 

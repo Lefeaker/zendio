@@ -1,9 +1,9 @@
 import type { ExtractionResult } from '../../shared/types/extraction';
 import type { ContentExtractor, ExtractionContext } from './types';
-import { createAIChatExtractor } from './aiChatExtractor';
-import { createArticleExtractor } from './articleExtractor';
 import { extractionErrors } from '../../shared/errors';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
+import { resolveRepository } from '../../shared/di/serviceRegistry';
+import { DI_TOKENS } from '../../shared/di/tokens';
 
 type ExtractorSource = ContentExtractor | (() => ContentExtractor | Promise<ContentExtractor>);
 
@@ -40,7 +40,7 @@ class ExtractorRegistry {
 
   private async resolve(source: ExtractorSource): Promise<ContentExtractor> {
     if (this.cache.has(source)) {
-      return this.cache.get(source)!;
+      return this.cache.get(source);
     }
 
     let extractor: ContentExtractor;
@@ -57,7 +57,12 @@ class ExtractorRegistry {
 }
 
 function isContentExtractor(candidate: ExtractorSource): candidate is ContentExtractor {
-  return typeof candidate === 'object' && candidate !== null && 'canHandle' in candidate && 'extract' in candidate;
+  return (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    'canHandle' in candidate &&
+    'extract' in candidate
+  );
 }
 
 export interface ExtractorRegistryApi {
@@ -77,10 +82,19 @@ export interface DefaultExtractorRegistryDependencies {
 export function createDefaultExtractorRegistry(
   dependencies: DefaultExtractorRegistryDependencies = {}
 ): ExtractorRegistryApi {
+  const optionsRepository =
+    dependencies.optionsRepository ??
+    resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   const registry = createExtractorRegistry();
-  registry.register(() => createAIChatExtractor({
-    ...(dependencies.optionsRepository !== undefined && { optionsRepository: dependencies.optionsRepository })
-  }));
-  registry.register(() => createArticleExtractor());
+  registry.register(async () => {
+    const { createAIChatExtractor } = await import('./aiChatExtractor');
+    return createAIChatExtractor({
+      optionsRepository
+    });
+  });
+  registry.register(async () => {
+    const { createArticleExtractor } = await import('./articleExtractor');
+    return createArticleExtractor();
+  });
   return registry;
 }

@@ -1,4 +1,10 @@
-import type { StorageAreaService, StorageService } from '../../platform/interfaces/storage';
+import type {
+  StorageAreaService,
+  StorageChange,
+  StorageAreaChangeCallback,
+  StorageChangeCallback,
+  StorageService
+} from '../../platform/interfaces/storage';
 import { ReactiveStore, type StateStore } from './ReactiveStore';
 
 type StorageAreaName = 'sync' | 'local' | 'session';
@@ -6,6 +12,7 @@ type StorageAreaName = 'sync' | 'local' | 'session';
 // 模块级别的单例实例
 let globalStateManagerInstance: GlobalStateManager | null = null;
 let globalStateManagerStorage: StorageService | null = null;
+let fallbackGlobalStateManagerStorage: StorageService | null = null;
 
 export interface SyncOptions<TStored, TMapped = TStored> {
   area?: StorageAreaName;
@@ -153,7 +160,10 @@ export class GlobalStateManager {
     return entry;
   }
 
-  private resolveStorageArea(storage: StorageService, area: StorageAreaName): StorageAreaService | null {
+  private resolveStorageArea(
+    storage: StorageService,
+    area: StorageAreaName
+  ): StorageAreaService | null {
     if (area === 'session') {
       return storage.session ?? null;
     }
@@ -171,14 +181,85 @@ export function configureGlobalStateManagerStorage(storage: StorageService): voi
   globalStateManagerStorage = storage;
 }
 
+function createMemoryStorageArea(): StorageAreaService {
+  const values = new Map<string, unknown>();
+  const keyWatchers = new Map<string, Set<(value: unknown, change: StorageChange) => void>>();
+  const allWatchers = new Set<StorageAreaChangeCallback>();
+
+  const notify = (key: string, change: StorageChange): void => {
+    keyWatchers.get(key)?.forEach((callback) => callback(change.newValue, change));
+    allWatchers.forEach((callback) => callback({ [key]: change }));
+  };
+
+  const area: StorageAreaService = {
+    async get<T = unknown>(key: string): Promise<T | undefined> {
+      return values.get(key) as T | undefined;
+    },
+    async set<T = unknown>(key: string, value: T): Promise<void> {
+      const oldValue = values.get(key);
+      values.set(key, value);
+      notify(key, { oldValue, newValue: value });
+    },
+    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
+      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
+    },
+    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
+      for (const [key, value] of Object.entries(entries)) {
+        const oldValue = values.get(key);
+        values.set(key, value);
+        notify(key, { oldValue, newValue: value });
+      }
+    },
+    async remove(key: string | string[]): Promise<void> {
+      for (const currentKey of Array.isArray(key) ? key : [key]) {
+        const oldValue = values.get(currentKey);
+        values.delete(currentKey);
+        notify(currentKey, { oldValue, newValue: undefined });
+      }
+    },
+    async clear(): Promise<void> {
+      for (const key of Array.from(values.keys())) {
+        const oldValue = values.get(key);
+        values.delete(key);
+        notify(key, { oldValue, newValue: undefined });
+      }
+    },
+    watchKey<T = unknown>(key: string, callback: StorageChangeCallback<T>): () => void {
+      const watchers = keyWatchers.get(key) ?? new Set();
+      keyWatchers.set(key, watchers);
+      const wrapped = callback as (value: unknown, change: StorageChange) => void;
+      watchers.add(wrapped);
+      return () => {
+        watchers.delete(wrapped);
+      };
+    },
+    watchAll(callback: StorageAreaChangeCallback): () => void {
+      allWatchers.add(callback);
+      return () => {
+        allWatchers.delete(callback);
+      };
+    }
+  };
+
+  return area;
+}
+
 function requireGlobalStateManagerStorage(): StorageService {
   if (!globalStateManagerStorage) {
-    throw new Error('[GlobalState] StorageService is not configured.');
+    if (!fallbackGlobalStateManagerStorage) {
+      const sync = createMemoryStorageArea();
+      const local = createMemoryStorageArea();
+      const session = createMemoryStorageArea();
+      fallbackGlobalStateManagerStorage = { sync, local, session };
+    }
+    return fallbackGlobalStateManagerStorage;
   }
   return globalStateManagerStorage;
 }
 
-export function createGlobalStateManager(storage: StorageService = requireGlobalStateManagerStorage()): GlobalStateManager {
+export function createGlobalStateManager(
+  storage: StorageService = requireGlobalStateManagerStorage()
+): GlobalStateManager {
   return new GlobalStateManager(storage);
 }
 

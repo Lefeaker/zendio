@@ -22,9 +22,15 @@ Design Tokens (CSS 变量)
 
 ### **1️⃣ 调整设计令牌（最推荐）**
 
-**文件位置**：`src/options/styles/design-tokens.css`
+**文件位置**：`src/styles/design-tokens.css`
+
+兼容说明：
+
+- `src/options/styles/design-tokens.css` 已删除，不再保留 legacy wrapper
+- 真正需要修改的 token 真值文件只有 `src/styles/design-tokens.css`
 
 **适用场景**：
+
 - 修改颜色主题（背景、文字、边框、主色调）
 - 调整间距系统（padding、margin、gap）
 - 修改圆角大小
@@ -35,34 +41,33 @@ Design Tokens (CSS 变量)
 ```css
 :root {
   /* 修改主色调（紫色 → 蓝色） */
-  --aobx-accent: hsl(217 91% 60%);  /* 原来是 hsl(257 86% 63%) */
+  --aobx-accent: hsl(217 91% 60%); /* 原来是 hsl(257 86% 63%) */
 
   /* 修改背景色（更亮） */
-  --aobx-surface-0: hsl(220 12% 98%);  /* 原来是 97% */
-  --aobx-surface-1: hsl(220 12% 96%);  /* 原来是 95% */
+  --aobx-surface-0: hsl(220 12% 98%); /* 原来是 97% */
+  --aobx-surface-1: hsl(220 12% 96%); /* 原来是 95% */
 
   /* 修改圆角（更圆润） */
-  --aobx-radius-lg: 24px;  /* 原来是 18px */
-  --aobx-radius-md: 16px;  /* 原来是 12px */
+  --aobx-radius-lg: 24px; /* 原来是 18px */
+  --aobx-radius-md: 16px; /* 原来是 12px */
 
   /* 修改间距（更宽松） */
-  --aobx-space-4: 20px;  /* 原来是 16px */
-  --aobx-space-6: 32px;  /* 原来是 24px */
+  --aobx-space-4: 20px; /* 原来是 16px */
+  --aobx-space-6: 32px; /* 原来是 24px */
 }
 
 /* 深色模式自定义 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --aobx-surface-0: hsl(220 8% 8%);   /* 更深的背景 */
-    --aobx-surface-1: hsl(220 8% 10%);
-    --aobx-text: hsl(0 0% 95%);          /* 更亮的文字 */
-  }
+html[data-theme='dark'] {
+  --aobx-surface-0: hsl(220 8% 8%); /* 更深的背景 */
+  --aobx-surface-1: hsl(220 8% 10%);
+  --aobx-text: hsl(0 0% 95%); /* 更亮的文字 */
 }
 ```
 
-**修改后需要**：重新构建 Tailwind
+**修改后需要**：重新构建开发产物
+
 ```bash
-npm run tailwind:build
+npm run build:dev
 ```
 
 ---
@@ -72,6 +77,7 @@ npm run tailwind:build
 **文件位置**：`tailwind.config.cjs`
 
 **适用场景**：
+
 - 添加新的 Tailwind utility 类
 - 扩展颜色、间距、字体等选项
 - 自定义断点（响应式）
@@ -87,27 +93,28 @@ module.exports = {
         'accent-soft': 'var(--aobx-accent-soft)',
 
         // 新增：自定义语义色
-        'info': 'hsl(200 90% 50%)',
-        'success-bright': 'hsl(140 80% 50%)',
+        info: 'hsl(200 90% 50%)',
+        'success-bright': 'hsl(140 80% 50%)'
       },
 
       spacing: {
         // 新增：特殊间距
-        '18': '72px',
-        '22': '88px',
+        18: '72px',
+        22: '88px'
       },
 
       // 新增：自定义断点
       screens: {
-        'xs': '480px',
-        'xxl': '1600px',
+        xs: '480px',
+        xxl: '1600px'
       }
     }
   }
-}
+};
 ```
 
 **修改后需要**：重新构建 Tailwind
+
 ```bash
 npm run tailwind:build
 ```
@@ -119,6 +126,7 @@ npm run tailwind:build
 **文件位置**：`src/options/styles/tailwind.input.css`
 
 **适用场景**：
+
 - 创建可复用的组件样式
 - 封装复杂的样式组合
 - 定义通用的 UI 模式
@@ -161,6 +169,7 @@ npm run tailwind:build
 ```
 
 **修改后需要**：重新构建 Tailwind
+
 ```bash
 npm run tailwind:build
 ```
@@ -172,6 +181,7 @@ npm run tailwind:build
 **文件位置**：`src/options/components/**/*.ts`
 
 **适用场景**：
+
 - 调整单个组件的样式
 - 临时快速修改
 - 不影响全局的小调整
@@ -185,10 +195,12 @@ npm run tailwind:build
 button.className = 'px-3 py-2 bg-accent text-white rounded-md';
 
 // 修改为更大、更圆润的按钮
-button.className = 'px-4 py-3 bg-accent text-white rounded-lg text-base font-semibold shadow-lg hover:scale-105 transition-transform';
+button.className =
+  'px-4 py-3 bg-accent text-white rounded-lg text-base font-semibold shadow-lg hover:scale-105 transition-transform';
 ```
 
 **修改后需要**：重新构建项目
+
 ```bash
 npm run build:dev
 ```
@@ -203,18 +215,18 @@ npm run build:dev
 
 **步骤**：
 
-1. 编辑 `src/options/styles/design-tokens.css`：
+1. 编辑 `src/styles/design-tokens.css`：
 
 ```css
 :root {
-  --aobx-accent: hsl(180 80% 50%);  /* 青绿色 */
+  --aobx-accent: hsl(180 80% 50%); /* 青绿色 */
   --aobx-accent-soft: hsl(180 60% 75%);
 }
 ```
 
 2. 重新构建：
+
 ```bash
-npm run tailwind:build
 npm run build:dev
 ```
 
@@ -226,20 +238,20 @@ npm run build:dev
 
 **步骤**：
 
-1. 编辑 `src/options/styles/design-tokens.css`：
+1. 编辑 `src/styles/design-tokens.css`：
 
 ```css
 :root {
-  --aobx-space-2: 10px;  /* 原来是 8px */
-  --aobx-space-3: 14px;  /* 原来是 12px */
-  --aobx-space-4: 20px;  /* 原来是 16px */
-  --aobx-space-6: 28px;  /* 原来是 24px */
+  --aobx-space-2: 10px; /* 原来是 8px */
+  --aobx-space-3: 14px; /* 原来是 12px */
+  --aobx-space-4: 20px; /* 原来是 16px */
+  --aobx-space-6: 28px; /* 原来是 24px */
 }
 ```
 
 2. 重新构建：
+
 ```bash
-npm run tailwind:build
 npm run build:dev
 ```
 
@@ -264,21 +276,22 @@ npm run build:dev
 
 **方式 B**：只修改设计令牌（推荐）
 
-编辑 `src/options/styles/design-tokens.css`：
+编辑 `src/styles/design-tokens.css`：
 
 ```css
 :root {
-  --aobx-radius-lg: 24px;  /* 更圆润 */
-  --aobx-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08);  /* 添加阴影 */
+  --aobx-radius-lg: 24px; /* 更圆润 */
+  --aobx-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08); /* 添加阴影 */
 }
 ```
 
 然后在 Tailwind input 中使用：
+
 ```css
 .aobx-card {
   @apply rounded-lg border border-[color:var(--aobx-border)]
          bg-[color:var(--aobx-surface-0)] p-4;
-  box-shadow: var(--aobx-shadow-card);  /* 使用令牌 */
+  box-shadow: var(--aobx-shadow-card); /* 使用令牌 */
 }
 ```
 
@@ -290,16 +303,14 @@ npm run build:dev
 
 **步骤**：
 
-编辑 `src/options/styles/design-tokens.css`：
+编辑 `src/styles/design-tokens.css`：
 
 ```css
-@media (prefers-color-scheme: dark) {
-  :root {
-    --aobx-surface-0: hsl(220 8% 6%);   /* 更深 */
-    --aobx-surface-1: hsl(220 8% 8%);   /* 更深 */
-    --aobx-surface-2: hsl(220 8% 12%);  /* 更深 */
-    --aobx-border: hsl(220 8% 20%);     /* 更暗的边框 */
-  }
+html[data-theme='dark'] {
+  --aobx-surface-0: hsl(220 8% 6%); /* 更深 */
+  --aobx-surface-1: hsl(220 8% 8%); /* 更深 */
+  --aobx-surface-2: hsl(220 8% 12%); /* 更深 */
+  --aobx-border: hsl(220 8% 20%); /* 更暗的边框 */
 }
 ```
 
@@ -321,7 +332,6 @@ npm run tailwind:watch
 
 ```bash
 # 如果只修改了 design-tokens.css
-npm run tailwind:build
 npm run build:dev
 
 # 如果修改了组件 HTML/TS
@@ -349,7 +359,7 @@ npm run build:dev
 
 ```javascript
 // 在 Console 中运行
-getComputedStyle(document.documentElement).getPropertyValue('--aobx-accent')
+getComputedStyle(document.documentElement).getPropertyValue('--aobx-accent');
 // 应该返回: "hsl(257 86% 63%)"
 ```
 
@@ -358,12 +368,14 @@ getComputedStyle(document.documentElement).getPropertyValue('--aobx-accent')
 在浏览器开发者工具中检查元素，查看 `class` 属性是否被正确解析为 CSS 规则。
 
 如果没有样式：
+
 - 检查 `build/dist/options/styles/tailwind.css` 是否包含该类
 - 重新构建 Tailwind
 
 ### 3. 清除浏览器缓存
 
 样式不更新时，强制刷新：
+
 - Chrome/Edge: `Ctrl/Cmd + Shift + R`
 - 或在 DevTools 中勾选 "Disable cache"
 

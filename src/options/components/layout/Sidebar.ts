@@ -1,4 +1,4 @@
-import { BaseComponent } from '../shared/BaseComponent';
+import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
 import { Navigation, type NavigationItem } from './Navigation';
 
 export interface SidebarNavigationConfig {
@@ -34,6 +34,8 @@ const DEFAULT_NAV_ITEMS: NavigationItem[] = [
   { id: 'yaml', label: 'YAML' },
   { id: 'templates', label: 'Templates' },
   { id: 'ai', label: 'AI' },
+  { id: 'deepResearch', label: 'Deep Research' },
+  { id: 'classifier', label: 'Classifier' },
   { id: 'video', label: 'Video' },
   { id: 'reading', label: 'Reading' },
   { id: 'fragment', label: 'Fragments' },
@@ -71,7 +73,10 @@ export class Sidebar extends BaseComponent<SidebarConfig | void> {
   private buildBrand(config: SidebarConfig): HTMLElement {
     const brand = this.createElement('div', 'aobx-sidebar__brand grid gap-3');
 
-    const headerTop = this.createElement('div', 'aobx-sidebar__brand-header flex items-center gap-3');
+    const headerTop = this.createElement(
+      'div',
+      'aobx-sidebar__brand-header flex items-center gap-3'
+    );
 
     if (config.brand?.logoUrl) {
       const logoImg = this.createElement('img');
@@ -89,7 +94,10 @@ export class Sidebar extends BaseComponent<SidebarConfig | void> {
 
     if (config.brand?.version) {
       const tags = this.createElement('div', 'aobx-sidebar__brand-tags flex flex-wrap gap-2');
-      const versionTag = this.createElement('span', 'aobx-sidebar__brand-version inline-flex items-center px-2.5 py-1 rounded-sm bg-accent/12 text-base-content text-sm');
+      const versionTag = this.createElement(
+        'span',
+        'aobx-sidebar__brand-version inline-flex items-center px-2.5 py-1 rounded-sm bg-accent/12 text-base-content text-sm'
+      );
       versionTag.textContent = config.brand.version;
       tags.append(versionTag);
       textWrap.append(tags);
@@ -128,7 +136,10 @@ export class Sidebar extends BaseComponent<SidebarConfig | void> {
     const links = config.footerLinks ?? [];
 
     for (const linkConfig of links) {
-      const anchor = this.createElement('a', 'aobx-sidebar__link inline-flex items-center gap-1 text-sm text-base-content no-underline transition-colors hover:text-accent');
+      const anchor = this.createElement(
+        'a',
+        'aobx-sidebar__link inline-flex items-center gap-1 text-sm text-base-content no-underline transition-colors hover:text-accent'
+      );
       const href = linkConfig.href ?? '#';
       anchor.setAttribute('href', href);
 
@@ -162,14 +173,16 @@ export class Sidebar extends BaseComponent<SidebarConfig | void> {
       { id: 'privacy', label: this.messages.privacySettingsTitle },
       { id: 'rest', label: this.messages.apiConfigTitle },
       { id: 'routing', label: this.messages.routingRulesTitle },
-      { id: 'yaml', label: this.messages.yamlConfigTitle ?? 'YAML 配置' },
+      { id: 'yaml', label: this.messages.yamlConfigTitle ?? 'YAML Configuration' },
       { id: 'templates', label: this.messages.templateConfigTitle },
       { id: 'ai', label: this.messages.aiChatConfigTitle },
+      { id: 'deepResearch', label: this.messages.deepResearchConfigTitle },
+      { id: 'classifier', label: this.messages.classifierConfigTitle },
       { id: 'video', label: this.messages.videoConfigTitle },
       { id: 'reading', label: this.messages.readingConfigTitle },
       { id: 'fragment', label: this.messages.fragmentConfigTitle },
       { id: 'transfer', label: this.messages.configTransferTitle },
-      { id: 'diagnosis', label: this.messages.diagnosisTitle ?? '配置诊断' }
+      { id: 'diagnosis', label: this.messages.diagnosisTitle ?? 'Configuration Diagnosis' }
     ];
   }
 }

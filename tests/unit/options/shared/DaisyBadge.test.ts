@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { withDomEnvironment } from '../../../utils/domEnvironment';
-import { DaisyBadge } from '@options/components/shared/DaisyBadge';
+import { UiBadge } from '../../../../src/ui/primitives/badge';
 
 const MARKUP = '<!DOCTYPE html><html><body></body></html>';
 
 describe('DaisyBadge', () => {
   it('applies variant and size classes', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
-      const badge = new DaisyBadge(document.body);
+      const badge = new UiBadge(document.body);
       const element = badge.render({ label: 'New', variant: 'primary', size: 'lg' });
 
       expect(element.className).toContain('badge');
@@ -21,7 +21,7 @@ describe('DaisyBadge', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const badge = new DaisyBadge(container);
+      const badge = new UiBadge(container);
       const element = badge.render({ label: 'Sync', iconName: 'Activity' });
 
       expect(element.querySelector('svg')).not.toBeNull();
@@ -30,7 +30,7 @@ describe('DaisyBadge', () => {
 
   it('renders label text', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
-      const badge = new DaisyBadge(document.body);
+      const badge = new UiBadge(document.body);
       const element = badge.render({ label: 'Beta' });
 
       expect(element.textContent).toContain('Beta');

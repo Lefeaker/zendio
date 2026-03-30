@@ -5,43 +5,54 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({ activate: vi.fn(), deactivate: vi.fn(), pause: vi.fn(), unpause: vi.fn() })
+  createFocusTrap: () => ({
+    activate: vi.fn(),
+    deactivate: vi.fn(),
+    pause: vi.fn(),
+    unpause: vi.fn()
+  })
 }));
 
-const loadClipperStyleMock = vi.hoisted(() => vi.fn<[], Promise<string>>(() => Promise.resolve('.prompt{}')));
+const loadClipperStyleMock = vi.hoisted(() =>
+  vi.fn<[], Promise<string>>(() => Promise.resolve('.prompt{}'))
+);
 vi.mock('../../src/content/clipper/shared/styleRegistry', () => ({
   loadClipperStyle: loadClipperStyleMock
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
-const getContentMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({
-  supportPromptDialogLabel: 'Support All in Ob',
-  supportPromptTitle: 'Support All in Ob',
-  supportPromptKoFiTitle: 'Ko-fi',
-  supportPromptKoFiDescription: 'Buy me a coffee',
-  supportPromptAfdianTitle: 'Afdian',
-  supportPromptAfdianDescription: 'CN sponsor',
-  supportPromptGithubTitle: 'GitHub',
-  supportPromptGithubDescription: 'File feedback',
-  supportPromptFeedbackGroupLabel: 'Quick feedback',
-  supportPromptLikeLabel: 'Thumbs up',
-  supportPromptDislikeLabel: 'Thumbs down',
-  supportPromptDismiss: 'Click outside to close',
-  supportPromptStatusSuccess: 'Sent',
-  supportPromptStatusSuccessWithVault: 'Sent to {vault}',
-  supportPromptStatusWarning: 'Saved with warning',
-  supportPromptStatusWarningWithReason: 'Saved with warning: {reason}',
-  supportPromptStatusFailure: 'Failed',
-  supportPromptStatusFailureWithReason: 'Failed: {reason}',
-  supportPromptLikeThankYou: 'Thanks!',
-  supportPromptReviewLinkLabel: 'Write review',
-  supportPromptReviewAcknowledgedLabel: 'I already reviewed',
-  supportPromptDislikeToastTitle: 'Share feedback',
-  supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-  supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
-  supportPromptDislikeQrPlaceholder: 'QR soon'
-})));
+const getContentMessagesMock = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      supportPromptDialogLabel: 'Support All in Ob',
+      supportPromptTitle: 'Support All in Ob',
+      supportPromptKoFiTitle: 'Ko-fi',
+      supportPromptKoFiDescription: 'Buy me a coffee',
+      supportPromptAfdianTitle: 'Afdian',
+      supportPromptAfdianDescription: 'CN sponsor',
+      supportPromptGithubTitle: 'GitHub',
+      supportPromptGithubDescription: 'File feedback',
+      supportPromptFeedbackGroupLabel: 'Quick feedback',
+      supportPromptLikeLabel: 'Thumbs up',
+      supportPromptDislikeLabel: 'Thumbs down',
+      supportPromptDismiss: 'Click outside to close',
+      supportPromptStatusSuccess: 'Sent',
+      supportPromptStatusSuccessWithVault: 'Sent to {vault}',
+      supportPromptStatusWarning: 'Saved with warning',
+      supportPromptStatusWarningWithReason: 'Saved with warning: {reason}',
+      supportPromptStatusFailure: 'Failed',
+      supportPromptStatusFailureWithReason: 'Failed: {reason}',
+      supportPromptLikeThankYou: 'Thanks!',
+      supportPromptReviewLinkLabel: 'Write review',
+      supportPromptReviewAcknowledgedLabel: 'I already reviewed',
+      supportPromptDislikeToastTitle: 'Share feedback',
+      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
+      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeQrPlaceholder: 'QR soon'
+    })
+  )
+);
 vi.mock('../../src/content/i18n/context', () => ({
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nResource: getContentI18nResourceMock,
@@ -50,16 +61,24 @@ vi.mock('../../src/content/i18n/context', () => ({
 
 const storageState = { hasClickedReview: false, hasConfirmedReview: false };
 const storageLocalGetMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ ...storageState })));
-const storageLocalSetMock = vi.hoisted(() => vi.fn((_key: string, value: typeof storageState) => {
-  Object.assign(storageState, value);
-  return Promise.resolve(undefined);
-}));
+const storageLocalSetMock = vi.hoisted(() =>
+  vi.fn((_key: string, value: typeof storageState) => {
+    Object.assign(storageState, value);
+    return Promise.resolve(undefined);
+  })
+);
 const runtimeGetURLMock = vi.hoisted(() => vi.fn((path: string) => `chrome-extension://${path}`));
 const messagingSendMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const getServiceMock = vi.hoisted(() => vi.fn(() => ({
-  storage: { local: { get: storageLocalGetMock, set: storageLocalSetMock }, sync: {}, session: {} },
-  runtime: { getURL: runtimeGetURLMock }
-})));
+const getServiceMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    storage: {
+      local: { get: storageLocalGetMock, set: storageLocalSetMock },
+      sync: {},
+      session: {}
+    },
+    runtime: { getURL: runtimeGetURLMock }
+  }))
+);
 const resolveRepositoryMock = vi.hoisted(() => vi.fn(() => ({ send: messagingSendMock })));
 vi.mock('../../src/shared/di', async () => {
   const actual = await vi.importActual<typeof import('../../src/shared/di')>('../../src/shared/di');
@@ -71,6 +90,10 @@ vi.mock('../../src/shared/di', async () => {
 });
 
 describe('support prompt flow', () => {
+  function getToastRoot(): ShadowRoot | null {
+    return document.getElementById('aiob-support-toast-host')?.shadowRoot ?? null;
+  }
+
   beforeEach(() => {
     document.body.innerHTML = '';
     storageState.hasClickedReview = false;
@@ -84,7 +107,10 @@ describe('support prompt flow', () => {
     await prompt.show({ status: 'success' });
     expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
 
-    const overlay = document.getElementById('aiob-support-prompt')?.shadowRoot?.querySelector<HTMLDivElement>('.modal') ?? null;
+    const overlay =
+      document
+        .getElementById('aiob-support-prompt')
+        ?.shadowRoot?.querySelector<HTMLDivElement>('.modal') ?? null;
     overlay?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
   });
@@ -94,12 +120,18 @@ describe('support prompt flow', () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
-    document.getElementById('aiob-support-prompt')?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    document
+      .getElementById('aiob-support-prompt')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')
+      ?.click();
     await flushMicrotasks();
-    document.querySelector<HTMLButtonElement>('[data-role="review-link-btn"]')?.click();
+    getToastRoot()?.querySelector<HTMLButtonElement>('[data-role="review-link-btn"]')?.click();
     await flushMicrotasks();
 
-    expect(storageLocalSetMock).toHaveBeenCalledWith('support_prompt_review_state', expect.objectContaining({ hasClickedReview: true }));
+    expect(storageLocalSetMock).toHaveBeenCalledWith(
+      'support_prompt_review_state',
+      expect.objectContaining({ hasClickedReview: true })
+    );
     expect(openSpy).toHaveBeenCalled();
     openSpy.mockRestore();
   });
@@ -109,25 +141,38 @@ describe('support prompt flow', () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
-    document.getElementById('aiob-support-prompt')?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    document
+      .getElementById('aiob-support-prompt')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')
+      ?.click();
     await flushMicrotasks();
-    document.querySelector<HTMLButtonElement>('[data-role="review-acknowledged-btn"]')?.click();
+    getToastRoot()
+      ?.querySelector<HTMLButtonElement>('[data-role="review-acknowledged-btn"]')
+      ?.click();
     await flushMicrotasks();
 
-    expect(storageLocalSetMock).toHaveBeenCalledWith('support_prompt_review_state', expect.objectContaining({ hasClickedReview: true, hasConfirmedReview: true }));
+    expect(storageLocalSetMock).toHaveBeenCalledWith(
+      'support_prompt_review_state',
+      expect.objectContaining({ hasClickedReview: true, hasConfirmedReview: true })
+    );
   });
 
   it('shows dislike flow and toggles qr section', async () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
-    document.getElementById('aiob-support-prompt')?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="dislike-btn"]')?.click();
+    document
+      .getElementById('aiob-support-prompt')
+      ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="dislike-btn"]')
+      ?.click();
     await flushMicrotasks();
 
-    const qr = document.querySelector<HTMLElement>('[data-role="qr-container"]');
+    const qr = getToastRoot()?.querySelector<HTMLElement>('[data-role="qr-container"]') ?? null;
     expect(qr?.hidden).toBe(true);
-    document.querySelector<HTMLButtonElement>('[data-role="qr-toggle-btn"]')?.click();
+    getToastRoot()?.querySelector<HTMLButtonElement>('[data-role="qr-toggle-btn"]')?.click();
     expect(qr?.hidden).toBe(false);
-    expect(messagingSendMock).toHaveBeenCalledWith(expect.objectContaining({ event: 'support_dislike_clicked' }));
+    expect(messagingSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'support_dislike_clicked' })
+    );
   });
 });

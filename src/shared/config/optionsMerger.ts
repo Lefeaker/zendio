@@ -11,10 +11,12 @@ import type {
   RestOptions
 } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
+import { sanitizeVaultRouterConfig } from './optionsSanitizer';
 import { resolveTaxonomy } from './taxonomyMigration';
-import { VaultRouterConfigSchema } from '../schemas/vault.schema';
 
-function mergeClassifierOptions(source?: StoredOptions['classifier']): ClassifierOptions | undefined {
+function mergeClassifierOptions(
+  source?: StoredOptions['classifier']
+): ClassifierOptions | undefined {
   const defaults = DEFAULT_OPTIONS.classifier;
   if (!defaults && !source) {
     return undefined;
@@ -39,13 +41,18 @@ const READER_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
   'neonOrange'
 ];
 
-function resolveReaderHighlightTheme(theme: unknown, fallback: ReaderHighlightTheme): ReaderHighlightTheme {
+function resolveReaderHighlightTheme(
+  theme: unknown,
+  fallback: ReaderHighlightTheme
+): ReaderHighlightTheme {
   return READER_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
     ? (theme as ReaderHighlightTheme)
     : fallback;
 }
 
-function mergeFragmentClipperOptions(source?: StoredOptions['fragmentClipper']): FragmentClipperOptions | undefined {
+function mergeFragmentClipperOptions(
+  source?: StoredOptions['fragmentClipper']
+): FragmentClipperOptions | undefined {
   const defaults = DEFAULT_OPTIONS.fragmentClipper;
   if (!defaults && !source) {
     return undefined;
@@ -54,23 +61,29 @@ function mergeFragmentClipperOptions(source?: StoredOptions['fragmentClipper']):
   const base = source ?? {};
   const rawKeys = Array.isArray(base.selectionModifierKeys)
     ? base.selectionModifierKeys
-    : defaults?.selectionModifierKeys ?? [];
-  const selectionModifierKeys = rawKeys.filter((key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
-    return key === 'alt' || key === 'meta' || key === 'ctrl' || key === 'shift';
-  });
+    : (defaults?.selectionModifierKeys ?? []);
+  const selectionModifierKeys = rawKeys.filter(
+    (key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
+      return key === 'alt' || key === 'meta' || key === 'ctrl' || key === 'shift';
+    }
+  );
 
   return {
     useFootnoteFormat: base.useFootnoteFormat ?? defaults?.useFootnoteFormat ?? true,
     captureContext: base.captureContext ?? defaults?.captureContext ?? false,
     contextLength: base.contextLength ?? defaults?.contextLength ?? 200,
     contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars',
-    selectionModifierEnabled: base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
+    selectionModifierEnabled:
+      base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
     selectionModifierKeys,
-    keyboardShortcutsEnabled: base.keyboardShortcutsEnabled ?? defaults?.keyboardShortcutsEnabled ?? true
+    keyboardShortcutsEnabled:
+      base.keyboardShortcutsEnabled ?? defaults?.keyboardShortcutsEnabled ?? true
   };
 }
 
-function mergeReadingSessionOptions(source?: StoredOptions['readingSession']): ReadingSessionOptions | undefined {
+function mergeReadingSessionOptions(
+  source?: StoredOptions['readingSession']
+): ReadingSessionOptions | undefined {
   const defaults = DEFAULT_OPTIONS.readingSession;
   if (!defaults && !source) {
     return undefined;
@@ -86,7 +99,9 @@ function mergeReadingSessionOptions(source?: StoredOptions['readingSession']): R
   };
 }
 
-function mergeDeepResearchOptions(source?: StoredOptions['deepResearch']): DeepResearchOptions | undefined {
+function mergeDeepResearchOptions(
+  source?: StoredOptions['deepResearch']
+): DeepResearchOptions | undefined {
   const defaults = DEFAULT_OPTIONS.deepResearch;
   if (!defaults && !source) {
     return undefined;
@@ -120,17 +135,19 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
   const base = source ?? {};
   return {
     floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true,
-    promptButtonLabel: (base.promptButtonLabel ?? defaults?.promptButtonLabel ?? '').trim() || defaults?.promptButtonLabel || '开启视频笔记',
-    promptShortcut: (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() || defaults?.promptShortcut || 'Alt+V'
+    promptButtonLabel:
+      (base.promptButtonLabel ?? defaults?.promptButtonLabel ?? '').trim() ||
+      defaults?.promptButtonLabel ||
+      '开启视频笔记',
+    promptShortcut:
+      (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() ||
+      defaults?.promptShortcut ||
+      'Alt+V'
   };
 }
 
 function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOptions['vaultRouter'] {
-  if (source === undefined) {
-    return undefined;
-  }
-  const parsed = VaultRouterConfigSchema.safeParse(source);
-  return parsed.success ? (parsed.data as StoredOptions['vaultRouter']) : undefined;
+  return sanitizeVaultRouterConfig(source);
 }
 
 export function mergeOptions(stored?: StoredOptions | null): OptionsState {
@@ -171,22 +188,26 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
   }
 
   const storedTemplates = source.templates ?? {};
-  const legacyClipper = typeof storedTemplates === 'object'
-    ? (storedTemplates as Record<string, unknown>).clipper
-    : undefined;
+  const legacyClipper =
+    typeof storedTemplates === 'object'
+      ? (storedTemplates as Record<string, unknown>).clipper
+      : undefined;
   const legacyClipperString = typeof legacyClipper === 'string' ? legacyClipper : undefined;
 
   const templates = {
     article: source.templates?.article || defaults.templates.article,
     fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
-    reading: source.templates?.reading
-      || source.templates?.fragment
-      || legacyClipperString
-      || defaults.templates.reading,
+    reading:
+      source.templates?.reading ||
+      source.templates?.fragment ||
+      legacyClipperString ||
+      defaults.templates.reading,
     ai: source.templates?.ai || defaults.templates.ai
   };
 
-  const domainMappings = source.domainMappings ? { ...source.domainMappings } : { ...defaults.domainMappings };
+  const domainMappings = source.domainMappings
+    ? { ...source.domainMappings }
+    : { ...defaults.domainMappings };
 
   const options: OptionsState = {
     rest,

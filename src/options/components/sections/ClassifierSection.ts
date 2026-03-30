@@ -1,13 +1,14 @@
 import type { CompleteOptions, StoredOptions, ClassifierOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { parseClassifierTaxonomy } from '../../services/validation';
 import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { registerClassifierSync, unregisterClassifierSync } from '../sectionRegistry';
+import { createCheckboxElement as createDaisyCheckboxElement } from '../../../ui/primitives/checkbox';
+import { createInputElement as createDaisyInputElement } from '../../../ui/primitives/input';
+import { createSelectElement as createDaisySelectElement } from '../../../ui/primitives/select';
+import { createTextareaElement as createDaisyTextareaElement } from '../../../ui/primitives/textarea';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -32,26 +33,22 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   private modelInput: HTMLInputElement | null = null;
   private apiKeyInput: HTMLInputElement | null = null;
   private taxonomyTextarea: HTMLTextAreaElement | null = null;
-
-  private formSectionBinding: FormSectionHandlers | null = null;
   private eventBindings: EventBinding[] = [];
-  private isRegistered = false;
   private unsubscribeRepo: (() => void) | null = null;
 
-  constructor(container: HTMLElement, optionsRepo?: IOptionsRepository) {
+  constructor(container: HTMLElement, optionsRepo: IOptionsRepository) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    this.optionsRepo = optionsRepo;
   }
 
   protected renderWithState(): HTMLElement {
     this.disposeBindings();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     const header = this.buildHeader();
     const body = this.buildBody();
 
     this.container.replaceChildren(header, body);
-    this.syncUnstableNote();
-    this.ensureRegistryBinding();
+    this.syncNoticeState();
     this.bindEvents();
     this.registerFormIntegration();
     this.subscribeToRepository();
@@ -62,33 +59,18 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     this.disposeBindings();
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = null;
-    if (this.isRegistered) {
-      unregisterClassifierSync(this.syncUnstableNote);
-      this.isRegistered = false;
-    }
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('classifier', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     super.destroy();
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('classifier', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('classifier', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('classifier', binding);
   }
 
   private bindEvents(): void {
@@ -135,45 +117,32 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.classifierConfigTitle ?? 'AI 辅助分类与总结';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-sm text-base-content/60');
-    subtitle.textContent =
-      this.messages?.featureUntestedNote ?? '功能未测试，暂不稳定';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.classifierConfigTitle ?? 'AI 辅助分类与总结',
+      description: this.messages?.featureUntestedNote ?? '功能未测试，暂不稳定',
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      descriptionClassName: 'text-base-content/60 text-md'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
-    const settings = this.createElement('div', 'grid gap-6');
+    const wrapper = this.createSectionBody();
+    const settings = this.createSectionSettings();
 
-    const enableSetting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0');
+    const enableSetting = this.createSettingRow(
+      'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0'
+    );
     const enableControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    const enableLabel = this.createElement(
-      'label',
-      ['inline-flex', 'items-center', 'gap-2', 'text-sm', 'text-base-content', 'cursor-pointer'].join(' ')
-    );
-    // ✅ Stage 3 Week 4: Using DaisyUI checkbox classes for classifier toggle (ClassifierSection)
-    // ⏸️ Stage 3 Month 3: Upgrade to DaisySwitch component pending Zag.js integration
-    const enableInput = document.createElement('input');
-    enableInput.type = 'checkbox';
-    enableInput.id = 'clsEnable';
-    enableInput.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
-    enableLabel.append(
-      enableInput,
-      document.createTextNode(this.messages?.enableClassifierLabel ?? '启用 AI 自动分类')
-    );
+    const { root: enableLabel, input: enableInput } = createDaisyCheckboxElement({
+      id: 'clsEnable',
+      label: this.messages?.enableClassifierLabel ?? '启用 AI 自动分类'
+    });
     enableControl.append(enableLabel);
 
-    const unstableNote = this.createElement('small', 'text-sm text-base-content/60 bg-base-200 border border-base-300 rounded-md p-3 my-3');
+    const unstableNote = this.createElement(
+      'small',
+      'text-sm text-base-content/60 bg-base-200 border border-base-300 rounded-md p-3 my-3'
+    );
     unstableNote.id = 'classifierUnstableNote';
     unstableNote.style.display = 'none';
     unstableNote.textContent =
@@ -227,17 +196,16 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     placeholder: string,
     type: 'text' | 'password' = 'text'
   ): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     const label = this.createElement('div', 'text-sm text-base-content/60 font-semibold');
     label.textContent = labelText;
     const control = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    // ✅ Stage 3 Week 4: Using DaisyUI input classes for classifier text fields (ClassifierSection)
-    // ⏸️ Stage 3 Month 3: Upgrade to DaisyInput component with validation pending refactor
-    const input = document.createElement('input');
-    input.type = type;
-    input.className = 'input input-bordered w-full min-h-[36px]';
-    input.id = id;
-    input.placeholder = placeholder;
+    const input = createDaisyInputElement({
+      id,
+      type,
+      placeholder,
+      className: 'w-full min-h-[36px]'
+    });
     control.append(input);
     setting.append(label, control);
 
@@ -263,20 +231,14 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     labelText: string,
     options: Array<{ value: string; label: string }>
   ): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     const label = this.createElement('div', 'text-sm text-base-content/60 font-semibold');
     label.textContent = labelText;
     const control = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    // ✅ Stage 3 Week 4: Using DaisyUI select classes for classifier provider (ClassifierSection)
-    // ⏸️ Stage 3 Month 3: Replace with Zag.js Select component for better a11y
-    const select = document.createElement('select');
-    select.className = 'select select-bordered w-full min-h-[36px]';
-    select.id = id;
-    options.forEach(({ value, label: optionLabel }) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = optionLabel;
-      select.append(option);
+    const select = createDaisySelectElement({
+      id,
+      className: 'w-full min-h-[36px]',
+      options: options.map(({ value, label: optionLabel }) => ({ value, label: optionLabel }))
     });
     control.append(select);
     setting.append(label, control);
@@ -289,16 +251,15 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildTaxonomySetting(): HTMLElement {
-    const setting = this.createElement('div', 'grid grid-cols-[minmax(0,1fr)] gap-3 py-4 border-t border-base-300 items-start first:border-t-0 first:pt-0 sm:grid-cols-[180px_minmax(0,1fr)]');
+    const setting = this.createSettingRow();
     const taxonomyLabel = this.createElement('div', 'text-sm text-base-content/60 font-semibold');
     taxonomyLabel.textContent = this.messages?.taxonomyLabel ?? 'Taxonomy (JSON)';
     const taxonomyControl = this.createElement('div', 'flex flex-wrap justify-start gap-2');
-    // ✅ Stage 3 Week 4: Using DaisyUI textarea classes for classifier taxonomy (ClassifierSection)
-    // ⏸️ Stage 3 Month 3: Upgrade to Monaco/CodeMirror for JSON editing with syntax highlighting
-    const taxonomyTextarea = document.createElement('textarea');
-    taxonomyTextarea.id = 'clsTax';
-    taxonomyTextarea.rows = 8;
-    taxonomyTextarea.className = 'textarea textarea-bordered w-full min-h-[80px] font-mono text-sm leading-relaxed resize-y';
+    const taxonomyTextarea = createDaisyTextareaElement({
+      id: 'clsTax',
+      rows: 8,
+      className: 'font-mono resize-y'
+    });
     taxonomyControl.append(taxonomyTextarea);
     const taxonomyHint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
     taxonomyHint.textContent = this.messages?.taxonomyHint ?? '定义分类体系，JSON 格式。';
@@ -308,7 +269,7 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   }
 
   private handleToggleChange = (): void => {
-    this.syncUnstableNote();
+    this.syncNoticeState();
     const enabled = Boolean(this.enableInput?.checked);
     this.updateConfigVisibility(enabled);
     this.handleValueChanged();
@@ -319,7 +280,7 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     controller?.scheduleAutoSave();
   };
 
-  private syncUnstableNote = (): void => {
+  syncNoticeState = (): void => {
     if (!this.unstableNote) {
       return;
     }
@@ -333,15 +294,6 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     }
   }
 
-  private ensureRegistryBinding(): void {
-    if (this.isRegistered) {
-      unregisterClassifierSync(this.syncUnstableNote);
-      this.isRegistered = false;
-    }
-    registerClassifierSync(this.syncUnstableNote);
-    this.isRegistered = true;
-  }
-
   private applySnapshot(options: StoredOptions): void {
     const classifier = options.classifier ?? ({} as ClassifierOptions);
 
@@ -349,7 +301,7 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     if (this.enableInput) {
       this.enableInput.checked = enabled;
     }
-    this.syncUnstableNote();
+    this.syncNoticeState();
     this.updateConfigVisibility(enabled);
 
     if (this.providerSelect) {
@@ -377,8 +329,12 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
       (this.providerSelect?.value as ClassifierOptions['provider']) ??
       previousClassifier?.provider ??
       DEFAULT_PROVIDER;
-    const endpoint = (this.endpointInput?.value ?? previousClassifier?.endpoint ?? DEFAULT_ENDPOINT).trim() || DEFAULT_ENDPOINT;
-    const model = (this.modelInput?.value ?? previousClassifier?.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+    const endpoint =
+      (this.endpointInput?.value ?? previousClassifier?.endpoint ?? DEFAULT_ENDPOINT).trim() ||
+      DEFAULT_ENDPOINT;
+    const model =
+      (this.modelInput?.value ?? previousClassifier?.model ?? DEFAULT_MODEL).trim() ||
+      DEFAULT_MODEL;
     const apiKey = this.apiKeyInput?.value ?? previousClassifier?.apiKey ?? '';
 
     let taxonomyValue = DEFAULT_TAXONOMY;
@@ -412,10 +368,11 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistClassifier(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo
-      .set(partial)
-      .catch((error) => {
-        console.error('[ClassifierSection] Failed to persist classifier options via repository:', error);
-      });
+    void this.optionsRepo.set(partial).catch((error) => {
+      console.error(
+        '[ClassifierSection] Failed to persist classifier options via repository:',
+        error
+      );
+    });
   }
 }

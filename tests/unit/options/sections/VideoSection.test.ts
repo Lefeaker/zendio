@@ -5,6 +5,7 @@ import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { VideoSection } from '@options/components/sections/VideoSection';
 import type { OptionsStateManager } from '@options/state/StateManager';
+import en from '@i18n/locales/en';
 import { MockOptionsRepository } from '../../../utils/repositories';
 
 const videoMocks = vi.hoisted(() => {
@@ -44,6 +45,7 @@ describe('VideoSection', () => {
     }
     const repo = new MockOptionsRepository();
     const section = new VideoSection(container, repo);
+    section.setMessages(en.runtime);
     section.render({ stateManager: noopStateManager, formRegistry: registry });
     return { section, repo };
   };
@@ -118,5 +120,18 @@ describe('VideoSection', () => {
     });
 
     section.destroy();
+  });
+
+  it('renders localized prompt copy and supported platform text', () => {
+    renderSection();
+
+    expect(document.body.textContent).toContain(en.runtime.videoPromptCustomizationTitle);
+    expect(document.body.textContent).toContain(en.runtime.videoPromptLabelTitle);
+    expect(document.body.textContent).toContain(en.runtime.videoPromptShortcutTitle);
+    expect(document.body.textContent).toContain(en.runtime.videoSupportedPlatformsTitle);
+    expect(document.body.textContent).toContain(en.runtime.videoEnableButton);
+    expect(document.body.textContent).toContain(en.runtime.videoSaveConfigButton);
+    expect(document.body.textContent).toContain(en.runtime.videoPlatformYoutubeDescription);
+    expect(document.body.textContent).toContain(en.runtime.videoPlatformBilibiliDescription);
   });
 });

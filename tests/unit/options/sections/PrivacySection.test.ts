@@ -5,7 +5,7 @@ import type { Messages } from '../../../../src/i18n/messages';
 import {
   PrivacySettingsComponent,
   type PrivacyConsentSnapshot
-} from '@options/components/controls/privacySettings';
+} from '../../../../src/ui/domains/privacy';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { PrivacySection } from '@options/components/sections/PrivacySection';
 import { OptionsStateManager } from '@options/state/StateManager';
@@ -63,10 +63,7 @@ const testContext = vi.hoisted(() => {
 
   const getOptionsMessagesMock = vi.fn(() => Promise.resolve(messages));
 
-  const setAnalyticsConsent = vi.fn<
-    [boolean, boolean],
-    Promise<void>
-  >(() => Promise.resolve());
+  const setAnalyticsConsent = vi.fn<[boolean, boolean], Promise<void>>(() => Promise.resolve());
 
   return {
     messages,
@@ -82,38 +79,14 @@ vi.mock('@shared/errors/analytics/analyticsConfig', () => ({
   setAnalyticsConsent: testContext.setAnalyticsConsent
 }));
 
-vi.mock('@options/app/i18nContext', () => ({
-  getOptionsI18nBinder: () => testContext.binder,
-  getOptionsMessages: () => testContext.getOptionsMessagesMock()
-}));
-
-const privacyHandlersRef = vi.hoisted(() => ({
-  current: null as
-    | {
-        refresh: () => Promise<void>;
-        save: (options?: { showInlineStatus?: boolean }) => Promise<void>;
-      }
-    | null
-}));
-
-vi.mock('@options/components/sectionRegistry', () => ({
-  registerPrivacyHandlers: (handlers: {
-    refresh: () => Promise<void>;
-    save: (options?: { showInlineStatus?: boolean }) => Promise<void>;
-  }) => {
-    privacyHandlersRef.current = handlers;
-  },
-  unregisterPrivacyHandlers: () => {
-    privacyHandlersRef.current = null;
-  },
-  registerAiTimestampEnforcer: vi.fn(),
-  unregisterAiTimestampEnforcer: vi.fn(),
-  enforceAiTimestampsDisabled: vi.fn(),
-  syncClassifierNote: vi.fn(),
-  highlightFragmentShortcuts: vi.fn(),
-  refreshPrivacySettings: vi.fn(),
-  savePrivacySettings: vi.fn()
-}));
+vi.mock('@i18n', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../../../src/i18n')>('../../../../src/i18n');
+  return {
+    ...actual,
+    getMessages: () => testContext.getOptionsMessagesMock()
+  };
+});
 
 const flushHydration = async (component: PrivacySettingsComponent): Promise<void> => {
   await (component as unknown as { hydrateFromStorage: () => Promise<void> }).hydrateFromStorage();
@@ -192,8 +165,14 @@ describe('PrivacySettingsComponent', () => {
     const component = await renderComponent();
     const analyticsCheckbox = document.getElementById('analyticsConsent');
     const debugToggle = document.getElementById('analyticsDebugMode');
-    const hint = Array.from(document.querySelectorAll('p')).find(p => p.textContent === testContext.messages.analyticsDebugDisabledHint);
-    if (!(analyticsCheckbox instanceof HTMLInputElement) || !(debugToggle instanceof HTMLInputElement) || !(hint instanceof HTMLElement)) {
+    const hint = Array.from(document.querySelectorAll('p')).find(
+      (p) => p.textContent === testContext.messages.analyticsDebugDisabledHint
+    );
+    if (
+      !(analyticsCheckbox instanceof HTMLInputElement) ||
+      !(debugToggle instanceof HTMLInputElement) ||
+      !(hint instanceof HTMLElement)
+    ) {
       throw new Error('Privacy controls missing');
     }
 
@@ -255,6 +234,7 @@ describe('PrivacySection', () => {
     const container = document.createElement('section');
     document.body.append(container);
     const section = new PrivacySection(container, repo);
+    section.setMessages(testContext.messages);
     section.render({ stateManager, formRegistry: registry });
     await vi.waitFor(() => {
       expect(testContext.analyticsManager.getUserConsent).toHaveBeenCalled();
@@ -266,16 +246,12 @@ describe('PrivacySection', () => {
   it('persists consent snapshots through repository when saving', async () => {
     const repo = new MockOptionsRepository();
     const section = await renderSection(repo);
-    const handlers = privacyHandlersRef.current;
-    if (!handlers) {
-      throw new Error('privacy handlers not registered');
-    }
     const analyticsCheckbox = document.getElementById('analyticsConsent') as HTMLInputElement;
     const errorCheckbox = document.getElementById('errorReportingConsent') as HTMLInputElement;
     analyticsCheckbox.checked = false;
     errorCheckbox.checked = false;
 
-    await handlers.save();
+    await section.saveSettings();
 
     await vi.waitFor(() => {
       const stored = repo.getMockData() as { privacyPreferences?: PrivacyConsentSnapshot };
@@ -300,6 +276,7 @@ describe('PrivacySection', () => {
         debugMode: true
       }
     });
+    await section.refreshSettings();
 
     await vi.waitFor(() => {
       const analyticsCheckbox = document.getElementById('analyticsConsent') as HTMLInputElement;
@@ -308,6 +285,28 @@ describe('PrivacySection', () => {
       expect(errorCheckbox.checked).toBe(false);
     });
 
+    section.destroy();
+  });
+
+  it('uses i18n error text when privacy controls fail to render', () => {
+    const repo = new MockOptionsRepository();
+    const container = document.createElement('section');
+    document.body.append(container);
+    const renderSpy = vi
+      .spyOn(PrivacySettingsComponent.prototype, 'render')
+      .mockImplementationOnce(() => {
+        throw new Error('boom');
+      });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const section = new PrivacySection(container, repo);
+    section.setMessages(testContext.messages);
+    section.render({ stateManager, formRegistry: registry });
+
+    expect(container.textContent).toContain(testContext.messages.privacySettingsError);
+
+    renderSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
     section.destroy();
   });
 });

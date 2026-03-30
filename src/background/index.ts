@@ -1,11 +1,16 @@
 import { getPlatformServices } from '../platform';
+import { registerRepositories } from '../shared/di/serviceRegistry';
 import { startBackgroundRuntime } from './backgroundStartup';
-import {
-  createDefaultTrialLifecycleDependencies,
-  registerTrialLifecycle
-} from './trialLifecycle';
+import { createDefaultTrialLifecycleDependencies, registerTrialLifecycle } from './trialLifecycle';
 
 const platformServices = getPlatformServices();
+
+registerRepositories({
+  storage: platformServices.storage,
+  messaging: platformServices.messaging,
+  tabs: platformServices.tabs,
+  runtime: platformServices.runtime
+});
 
 startBackgroundRuntime({
   action: platformServices.action,

@@ -5,6 +5,7 @@ import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { RoutingSection } from '@options/components/sections/RoutingSection';
 import type { OptionsStateManager } from '@options/state/StateManager';
+import en from '@i18n/locales/en';
 import { MockOptionsRepository } from '../../../utils/repositories';
 
 const routingFixtures = vi.hoisted(() => {
@@ -41,9 +42,9 @@ const routingFixtures = vi.hoisted(() => {
   type RoutingSnapshot = typeof initialState;
 
   const state: RoutingSnapshot = {
-    vaults: initialState.vaults.map(vault => ({
+    vaults: initialState.vaults.map((vault) => ({
       ...vault,
-      rules: (vault.rules ?? []).map(rule => ({ ...rule }))
+      rules: (vault.rules ?? []).map((rule) => ({ ...rule }))
     })),
     defaultVaultId: initialState.defaultVaultId
   };
@@ -60,10 +61,12 @@ const routingFixtures = vi.hoisted(() => {
       enabled: true,
       priority: 10
     };
-    const target = state.vaults.find(v => v.id === vaultId);
+    const target = state.vaults.find((v) => v.id === vaultId);
     if (target) {
       target.rules = [...(target.rules ?? []), newRule];
-      listeners.forEach(listener => listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId }));
+      listeners.forEach((listener) =>
+        listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId })
+      );
     }
     return newRule;
   });
@@ -71,9 +74,11 @@ const routingFixtures = vi.hoisted(() => {
   const removeRoutingRule = vi.fn((ruleId: string) => {
     for (const vault of state.vaults) {
       const before = vault.rules ?? [];
-      vault.rules = before.filter(rule => rule.id !== ruleId);
+      vault.rules = before.filter((rule) => rule.id !== ruleId);
     }
-    listeners.forEach(listener => listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId }));
+    listeners.forEach((listener) =>
+      listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId })
+    );
   });
 
   const listeners: Array<(state: RoutingSnapshot) => void> = [];
@@ -90,9 +95,9 @@ const routingFixtures = vi.hoisted(() => {
   });
 
   const getVaultRouterConfig = vi.fn(() => ({
-    vaults: state.vaults.map(vault => ({
+    vaults: state.vaults.map((vault) => ({
       ...vault,
-      rules: (vault.rules ?? []).map(rule => ({ ...rule }))
+      rules: (vault.rules ?? []).map((rule) => ({ ...rule }))
     })),
     defaultVaultId: state.defaultVaultId
   }));
@@ -102,13 +107,15 @@ const routingFixtures = vi.hoisted(() => {
       state.vaults = [];
       state.defaultVaultId = 'default';
     } else {
-      state.vaults = next.vaults.map(vault => ({
+      state.vaults = next.vaults.map((vault) => ({
         ...vault,
-        rules: (vault.rules ?? []).map(rule => ({ ...rule }))
+        rules: (vault.rules ?? []).map((rule) => ({ ...rule }))
       }));
       state.defaultVaultId = next.defaultVaultId;
     }
-    listeners.forEach(listener => listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId }));
+    listeners.forEach((listener) =>
+      listener({ vaults: state.vaults, defaultVaultId: state.defaultVaultId })
+    );
   });
 
   return {
@@ -130,9 +137,9 @@ const routingFixtures = vi.hoisted(() => {
       subscribeVaultRouter.mockClear();
       getVaultRouterConfig.mockClear();
       initializeVaultRouterStore.mockClear();
-      state.vaults = initialState.vaults.map(vault => ({
+      state.vaults = initialState.vaults.map((vault) => ({
         ...vault,
-        rules: (vault.rules ?? []).map(rule => ({ ...rule }))
+        rules: (vault.rules ?? []).map((rule) => ({ ...rule }))
       }));
       state.defaultVaultId = initialState.defaultVaultId;
     }
@@ -178,6 +185,7 @@ describe('RoutingSection', () => {
     }
     const repo = new MockOptionsRepository();
     const section = new RoutingSection(container, repo);
+    section.setMessages(en.runtime);
     section.render({ stateManager: noopStateManager, formRegistry: registry });
     return { section, repo };
   };
@@ -227,15 +235,19 @@ describe('RoutingSection', () => {
     checkbox.checked = false;
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
 
-    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-secondary', { enabled: false });
+    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-secondary', {
+      enabled: false
+    });
     expect(routingFixtures.scheduleAutoSave).toHaveBeenCalled();
     expect(routingFixtures.markPendingAutoSave).toHaveBeenCalledWith('vaultRouter');
     expect(routingFixtures.markPendingAutoSave).toHaveBeenCalledWith('routing');
 
-    const addButton = Array.from(section['container']?.querySelectorAll('button') ?? [])
-      .find(b => b.textContent?.includes('+'));
+    const addButton = Array.from(section['container']?.querySelectorAll('button') ?? []).find((b) =>
+      b.textContent?.includes('+')
+    );
     addButton?.dispatchEvent(new Event('click', { bubbles: true }));
     expect(routingFixtures.addRoutingRule).toHaveBeenCalled();
+    expect(section['container'].textContent).toContain(en.runtime.routingRulesPriorityNote);
 
     section.destroy();
   });
@@ -283,7 +295,6 @@ describe('RoutingSection', () => {
     section.destroy();
   });
 
-
   it('renders empty placeholder when no rules exist and falls back to first vault as default', async () => {
     const { section } = renderSection();
     routingFixtures.state.vaults = [
@@ -294,8 +305,12 @@ describe('RoutingSection', () => {
 
     await registry.apply({ vaultRouter: routingFixtures.state } as StoredOptions);
 
-    expect(document.getElementById('routing-section')?.textContent).toContain('暂无规则');
-    expect(document.getElementById('routing-section')?.textContent).toContain('提示：优先级越低越先匹配');
+    expect(document.getElementById('routing-section')?.textContent).toContain(
+      en.runtime.ruleEmptyPlaceholder
+    );
+    expect(document.getElementById('routing-section')?.textContent).toContain(
+      en.runtime.routingRulesPriorityNote
+    );
     section.destroy();
   });
 
@@ -361,14 +376,15 @@ describe('RoutingSection', () => {
     patternInput.dispatchEvent(new Event('input', { bubbles: true }));
     patternInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-secondary', { pattern: 'docs.example.com' });
+    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-secondary', {
+      pattern: 'docs.example.com'
+    });
     expect(routingFixtures.scheduleAutoSave).toHaveBeenCalled();
     expect(routingFixtures.markPendingAutoSave).toHaveBeenCalledWith('vaultRouter');
     expect(routingFixtures.markPendingAutoSave).toHaveBeenCalledWith('routing');
 
     section.destroy();
   });
-
 
   it('updates target vault and restores empty state after deleting the last rule', async () => {
     const { section, repo } = renderSection();
@@ -414,7 +430,9 @@ describe('RoutingSection', () => {
     targetSelect.value = 'secondary';
     targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-default', { vaultId: 'secondary' });
+    expect(routingFixtures.updateRoutingRule).toHaveBeenCalledWith('rule-default', {
+      vaultId: 'secondary'
+    });
 
     routingFixtures.removeRoutingRule('rule-default');
 
@@ -464,8 +482,8 @@ describe('RoutingSection', () => {
   it('adds a rule against the first vault when no default vault is available', () => {
     routingFixtures.state.defaultVaultId = '';
     const { section } = renderSection();
-    const addButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) =>
-      button.textContent?.includes('添加规则')
+    const addButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes(en.runtime.addRuleButton)
     );
     expect(addButton).toBeTruthy();
     addButton?.dispatchEvent(new Event('click', { bubbles: true }));
@@ -475,5 +493,4 @@ describe('RoutingSection', () => {
     expect(routingFixtures.markPendingAutoSave).toHaveBeenCalledWith('vaultRouter');
     section.destroy();
   });
-
 });

@@ -3,13 +3,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IYamlRepository } from '@shared/repositories/IYamlRepository';
 import type { YamlConfigService } from '@shared/services/yamlConfigService';
-import type { ResolvedYamlConfig, YamlConfigOverrides, YamlContentType } from '@shared/types/yamlConfig';
-import type { YamlConfigControllerOptions } from '@options/components/controls/yamlConfigTable';
+import type {
+  ResolvedYamlConfig,
+  YamlConfigOverrides,
+  YamlContentType
+} from '@shared/types/yamlConfig';
+import type { YamlConfigControllerOptions } from '../../../../src/ui/domains/yaml-config/yamlConfigTable';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { YamlConfigSection } from '@options/components/sections/YamlConfigSection';
 import type { OptionsStateManager } from '@options/state/StateManager';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: unknown[]) => unknown>() =>
+  vi.fn<Parameters<T>, ReturnType<T>>();
 
 const { scheduleAutoSaveMock, markPendingAutoSaveMock } = vi.hoisted(() => {
   const schedule = vi.fn<[section: string], void>();
@@ -35,7 +40,7 @@ type ControllerStub = {
 const controllerStubs: ControllerStub[] = [];
 let lastControllerOptions: YamlConfigControllerOptions | undefined;
 
-vi.mock('../../../../src/options/components/controls/yamlConfigTable', () => {
+vi.mock('../../../../src/ui/domains/yaml-config/yamlConfigTable', () => {
   return {
     createYamlConfigController: vi.fn((options: YamlConfigControllerOptions) => {
       lastControllerOptions = options;
@@ -47,7 +52,7 @@ vi.mock('../../../../src/options/components/controls/yamlConfigTable', () => {
       };
       controllerStubs.push(stub);
       return stub as unknown as ReturnType<
-        typeof import('../../../../src/options/components/controls/yamlConfigTable').createYamlConfigController
+        typeof import('../../../../src/ui/domains/yaml-config/yamlConfigTable').createYamlConfigController
       >;
     })
   };
@@ -117,7 +122,8 @@ const createYamlServiceStub = (
   );
   const serviceStub: YamlServiceMock = {
     resolveConfig,
-    validateYamlConfig: createMockFn<YamlConfigService['validateYamlConfig']>().mockReturnValue(null)
+    validateYamlConfig:
+      createMockFn<YamlConfigService['validateYamlConfig']>().mockReturnValue(null)
   };
   return {
     stub: serviceStub,
@@ -165,7 +171,9 @@ describe('YamlConfigSection', () => {
       expect(service.resolveConfig).toHaveBeenCalledTimes(4);
     });
 
-    expect(section['summaryEl']?.textContent).toBe('Article: 3 · Clipper: 1 · Video: 2 · AI Chat: 4');
+    expect(section['summaryEl']?.textContent).toBe(
+      'Article: 3 · Clipper: 1 · Video: 2 · AI Chat: 4'
+    );
     section.destroy();
   });
 
@@ -286,5 +294,4 @@ describe('YamlConfigSection', () => {
     warn.mockRestore();
     section.destroy();
   });
-
 });

@@ -1,5 +1,9 @@
 import type { UsageStats } from '@shared/types/usage';
-import { DEFAULT_USAGE_STATS, normalizeUsageStats, USAGE_STATS_STORAGE_KEY } from '@shared/constants';
+import {
+  DEFAULT_USAGE_STATS,
+  normalizeUsageStats,
+  USAGE_STATS_STORAGE_KEY
+} from '@shared/constants';
 import type { CompleteOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
@@ -8,7 +12,7 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { PlatformServices } from '@platform/types';
 import { TOKENS } from '@shared/di/tokens';
-import { DaisyButton } from '../shared/DaisyButton';
+import { UiButton as DaisyButton } from '../../../ui/primitives/button';
 import { BaseSection, type SectionRenderContext } from './BaseSection';
 import {
   buildSmoothPath,
@@ -96,19 +100,18 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
 
   constructor(
     container: HTMLElement,
-    optionsRepo?: IOptionsRepository,
-    messagingRepo?: IMessagingRepository,
-    storage?: StorageService
+    optionsRepo: IOptionsRepository,
+    messagingRepo: IMessagingRepository,
+    storage: StorageService
   ) {
     super(container);
-    this.optionsRepo = optionsRepo ?? resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-    this.messagingRepo =
-      messagingRepo ?? resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
-    this.storage = storage ?? getService<PlatformServices>(TOKENS.platformServices).storage;
+    this.optionsRepo = optionsRepo;
+    this.messagingRepo = messagingRepo;
+    this.storage = storage;
   }
 
   protected renderWithState(): HTMLElement {
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
 
     const header = this.buildHeader();
     const body = this.buildBody();
@@ -126,19 +129,10 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.usageDashboardTitle ?? 'Usage overview';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent = this.messages?.usageDashboardSubtitle ?? 'Track how features are used over time.';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.usageDashboardTitle ?? 'Usage overview',
+      description: this.messages?.usageDashboardSubtitle ?? 'Track how features are used over time.'
+    });
   }
 
   private buildBody(): HTMLElement {
@@ -152,7 +146,10 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
 
   private buildCards(): HTMLElement {
     // ✅ Phase 2 DaisyUI migration: 使用 .stats 容器
-    const stats = this.createElement('div', 'stats shadow w-full grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))]');
+    const stats = this.createElement(
+      'div',
+      'stats shadow w-full grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))]'
+    );
 
     const total = this.buildMetricCard({
       id: 'usageTotalCount',
@@ -218,7 +215,14 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
 
     const axis = this.createElement(
       'div',
-      ['absolute', 'inset-0', 'pointer-events-none', 'opacity-0', 'transition-opacity', 'duration-200'].join(' '),
+      [
+        'absolute',
+        'inset-0',
+        'pointer-events-none',
+        'opacity-0',
+        'transition-opacity',
+        'duration-200'
+      ].join(' '),
       { id: 'usageAxis' }
     );
     chart.append(axis);
@@ -265,7 +269,16 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
   private buildActionRow(): HTMLElement {
     const row = this.createElement(
       'div',
-      ['flex', 'flex-wrap', 'gap-3', 'items-center', 'mt-4', 'border-t', 'border-base-300', 'pt-4'].join(' ')
+      [
+        'flex',
+        'flex-wrap',
+        'gap-3',
+        'items-center',
+        'mt-4',
+        'border-t',
+        'border-base-300',
+        'pt-4'
+      ].join(' ')
     );
     const resetHost = this.createElement('div');
     // ✅ Stage 3 Week 4: Migrated usage clear button to DaisyButton (UsageSection)
@@ -298,12 +311,18 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
   }
 
   private subscribeToLocalUsage(): () => void {
-    const stopCurrent = this.storage.local.watchKey<UsageStats>(USAGE_STATS_STORAGE_KEY, (value) => {
-      this.handleLocalUsageChange(value);
-    });
-    const stopLegacy = this.storage.local.watchKey<UsageStats>(LEGACY_USAGE_STATS_STORAGE_KEY, (value) => {
-      this.handleLocalUsageChange(value);
-    });
+    const stopCurrent = this.storage.local.watchKey<UsageStats>(
+      USAGE_STATS_STORAGE_KEY,
+      (value) => {
+        this.handleLocalUsageChange(value);
+      }
+    );
+    const stopLegacy = this.storage.local.watchKey<UsageStats>(
+      LEGACY_USAGE_STATS_STORAGE_KEY,
+      (value) => {
+        this.handleLocalUsageChange(value);
+      }
+    );
 
     return () => {
       stopCurrent();
@@ -386,7 +405,10 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
     const measurements = measureChartBounds(this.chart.graph, this.chart.svg);
     const geometry = computeChartGeometry(history, measurements);
     if (this.chart.svg) {
-      this.chart.svg.setAttribute('viewBox', `0 0 ${geometry.svgWidth.toFixed(2)} ${geometry.svgHeight.toFixed(2)}`);
+      this.chart.svg.setAttribute(
+        'viewBox',
+        `0 0 ${geometry.svgWidth.toFixed(2)} ${geometry.svgHeight.toFixed(2)}`
+      );
       this.chart.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     }
 
@@ -395,7 +417,10 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
     }
 
     if (!geometry.points.length) {
-      this.chart.path.setAttribute('d', `M0 ${geometry.baseline} L${geometry.svgWidth} ${geometry.baseline}`);
+      this.chart.path.setAttribute(
+        'd',
+        `M0 ${geometry.baseline} L${geometry.svgWidth} ${geometry.baseline}`
+      );
       this.updateGridLines([], geometry);
       return geometry;
     }
@@ -404,17 +429,26 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
       const point = geometry.points[0];
       const startX = geometry.xPadding;
       const endX = geometry.svgWidth - geometry.xPadding;
-      this.chart.path.setAttribute('d', `M${startX.toFixed(2)} ${point.y.toFixed(2)} L${endX.toFixed(2)} ${point.y.toFixed(2)}`);
+      this.chart.path.setAttribute(
+        'd',
+        `M${startX.toFixed(2)} ${point.y.toFixed(2)} L${endX.toFixed(2)} ${point.y.toFixed(2)}`
+      );
     } else {
       this.chart.path.setAttribute('d', buildSmoothPath(geometry.points));
     }
 
-    const tickContexts = geometry.tickInfo.ticks.map((value) => ({ value, topValue: geometry.tickInfo.topValue }));
+    const tickContexts = geometry.tickInfo.ticks.map((value) => ({
+      value,
+      topValue: geometry.tickInfo.topValue
+    }));
     this.updateGridLines(tickContexts, geometry);
     return geometry;
   }
 
-  private updateGridLines(ticks: Array<{ value: number; topValue: number }>, geometry: ChartGeometry): void {
+  private updateGridLines(
+    ticks: Array<{ value: number; topValue: number }>,
+    geometry: ChartGeometry
+  ): void {
     if (!this.chart.grid) {
       return;
     }
@@ -530,10 +564,22 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
       return;
     }
 
-    const deltas: Array<{ category: 'ai_chat' | 'fragment' | 'article'; increment: number; total: number }> = [
+    const deltas: Array<{
+      category: 'ai_chat' | 'fragment' | 'article';
+      increment: number;
+      total: number;
+    }> = [
       { category: 'ai_chat', increment: snapshot.aiChat - previous.aiChat, total: snapshot.aiChat },
-      { category: 'fragment', increment: snapshot.fragment - previous.fragment, total: snapshot.fragment },
-      { category: 'article', increment: snapshot.article - previous.article, total: snapshot.article }
+      {
+        category: 'fragment',
+        increment: snapshot.fragment - previous.fragment,
+        total: snapshot.fragment
+      },
+      {
+        category: 'article',
+        increment: snapshot.article - previous.article,
+        total: snapshot.article
+      }
     ];
 
     deltas.forEach(({ category, increment, total: value }) => {
@@ -588,17 +634,28 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
   }
 }
 
-function measureChartBounds(graph: HTMLElement | null, svg: SVGSVGElement | null): { width?: number; height?: number } {
+function measureChartBounds(
+  graph: HTMLElement | null,
+  svg: SVGSVGElement | null
+): { width?: number; height?: number } {
   const fallbackWidth = 200;
   const fallbackHeight = 160;
   const graphBounds = graph?.getBoundingClientRect();
-  const containerWidth = graphBounds && graphBounds.width > 0 ? graphBounds.width : graph?.clientWidth ?? 0;
-  const containerHeight = graphBounds && graphBounds.height > 0 ? graphBounds.height : graph?.clientHeight ?? 0;
+  const containerWidth =
+    graphBounds && graphBounds.width > 0 ? graphBounds.width : (graph?.clientWidth ?? 0);
+  const containerHeight =
+    graphBounds && graphBounds.height > 0 ? graphBounds.height : (graph?.clientHeight ?? 0);
   const svgBounds = svg?.getBoundingClientRect();
   const measuredWidth =
-    containerWidth || svg?.clientWidth || (svgBounds && svgBounds.width > 0 ? svgBounds.width : 0) || fallbackWidth;
+    containerWidth ||
+    svg?.clientWidth ||
+    (svgBounds && svgBounds.width > 0 ? svgBounds.width : 0) ||
+    fallbackWidth;
   const measuredHeight =
-    containerHeight || svg?.clientHeight || (svgBounds && svgBounds.height > 0 ? svgBounds.height : 0) || fallbackHeight;
+    containerHeight ||
+    svg?.clientHeight ||
+    (svgBounds && svgBounds.height > 0 ? svgBounds.height : 0) ||
+    fallbackHeight;
 
   return { width: measuredWidth, height: measuredHeight };
 }

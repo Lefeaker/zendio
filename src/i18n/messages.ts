@@ -275,6 +275,9 @@ export interface Messages {
 
   // Diagnosis
   diagnosisTitle: string;
+  diagnosisDescription: string;
+  diagnosisSummaryHint: string;
+  diagnosisResultTitle: string;
 
   // Notifications
   clipSuccess: string;
@@ -361,6 +364,21 @@ export interface Messages {
   videoConfigHint: string;
   videoFloatingPromptLabel: string;
   videoFloatingPromptHint: string;
+  videoPromptCustomizationTitle: string;
+  videoPromptLabelTitle: string;
+  videoPromptLabelPlaceholder: string;
+  videoPromptLabelHint: string;
+  videoPromptShortcutTitle: string;
+  videoPromptShortcutPlaceholder: string;
+  videoPromptShortcutHint: string;
+  videoSupportedPlatformsTitle: string;
+  videoPlatformSupportedBadge: string;
+  videoEnableButton: string;
+  videoSaveConfigButton: string;
+  videoPlatformYoutubeName: string;
+  videoPlatformYoutubeDescription: string;
+  videoPlatformBilibiliName: string;
+  videoPlatformBilibiliDescription: string;
   videoTimestampSectionTitle: string;
   videoFragmentSectionTitle: string;
   videoCaptureEditLabel: string;
@@ -437,6 +455,7 @@ export interface Messages {
   // Routing Rules
   routingRulesTitle: string;
   routingRulesHint: string;
+  routingRulesPriorityNote: string;
   vaultRulesTitle: string;
   ruleEmptyPlaceholder: string;
   addRuleButton: string;
@@ -577,5 +596,4 @@ export interface Messages {
   fragmentFootnoteExampleComment: string;
   fragmentContextHighlightExampleTitle: string;
   fragmentContextHighlightExampleContent: string;
-
 }

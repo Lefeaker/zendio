@@ -1,12 +1,25 @@
-import type { VideoPanelCallbacks, VideoPanelCapture, VideoPanelTexts } from '../application/videoPanelModel';
-import { VideoDialog } from '../components/VideoDialog';
+import type {
+  VideoPanelCallbacks,
+  VideoPanelCapture,
+  VideoPanelTexts
+} from '../application/videoPanelModel';
+import { VideoDialog } from '../../../ui/domains/video';
+import type { UiMountable } from '../../../ui/hosts/shared/contract';
 
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
   texts: VideoPanelTexts;
 }
 
-export class VideoDialogPanel {
+export class VideoDialogPanel
+  implements
+    UiMountable<
+      HTMLElement | undefined,
+      | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
+      | undefined,
+      HTMLElement
+    >
+{
   private readonly dialog: VideoDialog;
   private readonly renderRoot: HTMLElement;
   private readonly pointerDownHandler: (event: PointerEvent) => void;
@@ -60,6 +73,37 @@ export class VideoDialogPanel {
   }
 
   get element(): HTMLElement {
+    return this.renderRoot;
+  }
+
+  mount(target: HTMLElement = document.body): HTMLElement {
+    if (!this.renderRoot.isConnected) {
+      target.append(this.renderRoot);
+    }
+    return this.renderRoot;
+  }
+
+  update(payload?: {
+    texts?: VideoPanelTexts;
+    count?: number;
+    hint?: string;
+    captures?: VideoPanelCapture[];
+  }): HTMLElement {
+    if (!payload) {
+      return this.renderRoot;
+    }
+    if (payload.texts) {
+      this.updateTexts(payload.texts);
+    }
+    if (typeof payload.count === 'number') {
+      this.updateCount(payload.count);
+    }
+    if (typeof payload.hint === 'string') {
+      this.updateHint(payload.hint);
+    }
+    if (payload.captures) {
+      this.setCaptures(payload.captures);
+    }
     return this.renderRoot;
   }
 

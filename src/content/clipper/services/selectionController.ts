@@ -1,10 +1,13 @@
-import { extractSelectionClip, type SelectionClipResult } from '../../extractors/selectionExtractor';
+import {
+  extractSelectionClip,
+  type SelectionClipResult
+} from '../../extractors/selectionExtractor';
 import type { ReaderBootstrapHighlight } from '../../reader/types';
 import type { ClipPromptGateway } from '../application/clipPromptGateway';
 import { ADD_HIGHLIGHT_EVENT } from '../../reader/constants';
 import { loadFragmentConfig } from './fragmentConfig';
 import { detectVideoIdentity } from '../../video/utils';
-import { isValidVideoPlayPage } from '../../video/prompt';
+import { isValidVideoPlayPage } from '../../video/videoPromptObserver';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import {
   getReaderSession,
@@ -14,13 +17,23 @@ import {
 } from '../../runtime/contentSessionRegistry';
 
 export interface ReaderSessionAdapter {
-  ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void;
+  ingestExternalHighlight(
+    range: Range,
+    selectedHtml: string,
+    selectedText: string,
+    comment: string
+  ): void;
   start(initialHighlight: ReaderBootstrapHighlight): Promise<void>;
 }
 
 export interface VideoSessionAdapter {
   start(): Promise<void>;
-  ingestTextCapture(selectedHtml: string, selectedText: string, comment: string, selectionRange?: Range | null): void;
+  ingestTextCapture(
+    selectedHtml: string,
+    selectedText: string,
+    comment: string,
+    selectionRange?: Range | null
+  ): void;
 }
 
 export interface SelectionClipDependencies {
@@ -31,7 +44,11 @@ export interface SelectionClipDependencies {
 }
 
 export interface SelectionController {
-  handleSelectionClip(doc: Document, url: string, selection: Selection): Promise<SelectionClipResult | null>;
+  handleSelectionClip(
+    doc: Document,
+    url: string,
+    selection: Selection
+  ): Promise<SelectionClipResult | null>;
   handleVideoSelectionClip(doc: Document, url: string, selection: Selection): Promise<void>;
   handleVideoSelectionClipFromData(
     doc: Document,
@@ -170,7 +187,13 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
   return {
     handleSelectionClip,
     handleVideoSelectionClip,
-    handleVideoSelectionClipFromData: async (doc, url, selectedHtml, selectedText, comment = '') => {
+    handleVideoSelectionClipFromData: async (
+      doc,
+      url,
+      selectedHtml,
+      selectedText,
+      comment = ''
+    ) => {
       const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
       if (!normalizedText) {
         throw new Error('Selected text is empty');

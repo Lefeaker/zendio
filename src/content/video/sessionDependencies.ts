@@ -9,14 +9,18 @@ import type { StorageService } from '../../platform/interfaces/storage';
 export interface VideoSessionPlatformDependencies {
   // Content composition root now passes the primary repository contract.
   optionsRepository: IOptionsRepository;
+  videoRepository?: IVideoRepository;
   storage: StorageService;
 }
 
-export function createVideoSessionDependencies(deps: VideoSessionPlatformDependencies): VideoSessionDependencies {
+export function createVideoSessionDependencies(
+  deps: VideoSessionPlatformDependencies
+): VideoSessionDependencies {
   return {
     viewFactory: createVideoPanelViewFactory(),
     optionsRepository: deps.optionsRepository,
-    videoRepository: resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
+    videoRepository:
+      deps.videoRepository ?? resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
     storage: deps.storage
   };
 }

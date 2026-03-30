@@ -7,24 +7,37 @@ const showStatusMessageMock = vi.hoisted(() => vi.fn());
 const showTransferMessageMock = vi.hoisted(() => vi.fn());
 const clearTransferMessageMock = vi.hoisted(() => vi.fn());
 const formatOptionsErrorMock = vi.hoisted(() => vi.fn((error) => String(error)));
-const getOptionsMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({
-  yamlConfigAutoSaved: 'YAML saved',
-  templatesAutoSaved: 'Templates saved',
-  yamlConfigMigrated: 'Migrated',
-  copyConfigSuccess: 'Copied',
-  importSuccess: 'Imported',
-  saveSuccess: 'Saved',
-  saveFailed: 'Save failed'
-})));
+const getOptionsMessagesMock = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      yamlConfigAutoSaved: 'YAML saved',
+      templatesAutoSaved: 'Templates saved',
+      yamlConfigMigrated: 'Migrated',
+      copyConfigSuccess: 'Copied',
+      importSuccess: 'Imported',
+      saveSuccess: 'Saved',
+      saveFailed: 'Save failed'
+    })
+  )
+);
 const consumePendingAutoSaveSourceMock = vi.hoisted(() => vi.fn(() => 'yamlConfig'));
 const consumeYamlMigrationNoticeMock = vi.hoisted(() => vi.fn(() => null));
 const registerOptionsControllerMock = vi.hoisted(() => vi.fn());
 const configureOptionsActionsMock = vi.hoisted(() => vi.fn());
 const refreshPrivacySettingsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const savePrivacySettingsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const enforceAiTimestampsDisabledMock = vi.hoisted(() => vi.fn());
-const syncClassifierNoteMock = vi.hoisted(() => vi.fn());
 const highlightFragmentShortcutsMock = vi.hoisted(() => vi.fn(() => true));
+const shellGetMountedSectionMock = vi.hoisted(() =>
+  vi.fn((sectionId: string) => {
+    if (sectionId === 'privacy') {
+      return { refreshSettings: refreshPrivacySettingsMock, saveSettings: savePrivacySettingsMock };
+    }
+    if (sectionId === 'fragment') {
+      return { highlightKeyboardShortcuts: highlightFragmentShortcutsMock };
+    }
+    return null;
+  })
+);
 const runDiagnosticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const fixConfigurationMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const themeInitMock = vi.hoisted(() => vi.fn());
@@ -37,30 +50,38 @@ const shellMountAllMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined
 const shellConfigureUIMock = vi.hoisted(() => vi.fn());
 const mountExperimentalShellMock = vi.hoisted(() => vi.fn());
 const controllerDisposeMock = vi.hoisted(() => vi.fn());
-const controllerLoadInitialStateMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ some: 'state' })));
+const controllerLoadInitialStateMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ some: 'state' }))
+);
 const controllerApplyToFormMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const controllerReadFormMock = vi.hoisted(() => vi.fn(() => ({ some: 'state' })));
 const controllerSaveSnapshotMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const createOptionsControllerMock = vi.hoisted(() => vi.fn((_config) => ({
-  dispose: controllerDisposeMock,
-  loadInitialState: controllerLoadInitialStateMock,
-  applyToForm: controllerApplyToFormMock,
-  readForm: controllerReadFormMock,
-  saveSnapshot: controllerSaveSnapshotMock
-})));
+const createOptionsControllerMock = vi.hoisted(() =>
+  vi.fn((_config) => ({
+    dispose: controllerDisposeMock,
+    loadInitialState: controllerLoadInitialStateMock,
+    applyToForm: controllerApplyToFormMock,
+    readForm: controllerReadFormMock,
+    saveSnapshot: controllerSaveSnapshotMock
+  }))
+);
 const i18nLoadMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const i18nMountMock = vi.hoisted(() => vi.fn());
 const i18nGetBinderMock = vi.hoisted(() => vi.fn(() => ({ bindText: vi.fn() })));
-const i18nGetCurrentResourceMock = vi.hoisted(() => vi.fn(() => ({ language: 'en', messages: {} })));
+const i18nGetCurrentResourceMock = vi.hoisted(() =>
+  vi.fn(() => ({ language: 'en', messages: {} }))
+);
 const i18nChangeLanguageMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
-const createDefaultPageI18nControllerMock = vi.hoisted(() => vi.fn(() => ({
-  load: i18nLoadMock,
-  mount: i18nMountMock,
-  getBinder: i18nGetBinderMock,
-  getCurrentResource: i18nGetCurrentResourceMock,
-  changeLanguage: i18nChangeLanguageMock
-})));
+const createDefaultPageI18nControllerMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    load: i18nLoadMock,
+    mount: i18nMountMock,
+    getBinder: i18nGetBinderMock,
+    getCurrentResource: i18nGetCurrentResourceMock,
+    changeLanguage: i18nChangeLanguageMock
+  }))
+);
 const copyOptionsToClipboardMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const parseConfigInputMock = vi.hoisted(() => vi.fn());
 const readConfigTextFromClipboardMock = vi.hoisted(() => vi.fn(() => Promise.resolve('')));
@@ -68,14 +89,20 @@ const exportAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.
 const applyAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const modalDisposeMock = vi.hoisted(() => vi.fn());
 const navigationDisposeMock = vi.hoisted(() => vi.fn());
-const ModalControllerMock = vi.hoisted(() => vi.fn().mockImplementation(() => ({ dispose: modalDisposeMock })));
-const NavigationControllerMock = vi.hoisted(() => vi.fn().mockImplementation(() => ({ dispose: navigationDisposeMock })));
+const ModalControllerMock = vi.hoisted(() =>
+  vi.fn().mockImplementation(() => ({ dispose: modalDisposeMock }))
+);
+const NavigationControllerMock = vi.hoisted(() =>
+  vi.fn().mockImplementation(() => ({ dispose: navigationDisposeMock }))
+);
 const storageMock = {
   sync: { kind: 'sync' },
   local: { kind: 'local' }
 } as unknown as StorageService;
 
-const createShell = (overrides: Partial<{ activeSection: string; initialSection: string }> = {}) => ({
+const createShell = (
+  overrides: Partial<{ activeSection: string; initialSection: string }> = {}
+) => ({
   stateManager: { getState: () => ({ activeSection: overrides.activeSection ?? 'rest' }) },
   initialSection: overrides.initialSection ?? 'rest',
   preloadSections: shellPreloadMock,
@@ -83,7 +110,8 @@ const createShell = (overrides: Partial<{ activeSection: string; initialSection:
   navigateTo: shellNavigateToMock,
   mountAllSections: shellMountAllMock,
   configureUI: shellConfigureUIMock,
-  cleanup: shellCleanupMock
+  cleanup: shellCleanupMock,
+  getMountedSection: shellGetMountedSectionMock
 });
 
 vi.mock('../../../src/i18n', () => ({
@@ -141,17 +169,10 @@ vi.mock('../../../src/options/app/experimentalShell', () => ({
 vi.mock('../../../src/options/app/optionsActions', () => ({
   configureOptionsActions: configureOptionsActionsMock
 }));
-vi.mock('../../../src/options/components/sectionRegistry', () => ({
-  enforceAiTimestampsDisabled: enforceAiTimestampsDisabledMock,
-  syncClassifierNote: syncClassifierNoteMock,
-  highlightFragmentShortcuts: highlightFragmentShortcutsMock,
-  refreshPrivacySettings: refreshPrivacySettingsMock,
-  savePrivacySettings: savePrivacySettingsMock
-}));
 vi.mock('../../../src/options/components/formSections/formSectionManager', () => ({
   FormSectionRegistry: vi.fn().mockImplementation(() => ({ clear: vi.fn() }))
 }));
-vi.mock('../../../src/options/components/shared/ThemeSwitcher', () => ({
+vi.mock('../../../src/ui/domains/theme/ThemeSwitcher', () => ({
   ThemeSwitcher: vi.fn().mockImplementation(() => ({
     init: themeInitMock,
     destroy: themeDestroyMock
@@ -197,8 +218,14 @@ describe('options bootstrap', () => {
     await showAutoSaveNotice('templates');
     await showAutoSaveNotice('other-source');
 
-    expect(showStatusMessageMock).toHaveBeenNthCalledWith(1, 'success', { key: 'yamlConfigAutoSaved', text: 'YAML saved' });
-    expect(showStatusMessageMock).toHaveBeenNthCalledWith(2, 'success', { key: 'templatesAutoSaved', text: 'Templates saved' });
+    expect(showStatusMessageMock).toHaveBeenNthCalledWith(1, 'success', {
+      key: 'yamlConfigAutoSaved',
+      text: 'YAML saved'
+    });
+    expect(showStatusMessageMock).toHaveBeenNthCalledWith(2, 'success', {
+      key: 'templatesAutoSaved',
+      text: 'Templates saved'
+    });
     expect(showStatusMessageMock).toHaveBeenCalledTimes(2);
   });
 
@@ -216,18 +243,21 @@ describe('options bootstrap', () => {
     expect(shellNavigateToMock).not.toHaveBeenCalled();
     expect(shellMountAllMock).toHaveBeenCalledTimes(1);
     expect(shellConfigureUIMock).toHaveBeenCalledTimes(1);
-    expect(enforceAiTimestampsDisabledMock).toHaveBeenCalledTimes(1);
-    expect(syncClassifierNoteMock).toHaveBeenCalledTimes(1);
     expect(clearTransferMessageMock).toHaveBeenCalledTimes(1);
   });
 
   it('shows migration notice and navigates when active section mismatches', async () => {
     consumeYamlMigrationNoticeMock.mockReturnValue('yamlConfigMigrated');
-    mountExperimentalShellMock.mockResolvedValue(createShell({ activeSection: 'yaml', initialSection: 'rest' }));
+    mountExperimentalShellMock.mockResolvedValue(
+      createShell({ activeSection: 'yaml', initialSection: 'rest' })
+    );
 
     await bootstrapOptionsApp();
 
-    expect(showStatusMessageMock).toHaveBeenCalledWith('success', { key: 'yamlConfigMigrated', text: 'Migrated' });
+    expect(showStatusMessageMock).toHaveBeenCalledWith('success', {
+      key: 'yamlConfigMigrated',
+      text: 'Migrated'
+    });
     expect(shellNavigateToMock).toHaveBeenCalledWith('rest');
   });
 
@@ -244,9 +274,13 @@ describe('options bootstrap', () => {
     expect(shellNavigateToMock).not.toHaveBeenCalled();
     expect(shellConfigureUIMock).not.toHaveBeenCalled();
 
-    const modalCalls = ModalControllerMock.mock.calls as Array<[{ bindings: Array<{ modalId: string; onOpen?: () => void; onClose?: () => void }> }]>;
+    const modalCalls = ModalControllerMock.mock.calls as Array<
+      [{ bindings: Array<{ modalId: string; onOpen?: () => void; onClose?: () => void }> }]
+    >;
     const [modalConfig] = modalCalls[0] ?? [];
-    const suggestionsBinding = modalConfig?.bindings.find((binding) => binding.modalId === 'suggestionsModal');
+    const suggestionsBinding = modalConfig?.bindings.find(
+      (binding) => binding.modalId === 'suggestionsModal'
+    );
     const qrContainer = document.querySelector<HTMLElement>('#suggestionsXhsQr');
     const trigger = document.querySelector<HTMLButtonElement>('#suggestionsXhsTrigger');
 
@@ -258,21 +292,26 @@ describe('options bootstrap', () => {
     expect(qrContainer?.hasAttribute('hidden')).toBe(true);
   });
 
-
   it('loads changelog content when version modal opens in shell fallback mode', async () => {
     mountExperimentalShellMock.mockResolvedValue(null);
     i18nGetCurrentResourceMock.mockReturnValue({ language: 'en', messages: {} });
 
     await bootstrapOptionsApp();
 
-    const modalCalls = ModalControllerMock.mock.calls as Array<[{ bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }> }]>;
+    const modalCalls = ModalControllerMock.mock.calls as Array<
+      [{ bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }> }]
+    >;
     const [modalConfig] = modalCalls[0] ?? [];
-    const versionBinding = modalConfig?.bindings.find((binding) => binding.modalId === 'changelogModal');
+    const versionBinding = modalConfig?.bindings.find(
+      (binding) => binding.modalId === 'changelogModal'
+    );
     expect(versionBinding).toBeTruthy();
 
     await versionBinding?.onOpen?.();
 
-    expect(document.getElementById('changelogContent')?.innerHTML ?? '').toContain('Dual URL Configuration');
+    expect(document.getElementById('changelogContent')?.innerHTML ?? '').toContain(
+      'Dual URL Configuration'
+    );
   });
 
   it('warns and skips theme initialization when switcher container is missing', async () => {
@@ -304,7 +343,10 @@ describe('options bootstrap', () => {
     await vi.advanceTimersByTimeAsync(250);
 
     expect(shellMountSectionMock).toHaveBeenCalledWith('fragment', { activate: true });
-    expect(warnSpy).toHaveBeenCalledWith('[Options] Target element for hash "shortcuts" not found via registry');
+    expect(shellGetMountedSectionMock).toHaveBeenCalledWith('fragment');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Options] Target element for hash "shortcuts" not found via registry'
+    );
 
     warnSpy.mockRestore();
     vi.useRealTimers();
@@ -336,21 +378,28 @@ describe('options bootstrap', () => {
   });
 
   it('wires configured actions for language, save, copy, import, reload and fix', async () => {
-    parseConfigInputMock.mockReturnValue({ options: { imported: true }, analytics: { enabled: true } });
+    parseConfigInputMock.mockReturnValue({
+      options: { imported: true },
+      analytics: { enabled: true }
+    });
     readConfigTextFromClipboardMock.mockResolvedValue('{"options":{}}');
     exportAnalyticsTransferPayloadMock.mockResolvedValue({ provider: 'ga' });
 
     await bootstrapOptionsApp();
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{
-      changeLanguage: (language: string) => Promise<string>;
-      copyConfig: () => Promise<void>;
-      importConfig: () => Promise<void>;
-      saveOptions: () => Promise<void>;
-      reloadDiagnostics: () => Promise<void>;
-      fixConfiguration: () => Promise<void>;
-      runDiagnostics: () => Promise<void>;
-    }]>;
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [
+        {
+          changeLanguage: (language: string) => Promise<string>;
+          copyConfig: () => Promise<void>;
+          importConfig: () => Promise<void>;
+          saveOptions: () => Promise<void>;
+          reloadDiagnostics: () => Promise<void>;
+          fixConfiguration: () => Promise<void>;
+          runDiagnostics: () => Promise<void>;
+        }
+      ]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     const changedLanguage = await actions.changeLanguage('zh-CN');
@@ -364,11 +413,15 @@ describe('options bootstrap', () => {
     expect(changedLanguage).toBe('en');
     expect(i18nChangeLanguageMock).toHaveBeenCalledWith('zh-CN');
     expect(refreshPrivacySettingsMock).toHaveBeenCalled();
-    const copyCalls = copyOptionsToClipboardMock.mock.calls as unknown as Array<[{
-      version: number;
-      analytics?: { provider: string };
-      options: Record<string, unknown>;
-    }]>;
+    const copyCalls = copyOptionsToClipboardMock.mock.calls as unknown as Array<
+      [
+        {
+          version: number;
+          analytics?: { provider: string };
+          options: Record<string, unknown>;
+        }
+      ]
+    >;
     const [copyPayload] = copyCalls[0] ?? [];
     expect(copyPayload).toMatchObject({
       version: 1,
@@ -376,7 +429,9 @@ describe('options bootstrap', () => {
       options: { some: 'state' }
     });
     expect(applyAnalyticsTransferPayloadMock).toHaveBeenCalledWith({ enabled: true });
-    const saveCalls = controllerSaveSnapshotMock.mock.calls as unknown as Array<[{ reason: string; draft?: Record<string, unknown> }]>;
+    const saveCalls = controllerSaveSnapshotMock.mock.calls as unknown as Array<
+      [{ reason: string; draft?: Record<string, unknown> }]
+    >;
     const [importSaveCall] = saveCalls[0] ?? [];
     const [manualSaveCall] = saveCalls[1] ?? [];
     expect(importSaveCall).toMatchObject({ reason: 'import', draft: { imported: true } });
@@ -384,12 +439,23 @@ describe('options bootstrap', () => {
     expect(savePrivacySettingsMock).toHaveBeenCalledWith({ showInlineStatus: false });
     expect(runDiagnosticsMock).toHaveBeenCalledTimes(2);
     expect(fixConfigurationMock).toHaveBeenCalledTimes(1);
-    expect(showTransferMessageMock).toHaveBeenCalledWith('success', { key: 'copyConfigSuccess', text: 'Copied' });
-    expect(showTransferMessageMock).toHaveBeenCalledWith('success', { key: 'importSuccess', text: 'Imported' });
-    expect(showStatusMessageMock).toHaveBeenCalledWith('success', { key: 'importSuccess', text: 'Imported' });
-    expect(showStatusMessageMock).toHaveBeenCalledWith('success', { key: 'saveSuccess', text: 'Saved' });
+    expect(showTransferMessageMock).toHaveBeenCalledWith('success', {
+      key: 'copyConfigSuccess',
+      text: 'Copied'
+    });
+    expect(showTransferMessageMock).toHaveBeenCalledWith('success', {
+      key: 'importSuccess',
+      text: 'Imported'
+    });
+    expect(showStatusMessageMock).toHaveBeenCalledWith('success', {
+      key: 'importSuccess',
+      text: 'Imported'
+    });
+    expect(showStatusMessageMock).toHaveBeenCalledWith('success', {
+      key: 'saveSuccess',
+      text: 'Saved'
+    });
   });
-
 
   it('shows transfer error when copying config fails', async () => {
     copyOptionsToClipboardMock.mockRejectedValueOnce(new Error('clipboard blocked'));
@@ -397,7 +463,9 @@ describe('options bootstrap', () => {
 
     await bootstrapOptionsApp();
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{ copyConfig: () => Promise<void> }]>;
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [{ copyConfig: () => Promise<void> }]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     await actions.copyConfig();
@@ -413,39 +481,52 @@ describe('options bootstrap', () => {
 
     await bootstrapOptionsApp();
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{ importConfig: () => Promise<void> }]>;
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [{ importConfig: () => Promise<void> }]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     await actions.importConfig();
 
     expect(showTransferMessageMock).toHaveBeenCalledWith('error', 'Error: invalid config');
-    expect(controllerSaveSnapshotMock).not.toHaveBeenCalledWith(expect.objectContaining({ reason: 'import' }));
+    expect(controllerSaveSnapshotMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'import' })
+    );
     expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
   });
-
 
   it('shows save error status when privacy settings persistence fails after save', async () => {
     await bootstrapOptionsApp();
     savePrivacySettingsMock.mockRejectedValueOnce(new Error('privacy save failed'));
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{ saveOptions: () => Promise<void> }]>
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [{ saveOptions: () => Promise<void> }]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     await actions.saveOptions();
 
-    expect(showStatusMessageMock).toHaveBeenCalledWith('error', 'Save failed: Error: privacy save failed');
+    expect(showStatusMessageMock).toHaveBeenCalledWith(
+      'error',
+      'Save failed: Error: privacy save failed'
+    );
   });
 
   it('shows save error status when manual save fails', async () => {
     await bootstrapOptionsApp();
     controllerSaveSnapshotMock.mockRejectedValueOnce(new Error('manual save failed'));
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{ saveOptions: () => Promise<void> }]>;
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [{ saveOptions: () => Promise<void> }]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     await actions.saveOptions();
 
-    expect(showStatusMessageMock).toHaveBeenCalledWith('error', 'Save failed: Error: manual save failed');
+    expect(showStatusMessageMock).toHaveBeenCalledWith(
+      'error',
+      'Save failed: Error: manual save failed'
+    );
   });
 
   it('ignores unknown auto-save sources without showing status notice', async () => {
@@ -454,21 +535,21 @@ describe('options bootstrap', () => {
     expect(showStatusMessageMock).not.toHaveBeenCalled();
   });
 
-
-
   it('shows template autosave notices and ignores null pending sources', async () => {
     const { showAutoSaveNotice } = await import('../../../src/options/app/bootstrap');
 
     consumePendingAutoSaveSourceMock.mockReturnValueOnce('templates');
     await showAutoSaveNotice(consumePendingAutoSaveSourceMock());
-    expect(showStatusMessageMock).toHaveBeenCalledWith('success', { key: 'templatesAutoSaved', text: 'Templates saved' });
+    expect(showStatusMessageMock).toHaveBeenCalledWith('success', {
+      key: 'templatesAutoSaved',
+      text: 'Templates saved'
+    });
 
     showStatusMessageMock.mockClear();
     consumePendingAutoSaveSourceMock.mockReturnValueOnce(null);
     await showAutoSaveNotice(consumePendingAutoSaveSourceMock());
     expect(showStatusMessageMock).not.toHaveBeenCalled();
   });
-
 
   it('logs auto-save failures, ignores manual auto-save errors, and skips null autosave sources', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -504,7 +585,10 @@ describe('options bootstrap', () => {
     await bootstrapOptionsApp();
     await Promise.resolve();
     await Promise.resolve();
-    expect(consoleWarnSpy).toHaveBeenCalledWith('[Options] Section preload failed:', expect.any(Error));
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[Options] Section preload failed:',
+      expect.any(Error)
+    );
 
     await bootstrapOptionsApp();
     expect(consoleErrorSpy).toHaveBeenCalledWith('[Options] 卸载 shell 时出错:', expect.any(Error));
@@ -513,10 +597,14 @@ describe('options bootstrap', () => {
   });
 
   it('falls back to default auto-save copy when i18n messages omit notice labels', async () => {
-    getOptionsMessagesMock.mockResolvedValueOnce({} as Awaited<ReturnType<typeof getOptionsMessagesMock>>);
+    getOptionsMessagesMock.mockResolvedValueOnce(
+      {} as Awaited<ReturnType<typeof getOptionsMessagesMock>>
+    );
     await showAutoSaveNotice('yamlConfig');
 
-    getOptionsMessagesMock.mockResolvedValueOnce({} as Awaited<ReturnType<typeof getOptionsMessagesMock>>);
+    getOptionsMessagesMock.mockResolvedValueOnce(
+      {} as Awaited<ReturnType<typeof getOptionsMessagesMock>>
+    );
     await showAutoSaveNotice('templates');
 
     expect(showStatusMessageMock).toHaveBeenNthCalledWith(1, 'success', {
@@ -538,23 +626,30 @@ describe('options bootstrap', () => {
 
     await bootstrapOptionsApp();
 
-    const configureCalls = configureOptionsActionsMock.mock.calls as Array<[{
-      changeLanguage: (language: string) => Promise<string>;
-    }]>;
+    const configureCalls = configureOptionsActionsMock.mock.calls as Array<
+      [
+        {
+          changeLanguage: (language: string) => Promise<string>;
+        }
+      ]
+    >;
     const [actions] = configureCalls[0] ?? [];
 
     await expect(actions.changeLanguage('ja')).resolves.toBe('fr');
 
-    const modalCalls = ModalControllerMock.mock.calls as Array<[{ bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }> }]>
+    const modalCalls = ModalControllerMock.mock.calls as Array<
+      [{ bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }> }]
+    >;
     const [modalConfig] = modalCalls[0] ?? [];
-    const versionBinding = modalConfig?.bindings.find((binding) => binding.modalId === 'changelogModal');
+    const versionBinding = modalConfig?.bindings.find(
+      (binding) => binding.modalId === 'changelogModal'
+    );
     await versionBinding?.onOpen?.();
 
-    expect(document.getElementById('changelogContent')?.innerHTML ?? '').toContain('Dual URL Configuration');
+    expect(document.getElementById('changelogContent')?.innerHTML ?? '').toContain(
+      'Dual URL Configuration'
+    );
   });
-
-
-
 
   it('skips changelog rendering when modal opens without a changelog host', async () => {
     document.getElementById('changelogContent')?.remove();
@@ -562,29 +657,35 @@ describe('options bootstrap', () => {
 
     await bootstrapOptionsApp();
 
-    const modalCalls = ModalControllerMock.mock.calls as Array<[{
-      bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }>;
-    }]>;
+    const modalCalls = ModalControllerMock.mock.calls as Array<
+      [
+        {
+          bindings: Array<{ modalId: string; onOpen?: () => Promise<void> | void }>;
+        }
+      ]
+    >;
     const [modalConfig] = modalCalls[0] ?? [];
-    const versionBinding = modalConfig?.bindings.find((binding) => binding.modalId === 'changelogModal');
+    const versionBinding = modalConfig?.bindings.find(
+      (binding) => binding.modalId === 'changelogModal'
+    );
     await expect(versionBinding?.onOpen?.()).resolves.toBeUndefined();
   });
 
+  it('keeps suggestions modal binding safe when modal host is missing in shell fallback mode', async () => {
+    document.getElementById('suggestionsModal')?.remove();
+    mountExperimentalShellMock.mockResolvedValue(null);
 
+    await bootstrapOptionsApp();
 
+    const modalCalls = ModalControllerMock.mock.calls as Array<
+      [{ bindings: Array<{ modalId: string; onOpen?: () => void; onClose?: () => void }> }]
+    >;
+    const [modalConfig] = modalCalls[0] ?? [];
+    const suggestionsBinding = modalConfig?.bindings.find(
+      (binding) => binding.modalId === 'suggestionsModal'
+    );
 
-it('keeps suggestions modal binding safe when modal host is missing in shell fallback mode', async () => {
-  document.getElementById('suggestionsModal')?.remove();
-  mountExperimentalShellMock.mockResolvedValue(null);
-
-  await bootstrapOptionsApp();
-
-  const modalCalls = ModalControllerMock.mock.calls as Array<[{ bindings: Array<{ modalId: string; onOpen?: () => void; onClose?: () => void }> }]>;
-  const [modalConfig] = modalCalls[0] ?? [];
-  const suggestionsBinding = modalConfig?.bindings.find((binding) => binding.modalId === 'suggestionsModal');
-
-  expect(() => suggestionsBinding?.onOpen?.()).not.toThrow();
-  expect(() => suggestionsBinding?.onClose?.()).not.toThrow();
-});
-
+    expect(() => suggestionsBinding?.onOpen?.()).not.toThrow();
+    expect(() => suggestionsBinding?.onClose?.()).not.toThrow();
+  });
 });

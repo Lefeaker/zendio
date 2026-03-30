@@ -62,11 +62,16 @@ describe('doubao ai chat integration', () => {
   });
 
   it('parses Doubao chat, extracts model, and resolves routing metadata', async () => {
-    const html = readFileSync(join(process.cwd(), 'tests/fixtures/ai-chat/doubao-model.html'), 'utf8');
+    const html = readFileSync(
+      join(process.cwd(), 'tests/fixtures/ai-chat/doubao-model.html'),
+      'utf8'
+    );
     const dom = new JSDOM(html, { url: doubaoUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: doubaoUrl });
 
@@ -147,7 +152,12 @@ describe('doubao ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/doubao/2025/03/04/深度对话.md');
   });
 });

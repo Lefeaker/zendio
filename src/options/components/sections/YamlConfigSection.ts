@@ -6,20 +6,19 @@ import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { YamlConfigView } from '../controls/YamlConfigView';
+import { YamlConfigView } from '../../../ui/domains/yaml-config';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
 const CONTENT_TYPE_ORDER: YamlContentType[] = ['article', 'clipper', 'video', 'ai_chat'];
 
 interface YamlSectionDependencies {
-  yamlRepository?: IYamlRepository;
+  yamlRepository: IYamlRepository;
   yamlService?: YamlConfigService;
 }
 
 export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   private yamlView: YamlConfigView | null = null;
-  private formSectionBinding: FormSectionHandlers | null = null;
   private readonly yamlRepository: IYamlRepository;
   private readonly yamlService: YamlConfigService;
   private unsubscribeYamlRepo: (() => void) | null = null;
@@ -28,15 +27,15 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   private summaryEl: HTMLDivElement | null = null;
   private suppressRepoRender = false;
 
-  constructor(container: HTMLElement, deps: YamlSectionDependencies = {}) {
+  constructor(container: HTMLElement, deps: YamlSectionDependencies) {
     super(container);
-    this.yamlRepository = deps.yamlRepository ?? resolveRepository<IYamlRepository>(DI_TOKENS.IYamlRepository);
+    this.yamlRepository = deps.yamlRepository;
     this.yamlService = deps.yamlService ?? new YamlConfigService();
   }
 
   protected override renderWithState(_context: SectionRenderContext): HTMLElement {
     this.disposeView();
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     this.container.replaceChildren(this.buildHeader(), this.buildBody());
     this.initializeYamlView();
     this.ensureYamlSubscription();
@@ -46,11 +45,7 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   }
 
   override destroy(): void {
-    if (this.formSectionBinding) {
-      const registry = this.requireFormRegistry();
-      registry.unregister('yamlConfig', this.formSectionBinding);
-      this.formSectionBinding = null;
-    }
+    this.unregisterManagedFormSection();
     if (this.unsubscribeYamlRepo) {
       this.unsubscribeYamlRepo();
       this.unsubscribeYamlRepo = null;
@@ -80,20 +75,13 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   }
 
   private registerFormIntegration(): void {
-    const registry = this.requireFormRegistry();
-    if (this.formSectionBinding) {
-      registry.unregister('yamlConfig', this.formSectionBinding);
-    }
-
     const binding: FormSectionHandlers = {
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
     };
-
-    registry.register('yamlConfig', binding);
-    this.formSectionBinding = binding;
+    this.registerManagedFormSection('yamlConfig', binding);
   }
 
   private applySnapshot(options: StoredOptions): void {
@@ -118,26 +106,24 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2 text-base-content');
-    const title = document.createElement('h2');
-    title.className = 'm-0 text-2xl font-semibold tracking-tight';
-    title.textContent = this.messages?.yamlConfigTitle ?? 'YAML Configuration';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-base-content/60 text-md');
-    subtitle.textContent = this.messages?.yamlConfigHint ?? this.messages?.yamlConfigNote ?? 'Control which YAML fields are exported for each content type.';
     this.summaryEl = this.createElement('div', 'text-sm text-base-content/50');
     this.summaryEl.textContent = '…';
-
-    header.append(titleWrapper, subtitle, this.summaryEl);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.yamlConfigTitle ?? 'YAML Configuration',
+      description:
+        this.messages?.yamlConfigHint ??
+        this.messages?.yamlConfigNote ??
+        'Control which YAML fields are exported for each content type.',
+      actions: [this.summaryEl]
+    });
   }
 
   private buildBody(): HTMLElement {
     const pad = this.createElement('div', 'mt-6');
-    const host = this.createElement('div', 'space-y-6', { id: 'yamlConfigViewHost', 'data-role': 'yaml-config-view-host' });
+    const host = this.createElement('div', 'space-y-6', {
+      id: 'yamlConfigViewHost',
+      'data-role': 'yaml-config-view-host'
+    });
     pad.append(host);
     return pad;
   }
@@ -191,7 +177,9 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
         const resolved = this.yamlService.resolveConfig(type, overrides, {});
         return `${this.getContentTypeLabel(type)}: ${resolved.fields.length}`;
       }).join(' · ');
-      this.summaryEl.textContent = summary || (this.messages?.yamlConfigHint ?? 'Manage the YAML fields exported for each content type.');
+      this.summaryEl.textContent =
+        summary ||
+        (this.messages?.yamlConfigHint ?? 'Manage the YAML fields exported for each content type.');
     } catch (error) {
       console.warn('[YamlConfigSection] Failed to compute YAML preview summary:', error);
     }

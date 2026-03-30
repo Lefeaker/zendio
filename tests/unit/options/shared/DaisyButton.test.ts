@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { withDomEnvironment } from '../../../utils/domEnvironment';
-import { DaisyButton } from '@options/components/shared/DaisyButton';
+import { UiButton } from '../../../../src/ui/primitives/button';
 
 const MARKUP = '<!DOCTYPE html><html><body></body></html>';
 
@@ -10,7 +10,7 @@ describe('DaisyButton', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const button = new DaisyButton(container);
+      const button = new UiButton(container);
       const element = button.render({
         label: 'Test',
         variant: 'secondary',
@@ -29,7 +29,7 @@ describe('DaisyButton', () => {
       document.body.append(container);
 
       const onClick = vi.fn();
-      const button = new DaisyButton(container);
+      const button = new UiButton(container);
       const element = button.render({
         label: 'Action',
         onClick
@@ -45,7 +45,7 @@ describe('DaisyButton', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const button = new DaisyButton(container);
+      const button = new UiButton(container);
       const element = button.render({
         label: 'Save',
         iconName: 'Activity'
@@ -60,7 +60,7 @@ describe('DaisyButton', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const button = new DaisyButton(container);
+      const button = new UiButton(container);
       const element = button.render({
         label: 'Disabled',
         disabled: true
@@ -76,7 +76,7 @@ describe('DaisyButton', () => {
       const container = document.createElement('div');
       document.body.append(container);
 
-      const button = new DaisyButton(container);
+      const button = new UiButton(container);
       const element = button.render({
         label: 'Save',
         ariaLabel: 'Save changes'

@@ -7,7 +7,8 @@ export type PlatformId =
   | 'deepseek'
   | 'kimi'
   | 'doubao'
-  | 'monica';
+  | 'monica'
+  | 'perplexity';
 
 export type ParsedMessage = {
   id: string;

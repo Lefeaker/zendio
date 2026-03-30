@@ -1,12 +1,16 @@
 import type { MessagingService, MessageListenerResult } from '../../platform/interfaces/messaging';
-import { chromeMessagingService } from '../../platform/chrome/messaging';
 import { MessagingError } from '../../shared/errors/repositoryErrors';
-import type { IMessagingRepository, Message, MessageHandler, MessageSender } from '../../shared/repositories';
+import type {
+  IMessagingRepository,
+  Message,
+  MessageHandler,
+  MessageSender
+} from '../../shared/repositories';
 
 const DEFAULT_TIMEOUT = 30_000;
 
 export class ChromeMessagingRepository implements IMessagingRepository {
-  constructor(private readonly messaging: MessagingService = chromeMessagingService) {}
+  constructor(private readonly messaging: MessagingService) {}
 
   async send<T>(message: Message, timeout = DEFAULT_TIMEOUT): Promise<T> {
     const timeoutControl = this.createTimeoutController(timeout, message.type);

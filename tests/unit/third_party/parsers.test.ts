@@ -72,7 +72,7 @@ describe('ai chat platform parsers', () => {
     const doc = loadFixture('tongyi-code.html');
     const result = parseChatDOM('tongyi', doc);
 
-    const assistant = result.messages.find(m => m.role === 'assistant');
+    const assistant = result.messages.find((m) => m.role === 'assistant');
     expect(assistant).toBeTruthy();
 
     const markdown = assistant?.md || '';
@@ -88,12 +88,12 @@ describe('ai chat platform parsers', () => {
     const doc = loadFixture('tongyi-inline-numbers.html');
     const result = parseChatDOM('tongyi', doc);
 
-    const assistant = result.messages.find(m => m.role === 'assistant');
+    const assistant = result.messages.find((m) => m.role === 'assistant');
     expect(assistant).toBeTruthy();
 
     const markdown = assistant?.md || '';
     expect(markdown).toContain('```TypeScript');
-    expect(markdown).toContain("const counter = 0;");
+    expect(markdown).toContain('const counter = 0;');
     expect(markdown).not.toMatch(/^1\/\//m);
     expect(markdown).toMatch(/console\.log\('Start'\);/);
   });
@@ -111,7 +111,7 @@ describe('ai chat platform parsers', () => {
     const doc = loadFixture('deepseek-code.html');
     const result = parseChatDOM('deepseek', doc);
 
-    const assistantMessages = result.messages.filter(m => m.role === 'assistant');
+    const assistantMessages = result.messages.filter((m) => m.role === 'assistant');
     expect(assistantMessages).toHaveLength(2);
 
     const firstReply = assistantMessages[0].md;
@@ -158,7 +158,7 @@ describe('ai chat platform parsers', () => {
 
     expect(result.model).toBe('豆包旗舰版');
     expect(result.messages).toHaveLength(2);
-    const assistant = result.messages.find(m => m.role === 'assistant');
+    const assistant = result.messages.find((m) => m.role === 'assistant');
     expect(assistant?.md).toContain('旗舰版');
   });
 
@@ -188,11 +188,24 @@ describe('ai chat platform parsers', () => {
     expect(result.messages).toHaveLength(2);
   });
 
+  it('parses Perplexity conversations and strips toolbar buttons', () => {
+    const doc = loadFixture('perplexity.html');
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.title).toBe('AI Research Thread');
+    expect(result.model).toBe('Sonar Pro');
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0].role).toBe('user');
+    expect(result.messages[1].role).toBe('assistant');
+    expect(result.messages[1].md).toContain('OpenAI continues to lead frontier deployment.');
+    expect(result.messages[1].md).not.toMatch(/Copy/);
+  });
+
   it('preserves Claude language fences while removing copy buttons', () => {
     const doc = loadFixture('claude-code.html');
     const result = parseChatDOM('claude', doc);
 
-    const assistant = result.messages.find(m => m.role === 'assistant');
+    const assistant = result.messages.find((m) => m.role === 'assistant');
     expect(assistant).toBeTruthy();
 
     const markdown = assistant?.md || '';
@@ -214,7 +227,9 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[1].md).toContain('两周的学习计划');
     expect(result.messages[1].md).not.toContain('Gemini AI company profile');
     expect(result.messages[1].md).not.toContain('分享');
-    expect(result.messages[1].md).toContain('| 表格 | Feature | OpenAI | Google DeepMind (Gemini) | Anthropic (Claude) |');
+    expect(result.messages[1].md).toContain(
+      '| 表格 | Feature | OpenAI | Google DeepMind (Gemini) | Anthropic (Claude) |'
+    );
   });
 
   it('strips Kimi code headers while keeping fenced code', () => {
@@ -240,12 +255,11 @@ describe('ai chat platform parsers', () => {
 
     expect(result.title).toBe('Sample Session');
     expect(result.messages).toHaveLength(2);
-    const assistantMessage = result.messages.find(m => m.role === 'assistant');
+    const assistantMessage = result.messages.find((m) => m.role === 'assistant');
     expect(assistantMessage).toBeTruthy();
     expect(assistantMessage?.md).toContain('Gemini Canvas Snapshot');
     expect(assistantMessage?.md).toContain('Deep Research Report');
   });
-
 
   it('falls back to default ChatGPT title for empty docs and derives model from body text', () => {
     const emptyDom = new JSDOM('<html><head><title> - ChatGPT</title></head><body></body></html>');
@@ -289,7 +303,6 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[0].role).toBe('user');
     expect(result.messages[1].role).toBe('assistant');
   });
-
 
   it('returns empty result for unsupported platforms', () => {
     const doc = loadFixture('chatgpt.html');

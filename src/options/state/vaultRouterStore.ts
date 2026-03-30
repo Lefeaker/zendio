@@ -1,8 +1,8 @@
-import { deepClone } from '../utils/clone';
 import type { VaultRouterConfig, VaultConfig, RoutingRule } from '../../shared/types';
 import { generateId } from '../../background/vault-router';
 import { STATE_KEYS, getStateStore } from '../../shared/state';
 import { configProvider } from '../../shared/config';
+import { cloneStateValue } from './stateValue';
 
 interface VaultRouterState {
   vaults: VaultConfig[];
@@ -19,11 +19,11 @@ function createEmptyState(): VaultRouterState {
 
 function getDraftState(): VaultRouterState {
   const current = store.get();
-  return current ? deepClone(current) : createEmptyState();
+  return current ? cloneStateValue(current) : createEmptyState();
 }
 
 function setState(state: VaultRouterState): void {
-  store.set(deepClone(state));
+  store.set(cloneStateValue(state));
 }
 
 function updateState(mutator: (state: VaultRouterState) => void): VaultRouterState {
@@ -37,7 +37,7 @@ function normalizeVault(vault: VaultConfig): VaultConfig {
   const cloned: VaultConfig = {
     ...vault,
     enabled: vault.enabled !== false,
-    rules: (vault.rules ?? []).map(rule => ({
+    rules: (vault.rules ?? []).map((rule) => ({
       ...rule,
       vaultId: rule.vaultId ?? vault.id
     }))
@@ -51,15 +51,16 @@ function normalizeVault(vault: VaultConfig): VaultConfig {
 }
 
 function findVaultIndex(state: VaultRouterState, id: string): number {
-  return state.vaults.findIndex(vault => vault.id === id);
+  return state.vaults.findIndex((vault) => vault.id === id);
 }
 
-function findRuleLocation(state: VaultRouterState, id: string):
-  | { vaultIndex: number; ruleIndex: number }
-  | undefined {
+function findRuleLocation(
+  state: VaultRouterState,
+  id: string
+): { vaultIndex: number; ruleIndex: number } | undefined {
   for (let vaultIndex = 0; vaultIndex < state.vaults.length; vaultIndex += 1) {
     const rules = state.vaults[vaultIndex].rules ?? [];
-    const ruleIndex = rules.findIndex(rule => rule.id === id);
+    const ruleIndex = rules.findIndex((rule) => rule.id === id);
     if (ruleIndex !== -1) {
       return { vaultIndex, ruleIndex };
     }
@@ -77,12 +78,12 @@ export function initializeVaultRouterStore(config?: VaultRouterConfig | null): v
     return;
   }
 
-  const configClone = deepClone(config);
+  const configClone = cloneStateValue(config);
   const normalizedVaults = (configClone.vaults ?? []).map(normalizeVault);
 
   if (configClone.rules?.length) {
     for (const legacyRule of configClone.rules) {
-      const targetIndex = normalizedVaults.findIndex(vault => vault.id === legacyRule.vaultId);
+      const targetIndex = normalizedVaults.findIndex((vault) => vault.id === legacyRule.vaultId);
       if (targetIndex === -1) {
         continue;
       }
@@ -90,7 +91,7 @@ export function initializeVaultRouterStore(config?: VaultRouterConfig | null): v
       if (!vault.rules) {
         vault.rules = [];
       }
-      const exists = vault.rules.find(rule => rule.id === legacyRule.id);
+      const exists = vault.rules.find((rule) => rule.id === legacyRule.id);
       if (!exists) {
         vault.rules.push({
           ...legacyRule,
@@ -104,22 +105,22 @@ export function initializeVaultRouterStore(config?: VaultRouterConfig | null): v
     vaults: normalizedVaults,
     defaultVaultId:
       configClone.defaultVaultId ??
-      normalizedVaults.find(vault => vault.isDefault)?.id ??
+      normalizedVaults.find((vault) => vault.isDefault)?.id ??
       normalizedVaults[0]?.id
   });
 }
 
 export function getVaultsSnapshot(): VaultConfig[] {
   const state = getDraftState();
-  return state.vaults.map(vault => ({
+  return state.vaults.map((vault) => ({
     ...vault,
-    rules: (vault.rules ?? []).map(rule => ({ ...rule }))
+    rules: (vault.rules ?? []).map((rule) => ({ ...rule }))
   }));
 }
 
 export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig {
   let created: VaultConfig | undefined;
-  updateState(state => {
+  updateState((state) => {
     const newVaultId = initial?.id ?? generateId();
     const newVault: VaultConfig = normalizeVault({
       id: newVaultId,
@@ -130,7 +131,10 @@ export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig 
       apiKey: initial?.apiKey ?? REST_DEFAULTS.apiKey,
       isDefault: initial?.isDefault ?? false,
       enabled: initial?.enabled ?? true,
-      rules: (initial?.rules ?? []).map(rule => ({ ...rule, vaultId: rule.vaultId ?? newVaultId }))
+      rules: (initial?.rules ?? []).map((rule) => ({
+        ...rule,
+        vaultId: rule.vaultId ?? newVaultId
+      }))
     });
 
     state.vaults.push(newVault);
@@ -141,7 +145,7 @@ export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig 
 
     created = {
       ...newVault,
-      rules: (newVault.rules ?? []).map(rule => ({ ...rule }))
+      rules: (newVault.rules ?? []).map((rule) => ({ ...rule }))
     };
   });
 
@@ -153,7 +157,7 @@ export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig 
 }
 
 export function updateAdditionalVault(id: string, updates: Partial<VaultConfig>): void {
-  updateState(state => {
+  updateState((state) => {
     const index = findVaultIndex(state, id);
     if (index === -1) {
       return;
@@ -164,8 +168,8 @@ export function updateAdditionalVault(id: string, updates: Partial<VaultConfig>)
       ...current,
       ...updates,
       rules: updates.rules
-        ? updates.rules.map(rule => ({ ...rule, vaultId: rule.vaultId ?? id }))
-        : current.rules ?? []
+        ? updates.rules.map((rule) => ({ ...rule, vaultId: rule.vaultId ?? id }))
+        : (current.rules ?? [])
     });
 
     state.vaults[index] = next;
@@ -177,8 +181,8 @@ export function updateAdditionalVault(id: string, updates: Partial<VaultConfig>)
 }
 
 export function removeAdditionalVault(id: string): void {
-  updateState(state => {
-    state.vaults = state.vaults.filter(vault => vault.id !== id);
+  updateState((state) => {
+    state.vaults = state.vaults.filter((vault) => vault.id !== id);
     if (state.defaultVaultId === id) {
       state.defaultVaultId = state.vaults[0]?.id;
     }
@@ -187,13 +191,13 @@ export function removeAdditionalVault(id: string): void {
 
 export function addRoutingRule(initial?: Partial<RoutingRule>): RoutingRule {
   let created: RoutingRule | undefined;
-  updateState(state => {
+  updateState((state) => {
     if (state.vaults.length === 0) {
       throw new Error('No additional vaults configured');
     }
 
     const requestedVault = initial?.vaultId
-      ? state.vaults.find(vault => vault.id === initial.vaultId)
+      ? state.vaults.find((vault) => vault.id === initial.vaultId)
       : undefined;
 
     const targetVault = requestedVault ?? state.vaults[0];
@@ -210,9 +214,10 @@ export function addRoutingRule(initial?: Partial<RoutingRule>): RoutingRule {
       priority: initial?.priority ?? 10
     };
 
-    const newRule: RoutingRule = initial?.description !== undefined
-      ? { ...newRuleBase, description: initial.description }
-      : newRuleBase;
+    const newRule: RoutingRule =
+      initial?.description !== undefined
+        ? { ...newRuleBase, description: initial.description }
+        : newRuleBase;
 
     targetVault.rules.push(newRule);
     created = { ...newRule };
@@ -226,7 +231,7 @@ export function addRoutingRule(initial?: Partial<RoutingRule>): RoutingRule {
 }
 
 export function updateRoutingRule(id: string, updates: Partial<RoutingRule>): void {
-  updateState(state => {
+  updateState((state) => {
     const location = findRuleLocation(state, id);
     if (!location) {
       return;
@@ -240,7 +245,7 @@ export function updateRoutingRule(id: string, updates: Partial<RoutingRule>): vo
     }
 
     const desiredVaultId = updates.vaultId ?? currentRule.vaultId ?? sourceVault.id;
-    let targetVault = state.vaults.find(vault => vault.id === desiredVaultId);
+    let targetVault = state.vaults.find((vault) => vault.id === desiredVaultId);
     if (!targetVault) {
       targetVault = sourceVault;
     }
@@ -266,7 +271,7 @@ export function updateRoutingRule(id: string, updates: Partial<RoutingRule>): vo
 }
 
 export function removeRoutingRule(id: string): void {
-  updateState(state => {
+  updateState((state) => {
     const location = findRuleLocation(state, id);
     if (!location) {
       return;
@@ -284,19 +289,19 @@ export function getVaultRouterConfig(): VaultRouterConfig | undefined {
     return undefined;
   }
 
-  const cloned = deepClone(state);
+  const cloned = cloneStateValue(state);
   return {
     vaults: cloned.vaults,
     defaultVaultId:
       cloned.defaultVaultId ??
-      cloned.vaults.find(vault => vault.isDefault)?.id ??
+      cloned.vaults.find((vault) => vault.isDefault)?.id ??
       cloned.vaults[0]?.id
   };
 }
 
 export function subscribeVaultRouter(listener: (state: VaultRouterState) => void): () => void {
-  return store.subscribe(value => {
+  return store.subscribe((value) => {
     const next = value ?? createEmptyState();
-    listener(deepClone(next));
+    listener(cloneStateValue(next));
   });
 }

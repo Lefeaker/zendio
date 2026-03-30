@@ -1,7 +1,7 @@
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
-import { DaisyCard } from '../shared/DaisyCard';
-import { createButton } from '../shared/DaisyUIHelpers';
+import { DaisyCard } from '../../../ui/primitives/card';
+import { createOptionsButtonElement as createDaisyButtonElement } from '../../../ui/primitives/button';
 import {
   runDiagnostics as runDiagnosticsAction,
   fixConfiguration as fixConfigurationAction,
@@ -14,7 +14,7 @@ export class DiagnosisSection extends BaseSection<SectionRenderContext> {
   private reloadButton: HTMLButtonElement | null = null;
 
   protected renderWithState(): HTMLElement {
-    this.container.classList.add('aobx-section', 'bg-base-100', 'border', 'border-base-300', 'rounded-lg', 'p-[clamp(22px,2.5vw,32px)]', 'shadow-card');
+    this.applySectionChrome();
     const header = this.buildHeader();
     const body = this.buildBody();
 
@@ -33,26 +33,21 @@ export class DiagnosisSection extends BaseSection<SectionRenderContext> {
   }
 
   private buildHeader(): HTMLElement {
-    const header = this.createElement('div', 'grid gap-2 mb-6');
-
-    const titleWrapper = this.createElement('div', 'flex items-center gap-2');
-    const title = document.createElement('h2');
-    title.className = 'text-lg font-semibold text-base-content m-0';
-    title.textContent = this.messages?.diagnosisTitle ?? '配置诊断';
-    titleWrapper.append(title);
-
-    const subtitle = this.createElement('div', 'text-sm text-base-content/60');
-    subtitle.textContent = '点击“诊断配置”按钮后可在此查看检查结果与修复建议。';
-
-    header.append(titleWrapper, subtitle);
-    return header;
+    return this.buildSectionHeader({
+      title: this.messages?.diagnosisTitle ?? '配置诊断',
+      description:
+        this.messages?.diagnosisDescription ?? '点击“诊断配置”按钮后可在此查看检查结果与修复建议。',
+      titleClassName: 'm-0 text-2xl font-semibold tracking-tight',
+      descriptionClassName: 'text-base-content/60 text-md'
+    });
   }
 
   private buildBody(): HTMLElement {
-    const wrapper = this.createElement('div', 'mt-6 space-y-6');
+    const wrapper = this.createSectionBody();
 
     const hint = this.createElement('div', 'w-full text-xs text-base-content/60 mt-1');
     hint.textContent =
+      this.messages?.diagnosisSummaryHint ??
       '诊断会检视 REST API、路径模板、域名映射、多仓路由等配置，并输出详细报告。';
     wrapper.append(hint);
 
@@ -65,19 +60,25 @@ export class DiagnosisSection extends BaseSection<SectionRenderContext> {
   private buildActionRow(): HTMLElement {
     const actionRow = this.createElement('div', 'flex flex-wrap gap-3 items-center mt-4');
 
-    const diagnoseButton = createButton(this.messages?.diagnoseButton ?? '🔍 诊断配置', { variant: 'primary' });
-    diagnoseButton.type = 'button';
-    diagnoseButton.id = 'diagBtn';
+    const diagnoseButton = createDaisyButtonElement({
+      label: this.messages?.diagnoseButton ?? '🔍 诊断配置',
+      variant: 'primary',
+      id: 'diagBtn'
+    });
     diagnoseButton.addEventListener('click', this.handleDiagnose);
 
-    const fixButton = createButton(this.messages?.fixButton ?? '🔧 修复配置', { variant: 'outline' });
-    fixButton.type = 'button';
-    fixButton.id = 'fixBtn';
+    const fixButton = createDaisyButtonElement({
+      label: this.messages?.fixButton ?? '🔧 修复配置',
+      variant: 'outline',
+      id: 'fixBtn'
+    });
     fixButton.addEventListener('click', this.handleFix);
 
-    const reloadButton = createButton(this.messages?.reloadButton ?? '🔄 重新加载', { variant: 'outline' });
-    reloadButton.type = 'button';
-    reloadButton.id = 'reloadBtn';
+    const reloadButton = createDaisyButtonElement({
+      label: this.messages?.reloadButton ?? '🔄 重新加载',
+      variant: 'outline',
+      id: 'reloadBtn'
+    });
     reloadButton.addEventListener('click', this.handleReload);
 
     this.diagnoseButton = diagnoseButton;
@@ -97,14 +98,15 @@ export class DiagnosisSection extends BaseSection<SectionRenderContext> {
     const titleWrapper = this.createElement('div', 'flex items-center gap-2');
     const title = document.createElement('h3');
     title.className = 'text-base font-semibold text-base-content m-0';
-    title.textContent = '诊断结果';
+    title.textContent = this.messages?.diagnosisResultTitle ?? '诊断结果';
     titleWrapper.append(title);
     titleRow.append(titleWrapper);
     container.append(titleRow);
 
     const output = document.createElement('pre');
     output.id = 'diagOutput';
-    output.className = 'font-mono text-sm leading-relaxed max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words bg-base-200 rounded-md p-4';
+    output.className =
+      'font-mono text-sm leading-relaxed max-h-[320px] overflow-y-auto whitespace-pre-wrap break-words bg-base-200 rounded-md p-4';
     output.setAttribute('aria-live', 'polite');
 
     const cardHost = this.createElement('div', 'mt-2');

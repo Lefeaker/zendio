@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { withDomEnvironment } from '../../../utils/domEnvironment';
-import { DaisyCard } from '@options/components/shared/DaisyCard';
+import { DaisyCard } from '../../../../src/ui/primitives/card';
 
 const MARKUP = '<!DOCTYPE html><html><body></body></html>';
 
