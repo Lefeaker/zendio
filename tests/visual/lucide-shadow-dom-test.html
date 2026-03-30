@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Lucide Icons Shadow DOM 测试</title>
+  <style>
+    .test-container {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .text-primary {
+      color: hsl(257 86% 63%);
+    }
+
+    .text-secondary {
+      color: hsl(220 12% 45%);
+    }
+
+    .text-error {
+      color: hsl(0 65% 65%);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="test-container">
+    <h1>Lucide Icons 颜色跟随测试</h1>
+
+    <!-- 测试：图标颜色是否跟随文字颜色 -->
+    <div class="text-primary">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      主色图标（应该是紫色）
+    </div>
+
+    <div class="text-secondary">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      次要色图标（应该是灰色）
+    </div>
+
+    <div class="text-error">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+      </svg>
+      错误色图标（应该是红色）
+    </div>
+  </div>
+
+  <!-- Shadow DOM 测试 -->
+  <div id="shadow-host"></div>
+
+  <script>
+    const host = document.getElementById('shadow-host');
+    const shadow = host.attachShadow({ mode: 'open' });
+
+    shadow.innerHTML = `
+      <style>
+        .shadow-content { color: hsl(257 86% 63%); padding: 1rem; }
+      </style>
+      <div class="shadow-content">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        Shadow DOM 中的图标（应该是紫色）
+      </div>
+    `;
+  </script>
+</body>
+
+</html>

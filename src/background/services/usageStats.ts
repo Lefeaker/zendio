@@ -1,83 +1,155 @@
 import type { ClipPayload } from '../../shared/types';
 import type { UsageStats, UsageStatCategory, UsageStatsHistoryEntry } from '../../shared/types';
 import { USAGE_STATS_STORAGE_KEY, DEFAULT_USAGE_STATS, normalizeUsageStats } from '../../shared/constants';
+import type { StorageService } from '../../platform/interfaces/storage';
+import { PlatformError } from '../../platform/errors';
+import { registry, TOKENS } from '../../shared/di';
 
-let memoryStats: UsageStats = cloneStats(DEFAULT_USAGE_STATS);
+/**
+ * 使用统计存储类
+ * 管理内存缓存和持久化存储
+ */
+export class UsageStatsStore {
+  private memoryStats: UsageStats = cloneStats(DEFAULT_USAGE_STATS);
+  private static readonly LEGACY_STORAGE_KEY = 'usage_stats';
 
-export async function getUsageStats(): Promise<UsageStats> {
-  const storage = getLocalStorageArea();
-  if (!storage) {
-    return cloneStats(memoryStats);
-  }
+  constructor(private readonly storage: StorageService) {}
 
-  try {
-    const stored = await storage.get(USAGE_STATS_STORAGE_KEY);
-    const rawValue = stored[USAGE_STATS_STORAGE_KEY];
-    const normalized = normalizeUsageStats(rawValue);
-    updateMemoryStats(normalized);
-    return cloneStats(memoryStats);
-  } catch (error) {
-    if (isRecoverableStorageError(error)) {
-      return cloneStats(memoryStats);
-    }
-    throw error;
-  }
-}
-
-export async function recordClipUsage(payload: ClipPayload): Promise<UsageStats | null> {
-  const category = resolveUsageCategory(payload);
-  if (!category) {
-    return null;
-  }
-
-  const current = await getUsageStats();
-  const history = updateHistory(current.history ?? [], category);
-  const updated: UsageStats = {
-    ...current,
-    aiChatSaves: current.aiChatSaves + (category === 'ai_chat' ? 1 : 0),
-    fragmentSaves: current.fragmentSaves + (category === 'fragment' ? 1 : 0),
-    articleSaves: current.articleSaves + (category === 'article' ? 1 : 0),
-    lastUpdatedISO: new Date().toISOString(),
-    history
-  };
-
-  const storage = getLocalStorageArea();
-  if (storage) {
+  async getStats(): Promise<UsageStats> {
     try {
-      await storage.set({ [USAGE_STATS_STORAGE_KEY]: updated });
+      const stored = await this.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY);
+      const legacyStored = stored ?? await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY);
+      const normalized = normalizeUsageStats(legacyStored);
+      this.updateMemoryStats(normalized);
+      if (!stored && legacyStored) {
+        void this.persistStats(normalized);
+      }
+      return cloneStats(this.memoryStats);
     } catch (error) {
-      if (!isRecoverableStorageError(error)) {
-        throw error;
+      if (isRecoverableStorageError(error) || isChromeUnavailableError(error)) {
+        return cloneStats(this.memoryStats);
+      }
+      throw error;
+    }
+  }
+
+  async recordUsage(payload: ClipPayload): Promise<UsageStats | null> {
+    const category = resolveUsageCategory(payload);
+    if (!category) {
+      return null;
+    }
+
+    const current = await this.getStats();
+    const history = updateHistory(current.history ?? [], category);
+    const updated: UsageStats = {
+      ...current,
+      aiChatSaves: current.aiChatSaves + (category === 'ai_chat' ? 1 : 0),
+      fragmentSaves: current.fragmentSaves + (category === 'fragment' ? 1 : 0),
+      articleSaves: current.articleSaves + (category === 'article' ? 1 : 0),
+      lastUpdatedISO: new Date().toISOString(),
+      history
+    };
+
+    await this.persistStats(updated);
+    this.updateMemoryStats(updated);
+    return updated;
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const stored = await this.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY);
+      const legacyStored = stored ?? await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY);
+      if (!stored && !legacyStored) {
+        await this.persistStats(DEFAULT_USAGE_STATS);
+        this.updateMemoryStats(DEFAULT_USAGE_STATS);
+        return;
+      }
+      const normalized = normalizeUsageStats(legacyStored);
+      this.updateMemoryStats(normalized);
+      if (!stored && legacyStored) {
+        void this.persistStats(normalized);
+      }
+    } catch (error) {
+      if (isRecoverableStorageError(error) || isChromeUnavailableError(error)) {
+        this.updateMemoryStats(DEFAULT_USAGE_STATS);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async persistStats(stats: UsageStats): Promise<void> {
+    const targets = [USAGE_STATS_STORAGE_KEY, UsageStatsStore.LEGACY_STORAGE_KEY];
+
+    for (const key of targets) {
+      try {
+        await this.storage.local.set(key, stats);
+      } catch (error) {
+        if (!isRecoverableStorageError(error) && !isChromeUnavailableError(error)) {
+          console.warn(`[UsageStats] Failed to persist stats for key ${key}, using in-memory fallback:`, error);
+        }
       }
     }
   }
-  updateMemoryStats(updated);
-  return updated;
+
+  private updateMemoryStats(stats: UsageStats): void {
+    this.memoryStats = cloneStats(stats);
+  }
 }
 
-export async function ensureUsageStatsInitialized(): Promise<void> {
-  const storage = getLocalStorageArea();
-  if (!storage) {
-    updateMemoryStats(DEFAULT_USAGE_STATS);
-    return;
-  }
+let usageStatsStorage: StorageService | null = null;
 
-  try {
-    const stored = await storage.get(USAGE_STATS_STORAGE_KEY);
-    if (!stored[USAGE_STATS_STORAGE_KEY]) {
-      await storage.set({ [USAGE_STATS_STORAGE_KEY]: { ...DEFAULT_USAGE_STATS } });
-      updateMemoryStats(DEFAULT_USAGE_STATS);
-      return;
-    }
-    const normalized = normalizeUsageStats(stored[USAGE_STATS_STORAGE_KEY]);
-    updateMemoryStats(normalized);
-  } catch (error) {
-    if (isRecoverableStorageError(error)) {
-      updateMemoryStats(DEFAULT_USAGE_STATS);
-      return;
-    }
-    throw error;
+export function configureUsageStatsStorage(storage: StorageService): void {
+  usageStatsStorage = storage;
+}
+
+function requireUsageStatsStorage(): StorageService {
+  if (!usageStatsStorage) {
+    throw new Error('[UsageStats] StorageService is not configured.');
   }
+  return usageStatsStorage;
+}
+
+/**
+ * 创建UsageStatsStore实例的工厂函数
+ */
+export function createUsageStatsStore(): UsageStatsStore {
+  return new UsageStatsStore(requireUsageStatsStorage());
+}
+
+/**
+ * 获取UsageStatsStore实例
+ * 使用依赖注入容器获取实例
+ */
+export function getUsageStatsStore(): UsageStatsStore {
+  if (!registry.has(TOKENS.usageStatsStore)) {
+    registry.register(TOKENS.usageStatsStore, createUsageStatsStore);
+  }
+  return registry.resolve<UsageStatsStore>(TOKENS.usageStatsStore);
+}
+
+/**
+ * 获取使用统计数据的便捷函数
+ */
+export async function getUsageStats(): Promise<UsageStats> {
+  const store = getUsageStatsStore();
+  return store.getStats();
+}
+
+/**
+ * 记录剪藏使用的便捷函数
+ */
+export async function recordClipUsage(payload: ClipPayload): Promise<UsageStats | null> {
+  const store = getUsageStatsStore();
+  return store.recordUsage(payload);
+}
+
+/**
+ * 确保使用统计已初始化的便捷函数
+ */
+export async function ensureUsageStatsInitialized(): Promise<void> {
+  const store = getUsageStatsStore();
+  return store.initialize();
 }
 
 function resolveUsageCategory(payload: ClipPayload): UsageStatCategory {
@@ -85,17 +157,10 @@ function resolveUsageCategory(payload: ClipPayload): UsageStatCategory {
   if (clipType === 'ai_chat') {
     return 'ai_chat';
   }
-  if (clipType === 'clipper' || clipType === 'fragment') {
+  if (clipType === 'clipper' || clipType === 'fragment' || clipType === 'video') {
     return 'fragment';
   }
   return 'article';
-}
-
-function getLocalStorageArea(): chrome.storage.LocalStorageArea | null {
-  if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-    return null;
-  }
-  return chrome.storage.local;
 }
 
 function cloneStats(stats: UsageStats): UsageStats {
@@ -105,9 +170,7 @@ function cloneStats(stats: UsageStats): UsageStats {
   };
 }
 
-function updateMemoryStats(stats: UsageStats): void {
-  memoryStats = cloneStats(stats);
-}
+// 移除全局的updateMemoryStats函数，现在由UsageStatsStore类管理
 
 function isRecoverableStorageError(error: unknown): boolean {
   if (!error) {
@@ -118,6 +181,10 @@ function isRecoverableStorageError(error: unknown): boolean {
     return false;
   }
   return message.includes('No SW') || message.includes('No service worker');
+}
+
+function isChromeUnavailableError(error: unknown): boolean {
+  return error instanceof PlatformError && error.code === 'CHROME_UNAVAILABLE';
 }
 
 function updateHistory(

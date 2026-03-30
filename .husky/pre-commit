@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# 运行轻量级质量检查
+echo "🔍 运行预提交检查..."
+npx lint-staged

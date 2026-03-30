@@ -117,9 +117,6 @@ function extractTongyiChatData(doc: Document): ParsedResult {
 
     const sanitized = sanitizeTongyiContent(contentElem);
     const html = sanitized.innerHTML;
-    if (role === 'assistant' && html.includes('TypeScript')) {
-      console.debug('[Tongyi] sanitized assistant HTML:', html);
-    }
     const markdown = chatHtmlToMarkdown(html);
 
     if (markdown.trim()) {
@@ -133,7 +130,13 @@ function extractTongyiChatData(doc: Document): ParsedResult {
     }
   }
 
-  return { title, messages, assets: [], model: model || undefined };
+  const parsedResult: ParsedResult = { title, messages, assets: [] };
+
+  if (model.trim()) {
+    parsedResult.model = model.trim();
+  }
+
+  return parsedResult;
 }
 
 function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
@@ -178,7 +181,7 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
     }
 
     if (code) {
-      let textContent = (code.textContent || '').replace(/\u00a0/g, ' ');
+      const textContent = (code.textContent || '').replace(/\u00a0/g, ' ');
 
       const lines = textContent.split('\n');
 
@@ -203,18 +206,18 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
 
       const processedLines = shouldStripLineNumbers
         ? lines.map(line => {
-            const leadingWhitespaceMatch = line.match(/^\s*/);
-            const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : '';
-            const withoutLeading = line.slice(leadingWhitespace.length);
-            const numberMatch = withoutLeading.match(/^(\d{1,5})(\s*)/);
+          const leadingWhitespaceMatch = line.match(/^\s*/);
+          const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : '';
+          const withoutLeading = line.slice(leadingWhitespace.length);
+          const numberMatch = withoutLeading.match(/^(\d{1,5})(\s*)/);
 
-            if (!numberMatch) {
-              return line;
-            }
+          if (!numberMatch) {
+            return line;
+          }
 
-            const preservedIndent = numberMatch[2];
-            return leadingWhitespace + preservedIndent + withoutLeading.slice(numberMatch[0].length);
-          })
+          const preservedIndent = numberMatch[2];
+          return leadingWhitespace + preservedIndent + withoutLeading.slice(numberMatch[0].length);
+        })
         : lines;
 
       const nonEmptyLines = processedLines.filter(line => line.trim().length > 0);

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>DaisyUI 透明度测试</title>
+  <link rel="stylesheet" href="../../build/dist/options/styles/tailwind.css">
+</head>
+
+<body class="p-8 bg-base-100">
+  <h1 class="text-2xl font-bold mb-4">透明度修饰符测试</h1>
+
+  <!-- 测试各种透明度 -->
+  <div class="space-y-4">
+    <div class="bg-primary/10 p-4 rounded">10% 主色背景</div>
+    <div class="bg-primary/25 p-4 rounded">25% 主色背景</div>
+    <div class="bg-primary/50 p-4 rounded">50% 主色背景</div>
+    <div class="bg-primary/75 p-4 rounded">75% 主色背景</div>
+    <div class="bg-primary p-4 rounded text-white">100% 主色背景</div>
+  </div>
+
+  <!-- 测试按钮 -->
+  <div class="mt-8 space-x-2">
+    <button class="btn btn-primary">默认按钮</button>
+    <button class="btn btn-primary/80">80% 不透明度</button>
+    <button class="btn btn-primary/60">60% 不透明度</button>
+  </div>
+</body>
+
+</html>

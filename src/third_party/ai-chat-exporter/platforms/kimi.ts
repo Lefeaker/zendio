@@ -236,7 +236,13 @@ function extractKimiChatData(doc: Document): ParsedResult {
     }
   }
 
-  return { title, messages, assets: [], model: model || undefined };
+  const parsedResult: ParsedResult = { title, messages, assets: [] };
+
+  if (model.trim()) {
+    parsedResult.model = model.trim();
+  }
+
+  return parsedResult;
 }
 
 export const kimiParser: ChatPlatformParser = {

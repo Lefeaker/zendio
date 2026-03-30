@@ -32,7 +32,9 @@ export function collectListPath(range: Range): Element[] {
   let cursor: Element | null = currentLi;
   while (cursor) {
     path.unshift(cursor);
-    const parentLi = cursor.parentElement?.closest('li');
+    const parentLi: Element | null = cursor.parentElement
+      ? cursor.parentElement.closest('li')
+      : null;
     cursor = parentLi || null;
   }
   return path;

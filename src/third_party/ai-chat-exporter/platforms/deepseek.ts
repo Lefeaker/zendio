@@ -44,7 +44,7 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
 
   if (!model) {
     const bodyText = doc.body.textContent || '';
-    const modelMatch = bodyText.match(/DeepSeek[\s\-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Coder|Turbo|Pro)/i);
+    const modelMatch = bodyText.match(/DeepSeek[\s-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Coder|Turbo|Pro)/i);
     if (modelMatch) {
       model = modelMatch[0];
     }
@@ -88,7 +88,13 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
     }
   }
 
-  return { title, messages, assets: [], model: model || undefined };
+  const parsedResult: ParsedResult = { title, messages, assets: [] };
+
+  if (model.trim()) {
+    parsedResult.model = model.trim();
+  }
+
+  return parsedResult;
 }
 
 export const deepseekParser: ChatPlatformParser = {

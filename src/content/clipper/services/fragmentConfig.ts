@@ -1,4 +1,7 @@
-import type { FragmentClipperOptions } from '../../../shared/types/options';
+import type { OptionsRepository } from '@shared/interfaces/optionsRepository';
+import { configProvider } from '@shared/config';
+import type { FragmentClipperOptions, StoredOptions } from '@shared/types/options';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 
 export interface ModifierState {
   altKey: boolean;
@@ -9,14 +12,20 @@ export interface ModifierState {
 
 export type ModifierSource = Partial<ModifierState>;
 
-export const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions = {
-  useFootnoteFormat: true,
-  captureContext: false,
-  contextLength: 200,
-  contextMode: 'chars',
-  selectionModifierEnabled: false,
-  selectionModifierKeys: []
-};
+export const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions = configProvider.getFragmentClipperDefaults();
+type FragmentConfigRepository = OptionsRepository | IOptionsRepository;
+
+function isLegacyOptionsRepository(repository: FragmentConfigRepository): repository is OptionsRepository {
+  return 'load' in repository && typeof repository.load === 'function';
+}
+
+async function loadStoredOptions(repository: FragmentConfigRepository): Promise<StoredOptions> {
+  if (isLegacyOptionsRepository(repository)) {
+    return await repository.load();
+  }
+
+  return (await repository.get()) as StoredOptions;
+}
 
 export function createModifierState(): ModifierState {
   return {
@@ -62,10 +71,13 @@ export function normalizeModifierKeys(
   return value.filter(isValidModifierKey);
 }
 
-export async function loadFragmentConfig(): Promise<FragmentClipperOptions> {
+export async function loadFragmentConfig(optionsRepository?: FragmentConfigRepository): Promise<FragmentClipperOptions> {
   try {
-    const { options } = await chrome.storage.sync.get('options');
-    const fragmentConfig = options?.fragmentClipper as Partial<FragmentClipperOptions> | undefined;
+    if (!optionsRepository) {
+      return DEFAULT_FRAGMENT_CONFIG;
+    }
+    const options = await loadStoredOptions(optionsRepository);
+    const fragmentConfig = options.fragmentClipper;
     const merged = {
       ...DEFAULT_FRAGMENT_CONFIG,
       ...fragmentConfig
@@ -77,7 +89,8 @@ export async function loadFragmentConfig(): Promise<FragmentClipperOptions> {
       contextLength: DEFAULT_FRAGMENT_CONFIG.contextLength,
       contextMode: DEFAULT_FRAGMENT_CONFIG.contextMode,
       selectionModifierEnabled: Boolean(fragmentConfig?.selectionModifierEnabled ?? merged.selectionModifierEnabled),
-      selectionModifierKeys: normalizeModifierKeys(merged.selectionModifierKeys)
+      selectionModifierKeys: normalizeModifierKeys(merged.selectionModifierKeys),
+      keyboardShortcutsEnabled: Boolean(fragmentConfig?.keyboardShortcutsEnabled ?? merged.keyboardShortcutsEnabled)
     };
   } catch (error) {
     console.warn('[fragmentConfig] Failed to load fragment clipper options, using defaults:', error);

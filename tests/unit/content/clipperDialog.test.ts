@@ -1,0 +1,393 @@
+/* @vitest-environment jsdom */
+
+import type { PageI18nController, Messages, I18nBinder } from '../../../src/i18n';
+import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
+import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
+
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
+import { setWindowProp, asType } from '../../utils/typeHelpers';
+import { MockClipRepository } from '../../utils/repositories';
+
+type I18nContextModule = typeof import('../../../src/content/i18n/context');
+type StyleSheetManagerModule = typeof import('../../../src/content/clipper/shared/styleSheetManager');
+
+const initializeStylesMock = vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>>();
+const applyStylesMock = vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>>();
+const ensureContentI18nMock = vi.fn<Parameters<I18nContextModule['ensureContentI18n']>, ReturnType<I18nContextModule['ensureContentI18n']>>();
+const getContentI18nBinderMock = vi.fn<Parameters<I18nContextModule['getContentI18nBinder']>, ReturnType<I18nContextModule['getContentI18nBinder']>>();
+const getContentMessagesMock = vi.fn<Parameters<I18nContextModule['getContentMessages']>, ReturnType<I18nContextModule['getContentMessages']>>();
+
+vi.mock('../../../src/content/i18n/context', () => ({
+  ensureContentI18n: ensureContentI18nMock,
+  getContentI18nBinder: getContentI18nBinderMock,
+  getContentMessages: getContentMessagesMock
+}));
+
+vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
+  clipperStyleSheetManager: {
+    initialize: initializeStylesMock,
+    applyTo: applyStylesMock
+  },
+  supportsAdoptedStyleSheets: () => true
+}));
+
+vi.mock('../../../src/content/clipper/components/commentForm', async () => {
+  const actual = await vi.importActual<typeof import('@content/clipper/components/commentForm')>(
+    '@content/clipper/components/commentForm'
+  );
+  return actual;
+});
+
+const dialogMessages = {
+  clipDialogTitle: 'Clip Selection',
+  clipDialogInstructions: 'Use Tab to move between controls. Press Alt + Arrow keys to reposition the dialog.',
+  cancelButton: 'Cancel',
+  clipButton: 'Save',
+  commentLabel: 'Comment',
+  commentPlaceholder: 'Add a note',
+  openReaderButton: 'Open reader',
+  addToReaderButton: 'Add to reader'
+};
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+const getHost = () => document.getElementById('obsidian-clipper-dialog');
+const getDialogRoot = () => {
+  const host = getHost();
+  if (!host) {
+    return null;
+  }
+  return host.shadowRoot ?? host;
+};
+const getActiveElement = () => {
+  const host = getHost();
+  if (host?.shadowRoot) {
+    return host.shadowRoot.activeElement ?? host.shadowRoot;
+  }
+  return document.activeElement;
+};
+
+const createStorageAreaStub = (): StorageAreaService => ({
+  get: vi.fn(() => Promise.resolve(undefined)),
+  set: vi.fn(() => Promise.resolve(undefined)),
+  getMany: vi.fn(() => Promise.resolve({})),
+  setMany: vi.fn(() => Promise.resolve(undefined)),
+  remove: vi.fn(() => Promise.resolve(undefined)),
+  clear: vi.fn(() => Promise.resolve(undefined)),
+  watchKey: vi.fn(() => () => undefined),
+  watchAll: vi.fn(() => () => undefined)
+});
+
+const createDialogDeps = (
+  overrides: { keyboardShortcutsEnabled?: boolean } = {}
+): Partial<ClipperDialogDependencies> => {
+  const clipRepo = new MockClipRepository();
+  if ('keyboardShortcutsEnabled' in overrides) {
+    void clipRepo.setFragmentConfig({ keyboardShortcutsEnabled: overrides.keyboardShortcutsEnabled as boolean });
+  }
+  const storage: StorageService = {
+    local: createStorageAreaStub(),
+    sync: createStorageAreaStub()
+  };
+
+  return {
+    clipRepo,
+    storage,
+    runtime: {
+      getURL: vi.fn((path: string) => path)
+    } as unknown as ClipperDialogDependencies['runtime'],
+    errorHandler: {
+      handle: vi.fn(() => Promise.resolve(undefined))
+    } as unknown as ClipperDialogDependencies['errorHandler']
+  };
+};
+
+beforeAll(() => {
+  if (typeof window.PointerEvent === 'undefined') {
+    class TestPointerEvent extends MouseEvent {
+      constructor(type: string, init?: PointerEventInit) {
+        super(type, init);
+      }
+    }
+    setWindowProp('PointerEvent', asType<typeof PointerEvent>(TestPointerEvent));
+  }
+});
+
+describe('ClipperDialog UI', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ensureContentI18nMock.mockResolvedValue(asType<PageI18nController>(undefined));
+    getContentI18nBinderMock.mockReturnValue(null);
+    getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
+    initializeStylesMock.mockImplementation(() => undefined);
+    applyStylesMock.mockImplementation(() => undefined);
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+  });
+
+  it('resolves with trimmed comment on confirm and removes dialog', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const resultPromise = dialog.show('Hello world');
+    await flushPromises();
+
+    const host = getHost();
+    const shadow = getDialogRoot();
+    expect(host?.getAttribute('role')).toBe('dialog');
+    expect(host?.getAttribute('aria-modal')).toBe('true');
+    expect(shadow).not.toBeNull();
+
+    const textarea = shadow?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
+    expect(textarea).not.toBeNull();
+    if (!textarea) throw new Error('textarea missing');
+    expect(getActiveElement()).toBe(textarea);
+    expect(textarea.classList.contains('clipper-comment-textarea')).toBe(true);
+    expect(textarea.hasAttribute('style')).toBe(false);
+
+    textarea.value = '  note  ';
+    const confirmBtn = shadow?.querySelector<HTMLButtonElement>('[data-i18n="clipButton"]');
+    expect(confirmBtn).toBeTruthy();
+    if (!confirmBtn) throw new Error('confirm button missing');
+    confirmBtn.click();
+
+    const result = await resultPromise;
+    expect(result).toEqual({ action: 'clip', comment: 'note' });
+    expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
+  });
+
+  it('resolves with cancelled status when cancel button clicked', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const resultPromise = dialog.show('Selection');
+    await flushPromises();
+
+    const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>('[data-i18n="cancelButton"]');
+    expect(cancelBtn).toBeTruthy();
+    if (!cancelBtn) throw new Error('cancel button missing');
+    cancelBtn.click();
+
+    const result = await resultPromise;
+    expect(result).toEqual({ action: 'cancel', comment: '' });
+    expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
+  });
+
+  it('updates dialog position when dragged', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Another selection');
+    await flushPromises();
+
+    const shadow = getDialogRoot();
+    const container = shadow?.querySelector<HTMLElement>('.obsidian-clipper-content') ?? null;
+    expect(container).not.toBeNull();
+    if (!container) throw new Error('dialog container missing');
+
+    const header = container.querySelector<HTMLElement>('.clipper-dialog-header');
+    expect(header).not.toBeNull();
+    if (!header) throw new Error('dialog header missing');
+
+    const initialTransform = container.style.transform;
+
+    header.dispatchEvent(new PointerEvent('pointerdown', { clientX: 200, clientY: 200 }));
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 230, clientY: 240 }));
+    document.dispatchEvent(new PointerEvent('pointerup', {}));
+
+    const transform = container.style.transform;
+    expect(transform).toMatch(/translate\(/);
+    expect(transform).not.toBe(initialTransform);
+
+    // resolve pending promise to avoid dangling handlers
+    const buttons = shadow ? Array.from(shadow.querySelectorAll<HTMLButtonElement>('button')) : [];
+    const primaryButton = buttons[1];
+    if (primaryButton) {
+      primaryButton.click();
+      await promise;
+    }
+  });
+
+  it('closes on Escape and restores previous focus', async () => {
+    const focusTarget = document.createElement('button');
+    document.body.appendChild(focusTarget);
+    focusTarget.focus();
+
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const resultPromise = dialog.show('Escape me');
+    await flushPromises();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+    const result = await resultPromise;
+    expect(result).toEqual({ action: 'cancel', comment: '' });
+    await flushPromises();
+    expect(document.activeElement).toBe(focusTarget);
+  });
+
+  it('traps focus within the dialog when tabbing', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Focus sample');
+    await flushPromises();
+
+    const shadow = getDialogRoot();
+    const shadowRoot = shadow instanceof ShadowRoot ? shadow : null;
+    const textarea = shadow?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
+    expect(textarea).not.toBeNull();
+    const buttons = shadow ? Array.from(shadow.querySelectorAll<HTMLButtonElement>('button')) : [];
+    const confirmBtn = buttons.at(1);
+    expect(confirmBtn).toBeTruthy();
+    confirmBtn?.focus();
+
+    confirmBtn?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(shadowRoot?.activeElement).not.toBeNull();
+
+    textarea?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    expect(shadowRoot?.activeElement).not.toBeNull();
+
+    const cancelBtn = shadow?.querySelector<HTMLButtonElement>('button');
+    cancelBtn?.click();
+    await promise;
+  });
+
+  it('supports keyboard repositioning with Alt + Arrow keys', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Keyboard move');
+    await flushPromises();
+
+    const container = getDialogRoot()?.querySelector<HTMLElement>('.obsidian-clipper-content') ?? null;
+    expect(container).not.toBeNull();
+    if (!container) throw new Error('dialog container missing');
+
+    const initialTransform = container.style.transform;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true }));
+    const afterTransform = container.style.transform;
+    expect(afterTransform).toMatch(/translate\(/);
+    expect(afterTransform).not.toBe(initialTransform);
+
+    const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>('button');
+    cancelBtn?.click();
+    await promise;
+  });
+
+  it('renders comment form with class-based styles only', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Styled selection');
+    await flushPromises();
+
+    const shadow = getDialogRoot();
+    const form = shadow?.querySelector<HTMLElement>('.clipper-comment-form');
+    expect(form).toBeTruthy();
+    expect(form?.hasAttribute('style')).toBe(false);
+
+    const preview = form?.querySelector('.clipper-comment-preview');
+    const label = form?.querySelector('.clipper-comment-label');
+    const textarea = form?.querySelector('.clipper-comment-textarea');
+
+    expect(preview).toBeTruthy();
+    expect(label).toBeTruthy();
+    expect(textarea).toBeTruthy();
+
+    for (const element of [preview, label, textarea]) {
+      expect(element?.hasAttribute('style')).toBe(false);
+    }
+
+    const nestedStyles = form?.querySelectorAll('style');
+    expect(nestedStyles?.length ?? 0).toBe(0);
+
+    const cancelBtn = shadow?.querySelector<HTMLButtonElement>('button');
+    cancelBtn?.click();
+    await promise;
+  });
+
+  it('binds dialog text via i18n binder when available', async () => {
+    const textHandles: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
+    const attrHandles: Array<{ dispose: ReturnType<typeof vi.fn> }> = [];
+    const binder = {
+      bindText: vi.fn(() => {
+        const handle = { dispose: vi.fn() };
+        textHandles.push(handle);
+        return handle;
+      }),
+      bindAttr: vi.fn(() => {
+        const handle = { dispose: vi.fn() };
+        attrHandles.push(handle);
+        return handle;
+      })
+    };
+    getContentI18nBinderMock.mockReturnValue(binder as unknown as I18nBinder);
+
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const resultPromise = dialog.show('Localized');
+    await flushPromises();
+
+    expect(binder.bindText).toHaveBeenCalledWith(expect.any(HTMLElement), 'clipDialogTitle');
+    expect(binder.bindText).toHaveBeenCalledWith(expect.any(HTMLElement), 'clipDialogInstructions');
+    expect(binder.bindText).toHaveBeenCalledWith(expect.any(HTMLElement), 'clipButton');
+    expect(binder.bindText).toHaveBeenCalledWith(expect.any(HTMLElement), 'openReaderButton');
+    expect(binder.bindAttr).toHaveBeenCalledWith(expect.any(HTMLTextAreaElement), 'aria-label', 'commentLabel');
+
+    const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>('[data-i18n="cancelButton"]');
+    cancelBtn?.click();
+    await resultPromise;
+
+    for (const handle of [...textHandles, ...attrHandles]) {
+      expect(handle.dispose).toHaveBeenCalled();
+    }
+  });
+});
+
+describe('ClipperDialog repository integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ensureContentI18nMock.mockResolvedValue(undefined as unknown as PageI18nController);
+    getContentI18nBinderMock.mockReturnValue(null);
+    getContentMessagesMock.mockResolvedValue(dialogMessages as unknown as Messages);
+    initializeStylesMock.mockImplementation(() => undefined);
+    applyStylesMock.mockImplementation(() => undefined);
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+  });
+
+  it('subscribes to fragment config changes on show and unsubscribes on destroy', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    const dialog = new ClipperDialog(deps);
+
+    void dialog.show('Repo subscription');
+    await flushPromises();
+
+    const listeners = (deps.clipRepo as unknown as { listeners: Set<unknown> }).listeners;
+    expect(listeners.size).toBe(1);
+
+    dialog.destroy();
+    expect(listeners.size).toBe(0);
+  });
+
+  it('updates internal shortcut state when fragment config changes', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    await deps.clipRepo.setFragmentConfig({ keyboardShortcutsEnabled: false });
+
+    const dialog = new ClipperDialog(deps);
+    void dialog.show('Shortcut config');
+    await flushPromises();
+
+    const state = dialog as unknown as { keyboardShortcutsEnabled: boolean };
+    expect(state.keyboardShortcutsEnabled).toBe(false);
+
+    await deps.clipRepo.setFragmentConfig({ keyboardShortcutsEnabled: true });
+    expect(state.keyboardShortcutsEnabled).toBe(true);
+
+    dialog.destroy();
+  });
+});

@@ -9,5 +9,8 @@ export const SUPPORTED_PLATFORMS: PlatformId[] = [
   'gemini',
   'tongyi',
   'deepseek',
-  'kimi'
+  'kimi',
+  'doubao',
+  'monica',
+  'perplexity'
 ];

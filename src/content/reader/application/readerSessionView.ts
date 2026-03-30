@@ -8,6 +8,7 @@ export interface ReaderSessionView {
   readonly element: HTMLElement;
   updateCount(count: number): void;
   updateHint(message: string): void;
+  updateTexts(texts: ReaderPanelTexts): void;
   setHighlights(highlights: ReaderPanelHighlight[]): void;
   stopEditing(): void;
   isEditing(): boolean;

@@ -1,0 +1,322 @@
+import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
+import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
+import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
+import type { ReaderSelectionPayload } from './services/selectionController';
+import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
+import type { ReaderPanelCoordinator } from './panelCoordinator';
+import type { ReaderSessionDependencies } from './sessionTypes';
+import type { ReaderSessionLifecycle } from './sessionLifecycle';
+import { isNodeInsideReaderUi } from './sessionDom';
+import { clearReaderSession } from '../runtime/contentSessionRegistry';
+import { clearHighlightThemeState } from '../shared/highlightThemeState';
+
+interface ReaderSessionOperationContext {
+  session: object;
+  doc: Document;
+  url: string;
+  clipPrompt: ClipPromptGateway;
+  state: ReaderSessionState;
+  highlightManager: ReaderHighlightManager;
+  panelCoordinator: ReaderPanelCoordinator;
+  lifecycle: ReaderSessionLifecycle;
+  dependencies: ReaderSessionDependencies;
+}
+
+export async function handleReaderSessionSelection(
+  context: ReaderSessionOperationContext,
+  payload: ReaderSelectionPayload
+): Promise<void> {
+  context.state.handlingSelection = true;
+
+  try {
+    const promptResult = await context.clipPrompt.requestSelectionAction({
+      selectedText: payload.selectedText,
+      allowReaderMode: false,
+      readerModeBehavior: 'start'
+    });
+    if (promptResult.action !== 'clip') {
+      context.doc.defaultView?.getSelection()?.removeAllRanges();
+      return;
+    }
+
+    addReaderHighlightFromRange(
+      context,
+      payload.range,
+      payload.selectedHtml,
+      payload.selectedText,
+      promptResult.comment.trim()
+    );
+    context.doc.defaultView?.getSelection()?.removeAllRanges();
+  } catch (error) {
+    console.error('[ReaderSession] Failed to capture selection:', error);
+    context.panelCoordinator.applyHint('selectionFailure', context.state.highlights.length);
+  } finally {
+    context.state.handlingSelection = false;
+  }
+}
+
+export async function handleReaderSessionMouseUp(
+  context: ReaderSessionOperationContext,
+  event: MouseEvent
+): Promise<void> {
+  if (context.state.handlingSelection || context.state.exporting || event.button !== 0) {
+    return;
+  }
+
+  const selection = context.doc.defaultView?.getSelection() ?? window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return;
+  }
+
+  if (
+    isNodeInsideReaderUi(
+      selection.anchorNode,
+      context.panelCoordinator.getElement(),
+      context.doc
+    ) ||
+    isNodeInsideReaderUi(selection.focusNode, context.panelCoordinator.getElement(), context.doc)
+  ) {
+    selection.removeAllRanges();
+    return;
+  }
+
+  const selectedText = selection.toString().trim();
+  if (!selectedText) {
+    selection.removeAllRanges();
+    return;
+  }
+
+  const range = selection.getRangeAt(0).cloneRange();
+  const container = context.doc.createElement('div');
+  container.appendChild(range.cloneContents());
+
+  await handleReaderSessionSelection(context, {
+    range,
+    selectedHtml: container.innerHTML,
+    selectedText,
+    event
+  });
+}
+
+export function addReaderHighlightFromRange(
+  context: ReaderSessionOperationContext,
+  range: Range,
+  selectedHtml: string,
+  selectedText: string,
+  comment: string
+): void {
+  const id = createReaderHighlightId();
+  const fragmentUrl = generateTextFragmentUrl(context.url, selectedText);
+  const highlight =
+    context.highlightManager.createHighlight({
+      id,
+      range,
+      selectedHtml,
+      selectedText,
+      comment,
+      fragmentUrl
+    }) ??
+    createDetachedReaderHighlight(
+      context.doc,
+      id,
+      selectedHtml,
+      selectedText,
+      comment,
+      fragmentUrl
+    );
+  context.state.highlights.push(highlight);
+  syncReaderHighlightsUi(context);
+  context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+}
+
+export function ingestExternalReaderHighlight(
+  context: ReaderSessionOperationContext,
+  payload: { range: Range; selectedHtml: string; selectedText: string; comment: string }
+): void {
+  addReaderHighlightFromRange(
+    context,
+    payload.range,
+    payload.selectedHtml,
+    payload.selectedText,
+    payload.comment
+  );
+  context.doc.defaultView?.getSelection()?.removeAllRanges();
+}
+
+export async function finishReaderSession(
+  context: ReaderSessionOperationContext,
+  loadReadingConfig: () => Promise<
+    ReturnType<typeof import('./sessionState').resolveReadingConfig>
+  >,
+  applyReadingConfig: (
+    config: ReturnType<typeof import('./sessionState').resolveReadingConfig>
+  ) => void
+): Promise<void> {
+  if (context.state.exporting) {
+    return;
+  }
+
+  if (!context.state.highlights.length) {
+    context.panelCoordinator.applyHint('noHighlights', 0);
+    return;
+  }
+
+  context.state.exporting = true;
+  context.panelCoordinator.applyHint('exporting', context.state.highlights.length);
+
+  try {
+    applyReadingConfig(await loadReadingConfig());
+    const highlights = context.dependencies.exporter.prepareHighlights(
+      context.state.highlights,
+      context.highlightManager
+    );
+    const pageTitle = context.doc.title || new URL(context.url).hostname;
+    const documentClone =
+      context.state.readingConfig.exportMode === 'full'
+        ? (context.doc.cloneNode(true) as Document)
+        : undefined;
+
+    if (documentClone) {
+      context.dependencies.exporter.applyTokens(documentClone, highlights);
+    }
+
+    const payload = context.dependencies.exporter.buildMarkdown({
+      mode: context.state.readingConfig.exportMode,
+      pageTitle,
+      pageUrl: context.url,
+      highlights,
+      ...(documentClone !== undefined && { documentClone })
+    });
+
+    await context.dependencies.dispatchClipResult(payload);
+    cleanupReaderSession(context);
+  } catch (error) {
+    console.error('[ReaderSession] Export failed:', error);
+    context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+    context.state.exporting = false;
+  }
+}
+
+export function cancelReaderSession(context: ReaderSessionOperationContext): void {
+  if (context.state.exporting) {
+    return;
+  }
+  cleanupReaderSession(context);
+}
+
+export function cleanupReaderSession(context: ReaderSessionOperationContext): void {
+  context.lifecycle.cleanup();
+  context.state.stopReadingConfigWatcher?.();
+  context.state.stopReadingConfigWatcher = null;
+
+  for (const highlight of context.state.highlights) {
+    context.highlightManager.unwrapHighlight(highlight);
+  }
+  context.state.highlights = [];
+
+  clearReaderSession(context.session, context.doc);
+  context.state.exporting = false;
+  context.state.handlingSelection = false;
+  clearHighlightThemeState(context.doc);
+
+  if (context.state.highlightFocusTimeout !== null) {
+    context.doc.defaultView?.clearTimeout(context.state.highlightFocusTimeout);
+    context.state.highlightFocusTimeout = null;
+  }
+
+  context.doc.defaultView?.getSelection()?.removeAllRanges();
+}
+
+export function focusReaderHighlight(context: ReaderSessionOperationContext, id: string): void {
+  const highlight = findReaderHighlight(context.state.highlights, id);
+  if (!highlight) {
+    return;
+  }
+
+  context.state.highlightFocusTimeout = context.highlightManager.focusHighlight(
+    highlight,
+    context.state.highlightFocusTimeout,
+    context.doc.defaultView ?? window
+  );
+}
+
+export function removeReaderHighlight(context: ReaderSessionOperationContext, id: string): void {
+  if (context.state.exporting) {
+    return;
+  }
+
+  const index = context.state.highlights.findIndex((highlight) => highlight.id === id);
+  if (index === -1) {
+    return;
+  }
+
+  const [removed] = context.state.highlights.splice(index, 1);
+  context.highlightManager.unwrapHighlight(removed);
+  syncReaderHighlightsUi(context);
+  context.panelCoordinator.applyHint(
+    context.state.highlights.length ? 'panel' : 'noHighlights',
+    context.state.highlights.length
+  );
+}
+
+export function submitReaderHighlightEdit(
+  context: ReaderSessionOperationContext,
+  id: string,
+  nextComment: string
+): void {
+  if (context.state.exporting) {
+    return;
+  }
+
+  const highlight = findReaderHighlight(context.state.highlights, id);
+  if (!highlight) {
+    context.panelCoordinator.stopEditing();
+    return;
+  }
+
+  context.highlightManager.updateComment(highlight, nextComment);
+  syncReaderHighlightsUi(context);
+  context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+  context.panelCoordinator.stopEditing();
+}
+
+function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
+  context.highlightManager.sortByDocumentOrder(context.state.highlights);
+  context.panelCoordinator.updateHighlights(context.state.highlights);
+}
+
+function createDetachedReaderHighlight(
+  doc: Document,
+  id: string,
+  selectedHtml: string,
+  selectedText: string,
+  comment: string,
+  fragmentUrl: string
+): ReaderHighlightRecord {
+  const wrapper = doc.createElement('mark');
+  wrapper.className = 'aiob-reader-highlight';
+  wrapper.dataset.readerHighlightId = id;
+  const trimmedComment = comment.trim();
+  if (trimmedComment) {
+    wrapper.dataset.readerComment = trimmedComment;
+  }
+  wrapper.textContent = selectedText;
+
+  return {
+    id,
+    selectedHtml,
+    selectedText,
+    comment: trimmedComment,
+    fragmentUrl,
+    wrapper,
+    wrapperSegments: [wrapper],
+    createdAt: Date.now()
+  };
+}
+
+function findReaderHighlight(
+  highlights: ReaderHighlightRecord[],
+  id: string
+): ReaderHighlightRecord | undefined {
+  return highlights.find((highlight) => highlight.id === id);
+}

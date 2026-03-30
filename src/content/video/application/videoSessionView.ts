@@ -4,6 +4,7 @@ export interface VideoSessionView {
   updateCount(count: number): void;
   setCaptures(captures: VideoPanelCapture[]): void;
   updateHint(message: string): void;
+  updateTexts(texts: VideoPanelTexts): void;
   beginEditingCapture(captureId: string, comment: string): void;
   stopEditing(): void;
   destroy(): void;

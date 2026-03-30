@@ -1,4 +1,4 @@
-export const APP_ICON_PATH = 'assets/icons/icon128.png';
+export const APP_ICON_PATH = 'icons/bannerlogo-128.png';
 
 export const DEFAULT_DOMAIN_MAPPINGS: Record<string, string> = {
   'mp.weixin.qq.com': '公众号',

@@ -1,4 +1,11 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
+import type { AnalyticsTransferPayload } from './analyticsTransfer';
+
+export interface ConfigTransferPayload {
+  version: number;
+  options: StoredOptions;
+  analytics?: AnalyticsTransferPayload;
+}
 
 export type ConfigTransferErrorCode =
   | 'EMPTY_IMPORT'
@@ -14,11 +21,14 @@ export class ConfigTransferError extends Error {
     super(code);
     this.name = 'ConfigTransferError';
     this.code = code;
-    this.detail = detail;
+    // Fix exactOptionalPropertyTypes error by conditionally assigning detail
+    if (detail !== undefined) {
+      this.detail = detail;
+    }
   }
 }
 
-export async function copyOptionsToClipboard(options: StoredOptions | CompleteOptions): Promise<void> {
+export async function copyOptionsToClipboard(options: StoredOptions | CompleteOptions | ConfigTransferPayload): Promise<void> {
   const jsonText = JSON.stringify(options, null, 2);
   await writeToClipboard(jsonText);
 }
@@ -51,18 +61,64 @@ export async function readConfigTextFromClipboard(): Promise<string> {
   throw new ConfigTransferError('CLIPBOARD_READ_UNAVAILABLE');
 }
 
-export function parseConfigInput(raw: string): StoredOptions {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | undefined {
+  if (!isPlainObject(candidate)) {
+    return undefined;
+  }
+
+  const payload: AnalyticsTransferPayload = {};
+
+  const consentCandidate = candidate['consent'];
+  if (isPlainObject(consentCandidate)) {
+    const consent = consentCandidate;
+    if ('analytics' in consent || 'errorReporting' in consent) {
+      payload.consent = {
+        analytics: Boolean(consent.analytics),
+        errorReporting: Boolean(consent.errorReporting)
+      };
+    }
+  }
+
+  const debugCandidate = candidate['debugMode'];
+  if (typeof debugCandidate === 'boolean') {
+    payload.debugMode = debugCandidate;
+  }
+
+  return payload.consent || typeof payload.debugMode === 'boolean' ? payload : undefined;
+}
+
+export function parseConfigInput(raw: string): ConfigTransferPayload {
   const textValue = (raw || '').trim();
   if (!textValue) {
     throw new ConfigTransferError('EMPTY_IMPORT');
   }
 
   try {
-    const parsed = JSON.parse(textValue);
-    if (typeof parsed !== 'object' || parsed === null) {
+    const parsedValue: unknown = JSON.parse(textValue);
+    if (!isPlainObject(parsedValue)) {
       throw new ConfigTransferError('PARSE_FAILED');
     }
-    return parsed as StoredOptions;
+    const parsed: Record<string, unknown> = parsedValue;
+
+    if ('options' in parsed && isPlainObject(parsed.options)) {
+      const version = typeof parsed.version === 'number' ? parsed.version : 1;
+      const options = parsed.options as StoredOptions;
+      const analytics = parseAnalyticsPayload(parsed.analytics);
+      return {
+        version,
+        options,
+        ...(analytics !== undefined && { analytics })
+      };
+    }
+
+    return {
+      version: 0,
+      options: parsed as StoredOptions
+    };
   } catch (error) {
     if (error instanceof ConfigTransferError) {
       throw error;

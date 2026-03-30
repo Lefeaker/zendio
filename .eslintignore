@@ -1,0 +1,9 @@
+dist/
+releases/
+tmp/
+tests/fixtures/**
+node_modules/
+trash/
+*.config.ts
+*.config.js
+*.config.mjs

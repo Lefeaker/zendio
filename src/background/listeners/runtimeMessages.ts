@@ -1,50 +1,165 @@
-import { handleClipResult } from '../pipelines/clipPipeline';
+import {
+  createClipPipelineDependencies,
+  handleClipResult,
+  type ClipPipelineDependencies
+} from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { notifyExtractionError } from '../services/notifications';
+import { z } from 'zod';
 import {
   isClipErrorMessage,
   isClipResultMessage,
   isTestConnectionMessage,
   isTestVaultConnectionMessage
 } from '../../shared/types';
+import { ClipPayloadSchema } from '../../shared/schemas';
+import { isTrackUsageEventMessage } from '../../shared/types/analytics';
+import {
+  errorHandler,
+  isAppError,
+  normalizeToAppError,
+  notificationErrors
+} from '../../shared/errors';
+import { trackUsageEvent } from '../services/analyticsEvents';
+import type { MessagingService } from '../../platform/interfaces/messaging';
+import type { TabsService } from '../../platform/interfaces/tabs';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
+import type { ClipPayload } from '../../shared/types';
+import type { MessagePayload } from '../../platform/interfaces/messaging';
+import type { ConnectionTestResult } from '../../shared/types/connection';
 
-export function registerRuntimeMessageListener(): void {
-  if (typeof chrome === 'undefined' || !chrome.runtime?.onMessage) {
-    console.warn('[runtimeMessages] Chrome runtime messaging unavailable; skipping listener registration.');
-    return;
+interface OpenOptionsPageMessage {
+  type: 'openOptionsPage';
+  section?: string;
+}
+
+const OpenOptionsPageMessageSchema = z.object({
+  type: z.literal('openOptionsPage'),
+  section: z.string().optional()
+});
+
+function isOpenOptionsPageMessage(message: unknown): message is OpenOptionsPageMessage {
+  return OpenOptionsPageMessageSchema.safeParse(message).success;
+}
+
+function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
+  const payload: Record<string, MessagePayload> = {
+    success: result.success,
+    message: result.message
+  };
+
+  if (result.status !== undefined) {
+    payload.status = result.status;
+  }
+  if (result.response !== undefined) {
+    payload.response = result.response;
+  }
+  if (result.error !== undefined) {
+    payload.error = result.error;
   }
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  return payload;
+}
+
+export interface RuntimeMessageListenerDependencies {
+  messaging: Pick<MessagingService, 'addListener'>;
+  clipPipeline: ClipPipelineDependencies;
+  openOptionsPage(section?: string): Promise<void>;
+}
+
+export function createRuntimeMessageListenerDependencies(
+  messaging: Pick<MessagingService, 'addListener'>,
+  tabs: Pick<TabsService, 'create' | 'sendMessage'>,
+  runtime: Pick<RuntimeService, 'getURL'>
+): RuntimeMessageListenerDependencies {
+  return {
+    messaging,
+    clipPipeline: createClipPipelineDependencies(tabs),
+    async openOptionsPage(section) {
+      const optionsUrl = runtime.getURL('options/index.html');
+      const normalizedSection = section?.trim();
+      const url = normalizedSection ? `${optionsUrl}#${normalizedSection}` : optionsUrl;
+      await tabs.create({ url });
+    }
+  };
+}
+
+async function safeNotifyExtraction(message: string): Promise<void> {
+  try {
+    await notifyExtractionError(message);
+  } catch (error) {
+    const appError = notificationErrors.dispatchFailed(
+      message,
+      { channel: 'clipper.error', title: 'notifyExtractionError' },
+      { cause: error }
+    );
+    await errorHandler.handle(appError, { suppressNotifications: true });
+  }
+}
+
+export function registerRuntimeMessageListener(dependencies: RuntimeMessageListenerDependencies): void {
+  dependencies.messaging.addListener(async (message, sender) => {
+    // Handle analytics messages before clip result messages so the generic
+    // clip branch cannot swallow other payload shapes that also carry `event`.
+    if (isTrackUsageEventMessage(message)) {
+      await trackUsageEvent(message.event, message.params);
+      return;
+    }
+
     if (isTestConnectionMessage(message)) {
-      handleConnectionTest()
-        .then(result => sendResponse(result))
+      return handleConnectionTest(message.rest)
+        .then(toConnectionTestPayload)
         .catch((error) => {
           const msg = error instanceof Error ? error.message : String(error);
-          sendResponse({ success: false, error: msg, message: `连接失败: ${msg}` });
+          return { success: false, error: msg, message: `连接失败: ${msg}` } satisfies MessagePayload;
         });
-      return true;
     }
 
     if (isTestVaultConnectionMessage(message)) {
-      handleVaultConnectionTest(message)
-        .then(result => sendResponse(result))
+      return handleVaultConnectionTest(message)
+        .then(toConnectionTestPayload)
         .catch((error) => {
           const msg = error instanceof Error ? error.message : String(error);
-          sendResponse({ success: false, error: msg, message: `连接失败: ${msg}` });
+          return { success: false, error: msg, message: `连接失败: ${msg}` } satisfies MessagePayload;
         });
-      return true;
     }
 
     if (isClipErrorMessage(message)) {
-      const errorText = message.error instanceof Error ? message.error.message : String(message.error);
-      console.error('[runtimeMessages] Content script error:', errorText);
-      void notifyExtractionError(errorText);
+      const appError = isAppError(message.error)
+        ? message.error
+        : normalizeToAppError(message.error, {
+            code: 'CONTENT_CLIP_FAILURE',
+            domain: 'content',
+            defaultMessage: 'Clip failed in content script.'
+          });
+      await errorHandler.handle(appError, { suppressNotifications: true });
+      await safeNotifyExtraction(appError.userMessage ?? appError.message);
       return;
     }
 
     if (isClipResultMessage(message)) {
-      void handleClipResult(message, sender.tab?.id);
+      // Boundary validation for clip payload; behavior-preserving with passthrough
+      const parsed = ClipPayloadSchema.safeParse(message.payload);
+      if (!parsed.success) {
+        // Keep existing failure path by notifying extraction error with normalized message
+        await safeNotifyExtraction('Invalid clip payload received.');
+        return;
+      }
+      await handleClipResult({ ...message, payload: parsed.data as ClipPayload }, sender.tabId, dependencies.clipPipeline);
       return;
     }
+
+    // 处理打开选项页面的消息
+    if (isOpenOptionsPageMessage(message)) {
+      try {
+        await dependencies.openOptionsPage(message.section);
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to open options page:', error);
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    return undefined;
   });
 }

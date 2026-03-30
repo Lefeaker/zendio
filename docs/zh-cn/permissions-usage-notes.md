@@ -4,7 +4,7 @@
 
 最后更新：2025-02-14
 
-本文档用于 Chrome Web Store 审核与用户透明披露，说明 All-in-Obsidian Chrome 扩展（版本 0.2.0）在 `manifest.json` 中声明的权限及其使用场景。所有权限仅在用户触发相关功能时生效，并遵循最小授权原则。
+本文档用于 Chrome Web Store 审核与用户透明披露，说明 All-in-Obsidian Chrome 扩展（版本 0.1.0）在 `manifest.json` 中声明的权限及其使用场景。所有权限仅在用户触发相关功能时生效，并遵循最小授权原则。
 
 ## Host 权限
 
@@ -43,4 +43,4 @@
 
 ---
 
-若未来需要新增权限（例如 `clipboardWrite`、`downloads`），我们会在上线前更新本说明、隐私政策与发布公告，并在扩展首次请求时征得用户明确同意。
+若未来需要新增权限（例如 `clipboardWrite`、`downloads`），我们会优先更新本说明、隐私政策与发布公告，并在扩展首次请求时征得用户明确同意。

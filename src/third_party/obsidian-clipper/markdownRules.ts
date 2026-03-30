@@ -12,7 +12,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   // Highlight rule (mark -> ==text==)
   turndownService.addRule('highlight', {
     filter: 'mark',
-    replacement: function(content) {
+    replacement: function(content: string) {
       return '==' + content + '==';
     }
   });
@@ -23,7 +23,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       node.nodeName === 'DEL' || 
       node.nodeName === 'S' || 
       node.nodeName === 'STRIKE',
-    replacement: function(content) {
+    replacement: function(content: string) {
       return '~~' + content + '~~';
     }
   });
@@ -36,13 +36,13 @@ export function applyObsidianRules(turndownService: TurndownService): void {
 
       // Handle task list items
       const isTaskListItem = node.classList.contains('task-list-item');
-      const checkbox = node.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      const checkbox = node.querySelector('input[type="checkbox"]');
       let taskListMarker = '';
       
       if (isTaskListItem && checkbox) {
         // Remove the checkbox from content since we'll add markdown checkbox
         content = content.replace(/<input[^>]*>/, '');
-        taskListMarker = checkbox.checked ? '[x] ' : '[ ] ';
+        taskListMarker = (checkbox as HTMLInputElement).checked ? '[x] ' : '[ ] ';
       }
 
       content = content
@@ -56,7 +56,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
         .join('\n\t');
 
       let prefix = options.bulletListMarker + ' ';
-      let parent = node.parentNode;
+      const parent = node.parentNode;
 
       // Calculate the nesting level
       let level = 0;
@@ -71,8 +71,8 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       prefix = '\t'.repeat(indentLevel) + prefix;
 
       if (parent instanceof HTMLOListElement) {
-        let start = parent.getAttribute('start');
-        let index = Array.from(parent.children).indexOf(node as HTMLElement) + 1;
+        const start = parent.getAttribute('start');
+        const index = Array.from(parent.children).indexOf(node) + 1;
         prefix = '\t'.repeat(level - 1) + (start ? Number(start) + index - 1 : index) + '. ';
       }
 
@@ -83,7 +83,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   // Enhanced table handling
   turndownService.addRule('table', {
     filter: 'table',
-    replacement: function(content, node) {
+    replacement: function(content: string, node: Node) {
       if (!(node instanceof HTMLTableElement)) return content;
 
       // Check if the table has colspan or rowspan
@@ -122,14 +122,14 @@ export function applyObsidianRules(turndownService: TurndownService): void {
 
   // Math support (inline and block)
   turndownService.addRule('math', {
-    filter: (node) => {
+    filter: (node: HTMLElement) => {
       return node.nodeName.toLowerCase() === 'math' || 
         (node instanceof Element && node.classList && 
         (node.classList.contains('mwe-math-element') || 
         node.classList.contains('mwe-math-fallback-image-inline') || 
         node.classList.contains('mwe-math-fallback-image-display')));
     },
-    replacement: (content, node) => {
+    replacement: (content: string, node: Node) => {
       if (!(node instanceof Element)) return content;
 
       let latex = extractLatex(node);
@@ -163,13 +163,13 @@ export function applyObsidianRules(turndownService: TurndownService): void {
 
   // Callouts/Alerts (GitHub-style alerts -> Obsidian callouts)
   turndownService.addRule('callout', {
-    filter: (node) => {
+    filter: (node: HTMLElement) => {
       return (
         node.nodeName.toLowerCase() === 'div' && 
-        (node as HTMLElement).classList.contains('markdown-alert')
+        (node).classList.contains('markdown-alert')
       );
     },
-    replacement: (content, node) => {
+    replacement: (content: string, node: Node) => {
       const element = node as HTMLElement;
       
       // Get alert type from the class (e.g., markdown-alert-note -> NOTE)
@@ -229,7 +229,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   // Keep certain elements as HTML
   const keepElements: Array<keyof HTMLElementTagNameMap> = ['iframe', 'video', 'audio', 'sup', 'sub'];
   turndownService.keep(keepElements);
-  turndownService.keep((node) => isSvgElement(node));
+  turndownService.keep((node: HTMLElement) => isSvgElement(node));
 }
 
 function isSvgElement(node: unknown): node is Element {
@@ -275,8 +275,8 @@ function cleanupTableHTML(table: HTMLTableElement): string {
 function extractLatex(element: Element): string {
   // Check if the element is a <math> element and has an alttext attribute
   if (element.nodeName.toLowerCase() === 'math') {
-    let latex = element.getAttribute('data-latex');
-    let alttext = element.getAttribute('alttext');
+    const latex = element.getAttribute('data-latex');
+    const alttext = element.getAttribute('alttext');
     if (latex) {
       return latex.trim();
     } else if (alttext) {

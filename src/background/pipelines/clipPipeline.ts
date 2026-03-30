@@ -1,64 +1,128 @@
 import { getOptions } from '../store';
-import { notifyClipFailure, notifyClipSuccess } from '../services/notifications';
+import { notifyClipFailure, notifyClipSuccess, notifyClipWarning } from '../services/notifications';
 import type { ClipResultMessage } from '../../shared/types';
-import { SHOW_SUPPORT_PROMPT } from '../../shared/types';
 import { processClipPayload } from '../application/clipProcessor';
+import type { TabsService } from '../../platform/interfaces/tabs';
+import {
+  AppError,
+  errorHandler,
+  extractionErrors,
+  isAppError,
+  normalizeToAppError
+} from '../../shared/errors';
+import {
+  buildFailureContext,
+  buildPipelineErrorContext,
+  buildSupportOptions,
+  normalizeClipPayload,
+  safeNotify
+} from './clipPipelineHelpers';
+import {
+  dispatchSupportPrompt,
+  type ClipPipelineDependencies
+} from './clipPipelineSupport';
 
-function dispatchSupportPrompt(
-  tabId: number | undefined,
-  source?: string,
-  vaultName?: string,
-  status: 'success' | 'failure' = 'success',
-  errorMessage?: string
-): void {
-  if (typeof tabId !== 'number') {
-    return;
-  }
-  chrome.tabs.sendMessage(
-    tabId,
-    { type: SHOW_SUPPORT_PROMPT, source, vaultName, status, errorMessage },
-    () => {
-      const lastError = chrome.runtime.lastError;
-      if (lastError && !/Receiving end does not exist/.test(String(lastError.message))) {
-        console.warn('[clipPipeline] Support prompt dispatch failed:', lastError);
-      }
+export type { ClipPipelineDependencies } from './clipPipelineSupport';
+
+export function createClipPipelineDependencies(
+  tabs: Pick<TabsService, 'sendMessage'>
+): ClipPipelineDependencies {
+  return {
+    sendSupportPrompt(tabId, message) {
+      return tabs.sendMessage(tabId, message);
     }
+  };
+}
+
+async function handleClipFailure(
+  dependencies: ClipPipelineDependencies,
+  appError: AppError,
+  tabId: number | undefined,
+  payload?: ClipResultMessage['payload']
+): Promise<void> {
+  await errorHandler.handle(appError, { suppressNotifications: true });
+
+  await safeNotify(
+    () => notifyClipFailure(appError.userMessage ?? appError.message),
+    { channel: 'clipper.failure', title: 'notifyClipFailure' }
+  );
+
+  let fallbackVault: string | undefined;
+  try {
+    const options = await getOptions();
+    fallbackVault = options?.rest?.vault;
+  } catch {
+    fallbackVault = undefined;
+  }
+
+  dispatchSupportPrompt(
+    dependencies,
+    tabId,
+    buildSupportOptions('failure', payload, fallbackVault, appError)
   );
 }
 
-export async function handleClipResult(message: ClipResultMessage, tabId?: number): Promise<void> {
-  const payload = message.payload;
+export async function handleClipResult(
+  message: ClipResultMessage,
+  tabId: number | undefined,
+  dependencies: ClipPipelineDependencies
+): Promise<void> {
+  const payload = normalizeClipPayload(message.payload);
 
   if (!payload?.markdown) {
-    await notifyClipFailure('Invalid clip payload: missing markdown content');
+    const error = extractionErrors.noMarkdown(buildFailureContext(payload));
+    await handleClipFailure(dependencies, error, tabId, payload);
     return;
   }
 
   try {
     const result = await processClipPayload(payload);
-    try {
-      await notifyClipSuccess(result.filePath, result.vaultName);
-    } catch (notificationError) {
-      console.warn('[clipPipeline] Success notification failed:', notificationError);
+    const { classification } = result;
+    let supportStatus: 'success' | 'failure' | 'warning' = 'success';
+    let supportError: AppError | undefined;
+
+    await safeNotify(
+      () => notifyClipSuccess(result.filePath, result.vaultName),
+      { channel: 'clipper.success', title: 'notifyClipSuccess' }
+    );
+
+    const classificationWarning = result.classificationWarning ?? (
+      classification.status === 'fallback' && classification.fallbackReason === 'error'
+        ? classification.errorDetail
+        : undefined
+    );
+
+    if (classificationWarning) {
+      const warningError = isAppError(classificationWarning)
+        ? classificationWarning
+        : normalizeToAppError(classificationWarning, {
+            code: 'CLASSIFICATION_WARNING_INVALID',
+            domain: 'classifier',
+            defaultMessage: 'Classification warning could not be normalized.',
+            context: buildPipelineErrorContext(payload)
+          });
+      supportStatus = 'warning';
+      supportError = warningError;
+      await errorHandler.handle(warningError, { suppressNotifications: true });
+      await safeNotify(
+        () => notifyClipWarning(warningError.userMessage ?? warningError.message),
+        { channel: 'clipper.warning', title: 'notifyClipWarning' }
+      );
     }
 
     const supportVault = result.vaultName ?? result.restVault;
-    dispatchSupportPrompt(tabId, payload?.type, supportVault, 'success');
+    dispatchSupportPrompt(
+      dependencies,
+      tabId,
+      buildSupportOptions(supportStatus, payload, supportVault, supportError)
+    );
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
-    console.error('[clipPipeline] Clip failed:', error);
-    try {
-      await notifyClipFailure(messageText);
-    } catch (notificationError) {
-      console.warn('[clipPipeline] Failure notification failed:', notificationError);
-    }
-    let fallbackVault: string | undefined;
-    try {
-      const options = await getOptions();
-      fallbackVault = options?.rest?.vault;
-    } catch {
-      fallbackVault = undefined;
-    }
-    dispatchSupportPrompt(tabId, payload?.type, fallbackVault, 'failure', messageText);
+    const appError = normalizeToAppError(error, {
+      code: 'CLIP_PIPELINE_FAILURE',
+      domain: 'background',
+      defaultMessage: 'Clip pipeline failed.',
+      context: buildPipelineErrorContext(payload)
+    });
+    await handleClipFailure(dependencies, appError, tabId, payload);
   }
 }

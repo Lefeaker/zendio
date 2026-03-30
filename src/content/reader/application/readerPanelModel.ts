@@ -13,6 +13,7 @@ export interface ReaderPanelHighlight {
   fullText: string;
   commentPreview: string;
   index: number;
+  timestamp: number;
 }
 
 export interface ReaderPanelTexts {

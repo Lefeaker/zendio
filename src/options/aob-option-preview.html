@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="zh-CN" class="aobx-preview">
+
+<head>
+  <meta charset="utf-8">
+  <title>All in Ob – AOB 设定页预览</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../styles/design-tokens.css">
+  <link rel="stylesheet" href="../styles/global.tailwind.css">
+</head>
+
+<body class="aobx-preview m-0 min-h-screen bg-[var(--aobx-surface-0)] text-[var(--aobx-text)] text-[length:var(--aobx-font-md)] leading-[1.5] [font-family:var(--aobx-font-ui)] [&_*]:box-border [&_a]:text-accent [&_a:hover]:text-[var(--accent-hover)] [&_h1]:m-0 [&_h2]:m-0 [&_h3]:m-0 [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_h1]:text-[var(--aobx-text)] [&_h2]:text-[var(--aobx-text)] [&_h3]:text-[var(--aobx-text)]">
+  <div class="aobx-shell">
+    <aside class="aobx-sidebar">
+      <div class="aobx-sidebar-brand">
+        <div class="aobx-header-top">
+          <img src="../../public/icons/bannerlogo-128.png" alt="All in Ob">
+          <div>
+            <h1>All in Ob</h1>
+            <div class="aobx-tags aobx-tags">
+              <span class="aobx-tag aobx-tag">版本 v0.2.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <nav class="aobx-nav aobx-nav" aria-label="设置导航">
+        <ul class="aobx-tree aobx-tree" role="list">
+          <li class="aobx-tree-item is-current"><a href="#section-usage">使用统计</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-language">语言设置</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-privacy">隐私与数据</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-rest">默认仓库</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-routing">多仓库路由</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-templates">路径模板</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-yaml">YAML 配置</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-ai">AI 对话</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-video">视频模式</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-reading">阅读模式</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-fragment">片段剪藏</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-transfer">配置同步</a></li>
+          <li class="aobx-tree-item aobx-tree-item"><a href="#section-diagnosis">诊断工具</a></li>
+        </ul>
+      </nav>
+      <hr class="aobx-nav-divider">
+      <div class="aobx-sidebar-links aobx-sidebar-links">
+        <a class="aobx-sidebar-link aobx-sidebar-link" href="../onboarding/index.html" target="_blank"
+          rel="noopener">引导</a>
+        <a class="aobx-sidebar-link aobx-sidebar-link" href="#" id="supportLink">感谢支持</a>
+        <a class="aobx-sidebar-link aobx-sidebar-link" href="#" id="suggestionsLink">反馈</a>
+        <a class="aobx-sidebar-link aobx-sidebar-link" href="#" id="contactLink">联系作者</a>
+      </div>
+    </aside>
+
+    <main class="aobx-content">
+      <section id="section-usage" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>使用统计看板</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">了解内容保存的次数和类型</div>
+        </div>
+        <div class="aobx-usage" id="usageDashboard" aria-live="polite">
+          <div class="aobx-usage-cards">
+            <div class="aobx-usage-card">
+              <div class="aobx-usage-label">总计保存</div>
+              <div class="aobx-usage-value" id="usageTotalCount">0</div>
+            </div>
+            <div class="aobx-usage-card">
+              <div class="aobx-usage-label">AI 对话</div>
+              <div class="aobx-usage-value" id="usageAiCount">0</div>
+            </div>
+            <div class="aobx-usage-card">
+              <div class="aobx-usage-label">阅读+视频+碎片</div>
+              <div class="aobx-usage-value" id="usageFragmentCount">0</div>
+            </div>
+            <div class="aobx-usage-card">
+              <div class="aobx-usage-label">文章</div>
+              <div class="aobx-usage-value" id="usageArticleCount">0</div>
+            </div>
+          </div>
+          <div class="aobx-usage-chart">
+            <div class="aobx-usage-axis usage-axis--hidden" id="usageAxis"></div>
+            <div class="aobx-usage-graph">
+              <svg id="usageWave" viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet">
+                <g id="usageGrid"></g>
+                <path id="usageWavePath" d="M0 150 L200 150" vector-effect="non-scaling-stroke"></path>
+                <g id="usagePoints"></g>
+                <g id="usageXAxis"></g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-language" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>语言设置</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">
+            <label for="languageSelect" class="aobx-inline-label">界面语言</label>
+            <select class="aobx-select" id="languageSelect">
+              <option value="zh-CN">简体中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-privacy" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>隐私与数据</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">控制数据收集和错误报告</div>
+        </div>
+        <div id="privacySettingsContainer" class="aobx-privacy-preview">
+          <div class="aobx-privacy-grid">
+            <div class="aobx-privacy-card">
+              <label class="aobx-checkbox">
+                <input type="checkbox" checked>
+                使用分析
+              </label>
+              <p class="aobx-note">收集匿名使用统计，帮助改进功能，不会保存任何个人身份信息。</p>
+            </div>
+            <div class="aobx-privacy-card">
+              <label class="aobx-checkbox">
+                <input type="checkbox" checked>
+                错误报告
+              </label>
+              <p class="aobx-note">自动发送经过清理的错误信息，方便快速定位问题。</p>
+            </div>
+          </div>
+          <div class="aobx-privacy-hints">
+            <div class="aobx-note">
+              <strong>会收集：</strong>
+              <ul>
+                <li>错误类型与严重程度</li>
+                <li>浏览器名称及主版本号</li>
+                <li>扩展版本号</li>
+                <li>错误发生时间</li>
+              </ul>
+            </div>
+            <div class="aobx-note">
+              <strong>不会收集：</strong>
+              <ul>
+                <li>任何个人身份信息</li>
+                <li>你访问的具体网址</li>
+                <li>剪藏内容或页面文本</li>
+                <li>密码或敏感表单数据</li>
+              </ul>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">调试模式</div>
+            <div>
+              <label class="aobx-checkbox">
+                <input type="checkbox" disabled>
+                调试模式（需开启使用分析 + 错误报告）
+              </label>
+              <p class="aobx-note">开启后事件会发送到 GA4 DebugView 并在控制台输出请求详情。</p>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <button class="aobx-btn" type="button">清除所有数据</button>
+            <p class="aobx-note">我们承诺保护你的隐私，可随时更新这些设置或申请删除已收集的数据。</p>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">更多信息</div>
+            <div>
+              <div class="aobx-link-stack">
+                <a class="aobx-link" href="#" id="privacyPolicyLink">隐私政策</a>
+                <a class="aobx-link" href="#" id="dataUsageLink">数据使用说明</a>
+              </div>
+              <p class="aobx-note">停止数据收集后，历史数据将在 24 小时内清理。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-rest" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>Obsidian Local REST API</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">这是默认仓库，不符合路由规则的内容将保存到这里</div>
+        </div>
+        <div class="aobx-table aobx-table--rest">
+          <div class="aobx-table__header">
+            <span>启用</span>
+            <span>仓库名称</span>
+            <span>HTTPS URL</span>
+            <span>HTTP URL</span>
+            <span>API Key</span>
+            <span>操作</span>
+          </div>
+          <div class="aobx-table__row">
+            <label><input type="checkbox" checked></label>
+            <input class="aobx-input" type="text" value="工作笔记">
+            <input class="aobx-input" type="url" placeholder="https://127.0.0.1:27124/">
+            <input class="aobx-input" type="url" placeholder="http://127.0.0.1:27123/">
+            <input class="aobx-input" type="password" placeholder="API Key">
+            <button class="aobx-btn">删除</button>
+          </div>
+          <div class="aobx-table__row">
+            <label><input type="checkbox"></label>
+            <input class="aobx-input" type="text" value="个人日记">
+            <input class="aobx-input" type="url" placeholder="https://vault.example.com/">
+            <input class="aobx-input" type="url" placeholder="http://vault.example.com/">
+            <input class="aobx-input" type="password" placeholder="API Key">
+            <button class="aobx-btn">删除</button>
+          </div>
+          <div class="aobx-table__row">
+            <label><input type="checkbox"></label>
+            <input class="aobx-input" type="text" placeholder="新增仓库">
+            <input class="aobx-input" type="url" placeholder="https://">
+            <input class="aobx-input" type="url" placeholder="http://">
+            <input class="aobx-input" type="password" placeholder="API Key">
+            <button class="aobx-btn">删除</button>
+          </div>
+        </div>
+        <div class="aobx-btn-row aobx-btn-row aobx-button-row">
+          <button class="aobx-btn">+ 添加仓库</button>
+          <button class="aobx-btn aobx-btn--primary">测试所有连接</button>
+        </div>
+        <p class="aobx-note">提示：测试会依次验证所有已启用的仓库，并在结果面板中展示首个失败的条目。</p>
+      </section>
+
+      <section id="section-routing" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>多仓库路由</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">根据域名或路径规则自动选择目标 Vault</div>
+        </div>
+        <div class="aobx-table">
+          <div class="aobx-table__header">
+            <span>启用</span>
+            <span>匹配条件</span>
+            <span>目标 Vault</span>
+            <span>操作</span>
+          </div>
+          <div class="aobx-table__row">
+            <label><input type="checkbox" checked></label>
+            <input class="aobx-input" type="text" value="domain:developer.apple.com">
+            <select class="aobx-select">
+              <option>Work</option>
+              <option>Personal</option>
+            </select>
+            <button class="aobx-btn">删除</button>
+          </div>
+          <div class="aobx-table__row">
+            <label><input type="checkbox"></label>
+            <input class="aobx-input" type="text" value="regex:.*medium\\.com">
+            <select class="aobx-select">
+              <option>Personal</option>
+              <option>Work</option>
+            </select>
+            <button class="aobx-btn">删除</button>
+          </div>
+        </div>
+        <button class="aobx-btn">+ 添加新规则</button>
+      </section>
+
+      <section id="section-templates" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>文章、视频路径配置</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">为不同类型的剪藏指定文件命名</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <div class="aobx-label">文章、视频路径模板</div>
+            <div>
+              <input class="aobx-input" type="text" id="tplArticle" placeholder="Articles/{domain}/{yyyy}/{slug}.md">
+              <div class="aobx-template-vars">
+                可用变量：<code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+              </div>
+              <div class="aobx-hint">{slug} 表示标题的短链写法；{HHmmss}/{HHmm} 可插入保存时间，{mm} 仍代表月份。</div>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">片段路径模板</div>
+            <div>
+              <input class="aobx-input" type="text" id="tplFragment"
+                placeholder="Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md">
+              <div class="aobx-template-vars">
+                可用变量：<code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+              </div>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">阅读模式路径模板</div>
+            <div class="aobx-control">
+              <select class="aobx-select" id="tplReadingMode">
+                <option value="article">与文章路径相同</option>
+                <option value="fragment">与片段路径相同</option>
+                <option value="custom">自定义</option>
+              </select>
+              <input class="aobx-input" type="text" id="tplReadingCustom"
+                placeholder="Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md" disabled>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">AI 对话路径模板</div>
+            <div>
+              <input class="aobx-input" type="text" id="tplAI"
+                placeholder="AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md">
+              <div class="aobx-template-vars">
+                可用变量：<code>{platform}</code><code>{domain}</code><code>{yyyy}</code><code>{mm}</code><code>{dd}</code><code>{HHmmss}</code><code>{HHmm}</code><code>{HH}</code><code>{ss}</code><code>{slug}</code><code>{title}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-yaml" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>YAML 配置</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">为 YAML 字段指定类型与可用模式</div>
+        </div>
+        <div class="aobx-table aobx-table--yaml">
+          <div class="aobx-table__header">
+            <span>字段名称</span>
+            <span>类型</span>
+            <span>文章</span>
+            <span>片段</span>
+            <span>阅读</span>
+            <span>AI</span>
+            <span>字段内容</span>
+            <span>操作</span>
+          </div>
+          <div class="aobx-table__row">
+            <input class="aobx-input" type="text" value="source" aria-label="字段名称">
+            <select class="aobx-select" aria-label="字段类型">
+              <option>string</option>
+              <option>number</option>
+              <option>boolean</option>
+              <option>list</option>
+            </select>
+            <div class="aobx-checkbox-group" aria-label="文章模式">
+              <input type="checkbox" checked>
+            </div>
+            <div class="aobx-checkbox-group" aria-label="片段模式">
+              <input type="checkbox" checked>
+            </div>
+            <div class="aobx-checkbox-group" aria-label="阅读模式">
+              <input type="checkbox">
+            </div>
+            <div class="aobx-checkbox-group" aria-label="AI 模式">
+              <input type="checkbox">
+            </div>
+            <textarea class="aobx-textarea aobx-textarea--compact" rows="1" aria-label="字段内容">来源: {domain}</textarea>
+            <button class="aobx-btn">删除</button>
+          </div>
+          <div class="aobx-table__row">
+            <input class="aobx-input" type="text" placeholder="字段名称" aria-label="字段名称">
+            <select class="aobx-select" aria-label="字段类型">
+              <option>string</option>
+              <option>number</option>
+              <option>boolean</option>
+              <option>list</option>
+            </select>
+            <div class="aobx-checkbox-group" aria-label="文章模式">
+              <input type="checkbox">
+            </div>
+            <div class="aobx-checkbox-group" aria-label="片段模式">
+              <input type="checkbox">
+            </div>
+            <div class="aobx-checkbox-group" aria-label="阅读模式">
+              <input type="checkbox">
+            </div>
+            <div class="aobx-checkbox-group" aria-label="AI 模式">
+              <input type="checkbox">
+            </div>
+            <textarea class="aobx-textarea aobx-textarea--compact" rows="1" placeholder="字段内容"
+              aria-label="字段内容"></textarea>
+            <button class="aobx-btn">删除</button>
+          </div>
+        </div>
+        <div class="aobx-btn-row aobx-btn-row aobx-button-row">
+          <button class="aobx-btn aobx-btn--primary">+ 添加字段</button>
+        </div>
+      </section>
+
+      <section id="section-ai" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>AI 对话剪藏配置</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">识别各平台对话结构，控制时间戳与高亮策略</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <div class="aobx-label">适配平台</div>
+            <div class="aobx-tags aobx-tags">
+              <span class="aobx-tag aobx-tag">ChatGPT</span>
+              <span class="aobx-tag aobx-tag">Claude</span>
+              <span class="aobx-tag aobx-tag">Gemini</span>
+              <span class="aobx-tag aobx-tag">Kimi</span>
+              <span class="aobx-tag aobx-tag">DeepSeek</span>
+              <span class="aobx-tag aobx-tag">通义</span>
+              <span class="aobx-tag aobx-tag">豆包</span>
+              <span class="aobx-tag aobx-tag">Monica</span>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">用户名称</div>
+            <div class="aobx-control">
+              <input class="aobx-input" type="text" id="aiUserName" placeholder="USER">
+            </div>
+            <div class="aobx-hint">自定义用户消息的显示名称，默认为 “USER”。</div>
+          </div>
+          <div class="aobx-setting">
+            <input type="checkbox" id="aiIncludeTimestamps" hidden>
+            <div class="aobx-label">格式选项</div>
+            <div>
+              <textarea class="aobx-textarea"
+                placeholder="主题: {title}&#10;标签: {tags}&#10;&#10;{conversation}"></textarea>
+              <div class="aobx-hint">可使用 {title}、{platform}、{conversation} 等变量。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-video" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>视频模式</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">可在视频网站自动提示进入视频笔记模式</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <label class="aobx-checkbox" for="videoFloatingPrompt">
+              <input type="checkbox" id="videoFloatingPrompt">
+              在视频网站显示浮动提示按钮
+            </label>
+            <div class="aobx-hint">支持 YouTube 与哔哩哔哩，默认在右下角显示提醒，点击即可开启视频模式。</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-reading" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>阅读模式</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">选择导出阅读模式时保存的内容形式</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <div class="aobx-label">导出内容</div>
+            <div>
+              <select class="aobx-select" id="readingExportMode">
+                <option value="highlights">仅保存高亮片段</option>
+                <option value="full">保存全文并标注高亮</option>
+              </select>
+              <div class="aobx-hint">选择“全文”时，会同时保存经过清洗的原文，并在全文中保留你的高亮与脚注。</div>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <div class="aobx-label">高亮颜色</div>
+            <div id="readingHighlightTheme" class="highlight-theme-options" role="radiogroup">
+              <button type="button" class="highlight-theme-button" data-theme="gradient" role="radio"
+                aria-checked="true">
+                <span class="sr-only">渐变紫蓝（默认）</span>
+              </button>
+              <button type="button" class="highlight-theme-button" data-theme="purple" role="radio"
+                aria-checked="false">
+                <span class="sr-only">纯紫色</span>
+              </button>
+              <button type="button" class="highlight-theme-button" data-theme="neonYellow" role="radio"
+                aria-checked="false">
+                <span class="sr-only">荧光黄</span>
+              </button>
+              <button type="button" class="highlight-theme-button" data-theme="neonGreen" role="radio"
+                aria-checked="false">
+                <span class="sr-only">荧光绿</span>
+              </button>
+              <button type="button" class="highlight-theme-button" data-theme="neonOrange" role="radio"
+                aria-checked="false">
+                <span class="sr-only">荧光橙</span>
+              </button>
+            </div>
+            <div class="aobx-hint">仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-fragment" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>片段剪藏配置</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">自定义选中文本剪藏的格式和行为</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <label class="aobx-checkbox">
+              <input type="checkbox" id="fragmentUseFootnote" checked>
+              使用 Obsidian 脚注（推荐）
+            </label>
+            <div class="aobx-hint">剪藏结果会保存为 <code>[^1]</code> 形式，兼容 Sidebar Highlights。</div>
+          </div>
+          <div class="aobx-setting">
+            <label class="aobx-checkbox">
+              <input type="checkbox" id="fragmentCaptureContext">
+              同步保存上下文高亮
+            </label>
+            <div class="aobx-hint">导出的 Markdown 会保留上下文，并用 ==highlight== 形式标记。</div>
+            <div class="aobx-hint-grid">
+              <div class="aobx-hint-block">
+                ✨ <strong>脚注格式示例：</strong>
+                <code>这是选中的文本内容[^1]</code>
+                <code>[^1]: 这是我的评论</code>
+              </div>
+              <div class="aobx-hint-block">
+                ✨ <strong>上下文高亮示例：</strong>
+                <code>前面的上下文 ==这是选中的文本== 后面的上下文</code>
+              </div>
+            </div>
+          </div>
+          <div class="aobx-setting">
+            <label class="aobx-checkbox">
+              <input type="checkbox" id="fragmentModifierToggle">
+              按住辅助键时自动剪藏
+            </label>
+            <div class="aobx-hint">勾选后可选择需要同时按下的辅助键。</div>
+          </div>
+          <div class="aobx-setting" id="fragmentModifierKeysGroup" style="display: none;">
+            <div class="aobx-tags aobx-tags">
+              <label class="aobx-checkbox"><input type="checkbox" data-fragment-modifier-key="alt"> Alt</label>
+              <label class="aobx-checkbox"><input type="checkbox" data-fragment-modifier-key="meta"> Command</label>
+              <label class="aobx-checkbox"><input type="checkbox" data-fragment-modifier-key="ctrl"> Control</label>
+              <label class="aobx-checkbox"><input type="checkbox" data-fragment-modifier-key="shift"> Shift</label>
+            </div>
+            <div class="aobx-hint">同时按下所有选中的辅助键才会触发自动剪藏或阅读高亮。</div>
+          </div>
+          <div class="aobx-setting">
+            <label class="aobx-checkbox">
+              <input type="checkbox" id="fragmentKeyboardShortcutsEnabled">
+              启用剪藏对话框快捷键
+            </label>
+            <div class="aobx-hint">在剪藏对话框中：双击回车进入阅读模式，Cmd+回车（Mac）或 Alt+回车（Windows）直接剪藏。</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-transfer" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>配置同步</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">在不同浏览器之间复制配置，快速完成同步</div>
+        </div>
+        <div class="aobx-settings">
+          <div class="aobx-setting">
+            <div class="aobx-control">
+              <button class="aobx-btn" id="copyConfigBtn" type="button">复制配置</button>
+              <button class="aobx-btn aobx-btn--primary" id="importConfigBtn" type="button">导入并保存</button>
+            </div>
+            <div class="aobx-hint">复制和导入操作会直接使用剪贴板内容，请确保目标浏览器已授权剪贴板访问。</div>
+            <span id="configTransferMsg" class="aobx-transfer-message"></span>
+          </div>
+        </div>
+      </section>
+
+      <div class="aobx-savebar">
+        <button class="aobx-btn aobx-btn--primary" id="saveBtn" type="button">💾 保存配置</button>
+        <button class="aobx-btn" id="diagBtn" type="button">🔍 诊断配置</button>
+        <span id="msg" class="aobx-status aobx-status"></span>
+      </div>
+
+      <section id="section-diagnosis" class="aobx-panel aobx-panel">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h2>诊断工具</h2>
+          </div>
+          <div class="aobx-section-meta aobx-section__subtitle">点击上方“诊断配置”按钮后在此查看报告</div>
+        </div>
+        <div class="aobx-hint">诊断会检查 REST API 连接、路径模板、域名映射等常见问题，并提供修复建议。</div>
+      </section>
+
+      <div id="diagSection" class="aobx-diagnostic" style="display: none;">
+        <div class="aobx-section-header aobx-section__header">
+          <div class="aobx-section-title aobx-section__title">
+            <h3>诊断结果</h3>
+          </div>
+        </div>
+        <div id="diagOutput" class="aobx-diagnostic-output"></div>
+        <div class="aobx-btn-row aobx-btn-row aobx-button-row">
+          <button class="aobx-btn aobx-btn--primary" id="fixBtn" type="button">🔧 修复配置</button>
+          <button class="aobx-btn" id="reloadBtn" type="button">🔄 重新加载</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="supportModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--narrow" role="dialog" aria-modal="true"
+      aria-labelledby="previewSupportTitle">
+      <div class="aobx-modal__header">
+        <h3 id="previewSupportTitle" class="aobx-modal__title">感谢支持</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">&times;</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description">开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：</p>
+        <div class="support-options">
+          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
+            <span class="support-icon" data-icon="ko-fi"></span>
+            <span>Ko-fi</span>
+          </a>
+          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
+            <span class="support-icon" data-icon="afdian"></span>
+            <span>爱发电</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="suggestionsModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--medium" role="dialog" aria-modal="true"
+      aria-labelledby="previewSuggestionsTitle">
+      <div class="aobx-modal__header">
+        <h3 id="previewSuggestionsTitle" class="aobx-modal__title">反馈渠道</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">×</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description">感谢你的反馈，以下任一入口都可以快速联系到作者：</p>
+        <div class="suggestions-options">
+          <a class="suggestions-card" href="https://www.reddit.com/user/sxnian/" target="_blank"
+            rel="noopener noreferrer">
+            <span class="suggestions-icon" data-icon="reddit"></span>
+            <span>Reddit 社区</span>
+          </a>
+          <button type="button" class="suggestions-card suggestions-card--button" id="suggestionsXhsTrigger">
+            <span class="suggestions-icon" data-icon="xiaohongshu"></span>
+            <span>小红书交流</span>
+          </button>
+          <a class="suggestions-card"
+            href="https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5B反馈%5D%20" target="_blank"
+            rel="noopener noreferrer">
+            <span class="suggestions-icon" data-icon="github"></span>
+            <span>GitHub Issue</span>
+          </a>
+        </div>
+        <div id="suggestionsXhsQr" class="suggestions-qr" hidden>
+          <p>二维码稍后提供，欢迎暂时通过 Reddit 联系作者。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="contactModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--narrow" role="dialog" aria-modal="true"
+      aria-labelledby="previewContactTitle">
+      <div class="aobx-modal__header">
+        <h3 id="previewContactTitle" class="aobx-modal__title">联系作者</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">&times;</button>
+      </div>
+      <div class="aobx-modal__body">
+        <p class="aobx-modal__description">
+          如果你认可该产品，或想要与作者交流，欢迎
+          <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Reddit</a>
+          交流，或添加微信：Lefeaker，请注明来处，作者正在求职（秋招人拼了）。
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="aobx-btn" data-modal-close>知道了</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="changelogModal" class="aobx-modal aobx-legacy-modal" aria-hidden="true">
+    <div class="aobx-modal__dialog aobx-modal__dialog--medium" role="dialog" aria-modal="true"
+      aria-labelledby="previewChangelogTitle">
+      <div class="aobx-modal__header">
+        <h3 id="previewChangelogTitle" class="aobx-modal__title">更新日志</h3>
+        <button class="aobx-modal__close" data-modal-close aria-label="关闭">&times;</button>
+      </div>
+      <div class="aobx-modal__body">
+        <div class="changelog-content" id="changelogContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const navItems = Array.from(document.querySelectorAll('.aobx-tree-item'));
+      const navLinks = navItems.map((item) => item.querySelector('a')).filter(Boolean);
+      const pairs = navLinks
+        .map((link) => {
+          const target = document.querySelector(link.getAttribute('href'));
+          return target instanceof HTMLElement ? { link, target } : null;
+        })
+        .filter((pair) => pair !== null);
+
+      if (!pairs.length) {
+        return;
+      }
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const setActive = (hash) => {
+        navItems.forEach((item) => {
+          const link = item.querySelector('a');
+          item.classList.toggle('is-current', !!link && link.getAttribute('href') === hash);
+        });
+      };
+
+      // IntersectionObserver 用于随着滚动同步左侧导航的高亮状态
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setActive(`#${entry.target.id}`);
+            }
+          });
+        },
+        {
+          root: null,
+          rootMargin: '-40% 0px -50% 0px',
+          threshold: [0, 0.5, 1],
+        },
+      );
+
+      pairs.forEach(({ target }) => observer.observe(target));
+
+      pairs.forEach(({ link, target }) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          target.scrollIntoView({
+            behavior: prefersReducedMotion ? 'auto' : 'smooth',
+            block: 'start',
+          });
+          setActive(link.getAttribute('href'));
+        });
+      });
+
+      const sidebarAnchors = Array.from(document.querySelectorAll('.aobx-sidebar-link[href^="#"]'))
+        .filter((link) => (link.getAttribute('href') || '').length > 1);
+      sidebarAnchors.forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const target = document.querySelector(link.getAttribute('href'));
+          if (target instanceof HTMLElement) {
+            target.scrollIntoView({
+              behavior: prefersReducedMotion ? 'auto' : 'smooth',
+              block: 'start',
+            });
+            setActive(`#${target.id}`);
+          }
+        });
+      });
+
+      const openModals = new Set();
+
+      const showModal = (modal) => {
+        if (!modal) {
+          return;
+        }
+        modal.classList.add('show');
+        openModals.add(modal);
+      };
+
+      const hideModal = (modal) => {
+        if (!modal) {
+          return;
+        }
+        modal.classList.remove('show');
+        openModals.delete(modal);
+      };
+
+      const registerModal = (triggerId, modalId) => {
+        const trigger = document.getElementById(triggerId);
+        const modal = document.getElementById(modalId);
+        if (!trigger || !modal) {
+          return;
+        }
+
+        trigger.addEventListener('click', (event) => {
+          event.preventDefault();
+          showModal(modal);
+        });
+
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            hideModal(modal);
+          }
+        });
+
+        modal.querySelectorAll('[data-modal-close]').forEach((btn) => {
+          btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            hideModal(modal);
+          });
+        });
+      };
+
+      registerModal('supportLink', 'supportModal');
+      registerModal('suggestionsLink', 'suggestionsModal');
+      registerModal('contactLink', 'contactModal');
+
+      const suggestionsTrigger = document.getElementById('suggestionsXhsTrigger');
+      const suggestionsQr = document.getElementById('suggestionsXhsQr');
+      if (suggestionsTrigger && suggestionsQr) {
+        suggestionsTrigger.addEventListener('click', () => {
+          suggestionsQr.hidden = !suggestionsQr.hidden;
+        });
+      }
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          for (const modal of Array.from(openModals)) {
+            hideModal(modal);
+          }
+        }
+      });
+
+      const initialHash = window.location.hash && pairs.some(({ target }) => `#${target.id}` === window.location.hash)
+        ? window.location.hash
+        : pairs[0].link.getAttribute('href');
+
+      if (initialHash) {
+        setActive(initialHash);
+      }
+    })();
+  </script>
+</body>
+
+</html>

@@ -1,218 +1,71 @@
-import { notifyInjectionFailure } from '../services/notifications';
-import { getMessages } from '../../i18n';
-import { getOptions } from '../store';
+import {
+  autoInjectIfNeeded,
+  delay,
+  deriveVideoState,
+  ensureModifierInjectionForActiveTab,
+  injectClipper,
+  refreshSelectionModifierInjection,
+  setupContextMenus,
+  isVideoUrl
+} from './contextMenusCoordinator';
+import {
+  createContextMenuRuntimeState,
+  type ContextMenuListenerDependencies
+} from './contextMenusTypes';
 
-const CONTENT_SCRIPT_PATH = 'content/index.js';
-let clipSelectionDefaultTitle = 'Clip selection to Obsidian';
-let clipSelectionVideoTitle = 'Clip to video capture panel';
-let clipFullPageTitle = 'Clip full page to Obsidian';
-let videoModeTitle = 'Enter video capture mode';
-const tabVideoState = new Map<number, boolean>();
-const autoInjectedTabs = new Set<number>();
-let selectionModifierInjectionEnabled = false;
+const runtimeState = createContextMenuRuntimeState();
+let listenerDependencies: ContextMenuListenerDependencies | null = null;
 
-function isVideoUrl(url?: string | null): boolean {
-  if (!url) {
-    return false;
-  }
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-    if (hostname.includes('bilibili.com')) {
-      return /\/video\//.test(parsed.pathname);
-    }
-    if (hostname === 'youtu.be') {
-      return true;
-    }
-    if (hostname.includes('youtube.com')) {
-      return parsed.pathname.startsWith('/watch') || parsed.pathname.startsWith('/shorts') || parsed.pathname.startsWith('/embed/');
-    }
-  } catch {
-    return false;
-  }
-  return false;
+export function createContextMenuListenerDependencies(
+  dependencies: ContextMenuListenerDependencies
+): ContextMenuListenerDependencies {
+  return dependencies;
 }
 
-function deriveVideoState(tabId?: number, url?: string | null): boolean {
-  let effectiveUrl = url ?? undefined;
-  if (!effectiveUrl && typeof tabId === 'number') {
-    const known = tabVideoState.get(tabId);
-    if (typeof known === 'boolean') {
-      return known;
-    }
+function getDependencies(): ContextMenuListenerDependencies {
+  if (!listenerDependencies) {
+    throw new Error('[contextMenus] Dependencies have not been configured.');
   }
-  if (!effectiveUrl && typeof tabId === 'number' && typeof chrome.tabs?.get === 'function') {
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime?.lastError) {
-        return;
-      }
-      const resolved = tab?.url;
-      const result = isVideoUrl(resolved);
-      tabVideoState.set(tabId, result);
-    });
-    return false;
-  }
-  const isVideo = isVideoUrl(effectiveUrl);
-  if (typeof tabId === 'number') {
-    tabVideoState.set(tabId, isVideo);
-  }
-  return isVideo;
+  return listenerDependencies;
 }
 
-async function refreshSelectionModifierInjection(): Promise<void> {
-  try {
-    const options = await getOptions();
-    const fragment = options.fragmentClipper;
-    const rawKeys = fragment?.selectionModifierKeys;
-    const modifierKeys = Array.isArray(rawKeys) ? rawKeys : [];
-    selectionModifierInjectionEnabled = Boolean(fragment?.selectionModifierEnabled && modifierKeys.length > 0);
-  } catch (error) {
-    console.warn('[contextMenus] Failed to resolve selection modifier options:', error);
-    selectionModifierInjectionEnabled = false;
-  }
-}
+export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
+  listenerDependencies = dependencies;
 
-function isInjectableUrl(url?: string | null): boolean {
-  if (!url) {
-    return false;
-  }
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:';
-  } catch {
-    return false;
-  }
-}
+  const {
+    action,
+    contextMenus,
+    runtime,
+    tabs,
+    messaging,
+    optionsRepository
+  } = dependencies;
 
-async function resolveTabUrl(tabId: number): Promise<string | undefined> {
-  if (typeof chrome?.tabs?.get !== 'function') {
-    return undefined;
-  }
-  return new Promise((resolve) => {
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime?.lastError) {
-        resolve(undefined);
-        return;
-      }
-      resolve(tab?.url ?? undefined);
-    });
+  runtime.onInstalled(() => {
+    void setupContextMenus(dependencies, runtimeState);
   });
-}
 
-async function ensureModifierInjectionForActiveTab(): Promise<void> {
-  if (!selectionModifierInjectionEnabled || typeof chrome?.tabs?.query !== 'function') {
-    return;
-  }
-  try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    for (const tab of tabs) {
-      if (tab?.id !== undefined) {
-        void autoInjectIfNeeded(tab.id, tab.url ?? undefined);
-      }
+  runtime.onStartup(() => {
+    void setupContextMenus(dependencies, runtimeState);
+  });
+
+  // Ensure menus exist even if startup event is unavailable.
+  void setupContextMenus(dependencies, runtimeState);
+
+  action.onClicked(async (tab) => {
+    if (!tab?.id) {
+      return;
     }
-  } catch (error) {
-    console.warn('[contextMenus] Failed to ensure modifier injection for active tab:', error);
-  }
-}
-
-async function setupContextMenus(): Promise<void> {
-  if (typeof chrome?.contextMenus?.create !== 'function') {
-    return;
-  }
-  const msgs = await getMessages();
-  clipSelectionDefaultTitle = msgs.clipSelection;
-  clipSelectionVideoTitle = msgs.clipSelectionVideo;
-  clipFullPageTitle = msgs.clipFullPage;
-  videoModeTitle = msgs.contextMenuVideoMode;
-  tabVideoState.clear();
-  await refreshSelectionModifierInjection();
-
-  if (typeof chrome.contextMenus.removeAll === 'function') {
     try {
-      await chrome.contextMenus.removeAll();
-    } catch {
-      // ignore cleanup failures; creation will proceed regardless
+      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0 });
+      await delay(50);
+      await tabs.sendMessage(tab.id, { action: 'clipFull' });
+    } catch (error) {
+      console.error('[action] Failed to trigger clipFull:', error);
     }
-  }
-
-  await new Promise<void>((resolve) => {
-    chrome.contextMenus.create({
-      id: 'clip-page',
-      title: clipFullPageTitle,
-      contexts: ['page', 'frame']
-    }, () => {
-      void chrome.runtime?.lastError;
-      resolve();
-    });
   });
 
-  await new Promise<void>((resolve) => {
-    chrome.contextMenus.create({
-      id: 'clip-selection',
-      title: clipSelectionDefaultTitle,
-      contexts: ['selection']
-    }, () => {
-      void chrome.runtime?.lastError;
-      resolve();
-    });
-  });
-
-  await new Promise<void>((resolve) => {
-    chrome.contextMenus.create({
-      id: 'clip-video',
-      title: videoModeTitle,
-      contexts: ['video']
-    }, () => {
-      void chrome.runtime?.lastError;
-      resolve();
-    });
-  });
-
-  let initialTabUrl: string | null | undefined;
-  if (typeof chrome.tabs?.query === 'function') {
-    try {
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      initialTabUrl = activeTab?.url;
-      if (activeTab?.id !== undefined) {
-        const isVideo = isVideoUrl(initialTabUrl);
-        tabVideoState.set(activeTab.id, isVideo);
-        void autoInjectIfNeeded(activeTab.id, initialTabUrl);
-      }
-    } catch {
-      // ignore query failures
-    }
-  }
-}
-
-export function registerContextMenuListeners(): void {
-  if (typeof chrome === 'undefined' || !chrome.runtime?.onInstalled || !chrome.contextMenus?.create) {
-    console.warn('[contextMenus] Chrome runtime APIs are unavailable; skipping context menu registration.');
-    return;
-  }
-
-  chrome.runtime.onInstalled.addListener(() => {
-    void setupContextMenus();
-  });
-
-  if (typeof chrome.runtime.onStartup?.addListener === 'function') {
-    chrome.runtime.onStartup.addListener(() => {
-      void setupContextMenus();
-    });
-  } else {
-    // Fallback for environments without onStartup support (e.g., tests/devtools)
-    void setupContextMenus();
-  }
-
-  chrome.action.onClicked.addListener(async (tab) => {
-    if (!tab?.id) return;
-    await injectClipper(tab.id, { targetFrameId: 0 });
-    await delay(50);
-    await chrome.tabs.sendMessage(tab.id, { action: 'clipFull' }).catch((error) => {
-      console.error('[action] Failed to send clipFull message:', error);
-    });
-  });
-
-  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  contextMenus.onClicked(async (info, tab) => {
     if (!tab?.id) {
       return;
     }
@@ -220,30 +73,30 @@ export function registerContextMenuListeners(): void {
     const frameId = typeof info.frameId === 'number' ? info.frameId : 0;
     const candidateUrl = tab.url ?? info.pageUrl ?? null;
     const isVideo = typeof tab.id === 'number'
-      ? deriveVideoState(tab.id, candidateUrl)
+      ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
       : isVideoUrl(candidateUrl);
 
-    let action: 'clipFull' | 'clipSelection' | 'videoClipSelection' | 'startVideoMode' | null = null;
+    let actionType: 'clipFull' | 'clipSelection' | 'videoClipSelection' | 'startVideoMode' | null = null;
     let waitMs = 50;
     let targetFrameId: number | undefined = 0;
 
     switch (info.menuItemId) {
       case 'clip-page':
         if (isVideo) {
-          action = 'startVideoMode';
+          actionType = 'startVideoMode';
           waitMs = 120;
         } else {
-          action = 'clipFull';
+          actionType = 'clipFull';
         }
         targetFrameId = 0;
         break;
       case 'clip-selection':
-        action = isVideo ? 'videoClipSelection' : 'clipSelection';
+        actionType = isVideo ? 'videoClipSelection' : 'clipSelection';
         waitMs = isVideo ? 120 : 100;
         targetFrameId = frameId;
         break;
       case 'clip-video':
-        action = 'startVideoMode';
+        actionType = 'startVideoMode';
         waitMs = 120;
         targetFrameId = 0;
         break;
@@ -251,183 +104,103 @@ export function registerContextMenuListeners(): void {
         break;
     }
 
-    if (!action || targetFrameId === undefined) {
+    if (!actionType || targetFrameId === undefined) {
       return;
     }
 
     if (targetFrameId !== 0) {
-      await injectClipper(tab.id, { targetFrameId: 0, silent: true });
+      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0, silent: true });
     }
-    await injectClipper(tab.id, { targetFrameId });
+    await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId });
     await delay(waitMs);
 
-    await chrome.tabs.sendMessage(tab.id, { action, frameId: targetFrameId, tabId: tab.id }, { frameId: targetFrameId }).catch((error) => {
-      console.error('[contextMenu] Failed to handle menu action:', error);
-    });
+    try {
+      await tabs.sendMessage(tab.id, { action: actionType, frameId: targetFrameId, tabId: tab.id }, { frameId: targetFrameId });
+    } catch (error) {
+      console.error('[contextMenu] Failed to dispatch action to tab:', error);
+    }
   });
 
-  if (typeof chrome.contextMenus.onShown?.addListener === 'function') {
-    chrome.contextMenus.onShown.addListener((info, tab) => {
-      const selectionText = typeof info.selectionText === 'string' ? info.selectionText.trim() : '';
-      const hasSelection = selectionText.length > 0;
-      const candidateUrl = tab?.url ?? info.pageUrl ?? null;
-      const isVideo = typeof tab?.id === 'number'
-        ? deriveVideoState(tab.id, candidateUrl)
-        : isVideoUrl(candidateUrl);
+  contextMenus.onShown((info, tab) => {
+    const selectionText = typeof info.selectionText === 'string' ? info.selectionText.trim() : '';
+    const hasSelection = selectionText.length > 0;
+    const candidateUrl = tab?.url ?? info.pageUrl ?? null;
+    const isVideo = typeof tab?.id === 'number'
+      ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
+      : isVideoUrl(candidateUrl);
 
-      const selectionTitle = hasSelection && isVideo
-        ? clipSelectionVideoTitle || clipSelectionDefaultTitle
-        : clipSelectionDefaultTitle;
-      const pageTitle = isVideo ? videoModeTitle : clipFullPageTitle;
+    const selectionTitle = hasSelection && isVideo
+      ? runtimeState.clipSelectionVideoTitle || runtimeState.clipSelectionDefaultTitle
+      : runtimeState.clipSelectionDefaultTitle;
+    const pageTitle = isVideo ? runtimeState.videoModeTitle : runtimeState.clipFullPageTitle;
 
-      chrome.contextMenus.update('clip-selection', { title: selectionTitle }, () => {
-        void chrome.runtime?.lastError;
-      });
-      chrome.contextMenus.update('clip-page', { title: pageTitle }, () => {
-        void chrome.runtime?.lastError;
-      });
-      const maybeRefresh = (chrome.contextMenus as unknown as { refresh?: () => void }).refresh;
-      if (typeof maybeRefresh === 'function') {
-        maybeRefresh.call(chrome.contextMenus);
-      }
-    });
-  }
+    void contextMenus.update('clip-selection', { title: selectionTitle }).catch(() => {});
+    void contextMenus.update('clip-page', { title: pageTitle }).catch(() => {});
+    contextMenus.refresh?.();
+  });
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.type !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
+  messaging.addListener((rawMessage, sender) => {
+    if (!rawMessage || typeof rawMessage !== 'object') {
+      return undefined;
+    }
+    const message = rawMessage as { type?: unknown; payload?: unknown };
+    if (message.type !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
+    const tabId = sender.tabId;
     if (typeof tabId !== 'number') {
-      sendResponse?.({ success: false, error: 'NO_TAB' });
-      return undefined;
+      return { success: false, error: 'NO_TAB' };
     }
+
+    const rawPayload = (typeof message.payload === 'object' && message.payload !== null)
+      ? message.payload as Record<string, unknown>
+      : {};
 
     const payload = {
-      selectedHtml: String(message.payload?.selectedHtml ?? ''),
-      selectedText: String(message.payload?.selectedText ?? ''),
+      selectedHtml: String(rawPayload.selectedHtml ?? ''),
+      selectedText: String(rawPayload.selectedText ?? ''),
       sourceFrameId: sender.frameId ?? null,
-      sourceUrl: typeof message.payload?.sourceUrl === 'string' ? message.payload.sourceUrl : null
+      sourceUrl: typeof rawPayload.sourceUrl === 'string' ? rawPayload.sourceUrl : null
     } as const;
 
-    chrome.tabs.sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 }, () => {
-      const error = chrome.runtime?.lastError;
-      if (error) {
-        console.error('[contextMenu] Failed to forward video selection from frame:', error.message);
-        sendResponse?.({ success: false, error: error.message });
-        return;
-      }
-      sendResponse?.({ success: true });
-    });
-
-    return true;
-  });
-
-  if (typeof chrome?.storage?.onChanged?.addListener === 'function') {
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName !== 'sync' || !changes.options) {
-        return;
-      }
-      void refreshSelectionModifierInjection()
-        .then(() => ensureModifierInjectionForActiveTab())
-        .catch(() => {
-          // ignore refresh failures; state will retry on next update
-        });
-    });
-  }
-
-}
-
-type InjectionOptions = {
-  silent?: boolean;
-  targetFrameId?: number;
-  allFrames?: boolean;
-};
-
-async function injectClipper(tabId: number, options?: InjectionOptions): Promise<void> {
-  try {
-    const target: chrome.scripting.InjectionTarget = options?.allFrames
-      ? { tabId, allFrames: true }
-      : options?.targetFrameId !== undefined
-        ? { tabId, frameIds: [options.targetFrameId] }
-        : { tabId };
-    await chrome.scripting.executeScript({
-      target,
-      files: [CONTENT_SCRIPT_PATH],
-      world: 'ISOLATED'
-    });
-    autoInjectedTabs.add(tabId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('[contextMenu] Failed to inject content script:', error);
-    if (!options?.silent) {
-      await notifyInjectionFailure(message);
-    }
-  }
-}
-
-async function autoInjectIfNeeded(tabId: number, url?: string | null): Promise<void> {
-  if (autoInjectedTabs.has(tabId)) {
-    return;
-  }
-  const candidateUrl = typeof url === 'string' ? url : undefined;
-  const videoCandidate = isVideoUrl(candidateUrl);
-  let shouldInject = videoCandidate;
-  let resolvedUrl = candidateUrl;
-
-  if (!shouldInject && selectionModifierInjectionEnabled) {
-    if (!resolvedUrl) {
-      resolvedUrl = await resolveTabUrl(tabId);
-    }
-    shouldInject = isInjectableUrl(resolvedUrl);
-  }
-
-  if (!shouldInject || autoInjectedTabs.has(tabId)) {
-    return;
-  }
-
-  try {
-    await injectClipper(tabId, { silent: true, allFrames: true });
-  } catch {
-    // Silent auto-injection failures are ignored; user actions will surface errors.
-  }
-}
-
-if (typeof chrome?.tabs?.onActivated?.addListener === 'function') {
-  chrome.tabs.onActivated.addListener(({ tabId }) => {
-    if (typeof chrome.tabs?.get === 'function') {
-      chrome.tabs.get(tabId, (tab) => {
-        if (chrome.runtime?.lastError) {
-          return;
-        }
-        void autoInjectIfNeeded(tabId, tab?.url);
+    return tabs.sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })
+      .then(() => ({ success: true }))
+      .catch((error) => {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('[contextMenu] Failed to forward video selection from frame:', msg);
+        return { success: false, error: msg };
       });
-    }
   });
-}
 
-if (typeof chrome?.tabs?.onUpdated?.addListener === 'function') {
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  optionsRepository.onChange(() => {
+    void refreshSelectionModifierInjection(runtimeState)
+      .then(() => ensureModifierInjectionForActiveTab(dependencies, runtimeState))
+      .catch(() => {
+        // ignore refresh failures; state will retry on next update
+      });
+  });
+
+  tabs.onActivated(({ tabId }) => {
+    void tabs.get(tabId).then((tab) => {
+      void autoInjectIfNeeded(dependencies, runtimeState, tabId, tab?.url);
+    }).catch(() => {});
+  });
+
+  tabs.onUpdated((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading') {
-      autoInjectedTabs.delete(tabId);
+      runtimeState.autoInjectedTabs.delete(tabId);
     }
     if (changeInfo.status === 'complete' || typeof changeInfo.url === 'string') {
       const candidateUrl = changeInfo.url ?? tab.url;
       if (changeInfo.status === 'complete' || isVideoUrl(candidateUrl)) {
-        void autoInjectIfNeeded(tabId, candidateUrl);
+        void autoInjectIfNeeded(dependencies, runtimeState, tabId, candidateUrl);
       }
     }
   });
-}
 
-if (typeof chrome?.tabs?.onRemoved?.addListener === 'function') {
-  chrome.tabs.onRemoved.addListener((tabId) => {
-    tabVideoState.delete(tabId);
-    autoInjectedTabs.delete(tabId);
+  tabs.onRemoved((tabId) => {
+    runtimeState.tabVideoState.delete(tabId);
+    runtimeState.autoInjectedTabs.delete(tabId);
   });
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }

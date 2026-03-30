@@ -1,5 +1,4 @@
 import TurndownService from 'turndown';
-import { collectListPath } from './contextDom';
 
 const LIST_INDENT = '  ';
 

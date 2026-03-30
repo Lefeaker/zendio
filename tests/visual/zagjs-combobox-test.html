@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Zag.js Combobox 测试</title>
+  <link rel="stylesheet" href="../../build/dist/options/styles/tailwind.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "@zag-js/combobox": "/node_modules/@zag-js/combobox/dist/index.mjs",
+        "@zag-js/core": "/node_modules/@zag-js/core/dist/index.mjs",
+        "@zag-js/dom-query": "/node_modules/@zag-js/dom-query/dist/index.mjs",
+        "@zag-js/utils": "/node_modules/@zag-js/utils/dist/index.mjs",
+        "@zag-js/types": "/node_modules/@zag-js/types/dist/index.mjs"
+      }
+    }
+  </script>
+</head>
+
+<body class="p-8 bg-base-100">
+  <h1 class="text-2xl font-bold mb-4">Zag.js 交互测试</h1>
+
+  <div id="combobox-container"></div>
+
+  <script type="module">
+    import { ZagCombobox } from '/src/ui/ZagCombobox.js';
+
+    const combobox = new ZagCombobox({
+      id: 'vault-select',
+      label: '选择 Vault',
+      options: [
+        { label: 'Main Vault', value: 'main' },
+        { label: 'Work Vault', value: 'work' },
+        { label: 'Personal Vault', value: 'personal' },
+      ],
+      onSelect: (value) => {
+        console.log('Selected:', value);
+        alert(`You selected: ${value}`);
+      }
+    });
+
+    document.getElementById('combobox-container').appendChild(combobox.render());
+  </script>
+</body>
+
+</html>

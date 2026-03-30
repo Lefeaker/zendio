@@ -1,5 +1,5 @@
 import TurndownService from 'turndown';
-import type { FragmentClipperOptions } from '../../../shared/types/options';
+import type { FragmentClipperOptions } from '@shared/types/options';
 import type { ContextSegments } from '../services/contextCapture';
 import {
   appendFootnoteRef,
@@ -14,7 +14,7 @@ import {
   highlightMarkdownBlock,
   normalizeListBullets
 } from '../utils/markdown';
-import { escapeQuotes } from '../../shared/markdown';
+import { generateYamlFrontMatter } from '@shared/utils/yamlGenerator';
 
 export interface FragmentMarkdownParams {
   pageTitle: string;
@@ -67,7 +67,8 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
       const beforeText = formatBeforeHierarchy(beforeCombined);
 
       const selectedMarkdown = turndown.turndown(ensureListWrapped(selectedHtml));
-      let { block: highlightedBlock, definition } = buildHighlightSegment(selectedMarkdown, footnote);
+      const { block: initialBlock, definition } = buildHighlightSegment(selectedMarkdown, footnote);
+      let highlightedBlock = initialBlock;
       if (definition) {
         trailingFootnotes.push(definition);
       }
@@ -105,21 +106,28 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
     contentMd = turndown.turndown(selectedHtml);
   }
 
-  let markdown = `---
-` +
-    `type: clipper
-` +
-    `title: "${escapeQuotes(pageTitle)}"
-` +
-    `url: "${fragmentUrl}"
-` +
-    `clipped_at: "${clippedAt}"
-` +
-    `tags: [clipping]
-` +
-    `---
+  let domain: string | undefined;
+  try {
+    domain = new URL(fragmentUrl).hostname;
+  } catch {
+    domain = undefined;
+  }
 
-` + contentMd;
+  const frontMatter = generateYamlFrontMatter(
+    'clipper',
+    {
+      type: 'clipper',
+      title: pageTitle,
+      url: fragmentUrl,
+      clipped_at: clippedAt,
+      tags: ['clipping']
+    },
+    {
+      ...(domain !== undefined && { domain })
+    }
+  );
+
+  let markdown = `${frontMatter}\n\n${contentMd}`;
 
   if (trailingFootnotes.length) {
     markdown += `\n\n${trailingFootnotes.join('\n\n')}`;

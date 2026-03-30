@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN" class="aobx-preview">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Content Orchestrator Harness</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles/design-tokens.css" />
+    <link rel="stylesheet" href="./styles/global.tailwind.css" />
+    <link rel="stylesheet" href="./options/styles/tailwind.css" />
+  </head>
+  <body class="aobx-preview m-0 min-h-screen bg-surface text-text font-ui text-md leading-[1.56]">
+    <main class="mx-auto grid max-w-5xl gap-6 p-8">
+      <section class="grid gap-4 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-card">
+        <div class="grid gap-2">
+          <h1 class="m-0 text-2xl font-semibold tracking-tight text-base-content">
+            Content Orchestrator Harness
+          </h1>
+          <p class="m-0 text-sm text-base-content/60">
+            Use this page to validate ClipperDialog, ReaderSession, and VideoSession in a real
+            browser.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button id="open-clipper" type="button" class="btn btn-primary">
+            Open Clipper Dialog
+          </button>
+          <button id="start-reader" type="button" class="btn btn-secondary">
+            Start Reader Session
+          </button>
+          <button id="start-video" type="button" class="btn btn-secondary">
+            Start Video Session
+          </button>
+        </div>
+        <p id="status" class="m-0 text-sm text-base-content/60">Booting harness...</p>
+      </section>
+
+      <section class="grid gap-6 lg:grid-cols-2">
+        <article
+          id="reader-article"
+          class="grid gap-3 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-card"
+        >
+          <h2 class="m-0 text-xl font-semibold text-base-content">Reader Fixture</h2>
+          <p class="m-0 text-sm leading-relaxed text-base-content/80">
+            This paragraph exists so the harness can create a selection range and mount the
+            ReaderSession. It should be long enough to produce a meaningful highlight preview in the
+            dialog flow.
+          </p>
+        </article>
+
+        <section class="grid gap-3 rounded-2xl border border-base-300 bg-base-100 p-6 shadow-card">
+          <h2 class="m-0 text-xl font-semibold text-base-content">Video Fixture</h2>
+          <video controls class="w-full rounded-xl border border-base-300 bg-black/80">
+            <source src="" type="video/mp4" />
+          </video>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./content-orchestrator-harness.js"></script>
+  </body>
+</html>

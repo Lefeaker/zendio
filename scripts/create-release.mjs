@@ -15,26 +15,26 @@ async function pathExists(targetPath) {
 async function createRelease() {
   console.log('🎁 开始创建发布包...');
 
-  // 检查 dist 目录是否存在
-  if (!(await pathExists('dist'))) {
-    console.error('❌ dist 目录不存在，请先运行 npm run build');
+  // 检查 build/dist 目录是否存在
+  if (!(await pathExists('build/dist'))) {
+    console.error('❌ build/dist 目录不存在，请先运行 npm run build');
     process.exit(1);
   }
 
   // 读取版本号
-  const manifest = JSON.parse(await readFile('dist/manifest.json', 'utf8'));
+  const manifest = JSON.parse(await readFile('build/dist/manifest.json', 'utf8'));
   const version = manifest.version;
   const name = manifest.name.replace(/\s+/g, '-').toLowerCase();
   const releaseName = `${name}-v${version}-release`;
-  const releaseDir = resolve('releases', releaseName);
+  const releaseDir = resolve('build/releases', releaseName);
 
   console.log(`📝 扩展名称: ${manifest.name}`);
   console.log(`📝 版本号: ${version}`);
   console.log(`📝 发布包名称: ${releaseName}`);
 
   try {
-    // 创建 releases 目录
-    await mkdir('releases', { recursive: true });
+    // 创建 build/releases 目录
+    await mkdir('build/releases', { recursive: true });
 
     // 删除旧的发布目录（如果存在）
     if (await pathExists(releaseDir)) {
@@ -46,8 +46,8 @@ async function createRelease() {
     await mkdir(releaseDir, { recursive: true });
     console.log('📁 创建发布目录');
 
-    // 复制 dist 文件夹
-    await cp('dist', `${releaseDir}/extension`, { recursive: true });
+    // 复制 build/dist 文件夹
+    await cp('build/dist', `${releaseDir}/extension`, { recursive: true });
     console.log('📋 复制扩展文件');
 
     // 复制安装指南
@@ -83,7 +83,7 @@ async function createRelease() {
 
     // 创建 zip 文件
     const zipName = `${releaseName}.zip`;
-    const zipPath = resolve('releases', zipName);
+    const zipPath = resolve('build/releases', zipName);
     console.log('🔨 正在创建 zip 文件...');
 
     // 删除旧的 zip 文件

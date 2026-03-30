@@ -6,6 +6,9 @@ import { geminiParser } from './platforms/gemini';
 import { tongyiParser } from './platforms/tongyi';
 import { deepseekParser } from './platforms/deepseek';
 import { kimiParser } from './platforms/kimi';
+import { doubaoParser } from './platforms/doubao';
+import { monicaParser } from './platforms/monica';
+import { perplexityParser } from './platforms/perplexity';
 import type { ChatPlatformParser, ParsedResult } from './types';
 
 const registeredParsers: ChatPlatformParser[] = [
@@ -15,14 +18,17 @@ const registeredParsers: ChatPlatformParser[] = [
   geminiParser,
   tongyiParser,
   deepseekParser,
-  kimiParser
+  kimiParser,
+  doubaoParser,
+  monicaParser,
+  perplexityParser
 ];
 
 const parserMap = new Map<string, ChatPlatformParser>();
 
-registeredParsers.forEach(parser => {
+registeredParsers.forEach((parser) => {
   parserMap.set(parser.id, parser);
-  parser.aliases?.forEach(alias => parserMap.set(alias, parser));
+  parser.aliases?.forEach((alias) => parserMap.set(alias, parser));
 });
 
 export function resolveParser(platform: string): ChatPlatformParser | undefined {

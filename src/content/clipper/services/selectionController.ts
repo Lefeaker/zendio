@@ -1,27 +1,54 @@
-import { extractSelectionClip, type SelectionClipResult } from '../../extractors/selectionExtractor';
+import {
+  extractSelectionClip,
+  type SelectionClipResult
+} from '../../extractors/selectionExtractor';
 import type { ReaderBootstrapHighlight } from '../../reader/types';
 import type { ClipPromptGateway } from '../application/clipPromptGateway';
 import { ADD_HIGHLIGHT_EVENT } from '../../reader/constants';
 import { loadFragmentConfig } from './fragmentConfig';
+import { detectVideoIdentity } from '../../video/utils';
+import { isValidVideoPlayPage } from '../../video/videoPromptObserver';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
+import {
+  getReaderSession,
+  getVideoSession,
+  isReaderSessionActive,
+  isVideoSessionActive
+} from '../../runtime/contentSessionRegistry';
 
 export interface ReaderSessionAdapter {
-  ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void;
+  ingestExternalHighlight(
+    range: Range,
+    selectedHtml: string,
+    selectedText: string,
+    comment: string
+  ): void;
   start(initialHighlight: ReaderBootstrapHighlight): Promise<void>;
 }
 
 export interface VideoSessionAdapter {
   start(): Promise<void>;
-  ingestTextCapture(selectedHtml: string, selectedText: string, comment: string, selectionRange: Range): void;
+  ingestTextCapture(
+    selectedHtml: string,
+    selectedText: string,
+    comment: string,
+    selectionRange?: Range | null
+  ): void;
 }
 
 export interface SelectionClipDependencies {
   prompt: ClipPromptGateway;
+  optionsRepository: IOptionsRepository;
   createReaderSession(doc: Document, url: string): ReaderSessionAdapter;
   createVideoSession(doc: Document): VideoSessionAdapter;
 }
 
 export interface SelectionController {
-  handleSelectionClip(doc: Document, url: string, selection: Selection): Promise<SelectionClipResult | null>;
+  handleSelectionClip(
+    doc: Document,
+    url: string,
+    selection: Selection
+  ): Promise<SelectionClipResult | null>;
   handleVideoSelectionClip(doc: Document, url: string, selection: Selection): Promise<void>;
   handleVideoSelectionClipFromData(
     doc: Document,
@@ -54,20 +81,35 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     container.appendChild(range.cloneContents());
     const selectedHtml = container.innerHTML;
 
-    const existingSession = window.__aiobReaderController as ReaderSessionAdapter | undefined;
+    const existingSession = getReaderSession<ReaderSessionAdapter>() ?? undefined;
     const readerPanel = doc.getElementById('aiob-reader-panel');
-    const readerFlag = doc.documentElement?.dataset?.aiobReaderActive === 'true';
-    const hasReaderSession = Boolean(existingSession || readerPanel || window.__aiobReaderActive || readerFlag);
+    const hasReaderSession = Boolean(existingSession || readerPanel || isReaderSessionActive(doc));
+
+    // 检查是否在视频页面且视频模式未激活
+    const identity = detectVideoIdentity(url);
+    const isVideoPage = isValidVideoPlayPage(url, identity);
+    const hasVideoSession = isVideoSessionActive(doc);
+    const shouldShowVideoMode = isVideoPage && !hasVideoSession;
 
     const promptResult = await deps.prompt.requestSelectionAction({
       selectedText,
-      allowReaderMode: true,
-      readerModeBehavior: hasReaderSession ? 'append' : 'start'
+      allowReaderMode: !shouldShowVideoMode, // 在视频页面时不显示阅读模式选项
+      readerModeBehavior: hasReaderSession ? 'append' : 'start',
+      allowVideoMode: shouldShowVideoMode // 新增：允许视频模式选项
     });
     const action = promptResult.action;
     const comment = promptResult.comment.trim();
 
     if (action === 'cancel') {
+      selection.removeAllRanges();
+      return null;
+    }
+
+    if (action === 'video') {
+      // 启动视频模式并捕获选择的内容
+      const videoSession = deps.createVideoSession(doc);
+      await videoSession.start();
+      videoSession.ingestTextCapture(selectedHtml, selectedText, comment, savedRange);
       selection.removeAllRanges();
       return null;
     }
@@ -98,7 +140,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
       return null;
     }
 
-    const fragmentConfig = await loadFragmentConfig();
+    const fragmentConfig = await loadFragmentConfig(deps.optionsRepository);
 
     return extractSelectionClip({
       doc,
@@ -132,7 +174,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     container.appendChild(range.cloneContents());
     const selectedHtml = container.innerHTML;
 
-    let session = window.__aiobVideoController as VideoSessionAdapter | undefined;
+    let session = getVideoSession<VideoSessionAdapter>() ?? undefined;
     if (!session) {
       session = deps.createVideoSession(doc);
       await session.start();
@@ -145,19 +187,25 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
   return {
     handleSelectionClip,
     handleVideoSelectionClip,
-    handleVideoSelectionClipFromData: async (doc, url, selectedHtml, selectedText, comment = '') => {
+    handleVideoSelectionClipFromData: async (
+      doc,
+      url,
+      selectedHtml,
+      selectedText,
+      comment = ''
+    ) => {
       const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
       if (!normalizedText) {
         throw new Error('Selected text is empty');
       }
 
-      let session = window.__aiobVideoController as VideoSessionAdapter | undefined;
+      let session = getVideoSession<VideoSessionAdapter>() ?? undefined;
       if (!session) {
         session = deps.createVideoSession(doc);
         await session.start();
       }
 
-      session.ingestTextCapture(selectedHtml, normalizedText, comment, undefined);
+      session.ingestTextCapture(selectedHtml, normalizedText, comment);
     }
   };
 }

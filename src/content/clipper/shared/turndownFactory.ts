@@ -1,5 +1,5 @@
 import TurndownService from 'turndown';
-import { applyObsidianRules } from '../../../third_party/obsidian-clipper/markdownRules';
+import { applyObsidianRules } from '@third-party/obsidian-clipper/markdownRules';
 
 export function createClipperTurndown(baseUrl: string): TurndownService {
   const turndown = new TurndownService({ codeBlockStyle: 'fenced' });
@@ -7,13 +7,15 @@ export function createClipperTurndown(baseUrl: string): TurndownService {
 
   turndown.addRule('imageExternalOnly', {
     filter: 'img',
-    replacement: (_content, node: HTMLElement) => {
-      const src = node.getAttribute('src');
+    replacement: (_content: string, node: Node) => {
+      // Cast to Element to access getAttribute method
+      const element = node as Element;
+      const src = element.getAttribute('src');
       if (!src) {
         return '';
       }
       const absUrl = new URL(src, baseUrl).toString();
-      const alt = (node.getAttribute('alt') || '').replace(/\|/g, '-');
+      const alt = (element.getAttribute('alt') || '').replace(/\|/g, '-');
       return `![${alt}](${absUrl})`;
     }
   });

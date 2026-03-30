@@ -1,9 +1,31 @@
-import { registerContextMenuListeners } from './listeners/contextMenus';
-import { registerRuntimeMessageListener } from './listeners/runtimeMessages';
-import { ensureUsageStatsInitialized } from './services/usageStats';
+import { getPlatformServices } from '../platform';
+import { registerRepositories } from '../shared/di/serviceRegistry';
+import { startBackgroundRuntime } from './backgroundStartup';
+import { createDefaultTrialLifecycleDependencies, registerTrialLifecycle } from './trialLifecycle';
 
-registerContextMenuListeners();
-registerRuntimeMessageListener();
-void ensureUsageStatsInitialized().catch(error => {
-  console.error('[background] Failed to initialize usage stats storage:', error);
+const platformServices = getPlatformServices();
+
+registerRepositories({
+  storage: platformServices.storage,
+  messaging: platformServices.messaging,
+  tabs: platformServices.tabs,
+  runtime: platformServices.runtime
 });
+
+startBackgroundRuntime({
+  action: platformServices.action,
+  contextMenus: platformServices.contextMenus,
+  messaging: platformServices.messaging,
+  runtime: platformServices.runtime,
+  scripting: platformServices.scripting,
+  storage: platformServices.storage,
+  tabs: platformServices.tabs
+});
+
+registerTrialLifecycle(
+  createDefaultTrialLifecycleDependencies(
+    platformServices.runtime,
+    platformServices.storage,
+    platformServices.tabs
+  )
+);

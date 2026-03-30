@@ -99,16 +99,6 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
 }
 
 /**
- * Remove inline styles from all elements (optional)
- * Uncomment the call in preprocessDocument if needed
- */
-function removeInlineStyles(doc: Document): void {
-  doc.querySelectorAll('[style]').forEach(el => {
-    el.removeAttribute('style');
-  });
-}
-
-/**
  * Additional cleanup functions that can be used as needed
  */
 

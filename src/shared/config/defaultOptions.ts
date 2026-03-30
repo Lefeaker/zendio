@@ -1,19 +1,29 @@
-import { DEFAULT_DOMAIN_MAPPINGS, DEFAULT_CLASSIFIER_TAXONOMY } from '../constants';
+import { DEFAULT_DOMAIN_MAPPINGS } from '../constants';
+import { DEFAULT_CLASSIFIER_TAXONOMY_MIGRATED } from './taxonomyMigration';
 import type { OptionsState } from '../types';
+import {
+  getDefaultFragmentClipper,
+  getDefaultRestOptions,
+  getDefaultTemplates
+} from './appConfig';
+
+const REST_DEFAULTS = getDefaultRestOptions();
+const TEMPLATE_DEFAULTS = getDefaultTemplates();
+const FRAGMENT_DEFAULTS = getDefaultFragmentClipper();
 
 export const DEFAULT_OPTIONS: OptionsState = {
   rest: {
-    baseUrl: 'https://127.0.0.1:27124/',
-    httpsUrl: 'https://127.0.0.1:27124/',
-    httpUrl: 'http://127.0.0.1:27123/',
-    vault: 'YourVault',
-    apiKey: ''
+    baseUrl: REST_DEFAULTS.baseUrl,
+    httpsUrl: REST_DEFAULTS.httpsUrl,
+    httpUrl: REST_DEFAULTS.httpUrl,
+    vault: REST_DEFAULTS.vault,
+    apiKey: REST_DEFAULTS.apiKey
   },
   templates: {
-    article: 'Articles/{domain}/{yyyy}/{slug}.md',
-    fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-    reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-    ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
+    article: TEMPLATE_DEFAULTS.article,
+    fragment: TEMPLATE_DEFAULTS.fragment,
+    reading: TEMPLATE_DEFAULTS.reading,
+    ai: TEMPLATE_DEFAULTS.ai
   },
   domainMappings: { ...DEFAULT_DOMAIN_MAPPINGS },
   classifier: {
@@ -22,7 +32,7 @@ export const DEFAULT_OPTIONS: OptionsState = {
     endpoint: 'http://localhost:11434/api/chat',
     model: 'llama3.1',
     apiKey: '',
-    taxonomy: DEFAULT_CLASSIFIER_TAXONOMY
+    taxonomy: DEFAULT_CLASSIFIER_TAXONOMY_MIGRATED
   },
   deepResearch: {
     pureMode: false
@@ -32,18 +42,21 @@ export const DEFAULT_OPTIONS: OptionsState = {
     userName: 'USER'
   },
   fragmentClipper: {
-    useFootnoteFormat: true,
-    captureContext: false,
-    contextLength: 200,
-    contextMode: 'chars',
-    selectionModifierEnabled: false,
-    selectionModifierKeys: []
+    useFootnoteFormat: FRAGMENT_DEFAULTS.useFootnoteFormat,
+    captureContext: FRAGMENT_DEFAULTS.captureContext,
+    contextLength: FRAGMENT_DEFAULTS.contextLength,
+    contextMode: FRAGMENT_DEFAULTS.contextMode,
+    selectionModifierEnabled: FRAGMENT_DEFAULTS.selectionModifierEnabled,
+    selectionModifierKeys: [...FRAGMENT_DEFAULTS.selectionModifierKeys],
+    keyboardShortcutsEnabled: FRAGMENT_DEFAULTS.keyboardShortcutsEnabled
   },
   readingSession: {
     exportMode: 'highlights',
     highlightTheme: 'gradient'
   },
   video: {
-    floatingPromptEnabled: true
+    floatingPromptEnabled: true,
+    promptButtonLabel: '开启视频笔记',
+    promptShortcut: 'Alt+V'
   }
 };

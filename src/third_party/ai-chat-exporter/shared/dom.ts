@@ -35,7 +35,7 @@ export function cleanupUIElements(container: HTMLElement): void {
     try {
       const elements = container.querySelectorAll(selector);
       elements.forEach(el => el.remove());
-    } catch (error) {
+    } catch (error: unknown) {
       console.debug('[cleanupUIElements] ignore invalid selector', { selector, error });
     }
   });

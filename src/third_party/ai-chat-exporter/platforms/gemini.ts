@@ -19,336 +19,345 @@ type SummaryStructure = {
   bulletGroups: string[][];
 };
 
-const DEEP_RESEARCH_SELECTORS = [
+const GEMINI_DEEP_RESEARCH_SELECTORS = [
   'deep-research-immersive-panel',
   'deep-research-confirmation-widget',
   'deep-research-processing-indicator'
 ];
 
-const GeminiDeepResearchHelper = {
-  SELECTORS: DEEP_RESEARCH_SELECTORS,
-  CLASS_MATCHER: '[class*="deep-research"]',
+const GEMINI_DEEP_RESEARCH_CLASS_MATCHER = '[class*="deep-research"]';
 
-  isDeepResearchSession(doc: Document): boolean {
-    return Boolean(
-      this.SELECTORS.some((selector) => doc.querySelector(selector)) ||
-        doc.querySelector(this.CLASS_MATCHER)
-    );
-  },
+function queryAllDeep(root: Document | Element, selector: string): Element[] {
+  const results: Element[] = [];
+  const visited = new Set<Node>();
+  const queue: Array<Document | Element | ShadowRoot> = [];
 
-  queryAllDeep(root: Document | Element, selector: string): Element[] {
-    const results: Element[] = [];
-    const visited = new Set<Node>();
-    const queue: Array<Document | Element | ShadowRoot> = [];
+  const enqueue = (node?: Document | Element | ShadowRoot | null) => {
+    if (!node || visited.has(node)) return;
+    visited.add(node);
+    queue.push(node);
+  };
 
-    const enqueue = (node?: Document | Element | ShadowRoot | null) => {
-      if (!node || visited.has(node)) return;
-      visited.add(node);
-      queue.push(node);
-    };
+  enqueue(root);
 
-    enqueue(root instanceof Document ? root : root);
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current) continue;
 
-    while (queue.length) {
-      const current = queue.shift();
-      if (!current) continue;
-
-      if ('querySelectorAll' in current) {
-        Array.from(current.querySelectorAll(selector)).forEach((el) => {
-          results.push(el as Element);
-        });
-      }
-
-      let childElements: Element[] = [];
-      if (current instanceof Document) {
-        if (current.documentElement) {
-          childElements = [current.documentElement];
-        }
-      } else if (current instanceof ShadowRoot) {
-        childElements = Array.from(current.children);
-      } else if (current instanceof Element) {
-        childElements = Array.from(current.children);
-      }
-
-      childElements.forEach((child) => {
-        enqueue(child);
-        if ((child as HTMLElement).shadowRoot) {
-          enqueue((child as HTMLElement).shadowRoot);
-        }
-      });
+    if ('querySelectorAll' in current) {
+      const matches = Array.from(current.querySelectorAll(selector));
+      matches.forEach((el) => results.push(el));
     }
 
-    return results;
-  },
-
-  normalizeTextForComparison(text: string): string {
-    return text
-      .replace(/\u200B/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  },
-
-  sanitizeSourceText(text: string): string {
-    return text
-      .replace(/\u200B/g, '')
-      .replace(/Opens in a new window/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  },
-
-  extractDomain(href: string): string {
-    try {
-      return new URL(href).hostname.replace(/^www\./i, '');
-    } catch (error) {
-      return '';
+    let childElements: Element[] = [];
+    if (current instanceof Document) {
+      if (current.documentElement) {
+        childElements = [current.documentElement];
+      }
+    } else if (current instanceof ShadowRoot) {
+      childElements = Array.from(current.children);
+    } else if (current instanceof Element) {
+      childElements = Array.from(current.children);
     }
-  },
 
-  findDeepResearchPanel(doc: Document): Element | null {
-    const panels = this.queryAllDeep(doc, 'deep-research-immersive-panel');
-    return panels.length > 0 ? panels[0] : null;
-  },
-
-  collectSources(root: Element): DeepResearchSource[] {
-    const anchors = this.queryAllDeep(root, 'a[href]');
-    const seen = new Set<string>();
-    const sources: DeepResearchSource[] = [];
-
-    anchors.forEach((anchor) => {
-      const href = anchor.getAttribute('href') || '';
-      if (!href || seen.has(href)) return;
-      seen.add(href);
-
-      const rawText = (anchor.textContent || '').replace(/\u200B/g, '');
-      const lines = rawText
-        .split(/\n+/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const text = this.sanitizeSourceText(rawText);
-      const title = lines.length > 0 ? lines[lines.length - 1] : text;
-
-      sources.push({
-        href,
-        text,
-        title,
-        domain: this.extractDomain(href)
-      });
-    });
-
-    return sources;
-  },
-
-  collectPlanSteps(messageElem: Element): Array<{ title: string; description: string }> {
-    const steps: Array<{ title: string; description: string }> = [];
-    const seen = new Set<string>();
-    const stepElements = this.queryAllDeep(messageElem, '.research-step');
-
-    stepElements.forEach((step) => {
-      const titleNode = this.queryAllDeep(step, '.research-step-title')[0] as HTMLElement | undefined;
-      const descriptionNode = this.queryAllDeep(step, '.research-step-description')[0] as HTMLElement | undefined;
-      const title = titleNode?.textContent?.trim() || '';
-      const description = descriptionNode?.textContent?.trim() || '';
-
-      if (title || description) {
-        const key = `${title}|||${description}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          steps.push({ title, description });
-        }
+    childElements.forEach((child) => {
+      enqueue(child);
+      if (child instanceof HTMLElement && child.shadowRoot) {
+        enqueue(child.shadowRoot);
       }
     });
+  }
 
-    return steps;
-  },
+  return results;
+}
 
-  extractSummaryStructure(root: Element, sources: DeepResearchSource[]): SummaryStructure {
-    const reportHost = this.queryAllDeep(root, 'message-content')[0] as HTMLElement | undefined;
-    const target = reportHost || (root as HTMLElement);
-    const rawContent = (target?.innerText || '').replace(/\u200B/g, '');
+function normalizeTextForComparison(text: string): string {
+  return text
+    .replace(/\u200B/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
 
-    if (!rawContent.trim()) {
-      return { paragraphs: [], bulletGroups: [] };
-    }
+function sanitizeSourceText(text: string): string {
+  return text
+    .replace(/\u200B/g, '')
+    .replace(/Opens in a new window/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-    const sourceComparisons = new Set(
-      sources.map((source) => this.normalizeTextForComparison(source.text))
-    );
+function extractDomain(href: string): string {
+  try {
+    return new URL(href).hostname.replace(/^www\./i, '');
+  } catch {
+    return '';
+  }
+}
 
-    const lines = rawContent
+function isDeepResearchSession(doc: Document): boolean {
+  return Boolean(
+    GEMINI_DEEP_RESEARCH_SELECTORS.some((selector) => doc.querySelector(selector)) ||
+      doc.querySelector(GEMINI_DEEP_RESEARCH_CLASS_MATCHER)
+  );
+}
+
+function findDeepResearchPanel(doc: Document): Element | null {
+  const panels = queryAllDeep(doc, 'deep-research-immersive-panel');
+  return panels.length > 0 ? panels[0] : null;
+}
+
+function collectSources(root: Element): DeepResearchSource[] {
+  const anchors = queryAllDeep(root, 'a[href]');
+  const seen = new Set<string>();
+  const sources: DeepResearchSource[] = [];
+
+  anchors.forEach((anchor) => {
+    const href = anchor.getAttribute('href') || '';
+    if (!href || seen.has(href)) return;
+    seen.add(href);
+
+    const rawText = (anchor.textContent || '').replace(/\u200B/g, '');
+    const lines = rawText
       .split(/\n+/)
-      .map((line) => line.replace(/\s+/g, ' ').trim())
-      .filter((line) => {
-        if (!line) return false;
-        if (/opens in a new window/i.test(line)) return false;
-        const normalized = this.normalizeTextForComparison(line);
-        return !sourceComparisons.has(normalized);
-      });
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const text = sanitizeSourceText(rawText);
+    const title = lines.length > 0 ? lines[lines.length - 1] : text;
 
-    const paragraphs: string[] = [];
-    const bulletGroups: string[][] = [];
-    const paragraphSet = new Set<string>();
-    const bulletItemSet = new Set<string>();
-
-    let currentParagraph: string[] = [];
-    let currentBulletGroup: string[] = [];
-
-    const flushParagraph = () => {
-      if (currentParagraph.length === 0) return;
-      const paragraph = currentParagraph.join(' ').replace(/\s+/g, ' ').trim();
-      if (paragraph && !paragraphSet.has(paragraph)) {
-        paragraphSet.add(paragraph);
-        paragraphs.push(paragraph);
-      }
-      currentParagraph = [];
-    };
-
-    const flushBullets = () => {
-      if (currentBulletGroup.length === 0) return;
-      bulletGroups.push(currentBulletGroup.slice());
-      currentBulletGroup = [];
-    };
-
-    const bulletPattern = /^((?:\d+\.)|(?:\d+\))|(?:[a-z]\))|[-•*])\s+/i;
-
-    for (const line of lines) {
-      if (bulletPattern.test(line)) {
-        flushParagraph();
-        const cleaned = line.replace(bulletPattern, '').trim();
-        if (cleaned && !bulletItemSet.has(cleaned)) {
-          bulletItemSet.add(cleaned);
-          currentBulletGroup.push(cleaned);
-        }
-        continue;
-      }
-
-      if (currentBulletGroup.length > 0) {
-        const lastIndex = currentBulletGroup.length - 1;
-        const merged = `${currentBulletGroup[lastIndex]} ${line}`
-          .replace(/\s+/g, ' ')
-          .trim();
-        if (!bulletItemSet.has(merged)) {
-          bulletItemSet.add(merged);
-          currentBulletGroup[lastIndex] = merged;
-        }
-        continue;
-      }
-
-      currentParagraph.push(line);
-      if (/[.!?。！？]$/.test(line) || line.length > 160) {
-        flushParagraph();
-      }
-    }
-
-    flushParagraph();
-    flushBullets();
-
-    return {
-      paragraphs,
-      bulletGroups: bulletGroups.filter((group) => group.length > 0)
-    };
-  },
-
-  applyCitations(text: string, sources: DeepResearchSource[]): string {
-    return text.replace(/\[(\d+)\]/g, (match, number) => {
-      const index = Number(number);
-      const source = sources[index - 1];
-      if (!index || !source) {
-        return match;
-      }
-      return `[${number}](${source.href})`;
+    sources.push({
+      href,
+      text,
+      title,
+      domain: extractDomain(href)
     });
-  },
+  });
 
-  buildReportMarkdown(doc: Document, messageElem: Element): string | null {
-    const hasWidget =
-      this.queryAllDeep(messageElem, 'deep-research-confirmation-widget').length > 0;
-    const panel = this.findDeepResearchPanel(doc);
+  return sources;
+}
 
-    if (!hasWidget && !panel) {
-      return null;
-    }
+function collectPlanSteps(messageElem: Element): Array<{ title: string; description: string }> {
+  const steps: Array<{ title: string; description: string }> = [];
+  const seen = new Set<string>();
+  const stepElements = queryAllDeep(messageElem, '.research-step');
 
-    const sources = panel ? this.collectSources(panel) : [];
-    const planSteps = this.collectPlanSteps(messageElem);
-    const summaryElement = panel || (hasWidget ? (messageElem as Element) : null);
-    const summary = summaryElement
-      ? this.extractSummaryStructure(summaryElement, sources)
-      : { paragraphs: [], bulletGroups: [] };
-
-    if (
-      planSteps.length === 0 &&
-      summary.paragraphs.length === 0 &&
-      summary.bulletGroups.length === 0 &&
-      sources.length === 0
-    ) {
-      return null;
-    }
-
-    const markdownLines: string[] = ['\n---', '**Gemini Deep Research Report**', ''];
-
-    const titleNode = this.queryAllDeep(messageElem, '[data-test-id="title"]').shift() as
+  stepElements.forEach((step) => {
+    const titleNode = queryAllDeep(step, '.research-step-title')[0] as HTMLElement | undefined;
+    const descriptionNode = queryAllDeep(step, '.research-step-description')[0] as
       | HTMLElement
       | undefined;
-    const titleText = titleNode?.textContent?.trim();
-    if (titleText) {
-      markdownLines.push(`# ${titleText}`, '');
-    }
+    const title = titleNode?.textContent?.trim() || '';
+    const description = descriptionNode?.textContent?.trim() || '';
 
-    if (planSteps.length > 0) {
-      markdownLines.push('## Research Plan', '');
-      planSteps.forEach((step, index) => {
-        const heading = step.title || `Step ${index + 1}`;
-        markdownLines.push(`### ${index + 1}. ${heading}`);
-        if (step.description) {
-          markdownLines.push('');
-          markdownLines.push(this.applyCitations(step.description, sources));
-        }
-        markdownLines.push('');
-      });
-    }
-
-      if (summary.paragraphs.length > 0 || summary.bulletGroups.length > 0) {
-        markdownLines.push('## Report Overview', '');
-
-        summary.paragraphs.forEach((paragraph) => {
-          const formatted = this.applyCitations(paragraph, sources);
-          if (formatted) {
-            markdownLines.push(formatted, '');
-          }
-        });
-
-        summary.bulletGroups.forEach((group) => {
-          const renderedItems: string[] = [];
-          group.forEach((item) => {
-            const formatted = this.applyCitations(item, sources);
-            if (formatted && !renderedItems.includes(formatted)) {
-              renderedItems.push(formatted);
-            }
-          });
-          if (renderedItems.length > 0) {
-            renderedItems.forEach((formatted) => {
-              markdownLines.push(`- ${formatted}`);
-            });
-            markdownLines.push('');
-          }
-        });
+    if (title || description) {
+      const key = `${title}|||${description}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        steps.push({ title, description });
       }
+    }
+  });
 
-    if (sources.length > 0) {
-      markdownLines.push('### References', '');
-      sources.forEach((source, index) => {
-        const label = source.title || source.text || source.domain || source.href;
-        const domainText = source.domain ? ` (${source.domain})` : '';
-        markdownLines.push(`[${index + 1}] [${label}](${source.href})${domainText}`);
-      });
-      markdownLines.push('');
+  return steps;
+}
+
+function extractSummaryStructure(root: Element, sources: DeepResearchSource[]): SummaryStructure {
+  const reportHost = queryAllDeep(root, 'message-content')[0] as HTMLElement | undefined;
+  const target = reportHost || (root as HTMLElement);
+  const rawContent = (target?.innerText || '').replace(/\u200B/g, '');
+
+  if (!rawContent.trim()) {
+    return { paragraphs: [], bulletGroups: [] };
+  }
+
+  const sourceComparisons = new Set(sources.map((source) => normalizeTextForComparison(source.text)));
+
+  const lines = rawContent
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => {
+      if (!line) return false;
+      if (/opens in a new window/i.test(line)) return false;
+      const normalized = normalizeTextForComparison(line);
+      return !sourceComparisons.has(normalized);
+    });
+
+  const paragraphs: string[] = [];
+  const bulletGroups: string[][] = [];
+  const paragraphSet = new Set<string>();
+  const bulletItemSet = new Set<string>();
+
+  let currentParagraph: string[] = [];
+  let currentBulletGroup: string[] = [];
+
+  const flushParagraph = () => {
+    if (currentParagraph.length === 0) return;
+    const paragraph = currentParagraph.join(' ').replace(/\s+/g, ' ').trim();
+    if (paragraph && !paragraphSet.has(paragraph)) {
+      paragraphSet.add(paragraph);
+      paragraphs.push(paragraph);
+    }
+    currentParagraph = [];
+  };
+
+  const flushBullets = () => {
+    if (currentBulletGroup.length === 0) return;
+    bulletGroups.push(currentBulletGroup.slice());
+    currentBulletGroup = [];
+  };
+
+  const bulletPattern = /^((?:\d+\.)|(?:\d+\))|(?:[a-z]\))|[-•*])\s+/i;
+
+  for (const line of lines) {
+    if (bulletPattern.test(line)) {
+      flushParagraph();
+      const cleaned = line.replace(bulletPattern, '').trim();
+      if (cleaned && !bulletItemSet.has(cleaned)) {
+        bulletItemSet.add(cleaned);
+        currentBulletGroup.push(cleaned);
+      }
+      continue;
     }
 
-    markdownLines.push('---', '');
+    if (currentBulletGroup.length > 0) {
+      const lastIndex = currentBulletGroup.length - 1;
+      const merged = `${currentBulletGroup[lastIndex]} ${line}`.replace(/\s+/g, ' ').trim();
+      if (!bulletItemSet.has(merged)) {
+        bulletItemSet.add(merged);
+        currentBulletGroup[lastIndex] = merged;
+      }
+      continue;
+    }
 
-    return markdownLines.join('\n');
+    currentParagraph.push(line);
+    if (/[.!?。！？]$/.test(line) || line.length > 160) {
+      flushParagraph();
+    }
   }
+
+  flushParagraph();
+  flushBullets();
+
+  return {
+    paragraphs,
+    bulletGroups: bulletGroups.filter((group) => group.length > 0)
+  };
+}
+
+function applyCitations(text: string, sources: DeepResearchSource[]): string {
+  return text.replace(/\[(\d+)\]/g, (match, number) => {
+    const index = Number(number);
+    const source = sources[index - 1];
+    if (!index || !source) {
+      return match;
+    }
+    return `[${number}](${source.href})`;
+  });
+}
+
+function buildReportMarkdown(doc: Document, messageElem: Element): string | null {
+  const hasWidget = queryAllDeep(messageElem, 'deep-research-confirmation-widget').length > 0;
+  const panel = findDeepResearchPanel(doc);
+
+  if (!hasWidget && !panel) {
+    return null;
+  }
+
+  const sources = panel ? collectSources(panel) : [];
+  const planSteps = collectPlanSteps(messageElem);
+  const summaryElement = panel || (hasWidget ? messageElem : null);
+  const summary = summaryElement
+    ? extractSummaryStructure(summaryElement, sources)
+    : { paragraphs: [], bulletGroups: [] };
+
+  if (
+    planSteps.length === 0 &&
+    summary.paragraphs.length === 0 &&
+    summary.bulletGroups.length === 0 &&
+    sources.length === 0
+  ) {
+    return null;
+  }
+
+  const markdownLines: string[] = ['\n---', '**Gemini Deep Research Report**', ''];
+
+  const titleNode = queryAllDeep(messageElem, '[data-test-id="title"]').shift() as
+    | HTMLElement
+    | undefined;
+  const titleText = titleNode?.textContent?.trim();
+  if (titleText) {
+    markdownLines.push(`# ${titleText}`, '');
+  }
+
+  if (planSteps.length > 0) {
+    markdownLines.push('## Research Plan', '');
+    planSteps.forEach((step, index) => {
+      const heading = step.title || `Step ${index + 1}`;
+      markdownLines.push(`### ${index + 1}. ${heading}`);
+      if (step.description) {
+        markdownLines.push('');
+        markdownLines.push(applyCitations(step.description, sources));
+      }
+      markdownLines.push('');
+    });
+  }
+
+  if (summary.paragraphs.length > 0 || summary.bulletGroups.length > 0) {
+    markdownLines.push('## Report Overview', '');
+
+    summary.paragraphs.forEach((paragraph) => {
+      const formatted = applyCitations(paragraph, sources);
+      if (formatted) {
+        markdownLines.push(formatted, '');
+      }
+    });
+
+    summary.bulletGroups.forEach((group) => {
+      const renderedItems: string[] = [];
+      group.forEach((item) => {
+        const formatted = applyCitations(item, sources);
+        if (formatted && !renderedItems.includes(formatted)) {
+          renderedItems.push(formatted);
+        }
+      });
+      if (renderedItems.length > 0) {
+        renderedItems.forEach((formatted) => {
+          markdownLines.push(`- ${formatted}`);
+        });
+        markdownLines.push('');
+      }
+    });
+  }
+
+  if (sources.length > 0) {
+    markdownLines.push('### References', '');
+    sources.forEach((source, index) => {
+      const label = source.title || source.text || source.domain || source.href;
+      const domainText = source.domain ? ` (${source.domain})` : '';
+      markdownLines.push(`[${index + 1}] [${label}](${source.href})${domainText}`);
+    });
+    markdownLines.push('');
+  }
+
+  markdownLines.push('---', '');
+
+  return markdownLines.join('\n');
+}
+
+const GeminiDeepResearchHelper = {
+  SELECTORS: GEMINI_DEEP_RESEARCH_SELECTORS,
+  CLASS_MATCHER: GEMINI_DEEP_RESEARCH_CLASS_MATCHER,
+  isDeepResearchSession,
+  queryAllDeep,
+  normalizeTextForComparison,
+  sanitizeSourceText,
+  extractDomain,
+  findDeepResearchPanel,
+  collectSources,
+  collectPlanSteps,
+  extractSummaryStructure,
+  applyCitations,
+  buildReportMarkdown
 };
 
 function extractCanvasContent(doc: Document): string | null {

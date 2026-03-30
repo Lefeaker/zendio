@@ -1,383 +1,246 @@
-import { getMessages } from '../../i18n';
-import { VideoSession } from './session';
+import type { Messages } from '../../i18n';
+import type { VideoOptions } from '../../shared/types/options';
 import { detectVideoIdentity } from './utils';
+import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
+import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
+import { DEFAULT_OPTIONS } from '../../shared/config';
+import type { VideoPromptDependencies } from './videoPromptDependencies';
+import {
+  observeVideoElements,
+  disconnectVideoObserver,
+  matchesSupportedVideoHost,
+  hasPlayableVideo,
+  isValidVideoPlayPage
+} from './videoPromptObserver';
+import {
+  clamp,
+  computeTentativePosition,
+  computeDockedPlacement,
+  computeSnapSide,
+  EDGE_MARGIN,
+  DRAG_BOUNDARY_PADDING,
+  DRAG_ACTIVATE_DISTANCE,
+  type PromptSide
+} from './videoPromptPosition';
+import { createPromptElement, attachDragHandlers, updatePromptLabels } from './videoPromptRenderer';
+import {
+  createPromptLayoutState,
+  setLayoutState,
+  getLayoutStateSnapshot,
+  applySideClass,
+  setPromptSide,
+  applyStoredPosition,
+  adjustLayoutForResize,
+  deriveSideFromPosition,
+  type PromptLayoutState
+} from './videoPromptLayout';
+import {
+  clearVideoSession,
+  getVideoSession,
+  isVideoSessionActive
+} from '../runtime/contentSessionRegistry';
 
 const PROMPT_ID = 'aiob-video-floating-prompt';
-const PROMPT_STYLE_ID = 'aiob-video-floating-prompt-style';
-const SUPPORTED_VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'bilibili.com'];
+const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
+const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
+
+let videoPromptDependencies: VideoPromptDependencies | null = null;
+
+function getVideoPromptDependencies(): VideoPromptDependencies {
+  if (!videoPromptDependencies) {
+    throw new Error('VideoPrompt dependencies have not been configured');
+  }
+  return videoPromptDependencies;
+}
+
+export function __setVideoPromptDependenciesForTests(deps: VideoPromptDependencies): void {
+  videoPromptDependencies = deps;
+}
+
+export function __resetVideoPromptDependenciesForTests(): void {
+  videoPromptDependencies = null;
+}
+
+function getVideoRepository() {
+  return getVideoPromptDependencies().videoRepo;
+}
+
+function getRuntimeService() {
+  return getVideoPromptDependencies().runtime;
+}
+
+function getStorageService() {
+  return getVideoPromptDependencies().storage;
+}
 
 let promptEnabled = true;
 let promptSuppressed = false;
+let promptHost: HTMLDivElement | null = null;
 let promptElement: HTMLDivElement | null = null;
 let lastEvaluatedUrl = '';
-let styleMounted = false;
-let messagesCache: Awaited<ReturnType<typeof getMessages>> | null = null;
+let messagesCache: Messages | null = null;
 let sessionStarting = false;
-let videoObserver: MutationObserver | null = null;
-type PromptSide = 'left' | 'right';
-
-const EDGE_MARGIN = 24;
-const DRAG_BOUNDARY_PADDING = 12;
-const DRAG_ACTIVATE_DISTANCE = 3;
-
-let promptCurrentSide: PromptSide = 'right';
-let promptCurrentTop = EDGE_MARGIN;
-let promptHasCustomPosition = false;
+let promptMountTask: Promise<void> | null = null;
+let stopLanguageWatcher: (() => void) | null = null;
+const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
+let stopSettingsWatcher: (() => void) | null = null;
+let urlPollTimer: number | null = null;
+let lifecycleListenersRegistered = false;
+let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
+let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
+type VideoPromptDebugState = {
+  shouldShow: boolean;
+  promptEnabled: boolean;
+  promptSuppressed: boolean;
+  isTopWindow: boolean;
+  identityPlatform: string;
+  hostSupported: boolean;
+  videoDetected: boolean;
+  isValidVideoPage: boolean;
+  hasPromptElement: boolean;
+  url: string;
+  side: PromptSide;
+  hasCustomPosition: boolean;
+  storedTop: number;
+  storedLeft: number;
+  elementTop: number | null;
+  elementLeft: number | null;
+};
 
-declare global {
-  interface Window {
-    __aiobVideoPromptDebug?: {
-      shouldShow: boolean;
-      promptEnabled: boolean;
-      promptSuppressed: boolean;
-      isTopWindow: boolean;
-      identityPlatform: string;
-      hostSupported: boolean;
-      videoDetected: boolean;
-      hasPromptElement: boolean;
-      url: string;
-      side: PromptSide;
-      hasCustomPosition: boolean;
-      storedTop: number;
-      elementTop: number | null;
-    };
+let promptDebugState: VideoPromptDebugState | null = null;
+
+function setPromptStateForTests(
+  state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>
+): void {
+  setLayoutState(layoutState, state as Partial<PromptLayoutState>);
+  if (promptElement) {
+    applyStoredPosition(layoutState, promptElement);
+    updateDebugPosition();
   }
 }
 
-function observeVideoElements(): void {
-  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
-    return;
-  }
-  if (videoObserver) {
-    return;
-  }
-  videoObserver = new MutationObserver((mutations) => {
-    if (mutations.some((mutation) => mutation.addedNodes.length > 0)) {
-      evaluatePrompt();
-    }
-  });
-  try {
-    videoObserver.observe(document.documentElement ?? document, { childList: true, subtree: true });
-  } catch {
-    videoObserver = null;
-  }
+function getPromptStateSnapshot(): {
+  left: number;
+  top: number;
+  side: PromptSide;
+  hasCustomPosition: boolean;
+} {
+  return getLayoutStateSnapshot(layoutState);
 }
 
-function matchesSupportedVideoHost(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return SUPPORTED_VIDEO_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
-  } catch {
-    return false;
+async function getPromptMessages(): Promise<Messages> {
+  if (!messagesCache) {
+    await ensureContentI18n(document);
+    const resource = getContentI18nResource();
+    messagesCache = resource?.messages ?? (await getContentMessages());
   }
+  return messagesCache;
 }
 
-function hasPlayableVideo(): boolean {
-  if (typeof document === 'undefined') {
-    return false;
-  }
-  const video = document.querySelector('video');
-  return Boolean(video && video.readyState >= 0);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-
-function computeSnapSide(left: number, width: number, viewportWidth: number): PromptSide {
-  const centerX = left + width / 2;
-  return centerX < viewportWidth / 2 ? 'left' : 'right';
-}
-
-interface TentativePositionInput {
-  originLeft: number;
-  originTop: number;
-  deltaX: number;
-  deltaY: number;
-  viewportWidth: number;
-  viewportHeight: number;
-  width: number;
-  height: number;
-}
-
-function computeTentativePosition({
-  originLeft,
-  originTop,
-  deltaX,
-  deltaY,
-  viewportWidth,
-  viewportHeight,
-  width,
-  height
-}: TentativePositionInput): { left: number; top: number } {
-  const maxLeft = Math.max(
-    DRAG_BOUNDARY_PADDING,
-    viewportWidth - width - DRAG_BOUNDARY_PADDING
-  );
-  const maxTop = Math.max(
-    DRAG_BOUNDARY_PADDING,
-    viewportHeight - height - DRAG_BOUNDARY_PADDING
-  );
-
-  const nextLeft = clamp(originLeft + deltaX, DRAG_BOUNDARY_PADDING, maxLeft);
-  const nextTop = clamp(originTop + deltaY, DRAG_BOUNDARY_PADDING, maxTop);
-
-  return { left: nextLeft, top: nextTop };
-}
-
-function applySideClass(element: HTMLDivElement, side: PromptSide): void {
-  element.classList.toggle('aiob-video-prompt--left', side === 'left');
-  element.classList.toggle('aiob-video-prompt--right', side === 'right');
-}
-
-function setPromptSide(side: PromptSide, element: HTMLDivElement | null = promptElement): void {
-  promptCurrentSide = side;
-  if (element) {
-    applySideClass(element, side);
-  }
-}
-
-function applyStoredPosition(element: HTMLDivElement): void {
-  setPromptSide(promptCurrentSide, element);
-  const rect = element.getBoundingClientRect();
-  const viewportHeight = window.innerHeight || rect.height + EDGE_MARGIN * 2;
-  const maxTop = Math.max(EDGE_MARGIN, viewportHeight - rect.height - EDGE_MARGIN);
-
-  if (promptHasCustomPosition) {
-    promptCurrentTop = clamp(promptCurrentTop, EDGE_MARGIN, maxTop);
-    element.style.top = `${promptCurrentTop}px`;
-    element.style.bottom = 'auto';
-  } else {
-    element.style.top = 'auto';
-    element.style.bottom = `${EDGE_MARGIN}px`;
-  }
-
-  if (promptCurrentSide === 'left') {
-    element.style.left = `${EDGE_MARGIN}px`;
-    element.style.right = 'auto';
-  } else {
-    element.style.right = `${EDGE_MARGIN}px`;
-    element.style.left = 'auto';
-  }
+function invalidatePromptMessages(): void {
+  messagesCache = null;
 }
 
 function handleWindowResize(): void {
   if (!promptElement) {
     return;
   }
-
-  const rect = promptElement.getBoundingClientRect();
-  const viewportHeight = window.innerHeight || rect.height + EDGE_MARGIN * 2;
-  const maxTop = Math.max(EDGE_MARGIN, viewportHeight - rect.height - EDGE_MARGIN);
-  if (promptHasCustomPosition) {
-    promptCurrentTop = clamp(promptCurrentTop, EDGE_MARGIN, maxTop);
-  }
-  applyStoredPosition(promptElement);
+  adjustLayoutForResize(layoutState, promptElement);
   updateDebugPosition();
 }
 
+function ensureUrlPollTimer(): void {
+  if (urlPollTimer !== null) {
+    return;
+  }
+  urlPollTimer = window.setInterval(() => {
+    evaluatePrompt();
+  }, 1200);
+}
+
+function clearUrlPollTimer(): void {
+  if (urlPollTimer === null) {
+    return;
+  }
+  window.clearInterval(urlPollTimer);
+  urlPollTimer = null;
+}
+
 function updateDebugPosition(): void {
-  if (!window.__aiobVideoPromptDebug) {
+  if (!promptDebugState) {
     return;
   }
-  window.__aiobVideoPromptDebug.hasPromptElement = Boolean(promptElement);
-  window.__aiobVideoPromptDebug.side = promptCurrentSide;
-  window.__aiobVideoPromptDebug.hasCustomPosition = promptHasCustomPosition;
-  window.__aiobVideoPromptDebug.storedTop = promptCurrentTop;
-  window.__aiobVideoPromptDebug.elementTop = promptElement ? promptElement.getBoundingClientRect().top : null;
+  promptDebugState.hasPromptElement = Boolean(promptElement);
+  promptDebugState.side = layoutState.side;
+  promptDebugState.hasCustomPosition = layoutState.hasCustomPosition;
+  promptDebugState.storedTop = layoutState.top;
+  promptDebugState.storedLeft = layoutState.left;
+  promptDebugState.elementTop = promptElement ? promptElement.getBoundingClientRect().top : null;
+  promptDebugState.elementLeft = promptElement ? promptElement.getBoundingClientRect().left : null;
 }
 
-const PROMPT_STYLES = `
-#${PROMPT_ID} {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 2147483645;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  pointer-events: auto;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #f5f6ff;
-  overflow: visible;
-}
-
-#${PROMPT_ID}::before {
-  content: '';
-  position: absolute;
-  inset: -12px;
-}
-
-#${PROMPT_ID}[hidden] {
-  display: none !important;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__bubble {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  border: none;
-  padding: 0;
-  background-color: rgba(30, 33, 64, 0.9);
-  background-image: var(--aiob-video-prompt-icon, none);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 70%;
-  cursor: grab;
-  touch-action: none;
-  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.45), 0 0 16px rgba(87, 205, 255, 0.45);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  isolation: isolate;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__bubble::before {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: inherit;
-  background: radial-gradient(circle at 50% 50%, rgba(124, 92, 255, 0.45) 0%, rgba(87, 205, 255, 0.15) 55%, rgba(47, 51, 92, 0) 80%);
-  opacity: 0.75;
-  transition: opacity 0.25s ease;
-  z-index: -1;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__bubble:hover,
-#${PROMPT_ID} .aiob-video-prompt__bubble:focus-visible {
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.6), 0 0 22px rgba(87, 205, 255, 0.6);
-}
-
-#${PROMPT_ID} .aiob-video-prompt__bubble:hover::before,
-#${PROMPT_ID} .aiob-video-prompt__bubble:focus-visible::before {
-  opacity: 1;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__bubble:focus-visible {
-  outline: 2px solid rgba(124, 92, 255, 0.9);
-  outline-offset: 3px;
-}
-
-#${PROMPT_ID}.aiob-video-prompt--dragging .aiob-video-prompt__bubble {
-  cursor: grabbing;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__hint {
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  left: auto;
-  transform: translate(-12px, -50%);
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 999px;
-  background: rgba(24, 28, 52, 0.95);
-  border: 1px solid rgba(116, 141, 231, 0.45);
-  box-shadow: 0 12px 32px rgba(17, 22, 45, 0.35);
-  opacity: 0;
-  transition: opacity 0.25s ease, transform 0.25s ease;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-#${PROMPT_ID}.aiob-video-prompt--left .aiob-video-prompt__hint {
-  right: auto;
-  left: 100%;
-  transform: translate(12px, -50%);
-}
-
-#${PROMPT_ID}:hover .aiob-video-prompt__hint,
-#${PROMPT_ID} .aiob-video-prompt__bubble:focus-visible + .aiob-video-prompt__hint {
-  opacity: 1;
-  transform: translate(0, -50%);
-}
-
-#${PROMPT_ID} .aiob-video-prompt__close {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: rgba(24, 28, 52, 0.95);
-  color: #f5f6ff;
-  font-size: 14px;
-  line-height: 20px;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 6px 14px rgba(17, 22, 45, 0.35);
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  pointer-events: none;
-}
-
-#${PROMPT_ID}:hover .aiob-video-prompt__close,
-#${PROMPT_ID}:focus-within .aiob-video-prompt__close {
-  opacity: 1;
-  transform: scale(1);
-  pointer-events: auto;
-}
-
-#${PROMPT_ID} .aiob-video-prompt__close:hover,
-#${PROMPT_ID} .aiob-video-prompt__close:focus-visible {
-  background: rgba(45, 52, 88, 0.95);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #${PROMPT_ID} .aiob-video-prompt__bubble,
-  #${PROMPT_ID} .aiob-video-prompt__bubble::before,
-  #${PROMPT_ID} .aiob-video-prompt__hint,
-  #${PROMPT_ID} .aiob-video-prompt__close {
-    transition: none;
+async function savePromptPosition(): Promise<void> {
+  try {
+    await getVideoRepository().savePromptPosition({
+      x: layoutState.left,
+      y: layoutState.top
+    });
+  } catch (error) {
+    console.warn('[VideoPrompt] Failed to save prompt position:', error);
   }
 }
-`;
 
-function ensureStylesMounted(): void {
-  if (styleMounted || typeof document === 'undefined') {
+function applyPromptPositionFromConfig(
+  position: { x: number; y: number } | null | undefined
+): void {
+  if (!position) {
+    setLayoutState(layoutState, { hasCustomPosition: false });
     return;
   }
-  const target = document.head ?? document.documentElement ?? document;
-  if (!target) {
-    document.addEventListener('DOMContentLoaded', () => ensureStylesMounted(), { once: true });
-    return;
+
+  setLayoutState(layoutState, {
+    hasCustomPosition: true,
+    left: position.x,
+    top: position.y,
+    side: deriveSideFromPosition(position.x)
+  });
+
+  if (promptElement) {
+    applyStoredPosition(layoutState, promptElement);
+    updateDebugPosition();
   }
-  const style = document.createElement('style');
-  style.id = PROMPT_STYLE_ID;
-  style.textContent = PROMPT_STYLES;
-  target.appendChild(style);
-  styleMounted = true;
+}
+
+async function loadPromptPosition(): Promise<void> {
+  try {
+    const position = await getVideoRepository().getPromptPosition();
+    applyPromptPositionFromConfig(position);
+  } catch (error) {
+    console.warn('[VideoPrompt] Failed to load prompt position:', error);
+  }
 }
 
 function removePrompt(): void {
-  promptElement?.remove();
+  promptHost?.remove();
+  promptHost = null;
   promptElement = null;
-  if (window.__aiobVideoPromptDebug) {
-    window.__aiobVideoPromptDebug.hasPromptElement = false;
-    window.__aiobVideoPromptDebug.elementTop = null;
+  if (promptDebugState) {
+    promptDebugState.hasPromptElement = false;
+    promptDebugState.elementTop = null;
+    promptDebugState.elementLeft = null;
   }
 }
 
 async function refreshSettings(): Promise<void> {
   try {
-    const { options } = await chrome.storage.sync.get('options');
-    const enabled = options?.video?.floatingPromptEnabled;
-    promptEnabled = enabled !== false;
+    const config = await getVideoRepository().getVideoConfig();
+    applyVideoSettings(config);
   } catch {
     promptEnabled = true;
+    promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
+    promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
+    updatePromptDomLabels();
   }
 }
 
@@ -395,14 +258,19 @@ function evaluatePrompt(force = false): void {
   const identity = detectVideoIdentity(currentUrl);
   const hostSupported = matchesSupportedVideoHost(currentUrl);
   const videoDetected = hasPlayableVideo();
+
+  // 更严格的视频页面检测：只在特定的视频播放页面显示
+  const isValidVideoPage = isValidVideoPlayPage(currentUrl, identity);
+
   const shouldShow =
     promptEnabled &&
     !promptSuppressed &&
     window === window.top &&
-    !window.__aiobVideoActive &&
-    (identity.platform !== 'unknown' || (hostSupported && videoDetected));
+    !isVideoSessionActive(document) &&
+    isValidVideoPage &&
+    videoDetected;
 
-  window.__aiobVideoPromptDebug = {
+  promptDebugState = {
     shouldShow,
     promptEnabled,
     promptSuppressed,
@@ -410,12 +278,15 @@ function evaluatePrompt(force = false): void {
     identityPlatform: identity.platform,
     hostSupported,
     videoDetected,
+    isValidVideoPage,
     hasPromptElement: Boolean(promptElement),
     url: currentUrl,
-    side: promptCurrentSide,
-    hasCustomPosition: promptHasCustomPosition,
-    storedTop: promptCurrentTop,
-    elementTop: promptElement ? promptElement.getBoundingClientRect().top : null
+    side: layoutState.side,
+    hasCustomPosition: layoutState.hasCustomPosition,
+    storedTop: layoutState.top,
+    storedLeft: layoutState.left,
+    elementTop: promptElement ? promptElement.getBoundingClientRect().top : null,
+    elementLeft: promptElement ? promptElement.getBoundingClientRect().left : null
   };
   updateDebugPosition();
 
@@ -425,7 +296,6 @@ function evaluatePrompt(force = false): void {
   }
 
   if (!promptElement) {
-    ensureStylesMounted();
     void mountPrompt();
   }
 }
@@ -434,216 +304,133 @@ async function mountPrompt(): Promise<void> {
   if (promptElement) {
     return;
   }
-  if (!messagesCache) {
-    messagesCache = await getMessages();
-  }
-
-  if (!document.body) {
-    document.addEventListener('DOMContentLoaded', () => mountPrompt(), { once: true });
+  if (promptMountTask !== null) {
+    await promptMountTask;
     return;
   }
 
-  const container = document.createElement('div');
-  container.id = PROMPT_ID;
+  const shouldAbortMount = (): boolean =>
+    Boolean(
+      promptElement ||
+        promptSuppressed ||
+        !promptEnabled ||
+        isVideoSessionActive(document) ||
+        window !== window.top
+    );
 
-  const bubble = document.createElement('button');
-  bubble.type = 'button';
-  bubble.className = 'aiob-video-prompt__bubble';
-  bubble.dataset.ignoreClick = 'false';
-  bubble.setAttribute('aria-label', messagesCache.videoPromptAction);
-  bubble.addEventListener('click', () => {
-    if (bubble.dataset.ignoreClick === 'true') {
-      bubble.dataset.ignoreClick = 'false';
+  promptMountTask = (async () => {
+    const messages = await getPromptMessages();
+
+    if (shouldAbortMount()) {
       return;
     }
-    promptSuppressed = true;
-    removePrompt();
-    void startVideoSession();
-  });
 
-  bubble.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    promptSuppressed = true;
-    removePrompt();
-  });
-
-  if (typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
-    const iconUrl = chrome.runtime.getURL('assets/icons/bannerlogo-48.png');
-    bubble.style.setProperty('--aiob-video-prompt-icon', `url("${iconUrl}")`);
-  }
-
-  const hint = document.createElement('span');
-  hint.className = 'aiob-video-prompt__hint';
-  hint.textContent = messagesCache.videoPromptTitle;
-
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'aiob-video-prompt__close';
-  closeBtn.textContent = '✕';
-  closeBtn.setAttribute('aria-label', 'Dismiss video prompt');
-  closeBtn.addEventListener('click', () => {
-    promptSuppressed = true;
-    removePrompt();
-  });
-
-  container.append(bubble, hint, closeBtn);
-
-  document.body.appendChild(container);
-  promptElement = container;
-  applyStoredPosition(container);
-  updateDebugPosition();
-
-  type DragState = {
-    pointerId: number;
-    startX: number;
-    startY: number;
-    originLeft: number;
-    originTop: number;
-    width: number;
-    height: number;
-    moved: boolean;
-  };
-
-  let dragState: DragState | null = null;
-
-  const handlePointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0) {
-      return;
-    }
-    const rect = container.getBoundingClientRect();
-    dragState = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originLeft: rect.left,
-      originTop: rect.top,
-      width: rect.width,
-      height: rect.height,
-      moved: false
-    };
-    try {
-      bubble.setPointerCapture(event.pointerId);
-    } catch {
-      // ignore environments that do not support pointer capture
-    }
-    container.classList.add('aiob-video-prompt--dragging');
-  };
-
-  const handlePointerMove = (event: PointerEvent): void => {
-    if (!dragState || event.pointerId !== dragState.pointerId) {
-      return;
-    }
-    const dx = event.clientX - dragState.startX;
-    const dy = event.clientY - dragState.startY;
-
-    if (!dragState.moved) {
-      const distance = Math.hypot(dx, dy);
-      if (distance < DRAG_ACTIVATE_DISTANCE) {
+    if (!document.body) {
+      await new Promise<void>((resolve) => {
+        document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+      });
+      if (shouldAbortMount()) {
         return;
       }
-      dragState.moved = true;
     }
 
-    event.preventDefault();
-
-    const viewportWidth = window.innerWidth || dragState.width + EDGE_MARGIN * 2;
-    const viewportHeight = window.innerHeight || dragState.height + EDGE_MARGIN * 2;
-    const { left: tentativeLeft, top: tentativeTop } = computeTentativePosition({
-      originLeft: dragState.originLeft,
-      originTop: dragState.originTop,
-      deltaX: dx,
-      deltaY: dy,
-      viewportWidth,
-      viewportHeight,
-      width: dragState.width,
-      height: dragState.height
-    });
-
-    container.style.left = `${tentativeLeft}px`;
-    container.style.top = `${tentativeTop}px`;
-    container.style.right = 'auto';
-    container.style.bottom = 'auto';
-
-    const tentativeSide = computeSnapSide(tentativeLeft, dragState.width, viewportWidth);
-    applySideClass(container, tentativeSide);
-    if (window.__aiobVideoPromptDebug) {
-      window.__aiobVideoPromptDebug.elementTop = tentativeTop;
-      window.__aiobVideoPromptDebug.side = tentativeSide;
-    }
-  };
-
-  const handlePointerUp = (event: PointerEvent): void => {
-    if (!dragState || event.pointerId !== dragState.pointerId) {
+    if (promptElement) {
       return;
     }
-    if (typeof bubble.hasPointerCapture === 'function' && bubble.hasPointerCapture(event.pointerId)) {
-      try {
-        bubble.releasePointerCapture(event.pointerId);
-      } catch {
-        // ignore release failures
-      }
-    }
-    container.classList.remove('aiob-video-prompt--dragging');
 
-    if (dragState.moved) {
-      const rect = container.getBoundingClientRect();
-      const viewportWidth = window.innerWidth || rect.width + EDGE_MARGIN * 2;
-      const viewportHeight = window.innerHeight || rect.height + EDGE_MARGIN * 2;
-      const side = computeSnapSide(rect.left, rect.width, viewportWidth);
+    await panelStyleSheetManager.initialize();
 
-      promptHasCustomPosition = true;
-      promptCurrentTop = clamp(
-        rect.top,
-        EDGE_MARGIN,
-        Math.max(EDGE_MARGIN, viewportHeight - rect.height - EDGE_MARGIN)
-      );
+    const host = document.createElement('div');
+    const shadow = host.attachShadow({ mode: 'open' });
+    panelStyleSheetManager.applyVideoStyles(shadow);
 
-      setPromptSide(side, container);
-      if (side === 'left') {
-        container.style.left = `${EDGE_MARGIN}px`;
-        container.style.right = 'auto';
-      } else {
-        container.style.right = `${EDGE_MARGIN}px`;
-        container.style.left = 'auto';
-      }
-      container.style.top = `${promptCurrentTop}px`;
-      container.style.bottom = 'auto';
-
-      bubble.dataset.ignoreClick = 'true';
-      window.setTimeout(() => {
-        if (bubble.dataset.ignoreClick === 'true') {
-          bubble.dataset.ignoreClick = 'false';
+    const { container, bubble } = createPromptElement({
+      id: PROMPT_ID,
+      label: promptButtonLabel,
+      shortcut: promptShortcut,
+      messages,
+      getIconUrl: () => {
+        try {
+          return getRuntimeService().getURL('icons/bannerlogo-48.png');
+        } catch {
+          return null;
         }
-      }, 0);
-      updateDebugPosition();
-    } else {
-      applyStoredPosition(container);
-      updateDebugPosition();
-    }
+      },
+      onPrimaryAction: () => {
+        promptSuppressed = true;
+        removePrompt();
+        void startVideoSession();
+      },
+      onDismiss: () => {
+        promptSuppressed = true;
+        removePrompt();
+      }
+    });
 
-    dragState = null;
-  };
+    shadow.appendChild(container);
+    document.body.appendChild(host);
+    promptHost = host;
+    promptElement = container;
+    applyStoredPosition(layoutState, container);
+    updateDebugPosition();
 
-  bubble.addEventListener('pointerdown', handlePointerDown);
-  bubble.addEventListener('pointermove', handlePointerMove);
-  bubble.addEventListener('pointerup', handlePointerUp);
-  bubble.addEventListener('pointercancel', handlePointerUp);
+    attachDragHandlers({
+      container,
+      bubble,
+      applySideClass,
+      setPromptSide: (side, element) => setPromptSide(layoutState, side, element ?? null),
+      applyStoredPosition: (element) => applyStoredPosition(layoutState, element),
+      updateDebugValues: (values) => {
+        if (!promptDebugState) {
+          return;
+        }
+        if (typeof values.elementTop === 'number') {
+          promptDebugState.elementTop = values.elementTop;
+        }
+        if (typeof values.elementLeft === 'number') {
+          promptDebugState.elementLeft = values.elementLeft;
+        }
+        if (values.side) {
+          promptDebugState.side = values.side;
+        }
+      },
+      updateDebugPosition: () => updateDebugPosition(),
+      onPositionCommitted: (placement) => {
+        setLayoutState(layoutState, {
+          hasCustomPosition: true,
+          side: placement.side,
+          left: placement.left,
+          top: placement.top
+        });
+      },
+      savePromptPosition: () => {
+        void savePromptPosition();
+      }
+    });
+  })();
+
+  try {
+    await promptMountTask;
+  } finally {
+    promptMountTask = null;
+  }
 }
 
 async function startVideoSession(): Promise<void> {
-  if (sessionStarting || window.__aiobVideoController) {
+  if (sessionStarting || getVideoSession()) {
     return;
   }
 
   sessionStarting = true;
   try {
-    const session = new VideoSession(document);
+    console.info('[VideoPrompt] Starting video session…');
+    const session = getVideoPromptDependencies().createVideoSession(document);
     await session.start();
+    console.info('[VideoPrompt] Video session started.');
     evaluatePrompt(true);
   } catch (error) {
     console.warn('[VideoPrompt] Failed to start video session:', error);
-    window.__aiobVideoActive = false;
-    window.__aiobVideoController = undefined;
+    clearVideoSession(undefined, document);
     promptSuppressed = false;
     evaluatePrompt(true);
   } finally {
@@ -651,44 +438,135 @@ async function startVideoSession(): Promise<void> {
   }
 }
 
-function setupStorageListener(): void {
-  if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) {
-    return;
-  }
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'sync') {
-      return;
-    }
-    if (changes.options) {
-      const newValue = changes.options.newValue;
-      const enabled = newValue?.video?.floatingPromptEnabled;
-      promptEnabled = enabled !== false;
-      evaluatePrompt(true);
-    }
+function setupVideoConfigListener(): void {
+  stopSettingsWatcher?.();
+
+  const applyConfig = (config?: VideoOptions) => {
+    applyVideoSettings(config);
+    evaluatePrompt(true);
+  };
+
+  void getVideoRepository()
+    .getVideoConfig()
+    .then((config) => applyConfig(config))
+    .catch(() => applyConfig(undefined));
+
+  stopSettingsWatcher = getVideoRepository().onConfigChange((config) => {
+    applyConfig(config);
   });
 }
 
-export async function initVideoPrompt(): Promise<void> {
-  if (typeof window === 'undefined' || window !== window.top) {
+function setupVideoConfigListenerForTests(): () => void {
+  setupVideoConfigListener();
+  return () => {
+    stopSettingsWatcher?.();
+    stopSettingsWatcher = null;
+  };
+}
+
+function setupLanguageListener(): void {
+  stopLanguageWatcher?.();
+  stopLanguageWatcher = getStorageService().sync.watchKey<string>('language', () => {
+    invalidatePromptMessages();
+    evaluatePrompt(true);
+  });
+}
+
+function handleVisibilityChange(): void {
+  evaluatePrompt();
+}
+
+function handlePageHide(): void {
+  teardownPromptWatchers();
+  removePrompt();
+}
+
+function handlePageShow(): void {
+  if (!videoPromptDependencies || !matchesSupportedVideoHost(window.location.href)) {
+    return;
+  }
+  setupVideoConfigListener();
+  setupLanguageListener();
+  observeVideoElements(() => evaluatePrompt());
+  void refreshSettings();
+  void loadPromptPosition();
+  ensureUrlPollTimer();
+  evaluatePrompt(true);
+}
+
+function ensureLifecycleListeners(): void {
+  if (lifecycleListenersRegistered) {
     return;
   }
 
-  messagesCache = await getMessages();
+  document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
+  window.addEventListener('pagehide', handlePageHide, { passive: true });
+  window.addEventListener('pageshow', handlePageShow, { passive: true });
+  lifecycleListenersRegistered = true;
+}
+
+function teardownPromptWatchers(): void {
+  stopSettingsWatcher?.();
+  stopSettingsWatcher = null;
+  stopLanguageWatcher?.();
+  stopLanguageWatcher = null;
+  clearUrlPollTimer();
+  disconnectVideoObserver();
+}
+
+export async function initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void> {
+  if (dependencies) {
+    videoPromptDependencies = dependencies;
+  }
+
+  if (
+    typeof window === 'undefined' ||
+    window !== window.top ||
+    !matchesSupportedVideoHost(window.location.href)
+  ) {
+    return;
+  }
+
+  await getPromptMessages();
   await refreshSettings();
-  setupStorageListener();
-  observeVideoElements();
+  await loadPromptPosition();
+  setupVideoConfigListener();
+  setupLanguageListener();
+  observeVideoElements(() => evaluatePrompt());
+  ensureUrlPollTimer();
+  ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
     window.addEventListener('resize', handleWindowResize, { passive: true });
     resizeListenerRegistered = true;
   }
-  window.addEventListener('visibilitychange', () => evaluatePrompt(), { passive: true });
-
-  // Poll for URL changes (SPA navigation)
-  window.setInterval(() => {
-    evaluatePrompt();
-  }, 1200);
 
   evaluatePrompt(true);
+}
+
+function resolvePromptLabel(value?: string): string {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : VIDEO_PROMPT_DEFAULT_LABEL;
+}
+
+function resolvePromptShortcut(value?: string): string {
+  const trimmed = value?.trim();
+  const normalized = trimmed ? trimmed.toUpperCase() : '';
+  return normalized.length > 0 ? normalized : VIDEO_PROMPT_DEFAULT_SHORTCUT;
+}
+
+function applyVideoSettings(video?: VideoOptions): void {
+  promptEnabled = video?.floatingPromptEnabled !== false;
+  promptButtonLabel = resolvePromptLabel(video?.promptButtonLabel);
+  promptShortcut = resolvePromptShortcut(video?.promptShortcut);
+  applyPromptPositionFromConfig(video?.promptPosition ?? null);
+  updatePromptDomLabels();
+}
+
+function updatePromptDomLabels(): void {
+  if (!promptElement) {
+    return;
+  }
+  updatePromptLabels(promptElement, promptButtonLabel, promptShortcut);
 }
 
 export const __videoPromptTestUtils = {
@@ -696,8 +574,29 @@ export const __videoPromptTestUtils = {
   computeTentativePosition,
   computeSnapSide,
   applySideClass,
-  setPromptSide,
+  setPromptSide: (side: PromptSide, element?: HTMLDivElement | null) =>
+    setPromptSide(layoutState, side, element ?? null),
+  computeDockedPlacement,
   EDGE_MARGIN,
   DRAG_BOUNDARY_PADDING,
-  DRAG_ACTIVATE_DISTANCE
+  DRAG_ACTIVATE_DISTANCE,
+  applyPromptPositionFromConfig,
+  deriveSideFromPosition,
+  setPromptStateForTests,
+  getPromptStateForTests: getPromptStateSnapshot,
+  setDependenciesForTests: __setVideoPromptDependenciesForTests,
+  resetDependenciesForTests: __resetVideoPromptDependenciesForTests,
+  getDebugStateForTests: () => promptDebugState,
+  resetDebugStateForTests: () => {
+    promptDebugState = null;
+  },
+  savePromptPositionForTests: savePromptPosition,
+  loadPromptPositionForTests: loadPromptPosition,
+  setupVideoConfigListenerForTests,
+  cleanupPromptForTests: () => {
+    teardownPromptWatchers();
+    removePrompt();
+  }
 };
+
+export { isValidVideoPlayPage };

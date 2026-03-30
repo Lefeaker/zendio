@@ -6,6 +6,7 @@ export type VaultConfig = {
   vault: string;
   apiKey: string;
   isDefault?: boolean;
+  enabled?: boolean;
   rules?: RoutingRule[];
 };
 

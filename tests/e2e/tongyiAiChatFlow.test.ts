@@ -9,68 +9,49 @@ import { resolvePath } from '../../src/background/pathResolver';
 import type { ClipPayload } from '../../src/shared/types';
 import type { VaultRouterConfig } from '../../src/shared/types/vault';
 import type { ClassificationResult } from '../../src/background/services/classificationService';
+import { captureGlobalSnapshot, restoreGlobalSnapshot, installJsdom, assignGlobalValues } from '../utils/globalTestHelpers';
+import {
+  createChromeMock,
+  type ChromeChangeListener,
+  type ChromeStorageGet,
+  type ChromeStorageSet
+} from '../utils/chromeMocks';
 
 describe('tongyi ai chat integration', () => {
   const tongyiUrl = 'https://tongyi.aliyun.com/chat/share/demo-session';
-  let originalWindow: typeof window | undefined;
-  let originalDocument: typeof document | undefined;
-  let originalNode: typeof Node | undefined;
-  let originalHTMLElement: typeof HTMLElement | undefined;
-  let originalLocalStorage: Storage | undefined;
+  let globalSnapshot: ReturnType<typeof captureGlobalSnapshot>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-03-04T05:06:07Z'));
+    globalSnapshot = captureGlobalSnapshot();
 
-    (globalThis as any).chrome = {
-      storage: {
-        sync: {
-          get: vi.fn().mockResolvedValue({
-            options: {
-              aiChat: { includeTimestamps: false, userName: 'Tester' },
-              deepResearch: { pureMode: false }
-            }
-          })
+    const storageGetMock: ChromeStorageGet = vi.fn((_keys, callback) => {
+      callback({
+        options: {
+          aiChat: { includeTimestamps: false, userName: 'Tester' },
+          deepResearch: { pureMode: false }
         }
-      }
-    } as any;
+      });
+    });
+    const storageSetMock: ChromeStorageSet = vi.fn((_items, callback) => {
+      callback?.();
+    });
+    const addListenerMock: (listener: ChromeChangeListener) => void = vi.fn();
+    const removeListenerMock: (listener: ChromeChangeListener) => void = vi.fn();
 
-    originalWindow = (globalThis as any).window;
-    originalDocument = (globalThis as any).document;
-    originalNode = (globalThis as any).Node;
-    originalHTMLElement = (globalThis as any).HTMLElement;
-    originalLocalStorage = (globalThis as any).localStorage;
+    const chromeMock = createChromeMock({
+      get: storageGetMock,
+      set: storageSetMock,
+      addListener: addListenerMock,
+      removeListener: removeListenerMock
+    });
+    assignGlobalValues({ chrome: chromeMock });
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete (globalThis as { chrome?: unknown }).chrome;
-    if (originalWindow === undefined) {
-      delete (globalThis as { window?: unknown }).window;
-    } else {
-      (globalThis as any).window = originalWindow;
-    }
-    if (originalDocument === undefined) {
-      delete (globalThis as { document?: unknown }).document;
-    } else {
-      (globalThis as any).document = originalDocument;
-    }
-    if (originalNode === undefined) {
-      delete (globalThis as { Node?: unknown }).Node;
-    } else {
-      (globalThis as any).Node = originalNode;
-    }
-    if (originalHTMLElement === undefined) {
-      delete (globalThis as { HTMLElement?: unknown }).HTMLElement;
-    } else {
-      (globalThis as any).HTMLElement = originalHTMLElement;
-    }
-    if (originalLocalStorage === undefined) {
-      delete (globalThis as { localStorage?: unknown }).localStorage;
-    } else {
-      (globalThis as any).localStorage = originalLocalStorage;
-    }
+    restoreGlobalSnapshot(globalSnapshot);
   });
 
   it('parses Tongyi chat, removes UI chrome, and routes to the correct vault path', async () => {
@@ -79,14 +60,11 @@ describe('tongyi ai chat integration', () => {
 
     dom.window.localStorage.setItem('selectedQwenModel', 'qwen2-max');
 
-    (globalThis as any).window = dom.window as any;
-    (globalThis as any).document = dom.window.document;
-    (globalThis as any).Node = dom.window.Node;
-    (globalThis as any).HTMLElement = dom.window.HTMLElement;
-    (globalThis as any).localStorage = dom.window.localStorage;
+    installJsdom(dom);
 
-    const { extractAIChat } = await import('../../src/content/extractors/aiChatExtractor');
-    const clip = await extractAIChat(dom.window.document, tongyiUrl);
+    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry();
+    const clip = await registry.extract({ document: dom.window.document, url: tongyiUrl });
 
     expect(clip.type).toBe('ai_chat');
     expect(clip.meta.platform).toBe('tongyi');
@@ -163,7 +141,9 @@ describe('tongyi ai chat integration', () => {
     const classification: ClassificationResult = {
       type: 'ai_chat',
       ai_platform: 'tongyi',
-      topics: []
+      topics: [],
+      tags: [],
+      status: 'success'
     };
     const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
     expect(filePath).toBe('AI/tongyi/2025/03/04/代码块测试.md');

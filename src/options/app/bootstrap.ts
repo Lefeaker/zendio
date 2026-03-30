@@ -1,109 +1,441 @@
-import { initI18n, getCurrentLanguage, setCurrentLanguage, getMessages } from '../../i18n';
-import { renderOptionsForm, collectOptionsFromForm, bindOptionsFormEvents } from '../components/optionsForm';
-import { addMappingRow, resetDomainMappingLabels } from '../components/domainMappings';
 import {
-  renderAdditionalVaults,
-  handleAddAdditionalVault
-} from '../components/vaultRouterSection';
-import { showTransferMessage, clearTransferMessage, showStatusMessage, formatOptionsError } from '../components/messages';
+  createDefaultPageI18nController,
+  type PageI18nController,
+  type Language,
+  configureI18nStorage
+} from '../../i18n';
+import {
+  showTransferMessage,
+  clearTransferMessage,
+  showStatusMessage,
+  formatOptionsError
+} from '../components/messages';
 import { runDiagnostics, fixConfiguration } from '../components/diagnostics';
-import { setupConnectionTest } from '../components/connectionTest';
-import { copyOptionsToClipboard, parseConfigInput, readConfigTextFromClipboard } from '../services/configTransfer';
 import {
-  loadOptionsFromStorage,
-  saveOptionsToStorage,
-  getLastLoadedOptions,
-  setLastLoadedOptions
-} from '../state/optionsStore';
-import { initializeVaultRouterStore } from '../state/vaultRouterStore';
+  copyOptionsToClipboard,
+  parseConfigInput,
+  readConfigTextFromClipboard,
+  type ConfigTransferPayload
+} from '../services/configTransfer';
+import { consumeYamlMigrationNotice } from '../state/optionsStore';
 import type { StoredOptions } from '../../shared/types/options';
-import { initializeUsageDashboard } from '../components/usageDashboard';
 import { normalizeOptionsForTransfer } from '../utils/optionsTransfer';
+import { chromeOptionsPersistence } from '../services/persistence';
+import { createOptionsFormAdapter } from '../components/optionsFormAdapter';
+import { createOptionsController } from './optionsController';
+import type { OptionsController } from './optionsController';
+import {
+  registerOptionsController,
+  consumePendingAutoSaveSource
+} from './optionsControllerContext';
+import { setOptionsI18nContext, getOptionsMessages } from './i18nContext';
+import {
+  exportAnalyticsTransferPayload,
+  applyAnalyticsTransferPayload
+} from '../services/analyticsTransfer';
+import {
+  ModalController,
+  type ModalBindingConfig
+} from '../components/infrastructure/ModalController';
+import { NavigationController } from '../components/layout/NavigationController';
+import { mountExperimentalShell, type MountedOptionsShell } from './experimentalShell';
+import { configureOptionsActions } from './optionsActions';
+import { FormSectionRegistry } from '../components/formSections/formSectionManager';
+import { ThemeSwitcher } from '../../ui/domains/theme';
+import { configureAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
+import { configureGlobalStateManagerStorage } from '../../shared/state/globalStateManager';
+import type { StorageService } from '../../platform/interfaces/storage';
+import {
+  createOptionsModalBindings,
+  handleOptionsUrlHash,
+  prepareOptionsChangelogModal
+} from './bootstrapUi';
 
-export async function bootstrapOptionsApp(): Promise<void> {
-  bindEventHandlers();
-  await initI18n();
-  await initializeUsageDashboard();
-  await refreshUIFromStorage();
+let formSectionRegistry: FormSectionRegistry | null = null;
+let optionsController: OptionsController | null = null;
+let themeSwitcher: ThemeSwitcher | null = null;
+
+function initializeThemeSwitcher(): void {
+  const container = document.getElementById('theme-switcher');
+  if (!container) {
+    console.warn('[Options] Theme switcher container not found');
+    return;
+  }
+
+  if (themeSwitcher) {
+    themeSwitcher.destroy();
+    themeSwitcher = null;
+  }
+
+  themeSwitcher = new ThemeSwitcher(container);
+  themeSwitcher.init();
+
+  registerCleanup(() => {
+    if (themeSwitcher) {
+      themeSwitcher.destroy();
+      themeSwitcher = null;
+    }
+  });
+}
+
+function initializeOptionsRuntime(): void {
+  if (optionsController) {
+    optionsController.dispose();
+    optionsController = null;
+  }
+  if (formSectionRegistry) {
+    formSectionRegistry.clear();
+    formSectionRegistry = null;
+  }
+
+  const registry = new FormSectionRegistry();
+  formSectionRegistry = registry;
+
+  const formAdapter = createOptionsFormAdapter(registry);
+  const controller = createOptionsController({
+    persistence: chromeOptionsPersistence,
+    formAdapter,
+    formRegistry: registry,
+    autoSaveDebounceMs: 400,
+    onSaveError: (reason, error) => {
+      if (reason === 'auto') {
+        console.error('[options] Auto-save failed:', error);
+      }
+    },
+    onSaveSuccess: (reason) => {
+      if (reason !== 'auto') {
+        return;
+      }
+      const source = consumePendingAutoSaveSource();
+      if (!source) {
+        return;
+      }
+      void showAutoSaveNotice(source);
+    }
+  });
+
+  optionsController = controller;
+  registerOptionsController(controller);
+
+  registerCleanup(() => {
+    if (optionsController === controller) {
+      optionsController = null;
+    }
+    controller.dispose();
+  });
+
+  registerCleanup(() => {
+    if (formSectionRegistry === registry) {
+      formSectionRegistry = null;
+    }
+    registry.clear();
+  });
+}
+
+function requireOptionsController(): OptionsController {
+  if (!optionsController) {
+    throw new Error('[Options] OptionsController is not initialized.');
+  }
+  return optionsController;
+}
+
+type CleanupFn = () => void;
+const cleanupHandlers: CleanupFn[] = [];
+let declarativeI18nController: PageI18nController | null = null;
+let unloadCleanupRegistered = false;
+let mountedShell: MountedOptionsShell | null = null;
+const PRELOAD_SECTION_IDS = ['rest', 'routing', 'templates', 'yaml'];
+async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
+  if (!declarativeI18nController) {
+    const controller = createDefaultPageI18nController();
+    await controller.load();
+
+    if (typeof document !== 'undefined') {
+      controller.mount(document);
+    }
+
+    declarativeI18nController = controller;
+    setOptionsI18nContext(controller.getBinder(), controller.getCurrentResource());
+  }
+
+  return declarativeI18nController;
+}
+
+async function applyI18n(): Promise<void> {
+  const controller = await ensureDeclarativeI18nController();
+  setOptionsI18nContext(controller.getBinder(), controller.getCurrentResource());
+}
+
+export interface OptionsAppBootstrapDependencies {
+  storage: StorageService;
+}
+
+let optionsAppBootstrapStorage: StorageService | null = null;
+
+export function configureOptionsAppBootstrapStorage(storage: StorageService): void {
+  optionsAppBootstrapStorage = storage;
+}
+
+function resolveOptionsAppBootstrapDependencies(
+  dependencies?: Partial<OptionsAppBootstrapDependencies>
+): OptionsAppBootstrapDependencies {
+  if (dependencies?.storage) {
+    optionsAppBootstrapStorage = dependencies.storage;
+    return { storage: dependencies.storage };
+  }
+
+  if (!optionsAppBootstrapStorage) {
+    throw new Error('[Options] StorageService is required for bootstrap.');
+  }
+
+  return {
+    storage: optionsAppBootstrapStorage
+  };
+}
+
+export async function bootstrapOptionsApp(
+  dependencies?: Partial<OptionsAppBootstrapDependencies>
+): Promise<void> {
+  // 二次启动时先释放上一轮注册的 shell 与清理回调，防止热刷新残留状态。
+  teardownMountedShell();
+  disposeCleanupHandlers();
+  ensureUnloadCleanup();
+  const { storage } = resolveOptionsAppBootstrapDependencies(dependencies);
+  configureAnalyticsConfigManager(storage);
+  configureGlobalStateManagerStorage(storage);
+  configureI18nStorage(storage.sync);
+  await applyI18n();
+
+  // ✅ Phase 3: 初始化主题切换器
+  initializeThemeSwitcher();
+
+  initializeOptionsRuntime();
+
+  const registry = formSectionRegistry;
+  if (!registry) {
+    throw new Error('[Options] Failed to initialize FormSectionRegistry.');
+  }
+
+  const shell = await mountExperimentalShell(registry);
+  mountedShell = shell;
+  registerCleanup(() => {
+    teardownMountedShell();
+  });
+  const modalBindings = createOptionsModalBindings({
+    prepareChangelogModal: () =>
+      prepareOptionsChangelogModal({
+        ensureDeclarativeI18nController
+      })
+  });
+  if (shell) {
+    void shell.preloadSections(PRELOAD_SECTION_IDS).catch((error) => {
+      console.warn('[Options] Section preload failed:', error);
+    });
+
+    configureOptionsActions({
+      stateManager: shell.stateManager,
+      changeLanguage: handleLanguageChange,
+      copyConfig: () => handleCopyConfig(),
+      importConfig: () => handleImportConfig(),
+      saveOptions: () => handleSave(),
+      runDiagnostics: () => runDiagnostics(),
+      fixConfiguration: () => handleFix(),
+      reloadDiagnostics: () => handleReload()
+    });
+
+    await refreshUIFromStorage();
+    await ensureInitialSectionVisible(shell);
+    await ensureAllSectionsMounted(shell);
+    shell.configureUI({ modalBindings });
+  } else {
+    const modalController = new ModalController({ bindings: modalBindings });
+    const navigationController = new NavigationController();
+    registerCleanup(() => {
+      modalController.dispose();
+      navigationController.dispose();
+    });
+
+    configureOptionsActions({
+      stateManager: null,
+      changeLanguage: handleLanguageChange,
+      copyConfig: () => handleCopyConfig(),
+      importConfig: () => handleImportConfig(),
+      saveOptions: () => handleSave(),
+      runDiagnostics: () => runDiagnostics(),
+      fixConfiguration: () => handleFix(),
+      reloadDiagnostics: () => handleReload()
+    });
+
+    await refreshUIFromStorage();
+  }
+
+  // 处理 URL hash 锚点
+  handleOptionsUrlHash({
+    hash: window.location.hash,
+    mountedShell,
+    revealFragmentShortcuts
+  });
+}
+
+async function ensureInitialSectionVisible(shell: MountedOptionsShell): Promise<void> {
+  const initialSection = shell.initialSection;
+  await shell.mountSection(initialSection, { activate: true });
+  const currentState = shell.stateManager.getState();
+  if (currentState.activeSection !== initialSection) {
+    await shell.navigateTo(initialSection);
+  }
+}
+
+async function ensureAllSectionsMounted(shell: MountedOptionsShell): Promise<void> {
+  await shell.mountAllSections();
+}
+
+type PrivacySectionActions = {
+  refreshSettings: () => Promise<void>;
+  saveSettings: (options?: { showInlineStatus?: boolean }) => Promise<void>;
+};
+
+type FragmentSectionActions = {
+  highlightKeyboardShortcuts: () => boolean;
+};
+
+async function getMountedShellSection<T>(sectionId: string): Promise<T | null> {
+  if (!mountedShell) {
+    return null;
+  }
+
+  await mountedShell.mountSection(sectionId, { activate: false });
+  return mountedShell.getMountedSection(sectionId) as T | null;
+}
+
+async function refreshMountedPrivacySection(): Promise<void> {
+  const section = await getMountedShellSection<PrivacySectionActions>('privacy');
+  await section?.refreshSettings();
+}
+
+async function saveMountedPrivacySection(options?: { showInlineStatus?: boolean }): Promise<void> {
+  const section = await getMountedShellSection<PrivacySectionActions>('privacy');
+  await section?.saveSettings(options);
+}
+
+function revealFragmentShortcuts(): boolean {
+  const section = mountedShell?.getMountedSection('fragment') as
+    | FragmentSectionActions
+    | null
+    | undefined;
+  return section?.highlightKeyboardShortcuts() ?? false;
 }
 
 async function refreshUIFromStorage(): Promise<void> {
-  const stored = await loadOptionsFromStorage();
-  await applyOptionsToUI(stored);
+  const controller = requireOptionsController();
+  const stored = await controller.loadInitialState();
+  await applyOptionsSnapshot(stored);
 }
 
-async function applyOptionsToUI(options: StoredOptions): Promise<void> {
-  setLastLoadedOptions(options);
-  initializeVaultRouterStore(options.vaultRouter ?? null);
+async function handleLanguageChange(language: Language): Promise<Language> {
+  const controller = await ensureDeclarativeI18nController();
+  await controller.changeLanguage(language);
+  setOptionsI18nContext(controller.getBinder(), controller.getCurrentResource());
+  await refreshUIFromStorage();
+  await refreshMountedPrivacySection();
+  const resource = controller.getCurrentResource();
+  return (resource?.language ?? language) as Language;
+}
 
-  const currentLang = await getCurrentLanguage();
-  const languageSelect = document.getElementById('languageSelect') as HTMLSelectElement | null;
-  if (languageSelect) {
-    languageSelect.value = currentLang;
+async function applyOptionsSnapshot(options: StoredOptions): Promise<void> {
+  const controller = requireOptionsController();
+  await controller.applyToForm(options);
+  clearTransferMessage();
+
+  const migrationNotice = consumeYamlMigrationNotice();
+  if (migrationNotice) {
+    const msgs = await getOptionsMessages();
+    const text =
+      msgs.yamlConfigMigrated ?? 'YAML field configuration has been migrated to the latest format.';
+    showStatusMessage('success', { key: migrationNotice, text });
+  }
+}
+
+export async function showAutoSaveNotice(source: string): Promise<void> {
+  const msgs = await getOptionsMessages();
+  if (source === 'yamlConfig') {
+    const text = msgs.yamlConfigAutoSaved ?? 'YAML field configuration changes saved.';
+    showStatusMessage('success', { key: 'yamlConfigAutoSaved', text });
+    return;
   }
 
-  renderOptionsForm(options);
-  await renderAdditionalVaults();
-  forceDisableChatTimestamps();
-  updateClassifierUnstableNote();
-  clearTransferMessage();
+  if (source === 'templates') {
+    const text = msgs.templatesAutoSaved ?? 'Template settings saved automatically.';
+    showStatusMessage('success', { key: 'templatesAutoSaved', text });
+  }
 }
 
-function bindEventHandlers(): void {
-  bindOptionsFormEvents();
-  setupConnectionTest();
+function registerCleanup(handler: CleanupFn | null | undefined): void {
+  if (typeof handler === 'function') {
+    cleanupHandlers.push(handler);
+  }
+}
 
-  const languageSelect = document.getElementById('languageSelect') as HTMLSelectElement | null;
-  languageSelect?.addEventListener('change', async (event) => {
-    const newLang = (event.target as HTMLSelectElement).value as Parameters<typeof setCurrentLanguage>[0];
-    await setCurrentLanguage(newLang);
-    await initI18n();
-    await initializeUsageDashboard();
-    resetDomainMappingLabels();
-    await refreshUIFromStorage();
+function ensureUnloadCleanup(): void {
+  if (unloadCleanupRegistered) {
+    return;
+  }
+
+  const disposeOnUnload = (): void => {
+    disposeCleanupHandlers();
+  };
+
+  window.addEventListener('beforeunload', disposeOnUnload);
+  cleanupHandlers.push(() => {
+    window.removeEventListener('beforeunload', disposeOnUnload);
   });
 
-  const addMappingBtn = document.getElementById('addMappingBtn');
-  addMappingBtn?.addEventListener('click', () => {
-    addMappingRow('', '', { autoFocus: true });
-  });
+  unloadCleanupRegistered = true;
+}
 
-  const copyBtn = document.getElementById('copyConfigBtn');
-  copyBtn?.addEventListener('click', () => { void handleCopyConfig(); });
+function disposeCleanupHandlers(): void {
+  while (cleanupHandlers.length > 0) {
+    const handler = cleanupHandlers.pop();
+    try {
+      handler?.();
+    } catch (error) {
+      console.error('[Options] 清理增强功能时出错:', error);
+    }
+  }
+  unloadCleanupRegistered = false;
+}
 
-  const importBtn = document.getElementById('importConfigBtn');
-  importBtn?.addEventListener('click', () => { void handleImportConfig(); });
-
-  const addVaultBtn = document.getElementById('addAdditionalVaultBtn');
-  addVaultBtn?.addEventListener('click', () => { void handleAddAdditionalVault(); });
-
-  const saveBtn = document.getElementById('saveBtn');
-  saveBtn?.addEventListener('click', () => { void handleSave(); });
-
-  const diagBtn = document.getElementById('diagBtn');
-  diagBtn?.addEventListener('click', () => { void runDiagnostics(); });
-
-  const fixBtn = document.getElementById('fixBtn');
-  fixBtn?.addEventListener('click', () => { void handleFix(); });
-
-  const reloadBtn = document.getElementById('reloadBtn');
-  reloadBtn?.addEventListener('click', () => { void handleReload(); });
-
-  const classifierToggle = document.getElementById('clsEnable') as HTMLInputElement | null;
-  classifierToggle?.addEventListener('change', () => {
-    updateClassifierUnstableNote();
-  });
+function teardownMountedShell(): void {
+  if (!mountedShell) {
+    return;
+  }
+  const currentShell = mountedShell;
+  mountedShell = null;
+  try {
+    currentShell.cleanup();
+  } catch (error) {
+    console.error('[Options] 卸载 shell 时出错:', error);
+  }
 }
 
 async function handleCopyConfig(): Promise<void> {
   clearTransferMessage();
-  const msgs = await getMessages();
+  const msgs = await getOptionsMessages();
 
   try {
-    const options = collectOptionsFromForm(getLastLoadedOptions());
+    const controller = requireOptionsController();
+    const options = controller.readForm();
     const payload = normalizeOptionsForTransfer(options);
-    await copyOptionsToClipboard(payload);
-    showTransferMessage('success', msgs.copyConfigSuccess);
+    const analyticsPayload = await exportAnalyticsTransferPayload();
+    const transferPayload: ConfigTransferPayload = {
+      version: 1,
+      options: payload
+    };
+    if (analyticsPayload) {
+      transferPayload.analytics = analyticsPayload;
+    }
+    await copyOptionsToClipboard(transferPayload);
+    showTransferMessage('success', { key: 'copyConfigSuccess', text: msgs.copyConfigSuccess });
   } catch (error) {
     showTransferMessage('error', formatOptionsError(error, msgs));
   }
@@ -111,33 +443,33 @@ async function handleCopyConfig(): Promise<void> {
 
 async function handleImportConfig(): Promise<void> {
   clearTransferMessage();
-  const msgs = await getMessages();
+  const msgs = await getOptionsMessages();
 
   try {
+    const controller = requireOptionsController();
     const raw = await readConfigTextFromClipboard();
     const parsed = parseConfigInput(raw);
-    const normalized = normalizeOptionsForTransfer(parsed);
-    await applyOptionsToUI(normalized);
+    const normalized = normalizeOptionsForTransfer(parsed.options);
+    await applyOptionsSnapshot(normalized);
+    await controller.saveSnapshot({ reason: 'import', draft: normalized });
+    await applyAnalyticsTransferPayload(parsed.analytics);
+    await refreshMountedPrivacySection();
 
-    const completed = collectOptionsFromForm(normalized);
-    await saveOptionsToStorage(completed);
-    setLastLoadedOptions(completed);
-
-    showTransferMessage('success', msgs.importSuccess);
-    showStatusMessage('success', msgs.importSuccess);
+    showTransferMessage('success', { key: 'importSuccess', text: msgs.importSuccess });
+    showStatusMessage('success', { key: 'importSuccess', text: msgs.importSuccess });
   } catch (error) {
     showTransferMessage('error', formatOptionsError(error, msgs));
   }
 }
 
 async function handleSave(): Promise<void> {
-  const msgs = await getMessages();
+  const msgs = await getOptionsMessages();
 
   try {
-    const options = collectOptionsFromForm(getLastLoadedOptions());
-    await saveOptionsToStorage(options);
-    setLastLoadedOptions(options);
-    showStatusMessage('success', msgs.saveSuccess);
+    const controller = requireOptionsController();
+    await controller.saveSnapshot({ reason: 'manual' });
+    await saveMountedPrivacySection({ showInlineStatus: false });
+    showStatusMessage('success', { key: 'saveSuccess', text: msgs.saveSuccess });
   } catch (error) {
     showStatusMessage('error', `${msgs.saveFailed}: ${formatOptionsError(error, msgs)}`);
   }
@@ -150,22 +482,4 @@ async function handleFix(): Promise<void> {
 async function handleReload(): Promise<void> {
   await refreshUIFromStorage();
   await runDiagnostics();
-}
-
-function forceDisableChatTimestamps(): void {
-  const checkbox = document.getElementById('aiIncludeTimestamps') as HTMLInputElement | null;
-  if (checkbox) {
-    checkbox.checked = false;
-  }
-}
-
-function updateClassifierUnstableNote(): void {
-  const toggle = document.getElementById('clsEnable') as HTMLInputElement | null;
-  const note = document.getElementById('classifierUnstableNote');
-  if (!note) {
-    return;
-  }
-
-  const enabled = Boolean(toggle?.checked);
-  note.style.display = enabled ? 'block' : 'none';
 }

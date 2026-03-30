@@ -1,7 +1,7 @@
 # 剪藏对话框样式 & 可访问性改进说明（E4）
 
 ## 样式
-- 新增 `src/content/clipper/shared/styles.ts` 集中维护对话框 CSS，使用设计变量描述背景、按钮、阴影等。
+- 新增 `src/styles/clipper/dialog.css` 集中维护对话框 CSS，使用设计变量描述背景、按钮、阴影等，通过 `styleRegistry` 注入。
 - `dialog.ts` 改为仅设置 class 与动态位置，删除大量内联样式与 hover 事件，后续可统一主题。
 - `InlineStyleManager` 负责注入/移除样式，避免遗留 `<style>` 节点。
 

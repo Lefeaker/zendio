@@ -36,8 +36,9 @@
 5. **样式共享**：动画、阴影等可抽到 `styleManager` 或全局样式文件内，减少重复定义。
 
 ## 已执行的调整
-- 创建 `src/content/clipper/shared/styles.ts`，集中维护对话框样式和设计变量，通过 `InlineStyleManager` 注入。
-- `dialog.ts` 现改用 class 名称而非内联样式，颜色/阴影等引用统一 token，按钮/标题 hover 交互统一在 CSS 中管理。
+- 创建 `src/styles/clipper/dialog.css`，集中维护对话框样式与设计变量，并通过 `loadClipperStyle` + `InlineStyleManager` 注入。
+- `dialog.ts` 改用 class 名称而非内联样式，颜色/阴影等引用统一 token，按钮/标题 hover 交互统一在 CSS 中管理。
+- 评论表单、按钮等附属样式迁移至 `src/styles/clipper/comment-form.css` 等独立文件，由 `styleRegistry` 统一加载。
 - 拖拽交互继续由 `DragController` 处理，仅保留必要的 transform 设置，避免内联样式膨胀。
 
 > 上述问题将作为后续 E2-E4 的基础，后续迭代可按优先级逐项解决。
