@@ -24,38 +24,45 @@
 ## Feature Highlights
 
 ### 📑 Web Clipping
+
 - Right-click to save any selection or full article
 - Extract title, URL, author, capture timestamp, and more metadata
 - Clean article body with Mozilla Readability while keeping checklists, code blocks, math, and tables
 - Generate Text Fragment URLs for one-click jumps back to the original paragraph
 
 ### 💬 Fragment Comments
+
 - Annotate clips directly inside the floating panel to capture your thinking in the moment
 - Display annotations alongside the source text in structured Markdown
 - Timestamp-driven filenames prevent overwriting repeated clips from the same page
 - Keyboard-friendly focus trap keeps the dialog accessible; use `Alt` + arrow keys for pixel-perfect positioning
 
 ### 🤖 AI Assistance
+
 - Generate titles, summaries, and tags via OpenAI, Ollama, local WebLLM, and other compatible models
 - Support for ChatGPT, Claude, Gemini, Copilot, Perplexity, Tongyi Qianwen, DeepSeek, Kimi, and more
 - Modular platform parsers strip UI noise per site, making future platform support faster to add
 - Strip platform noise (Claude thinking blocks, Copilot reaction bars, etc.) while preserving formatting
 
 ### 📚 Reading Sessions
+
 - Merge multiple fragments into a single “reading note,” even across different pages
 - Session timeline captures how you read long pieces or research threads
 - Combine AI conversations and article clips to build richer knowledge chains
 
 ### 🗂️ Multi-Vault Smart Routing
+
 - Configure multiple Obsidian vaults and route content with domain, keyword, or URL rules
 - Customize rule priority, fallbacks, and notifications so every clip lands in the right vault
 - Redesigned options builder introduces localized modal flows and safer previews for rule changes
 
 ### 🔗 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) Compatibility
+
 - Export highlights with the fields [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) expects for flashcards and review workflows
 - YAML frontmatter works out of the box with Bases, Dataview, and similar plugins
 
 ### 🌍 Localization & Customization
+
 - UI available in Simplified Chinese, English, and Japanese with instant switching
 - Tailor path templates, content templates, and Markdown rules to fit any workflow
 
@@ -63,25 +70,34 @@
 
 1. **Install the Chrome extension**  
    Development build only for now—download the repository and load the `dist/` directory in Chrome Developer Mode. (Store link coming soon.)
-2. **Configure the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)**  
+2. **Configure the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)**
    - Install the [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) plugin inside Obsidian
    - Enable the plugin, set an API key, and confirm the endpoint (default `https://127.0.0.1:27124`)
-3. **Finish extension setup**  
+3. **Finish extension setup**
    - Right-click the extension icon → Options
    - Provide vault paths, REST API settings, and AI API keys
    - Define routing rules and templates (Article / Fragment / AI Chat / Reading Session)
 
+## Development Baseline
+
+- Recommended Node.js: `20.x` (`.nvmrc`)
+- Recommended npm: `10.x`
+- Minimum preflight gate before large refactors:
+  - `npm run verify:preflight`
+  - `npm run test:e2e:browser`
+  - `npm run test:e2e:browser:smoke`
+
 ### Permission Breakdown
 
-| Permission | Purpose | Privacy Promise |
-| --- | --- | --- |
-| `activeTab` | Read the page content you clip | Triggered only when you clip; never sent to third parties |
-| `scripting` | Inject content scripts for the floating panel and annotations | Fully open source and auditable |
-| `storage` | Persist extension settings, routing rules, and pending tasks | Data stays local in your browser |
-| `contextMenus` | Add the “Save to Obsidian” right-click entry | No history tracking—only used on demand |
-| `notifications` | Show completion toasts after clipping | No external calls; notifications vanish instantly |
-| `host_permissions: <all_urls>` | Allow clipping on any page | Access occurs only when you trigger a clip |
-| `host_permissions: https://127.0.0.1/*` | Talk to the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | Communicates solely with your local Obsidian instance |
+| Permission                              | Purpose                                                                                          | Privacy Promise                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `activeTab`                             | Read the page content you clip                                                                   | Triggered only when you clip; never sent to third parties |
+| `scripting`                             | Inject content scripts for the floating panel and annotations                                    | Fully open source and auditable                           |
+| `storage`                               | Persist extension settings, routing rules, and pending tasks                                     | Data stays local in your browser                          |
+| `contextMenus`                          | Add the “Save to Obsidian” right-click entry                                                     | No history tracking—only used on demand                   |
+| `notifications`                         | Show completion toasts after clipping                                                            | No external calls; notifications vanish instantly         |
+| `host_permissions: <all_urls>`          | Allow clipping on any page                                                                       | Access occurs only when you trigger a clip                |
+| `host_permissions: https://127.0.0.1/*` | Talk to the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | Communicates solely with your local Obsidian instance     |
 
 ## Quick Start Guide
 
@@ -95,13 +111,14 @@
 ### YAML template examples
 
 **Article**
+
 ```markdown
 ---
 type: article
-title: "Reading Note Title"
-url: "https://example.com"
-author: "Author"
-clipped_at: "2024-01-01T12:00:00"
+title: 'Reading Note Title'
+url: 'https://example.com'
+author: 'Author'
+clipped_at: '2024-01-01T12:00:00'
 tags: [clipping]
 ---
 
@@ -109,46 +126,51 @@ Article body goes here...
 ```
 
 **Fragment**
+
 ```markdown
 ---
 type: fragment
-source_title: "Original Page Title"
-source_url: "https://example.com#~:text=fragment"
-comment: "My annotation"
-clipped_at: "2024-01-01T12:05:00"
-route: "Research Vault"
+source_title: 'Original Page Title'
+source_url: 'https://example.com#~:text=fragment'
+comment: 'My annotation'
+clipped_at: '2024-01-01T12:05:00'
+route: 'Research Vault'
 ---
 
 > Highlighted text from the page
 ```
 
 **AI Chat**
+
 ```markdown
 ---
 type: ai-chat
-platform: "ChatGPT"
-model: "gpt-4o"
-started_at: "2024-01-01T13:00:00"
+platform: 'ChatGPT'
+model: 'gpt-4o'
+started_at: '2024-01-01T13:00:00'
 tags: [ai, research]
 ---
 
 ### user
+
 Please summarise recent progress on the paper.
 
 ### assistant
+
 Here are the key points...
 ```
 
 **Reading Session**
+
 ```markdown
 ---
 type: reading-session
 sources:
-  - title: "Article A"
-    url: "https://example.com/a"
-  - title: "Fragment B"
-    url: "https://example.com/b#fragment"
-compiled_at: "2024-01-01T14:00:00"
+  - title: 'Article A'
+    url: 'https://example.com/a'
+  - title: 'Fragment B'
+    url: 'https://example.com/b#fragment'
+compiled_at: '2024-01-01T14:00:00'
 ---
 
 1. First reading pass...

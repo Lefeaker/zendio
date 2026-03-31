@@ -1,8 +1,22 @@
 import { expect, test } from '@playwright/test';
+import { attachBrowserDiagnostics, persistBrowserDiagnostics } from './utils/browserDiagnostics';
 
 const BASE = 'http://127.0.0.1:4173';
 
 test.describe('migration harness smoke', () => {
+  let diagnostics: ReturnType<typeof attachBrowserDiagnostics> | null = null;
+
+  test.beforeEach(({ page }) => {
+    diagnostics = attachBrowserDiagnostics(page);
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (diagnostics) {
+      await persistBrowserDiagnostics(page, testInfo, diagnostics);
+    }
+    diagnostics = null;
+  });
+
   test('interaction contract harness opens the shared dialog contract', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {

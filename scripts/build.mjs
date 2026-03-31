@@ -4,12 +4,14 @@ import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
+import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
 const prod = args.includes('--mode=prod') || args.includes('--prod');
 const skipChecks = args.includes('--skip-checks');
 const firefox = args.includes('--firefox');
+const buildCommandEnv = createCleanCliEnv({ NODE_OPTIONS: process.env.NODE_OPTIONS ?? '' });
 
 function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
@@ -27,7 +29,7 @@ if (prod && !skipChecks && !watch) {
 console.log('🎨 Building Clipper Tailwind...');
 const { execSync } = await import('child_process');
 try {
-  execSync('npm run tailwind:build:clipper', { stdio: 'inherit' });
+  execSync('npm run tailwind:build:clipper', { stdio: 'inherit', env: buildCommandEnv });
 } catch (error) {
   console.error('❌ Clipper Tailwind build failed:', error);
   process.exit(1);
@@ -36,7 +38,7 @@ try {
 // Build Options Tailwind (in all modes)
 console.log('🎨 Building Options Tailwind...');
 try {
-  execSync('npm run tailwind:build', { stdio: 'inherit' });
+  execSync('npm run tailwind:build', { stdio: 'inherit', env: buildCommandEnv });
 } catch (error) {
   console.error('❌ Options Tailwind build failed:', error);
   process.exit(1);
@@ -45,7 +47,7 @@ try {
 // Build Global Tailwind (in all modes)
 console.log('🎨 Building Global Tailwind...');
 try {
-  execSync('npm run tailwind:build:global', { stdio: 'inherit' });
+  execSync('npm run tailwind:build:global', { stdio: 'inherit', env: buildCommandEnv });
 } catch (error) {
   console.error('❌ Global Tailwind build failed:', error);
   process.exit(1);
@@ -54,7 +56,7 @@ try {
 // Build Video Tailwind (in all modes)
 console.log('🎨 Building Video Tailwind...');
 try {
-  execSync('npm run tailwind:build:video', { stdio: 'inherit' });
+  execSync('npm run tailwind:build:video', { stdio: 'inherit', env: buildCommandEnv });
 } catch (error) {
   console.error('❌ Video Tailwind build failed:', error);
   process.exit(1);
@@ -114,19 +116,10 @@ const backgroundBuildOptions = {
   format: 'iife'
 };
 
-const contentRuntimeBuildOptions = {
+const appBuildOptions = {
   ...sharedBuildOptions,
   entryPoints: {
-    'content/runtime': 'src/content/index.ts'
-  },
-  format: 'esm',
-  splitting: true,
-  chunkNames: 'chunks/[name]-[hash]'
-};
-
-const uiBuildOptions = {
-  ...sharedBuildOptions,
-  entryPoints: {
+    'content/runtime': 'src/content/index.ts',
     'options/index': 'src/options/index.ts',
     'onboarding/index': 'src/onboarding/index.ts',
     'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
@@ -140,14 +133,12 @@ const uiBuildOptions = {
 
 if (watch) {
   const backgroundCtx = await context(backgroundBuildOptions);
-  const contentCtx = await context(contentRuntimeBuildOptions);
-  const uiCtx = await context(uiBuildOptions);
-  await Promise.all([backgroundCtx.watch(), contentCtx.watch(), uiCtx.watch()]);
+  const appCtx = await context(appBuildOptions);
+  await Promise.all([backgroundCtx.watch(), appCtx.watch()]);
   console.log('👀 Watching for changes...');
 } else {
   await build(backgroundBuildOptions);
-  await build(contentRuntimeBuildOptions);
-  await build(uiBuildOptions);
+  await build(appBuildOptions);
 }
 
 await mkdir('build/dist/content', { recursive: true });

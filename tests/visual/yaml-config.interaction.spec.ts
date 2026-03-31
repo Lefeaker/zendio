@@ -4,6 +4,7 @@ import { Buffer } from 'node:buffer';
 import { build } from 'esbuild';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attachBrowserDiagnostics, persistBrowserDiagnostics } from './utils/browserDiagnostics';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,13 +77,17 @@ async function triggerFirstMatchingClick(page: Page, selector: string): Promise<
 }
 
 test.describe('YAML configuration browser interactions', () => {
+  let diagnostics: ReturnType<typeof attachBrowserDiagnostics> | null = null;
+
   test.beforeEach(({ page }) => {
-    page.on('console', (message) => {
-      console.log(`[yaml-config-console:${message.type()}] ${message.text()}`);
-    });
-    page.on('pageerror', (error) => {
-      console.error('[yaml-config-pageerror]', error);
-    });
+    diagnostics = attachBrowserDiagnostics(page);
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    if (diagnostics) {
+      await persistBrowserDiagnostics(page, testInfo, diagnostics);
+    }
+    diagnostics = null;
   });
 
   test('manages domain overrides with array previews', async ({ page }) => {

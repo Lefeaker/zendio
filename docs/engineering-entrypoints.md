@@ -1,6 +1,26 @@
 # 工程命令与入口
 
-最后更新：2026-03-30
+最后更新：2026-03-31
+
+## 推荐运行环境
+
+- Node.js：`20.x`（仓库根 `.nvmrc` 为 `20`，CI 也按该主版本执行）
+- npm：`10.x`
+- Playwright 浏览器：执行 `npx playwright install --with-deps chromium`
+
+如本机使用 Node 22+，Playwright 解析 TypeScript 配置时可能出现额外实验性告警；前置收口基线统一以 Node 20 LTS 为准。
+
+## 前置阶段最低守门
+
+- `npm run verify:preflight`
+- `npm run test:e2e:browser`
+- `npm run test:e2e:browser:smoke`
+
+说明：
+
+- `verify:preflight` 会串行执行 `typecheck:app`、`typecheck:tests`、`lint -- --quiet`、`build:dev`、`audit:ui-architecture:report`、`audit:interaction-contract:report`、`audit:build:report`、`audit:performance:report`
+- browser smoke 默认按 `PLAYWRIGHT_WORKERS=1` 串行执行；如需提速，可显式传入 `PLAYWRIGHT_WORKERS=<n>` 做并行回归
+- Playwright `webServer` 已改为 `node scripts/start-playwright-web-server.mjs`，避免依赖 `python3 -m http.server` 与 shell 环境色彩变量噪音
 
 ## 质量门禁
 
@@ -33,7 +53,7 @@
 - `npm run test:unit`
 - `npm run test:e2e`
 - `npm run test:e2e:browser`
-- `npx playwright test tests/visual/migration-harness.spec.ts --project=chromium-desktop`
+- `npm run test:e2e:browser:smoke`
 - `npm run test:e2e:browser:firefox`
 - `npm run test:coverage`
 - `npm run test:i18n`
@@ -86,4 +106,5 @@
 ## Firefox 说明
 
 - `npm run test:e2e:browser` 默认跑 Chromium 项目，作为当前稳定 browser-interaction 门禁。
+- `npm run test:e2e:browser:smoke` 负责 migration harness 最小 smoke，用于前置阶段与 CI 最低浏览器守门。
 - `npm run test:e2e:browser:firefox` 保留为可选路径，需要本机具备 Playwright 可控的 Firefox 环境。

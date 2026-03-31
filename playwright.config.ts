@@ -6,6 +6,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const includeFirefoxProject = process.env.PLAYWRIGHT_INCLUDE_FIREFOX === '1';
 const firefoxExecutablePath = process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH;
+const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS ?? '1');
+const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests/visual'),
@@ -13,6 +15,7 @@ export default defineConfig({
   outputDir: path.join(__dirname, 'tests/visual/__output__'),
   timeout: 60000,
   retries: process.env.CI ? 1 : 0,
+  workers,
   fullyParallel: false,
   reporter: process.env.CI
     ? [
@@ -34,6 +37,12 @@ export default defineConfig({
       maxDiffPixelRatio: 0.003,
       maxDiffPixels: 150
     }
+  },
+  webServer: {
+    command: 'node scripts/start-playwright-web-server.mjs',
+    url: 'http://127.0.0.1:4173/options/index.html',
+    reuseExistingServer: !process.env.CI,
+    timeout: 180000
   },
   projects: [
     {

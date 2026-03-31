@@ -3,6 +3,10 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=10 <11"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "typecheck": "npm run typecheck:app && npm run typecheck:tests",
@@ -60,11 +64,14 @@
     "test": "vitest run",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:e2e:browser": "playwright test tests/visual/yaml-config.interaction.spec.ts",
+    "test:e2e:browser": "node scripts/run-playwright.mjs test tests/visual/yaml-config.interaction.spec.ts",
+    "test:e2e:browser:smoke": "node scripts/run-playwright.mjs test tests/visual/migration-harness.spec.ts --project=chromium-desktop",
     "test:e2e:browser:firefox": "node scripts/run-firefox-browser-tests.mjs",
+    "verify:preflight": "npm run typecheck:app && npm run typecheck:tests && npm run lint -- --quiet && npm run build:dev && npm run audit:ui-architecture:report && npm run audit:interaction-contract:report && npm run audit:build:report && npm run audit:performance:report",
+    "verify:preflight:full": "npm run verify:preflight && npm run test:e2e:browser && npm run test:e2e:browser:smoke",
     "test:ci": "npm run test:unit && npm run test:e2e && npm run test:e2e:browser && npm run test:e2e:browser:firefox",
-    "visual:test": "playwright test --config=playwright.config.ts",
-    "visual:record": "playwright test --config=playwright.config.ts --update-snapshots",
+    "visual:test": "node scripts/run-playwright.mjs test --config=playwright.config.ts",
+    "visual:record": "node scripts/run-playwright.mjs test --config=playwright.config.ts --update-snapshots",
     "report:options-legacy": "node tools/options-css-legacy-report.mjs",
     "package": "npm run build && node scripts/package.mjs",
     "package:ci": "node scripts/package.mjs",

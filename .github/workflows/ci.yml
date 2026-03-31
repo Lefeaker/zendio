@@ -18,11 +18,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify preflight baseline
+        run: npm run verify:preflight
 
       - name: Dependency boundary audit report
         continue-on-error: true
@@ -49,12 +52,6 @@ jobs:
         run: |
           bash scripts/check-migration-progress.sh
           bash scripts/check-unmigrated-buttons.sh
-
-      - name: TypeScript check
-        run: npm run typecheck
-
-      - name: Lint source and tests
-        run: npm run lint
 
       - name: Enforce lint warning guard
         run: npm run lint:warnings-guard
@@ -147,6 +144,7 @@ jobs:
         run: |
           npm run test:e2e
           npm run test:e2e:browser
+          npm run test:e2e:browser:smoke
 
       - name: Upload i18n reports
         if: failure()
