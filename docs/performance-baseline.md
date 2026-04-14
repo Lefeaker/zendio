@@ -1,18 +1,8 @@
 # 性能优化与热点基线
 
-日期：2026-03-31
+日期：2026-04-14
 
-## 1. 本轮迁移后的主项
-
-- 已建立 `src/ui/foundation/*` 与 `src/ui/primitives/*`，基础控件不再各自维护分叉 contract。
-- `audit:build:report` 已引入 entry / chunk 数量 / 单 chunk 大小三类硬阈值。
-- icon 策略已统一到 `src/ui/foundation/icons/index.ts`，`src/*` 其余位置不再直接从 `lucide` 导入。
-- shadow style bridge 已统一经由 `src/ui/foundation/style-host/index.ts` 进入。
-- `Options` / `content` 旧 shared wrapper 已退役，不再作为新的语义真值源。
-- `StateManager.ts`、`optionsStore.ts` 等 Options 热路径继续保持 `deepClone=0`、`JSON.stringify=0`。
-- i18n locale 已改为按语言拆分的动态加载，不再把全部语言包内联进主 shared chunk。
-
-## 2. 构建拆包结果
+## 1. 构建真值
 
 验证命令：
 
@@ -21,39 +11,39 @@ npm run build:dev
 npm run audit:build:report
 ```
 
-本轮结果：
+当前真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `62.7 KB`
-- `build/dist/options/index.js`: `108.7 KB`
+- `build/dist/content/runtime.js`: `54.5 KB`
+- `build/dist/options/index.js`: `94.7 KB`
 - `build/dist/onboarding/index.js`: `11.1 KB`
-- 额外 chunk：`126`
+- 总 chunk 数：`130`
 
-代表性 UI chunk：
+当前共享 chunk Top 3：
 
-- `YamlConfigSection`: `77.7 KB`
-- `RestSection`: `37.2 KB`
-- `TemplatesSection`: `27.8 KB`
-- `PrivacySection`: `20.4 KB`
-- `supportPrompt`: `18.4 KB`
+- 最大 shared chunk：`173.3 KB`
+- 第二大 shared chunk：`82.8 KB`
+- 第三大 shared chunk：`67.6 KB`
 
-当前仍需重点关注的大 chunk：
+当前重点功能 chunk：
 
-- `chunks/chunk-ITG6F7PJ.js`: `173.0 KB`
-- `chunks/chunk-MNZOSRBM.js`: `146.5 KB`
-- locale packs 已独立拆分：
-  - `chunks/qps-ploc-*.js`: `56.6 KB`
-  - `chunks/ru-*.js`: `49.0 KB`
-  - `chunks/ja-*.js`: `38.4 KB`
+- `chunks/RestSection-*.js`: `34.2 KB`
+- `chunks/yaml-config-*.js`: `9.6 KB`
+- `chunks/yamlConfigTable-*.js`: `570 B`
+- `diagnostics` lazy chunk：`13.2 KB`
 
-与 2026-03-30 基线相比，本轮收口已完成：
+当前 `audit:build:report` 预算口径：
 
-- `content/runtime.js`：`195.5 KB → 62.7 KB`
-- 最大 shared/vendor chunk：`595.4 KB → 173.0 KB`
-- 内容侧与 UI 侧重复 shared chunk 已通过合并 ESM 构建入口消除
-- i18n 全量语言包已从主 shared chunk 拆出，按 locale 独立加载
+- `content/runtime.js <= 56 KB`
+- `options/index.js <= 107 KB`
+- 最大 shared chunk `<= 175 KB`
+- 第二大 shared chunk `<= 145 KB`
+- 第三大 shared chunk `<= 101 KB`
+- `RestSection <= 40 KB`
+- `yaml-config <= 70 KB`
+- `chunk count <= 132`
 
-## 3. 热点报告摘要
+## 2. 热点真值
 
 验证命令：
 
@@ -61,33 +51,44 @@ npm run audit:build:report
 npm run audit:performance:report
 ```
 
-本轮摘要：
+当前热点：
 
+- `src/content/video/videoSessionRuntime.ts`: `314` 行
+- `src/options/components/sections/RestSectionView.ts`: `300` 行
+- `src/ui/domains/privacy/PrivacySettingsView.ts`: `260` 行
+- `src/options/components/sections/UsageDashboardSection.ts`: `231` 行
+- `src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts`: `471` 行
+- `src/content/reader/utils/markdownBuilder.ts`: `288` 行
 - `src/options/state/StateManager.ts`: `deepClone=0`, `JSON.stringify=0`
 - `src/options/state/optionsStore.ts`: `deepClone=0`, `JSON.stringify=0`
-- `src/content/index.ts`: `addEventListener=1`
-- `src/content/runtime/bootstrapRuntime.ts`: `setInterval=0`, `MutationObserver=0`
-- `src/content/reader/utils/markdownBuilder.ts`: `lines=537`, `getElementById=2`
-- `src/content/video/platforms/bilibiliPlatform.ts`: `lines=621`, `querySelector=2`, `MutationObserver=2`
-- `src/content/video/session.ts`: `lines=642`, `querySelector=1`
 
-## 4. 浏览器与交互回归
+本轮有效收口结果：
 
-已执行的真实浏览器路径：
+- `videoSessionRuntime` 已达到 stretch 目标
+- `PrivacySettingsView`、`UsageDashboardSection` 已达到 stretch 目标
+- `RestSectionView` 已落到本轮最低目标内
+- `yamlConfigTableControllerState.impl` 已落到 `<= 500`
+- 本轮新增子模块已按热点治理范围压到目标值，避免用拆分制造新的超限热点
+- Options 低频 diagnostics 已从主入口拆出
+- `YamlConfigView` 已改为 view/controller 双层 lazy，`yaml-config` 主块已压到 `9.6 KB`
 
-- `npm run test:e2e:browser`
+## 3. 浏览器验真
+
+已通过：
+
 - `npm run test:e2e:browser:smoke`
+- `npm run test:e2e:browser`
+- `npm run test:e2e:browser:reader-panel`
+- `npm run visual:test`
 
-确认点：
+覆盖到的真实路径：
 
-- YAML config 真实交互通过
-- interaction contract harness 可打开统一 dialog contract
-- content orchestrator harness 可正常加载
-- runtime observability harness 可进入 ready 状态且无 console error
-- browser 失败时会统一保留 Playwright trace / screenshot，并附带 `browser-console` 文本与 JSON 摘要
+- migration harness smoke
+- content orchestrator harness
+- runtime observability harness
+- reader dialog 打开 / 导出 / 键盘关闭路径
 
-## 5. 后续长期议题
+## 4. 债务备注
 
-- 继续收敛 `bilibiliPlatform.ts` 与 `video/session.ts`
-- 为 `src/ui` 引入更明确的 chunk budget / size threshold
-- 视 Firefox 运行环境补充 browser smoke 到长期门禁
+- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 `quality` 已报告 warning 总量下降到 `356` 条，不代表 lint 债务已经清零。
+- Firefox 不在本轮强制浏览器收口范围内，仍保留为后续增强项。

@@ -9,7 +9,7 @@ import {
   initializeVaultRouterStore
 } from '../../state/vaultRouterStore';
 import { VaultRouterController } from '../controls/vaultRouterController';
-import { VaultRouterView } from '../../../ui/domains/vault-router';
+import { VaultRouterView } from '@ui/domains/vault-router';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
 import type { SectionRenderContext } from './BaseSection';
@@ -172,7 +172,6 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
       collectChanges: () => {
         const config = getVaultRouterConfig();
         if (config) {
-          this.persistVaultRouter(config);
           return { vaultRouter: config };
         }
         return {};
@@ -235,21 +234,6 @@ export class RoutingSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
       initializeVaultRouterStore(options.vaultRouter ?? null);
-    });
-  }
-
-  private persistVaultRouter(config: ReturnType<typeof getVaultRouterConfig> | undefined): void {
-    if (!config) {
-      return;
-    }
-    const payload: Partial<CompleteOptions> = {
-      vaultRouter: config
-    };
-    void this.optionsRepo.set(payload).catch((error) => {
-      console.error(
-        '[RoutingSection] Failed to persist vault router config via repository:',
-        error
-      );
     });
   }
 }

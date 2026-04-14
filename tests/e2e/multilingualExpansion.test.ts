@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createDefaultPageI18nController } from '../../src/i18n';
 import type { PageI18nController } from '../../src/i18n';
-import { messages } from '../../src/i18n/locales';
+import { loadLocaleMessages } from '../../src/i18n/locales';
 import { resolveLanguage } from '../../src/i18n/config';
 import { setOptionsI18nContext } from '../../src/options/app/i18nContext';
 import { e2ePlatformHarness } from './setup';
@@ -77,7 +77,7 @@ describe('i18n multilingual expansion e2e', () => {
     const result = await renderWithLanguage(input);
     expect(result.resolvedLanguage).toBe(expected);
 
-    const translated = messages[expected];
+    const translated = await loadLocaleMessages(expected);
     expect(result.labels.languageSettings).toBe(translated.languageSettings);
     expect(result.labels.saveButton).toBe(translated.saveButton);
     expect(result.labels.diagnoseButton).toBe(translated.diagnoseButton);
@@ -89,7 +89,7 @@ describe('i18n multilingual expansion e2e', () => {
     expect(defaultLanguage).toBe('en');
     expect(result.resolvedLanguage).toBe('en');
 
-    const translated = messages.en;
+    const translated = await loadLocaleMessages('en');
     expect(result.labels.languageSettings).toBe(translated.languageSettings);
     expect(result.labels.saveButton).toBe(translated.saveButton);
     expect(result.labels.diagnoseButton).toBe(translated.diagnoseButton);

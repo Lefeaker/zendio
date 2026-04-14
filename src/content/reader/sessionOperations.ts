@@ -180,7 +180,7 @@ export async function finishReaderSession(
       context.dependencies.exporter.applyTokens(documentClone, highlights);
     }
 
-    const payload = context.dependencies.exporter.buildMarkdown({
+    const payload = await context.dependencies.exporter.buildMarkdown({
       mode: context.state.readingConfig.exportMode,
       pageTitle,
       pageUrl: context.url,

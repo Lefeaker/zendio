@@ -7,6 +7,42 @@ import {
   validateTemplateOptions
 } from '@options/services/validation';
 
+const VALID_TAXONOMY = {
+  version: '1.0.0',
+  categories: [
+    {
+      id: 'cat-tech',
+      name: 'Tech'
+    }
+  ],
+  tags: [
+    {
+      id: 'tag-ai',
+      name: 'AI'
+    }
+  ],
+  rules: [
+    {
+      id: 'rule-1',
+      name: 'Match AI content',
+      conditions: [
+        {
+          type: 'content',
+          operator: 'contains',
+          value: 'AI'
+        }
+      ],
+      actions: [
+        {
+          type: 'assignTag',
+          target: 'tags',
+          value: 'tag-ai'
+        }
+      ]
+    }
+  ]
+};
+
 describe('validation', () => {
   describe('parseClassifierTaxonomy', () => {
     it('returns empty object for empty string', () => {
@@ -15,15 +51,14 @@ describe('validation', () => {
     });
 
     it('parses valid JSON object', () => {
-      const input = '{"category": {"items": ["tag1", "tag2"]}}';
+      const input = JSON.stringify(VALID_TAXONOMY);
       const result = parseClassifierTaxonomy(input);
-      expect(result).toEqual({ category: { items: ['tag1', 'tag2'] } });
+      expect(result).toEqual(VALID_TAXONOMY);
     });
 
-    it('parses empty JSON object', () => {
+    it('throws OptionsValidationError for empty JSON object', () => {
       const input = '{}';
-      const result = parseClassifierTaxonomy(input);
-      expect(result).toEqual({});
+      expect(() => parseClassifierTaxonomy(input)).toThrow(OptionsValidationError);
     });
 
     it('throws OptionsValidationError with detail for invalid JSON syntax', () => {
@@ -42,11 +77,8 @@ describe('validation', () => {
     });
 
     it('throws OptionsValidationError with issues for invalid taxonomy structure', () => {
-      // Note: Current implementation accepts any record or empty object
-      // This test is for future enhancement when taxonomy validation is stricter
       const input = '{"valid": "taxonomy"}';
-      const result = parseClassifierTaxonomy(input);
-      expect(result).toBeDefined();
+      expect(() => parseClassifierTaxonomy(input)).toThrow(OptionsValidationError);
     });
   });
 

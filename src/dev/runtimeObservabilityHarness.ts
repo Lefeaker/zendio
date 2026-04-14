@@ -18,13 +18,21 @@ type CapturedRequest = {
   bodyText: string;
 };
 
-const controls = document.getElementById('controls');
-const status = document.getElementById('status');
-const requestsHost = document.getElementById('requests');
+const controlsElement = document.getElementById('controls');
+const statusElement = document.getElementById('status');
+const requestsHostElement = document.getElementById('requests');
 
-if (!controls || !status || !requestsHost) {
+if (
+  !(controlsElement instanceof HTMLElement) ||
+  !(statusElement instanceof HTMLElement) ||
+  !(requestsHostElement instanceof HTMLElement)
+) {
   throw new Error('Harness host elements are missing');
 }
+
+const controls: HTMLElement = controlsElement;
+const status: HTMLElement = statusElement;
+const requestsHost: HTMLElement = requestsHostElement;
 
 const storage = createMemoryStorageService();
 configureAnalyticsConfigManager(storage);

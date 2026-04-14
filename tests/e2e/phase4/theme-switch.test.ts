@@ -138,8 +138,7 @@ async function withGlobalLocalStorage<T>(
     return await run();
   } finally {
     if (typeof previous === 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete globals.localStorage;
+      Reflect.deleteProperty(globals, 'localStorage');
     } else {
       globals.localStorage = previous;
     }

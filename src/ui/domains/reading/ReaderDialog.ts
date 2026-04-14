@@ -62,6 +62,8 @@ export class ReaderDialog {
     this.dialog = new ContentDialogHost({
       title: config.title,
       size: 'lg',
+      modal: false,
+      trapFocus: false,
       closeOnBackdrop: false,
       closeOnEscape: true,
       onClose: config.onClose

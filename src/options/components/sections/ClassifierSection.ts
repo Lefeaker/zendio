@@ -3,12 +3,12 @@ import type { IOptionsRepository } from '@shared/repositories';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { parseClassifierTaxonomy } from '../../services/validation';
 import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
-import { getOptionsController } from '../../app/optionsControllerContext';
+import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { createCheckboxElement as createDaisyCheckboxElement } from '../../../ui/primitives/checkbox';
-import { createInputElement as createDaisyInputElement } from '../../../ui/primitives/input';
-import { createSelectElement as createDaisySelectElement } from '../../../ui/primitives/select';
-import { createTextareaElement as createDaisyTextareaElement } from '../../../ui/primitives/textarea';
+import { createCheckboxElement as createDaisyCheckboxElement } from '@ui/primitives/checkbox';
+import { createInputElement as createDaisyInputElement } from '@ui/primitives/input';
+import { createSelectElement as createDaisySelectElement } from '@ui/primitives/select';
+import { createTextareaElement as createDaisyTextareaElement } from '@ui/primitives/textarea';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -276,6 +276,7 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
   };
 
   private handleValueChanged = (): void => {
+    markPendingAutoSave('classifier');
     const controller = getOptionsController();
     controller?.scheduleAutoSave();
   };
@@ -356,7 +357,6 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
         taxonomy: taxonomyValue
       }
     };
-    this.persistClassifier(partial);
     return partial;
   }
 
@@ -364,15 +364,6 @@ export class ClassifierSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
       this.applySnapshot(options);
-    });
-  }
-
-  private persistClassifier(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo.set(partial).catch((error) => {
-      console.error(
-        '[ClassifierSection] Failed to persist classifier options via repository:',
-        error
-      );
     });
   }
 }

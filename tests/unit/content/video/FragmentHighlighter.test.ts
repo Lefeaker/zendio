@@ -28,8 +28,11 @@ describe('FragmentHighlighter', () => {
 
     const highlighter = new FragmentHighlighter(document);
     const wrapperId = highlighter.highlightRange(range, 'capture-1', 'https://example.com/#frag');
+    if (!wrapperId) {
+      throw new Error('Expected wrapper id');
+    }
 
-    const wrapper = document.getElementById(wrapperId ?? '');
+    const wrapper = document.getElementById(wrapperId);
     expect(wrapper).toBeTruthy();
     expect(wrapper?.textContent).toBe('world');
     expect(wrapper?.classList.contains('aiob-video-fragment-highlight')).toBe(true);

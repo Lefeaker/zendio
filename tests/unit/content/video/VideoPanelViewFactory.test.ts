@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
 
   class VideoDialogPanelStub {
     element = document.createElement('div');
+    show = vi.fn();
     updateCount = vi.fn();
     setCaptures = vi.fn();
     updateHint = vi.fn();

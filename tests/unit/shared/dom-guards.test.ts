@@ -55,9 +55,9 @@ describe('DOM Type Guards', () => {
     
     it('should handle null and undefined values', () => {
       expect(isHTMLElement(null)).toBe(false);
-      expect(isHTMLElement(undefined)).toBe(false);
+      expect(isHTMLElement(undefined as unknown as Node | null)).toBe(false);
       expect(isHTMLInputElement(null)).toBe(false);
-      expect(isHTMLTextAreaElement(undefined)).toBe(false);
+      expect(isHTMLTextAreaElement(undefined as unknown as Element | null)).toBe(false);
     });
   });
   

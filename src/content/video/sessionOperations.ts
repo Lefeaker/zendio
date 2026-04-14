@@ -18,7 +18,7 @@ import { clearVideoSession } from '../runtime/contentSessionRegistry';
 import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 
-interface VideoSessionOperationContext {
+export interface VideoSessionOperationContext {
   session: object;
   doc: Document;
   state: VideoSessionState;

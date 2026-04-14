@@ -60,10 +60,15 @@ describe('VideoDialogPanel', () => {
     panel.setCaptures([createCapture()]);
 
     const shadow = panel.element.shadowRoot;
+    const overlay = shadow?.querySelector<HTMLDivElement>('.modal');
+    const modal = shadow?.querySelector<HTMLElement>('[data-element="dialog"]');
     expect(shadow?.querySelector('[data-role="finish-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="close-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="add-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="capture-item"]')).toBeTruthy();
+    expect(overlay?.style.pointerEvents).toBe('none');
+    expect(modal?.style.pointerEvents).toBe('auto');
+    expect(modal?.getAttribute('aria-modal')).toBe('false');
 
     panel.destroy();
   });

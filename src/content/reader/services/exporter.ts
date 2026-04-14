@@ -1,7 +1,7 @@
 import type { ReaderHighlightInput, ReaderMarkdownPayload } from '../utils/markdownBuilder';
 import type { ReaderHighlightRecord, ReaderHighlightManager } from './highlightManager';
 
-export interface ReaderExporterDependencies {
+export interface ReaderMarkdownBuilders {
   buildHighlightsMarkdown: (input: {
     pageTitle: string;
     pageUrl: string;
@@ -15,6 +15,10 @@ export interface ReaderExporterDependencies {
   }) => ReaderMarkdownPayload;
 }
 
+export interface ReaderExporterDependencies extends Partial<ReaderMarkdownBuilders> {
+  loadMarkdownBuilders?: () => Promise<ReaderMarkdownBuilders>;
+}
+
 export type ReaderExportMode = 'highlights' | 'full';
 
 export interface BuildMarkdownOptions {
@@ -26,6 +30,8 @@ export interface BuildMarkdownOptions {
 }
 
 export class ReaderSessionExporter {
+  private markdownBuildersPromise: Promise<ReaderMarkdownBuilders> | null = null;
+
   constructor(private readonly deps: ReaderExporterDependencies) {}
 
   prepareHighlights(
@@ -65,12 +71,14 @@ export class ReaderSessionExporter {
     this.applyFootnotesToClone(clone, highlights);
   }
 
-  buildMarkdown(options: BuildMarkdownOptions): ReaderMarkdownPayload {
+  async buildMarkdown(options: BuildMarkdownOptions): Promise<ReaderMarkdownPayload> {
+    const builders = await this.getMarkdownBuilders();
+
     if (options.mode === 'full') {
       if (!options.documentClone) {
         throw new Error('[ReaderSessionExporter] documentClone is required for full export mode.');
       }
-      return this.deps.buildFullMarkdown({
+      return builders.buildFullMarkdown({
         pageTitle: options.pageTitle,
         pageUrl: options.pageUrl,
         highlights: options.highlights,
@@ -78,11 +86,33 @@ export class ReaderSessionExporter {
       });
     }
 
-    return this.deps.buildHighlightsMarkdown({
+    return builders.buildHighlightsMarkdown({
       pageTitle: options.pageTitle,
       pageUrl: options.pageUrl,
       highlights: options.highlights
     });
+  }
+
+  private getMarkdownBuilders(): Promise<ReaderMarkdownBuilders> {
+    if (this.markdownBuildersPromise !== null) {
+      return this.markdownBuildersPromise;
+    }
+
+    if (this.deps.loadMarkdownBuilders) {
+      this.markdownBuildersPromise = this.deps.loadMarkdownBuilders();
+      return this.markdownBuildersPromise;
+    }
+
+    const { buildHighlightsMarkdown, buildFullMarkdown } = this.deps;
+    if (!buildHighlightsMarkdown || !buildFullMarkdown) {
+      throw new Error('[ReaderSessionExporter] Markdown builders are not configured.');
+    }
+
+    this.markdownBuildersPromise = Promise.resolve({
+      buildHighlightsMarkdown,
+      buildFullMarkdown
+    });
+    return this.markdownBuildersPromise;
   }
 
   private normalizeCloneHighlightSegments(clone: Document, highlights: ReaderHighlightInput[]): void {

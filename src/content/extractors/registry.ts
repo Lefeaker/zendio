@@ -39,8 +39,9 @@ class ExtractorRegistry {
   }
 
   private async resolve(source: ExtractorSource): Promise<ContentExtractor> {
-    if (this.cache.has(source)) {
-      return this.cache.get(source);
+    const cached = this.cache.get(source);
+    if (cached) {
+      return cached;
     }
 
     let extractor: ContentExtractor;

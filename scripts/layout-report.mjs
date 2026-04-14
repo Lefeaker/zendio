@@ -37,7 +37,8 @@ async function loadDependencies() {
     LayoutInspector: layoutInspectorModule.LayoutInspector,
     createPageI18nController: pageControllerModule.createPageI18nController,
     createDomBindingAdapter: domBindingModule.createDomBindingAdapter,
-    messages: localesModule.messages,
+    getLocaleCodes: localesModule.getLocaleCodes,
+    loadMessagesWithFallback: localesModule.loadMessagesWithFallback,
     DEFAULT_LANGUAGE: localesModule.DEFAULT_LANGUAGE,
     resolveLanguage: configModule.resolveLanguage
   };
@@ -111,7 +112,7 @@ async function inspectPage(htmlPath, languages, deps) {
     const controller = deps.createPageI18nController({
       bindingAdapter,
       defaultLanguage: deps.DEFAULT_LANGUAGE,
-      loadMessages: async (lang) => deps.messages[deps.resolveLanguage(lang)],
+      loadMessages: async (lang) => deps.loadMessagesWithFallback(deps.resolveLanguage(lang)),
       async getCurrentLanguage() {
         return resolved;
       },
@@ -149,7 +150,7 @@ async function main() {
   await ensureBuildExists();
   const deps = await loadDependencies();
 
-  const allLanguages = Object.keys(deps.messages).filter((code) => code !== 'qps-ploc');
+  const allLanguages = deps.getLocaleCodes().filter((code) => code !== 'qps-ploc');
 
   const pages = [{
     name: 'options/index.html',

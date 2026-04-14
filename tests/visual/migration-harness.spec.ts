@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { attachBrowserDiagnostics, persistBrowserDiagnostics } from './utils/browserDiagnostics';
 
-const BASE = 'http://127.0.0.1:4173';
+const BASE = `http://127.0.0.1:${process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181'}`;
 
 test.describe('migration harness smoke', () => {
   let diagnostics: ReturnType<typeof attachBrowserDiagnostics> | null = null;

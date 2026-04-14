@@ -12,7 +12,6 @@ import { ReaderPanelCoordinator } from './panelCoordinator';
 import { ReaderEnvironmentController } from './environmentController';
 import { ReaderSessionLifecycle } from './sessionLifecycle';
 import { ReaderSessionExporter } from './services/exporter';
-import { buildReaderFullMarkdown, buildReaderHighlightsMarkdown } from './utils/markdownBuilder';
 
 export interface ReaderSessionPlatformDependencies {
   // Content composition root now passes the primary repository contract.
@@ -50,8 +49,14 @@ export function createReaderSessionDependencies(
     exporter:
       overrides.exporter ??
       new ReaderSessionExporter({
-        buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
-        buildFullMarkdown: buildReaderFullMarkdown
+        loadMarkdownBuilders: () =>
+          import('./utils/markdownBuilder').then(({
+            buildReaderFullMarkdown,
+            buildReaderHighlightsMarkdown
+          }) => ({
+            buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
+            buildFullMarkdown: buildReaderFullMarkdown
+          }))
       }),
     dispatchClipResult:
       overrides.dispatchClipResult ??

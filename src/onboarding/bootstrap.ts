@@ -100,8 +100,8 @@ function createPreviewDependencies(): OnboardingControllerDependencies {
       async query() {
         return [];
       },
-      async sendMessage() {
-        return undefined;
+      async sendMessage<TResult = unknown>() {
+        return undefined as TResult;
       },
       onActivated() {
         return () => {};

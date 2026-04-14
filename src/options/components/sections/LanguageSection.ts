@@ -2,10 +2,11 @@ import { getAvailableLanguages, type Language } from '@i18n';
 import type { IOptionsRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
-import { UiSelect as DaisySelect } from '../../../ui/primitives/select';
+import { UiSelect as DaisySelect } from '@ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 import { changeLanguage } from '../../app/optionsActions';
+import { runLanguagePreferenceAction } from '../../app/actions';
 
 interface LanguagePreferenceSnapshot {
   languagePreference?: {
@@ -133,18 +134,23 @@ export class LanguageSection extends BaseSection<SectionRenderContext> {
     }
 
     try {
-      await changeLanguage(language);
-      this.currentLanguage = language;
-      this.syncFromState(language);
       if (options.persist) {
         this.pendingPersistLanguage = language;
-        await this.optionsRepo.set({
-          languagePreference: {
-            code: language
-          }
-        });
       }
+      await runLanguagePreferenceAction(
+        language,
+        {
+          changeLanguage,
+          optionsRepository: this.optionsRepo
+        },
+        { persist: options.persist }
+      );
+      this.currentLanguage = language;
+      this.syncFromState(language);
     } catch (error) {
+      if (options.persist) {
+        this.pendingPersistLanguage = null;
+      }
       console.error('[LanguageSection] Failed to change language:', error);
     } finally {
       if (this.select) {

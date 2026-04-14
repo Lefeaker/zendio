@@ -10,7 +10,13 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-const DEFAULT_VIDEO_OPTIONS: VideoOptions = clone(DEFAULT_OPTIONS.video);
+const DEFAULT_VIDEO_OPTIONS: VideoOptions = clone(
+  DEFAULT_OPTIONS.video ?? {
+    floatingPromptEnabled: true,
+    promptButtonLabel: '开启视频笔记',
+    promptShortcut: 'Alt+V'
+  }
+);
 
 export class MockVideoRepository implements IVideoRepository {
   private videoConfig: VideoOptions = clone(DEFAULT_VIDEO_OPTIONS);

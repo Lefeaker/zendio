@@ -1,7 +1,7 @@
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { createCheckboxElement as createDaisyCheckboxElement } from '../../../ui/primitives/checkbox';
+import { createCheckboxElement as createDaisyCheckboxElement } from '@ui/primitives/checkbox';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 

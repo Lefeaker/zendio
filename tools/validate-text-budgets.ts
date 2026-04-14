@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Messages } from '../src/i18n/messages';
-import { messages as localeMessages } from '../src/i18n/locales';
+import { getLocaleCodes, loadLocaleMessages } from '../src/i18n/locales';
 import { TEXT_BUDGETS, getTextBudget, type TextBudget } from '../src/shared/i18n/budgets';
 
 interface BudgetViolation {
@@ -26,25 +26,25 @@ function resolveLimit(budget: TextBudget, target: 'mobile' | 'desktop'): number 
   return budget[target];
 }
 
-function resolveMessages(language: string): Messages {
-  const normalized = (localeMessages as Record<string, Messages>)[language];
-  if (!normalized) {
+async function resolveMessages(language: string): Promise<Messages> {
+  const supported = getLocaleCodes();
+  if (!supported.includes(language as (typeof supported)[number])) {
     throw new Error(`Unsupported language "${language}" in TEXT_BUDGETS validation.`);
   }
-  return normalized;
+  return loadLocaleMessages(language as (typeof supported)[number]);
 }
 
 function getShortVariantKey(key: string, budget?: TextBudget): string {
   return budget?.shortKey ?? `${key}_short`;
 }
 
-function validateBudgetForLanguage(language: string, budgetKey: string): BudgetViolation[] {
+async function validateBudgetForLanguage(language: string, budgetKey: string): Promise<BudgetViolation[]> {
   const result: BudgetViolation[] = [];
   const budget = getTextBudget(budgetKey, language);
   if (!budget) {
     return result;
   }
-  const messages = resolveMessages(language);
+  const messages = await resolveMessages(language);
   const value = messages[budgetKey as keyof Messages];
 
   if (typeof value !== 'string') {
@@ -98,13 +98,13 @@ function validateBudgetForLanguage(language: string, budgetKey: string): BudgetV
 }
 
 async function main(): Promise<void> {
-  const languages = Object.keys(localeMessages).filter((code) => code !== 'qps-ploc');
+  const languages = getLocaleCodes().filter((code) => code !== 'qps-ploc');
   const violations: BudgetViolation[] = [];
 
   for (const budgetKey of Object.keys(TEXT_BUDGETS)) {
     for (const language of languages) {
       try {
-        violations.push(...validateBudgetForLanguage(language, budgetKey));
+        violations.push(...(await validateBudgetForLanguage(language, budgetKey)));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`Failed to validate budget "${budgetKey}" for "${language}": ${message}`);

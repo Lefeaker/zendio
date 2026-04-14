@@ -143,7 +143,7 @@ describe('options navigation + lazy load e2e', () => {
       throw new Error('optionsShellRoot container missing');
     }
 
-    const messages = getMessagesForLanguage('en');
+    const messages = await getMessagesForLanguage('en');
     stateManager = createOptionsStateManager();
     app = new OptionsApp(container);
     app.setMessages(messages);

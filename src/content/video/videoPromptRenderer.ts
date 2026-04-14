@@ -27,12 +27,12 @@ export function createPromptElement(options: PromptElementOptions): PromptElemen
   const container = document.createElement('div');
   container.id = options.id;
   container.className =
-    'fixed bottom-6 right-6 z-[2147483645] flex items-center justify-center w-[38px] h-[38px] pointer-events-auto font-sans text-[#f5f6ff] overflow-visible transition-all duration-[0.24s] ease-[cubic-bezier(0.22,0.61,0.36,1)] group';
+    'fixed bottom-6 right-6 z-[2147483645] pointer-events-none font-sans text-[#f5f6ff] overflow-visible transition-all duration-[0.24s] ease-[cubic-bezier(0.22,0.61,0.36,1)] group';
 
   const bubble = document.createElement('button');
   bubble.type = 'button';
   bubble.className =
-    'aiob-video-prompt__bubble relative w-[30px] h-[30px] rounded-full border-none p-0 bg-[#1e2140]/90 bg-center bg-no-repeat bg-[length:70%] cursor-grab touch-none shadow-[0_0_0_2px_rgba(124,92,255,0.45),0_0_16px_rgba(87,205,255,0.45)] transition-transform duration-250 ease-out isolate hover:-translate-y-[1px] hover:scale-105 hover:shadow-[0_0_0_3px_rgba(124,92,255,0.6),0_0_22px_rgba(87,205,255,0.6)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c5cff]/90 focus-visible:outline-offset-3 focus-visible:-translate-y-[1px] focus-visible:scale-105 focus-visible:shadow-[0_0_0_3px_rgba(124,92,255,0.6),0_0_22px_rgba(87,205,255,0.6)] before:content-[""] before:absolute before:inset-[-8px] before:rounded-[inherit] before:bg-[radial-gradient(circle_at_50%_50%,rgba(124,92,255,0.45)_0%,rgba(87,205,255,0.15)_55%,rgba(47,51,92,0)_80%)] before:opacity-75 before:transition-opacity before:duration-250 before:ease-out before:-z-10 hover:before:opacity-100 focus-visible:before:opacity-100';
+    'aiob-video-prompt__bubble relative inline-flex min-h-[38px] max-w-[240px] items-center gap-2 rounded-full border-none px-[8px] py-[4px] pointer-events-auto bg-[#181c34]/96 cursor-grab touch-none shadow-[0_0_0_2px_rgba(124,92,255,0.45),0_0_18px_rgba(87,205,255,0.35)] transition-transform duration-250 ease-out isolate hover:-translate-y-[1px] hover:scale-[1.02] hover:shadow-[0_0_0_3px_rgba(124,92,255,0.55),0_0_24px_rgba(87,205,255,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c5cff]/90 focus-visible:outline-offset-3 focus-visible:-translate-y-[1px] focus-visible:scale-[1.02] focus-visible:shadow-[0_0_0_3px_rgba(124,92,255,0.55),0_0_24px_rgba(87,205,255,0.45)] before:content-[""] before:absolute before:inset-[-8px] before:rounded-[inherit] before:bg-[radial-gradient(circle_at_50%_50%,rgba(124,92,255,0.32)_0%,rgba(87,205,255,0.12)_55%,rgba(47,51,92,0)_80%)] before:opacity-75 before:transition-opacity before:duration-250 before:ease-out before:-z-10 hover:before:opacity-100 focus-visible:before:opacity-100';
   bubble.dataset.ignoreClick = 'false';
   bubble.setAttribute('aria-label', options.label);
   bubble.addEventListener('click', () => {
@@ -47,22 +47,28 @@ export function createPromptElement(options: PromptElementOptions): PromptElemen
     options.onDismiss();
   });
 
+  const icon = document.createElement('span');
+  icon.className =
+    'aiob-video-prompt__icon shrink-0 w-[30px] h-[30px] rounded-full bg-[#1e2140]/90 bg-center bg-no-repeat bg-[length:70%]';
+
+  const hint = document.createElement('span');
+  hint.className =
+    'aiob-video-prompt__hint min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-semibold leading-4 tracking-[0.01em] text-[#f5f6ff]';
+  hint.dataset.baseTitle = options.label;
+  hint.textContent = options.shortcut
+    ? `${options.label} · ${options.shortcut}`
+    : options.label;
+
   try {
     const iconUrl = options.getIconUrl?.();
     if (iconUrl) {
-      bubble.style.setProperty('--aiob-video-prompt-icon', `url("${iconUrl}")`);
+      icon.style.setProperty('--aiob-video-prompt-icon', `url("${iconUrl}")`);
+      icon.style.backgroundImage = `url("${iconUrl}")`;
     }
   } catch {
     // ignore runtime icon failures
   }
-
-  const hint = document.createElement('span');
-  hint.className =
-    'aiob-video-prompt__hint absolute top-1/2 right-full left-auto -translate-y-1/2 -translate-x-3 px-[14px] py-[6px] text-xs font-medium rounded-full bg-[#181c34]/95 border border-[#748de7]/45 shadow-[0_12px_32px_rgba(17,22,45,0.35)] opacity-0 transition-all duration-250 ease-out pointer-events-none whitespace-nowrap group-hover:opacity-100 group-hover:translate-x-0 group-focus-visible:opacity-100 group-focus-visible:translate-x-0';
-  hint.dataset.baseTitle = options.messages.videoPromptTitle;
-  hint.textContent = options.shortcut
-    ? `${options.messages.videoPromptTitle} · ${options.shortcut}`
-    : options.messages.videoPromptTitle;
+  bubble.append(icon, hint);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -72,7 +78,7 @@ export function createPromptElement(options: PromptElementOptions): PromptElemen
   closeBtn.setAttribute('aria-label', options.messages.videoPromptDismiss);
   closeBtn.addEventListener('click', () => options.onDismiss());
 
-  container.append(bubble, hint, closeBtn);
+  container.append(bubble, closeBtn);
 
   return {
     container,
@@ -275,7 +281,8 @@ export function updatePromptLabels(root: HTMLElement, label: string, shortcut: s
   }
   const hint = root.querySelector<HTMLSpanElement>('.aiob-video-prompt__hint');
   if (hint) {
-    const baseTitle = hint.dataset.baseTitle || hint.textContent || label;
+    hint.dataset.baseTitle = label;
+    const baseTitle = label || hint.dataset.baseTitle || hint.textContent || '';
     hint.textContent = shortcut ? `${baseTitle} · ${shortcut}` : baseTitle;
   }
 }

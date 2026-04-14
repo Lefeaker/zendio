@@ -3,12 +3,12 @@ import type { IOptionsRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import { DEFAULT_OPTIONS } from '@shared/config';
-import { getOptionsController } from '../../app/optionsControllerContext';
+import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { UiButton as DaisyButton } from '../../../ui/primitives/button';
-import { DaisyCard } from '../../../ui/primitives/card';
-import { UiCheckbox as DaisyCheckbox } from '../../../ui/primitives/checkbox';
-import { UiInput as DaisyInput } from '../../../ui/primitives/input';
+import { UiButton as DaisyButton } from '@ui/primitives/button';
+import { DaisyCard } from '@ui/primitives/card';
+import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
+import { UiInput as DaisyInput } from '@ui/primitives/input';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -27,11 +27,13 @@ export class VideoSection extends BaseSection<SectionRenderContext> {
   private unsubscribeRepo: (() => void) | null = null;
 
   private readonly handleToggleChange = (): void => {
+    markPendingAutoSave('video');
     const controller = getOptionsController();
     controller?.scheduleAutoSave();
   };
 
   private readonly handlePromptInputChange = (): void => {
+    markPendingAutoSave('video');
     const controller = getOptionsController();
     controller?.scheduleAutoSave();
   };
@@ -319,7 +321,6 @@ export class VideoSection extends BaseSection<SectionRenderContext> {
         promptShortcut
       }
     };
-    this.persistVideo(partial);
     return partial;
   }
 
@@ -348,12 +349,6 @@ export class VideoSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
       this.applySnapshot(options);
-    });
-  }
-
-  private persistVideo(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo.set(partial).catch((error) => {
-      console.error('[VideoSection] Failed to persist video options via repository:', error);
     });
   }
 }

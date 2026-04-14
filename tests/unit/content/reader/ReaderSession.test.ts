@@ -1,10 +1,15 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import '../../../setup/globalSetup';
 import type { ClipPromptGateway } from '@content/clipper/application/clipPromptGateway';
 import { DEFAULT_FRAGMENT_CONFIG } from '@content/clipper/services/fragmentConfig';
-import type { ReaderPanelCallbacks } from '@content/reader/application/readerPanelModel';
+import type {
+  ReaderPanelCallbacks,
+  ReaderPanelHighlight,
+  ReaderPanelTexts
+} from '@content/reader/application/readerPanelModel';
 import type { ReaderSessionView } from '@content/reader/application/readerSessionView';
 import { ReaderPanelCoordinator } from '@content/reader/panelCoordinator';
 import { ReaderSession } from '@content/reader/session';
@@ -26,13 +31,13 @@ import {
 } from '@content/runtime/contentSessionRegistry';
 
 type TestView = ReaderSessionView & {
-  updateCount: ReturnType<typeof vi.fn>;
-  updateHint: ReturnType<typeof vi.fn>;
-  updateTexts: ReturnType<typeof vi.fn>;
-  setHighlights: ReturnType<typeof vi.fn>;
-  stopEditing: ReturnType<typeof vi.fn>;
-  isEditing: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
+  updateCount: Mock<[count: number], void>;
+  updateHint: Mock<[message: string], void>;
+  updateTexts: Mock<[texts: ReaderPanelTexts], void>;
+  setHighlights: Mock<[highlights: ReaderPanelHighlight[]], void>;
+  stopEditing: Mock<[], void>;
+  isEditing: Mock<[], boolean>;
+  destroy: Mock<[], void>;
 };
 
 function createView(): TestView {

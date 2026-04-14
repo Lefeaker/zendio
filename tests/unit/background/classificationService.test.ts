@@ -67,7 +67,9 @@ describe('classificationService', () => {
       message: 'network',
       severity: ErrorSeverity.ERROR
     });
-    expect(result.errorDetail?.context).toMatchObject({ provider: options.classifier.provider });
+    expect(result.errorDetail?.context).toMatchObject({
+      provider: options.classifier?.provider
+    });
   });
 
   it('falls back when classifier returns error payload', async () => {
@@ -85,7 +87,7 @@ describe('classificationService', () => {
         recoverable: true,
         userMessage: '分类服务暂时不可用，我们会继续使用默认分类。',
         context: {
-          provider: options.classifier.provider,
+          provider: options.classifier?.provider,
           status: 401
         }
       }

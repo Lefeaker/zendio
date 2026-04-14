@@ -7,7 +7,7 @@ import {
   resolveLanguage
 } from '../../../src/i18n/config';
 import { getAvailableLanguages } from '../../../src/i18n';
-import { localeModules } from '../../../src/i18n/locales';
+import { getLocaleCodes, loadLocaleDefinition } from '../../../src/i18n/locales';
 
 describe('i18n config', () => {
   it('resolves pseudo locale aliases', () => {
@@ -42,15 +42,16 @@ describe('i18n config', () => {
 
   it('keeps locale module registry in sync with configured language codes', () => {
     const configured = getConfiguredLanguageCodes();
-    const modules = Object.keys(localeModules);
+    const modules = getLocaleCodes();
 
     expect(new Set(modules)).toEqual(new Set(configured));
   });
 
-  it('ensures locale static messages provide required Chrome keys', () => {
+  it('ensures locale static messages provide required Chrome keys', async () => {
     const requiredKeys = new Set(CHROME_STATIC_KEYS);
 
-    for (const [, definition] of Object.entries(localeModules)) {
+    for (const code of getLocaleCodes()) {
+      const definition = await loadLocaleDefinition(code);
       expect(definition.static).toBeDefined();
       for (const key of requiredKeys) {
         expect(definition.static?.[key]).toBeTruthy();

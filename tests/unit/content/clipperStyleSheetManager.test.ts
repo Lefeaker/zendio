@@ -50,7 +50,10 @@ describe('clipperStyleSheetManager', () => {
 
     expect(loadClipperStyleMock).toHaveBeenCalledTimes(1);
 
-    resolveLoad?.('.clipper-root { color: blue; }');
+    if (!resolveLoad) {
+      throw new Error('style loader resolver missing');
+    }
+    (resolveLoad as (value: string) => void)('.clipper-root { color: blue; }');
     await Promise.all([first, second]);
 
     const host = document.createElement('div');

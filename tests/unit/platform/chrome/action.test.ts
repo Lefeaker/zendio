@@ -32,11 +32,19 @@ describe('chromeActionService', () => {
     const { chromeActionService } = await import('../../../../src/platform/chrome/action');
     const listener = vi.fn(() => Promise.resolve(undefined));
     const off = chromeActionService.onClicked(listener);
-    clickListener?.({ id: 9 } as chrome.tabs.Tab);
+    if (!clickListener) {
+      throw new Error('click listener missing');
+    }
+    clickListener({ id: 9 } as chrome.tabs.Tab);
     expect(listener).toHaveBeenCalled();
     off();
-    await chromeActionService.setBadgeText({ text: '1' });
-    await chromeActionService.setBadgeBackgroundColor({ color: '#fff' });
+    const setBadgeText = chromeActionService.setBadgeText;
+    const setBadgeBackgroundColor = chromeActionService.setBadgeBackgroundColor;
+    if (!setBadgeText || !setBadgeBackgroundColor) {
+      throw new Error('badge apis missing');
+    }
+    await setBadgeText({ text: '1' });
+    await setBadgeBackgroundColor({ color: '#fff' });
     expect(chromeApi.action.setBadgeText).toHaveBeenCalled();
   });
 });

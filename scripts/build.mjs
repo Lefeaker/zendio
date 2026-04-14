@@ -112,7 +112,9 @@ const sharedBuildOptions = {
 
 const backgroundBuildOptions = {
   ...sharedBuildOptions,
-  entryPoints: ['src/background/index.ts'],
+  entryPoints: {
+    'background/index': 'src/background/index.ts'
+  },
   format: 'iife'
 };
 

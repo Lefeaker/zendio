@@ -68,6 +68,8 @@ export class VideoDialog {
       size: 'lg',
       closeOnBackdrop: false,
       closeOnEscape: true,
+      modal: false,
+      trapFocus: false,
       onClose: config.onClose
     });
   }
@@ -153,6 +155,10 @@ export class VideoDialog {
 
   show(): void {
     this.dialog.show();
+  }
+
+  hide(): void {
+    this.dialog.hide();
   }
 
   destroy(): void {

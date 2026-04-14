@@ -28,17 +28,25 @@ describe('chromeRuntimeService', () => {
 
   it('wraps runtime metadata, options opening, and listeners', async () => {
     const { chromeRuntimeService } = await import('../../../../src/platform/chrome/runtime');
-    expect(chromeRuntimeService.getURL('options/index.html')).toContain('options/index.html');
-    expect(chromeRuntimeService.getManifest()).toEqual({ version: '1.0.0' });
+    const getURL = chromeRuntimeService.getURL;
+    const getManifest = chromeRuntimeService.getManifest;
+    if (!getURL || !getManifest) {
+      throw new Error('runtime metadata api missing');
+    }
+    expect(getURL('options/index.html')).toContain('options/index.html');
+    expect(getManifest()).toEqual({ version: '1.0.0' });
     await chromeRuntimeService.openOptionsPage();
     const installed = vi.fn();
     chromeRuntimeService.onInstalled(installed);
-    installListener?.({ reason: 'update', previousVersion: '0.9.0' });
+    if (!installListener) {
+      throw new Error('install listener missing');
+    }
+    installListener({ reason: 'update', previousVersion: '0.9.0' });
     expect(installed).toHaveBeenCalledWith({ reason: 'update', previousVersion: '0.9.0' });
   });
 
   it('falls back to tabs.create when openOptionsPage is unavailable', async () => {
-    chromeApi.runtime.openOptionsPage = undefined;
+    chromeApi.runtime.openOptionsPage = undefined as unknown as typeof chromeApi.runtime.openOptionsPage;
     const { chromeRuntimeService } = await import('../../../../src/platform/chrome/runtime');
     await chromeRuntimeService.openOptionsPage();
     expect(chromeApi.tabs.create).toHaveBeenCalled();

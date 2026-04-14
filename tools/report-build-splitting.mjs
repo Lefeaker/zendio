@@ -12,12 +12,19 @@ const ENTRY_FILES = [
 ];
 const ENTRY_BUDGETS = new Map([
   [join(DIST_DIR, 'content', 'index.js'), 2 * 1024],
-  [join(DIST_DIR, 'content', 'runtime.js'), 220 * 1024],
-  [join(DIST_DIR, 'options', 'index.js'), 130 * 1024],
+  [join(DIST_DIR, 'content', 'runtime.js'), 56 * 1024],
+  [join(DIST_DIR, 'options', 'index.js'), 107 * 1024],
   [join(DIST_DIR, 'onboarding', 'index.js'), 20 * 1024]
 ]);
-const MAX_CHUNK_COUNT = 130;
+const MAX_CHUNK_COUNT = 132;
 const MAX_SINGLE_CHUNK_SIZE = 650 * 1024;
+const SHARED_CHUNK_BUDGETS = [175 * 1024, 145 * 1024, 101 * 1024];
+const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
+const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
+const REST_SECTION_CHUNK_PATTERN = /^RestSection-/;
+const YAML_CONFIG_CHUNK_PATTERN = /^yaml-config-/;
+const REST_SECTION_CHUNK_BUDGET = 40 * 1024;
+const YAML_CONFIG_CHUNK_BUDGET = 70 * 1024;
 
 function formatSize(bytes) {
   if (bytes < 1024) {
@@ -52,6 +59,16 @@ if (chunkFiles.length === 0) {
   process.exit(1);
 }
 
+const chunkStats = chunkFiles.map((chunkFile) => {
+  const size = statSync(join(CHUNKS_DIR, chunkFile)).size;
+  return {
+    file: chunkFile,
+    size,
+    isLocale: LOCALE_CHUNK_PATTERN.test(chunkFile),
+    isShared: chunkFile.startsWith('chunk-')
+  };
+});
+
 console.log('Build splitting report');
 const findings = [];
 for (const entry of ENTRY_FILES) {
@@ -70,16 +87,55 @@ console.log(`- chunks: ${chunkFiles.length}`);
 if (chunkFiles.length > MAX_CHUNK_COUNT) {
   findings.push(`chunk count exceeds budget: ${chunkFiles.length} > ${MAX_CHUNK_COUNT}`);
 }
-for (const chunkFile of chunkFiles) {
-  const stats = statSync(join(CHUNKS_DIR, chunkFile));
-  console.log(`  - chunks/${chunkFile}: ${formatSize(stats.size)}`);
-  if (stats.size > MAX_SINGLE_CHUNK_SIZE) {
+for (const chunk of chunkStats) {
+  console.log(`  - chunks/${chunk.file}: ${formatSize(chunk.size)}`);
+  if (chunk.size > MAX_SINGLE_CHUNK_SIZE) {
     findings.push(
-      `chunks/${chunkFile} exceeds max chunk budget: ${formatSize(stats.size)} > ${formatSize(
+      `chunks/${chunk.file} exceeds max chunk budget: ${formatSize(chunk.size)} > ${formatSize(
         MAX_SINGLE_CHUNK_SIZE
       )}`
     );
   }
+  if (chunk.isLocale && chunk.size > MAX_LOCALE_CHUNK_SIZE) {
+    findings.push(
+      `chunks/${chunk.file} exceeds locale chunk budget: ${formatSize(chunk.size)} > ${formatSize(
+        MAX_LOCALE_CHUNK_SIZE
+      )}`
+    );
+  }
+  if (REST_SECTION_CHUNK_PATTERN.test(chunk.file) && chunk.size > REST_SECTION_CHUNK_BUDGET) {
+    findings.push(
+      `chunks/${chunk.file} exceeds RestSection budget: ${formatSize(chunk.size)} > ${formatSize(
+        REST_SECTION_CHUNK_BUDGET
+      )}`
+    );
+  }
+  if (YAML_CONFIG_CHUNK_PATTERN.test(chunk.file) && chunk.size > YAML_CONFIG_CHUNK_BUDGET) {
+    findings.push(
+      `chunks/${chunk.file} exceeds yaml-config budget: ${formatSize(chunk.size)} > ${formatSize(
+        YAML_CONFIG_CHUNK_BUDGET
+      )}`
+    );
+  }
+}
+
+const sharedChunks = chunkStats
+  .filter((chunk) => chunk.isShared && !chunk.isLocale)
+  .sort((a, b) => b.size - a.size);
+
+sharedChunks.slice(0, 3).forEach((chunk, index) => {
+  const budget = SHARED_CHUNK_BUDGETS[index];
+  if (budget !== undefined && chunk.size > budget) {
+    findings.push(
+      `chunks/${chunk.file} exceeds shared #${index + 1} budget: ${formatSize(chunk.size)} > ${formatSize(
+        budget
+      )}`
+    );
+  }
+});
+
+if (sharedChunks.length < 3) {
+  findings.push('expected at least three shared chunks to validate shared chunk budgets.');
 }
 
 if (findings.length > 0) {

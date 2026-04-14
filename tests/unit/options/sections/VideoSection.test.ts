@@ -64,7 +64,7 @@ describe('VideoSection', () => {
   });
 
   it('applies snapshot and collects video configuration', async () => {
-    const { section, repo } = renderSection();
+    const { section } = renderSection();
     const snapshot = {
       video: {
         floatingPromptEnabled: true,
@@ -97,8 +97,6 @@ describe('VideoSection', () => {
       promptButtonLabel: '快速开启视频模式',
       promptShortcut: 'SHIFT+V'
     });
-
-    expect(repo.getMockData().video).toEqual(collected.video);
     section.destroy();
   });
 

@@ -70,7 +70,9 @@ void storage.sync.set('options', {
   }
 });
 
-const optionsRepository = repositoryContainer.resolve(DI_TOKENS.IOptionsRepository);
+const optionsRepository = repositoryContainer.resolve<MockOptionsRepository>(
+  DI_TOKENS.IOptionsRepository
+);
 optionsRepository.setMockData(
   mergeOptions({
     aiChat: { includeTimestamps: true, userName: 'E2E User' },

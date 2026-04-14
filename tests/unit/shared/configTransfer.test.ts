@@ -41,8 +41,7 @@ describe('configTransfer service', () => {
   });
 
   afterEach(() => {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-    delete globalThis.navigator;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { navigator?: Navigator }, 'navigator');
     clipboardMocks = null;
   });
 

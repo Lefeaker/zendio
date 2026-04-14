@@ -55,11 +55,32 @@ describe('videoPromptRenderer', () => {
     bubble.click();
     bubble.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     updatePromptLabels(container, 'Capture now', 'Alt+V');
+    const icon = container.querySelector<HTMLElement>('.aiob-video-prompt__icon');
 
     expect(onPrimaryAction).toHaveBeenCalled();
     expect(onDismiss).toHaveBeenCalled();
-    expect(bubble.style.getPropertyValue('--aiob-video-prompt-icon')).toContain('/icon.svg');
-    expect(container.querySelector('.aiob-video-prompt__hint')?.textContent).toContain('Alt+V');
+    expect(icon?.style.getPropertyValue('--aiob-video-prompt-icon')).toContain('/icon.svg');
+    expect(icon?.style.backgroundImage).toContain('/icon.svg');
+    expect(container.querySelector('.aiob-video-prompt__hint')?.textContent).toBe('Capture now · Alt+V');
+  });
+
+  it('renders the configured label as readable prompt text by default', () => {
+    const { container } = createPromptElement({
+      id: 'video-prompt',
+      label: 'Quick clip',
+      shortcut: 'Alt+Q',
+      messages: promptMessages,
+      onPrimaryAction: vi.fn(),
+      onDismiss: vi.fn()
+    });
+
+    const bubble = container.querySelector<HTMLButtonElement>('.aiob-video-prompt__bubble');
+    const hint = container.querySelector<HTMLSpanElement>('.aiob-video-prompt__hint');
+
+    expect(bubble?.textContent).toContain('Quick clip');
+    expect(hint).not.toBeNull();
+    expect(hint?.dataset.baseTitle).toBe('Quick clip');
+    expect(hint?.textContent).toBe('Quick clip · Alt+Q');
   });
 
   it('ignores runtime icon failures and ignores clicks immediately after drag commit', () => {

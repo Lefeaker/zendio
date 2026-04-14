@@ -9,7 +9,7 @@ import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundar
 import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
 import { initializeErrorAnalytics } from '../shared/errors/analytics';
 import { configureGlobalStateManagerStorage, createGlobalStateManager } from '../shared/state/globalStateManager';
-import { createDialogRegistry, type DialogRegistry } from './clipper/shared/dialogRegistry';
+import { createPopupCoordinator, type PopupCoordinator } from './runtime/popupCoordinator';
 import { addBrowserClassToHtml } from '../shared/utils/browserDetection';
 import type { StorageService } from '../platform/interfaces/storage';
 
@@ -187,8 +187,8 @@ export class ContentScriptContext {
     // 注册内容脚本特定的状态管理器
     this.scopedRegistry.register(TOKENS.globalStateManager, createGlobalStateManager);
 
-    // 注册对话框注册表
-    this.scopedRegistry.register(TOKENS.dialogRegistry, createDialogRegistry);
+    // 注册内容侧统一 popup coordinator
+    this.scopedRegistry.register(TOKENS.dialogRegistry, createPopupCoordinator);
 
     console.log('[ContentScript] Scoped dependencies bootstrapped');
   }
@@ -196,13 +196,15 @@ export class ContentScriptContext {
   private setupCleanupListeners(): void {
     // 页面卸载时自动清理
     window.addEventListener('beforeunload', this.handleBeforeUnload);
+    window.addEventListener('pagehide', this.handlePageHide);
     
-    // 页面隐藏时可能需要清理某些资源
+    // 页面隐藏时关闭所有正式 popup，避免残留遮罩与监听器
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   private removeCleanupListeners(): void {
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    window.removeEventListener('pagehide', this.handlePageHide);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
@@ -210,15 +212,23 @@ export class ContentScriptContext {
     this.dispose();
   };
 
+  private handlePageHide = (): void => {
+    this.closeAllPopups();
+  };
+
   private handleVisibilityChange = (): void => {
     if (!document.hidden) {
       return;
     }
-    // 页面隐藏时关闭对话框等 UI 组件
-    if (this.scopedRegistry.has(TOKENS.dialogRegistry)) {
-      const dialogRegistry = this.scopedRegistry.resolve<DialogRegistry>(TOKENS.dialogRegistry);
-      dialogRegistry?.closeAll();
+    this.closeAllPopups();
+  };
+
+  private closeAllPopups(): void {
+    if (!this.scopedRegistry.has(TOKENS.dialogRegistry)) {
+      return;
     }
+    const popupCoordinator = this.scopedRegistry.resolve<PopupCoordinator>(TOKENS.dialogRegistry);
+    popupCoordinator?.closeAll();
   };
 }
 

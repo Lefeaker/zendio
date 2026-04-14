@@ -27,6 +27,7 @@ export interface MainContentConfig {
 
 type SectionComponent = BaseSection<SectionRenderContext>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SectionCtor<T extends SectionComponent = SectionComponent> = new (...args: any[]) => T;
 
 interface OptionsSectionDependencies {

@@ -6,7 +6,7 @@ import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { YamlConfigView } from '../../../ui/domains/yaml-config';
+import type { YamlConfigView } from '@ui/domains/yaml-config';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -19,6 +19,7 @@ interface YamlSectionDependencies {
 
 export class YamlConfigSection extends BaseSection<SectionRenderContext> {
   private yamlView: YamlConfigView | null = null;
+  private yamlViewModulePromise: Promise<typeof import('@ui/domains/yaml-config')> | null = null;
   private readonly yamlRepository: IYamlRepository;
   private readonly yamlService: YamlConfigService;
   private unsubscribeYamlRepo: (() => void) | null = null;
@@ -37,7 +38,7 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
     this.disposeView();
     this.applySectionChrome();
     this.container.replaceChildren(this.buildHeader(), this.buildBody());
-    this.initializeYamlView();
+    void this.initializeYamlView();
     this.ensureYamlSubscription();
     void this.bootstrapOverrides();
     this.registerFormIntegration();
@@ -54,13 +55,14 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
     super.destroy();
   }
 
-  private initializeYamlView(): void {
+  private async initializeYamlView(): Promise<void> {
     const host = this.container.querySelector<HTMLElement>('#yamlConfigViewHost');
     if (!host) {
       console.warn('[YamlConfigSection] Missing YAML config view host, view not initialized.');
       return;
     }
 
+    const { YamlConfigView } = await this.loadYamlViewModule();
     this.yamlView = new YamlConfigView(host);
     if (this.messages) {
       this.yamlView.setMessages(this.messages);
@@ -72,6 +74,14 @@ export class YamlConfigSection extends BaseSection<SectionRenderContext> {
         getOptionsController()?.scheduleAutoSave();
       }
     });
+    this.renderViewIfNeeded(this.currentOverrides);
+  }
+
+  private loadYamlViewModule(): Promise<typeof import('@ui/domains/yaml-config')> {
+    if (!this.yamlViewModulePromise) {
+      this.yamlViewModulePromise = import('@ui/domains/yaml-config');
+    }
+    return this.yamlViewModulePromise;
   }
 
   private registerFormIntegration(): void {

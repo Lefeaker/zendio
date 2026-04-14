@@ -4,6 +4,9 @@ import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StoredOptions, ReadingSessionOptions } from '@shared/types';
 import type { FragmentModifierKey, ReaderHighlightTheme } from '@shared/types/options';
 
+const defaultReadingSession = DEFAULT_OPTIONS.readingSession!;
+const defaultFragmentClipper = DEFAULT_OPTIONS.fragmentClipper!;
+
 describe('shared optionsMerger', () => {
   it('returns defaults when no stored options provided', () => {
     const result = mergeOptions(undefined);
@@ -11,8 +14,8 @@ describe('shared optionsMerger', () => {
     expect(result.templates.article).toBe(DEFAULT_OPTIONS.templates.article);
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
-    expect(result.readingSession.exportMode).toBe(DEFAULT_OPTIONS.readingSession.exportMode);
-    expect(result.readingSession.highlightTheme).toBe(DEFAULT_OPTIONS.readingSession.highlightTheme);
+    expect(result.readingSession?.exportMode).toBe(defaultReadingSession.exportMode);
+    expect(result.readingSession?.highlightTheme).toBe(defaultReadingSession.highlightTheme);
   });
 
   it('merges partial rest and classifier values', () => {
@@ -40,10 +43,16 @@ describe('shared optionsMerger', () => {
     expect(result.classifier?.model).toBe('gpt-4o');
     expect(result.classifier?.taxonomy).toEqual(DEFAULT_OPTIONS.classifier?.taxonomy);
     expect(result.fragmentClipper?.captureContext).toBe(true);
-    expect(result.fragmentClipper?.contextLength).toBe(DEFAULT_OPTIONS.fragmentClipper?.contextLength);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(DEFAULT_OPTIONS.fragmentClipper?.selectionModifierEnabled);
-    expect(result.fragmentClipper?.selectionModifierKeys).toEqual(DEFAULT_OPTIONS.fragmentClipper?.selectionModifierKeys);
-    expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(DEFAULT_OPTIONS.fragmentClipper?.keyboardShortcutsEnabled);
+    expect(result.fragmentClipper?.contextLength).toBe(defaultFragmentClipper.contextLength);
+    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(
+      defaultFragmentClipper.selectionModifierEnabled
+    );
+    expect(result.fragmentClipper?.selectionModifierKeys).toEqual(
+      defaultFragmentClipper.selectionModifierKeys
+    );
+    expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(
+      defaultFragmentClipper.keyboardShortcutsEnabled
+    );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
   });
 
@@ -69,8 +78,8 @@ describe('shared optionsMerger', () => {
     };
 
     const result = mergeOptions(stored);
-    expect(result.readingSession.exportMode).toBe('full');
-    expect(result.readingSession.highlightTheme).toBe('neonOrange');
+    expect(result.readingSession?.exportMode).toBe('full');
+    expect(result.readingSession?.highlightTheme).toBe('neonOrange');
   });
 
   it('falls back to default highlight theme when invalid', () => {
@@ -81,7 +90,7 @@ describe('shared optionsMerger', () => {
     };
 
     const result = mergeOptions(stored);
-    expect(result.readingSession.highlightTheme).toBe(DEFAULT_OPTIONS.readingSession.highlightTheme);
+    expect(result.readingSession?.highlightTheme).toBe(defaultReadingSession.highlightTheme);
   });
 
   it('merges keyboard shortcuts configuration', () => {
@@ -107,6 +116,8 @@ describe('shared optionsMerger', () => {
     };
 
     const result = mergeOptions(stored);
-    expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(DEFAULT_OPTIONS.fragmentClipper?.keyboardShortcutsEnabled);
+    expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(
+      defaultFragmentClipper.keyboardShortcutsEnabled
+    );
   });
 });

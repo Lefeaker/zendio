@@ -219,8 +219,12 @@ describe('YamlConfigService', () => {
 
   it('merges domain overrides defined in defaults', () => {
     const defaults = DEFAULT_YAML_CONFIG;
-    const originalDomainOverrides = defaults.contentTypes.video.domainOverrides;
-    defaults.contentTypes.video.domainOverrides = {
+    const videoDefaults = defaults.contentTypes.video;
+    if (!videoDefaults) {
+      throw new Error('video defaults missing');
+    }
+    const originalDomainOverrides = videoDefaults.domainOverrides;
+    videoDefaults.domainOverrides = {
       '*.example.com': [{ name: 'from_defaults', type: 'text', enabled: true }]
     };
 
@@ -229,9 +233,9 @@ describe('YamlConfigService', () => {
       expect(findField(result.fields, 'from_defaults')).toBeDefined();
     } finally {
       if (originalDomainOverrides) {
-        defaults.contentTypes.video.domainOverrides = originalDomainOverrides;
+        videoDefaults.domainOverrides = originalDomainOverrides;
       } else {
-        delete defaults.contentTypes.video.domainOverrides;
+        delete videoDefaults.domainOverrides;
       }
     }
   });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { PlatformError } from '../../../src/platform/errors';
 import type { ActionClickListener } from '../../../src/platform/interfaces/actions';
 import type { ContextMenuOnClickListener, ContextMenuOnShownListener, ContextMenusService } from '../../../src/platform/interfaces/contextMenus';
@@ -7,7 +8,7 @@ import type { RuntimeInstallListener, RuntimeStartupListener, RuntimeService } f
 import type { ScriptingService } from '../../../src/platform/interfaces/scripting';
 import type { TabActivatedListener, TabRemovedListener, TabUpdatedListener, TabsService } from '../../../src/platform/interfaces/tabs';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
 type ContextMenusModule = typeof import('../../../src/background/listeners/contextMenus');
 type RegisterContextMenus = () => void;
 
@@ -26,8 +27,8 @@ type ContextMenusTestRig = {
   get: ReturnType<typeof createMockFn<TabsService['get']>>;
   sendMessage: ReturnType<typeof createMockFn<TabsService['sendMessage']>>;
   executeScript: ReturnType<typeof createMockFn<ScriptingService['executeScript']>>;
-  notifyInjectionFailure: ReturnType<typeof vi.fn>;
-  getOptions: ReturnType<typeof vi.fn>;
+  notifyInjectionFailure: Mock<[], Promise<void>>;
+  getOptions: Mock<[], Promise<{ fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] } }>>;
   optionSubscribers: Array<() => void>;
   onActivatedListeners: TabActivatedListener[];
   onUpdatedListeners: TabUpdatedListener[];
@@ -60,13 +61,18 @@ async function loadModule(
     get: createMockFn<TabsService['get']>().mockImplementation(async (tabId: number) => ({ id: tabId, url: 'https://example.com/page' } as chrome.tabs.Tab)),
     sendMessage: createMockFn<TabsService['sendMessage']>().mockResolvedValue(undefined),
     executeScript: createMockFn<ScriptingService['executeScript']>().mockResolvedValue(undefined),
-    notifyInjectionFailure: vi.fn(() => Promise.resolve(undefined)),
-    getOptions: vi.fn(() => Promise.resolve({
-      fragmentClipper: {
-        selectionModifierEnabled: true,
-        selectionModifierKeys: ['alt']
-      }
-    })),
+    notifyInjectionFailure: vi.fn<[], Promise<void>>(() => Promise.resolve()),
+    getOptions: vi.fn<
+      [],
+      Promise<{ fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] } }>
+    >(() =>
+      Promise.resolve({
+        fragmentClipper: {
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['alt']
+        }
+      })
+    ),
     optionSubscribers: [],
     onActivatedListeners: [],
     onUpdatedListeners: [],
@@ -507,7 +513,17 @@ it('treats chrome-unavailable removeAll as ignorable and skips duplicate setup w
   });
   vi.resetModules();
   vi.doMock('../../../src/i18n', () => ({
-    getMessages: vi.fn(() => new Promise((resolve) => { resolveMessages = resolve; }))
+    getMessages: vi.fn(
+      () =>
+        new Promise<{
+          clipSelection: string;
+          clipSelectionVideo: string;
+          clipFullPage: string;
+          contextMenuVideoMode: string;
+        }>((resolve) => {
+          resolveMessages = resolve;
+        })
+    )
   }));
   vi.doMock('../../../src/background/store', () => ({ getOptions: rig.getOptions }));
   vi.doMock('../../../src/background/services/notifications', () => ({ notifyInjectionFailure: rig.notifyInjectionFailure }));
@@ -541,7 +557,15 @@ it('treats chrome-unavailable removeAll as ignorable and skips duplicate setup w
   rig.onInstalledListeners[0]?.({ reason: 'install' });
   await flush();
   expect(consoleLogSpy).toHaveBeenCalledWith('[contextMenus] Setup already in progress, skipping...');
-  resolveMessages?.({
+  if (!resolveMessages) {
+    throw new Error('messages resolver missing');
+  }
+  (resolveMessages as (value: {
+    clipSelection: string;
+    clipSelectionVideo: string;
+    clipFullPage: string;
+    contextMenuVideoMode: string;
+  }) => void)({
     clipSelection: 'Clip selection',
     clipSelectionVideo: 'Clip to video capture panel',
     clipFullPage: 'Clip full page',

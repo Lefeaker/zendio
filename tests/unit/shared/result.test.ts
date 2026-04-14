@@ -191,7 +191,7 @@ describe('Result Types', () => {
           lastError: { message: 'Chrome API error' }
         }
       };
-      chromeGlobal.chrome = mockChrome;
+      chromeGlobal.chrome = mockChrome as typeof chrome;
       
       const failingCall = () => Promise.reject(new Error('API call failed'));
       
@@ -204,7 +204,7 @@ describe('Result Types', () => {
       }
       
       // Clean up
-      delete chromeGlobal.chrome;
+      Reflect.deleteProperty(chromeGlobal, 'chrome');
     });
     
     it('should wrap Chrome callback APIs', async () => {
@@ -227,7 +227,7 @@ describe('Result Types', () => {
           lastError: { message: 'Callback error' }
         }
       };
-      chromeGlobal.chrome = mockChrome;
+      chromeGlobal.chrome = mockChrome as typeof chrome;
       
       const mockApiCall = (callback: (result: string) => void) => {
         setTimeout(() => callback('result'), 0);
@@ -242,7 +242,7 @@ describe('Result Types', () => {
       }
       
       // Clean up
-      delete chromeGlobal.chrome;
+      Reflect.deleteProperty(chromeGlobal, 'chrome');
     });
   });
   

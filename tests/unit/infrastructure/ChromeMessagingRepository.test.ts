@@ -5,7 +5,7 @@ import type { Message, MessageSender } from '@shared/repositories';
 import type { MessagingService, MessageListener } from '../../../src/platform/interfaces/messaging';
 
 type PlatformListener = (message: Message, sender: MessageSender) => Promise<unknown> | void;
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
 
 const removeListener = vi.fn();
 type MessagingServiceMock = MessagingService & {

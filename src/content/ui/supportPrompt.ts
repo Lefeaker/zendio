@@ -6,8 +6,6 @@ import { getService, resolveRepository } from '../../shared/di';
 import { TOKENS, DI_TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
 import type { IMessagingRepository } from '../../shared/repositories';
-import { SupportPromptToastController } from './supportPrompt/SupportPromptToastController';
-import { SupportPromptView } from '../../ui/domains/video';
 import type { UiMountable } from '../../ui/hosts/shared/contract';
 import type {
   LikeToastVariant,
@@ -18,6 +16,11 @@ import type {
   SupportPromptMessages,
   SupportPromptOptions
 } from './supportPrompt/types';
+import type { SupportPromptToastController } from './supportPrompt/SupportPromptToastController';
+import type { SupportPromptView } from '@ui/domains/support-prompt';
+import { SupportPromptView as SupportPromptViewCtor } from '@ui/domains/support-prompt';
+import type { PopupCoordinator } from '../runtime/popupCoordinator';
+import { resolveContentPopupCoordinator } from '../runtime/popupCoordinatorAccess';
 
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
@@ -138,37 +141,15 @@ export class SupportPrompt
 {
   private view: SupportPromptView | null = null;
   private readonly deps: SupportPromptDependencies;
-  private readonly toastController: SupportPromptToastController;
+  private readonly popupCoordinator: PopupCoordinator | null;
+  private messagesPromise: Promise<SupportPromptMessages> | null = null;
+  private toastControllerPromise: Promise<SupportPromptToastController> | null = null;
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
+  private unregisterPopup: (() => void) | null = null;
 
   constructor(private readonly doc: Document) {
     this.deps = resolveSupportPromptDependencies();
-    this.toastController = new SupportPromptToastController({
-      doc,
-      resolveReviewUrl: () => this.resolveReviewUrl(),
-      onReviewLinkClick: async (variant) => {
-        await this.trackUsageEvent('support_review_link_clicked', { variant });
-        await this.updateReviewState({ hasClickedReview: true });
-        window.open(this.resolveReviewUrl(), '_blank', 'noopener');
-      },
-      onReviewAcknowledgedClick: async (variant) => {
-        await this.trackUsageEvent('support_review_acknowledged_clicked', { variant });
-        await this.updateReviewState({ hasClickedReview: true, hasConfirmedReview: true });
-        this.toastController.dismissToast();
-      },
-      onDislikeRedditClick: () => {
-        void this.trackUsageEvent('support_dislike_reddit_clicked');
-      },
-      onDislikeQrClick: () => {
-        void this.trackUsageEvent('support_dislike_qr_clicked');
-      },
-      onLikeToastShown: (variant) => {
-        void this.trackUsageEvent('support_like_toast_shown', { variant });
-      },
-      onDislikeToastShown: () => {
-        void this.trackUsageEvent('support_dislike_toast_shown');
-      }
-    });
+    this.popupCoordinator = resolveContentPopupCoordinator();
   }
 
   async show(options?: SupportPromptOptions): Promise<void> {
@@ -208,7 +189,7 @@ export class SupportPrompt
       }
     ];
 
-    this.view = new SupportPromptView({
+    this.view = new SupportPromptViewCtor({
       messages,
       links,
       status: promptStatus,
@@ -228,7 +209,11 @@ export class SupportPrompt
     const host = this.view.render();
     host.id = 'aiob-support-prompt';
     this.view.show();
+    if (!this.unregisterPopup && this.popupCoordinator) {
+      this.unregisterPopup = this.popupCoordinator.register(this);
+    }
     queueMicrotask(() => host.focus());
+    await this.preloadLowFrequencyPaths();
   }
 
   mount(options?: SupportPromptOptions): Promise<void> {
@@ -240,84 +225,140 @@ export class SupportPrompt
   }
 
   hide(): void {
+    this.unregisterPopup?.();
+    this.unregisterPopup = null;
     this.view?.destroy();
     this.view = null;
   }
 
   destroy(): void {
     this.hide();
-    this.toastController.destroy();
+    if (this.toastControllerPromise) {
+      void this.toastControllerPromise.then((controller) => controller.destroy());
+    }
   }
 
   private async handleLikeClick(): Promise<void> {
-    const messages = await this.resolveMessages();
-    const state = await this.getReviewState();
+    this.hide();
+    const [messages, state, toastController] = await Promise.all([
+      this.resolveMessages(),
+      this.getReviewState(),
+      this.getToastController()
+    ]);
     const variant: LikeToastVariant = state.hasConfirmedReview
       ? 'acknowledged'
       : state.hasClickedReview
         ? 'returning'
         : 'first';
 
-    this.toastController.showLikeToast(messages, variant);
+    toastController.showLikeToast(messages, variant);
     await this.trackUsageEvent('support_like_clicked', { variant });
-    this.hide();
   }
 
   private async handleDislikeClick(): Promise<void> {
-    const messages = await this.resolveMessages();
-    this.toastController.showDislikeToast(messages);
-    await this.trackUsageEvent('support_dislike_clicked');
     this.hide();
+    const [messages, toastController] = await Promise.all([
+      this.resolveMessages(),
+      this.getToastController()
+    ]);
+    toastController.showDislikeToast(messages);
+    await this.trackUsageEvent('support_dislike_clicked');
+  }
+
+  private async preloadLowFrequencyPaths(): Promise<void> {
+    await Promise.all([this.getReviewState(), this.getToastController()]);
+  }
+
+  private async getToastController(): Promise<SupportPromptToastController> {
+    if (!this.toastControllerPromise) {
+      this.toastControllerPromise = import('./supportPrompt/SupportPromptToastController').then(
+        ({ SupportPromptToastController }) =>
+          new SupportPromptToastController({
+            doc: this.doc,
+            resolveReviewUrl: () => this.resolveReviewUrl(),
+            onReviewLinkClick: async (variant) => {
+              await this.trackUsageEvent('support_review_link_clicked', { variant });
+              await this.updateReviewState({ hasClickedReview: true });
+              window.open(this.resolveReviewUrl(), '_blank', 'noopener');
+            },
+            onReviewAcknowledgedClick: async (variant) => {
+              await this.trackUsageEvent('support_review_acknowledged_clicked', { variant });
+              await this.updateReviewState({ hasClickedReview: true, hasConfirmedReview: true });
+              const controller = await this.getToastController();
+              controller.dismissToast();
+            },
+            onDislikeRedditClick: () => {
+              void this.trackUsageEvent('support_dislike_reddit_clicked');
+            },
+            onDislikeQrClick: () => {
+              void this.trackUsageEvent('support_dislike_qr_clicked');
+            },
+            onLikeToastShown: (variant) => {
+              void this.trackUsageEvent('support_like_toast_shown', { variant });
+            },
+            onDislikeToastShown: () => {
+              void this.trackUsageEvent('support_dislike_toast_shown');
+            }
+          })
+      );
+    }
+    return this.toastControllerPromise;
   }
 
   private async resolveMessages(): Promise<SupportPromptMessages> {
-    try {
-      await ensureContentI18n(this.doc);
-      const resource = getContentI18nResource();
-      const messages = resource?.messages ?? (await getContentMessages());
-      return {
-        dialogLabel: messages.supportPromptDialogLabel,
-        title: messages.supportPromptTitle,
-        koFiTitle: messages.supportPromptKoFiTitle,
-        koFiDescription: messages.supportPromptKoFiDescription,
-        afdianTitle: messages.supportPromptAfdianTitle,
-        afdianDescription: messages.supportPromptAfdianDescription,
-        githubTitle: messages.supportPromptGithubTitle,
-        githubDescription: messages.supportPromptGithubDescription,
-        feedbackGroupLabel: messages.supportPromptFeedbackGroupLabel,
-        likeLabel: messages.supportPromptLikeLabel,
-        dislikeLabel: messages.supportPromptDislikeLabel,
-        dismiss: messages.supportPromptDismiss,
-        statusSuccess: messages.supportPromptStatusSuccess,
-        statusSuccessWithVault: messages.supportPromptStatusSuccessWithVault,
-        statusWarning: messages.supportPromptStatusWarning,
-        statusWarningWithReason: messages.supportPromptStatusWarningWithReason,
-        statusFailure: messages.supportPromptStatusFailure,
-        statusFailureWithReason: messages.supportPromptStatusFailureWithReason,
-        likeThankYou:
-          messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
-        reviewLinkLabel:
-          messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
-        reviewAcknowledgedLabel:
-          messages.supportPromptReviewAcknowledgedLabel ??
-          FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,
-        dislikeToastTitle:
-          messages.supportPromptDislikeToastTitle ??
-          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeToastTitle,
-        dislikeRedditLinkLabel:
-          messages.supportPromptDislikeRedditLinkLabel ??
-          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
-        dislikeQrLinkLabel:
-          messages.supportPromptDislikeQrLinkLabel ??
-          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
-        dislikeQrPlaceholder:
-          messages.supportPromptDislikeQrPlaceholder ??
-          FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
-      };
-    } catch (error) {
-      console.warn('[support-prompt] Failed to load i18n messages:', error);
-      return FALLBACK_SUPPORT_PROMPT_MESSAGES;
+    if (this.messagesPromise === null) {
+      this.messagesPromise = (async () => {
+        try {
+          await ensureContentI18n(this.doc);
+          const resource = getContentI18nResource();
+          const messages = resource?.messages ?? (await getContentMessages());
+          return {
+            dialogLabel: messages.supportPromptDialogLabel,
+            title: messages.supportPromptTitle,
+            koFiTitle: messages.supportPromptKoFiTitle,
+            koFiDescription: messages.supportPromptKoFiDescription,
+            afdianTitle: messages.supportPromptAfdianTitle,
+            afdianDescription: messages.supportPromptAfdianDescription,
+            githubTitle: messages.supportPromptGithubTitle,
+            githubDescription: messages.supportPromptGithubDescription,
+            feedbackGroupLabel: messages.supportPromptFeedbackGroupLabel,
+            likeLabel: messages.supportPromptLikeLabel,
+            dislikeLabel: messages.supportPromptDislikeLabel,
+            dismiss: messages.supportPromptDismiss,
+            statusSuccess: messages.supportPromptStatusSuccess,
+            statusSuccessWithVault: messages.supportPromptStatusSuccessWithVault,
+            statusWarning: messages.supportPromptStatusWarning,
+            statusWarningWithReason: messages.supportPromptStatusWarningWithReason,
+            statusFailure: messages.supportPromptStatusFailure,
+            statusFailureWithReason: messages.supportPromptStatusFailureWithReason,
+            likeThankYou:
+              messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
+            reviewLinkLabel:
+              messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
+            reviewAcknowledgedLabel:
+              messages.supportPromptReviewAcknowledgedLabel ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,
+            dislikeToastTitle:
+              messages.supportPromptDislikeToastTitle ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeToastTitle,
+            dislikeRedditLinkLabel:
+              messages.supportPromptDislikeRedditLinkLabel ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
+            dislikeQrLinkLabel:
+              messages.supportPromptDislikeQrLinkLabel ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
+            dislikeQrPlaceholder:
+              messages.supportPromptDislikeQrPlaceholder ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
+          };
+        } catch (error) {
+          console.warn('[support-prompt] Failed to load i18n messages:', error);
+          return FALLBACK_SUPPORT_PROMPT_MESSAGES;
+        }
+      })();
     }
+
+    return this.messagesPromise;
   }
 
   private resolveAssetUrl(path: string): string {

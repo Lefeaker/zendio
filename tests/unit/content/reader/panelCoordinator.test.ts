@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it, beforeEach, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import type {
   ReaderPanelCallbacks,
   ReaderPanelHighlight,
@@ -65,8 +66,8 @@ function createHighlight(id: string, comment: string, text: string): ReaderHighl
 
 describe('ReaderPanelCoordinator', () => {
   let callbacks: ReaderPanelCallbacks;
-let viewFactory: ReaderSessionViewFactory;
-let createViewSpy: ReturnType<typeof vi.fn>;
+  let viewFactory: ReaderSessionViewFactory;
+  let createViewSpy: Mock<[], FakeReaderView>;
   let view: FakeReaderView;
 
   beforeEach(() => {

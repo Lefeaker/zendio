@@ -44,7 +44,7 @@ const setupFixtures = vi.hoisted(() => {
       savedOptions.push(options as StoredOptions);
       return Promise.resolve();
     }),
-    getCached: vi.fn(() => undefined)
+    getCached: vi.fn(() => null)
   };
 
   return { markPendingAutoSave, savedOptions, persistence, optionsRepository };

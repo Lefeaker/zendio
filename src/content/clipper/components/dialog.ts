@@ -1,10 +1,10 @@
 import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
 import type { RuntimeService } from '@platform/interfaces/runtime';
 import type { StorageService } from '@platform/interfaces/storage';
-import { contentErrors, type ErrorHandler } from '@shared/errors';
-import type { IClipRepository, FragmentConfig } from '@shared/repositories/IClipRepository';
-import { ensureContentI18n, getContentI18nBinder, getContentMessages } from '../../i18n/context';
-import { FocusTrapController } from '../../shared/focusTrap';
+import type { ErrorHandler } from '@shared/errors';
+import type { IClipRepository } from '@shared/repositories/IClipRepository';
+import { ContentDialogHost } from '@ui/hosts/content';
+import { ensureContentI18n, getContentI18nBinder } from '../../i18n/context';
 import {
   createClipperDialogDependencies,
   type ClipperDialogDependencies
@@ -20,6 +20,7 @@ import {
   addButtonShortcutHints,
   applyReadonlyTextareaPresentation,
   buildDialogPresenter,
+  setInitialDialogPosition,
   renderShortcutHint,
   updateDialogPosition
 } from './dialogPresenter';
@@ -33,9 +34,9 @@ import {
   normalizeDialogComment
 } from './dialogShortcuts';
 import { clipperStyleSheetManager } from '../shared/styleSheetManager';
-import type { DialogRegistry } from '../shared/dialogRegistry';
 import { DragController } from '../shared/dragController';
 import type { ReaderModeBehavior } from './dialogTypes';
+import type { PopupCoordinator } from '../../runtime/popupCoordinator';
 
 export type ClipperDialogAction = 'clip' | 'cancel' | 'reader' | 'video';
 
@@ -49,7 +50,7 @@ export interface ClipperDialogOptions {
   readerModeBehavior?: ReaderModeBehavior;
   allowVideoMode?: boolean;
   initialComment?: string;
-  dialogRegistry?: DialogRegistry;
+  dialogRegistry?: PopupCoordinator;
   storageService?: StorageService;
   errorHandler?: ErrorHandler;
 }
@@ -76,19 +77,16 @@ const FALLBACK_MESSAGES: Partial<Messages> = {
 };
 
 export class ClipperDialog {
-  private host: HTMLDivElement | null = null;
-  private shadowRootRef: ShadowRoot | null = null;
-  private renderRoot: ShadowRoot | HTMLElement | null = null;
-  private dialog: HTMLDivElement | null = null;
-  private content: HTMLDivElement | null = null;
+  private dialogHost: ContentDialogHost | null = null;
+  private host: HTMLElement | null = null;
+  private dialogSurface: HTMLDivElement | null = null;
   private textarea: HTMLTextAreaElement | null = null;
   private hintElement: HTMLDivElement | null = null;
-  private focusTrap: FocusTrapController | null = null;
   private dragController: DragController | null = null;
   private previousActiveElement: HTMLElement | null = null;
   private resolve: ((result: ClipperDialogResult) => void) | null = null;
   private i18nHandles: I18nBindingHandle[] = [];
-  private dialogRegistry: DialogRegistry | null = null;
+  private dialogRegistry: PopupCoordinator | null = null;
   private unregisterDialog: (() => void) | null = null;
   private messages: Messages | null = null;
   private readonly sessionState = new DialogSessionState();
@@ -175,33 +173,19 @@ export class ClipperDialog {
 
     this.disposeI18nHandles();
     this.detachDragHandlers();
-    this.focusTrap?.deactivate();
-    this.focusTrap = null;
     this.sessionState.resetPendingEnter();
 
     if (this.textarea) {
       this.textarea.removeEventListener('keydown', this.onTextareaKeydown);
     }
     window.removeEventListener('keydown', this.onWindowKeydown);
-    this.dialog?.removeEventListener('keydown', this.onWindowKeydown);
-
-    this.dialog?.remove();
-    this.dialog = null;
-    this.content = null;
+    this.dialogSurface?.removeEventListener('keydown', this.onWindowKeydown);
+    this.dialogHost?.destroy();
+    this.dialogHost = null;
+    this.dialogSurface = null;
     this.textarea = null;
     this.hintElement = null;
-
-    if (this.shadowRootRef) {
-      this.shadowRootRef.innerHTML = '';
-      this.shadowRootRef = null;
-    }
-
-    if (this.host) {
-      this.host.remove();
-      this.host = null;
-    }
-
-    this.renderRoot = null;
+    this.host = null;
     delete document.documentElement.dataset.aiobClipperDialog;
 
     if (this.previousActiveElement) {
@@ -222,6 +206,21 @@ export class ClipperDialog {
     this.disposeI18nHandles();
 
     await clipperStyleSheetManager.initialize();
+    this.dialogHost?.destroy();
+    this.dialogHost = new ContentDialogHost({
+      title: this.getMessage('clipDialogTitle', this.getFallback('clipDialogTitle')),
+      showHeader: false,
+      closeOnBackdrop: false,
+      closeOnEscape: false,
+      trapFocus: true,
+      initialFocus: '#clipper-comment-input',
+      modalClassName: 'modal fixed inset-0 bg-transparent z-[2147483647]',
+      modalBoxClassName:
+        'obsidian-clipper-content absolute max-h-[80vh] max-w-[600px] w-[90%] translate-0 transform rounded-[14px] border border-white/20 bg-black/90 p-0 shadow-[0_18px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl pointer-events-auto transition-shadow duration-200 ease-out animate-[scaleIn_0.2s_ease_0.2s_1] text-[#f2f4ff]',
+      bodyClassName: 'clipper-dialog-body p-0',
+      footerClassName: 'hidden',
+      onClose: () => this.finalize('cancel', '')
+    });
 
     const presenter = buildDialogPresenter({
       selectedText,
@@ -247,16 +246,18 @@ export class ClipperDialog {
       onConfirm: () => this.finalize('clip', this.getCurrentComment())
     });
 
-    this.host = presenter.host;
-    this.shadowRootRef = presenter.shadowRoot;
-    clipperStyleSheetManager.applyTo(this.shadowRootRef);
-    this.renderRoot = this.shadowRootRef;
-    this.dialog = presenter.dialog;
-    this.content = presenter.content;
+    this.dialogHost.setContent(presenter.content);
+    this.host = this.dialogHost.render();
+    this.host.id = 'obsidian-clipper-dialog';
+    this.host.setAttribute('role', 'dialog');
+    this.host.setAttribute('aria-modal', 'true');
+    clipperStyleSheetManager.applyTo(this.dialogHost.getShadowRoot());
     this.textarea = presenter.textarea;
     this.hintElement = presenter.hintElement;
-
-    document.body.appendChild(this.host);
+    this.dialogHost.mount(document.body);
+    this.dialogSurface = this.dialogHost.getDialogElement();
+    setInitialDialogPosition(this.dialogSurface);
+    this.dialogHost.show();
     document.documentElement.dataset.aiobClipperDialog = 'open';
 
     this.dragController = new DragController({
@@ -269,39 +270,12 @@ export class ClipperDialog {
 
     this.textarea?.addEventListener('keydown', this.onTextareaKeydown);
     window.addEventListener('keydown', this.onWindowKeydown);
-    this.dialog.addEventListener('keydown', this.onWindowKeydown);
-
-    this.activateFocusTrap();
+    this.dialogSurface.addEventListener('keydown', this.onWindowKeydown);
 
     queueMicrotask(() => {
       this.textarea?.focus();
       this.textarea?.select();
     });
-  }
-
-  private activateFocusTrap(): void {
-    if (!this.content) {
-      return;
-    }
-
-    this.focusTrap?.deactivate();
-    const container = this.content;
-
-    this.focusTrap = new FocusTrapController(container, {
-      initialFocus: '#clipper-comment-input',
-      fallbackFocus: container,
-      escapeDeactivates: false,
-      clickOutsideDeactivates: false,
-      returnFocusOnDeactivate: false,
-      onActivate: () => {
-        container.setAttribute('data-focus-trap-active', 'true');
-      },
-      onDeactivate: () => {
-        container.removeAttribute('data-focus-trap-active');
-      }
-    });
-
-    this.focusTrap.activate();
   }
 
   private readonly onTextareaKeydown = (event: KeyboardEvent): void => {
@@ -350,7 +324,7 @@ export class ClipperDialog {
   };
 
   private readonly onWindowKeydown = (event: KeyboardEvent): void => {
-    if (!this.dialog) {
+    if (!this.dialogSurface) {
       return;
     }
 
@@ -393,11 +367,11 @@ export class ClipperDialog {
   }
 
   private updatePosition(deltaX: number, deltaY: number, relative = false): void {
-    if (!this.content) {
+    if (!this.dialogSurface) {
       return;
     }
 
-    const nextPosition = updateDialogPosition(this.content, deltaX, deltaY, relative);
+    const nextPosition = updateDialogPosition(this.dialogSurface, deltaX, deltaY, relative);
     this.dragController?.setPosition(nextPosition);
   }
 
@@ -439,11 +413,11 @@ export class ClipperDialog {
   }
 
   private addButtonShortcutHints(): void {
-    if (!this.dialog) {
+    if (!this.dialogSurface) {
       return;
     }
 
-    addButtonShortcutHints(this.dialog, {
+    addButtonShortcutHints(this.dialogSurface, {
       doubleEnterAction: this.getMessage(
         'clipperShortcutDoubleEnter',
         this.getFallback('clipperShortcutDoubleEnter')

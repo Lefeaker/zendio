@@ -145,6 +145,9 @@ describe('SupportPrompt', () => {
     await prompt.show({ status: 'success' });
 
     const shadow = getPromptHost().shadowRoot;
+    if (!shadow) {
+      throw new Error('support prompt shadow missing');
+    }
     shadow.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
     await flushMicrotasks();
 

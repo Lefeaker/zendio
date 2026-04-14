@@ -46,41 +46,40 @@ export function createLazyReaderSessionFactory(
     promptGateway: ClipPromptGateway;
   }
 ): (doc: Document, url: string) => ReaderSessionAdapter {
-  let readerModulePromise: Promise<typeof import('../reader/session')> | null = null;
+  let readerModulePromise: Promise<typeof import('../reader/readerLazyRuntime')> | null = null;
 
   const loadModule = async () => {
     if (!readerModulePromise) {
-      readerModulePromise = import('../reader/session');
+      readerModulePromise = import('../reader/readerLazyRuntime');
     }
     return readerModulePromise;
   };
 
   return (doc: Document, url: string): ReaderSessionAdapter => {
-    let sessionPromise: Promise<ReaderSessionAdapter> | null = null;
+    let adapterPromise: Promise<ReaderSessionAdapter> | null = null;
 
-    const getSession = async (): Promise<ReaderSessionAdapter> => {
-      if (!sessionPromise) {
-        sessionPromise = loadModule().then(async ({ ReaderSession }) => {
-          const { createReaderSessionDependencies } = await import('../reader/sessionDependencies');
-          const readerDependencies = createReaderSessionDependencies({
+    const getAdapter = async (): Promise<ReaderSessionAdapter> => {
+      if (!adapterPromise) {
+        adapterPromise = loadModule().then(({ createReaderSessionAdapter }) =>
+          createReaderSessionAdapter(doc, url, {
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage,
-            messaging: dependencies.messaging as MessagingService
-          });
-          return new ReaderSession(doc, url, dependencies.promptGateway, readerDependencies);
-        });
+            messaging: dependencies.messaging as MessagingService,
+            promptGateway: dependencies.promptGateway
+          })
+        );
       }
-      return sessionPromise;
+      return adapterPromise;
     };
 
     return {
       async start(initialHighlight) {
-        const session = await getSession();
-        await session.start(initialHighlight);
+        const adapter = await getAdapter();
+        await adapter.start(initialHighlight);
       },
       ingestExternalHighlight(range, selectedHtml, selectedText, comment) {
-        void getSession().then((session) => {
-          session.ingestExternalHighlight(range, selectedHtml, selectedText, comment);
+        void getAdapter().then((adapter) => {
+          adapter.ingestExternalHighlight(range, selectedHtml, selectedText, comment);
         });
       }
     };
@@ -90,40 +89,38 @@ export function createLazyReaderSessionFactory(
 export function createLazyVideoSessionFactory(
   dependencies: LazyRuntimeDependencies
 ): (doc: Document) => VideoSessionAdapter {
-  let videoModulePromise: Promise<typeof import('../video/session')> | null = null;
+  let videoModulePromise: Promise<typeof import('../video/videoLazyRuntime')> | null = null;
 
   const loadModule = async () => {
     if (!videoModulePromise) {
-      videoModulePromise = import('../video/session');
+      videoModulePromise = import('../video/videoLazyRuntime');
     }
     return videoModulePromise;
   };
 
   return (doc: Document): VideoSessionAdapter => {
-    let sessionPromise: Promise<VideoSessionAdapter> | null = null;
+    let adapterPromise: Promise<VideoSessionAdapter> | null = null;
 
-    const getSession = async (): Promise<VideoSessionAdapter> => {
-      if (!sessionPromise) {
-        sessionPromise = loadModule().then(async ({ VideoSession }) => {
-          const { createVideoSessionDependencies } = await import('../video/sessionDependencies');
-          const videoDependencies = createVideoSessionDependencies({
+    const getAdapter = async (): Promise<VideoSessionAdapter> => {
+      if (!adapterPromise) {
+        adapterPromise = loadModule().then(({ createVideoSessionAdapter }) =>
+          createVideoSessionAdapter(doc, {
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage
-          });
-          return new VideoSession(doc, videoDependencies);
-        });
+          })
+        );
       }
-      return sessionPromise;
+      return adapterPromise;
     };
 
     return {
       async start() {
-        const session = await getSession();
-        await session.start();
+        const adapter = await getAdapter();
+        await adapter.start();
       },
       ingestTextCapture(selectedHtml, selectedText, comment, selectionRange) {
-        void getSession().then((session) => {
-          session.ingestTextCapture(selectedHtml, selectedText, comment, selectionRange);
+        void getAdapter().then((adapter) => {
+          adapter.ingestTextCapture(selectedHtml, selectedText, comment, selectionRange);
         });
       }
     };
@@ -134,29 +131,14 @@ export async function initializeVideoPromptOnDemand(
   dependencies: Pick<LazyRuntimeDependencies, 'optionsRepository' | 'storage' | 'runtime'>,
   href: string
 ): Promise<void> {
-  const { matchesSupportedVideoHost } = await import('../video/videoPromptObserver');
-  if (!matchesSupportedVideoHost(href)) {
-    return;
-  }
-
-  const { initVideoPrompt } = await import('../video/prompt');
-  const { createVideoPromptDependencies } = await import('../video/videoPromptDependencies');
-  const { VideoSession } = await import('../video/session');
-  const { createVideoSessionDependencies } = await import('../video/sessionDependencies');
-
-  await initVideoPrompt(
-    createVideoPromptDependencies({
+  const { initializeVideoPromptRuntime } = await import('../video/videoLazyRuntime');
+  await initializeVideoPromptRuntime(
+    {
+      optionsRepository: dependencies.optionsRepository,
       storage: dependencies.storage,
-      runtime: dependencies.runtime,
-      createVideoSession: (doc) =>
-        new VideoSession(
-          doc,
-          createVideoSessionDependencies({
-            optionsRepository: dependencies.optionsRepository,
-            storage: dependencies.storage
-          })
-        )
-    })
+      runtime: dependencies.runtime
+    },
+    href
   );
 }
 

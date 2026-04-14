@@ -14,7 +14,12 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-const DEFAULT_READING_OPTIONS: ReadingOptions = clone(DEFAULT_OPTIONS.readingSession);
+const DEFAULT_READING_OPTIONS: ReadingOptions = clone(
+  DEFAULT_OPTIONS.readingSession ?? {
+    exportMode: 'highlights',
+    highlightTheme: 'gradient'
+  }
+);
 
 export class MockReaderRepository implements IReaderRepository {
   private readingConfig: ReadingOptions = clone(DEFAULT_READING_OPTIONS);

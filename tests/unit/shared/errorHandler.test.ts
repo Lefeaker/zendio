@@ -5,7 +5,7 @@ import { ErrorSeverity } from '@shared/errors/types';
 import type { AppError } from '@shared/errors/types';
 
 describe('ErrorHandler', () => {
-  const consoleSpies: Array<ReturnType<typeof vi.spyOn>> = [];
+  const consoleSpies: Array<{ mockRestore(): void }> = [];
 
   beforeEach(() => {
     consoleSpies.push(vi.spyOn(console, 'info').mockImplementation(() => undefined));

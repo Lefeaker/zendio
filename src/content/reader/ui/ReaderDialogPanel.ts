@@ -3,8 +3,10 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
-import { ReaderDialog, type ReaderDialogHighlight } from '../../../ui/domains/reading';
-import type { UiMountable } from '../../../ui/hosts/shared/contract';
+import { ReaderDialog, type ReaderDialogHighlight } from '@ui/domains/reading';
+import type { UiMountable } from '@ui/hosts/shared/contract';
+import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
+import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
@@ -27,6 +29,8 @@ export class ReaderDialogPanel
 {
   private readonly dialog: ReaderDialog;
   private readonly renderRoot: HTMLElement;
+  private readonly popupCoordinator: PopupCoordinator | null;
+  private unregisterPopup: (() => void) | null = null;
   private texts: ReaderPanelTexts;
   private highlightCount = 0;
 
@@ -55,7 +59,7 @@ export class ReaderDialogPanel
     });
     this.renderRoot = this.dialog.render();
     this.dialog.setCounterText(this.formatCounter(0));
-    this.dialog.show();
+    this.popupCoordinator = resolveContentPopupCoordinator();
   }
 
   get element(): HTMLElement {
@@ -67,6 +71,20 @@ export class ReaderDialogPanel
       target.append(this.renderRoot);
     }
     return this.renderRoot;
+  }
+
+  show(): void {
+    this.mount();
+    this.dialog.show();
+    if (!this.unregisterPopup && this.popupCoordinator) {
+      this.unregisterPopup = this.popupCoordinator.register(this);
+    }
+  }
+
+  hide(): void {
+    this.unregisterPopup?.();
+    this.unregisterPopup = null;
+    this.dialog.hide();
   }
 
   update(payload?: {
@@ -124,6 +142,8 @@ export class ReaderDialogPanel
   }
 
   destroy(): void {
+    this.unregisterPopup?.();
+    this.unregisterPopup = null;
     this.dialog.destroy();
   }
 

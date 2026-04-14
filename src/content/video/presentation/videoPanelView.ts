@@ -47,6 +47,7 @@ export const createVideoPanelViewFactory = (): VideoSessionViewFactory => ({
       callbacks,
       texts,
     });
+    panel.show();
     return new VideoPanelViewAdapter(panel);
   }
 });

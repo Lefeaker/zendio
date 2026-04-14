@@ -11,11 +11,11 @@ import {
   type ReadingTemplateController
 } from '../controls/readingTemplateControls';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { UiButton as DaisyButton } from '../../../ui/primitives/button';
-import { DaisyCard } from '../../../ui/primitives/card';
-import { UiInput as DaisyInput } from '../../../ui/primitives/input';
-import { createOptionsHintText } from '../../../ui/primitives/layout';
-import { createSelectElement as createDaisySelectElement } from '../../../ui/primitives/select';
+import { UiButton as DaisyButton } from '@ui/primitives/button';
+import { DaisyCard } from '@ui/primitives/card';
+import { UiInput as DaisyInput } from '@ui/primitives/input';
+import { createOptionsHintText } from '@ui/primitives/layout';
+import { createSelectElement as createDaisySelectElement } from '@ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -357,7 +357,6 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
       },
       domainMappings: { ...finalMappings }
     };
-    this.persistTemplates(partial);
     return partial;
   }
 
@@ -418,12 +417,6 @@ export class TemplatesSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
       this.applySnapshot(options);
-    });
-  }
-
-  private persistTemplates(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo.set(partial).catch((error) => {
-      console.error('[TemplatesSection] Failed to persist template options via repository:', error);
     });
   }
 }

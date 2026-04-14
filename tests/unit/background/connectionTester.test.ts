@@ -97,7 +97,10 @@ describe('options connectionTester service', () => {
       code: 'OPTIONS_CONNECTION_IN_PROGRESS'
     });
 
-    resolver?.({ success: true, message: 'done' });
+    if (!resolver) {
+      throw new Error('connection resolver missing');
+    }
+    (resolver as (value: unknown) => void)({ success: true, message: 'done' });
     await expect(first).resolves.toEqual({ success: true, message: 'done' });
     expect(module.isConnectionTestRunning()).toBe(false);
   });
@@ -125,10 +128,16 @@ describe('options connectionTester service', () => {
     });
 
     const second = module.requestVaultConnectionTest(createVault('vault-2'));
-    resolveVault2?.({ success: true, message: 'vault-2' });
+    if (!resolveVault2) {
+      throw new Error('vault-2 resolver missing');
+    }
+    (resolveVault2 as (value: unknown) => void)({ success: true, message: 'vault-2' });
     await expect(second).resolves.toEqual({ success: true, message: 'vault-2' });
 
-    resolveVault1?.({ success: true, message: 'vault-1' });
+    if (!resolveVault1) {
+      throw new Error('vault-1 resolver missing');
+    }
+    (resolveVault1 as (value: unknown) => void)({ success: true, message: 'vault-1' });
     await expect(first).resolves.toEqual({ success: true, message: 'vault-1' });
   });
 

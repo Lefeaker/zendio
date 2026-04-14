@@ -35,17 +35,33 @@ describe('chromeContextMenusService', () => {
     await expect(chromeContextMenusService.create({ id: 'menu-1', title: 'Title', contexts: ['all'] })).resolves.toBe('menu-1');
     await chromeContextMenusService.update('menu-1', { title: 'Next', contexts: ['selection'] });
     await chromeContextMenusService.removeAll();
-    chromeContextMenusService.refresh();
+    const refresh = chromeContextMenusService.refresh;
+    if (!refresh) {
+      throw new Error('refresh api missing');
+    }
+    refresh();
     expect(chromeApi.contextMenus.refresh).toHaveBeenCalled();
 
     const clickHandler = vi.fn(() => Promise.resolve(undefined));
     chromeContextMenusService.onClicked(clickHandler);
-    clickedListener?.({ menuItemId: 'menu-1', pageUrl: 'https://example.com' } as chrome.contextMenus.OnClickData, { id: 1 } as chrome.tabs.Tab);
+    if (!clickedListener) {
+      throw new Error('clicked listener missing');
+    }
+    clickedListener(
+      { menuItemId: 'menu-1', pageUrl: 'https://example.com' } as chrome.contextMenus.OnClickData,
+      { id: 1 } as chrome.tabs.Tab
+    );
     expect(clickHandler).toHaveBeenCalled();
 
     const shownHandler = vi.fn();
     chromeContextMenusService.onShown(shownHandler);
-    shownListener?.({ menuItemId: 'menu-1', pageUrl: 'https://example.com' } as chrome.contextMenus.OnClickData, { id: 1 } as chrome.tabs.Tab);
+    if (!shownListener) {
+      throw new Error('shown listener missing');
+    }
+    shownListener(
+      { menuItemId: 'menu-1', pageUrl: 'https://example.com' } as chrome.contextMenus.OnClickData,
+      { id: 1 } as chrome.tabs.Tab
+    );
     expect(shownHandler).toHaveBeenCalled();
   });
 

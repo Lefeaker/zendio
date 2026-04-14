@@ -59,6 +59,7 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
 export const createReaderPanelViewFactory = (): ReaderSessionViewFactory => ({
   createView(callbacks: ReaderPanelCallbacks, texts: ReaderPanelTexts): ReaderSessionView {
     const panel = new ReaderDialogPanel({ callbacks, texts });
+    panel.show();
     return new ReaderPanelViewAdapter(panel);
   }
 });

@@ -106,7 +106,7 @@ describe('dynamicMessages', () => {
     beforeEach(() => {
       mockElements = [];
 
-      const querySelector: QuerySelectorMock = vi.fn((selector) => {
+      const querySelector: QuerySelectorMock = vi.fn<[selector: string], MockTextElement | null>((selector) => {
         const element: MockTextElement = {
           textContent: '',
           selector

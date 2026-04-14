@@ -1,4 +1,4 @@
-import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import { BaseComponent } from '@ui/foundation/lifecycle/BaseComponent';
 import type { OptionsStateManager } from '../../state/StateManager';
 import type {
   FormSectionHandlers,
@@ -11,8 +11,8 @@ import {
   createSectionHeader,
   createSectionSettingRow,
   createSectionSettings
-} from '../../../ui/patterns/section-shell';
-import type { UiMountable } from '../../../ui/hosts/shared/contract';
+} from '@ui/patterns/section-shell';
+import type { UiMountable } from '@ui/hosts/shared/contract';
 
 export interface SectionRenderContext {
   stateManager: OptionsStateManager;

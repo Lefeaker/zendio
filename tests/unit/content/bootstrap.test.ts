@@ -7,7 +7,7 @@ const addBrowserClassToHtmlMock = vi.hoisted(() => vi.fn());
 const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'error-handler' })));
 const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'global-state' })));
 const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
-const createDialogRegistryMock = vi.hoisted(() => vi.fn(() => ({ closeAll: vi.fn() })));
+const createPopupCoordinatorMock = vi.hoisted(() => vi.fn(() => ({ closeAll: vi.fn() })));
 const clipperInitializeMock = vi.hoisted(() => vi.fn());
 const panelInitializeMock = vi.hoisted(() => vi.fn());
 const getPlatformServicesMock = vi.hoisted(() => vi.fn(() => ({ kind: 'platform-services' })));
@@ -60,7 +60,7 @@ vi.mock('../../../src/shared/state/globalStateManager', () => ({
   createGlobalStateManager: createGlobalStateManagerMock,
   configureGlobalStateManagerStorage: configureGlobalStateManagerStorageMock
 }));
-vi.mock('../../../src/content/clipper/shared/dialogRegistry', () => ({ createDialogRegistry: createDialogRegistryMock }));
+vi.mock('../../../src/content/runtime/popupCoordinator', () => ({ createPopupCoordinator: createPopupCoordinatorMock }));
 vi.mock('../../../src/shared/utils/browserDetection', () => ({ addBrowserClassToHtml: addBrowserClassToHtmlMock }));
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({ clipperStyleSheetManager: { initialize: clipperInitializeMock } }));
 vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({ panelStyleSheetManager: { initialize: panelInitializeMock } }));
@@ -105,7 +105,7 @@ describe('content/bootstrap', () => {
     }));
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
     expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.globalStateManager, createGlobalStateManagerMock);
-    expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.dialogRegistry, createDialogRegistryMock);
+    expect(scopedRegistryMock.register).toHaveBeenCalledWith(TOKENS.dialogRegistry, createPopupCoordinatorMock);
     expect(clipperInitializeMock).toHaveBeenCalledTimes(1);
     expect(panelInitializeMock).toHaveBeenCalledTimes(1);
     expect(context.disposed).toBe(false);

@@ -13,7 +13,7 @@ import { FormSectionRegistry } from '@options/components/formSections/formSectio
 import { YamlConfigSection } from '@options/components/sections/YamlConfigSection';
 import type { OptionsStateManager } from '@options/state/StateManager';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() =>
+const createMockFn = <T extends (...args: any[]) => any>() =>
   vi.fn<Parameters<T>, ReturnType<T>>();
 
 const { scheduleAutoSaveMock, markPendingAutoSaveMock } = vi.hoisted(() => {
@@ -55,6 +55,46 @@ vi.mock('../../../../src/ui/domains/yaml-config/yamlConfigTable', () => {
         typeof import('../../../../src/ui/domains/yaml-config/yamlConfigTable').createYamlConfigController
       >;
     })
+  };
+});
+
+vi.mock('@ui/domains/yaml-config', () => {
+  return {
+    YamlConfigView: class {
+      private readonly controller: ControllerStub;
+
+      constructor(private readonly host: HTMLElement) {
+        this.controller = {
+          render: createMockFn<(value: YamlConfigOverrides | null) => void>(),
+          collect: createMockFn<() => YamlConfigOverrides | null>().mockReturnValue(null),
+          dispose: createMockFn<() => void>(),
+          setMessages: createMockFn<(messages: unknown) => void>()
+        };
+        controllerStubs.push(this.controller);
+      }
+
+      setMessages(messages: unknown): void {
+        this.controller.setMessages(messages);
+      }
+
+      render(context: { overrides: YamlConfigOverrides | null; onDirty: () => void }): HTMLElement {
+        lastControllerOptions = { tableHost: this.host, onDirty: context.onDirty };
+        this.controller.render(context.overrides);
+        return this.host;
+      }
+
+      update(overrides: YamlConfigOverrides | null): void {
+        this.controller.render(overrides);
+      }
+
+      collect(): YamlConfigOverrides | null {
+        return this.controller.collect();
+      }
+
+      destroy(): void {
+        this.controller.dispose();
+      }
+    }
   };
 });
 

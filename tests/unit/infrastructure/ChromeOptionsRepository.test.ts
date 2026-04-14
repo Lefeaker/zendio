@@ -5,7 +5,7 @@ import { StorageError } from '@shared/errors';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
 
 type StorageAreaMock = StorageAreaService & {
   get: ReturnType<typeof createMockFn<StorageAreaService['get']>>;
@@ -367,7 +367,7 @@ describe('ChromeOptionsRepository', () => {
         expect(receivedOptions).not.toBeNull();
       });
 
-      const clonedOptions = receivedOptions;
+      const clonedOptions = receivedOptions as unknown as CompleteOptions;
       if (!clonedOptions) {
         throw new Error('Received options missing');
       }
@@ -470,7 +470,7 @@ describe('ChromeOptionsRepository', () => {
     it('should fall back to JSON cloning when structuredClone is unavailable', async () => {
       const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
       const originalStructuredClone = globalRef.structuredClone;
-      delete globalRef.structuredClone;
+      Reflect.deleteProperty(globalRef, 'structuredClone');
 
       const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
       const updatedUrl = 'https://json-clone.example/';

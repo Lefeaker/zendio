@@ -39,9 +39,10 @@ const requiredFiles = [
   'src/ui/domains/privacy/index.ts',
   'src/ui/domains/reading/index.ts',
   'src/ui/domains/video/index.ts',
+  'src/ui/domains/support-prompt/index.ts',
+  'src/ui/domains/support-prompt/SupportPromptView.ts',
   'docs/archive/legacy-options-assets/obsidian-clipper-style.css',
-  'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html',
-  'docs/archive/legacy-options-assets/optionuicsssuggest.md'
+  'docs/reference-fixtures/legacy-options/obsidian-hybrid-preview.html'
 ];
 
 const forbiddenFiles = [
@@ -84,22 +85,21 @@ const forbiddenFiles = [
   'src/content/shared/daisy/ContentLayout.ts',
   'src/content/shared/daisy/index.ts',
   'src/content/reader/components/ReaderDialog.ts',
-  'src/content/video/components/VideoDialog.ts',
-  'src/content/ui/supportPrompt/SupportPromptView.ts'
+  'src/content/video/components/VideoDialog.ts'
 ];
 
 const requiredSnippets = {
-  'src/options/components/layout/MainContent.ts': ['../../../ui/hosts/options'],
-  'src/options/components/sections/BaseSection.ts': ['../../../ui/patterns/section-shell'],
-  'src/options/components/sections/RoutingSection.ts': ['../../../ui/domains/vault-router'],
-  'src/options/components/sections/YamlConfigSection.ts': ['../../../ui/domains/yaml-config'],
-  'src/options/components/sections/PrivacySection.ts': ['../../../ui/domains/privacy'],
-  'src/content/reader/ui/ReaderDialogPanel.ts': ['../../../ui/domains/reading'],
-  'src/content/video/ui/VideoDialogPanel.ts': ['../../../ui/domains/video'],
-  'src/content/ui/supportPrompt.ts': ['../../ui/domains/video'],
-  'src/options/app/bootstrap.ts': ['../../ui/domains/theme'],
-  'src/content/shared/panels/styleSheetManager.ts': ['../../../ui/foundation/style-host'],
-  'src/content/clipper/shared/styleSheetManager.ts': ['../../../ui/foundation/style-host']
+  'src/options/components/layout/MainContent.ts': [['../../../ui/hosts/options', '@ui/hosts/options']],
+  'src/options/components/sections/BaseSection.ts': [['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']],
+  'src/options/components/sections/RoutingSection.ts': [['../../../ui/domains/vault-router', '@ui/domains/vault-router']],
+  'src/options/components/sections/YamlConfigSection.ts': [['../../../ui/domains/yaml-config', '@ui/domains/yaml-config']],
+  'src/options/components/sections/PrivacySection.ts': [['../../../ui/domains/privacy', '@ui/domains/privacy']],
+  'src/content/reader/ui/ReaderDialogPanel.ts': [['../../../ui/domains/reading', '@ui/domains/reading']],
+  'src/content/video/ui/VideoDialogPanel.ts': [['../../../ui/domains/video', '@ui/domains/video']],
+  'src/content/ui/supportPrompt.ts': [['../../ui/domains/support-prompt', '@ui/domains/support-prompt']],
+  'src/options/app/bootstrap.ts': [['../../ui/domains/theme', '@ui/domains/theme']],
+  'src/content/shared/panels/styleSheetManager.ts': [['../../../ui/foundation/style-host', '@ui/foundation/style-host']],
+  'src/content/clipper/shared/styleSheetManager.ts': [['../../../ui/foundation/style-host', '@ui/foundation/style-host']]
 };
 
 const findings = [];
@@ -123,11 +123,11 @@ for (const token of ['__aiobReaderActive', '__aiobReaderController']) {
   }
 }
 
-for (const [relativePath, snippets] of Object.entries(requiredSnippets)) {
+for (const [relativePath, snippetGroups] of Object.entries(requiredSnippets)) {
   const source = readFileSync(join(ROOT, relativePath), 'utf8');
-  for (const snippet of snippets) {
-    if (!source.includes(snippet)) {
-      findings.push(`${relativePath} missing snippet: ${snippet}`);
+  for (const snippets of snippetGroups) {
+    if (!snippets.some((snippet) => source.includes(snippet))) {
+      findings.push(`${relativePath} missing snippet: ${snippets.join(' OR ')}`);
     }
   }
 }
@@ -186,7 +186,7 @@ function walk(dir) {
       findings.push(`domain implementation still depends on feature layer: ${relativePath}`);
     }
 
-    if (/from ['"][^'"]*(?:options\/components\/shared\/(?:Daisy(?:Alert|Badge|Button|Checkbox|Dialog|Input|Select|Textarea|Toggle)|OptionsLayout)|options\/components\/controls\/(?:YamlConfigView|VaultRouterView|privacySettings|yamlConfigTable(?:Model|Validation|Types|Dom|ControllerState(?:\.impl)?|ControllerTypes)?|yamlConfigTable)|content\/shared\/daisy|content\/reader\/components\/ReaderDialog|content\/video\/components\/VideoDialog|content\/ui\/supportPrompt\/SupportPromptView)/.test(source)) {
+    if (/from ['"][^'"]*(?:options\/components\/shared\/(?:Daisy(?:Alert|Badge|Button|Checkbox|Dialog|Input|Select|Textarea|Toggle)|OptionsLayout)|options\/components\/controls\/(?:YamlConfigView|VaultRouterView|privacySettings|yamlConfigTable(?:Model|Validation|Types|Dom|ControllerState(?:\.impl)?|ControllerTypes)?|yamlConfigTable)|content\/shared\/daisy|content\/reader\/components\/ReaderDialog|content\/video\/components\/VideoDialog|content\/ui\/supportPrompt\/SupportPromptView|ui\/domains\/video\/SupportPromptView)/.test(source)) {
       findings.push(`production file still imports retired wrapper/alias: ${relativePath}`);
     }
   }

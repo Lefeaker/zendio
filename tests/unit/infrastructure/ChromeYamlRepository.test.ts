@@ -67,7 +67,7 @@ describe('ChromeYamlRepository', () => {
     it('falls back to JSON cloning when structuredClone is unavailable', async () => {
       const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
       const originalStructuredClone = globalRef.structuredClone;
-      delete globalRef.structuredClone;
+      Reflect.deleteProperty(globalRef, 'structuredClone');
 
       const overrides: YamlConfigOverrides = {
         contentTypes: {

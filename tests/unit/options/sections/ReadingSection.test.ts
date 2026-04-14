@@ -49,7 +49,7 @@ describe('ReadingSection', () => {
   };
 
   it('applies snapshot, responds to interactions, and collects changes', async () => {
-    const { section, repo } = renderSection();
+    const { section } = renderSection();
     const snapshot = {
       readingSession: {
         exportMode: 'highlights',
@@ -79,15 +79,11 @@ describe('ReadingSection', () => {
       exportMode: 'full',
       highlightTheme: 'neonGreen'
     });
-    await vi.waitFor(() => {
-      expect(repo.getMockData().readingSession?.exportMode).toBe('full');
-    });
-
     section.destroy();
   });
 
   it('falls back to defaults when snapshot is missing fields', async () => {
-    const { section, repo } = renderSection();
+    const { section } = renderSection();
     const emptySnapshot = {} as StoredOptions;
     await registry.apply(emptySnapshot);
 
@@ -100,10 +96,6 @@ describe('ReadingSection', () => {
       exportMode: 'highlights',
       highlightTheme: 'gradient'
     });
-    await vi.waitFor(() => {
-      expect(repo.getMockData().readingSession?.highlightTheme).toBe('gradient');
-    });
-
     section.destroy();
   });
 

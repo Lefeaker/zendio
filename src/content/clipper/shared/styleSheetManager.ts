@@ -3,7 +3,7 @@ import {
   applyManagedShadowStyle,
   createManagedStyleSheet,
   supportsAdoptedStyleSheets
-} from '../../../ui/foundation/style-host';
+} from '@ui/foundation/style-host';
 
 const CLIPPER_BRIDGE_KEY = 'clipper-tailwind';
 

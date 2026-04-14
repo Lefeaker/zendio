@@ -96,8 +96,8 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     ensureContentI18nMock.mockResolvedValue(undefined);
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages);
-    initializeStylesMock.mockImplementation(() => undefined);
-    applyStylesMock.mockImplementation(() => undefined);
+    initializeStylesMock.mockResolvedValue(undefined);
+    applyStylesMock.mockResolvedValue(undefined);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     clipRepo = new MockClipRepository();

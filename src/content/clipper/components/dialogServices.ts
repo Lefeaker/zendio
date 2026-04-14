@@ -1,18 +1,28 @@
 import type { Messages } from '@i18n';
 import { contentErrors, type ErrorHandler } from '@shared/errors';
-import type { StorageService } from '@platform/interfaces/storage';
+import type { StorageAreaService, StorageService } from '@platform/interfaces/storage';
 import type { IClipRepository, FragmentConfig } from '@shared/repositories/IClipRepository';
 import { getContentMessages } from '../../i18n/context';
 import type { DialogSessionState } from './dialogSessionState';
 import { SHORTCUT_USAGE_THRESHOLD, USAGE_COUNT_STORAGE_KEY } from './dialogShortcuts';
+
+function getLocalStorageArea(storageService: StorageService): Partial<StorageAreaService> | null {
+  return storageService.local ?? null;
+}
 
 export async function loadShortcutUsageCount(
   state: DialogSessionState,
   storageService: StorageService,
   errorHandler: ErrorHandler
 ): Promise<void> {
+  const localStorage = getLocalStorageArea(storageService);
+  if (typeof localStorage?.get !== 'function') {
+    state.shortcutUsageCount = 0;
+    return;
+  }
+
   try {
-    const stored = await storageService.local.get<number>(USAGE_COUNT_STORAGE_KEY);
+    const stored = await localStorage.get<number>(USAGE_COUNT_STORAGE_KEY);
     state.shortcutUsageCount = stored ?? 0;
   } catch (error) {
     const appError = contentErrors.storageOperationFailed(
@@ -31,8 +41,13 @@ export async function saveShortcutUsageCount(
   storageService: StorageService,
   errorHandler: ErrorHandler
 ): Promise<void> {
+  const localStorage = getLocalStorageArea(storageService);
+  if (typeof localStorage?.set !== 'function') {
+    return;
+  }
+
   try {
-    await storageService.local.set(USAGE_COUNT_STORAGE_KEY, state.shortcutUsageCount);
+    await localStorage.set(USAGE_COUNT_STORAGE_KEY, state.shortcutUsageCount);
   } catch (error) {
     const appError = contentErrors.storageOperationFailed(
       'save',

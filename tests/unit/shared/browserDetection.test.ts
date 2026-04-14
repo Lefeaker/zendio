@@ -38,7 +38,7 @@ describe('browserDetection', () => {
 
   it('detects firefox mobile and adds html classes', () => {
     defineUserAgent('Mozilla/5.0 Firefox/124.0 Mobile');
-    delete (globalThis as typeof globalThis & { chrome?: unknown }).chrome;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: unknown }, 'chrome');
     installBrowserRuntime();
 
     expect(detectBrowser()).toBe('firefox-mobile');
@@ -51,8 +51,8 @@ describe('browserDetection', () => {
   });
 
   it('detects safari in web mode and reports capabilities', () => {
-    delete (globalThis as typeof globalThis & { browser?: unknown }).browser;
-    delete (globalThis as typeof globalThis & { chrome?: unknown }).chrome;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { browser?: unknown }, 'browser');
+    Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: unknown }, 'chrome');
     defineUserAgent('Mozilla/5.0 Version/17.2 Safari/605.1.15');
     expect(detectBrowser()).toBe('safari');
     expect(getBrowserVersion()).toBe('17.2');
@@ -66,8 +66,8 @@ describe('browserDetection', () => {
   });
 
   it('returns unknown version for unknown browsers', () => {
-    delete (globalThis as typeof globalThis & { browser?: unknown }).browser;
-    delete (globalThis as typeof globalThis & { chrome?: unknown }).chrome;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { browser?: unknown }, 'browser');
+    Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: unknown }, 'chrome');
     Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'CustomAgent/1.0' });
     expect(detectBrowser()).toBe('unknown');
     expect(getBrowserVersion()).toBe('unknown');

@@ -3,12 +3,13 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import type { IOptionsRepository } from '@shared/repositories';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
-import { createOptionsButtonElement as createDaisyButtonElement } from '../../../ui/primitives/button';
-import { UiAlert as DaisyAlert } from '../../../ui/primitives/alert';
+import { createOptionsButtonElement as createDaisyButtonElement } from '@ui/primitives/button';
+import { UiAlert as DaisyAlert } from '@ui/primitives/alert';
 import {
   copyConfig as copyConfigAction,
   importConfig as importConfigAction
 } from '../../app/optionsActions';
+import { persistTransferLogAction } from '../../app/actions';
 
 interface TransferLogSnapshot {
   transferLog?: {
@@ -216,11 +217,12 @@ export class TransferSection extends BaseSection<SectionRenderContext> {
   }
 
   private persistTransferLog(lastAction: 'copy' | 'import'): void {
-    const entry = { lastAction, timestamp: Date.now() };
-    this.cachedTransferLog = entry;
-    void this.optionsRepo
-      .set({
-        transferLog: entry
+    void persistTransferLogAction(lastAction, {
+      optionsRepository: this.optionsRepo,
+      now: Date.now
+    })
+      .then((entry) => {
+        this.cachedTransferLog = entry;
       })
       .catch((error) => {
         console.error('[TransferSection] Failed to persist transfer log via repository:', error);

@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Language, Messages } from '../../../src/i18n/locales';
-import { messages as localeMessages, DEFAULT_LANGUAGE } from '../../../src/i18n/locales';
+import {
+  DEFAULT_LANGUAGE,
+  DEFAULT_RUNTIME_MESSAGES,
+  loadLocaleMessages
+} from '../../../src/i18n/locales';
 import { LANGUAGE_CONFIG, getLanguageFallbackChain } from '../../../src/i18n/config';
 import { createI18nResource } from '../../../src/i18n/resource';
 import { resolveAdaptiveText } from '@shared/i18n/textAdaptation';
@@ -24,7 +28,8 @@ function readCss(relativePath: string): string {
 
 const BASE_CSS = [
   'src/styles/design-tokens.css',
-  'src/styles/components.css',
+  'src/styles/global.tailwind.css',
+  'src/options/styles/aob-options.css',
   'tests/visual/templates/options-shell.css'
 ]
   .map(readCss)
@@ -46,27 +51,35 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function createResource(language: Language) {
+async function createResource(language: Language) {
   const chain = getLanguageFallbackChain(language);
-  const resolved = chain.find((code) => Boolean(localeMessages[code])) ?? DEFAULT_LANGUAGE;
-  const fallbackChain = chain
-    .filter((code) => code !== resolved)
-    .map((code) => localeMessages[code])
-    .filter((value): value is Messages => Boolean(value));
+  const resolved = chain[0] ?? DEFAULT_LANGUAGE;
+  const resolvedMessages = await loadLocaleMessages(resolved);
+  const fallbackChain: Messages[] = [];
 
-  const defaultMessages = localeMessages[DEFAULT_LANGUAGE];
+  for (const code of chain) {
+    if (code === resolved) {
+      continue;
+    }
+    const fallbackMessages = await loadLocaleMessages(code);
+    if (!fallbackChain.includes(fallbackMessages)) {
+      fallbackChain.push(fallbackMessages);
+    }
+  }
+
+  const defaultMessages = await loadLocaleMessages(DEFAULT_LANGUAGE);
   if (!fallbackChain.includes(defaultMessages)) {
     fallbackChain.push(defaultMessages);
   }
 
   return createI18nResource({
     language: resolved,
-    messages: localeMessages[resolved],
+    messages: resolvedMessages ?? DEFAULT_RUNTIME_MESSAGES,
     fallbackChain
   });
 }
 
-function renderUsageMetrics(resource: ReturnType<typeof createResource>): string {
+function renderUsageMetrics(resource: Awaited<ReturnType<typeof createResource>>): string {
   const metricKeys: Array<keyof Messages> = [
     'usageTotalLabel',
     'usageAiLabel',
@@ -90,7 +103,7 @@ function renderUsageMetrics(resource: ReturnType<typeof createResource>): string
 
 interface AdaptiveButtonOptions {
   key: keyof Messages;
-  resource: ReturnType<typeof createResource>;
+  resource: Awaited<ReturnType<typeof createResource>>;
   viewportWidth: number;
   classNames: string[];
 }
@@ -126,8 +139,11 @@ function renderLanguageOptions(language: Language): string {
     .join('\n');
 }
 
-export function renderOptionsLanguageCanvas(language: Language, viewportWidth: number): string {
-  const resource = createResource(language);
+export async function renderOptionsLanguageCanvas(
+  language: Language,
+  viewportWidth: number
+): Promise<string> {
+  const resource = await createResource(language);
   const extensionName = resource.get('extensionName');
   const extensionSubtitle = resource.get('extensionSubtitle');
   const languageSettings = resource.get('languageSettings');

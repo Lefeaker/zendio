@@ -1,5 +1,13 @@
 import type { StorageAreaService } from '../platform/interfaces/storage';
-import { AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE, Language, messages, Messages, localeModules } from './locales';
+import {
+  AVAILABLE_LANGUAGES,
+  DEFAULT_LANGUAGE,
+  DEFAULT_RUNTIME_MESSAGES,
+  Language,
+  loadLocaleDefinition,
+  loadMessagesWithFallback,
+  Messages
+} from './locales';
 import { LANGUAGE_CONFIG, resolveLanguage, getLanguageFallbackChain } from './config';
 import { createDomBindingAdapter } from './adapters/domBindingAdapter';
 import { createPageI18nController, type PageI18nController } from './pageController';
@@ -88,15 +96,8 @@ export async function getMessage(key: keyof Messages): Promise<string> {
 /**
  * Get messages by language code with fallback to default language.
  */
-export function getMessagesForLanguage(language: string): Messages {
-  const chain = getLanguageFallbackChain(language);
-  for (const code of chain) {
-    const candidate = messages[code];
-    if (candidate) {
-      return candidate;
-    }
-  }
-  return messages[DEFAULT_LANGUAGE];
+export async function getMessagesForLanguage(language: string): Promise<Messages> {
+  return loadMessagesWithFallback(language);
 }
 
 /**
@@ -127,8 +128,7 @@ export function getAvailableLanguages(): Array<{
  */
 export function loadLocale(language?: string): Promise<Messages> {
   const chain = getLanguageFallbackChain(language);
-  const resolved = chain.find((code) => Boolean(localeModules[code])) ?? DEFAULT_LANGUAGE;
-  const locale = localeModules[resolved] ?? localeModules[DEFAULT_LANGUAGE];
+  const resolved = chain[0] ?? DEFAULT_LANGUAGE;
 
   if (typeof document !== 'undefined') {
     const { dir } = LANGUAGE_CONFIG[resolved] ?? LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
@@ -136,7 +136,9 @@ export function loadLocale(language?: string): Promise<Messages> {
     document.documentElement.setAttribute('dir', dir);
   }
 
-  return Promise.resolve(locale.runtime);
+  return loadLocaleDefinition(resolved)
+    .then((locale) => locale.runtime)
+    .catch(() => DEFAULT_RUNTIME_MESSAGES);
 }
 
 /**
@@ -163,7 +165,7 @@ export function createDefaultPageI18nController(options: PageI18nControllerOptio
   return createPageI18nController({
     bindingAdapter,
     defaultLanguage: DEFAULT_LANGUAGE,
-    loadMessages: (language) => Promise.resolve(getMessagesForLanguage(language)),
+    loadMessages: (language) => getMessagesForLanguage(language),
     getCurrentLanguage,
     setCurrentLanguage
   });

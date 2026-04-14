@@ -1,5 +1,2699 @@
 {
-  "totalWarnings": 0,
-  "ruleCounts": {},
-  "files": []
+  "totalWarnings": 361,
+  "ruleCounts": {
+    "@typescript-eslint/no-unused-vars": 47,
+    "@typescript-eslint/no-unnecessary-type-assertion": 13,
+    "@typescript-eslint/unbound-method": 40,
+    "@typescript-eslint/require-await": 142,
+    "@typescript-eslint/no-misused-promises": 2,
+    "@typescript-eslint/no-redundant-type-constituents": 3,
+    "@typescript-eslint/no-floating-promises": 2,
+    "no-restricted-syntax": 3,
+    "@typescript-eslint/no-unsafe-assignment": 29,
+    "@typescript-eslint/no-unsafe-return": 16,
+    "@typescript-eslint/restrict-template-expressions": 2,
+    "@typescript-eslint/no-explicit-any": 21,
+    "@typescript-eslint/await-thenable": 5,
+    "@typescript-eslint/no-unsafe-argument": 8,
+    "@typescript-eslint/no-unsafe-call": 9,
+    "@typescript-eslint/no-unsafe-member-access": 19
+  },
+  "files": [
+    {
+      "file": "src/background/listeners/contextMenus.ts",
+      "warnings": [
+        {
+          "line": 25,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'getDependencies' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/background/llm/classifier.ts",
+      "warnings": [
+        {
+          "line": 86,
+          "column": 23,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        },
+        {
+          "line": 116,
+          "column": 21,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/background/services/classificationService.ts",
+      "warnings": [
+        {
+          "line": 5,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'AppError' is defined but never used."
+        },
+        {
+          "line": 44,
+          "column": 23,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        },
+        {
+          "line": 46,
+          "column": 12,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        },
+        {
+          "line": 61,
+          "column": 12,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/background/services/notifications.ts",
+      "warnings": [
+        {
+          "line": 4,
+          "column": 15,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'NotificationsService' is defined but never used."
+        },
+        {
+          "line": 5,
+          "column": 15,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'RuntimeService' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/content/clipper/components/dialogPresenter.ts",
+      "warnings": [
+        {
+          "line": 61,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 62,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 64,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 65,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 66,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 67,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 68,
+          "column": 5,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "src/content/clipper/presentation/clipperDialogPrompt.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 15,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'PopupCoordinator' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/content/extractors/aiChatExtractor.ts",
+      "warnings": [
+        {
+          "line": 90,
+          "column": 19,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/content/index.ts",
+      "warnings": [
+        {
+          "line": 7,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'isReaderSessionActive' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/content/reader/session.ts",
+      "warnings": [
+        {
+          "line": 70,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-misused-promises",
+          "message": "Promise-returning function provided to property where a void return was expected."
+        }
+      ]
+    },
+    {
+      "file": "src/content/runtime/clipFlow.ts",
+      "warnings": [
+        {
+          "line": 4,
+          "column": 40,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'SelectionSnapshot' is defined but never used."
+        },
+        {
+          "line": 39,
+          "column": 21,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'window' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/content/runtime/contentSessionRegistry.ts",
+      "warnings": [
+        {
+          "line": 2,
+          "column": 18,
+          "ruleId": "@typescript-eslint/no-redundant-type-constituents",
+          "message": "'unknown' overrides all other types in this union type."
+        },
+        {
+          "line": 3,
+          "column": 17,
+          "ruleId": "@typescript-eslint/no-redundant-type-constituents",
+          "message": "'unknown' overrides all other types in this union type."
+        }
+      ]
+    },
+    {
+      "file": "src/content/runtime/domEvents.ts",
+      "warnings": [
+        {
+          "line": 25,
+          "column": 19,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 26,
+          "column": 17,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 27,
+          "column": 16,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 28,
+          "column": 21,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 29,
+          "column": 19,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 30,
+          "column": 27,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 31,
+          "column": 23,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "src/content/ui/supportPrompt/SupportPromptToastController.ts",
+      "warnings": [
+        {
+          "line": 143,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-floating-promises",
+          "message": "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator."
+        }
+      ]
+    },
+    {
+      "file": "src/content/video/sessionDom.ts",
+      "warnings": [
+        {
+          "line": 121,
+          "column": 44,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 122,
+          "column": 42,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 123,
+          "column": 40,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 124,
+          "column": 52,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 131,
+          "column": 47,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 132,
+          "column": 45,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 133,
+          "column": 43,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 134,
+          "column": 55,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "src/content/video/videoSessionRuntime.ts",
+      "warnings": [
+        {
+          "line": 40,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'watchVideoSessionHighlightTheme' is defined but never used."
+        },
+        {
+          "line": 43,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'loadVideoSessionFragmentConfig' is defined but never used."
+        },
+        {
+          "line": 44,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'loadVideoSessionMessages' is defined but never used."
+        },
+        {
+          "line": 45,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'watchVideoSessionLanguage' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/dev/contentOrchestratorHarness.ts",
+      "warnings": [
+        {
+          "line": 37,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 40,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 43,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getMany' has no 'await' expression."
+        },
+        {
+          "line": 46,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setMany' has no 'await' expression."
+        },
+        {
+          "line": 51,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'remove' has no 'await' expression."
+        },
+        {
+          "line": 56,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'clear' has no 'await' expression."
+        },
+        {
+          "line": 75,
+          "column": 3,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 92,
+          "column": 3,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getFragmentConfig' has no 'await' expression."
+        },
+        {
+          "line": 115,
+          "column": 3,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'handle' has no 'await' expression."
+        },
+        {
+          "line": 129,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'send' has no 'await' expression."
+        },
+        {
+          "line": 135,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getReadingConfig' has no 'await' expression."
+        },
+        {
+          "line": 138,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendReadingClip' has no 'await' expression."
+        },
+        {
+          "line": 155,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'dispatchClipResult' has no 'await' expression."
+        },
+        {
+          "line": 162,
+          "column": 1,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async function 'openClipperDialog' has no 'await' expression."
+        },
+        {
+          "line": 186,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'requestSelectionAction' has no 'await' expression."
+        },
+        {
+          "line": 218,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getVideoConfig' has no 'await' expression."
+        },
+        {
+          "line": 226,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getPromptPosition' has no 'await' expression."
+        },
+        {
+          "line": 229,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendVideoClip' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/dev/runtimeObservabilityHarness.ts",
+      "warnings": [
+        {
+          "line": 56,
+          "column": 92,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/i18n/locales.ts",
+      "warnings": [
+        {
+          "line": 1,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DEFAULT_LANGUAGE' is defined but never used."
+        },
+        {
+          "line": 11,
+          "column": 6,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'LocaleModule' is defined but never used."
+        },
+        {
+          "line": 16,
+          "column": 16,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'en' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/i18n/pageController.ts",
+      "warnings": [
+        {
+          "line": 2,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DEFAULT_LANGUAGE' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/infrastructure/optionsRepository.ts",
+      "warnings": [
+        {
+          "line": 143,
+          "column": 18,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/infrastructure/restClient.ts",
+      "warnings": [
+        {
+          "line": 85,
+          "column": 20,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/onboarding/bootstrap.ts",
+      "warnings": [
+        {
+          "line": 51,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 54,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 57,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getMany' has no 'await' expression."
+        },
+        {
+          "line": 60,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setMany' has no 'await' expression."
+        },
+        {
+          "line": 65,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'remove' has no 'await' expression."
+        },
+        {
+          "line": 70,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'clear' has no 'await' expression."
+        },
+        {
+          "line": 90,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'create' has no 'await' expression."
+        },
+        {
+          "line": 94,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getCurrent' has no 'await' expression."
+        },
+        {
+          "line": 97,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 100,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'query' has no 'await' expression."
+        },
+        {
+          "line": 103,
+          "column": 7,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendMessage' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/options/app/optionsShell.ts",
+      "warnings": [
+        {
+          "line": 31,
+          "column": 45,
+          "ruleId": "@typescript-eslint/no-redundant-type-constituents",
+          "message": "'unknown' overrides all other types in this union type."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/layout/OptionsApp.ts",
+      "warnings": [
+        {
+          "line": 51,
+          "column": 25,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        },
+        {
+          "line": 87,
+          "column": 25,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/fragmentSectionLayoutBuilders.ts",
+      "warnings": [
+        {
+          "line": 218,
+          "column": 5,
+          "ruleId": "no-restricted-syntax",
+          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
+        },
+        {
+          "line": 223,
+          "column": 20,
+          "ruleId": "no-restricted-syntax",
+          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/LanguageSection.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        },
+        {
+          "line": 78,
+          "column": 30,
+          "ruleId": "no-restricted-syntax",
+          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/PrivacySection.ts",
+      "warnings": [
+        {
+          "line": 31,
+          "column": 3,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'refreshSettings' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/ReadingSection.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/restSectionLayout.ts",
+      "warnings": [
+        {
+          "line": 64,
+          "column": 32,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/RestSectionView.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/RoutingSection.ts",
+      "warnings": [
+        {
+          "line": 1,
+          "column": 15,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'CompleteOptions' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 5,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/TemplatesSection.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/TransferSection.ts",
+      "warnings": [
+        {
+          "line": 1,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 2,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/UsageDashboardSection.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DEFAULT_USAGE_STATS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/VideoSection.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/components/sections/YamlConfigSection.ts",
+      "warnings": [
+        {
+          "line": 5,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'resolveRepository' is defined but never used."
+        },
+        {
+          "line": 6,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DI_TOKENS' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/options/state/stateValue.ts",
+      "warnings": [
+        {
+          "line": 5,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 24,
+          "column": 32,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        }
+      ]
+    },
+    {
+      "file": "src/platform/preview/memoryStorage.ts",
+      "warnings": [
+        {
+          "line": 7,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 10,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 13,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getMany' has no 'await' expression."
+        },
+        {
+          "line": 16,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setMany' has no 'await' expression."
+        },
+        {
+          "line": 21,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'remove' has no 'await' expression."
+        },
+        {
+          "line": 26,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'clear' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/platform/preview/services.ts",
+      "warnings": [
+        {
+          "line": 15,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'send' has no 'await' expression."
+        },
+        {
+          "line": 18,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendToTab' has no 'await' expression."
+        },
+        {
+          "line": 47,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'create' has no 'await' expression."
+        },
+        {
+          "line": 51,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getCurrent' has no 'await' expression."
+        },
+        {
+          "line": 54,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 57,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'query' has no 'await' expression."
+        },
+        {
+          "line": 60,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendMessage' has no 'await' expression."
+        },
+        {
+          "line": 77,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'create' has no 'await' expression."
+        },
+        {
+          "line": 94,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'create' has no 'await' expression."
+        },
+        {
+          "line": 113,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'executeScript' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/shared/di/serviceRegistry.ts",
+      "warnings": [
+        {
+          "line": 116,
+          "column": 79,
+          "ruleId": "@typescript-eslint/restrict-template-expressions",
+          "message": "Invalid type \"unknown\" of template literal expression."
+        },
+        {
+          "line": 180,
+          "column": 93,
+          "ruleId": "@typescript-eslint/restrict-template-expressions",
+          "message": "Invalid type \"unknown\" of template literal expression."
+        },
+        {
+          "line": 280,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 283,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 299,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'send' has no 'await' expression."
+        },
+        {
+          "line": 318,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getOverrides' has no 'await' expression."
+        },
+        {
+          "line": 321,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setOverrides' has no 'await' expression."
+        },
+        {
+          "line": 345,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getVideoConfig' has no 'await' expression."
+        },
+        {
+          "line": 353,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getPromptPosition' has no 'await' expression."
+        },
+        {
+          "line": 356,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendVideoClip' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/shared/di/testHelpers.ts",
+      "warnings": [
+        {
+          "line": 16,
+          "column": 36,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 26,
+          "column": 36,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 36,
+          "column": 36,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 47,
+          "column": 41,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'send' has no 'await' expression."
+        },
+        {
+          "line": 48,
+          "column": 46,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendToTab' has no 'await' expression."
+        },
+        {
+          "line": 72,
+          "column": 28,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getCurrent' has no 'await' expression."
+        },
+        {
+          "line": 73,
+          "column": 21,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 75,
+          "column": 48,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'sendMessage' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/shared/state/globalStateManager.ts",
+      "warnings": [
+        {
+          "line": 195,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 198,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 203,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getMany' has no 'await' expression."
+        },
+        {
+          "line": 206,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setMany' has no 'await' expression."
+        },
+        {
+          "line": 213,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'remove' has no 'await' expression."
+        },
+        {
+          "line": 220,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'clear' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/domains/yaml-config/yamlConfigTableDomainRenderers.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'createCheckboxElement' is defined but never used."
+        },
+        {
+          "line": 4,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'createInputElement' is defined but never used."
+        },
+        {
+          "line": 5,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'createSelectElement' is defined but never used."
+        },
+        {
+          "line": 10,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'createOptionsPanel' is defined but never used."
+        },
+        {
+          "line": 13,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'ARRAY_INPUT_PLACEHOLDER' is defined but never used."
+        },
+        {
+          "line": 21,
+          "column": 10,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'formatArrayValue' is defined but never used."
+        },
+        {
+          "line": 55,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'buildDomainFieldDefinition' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/domains/yaml-config/yamlConfigTableRenderer.ts",
+      "warnings": [
+        {
+          "line": 10,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'buildYamlErrorList' is defined but never used."
+        },
+        {
+          "line": 12,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'renderDomainOverrides' is defined but never used."
+        },
+        {
+          "line": 13,
+          "column": 8,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'DomainActions' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/domains/yaml-config/yamlConfigTableStateModel.ts",
+      "warnings": [
+        {
+          "line": 18,
+          "column": 3,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'stringifyDefaultValue' is defined but never used."
+        }
+      ]
+    },
+    {
+      "file": "tests/e2e/content-scripts-repository.test.ts",
+      "warnings": [
+        {
+          "line": 132,
+          "column": 46,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/e2e/optionsLanguageSwitch.test.ts",
+      "warnings": [
+        {
+          "line": 77,
+          "column": 11,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 88,
+          "column": 11,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'send' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/e2e/readerPanelFlow.test.ts",
+      "warnings": [
+        {
+          "line": 84,
+          "column": 61,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/firefox/firefox.test.ts",
+      "warnings": [
+        {
+          "line": 182,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/backgroundStartup.test.ts",
+      "warnings": [
+        {
+          "line": 7,
+          "column": 84,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 9,
+          "column": 90,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any[]` typed value."
+        },
+        {
+          "line": 58,
+          "column": 33,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/bootstrap.test.ts",
+      "warnings": [
+        {
+          "line": 26,
+          "column": 70,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 79,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/configService.test.ts",
+      "warnings": [
+        {
+          "line": 19,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 20,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 21,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 22,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 23,
+          "column": 30,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 24,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 31,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 32,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 34,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 39,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 40,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 41,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 42,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 43,
+          "column": 30,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 44,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/contextMenus.test.ts",
+      "warnings": [
+        {
+          "line": 7,
+          "column": 63,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'RuntimeService' is defined but never used."
+        },
+        {
+          "line": 11,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 11,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 50,
+          "column": 93,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 61,
+          "column": 86,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 488,
+          "column": 3,
+          "ruleId": "@typescript-eslint/await-thenable",
+          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
+        },
+        {
+          "line": 489,
+          "column": 3,
+          "ruleId": "@typescript-eslint/await-thenable",
+          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
+        },
+        {
+          "line": 493,
+          "column": 3,
+          "ruleId": "@typescript-eslint/await-thenable",
+          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
+        },
+        {
+          "line": 497,
+          "column": 3,
+          "ruleId": "@typescript-eslint/await-thenable",
+          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
+        },
+        {
+          "line": 501,
+          "column": 3,
+          "ruleId": "@typescript-eslint/await-thenable",
+          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/notifications.test.ts",
+      "warnings": [
+        {
+          "line": 211,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 431,
+          "column": 10,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/obsidianWriter.test.ts",
+      "warnings": [
+        {
+          "line": 72,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/runtimeMessages.test.ts",
+      "warnings": [
+        {
+          "line": 94,
+          "column": 33,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/store.test.ts",
+      "warnings": [
+        {
+          "line": 24,
+          "column": 36,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 27,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 52,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 53,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/background/trialLifecycle.test.ts",
+      "warnings": [
+        {
+          "line": 71,
+          "column": 39,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 72,
+          "column": 40,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 80,
+          "column": 44,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 92,
+          "column": 49,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 95,
+          "column": 53,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 123,
+          "column": 47,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/aiChatExtractor.test.ts",
+      "warnings": [
+        {
+          "line": 12,
+          "column": 91,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 50,
+          "column": 22,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/bootstrap.test.ts",
+      "warnings": [
+        {
+          "line": 16,
+          "column": 70,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 103,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/clipperDialogKeyboardShortcuts.test.ts",
+      "warnings": [
+        {
+          "line": 106,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 107,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 108,
+          "column": 32,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 109,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 110,
+          "column": 39,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 119,
+          "column": 30,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/contentClipOrchestrator.test.ts",
+      "warnings": [
+        {
+          "line": 39,
+          "column": 43,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 133,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/contentMessageRouter.test.ts",
+      "warnings": [
+        {
+          "line": 175,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/contentRuntimeEvents.test.ts",
+      "warnings": [
+        {
+          "line": 41,
+          "column": 43,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/contentSelectionTracker.test.ts",
+      "warnings": [
+        {
+          "line": 66,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 67,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/dependencyFactories.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 31,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 9,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/fragmentConfig.test.ts",
+      "warnings": [
+        {
+          "line": 89,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/popupCoordinatorLifecycle.test.ts",
+      "warnings": [
+        {
+          "line": 210,
+          "column": 49,
+          "ruleId": "@typescript-eslint/no-misused-promises",
+          "message": "Promise-returning function provided to property where a void return was expected."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/reader/ReaderSession.test.ts",
+      "warnings": [
+        {
+          "line": 96,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/reader/sessionDependencies.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 46,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/readerSessionModifiers.test.ts",
+      "warnings": [
+        {
+          "line": 147,
+          "column": 33,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/video/BilibiliVideoPlatform.test.ts",
+      "warnings": [
+        {
+          "line": 15,
+          "column": 32,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 15,
+          "column": 39,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 138,
+          "column": 67,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 274,
+          "column": 82,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 379,
+          "column": 78,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 543,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 682,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 768,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 826,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        },
+        {
+          "line": 1043,
+          "column": 78,
+          "ruleId": "@typescript-eslint/no-unsafe-argument",
+          "message": "Unsafe argument of type `Mock<any, any>` assigned to a parameter of type `Mock<any[], unknown>`."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/video/SelectionCaptureController.test.ts",
+      "warnings": [
+        {
+          "line": 43,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 43,
+          "column": 45,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 80,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 80,
+          "column": 45,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 107,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 107,
+          "column": 45,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/video/VideoSessionDom.test.ts",
+      "warnings": [
+        {
+          "line": 103,
+          "column": 46,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/content/video/VideoSessionState.test.ts",
+      "warnings": [
+        {
+          "line": 83,
+          "column": 14,
+          "ruleId": "@typescript-eslint/no-unnecessary-type-assertion",
+          "message": "This assertion is unnecessary since it does not change the type of the expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/i18n/overflowLogger.test.ts",
+      "warnings": [
+        {
+          "line": 53,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/infrastructure/ChromeClipRepository.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 8,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/infrastructure/ChromeMessagingRepository.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 8,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/infrastructure/ChromeOptionsRepository.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 8,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/actions.test.ts",
+      "warnings": [
+        {
+          "line": 58,
+          "column": 36,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/bootstrap.test.ts",
+      "warnings": [
+        {
+          "line": 249,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-floating-promises",
+          "message": "Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator."
+        },
+        {
+          "line": 350,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 351,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 351,
+          "column": 35,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 351,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .changeLanguage on an `any` value."
+        },
+        {
+          "line": 352,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 352,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .copyConfig on an `any` value."
+        },
+        {
+          "line": 353,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 353,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .importConfig on an `any` value."
+        },
+        {
+          "line": 354,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 354,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .saveOptions on an `any` value."
+        },
+        {
+          "line": 355,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 355,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .reloadDiagnostics on an `any` value."
+        },
+        {
+          "line": 356,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 356,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .fixConfiguration on an `any` value."
+        },
+        {
+          "line": 357,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 357,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .runDiagnostics on an `any` value."
+        },
+        {
+          "line": 366,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 374,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 385,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 388,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 388,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .copyConfig on an `any` value."
+        },
+        {
+          "line": 392,
+          "column": 11,
+          "ruleId": "@typescript-eslint/no-unsafe-call",
+          "message": "Unsafe call of an `any` typed value."
+        },
+        {
+          "line": 392,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .saveOptions on an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/optionsBootstrapDependencies.test.ts",
+      "warnings": [
+        {
+          "line": 14,
+          "column": 70,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 64,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/optionsController.integration.test.ts",
+      "warnings": [
+        {
+          "line": 16,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/optionsShell.test.ts",
+      "warnings": [
+        {
+          "line": 147,
+          "column": 13,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 147,
+          "column": 28,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .usage on an `any` value."
+        },
+        {
+          "line": 154,
+          "column": 17,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .fragmentSaves on an `any` value."
+        },
+        {
+          "line": 155,
+          "column": 17,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .articleSaves on an `any` value."
+        },
+        {
+          "line": 156,
+          "column": 17,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access .aiChatSaves on an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/sections/TemplatesSection.test.ts",
+      "warnings": [
+        {
+          "line": 11,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 11,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 124,
+          "column": 87,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 125,
+          "column": 38,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'optionsRepo' is assigned a value but never used."
+        },
+        {
+          "line": 222,
+          "column": 104,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 223,
+          "column": 38,
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "message": "'optionsRepo' is assigned a value but never used."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/sections/UsageSection.test.ts",
+      "warnings": [
+        {
+          "line": 61,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'get' has no 'await' expression."
+        },
+        {
+          "line": 64,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'set' has no 'await' expression."
+        },
+        {
+          "line": 69,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'getMany' has no 'await' expression."
+        },
+        {
+          "line": 72,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'setMany' has no 'await' expression."
+        },
+        {
+          "line": 79,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'remove' has no 'await' expression."
+        },
+        {
+          "line": 87,
+          "column": 5,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async method 'clear' has no 'await' expression."
+        },
+        {
+          "line": 127,
+          "column": 20,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/sections/YamlConfigSection.test.ts",
+      "warnings": [
+        {
+          "line": 16,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 16,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/options/yamlConfigView.test.ts",
+      "warnings": [
+        {
+          "line": 8,
+          "column": 43,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 8,
+          "column": 53,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/chrome/action.test.ts",
+      "warnings": [
+        {
+          "line": 41,
+          "column": 26,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 42,
+          "column": 37,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/chrome/contextMenus.test.ts",
+      "warnings": [
+        {
+          "line": 38,
+          "column": 21,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/chrome/runtime.test.ts",
+      "warnings": [
+        {
+          "line": 31,
+          "column": 20,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 32,
+          "column": 25,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/chrome/utils.test.ts",
+      "warnings": [
+        {
+          "line": 26,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/firefox/action.test.ts",
+      "warnings": [
+        {
+          "line": 27,
+          "column": 26,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 28,
+          "column": 37,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/firefox/contextMenus.test.ts",
+      "warnings": [
+        {
+          "line": 25,
+          "column": 21,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/platform/firefox/utils.test.ts",
+      "warnings": [
+        {
+          "line": 26,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/shared/errors/analytics/index.test.ts",
+      "warnings": [
+        {
+          "line": 3,
+          "column": 71,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 58,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/shared/errors/analytics/sentryReporter.test.ts",
+      "warnings": [
+        {
+          "line": 78,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 81,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/shared/errors/analyticsConfig.test.ts",
+      "warnings": [
+        {
+          "line": 7,
+          "column": 40,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 8,
+          "column": 50,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 11,
+          "column": 33,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 12,
+          "column": 60,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 13,
+          "column": 50,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 17,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 25,
+          "column": 29,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 26,
+          "column": 52,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 27,
+          "column": 33,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 28,
+          "column": 60,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 29,
+          "column": 28,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 30,
+          "column": 27,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 75,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        },
+        {
+          "line": 76,
+          "column": 12,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/shared/errors/globalErrorBoundary.test.ts",
+      "warnings": [
+        {
+          "line": 32,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 69,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        }
+      ]
+    },
+    {
+      "file": "tests/unit/shared/interfaces.test.ts",
+      "warnings": [
+        {
+          "line": 75,
+          "column": 81,
+          "ruleId": "@typescript-eslint/require-await",
+          "message": "Async arrow function has no 'await' expression."
+        },
+        {
+          "line": 101,
+          "column": 14,
+          "ruleId": "@typescript-eslint/unbound-method",
+          "message": "Avoid referencing unbound methods which may cause unintentional scoping of `this`.\nIf your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead."
+        }
+      ]
+    },
+    {
+      "file": "tests/utils/browserMocks.ts",
+      "warnings": [
+        {
+          "line": 4,
+          "column": 20,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        },
+        {
+          "line": 4,
+          "column": 27,
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "message": "Unexpected any. Specify a different type."
+        }
+      ]
+    },
+    {
+      "file": "tests/utils/typeHelpers.ts",
+      "warnings": [
+        {
+          "line": 19,
+          "column": 36,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 20,
+          "column": 23,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 22,
+          "column": 25,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 33,
+          "column": 9,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 34,
+          "column": 18,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 35,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 37,
+          "column": 7,
+          "ruleId": "@typescript-eslint/no-unsafe-member-access",
+          "message": "Unsafe member access [key] on an `any` value."
+        },
+        {
+          "line": 48,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 49,
+          "column": 5,
+          "ruleId": "@typescript-eslint/no-unsafe-assignment",
+          "message": "Unsafe assignment of an `any` value."
+        },
+        {
+          "line": 72,
+          "column": 21,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 73,
+          "column": 21,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 74,
+          "column": 26,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 75,
+          "column": 28,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 77,
+          "column": 31,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 78,
+          "column": 18,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 79,
+          "column": 19,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 81,
+          "column": 28,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 82,
+          "column": 24,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 83,
+          "column": 30,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 84,
+          "column": 29,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        },
+        {
+          "line": 85,
+          "column": 24,
+          "ruleId": "@typescript-eslint/no-unsafe-return",
+          "message": "Unsafe return of an `any` typed value."
+        }
+      ]
+    }
+  ]
 }

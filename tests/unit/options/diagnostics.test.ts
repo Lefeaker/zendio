@@ -1,13 +1,40 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CompleteOptions, StoredOptions } from '../../../src/shared/types/options';
+import type { OptionsController } from '../../../src/options/app/optionsController';
+import type { IOptionsRepository } from '../../../src/shared/repositories';
 
-const getSnapshotMock = vi.hoisted(() => vi.fn());
-const loadRawMock = vi.hoisted(() => vi.fn());
-const saveSnapshotMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const repoGetMock = vi.hoisted(() => vi.fn(() => Promise.resolve(null)));
-const repoSetMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const getOptionsControllerMock = vi.hoisted(() => vi.fn(() => ({ getSnapshot: getSnapshotMock, loadRaw: loadRawMock, saveSnapshot: saveSnapshotMock })));
+type DiagnosticsController = Pick<OptionsController, 'getSnapshot' | 'loadRaw' | 'saveSnapshot'>;
+
+const getSnapshotMock = vi.hoisted(() =>
+  vi.fn<[], ReturnType<DiagnosticsController['getSnapshot']>>(() => null)
+);
+const loadRawMock = vi.hoisted(() =>
+  vi.fn<[], ReturnType<DiagnosticsController['loadRaw']>>(() => Promise.resolve({}))
+);
+const saveSnapshotMock = vi.hoisted(() =>
+  vi.fn<Parameters<DiagnosticsController['saveSnapshot']>, ReturnType<DiagnosticsController['saveSnapshot']>>(
+    () => Promise.resolve({} as StoredOptions)
+  )
+);
+const repoGetMock = vi.hoisted(() =>
+  vi.fn<Parameters<IOptionsRepository['get']>, ReturnType<IOptionsRepository['get']>>(
+    () => Promise.resolve({} as CompleteOptions)
+  )
+);
+const repoSetMock = vi.hoisted(() =>
+  vi.fn<Parameters<IOptionsRepository['set']>, ReturnType<IOptionsRepository['set']>>(
+    () => Promise.resolve(undefined)
+  )
+);
+const getOptionsControllerMock = vi.hoisted(() =>
+  vi.fn<[], DiagnosticsController | null>(() => ({
+    getSnapshot: getSnapshotMock,
+    loadRaw: loadRawMock,
+    saveSnapshot: saveSnapshotMock
+  }))
+);
 const getOptionsMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ portConflictDetected: 'Port conflict: {ports}' })));
 const formatMessageMock = vi.hoisted(() => vi.fn((template: string, values: Record<string, string>) => template.replace('{ports}', values.ports)));
 
@@ -28,10 +55,14 @@ describe('diagnostics', () => {
     repoGetMock.mockReset();
     repoSetMock.mockReset();
     getOptionsControllerMock.mockReset();
-    saveSnapshotMock.mockResolvedValue(undefined);
-    repoGetMock.mockResolvedValue(null);
+    saveSnapshotMock.mockResolvedValue({} as StoredOptions);
+    repoGetMock.mockResolvedValue({} as CompleteOptions);
     repoSetMock.mockResolvedValue(undefined);
-    getOptionsControllerMock.mockReturnValue({ getSnapshot: getSnapshotMock, loadRaw: loadRawMock, saveSnapshot: saveSnapshotMock });
+    getOptionsControllerMock.mockReturnValue({
+      getSnapshot: getSnapshotMock,
+      loadRaw: loadRawMock,
+      saveSnapshot: saveSnapshotMock
+    });
     vi.useRealTimers();
     document.body.innerHTML = '<div id="diagSection" style="display:none"></div><pre id="diagOutput"></pre>';
   });
@@ -46,7 +77,7 @@ describe('diagnostics', () => {
       fragmentClipper: { useFootnoteFormat: true, captureContext: false, contextLength: 10, selectionModifierEnabled: true, selectionModifierKeys: [] },
       readingSession: { exportMode: 'weird', highlightTheme: 'strange' },
       video: { floatingPromptEnabled: false, promptButtonLabel: '', promptShortcut: '' }
-    });
+    } as unknown as StoredOptions);
     const { runDiagnostics } = await import('@options/components/diagnostics');
     await runDiagnostics();
 
@@ -60,7 +91,7 @@ describe('diagnostics', () => {
     getSnapshotMock.mockReturnValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'http://localhost:27124', apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
-    });
+    } as unknown as StoredOptions);
     const { fixConfiguration } = await import('@options/components/diagnostics');
     await fixConfiguration();
     expect(saveSnapshotMock).toHaveBeenCalled();
@@ -68,7 +99,7 @@ describe('diagnostics', () => {
   });
 
   it('loads raw options when controller snapshot is empty and reports port conflicts', async () => {
-    getSnapshotMock.mockReturnValue({});
+    getSnapshotMock.mockReturnValue({} as StoredOptions);
     loadRawMock.mockResolvedValue({
       rest: { httpsUrl: 'https://localhost:27124', httpUrl: 'http://localhost:27123', apiKey: 'key' },
       templates: { article: 'Articles/{title}.md', fragment: 'Fragments/{title}.md', ai: 'AI/{title}.md' },
@@ -80,7 +111,7 @@ describe('diagnostics', () => {
         rules: []
       },
       domainMappings: { 'example.com': 'article' }
-    });
+    } as unknown as StoredOptions);
     const { runDiagnostics } = await import('@options/components/diagnostics');
     await runDiagnostics();
 
@@ -112,7 +143,7 @@ describe('diagnostics', () => {
       },
       readingSession: { exportMode: 'full', highlightTheme: 'purple' },
       video: { floatingPromptEnabled: true, promptButtonLabel: 'Clip', promptShortcut: 'K' }
-    });
+    } as unknown as CompleteOptions);
     const { runDiagnostics } = await import('@options/components/diagnostics');
     await runDiagnostics();
 
@@ -156,7 +187,7 @@ describe('diagnostics', () => {
       templates: { article: 'A', fragment: 'F', ai: 'I' },
       fragmentClipper: { useFootnoteFormat: false, captureContext: true, contextLength: -1, selectionModifierEnabled: false, selectionModifierKeys: [] },
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' }
-    });
+    } as unknown as StoredOptions);
     await runDiagnostics();
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(output).toContain('❌ 上下文长度配置异常，应为正整数');
@@ -171,7 +202,7 @@ describe('diagnostics', () => {
     repoGetMock.mockResolvedValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
       templates: { article: '', fragment: '', ai: '' }
-    });
+    } as unknown as CompleteOptions);
     const onAfterFix = vi.fn().mockResolvedValue(undefined);
     const { fixConfiguration } = await import('@options/components/diagnostics');
     await fixConfiguration(onAfterFix);
@@ -194,7 +225,7 @@ describe('diagnostics', () => {
     repoGetMock.mockResolvedValueOnce({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
-    });
+    } as unknown as CompleteOptions);
     repoSetMock.mockRejectedValueOnce(new Error('repo save failed'));
     const { fixConfiguration } = await import('../../../src/options/components/diagnostics');
     await fixConfiguration();
@@ -208,7 +239,7 @@ describe('diagnostics', () => {
     getSnapshotMock.mockReturnValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
       templates: { article: '', fragment: '', ai: '' }
-    });
+    } as unknown as StoredOptions);
     saveSnapshotMock.mockRejectedValueOnce(new Error('save failed'));
     const { fixConfiguration } = await import('../../../src/options/components/diagnostics');
     await fixConfiguration();

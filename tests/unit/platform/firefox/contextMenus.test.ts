@@ -22,7 +22,11 @@ describe('firefoxContextMenusService', () => {
     await expect(firefoxContextMenusService.create({ id: 'menu-1', title: 'Title', contexts: ['all'] })).resolves.toBe('menu-1');
     await firefoxContextMenusService.update('menu-1', { title: 'Next', contexts: ['selection'] });
     await firefoxContextMenusService.removeAll();
-    firefoxContextMenusService.refresh();
+    const refresh = firefoxContextMenusService.refresh;
+    if (!refresh) {
+      throw new Error('refresh api missing');
+    }
+    refresh();
     expect(firefoxApi.contextMenus.refresh).toHaveBeenCalled();
     const off = firefoxContextMenusService.onClicked(vi.fn());
     expect(firefoxApi.contextMenus.onClicked.addListener).toHaveBeenCalled();

@@ -5,6 +5,8 @@ import type {
   ClipPromptRequest,
   ClipPromptResponse
 } from '../application/clipPromptGateway';
+import type { PopupCoordinator } from '../../runtime/popupCoordinator';
+import { resolveContentPopupCoordinator } from '../../runtime/popupCoordinatorAccess';
 
 class ClipperDialogPromptGateway implements ClipPromptGateway {
   async requestSelectionAction(request: ClipPromptRequest): Promise<ClipPromptResponse> {
@@ -23,8 +25,12 @@ class ClipperDialogPromptGateway implements ClipPromptGateway {
       request.initialComment === undefined
         ? withVideoOption
         : { ...withVideoOption, initialComment: request.initialComment };
+    const popupCoordinator = resolveContentPopupCoordinator();
 
-    const result = await dialog.show(request.selectedText, dialogOptions);
+    const result = await dialog.show(request.selectedText, {
+      ...dialogOptions,
+      ...(popupCoordinator ? { dialogRegistry: popupCoordinator } : {})
+    });
     return {
       action: result.action,
       comment: result.comment ?? ''

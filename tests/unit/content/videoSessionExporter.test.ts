@@ -159,6 +159,9 @@ describe('VideoSessionExporter', () => {
     });
 
     const [clipPayload] = sendVideoClipMock.mock.calls.at(-1) ?? [];
+    if (!clipPayload) {
+      throw new Error('expected exported clip payload');
+    }
     expect(clipPayload.platform).toBe('other');
     expect(clipPayload.url).toBe('https://example.com/watch?v=2');
     expect(clipPayload.title).toBe('Video Capture');

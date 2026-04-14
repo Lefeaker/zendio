@@ -1,10 +1,10 @@
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { getOptionsController } from '../../app/optionsControllerContext';
+import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { UiBadge as DaisyBadge } from '../../../ui/primitives/badge';
-import { UiCheckbox as DaisyCheckbox } from '../../../ui/primitives/checkbox';
-import { UiInput as DaisyInput } from '../../../ui/primitives/input';
+import { UiBadge as DaisyBadge } from '@ui/primitives/badge';
+import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
+import { UiInput as DaisyInput } from '@ui/primitives/input';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -183,6 +183,7 @@ export class AiSection extends BaseSection<SectionRenderContext> {
   }
 
   private handleInput = (): void => {
+    markPendingAutoSave('aiChat');
     const controller = getOptionsController();
     controller?.scheduleAutoSave();
   };
@@ -209,7 +210,6 @@ export class AiSection extends BaseSection<SectionRenderContext> {
         userName
       }
     };
-    this.persistAiChat(partial);
     return partial;
   }
 
@@ -227,12 +227,6 @@ export class AiSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeFromRepo?.();
     this.unsubscribeFromRepo = this.optionsRepo.onChange((options) => {
       this.applySnapshot(options);
-    });
-  }
-
-  private persistAiChat(update: Partial<CompleteOptions>): void {
-    void this.optionsRepo.set(update).catch((error) => {
-      console.error('[AiSection] Failed to persist AI chat options via repository:', error);
     });
   }
 }

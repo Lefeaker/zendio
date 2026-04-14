@@ -23,7 +23,7 @@ export interface MountedOptionsShell {
   configureUI: (config: OptionsAppUIConfig) => void;
   initialSection: string;
   mountAllSections: () => Promise<void>;
-  getMountedSection: (sectionId: string) => unknown | null;
+  getMountedSection: (sectionId: string) => unknown;
 }
 
 export async function mountOptionsShell(

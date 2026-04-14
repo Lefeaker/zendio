@@ -2,13 +2,13 @@ import type { CompleteOptions, StoredOptions, ReadingSessionOptions } from '@sha
 import type { IOptionsRepository } from '@shared/repositories';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
-import { getOptionsController } from '../../app/optionsControllerContext';
+import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { UiButton as DaisyButton } from '../../../ui/primitives/button';
-import { DaisyCard } from '../../../ui/primitives/card';
-import { createOptionsHintText } from '../../../ui/primitives/layout';
-import { DaisyRadioGroup } from '../../../ui/primitives/radio-group';
-import { UiSelect as DaisySelect } from '../../../ui/primitives/select';
+import { UiButton as DaisyButton } from '@ui/primitives/button';
+import { DaisyCard } from '@ui/primitives/card';
+import { createOptionsHintText } from '@ui/primitives/layout';
+import { DaisyRadioGroup } from '@ui/primitives/radio-group';
+import { UiSelect as DaisySelect } from '@ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 
@@ -172,6 +172,7 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
   }
 
   private handleValueChanged = (): void => {
+    markPendingAutoSave('readingSession');
     const controller = getOptionsController();
     controller?.scheduleAutoSave();
   };
@@ -257,7 +258,6 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
         highlightTheme: highlightTheme as ReadingSessionOptions['highlightTheme']
       }
     };
-    this.persistReading(partial);
     return partial;
   }
 
@@ -363,12 +363,6 @@ export class ReadingSection extends BaseSection<SectionRenderContext> {
     this.unsubscribeRepo?.();
     this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
       this.applySnapshot(options);
-    });
-  }
-
-  private persistReading(partial: Partial<CompleteOptions>): void {
-    void this.optionsRepo.set(partial).catch((error) => {
-      console.error('[ReadingSection] Failed to persist reading options via repository:', error);
     });
   }
 }

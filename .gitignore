@@ -1,7 +1,5 @@
 # Build output
-dist/
 build/
-releases/
 *.crx
 *.xpi
 *.pem
@@ -106,6 +104,7 @@ src/options/optionuicsssuggest.md
 # Internal planning / debt / migration archives
 docs/251126-design-system-poc/
 docs/**/*-plan*.md
+!docs/project-stabilization-plan-2026-04-13.md
 docs/**/*-roadmap*.md
 docs/**/*-checklist*.md
 docs/**/*-analysis-report*.md

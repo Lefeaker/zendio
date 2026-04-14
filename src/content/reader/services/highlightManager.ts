@@ -299,15 +299,20 @@ export class ReaderHighlightManager {
     for (const node of textNodes) {
       const highlightRange = this.doc.createRange();
       try {
-        highlightRange.selectNodeContents(node);
+        const maxOffset = node.textContent?.length ?? 0;
+        const startOffset = node === range.startContainer ? range.startOffset : 0;
+        const endOffset = node === range.endContainer ? range.endOffset : maxOffset;
+
+        if (endOffset <= startOffset) {
+          highlightRange.detach?.();
+          continue;
+        }
+
+        highlightRange.setStart(node, startOffset);
+        highlightRange.setEnd(node, endOffset);
       } catch {
         highlightRange.setStart(node, 0);
         highlightRange.setEnd(node, node.textContent?.length ?? 0);
-      }
-
-      if (!highlightRange.intersectsNode(node)) {
-        highlightRange.detach?.();
-        continue;
       }
 
       const wrapper = this.doc.createElement('mark');
@@ -361,7 +366,8 @@ export class ReaderHighlightManager {
     const referenceBlock = this.findBlockContainer(connectedSegments[0]);
     const canMerge =
       !!referenceBlock &&
-      connectedSegments.every((segment) => this.findBlockContainer(segment) === referenceBlock);
+      connectedSegments.every((segment) => this.findBlockContainer(segment) === referenceBlock) &&
+      this.isSafeToMergeSegments(connectedSegments);
 
     if (!canMerge) {
       return connectedSegments;
@@ -387,6 +393,51 @@ export class ReaderHighlightManager {
       mergeRange.detach?.();
       return connectedSegments;
     }
+  }
+
+  private isSafeToMergeSegments(segments: HTMLElement[]): boolean {
+    const probeRange = this.doc.createRange();
+    probeRange.setStartBefore(segments[0]);
+    probeRange.setEndAfter(segments[segments.length - 1]);
+    const fragment = probeRange.cloneContents();
+    probeRange.detach?.();
+
+    return !this.hasMeaningfulNonHighlightContent(fragment);
+  }
+
+  private hasMeaningfulNonHighlightContent(
+    node: Node,
+    insideHighlight = false
+  ): boolean {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return !insideHighlight && Boolean(node.textContent?.trim());
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+      return false;
+    }
+
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : null;
+    const nextInsideHighlight =
+      insideHighlight ||
+      (element?.tagName === 'MARK' && element.classList.contains('aiob-reader-highlight'));
+
+    if (
+      element &&
+      !nextInsideHighlight &&
+      !element.childNodes.length &&
+      ['IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'SVG', 'BR', 'HR', 'IFRAME'].includes(element.tagName)
+    ) {
+      return true;
+    }
+
+    for (const child of Array.from(node.childNodes)) {
+      if (this.hasMeaningfulNonHighlightContent(child, nextInsideHighlight)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private findBlockContainer(element: HTMLElement | null): HTMLElement | null {

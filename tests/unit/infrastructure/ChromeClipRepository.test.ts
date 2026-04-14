@@ -5,7 +5,7 @@ import type { ClipData, ClipResult, FragmentConfig } from '@shared/repositories/
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { CompleteOptions } from '@shared/types/options';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -32,7 +32,7 @@ const createOptionsSnapshot = (): CompleteOptions =>
       selectionModifierEnabled: false,
       selectionModifierKeys: []
     }
-  } as CompleteOptions);
+  } as unknown as CompleteOptions);
 
 type OptionsRepoMock = IOptionsRepository & {
   get: ReturnType<typeof createMockFn<IOptionsRepository['get']>>;
@@ -200,7 +200,10 @@ describe('ChromeClipRepository', () => {
 
       const updated = createOptionsSnapshot();
       updated.fragmentClipper.contextLength = 777;
-      listener?.(updated);
+      if (!listener) {
+        throw new Error('options listener missing');
+      }
+      (listener as (options: CompleteOptions) => void)(updated);
 
       expect(callback).toHaveBeenCalledWith(updated.fragmentClipper);
       expect(latestConfig).not.toBe(updated.fragmentClipper);
@@ -226,7 +229,7 @@ describe('ChromeClipRepository', () => {
     it('falls back to JSON cloning when structuredClone is unavailable', async () => {
       const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
       const originalStructuredClone = globalRef.structuredClone;
-      delete globalRef.structuredClone;
+      Reflect.deleteProperty(globalRef, 'structuredClone');
 
       try {
         const fragment = await repo.getFragmentConfig();

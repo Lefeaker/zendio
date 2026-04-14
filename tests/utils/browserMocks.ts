@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 
-type ViMock = ReturnType<typeof vi.fn>;
+type ViMock = Mock<any[], any>;
 
 interface ChromeActionMocks {
   setBadgeText: ViMock;

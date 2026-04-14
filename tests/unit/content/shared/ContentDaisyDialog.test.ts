@@ -47,6 +47,7 @@ describe('ContentDialogHost', () => {
     expect(shadow?.querySelector('[data-action="close"]')?.getAttribute('aria-label')).toBe(
       'Close dialog'
     );
+    expect(host.getAttribute('data-aiob-panel-theme')).toBe('tool');
     expect(dialog.isFocusTrapActive()).toBe(true);
   });
 
@@ -70,5 +71,25 @@ describe('ContentDialogHost', () => {
     dialog.show();
     overlay?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('supports non-modal floating panels without trapping focus', () => {
+    const dialog = new ContentDialogHost({
+      title: 'Reader panel',
+      modal: false,
+      trapFocus: false
+    });
+    const host = dialog.render();
+    document.body.append(host);
+    dialog.show();
+
+    const shadow = host.shadowRoot;
+    const overlay = shadow?.querySelector<HTMLDivElement>('.modal');
+    const modal = shadow?.querySelector<HTMLElement>('[data-element="dialog"]');
+
+    expect(overlay?.style.pointerEvents).toBe('none');
+    expect(modal?.style.pointerEvents).toBe('auto');
+    expect(modal?.getAttribute('aria-modal')).toBe('false');
+    expect(dialog.isFocusTrapActive()).toBe(false);
   });
 });

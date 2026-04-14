@@ -1,7 +1,7 @@
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
-import { DaisyCard } from '../../../ui/primitives/card';
-import { createOptionsButtonElement as createDaisyButtonElement } from '../../../ui/primitives/button';
+import { DaisyCard } from '@ui/primitives/card';
+import { createOptionsButtonElement as createDaisyButtonElement } from '@ui/primitives/button';
 import {
   runDiagnostics as runDiagnosticsAction,
   fixConfiguration as fixConfigurationAction,

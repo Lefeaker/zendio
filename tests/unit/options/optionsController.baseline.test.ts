@@ -123,8 +123,10 @@ describe('OptionsController baseline integration', () => {
     const controller = createOptionsController({ persistence, formAdapter, formRegistry: registry });
     await controller.loadInitialState();
 
-    const importedOptions: CompleteOptions = {
+    const importedOptions = {
+      ...DEFAULT_OPTIONS,
       rest: {
+        ...DEFAULT_OPTIONS.rest,
         baseUrl: 'https://imported.example.com/',
         vault: 'ImportedVault',
         apiKey: 'import-token'
@@ -160,7 +162,7 @@ describe('OptionsController baseline integration', () => {
           }
         }
       }
-    };
+    } as unknown as CompleteOptions;
 
     await controller.applyImportedConfig(importedOptions);
 

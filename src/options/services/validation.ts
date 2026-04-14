@@ -1,6 +1,42 @@
 import { z } from 'zod';
 import { StoredOptionsSchema, RestOptionsSchema, TemplateOptionsSchema } from '../../shared/schemas';
 
+const TaxonomyConditionSchema = z.object({
+  type: z.string().min(1),
+  operator: z.string().min(1),
+  value: z.string()
+});
+
+const TaxonomyActionSchema = z.object({
+  type: z.string().min(1),
+  target: z.string().min(1),
+  value: z.string()
+});
+
+const TaxonomyCategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1)
+});
+
+const TaxonomyTagSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1)
+});
+
+const TaxonomyRuleSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  conditions: z.array(TaxonomyConditionSchema),
+  actions: z.array(TaxonomyActionSchema)
+});
+
+const TaxonomyValidationSchema = z.object({
+  version: z.string().min(1),
+  categories: z.array(TaxonomyCategorySchema),
+  tags: z.array(TaxonomyTagSchema),
+  rules: z.array(TaxonomyRuleSchema)
+});
+
 export class OptionsValidationError extends Error {
   readonly code: string;
   readonly issues?: z.ZodIssue[];
@@ -20,12 +56,12 @@ export class OptionsValidationError extends Error {
 /**
  * Taxonomy Schema for classifier configuration
  */
-const TaxonomyConfigSchema = z.record(z.string(), z.unknown()).or(z.object({}));
-
 /**
  * Parse classifier taxonomy from JSON string
  */
-export function parseClassifierTaxonomy(input: string): unknown {
+export function parseClassifierTaxonomy(
+  input: string
+): z.infer<typeof TaxonomyValidationSchema> | Record<string, never> {
   const trimmed = (input || '').trim();
   if (!trimmed) {
     return {};
@@ -33,7 +69,7 @@ export function parseClassifierTaxonomy(input: string): unknown {
 
   try {
     const parsed: unknown = JSON.parse(trimmed);
-    return TaxonomyConfigSchema.parse(parsed);
+    return TaxonomyValidationSchema.parse(parsed);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new OptionsValidationError('INVALID_TAXONOMY', error);

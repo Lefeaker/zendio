@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
 
   class BaseStub {
     element = document.createElement('div');
+    show = vi.fn();
     updateCount = vi.fn();
     updateHint = vi.fn();
     updateTexts = vi.fn();

@@ -18,11 +18,19 @@ describe('firefoxActionService', () => {
     const { firefoxActionService } = await import('../../../../src/platform/firefox/action');
     const listener = vi.fn();
     const off = firefoxActionService.onClicked(listener);
-    clickListener?.({ id: 1 } as browser.tabs.Tab);
+    if (!clickListener) {
+      throw new Error('click listener missing');
+    }
+    clickListener({ id: 1 } as browser.tabs.Tab);
     expect(listener).toHaveBeenCalled();
     off();
-    await firefoxActionService.setBadgeText({ text: '2' });
-    await firefoxActionService.setBadgeBackgroundColor({ color: '#fff' });
+    const setBadgeText = firefoxActionService.setBadgeText;
+    const setBadgeBackgroundColor = firefoxActionService.setBadgeBackgroundColor;
+    if (!setBadgeText || !setBadgeBackgroundColor) {
+      throw new Error('badge apis missing');
+    }
+    await setBadgeText({ text: '2' });
+    await setBadgeBackgroundColor({ color: '#fff' });
     expect(firefoxApi.browserAction.setBadgeText).toHaveBeenCalled();
   });
 

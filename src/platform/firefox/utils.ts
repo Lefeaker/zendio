@@ -13,7 +13,7 @@ export function ensureFirefox(): typeof browser {
         api: 'browser',
         operation: 'ensureFirefox'
       }),
-      { suppressNotifications: true }
+      { suppressConsole: true, suppressNotifications: true }
     );
     throw error;
   }

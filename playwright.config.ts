@@ -8,6 +8,11 @@ const includeFirefoxProject = process.env.PLAYWRIGHT_INCLUDE_FIREFOX === '1';
 const firefoxExecutablePath = process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH;
 const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS ?? '1');
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
+const configuredPort = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181');
+const playwrightVisualPort = Number.isFinite(configuredPort) && configuredPort > 0
+  ? configuredPort
+  : 4181;
+const playwrightVisualBaseUrl = `http://127.0.0.1:${playwrightVisualPort}`;
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests/visual'),
@@ -39,9 +44,9 @@ export default defineConfig({
     }
   },
   webServer: {
-    command: 'node scripts/start-playwright-web-server.mjs',
-    url: 'http://127.0.0.1:4173/options/index.html',
-    reuseExistingServer: !process.env.CI,
+    command: `PLAYWRIGHT_WEB_SERVER_PORT=${playwrightVisualPort} node scripts/start-playwright-web-server.mjs`,
+    url: `${playwrightVisualBaseUrl}/options/index.html`,
+    reuseExistingServer: false,
     timeout: 180000
   },
   projects: [

@@ -116,22 +116,26 @@ export const ClassifierOptionsSchema = z.object({
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）
  */
-export const StoredOptionsSchema = z.object({
-  rest: RestOptionsSchema.partial().extend({ baseUrl: z.string().optional() }).optional(),
-  templates: TemplateOptionsSchema.partial().extend({
-    fragment: z.string().optional(),
-    reading: z.string().optional()
-  }).optional(),
-  domainMappings: z.record(z.string()).optional(),
-  aiChat: AiChatOptionsSchema.partial().optional(),
-  deepResearch: DeepResearchOptionsSchema.partial().optional(),
-  fragmentClipper: FragmentClipperOptionsSchema.partial().optional(),
-  readingSession: ReadingSessionOptionsSchema.partial().optional(),
-  video: VideoOptionsSchema.partial().optional(),
-  classifier: ClassifierOptionsSchema.partial().optional(),
-  vaultRouter: VaultRouterConfigSchema.optional(),
-  yamlConfig: YamlConfigOverridesSchema.nullable().optional()
-}).passthrough();
+export const StoredOptionsSchema = z
+  .object({
+    rest: RestOptionsSchema.partial().extend({ baseUrl: z.string().optional() }).optional(),
+    templates: TemplateOptionsSchema.partial()
+      .extend({
+        fragment: z.string().optional(),
+        reading: z.string().optional()
+      })
+      .optional(),
+    domainMappings: z.record(z.string()).optional(),
+    aiChat: AiChatOptionsSchema.partial().optional(),
+    deepResearch: DeepResearchOptionsSchema.partial().optional(),
+    fragmentClipper: FragmentClipperOptionsSchema.partial().optional(),
+    readingSession: ReadingSessionOptionsSchema.partial().optional(),
+    video: VideoOptionsSchema.partial().optional(),
+    classifier: ClassifierOptionsSchema.partial().optional(),
+    vaultRouter: VaultRouterConfigSchema.optional(),
+    yamlConfig: YamlConfigOverridesSchema.nullable().optional()
+  })
+  .passthrough();
 
 /**
  * CompleteOptions Schema（合并默认值后的完整配置）

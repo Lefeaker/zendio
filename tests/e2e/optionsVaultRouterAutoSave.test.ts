@@ -238,7 +238,7 @@ describe('options vault router auto-save e2e', () => {
         savedOptions.push(options);
         return Promise.resolve();
       }),
-      getCached: vi.fn(() => undefined)
+      getCached: vi.fn(() => null)
     };
 
     const formAdapter = createOptionsFormAdapter(formRegistry);

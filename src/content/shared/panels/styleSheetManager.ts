@@ -3,7 +3,7 @@ import {
   applyManagedShadowStyle,
   createManagedStyleSheet,
   supportsAdoptedStyleSheets
-} from '../../../ui/foundation/style-host';
+} from '@ui/foundation/style-host';
 
 const PANEL_CLIPPER_BRIDGE_KEY = 'panel-clipper-tailwind';
 const PANEL_VIDEO_BRIDGE_KEY = 'panel-video-tailwind';

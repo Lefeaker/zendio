@@ -49,7 +49,7 @@ describe('AiSection', () => {
     return section;
   };
 
-  it('applies snapshot, enforces timestamps, persists changes via repository, and cleans up listeners', async () => {
+  it('applies snapshot, enforces timestamps, collects changes, and cleans up listeners', async () => {
     const section = renderSection();
     section.syncTimestampPolicy();
 
@@ -74,20 +74,10 @@ describe('AiSection', () => {
 
     expect(aiMocks.scheduleAutoSave).toHaveBeenCalledTimes(1);
 
-    const repoSetSpy = vi.spyOn(mockRepo, 'set');
     const collected = registry.collect(snapshot);
     expect(collected.aiChat).toEqual({
       includeTimestamps: false,
       userName: 'Taylor'
-    });
-
-    await vi.waitFor(() => {
-      expect(repoSetSpy).toHaveBeenCalledWith({
-        aiChat: {
-          includeTimestamps: false,
-          userName: 'Taylor'
-        }
-      });
     });
 
     const listenersBeforeDestroy = (mockRepo as unknown as { listeners: Set<unknown> }).listeners

@@ -58,6 +58,21 @@ export interface ContentMessageRouter {
   handleMessage: MessageListener;
 }
 
+function createSuccessPayload(extra: Record<string, MessagePayload> = {}): MessagePayload {
+  return {
+    success: true,
+    ...extra
+  };
+}
+
+function createFailurePayload(error: string, extra: Record<string, MessagePayload> = {}): MessagePayload {
+  return {
+    success: false,
+    error,
+    ...extra
+  };
+}
+
 export function createContentMessageRouter(
   options: CreateContentMessageRouterOptions
 ): ContentMessageRouter {
@@ -117,30 +132,30 @@ export function createContentMessageRouter(
 
     if (action === 'startVideoMode') {
       if (isVideoSessionActive() && getVideoSession()) {
-        return { success: true, alreadyActive: true } satisfies MessagePayload;
+        return createSuccessPayload({ alreadyActive: true });
       }
       const session = createVideoSession();
       return session
         .start()
-        .then(() => ({ success: true }))
+        .then(() => createSuccessPayload())
         .catch((error: unknown) => {
           console.error('[content] Failed to start video mode:', error);
           const messageText = error instanceof Error ? error.message : String(error);
-          return { success: false, error: messageText };
+          return createFailurePayload(messageText);
         });
     }
 
     if (action === 'clipSelection') {
       setClipMode('selection');
       runClip();
-      return { success: true } satisfies MessagePayload;
+      return createSuccessPayload();
     }
 
     if (action === 'videoClipSelection') {
       if (window !== window.top && typeof message.frameId === 'number') {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-          return { success: false, error: 'No text selected' } satisfies MessagePayload;
+          return createFailurePayload('No text selected');
         }
 
         const range = selection.getRangeAt(0).cloneRange();
@@ -161,7 +176,7 @@ export function createContentMessageRouter(
           .catch(() => undefined);
 
         selection.removeAllRanges();
-        return { success: true, forwarded: true } satisfies MessagePayload;
+        return createSuccessPayload({ forwarded: true });
       }
 
       let selectionInfo = resolveActiveSelection();
@@ -178,18 +193,18 @@ export function createContentMessageRouter(
         selectionInfo.selection.rangeCount === 0 ||
         selectionInfo.selection.isCollapsed
       ) {
-        return { success: false, error: 'No text selected' } satisfies MessagePayload;
+        return createFailurePayload('No text selected');
       }
       return selectionController
         .handleVideoSelectionClip(document, location.href, selectionInfo.selection)
         .then(() => {
           clearLastSelectionSnapshot();
-          return { success: true } as const;
+          return createSuccessPayload();
         })
         .catch((error: unknown) => {
           console.error('[content] Video selection clip failed:', error);
           const messageText = error instanceof Error ? error.message : String(error);
-          return { success: false, error: messageText };
+          return createFailurePayload(messageText);
         });
     }
 
@@ -199,21 +214,21 @@ export function createContentMessageRouter(
       const selectedText = typeof payload?.selectedText === 'string' ? payload.selectedText : '';
       return selectionController
         .handleVideoSelectionClipFromData(document, location.href, selectedHtml, selectedText)
-        .then(() => ({ success: true }))
+        .then(() => createSuccessPayload())
         .catch((error: unknown) => {
           console.error('[content] Remote video selection clip failed:', error);
           const messageText = error instanceof Error ? error.message : String(error);
-          return { success: false, error: messageText };
+          return createFailurePayload(messageText);
         });
     }
 
     if (action === 'clipFull') {
       if (window !== window.top) {
-        return { success: false, ignored: true } satisfies MessagePayload;
+        return createFailurePayload('Ignored in child frame', { ignored: true });
       }
       setClipMode('full');
       runClip();
-      return { success: true } satisfies MessagePayload;
+      return createSuccessPayload();
     }
 
     return;

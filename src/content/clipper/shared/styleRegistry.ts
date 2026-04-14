@@ -41,7 +41,11 @@ export function loadClipperStyle(name: string): Promise<string> {
     });
     styleCache.set(name, entry);
   }
-  return styleCache.get(name);
+  const cached = styleCache.get(name);
+  if (!cached) {
+    throw new Error(`[styleRegistry] Missing cached style entry for "${name}"`);
+  }
+  return cached;
 }
 
 export function clearClipperStyleCache(): void {

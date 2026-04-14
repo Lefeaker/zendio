@@ -1,4 +1,4 @@
-import { panelStyleSheetManager } from '../../../content/shared/panels/styleSheetManager';
+import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import {
   createDialogFrame,
   createDialogTitleId,
@@ -14,6 +14,17 @@ export interface ContentDialogHostConfig {
   size?: ContentDialogHostSize;
   closeOnEscape?: boolean;
   closeOnBackdrop?: boolean;
+  modal?: boolean;
+  trapFocus?: boolean;
+  showHeader?: boolean;
+  modalClassName?: string;
+  modalBoxClassName?: string;
+  bodyClassName?: string;
+  footerClassName?: string;
+  headerClassName?: string;
+  closeButtonClassName?: string;
+  closeLabel?: string;
+  initialFocus?: string | HTMLElement | (() => HTMLElement | null);
   onClose?: () => void;
 }
 
@@ -24,6 +35,7 @@ export class ContentDialogHost
   private readonly host: HTMLDivElement;
   private readonly shadow: ShadowRoot;
   private overlayEl: HTMLDivElement | null = null;
+  private modalBoxEl: HTMLDivElement | null = null;
   private bodyEl: HTMLDivElement | null = null;
   private footerEl: HTMLDivElement | null = null;
   private titleEl: HTMLHeadingElement | null = null;
@@ -35,6 +47,7 @@ export class ContentDialogHost
 
   constructor(private config: ContentDialogHostConfig) {
     this.host = document.createElement('div');
+    this.host.dataset.aiobPanelTheme = 'tool';
     this.shadow = this.host.attachShadow({ mode: 'open' });
     void panelStyleSheetManager.initialize();
     panelStyleSheetManager.applyReaderStyles(this.shadow);
@@ -66,6 +79,17 @@ export class ContentDialogHost
 
   setFooter(footer: HTMLElement): void {
     this.footerEl?.replaceChildren(footer);
+  }
+
+  getShadowRoot(): ShadowRoot {
+    return this.shadow;
+  }
+
+  getDialogElement(): HTMLDivElement {
+    if (!this.modalBoxEl) {
+      throw new Error('[ContentDialogHost] Dialog element is not ready.');
+    }
+    return this.modalBoxEl;
   }
 
   updateConfig(config: Partial<ContentDialogHostConfig>): void {
@@ -108,18 +132,36 @@ export class ContentDialogHost
     const frame = createDialogFrame(document, {
       title: this.config.title,
       titleId: this.titleId,
-      modalClassName: 'modal',
-      modalBoxClassName: 'modal-box space-y-4 text-base-content',
-      bodyClassName: 'reader-dialog-body space-y-4',
-      footerClassName: 'reader-dialog-footer modal-action',
-      closeLabel: 'Close dialog'
+      modalClassName: this.config.modalClassName ?? 'modal',
+      modalBoxClassName: this.config.modalBoxClassName ?? 'modal-box space-y-4 text-base-content',
+      bodyClassName: this.config.bodyClassName ?? 'reader-dialog-body space-y-4',
+      footerClassName: this.config.footerClassName ?? 'reader-dialog-footer modal-action',
+      closeLabel: this.config.closeLabel ?? 'Close dialog'
     });
+
+    if (this.config.headerClassName) {
+      frame.header.className = this.config.headerClassName;
+    }
+    if (this.config.closeButtonClassName) {
+      frame.closeButton.className = this.config.closeButtonClassName;
+    }
+    if (this.config.showHeader === false) {
+      frame.header.hidden = true;
+      frame.closeButton.tabIndex = -1;
+    }
 
     this.shadow.append(frame.overlay);
     this.overlayEl = frame.overlay;
+    this.modalBoxEl = frame.modalBox;
     this.bodyEl = frame.body;
     this.footerEl = frame.footer;
     this.titleEl = frame.title;
+    if (this.config.modal === false) {
+      frame.overlay.style.pointerEvents = 'none';
+      frame.overlay.style.background = 'transparent';
+      frame.modalBox.style.pointerEvents = 'auto';
+      frame.modalBox.setAttribute('aria-modal', 'false');
+    }
     this.setupFocusTrap(frame.modalBox, frame.closeButton);
     this.bindCloseHandler(frame.closeButton);
     this.bindBackdropDismiss(frame.overlay);
@@ -128,8 +170,12 @@ export class ContentDialogHost
 
   private setupFocusTrap(container: HTMLElement, closeButton: HTMLElement): void {
     this.focusTrap?.deactivate();
+    if (this.config.trapFocus === false) {
+      this.focusTrap = null;
+      return;
+    }
     this.focusTrap = new FocusTrapController(container, {
-      initialFocus: () => closeButton,
+      initialFocus: this.config.initialFocus ?? (() => closeButton),
       escapeDeactivates: this.config.closeOnEscape ?? true,
       clickOutsideDeactivates: false,
       fallbackFocus: closeButton

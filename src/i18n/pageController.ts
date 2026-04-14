@@ -1,5 +1,5 @@
 import type { Language, Messages } from './locales';
-import { messages as localeMessages, DEFAULT_LANGUAGE } from './locales';
+import { DEFAULT_LANGUAGE, DEFAULT_RUNTIME_MESSAGES } from './locales';
 import { getLanguageFallbackChain } from './config';
 import { createI18nResource } from './resource';
 import type { I18nBinder, I18nBindingAdapter, I18nBindingHandle, I18nResource } from './types';
@@ -43,7 +43,7 @@ function ensureResource(resource: I18nResource | null): asserts resource is I18n
   }
 }
 
-const defaultMessages = localeMessages[DEFAULT_LANGUAGE];
+const defaultMessages = DEFAULT_RUNTIME_MESSAGES;
 
 function isMessageKey(value: string | null): value is keyof Messages {
   return typeof value === 'string' && value in defaultMessages;
@@ -103,8 +103,7 @@ export function createPageI18nController(deps: PageI18nControllerDependencies): 
 
   const loadResource = async (language: Language): Promise<Language> => {
     const chain = getLanguageFallbackChain(language);
-    const resolvedLanguage =
-      chain.find((code) => Boolean(localeMessages[code])) ?? defaultLanguage;
+    const resolvedLanguage = chain[0] ?? defaultLanguage;
     const resolvedMessages = await loadMessages(resolvedLanguage);
     const fallbackChain: Messages[] = [];
 
@@ -112,14 +111,14 @@ export function createPageI18nController(deps: PageI18nControllerDependencies): 
       if (code === resolvedLanguage) {
         continue;
       }
-      const fallbackMessages = localeMessages[code];
-      if (fallbackMessages && !fallbackChain.includes(fallbackMessages)) {
+      const fallbackMessages = await loadMessages(code);
+      if (!fallbackChain.includes(fallbackMessages)) {
         fallbackChain.push(fallbackMessages);
       }
     }
 
-    const defaultMessages = localeMessages[defaultLanguage];
-    if (defaultMessages && !fallbackChain.includes(defaultMessages)) {
+    const defaultMessages = await loadMessages(defaultLanguage);
+    if (!fallbackChain.includes(defaultMessages)) {
       fallbackChain.push(defaultMessages);
     }
 

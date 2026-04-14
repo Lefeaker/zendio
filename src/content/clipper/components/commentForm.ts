@@ -3,7 +3,7 @@ import {
   createContentHintText,
   createContentLayoutElement,
   createContentSurfacePanel
-} from '../../../ui/primitives/layout';
+} from '@ui/primitives/layout';
 import { COMMENT_FORM_CLASSES } from './commentFormStyles';
 
 export interface CommentFormMessages {

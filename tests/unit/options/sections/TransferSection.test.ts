@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Messages } from '../../../../src/i18n/messages';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { TransferSection } from '@options/components/sections/TransferSection';
 import { OptionsStateManager } from '@options/state/StateManager';
@@ -64,7 +65,7 @@ describe('TransferSection', () => {
     section.setMessages({
       copyConfigSuccess: '复制成功',
       importSuccess: '导入成功'
-    } as unknown as typeof section['messages']);
+    } as unknown as Messages);
 
     await repo.set({
       transferLog: {

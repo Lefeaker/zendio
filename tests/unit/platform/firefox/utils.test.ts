@@ -14,7 +14,7 @@ describe('firefox platform utils', () => {
 
   it('reports unsupported firefox environment before throwing', async () => {
     const originalBrowser = (globalThis as typeof globalThis & { browser?: typeof browser }).browser;
-    delete globalThis.browser;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { browser?: typeof browser }, 'browser');
 
     const { ensureFirefox } = await import('../../../../src/platform/firefox/utils');
 
@@ -28,7 +28,7 @@ describe('firefox platform utils', () => {
           operation: 'ensureFirefox'
         })
       }),
-      { suppressNotifications: true }
+      { suppressConsole: true, suppressNotifications: true }
     );
 
     if (originalBrowser) {

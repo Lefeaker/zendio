@@ -61,12 +61,12 @@ function ensureDomConstructors(): void {
   });
 }
 
-type ChromeRuntimeStub = typeof chrome.runtime & { lastError: { message?: string } | null };
+type ChromeRuntimeStub = { lastError: { message?: string } | null };
 
 function createRuntimeStub(): ChromeRuntimeStub {
   return {
     lastError: null
-  } as ChromeRuntimeStub;
+  };
 }
 
 function ensureChromeRuntime(): void {
@@ -77,14 +77,16 @@ function ensureChromeRuntime(): void {
     return;
   }
 
-  const chromeRef = globalThis.chrome as typeof chrome & { runtime?: ChromeRuntimeStub };
+  const chromeRef = globalThis.chrome as typeof chrome & {
+    runtime?: typeof chrome.runtime & ChromeRuntimeStub;
+  };
 
   if (typeof chromeRef.runtime !== 'object' || chromeRef.runtime === null) {
-    chromeRef.runtime = createRuntimeStub();
+    chromeRef.runtime = createRuntimeStub() as typeof chrome.runtime & ChromeRuntimeStub;
     return;
   }
 
-  chromeRef.runtime.lastError = null;
+  (chromeRef.runtime as ChromeRuntimeStub).lastError = null;
 }
 
 ensureDomConstructors();

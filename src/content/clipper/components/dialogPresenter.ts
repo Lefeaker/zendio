@@ -4,7 +4,7 @@ import {
   createContentActionRow,
   createContentLayoutElement,
   createContentSurfacePanel
-} from '../../../ui/primitives/layout';
+} from '@ui/primitives/layout';
 import { createCommentForm } from './commentForm';
 import type { ReaderModeBehavior } from './dialogTypes';
 import { getModifierLabel } from './dialogShortcuts';
@@ -44,9 +44,6 @@ export interface DialogPresenterOptions {
 }
 
 export interface DialogPresenterElements {
-  host: HTMLDivElement;
-  shadowRoot: ShadowRoot;
-  dialog: HTMLDivElement;
   content: HTMLDivElement;
   header: HTMLDivElement;
   textarea: HTMLTextAreaElement;
@@ -71,28 +68,10 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
     onConfirm
   } = options;
 
-  const host = document.createElement('div');
-  host.id = 'obsidian-clipper-dialog';
-  host.setAttribute('role', 'dialog');
-  host.setAttribute('aria-modal', 'true');
-
-  if (typeof host.attachShadow !== 'function') {
-    throw new Error('[ClipperDialog] Shadow DOM is required for clipper dialog styling.');
-  }
-
-  const shadowRoot = host.attachShadow({ mode: 'open' });
-
-  const dialog = document.createElement('div');
-  dialog.className =
-    'fixed inset-0 bg-transparent z-[2147483647] font-sans pointer-events-none animate-[fadeIn_0.16s_ease]';
-  dialog.setAttribute('role', 'dialog');
-  dialog.setAttribute('aria-modal', 'true');
-
   const content = createContentSurfacePanel({
     className:
-      'obsidian-clipper-content absolute max-h-[80vh] max-w-[600px] w-[90%] translate-0 transform rounded-[14px] border border-white/20 bg-black/90 p-0 shadow-[0_18px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl pointer-events-auto transition-shadow duration-200 ease-out animate-[scaleIn_0.2s_ease_0.2s_1]'
+      'clipper-dialog-shell font-sans text-[#f2f4ff]'
   });
-  setInitialDialogPosition(content);
 
   const header = createContentActionRow({
     className:
@@ -153,7 +132,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   );
   content.appendChild(commentForm.container);
 
-  dialog.setAttribute('aria-describedby', [textarea.id, instructions.id].filter(Boolean).join(' '));
+  content.setAttribute('aria-describedby', [textarea.id, instructions.id].filter(Boolean).join(' '));
 
   const actions = createContentActionRow({
     className:
@@ -219,13 +198,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   actions.appendChild(confirmButton);
 
   content.appendChild(actions);
-  dialog.appendChild(content);
-  shadowRoot.appendChild(dialog);
-
   return {
-    host,
-    shadowRoot,
-    dialog,
     content,
     header,
     textarea,

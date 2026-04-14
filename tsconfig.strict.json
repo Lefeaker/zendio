@@ -13,6 +13,7 @@
       "@shared/*": ["shared/*"],
       "@content/*": ["content/*"],
       "@options/*": ["options/*"],
+      "@ui/*": ["ui/*"],
       "@i18n": ["i18n/index.ts"],
       "@i18n/*": ["i18n/*"],
       "@platform/*": ["platform/*"],

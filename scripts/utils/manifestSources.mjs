@@ -16,7 +16,7 @@ const SHARED_HOST_PERMISSIONS = ['<all_urls>', 'http://127.0.0.1/*', 'https://12
 
 const SHARED_WEB_ACCESSIBLE_RESOURCES = [
   {
-    resources: ['chunks/*', 'icons/*', 'styles/clipper/*', 'onboarding/*'],
+    resources: ['chunks/*', 'content/*', 'icons/*', 'styles/clipper/*', 'onboarding/*'],
     matches: ['<all_urls>']
   }
 ];

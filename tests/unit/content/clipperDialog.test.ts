@@ -118,8 +118,8 @@ describe('ClipperDialog UI', () => {
     ensureContentI18nMock.mockResolvedValue(asType<PageI18nController>(undefined));
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
-    initializeStylesMock.mockImplementation(() => undefined);
-    applyStylesMock.mockImplementation(() => undefined);
+    initializeStylesMock.mockResolvedValue(undefined);
+    applyStylesMock.mockResolvedValue(undefined);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });
@@ -352,8 +352,8 @@ describe('ClipperDialog repository integration', () => {
     ensureContentI18nMock.mockResolvedValue(undefined as unknown as PageI18nController);
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as unknown as Messages);
-    initializeStylesMock.mockImplementation(() => undefined);
-    applyStylesMock.mockImplementation(() => undefined);
+    initializeStylesMock.mockResolvedValue(undefined);
+    applyStylesMock.mockResolvedValue(undefined);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });
@@ -361,6 +361,9 @@ describe('ClipperDialog repository integration', () => {
   it('subscribes to fragment config changes on show and unsubscribes on destroy', async () => {
     const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
     const deps = createDialogDeps();
+    if (!deps.clipRepo) {
+      throw new Error('clipRepo missing');
+    }
     const dialog = new ClipperDialog(deps);
 
     void dialog.show('Repo subscription');
@@ -376,6 +379,9 @@ describe('ClipperDialog repository integration', () => {
   it('updates internal shortcut state when fragment config changes', async () => {
     const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
     const deps = createDialogDeps();
+    if (!deps.clipRepo) {
+      throw new Error('clipRepo missing');
+    }
     await deps.clipRepo.setFragmentConfig({ keyboardShortcutsEnabled: false });
 
     const dialog = new ClipperDialog(deps);

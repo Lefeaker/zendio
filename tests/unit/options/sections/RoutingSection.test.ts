@@ -324,7 +324,7 @@ describe('RoutingSection', () => {
         vaults: [{ id: 'after', name: 'After', vault: 'After', enabled: true, rules: [] }],
         defaultVaultId: 'after'
       }
-    } as Partial<CompleteOptions>);
+    } as unknown as Partial<CompleteOptions>);
 
     expect(routingFixtures.initializeVaultRouterStore.mock.calls.length).toBe(initCallsBefore);
   });

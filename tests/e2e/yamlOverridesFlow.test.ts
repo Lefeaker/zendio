@@ -103,11 +103,11 @@ function createMemoryStorageArea() {
 const noop = () => undefined;
 
 const mockMessaging: MessagingService = {
-  send() {
-    return Promise.resolve(undefined);
+  send<TResult = unknown>() {
+    return Promise.resolve(undefined as TResult);
   },
-  sendToTab() {
-    return Promise.resolve(undefined);
+  sendToTab<TResult = unknown>() {
+    return Promise.resolve(undefined as TResult);
   },
   addListener() {
     return noop;
@@ -157,8 +157,8 @@ const mockTabs: TabsService = {
   query() {
     return Promise.resolve([]);
   },
-  sendMessage() {
-    return Promise.resolve(undefined);
+  sendMessage<TResult = unknown>() {
+    return Promise.resolve(undefined as TResult);
   },
   onActivated() {
     return noop;

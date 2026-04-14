@@ -1,15 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
 import { createPageI18nController } from '../../../src/i18n/pageController';
-import type { I18nBindingAdapter, I18nBindingHandle } from '../../../src/i18n';
-import { messages } from '../../../src/i18n/locales';
+import type { I18nBindingAdapter, I18nBindingHandle, I18nResource } from '../../../src/i18n';
+import type { Language, Messages } from '../../../src/i18n/locales';
+
+const messages: Partial<Record<Language, Messages>> & Record<'en' | 'zh-CN', Messages> = {
+  en: {
+    extensionName: 'All-in-Obsidian',
+    domainMappingDomainPlaceholder: 'example.com'
+  } as Messages,
+  'zh-CN': {
+    extensionName: 'All-in-Obsidian',
+    domainMappingDomainPlaceholder: '示例.中国'
+  } as Messages
+};
 
 function createMockBindingAdapter(): I18nBindingAdapter & {
   handles: I18nBindingHandle[];
-  bindTextMock: ReturnType<typeof vi.fn>;
-  bindAttrMock: ReturnType<typeof vi.fn>;
-  bindHtmlMock: ReturnType<typeof vi.fn>;
-  refreshMock: ReturnType<typeof vi.fn>;
-  clearMock: ReturnType<typeof vi.fn>;
+  bindTextMock: Mock<[element: HTMLElement, key: keyof Messages], I18nBindingHandle>;
+  bindAttrMock: Mock<
+    [element: HTMLElement, attribute: string, key: keyof Messages],
+    I18nBindingHandle
+  >;
+  bindHtmlMock: Mock<[element: HTMLElement, key: keyof Messages], I18nBindingHandle>;
+  refreshMock: Mock<[resource: I18nResource], void>;
+  clearMock: Mock<[], void>;
 } {
   const handles: I18nBindingHandle[] = [];
 
@@ -105,7 +120,7 @@ describe('pageController', () => {
     const controller = createPageI18nController({
       bindingAdapter,
       defaultLanguage: 'zh-CN',
-      loadMessages: (language) => Promise.resolve(messages[language]),
+      loadMessages: (language) => Promise.resolve(messages[language] ?? messages['zh-CN']),
       getCurrentLanguage: () => Promise.resolve('zh-CN')
     });
 
@@ -142,7 +157,7 @@ describe('pageController', () => {
     const controller = createPageI18nController({
       bindingAdapter,
       defaultLanguage: 'zh-CN',
-      loadMessages: (language) => Promise.resolve(messages[language]),
+      loadMessages: (language) => Promise.resolve(messages[language] ?? messages['zh-CN']),
       getCurrentLanguage: () => Promise.resolve('zh-CN'),
       setCurrentLanguage: vi.fn()
     });

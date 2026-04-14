@@ -130,8 +130,8 @@ describe('Content scripts repository integration (Clipper)', () => {
     ensureContentI18nMock.mockResolvedValue(asType<PageI18nController>(undefined));
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
-    initializeStylesMock.mockImplementation(() => undefined);
-    applyStylesMock.mockImplementation(() => undefined);
+    initializeStylesMock.mockResolvedValue(undefined);
+    applyStylesMock.mockResolvedValue(undefined);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     resetGlobalRegistry();
@@ -339,8 +339,8 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
       overrides?.dispatchClipResult ?? (async (payload) => {
         const result = await readerRepositoryMocks.sendReadingClip({
           content: payload.markdown,
-          title: payload.title,
-          url: payload.meta.url,
+          title: payload.title ?? '',
+          url: typeof payload.meta?.url === 'string' ? payload.meta.url : '',
           highlights: preparedHighlights,
           exportMode: 'highlights'
         });

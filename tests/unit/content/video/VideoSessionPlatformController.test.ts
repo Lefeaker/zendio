@@ -86,7 +86,7 @@ describe('VideoSessionPlatformController', () => {
       videoId: null,
       canonicalUrl: document.location.href,
       storageKey: null
-    });
+    } as never);
     setup.state.captures = [{
       kind: 'timestamp',
       id: 'timestamp-1',
@@ -144,8 +144,8 @@ describe('VideoSessionPlatformController', () => {
         createdAt: 3
       }]),
       updatedAt: Date.now()
-    });
-    setup.adapter.restoreHighlight.mockReturnValueOnce('fragment-wrapper');
+    } as never);
+    setup.adapter.restoreHighlight.mockReturnValueOnce('fragment-wrapper' as never);
 
     await expect(setup.controller.refreshContext()).resolves.toEqual({
       hintState: 'ready',

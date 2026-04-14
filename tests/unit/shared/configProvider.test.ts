@@ -118,7 +118,7 @@ describe('configProvider', () => {
     it('returns undefined when globalThis.process is not available', () => {
       const runtime = getProcessAwareGlobal();
       const originalProcess = runtime.process;
-      delete runtime.process;
+      Reflect.deleteProperty(runtime, 'process');
 
       const overrides = loadOverrideFromEnv();
       expect(overrides).toBeUndefined();

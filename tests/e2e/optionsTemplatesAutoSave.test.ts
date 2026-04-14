@@ -59,7 +59,7 @@ describe('options templates auto-save e2e', () => {
         savedOptions.push(options as StoredOptions);
         return Promise.resolve();
       }),
-      getCached: vi.fn(() => undefined)
+      getCached: vi.fn(() => null)
     };
 
     await withDomEnvironment(

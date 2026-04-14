@@ -14,7 +14,7 @@ describe('chrome platform utils', () => {
 
   it('reports unsupported chrome environment before throwing', async () => {
     const originalChrome = (globalThis as typeof globalThis & { chrome?: typeof chrome }).chrome;
-    delete globalThis.chrome;
+    Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: typeof chrome }, 'chrome');
 
     const { ensureChrome } = await import('../../../../src/platform/chrome/utils');
 

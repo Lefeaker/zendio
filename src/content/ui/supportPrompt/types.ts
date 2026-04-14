@@ -1,1 +1,1 @@
-export * from '../../../ui/domains/video/types';
+export * from '@ui/domains/support-prompt';

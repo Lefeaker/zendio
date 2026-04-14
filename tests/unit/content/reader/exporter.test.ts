@@ -43,16 +43,34 @@ describe('ReaderSessionExporter', () => {
     ]);
   });
 
-  it('builds full markdown only when document clone is provided', () => {
+  it('builds full markdown only when document clone is provided', async () => {
     const buildFullMarkdown = vi.fn(() => ({ markdown: '# full' }));
     const buildHighlightsMarkdown = vi.fn(() => ({ markdown: '# highlights' }));
     const exporter = new ReaderSessionExporter({ buildHighlightsMarkdown, buildFullMarkdown });
 
-    expect(() => exporter.buildMarkdown({ mode: 'full', pageTitle: 'Page', pageUrl: 'https://example.com', highlights: [] })).toThrow(/documentClone is required/);
+    await expect(
+      exporter.buildMarkdown({
+        mode: 'full',
+        pageTitle: 'Page',
+        pageUrl: 'https://example.com',
+        highlights: []
+      })
+    ).rejects.toThrow(/documentClone is required/);
 
     const clone = new DOMParser().parseFromString('<html><body><p>Hello</p></body></html>', 'text/html');
-    const full = exporter.buildMarkdown({ mode: 'full', pageTitle: 'Page', pageUrl: 'https://example.com', highlights: [], documentClone: clone });
-    const highlights = exporter.buildMarkdown({ mode: 'highlights', pageTitle: 'Page', pageUrl: 'https://example.com', highlights: [] });
+    const full = await exporter.buildMarkdown({
+      mode: 'full',
+      pageTitle: 'Page',
+      pageUrl: 'https://example.com',
+      highlights: [],
+      documentClone: clone
+    });
+    const highlights = await exporter.buildMarkdown({
+      mode: 'highlights',
+      pageTitle: 'Page',
+      pageUrl: 'https://example.com',
+      highlights: []
+    });
 
     expect(full).toEqual({ markdown: '# full' });
     expect(highlights).toEqual({ markdown: '# highlights' });

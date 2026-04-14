@@ -52,6 +52,33 @@ describe('ReaderHighlightManager', () => {
     expect(highlight?.wrapper.textContent).toContain('Hello reader world');
   });
 
+  it('only highlights the selected substring inside a single text node', () => {
+    document.body.innerHTML = '<article><p id="content">Hello reader world</p></article>';
+    const textNode = document.getElementById('content')?.firstChild;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+      throw new Error('text node missing');
+    }
+
+    const range = document.createRange();
+    range.setStart(textNode, 6);
+    range.setEnd(textNode, 12);
+
+    const highlight = manager.createHighlight({
+      id: 'partial',
+      range,
+      selectedHtml: 'reader',
+      selectedText: 'reader',
+      comment: '',
+      fragmentUrl: '#partial'
+    });
+
+    expect(highlight).not.toBeNull();
+    expect(highlight?.wrapper.textContent).toBe('reader');
+    expect(document.getElementById('content')?.textContent).toBe('Hello reader world');
+    expect(document.getElementById('content')?.innerHTML).toContain('Hello ');
+    expect(document.getElementById('content')?.innerHTML).toContain(' world');
+  });
+
   it('updates comments, assigns footnotes, and clears footnote when comment changes', () => {
     document.body.innerHTML = '<article><p id="content">Comment me</p></article>';
     const textNode = document.getElementById('content')?.firstChild;
@@ -206,6 +233,28 @@ describe('ReaderHighlightManager', () => {
     expect(highlight).not.toBeNull();
     expect(highlight?.wrapperSegments).toHaveLength(1);
     expect(highlight?.wrapper.textContent?.replace(/\s+/g, '')).toBe('HelloWorld');
+  });
+
+  it('keeps split segments when merging would swallow unselected inline content', () => {
+    document.body.innerHTML =
+      '<article><p><span id="a">Hello</span><span id="gap"> untouched </span><span id="b">World</span></p></article>';
+    const a = document.createElement('mark');
+    a.className = 'aiob-reader-highlight';
+    a.textContent = 'Hello';
+    const b = document.createElement('mark');
+    b.className = 'aiob-reader-highlight';
+    b.textContent = 'World';
+    document.getElementById('a')?.replaceChildren(a);
+    document.getElementById('b')?.replaceChildren(b);
+
+    const merged = (
+      manager as unknown as {
+        mergeWrapperSegments: (segments: HTMLElement[], id: string) => HTMLElement[];
+      }
+    ).mergeWrapperSegments([a, b], 'skip-unsafe-merge');
+
+    expect(merged).toEqual([a, b]);
+    expect(document.body.textContent).toContain('untouched');
   });
 
   it('writes multi-segment metadata so only the ending segment keeps the footnote marker', () => {
