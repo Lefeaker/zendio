@@ -9,8 +9,9 @@
 
 ## 当前真值
 
-- 当前交付分支采用 `B1 / B2 / B3 / B4` 四个交付提交
-- 当前 retained set 相对基线 `9b9d300`：`295 files changed, 16399 insertions(+), 7929 deletions(-)`
+- 当前交付主线采用 `B1 / B2 / B3 / B4` 四个交付提交
+- 当前交付分支工作树：`0` 个开放路径
+- 当前 retained set 相对基线 `9b9d300`：`295 files changed, 16365 insertions(+), 7929 deletions(-)`
 - 原始超量工作树已保全到 `parking/m4-overflow-2026-04-14`
 - 已验真的技术绿树已保全到 `parking/m4-green-validated-2026-04-14`
 - 本文档用于说明“当前分支保留什么”，不再承担旧版文件数预算证明
@@ -89,7 +90,7 @@
 - `tools/**`
 - `lint-report.json` / `lint-warnings.json`
 
-状态：这是重定义后的扩展 B4。  
+状态：这是重定义后的扩展 B4，当前提交为 `ea6f3b6`。  
 它不再受旧版“单批 `<=45 files`”预算约束，而承担“把已经验真的最终真值正式落到当前交付分支”的职责。
 
 ## 停车分支

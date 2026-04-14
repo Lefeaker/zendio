@@ -10,6 +10,8 @@
 最近一次重新核实：
 
 - 当前交付分支保留集相对基线 `9b9d300`：`295 files changed, 16399 insertions(+), 7929 deletions(-)`
+- 当前交付分支工作树：`0` 个开放路径（`B1/B2/B3/B4` 已全部落成提交）
+- 当前交付分支保留集相对基线 `9b9d300`：`295 files changed, 16365 insertions(+), 7929 deletions(-)`
 - `content/runtime.js`: `54.5 KB`
 - `options/index.js`: `94.7 KB`
 - chunk count: `130`
@@ -109,6 +111,11 @@ npx vitest run tests/unit/options/layout/MainContent.test.ts
 - `parking/m4-overflow-2026-04-14` 保全了原始大工作树
 - `parking/m4-green-validated-2026-04-14` 保全了已验真的技术绿树
 - 当前交付分支采用 `B1/B2/B3 + 扩展 B4` 的实际收口方式
+- 当前交付主线的 4 个交付提交为：
+  - `cf777fb` `B1: align gates and failure paths`
+  - `f4a2b87` `B2: shrink options UI hotspots`
+  - `1b45b4f` `B3: split content and yaml hotspots`
+  - `ea6f3b6` `B4: consolidate validated runtime and docs`
 - 原始 M4 规模预算未被伪装成达成，而是明确下沉到 backlog
 
 ## 6. M5 收口验收
