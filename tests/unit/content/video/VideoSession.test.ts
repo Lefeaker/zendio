@@ -146,14 +146,16 @@ type SessionTestApi = {
   cleanup: () => void;
   handleAddCapture: () => Promise<void>;
   finish: () => Promise<void>;
-  captures: Array<{
-    kind: 'timestamp';
-    id: string;
-    timeSec: number;
-    comment: string;
-    url: string;
-    createdAt: number;
-  }>;
+  state: {
+    captures: Array<{
+      kind: 'timestamp';
+      id: string;
+      timeSec: number;
+      comment: string;
+      url: string;
+      createdAt: number;
+    }>;
+  };
 };
 
 function createView(): TestView {
@@ -284,7 +286,7 @@ describe('VideoSession', () => {
     const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
 
     await session.start();
-    sessionApi.captures = [
+    sessionApi.state.captures = [
       {
         kind: 'timestamp',
         id: 'timestamp-1',
@@ -316,7 +318,7 @@ describe('VideoSession', () => {
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
 
     await session.start();
-    sessionApi.captures = [
+    sessionApi.state.captures = [
       {
         kind: 'timestamp',
         id: 'timestamp-1',

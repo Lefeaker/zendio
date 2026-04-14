@@ -69,6 +69,13 @@ function requireRowId(row: HTMLElement, errorMessage: string): string {
   return rowId;
 }
 
+function requireOverrides(overrides: YamlConfigOverrides | null): YamlConfigOverrides {
+  if (!overrides) {
+    throw new Error('Expected collected YAML overrides');
+  }
+  return overrides;
+}
+
 function createCustomField(name: string): HTMLElement {
   const addButton = document.getElementById('yamlAddFieldBtn');
   if (!(addButton instanceof HTMLButtonElement)) {
@@ -184,7 +191,7 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
 
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const overrideKeys = Object.keys(overrides?.contentTypes?.article?.domainOverrides ?? {});
     expect(overrideKeys).toHaveLength(1);
     expect(overrides?.contentTypes?.article?.domainOverrides?.['docs.example.com']?.length).toBe(1);
@@ -214,7 +221,7 @@ describe('yamlConfigTable validation', () => {
       throw new Error('Controller missing');
     }
 
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const articleCustom = overrides?.contentTypes?.article?.customFields ?? [];
     expect(articleCustom.map((field) => field.name)).toEqual([
       'status',
@@ -277,7 +284,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     expect(overrides?.contentTypes?.article?.domainOverrides).toBeUndefined();
   });
 
@@ -305,7 +312,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const articleCustom = overrides?.contentTypes?.article?.customFields ?? [];
     expect(articleCustom.map((field) => field.name)).toContain('custom_beta_keep');
     expect(articleCustom.map((field) => field.name)).not.toContain('custom_alpha_delete');
@@ -339,7 +346,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const articleCustom = overrides?.contentTypes?.article?.customFields ?? [];
     const field = articleCustom.find((item) => item.name === 'custom_array_values');
     expect(field?.defaultValue).toEqual(['alpha', 'beta', 'gamma', 'delta']);
@@ -456,7 +463,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const articleCustom = (overrides?.contentTypes?.article?.customFields ?? [])
       .map((field) => field.name)
       .filter((name) => name.startsWith('custom_'));
@@ -482,7 +489,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const customNames = (overrides.contentTypes?.article?.customFields ?? []).map(
       (field) => field.name
     );
@@ -533,7 +540,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     expect(overrides.contentTypes?.article?.domainOverrides).toBeUndefined();
     expect(document.querySelector('.aobx-domain__card')).toBeNull();
     expect(document.querySelector('.aobx-table__global-errors')).toBeNull();
@@ -592,7 +599,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const videoOverride =
       overrides.contentTypes?.video?.domainOverrides?.['docs.example.com'] ?? [];
     expect(videoOverride).toHaveLength(1);
@@ -680,7 +687,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     expect(overrides.contentTypes?.article?.domainOverrides?.['video.example.com']).toEqual([
       expect.objectContaining({ name: 'tags', defaultValue: ['alpha', 'beta', 'gamma'] })
     ]);
@@ -927,7 +934,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const fields = overrides?.contentTypes?.article?.domainOverrides?.['sub.example.com'];
     expect(fields?.[0]?.valuePath).toBe('meta.path');
   });
@@ -980,7 +987,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map(
       (field) => field.name
     );
@@ -1034,7 +1041,7 @@ describe('yamlConfigTable validation', () => {
     if (!controller) {
       throw new Error('Controller missing');
     }
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const field = (overrides?.contentTypes?.article?.customFields ?? []).find(
       (item) => item.name === 'custom_with_source_path'
     );
@@ -1111,7 +1118,7 @@ describe('yamlConfigTable validation', () => {
     sortArticle?.dispatchEvent(new Event('click', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const customNames = (overrides?.contentTypes?.article?.customFields ?? []).map(
       (field) => field.name
     );
@@ -1219,7 +1226,7 @@ describe('yamlConfigTable validation', () => {
     valuePathInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     expect(
       overrides.contentTypes?.article?.domainOverrides?.['docs.example.com']?.[0]
     ).toMatchObject({ valuePath: 'meta.author' });
@@ -1260,7 +1267,7 @@ describe('yamlConfigTable validation', () => {
     domainInputs[1].dispatchEvent(new Event('blur', { bubbles: true }));
 
     if (!controller) throw new Error('Controller missing');
-    const overrides = controller.collect();
+    const overrides = requireOverrides(controller.collect());
     const domains = Object.keys(overrides.contentTypes?.article?.domainOverrides ?? {});
     expect(domains).toEqual(['Docs.Example.com', 'api.example.com']);
     expect(document.querySelectorAll('.aobx-domain__errors')).toHaveLength(0);

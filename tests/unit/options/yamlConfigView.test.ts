@@ -5,7 +5,7 @@ import type { YamlConfigControllerOptions } from '../../../src/ui/domains/yaml-c
 import { YamlConfigView } from '../../../src/ui/domains/yaml-config';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 
-const createMockFn = <T extends (...args: unknown[]) => unknown>() =>
+const createMockFn = <T extends (...args: any[]) => any>() =>
   vi.fn<Parameters<T>, ReturnType<T>>();
 
 type ControllerStub = {
@@ -38,7 +38,7 @@ describe('YamlConfigView', () => {
     document.body.innerHTML = '<section id="host"></section>';
   });
 
-  it('mounts layout once and forwards render/update/collect to controller', () => {
+  it('mounts layout once and forwards render/update/collect to controller', async () => {
     const host = document.getElementById('host');
     if (!(host instanceof HTMLElement)) throw new Error('host missing');
 
@@ -78,9 +78,11 @@ describe('YamlConfigView', () => {
     };
     const onDirty = vi.fn();
     view.render({ overrides, onDirty });
+    await vi.waitFor(() => {
+      expect(controllerStubs).toHaveLength(1);
+    });
     view.render({ overrides: null, onDirty });
 
-    expect(controllerStubs).toHaveLength(1);
     expect(lastControllerOptions?.onDirty).toBe(onDirty);
     expect(host.querySelector('#yamlConfigTable')).toBeTruthy();
     expect(controllerStubs[0].render).toHaveBeenNthCalledWith(1, overrides);
@@ -96,11 +98,14 @@ describe('YamlConfigView', () => {
     expect(controllerStubs[0].render).toHaveBeenLastCalledWith(null);
   });
 
-  it('disposes the controller and rejects further use after destroy', () => {
+  it('disposes the controller and rejects further use after destroy', async () => {
     const host = document.getElementById('host');
     if (!(host instanceof HTMLElement)) throw new Error('host missing');
     const view = new YamlConfigView(host);
     view.render({ overrides: null, onDirty: vi.fn() });
+    await vi.waitFor(() => {
+      expect(controllerStubs).toHaveLength(1);
+    });
     const controller = controllerStubs[0];
     view.destroy();
     expect(controller.dispose).toHaveBeenCalledTimes(1);

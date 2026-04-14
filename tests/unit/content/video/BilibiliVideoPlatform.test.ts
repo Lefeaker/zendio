@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
 import {
   flattenBilibiliContentNode,
@@ -11,7 +12,7 @@ import {
 import type { PlatformSelectionInput, VideoPlatformContext } from '@content/video/platforms';
 
 type VideoPlatformContextWithMocks = VideoPlatformContext & {
-  __mocks: Record<string, ReturnType<typeof vi.fn>>;
+  __mocks: Record<string, Mock<any[], any>>;
 };
 
 function createContext(doc: Document): VideoPlatformContextWithMocks {

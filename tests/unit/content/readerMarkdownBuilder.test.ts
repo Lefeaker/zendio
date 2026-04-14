@@ -8,10 +8,18 @@ import {
   buildReaderFullMarkdown,
   __readerMarkdownBuilderTestUtils
 } from '@content/reader/utils/markdownBuilder';
+import type { ReaderMarkdownPayload } from '@content/reader/utils/markdownBuilder';
 
 function stripFrontMatter(markdown: string): string {
   const parts = markdown.split('\n---\n\n');
   return parts.length > 1 ? parts[1] : markdown;
+}
+
+function requireMeta(payload: ReaderMarkdownPayload): NonNullable<ReaderMarkdownPayload['meta']> {
+  if (!payload.meta) {
+    throw new Error('Expected markdown payload meta');
+  }
+  return payload.meta;
 }
 
 describe('reader highlight markdown builder', () => {
@@ -89,7 +97,7 @@ describe('reader full markdown builder', () => {
       </html>
     `);
 
-    const { markdown, meta } = buildReaderFullMarkdown({
+    const payload = buildReaderFullMarkdown({
       pageTitle: 'Segmented Highlight',
       pageUrl: 'https://example.com/reader',
       documentClone,
@@ -105,7 +113,7 @@ describe('reader full markdown builder', () => {
       ]
     });
 
-    const body = stripFrontMatter(markdown);
+    const body = stripFrontMatter(payload.markdown);
     expect(body).toContain('Alpha');
     expect(body).toContain('==Beta==');
     expect(body).toContain('==Gamma==');
@@ -113,7 +121,7 @@ describe('reader full markdown builder', () => {
     expect(body).not.toContain('aiob-reader-panel');
     expect(body).not.toContain('obsidian-clipper-dialog');
     expect(body).not.toContain('[[AIIOB_HL:');
-    expect(meta.exportMode).toBe('full');
+    expect(requireMeta(payload).exportMode).toBe('full');
   });
 });
 
@@ -132,7 +140,7 @@ describe('reader full markdown builder', () => {
       </html>
     `);
 
-    const { markdown, meta } = buildReaderFullMarkdown({
+    const payload = buildReaderFullMarkdown({
       pageTitle: 'Solo Highlight',
       pageUrl: 'https://example.com/solo',
       documentClone,
@@ -147,10 +155,10 @@ describe('reader full markdown builder', () => {
       ]
     });
 
-    const body = stripFrontMatter(markdown);
+    const body = stripFrontMatter(payload.markdown);
     expect(body).toContain('==Solo==');
     expect(body).not.toContain('[^');
-    expect(meta.commentCount).toBe(0);
+    expect(requireMeta(payload).commentCount).toBe(0);
   });
 
 
@@ -185,7 +193,7 @@ it('keeps full export stable when highlight fragment links are missing and title
     </html>
   `);
 
-  const { markdown, meta } = buildReaderFullMarkdown({
+  const payload = buildReaderFullMarkdown({
     pageTitle: '',
     pageUrl: 'https://example.com/empty-title',
     documentClone,
@@ -200,16 +208,16 @@ it('keeps full export stable when highlight fragment links are missing and title
     ]
   });
 
-  const body = stripFrontMatter(markdown);
+  const body = stripFrontMatter(payload.markdown);
   expect(body).toContain('==Solo==');
   expect(body).not.toContain('[](');
-  expect(meta.exportMode).toBe('full');
-  expect(meta.fragmentUrls).toEqual(['']);
+  expect(requireMeta(payload).exportMode).toBe('full');
+  expect(requireMeta(payload).fragmentUrls).toEqual(['']);
 });
 
 
 it('keeps comment metadata count without emitting footnotes when footnote index is absent', () => {
-  const { markdown, meta } = buildReaderHighlightsMarkdown({
+  const payload = buildReaderHighlightsMarkdown({
     pageTitle: 'Comment Only',
     pageUrl: 'https://example.com/comment-only',
     highlights: [
@@ -222,11 +230,11 @@ it('keeps comment metadata count without emitting footnotes when footnote index 
     ]
   });
 
-  const body = stripFrontMatter(markdown);
+  const body = stripFrontMatter(payload.markdown);
   expect(body).toContain('==Commented text==');
   expect(body).toContain('[](');
   expect(body).not.toContain('[^');
-  expect(meta.commentCount).toBe(1);
+  expect(requireMeta(payload).commentCount).toBe(1);
 });
 
 it('builds full markdown without highlights and keeps article text plain', () => {
@@ -241,18 +249,18 @@ it('builds full markdown without highlights and keeps article text plain', () =>
     </html>
   `);
 
-  const { markdown, meta } = buildReaderFullMarkdown({
+  const payload = buildReaderFullMarkdown({
     pageTitle: 'Plain article',
     pageUrl: 'https://example.com/plain',
     documentClone,
     highlights: []
   });
 
-  const body = stripFrontMatter(markdown);
+  const body = stripFrontMatter(payload.markdown);
   expect(body).toContain('Plain article');
   expect(body).toContain('Body without saved highlights.');
   expect(body).not.toContain('==');
-  expect(meta.highlightCount).toBe(0);
+  expect(requireMeta(payload).highlightCount).toBe(0);
 });
 
 
@@ -471,6 +479,9 @@ it('exposes markdown helper utilities for segment normalization and token cleanu
   if (!host || !host.firstChild || !host.lastChild) {
     throw new Error('Expected inline host nodes to exist');
   }
+  if (!host.firstChild || !host.lastChild) {
+    throw new Error('Expected token boundary nodes');
+  }
   utils.stripInlineFormattingBetweenTokens(host.firstChild, host.lastChild);
   expect(host.querySelector('span')).toBeNull();
   expect(host.querySelector('mark')).toBeNull();
@@ -599,6 +610,9 @@ it('returns null common ancestor for detached nodes and keeps token stripping st
   if (!(host instanceof HTMLElement)) {
     throw new Error('Expected host');
   }
+  if (!host.firstChild || !host.lastChild) {
+    throw new Error('Expected token nodes');
+  }
   utils.stripInlineFormattingBetweenTokens(host.firstChild, host.lastChild);
   expect(host.textContent).toContain('Alpha');
 });
@@ -643,7 +657,7 @@ it('falls back to body html when readability parse returns null', () => {
   });
 
   try {
-    const { markdown, meta } = buildReaderFullMarkdown({
+    const payload = buildReaderFullMarkdown({
       pageTitle: 'Null Parse',
       pageUrl: 'https://example.com/null-parse',
       documentClone,
@@ -656,10 +670,10 @@ it('falls back to body html when readability parse returns null', () => {
       }]
     });
 
-    const body = stripFrontMatter(markdown);
+    const body = stripFrontMatter(payload.markdown);
     expect(body).toContain('Null readability fallback');
     expect(body).toContain('==Solo==');
-    expect(meta.exportMode).toBe('full');
+    expect(requireMeta(payload).exportMode).toBe('full');
   } finally {
     if (originalParseDescriptor) {
       Object.defineProperty(Readability.prototype, 'parse', originalParseDescriptor);
