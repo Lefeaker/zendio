@@ -11,7 +11,7 @@
 
 - 当前交付主线采用 `B1 / B2 / B3 / B4` 四个交付提交
 - 当前交付分支工作树：`0` 个开放路径
-- 当前 retained set 相对基线 `9b9d300`：`295 files changed, 16365 insertions(+), 7929 deletions(-)`
+- `B4` 提交 `ea6f3b6` 相对基线 `9b9d300`：`295 files changed, 16365 insertions(+), 7929 deletions(-)`
 - 原始超量工作树已保全到 `parking/m4-overflow-2026-04-14`
 - 已验真的技术绿树已保全到 `parking/m4-green-validated-2026-04-14`
 - 本文档用于说明“当前分支保留什么”，不再承担旧版文件数预算证明
