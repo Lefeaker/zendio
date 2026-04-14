@@ -92,7 +92,10 @@ function createStorageAreaStub(initial: Record<string, unknown> = {}): {
         emit(key, oldValue, undefined);
       });
     },
-    watchKey<T = unknown>(key: string, callback) {
+    watchKey<T = unknown>(
+      key: string,
+      callback: (value: T | undefined, change: StorageChange<T>) => void
+    ) {
       const listeners = keyWatchers.get(key) ?? new Set();
       keyWatchers.set(key, listeners);
       const typed = callback as (value: unknown, change: StorageChange<unknown>) => void;

@@ -1,6 +1,6 @@
 import type { PageI18nController } from '../../i18n';
 import type { ModalBindingConfig } from '../components/infrastructure/ModalController';
-import type { MountedOptionsShell } from './experimentalShell';
+import type { MountedOptionsShell } from './optionsShell';
 import { getChangelogByLanguage } from './changelogContent';
 
 type CleanupFn = () => void;
@@ -71,7 +71,7 @@ export function createOptionsModalBindings(args: {
 
 export function handleOptionsUrlHash(args: {
   hash: string;
-  mountedShell: MountedOptionsShell | null;
+  mountedShell: MountedOptionsShell;
   revealFragmentShortcuts: () => boolean;
 }): void {
   const hash = args.hash.startsWith('#') ? args.hash.slice(1) : args.hash;
@@ -82,12 +82,12 @@ export function handleOptionsUrlHash(args: {
   const schedule = (): void => {
     if (hash.startsWith('section-')) {
       const sectionId = hash.slice('section-'.length);
-      void args.mountedShell?.navigateTo(sectionId);
+      void args.mountedShell.navigateTo(sectionId);
       return;
     }
     if (hash === 'shortcuts') {
       void (async () => {
-        await args.mountedShell?.mountSection('fragment', { activate: true });
+        await args.mountedShell.mountSection('fragment', { activate: true });
         const highlighted = args.revealFragmentShortcuts();
         if (!highlighted) {
           console.warn('[Options] Target element for hash "shortcuts" not found via registry');

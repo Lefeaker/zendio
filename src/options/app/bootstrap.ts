@@ -10,7 +10,6 @@ import {
   showStatusMessage,
   formatOptionsError
 } from '../components/messages';
-import { runDiagnostics, fixConfiguration } from '../components/diagnostics';
 import {
   copyOptionsToClipboard,
   parseConfigInput,
@@ -33,12 +32,7 @@ import {
   exportAnalyticsTransferPayload,
   applyAnalyticsTransferPayload
 } from '../services/analyticsTransfer';
-import {
-  ModalController,
-  type ModalBindingConfig
-} from '../components/infrastructure/ModalController';
-import { NavigationController } from '../components/layout/NavigationController';
-import { mountExperimentalShell, type MountedOptionsShell } from './experimentalShell';
+import { mountOptionsShell, type MountedOptionsShell } from './optionsShell';
 import { configureOptionsActions } from './optionsActions';
 import { FormSectionRegistry } from '../components/formSections/formSectionManager';
 import { ThemeSwitcher } from '../../ui/domains/theme';
@@ -54,6 +48,14 @@ import {
 let formSectionRegistry: FormSectionRegistry | null = null;
 let optionsController: OptionsController | null = null;
 let themeSwitcher: ThemeSwitcher | null = null;
+let diagnosticsModulePromise: Promise<typeof import('../components/diagnostics')> | null = null;
+
+function loadDiagnosticsModule(): Promise<typeof import('../components/diagnostics')> {
+  if (!diagnosticsModulePromise) {
+    diagnosticsModulePromise = import('../components/diagnostics');
+  }
+  return diagnosticsModulePromise;
+}
 
 function initializeThemeSwitcher(): void {
   const container = document.getElementById('theme-switcher');
@@ -216,7 +218,7 @@ export async function bootstrapOptionsApp(
     throw new Error('[Options] Failed to initialize FormSectionRegistry.');
   }
 
-  const shell = await mountExperimentalShell(registry);
+  const shell = await mountOptionsShell(registry);
   mountedShell = shell;
   registerCleanup(() => {
     teardownMountedShell();
@@ -227,52 +229,30 @@ export async function bootstrapOptionsApp(
         ensureDeclarativeI18nController
       })
   });
-  if (shell) {
-    void shell.preloadSections(PRELOAD_SECTION_IDS).catch((error) => {
-      console.warn('[Options] Section preload failed:', error);
-    });
+  void shell.preloadSections(PRELOAD_SECTION_IDS).catch((error) => {
+    console.warn('[Options] Section preload failed:', error);
+  });
 
-    configureOptionsActions({
-      stateManager: shell.stateManager,
-      changeLanguage: handleLanguageChange,
-      copyConfig: () => handleCopyConfig(),
-      importConfig: () => handleImportConfig(),
-      saveOptions: () => handleSave(),
-      runDiagnostics: () => runDiagnostics(),
-      fixConfiguration: () => handleFix(),
-      reloadDiagnostics: () => handleReload()
-    });
+  configureOptionsActions({
+    stateManager: shell.stateManager,
+    changeLanguage: handleLanguageChange,
+    copyConfig: () => handleCopyConfig(),
+    importConfig: () => handleImportConfig(),
+    saveOptions: () => handleSave(),
+    runDiagnostics: () => handleRunDiagnostics(),
+    fixConfiguration: () => handleFix(),
+    reloadDiagnostics: () => handleReload()
+  });
 
-    await refreshUIFromStorage();
-    await ensureInitialSectionVisible(shell);
-    await ensureAllSectionsMounted(shell);
-    shell.configureUI({ modalBindings });
-  } else {
-    const modalController = new ModalController({ bindings: modalBindings });
-    const navigationController = new NavigationController();
-    registerCleanup(() => {
-      modalController.dispose();
-      navigationController.dispose();
-    });
-
-    configureOptionsActions({
-      stateManager: null,
-      changeLanguage: handleLanguageChange,
-      copyConfig: () => handleCopyConfig(),
-      importConfig: () => handleImportConfig(),
-      saveOptions: () => handleSave(),
-      runDiagnostics: () => runDiagnostics(),
-      fixConfiguration: () => handleFix(),
-      reloadDiagnostics: () => handleReload()
-    });
-
-    await refreshUIFromStorage();
-  }
+  await refreshUIFromStorage();
+  await ensureInitialSectionVisible(shell);
+  await ensureAllSectionsMounted(shell);
+  shell.configureUI({ modalBindings });
 
   // 处理 URL hash 锚点
   handleOptionsUrlHash({
     hash: window.location.hash,
-    mountedShell,
+    mountedShell: shell,
     revealFragmentShortcuts
   });
 }
@@ -476,10 +456,16 @@ async function handleSave(): Promise<void> {
 }
 
 async function handleFix(): Promise<void> {
+  const { fixConfiguration } = await loadDiagnosticsModule();
   await fixConfiguration(refreshUIFromStorage);
 }
 
 async function handleReload(): Promise<void> {
   await refreshUIFromStorage();
+  await handleRunDiagnostics();
+}
+
+async function handleRunDiagnostics(): Promise<void> {
+  const { runDiagnostics } = await loadDiagnosticsModule();
   await runDiagnostics();
 }

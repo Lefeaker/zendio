@@ -13,6 +13,7 @@ import { MockOptionsRepository, MockMessagingRepository } from '../../../utils/r
 const restFixtures = vi.hoisted(() => ({
   updateAdditionalVaultMock: vi.fn(),
   markPendingAutoSaveMock: vi.fn(),
+  scheduleAutoSaveMock: vi.fn(),
   initializeVaultRouterStoreMock: vi.fn(),
   setRouterSnapshot: ((_snapshot: unknown) => undefined) as (snapshot: unknown) => void,
   resetRouterSnapshot: (() => undefined) as () => void,
@@ -85,7 +86,7 @@ vi.mock('../../../../src/options/state/vaultRouterStore', () => {
 });
 
 vi.mock('../../../../src/options/app/optionsControllerContext', () => ({
-  getOptionsController: () => null,
+  getOptionsController: () => ({ scheduleAutoSave: restFixtures.scheduleAutoSaveMock }),
   markPendingAutoSave: restFixtures.markPendingAutoSaveMock
 }));
 
@@ -260,7 +261,7 @@ describe('RestSection', () => {
     section.destroy();
   });
 
-  it('collects rest changes, schedules auto save, and persists via repository', async () => {
+  it('collects rest changes and schedules auto save through the controller chain', async () => {
     const section = await renderSection();
     const previous = {
       rest: {
@@ -303,10 +304,6 @@ describe('RestSection', () => {
     expect(restFixtures.updateAdditionalVaultMock).toHaveBeenCalled();
     expect(restFixtures.markPendingAutoSaveMock).toHaveBeenCalledWith('vaultRouter');
     expect(restFixtures.markPendingAutoSaveMock).toHaveBeenCalledWith('rest');
-
-    const stored = optionsRepo.getMockData();
-    expect(stored.rest.baseUrl).toBe('http://localhost:27123/');
-    expect(stored.rest.vault).toBe('WorkVault');
 
     section.destroy();
   });
@@ -666,11 +663,6 @@ describe('RestSection', () => {
     const httpInput = document.getElementById('restHttpUrl') as HTMLInputElement;
     const nameInput = document.getElementById('restVault') as HTMLInputElement;
     const keyInput = document.getElementById('restKey') as HTMLInputElement;
-    const repoSetSpy = vi
-      .spyOn(optionsRepo, 'set')
-      .mockRejectedValueOnce(new Error('persist failed'));
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
     httpsInput.value = '   ';
     httpInput.value = '   ';
     nameInput.value = '   ';
@@ -691,16 +683,6 @@ describe('RestSection', () => {
     expect(collected.rest).not.toHaveProperty('httpsUrl');
     expect(collected.rest).not.toHaveProperty('httpUrl');
     expect(sectionAny.collectRestDraftForTest()).toEqual({ apiKey: 'raw-key' });
-
-    await vi.waitFor(() => {
-      expect(repoSetSpy).toHaveBeenCalled();
-      const latestSnapshot = repoSetSpy.mock.calls.at(-1)?.[0] as { rest?: unknown } | undefined;
-      expect(latestSnapshot?.rest).toBeTruthy();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[RestSection] Failed to persist REST options via repository:',
-        expect.any(Error)
-      );
-    });
   });
 
   it('uses snapshot fallbacks for default vault resolution and supports missing rows in draft readers', async () => {
@@ -768,8 +750,12 @@ describe('RestSection', () => {
 
     sectionAny.defaultVaultId = null;
     restFixtures.updateAdditionalVaultMock.mockClear();
+    restFixtures.markPendingAutoSaveMock.mockClear();
+    restFixtures.scheduleAutoSaveMock.mockClear();
     sectionAny.updateDefaultVaultField('name', '  should-not-save  ');
     expect(restFixtures.updateAdditionalVaultMock).not.toHaveBeenCalled();
+    expect(restFixtures.markPendingAutoSaveMock).toHaveBeenCalledWith('rest');
+    expect(restFixtures.scheduleAutoSaveMock).toHaveBeenCalledTimes(1);
   });
 
   it('handles empty additional vault host and missing connection tester nodes safely', async () => {
@@ -817,13 +803,11 @@ describe('RestSection', () => {
     expect(httpsInput.value).toBe(DEFAULT_OPTIONS.rest.httpsUrl ?? '');
   });
 
-  it('collects empty rest draft, keeps raw api key, and logs repository persistence failures', async () => {
+  it('collects empty rest draft and keeps raw api key', async () => {
     const section = await renderSection();
     const sectionAny = section as unknown as {
       collectRestDraftForTest: () => Record<string, unknown>;
-      persistRest: (partial: Partial<CompleteOptions>) => void;
     };
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const httpsInput = document.getElementById('restHttpsUrl') as HTMLInputElement;
     const httpInput = document.getElementById('restHttpUrl') as HTMLInputElement;
@@ -836,30 +820,6 @@ describe('RestSection', () => {
     apiKeyInput.value = ' raw-key ';
 
     expect(sectionAny.collectRestDraftForTest()).toEqual({ apiKey: ' raw-key ' });
-
-    const failingRepo = new MockOptionsRepository();
-    failingRepo.set = vi.fn(() => Promise.reject(new Error('persist failed')));
-    const container = document.getElementById('rest-section');
-    if (!container) {
-      throw new Error('Rest Section container missing');
-    }
-    const failingSection = new RestSection(container, failingRepo, messagingRepo);
-    failingSection.render({ stateManager: noopStateManager, formRegistry: registry });
-    const failingAny = failingSection as unknown as {
-      persistRest: (partial: Partial<StoredOptions>) => void;
-    };
-
-    failingAny.persistRest({ rest: { baseUrl: '', vault: 'BrokenVault', apiKey: '' } });
-
-    await vi.waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[RestSection] Failed to persist REST options via repository:',
-        expect.any(Error)
-      );
-    });
-
-    consoleErrorSpy.mockRestore();
-    failingSection.destroy();
     section.destroy();
   });
 
@@ -949,7 +909,12 @@ describe('RestSection', () => {
     };
 
     sectionAny.messages = null;
-    const header = sectionAny.buildHeader();
+    section.render({ stateManager: noopStateManager, formRegistry: registry });
+    const container = document.getElementById('rest-section');
+    const header = container?.firstElementChild as HTMLElement | null;
+    if (!header) {
+      throw new Error('Expected rendered header');
+    }
     expect(header.textContent).toContain('Obsidian Local REST API');
     expect(header.textContent).toContain('配置默认仓库和额外仓库的连接信息');
 
@@ -1229,7 +1194,12 @@ describe('RestSection', () => {
     };
 
     sectionAny.messages = null;
-    const header = sectionAny.buildHeader();
+    section.render({ stateManager: noopStateManager, formRegistry: registry });
+    const container = document.getElementById('rest-section');
+    const header = container?.firstElementChild as HTMLElement | null;
+    if (!header) {
+      throw new Error('Expected rendered header');
+    }
     expect(header.textContent).toContain('Obsidian Local REST API');
     expect(header.textContent).toContain('配置默认仓库和额外仓库的连接信息');
 

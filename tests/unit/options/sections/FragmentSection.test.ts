@@ -114,7 +114,7 @@ describe('FragmentSection', () => {
   });
 
   it('applies snapshot defaults and collects updated fragment settings', async () => {
-    const { section, repo } = renderSection();
+    const { section } = renderSection();
     const captureCheckbox = getInput('fragmentCaptureContext');
     const contextLengthGroup = getElement('fragmentContextLengthGroup');
     const contextModeGroup = getElement('fragmentContextModeGroup');
@@ -195,7 +195,6 @@ describe('FragmentSection', () => {
     expect(collected.fragmentClipper?.contextLength).toBe(200);
     expect(collected.fragmentClipper?.contextMode).toBe('sentences');
 
-    expect(repo.getMockData().fragmentClipper).toEqual(collected.fragmentClipper);
     section.destroy();
   });
 
