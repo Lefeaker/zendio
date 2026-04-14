@@ -1,7 +1,8 @@
 import type { IOptionsRepository } from '@shared/repositories';
-import type { PrivacyConsentSnapshot } from '../../../ui/domains/privacy';
-import { PrivacySettings } from '../../../ui/domains/privacy';
+import type { PrivacyConsentSnapshot } from '@ui/domains/privacy';
+import { PrivacySettings } from '@ui/domains/privacy';
 import { BaseSection, type SectionRenderContext } from './BaseSection';
+import { persistPrivacyConsentAction } from '../../app/actions';
 
 export class PrivacySection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
@@ -107,10 +108,9 @@ export class PrivacySection extends BaseSection<SectionRenderContext> {
   }
 
   private persistConsent(snapshot: PrivacyConsentSnapshot): void {
-    void this.optionsRepo
-      .set({
-        privacyPreferences: snapshot
-      })
+    void persistPrivacyConsentAction(snapshot, {
+      optionsRepository: this.optionsRepo
+    })
       .catch((error) => {
         console.error(
           '[PrivacySection] Failed to persist privacy preferences via repository:',

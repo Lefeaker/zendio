@@ -8,12 +8,13 @@
       "@shared/*": ["src/shared/*"],
       "@content/*": ["src/content/*"],
       "@options/*": ["src/options/*"],
+      "@ui/*": ["src/ui/*"],
       "@i18n": ["src/i18n/index.ts"],
       "@i18n/*": ["src/i18n/*"],
       "@platform/*": ["src/platform/*"],
       "@third-party/*": ["src/third_party/*"]
     }
   },
-  "include": ["tests/**/*.ts", "tests/types/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "src/env.d.ts"],
-  "exclude": ["dist", "node_modules"]
+  "include": ["tests/**/*.ts", "tests/types/**/*.d.ts", "scripts/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "tools/validate-text-budgets.ts", "src/env.d.ts"],
+  "exclude": ["build", "node_modules"]
 }

@@ -142,6 +142,52 @@ describe('PrivacySettingsComponent', () => {
     component.destroy();
   });
 
+  it('shows controlled error status when hydration from storage fails', async () => {
+    testContext.analyticsManager.refreshFromStorage.mockRejectedValueOnce(new Error('storage failed'));
+
+    const component = await renderComponent();
+
+    const status = document.getElementById('privacyStatusMessage');
+    expect(status?.hidden).toBe(false);
+    expect(status?.textContent).toBe(testContext.messages.privacySettingsError);
+
+    component.destroy();
+  });
+
+  it('shows error status when saving settings fails', async () => {
+    testContext.setAnalyticsConsent.mockRejectedValueOnce(new Error('consent failed'));
+
+    const component = await renderComponent();
+    const analyticsCheckbox = document.getElementById('analyticsConsent') as HTMLInputElement;
+    analyticsCheckbox.checked = false;
+
+    await expect(component.saveSettings()).rejects.toThrow('consent failed');
+
+    const status = document.getElementById('privacyStatusMessage');
+    expect(status?.hidden).toBe(false);
+    expect(status?.textContent).toBe(testContext.messages.privacySettingsError);
+
+    component.destroy();
+  });
+
+  it('shows error status when auto-save fails', async () => {
+    testContext.setAnalyticsConsent.mockRejectedValueOnce(new Error('auto-save failed'));
+
+    const component = await renderComponent();
+    const analyticsCheckbox = document.getElementById('analyticsConsent') as HTMLInputElement;
+    analyticsCheckbox.checked = false;
+    analyticsCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
+
+    const status = document.getElementById('privacyStatusMessage');
+    expect(status?.hidden).toBe(false);
+    expect(status?.textContent).toBe(testContext.messages.privacySettingsError);
+
+    component.destroy();
+  });
+
   it('updates debug mode via analytics manager and displays info hint', async () => {
     const component = await renderComponent();
     const toggle = document.getElementById('analyticsDebugMode');
@@ -210,6 +256,34 @@ describe('PrivacySettingsComponent', () => {
       debugMode: false
     });
 
+    component.destroy();
+  });
+
+  it('shows an error status when hydration fails', async () => {
+    const hydrationError = new Error('Hydration failed');
+    testContext.analyticsManager.refreshFromStorage.mockRejectedValueOnce(hydrationError);
+
+    const component = await renderComponent();
+
+    const status = document.getElementById('privacyStatusMessage');
+    expect(status?.textContent).toBe(testContext.messages.privacySettingsError);
+
+    vi.runAllTimers();
+    component.destroy();
+  });
+
+  it('displays a status message when saving consent fails', async () => {
+    const failure = new Error('Consent save failed');
+    testContext.setAnalyticsConsent.mockRejectedValueOnce(failure);
+
+    const component = await renderComponent();
+
+    await expect(component.saveSettings()).rejects.toThrow('Consent save failed');
+
+    const status = document.getElementById('privacyStatusMessage');
+    expect(status?.textContent).toBe(testContext.messages.privacySettingsError);
+
+    vi.runAllTimers();
     component.destroy();
   });
 });

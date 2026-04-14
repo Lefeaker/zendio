@@ -19,6 +19,10 @@ export function createVitestAliases(options: { includeLegacySrcPattern?: boolean
       replacement: resolvePath(srcDir, 'options')
     },
     {
+      find: '@ui',
+      replacement: resolvePath(srcDir, 'ui')
+    },
+    {
       find: '@i18n',
       replacement: resolvePath(srcDir, 'i18n')
     },

@@ -1,9 +1,4 @@
 import {
-  requestConnectionTest as defaultRequestConnectionTest,
-  requestVaultConnectionTest as defaultRequestVaultConnectionTest
-} from '../../services/connectionTester';
-import {
-  runConnectionTest,
   initializeConnectionTestElements,
   type ConnectionResultType
 } from '../../services/connectionTestRunner';
@@ -35,6 +30,17 @@ interface TestEntry {
   entry: string;
 }
 
+let connectionRuntimeModulePromise:
+  | Promise<typeof import('../../services/connectionTestRuntime')>
+  | null = null;
+
+function loadConnectionRuntimeModule(): Promise<typeof import('../../services/connectionTestRuntime')> {
+  if (!connectionRuntimeModulePromise) {
+    connectionRuntimeModulePromise = import('../../services/connectionTestRuntime');
+  }
+  return connectionRuntimeModulePromise;
+}
+
 export function createConnectionTester(config: ConnectionTesterConfig): ConnectionTester {
   const { button, resultHost } = config;
 
@@ -47,6 +53,7 @@ export function createConnectionTester(config: ConnectionTesterConfig): Connecti
   button.addEventListener('click', handleClick);
 
   async function trigger(): Promise<void> {
+    const { runConnectionTest } = await loadConnectionRuntimeModule();
     await runConnectionTest(
       {
         exec: () => runCompositeConnectionTest(config),
@@ -109,7 +116,8 @@ async function testDefaultVault(
   const label = msgs.defaultVaultBadge ?? '默认仓库';
   try {
     const restDraft = getRestDraft();
-    const result = await (runTest ?? defaultRequestConnectionTest)(restDraft);
+    const requester = runTest ?? (await loadConnectionRuntimeModule()).requestConnectionTest;
+    const result = await requester(restDraft);
     const detail = extractResultMessage(result, msgs);
     return { success: result.success, entry: formatEntry(label, result.success, detail, msgs) };
   } catch (error) {
@@ -121,15 +129,16 @@ async function testDefaultVault(
 async function testAdditionalVaults(
   getConfigs: () => VaultConfig[],
   msgs: Messages,
-  runTest = defaultRequestVaultConnectionTest
+  runTest?: (vault: VaultConfig) => Promise<ConnectionTestResult>
 ): Promise<TestEntry[]> {
   const configs = getConfigs();
   const results: TestEntry[] = [];
+  const requester = runTest ?? (await loadConnectionRuntimeModule()).requestVaultConnectionTest;
 
   for (const config of configs) {
     const label = ((config.name || config.vault || '').trim() || msgs.vaultNameLabel) ?? '额外仓库';
     try {
-      const response = await runTest(config);
+      const response = await requester(config);
       const detail = extractResultMessage(response, msgs);
       results.push({
         success: response.success,

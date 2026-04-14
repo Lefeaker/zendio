@@ -24,6 +24,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck app
+        run: npm run typecheck:app
+
+      - name: Typecheck tests
+        run: npm run typecheck:tests
+
+      - name: Typecheck strict baseline
+        run: npm run typecheck:strict
+
       - name: Verify preflight baseline
         run: npm run verify:preflight
 
@@ -144,7 +153,11 @@ jobs:
         run: |
           npm run test:e2e
           npm run test:e2e:browser
+          npm run test:e2e:browser:reader-panel
           npm run test:e2e:browser:smoke
+
+      - name: Generate release summary
+        run: npm run report:release-summary
 
       - name: Upload i18n reports
         if: failure()
@@ -156,6 +169,15 @@ jobs:
             tests/visual/__output__/
             build/reports/playwright/
           if-no-files-found: ignore
+
+      - name: Upload release summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-summary
+          path: |
+            build/reports/release-summary.md
+            build/reports/release-summary.json
+          if-no-files-found: error
 
       - name: Package extension artifacts
         run: npm run package:ci

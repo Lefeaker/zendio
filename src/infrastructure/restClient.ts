@@ -3,6 +3,78 @@ import type { AppError } from '../shared/errors/types';
 import { createRestCandidates, maskApiKey, buildVaultUrl } from '../background/utils/restCandidates';
 import { errorHandler, restErrors } from '../shared/errors';
 
+type FailureCategory = 'HTTP error' | 'network error' | 'config error';
+
+const RESPONSE_SNIPPET_LIMIT = 120;
+const NETWORK_FAILURE_DETAIL = 'request failed';
+const HTTP_FAILURE_DETAIL = 'response unavailable';
+const CONFIG_FAILURE_DETAIL = 'configuration invalid';
+
+function sanitizeSnippet(raw?: string): string | undefined {
+  const normalized = raw?.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized.length <= RESPONSE_SNIPPET_LIMIT) {
+    return normalized;
+  }
+  return `${normalized.slice(0, RESPONSE_SNIPPET_LIMIT)}...`;
+}
+
+function formatCategoryMessage(category: FailureCategory, detail?: string): string {
+  if (detail) {
+    return `${category}: ${detail}`;
+  }
+  return category;
+}
+
+function createSanitizedRestCause(message: string): Error {
+  return new Error(message);
+}
+
+function describeRestResponse(error: RestResponseError): string | undefined {
+  const match = error.message.match(/\):\s*(.+)$/);
+  const rawDetail = match?.[1] ?? error.message;
+  return sanitizeSnippet(rawDetail);
+}
+
+function deriveRestFailure(error: unknown): { category: FailureCategory; detail: string | undefined } {
+  if (error instanceof RestResponseError) {
+    const detail = describeRestResponse(error);
+    const normalizedDetail = detail?.replace(new RegExp(`^${error.status}\\s*`), '').trim();
+    const statusLine = `HTTP ${error.status}`;
+    return {
+      category: 'HTTP error',
+      detail: normalizedDetail ? `${statusLine} - ${normalizedDetail}` : statusLine
+    };
+  }
+
+  if (error instanceof Error) {
+    const normalized = error.message.toLowerCase();
+    if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {
+      return { category: 'network error', detail: NETWORK_FAILURE_DETAIL };
+    }
+    if (normalized.includes('http') || normalized.includes('status')) {
+      const snippet = sanitizeSnippet(error.message);
+      return { category: 'HTTP error', detail: snippet ?? HTTP_FAILURE_DETAIL };
+    }
+
+    const detail = sanitizeSnippet(error.message);
+    if (
+      detail?.toLowerCase().includes('cannot read properties') ||
+      normalized.includes('missing response from rest endpoint') ||
+      normalized.includes('illegal invocation')
+    ) {
+      return { category: 'config error', detail: CONFIG_FAILURE_DETAIL };
+    }
+
+    return { category: 'config error', detail: detail ?? CONFIG_FAILURE_DETAIL };
+  }
+
+  const detail = sanitizeSnippet(String(error));
+  return { category: 'config error', detail: detail ?? CONFIG_FAILURE_DETAIL };
+}
+
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 function bindFetch(fetchImpl?: typeof fetch | FetchLike): FetchLike {
@@ -77,13 +149,16 @@ export class FetchRestClient implements RestClient {
         return;
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.warn(`❌ ${candidate.protocol} failed:`, err.message);
+        const { category, detail } = deriveRestFailure(err);
+        const sanitizedMessage = formatCategoryMessage(category, detail);
+        console.warn(`❌ ${candidate.protocol} failed:`, sanitizedMessage);
 
         const context: Record<string, unknown> = {
           endpoint: candidate.url,
           method: 'PUT',
           vault: config.vault,
-          protocol: candidate.protocol
+          protocol: candidate.protocol,
+          failureCategory: category
         };
 
         if (err instanceof RestResponseError && err.status !== undefined) {
@@ -91,9 +166,9 @@ export class FetchRestClient implements RestClient {
         }
 
         const appError = restErrors.requestFailed(
-          err.message,
+          sanitizedMessage,
           context,
-          { cause: error }
+          { cause: createSanitizedRestCause(sanitizedMessage) }
         );
         errors.push(appError);
         await errorHandler.handle(appError, { suppressNotifications: true });
@@ -102,7 +177,7 @@ export class FetchRestClient implements RestClient {
           continue;
         }
 
-        if (!err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        if (category !== 'network error') {
           throw appError;
         }
       }
@@ -136,8 +211,12 @@ export class FetchRestClient implements RestClient {
       body: content
     });
 
+    if (!res) {
+      throw new Error('Missing response from REST endpoint');
+    }
+
     if (!res.ok) {
-      const errorText = await res.text().catch(() => res.statusText);
+      const errorText = await res.text().catch(() => res.statusText || HTTP_FAILURE_DETAIL);
       throw new RestResponseError(res.status, protocol, errorText);
     }
 

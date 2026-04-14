@@ -4,6 +4,63 @@ import type { TestVaultConnectionMessage, VaultConfig } from '../../shared/types
 import type { RestOptions } from '../../shared/types/options';
 import { createRestCandidates, type RestConfig } from '../utils/restCandidates';
 
+type FailureCategory = 'HTTP error' | 'network error' | 'config error';
+
+const RESPONSE_SNIPPET_LIMIT = 120;
+const NETWORK_FAILURE_DETAIL = 'request failed';
+const HTTP_FAILURE_DETAIL = 'response unavailable';
+const CONFIG_FAILURE_DETAIL = 'configuration invalid';
+
+function sanitizeSnippet(raw: string): string | undefined {
+  const normalized = raw.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized.length <= RESPONSE_SNIPPET_LIMIT) {
+    return normalized;
+  }
+  return `${normalized.slice(0, RESPONSE_SNIPPET_LIMIT)}...`;
+}
+
+function normalizeFailureDetail(category: FailureCategory, detail?: string): string | undefined {
+  const normalized = detail?.toLowerCase().trim();
+  if (!normalized) {
+    return defaultFailureDetail(category);
+  }
+
+  if (normalized.includes('body is unusable')) {
+    return HTTP_FAILURE_DETAIL;
+  }
+
+  if (
+    normalized.includes('cannot read properties of undefined') ||
+    normalized.includes('illegal invocation') ||
+    normalized.includes('missing response from rest endpoint')
+  ) {
+    return CONFIG_FAILURE_DETAIL;
+  }
+
+  if (category === 'network error' && isKnownNetworkFailure(normalized)) {
+    return NETWORK_FAILURE_DETAIL;
+  }
+
+  return detail;
+}
+
+function defaultFailureDetail(category: FailureCategory): string {
+  if (category === 'HTTP error') {
+    return HTTP_FAILURE_DETAIL;
+  }
+  if (category === 'network error') {
+    return NETWORK_FAILURE_DETAIL;
+  }
+  return CONFIG_FAILURE_DETAIL;
+}
+
+function isKnownNetworkFailure(message: string): boolean {
+  return message.includes('failed to fetch') || message.includes('networkerror');
+}
+
 interface UrlCandidate {
   url: string;
   protocol: string;
@@ -117,12 +174,15 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
       console.log(`[connectionTest] Testing URL (${candidate.protocol}):`, candidate.url);
       const { response, text } = await testConnection(candidate.url, config.apiKey);
       if (!response.ok) {
-        const snippet = text.slice(0, 200).trim();
+        const detail = sanitizeSnippet(text);
         const statusLine = `HTTP ${response.status}`;
-        const message = snippet ? `${statusLine} - ${snippet}` : statusLine;
-        const errorMsg = `${candidate.protocol}: ${message}`;
-        console.warn(`[connectionTest] candidate responded with error${config.label ? ` (${config.label})` : ''}:`, errorMsg);
-        errors.push(errorMsg);
+        const message = detail ? `${statusLine} - ${detail}` : statusLine;
+        const formatted = `${candidate.protocol}: ${formatCategoryMessage(
+          'HTTP error',
+          normalizeFailureDetail('HTTP error', message)
+        )}`;
+        console.warn(`[connectionTest] candidate responded with error${config.label ? ` (${config.label})` : ''}:`, formatted);
+        errors.push(formatted);
         continue;
       }
       return {
@@ -132,9 +192,14 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
         response: text.slice(0, 200)
       };
     } catch (error) {
-      const errorMsg = `${candidate.protocol}: ${error instanceof Error ? error.message : String(error)}`;
-      console.warn(`[connectionTest] candidate failed${config.label ? ` (${config.label})` : ''}:`, errorMsg);
-      errors.push(errorMsg);
+      const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
+      const category = deriveExternalCategory(error);
+      const formatted = `${candidate.protocol}: ${formatCategoryMessage(
+        category,
+        normalizeFailureDetail(category, detail)
+      )}`;
+      console.warn(`[connectionTest] candidate failed${config.label ? ` (${config.label})` : ''}:`, formatted);
+      errors.push(formatted);
 
       if (!isRecoverableNetworkError(error)) {
         throw error;
@@ -156,8 +221,16 @@ async function testConnection(url: string, apiKey: string) {
       Authorization: `Bearer ${apiKey}`
     }
   });
-  const text = await response.text();
+  const text = await readResponseTextSafely(response);
   return { response, text };
+}
+
+async function readResponseTextSafely(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return response.statusText || '';
+  }
 }
 
 function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): RestOptions {
@@ -217,17 +290,39 @@ function isRecoverableNetworkError(error: unknown): boolean {
     return false;
   }
 
-  return error.message.includes('Failed to fetch') || error.message.includes('NetworkError');
+  return isKnownNetworkFailure(error.message.toLowerCase());
+}
+
+function deriveExternalCategory(error: unknown): FailureCategory {
+  if (error instanceof Error) {
+    const normalized = error.message.toLowerCase();
+    if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {
+      return 'network error';
+    }
+    if (normalized.includes('http') || normalized.includes('status')) {
+      return 'HTTP error';
+    }
+  }
+  return 'config error';
+}
+
+function formatCategoryMessage(category: FailureCategory, detail?: string): string {
+  if (detail) {
+    return `${category}: ${detail}`;
+  }
+  return category;
 }
 
 function buildFailureResult(error: unknown, label?: string): ConnectionTestResult {
-  const message = error instanceof Error ? error.message : String(error);
+  const category = deriveExternalCategory(error);
+  const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
+  const formatted = formatCategoryMessage(category, normalizeFailureDetail(category, detail));
   const prefix = label ? `[${label}] ` : '';
   console.error(`[connectionTest] unexpected error${label ? ` (${label})` : ''}:`, error);
   return {
     success: false,
-    error: message,
-    message: `${prefix}连接失败: ${message}`
+    error: formatted,
+    message: `${prefix}连接失败: ${formatted}`
   };
 }
 

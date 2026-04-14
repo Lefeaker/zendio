@@ -5,11 +5,11 @@
     "moduleResolution": "Bundler",
     "allowJs": false,
     "checkJs": false,
-    "strict": false,
+    "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "isolatedModules": false,
+    "isolatedModules": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   }

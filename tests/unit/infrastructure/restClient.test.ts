@@ -3,6 +3,7 @@ import { createFetchRestClient } from '../../../src/infrastructure/restClient';
 import type { RestClient, RestConnection } from '@shared/interfaces/restClient';
 
 type FetchParams = [input: RequestInfo | URL, init?: RequestInit];
+const ENGINE_PROPERTY_ERROR = ['Cannot read properties', 'of undefined'].join(' ');
 
 describe('RestClient Implementation', () => {
   let restClient: RestClient;
@@ -71,19 +72,57 @@ describe('RestClient Implementation', () => {
   });
 
   it('should handle HTTP error responses', async () => {
-    mockFetch.mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockFetch
+      .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
+      .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }));
 
-    await expect(
-      restClient.writeFile(mockConnection, 'test.md', 'content')
-    ).rejects.toThrow();
+    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toThrow(
+      'Target vault is not reachable or misconfigured.'
+    );
+
+    const lastCall = warnSpy.mock.calls[warnSpy.mock.calls.length - 1];
+    expect(lastCall?.[1]).toContain('HTTP error');
+    warnSpy.mockRestore();
   });
 
   it('should handle network errors', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockFetch.mockRejectedValue(new Error('Failed to fetch'));
 
-    await expect(
-      restClient.writeFile(mockConnection, 'test.md', 'content')
-    ).rejects.toThrow('Network error');
+    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toThrow(
+      'Target vault is not reachable or misconfigured.'
+    );
+
+    const lastCall = warnSpy.mock.calls[warnSpy.mock.calls.length - 1];
+    expect(lastCall?.[1]).toContain('network error');
+    warnSpy.mockRestore();
+  });
+
+  it('should sanitize config-level failures instead of leaking engine errors', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockFetch
+      .mockResolvedValueOnce(new Response('Bad request', { status: 400, statusText: 'Bad Request' }))
+      .mockRejectedValueOnce(new Error(`${ENGINE_PROPERTY_ERROR} (reading 'baz')`));
+
+    try {
+      await restClient.writeFile(mockConnection, 'test.md', 'content');
+      throw new Error('Expected writeFile to fail');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message: unknown }).message)
+            : String(error);
+      expect(message).not.toContain(ENGINE_PROPERTY_ERROR);
+    }
+
+    const hasConfigErrorLog = warnSpy.mock.calls.some(
+      ([, message]) => typeof message === 'string' && message.startsWith('config error')
+    );
+    expect(hasConfigErrorLog).toBe(true);
+    warnSpy.mockRestore();
   });
 
   it('should properly encode file paths', async () => {

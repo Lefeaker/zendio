@@ -8,6 +8,7 @@ const DEFAULT_ROOT_URL = withTrailingSlash(
   REST_DEFAULTS.httpUrl ??
   'https://127.0.0.1:27124/'
 );
+const BODY_STREAM_REUSE_ERROR = ['Body', 'is', 'unusable'].join(' ');
 
 const getOptionsMock = vi.fn();
 
@@ -108,6 +109,8 @@ describe('connectionTest pipeline', () => {
     const result = await handleConnectionTest();
     expect(result.success).toBe(false);
     expect(result.message).toContain('连接失败');
+    expect(result.message).toContain('network error');
+    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
   });
 
   it('returns failure when server responds with non-2xx status', async () => {
@@ -125,7 +128,7 @@ describe('connectionTest pipeline', () => {
         id: 'vault-auth',
         name: 'Auth Vault',
         httpsUrl: 'https://api.example.com',
-        httpUrl: undefined,
+        httpUrl: '',
         vault: 'Auth',
         apiKey: 'bad-token',
         isDefault: false
@@ -134,7 +137,9 @@ describe('connectionTest pipeline', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('[Auth Vault] 连接失败');
-    expect(result.message).toContain('Body is unusable');
+    expect(result.message).toContain('HTTP error');
+    expect(result.message).toContain('HTTP 401 - Unauthorized');
+    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(withTrailingSlash('https://api.example.com'));
     expect(getAuthorizationHeader(init)).toBe('Bearer bad-token');
@@ -155,7 +160,7 @@ describe('connectionTest pipeline', () => {
         id: 'vault-missing',
         name: 'Missing Vault',
         httpsUrl: 'https://api.example.com',
-        httpUrl: undefined,
+        httpUrl: '',
         vault: 'Missing',
         apiKey: 'token',
         isDefault: false
@@ -164,7 +169,9 @@ describe('connectionTest pipeline', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('[Missing Vault] 连接失败');
-    expect(result.message).toContain('Body is unusable');
+    expect(result.message).toContain('HTTP error');
+    expect(result.message).toContain('HTTP 404 - Vault not found');
+    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(withTrailingSlash('https://api.example.com'));
     expect(getAuthorizationHeader(init)).toBe('Bearer token');
@@ -192,6 +199,7 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
+    expect(result.message).toContain('config error');
     expect(result.message).toContain('未配置 API Key');
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -358,6 +366,6 @@ function getAuthorizationHeader(init?: RequestInit): string | undefined {
   return undefined;
 }
 
-function isHeaderRecord(headers: HeadersInit): headers is Record<string, string | undefined> {
+function isHeaderRecord(headers: HeadersInit): headers is Record<string, string> {
   return typeof headers === 'object' && headers !== null && !Array.isArray(headers) && !(headers instanceof Headers);
 }
