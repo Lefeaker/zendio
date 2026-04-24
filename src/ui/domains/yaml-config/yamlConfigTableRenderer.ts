@@ -21,7 +21,9 @@ export function renderFilters(args: {
   onToggleFilter: (mode: YamlContentType | null) => void;
 }): HTMLElement {
   const { labels, currentFilterMode, onToggleFilter } = args;
-  const container = createOptionsActionRow({ className: 'mb-4 flex flex-wrap gap-2 pt-0' });
+  const container = createOptionsActionRow({
+    className: 'schema-output-tab-row mb-4 flex flex-wrap gap-2 pt-0'
+  });
   const filters: Array<{ mode: YamlContentType | null; label: string }> = [
     { mode: null, label: labels.filterAll },
     { mode: 'article', label: labels.article },
@@ -35,7 +37,7 @@ export function renderFilters(args: {
       label,
       size: 'xs',
       className:
-        'rounded-full bg-base-200 text-base-content/60 border border-base-300 hover:bg-base-300 hover:text-base-content hover:border-base-content'
+        'schema-output-tab rounded-full bg-base-200 text-base-content/60 border border-base-300 hover:bg-base-300 hover:text-base-content hover:border-base-content'
     });
     if (currentFilterMode === mode) {
       button.classList.add('bg-accent/10', 'text-accent', 'border-accent/20');
@@ -56,7 +58,7 @@ export function buildHeader(args: {
   const { labels, currentSortMode, onToggleSort } = args;
   const header = createLayoutElement({
     className:
-      'grid grid-cols-[minmax(120px,1.5fr)_100px_repeat(4,60px)_minmax(120px,1fr)_80px] gap-2 border-b border-base-300 bg-base-200 p-3 text-xs font-medium uppercase tracking-wider text-base-content/60'
+      'schema-output-table-header grid grid-cols-[minmax(120px,1.5fr)_100px_repeat(4,60px)_minmax(120px,1fr)_80px] gap-2 border-b border-base-300 bg-base-200 p-3 text-xs font-medium uppercase tracking-wider text-base-content/60'
   });
 
   const columns: Array<{ key: string; label: string; mode?: YamlContentType }> = [
@@ -125,7 +127,7 @@ export function buildTable(args: {
 
   const root = createOptionsPanel({
     className:
-      'aobx-table min-w-[800px] w-full overflow-hidden rounded-lg border border-base-300 bg-base-100 text-sm shadow-sm'
+      'aobx-table schema-output-table-shell min-w-[800px] w-full overflow-hidden rounded-lg border border-base-300 bg-base-100 text-sm shadow-sm'
   });
   root.append(
     renderFilters({
@@ -162,7 +164,7 @@ export function buildTable(args: {
       const summary = createLayoutElement({
         tag: 'summary',
         className:
-          'flex cursor-pointer select-none items-center gap-2 bg-base-200 px-3 py-2 font-medium text-base-content/60 transition-colors hover:text-base-content marker:text-base-content/50'
+          'schema-output-group-summary flex cursor-pointer select-none items-center gap-2 bg-base-200 px-3 py-2 font-medium text-base-content/60 transition-colors hover:text-base-content marker:text-base-content/50'
       });
       const total = builtInRows.length;
       const enabled = currentFilterMode
@@ -191,7 +193,8 @@ export function buildTable(args: {
 
     const container = createLayoutElement({ className: 'border-t border-base-300' });
     const customHeader = createLayoutElement({
-      className: 'border-b border-base-300 bg-base-200 px-3 py-2 font-medium text-base-content/60'
+      className:
+        'schema-output-group-summary border-b border-base-300 bg-base-200 px-3 py-2 font-medium text-base-content/60'
     });
     const total = customRows.length;
     const enabled = currentFilterMode
@@ -222,7 +225,8 @@ export function buildGlobalWarnings(globalErrors: string[]): HTMLElement | null 
     return null;
   }
   const container = createOptionsPanel({
-    className: 'alert alert-error aobx-table__global-errors p-3 text-sm',
+    className:
+      'alert alert-error aobx-table__global-errors schema-output-inline-warning p-3 text-sm',
     attributes: { role: 'alert' }
   });
   globalErrors.forEach((message) => {

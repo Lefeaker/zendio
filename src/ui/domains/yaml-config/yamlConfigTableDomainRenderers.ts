@@ -55,9 +55,11 @@ export function renderDomainOverrides(args: {
     buildDomainFieldDefinition,
     actions
   } = args;
-  const wrapper = createLayoutElement({ className: 'aobx-domain' });
+  const wrapper = createLayoutElement({ className: 'aobx-domain schema-output-domain-shell' });
 
-  const header = createOptionsActionRow({ className: 'aobx-domain__header pt-0' });
+  const header = createOptionsActionRow({
+    className: 'aobx-domain__header schema-output-widget-header pt-0'
+  });
   const title = createLayoutElement({ tag: 'h3' });
   title.textContent = labels.title;
   const addButton = createOptionsButtonElement({
@@ -69,7 +71,7 @@ export function renderDomainOverrides(args: {
   addButton.addEventListener('click', actions.onAddDomainEntry);
   header.append(title, addButton);
 
-  const list = createLayoutElement({ className: 'aobx-domain__list' });
+  const list = createLayoutElement({ className: 'aobx-domain__list schema-output-domain-list' });
   if (!entries.length) {
     const empty = createLayoutElement({
       className: 'aobx-domain__empty',
