@@ -315,6 +315,62 @@ describe('mountProductionSchemaShell', () => {
     await settleLazyWidgets();
   });
 
+  it('keeps settings panels in a stacked host while leaving resources in the sidebar rail', async () => {
+    const container = document.getElementById('root') as HTMLElement;
+    const mounted = mountProductionSchemaShell({
+      container,
+      controller: {
+        readForm: controllerReadFormMock,
+        saveSnapshot: controllerSaveSnapshotMock,
+        setSnapshot: controllerSetSnapshotMock
+      } as never,
+      storage: {
+        sync: {
+          watchKey: watchKeyMock
+        }
+      } as never,
+      optionsRepository: {} as never,
+      messagingRepository: {} as never,
+      yamlRepository: {} as never,
+      messages: null,
+      language: 'en',
+      onChangeLanguage: vi.fn(() => Promise.resolve('en')),
+      onCopyConfig: vi.fn(() => Promise.resolve(undefined)),
+      onImportConfig: vi.fn(() => Promise.resolve(undefined)),
+      onSave: vi.fn(() => Promise.resolve(undefined)),
+      onRunDiagnostics: vi.fn(() => Promise.resolve(undefined)),
+      onFixConfiguration: vi.fn(() => Promise.resolve(undefined)),
+      onReloadDiagnostics: vi.fn(() => Promise.resolve(undefined)),
+      widgetFactories: buildTestWidgetFactories()
+    });
+
+    await settleLazyWidgets();
+
+    const panelSections = Array.from(
+      container.querySelectorAll<HTMLElement>('.schema-panel-section')
+    ).map((section) => section.dataset.panelId);
+    const sidebarFooter = container.querySelector('.schema-shell-sidebar-footer');
+    const mainText = container.querySelector('.schema-shell-main')?.textContent ?? '';
+
+    expect(panelSections).toEqual([
+      'overview',
+      'storage',
+      'capture-sources',
+      'capture-behavior',
+      'output',
+      'experimental',
+      'maintenance'
+    ]);
+    expect(sidebarFooter?.textContent).toContain('Onboarding');
+    expect(sidebarFooter?.textContent).toContain('Changelog');
+    expect(mainText).not.toContain('Onboarding');
+    expect(mainText).toContain('Output & Metadata');
+    expect(mainText).toContain('Maintenance');
+
+    mounted.cleanup();
+    await settleLazyWidgets();
+  });
+
   it('maps experimental inputs to controller snapshots and debounced autosave', async () => {
     const container = document.getElementById('root') as HTMLElement;
     mountProductionSchemaShell({
@@ -348,19 +404,26 @@ describe('mountProductionSchemaShell', () => {
 
     getButtonByText(container, 'Experimental').click();
 
+    const experimentalSection = container.querySelector<HTMLElement>(
+      '[data-panel-id="experimental"]'
+    );
+    expect(experimentalSection).toBeTruthy();
+
     const [providerInput] = Array.from(
-      container.querySelectorAll<HTMLInputElement>('input.schema-input')
+      experimentalSection!.querySelectorAll<HTMLInputElement>('input.schema-input')
     );
     providerInput.value = 'openai';
     providerInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     const [pageSummaryToggle] = Array.from(
-      container.querySelectorAll<HTMLInputElement>('input.schema-switch-input')
+      experimentalSection!.querySelectorAll<HTMLInputElement>('input.schema-switch-input')
     );
     pageSummaryToggle.checked = true;
     pageSummaryToggle.dispatchEvent(new Event('change', { bubbles: true }));
 
-    const subtitleSelect = container.querySelector('select.schema-select') as HTMLSelectElement;
+    const subtitleSelect = experimentalSection!.querySelector(
+      'select.schema-select'
+    ) as HTMLSelectElement;
     subtitleSelect.value = 'ja';
     subtitleSelect.dispatchEvent(new Event('change', { bubbles: true }));
 

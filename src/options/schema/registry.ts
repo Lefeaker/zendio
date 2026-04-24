@@ -39,6 +39,7 @@ export function createSchemaShellAppData(messages: Messages | null): SchemaShell
       subtitle: resolveSchemaMessage(messages, 'extensionSubtitle')
     },
     messages,
+    panelOrder: [...SETTINGS_ORDER],
     settingsGroupTitle: resolveSchemaMessage(
       messages,
       SCHEMA_RESOURCE_GROUP_COPY.settingsGroupTitle
