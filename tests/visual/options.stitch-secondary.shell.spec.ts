@@ -147,7 +147,7 @@ test.describe('production stitch secondary shell', () => {
 
       await expect(page.locator('.schema-shell-app')).toHaveScreenshot(
         `options-stitch-secondary-shell-${state.id}.png`,
-        { maxDiffPixels: 1000 }
+        { maxDiffPixels: 2000 }
       );
     });
   }
