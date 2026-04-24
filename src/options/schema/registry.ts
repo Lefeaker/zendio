@@ -11,6 +11,7 @@ import {
   SCHEMA_SELECT_OPTION_COPY,
   SCHEMA_SUBTITLE_LANGUAGE_OPTIONS,
   SCHEMA_TEMPLATE_TOKENS,
+  resolveSchemaOverviewThemeCopy,
   resolveSchemaMessage,
   resolveSchemaOptionCopy
 } from './content';
@@ -24,8 +25,10 @@ import { createOutputWidgetGroup } from './helpers/output';
 import {
   createAiPlatformShell,
   createDeepResearchNotice,
-  createDeepResearchPureModeRow
+  createDeepResearchPureModeRow,
+  createThemeSegmentedSwitch
 } from './helpers/settings';
+import { schemaClassNames } from './helpers/classNames';
 import { createShellNavItem, createShellResourceGroup, SETTINGS_ORDER } from './helpers/shell';
 import type { SchemaShellAppData, SchemaShellState } from './model';
 
@@ -61,70 +64,86 @@ function createOverviewSchema(
     id: 'overview',
     navLabel: resolveSchemaMessage(messages, SCHEMA_NAV_COPY.overview.label),
     navHint: resolveSchemaMessage(messages, SCHEMA_NAV_COPY.overview.hint),
-    createView: (ctx) => ({
-      id: 'overview',
-      kind: 'page',
-      hero: {
-        title: resolveSchemaMessage(messages, SCHEMA_NAV_COPY.overview.label),
-        description: resolveSchemaMessage(messages, copy.heroDescription)
-      },
-      children: [
-        {
-          kind: 'group',
-          title: resolveSchemaMessage(messages, copy.groups.usage),
-          children: [
-            {
-              kind: 'card',
-              children: [
-                {
-                  kind: 'widget',
-                  widgetType: 'usage',
-                  props: { options: ctx.state.options, messages: ctx.appData.messages }
-                }
-              ]
-            }
-          ]
+    createView: (ctx) => {
+      const themeCopy = resolveSchemaOverviewThemeCopy(ctx.state.language);
+
+      return {
+        id: 'overview',
+        kind: 'page',
+        hero: {
+          title: resolveSchemaMessage(messages, SCHEMA_NAV_COPY.overview.label),
+          description: resolveSchemaMessage(messages, copy.heroDescription)
         },
-        {
-          kind: 'group',
-          title: resolveSchemaMessage(messages, copy.groups.interface),
-          children: [
-            {
-              kind: 'card',
-              children: [
-                {
-                  kind: 'row',
-                  title: resolveSchemaMessage(messages, copy.language.title),
-                  description: resolveSchemaMessage(messages, copy.language.description),
-                  control: {
-                    kind: 'select',
-                    value: { source: 'state', path: 'language' },
-                    options: { source: 'appData', path: 'languageOptions' },
-                    action: { id: 'options:changeLanguage', valueFrom: 'target.value' }
+        children: [
+          {
+            kind: 'group',
+            title: resolveSchemaMessage(messages, copy.groups.usage),
+            children: [
+              {
+                kind: 'card',
+                children: [
+                  {
+                    kind: 'widget',
+                    widgetType: 'usage',
+                    props: { options: ctx.state.options, messages: ctx.appData.messages }
                   }
-                }
-              ]
-            }
-          ]
-        },
-        {
-          kind: 'group',
-          title: resolveSchemaMessage(messages, copy.groups.privacy),
-          children: [
-            {
-              kind: 'card',
-              children: [
-                {
-                  kind: 'widget',
-                  widgetType: 'privacy',
-                  props: { options: ctx.state.options, messages: ctx.appData.messages }
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    })
+                ]
+              }
+            ]
+          },
+          {
+            kind: 'group',
+            title: resolveSchemaMessage(messages, copy.groups.interface),
+            children: [
+              {
+                kind: 'card',
+                children: [
+                  {
+                    kind: 'element',
+                    tag: 'div',
+                    className: schemaClassNames.settings.interfaceThemeGrid,
+                    children: [
+                      {
+                        kind: 'row',
+                        title: resolveSchemaMessage(messages, copy.language.title),
+                        className: 'schema-settings-language-row',
+                        control: {
+                          kind: 'select',
+                          value: { source: 'state', path: 'language' },
+                          options: { source: 'appData', path: 'languageOptions' },
+                          action: { id: 'options:changeLanguage', valueFrom: 'target.value' }
+                        }
+                      },
+                      createThemeSegmentedSwitch({
+                        title: themeCopy.title,
+                        options: themeCopy.options,
+                        getValue: () => ''
+                      })
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            kind: 'group',
+            title: resolveSchemaMessage(messages, copy.groups.privacy),
+            children: [
+              {
+                kind: 'card',
+                children: [
+                  {
+                    kind: 'widget',
+                    widgetType: 'privacy',
+                    props: { options: ctx.state.options, messages: ctx.appData.messages }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    }
   };
 }
 

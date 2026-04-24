@@ -17,6 +17,7 @@ export const schemaClassNames = {
   },
   settings: {
     themeSegmentedShell: 'schema-settings-theme-segmented',
+    themeSegmentedTrack: 'schema-settings-theme-track',
     themeSegmentedOption: 'schema-settings-theme-option',
     themeSegmentedOptionActive: 'is-active',
     interfaceThemeGrid: 'field-grid-2 interface-theme-grid',

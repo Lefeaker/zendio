@@ -107,6 +107,22 @@ test.describe('production stitch secondary shell', () => {
     expect(openCalls).toContainEqual(['../onboarding/index.html', '_blank', 'noopener,noreferrer']);
   });
 
+  test('owns theme control inside Overview -> Interface and preserves live theme switching', async ({
+    page
+  }) => {
+    await renderProductionOptionsShell(page, 'default');
+
+    await expect(page.locator('#theme-switcher')).toHaveCount(0);
+    await expect(page.locator('.schema-settings-theme-segmented')).toContainText('Interface Theme');
+    await expect(page.locator('.schema-settings-theme-option')).toHaveCount(2);
+
+    await page.locator('.schema-settings-theme-option', { hasText: 'Light' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(
+      page.locator('.schema-settings-theme-option.is-active', { hasText: 'Light' })
+    ).toHaveCount(1);
+  });
+
   for (const state of PRODUCTION_OPTIONS_STABLE_STATES) {
     test(`captures the full shell in a stable ${state.label} state`, async ({ page }, testInfo) => {
       const shellContract = await renderProductionOptionsShell(page, state.id);
