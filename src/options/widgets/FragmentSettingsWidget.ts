@@ -368,7 +368,7 @@ export class FragmentSettingsWidget
     const enabled = Boolean(this.modifierToggle?.checked);
     this.modifierKeyButtons.forEach((button) => {
       const key = button.dataset.fragmentModifierKey as FragmentModifierKey | undefined;
-      const isActive = Boolean(key) && enabled && this.selectedModifierKeys.includes(key);
+      const isActive = key ? enabled && this.selectedModifierKeys.includes(key) : false;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });

@@ -10,6 +10,7 @@ import {
   renderProductionOptionsShell
 } from './utils/renderProductionOptionsShell';
 
+// Formal production acceptance guard for the Stitch Secondary options/onboarding/resource shell.
 test.describe('production stitch secondary shell', () => {
   test('keeps the protected acceptance inventory wired to current production surfaces', async ({
     page
@@ -131,6 +132,7 @@ test.describe('production stitch secondary shell', () => {
   for (const state of PRODUCTION_OPTIONS_STABLE_STATES) {
     test(`captures the full shell in a stable ${state.label} state`, async ({ page }, testInfo) => {
       const shellContract = await renderProductionOptionsShell(page, state.id);
+      const stateLabel = 'resourceLabel' in state ? state.resourceLabel : state.id;
       expect(shellContract.navLabels).toEqual([...PRODUCTION_OPTIONS_NAV_LABELS]);
       expect(shellContract.resourceLabels).toEqual([...PRODUCTION_OPTIONS_RESOURCE_LABELS]);
 
@@ -143,7 +145,7 @@ test.describe('production stitch secondary shell', () => {
       test.skip(
         (state.id === 'changelog' || state.id === 'contact') &&
           testInfo.project.name === 'chromium-mobile',
-        `${state.resourceLabel ?? state.id} remains visually unstable on chromium-mobile; reachability is covered separately.`
+        `${stateLabel} remains visually unstable on chromium-mobile; reachability is covered separately.`
       );
 
       await expect(page.locator('.schema-shell-app')).toHaveScreenshot(

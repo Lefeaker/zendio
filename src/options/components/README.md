@@ -1,346 +1,200 @@
-# Options 组件目录说明
+# Options Components Directory
 
-> 开发须知：所有 Options/Clipper 样式与组件改动都要先跑完 `docs/options-pre-251120-checklist.md`，并在 PR 中附上 `tmp/tailwind-baseline/` 日志；Tailwind 迁移细节参考 `docs/251126-design-system-poc/archived/tailwind-migration/251120/1-options-style-baseline-validation-guide.md`、`docs/clipper-tailwind-migration-plan.md`。
+> `src/options/components/` 已不再承载正式 options 页面主线。正式页面结构在 `src/options/schema/*`，正式复杂块在 `src/options/widgets/*`，正式页面挂载在 `src/options/app/productionSchemaShell.ts`。
 
-## 目录结构
+---
 
-```
+## 0. 这层目录现在的定位
+
+`src/options/components/` 现在只承担三类职责：
+
+1. options 专属、但仍被正式 widget 复用的局部控制器
+2. 兼容/历史测试代码
+3. 尚未完全迁入 `widgets/shared/*` 或 `src/ui/domains/*` 的局部辅助模块
+
+这意味着：
+
+- 这里不再是正式页面 layout 的 owner
+- 这里不再是正式 settings section 的 owner
+- 这里不再是正式 form registry 的 owner
+
+---
+
+## 1. 子目录说明
+
+```text
 src/options/components/
-├── controls/        # 可复用的业务控制组件
-├── sections/        # Options 页面的各个配置区块
-├── layout/          # Options 页面布局组件
-│   ├── OptionsApp.ts      # 根容器
-│   ├── Navigation.ts      # 左侧导航
-│   └── MainContent.ts     # 右侧内容区
-├── infrastructure/  # Options 专属基础设施与列表编辑器
-└── formSections/    # 表单区块管理器
-    └── formSectionManager.ts
-
-src/ui/
-├── foundation/      # BaseComponent、tokens、icons、a11y、style-host
-├── primitives/      # button / input / select / checkbox / dialog / card / table ...
-├── patterns/        # section-shell / confirm-flow / form-components ...
-├── hosts/           # options / content / shadow
-└── domains/         # vault-router / yaml-config / privacy / reading / video / theme
+├── controls/        # 仍被正式 widget 复用的 options 专属控制器
+├── infrastructure/  # 局部基础设施与兼容 helper
+├── layout/          # legacy 页面布局，仅供兼容/历史测试
+├── sections/        # legacy section 与历史 helper，仅供兼容/历史测试
+└── formSections/    # legacy FormSectionRegistry，仅供兼容/历史测试
 ```
 
-## app/ 目录（应用层）
+### `controls/`
 
-```
-src/options/app/
-├── bootstrap.ts              # Options 页面启动入口
-├── optionsController.ts      # Options 状态管理控制器
-├── optionsActions.ts         # 用户操作处理（保存、重置等）
-├── i18nContext.ts            # 国际化上下文
-└── experimentalShell.ts      # 实验性功能外壳
-```
+用途：
 
-**职责**：
+- 放置仍被正式 widget 复用的 options 专属控制器
+- 例如：list editor、连接测试、域名映射控制器、vault 路由控制器
 
-- 协调 layout/ 和 sections/ 的渲染
-- 管理全局状态（optionsStore）
-- 处理用户操作（保存、重置、导入/导出）
+允许：
 
-## 如何查找代码？
+- 局部表单逻辑
+- 局部 DOM 控制
+- 不拥有页面级路由与主保存链
 
-| 需求                           | 位置                                       |
-| ------------------------------ | ------------------------------------------ |
-| 修改某个 Section 的 UI         | `src/options/components/sections/`         |
-| 添加新的可复用基础组件         | `src/ui/primitives/` 或 `src/ui/patterns/` |
-| 修改页面布局（导航、主内容区） | `src/options/components/layout/`           |
-| 修改启动逻辑                   | `src/options/app/bootstrap.ts`             |
-| 修改保存/重置逻辑              | `src/options/app/optionsActions.ts`        |
-| 添加新的配置项                 | `src/shared/types/options.ts`              |
+不允许：
 
-本目录按功能职责划分为以下子目录，便于定位组件类型与依赖：
+- 重新成为页面 owner
+- 直接定义正式 sidebar/panel/resource 结构
 
-- `layout/`  
-  包含页面框架与导航相关组件，例如 `OptionsApp`、`MainContent`、`Sidebar`、`NavigationController` 等，负责整体布局、Section 挂载和导航高亮。
+### `infrastructure/`
 
-- `controls/`  
-  可在多个 Section 复用的控件与业务控制器，如 `domainMappings.ts`、`vaultRouterController.ts` 等，通常负责具体表单或交互逻辑。
+用途：
 
-- `sections/`  
-  选项页面的具体 Section 组件以及关联的工具文件（例如 `usageDashboard.utils.ts`）。每个 Section 继承 `BaseSection`，封装对应设置区域的渲染与状态处理。
+- 放置局部基础设施或兼容 helper
 
-- `infrastructure/`  
-  页面级的基础设施模块，目前包含 `ModalController.ts`，用于管理模态框的生命周期。
+当前约束：
 
-- `formSections/`  
-  表单 Section 统一注册与快照应用的基础设施，例如 `formSectionManager.ts`。
+- 如果某个基础设施只服务 legacy 流程，就保持兼容定位，不要再扩展为正式主线能力
+- `ModalController.ts` 不再代表正式 resource modal 组织；正式 resource 的结构与正文以 schema registry 为准
 
-- `src/ui/`
-  正式基础 UI 入口，新增业务代码必须优先复用：
-  - `src/ui/primitives/*`: button / input / select / checkbox / textarea / toggle / badge / alert / dialog / layout / table / card / radio-group
-  - `src/ui/patterns/*`: section-shell / setting-row / form-components / list-editor / confirm-flow
-  - `src/ui/domains/*`: vault-router / yaml-config / privacy / reading / video / theme
+### `layout/`
 
-## DaisyUI 迁移状态
+用途：
 
-本项目正在进行 DaisyUI 设计系统迁移，详细计划和进度见 `docs/251126-design-system-poc/migration-log.md`。
+- 保留旧 `OptionsApp / MainContent / Sidebar / Navigation` 等布局实现
 
-### 当前统一口径
+状态：
 
-- 新增基础控件必须优先使用 `src/ui/primitives/*`。
-- 新增组合结构必须优先使用 `src/ui/patterns/*`。
-- Theme switcher 现位于 `src/ui/domains/theme/ThemeSwitcher.ts`。
-- DomainMappings list editor 现位于 `src/options/components/infrastructure/listBuilder.ts`。
-- Token 真值源固定为 `src/styles/design-tokens.css`；`src/options/styles/design-tokens.css` 已删除。
+- 已降级为 legacy 兼容/历史测试代码
+- 不再是正式页面布局入口
 
-### Phase 2 (✅ 已完成)
+### `sections/`
 
-- ✅ **Stats 组件**: `UsageSection.ts` 已迁移到 DaisyUI `.stats`, `.stat`, `.stat-title`, `.stat-value`（Line 126-172）
-- ✅ **Table 组件优化**: YAML config 表格实现已迁移到 `src/ui/domains/yaml-config/*`，继续使用 DaisyUI 主题变量（`bg-base-*`, `border-base-*`, `text-base-content/*`）
-- ✅ **包体积影响**: 0% 增长
-- ✅ **测试覆盖**: 537/537 通过
+用途：
 
-### 组件使用指南
+- 保留旧 `BaseSection` 子类与历史 helper
 
-**使用基础组件类**（推荐）:
+状态：
 
-```typescript
-import { createOptionsButtonElement } from '../../../ui/primitives/button';
-import { createInputElement } from '../../../ui/primitives/input';
-import { createCheckboxElement } from '../../../ui/primitives/checkbox';
+- 已降级为 legacy 兼容/历史测试代码
+- 不再是新增功能入口
 
-// 创建按钮
-const saveHost = document.createElement('div');
-const saveBtn = new DaisyButton(saveHost).render({ label: '保存', variant: 'primary', size: 'sm' });
+### `formSections/`
 
-// 创建输入框
-const inputHost = document.createElement('div');
-const emailInput = new DaisyInput(inputHost).render({
-  type: 'email',
-  placeholder: '输入邮箱',
-  size: 'sm'
-});
+用途：
 
-// 创建复选框
-const checkboxHost = document.createElement('div');
-const enabledInput = new DaisyCheckbox(checkboxHost).render({ label: '启用' });
-```
+- 保留旧 `FormSectionRegistry`
 
-**DOM-heavy 场景**（如表格行、对话框 footer）:
+状态：
 
-```typescript
-import { createDaisyButtonElement } from '../shared/DaisyButton';
+- 正式 schema shell 不再依赖它
+- 不得再把它重新接回正式主线路径
 
-const saveButton = createDaisyButtonElement({
-  label: '保存',
-  variant: 'primary',
-  size: 'sm'
-});
-```
+---
 
-### 迁移标记规范
+## 2. 现在应该去哪里改代码
 
-所有 DaisyUI 迁移代码应添加清晰的标记注释：
+| 需求                                     | 正式入口                                                                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 改 settings IA、group、resource          | `src/options/schema/*`                                                                                          |
+| 改 schema runtime 渲染/绑定/action       | `src/options/schema-runtime/*`                                                                                  |
+| 改复杂设置块交互                         | `src/options/widgets/*`                                                                                         |
+| 改正式页面挂载、保存链、resource routing | `src/options/app/*`                                                                                             |
+| 改 options 专属复用控制器                | `src/options/components/controls/*`                                                                             |
+| 改兼容/历史测试夹具                      | `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` |
 
-```typescript
-// ✅ Phase 1 DaisyUI migration: 使用 .checkbox 基类
-checkbox.className = 'checkbox checkbox-accent w-[18px] h-[18px]';
+明确禁止：
 
-// ✅ Phase 2 DaisyUI migration: 使用 .stats 容器
-const stats = this.createElement('div', 'stats shadow w-full');
-
-// ✅ Phase 2 DaisyUI migration: 使用 DaisyUI 主题变量
-header.className = 'bg-base-200 border-b border-base-300';
-```
+- 不要再把“修改正式页面布局”指向 `components/layout/*`
+- 不要再把“新增正式设置模块”指向 `components/sections/*`
+- 不要为了追视觉把正式 Stitch Secondary 合同改回 `components/*`
 
-其他单文件（如 `optionsFormAdapter.ts`、`messages.ts`、`sectionRegistry.ts` 等）仍位于根目录，供多个子系统直接引用。无论放置在哪个子目录，DOM 命名都必须使用 `.aobx-*` 前缀，并在提交前执行：
+### 2.1 Preview Truth Reminder
 
-```bash
-npm run lint:options-css
-npm run report:options-legacy
-npm run tailwind:build      # 若改动需要产出 Tailwind utility
-```
-
-## 阶段 3 迁移规范（Stage 3 Migration Guidelines）
-
-### 迁移原则
-
-1. **渐进式迁移**：先处理简单 Section，复杂组件按清单延后。
-2. **保持功能不变**：迁移前后交互、事件、状态存储完全一致。
-3. **统一代码风格**：Daisy 组件调用方式、参数命名、容器写法保持一致。
-4. **添加迁移标记**：所有完成迁移的代码行添加 `✅ Stage 3 Week X` 注释。
-
-### 迁移优先级
-
-- **P1（简单）**：只含按钮/输入等基础控件，如 Language、Privacy、Transfer。
-- **P2（中等）**：包含业务逻辑或测试组件，如 Rest、Routing、Fragment、Video。
-- **P3（复杂）**：自带编辑器或图表，如 Reading、Templates、Classifier、Usage。
-- **P4（延后）**：依赖 Zag.js 或重构的组件（YamlConfig 表格、VaultRouter 下拉、路由表编辑器等），挪到 Stage 3 月度 3。
-
-### 迁移步骤（通用流程）
-
-#### Step 1：阅读旧代码
-
-```typescript
-// Before
-const button = document.createElement('button');
-button.className = 'px-4 py-2 bg-accent text-white rounded-md';
-button.textContent = 'Save';
-button.addEventListener('click', () => this.save());
-```
-
-#### Step 2：导入 DaisyUI 组件
-
-```typescript
-import { DaisyButton } from '../shared/DaisyButton';
-```
-
-#### Step 3：渲染 Daisy 组件
-
-```typescript
-// ✅ Stage 3 Week 3: Migrated to DaisyButton
-const buttonHost = document.createElement('div');
-const saveButton = new DaisyButton(buttonHost);
-const saveButtonEl = saveButton.render({
-  label: 'Save',
-  variant: 'primary',
-  size: 'md',
-  onClick: () => this.save()
-});
-container.append(saveButtonEl);
-```
-
-#### Step 4：添加迁移标记
-
-```typescript
-// ✅ Stage 3 Week 3: Migrated to DaisyButton (AiSection.ts line 123)
-```
-
-#### Step 5：测试功能
-
-```bash
-# 手动：打开 Options，触发原交互
-# 自动：若有对应测试
-npm run test:unit -- tests/unit/options/sections/AiSection.test.ts
-```
-
-### 代码模板
-
-#### 模板 1：按钮
-
-```typescript
-// Before
-const button = document.createElement('button');
-button.className = 'btn btn-primary btn-sm';
-button.textContent = 'Label';
-button.addEventListener('click', handler);
-
-// After
-import { DaisyButton } from '../shared/DaisyButton';
-
-// ✅ Stage 3 Week X: Migrated to DaisyButton
-const btnHost = document.createElement('div');
-const btn = new DaisyButton(btnHost);
-const buttonEl = btn.render({
-  label: 'Label',
-  variant: 'primary',
-  size: 'sm',
-  onClick: handler
-});
-container.append(buttonEl);
-```
-
-#### 模板 2：输入框
-
-```typescript
-// Before
-const input = document.createElement('input');
-input.type = 'text';
-input.className = 'input input-bordered w-full';
-input.placeholder = 'Enter value';
-input.addEventListener('input', (e) => this.handleChange((e.target as HTMLInputElement).value));
-
-// After
-import { DaisyInput } from '../shared/DaisyInput';
-
-// ✅ Stage 3 Week X: Migrated to DaisyInput
-const inputHost = document.createElement('div');
-const daisyInput = new DaisyInput(inputHost);
-const inputEl = daisyInput.render({
-  type: 'text',
-  placeholder: 'Enter value',
-  variant: 'bordered',
-  size: 'md',
-  onChange: (value) => this.handleChange(value)
-});
-container.append(inputEl);
-```
-
-#### 模板 3：Alert
-
-```typescript
-// Before
-const alert = document.createElement('div');
-alert.className = 'alert alert-success';
-alert.innerHTML = '<span>Success!</span>';
-
-// After
-import { DaisyAlert } from '../shared/DaisyAlert';
-
-// ✅ Stage 3 Week X: Migrated to DaisyAlert
-const alertHost = document.createElement('div');
-const daisyAlert = new DaisyAlert(alertHost);
-const alertEl = daisyAlert.render({
-  type: 'success',
-  message: 'Success!',
-  description: 'Operation completed',
-  dismissible: true,
-  onDismiss: () => console.log('dismissed')
-});
-container.append(alertEl);
-```
-
-#### 模板 4：卡片容器
-
-```typescript
-// Before
-const card = document.createElement('div');
-card.className = 'card bg-base-100 shadow-xl';
-const cardBody = document.createElement('div');
-cardBody.className = 'card-body';
-card.append(cardBody);
-
-// After
-import { DaisyCard } from '../../../ui/primitives/card';
-
-// ✅ Stage 3 Week X: Migrated to DaisyCard
-const cardHost = document.createElement('div');
-const daisyCard = new DaisyCard(cardHost);
-const cardEl = daisyCard.render({
-  title: 'Card Title',
-  body: 'Card content',
-  actions: [button1, button2],
-  variant: 'normal'
-});
-container.append(cardEl);
-```
-
-### 迁移标记格式
-
-```
-// ✅ Stage 3 Week X: Migrated to DaisyButton (File.ts line 120)
-// ⏳ Stage 3 Week 3: Pending DaisySelect migration
-```
-
-确保注释紧挨着对应代码，`Week X` 取真实周次（Week3/Week4 等），必要时补充文件名与行号。
-
-### 自查清单
-
-- [ ] Daisy 组件是否正确导入？
-- [ ] 是否添加 `✅ Stage 3 Week X` 或待迁移标记注释？
-- [ ] 是否传入 `variant`、`size`、`onClick`/`onChange` 等关键属性？
-- [ ] 事件处理逻辑是否保持不变？
-- [ ] 是否完成手动验证？
-- [ ] 若有单测，是否更新并通过？
-- [ ] 是否清理旧的 DOM 构建代码？
-
-### 常见错误
-
-1. **忘记容器**：`new DaisyButton(null)` 会抛错，先 `document.createElement('div')`。
-2. **混用旧新代码**：迁移后应删除 `document.createElement('button')` 旧逻辑。
-3. **漏传事件**：若缺少 `onClick`/`onChange`，按钮或输入框将失效。
-4. **直接 innerHTML**：不要再拼手写 HTML 字符串，应交给 Daisy 组件生成。
+- `src/options/preview/*` 是正式 options / onboarding / resource modal 的视觉真值，不是 legacy 目录里的任意组件。
+- 如果一个视觉需求来自 `tests/visual/options.stitch-secondary.shell.spec.ts` 或 `npm run acceptance:stitch-secondary`，默认应该去查：
+  - `src/options/schema/*`
+  - `src/options/app/productionSchemaShell.ts`
+  - `src/options/widgets/*`
+- 不要通过修改 `components/layout/*` 或 `components/sections/*` 去“补齐” preview 对齐问题。
+
+---
+
+## 3. 正式开发规则
+
+### 3.1 不得新增的东西
+
+在正式主线路径中，不得新增或重新引入：
+
+- `BaseSection`
+- `FormSectionRegistry`
+- `LegacySectionWidget`
+- 基于旧 section 的页面 owner
+
+### 3.2 什么时候可以改 `components/*`
+
+只有以下情况才应该改这里：
+
+- 某个正式 widget 仍复用这里的控制器
+- 你在修 legacy 兼容测试
+- 你在做兼容清理，把 helper 从 legacy 目录迁出
+
+### 3.3 什么时候应该迁出
+
+如果一个 helper：
+
+- 只被某个正式 widget 使用
+- 已经不服务 legacy section
+
+那么优先迁到：
+
+- `src/options/widgets/shared/*`
+
+如果一个 helper：
+
+- 已经成为稳定的领域组件
+- 不再局限于 options/components
+
+那么优先迁到：
+
+- `src/ui/domains/*`
+
+---
+
+## 4. 当前目录的真实口径
+
+### 仍可能被正式主线引用的目录
+
+- `controls/`
+- `infrastructure/` 中的少量 helper
+
+### 不应再被视为正式入口的目录
+
+- `layout/`
+- `sections/`
+- `formSections/`
+
+这三类目录即使还存在，也不代表可以继续往里面追加正式功能。
+
+---
+
+## 5. Review Checklist
+
+如果 PR 改到了 `src/options/components/*`，review 时至少检查：
+
+1. 这次改动是不是本来应该落到 `schema/*` 或 `widgets/*`
+2. 有没有把正式主线重新引回 `layout/` 或 `sections/`
+3. 有没有新增 `BaseSection` / `FormSectionRegistry` 依赖
+4. 如果是 helper，是否应该迁到 `widgets/shared/*` 或 `src/ui/domains/*`
+5. 如果改到 `ModalController.ts`，是否错误地把它当成正式 resource modal 真值
+
+---
+
+## 6. 相关文档
+
+- 正式 options 模块说明：[AiiinOB/src/options/README.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/src/options/README.md)
+- 工程命令与正式入口：[AiiinOB/docs/engineering-entrypoints.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/docs/engineering-entrypoints.md)
+- Source of Truth 索引：[AiiinOB/docs/source-of-truth-index.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/docs/source-of-truth-index.md)
