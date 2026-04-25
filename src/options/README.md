@@ -1,269 +1,233 @@
 # Options Module Overview
 
-> 正式 `options` 主线已经收口到 `schema shell + schema runtime + leaf widgets`。这份文档只描述当前正式真值，不再记录已退役的 `BaseSection / FormSectionRegistry / LegacySectionWidget` 主线。
+> 摘要：选项页模块的目录结构、核心组件与开发流程。请在新增功能或重构前先阅读本指南，并遵循 `docs/development-guidelines.md` 中的相关约束。
 
 ---
 
-## 0. 正式入口
+## 0. 快速上手
 
-正式页面启动链固定为：
+### 0.1 目录与入口
 
-- `src/options/index.ts`
-- `src/options/runtimeEntry.ts`
-- `src/options/app/bootstrap.ts`
-- `src/options/app/productionSchemaShell.ts`
+- `index.ts -> app/bootstrap.ts`：唯一正式入口，负责 I18n、Controller、Shell 初始化。
+- `bootstrap.ts`：legacy compatibility helper，仅供旧 DI 测试/兼容场景使用，不再视为页面主启动链。
+- `components/layout/*`：页面的 Shell 与主内容挂载，`OptionsApp.ts` 拼装 Layout。
+- `components/sections/*`：设置面板；每个 Section 继承 `BaseSection`，通过 `FormSectionRegistry` 接入数据层。
+- `components/formSections/*`：`FormSectionRegistry` 及作用域，集中管理 `render/applySnapshot/collectChanges`。
+- `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
+- `utils/`：辅助方法（导入导出、transfer 等）；`styles/` 目录承载 Tailwind 输入与必要的外部样式（如 `styles/aob-options.css`）。
 
-对应职责：
+### 0.2 样式规范速览
 
-- `index.ts`：薄启动壳，只负责按页面入口动态加载 runtime。
-- `runtimeEntry.ts`：准备平台服务与仓库注册，然后启动页面。
-- `app/bootstrap.ts`：初始化 i18n、controller、actions、schema shell 挂载。
-- `app/productionSchemaShell.ts`：正式 UI 外壳，负责 sidebar、panel/resource routing、scroll sync、widget flush/save。
+- 样式入口固定为 `src/styles/design-tokens.css`、`src/options/styles/tailwind.css` 与 `src/styles/global.tailwind.css` 的静态产物链路；所有 DOM 类名继续使用 `.aobx-*` 前缀。
+- `src/options/styles/design-tokens.css` 已删除；真实 token 真值源只有 `src/styles/design-tokens.css`。
+- `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
+- 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
+- 需要实验性样式时，在 README / PR 中写明范围与回滚方式，并确保 `npm run report:options-legacy` 通过。
+- ⚠️ Tailwind 迁移已完成：请遵循 `docs/251126-design-system-poc/tailwind-css-migration/251122tailwind_css_migration/tailwind-migration-guide.md` 进行开发。所有新样式应优先使用 Tailwind Utility。
 
-兼容说明：
+### 0.3 必跑命令
 
-- `src/options/bootstrap.ts` 仍保留，但仅用于旧测试或兼容依赖初始化，不属于正式页面主启动链。
-- `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 是兼容/历史测试代码，不再是正式开发入口。
+```bash
+npm run lint                 # Typescript + ESLint/Stylelint 基线
+npm run lint:options-css     # 限定 Options CSS 的 Stylelint
+npm run report:options-legacy # 确保无 `.aob-*` 遗留
+npm run test:unit            # Section/Controller 的最小回归
+npm run tailwind:build       # 生成 Options Tailwind utility (已集成到 build.mjs)
+```
+
+如改动 I18n 或 CLI，请追加 `npm run validate:i18n:keys`、`npm run typecheck:tests`。
+
+> 提示：Tailwind 相关 PR 需确保 `npm run tailwind:build` 成功且无冗余 CSS。
+
+### 0.4 组件 / Utility 清单
+
+#### 基础组件优先级 (当前正式口径)
+
+| 语义        | 首选入口                                  | 说明                                                                                     |
+| ----------- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 按钮        | `UiButton` / `createOptionsButtonElement` | 正式入口：`src/ui/primitives/button/index.ts`                                            |
+| 输入框      | `UiInput` / `createInputElement`          | 正式入口：`src/ui/primitives/input/index.ts`                                             |
+| 选择框      | `UiSelect` / `createSelectElement`        | 正式入口：`src/ui/primitives/select/index.ts`                                            |
+| 复选框      | `UiCheckbox` / `createCheckboxElement`    | 正式入口：`src/ui/primitives/checkbox/index.ts`                                          |
+| 表格/伪表格 | `DaisyTable`                              | 统一表头、行区与滚动容器                                                                 |
+| 对话框      | `createDialogFrame` / `ShadowDialogHost`  | 正式入口：`src/ui/primitives/dialog/index.ts`、`src/ui/hosts/shadow/ShadowDialogHost.ts` |
+
+DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives/button/index.ts` 导出的 `createOptionsButtonElement()`。
+
+#### 传统组件类 (逐步迁移中)
+
+| 名称                                                                 | 用途                           | 备注                                                                   |
+| -------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `.aobx-card`                                                         | 卡片容器                       | 支持 light/dark，常用于 Section 外层                                   |
+| `.aobx-card--muted / --outline / --accent-border / --neutral-border` | 卡片修饰符                     | 组合背景、描边、强调边框，供隐私提示、Domain 控件等复用                |
+| `.aobx-alert`                                                        | 信息、成功、警告、错误提醒     | 通过修饰符控制语义                                                     |
+| `.aobx-field-group`                                                  | 表单字段组                     | 统一 label/控件间距                                                    |
+| `.aobx-table`                                                        | 数据表格                       | YAML/REST 等共享                                                       |
+| `.aobx-table__filters / __sort-btn / __advanced-*`                   | 表格筛选、排序与 Advanced 面板 | 复用 `.aobx-chip-btn` 与 `.aobx-table`                                 |
+| `.aobx-button-row`                                                   | 按钮行                         | 对齐间距、栅格                                                         |
+| `.aobx-chip` / `.aobx-chip-btn`                                      | Tag/Chip                       | 过滤器或标签选择                                                       |
+| `.aobx-domain__*`                                                    | YAML 域名覆盖编辑器            | 组合 `.aobx-card`、`.aobx-input`、`.aobx-btn`                          |
+| `.aobx-highlight-button + --{theme}`                                 | 阅读高亮主题按钮               | 色板基于 `--aobx-highlight-*` Token，`ReadingSection` 和预览可直接复用 |
+| `.aobx-hint-row` / `.aobx-hint-card` / `__code`                      | 示例提示块                     | 在 Fragment 等 Section 展示 markdown/code 提示                         |
+
+更多组件抽象请参阅 `docs/options-style-refinement-plan.md`。
+
+### 0.5 常见问题速览
+
+- 懒加载/自动保存/I18n 等运行时问题详见 §6《常见问题》。
+- 暗色模式不生效：检查是否复用 Token、Utility，并参考 `docs/options-style-validation-guide.md`。
+- Tailwind 迁移进度：跟踪 `docs/tailwind-pre-migration-check.md`、`docs/tailwind-migration-guide.md`，并在 PR 中说明是否影响迁移节奏。
+
+### 0.6 任务前置指南
+
+- 在执行 Options/Tailwind 相关任务前，必须先完成 `docs/options-pre-251120-checklist.md` 并记录日志；若 PR 涉及剪藏/内容脚本，请参阅 `docs/clipper-tailwind-migration-plan.md`。
+- `docs/251126-design-system-poc/archived/tailwind-migration/251120/` 目录包含四份「1-...~4-...」分步指南，依赖关系与 Agent/README 已同步，请严格按顺序推进。
 
 ---
 
-## 1. 目录与职责
+## 1. 目录结构
 
-```text
+```
 src/options/
-├── app/                # 正式启动、shell、actions、controller
-├── schema/             # 正式 settings/resource schema 与文案 descriptor
-├── schema-runtime/     # renderer、binding、store、action runtime
-├── widgets/            # 正式 leaf widgets
-├── components/         # 兼容代码与仍被 leaf widget 复用的局部控制器
-├── services/           # persistence / transfer / diagnostics 等服务
-├── state/              # optionsStore 与相关 store
-├── styles/             # options tailwind 输入与产物
-└── utils/              # 辅助工具
-```
-
-正式真值路径：
-
-- 页面结构与 IA：`src/options/schema/*`
-- 渲染与交互合同：`src/options/schema-runtime/*`
-- 复杂设置块：`src/options/widgets/*`
-- 页面挂载与保存链：`src/options/app/*`
-
-兼容路径：
-
-- `src/options/components/sections/*`
-- `src/options/components/layout/*`
-- `src/options/components/formSections/*`
-
-这些兼容路径可以继续存在于仓库中，但不应再承载正式主线功能。
-
----
-
-## 2. 正式运行时模型
-
-### 2.1 页面组织
-
-- top-level navigation、panel、resource modal/page 全部由 schema registry 决定。
-- `createSettingsSchemas()` 与 `createResourceSchemas()` 是正式页面结构真值。
-- 资源正文来自 schema/content/message catalog，不再来自 `index.html` 静态正文 DOM。
-
-### 2.2 状态与保存链
-
-- `IOptionsRepository` 是正式主读写/订阅合同。
-- `optionsStore` 负责 normalize、缓存与订阅分发。
-- `chromeOptionsPersistence` 只是 `OptionsController` 使用的持久化适配器，不再代表另一条 UI 主链。
-- widget 改动通过 `runtime.notifyDirty()` 标记脏状态。
-- `productionSchemaShell` 会在 autosave、切 panel、打开/关闭 resource 前 flush 当前挂载 widget 的 draft。
-- `OptionsController.saveSnapshot()` 是正式保存落点。
-
-### 2.3 Leaf Widget 合同
-
-复杂块通过 widget contract 挂载到 schema 节点：
-
-- `mount(container, props, runtime)`
-- `update(props, runtime)`
-- `destroy()`
-- `collect()`
-- `applySnapshot(snapshot)`
-
-规则：
-
-- widget 可以复杂，但必须服从 schema shell 的状态与保存链。
-- widget 不得重新定义自己的正式页面导航、正式资源路由或独立主保存逻辑。
-
-### 2.4 Resource Modal / Page
-
-- resource 打开方式由 schema resource 的 `openMode` 决定。
-- `Onboarding` 是 standalone page。
-- `Support / Suggestions / Contact / Changelog` 是 resource modal。
-- `src/options/index.html` 只保留 schema shell 挂载根；不要再把 legacy modal host 或用户可见正文写回 HTML。
-
-### 2.5 Preview Is The Visual Truth
-
-- Stitch Secondary 的正式视觉真值来自 `src/options/preview/*`。
-- 冻结后的预览产物位于 `future/options-component-preview/options-preview-stitch-secondary.html`。
-- 生产 options / onboarding / resource modal 的验真由以下测试共同保护：
-  - `tests/visual/options.stitch-secondary.shell.spec.ts`
-  - `tests/visual/preview.runtime.alignment.spec.ts`
-  - `tests/visual/preview.task-success.layout.spec.ts`
-
-开发规则：
-
-1. 如果你要调整正式 options / onboarding / resource modal 的视觉结构，先对照 preview。
-2. 不要把 preview 当成“灵感来源”；这里它是生产视觉合同。
-3. 如果 production 需要偏离 preview，必须先更新 preview truth 和对应 visual guard，再改 production。
-
----
-
-## 3. 开发入口选择
-
-| 需求                                   | 正式入口                                                               |
-| -------------------------------------- | ---------------------------------------------------------------------- |
-| 调整 settings IA、group、resource 组织 | `src/options/schema/*`                                                 |
-| 修改 schema runtime 行为               | `src/options/schema-runtime/*`                                         |
-| 修改复杂设置块交互                     | `src/options/widgets/*`                                                |
-| 修改页面启动/挂载/保存链               | `src/options/app/*`                                                    |
-| 修改 options 专属复用控制器            | `src/options/components/controls/*`                                    |
-| 修改兼容或历史测试夹具                 | `src/options/components/sections/*`、`src/options/components/layout/*` |
-
-决策原则：
-
-1. 简单设置优先做成 schema-native row/field/notice。
-2. 复杂局部交互落到 `widgets/*`。
-3. 只有在某个控制器被多个正式 widget 复用，且它本身不是页面 owner 时，才考虑放进 `components/controls/*`。
-4. 不要在 `components/layout/*` 或 `components/sections/*` 上继续扩展正式功能。
-
----
-
-## 4. 正式开发规则
-
-### 4.1 必须遵守
-
-- 新 settings 页面组织只能从 `schema/*` 进入。
-- 新复杂设置块必须实现 widget contract。
-- 正式主线路径中禁止重新引入：
-  - `BaseSection`
-  - `FormSectionRegistry`
-  - `LegacySectionWidget`
-- 文案必须通过正式 i18n message key 进入，不要把用户可见整句正文写回 schema 组装层或 HTML。
-- 自动保存统一走 schema shell save 链，不要在 widget 内部创建另一条正式主保存逻辑。
-
-### 4.2 允许保留的兼容代码
-
-- 旧 section / layout / form registry 文件可以继续存在于仓库，服务于历史测试或兼容。
-- 但这些文件的存在不代表它们是新增功能入口。
-
-### 4.3 Helper 放置规则
-
-- 如果 helper 仍然只服务某个正式 widget，优先放到 `widgets/shared/*`。
-- 如果 helper 是稳定的领域组件，优先放到 `src/ui/domains/*`。
-- 不要把新的正式 helper 再放回 `components/sections/*`。
-
----
-
-## 5. 样式与 UI 约束
-
-- Token 真值源：`src/styles/design-tokens.css`
-- Options 样式产物：`src/options/styles/tailwind.css`
-- 全局 utility 产物：`src/styles/global.tailwind.css`
-- DOM 类名继续使用 `.aobx-*`
-
-规则：
-
-- 不新增 `.aob-*` 旧命名
-- 不在正式 UI 中回退到旧 section 时代的样式组织
-- 新样式优先使用现有 token、Tailwind utility 和 schema/widget 现有类体系
-
----
-
-## 6. 必跑命令
-
-常规改动：
-
-```bash
-npm run quality
-npm run verify:preflight
-npm run acceptance:stitch-secondary
-npm run audit:options-mainline:report
-npm run test:unit
-```
-
-改动 options 主线时，至少补充：
-
-```bash
-npx vitest run tests/unit/options/bootstrap.test.ts \
-  tests/unit/options/productionSchemaShell.test.ts \
-  tests/unit/options/optionsController.test.ts \
-  tests/unit/options/optionsFormAdapter.test.ts
-```
-
-如果改了 widget：
-
-```bash
-npx vitest run tests/unit/options/nativeLeafWidgets.test.ts
-```
-
-如果改了 i18n/schema 文案：
-
-```bash
-npm run i18n:lint
-npm run validate:i18n:budgets
-npx vitest run tests/unit/options/schemaI18nParity.test.ts
-```
-
-如果改了 options shell、resource modal、onboarding，或任何 Stitch Secondary 视觉合同：
-
-```bash
-npm run preview:freeze-check
-npm run visual:test:stitch-secondary
-npm run visual:test
+├── app/
+│   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Shell
+│   ├── optionsController.ts  # 控制器：持久化、自动保存、导入导出
+│   └── optionsControllerContext.ts
+├── components/
+│   ├── layout/
+│   │   ├── OptionsApp.ts     # 装配 Shell、Sidebar、MainContent
+│   │   └── MainContent.ts    # Section 懒加载与挂载调度
+│   ├── sections/             # 各设置面板（BaseSection 子类）
+│   ├── formSections/         # FormSectionRegistry 及作用域绑定
+│   ├── infrastructure/       # ModalController 等基础控件
+│   └── services/             # 配置传输等选项页专用服务
+└── utils/                     # 选项页工具（如 optionsTransfer.ts）
 ```
 
 ---
 
-## 7. 常见问题
+## 2. 生命周期与责任划分
 
-### 自动保存没有生效
+1. **启动流程（`bootstrap.ts`）**
 
-优先检查：
+- `teardownMountedShell()` + `disposeCleanupHandlers()`：保证二次初始化时清理旧实例。
+- `applyI18n()`：创建并挂载 `PageI18nController`。
+- `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
+- `mountExperimentalShell()`：挂载 Shell，实现导航、预加载与页面交互。
+- `src/options/index.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；`src/options/bootstrap.ts` 不参与页面装配决策。
+- `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
-- widget 是否调用了 `runtime.notifyDirty()`
-- widget 的 `collect()` 是否返回了正确 draft
-- `productionSchemaShell` 的 flush/save 是否覆盖到当前场景
-- `OptionsController.saveSnapshot()` 是否被调用
+2. **Options 主状态链（Phase 3 当前口径）**
 
-不要再去排查 `markPendingAutoSave(sectionId)` 或 legacy section hook，除非你正在处理兼容测试。
+- 长期合同：`IOptionsRepository` 是唯一主读写/订阅合同。
+- 主状态适配：`optionsStore` 负责基于 `IOptionsRepository` 做 normalize、缓存与订阅分发。
+- 兼容层：`chromeOptionsPersistence` 仅作为 `OptionsController` 仍在消费的适配器，不再被视为独立主链。
+- 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
+- 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
+- 兼容职责：`ChromeSyncOptionsRepository` 仅保留 historical `load/save/snapshot/subscribe/reset` 语义，不再承担 normalize / merge 主链职责。
+- 当前 residual consumers：legacy `OptionsRepository` 兼容语义仍主要保留在 `src/infrastructure/optionsRepository.ts` 及少量测试 / e2e 夹具中；content/background 正式代码已切回 `IOptionsRepository` 主合同。
+- 退役路径：待 legacy `OptionsRepository` 测试 / 兼容夹具也完成收敛后，再评估删除 compatibility adapter 本体。
+- 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
-### 导航或 panel 对不上
+3. **Section 生命周期**
 
-优先检查：
+- `render()`：使用传入容器渲染 DOM，仅绑定自身事件。
+- `setMessages()`：接收最新文案，更新静态文本。
+- `applySnapshot()` / `collectChanges()`：由 `FormSectionRegistry` 驱动，与 `OptionsController` 结合支持自动保存。
+- `destroy()`：释放事件和子组件，放入 `registerCleanup()` 的回调会在页面卸载或热重启时执行。
 
-- `schema/registry.ts` 中的 panel id 与 sidebar item 是否一致
-- `productionSchemaShell.ts` 中的 active panel / resource 切换逻辑
-- schema view 的 `id`、resource `openMode`、action id 是否匹配
+4. **Helper/Controller**
 
-不要再把 `MainContent.sectionDefinitions` 当成正式排查入口。
-
-### Resource modal 内容不对
-
-优先检查：
-
-- `schema/registry.ts` 的 resource schema
-- `schema/content.ts` 与 message key
-- `index.html` 是否只保留 schema shell 挂载根，而没有回流 legacy modal host 或静态正文
-
-### 文案没有切换
-
-优先检查：
-
-- message key 是否已进入正式 locale
-- schema/content descriptor 是否引用了正确 key
-- widget `update()` 是否正确处理了 `messages`
+- 诸如 `DomainMappingsController`、`YamlConfigTable` 必须实现 `render()` / `collect()` / `destroy()`，并在 Section 的 `destroy()` 中统一释放。
 
 ---
 
-## 8. 相关文档
+## 3. 开发规范速查
 
-- 正式工程入口：[AiiinOB/docs/engineering-entrypoints.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/docs/engineering-entrypoints.md)
-- Source of Truth 索引：[AiiinOB/docs/source-of-truth-index.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/docs/source-of-truth-index.md)
-- Legacy leaf 退出计划：[AiiinOB/docs/options-legacy-leaf-exit-plan-2026-04-17.md](/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/docs/options-legacy-leaf-exit-plan-2026-04-17.md)
+- **新增 Section**
+  1. 继承 `BaseSection`，在构造函数中仅保存容器。
+  2. 在 `render()` 中渲染结构并调用 `registerFormIntegration()` 注册到 `FormSectionRegistry`。
+  3. 通过 `markPendingAutoSave(sectionId)` + `getOptionsController()?.scheduleAutoSave()` 触发自动保存。
+  4. 使用 `this.messages` 设置静态文案；新增键需写入 `src/options/components/messages.ts` 并更新 `_locales`。
+  5. 补充单测 `tests/unit/options/sections/<Section>.test.ts`，验证 `render/applySnapshot/collectChanges`。
+
+- **多语言适配**
+  - 文案统一由 `setMessages()` 或 `data-i18n` 驱动，参照 `docs/options-multilingual-adaptation-guide.md` 进行整改。
+  - 切勿在 Section 内直接写死字符串或手动读取 `_locales`。
+
+- **运行时清理**
+  - 若创建了额外的定时器或全局事件，需使用 `registerCleanup()` 或 Section `destroy()` 手动释放。
+  - 禁止绕过 `bootstrap.ts` 直接实例化 `OptionsController`、`FormSectionRegistry`。
+
+---
+
+## 4. 样式与命名约束（2025-11 更新）
+
+- **唯一样式入口**：Options 页主要依赖 `src/styles/design-tokens.css`、`src/options/styles/tailwind.css` 与 `src/styles/global.tailwind.css` 的构建产物；`src/options/styles/design-tokens.css` 已删除，不再保留 legacy wrapper。
+- **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
+- **CSS 编写准则**：
+  - 优先使用 Tailwind Utility 实现样式。
+  - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在组件 DOM utility、共享 Tailwind 层或 token 链路。
+  - 组件级样式优先靠 Token/Utility（如 `--aobx-space-*`、`.aobx-button-row`），避免复制粘贴局部颜色/间距。
+  - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
+- **开发流程建议**：
+  1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。
+  2. 在组件 DOM、`tailwind.input.css` 或共享 `tailwind.input.global.css` 中补齐对应规则。
+  3. 执行 `npm run report:options-legacy && npm run lint:options-css`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
+  4. 运行 `npm run test:unit` 或必要的 UI 回归（可配合 `npm run build:dev` + `chrome://extensions` 刷新）。
+  5. 若需要对照 Legacy → `.aobx-*` 的映射，可参见 `docs/options-css-naming-map.md`。
+- **通用 Utility/组件清单**（与 §0.4 对应）：
+  - `.aobx-card`: 标准卡片容器（背景、边框、阴影、圆角）。
+  - `.aobx-alert`: 提示框，支持 `--info`, `--success`, `--warning`, `--error` 变体。
+  - `.aobx-field-group`: 表单字段组容器。
+  - `.aobx-table`: 标准表格样式。
+  - `.aobx-button-row`: 行内按钮布局工具。
+  - `.aobx-chip` / `.aobx-chip-btn`: Tag/Chip 控件样式。
+  - **注意**: 尽量复用以上组件，减少手写重复样式，并在 Tailwind 迁移前保持语义一致。
+- **历史背景/参考**：此次治理的阶段性记录已归档到 `trash/options-css-*`（Batch1/2/Legacy Removal 等）。如需了解迁移缘由，可查阅历史 PR 或 `trash/options-css-consolidation-guide.md`。
+- **验证命令示例**：
+  ```bash
+  npm run report:options-legacy   # 需返回 “No legacy .aob-* classes detected”
+  npm run lint:options-css        # 限定在 Options CSS 的 Stylelint 校验
+  npm run test:unit               # 基本回归
+  rg -n "aob-" src/options        # 手动确认未引入旧命名
+  ```
+
+---
+
+## 5. 测试与工具
+
+- **JSDOM Helper**：在 E2E/单测中使用 `tests/utils/domEnvironment.ts` 的 `withDomEnvironment()` / `createDomEnvironment()`，确保全局对象被正确覆写与还原。
+- **WebExtension Mock**：调用 `installChromeMock()`、`installFirefoxMock()`（位于 `tests/utils/browserMocks.ts`）管理 `chrome`/`browser` API Mock；测试结束必须执行 `restore()`。
+- **必跑命令**：
+  ```bash
+  npm run typecheck:tests
+  npm run lint
+  npm run test:unit
+  npm run test:e2e
+  ```
+- **多语言校验**：若改动文案或 locale，追加执行 `npm run validate:i18n:keys`（若尚未创建，请按照多语言指南补充脚本）。
+
+---
+
+## 6. 常见问题
+
+- **懒加载不起作用**：确认 `MainContent.sectionDefinitions` 中的 `load` 使用动态导入，并检查 `NavigationController` 是否在 `aob:sectionmounted` 事件后绑定监听。
+- **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
+- **文案未更新**：运行 `ensureDeclarativeI18nController()` 后调用 `section.setMessages(messages)`；对于静态模板应检查 `data-i18n` 是否配置正确。
+- **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
+- **Tailwind 迁移影响**：若新增 Utility 计划在 Tailwind 中复用，请在 PR 描述与 `docs/tailwind-pre-migration-check.md` 中登记，避免迁移任务遗漏最新抽象。
+
+---
+
+## 7. 维护流程与历史参考
+
+- **文档更新责任**：凡是改动 Options DOM、样式、运行时或命令的 PR，作者必须同步更新本 README / 相关指南，并在 PR 模板勾选“文档已更新或无需更新”条目。
+- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`npm run lint:options-css`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
+- **定期复查**：Options 模块维护人（默认由当期版本负责人承担）需在每季度迭代结束后检查 README 是否覆盖最新规范，并同步核对 `docs/README.md` 与 `docs/engineering-entrypoints.md`。
+- **历史资料**：有关 Batch1/Batch2/Legacy Removal 的阶段总结均已迁移至 `trash/options-css/`，若需追溯决策过程，请参阅 `docs/options-css-full-cleanup-guide.md` 与相关归档文档。
+- **沟通渠道**：若发现 README 与实际实现不一致，请在 Issue/看板中 @Options 维护人，并把修复纳入后续文档刷新日志。
+
+---
+
+如有疑问，请先查阅 `docs/development-guidelines.md`、`docs/options-refactor-summary-2025.md` 和 `docs/options-multilingual-adaptation-guide.md`。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！

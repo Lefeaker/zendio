@@ -40,7 +40,6 @@ import {
   mountProductionSchemaShell,
   type MountedProductionSchemaShell
 } from './productionSchemaShell';
-import type { ThemeSwitcher } from '../../ui/domains/theme';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type {
@@ -157,7 +156,7 @@ function handleEmbeddedThemeClick(event: Event): void {
   syncEmbeddedThemeControl();
 }
 
-function initializeEmbeddedThemeControl(_themeDomain?: ThemeSwitcher): void {
+function initializeEmbeddedThemeControl(): void {
   const root = document.getElementById('optionsShellRoot');
   if (!root) {
     return;
