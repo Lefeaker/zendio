@@ -12,8 +12,6 @@
 }
 
 .schema-shell-sidebar {
-  display: flex;
-  flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -45,13 +43,6 @@
   margin-top: 18px;
 }
 
-.schema-shell-sidebar-footer {
-  display: grid;
-  gap: 18px;
-  margin-top: auto;
-  padding-top: 18px;
-}
-
 .schema-shell-nav-title {
   padding: 0 10px 4px;
   color: color-mix(in srgb, var(--aobx-text, #0f172a) 45%, white);
@@ -78,6 +69,7 @@
 
 .schema-shell-nav button {
   display: flex;
+  gap: 10px;
   width: 100%;
   padding: 9px 10px;
   border-radius: 10px;
@@ -101,6 +93,19 @@
   line-height: 1.35;
 }
 
+.schema-shell-nav-dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--aobx-text, #0f172a) 28%, white);
+  flex: none;
+}
+
+.schema-shell-nav button.is-active .schema-shell-nav-dot {
+  background: var(--aobx-accent, #2563eb);
+}
+
 .schema-shell-resource-link {
   width: 100%;
   padding: 4px 10px;
@@ -117,23 +122,11 @@
 .schema-shell-main {
   padding: 28px 34px 56px;
   overflow-y: auto;
-  scroll-behavior: smooth;
 }
 
-.schema-shell-content,
 .schema-view {
   max-width: 1160px;
   margin: 0 auto;
-}
-
-.schema-panel-stack {
-  display: grid;
-  gap: 56px;
-  padding-bottom: 72px;
-}
-
-.schema-panel-section {
-  scroll-margin-top: 24px;
 }
 
 .schema-hero {
@@ -209,18 +202,6 @@
 
 .schema-card {
   padding: 18px;
-}
-
-.schema-panel-section[data-panel-id='overview'] .schema-card,
-.schema-panel-section[data-panel-id='experimental'] .schema-card,
-.schema-panel-section[data-panel-id='maintenance'] .schema-card {
-  background: color-mix(in srgb, var(--schema-panel) 86%, var(--schema-panel-strong));
-}
-
-.schema-panel-section[data-panel-id='storage'] .schema-card,
-.schema-panel-section[data-panel-id='capture-sources'] .schema-card,
-.schema-panel-section[data-panel-id='capture-behavior'] .schema-card {
-  background: color-mix(in srgb, var(--schema-panel) 92%, var(--schema-panel-strong));
 }
 
 .schema-card-header {
@@ -697,15 +678,6 @@ html[data-theme='light'] .schema-settings-theme-track {
 
   .schema-shell-main {
     padding: 18px;
-  }
-
-  .schema-shell-sidebar-footer {
-    margin-top: 18px;
-  }
-
-  .schema-panel-stack {
-    gap: 32px;
-    padding-bottom: 48px;
   }
 
   .schema-row {

@@ -75,10 +75,6 @@ test.describe('production stitch secondary shell', () => {
     expect(shellContract.sidebarGroupTitles).toEqual(['Settings', 'Resources']);
     expect(shellContract.activeNavLabel).toBe('Overview');
     expect(shellContract.visibleModalTitles).toEqual([]);
-    await expect(page.locator('.schema-panel-section')).toHaveCount(
-      PRODUCTION_OPTIONS_NAV_LABELS.length
-    );
-    await expect(page.locator('.schema-shell-sidebar-footer')).toContainText('Onboarding');
 
     const onboardingContract = await renderProductionOnboardingShell(page);
     expect(onboardingContract.headings).toContain('Welcome to All in Ob');
@@ -140,14 +136,12 @@ test.describe('production stitch secondary shell', () => {
       }
 
       test.skip(
-        (state.id === 'changelog' || state.id === 'contact') &&
-          testInfo.project.name === 'chromium-mobile',
-        `${state.resourceLabel ?? state.id} remains visually unstable on chromium-mobile; reachability is covered separately.`
+        state.id === 'changelog' && testInfo.project.name === 'chromium-mobile',
+        'Changelog modal remains visually unstable on chromium-mobile; reachability is covered separately.'
       );
 
       await expect(page.locator('.schema-shell-app')).toHaveScreenshot(
-        `options-stitch-secondary-shell-${state.id}.png`,
-        { maxDiffPixels: 1000 }
+        `options-stitch-secondary-shell-${state.id}.png`
       );
     });
   }
@@ -159,13 +153,5 @@ test.describe('production stitch secondary shell', () => {
     await page.locator('.schema-shell-resource-link').filter({ hasText: 'Changelog' }).click();
     await expect(page.locator('.schema-modal-copy h3')).toHaveText('Changelog');
     await expect(page.locator('.schema-changelog-html')).toBeVisible();
-  });
-
-  test('opens contact through the production schema resource rail', async ({ page }) => {
-    const shellContract = await renderProductionOptionsShell(page, 'default');
-    expect(shellContract.resourceLabels).toContain('Contact');
-
-    await page.locator('.schema-shell-resource-link').filter({ hasText: 'Contact' }).click();
-    await expect(page.locator('.schema-modal-copy h3')).toHaveText('Contact');
   });
 });
