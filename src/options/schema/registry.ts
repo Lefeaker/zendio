@@ -223,77 +223,49 @@ function createCaptureSourcesSchema(
           children: [
             {
               kind: 'card',
-              title: resolveSchemaMessage(messages, copy.groups.aiChat),
-              actions: [
-                {
-                  kind: 'element',
-                  tag: 'span',
-                  className: 'schema-pill',
-                  text: `${SCHEMA_AI_PLATFORM_LINKS.length} supported platforms`
-                }
-              ],
               children: [
                 {
-                  kind: 'row',
-                  title: resolveSchemaMessage(messages, copy.aiChat.platformsTitle),
-                  description:
-                    'Current formal coverage mirrors the validated preview platform list.',
-                  control: createAiPlatformShell(
-                    resolveSchemaMessage(messages, copy.aiChat.platformsTitle),
-                    SCHEMA_AI_PLATFORM_LINKS.map((platform) => ({
-                      label: resolveSchemaMessage(messages, platform.label),
-                      href: platform.href
-                    }))
-                  )
-                },
-                {
-                  kind: 'row',
-                  title: resolveSchemaMessage(messages, copy.aiChat.userNameTitle),
-                  description: resolveSchemaMessage(messages, copy.aiChat.userNameDescription),
-                  control: {
-                    kind: 'element',
-                    tag: 'div',
-                    className: 'schema-inline-grid two',
-                    children: [
-                      {
-                        kind: 'field',
-                        label: 'userName',
-                        control: {
-                          kind: 'input',
-                          bind: { source: 'state', path: 'options.aiChat.userName' },
-                          placeholder: resolveSchemaMessage(
-                            messages,
-                            copy.aiChat.userNamePlaceholder
-                          ),
-                          action: {
-                            id: 'aiChat:updateUserName',
-                            valueFrom: 'target.value'
-                          }
-                        }
-                      },
-                      {
-                        kind: 'field',
-                        label: 'Preview',
-                        control: {
-                          kind: 'element',
-                          tag: 'div',
-                          className: 'schema-inline-note',
-                          text: 'Default render label stays `USER` until changed.'
+                  kind: 'stack',
+                  children: [
+                    createAiPlatformShell(
+                      resolveSchemaMessage(messages, copy.aiChat.platformsTitle),
+                      SCHEMA_AI_PLATFORM_LINKS.map((platform) => ({
+                        label: resolveSchemaMessage(messages, platform.label),
+                        href: platform.href
+                      }))
+                    ),
+                    {
+                      kind: 'row',
+                      title: resolveSchemaMessage(messages, copy.aiChat.userNameTitle),
+                      description: resolveSchemaMessage(messages, copy.aiChat.userNameDescription),
+                      control: {
+                        kind: 'input',
+                        bind: { source: 'state', path: 'options.aiChat.userName' },
+                        placeholder: resolveSchemaMessage(
+                          messages,
+                          copy.aiChat.userNamePlaceholder
+                        ),
+                        action: {
+                          id: 'aiChat:updateUserName',
+                          valueFrom: 'target.value'
                         }
                       }
-                    ]
-                  }
-                },
-                {
-                  kind: 'row',
-                  title: resolveSchemaMessage(messages, copy.aiChat.timestampsTitle),
-                  description: resolveSchemaMessage(messages, copy.aiChat.timestampsDescription),
-                  control: {
-                    kind: 'switch',
-                    checked: false,
-                    disabled: true,
-                    stateText: resolveSchemaMessage(messages, copy.state.disabled)
-                  }
+                    },
+                    {
+                      kind: 'row',
+                      title: resolveSchemaMessage(messages, copy.aiChat.timestampsTitle),
+                      description: resolveSchemaMessage(
+                        messages,
+                        copy.aiChat.timestampsDescription
+                      ),
+                      control: {
+                        kind: 'switch',
+                        checked: false,
+                        disabled: true,
+                        stateText: resolveSchemaMessage(messages, copy.state.disabled)
+                      }
+                    }
+                  ]
                 }
               ]
             }
@@ -305,8 +277,6 @@ function createCaptureSourcesSchema(
           children: [
             {
               kind: 'card',
-              title: resolveSchemaMessage(messages, copy.deepResearch.reportsNoticeTitle),
-              description: resolveSchemaMessage(messages, 'deepResearchConfigHint'),
               children: [
                 createDeepResearchPureModeRow(
                   resolveSchemaMessage(messages, copy.deepResearch.pureModeTitle),
@@ -335,8 +305,6 @@ function createCaptureSourcesSchema(
           children: [
             {
               kind: 'card',
-              title: resolveSchemaMessage(messages, copy.groups.video),
-              description: resolveSchemaMessage(messages, 'videoFloatingPromptHint'),
               children: [
                 {
                   kind: 'widget',
@@ -374,7 +342,6 @@ function createCaptureBehaviorSchema(
           children: [
             {
               kind: 'card',
-              title: resolveSchemaMessage(messages, copy.groups.reading),
               children: [
                 {
                   kind: 'widget',
@@ -391,8 +358,6 @@ function createCaptureBehaviorSchema(
           children: [
             {
               kind: 'card',
-              title: resolveSchemaMessage(messages, copy.groups.fragment),
-              description: resolveSchemaMessage(messages, 'fragmentConfigHint'),
               children: [
                 {
                   kind: 'widget',
