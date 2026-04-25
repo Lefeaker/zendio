@@ -7,7 +7,10 @@ import type { YamlConfigController } from './yamlConfigTable';
 const ARRAY_PLACEHOLDER_EXAMPLE = 'value1; value2; value3';
 const ARRAY_HINT_TEXT = 'Use ";" to separate items.';
 
-function applyDataset(element: HTMLElement, values: Record<string, string | undefined>): void {
+function applyDataset(
+  element: HTMLElement,
+  values: Record<string, string | undefined>
+): void {
   Object.entries(values).forEach(([key, value]) => {
     if (value !== undefined) {
       element.dataset[key] = value;
@@ -78,23 +81,12 @@ export class YamlConfigView extends BaseComponent<YamlConfigViewRenderContext> {
 
   private mountLayout(): void {
     const extMessages = this.messages as unknown as Record<string, string> | undefined;
-    const wrapper = this.createElement('div', 'yaml-config schema-output-yaml-layout', {
+    const wrapper = this.createElement('div', 'yaml-config space-y-6', {
       'data-role': 'yaml-config-view'
     });
-    const header = this.createElement('div', 'schema-card-header schema-output-widget-header');
-    const copy = this.createElement('div');
-    const title = this.createElement('h3');
-    title.textContent = extMessages?.yamlConfigTitle ?? 'YAML Configuration';
-    const description = this.createElement('p');
-    description.textContent =
-      extMessages?.yamlConfigHint ??
-      'Manage shared fields, content-type switches, and domain overrides from one production shell.';
-    copy.append(title, description);
-    header.append(copy);
 
     this.tableHost = this.createElement('div');
     this.tableHost.id = 'yamlConfigTable';
-    this.tableHost.className = 'schema-output-yaml-table';
     applyDataset(this.tableHost, {
       labelField: this.messages?.yamlFieldNameLabel ?? 'Field',
       labelType: this.messages?.yamlFieldTypeLabel ?? 'Type',
@@ -143,7 +135,6 @@ export class YamlConfigView extends BaseComponent<YamlConfigViewRenderContext> {
 
     this.domainHost = this.createElement('div');
     this.domainHost.id = 'yamlDomainOverrides';
-    this.domainHost.className = 'schema-output-yaml-domain';
     applyDataset(this.domainHost, {
       labelTitle: extMessages?.yamlDomainTitle ?? '域名覆盖',
       labelHint:
@@ -169,33 +160,31 @@ export class YamlConfigView extends BaseComponent<YamlConfigViewRenderContext> {
       errorDomainDuplicate:
         extMessages?.yamlDomainErrorDomainDuplicate ?? '同一内容类型中存在重复的域名规则。',
       errorFieldRequired: extMessages?.yamlDomainErrorFieldRequired ?? '至少选择一个字段。',
-      errorFieldDuplicate: extMessages?.yamlDomainErrorFieldDuplicate ?? '同一规则中存在重复字段。',
+      errorFieldDuplicate:
+        extMessages?.yamlDomainErrorFieldDuplicate ?? '同一规则中存在重复字段。',
       errorFieldUnsupported:
         extMessages?.yamlDomainErrorFieldUnsupported ?? '字段在当前内容类型中不可用：',
       errorValueInvalid: extMessages?.yamlDomainErrorValueInvalid ?? '字段默认值与类型不匹配：',
       errorValuePathInvalid:
         extMessages?.yamlDomainErrorValuePathInvalid ?? 'Value path 不能包含空格。',
-      warningUnresolved:
-        extMessages?.yamlDomainWarningUnresolved ?? '修复域名规则中的错误后再保存。'
+      warningUnresolved: extMessages?.yamlDomainWarningUnresolved ?? '修复域名规则中的错误后再保存。'
     });
 
-    const actions = createOptionsActionRow({ className: 'schema-output-actions' });
+    const actions = createOptionsActionRow();
     this.addButton = createOptionsButtonElement({
       label: this.messages?.yamlFieldAddButton ?? '+ Add field',
       variant: 'primary',
-      size: 'md',
-      className: 'schema-output-widget-action'
+      size: 'md'
     });
     this.addButton.id = 'yamlAddFieldBtn';
     actions.append(this.addButton);
 
     const hint = createOptionsHintText();
-    hint.classList.add('schema-widget-hint', 'schema-output-note');
     hint.textContent =
       this.messages?.yamlFieldAvailabilityNote ??
       'Disable a switch to hide a field. Newly added fields apply to the selected export types.';
 
-    wrapper.append(header, this.tableHost, this.domainHost, actions, hint);
+    wrapper.append(this.tableHost, this.domainHost, actions, hint);
     this.container.replaceChildren(wrapper);
   }
 

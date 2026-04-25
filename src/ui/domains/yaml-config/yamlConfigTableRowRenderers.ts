@@ -10,7 +10,10 @@ import {
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
 import { buildYamlErrorList } from './yamlConfigTableMessageBuilders';
-import { buildYamlAdvancedPanel, buildYamlDefaultValueEditor } from './yamlConfigTableRowEditors';
+import {
+  buildYamlAdvancedPanel,
+  buildYamlDefaultValueEditor
+} from './yamlConfigTableRowEditors';
 import { buildYamlRowActionContainer } from './yamlConfigTableRowActions';
 
 export interface RowActions {
@@ -38,14 +41,12 @@ export function buildYamlTableRow(args: {
   const { row, labels, advancedOpenRows, rowErrors, getMoveAvailability, actions } = args;
   const rowElement = createLayoutElement({
     className:
-      'aobx-table__row schema-output-table-row grid grid-cols-[minmax(120px,1.5fr)_100px_repeat(4,60px)_minmax(120px,1fr)_80px] items-center gap-2 border-b border-base-300 p-3 transition-colors hover:bg-base-200 last:border-b-0'
+      'aobx-table__row grid grid-cols-[minmax(120px,1.5fr)_100px_repeat(4,60px)_minmax(120px,1fr)_80px] items-center gap-2 border-b border-base-300 p-3 transition-colors hover:bg-base-200 last:border-b-0'
   });
   rowElement.dataset.rowId = row.id;
 
   const appendCell = (content: HTMLElement): void => {
-    const cell = createLayoutElement({
-      className: 'aobx-table__cell schema-output-table-cell flex items-center overflow-hidden'
-    });
+    const cell = createLayoutElement({ className: 'flex items-center overflow-hidden' });
     cell.append(content);
     rowElement.append(cell);
   };

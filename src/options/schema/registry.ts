@@ -170,7 +170,6 @@ function createStorageSchema(
           children: [
             {
               kind: 'card',
-              className: 'schema-storage-card schema-storage-rest-card',
               children: [
                 {
                   kind: 'widget',
@@ -187,7 +186,6 @@ function createStorageSchema(
           children: [
             {
               kind: 'card',
-              className: 'schema-storage-card schema-storage-routing-card',
               children: [
                 {
                   kind: 'widget',

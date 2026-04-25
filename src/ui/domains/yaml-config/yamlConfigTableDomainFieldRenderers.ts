@@ -50,8 +50,7 @@ export function buildDomainCard(args: {
   const { entry, labels, typeLabels, errors, getFieldOptionsForEntry, actions, buildErrorList } =
     args;
   const card = createOptionsPanel({
-    className:
-      'aobx-domain__card schema-output-domain-card alert alert-error aobx-table__global-errors p-3 text-sm'
+    className: 'aobx-domain__card alert alert-error aobx-table__global-errors p-3 text-sm'
   });
   card.dataset.entryId = entry.id;
   if (errors.length) {
@@ -97,9 +96,7 @@ export function buildDomainCard(args: {
   header.append(removeButton);
   card.append(header);
 
-  const fieldsContainer = createLayoutElement({
-    className: 'aobx-domain__fields schema-output-domain-fields'
-  });
+  const fieldsContainer = createLayoutElement({ className: 'aobx-domain__fields' });
   if (!entry.fields.length) {
     const empty = createLayoutElement({
       className: 'aobx-domain__field-empty',
@@ -146,9 +143,7 @@ function buildDomainField(args: {
   actions: DomainFieldRendererActions;
 }): HTMLElement {
   const { entry, field, labels, options, actions } = args;
-  const container = createLayoutElement({
-    className: 'aobx-domain__field schema-output-domain-field'
-  });
+  const container = createLayoutElement({ className: 'aobx-domain__field' });
   container.dataset.fieldId = field.id;
 
   const header = createOptionsActionRow({ className: 'aobx-domain__field-header pt-0' });
