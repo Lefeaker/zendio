@@ -339,24 +339,24 @@ async function showSupportModal(): Promise<void> {
   const messages = resource?.messages;
 
   const modal = document.createElement('div');
-  modal.className = 'support-modal';
+  modal.className = 'schema-modal-overlay schema-onboarding-modal';
   modal.setAttribute('role', 'presentation');
   modal.innerHTML = `
-    <div class="support-modal-content">
-      <div class="support-modal-header">
+    <div class="schema-modal" role="dialog" aria-modal="true">
+      <div class="schema-modal-header">
         <h3>${messages?.supportModalTitle || '感谢支持'}</h3>
-        <button type="button" class="support-modal-close" aria-label="${messages?.contactModalCloseButton || '关闭'}">&times;</button>
+        <button type="button" class="schema-modal-close support-modal-close" aria-label="${messages?.contactModalCloseButton || '关闭'}">&times;</button>
       </div>
-      <div class="support-modal-body">
-        <p>${messages?.supportModalDescription || '开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：'}</p>
-        <div class="support-options">
-          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="ko-fi"></span>
-            <span>Ko-fi</span>
+      <div class="schema-modal-body">
+        <p class="schema-widget-hint">${messages?.supportModalDescription || '开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：'}</p>
+        <div class="schema-resource-card-grid columns-2">
+          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="schema-card schema-resource-link-card">
+            <strong>${messages?.supportLinkKofi || 'Ko-fi'}</strong>
+            <span>Buy me a coffee</span>
           </a>
-          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="afdian"></span>
-            <span>爱发电</span>
+          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="schema-card schema-resource-link-card">
+            <strong>${messages?.supportLinkAfdian || '爱发电'}</strong>
+            <span>Support the project in Chinese communities</span>
           </a>
         </div>
       </div>
@@ -369,6 +369,9 @@ async function showSupportModal(): Promise<void> {
   };
 
   modal.querySelector('.support-modal-close')?.addEventListener('click', close);
+  modal.querySelector('.schema-modal')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
   modal.addEventListener('click', (event) => {
     if (event.target === modal) {
       close();

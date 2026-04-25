@@ -365,6 +365,30 @@ export const SCHEMA_RESOURCE_COPY = {
   }
 } as const;
 
+export const SCHEMA_RESOURCE_PILL_COPY = {
+  pluginSetup: [
+    'schemaResourcePluginSetupFieldHttpsUrl',
+    'schemaResourcePluginSetupFieldHttpUrl',
+    'schemaResourcePluginSetupFieldVault',
+    'schemaResourcePluginSetupFieldApiKey'
+  ] as const,
+  support: [
+    'schemaResourceSupportKoFiTitle',
+    'schemaResourceSupportAfdianTitle',
+    'schemaResourceSupportEmailTitle'
+  ] as const,
+  suggestions: [
+    'schemaResourceSuggestionsGithubTitle',
+    'schemaResourceSuggestionsRedditTitle',
+    'schemaResourceSuggestionsXiaohongshuTitle'
+  ] as const,
+  contact: [
+    'schemaResourceContactRedditTitle',
+    'schemaResourceContactGithubTitle',
+    'schemaResourceContactEmailTitle'
+  ] as const
+} as const;
+
 export function resolveSchemaMessage(messages: Messages | null, key: SchemaMessageKey): string {
   return String(messages?.[key] ?? DEFAULT_RUNTIME_MESSAGES[key] ?? '');
 }

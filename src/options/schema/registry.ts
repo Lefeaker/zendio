@@ -1,5 +1,5 @@
 import type { Messages } from '@i18n';
-import type { ResourceSchema, SettingsSchema } from '@options/schema-runtime';
+import type { NodeSchema, ResourceSchema, SettingsSchema } from '@options/schema-runtime';
 import { getChangelogByLanguage } from '@options/app/changelogContent';
 import {
   SCHEMA_LANGUAGE_OPTIONS,
@@ -8,17 +8,18 @@ import {
   SCHEMA_PAGE_COPY,
   SCHEMA_RESOURCE_COPY,
   SCHEMA_RESOURCE_GROUP_COPY,
+  SCHEMA_RESOURCE_PILL_COPY,
   SCHEMA_SELECT_OPTION_COPY,
   SCHEMA_SUBTITLE_LANGUAGE_OPTIONS,
   SCHEMA_TEMPLATE_TOKENS,
   resolveSchemaOverviewThemeCopy,
   resolveSchemaMessage,
+  resolveSchemaMessageList,
   resolveSchemaOptionCopy
 } from './content';
 import {
   createResourceLinkCard,
   createResourceModalCard,
-  createResourceModalSection,
   createResourceTextList
 } from './helpers/resources';
 import { createOutputWidgetGroup } from './helpers/output';
@@ -31,6 +32,8 @@ import {
 import { schemaClassNames } from './helpers/classNames';
 import { createShellNavItem, createShellResourceGroup, SETTINGS_ORDER } from './helpers/shell';
 import type { SchemaShellAppData, SchemaShellState } from './model';
+
+type SchemaNode = NodeSchema<SchemaShellState, SchemaShellAppData>;
 
 export function createSchemaShellAppData(messages: Messages | null): SchemaShellAppData {
   return {
@@ -735,10 +738,102 @@ function createMaintenanceSchema(
   };
 }
 
+function createResourcePillRow(labels: string[]): SchemaNode {
+  return {
+    kind: 'element',
+    tag: 'div',
+    className: 'schema-resource-pills',
+    children: labels.map((label) => ({
+      kind: 'element' as const,
+      tag: 'span' as const,
+      className: 'schema-resource-pill',
+      text: label
+    }))
+  };
+}
+
+function createResourceGrid(children: SchemaNode[], columns: 2 | 3 = 2): SchemaNode {
+  return {
+    kind: 'element',
+    tag: 'div',
+    className: `schema-resource-card-grid columns-${columns}`,
+    children
+  };
+}
+
+function createResourceStepGrid(items: string[]): SchemaNode {
+  return {
+    kind: 'element',
+    tag: 'div',
+    className: 'schema-step-grid',
+    children: items.map((item, index) => ({
+      kind: 'element' as const,
+      tag: 'article' as const,
+      className: 'schema-step-card',
+      children: [
+        {
+          kind: 'element' as const,
+          tag: 'div' as const,
+          className: 'schema-step-index',
+          text: String(index + 1)
+        },
+        {
+          kind: 'element' as const,
+          tag: 'p' as const,
+          className: 'schema-step-copy',
+          text: item
+        }
+      ]
+    }))
+  };
+}
+
+function createResourceSectionHead(title: string, action?: SchemaNode): SchemaNode {
+  return {
+    kind: 'element',
+    tag: 'div',
+    className: 'resource-modal-section-head',
+    children: [
+      {
+        kind: 'element',
+        tag: 'div',
+        className: 'resource-modal-section-title',
+        text: title
+      },
+      action ?? null
+    ]
+  };
+}
+
+function createResourceSection(
+  title: string,
+  children: SchemaNode[],
+  action?: SchemaNode
+): SchemaNode {
+  return {
+    kind: 'element',
+    tag: 'section',
+    className: 'resource-modal-section',
+    children: [
+      action
+        ? createResourceSectionHead(title, action)
+        : {
+            kind: 'element' as const,
+            tag: 'div' as const,
+            className: 'resource-modal-section-title',
+            text: title
+          },
+      ...children
+    ]
+  };
+}
+
 function createPluginSetupResource(
   messages: Messages | null
 ): ResourceSchema<SchemaShellState, SchemaShellAppData> {
   const copy = SCHEMA_RESOURCE_COPY.pluginSetup;
+  const pillLabels = resolveSchemaMessageList(messages, SCHEMA_RESOURCE_PILL_COPY.pluginSetup);
+  const flowSteps = resolveSchemaMessageList(messages, copy.steps);
   return {
     id: 'plugin-setup',
     label: resolveSchemaMessage(messages, copy.title),
@@ -754,59 +849,57 @@ function createPluginSetupResource(
       description: resolveSchemaMessage(messages, copy.description),
       size: 'large',
       children: [
-        createResourceModalSection(
-          resolveSchemaMessage(messages, copy.sections.recommendedValues),
-          [
-            createResourceModalCard([
-              {
-                kind: 'table',
-                columns: [
-                  resolveSchemaMessage(messages, copy.table.fieldColumn),
-                  resolveSchemaMessage(messages, copy.table.valueColumn)
-                ],
-                rows: [
-                  {
-                    cells: [
-                      { text: resolveSchemaMessage(messages, copy.fields.httpsUrl) },
-                      { text: 'https://127.0.0.1:27124/' }
-                    ]
-                  },
-                  {
-                    cells: [
-                      { text: resolveSchemaMessage(messages, copy.fields.httpUrl) },
-                      { text: 'http://127.0.0.1:27123/' }
-                    ]
-                  },
-                  {
-                    cells: [
-                      { text: resolveSchemaMessage(messages, copy.fields.vault) },
-                      { text: 'your-vault-name' }
-                    ]
-                  },
-                  {
-                    cells: [
-                      { text: resolveSchemaMessage(messages, copy.fields.apiKey) },
-                      { text: 'your-api-key' }
-                    ]
-                  }
-                ]
-              }
-            ])
-          ]
-        ),
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.setupFlow), [
-          createResourceModalCard([createResourceTextList(messages, copy.steps)])
-        ]),
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.checklist), [
+        createResourcePillRow(pillLabels),
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.recommendedValues), [
           createResourceModalCard([
-            createResourceTextList(messages, copy.checklist),
             {
-              kind: 'button',
-              label: resolveSchemaMessage(messages, copy.goToStorageButton),
-              variant: 'primary',
-              action: { id: 'navigation:activatePanel', args: ['storage'] }
+              kind: 'table',
+              className: 'schema-resource-table',
+              columns: [
+                resolveSchemaMessage(messages, copy.table.fieldColumn),
+                resolveSchemaMessage(messages, copy.table.valueColumn)
+              ],
+              rows: [
+                {
+                  cells: [
+                    { text: resolveSchemaMessage(messages, copy.fields.httpsUrl) },
+                    { text: 'https://127.0.0.1:27124/' }
+                  ]
+                },
+                {
+                  cells: [
+                    { text: resolveSchemaMessage(messages, copy.fields.httpUrl) },
+                    { text: 'http://127.0.0.1:27123/' }
+                  ]
+                },
+                {
+                  cells: [
+                    { text: resolveSchemaMessage(messages, copy.fields.vault) },
+                    { text: 'your-vault-name' }
+                  ]
+                },
+                {
+                  cells: [
+                    { text: resolveSchemaMessage(messages, copy.fields.apiKey) },
+                    { text: 'your-api-key' }
+                  ]
+                }
+              ]
             }
           ])
+        ]),
+        createResourceSection(
+          resolveSchemaMessage(messages, copy.sections.setupFlow),
+          [createResourceStepGrid(flowSteps)],
+          {
+            kind: 'button',
+            label: resolveSchemaMessage(messages, copy.goToStorageButton),
+            variant: 'primary',
+            action: { id: 'navigation:closeResourceAndScrollToPanel', args: ['storage'] }
+          }
+        ),
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.checklist), [
+          createResourceModalCard([createResourceTextList(messages, copy.checklist)])
         ])
       ]
     })
@@ -817,6 +910,7 @@ function createSupportResource(
   messages: Messages | null
 ): ResourceSchema<SchemaShellState, SchemaShellAppData> {
   const copy = SCHEMA_RESOURCE_COPY.support;
+  const pillLabels = resolveSchemaMessageList(messages, SCHEMA_RESOURCE_PILL_COPY.support);
   return {
     id: 'support',
     label: resolveSchemaMessage(messages, copy.title),
@@ -828,27 +922,33 @@ function createSupportResource(
       title: resolveSchemaMessage(messages, copy.title),
       description: resolveSchemaMessage(messages, copy.description),
       children: [
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.channels), [
-          createResourceLinkCard(
-            messages,
-            copy.cards.koFiTitle,
-            copy.cards.koFiDescription,
-            'https://ko-fi.com/xiannian'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.afdianTitle,
-            copy.cards.afdianDescription,
-            'https://afdian.com/a/LefShi'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.emailTitle,
-            copy.cards.emailDescription,
-            'mailto:allinobsidian@outlook.com'
+        createResourcePillRow(pillLabels),
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.channels), [
+          createResourceGrid(
+            [
+              createResourceLinkCard(
+                messages,
+                copy.cards.koFiTitle,
+                copy.cards.koFiDescription,
+                'https://ko-fi.com/xiannian'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.afdianTitle,
+                copy.cards.afdianDescription,
+                'https://afdian.com/a/LefShi'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.emailTitle,
+                copy.cards.emailDescription,
+                'mailto:allinobsidian@outlook.com'
+              )
+            ],
+            3
           )
         ]),
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.scope), [
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.scope), [
           createResourceModalCard([createResourceTextList(messages, copy.scope)])
         ])
       ]
@@ -860,6 +960,7 @@ function createSuggestionsResource(
   messages: Messages | null
 ): ResourceSchema<SchemaShellState, SchemaShellAppData> {
   const copy = SCHEMA_RESOURCE_COPY.suggestions;
+  const pillLabels = resolveSchemaMessageList(messages, SCHEMA_RESOURCE_PILL_COPY.suggestions);
   return {
     id: 'suggestions',
     label: resolveSchemaMessage(messages, copy.title),
@@ -874,23 +975,29 @@ function createSuggestionsResource(
       title: resolveSchemaMessage(messages, copy.title),
       description: resolveSchemaMessage(messages, copy.description),
       children: [
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.channels), [
-          createResourceLinkCard(
-            messages,
-            copy.cards.githubTitle,
-            copy.cards.githubDescription,
-            'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5B建议%5D%20'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.redditTitle,
-            copy.cards.redditDescription,
-            'https://www.reddit.com/user/sxnian/'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.xiaohongshuTitle,
-            copy.cards.xiaohongshuDescription
+        createResourcePillRow(pillLabels),
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.channels), [
+          createResourceGrid(
+            [
+              createResourceLinkCard(
+                messages,
+                copy.cards.githubTitle,
+                copy.cards.githubDescription,
+                'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5B建议%5D%20'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.redditTitle,
+                copy.cards.redditDescription,
+                'https://www.reddit.com/user/sxnian/'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.xiaohongshuTitle,
+                copy.cards.xiaohongshuDescription
+              )
+            ],
+            3
           )
         ])
       ]
@@ -902,6 +1009,7 @@ function createContactResource(
   messages: Messages | null
 ): ResourceSchema<SchemaShellState, SchemaShellAppData> {
   const copy = SCHEMA_RESOURCE_COPY.contact;
+  const pillLabels = resolveSchemaMessageList(messages, SCHEMA_RESOURCE_PILL_COPY.contact);
   return {
     id: 'contact',
     label: resolveSchemaMessage(messages, copy.title),
@@ -912,38 +1020,43 @@ function createContactResource(
       kind: 'modal',
       title: resolveSchemaMessage(messages, copy.title),
       children: [
-        createResourceModalCard([
-          {
-            kind: 'element',
-            tag: 'div',
-            html: resolveSchemaMessage(messages, copy.description)
-          }
-        ]),
-        createResourceModalSection(resolveSchemaMessage(messages, copy.sections.channels), [
-          createResourceLinkCard(
-            messages,
-            copy.cards.redditTitle,
-            copy.cards.redditDescription,
-            'https://www.reddit.com/user/sxnian/'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.githubTitle,
-            copy.cards.githubDescription,
-            'https://github.com/Lefeaker/AllinOB'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.emailTitle,
-            copy.cards.emailDescription,
-            'mailto:allinobsidian@outlook.com'
-          ),
-          createResourceLinkCard(
-            messages,
-            copy.cards.wechatTitle,
-            copy.cards.wechatDescription,
-            undefined,
-            copy.cards.wechatNote
+        createResourcePillRow(pillLabels),
+        {
+          kind: 'element',
+          tag: 'div',
+          className: 'schema-resource-note',
+          html: resolveSchemaMessage(messages, copy.description)
+        },
+        createResourceSection(resolveSchemaMessage(messages, copy.sections.channels), [
+          createResourceGrid(
+            [
+              createResourceLinkCard(
+                messages,
+                copy.cards.redditTitle,
+                copy.cards.redditDescription,
+                'https://www.reddit.com/user/sxnian/'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.githubTitle,
+                copy.cards.githubDescription,
+                'https://github.com/Lefeaker/AllinOB'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.emailTitle,
+                copy.cards.emailDescription,
+                'mailto:allinobsidian@outlook.com'
+              ),
+              createResourceLinkCard(
+                messages,
+                copy.cards.wechatTitle,
+                copy.cards.wechatDescription,
+                undefined,
+                copy.cards.wechatNote
+              )
+            ],
+            3
           )
         ])
       ]
@@ -967,17 +1080,17 @@ function createChangelogResource(
       description: resolveSchemaMessage(messages, 'versionNumber'),
       size: 'large',
       children: [
-        {
-          kind: 'card',
-          children: [
+        createResourcePillRow([resolveSchemaMessage(messages, 'versionNumber'), 'Latest']),
+        createResourceSection(resolveSchemaMessage(messages, copy.title), [
+          createResourceModalCard([
             {
               kind: 'element',
               tag: 'div',
               className: 'schema-changelog-html',
               html: getChangelogByLanguage(ctx.state.language)
             }
-          ]
-        }
+          ])
+        ])
       ]
     })
   };

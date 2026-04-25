@@ -352,6 +352,25 @@ export function mountProductionSchemaShell(
         syncActiveLinks(dependencies.container);
         scrollToPanel(panel);
       },
+      'navigation:closeResourceAndScrollToPanel': ({ args, mutate }) => {
+        const panel = (args[0] ?? 'overview') as OptionsSchemaPanelId;
+        mutate(
+          (state) => {
+            state.activeResource = null;
+            state.activePanel = panel;
+          },
+          { silent: true }
+        );
+        render({ flushWidgets: true, saveSource: 'resource' });
+        store.mutate(
+          (state) => {
+            state.activePanel = panel;
+          },
+          { silent: true }
+        );
+        syncActiveLinks(dependencies.container);
+        scrollToPanel(panel);
+      },
       'resource:open': ({ args, mutate }) => {
         const resourceId = (args[0] ?? null) as OptionsSchemaResourceId | null;
         if (!resourceId) {
