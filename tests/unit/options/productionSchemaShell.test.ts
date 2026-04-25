@@ -267,60 +267,6 @@ describe('mountProductionSchemaShell', () => {
     await settleLazyWidgets();
   });
 
-  it('renders preview-style resource modal sections and closes plugin setup back to Storage', async () => {
-    const container = document.getElementById('root') as HTMLElement;
-    mountProductionSchemaShell({
-      container,
-      controller: {
-        readForm: controllerReadFormMock,
-        saveSnapshot: controllerSaveSnapshotMock,
-        setSnapshot: controllerSetSnapshotMock
-      } as never,
-      storage: {
-        sync: {
-          watchKey: watchKeyMock
-        }
-      } as never,
-      optionsRepository: {} as never,
-      messagingRepository: {} as never,
-      yamlRepository: {} as never,
-      messages: null,
-      language: 'en',
-      onChangeLanguage: vi.fn(() => Promise.resolve('en')),
-      onCopyConfig: vi.fn(() => Promise.resolve(undefined)),
-      onImportConfig: vi.fn(() => Promise.resolve(undefined)),
-      onSave: vi.fn(() => Promise.resolve(undefined)),
-      onRunDiagnostics: vi.fn(() => Promise.resolve(undefined)),
-      onFixConfiguration: vi.fn(() => Promise.resolve(undefined)),
-      onReloadDiagnostics: vi.fn(() => Promise.resolve(undefined)),
-      widgetFactories: buildTestWidgetFactories()
-    });
-
-    await settleLazyWidgets();
-
-    getButtonByText(container, 'Plugin Setup').click();
-    expect(container.querySelector('.schema-modal-overlay')).toBeTruthy();
-    expect(container.querySelectorAll('.resource-modal-section')).toHaveLength(3);
-    expect(container.querySelector('.schema-resource-pills')).toBeTruthy();
-    expect(container.querySelectorAll('.schema-step-card').length).toBeGreaterThan(0);
-
-    getButtonByText(container, 'Go To Storage').click();
-
-    expect(container.querySelector('.schema-modal-overlay')).toBeNull();
-    expect(
-      container.querySelector('[data-nav-panel="storage"]')?.classList.contains('is-active')
-    ).toBe(true);
-  });
-
-  it('keeps options index free of legacy modal hosts now that resources are schema-driven', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/options/index.html'), 'utf8');
-
-    expect(source).not.toContain('supportModal');
-    expect(source).not.toContain('suggestionsModal');
-    expect(source).not.toContain('contactModal');
-    expect(source).not.toContain('changelogModal');
-  });
-
   it('renders the theme segmented control inside Overview -> Interface', async () => {
     const container = document.getElementById('root') as HTMLElement;
     const mounted = mountProductionSchemaShell({

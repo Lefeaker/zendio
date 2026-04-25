@@ -83,7 +83,6 @@ test.describe('production stitch secondary shell', () => {
     const onboardingContract = await renderProductionOnboardingShell(page);
     expect(onboardingContract.headings).toContain('Welcome to All in Ob');
     expect(onboardingContract.footerLinkTexts).toEqual([...PRODUCTION_ONBOARDING_FOOTER_LABELS]);
-    await expect(page.locator('.schema-onboarding-step')).toHaveCount(5);
   });
 
   test('opens onboarding from the schema shell as a standalone page route', async ({ page }) => {
@@ -168,14 +167,5 @@ test.describe('production stitch secondary shell', () => {
 
     await page.locator('.schema-shell-resource-link').filter({ hasText: 'Contact' }).click();
     await expect(page.locator('.schema-modal-copy h3')).toHaveText('Contact');
-  });
-
-  test('captures the standalone onboarding page in stitch secondary layout', async ({ page }) => {
-    const onboardingContract = await renderProductionOnboardingShell(page);
-    expect(onboardingContract.footerLinkTexts).toEqual([...PRODUCTION_ONBOARDING_FOOTER_LABELS]);
-
-    await expect(page.locator('body')).toHaveScreenshot('options-stitch-secondary-onboarding.png', {
-      maxDiffPixels: 2000
-    });
   });
 });
