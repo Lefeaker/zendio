@@ -32,30 +32,23 @@ import {
   exportAnalyticsTransferPayload,
   applyAnalyticsTransferPayload
 } from '../services/analyticsTransfer';
+import { mountOptionsShell, type MountedOptionsShell } from './optionsShell';
 import { configureOptionsActions } from './optionsActions';
+import { FormSectionRegistry } from '../components/formSections/formSectionManager';
+import { ThemeSwitcher } from '../../ui/domains/theme';
 import { configureAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
 import { configureGlobalStateManagerStorage } from '../../shared/state/globalStateManager';
 import type { StorageService } from '../../platform/interfaces/storage';
 import {
-  mountProductionSchemaShell,
-  type MountedProductionSchemaShell
-} from './productionSchemaShell';
-import { resolveRepository } from '../../shared/di/serviceRegistry';
-import { DI_TOKENS } from '../../shared/di/tokens';
-import type {
-  IOptionsRepository,
-  IMessagingRepository,
-  IYamlRepository
-} from '../../shared/repositories';
+  createOptionsModalBindings,
+  handleOptionsUrlHash,
+  prepareOptionsChangelogModal
+} from './bootstrapUi';
 
+let formSectionRegistry: FormSectionRegistry | null = null;
 let optionsController: OptionsController | null = null;
+let themeSwitcher: ThemeSwitcher | null = null;
 let diagnosticsModulePromise: Promise<typeof import('../components/diagnostics')> | null = null;
-let themeControlObserver: MutationObserver | null = null;
-
-type OptionsTheme = 'light' | 'dark';
-
-const OPTIONS_THEME_STORAGE_KEY = 'aob-theme';
-const THEME_OPTION_SELECTOR = '.schema-settings-theme-option';
 
 function loadDiagnosticsModule(): Promise<typeof import('../components/diagnostics')> {
   if (!diagnosticsModulePromise) {
@@ -64,140 +57,25 @@ function loadDiagnosticsModule(): Promise<typeof import('../components/diagnosti
   return diagnosticsModulePromise;
 }
 
-function readPreferredTheme(): OptionsTheme {
-  try {
-    const saved = localStorage.getItem(OPTIONS_THEME_STORAGE_KEY);
-    if (saved === 'dark' || saved === 'light') {
-      return saved;
-    }
-  } catch (error) {
-    console.warn('[Options] Failed to read theme preference:', error);
-  }
-
-  if (typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  return 'light';
-}
-
-function getCurrentTheme(): OptionsTheme {
-  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-}
-
-function persistTheme(theme: OptionsTheme): void {
-  try {
-    localStorage.setItem(OPTIONS_THEME_STORAGE_KEY, theme);
-  } catch (error) {
-    console.warn('[Options] Failed to persist theme preference:', error);
-  }
-}
-
-function applyDocumentTheme(
-  theme: OptionsTheme,
-  options: { animate?: boolean; persist?: boolean } = {}
-): void {
-  const html = document.documentElement;
-  if (options.animate) {
-    html.classList.add('theme-transitioning');
-    setTimeout(() => {
-      html.classList.remove('theme-transitioning');
-    }, 300);
-  }
-
-  html.setAttribute('data-theme', theme);
-  if (options.persist) {
-    persistTheme(theme);
-  }
-
-  window.dispatchEvent(
-    new CustomEvent('theme-changed', {
-      detail: { theme }
-    })
-  );
-}
-
-function syncEmbeddedThemeControl(): void {
-  const root = document.getElementById('optionsShellRoot');
-  if (!root) {
+function initializeThemeSwitcher(): void {
+  const container = document.getElementById('theme-switcher');
+  if (!container) {
+    console.warn('[Options] Theme switcher container not found');
     return;
   }
 
-  const activeTheme = getCurrentTheme();
-  const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>(THEME_OPTION_SELECTOR));
-  buttons.forEach((button, index) => {
-    const theme = index === 0 ? 'dark' : 'light';
-    const isActive = theme === activeTheme;
-    button.dataset.themeMode = theme;
-    button.classList.toggle('is-active', isActive);
-    button.classList.toggle('primary', isActive);
-    button.classList.toggle('ghost', !isActive);
-    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-}
-
-function handleEmbeddedThemeClick(event: Event): void {
-  if (!(event.target instanceof Element)) {
-    return;
+  if (themeSwitcher) {
+    themeSwitcher.destroy();
+    themeSwitcher = null;
   }
 
-  const button = event.target.closest<HTMLButtonElement>(THEME_OPTION_SELECTOR);
-  if (!button) {
-    return;
-  }
-
-  const theme = button.dataset.themeMode === 'light' ? 'light' : 'dark';
-  if (theme === getCurrentTheme()) {
-    syncEmbeddedThemeControl();
-    return;
-  }
-
-  applyDocumentTheme(theme, { animate: true, persist: true });
-  syncEmbeddedThemeControl();
-}
-
-function initializeEmbeddedThemeControl(): void {
-  const root = document.getElementById('optionsShellRoot');
-  if (!root) {
-    return;
-  }
-
-  root.addEventListener('click', handleEmbeddedThemeClick);
-  themeControlObserver?.disconnect();
-  themeControlObserver = new MutationObserver(() => {
-    syncEmbeddedThemeControl();
-  });
-  themeControlObserver.observe(root, {
-    childList: true,
-    subtree: true
-  });
-  syncEmbeddedThemeControl();
+  themeSwitcher = new ThemeSwitcher(container);
+  themeSwitcher.init();
 
   registerCleanup(() => {
-    root.removeEventListener('click', handleEmbeddedThemeClick);
-    themeControlObserver?.disconnect();
-    themeControlObserver = null;
-  });
-}
-
-function createSchemaOptionsControllerProxy(controller: OptionsController): OptionsController {
-  return new Proxy(controller, {
-    get(target, property, receiver) {
-      if (property === 'scheduleAutoSave') {
-        return (collect?: unknown) => {
-          const shell = mountedProductionShell;
-          if (shell) {
-            return target.scheduleAutoSave(() => shell.collectDraft());
-          }
-          return target.scheduleAutoSave(collect as never);
-        };
-      }
-      const value: unknown = Reflect.get(target, property, receiver);
-      if (typeof value === 'function') {
-        return (...args: unknown[]) =>
-          Reflect.apply(value as (...callArgs: unknown[]) => unknown, target, args);
-      }
-      return value;
+    if (themeSwitcher) {
+      themeSwitcher.destroy();
+      themeSwitcher = null;
     }
   });
 }
@@ -207,11 +85,19 @@ function initializeOptionsRuntime(): void {
     optionsController.dispose();
     optionsController = null;
   }
+  if (formSectionRegistry) {
+    formSectionRegistry.clear();
+    formSectionRegistry = null;
+  }
 
-  const formAdapter = createOptionsFormAdapter();
+  const registry = new FormSectionRegistry();
+  formSectionRegistry = registry;
+
+  const formAdapter = createOptionsFormAdapter(registry);
   const controller = createOptionsController({
     persistence: chromeOptionsPersistence,
     formAdapter,
+    formRegistry: registry,
     autoSaveDebounceMs: 400,
     onSaveError: (reason, error) => {
       if (reason === 'auto') {
@@ -231,13 +117,20 @@ function initializeOptionsRuntime(): void {
   });
 
   optionsController = controller;
-  registerOptionsController(createSchemaOptionsControllerProxy(controller));
+  registerOptionsController(controller);
 
   registerCleanup(() => {
     if (optionsController === controller) {
       optionsController = null;
     }
     controller.dispose();
+  });
+
+  registerCleanup(() => {
+    if (formSectionRegistry === registry) {
+      formSectionRegistry = null;
+    }
+    registry.clear();
   });
 }
 
@@ -252,7 +145,8 @@ type CleanupFn = () => void;
 const cleanupHandlers: CleanupFn[] = [];
 let declarativeI18nController: PageI18nController | null = null;
 let unloadCleanupRegistered = false;
-let mountedProductionShell: MountedProductionSchemaShell | null = null;
+let mountedShell: MountedOptionsShell | null = null;
+const PRELOAD_SECTION_IDS = ['rest', 'routing', 'templates', 'yaml'];
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
   if (!declarativeI18nController) {
     const controller = createDefaultPageI18nController();
@@ -305,7 +199,7 @@ export async function bootstrapOptionsApp(
   dependencies?: Partial<OptionsAppBootstrapDependencies>
 ): Promise<void> {
   // 二次启动时先释放上一轮注册的 shell 与清理回调，防止热刷新残留状态。
-  teardownMountedProductionShell();
+  teardownMountedShell();
   disposeCleanupHandlers();
   ensureUnloadCleanup();
   const { storage } = resolveOptionsAppBootstrapDependencies(dependencies);
@@ -313,13 +207,34 @@ export async function bootstrapOptionsApp(
   configureGlobalStateManagerStorage(storage);
   configureI18nStorage(storage.sync);
   await applyI18n();
-  applyDocumentTheme(readPreferredTheme(), { persist: false });
+
+  // ✅ Phase 3: 初始化主题切换器
+  initializeThemeSwitcher();
 
   initializeOptionsRuntime();
 
-  const currentResource = (await ensureDeclarativeI18nController()).getCurrentResource();
+  const registry = formSectionRegistry;
+  if (!registry) {
+    throw new Error('[Options] Failed to initialize FormSectionRegistry.');
+  }
+
+  const shell = await mountOptionsShell(registry);
+  mountedShell = shell;
+  registerCleanup(() => {
+    teardownMountedShell();
+  });
+  const modalBindings = createOptionsModalBindings({
+    prepareChangelogModal: () =>
+      prepareOptionsChangelogModal({
+        ensureDeclarativeI18nController
+      })
+  });
+  void shell.preloadSections(PRELOAD_SECTION_IDS).catch((error) => {
+    console.warn('[Options] Section preload failed:', error);
+  });
+
   configureOptionsActions({
-    stateManager: null,
+    stateManager: shell.stateManager,
     changeLanguage: handleLanguageChange,
     copyConfig: () => handleCopyConfig(),
     importConfig: () => handleImportConfig(),
@@ -329,42 +244,66 @@ export async function bootstrapOptionsApp(
     reloadDiagnostics: () => handleReload()
   });
 
-  const container = document.getElementById('optionsShellRoot');
-  if (!container) {
-    throw new Error('[Options] Required #optionsShellRoot container is missing.');
+  await refreshUIFromStorage();
+  await ensureInitialSectionVisible(shell);
+  await ensureAllSectionsMounted(shell);
+  shell.configureUI({ modalBindings });
+
+  // 处理 URL hash 锚点
+  handleOptionsUrlHash({
+    hash: window.location.hash,
+    mountedShell: shell,
+    revealFragmentShortcuts
+  });
+}
+
+async function ensureInitialSectionVisible(shell: MountedOptionsShell): Promise<void> {
+  const initialSection = shell.initialSection;
+  await shell.mountSection(initialSection, { activate: true });
+  const currentState = shell.stateManager.getState();
+  if (currentState.activeSection !== initialSection) {
+    await shell.navigateTo(initialSection);
+  }
+}
+
+async function ensureAllSectionsMounted(shell: MountedOptionsShell): Promise<void> {
+  await shell.mountAllSections();
+}
+
+type PrivacySectionActions = {
+  refreshSettings: () => Promise<void>;
+  saveSettings: (options?: { showInlineStatus?: boolean }) => Promise<void>;
+};
+
+type FragmentSectionActions = {
+  highlightKeyboardShortcuts: () => boolean;
+};
+
+async function getMountedShellSection<T>(sectionId: string): Promise<T | null> {
+  if (!mountedShell) {
+    return null;
   }
 
-  const controller = requireOptionsController();
-  await controller.loadInitialState();
-  const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-  const messagingRepository = resolveRepository<IMessagingRepository>(
-    DI_TOKENS.IMessagingRepository
-  );
-  const yamlRepository = resolveRepository<IYamlRepository>(DI_TOKENS.IYamlRepository);
+  await mountedShell.mountSection(sectionId, { activate: false });
+  return mountedShell.getMountedSection(sectionId) as T | null;
+}
 
-  mountedProductionShell = mountProductionSchemaShell({
-    container,
-    controller,
-    storage,
-    optionsRepository,
-    messagingRepository,
-    yamlRepository,
-    messages: currentResource?.messages ?? null,
-    language: (currentResource?.language ?? 'en') as Language,
-    onChangeLanguage: handleLanguageChange,
-    onCopyConfig: handleCopyConfig,
-    onImportConfig: handleImportConfig,
-    onSave: handleSave,
-    onRunDiagnostics: handleRunDiagnostics,
-    onFixConfiguration: handleFix,
-    onReloadDiagnostics: handleReload
-  });
-  initializeEmbeddedThemeControl();
+async function refreshMountedPrivacySection(): Promise<void> {
+  const section = await getMountedShellSection<PrivacySectionActions>('privacy');
+  await section?.refreshSettings();
+}
 
-  registerCleanup(() => {
-    mountedProductionShell?.cleanup();
-    mountedProductionShell = null;
-  });
+async function saveMountedPrivacySection(options?: { showInlineStatus?: boolean }): Promise<void> {
+  const section = await getMountedShellSection<PrivacySectionActions>('privacy');
+  await section?.saveSettings(options);
+}
+
+function revealFragmentShortcuts(): boolean {
+  const section = mountedShell?.getMountedSection('fragment') as
+    | FragmentSectionActions
+    | null
+    | undefined;
+  return section?.highlightKeyboardShortcuts() ?? false;
 }
 
 async function refreshUIFromStorage(): Promise<void> {
@@ -377,19 +316,15 @@ async function handleLanguageChange(language: Language): Promise<Language> {
   const controller = await ensureDeclarativeI18nController();
   await controller.changeLanguage(language);
   setOptionsI18nContext(controller.getBinder(), controller.getCurrentResource());
+  await refreshUIFromStorage();
+  await refreshMountedPrivacySection();
   const resource = controller.getCurrentResource();
-  const resolvedLanguage = (resource?.language ?? language) as Language;
-  if (mountedProductionShell) {
-    mountedProductionShell.setMessages(resource?.messages ?? null, resolvedLanguage);
-    mountedProductionShell.refreshOptions(requireOptionsController().readForm());
-  }
-  return resolvedLanguage;
+  return (resource?.language ?? language) as Language;
 }
 
 async function applyOptionsSnapshot(options: StoredOptions): Promise<void> {
   const controller = requireOptionsController();
-  controller.setSnapshot(options);
-  mountedProductionShell?.refreshOptions(controller.readForm());
+  await controller.applyToForm(options);
   clearTransferMessage();
 
   const migrationNotice = consumeYamlMigrationNotice();
@@ -450,24 +385,17 @@ function disposeCleanupHandlers(): void {
   unloadCleanupRegistered = false;
 }
 
-function teardownMountedProductionShell(): void {
-  if (!mountedProductionShell) {
+function teardownMountedShell(): void {
+  if (!mountedShell) {
     return;
   }
-  const shell = mountedProductionShell;
-  mountedProductionShell = null;
+  const currentShell = mountedShell;
+  mountedShell = null;
   try {
-    shell.cleanup();
+    currentShell.cleanup();
   } catch (error) {
-    console.error('[Options] 卸载 production schema shell 时出错:', error);
+    console.error('[Options] 卸载 shell 时出错:', error);
   }
-}
-
-function collectCurrentOptionsDraft(): StoredOptions {
-  if (mountedProductionShell) {
-    return mountedProductionShell.collectDraft() as StoredOptions;
-  }
-  return requireOptionsController().readForm() as StoredOptions;
 }
 
 async function handleCopyConfig(): Promise<void> {
@@ -475,7 +403,8 @@ async function handleCopyConfig(): Promise<void> {
   const msgs = await getOptionsMessages();
 
   try {
-    const options = collectCurrentOptionsDraft();
+    const controller = requireOptionsController();
+    const options = controller.readForm();
     const payload = normalizeOptionsForTransfer(options);
     const analyticsPayload = await exportAnalyticsTransferPayload();
     const transferPayload: ConfigTransferPayload = {
@@ -504,6 +433,8 @@ async function handleImportConfig(): Promise<void> {
     await applyOptionsSnapshot(normalized);
     await controller.saveSnapshot({ reason: 'import', draft: normalized });
     await applyAnalyticsTransferPayload(parsed.analytics);
+    await refreshMountedPrivacySection();
+
     showTransferMessage('success', { key: 'importSuccess', text: msgs.importSuccess });
     showStatusMessage('success', { key: 'importSuccess', text: msgs.importSuccess });
   } catch (error) {
@@ -516,7 +447,8 @@ async function handleSave(): Promise<void> {
 
   try {
     const controller = requireOptionsController();
-    await controller.saveSnapshot({ reason: 'manual', draft: collectCurrentOptionsDraft() });
+    await controller.saveSnapshot({ reason: 'manual' });
+    await saveMountedPrivacySection({ showInlineStatus: false });
     showStatusMessage('success', { key: 'saveSuccess', text: msgs.saveSuccess });
   } catch (error) {
     showStatusMessage('error', `${msgs.saveFailed}: ${formatOptionsError(error, msgs)}`);

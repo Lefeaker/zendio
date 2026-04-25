@@ -95,7 +95,7 @@ export interface ThemeSegmentedSwitchConfig<State, AppData> {
   description?: SchemaValue<string, State, AppData>;
   options: readonly ThemeSegmentedOption<State, AppData>[];
   getValue: (ctx: SchemaContext<State, AppData>) => string;
-  actionId?: string;
+  actionId: string;
 }
 
 export function createThemeSegmentedSwitch<State, AppData>(
@@ -109,7 +109,7 @@ export function createThemeSegmentedSwitch<State, AppData>(
     control: {
       kind: 'element',
       tag: 'div',
-      className: schemaClassNames.settings.themeSegmentedTrack,
+      className: schemaClassNames.settings.interfaceThemeGrid,
       children: config.options.map((option) => ({
         kind: 'button' as const,
         label: option.label,
@@ -121,14 +121,10 @@ export function createThemeSegmentedSwitch<State, AppData>(
               ? schemaClassNames.settings.themeSegmentedOptionActive
               : ''
           ),
-        ...(config.actionId
-          ? {
-              action: {
-                id: config.actionId,
-                args: [option.value]
-              }
-            }
-          : {})
+        action: {
+          id: config.actionId,
+          args: [option.value]
+        }
       }))
     }
   };

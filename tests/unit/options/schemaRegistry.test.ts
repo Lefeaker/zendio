@@ -199,7 +199,7 @@ describe('options schema registry', () => {
     const lightOption = getChild(control, 1);
 
     expect(getClassName(themeSwitch)).toBe('schema-settings-theme-segmented');
-    expect(getClassName(control)).toBe('schema-settings-theme-track');
+    expect(getClassName(control)).toBe('field-grid-2 interface-theme-grid');
     expect(getStringProperty(darkOption, 'kind')).toBe('button');
     expect(getAction(darkOption)?.id).toBe('theme:setMode');
     expect(getAction(darkOption)?.args).toEqual(['dark']);
