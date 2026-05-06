@@ -1,3 +1,6 @@
+import { findVideoControlTarget } from './videoPromptObserver';
+import { watchVideoNavigation, type VideoNavigationWatcher } from './videoNavigationWatcher';
+
 export interface VideoSessionLifecycleHandlers {
   onUrlChange(): void;
   onVideoElementChange(element: HTMLVideoElement | null): void;
@@ -6,11 +9,21 @@ export interface VideoSessionLifecycleHandlers {
 export interface VideoSessionLifecycleDependencies {
   doc: Document;
   locateVideoElement(): HTMLVideoElement | null;
+  watchNavigation?: (doc: Document, onChange: () => void) => VideoNavigationWatcher;
 }
 
+const VIDEO_ELEMENT_EVENTS = [
+  'loadedmetadata',
+  'durationchange',
+  'emptied',
+  'play',
+  'pause'
+] as const;
+
 export class VideoSessionLifecycle {
-  private urlWatcherId: number | null = null;
-  private videoPollerId: number | null = null;
+  private navigationWatcher: VideoNavigationWatcher | null = null;
+  private currentVideo: HTMLVideoElement | null = null;
+  private playerObserver: MutationObserver | null = null;
 
   constructor(
     private readonly deps: VideoSessionLifecycleDependencies,
@@ -18,42 +31,79 @@ export class VideoSessionLifecycle {
   ) {}
 
   start(): void {
-    this.startUrlWatcher();
-    this.startVideoPolling();
+    const handleNavigation = (): void => this.handlers.onUrlChange();
+    this.navigationWatcher =
+      this.deps.watchNavigation?.(this.deps.doc, handleNavigation) ??
+      watchVideoNavigation(this.deps.doc, handleNavigation);
+    const video = this.deps.locateVideoElement();
+    this.attachVideoElement(video);
+    this.handlers.onVideoElementChange(video);
+    if (!video) {
+      this.startPlayerObserver();
+    }
   }
 
   stop(): void {
-    if (this.urlWatcherId !== null) {
-      window.clearInterval(this.urlWatcherId);
-      this.urlWatcherId = null;
+    this.navigationWatcher?.stop();
+    this.navigationWatcher = null;
+    this.detachVideoElement();
+    this.playerObserver?.disconnect();
+    this.playerObserver = null;
+  }
+
+  private attachVideoElement(video: HTMLVideoElement | null): void {
+    if (this.currentVideo === video) {
+      return;
     }
-    if (this.videoPollerId !== null) {
-      window.clearInterval(this.videoPollerId);
-      this.videoPollerId = null;
+    this.detachVideoElement();
+    this.currentVideo = video;
+    for (const eventName of VIDEO_ELEMENT_EVENTS) {
+      video?.addEventListener(eventName, this.handleVideoEvent, true);
     }
   }
 
-  private startUrlWatcher(): void {
-    if (this.urlWatcherId !== null) {
+  private detachVideoElement(): void {
+    if (!this.currentVideo) {
       return;
     }
-    let lastHref = this.deps.doc.location.href;
-    this.urlWatcherId = window.setInterval(() => {
-      const currentHref = this.deps.doc.location.href;
-      if (currentHref !== lastHref) {
-        lastHref = currentHref;
-        this.handlers.onUrlChange();
+    for (const eventName of VIDEO_ELEMENT_EVENTS) {
+      this.currentVideo.removeEventListener(eventName, this.handleVideoEvent, true);
+    }
+    this.currentVideo = null;
+  }
+
+  private handleVideoEvent = (): void => {
+    const video = this.deps.locateVideoElement();
+    this.attachVideoElement(video);
+    this.handlers.onVideoElementChange(video);
+  };
+
+  private startPlayerObserver(): void {
+    if (this.playerObserver || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    const controlTarget = findVideoControlTarget(this.deps.doc, this.deps.doc.location.href);
+    const observeTarget = controlTarget?.parentElement ?? null;
+    if (!observeTarget) {
+      return;
+    }
+
+    this.playerObserver = new MutationObserver(() => {
+      const video = this.deps.locateVideoElement();
+      if (!video) {
+        return;
       }
-    }, 1000);
-  }
+      this.playerObserver?.disconnect();
+      this.playerObserver = null;
+      this.attachVideoElement(video);
+      this.handlers.onVideoElementChange(video);
+    });
 
-  private startVideoPolling(): void {
-    if (this.videoPollerId !== null) {
-      return;
+    try {
+      this.playerObserver.observe(observeTarget, { childList: true, subtree: true });
+    } catch {
+      this.playerObserver = null;
     }
-    this.videoPollerId = window.setInterval(() => {
-      const element = this.deps.locateVideoElement();
-      this.handlers.onVideoElementChange(element);
-    }, 800);
   }
 }
