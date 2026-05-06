@@ -94,6 +94,7 @@ export function createVideoSessionControllers(args: {
   const selectionCaptureController = new SelectionCaptureController({
     doc,
     pendingSelection,
+    shouldTrackSelection: () => fragmentSelectionController.shouldTrackSelection(),
     suppressSelectionCapture: () => state.suppressSelectionCapture,
     isRangeInsideUi,
     getDocumentSelection,

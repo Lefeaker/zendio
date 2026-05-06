@@ -17,7 +17,11 @@ interface FragmentSelectionDependencies {
 }
 
 interface FragmentSelectionCallbacks {
-  onSelectionAccepted(data: { selectedHtml: string; selectedText: string; range: Range | null }): void;
+  onSelectionAccepted(data: {
+    selectedHtml: string;
+    selectedText: string;
+    range: Range | null;
+  }): void;
 }
 
 export class VideoFragmentSelectionController {
@@ -43,7 +47,10 @@ export class VideoFragmentSelectionController {
       return;
     }
 
-    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState);
+    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(
+      fragmentConfig,
+      this.modifierState
+    );
   }
 
   handleKeyDown(event: KeyboardEvent): void {
@@ -60,6 +67,17 @@ export class VideoFragmentSelectionController {
     this.deps.pendingSelection.reset();
   }
 
+  shouldTrackSelection(): boolean {
+    const fragmentConfig = this.deps.getFragmentConfig();
+    if (!fragmentConfig?.selectionModifierEnabled) {
+      return false;
+    }
+    return (
+      shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState) ||
+      this.selectionModifierActive
+    );
+  }
+
   processActivatedSelection({ range, selection, event }: SelectionActivationPayload): void {
     let highlightRange: Range | null = range.cloneRange();
     const container = this.deps.doc.createElement('div');
@@ -68,12 +86,13 @@ export class VideoFragmentSelectionController {
     let selectedText = (selection?.toString() ?? highlightRange.toString()).trim();
 
     const platformAdapter = this.deps.getPlatformAdapter();
-    const platformSelection: PlatformSelectionResult | null = platformAdapter?.resolveSelection({
-      range: highlightRange,
-      selectedText,
-      selectedHtml,
-      event
-    }) ?? null;
+    const platformSelection: PlatformSelectionResult | null =
+      platformAdapter?.resolveSelection({
+        range: highlightRange,
+        selectedText,
+        selectedHtml,
+        event
+      }) ?? null;
 
     if (!platformSelection) {
       selection?.removeAllRanges();
@@ -82,7 +101,9 @@ export class VideoFragmentSelectionController {
 
     selectedText = platformSelection.text;
     selectedHtml = platformSelection.html;
-    highlightRange = platformSelection.range ? platformSelection.range.cloneRange() : highlightRange;
+    highlightRange = platformSelection.range
+      ? platformSelection.range.cloneRange()
+      : highlightRange;
 
     const fragmentConfig = this.deps.getFragmentConfig();
     if (!fragmentConfig) {
@@ -92,7 +113,8 @@ export class VideoFragmentSelectionController {
     syncModifierState(this.modifierState, event);
     const modifierRequired = fragmentConfig.selectionModifierEnabled;
     const modifiersSatisfied =
-      this.selectionModifierActive || shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState);
+      this.selectionModifierActive ||
+      shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState);
 
     if (modifierRequired && !modifiersSatisfied) {
       this.selectionModifierActive = false;

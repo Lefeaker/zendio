@@ -44,6 +44,7 @@ describe('SelectionCaptureController', () => {
     const controller = new SelectionCaptureController({
       doc: document,
       pendingSelection: pendingSelection as any,
+      shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,
@@ -115,6 +116,7 @@ describe('SelectionCaptureController', () => {
     const controller = new SelectionCaptureController({
       doc: document,
       pendingSelection: pendingSelection as any,
+      shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => true,
       getDocumentSelection: () => selection,
@@ -142,6 +144,7 @@ describe('SelectionCaptureController', () => {
     const controller = new SelectionCaptureController({
       doc: document,
       pendingSelection: pendingSelection as any,
+      shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => createSelection(document.createRange(), true).selection,

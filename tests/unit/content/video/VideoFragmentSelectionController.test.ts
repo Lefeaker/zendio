@@ -7,7 +7,11 @@ import type { PendingSelectionTracker } from '@content/video/pendingSelectionTra
 import { selection as mkSelection, asType } from '../../../utils/typeHelpers';
 import type { FragmentClipperOptions } from '@shared/types/options';
 
-function createRangeAndSelection(text = 'Selected text'): { range: Range; selection: Selection; removeAllRanges: ReturnType<typeof vi.fn> } {
+function createRangeAndSelection(text = 'Selected text'): {
+  range: Range;
+  selection: Selection;
+  removeAllRanges: ReturnType<typeof vi.fn>;
+} {
   document.body.innerHTML = `<p id="text">${text}</p>`;
   const textNode = document.getElementById('text')?.firstChild;
   if (!(textNode instanceof Text)) throw new Error('missing text node');
@@ -45,11 +49,18 @@ describe('VideoFragmentSelectionController', () => {
     const controller = new VideoFragmentSelectionController(
       {
         doc: document,
-        pendingSelection: asType<PendingSelectionTracker>({ reset: vi.fn() } as Partial<PendingSelectionTracker>),
+        pendingSelection: asType<PendingSelectionTracker>({
+          reset: vi.fn()
+        } as Partial<PendingSelectionTracker>),
         getFragmentConfig: () => createConfig(),
-        getPlatformAdapter: () => asType<VideoPlatformAdapter>({
-          resolveSelection: vi.fn(() => ({ text: 'Normalized', html: '<p>Normalized</p>', range }))
-        })
+        getPlatformAdapter: () =>
+          asType<VideoPlatformAdapter>({
+            resolveSelection: vi.fn(() => ({
+              text: 'Normalized',
+              html: '<p>Normalized</p>',
+              range
+            }))
+          })
       },
       { onSelectionAccepted }
     );
@@ -60,7 +71,9 @@ describe('VideoFragmentSelectionController', () => {
       event: new MouseEvent('mouseup', { bubbles: true, button: 0 })
     });
 
-    const acceptedCalls = onSelectionAccepted.mock.calls as Array<[ { selectedHtml: string; selectedText: string; range: Range } ]>;
+    const acceptedCalls = onSelectionAccepted.mock.calls as Array<
+      [{ selectedHtml: string; selectedText: string; range: Range }]
+    >;
     const accepted = acceptedCalls[0]?.[0];
     expect(accepted).toMatchObject({
       selectedHtml: '<p>Normalized</p>',
@@ -75,9 +88,12 @@ describe('VideoFragmentSelectionController', () => {
     const controller = new VideoFragmentSelectionController(
       {
         doc: document,
-        pendingSelection: asType<PendingSelectionTracker>({ reset: vi.fn() } as Partial<PendingSelectionTracker>),
+        pendingSelection: asType<PendingSelectionTracker>({
+          reset: vi.fn()
+        } as Partial<PendingSelectionTracker>),
         getFragmentConfig: () => createConfig(),
-        getPlatformAdapter: () => asType<VideoPlatformAdapter>({ resolveSelection: vi.fn(() => null) })
+        getPlatformAdapter: () =>
+          asType<VideoPlatformAdapter>({ resolveSelection: vi.fn(() => null) })
       },
       { onSelectionAccepted: vi.fn() }
     );
@@ -97,11 +113,22 @@ describe('VideoFragmentSelectionController', () => {
     const controller = new VideoFragmentSelectionController(
       {
         doc: document,
-        pendingSelection: asType<PendingSelectionTracker>({ reset: vi.fn() } as Partial<PendingSelectionTracker>),
-        getFragmentConfig: () => createConfig({ selectionModifierEnabled: true, selectionModifierKeys: ['shift'] as const }),
-        getPlatformAdapter: () => asType<VideoPlatformAdapter>({
-          resolveSelection: vi.fn(() => ({ text: 'Normalized', html: '<p>Normalized</p>', range }))
-        })
+        pendingSelection: asType<PendingSelectionTracker>({
+          reset: vi.fn()
+        } as Partial<PendingSelectionTracker>),
+        getFragmentConfig: () =>
+          createConfig({
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['shift'] as const
+          }),
+        getPlatformAdapter: () =>
+          asType<VideoPlatformAdapter>({
+            resolveSelection: vi.fn(() => ({
+              text: 'Normalized',
+              html: '<p>Normalized</p>',
+              range
+            }))
+          })
       },
       { onSelectionAccepted }
     );
@@ -123,13 +150,39 @@ describe('VideoFragmentSelectionController', () => {
     expect(onSelectionAccepted).toHaveBeenCalledTimes(1);
   });
 
+  it('reports selection tracking only while configured modifiers are active', () => {
+    const controller = new VideoFragmentSelectionController(
+      {
+        doc: document,
+        pendingSelection: asType<PendingSelectionTracker>({
+          reset: vi.fn()
+        } as Partial<PendingSelectionTracker>),
+        getFragmentConfig: () =>
+          createConfig({
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['shift'] as const
+          }),
+        getPlatformAdapter: () => null
+      },
+      { onSelectionAccepted: vi.fn() }
+    );
+
+    expect(controller.shouldTrackSelection()).toBe(false);
+    controller.handleKeyDown(new KeyboardEvent('keydown', { shiftKey: true }));
+    expect(controller.shouldTrackSelection()).toBe(true);
+  });
+
   it('resets modifier state and pending selection on window blur', () => {
     const pendingSelection = { reset: vi.fn() };
     const controller = new VideoFragmentSelectionController(
       {
         doc: document,
         pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
-        getFragmentConfig: () => createConfig({ selectionModifierEnabled: true, selectionModifierKeys: ['ctrl'] as const }),
+        getFragmentConfig: () =>
+          createConfig({
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['ctrl'] as const
+          }),
         getPlatformAdapter: () => null
       },
       { onSelectionAccepted: vi.fn() }
