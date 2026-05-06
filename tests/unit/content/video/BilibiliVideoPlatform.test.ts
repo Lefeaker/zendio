@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
 import {
+  isBilibiliCommentRegionNode,
+  isBilibiliDanmakuNode
+} from '@content/video/platforms/bilibiliPlatformObserver';
+import {
   flattenBilibiliContentNode,
   parseBilibiliDataContent,
   resolveBilibiliRichTextContainer,
@@ -593,6 +597,36 @@ describe('BilibiliVideoPlatform', () => {
     expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
     platform.dispose();
     vi.advanceTimersByTime(400);
+    expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
+  });
+
+  it('ignores Bilibili danmaku nodes for fragment observation', () => {
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(context);
+    const observer = {} as MutationObserver;
+    const danmaku = document.createElement('div');
+    danmaku.className = 'bpx-player-render-dm-wrap';
+    danmaku.innerHTML = '<span class="bili-danmaku-x-dm">dm</span>';
+    document.body.appendChild(danmaku);
+
+    platform.observeDomChanges(observer);
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: [danmaku],
+        removedNodes: [],
+        target: document.body,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+
+    expect(isBilibiliDanmakuNode(danmaku.querySelector('.bili-danmaku-x-dm'))).toBe(true);
+    expect(isBilibiliCommentRegionNode(danmaku)).toBe(false);
+    expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
     expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
   });
 

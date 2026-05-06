@@ -31,6 +31,17 @@ const BILIBILI_COMMENT_REGION_SELECTOR = [
   '#comment-app'
 ].join(',');
 
+const BILIBILI_DANMAKU_SELECTOR = [
+  '.bpx-player-render-dm-wrap',
+  '.bpx-player-dm-mask-wrap',
+  '.bpx-player-adv-dm-wrap',
+  '.bpx-player-row-dm-wrap',
+  '.bpx-player-bas-dm-wrap',
+  '.bpx-player-cmd-dm-wrap',
+  '.bili-danmaku-x-dm',
+  '.bili-danmaku-x-dm-vip'
+].join(',');
+
 export class BilibiliShadowObserver {
   private fragmentObserver: MutationObserver | null = null;
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
@@ -41,13 +52,15 @@ export class BilibiliShadowObserver {
     private readonly document: Document,
     private readonly context: Pick<
       VideoPlatformContext,
-      'ensureHighlightStyles' | 'registerShadowSelectionBridge' | 'observeWithFragmentObserver' | 'scheduleFragmentHighlightRestore'
+      | 'ensureHighlightStyles'
+      | 'registerShadowSelectionBridge'
+      | 'observeWithFragmentObserver'
+      | 'scheduleFragmentHighlightRestore'
     >
   ) {}
 
   observeDomChanges(observer: MutationObserver): void {
     this.fragmentObserver = observer;
-    this.observeShadowRoots();
   }
 
   ensureObservedRoots(): void {
@@ -67,6 +80,9 @@ export class BilibiliShadowObserver {
       shouldRefresh = true;
       mutation.addedNodes.forEach((node) => {
         if (!(node instanceof Element)) {
+          return;
+        }
+        if (isBilibiliDanmakuNode(node)) {
           return;
         }
         if (isPotentialCommentHost(node)) {
@@ -109,6 +125,9 @@ export class BilibiliShadowObserver {
 
   private ensureShadowHostObservation(host: Element): void {
     if (!(host instanceof HTMLElement)) {
+      return;
+    }
+    if (isBilibiliDanmakuNode(host)) {
       return;
     }
     if (!isWithinCommentRegion(host)) {
@@ -170,8 +189,29 @@ export class BilibiliShadowObserver {
   }
 }
 
-function isWithinCommentRegion(element: Element): boolean {
-  if (!element.isConnected) {
+export function isBilibiliDanmakuNode(node: Node | null): boolean {
+  const element =
+    node instanceof Element
+      ? node
+      : node?.parentElement instanceof Element
+        ? node.parentElement
+        : null;
+  if (!element) {
+    return false;
+  }
+  return Boolean(
+    element.matches(BILIBILI_DANMAKU_SELECTOR) || element.closest(BILIBILI_DANMAKU_SELECTOR)
+  );
+}
+
+export function isBilibiliCommentRegionNode(node: Node | null): boolean {
+  const element =
+    node instanceof Element
+      ? node
+      : node?.parentElement instanceof Element
+        ? node.parentElement
+        : null;
+  if (!element || !element.isConnected) {
     return false;
   }
   if (element.matches(BILIBILI_COMMENT_REGION_SELECTOR)) {
@@ -180,7 +220,17 @@ function isWithinCommentRegion(element: Element): boolean {
   return Boolean(element.closest(BILIBILI_COMMENT_REGION_SELECTOR));
 }
 
+function isWithinCommentRegion(element: Element): boolean {
+  if (!element.isConnected) {
+    return false;
+  }
+  return isBilibiliCommentRegionNode(element);
+}
+
 function isPotentialCommentHost(element: Element): boolean {
+  if (isBilibiliDanmakuNode(element)) {
+    return false;
+  }
   const tagName = element.tagName?.toLowerCase() ?? '';
   if (tagName.startsWith('bili-comment') || tagName.includes('rich-text')) {
     return true;

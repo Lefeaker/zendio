@@ -143,7 +143,7 @@ export function ingestVideoSessionTextCapture(
   }
 
   context.state.captures.push(capture);
-  context.fragmentHighlightCoordinator.start();
+  context.fragmentHighlightCoordinator.ensureStartedForFragments();
   context.fragmentHighlightCoordinator.scheduleRestore();
   context.syncPanel();
   focusVideoSessionCapture(context, capture.id);
