@@ -3,7 +3,11 @@ import type { VideoSessionViewFactory } from './application/videoSessionView';
 import { VideoPanelPresenter } from './videoPanelPresenter';
 import type { VideoHintState } from './videoHintManager';
 import { VideoHintManager } from './videoHintManager';
-import { buildVideoHintContext, partitionVideoPanelCaptures, type VideoSessionState } from './sessionState';
+import {
+  buildVideoHintContext,
+  partitionVideoPanelCaptures,
+  type VideoSessionState
+} from './sessionState';
 import type { VideoFragmentCapture } from './types';
 
 export interface VideoSessionDomListenerHandlers {
@@ -44,12 +48,20 @@ export class VideoSessionDomController {
       }
       await new Promise<void>((resolve) => {
         const view = this.doc.defaultView ?? window;
-        const interval = view.setInterval(() => {
+        let attempts = 0;
+        const waitForBody = (): void => {
           if (this.doc.body) {
-            view.clearInterval(interval);
             resolve();
+            return;
           }
-        }, 16);
+          attempts += 1;
+          if (attempts >= 250) {
+            resolve();
+            return;
+          }
+          view.setTimeout(waitForBody, 16);
+        };
+        waitForBody();
       });
       return;
     }
@@ -98,7 +110,10 @@ export class VideoSessionDomController {
     return this.panelPresenter.render(groups);
   }
 
-  applyHint(state: VideoHintState, sessionState: Pick<VideoSessionState, 'videoElement' | 'captures'>): void {
+  applyHint(
+    state: VideoHintState,
+    sessionState: Pick<VideoSessionState, 'videoElement' | 'captures'>
+  ): void {
     const { hint } = this.hintManager.apply(state, buildVideoHintContext(sessionState));
     this.panel?.updateHint(hint);
   }
