@@ -366,6 +366,33 @@ describe('video prompt', () => {
     expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start interval polling during prompt initialization', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
+  it('ignores danmaku-only observer callbacks without remounting the prompt', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+    const initialMounts = createPromptElementMock.mock.calls.length;
+
+    observerCallbacks.forEach((callback) => callback());
+    await flushMicrotasks();
+
+    expect(createPromptElementMock).toHaveBeenCalledTimes(initialMounts);
+  });
+
   it('applies config updates and removes prompt when disabled', async () => {
     const module: VideoPromptTestModule = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
