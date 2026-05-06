@@ -6,12 +6,13 @@ import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { DEFAULT_OPTIONS } from '../../shared/config';
 import type { VideoPromptDependencies } from './videoPromptDependencies';
 import {
-  observeVideoElements,
-  disconnectVideoObserver,
+  findVideoControlTarget,
+  observeVideoControlTarget,
   matchesSupportedVideoHost,
   hasPlayableVideo,
   isValidVideoPlayPage
 } from './videoPromptObserver';
+import { ensureVideoControlBarButton, removeVideoControlBarButton } from './videoControlBarButton';
 import {
   clamp,
   computeTentativePosition,
@@ -85,7 +86,7 @@ let stopLanguageWatcher: (() => void) | null = null;
 const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
-let urlPollTimer: number | null = null;
+let stopControlTargetObserver: (() => void) | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
@@ -148,23 +149,6 @@ function handleWindowResize(): void {
   }
   adjustLayoutForResize(layoutState, promptElement);
   updateDebugPosition();
-}
-
-function ensureUrlPollTimer(): void {
-  if (urlPollTimer !== null) {
-    return;
-  }
-  urlPollTimer = window.setInterval(() => {
-    evaluatePrompt();
-  }, 1200);
-}
-
-function clearUrlPollTimer(): void {
-  if (urlPollTimer === null) {
-    return;
-  }
-  window.clearInterval(urlPollTimer);
-  urlPollTimer = null;
 }
 
 function updateDebugPosition(): void {
@@ -232,6 +216,53 @@ function removePrompt(): void {
   }
 }
 
+function clearControlTargetObserver(): void {
+  stopControlTargetObserver?.();
+  stopControlTargetObserver = null;
+}
+
+function syncVideoControlBarButton(): void {
+  ensureVideoControlBarButton({
+    doc: document,
+    url: window.location.href,
+    label: promptButtonLabel,
+    shortcut: promptShortcut,
+    getIconUrl: () => {
+      try {
+        return getRuntimeService().getURL('icons/bannerlogo-48.png');
+      } catch {
+        return null;
+      }
+    },
+    onPrimaryAction: () => {
+      promptSuppressed = true;
+      removePrompt();
+      void startVideoSession();
+    }
+  });
+}
+
+function ensureControlTargetObserver(): void {
+  if (findVideoControlTarget(document, window.location.href)) {
+    clearControlTargetObserver();
+    syncVideoControlBarButton();
+    return;
+  }
+  if (stopControlTargetObserver) {
+    return;
+  }
+
+  stopControlTargetObserver = observeVideoControlTarget({
+    doc: document,
+    url: window.location.href,
+    onTarget: () => {
+      stopControlTargetObserver = null;
+      syncVideoControlBarButton();
+      evaluatePrompt(true);
+    }
+  });
+}
+
 async function refreshSettings(): Promise<void> {
   try {
     const config = await getVideoRepository().getVideoConfig();
@@ -261,6 +292,7 @@ function evaluatePrompt(force = false): void {
 
   // 更严格的视频页面检测：只在特定的视频播放页面显示
   const isValidVideoPage = isValidVideoPlayPage(currentUrl, identity);
+  const controlTarget = isValidVideoPage ? findVideoControlTarget(document, currentUrl) : null;
 
   const shouldShow =
     promptEnabled &&
@@ -289,6 +321,19 @@ function evaluatePrompt(force = false): void {
     elementLeft: promptElement ? promptElement.getBoundingClientRect().left : null
   };
   updateDebugPosition();
+
+  if (!isValidVideoPage) {
+    clearControlTargetObserver();
+    removeVideoControlBarButton(document);
+  } else if (controlTarget) {
+    clearControlTargetObserver();
+    syncVideoControlBarButton();
+    removePrompt();
+    return;
+  } else if (promptEnabled && !promptSuppressed) {
+    removeVideoControlBarButton(document);
+    ensureControlTargetObserver();
+  }
 
   if (!shouldShow) {
     removePrompt();
@@ -487,10 +532,8 @@ function handlePageShow(): void {
   }
   setupVideoConfigListener();
   setupLanguageListener();
-  observeVideoElements(() => evaluatePrompt());
   void refreshSettings();
   void loadPromptPosition();
-  ensureUrlPollTimer();
   evaluatePrompt(true);
 }
 
@@ -510,8 +553,8 @@ function teardownPromptWatchers(): void {
   stopSettingsWatcher = null;
   stopLanguageWatcher?.();
   stopLanguageWatcher = null;
-  clearUrlPollTimer();
-  disconnectVideoObserver();
+  clearControlTargetObserver();
+  removeVideoControlBarButton(document);
 }
 
 export async function initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void> {
@@ -532,8 +575,6 @@ export async function initVideoPrompt(dependencies?: VideoPromptDependencies): P
   await loadPromptPosition();
   setupVideoConfigListener();
   setupLanguageListener();
-  observeVideoElements(() => evaluatePrompt());
-  ensureUrlPollTimer();
   ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
     window.addEventListener('resize', handleWindowResize, { passive: true });

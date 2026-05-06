@@ -64,7 +64,7 @@ describe('videoPromptObserver scoped control targets', () => {
     controls.className = 'bpx-player-control-bottom-right';
     document.body.appendChild(controls);
     observer.callback(
-      [{ addedNodes: [controls], type: 'childList' } as MutationRecord],
+      [{ addedNodes: [controls], type: 'childList' } as unknown as MutationRecord],
       observer as unknown as MutationObserver
     );
 

@@ -2,35 +2,125 @@ import type { VideoIdentity } from './utils';
 
 const SUPPORTED_VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'bilibili.com'] as const;
 
-let videoObserver: MutationObserver | null = null;
+export const YOUTUBE_CONTROL_TARGET_SELECTORS = ['.ytp-right-controls'] as const;
+export const BILIBILI_CONTROL_TARGET_SELECTORS = [
+  '.bpx-player-control-bottom-right',
+  '.bilibili-player-video-control-bottom-right',
+  '.squirtle-controller-right'
+] as const;
+
+const IGNORED_DYNAMIC_REGION_SELECTOR = [
+  '.bpx-player-render-dm-wrap',
+  '.bpx-player-dm-mask-wrap',
+  '.bpx-player-adv-dm-wrap',
+  '.bpx-player-row-dm-wrap',
+  '.bpx-player-bas-dm-wrap',
+  '.bpx-player-cmd-dm-wrap',
+  '.bili-danmaku-x-dm',
+  '.bili-danmaku-x-dm-vip'
+].join(',');
+
+export interface VideoControlTargetObserverOptions {
+  doc: Document;
+  url: string;
+  onTarget(target: Element): void;
+}
+
+function selectControlTarget(doc: Document, selectors: readonly string[]): Element | null {
+  for (const selector of selectors) {
+    const target = doc.querySelector(selector);
+    if (target) {
+      return target;
+    }
+  }
+  return null;
+}
 
 /**
- * 监听 DOM 变化以便重新评估浮层是否需要挂载。
+ * Finds the supported player control target that can host the AiiinOB entry button.
  */
-export function observeVideoElements(onMutation: () => void): void {
-  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
-    return;
+export function findVideoControlTarget(doc: Document, url: string): Element | null {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return selectControlTarget(doc, YOUTUBE_CONTROL_TARGET_SELECTORS);
+    }
+    if (hostname.includes('bilibili.com')) {
+      return selectControlTarget(doc, BILIBILI_CONTROL_TARGET_SELECTORS);
+    }
+  } catch {
+    return null;
   }
-  if (videoObserver) {
-    return;
+  return null;
+}
+
+export function isIgnoredVideoMutationNode(node: Node | null): boolean {
+  const element =
+    node instanceof Element
+      ? node
+      : node?.parentElement instanceof Element
+        ? node.parentElement
+        : null;
+  if (!element) {
+    return false;
+  }
+  return Boolean(
+    element.matches(IGNORED_DYNAMIC_REGION_SELECTOR) ||
+      element.closest(IGNORED_DYNAMIC_REGION_SELECTOR)
+  );
+}
+
+export function observeVideoControlTarget(options: VideoControlTargetObserverOptions): () => void {
+  if (typeof MutationObserver === 'undefined') {
+    return () => undefined;
   }
 
-  videoObserver = new MutationObserver((mutations) => {
-    if (mutations.some((mutation) => mutation.addedNodes.length > 0)) {
-      onMutation();
+  const existingTarget = findVideoControlTarget(options.doc, options.url);
+  if (existingTarget) {
+    options.onTarget(existingTarget);
+    return () => undefined;
+  }
+
+  let observer: MutationObserver | null = null;
+  let stopped = false;
+
+  const disconnect = (): void => {
+    stopped = true;
+    observer?.disconnect();
+    observer = null;
+  };
+
+  observer = new MutationObserver((mutations) => {
+    if (stopped) {
+      return;
     }
+
+    const hasRelevantAddition = mutations.some((mutation) =>
+      Array.from(mutation.addedNodes).some((node) => !isIgnoredVideoMutationNode(node))
+    );
+    if (!hasRelevantAddition) {
+      return;
+    }
+
+    const target = findVideoControlTarget(options.doc, options.url);
+    if (!target) {
+      return;
+    }
+
+    options.onTarget(target);
+    disconnect();
   });
 
   try {
-    videoObserver.observe(document.documentElement ?? document, { childList: true, subtree: true });
+    observer.observe(options.doc.body ?? options.doc.documentElement, {
+      childList: true,
+      subtree: true
+    });
   } catch {
-    videoObserver = null;
+    disconnect();
   }
-}
 
-export function disconnectVideoObserver(): void {
-  videoObserver?.disconnect();
-  videoObserver = null;
+  return disconnect;
 }
 
 export function matchesSupportedVideoHost(url: string): boolean {
