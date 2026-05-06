@@ -24,6 +24,7 @@ import {
   type PromptSide
 } from './videoPromptPosition';
 import { createPromptElement, attachDragHandlers, updatePromptLabels } from './videoPromptRenderer';
+import { watchVideoNavigation, type VideoNavigationWatcher } from './videoNavigationWatcher';
 import {
   createPromptLayoutState,
   setLayoutState,
@@ -87,6 +88,7 @@ const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
 let stopControlTargetObserver: (() => void) | null = null;
+let navigationWatcher: VideoNavigationWatcher | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
@@ -261,6 +263,16 @@ function ensureControlTargetObserver(): void {
       evaluatePrompt(true);
     }
   });
+}
+
+function refreshForNavigationChange(): void {
+  promptSuppressed = false;
+  evaluatePrompt(true);
+}
+
+function setupNavigationWatcher(): void {
+  navigationWatcher?.stop();
+  navigationWatcher = watchVideoNavigation(document, refreshForNavigationChange);
 }
 
 async function refreshSettings(): Promise<void> {
@@ -517,10 +529,6 @@ function setupLanguageListener(): void {
   });
 }
 
-function handleVisibilityChange(): void {
-  evaluatePrompt();
-}
-
 function handlePageHide(): void {
   teardownPromptWatchers();
   removePrompt();
@@ -532,6 +540,7 @@ function handlePageShow(): void {
   }
   setupVideoConfigListener();
   setupLanguageListener();
+  setupNavigationWatcher();
   void refreshSettings();
   void loadPromptPosition();
   evaluatePrompt(true);
@@ -542,7 +551,6 @@ function ensureLifecycleListeners(): void {
     return;
   }
 
-  document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
   window.addEventListener('pagehide', handlePageHide, { passive: true });
   window.addEventListener('pageshow', handlePageShow, { passive: true });
   lifecycleListenersRegistered = true;
@@ -553,6 +561,8 @@ function teardownPromptWatchers(): void {
   stopSettingsWatcher = null;
   stopLanguageWatcher?.();
   stopLanguageWatcher = null;
+  navigationWatcher?.stop();
+  navigationWatcher = null;
   clearControlTargetObserver();
   removeVideoControlBarButton(document);
 }
@@ -575,6 +585,7 @@ export async function initVideoPrompt(dependencies?: VideoPromptDependencies): P
   await loadPromptPosition();
   setupVideoConfigListener();
   setupLanguageListener();
+  setupNavigationWatcher();
   ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
     window.addEventListener('resize', handleWindowResize, { passive: true });

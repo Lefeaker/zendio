@@ -488,6 +488,22 @@ describe('video prompt', () => {
     expect(matchesSupportedVideoHostMock.mock.calls.length).toBeGreaterThan(initialCalls);
   });
 
+  it('re-evaluates on YouTube navigation finish events', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+    const initialCalls = isValidVideoPlayPageMock.mock.calls.length;
+
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+    await flushMicrotasks();
+
+    expect(isValidVideoPlayPageMock.mock.calls.length).toBeGreaterThan(initialCalls);
+  });
+
   it('replays panel bridge styles after async load on first prompt mount', async () => {
     const clipperDeferred = createDeferred<string>();
     const videoDeferred = createDeferred<string>();
