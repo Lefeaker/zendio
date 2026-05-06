@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SelectionCaptureController } from '@content/video/selectionCaptureController';
+import type { PendingSelectionTracker } from '@content/video/pendingSelectionTracker';
 import { selection as mkSelection } from '../../../utils/typeHelpers';
 
 function createSelection(
@@ -43,7 +44,7 @@ describe('SelectionCaptureController', () => {
     const onSelectionActivated = vi.fn();
     const controller = new SelectionCaptureController({
       doc: document,
-      pendingSelection: pendingSelection as any,
+      pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
@@ -81,7 +82,7 @@ describe('SelectionCaptureController', () => {
     const onSelectionActivated = vi.fn();
     const controller = new SelectionCaptureController({
       doc: document,
-      pendingSelection: pendingSelection as any,
+      pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => false,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
@@ -115,7 +116,7 @@ describe('SelectionCaptureController', () => {
 
     const controller = new SelectionCaptureController({
       doc: document,
-      pendingSelection: pendingSelection as any,
+      pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => true,
@@ -143,7 +144,7 @@ describe('SelectionCaptureController', () => {
     };
     const controller = new SelectionCaptureController({
       doc: document,
-      pendingSelection: pendingSelection as any,
+      pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,

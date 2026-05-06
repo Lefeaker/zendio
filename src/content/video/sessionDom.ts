@@ -11,10 +11,10 @@ import {
 import type { VideoFragmentCapture } from './types';
 
 export interface VideoSessionDomListenerHandlers {
-  onMouseDown(event: MouseEvent): void;
-  onKeyDown(event: KeyboardEvent): void;
-  onKeyUp(event: KeyboardEvent): void;
-  onWindowBlur(): void;
+  onMouseDown: (event: MouseEvent) => void;
+  onKeyDown: (event: KeyboardEvent) => void;
+  onKeyUp: (event: KeyboardEvent) => void;
+  onWindowBlur: () => void;
 }
 
 export class VideoSessionDomController {

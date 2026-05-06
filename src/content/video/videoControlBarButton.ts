@@ -56,7 +56,7 @@ function ensureStyle(doc: Document): void {
   (doc.head ?? doc.documentElement).appendChild(style);
 }
 
-function createButton(doc: Document): HTMLButtonElement {
+function createControlBarButton(doc: Document): HTMLButtonElement {
   const button = doc.createElement('button');
   button.type = 'button';
   button.className = CONTROL_BUTTON_CLASS;
@@ -113,7 +113,7 @@ export function ensureVideoControlBarButton(options: VideoControlBarButtonOption
     button = null;
   }
   if (!button) {
-    button = createButton(options.doc);
+    button = createControlBarButton(options.doc);
     target.insertBefore(button, target.firstChild);
   }
 
