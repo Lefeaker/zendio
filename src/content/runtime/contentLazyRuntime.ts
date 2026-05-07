@@ -21,6 +21,58 @@ interface LazyRuntimeDependencies {
   runtime: RuntimeService;
 }
 
+type VideoPromptRuntimeModule = typeof import('../video/videoLazyRuntime');
+type LoadVideoPromptRuntime = () => Promise<
+  Pick<VideoPromptRuntimeModule, 'initializeVideoPromptRuntime'>
+>;
+
+const VIDEO_PROMPT_HOST_PATTERNS = [
+  /(^|\.)youtube\.com$/i,
+  /^youtu\.be$/i,
+  /(^|\.)bilibili\.com$/i
+] as const;
+
+export function isVideoPromptCandidateUrl(href: string): boolean {
+  try {
+    const url = new URL(href);
+    if (!VIDEO_PROMPT_HOST_PATTERNS.some((pattern) => pattern.test(url.hostname))) {
+      return false;
+    }
+    if (url.hostname === 'youtu.be') {
+      return url.pathname.length > 1;
+    }
+    if (/(^|\.)youtube\.com$/i.test(url.hostname)) {
+      return url.pathname === '/watch' || url.pathname.startsWith('/shorts/');
+    }
+    if (/(^|\.)bilibili\.com$/i.test(url.hostname)) {
+      return url.pathname.startsWith('/video/') || url.pathname.startsWith('/bangumi/play/');
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function createVideoPromptOnDemandInitializer(loadRuntime: LoadVideoPromptRuntime) {
+  return async (
+    dependencies: Pick<LazyRuntimeDependencies, 'optionsRepository' | 'storage' | 'runtime'>,
+    href: string
+  ): Promise<void> => {
+    if (!isVideoPromptCandidateUrl(href)) {
+      return;
+    }
+    const { initializeVideoPromptRuntime } = await loadRuntime();
+    await initializeVideoPromptRuntime(
+      {
+        optionsRepository: dependencies.optionsRepository,
+        storage: dependencies.storage,
+        runtime: dependencies.runtime
+      },
+      href
+    );
+  };
+}
+
 export function createLazySupportPrompt(document: Document): SupportPromptLike {
   let promptPromise: Promise<SupportPromptLike> | null = null;
 
@@ -127,20 +179,9 @@ export function createLazyVideoSessionFactory(
   };
 }
 
-export async function initializeVideoPromptOnDemand(
-  dependencies: Pick<LazyRuntimeDependencies, 'optionsRepository' | 'storage' | 'runtime'>,
-  href: string
-): Promise<void> {
-  const { initializeVideoPromptRuntime } = await import('../video/videoLazyRuntime');
-  await initializeVideoPromptRuntime(
-    {
-      optionsRepository: dependencies.optionsRepository,
-      storage: dependencies.storage,
-      runtime: dependencies.runtime
-    },
-    href
-  );
-}
+export const initializeVideoPromptOnDemand = createVideoPromptOnDemandInitializer(
+  () => import('../video/videoLazyRuntime')
+);
 
 export function createLazyExtractorRegistry(
   optionsRepository: IOptionsRepository
