@@ -2,10 +2,7 @@ import { ensureContentI18n } from '../i18n/context';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { VideoSessionState } from './sessionState';
 import type { VideoSessionDependencies } from './sessionTypes';
-import type {
-  VideoSessionDomController,
-  VideoSessionDomListenerHandlers
-} from './sessionDom';
+import type { VideoSessionDomController, VideoSessionDomListenerHandlers } from './sessionDom';
 import type { VideoSessionMessages } from './sessionMessages';
 import type { VideoSessionLifecycle } from './sessionLifecycle';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
@@ -42,10 +39,11 @@ export async function initializeVideoSessionEnvironment(args: {
   args.state.stopLanguageWatcher = watchVideoSessionLanguage(args.dependencies.storage, () => {
     void refreshVideoSessionMessages(args.updateMessages, args.updatePanelTexts, args.refreshHint);
   });
-  args.state.fragmentConfig = await loadVideoSessionFragmentConfig(args.dependencies.optionsRepository);
+  args.state.fragmentConfig = await loadVideoSessionFragmentConfig(
+    args.dependencies.optionsRepository
+  );
   args.dom.registerInteractionHandlers(args.interactionHandlers);
   args.selectionCaptureController.start();
-  args.fragmentHighlightCoordinator.start();
 }
 
 export async function finalizeVideoSessionStart(args: {
@@ -76,9 +74,11 @@ export async function finalizeVideoSessionStart(args: {
 
   args.lifecycle.start();
 
-  watchVideoSessionHighlightTheme(args.operationContext, (theme) => args.applyHighlightTheme(theme));
+  watchVideoSessionHighlightTheme(args.operationContext, (theme) =>
+    args.applyHighlightTheme(theme)
+  );
 
-  args.fragmentHighlightCoordinator.start();
+  args.fragmentHighlightCoordinator.ensureStartedForFragments();
   if (args.state.captures.some((capture) => capture.kind === 'fragment')) {
     args.fragmentHighlightCoordinator.scheduleRestore();
   }

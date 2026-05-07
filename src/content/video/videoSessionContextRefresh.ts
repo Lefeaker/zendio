@@ -43,7 +43,7 @@ export async function refreshVideoSessionContext(args: {
   const result = await args.platformController.refreshContext();
   args.applyHint(result.hintState);
   args.syncPanel();
-  args.fragmentHighlightCoordinator.start();
+  args.fragmentHighlightCoordinator.ensureStartedForFragments();
   if (result.shouldScheduleFragmentRestore) {
     args.fragmentHighlightCoordinator.scheduleRestore();
   }

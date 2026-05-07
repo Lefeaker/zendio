@@ -6,12 +6,14 @@ import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { DEFAULT_OPTIONS } from '../../shared/config';
 import type { VideoPromptDependencies } from './videoPromptDependencies';
 import {
-  observeVideoElements,
-  disconnectVideoObserver,
+  findVideoControlTarget,
+  findVideoControlObserverRoot,
+  observeVideoControlTarget,
   matchesSupportedVideoHost,
   hasPlayableVideo,
   isValidVideoPlayPage
 } from './videoPromptObserver';
+import { ensureVideoControlBarButton, removeVideoControlBarButton } from './videoControlBarButton';
 import {
   clamp,
   computeTentativePosition,
@@ -23,6 +25,7 @@ import {
   type PromptSide
 } from './videoPromptPosition';
 import { createPromptElement, attachDragHandlers, updatePromptLabels } from './videoPromptRenderer';
+import { watchVideoNavigation, type VideoNavigationWatcher } from './videoNavigationWatcher';
 import {
   createPromptLayoutState,
   setLayoutState,
@@ -40,9 +43,12 @@ import {
   isVideoSessionActive
 } from '../runtime/contentSessionRegistry';
 
+declare const __DEV__: boolean;
+
 const PROMPT_ID = 'aiob-video-floating-prompt';
 const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
 const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
+const CONTROL_TARGET_RETRY_DELAYS_MS = [100, 250, 500, 1000] as const;
 
 let videoPromptDependencies: VideoPromptDependencies | null = null;
 
@@ -85,7 +91,10 @@ let stopLanguageWatcher: (() => void) | null = null;
 const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
-let urlPollTimer: number | null = null;
+let stopControlTargetObserver: (() => void) | null = null;
+let controlTargetRetryHandle: number | null = null;
+let controlTargetRetryIndex = 0;
+let navigationWatcher: VideoNavigationWatcher | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
@@ -108,7 +117,28 @@ type VideoPromptDebugState = {
   elementLeft: number | null;
 };
 
+type VideoPromptDebugCounters = {
+  evaluateCount: number;
+  controlButtonSyncCount: number;
+  floatingPromptMountCount: number;
+};
+
 let promptDebugState: VideoPromptDebugState | null = null;
+const promptDebugCounters: VideoPromptDebugCounters = {
+  evaluateCount: 0,
+  controlButtonSyncCount: 0,
+  floatingPromptMountCount: 0
+};
+
+function getPromptDebugCountersSnapshot(): VideoPromptDebugCounters {
+  return { ...promptDebugCounters };
+}
+
+function resetPromptDebugCounters(): void {
+  promptDebugCounters.evaluateCount = 0;
+  promptDebugCounters.controlButtonSyncCount = 0;
+  promptDebugCounters.floatingPromptMountCount = 0;
+}
 
 function setPromptStateForTests(
   state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>
@@ -148,23 +178,6 @@ function handleWindowResize(): void {
   }
   adjustLayoutForResize(layoutState, promptElement);
   updateDebugPosition();
-}
-
-function ensureUrlPollTimer(): void {
-  if (urlPollTimer !== null) {
-    return;
-  }
-  urlPollTimer = window.setInterval(() => {
-    evaluatePrompt();
-  }, 1200);
-}
-
-function clearUrlPollTimer(): void {
-  if (urlPollTimer === null) {
-    return;
-  }
-  window.clearInterval(urlPollTimer);
-  urlPollTimer = null;
 }
 
 function updateDebugPosition(): void {
@@ -232,6 +245,101 @@ function removePrompt(): void {
   }
 }
 
+function clearControlTargetObserver(): void {
+  stopControlTargetObserver?.();
+  stopControlTargetObserver = null;
+}
+
+function clearControlTargetRetry(): void {
+  if (controlTargetRetryHandle !== null) {
+    window.clearTimeout(controlTargetRetryHandle);
+    controlTargetRetryHandle = null;
+  }
+  controlTargetRetryIndex = 0;
+}
+
+function scheduleControlTargetRetry(): void {
+  if (controlTargetRetryHandle !== null) {
+    return;
+  }
+
+  const delay = CONTROL_TARGET_RETRY_DELAYS_MS[controlTargetRetryIndex];
+  if (delay === undefined) {
+    return;
+  }
+
+  controlTargetRetryIndex += 1;
+  controlTargetRetryHandle = window.setTimeout(() => {
+    controlTargetRetryHandle = null;
+    ensureControlTargetObserver();
+  }, delay);
+}
+
+function syncVideoControlBarButton(): void {
+  promptDebugCounters.controlButtonSyncCount += 1;
+  ensureVideoControlBarButton({
+    doc: document,
+    url: window.location.href,
+    label: promptButtonLabel,
+    shortcut: promptShortcut,
+    getIconUrl: () => {
+      try {
+        return getRuntimeService().getURL('icons/bannerlogo-48.png');
+      } catch {
+        return null;
+      }
+    },
+    onPrimaryAction: () => {
+      promptSuppressed = true;
+      removePrompt();
+      void startVideoSession();
+    }
+  });
+}
+
+function ensureControlTargetObserver(): void {
+  if (findVideoControlTarget(document, window.location.href)) {
+    clearControlTargetObserver();
+    clearControlTargetRetry();
+    syncVideoControlBarButton();
+    return;
+  }
+  if (stopControlTargetObserver) {
+    return;
+  }
+
+  if (!findVideoControlObserverRoot(document, window.location.href)) {
+    scheduleControlTargetRetry();
+    return;
+  }
+
+  clearControlTargetRetry();
+  stopControlTargetObserver = observeVideoControlTarget({
+    doc: document,
+    url: window.location.href,
+    onTarget: (target) => {
+      const currentTarget = findVideoControlTarget(document, window.location.href);
+      if (!currentTarget || currentTarget !== target) {
+        return;
+      }
+      stopControlTargetObserver = null;
+      clearControlTargetRetry();
+      syncVideoControlBarButton();
+      evaluatePrompt(true);
+    }
+  });
+}
+
+function refreshForNavigationChange(): void {
+  promptSuppressed = false;
+  evaluatePrompt(true);
+}
+
+function setupNavigationWatcher(): void {
+  navigationWatcher?.stop();
+  navigationWatcher = watchVideoNavigation(document, refreshForNavigationChange);
+}
+
 async function refreshSettings(): Promise<void> {
   try {
     const config = await getVideoRepository().getVideoConfig();
@@ -249,6 +357,8 @@ function evaluatePrompt(force = false): void {
     return;
   }
 
+  promptDebugCounters.evaluateCount += 1;
+
   const currentUrl = window.location.href;
   if (force || currentUrl !== lastEvaluatedUrl) {
     promptSuppressed = false;
@@ -261,6 +371,7 @@ function evaluatePrompt(force = false): void {
 
   // 更严格的视频页面检测：只在特定的视频播放页面显示
   const isValidVideoPage = isValidVideoPlayPage(currentUrl, identity);
+  const controlTarget = isValidVideoPage ? findVideoControlTarget(document, currentUrl) : null;
 
   const shouldShow =
     promptEnabled &&
@@ -289,6 +400,24 @@ function evaluatePrompt(force = false): void {
     elementLeft: promptElement ? promptElement.getBoundingClientRect().left : null
   };
   updateDebugPosition();
+
+  if (!isValidVideoPage) {
+    clearControlTargetObserver();
+    clearControlTargetRetry();
+    removeVideoControlBarButton(document);
+  } else if (controlTarget) {
+    clearControlTargetObserver();
+    clearControlTargetRetry();
+    syncVideoControlBarButton();
+    removePrompt();
+    return;
+  } else if (promptEnabled && !promptSuppressed) {
+    removeVideoControlBarButton(document);
+    ensureControlTargetObserver();
+  } else {
+    clearControlTargetObserver();
+    clearControlTargetRetry();
+  }
 
   if (!shouldShow) {
     removePrompt();
@@ -371,6 +500,7 @@ async function mountPrompt(): Promise<void> {
     document.body.appendChild(host);
     promptHost = host;
     promptElement = container;
+    promptDebugCounters.floatingPromptMountCount += 1;
     applyStoredPosition(layoutState, container);
     updateDebugPosition();
 
@@ -472,10 +602,6 @@ function setupLanguageListener(): void {
   });
 }
 
-function handleVisibilityChange(): void {
-  evaluatePrompt();
-}
-
 function handlePageHide(): void {
   teardownPromptWatchers();
   removePrompt();
@@ -487,10 +613,9 @@ function handlePageShow(): void {
   }
   setupVideoConfigListener();
   setupLanguageListener();
-  observeVideoElements(() => evaluatePrompt());
+  setupNavigationWatcher();
   void refreshSettings();
   void loadPromptPosition();
-  ensureUrlPollTimer();
   evaluatePrompt(true);
 }
 
@@ -499,7 +624,6 @@ function ensureLifecycleListeners(): void {
     return;
   }
 
-  document.addEventListener('visibilitychange', handleVisibilityChange, { passive: true });
   window.addEventListener('pagehide', handlePageHide, { passive: true });
   window.addEventListener('pageshow', handlePageShow, { passive: true });
   lifecycleListenersRegistered = true;
@@ -510,8 +634,11 @@ function teardownPromptWatchers(): void {
   stopSettingsWatcher = null;
   stopLanguageWatcher?.();
   stopLanguageWatcher = null;
-  clearUrlPollTimer();
-  disconnectVideoObserver();
+  navigationWatcher?.stop();
+  navigationWatcher = null;
+  clearControlTargetObserver();
+  clearControlTargetRetry();
+  removeVideoControlBarButton(document);
 }
 
 export async function initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void> {
@@ -532,8 +659,7 @@ export async function initVideoPrompt(dependencies?: VideoPromptDependencies): P
   await loadPromptPosition();
   setupVideoConfigListener();
   setupLanguageListener();
-  observeVideoElements(() => evaluatePrompt());
-  ensureUrlPollTimer();
+  setupNavigationWatcher();
   ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
     window.addEventListener('resize', handleWindowResize, { passive: true });
@@ -587,16 +713,27 @@ export const __videoPromptTestUtils = {
   setDependenciesForTests: __setVideoPromptDependenciesForTests,
   resetDependenciesForTests: __resetVideoPromptDependenciesForTests,
   getDebugStateForTests: () => promptDebugState,
+  getDebugCountersForTests: getPromptDebugCountersSnapshot,
   resetDebugStateForTests: () => {
     promptDebugState = null;
   },
+  resetDebugCountersForTests: resetPromptDebugCounters,
   savePromptPositionForTests: savePromptPosition,
   loadPromptPositionForTests: loadPromptPosition,
   setupVideoConfigListenerForTests,
   cleanupPromptForTests: () => {
     teardownPromptWatchers();
     removePrompt();
+    resetPromptDebugCounters();
   }
 };
+
+if (typeof __DEV__ === 'boolean' && __DEV__) {
+  (
+    globalThis as typeof globalThis & {
+      __aiobVideoPromptTestUtils?: typeof __videoPromptTestUtils;
+    }
+  ).__aiobVideoPromptTestUtils = __videoPromptTestUtils;
+}
 
 export { isValidVideoPlayPage };

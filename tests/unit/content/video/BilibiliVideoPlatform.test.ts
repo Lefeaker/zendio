@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
 import {
+  isBilibiliCommentRegionNode,
+  isBilibiliDanmakuNode
+} from '@content/video/platforms/bilibiliPlatformObserver';
+import {
   flattenBilibiliContentNode,
   parseBilibiliDataContent,
   resolveBilibiliRichTextContainer,
@@ -11,32 +15,45 @@ import {
 } from '@content/video/platforms/bilibiliRichText';
 import type { PlatformSelectionInput, VideoPlatformContext } from '@content/video/platforms';
 
+interface VideoPlatformContextMocks {
+  highlightSelection: Mock<[Range, string, string], string | undefined>;
+  decorateHighlight: Mock<[HTMLElement], void>;
+  scheduleFragmentHighlightRestore: Mock<[], void>;
+  getElementByIdDeep: Mock<[string], HTMLElement | null>;
+  querySelectorDeep: Mock<[string], Element | null>;
+  observeWithFragmentObserver: Mock<[Node, MutationObserverInit], void>;
+  registerShadowSelectionBridge: Mock<[ShadowRoot], void>;
+  ensureHighlightStyles: Mock<[ShadowRoot], void>;
+}
+
 type VideoPlatformContextWithMocks = VideoPlatformContext & {
-  __mocks: Record<string, Mock<any[], any>>;
+  __mocks: VideoPlatformContextMocks;
 };
 
 function createContext(doc: Document): VideoPlatformContextWithMocks {
-  const mocks = {
-    highlightSelection: vi.fn(() => 'wrapper-1'),
-    decorateHighlight: vi.fn(),
-    scheduleFragmentHighlightRestore: vi.fn(),
-    getElementByIdDeep: vi.fn(() => null),
-    querySelectorDeep: vi.fn(() => null),
-    observeWithFragmentObserver: vi.fn(),
-    registerShadowSelectionBridge: vi.fn(),
-    ensureHighlightStyles: vi.fn()
+  const mocks: VideoPlatformContextMocks = {
+    highlightSelection: vi.fn<[Range, string, string], string | undefined>(() => 'wrapper-1'),
+    decorateHighlight: vi.fn<[HTMLElement], void>(),
+    scheduleFragmentHighlightRestore: vi.fn<[], void>(),
+    getElementByIdDeep: vi.fn<[string], HTMLElement | null>(() => null),
+    querySelectorDeep: vi.fn<[string], Element | null>(() => null),
+    observeWithFragmentObserver: vi.fn<[Node, MutationObserverInit], void>(),
+    registerShadowSelectionBridge: vi.fn<[ShadowRoot], void>(),
+    ensureHighlightStyles: vi.fn<[ShadowRoot], void>()
   };
 
   return {
     doc,
     ...mocks,
+    querySelectorDeep: <T extends Element>(selector: string): T | null =>
+      mocks.querySelectorDeep(selector) as T | null,
     __mocks: mocks
   };
 }
 
 function withScheduledRestore(
   context: VideoPlatformContextWithMocks,
-  scheduleRestore: ReturnType<typeof vi.fn>
+  scheduleRestore: VideoPlatformContextMocks['scheduleFragmentHighlightRestore']
 ): VideoPlatformContextWithMocks {
   context.scheduleFragmentHighlightRestore = scheduleRestore;
   context.__mocks.scheduleFragmentHighlightRestore = scheduleRestore;
@@ -593,6 +610,36 @@ describe('BilibiliVideoPlatform', () => {
     expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
     platform.dispose();
     vi.advanceTimersByTime(400);
+    expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
+  });
+
+  it('ignores Bilibili danmaku nodes for fragment observation', () => {
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(context);
+    const observer = {} as MutationObserver;
+    const danmaku = document.createElement('div');
+    danmaku.className = 'bpx-player-render-dm-wrap';
+    danmaku.innerHTML = '<span class="bili-danmaku-x-dm">dm</span>';
+    document.body.appendChild(danmaku);
+
+    platform.observeDomChanges(observer);
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: [danmaku],
+        removedNodes: [],
+        target: document.body,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+
+    expect(isBilibiliDanmakuNode(danmaku.querySelector('.bili-danmaku-x-dm'))).toBe(true);
+    expect(isBilibiliCommentRegionNode(danmaku)).toBe(false);
+    expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
     expect(context.__mocks.scheduleFragmentHighlightRestore).not.toHaveBeenCalled();
   });
 

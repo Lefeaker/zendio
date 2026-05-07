@@ -20,6 +20,9 @@ export class FragmentHighlightCoordinator {
     if (this.observer || typeof MutationObserver === 'undefined' || !this.options.doc.body) {
       return;
     }
+    if (Array.from(this.options.getFragments()).length === 0) {
+      return;
+    }
     this.observer = new MutationObserver((mutations) => {
       if (this.currentAdapter) {
         try {
@@ -29,7 +32,7 @@ export class FragmentHighlightCoordinator {
         }
       }
 
-      if (mutations.some(mutation => mutation.type === 'childList')) {
+      if (mutations.some((mutation) => mutation.type === 'childList')) {
         this.scheduleRestore();
       }
     });
@@ -47,6 +50,12 @@ export class FragmentHighlightCoordinator {
       } catch (error) {
         console.warn('[FragmentHighlight] Platform observeDomChanges failed:', error);
       }
+    }
+  }
+
+  ensureStartedForFragments(): void {
+    if (Array.from(this.options.getFragments()).length > 0) {
+      this.start();
     }
   }
 

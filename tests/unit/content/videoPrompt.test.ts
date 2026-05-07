@@ -122,19 +122,46 @@ vi.mock('../../../src/content/video/utils', () => ({
 }));
 
 const observerCallbacks = vi.hoisted(() => [] as Array<() => void>);
-const disconnectVideoObserverMock = vi.hoisted(() => vi.fn());
+const controlTargetState = vi.hoisted(() => ({ current: null as Element | null }));
+const controlObserverRootState = vi.hoisted(() => ({ current: null as Element | null }));
+const controlTargetObservers = vi.hoisted(
+  () => [] as Array<{ onTarget(target: Element): void; stop: ReturnType<typeof vi.fn> }>
+);
 const matchesSupportedVideoHostMock = vi.hoisted(() => vi.fn(() => true));
 const hasPlayableVideoMock = vi.hoisted(() => vi.fn(() => true));
 const isValidVideoPlayPageMock = vi.hoisted(() => vi.fn(() => true));
 vi.mock('../../../src/content/video/videoPromptObserver', () => ({
-  observeVideoElements: vi.fn((callback: () => void) => {
-    observerCallbacks.push(callback);
-    return { disconnect: vi.fn() };
+  findVideoControlTarget: vi.fn(() => controlTargetState.current),
+  findVideoControlObserverRoot: vi.fn(() => controlObserverRootState.current),
+  isIgnoredVideoMutationNode: vi.fn(() => false),
+  observeVideoControlTarget: vi.fn((options: { onTarget(target: Element): void }) => {
+    const stop = vi.fn();
+    controlTargetObservers.push({ onTarget: options.onTarget, stop });
+    return stop;
   }),
-  disconnectVideoObserver: disconnectVideoObserverMock,
   matchesSupportedVideoHost: matchesSupportedVideoHostMock,
   hasPlayableVideo: hasPlayableVideoMock,
   isValidVideoPlayPage: isValidVideoPlayPageMock
+}));
+
+const ensureVideoControlBarButtonMock = vi.hoisted(() =>
+  vi.fn((options: { doc: Document; onPrimaryAction(): void }) => {
+    const button = options.doc.createElement('button');
+    button.className = 'aiob-video-control-bar-button';
+    button.dataset.aiobVideoControlBarButton = 'true';
+    button.addEventListener('click', options.onPrimaryAction);
+    options.doc.body.appendChild(button);
+    return true;
+  })
+);
+const removeVideoControlBarButtonMock = vi.hoisted(() =>
+  vi.fn((doc: Document) => {
+    doc.querySelectorAll('.aiob-video-control-bar-button').forEach((button) => button.remove());
+  })
+);
+vi.mock('../../../src/content/video/videoControlBarButton', () => ({
+  ensureVideoControlBarButton: ensureVideoControlBarButtonMock,
+  removeVideoControlBarButton: removeVideoControlBarButtonMock
 }));
 
 const dragHandlersRef = vi.hoisted(() => ({ current: null as TestDragHandlers | null }));
@@ -197,10 +224,18 @@ type PromptStateSnapshot = {
   top: number | null;
 };
 
+type VideoPromptDebugCounters = {
+  evaluateCount: number;
+  controlButtonSyncCount: number;
+  floatingPromptMountCount: number;
+};
+
 type VideoPromptTestUtils = {
   setDependenciesForTests(deps: VideoPromptDependencies): void;
   resetDependenciesForTests(): void;
   getPromptStateForTests(): PromptStateSnapshot;
+  getDebugCountersForTests(): VideoPromptDebugCounters;
+  resetDebugCountersForTests(): void;
   cleanupPromptForTests(): void;
 };
 
@@ -300,9 +335,13 @@ describe('video prompt', () => {
     document.head.innerHTML = '';
     vi.resetModules();
     observerCallbacks.length = 0;
+    controlTargetState.current = null;
+    controlObserverRootState.current = document.createElement('div');
+    controlTargetObservers.length = 0;
     dragHandlersRef.current = null;
     lastRendererConfig.current = null;
-    disconnectVideoObserverMock.mockClear();
+    ensureVideoControlBarButtonMock.mockClear();
+    removeVideoControlBarButtonMock.mockClear();
     matchesSupportedVideoHostMock.mockClear();
     hasPlayableVideoMock.mockClear();
     isValidVideoPlayPageMock.mockClear();
@@ -366,6 +405,74 @@ describe('video prompt', () => {
     expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start interval polling during prompt initialization', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
+  it('injects the control-bar button without mounting the floating prompt when controls exist', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    expect(document.querySelector('.aiob-video-control-bar-button')).toBeTruthy();
+    expect(getPromptFromShadowDom()).toBeNull();
+    expect(ensureVideoControlBarButtonMock).toHaveBeenCalled();
+  });
+
+  it('ignores danmaku-only observer callbacks without remounting the prompt', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+    const initialMounts = createPromptElementMock.mock.calls.length;
+
+    observerCallbacks.forEach((callback) => callback());
+    await flushMicrotasks();
+
+    expect(createPromptElementMock).toHaveBeenCalledTimes(initialMounts);
+  });
+
+  it('does not resync control entry from unrelated page churn before the control target exists', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const initialControlSyncs = ensureVideoControlBarButtonMock.mock.calls.length;
+    const initialPromptMounts = createPromptElementMock.mock.calls.length;
+    controlTargetObservers.forEach(({ onTarget }) => {
+      const unrelated = document.createElement('aside');
+      unrelated.className = 'recommendations';
+      document.body.appendChild(unrelated);
+      onTarget(unrelated);
+    });
+    await flushMicrotasks();
+
+    expect(ensureVideoControlBarButtonMock.mock.calls.length).toBe(initialControlSyncs);
+    expect(createPromptElementMock.mock.calls.length).toBe(initialPromptMounts);
+  });
+
   it('applies config updates and removes prompt when disabled', async () => {
     const module: VideoPromptTestModule = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
@@ -413,6 +520,22 @@ describe('video prompt', () => {
     deps.triggerLanguageChange();
     await flushMicrotasks();
     expect(matchesSupportedVideoHostMock.mock.calls.length).toBeGreaterThan(initialCalls);
+  });
+
+  it('re-evaluates on YouTube navigation finish events', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+    const initialCalls = isValidVideoPlayPageMock.mock.calls.length;
+
+    document.dispatchEvent(new Event('yt-navigate-finish'));
+    await flushMicrotasks();
+
+    expect(isValidVideoPlayPageMock.mock.calls.length).toBeGreaterThan(initialCalls);
   });
 
   it('replays panel bridge styles after async load on first prompt mount', async () => {

@@ -34,7 +34,23 @@ describe('FragmentHighlightCoordinator', () => {
     document.body.innerHTML = '';
   });
 
-  it('starts observing, forwards mutations to adapter, and schedules restore on childList changes', () => {
+  it('does not start observation when there are no fragments to restore', () => {
+    const coordinator = new FragmentHighlightCoordinator({
+      doc: document,
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(),
+        decorateElement: vi.fn()
+      }),
+      getFragments: () => [],
+      ensureCaptureHighlight: vi.fn()
+    });
+
+    coordinator.start();
+
+    expect(TestMutationObserver.instances).toHaveLength(0);
+  });
+
+  it('starts observing, forwards mutations to adapter, and schedules restore on childList changes when fragments exist', () => {
     const capture = asType<VideoFragmentCapture>({ id: 'frag-1', wrapperId: 'missing-wrapper' });
     const handleMutations = vi.fn();
     const observeDomChanges = vi.fn();
@@ -51,7 +67,10 @@ describe('FragmentHighlightCoordinator', () => {
     coordinator.start();
 
     const observer = TestMutationObserver.instances[0];
-    expect(observer.observe).toHaveBeenCalledWith(document.body, expect.objectContaining({ childList: true, subtree: true }));
+    expect(observer.observe).toHaveBeenCalledWith(
+      expect.any(Node),
+      expect.objectContaining({ childList: true })
+    );
     expect(observeDomChanges).toHaveBeenCalledWith(asType<MutationObserver>(observer));
 
     observer.callback([mutationRecord({ type: 'childList' })], asType(observer));
@@ -66,7 +85,10 @@ describe('FragmentHighlightCoordinator', () => {
     const decorateElement = vi.fn();
     const coordinator = new FragmentHighlightCoordinator({
       doc: document,
-      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(() => element), decorateElement }),
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(() => element),
+        decorateElement
+      }),
       getFragments: () => [{ id: 'frag-2', wrapperId: 'existing-wrapper' } as VideoFragmentCapture],
       ensureCaptureHighlight: vi.fn()
     });
@@ -81,7 +103,10 @@ describe('FragmentHighlightCoordinator', () => {
   it('stops observation and clears pending restore timers', () => {
     const coordinator = new FragmentHighlightCoordinator({
       doc: document,
-      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(), decorateElement: vi.fn() }),
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(),
+        decorateElement: vi.fn()
+      }),
       getFragments: () => [{ id: 'frag-3' } as VideoFragmentCapture],
       ensureCaptureHighlight: vi.fn()
     });

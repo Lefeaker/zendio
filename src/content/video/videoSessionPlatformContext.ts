@@ -19,7 +19,7 @@ export function createVideoSessionPlatformContext(args: {
     getElementByIdDeep: (id) => fragmentHighlighter.getElementByIdDeep(id),
     querySelectorDeep: (selector) => fragmentHighlighter.querySelectorDeep(selector),
     observeWithFragmentObserver: (target, options) => {
-      fragmentHighlightCoordinator.start();
+      fragmentHighlightCoordinator.ensureStartedForFragments();
       fragmentHighlightCoordinator.observeWithCoordinator(target, options);
     },
     registerShadowSelectionBridge: (root) => shadowSelectionBridge.register(root),

@@ -58,6 +58,14 @@ export class VideoDialogPanel
       onSubmitCaptureEdit: options.callbacks.onSubmitCaptureEdit
     });
     this.renderRoot = this.dialog.render();
+    this.renderRoot.id = 'aiob-video-panel';
+    this.renderRoot.dataset.stitchSurface = 'video';
+    Object.assign(this.renderRoot.style, {
+      inset: '0',
+      pointerEvents: 'none',
+      position: 'fixed',
+      zIndex: '2147483647'
+    });
     this.dialog.setCounterText(this.formatCounter(0));
     this.popupCoordinator = resolveContentPopupCoordinator();
 

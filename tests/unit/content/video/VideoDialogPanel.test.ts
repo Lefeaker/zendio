@@ -66,6 +66,9 @@ describe('VideoDialogPanel', () => {
     expect(shadow?.querySelector('[data-role="close-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="add-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="capture-item"]')).toBeTruthy();
+    expect(panel.element.id).toBe('aiob-video-panel');
+    expect(panel.element.dataset.stitchSurface).toBe('video');
+    expect(panel.element.style.position).toBe('fixed');
     expect(overlay?.style.pointerEvents).toBe('none');
     expect(modal?.style.pointerEvents).toBe('auto');
     expect(modal?.getAttribute('aria-modal')).toBe('false');
@@ -79,7 +82,8 @@ describe('VideoDialogPanel', () => {
     panel.setCaptures([capture]);
     panel.beginEditingCapture(capture.id, capture.comment);
 
-    const textarea = panel.element.shadowRoot?.querySelector<HTMLTextAreaElement>('textarea') ?? null;
+    const textarea =
+      panel.element.shadowRoot?.querySelector<HTMLTextAreaElement>('textarea') ?? null;
     expect(textarea).toBeTruthy();
     expect(textarea?.value).toBe('draft');
 

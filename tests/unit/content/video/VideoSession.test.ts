@@ -254,6 +254,17 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
+  it('does not start interval polling when the session starts', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const session = new VideoSession(document, createDependencies());
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+    sessionApi.cleanup();
+  });
+
   it('adds a timestamp capture, persists it, and opens edit mode', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));

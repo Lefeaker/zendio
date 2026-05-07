@@ -9,6 +9,7 @@ export interface SelectionActivationPayload {
 interface SelectionCaptureControllerOptions {
   doc: Document;
   pendingSelection: PendingSelectionTracker;
+  shouldTrackSelection: () => boolean;
   suppressSelectionCapture: () => boolean;
   isRangeInsideUi: (range: Range) => boolean;
   getDocumentSelection: () => Selection | null;
@@ -19,6 +20,7 @@ interface SelectionCaptureControllerOptions {
 export class SelectionCaptureController {
   private readonly doc: Document;
   private readonly pendingSelection: PendingSelectionTracker;
+  private readonly shouldTrackSelection: () => boolean;
   private readonly suppressSelectionCapture: () => boolean;
   private readonly isRangeInsideUi: (range: Range) => boolean;
   private readonly getDocumentSelection: () => Selection | null;
@@ -29,6 +31,7 @@ export class SelectionCaptureController {
   constructor(options: SelectionCaptureControllerOptions) {
     this.doc = options.doc;
     this.pendingSelection = options.pendingSelection;
+    this.shouldTrackSelection = options.shouldTrackSelection;
     this.suppressSelectionCapture = options.suppressSelectionCapture;
     this.isRangeInsideUi = options.isRangeInsideUi;
     this.getDocumentSelection = options.getDocumentSelection;
@@ -57,8 +60,12 @@ export class SelectionCaptureController {
   }
 
   private handleSelectionChange = (): void => {
+    if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
+      return;
+    }
+
     const selection = this.getDocumentSelection();
-    if (!selection || this.suppressSelectionCapture()) {
+    if (!selection) {
       return;
     }
 
@@ -86,6 +93,10 @@ export class SelectionCaptureController {
 
   private handleMouseUp = (event: MouseEvent): void => {
     if (event.button !== 0) {
+      return;
+    }
+
+    if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
       return;
     }
 
