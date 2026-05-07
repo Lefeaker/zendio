@@ -5,15 +5,17 @@ import { AppErrorSchema } from './error.schema';
  * ClassificationResult Schema
  * 替换 src/background/services/classificationService.ts 中的 ClassificationResult
  */
-export const ClassificationResultSchema = z.object({
-  type: z.string().optional(),
-  topics: z.array(z.string()).optional(),
-  ai_platform: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  status: z.enum(['success', 'fallback']),
-  fallbackReason: z.enum(['disabled', 'error']).optional(),
-  errorDetail: AppErrorSchema.optional()
-}).passthrough(); // 允许额外字段（因为有 [key: string]: unknown）
+export const ClassificationResultSchema = z
+  .object({
+    type: z.string().optional(),
+    topics: z.array(z.string()).optional(),
+    ai_platform: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    status: z.enum(['success', 'fallback']),
+    fallbackReason: z.enum(['disabled', 'error', 'timeout']).optional(),
+    errorDetail: AppErrorSchema.optional()
+  })
+  .passthrough(); // 允许额外字段（因为有 [key: string]: unknown）
 
 export type ClassificationResult = z.infer<typeof ClassificationResultSchema>;
 

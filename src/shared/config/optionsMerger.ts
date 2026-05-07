@@ -29,6 +29,7 @@ function mergeClassifierOptions(
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
     apiKey: base.apiKey || defaults?.apiKey || '',
     model: base.model || defaults?.model || 'llama3.1',
+    timeoutMs: base.timeoutMs ?? defaults?.timeoutMs,
     taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
 }
