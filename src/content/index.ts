@@ -74,6 +74,7 @@ function initializeClipperRuntime(): void {
   const selectionTracker = createContentSelectionTracker({
     document,
     window,
+    enablePlatformShadowSelection: /(^|\.)bilibili\.com$/i.test(window.location.hostname),
     getLastSelectionSnapshot: () => runtimeState.getLastSelectionSnapshot(),
     setLastSelectionSnapshot: (snapshot) => {
       runtimeState.setLastSelectionSnapshot(snapshot);

@@ -15,10 +15,11 @@ describe('contentSelectionTracker', () => {
     vi.restoreAllMocks();
   });
 
-  function createTracker() {
+  function createTracker(enablePlatformShadowSelection = true) {
     return createContentSelectionTracker({
       document,
       window,
+      enablePlatformShadowSelection,
       getLastSelectionSnapshot: () => lastSelectionSnapshot,
       setLastSelectionSnapshot: (snapshot) => {
         lastSelectionSnapshot = snapshot;
@@ -103,8 +104,24 @@ describe('contentSelectionTracker', () => {
     expect(active).toEqual({ selection: shadowSelection, root: shadow });
   });
 
+  it('does not query Bilibili shadow selectors when platform shadow scanning is disabled', () => {
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll');
+    const tracker = createContentSelectionTracker({
+      document,
+      window,
+      enablePlatformShadowSelection: false,
+      getLastSelectionSnapshot: () => null,
+      setLastSelectionSnapshot: vi.fn()
+    });
+
+    tracker.findActiveSelection();
+
+    expect(querySelectorAll).not.toHaveBeenCalledWith('bili-comment-thread-renderer');
+  });
+
   it('ignores UI-owned selections when selectionchange fires', () => {
-    document.body.innerHTML = '<div id="obsidian-clipper-dialog"><span id="inside">ui text</span></div>';
+    document.body.innerHTML =
+      '<div id="obsidian-clipper-dialog"><span id="inside">ui text</span></div>';
     const target = document.getElementById('inside');
     if (!target?.firstChild) {
       throw new Error('Expected ui selection target');

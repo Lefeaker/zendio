@@ -2,19 +2,9 @@ import type { Messages, PageI18nController } from '../../i18n';
 import type { FragmentClipperOptions } from '../../shared/types/options';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import {
-  ensureContentI18n,
-  getContentI18nResource,
-  getContentMessages
-} from '../i18n/context';
-import {
-  DEFAULT_FRAGMENT_CONFIG,
-  loadFragmentConfig
-} from '../clipper/services/fragmentConfig';
-import {
-  DEFAULT_SESSION_MESSAGES,
-  type ReaderSessionMessages
-} from './sessionMessages';
+import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
+import { DEFAULT_FRAGMENT_CONFIG, loadFragmentConfig } from '../clipper/services/fragmentConfig';
+import { DEFAULT_SESSION_MESSAGES, type ReaderSessionMessages } from './sessionMessages';
 
 function mapMessagesFromLocale(msgs: Messages | null | undefined): ReaderSessionMessages {
   if (!msgs) {
@@ -103,7 +93,7 @@ export class ReaderEnvironmentController {
   private async loadInitialMessages(): Promise<ReaderSessionMessages> {
     try {
       const resource = getContentI18nResource();
-      const rawMessages = resource?.messages ?? await getContentMessages();
+      const rawMessages = resource?.messages ?? (await getContentMessages());
       return mapMessagesFromLocale(rawMessages);
     } catch (error) {
       console.warn('[ReaderEnvironment] Failed to load i18n messages, using defaults:', error);
@@ -130,10 +120,13 @@ export class ReaderEnvironmentController {
       void (async () => {
         try {
           const resource = getContentI18nResource();
-          const updatedMessages = resource?.messages ?? await getContentMessages();
+          const updatedMessages = resource?.messages ?? (await getContentMessages());
           this.handlers.onMessagesUpdate(mapMessagesFromLocale(updatedMessages));
         } catch (error) {
-          console.warn('[ReaderEnvironment] Failed to refresh messages after language change:', error);
+          console.warn(
+            '[ReaderEnvironment] Failed to refresh messages after language change:',
+            error
+          );
           this.handlers.onMessagesUpdate(DEFAULT_SESSION_MESSAGES);
         }
       })();
@@ -151,10 +144,8 @@ export class ReaderEnvironmentController {
         });
     };
 
-    applyOptions();
     this.stopOptionsWatcher = this.deps.optionsRepository.onChange(() => {
       applyOptions();
     });
   }
-
 }

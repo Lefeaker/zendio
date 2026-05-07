@@ -58,6 +58,7 @@ export class ReaderDialogPanel
       onSubmitHighlightEdit: options.callbacks.onSubmitHighlightEdit
     });
     this.renderRoot = this.dialog.render();
+    this.renderRoot.id = 'aiob-reader-panel';
     this.dialog.setCounterText(this.formatCounter(0));
     this.popupCoordinator = resolveContentPopupCoordinator();
   }

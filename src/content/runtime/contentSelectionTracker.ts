@@ -22,6 +22,7 @@ export interface ContentSelectionTracker {
 export interface CreateContentSelectionTrackerOptions {
   document: Document;
   window: Window;
+  enablePlatformShadowSelection?: boolean;
   getLastSelectionSnapshot: () => SelectionSnapshot | null;
   setLastSelectionSnapshot: (snapshot: SelectionSnapshot | null) => void;
 }
@@ -88,7 +89,9 @@ export function createContentSelectionTracker(
     return active;
   }
 
-  function restoreSelectionFromSnapshot(snapshot: SelectionSnapshot | null): ActiveSelectionInfo | null {
+  function restoreSelectionFromSnapshot(
+    snapshot: SelectionSnapshot | null
+  ): ActiveSelectionInfo | null {
     const resolvedSnapshot = snapshot ?? getLastSelectionSnapshot();
     if (!resolvedSnapshot) {
       return null;
@@ -106,7 +109,9 @@ export function createContentSelectionTracker(
     }
   }
 
-  function captureSelectionSnapshot(activeSelection?: ActiveSelectionInfo | null): SelectionSnapshot | null {
+  function captureSelectionSnapshot(
+    activeSelection?: ActiveSelectionInfo | null
+  ): SelectionSnapshot | null {
     const active = activeSelection ?? findActiveSelection();
     if (!active) {
       return null;
@@ -127,6 +132,9 @@ export function createContentSelectionTracker(
     const docSelection = getDocumentSelection();
     if (docSelection) {
       return { selection: docSelection, root: document };
+    }
+    if (!options.enablePlatformShadowSelection) {
+      return null;
     }
     const shadowSelection = findShadowSelection();
     if (shadowSelection) {
@@ -185,9 +193,10 @@ export function createContentSelectionTracker(
     }
     if (root instanceof ShadowRoot) {
       const shadowWithSelection = root as ShadowRoot & { getSelection?: () => Selection | null };
-      const selection = typeof shadowWithSelection.getSelection === 'function'
-        ? shadowWithSelection.getSelection()
-        : null;
+      const selection =
+        typeof shadowWithSelection.getSelection === 'function'
+          ? shadowWithSelection.getSelection()
+          : null;
       if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
         return selection;
       }
@@ -196,7 +205,8 @@ export function createContentSelectionTracker(
   }
 
   function getDocumentSelection(): Selection | null {
-    const docSelection = typeof document.getSelection === 'function' ? document.getSelection() : null;
+    const docSelection =
+      typeof document.getSelection === 'function' ? document.getSelection() : null;
     if (docSelection && docSelection.rangeCount > 0 && !docSelection.isCollapsed) {
       return docSelection;
     }
