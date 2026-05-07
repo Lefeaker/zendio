@@ -224,10 +224,18 @@ type PromptStateSnapshot = {
   top: number | null;
 };
 
+type VideoPromptDebugCounters = {
+  evaluateCount: number;
+  controlButtonSyncCount: number;
+  floatingPromptMountCount: number;
+};
+
 type VideoPromptTestUtils = {
   setDependenciesForTests(deps: VideoPromptDependencies): void;
   resetDependenciesForTests(): void;
   getPromptStateForTests(): PromptStateSnapshot;
+  getDebugCountersForTests(): VideoPromptDebugCounters;
+  resetDebugCountersForTests(): void;
   cleanupPromptForTests(): void;
 };
 

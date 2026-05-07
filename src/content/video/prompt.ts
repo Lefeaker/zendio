@@ -115,7 +115,28 @@ type VideoPromptDebugState = {
   elementLeft: number | null;
 };
 
+type VideoPromptDebugCounters = {
+  evaluateCount: number;
+  controlButtonSyncCount: number;
+  floatingPromptMountCount: number;
+};
+
 let promptDebugState: VideoPromptDebugState | null = null;
+const promptDebugCounters: VideoPromptDebugCounters = {
+  evaluateCount: 0,
+  controlButtonSyncCount: 0,
+  floatingPromptMountCount: 0
+};
+
+function getPromptDebugCountersSnapshot(): VideoPromptDebugCounters {
+  return { ...promptDebugCounters };
+}
+
+function resetPromptDebugCounters(): void {
+  promptDebugCounters.evaluateCount = 0;
+  promptDebugCounters.controlButtonSyncCount = 0;
+  promptDebugCounters.floatingPromptMountCount = 0;
+}
 
 function setPromptStateForTests(
   state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>
@@ -253,6 +274,7 @@ function scheduleControlTargetRetry(): void {
 }
 
 function syncVideoControlBarButton(): void {
+  promptDebugCounters.controlButtonSyncCount += 1;
   ensureVideoControlBarButton({
     doc: document,
     url: window.location.href,
@@ -332,6 +354,8 @@ function evaluatePrompt(force = false): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     return;
   }
+
+  promptDebugCounters.evaluateCount += 1;
 
   const currentUrl = window.location.href;
   if (force || currentUrl !== lastEvaluatedUrl) {
@@ -474,6 +498,7 @@ async function mountPrompt(): Promise<void> {
     document.body.appendChild(host);
     promptHost = host;
     promptElement = container;
+    promptDebugCounters.floatingPromptMountCount += 1;
     applyStoredPosition(layoutState, container);
     updateDebugPosition();
 
@@ -686,16 +711,27 @@ export const __videoPromptTestUtils = {
   setDependenciesForTests: __setVideoPromptDependenciesForTests,
   resetDependenciesForTests: __resetVideoPromptDependenciesForTests,
   getDebugStateForTests: () => promptDebugState,
+  getDebugCountersForTests: getPromptDebugCountersSnapshot,
   resetDebugStateForTests: () => {
     promptDebugState = null;
   },
+  resetDebugCountersForTests: resetPromptDebugCounters,
   savePromptPositionForTests: savePromptPosition,
   loadPromptPositionForTests: loadPromptPosition,
   setupVideoConfigListenerForTests,
   cleanupPromptForTests: () => {
     teardownPromptWatchers();
     removePrompt();
+    resetPromptDebugCounters();
   }
 };
+
+if (typeof __DEV__ === 'boolean' && __DEV__) {
+  (
+    globalThis as typeof globalThis & {
+      __aiobVideoPromptTestUtils?: typeof __videoPromptTestUtils;
+    }
+  ).__aiobVideoPromptTestUtils = __videoPromptTestUtils;
+}
 
 export { isValidVideoPlayPage };

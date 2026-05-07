@@ -33,7 +33,7 @@ function createRangeSelection(text = 'Selected text'): { range: Range; selection
   };
 }
 
-describe('video listener scope e2e fixtures', () => {
+describe('video listener scope jsdom fixtures', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     document.head.innerHTML = '';
