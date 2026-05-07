@@ -12,7 +12,7 @@ const DEFAULT_SITES = [
   { id: 'wechat-article', url: 'https://mp.weixin.qq.com/s/U-5PG2mF3Y5oJGea1HsD-Q' }
 ];
 
-const EXTENSION_ID = process.env.AIIOB_EXTENSION_ID ?? 'eokdmdbdfmcicikpamaecbcieljedjha';
+let EXTENSION_ID = process.env.AIIOB_EXTENSION_ID ?? 'eokdmdbdfmcicikpamaecbcieljedjha';
 const OUT_DIR = process.argv.includes('--out')
   ? process.argv[process.argv.indexOf('--out') + 1]
   : path.join(process.cwd(), 'tmp/perf-baseline/content-cross-site-latest');
@@ -24,10 +24,13 @@ const CDP_COMMAND_TIMEOUT_MS = Number(process.env.AIIOB_PERF_CDP_TIMEOUT_MS ?? 1
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 function readDevToolsWebSocketUrl() {
-  const file = path.join(
-    os.homedir(),
-    'Library/Application Support/Google/Chrome/DevToolsActivePort'
-  );
+  if (process.env.AIIOB_DEVTOOLS_WS_URL) {
+    return process.env.AIIOB_DEVTOOLS_WS_URL;
+  }
+  const userDataDir =
+    process.env.AIIOB_CHROME_USER_DATA_DIR ??
+    path.join(os.homedir(), 'Library/Application Support/Google/Chrome');
+  const file = path.join(userDataDir, 'DevToolsActivePort');
   const [port, wsPath] = fs.readFileSync(file, 'utf8').trim().split('\n');
   return `ws://127.0.0.1:${port}${wsPath}`;
 }
@@ -155,11 +158,22 @@ async function attachExtensionServiceWorker(cdp) {
     .catch(() => undefined);
   const targets = await cdp.send('Target.getTargets');
   console.log(`[perf] found ${targets.targetInfos.length} Chrome targets`);
-  const worker = targets.targetInfos.find(
+  let worker = targets.targetInfos.find(
     (target) =>
       target.type === 'service_worker' &&
       target.url.startsWith(`chrome-extension://${EXTENSION_ID}/`)
   );
+  if (!worker && EXTENSION_ID === 'auto') {
+    worker = targets.targetInfos.find(
+      (target) =>
+        target.type === 'service_worker' &&
+        /^chrome-extension:\/\/[^/]+\/background\/index\.js$/.test(target.url)
+    );
+    if (worker) {
+      EXTENSION_ID = new URL(worker.url).hostname;
+      console.log(`[perf] auto-detected extension id ${EXTENSION_ID}`);
+    }
+  }
   if (!worker) {
     throw new Error(`AiiinOB extension service worker not found for ${EXTENSION_ID}`);
   }
