@@ -13,9 +13,9 @@ const DEFAULT_SITES = [
 ];
 
 let EXTENSION_ID = process.env.AIIOB_EXTENSION_ID ?? 'eokdmdbdfmcicikpamaecbcieljedjha';
-const OUT_DIR = process.argv.includes('--out')
-  ? process.argv[process.argv.indexOf('--out') + 1]
-  : path.join(process.cwd(), 'tmp/perf-baseline/content-cross-site-latest');
+const OUT_DIR =
+  argValue('--out') ?? path.join(process.cwd(), 'tmp/perf-baseline/content-cross-site-latest');
+const EXTENSION_PATH = argValue('--extension-path') ?? process.env.AIIOB_EXTENSION_PATH ?? null;
 const PHASE_SETTLE_MS = Number(process.env.AIIOB_PERF_PHASE_SETTLE_MS ?? 750);
 const NAVIGATION_TIMEOUT_MS = Number(process.env.AIIOB_PERF_NAVIGATION_TIMEOUT_MS ?? 45_000);
 const ACTION_TIMEOUT_MS = Number(process.env.AIIOB_PERF_ACTION_TIMEOUT_MS ?? 10_000);
@@ -122,6 +122,11 @@ class CdpConnection {
 }
 
 async function main() {
+  if (EXTENSION_PATH) {
+    await runPlaywrightIsolatedCollector();
+    return;
+  }
+
   console.log('[perf] connecting to Chrome DevTools');
   const cdp = new CdpConnection(readDevToolsWebSocketUrl());
   await cdp.open();
@@ -307,7 +312,12 @@ async function waitForPageReady(cdp, sessionId, timeoutMs) {
 }
 
 async function waitForSelector(cdp, sessionId, selector, timeoutMs) {
-  await waitForExpression(cdp, sessionId, `Boolean(document.querySelector(${JSON.stringify(selector)}))`, timeoutMs);
+  await waitForExpression(
+    cdp,
+    sessionId,
+    `Boolean(document.querySelector(${JSON.stringify(selector)}))`,
+    timeoutMs
+  );
 }
 
 async function waitForExpression(cdp, sessionId, expression, timeoutMs) {
@@ -378,12 +388,349 @@ async function resolveExactTabId(cdp, extensionSessionId, exactUrl) {
 
 async function sendTabMessage(cdp, extensionSessionId, tabId, message) {
   const expression = `new Promise((resolve) => {
-    chrome.tabs.sendMessage(${tabId}, ${JSON.stringify(message)}, (response) => {
+    chrome.tabs.sendMessage(${tabId}, ${JSON.stringify(message)}, { frameId: 0 }, (response) => {
       const error = chrome.runtime.lastError;
       resolve(error ? { success: false, error: error.message } : response);
     });
   })`;
   return await evaluate(cdp, extensionSessionId, expression, true);
+}
+
+async function runPlaywrightIsolatedCollector() {
+  const { chromium } = await import('@playwright/test');
+  const userDataDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'aiiob-content-perf-'));
+  const extensionPath = path.resolve(EXTENSION_PATH);
+  console.log(`[perf] launching isolated Chromium with ${extensionPath}`);
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    channel: 'chromium',
+    headless: true,
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+  });
+  const startedAt = new Date().toISOString();
+  const summary = {
+    generatedAt: startedAt,
+    extensionId: EXTENSION_ID,
+    extensionPath,
+    outDir: OUT_DIR,
+    sites: {}
+  };
+
+  try {
+    const serviceWorker = await resolvePlaywrightServiceWorker(context);
+    EXTENSION_ID = serviceWorker.url().split('/')[2] || EXTENSION_ID;
+    summary.extensionId = EXTENSION_ID;
+    console.log(`[perf] using isolated extension id ${EXTENSION_ID}`);
+    for (const site of DEFAULT_SITES) {
+      console.log(`[perf] measuring ${site.id} ${site.url}`);
+      summary.sites[site.id] = await measureSiteWithPlaywright(context, serviceWorker, site);
+      writeSummary(summary);
+    }
+  } finally {
+    await context.close();
+  }
+
+  writeSummary(summary);
+  console.log(`Wrote ${path.join(OUT_DIR, 'summary.json')}`);
+}
+
+async function resolvePlaywrightServiceWorker(context) {
+  let serviceWorker = context
+    .serviceWorkers()
+    .find((worker) => worker.url().startsWith('chrome-extension://'));
+  if (!serviceWorker) {
+    serviceWorker = await context.waitForEvent('serviceworker', { timeout: 15_000 });
+  }
+  return serviceWorker;
+}
+
+async function measureSiteWithPlaywright(context, serviceWorker, site) {
+  const page = await context.newPage();
+  const siteDir = path.join(OUT_DIR, site.id);
+  fs.mkdirSync(siteDir, { recursive: true });
+  const requests = [];
+  let cdpSession = null;
+  let exactUrl = site.url;
+  let tabId = null;
+
+  page.on('request', (request) => {
+    requests.push({
+      url: request.url(),
+      type: request.resourceType(),
+      timestamp: Date.now() / 1000
+    });
+  });
+
+  try {
+    cdpSession = await context.newCDPSession(page);
+    await cdpSession.send('Performance.enable').catch(() => undefined);
+    const phases = {};
+    phases.load = await capturePlaywrightPhase(page, cdpSession, requests, 'load', async () => {
+      await page.goto(site.url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+      await page
+        .waitForLoadState('domcontentloaded', { timeout: NAVIGATION_TIMEOUT_MS })
+        .catch(() => undefined);
+      exactUrl = page.url();
+      tabId = await resolvePlaywrightTabId(serviceWorker, exactUrl);
+      await injectPlaywrightContentScript(serviceWorker, tabId);
+      await sleep(PHASE_SETTLE_MS);
+    });
+
+    await selectReadableTextWithPlaywright(page);
+    phases.clipperOpen = await capturePlaywrightPhase(
+      page,
+      cdpSession,
+      requests,
+      'clipperOpen',
+      async () => {
+        const response = await sendPlaywrightTabMessage(serviceWorker, tabId, {
+          action: 'clipSelection',
+          frameId: 0
+        });
+        await page.waitForSelector('#obsidian-clipper-dialog', {
+          state: 'attached',
+          timeout: ACTION_TIMEOUT_MS
+        });
+        return response;
+      }
+    );
+
+    phases.readerStart = await capturePlaywrightPhase(
+      page,
+      cdpSession,
+      requests,
+      'readerStart',
+      async () => {
+        await clickReaderStartWithPlaywright(page);
+        await page.waitForSelector('#aiob-reader-panel', {
+          state: 'attached',
+          timeout: ACTION_TIMEOUT_MS
+        });
+      }
+    );
+
+    phases.fullClip = await capturePlaywrightPhase(
+      page,
+      cdpSession,
+      requests,
+      'fullClip',
+      async () => {
+        const response = await sendPlaywrightTabMessage(serviceWorker, tabId, {
+          action: 'clipFull',
+          frameId: 0
+        });
+        await sleep(PHASE_SETTLE_MS);
+        return response;
+      }
+    );
+
+    const result = {
+      id: site.id,
+      requestedUrl: site.url,
+      exactUrl,
+      tabId,
+      phases
+    };
+    fs.writeFileSync(path.join(siteDir, 'site-summary.json'), JSON.stringify(result, null, 2));
+    return result;
+  } catch (error) {
+    return {
+      id: site.id,
+      requestedUrl: site.url,
+      exactUrl,
+      tabId,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  } finally {
+    await cdpSession?.detach().catch(() => undefined);
+    await page.close().catch(() => undefined);
+  }
+}
+
+async function capturePlaywrightPhase(page, cdpSession, requests, name, action) {
+  const requestStart = requests.length;
+  const resourceStart = await getPlaywrightExtensionResources(page);
+  const metricsStart = await getPlaywrightMetrics(cdpSession);
+  const started = performance.now();
+  let response = null;
+  let error = null;
+  try {
+    response = await action();
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  }
+  const elapsedMs = performance.now() - started;
+  const metricsEnd = await getPlaywrightMetrics(cdpSession);
+  const resourceEnd = await getPlaywrightExtensionResources(page);
+  const networkUrls = requests.slice(requestStart).map((request) => request.url);
+  const loadedAiobUrls = unique([
+    ...networkUrls.filter(isAiobExtensionUrl),
+    ...resourceEnd.filter((url) => !resourceStart.includes(url))
+  ]);
+  return {
+    name,
+    action: {
+      visibleMs: error ? null : Math.round(elapsedMs),
+      response,
+      error,
+      cpuMs: metricDeltaMs(metricsStart, metricsEnd, 'TaskDuration')
+    },
+    loadedAiobChunks: loadedAiobUrls.map(chunkNameFromUrl),
+    loadedAiobUrls
+  };
+}
+
+async function getPlaywrightExtensionResources(page) {
+  return await page
+    .evaluate(
+      (extensionId) =>
+        performance
+          .getEntriesByType('resource')
+          .map((entry) => entry.name)
+          .filter((name) => name.startsWith(`chrome-extension://${extensionId}/`)),
+      EXTENSION_ID
+    )
+    .catch(() => []);
+}
+
+async function getPlaywrightMetrics(cdpSession) {
+  const result = await cdpSession.send('Performance.getMetrics').catch(() => ({ metrics: [] }));
+  return Object.fromEntries(result.metrics.map((metric) => [metric.name, metric.value]));
+}
+
+async function resolvePlaywrightTabId(serviceWorker, exactUrl) {
+  const tabId = await serviceWorker.evaluate(async (url) => {
+    const tabs = await chrome.tabs.query({});
+    const tab = tabs.find((entry) => entry.url === url);
+    return tab?.id ?? null;
+  }, exactUrl);
+  if (typeof tabId !== 'number') {
+    throw new Error(`No Chrome tab matched exact URL: ${exactUrl}`);
+  }
+  return tabId;
+}
+
+async function injectPlaywrightContentScript(serviceWorker, tabId) {
+  await serviceWorker.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId, frameIds: [0] },
+      files: ['content/index.js'],
+      world: 'ISOLATED'
+    });
+  }, tabId);
+}
+
+async function sendPlaywrightTabMessage(serviceWorker, tabId, message) {
+  return await serviceWorker.evaluate(
+    async ({ targetTabId, payload }) =>
+      await new Promise((resolve) => {
+        chrome.tabs.sendMessage(targetTabId, payload, { frameId: 0 }, (response) => {
+          const error = chrome.runtime.lastError;
+          resolve(error ? { success: false, error: error.message } : response);
+        });
+      }),
+    { targetTabId: tabId, payload: message }
+  );
+}
+
+async function selectReadableTextWithPlaywright(page) {
+  const deadline = Date.now() + ACTION_TIMEOUT_MS;
+  let lastResult = null;
+  while (Date.now() < deadline) {
+    lastResult = await page.evaluate(() => {
+      const isVisible = (element) =>
+        Boolean(element.getClientRects().length || element.clientHeight || element.clientWidth);
+      const readableText = (element) =>
+        (element instanceof HTMLElement ? element.innerText : element.textContent || '').trim();
+      const selectors = [
+        '#js_content',
+        '.rich_media_content',
+        'article p',
+        'main p',
+        'p',
+        'article',
+        'main',
+        'body'
+      ];
+      let node = document.body;
+      for (const selector of selectors) {
+        const candidate = Array.from(document.querySelectorAll(selector)).find(
+          (entry) =>
+            readableText(entry).length > (selector === 'body' ? 20 : 40) && isVisible(entry)
+        );
+        if (candidate) {
+          node = candidate;
+          break;
+        }
+      }
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+        acceptNode(textNode) {
+          const parent = textNode.parentElement;
+          if (!parent || parent.closest('script, style, noscript, svg')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (!isVisible(parent)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return (textNode.textContent || '').trim().length > 8
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      });
+      let textNode = null;
+      for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+        if ((current.textContent || '').trim().length > 8) {
+          textNode = current;
+          break;
+        }
+      }
+      const range = document.createRange();
+      if (textNode) {
+        const text = textNode.textContent || '';
+        const start = Math.max(0, text.search(/\S/));
+        const end = Math.min(text.length, Math.max(start + 30, start + 120));
+        range.setStart(textNode, start);
+        range.setEnd(textNode, end);
+      } else {
+        range.selectNodeContents(node);
+      }
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+      return {
+        selectedTextLength: selection?.toString().trim().length ?? 0,
+        selectedText: selection?.toString().trim().slice(0, 120) ?? '',
+        sourceText: readableText(node).slice(0, 120)
+      };
+    });
+    if (lastResult.selectedTextLength > 0) {
+      return lastResult;
+    }
+    await sleep(250);
+  }
+  throw new Error(`No readable text selection found: ${JSON.stringify(lastResult)}`);
+}
+
+async function clickReaderStartWithPlaywright(page) {
+  const clicked = await page.evaluate(() => {
+    const host = document.getElementById('obsidian-clipper-dialog');
+    const root = host?.shadowRoot || document;
+    const buttons = Array.from(root.querySelectorAll('button'));
+    const button =
+      buttons.find((entry) =>
+        /reader|reading|阅读|高亮|Open reader|Start/i.test(
+          `${entry.textContent || ''} ${entry.getAttribute('aria-label') || ''} ${entry.title || ''}`
+        )
+      ) || buttons[0];
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  });
+  if (!clicked) {
+    throw new Error('Reader start button not found');
+  }
 }
 
 async function getExtensionResources(cdp, sessionId) {
@@ -397,7 +744,9 @@ async function getExtensionResources(cdp, sessionId) {
 }
 
 async function getMetrics(cdp, sessionId) {
-  const result = await cdp.send('Performance.getMetrics', {}, sessionId).catch(() => ({ metrics: [] }));
+  const result = await cdp
+    .send('Performance.getMetrics', {}, sessionId)
+    .catch(() => ({ metrics: [] }));
   return Object.fromEntries(result.metrics.map((metric) => [metric.name, metric.value]));
 }
 
@@ -444,6 +793,11 @@ function unique(values) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function argValue(name) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : null;
 }
 
 main().catch((error) => {
