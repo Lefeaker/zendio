@@ -43,6 +43,8 @@ import {
   isVideoSessionActive
 } from '../runtime/contentSessionRegistry';
 
+declare const __DEV__: boolean;
+
 const PROMPT_ID = 'aiob-video-floating-prompt';
 const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
 const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
