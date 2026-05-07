@@ -1,9 +1,32 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  createDefaultExtractorRegistry,
+  createExtractorRegistry
+} from '../../../src/content/extractors/registry';
+import type { ContentExtractor, ExtractionContext } from '../../../src/content/extractors/types';
 
-import { createExtractorRegistry } from '@content/extractors/registry';
-import type { ContentExtractor, ExtractionContext } from '@content/extractors/types';
+function createContext(url: string): ExtractionContext {
+  return {
+    url,
+    document
+  };
+}
+
+function extractor(id: string, priority: number, markdown: string): ContentExtractor {
+  return {
+    id,
+    priority,
+    canHandle: () => true,
+    extract: async () => ({
+      type: 'article',
+      title: id,
+      markdown,
+      meta: { url: 'https://example.com' }
+    })
+  };
+}
 
 function createStubExtractor(overrides: Partial<ContentExtractor> = {}): ContentExtractor {
   const base: ContentExtractor = {
@@ -117,5 +140,71 @@ describe('extractor registry', () => {
       code: 'EXTRACTION_CONTENT_UNSUPPORTED',
       context: { url: context.url, type: 'unknown' }
     });
+  });
+});
+
+describe('ExtractorRegistry lazy source ordering', () => {
+  it('does not load a lazy source when its preflight rejects the page', async () => {
+    const registry = createExtractorRegistry();
+    const loadAi = vi.fn(async () => extractor('ai.chat', 200, 'ai'));
+    const loadArticle = vi.fn(async () => extractor('article.default', 0, 'article'));
+
+    registry.register({
+      id: 'ai.chat',
+      priority: 200,
+      canHandle: () => false,
+      load: loadAi
+    });
+    registry.register({
+      id: 'article.default',
+      priority: 0,
+      canHandle: () => true,
+      load: loadArticle
+    });
+
+    const result = await registry.extract(
+      createContext('https://developer.mozilla.org/en-US/docs/Web/JavaScript')
+    );
+
+    expect(result.markdown).toBe('article');
+    expect(loadAi).not.toHaveBeenCalled();
+    expect(loadArticle).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads a high-priority lazy source when its preflight accepts the page', async () => {
+    const registry = createExtractorRegistry();
+    const loadAi = vi.fn(async () => extractor('ai.chat', 200, 'ai'));
+    const loadArticle = vi.fn(async () => extractor('article.default', 0, 'article'));
+
+    registry.register({
+      id: 'ai.chat',
+      priority: 200,
+      canHandle: () => true,
+      load: loadAi
+    });
+    registry.register({
+      id: 'article.default',
+      priority: 0,
+      canHandle: () => true,
+      load: loadArticle
+    });
+
+    const result = await registry.extract(createContext('https://chatgpt.com/c/abc'));
+
+    expect(result.markdown).toBe('ai');
+    expect(loadAi).toHaveBeenCalledTimes(1);
+    expect(loadArticle).not.toHaveBeenCalled();
+  });
+
+  it('keeps default registry from importing AI chat extractor for non-AI hosts', async () => {
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: { get: vi.fn(), onChange: vi.fn() } as never
+    });
+
+    const result = await registry.extract(
+      createContext('https://developer.mozilla.org/en-US/docs/Web/JavaScript')
+    );
+
+    expect(result.type).toBe('article');
   });
 });

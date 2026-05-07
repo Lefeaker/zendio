@@ -12,3 +12,10 @@ export interface ContentExtractor {
   canHandle(context: ExtractionContext): boolean | Promise<boolean>;
   extract(context: ExtractionContext): Promise<ExtractionResult>;
 }
+
+export interface LazyContentExtractorSource {
+  readonly id: string;
+  readonly priority: number;
+  canHandle(context: ExtractionContext): boolean | Promise<boolean>;
+  load(): ContentExtractor | Promise<ContentExtractor>;
+}
