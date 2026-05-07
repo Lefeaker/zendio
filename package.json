@@ -32,6 +32,7 @@
     "audit:components:report": "node tools/report-component-entry-alignment.mjs",
     "audit:build:report": "node tools/report-build-splitting.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
+    "perf:content:baseline": "node tools/collect-content-performance-baseline.mjs",
     "manifest:generate": "node scripts/generate-manifests.mjs",
     "i18n:generate": "node scripts/gen-locales.mjs",
     "i18n:lint": "node scripts/lint-i18n.mjs",

@@ -1,13 +1,16 @@
 /* @vitest-environment jsdom */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resetYamlConfigOverridesStore, setYamlConfigOverrides } from '@shared/state/yamlConfigOverridesStore';
+import {
+  resetYamlConfigOverridesStore,
+  setYamlConfigOverrides
+} from '@shared/state/yamlConfigOverridesStore';
 
 const parseMock = vi.fn();
 
 vi.mock('@mozilla/readability', () => ({
-  Readability: vi.fn().mockImplementation(() => ({
-    parse: parseMock
+  Readability: vi.fn().mockImplementation((doc: Document) => ({
+    parse: () => parseMock(doc)
   }))
 }));
 
@@ -91,7 +94,12 @@ describe('extractArticle', () => {
         article: {
           customFields: [
             { name: 'article_alias', type: 'text', enabled: true, valuePath: 'title' },
-            { name: 'reading_tags', type: 'array', enabled: true, defaultValue: ['reading', 'focus'] }
+            {
+              name: 'reading_tags',
+              type: 'array',
+              enabled: true,
+              defaultValue: ['reading', 'focus']
+            }
           ]
         }
       }
@@ -202,7 +210,10 @@ describe('extractArticle', () => {
       value: 'chrome-extension://deadbeef/home.html'
     });
 
-    const result = await module.extractArticle(extensionDoc, 'chrome-extension://deadbeef/home.html');
+    const result = await module.extractArticle(
+      extensionDoc,
+      'chrome-extension://deadbeef/home.html'
+    );
 
     expect(result.meta.sourceUrl).toBe('chrome-extension://deadbeef/home.html');
     expect(result.meta.resolvedUrl).toBe('chrome-extension://deadbeef/home.html');
@@ -247,5 +258,55 @@ describe('extractArticle', () => {
     expect(result.markdown).toContain('[Safe link](https://example.com)');
     expect(result.markdown).not.toContain('javascript:alert');
     expect(result.markdown).not.toContain('onclick');
+  });
+
+  it('extracts from a focused article root without preserving unrelated page chrome', async () => {
+    parseMock.mockImplementation((doc: Document) => ({
+      title: 'Focused Article',
+      content: doc.body.innerHTML
+    }));
+    document.body.innerHTML = `
+      <nav>${'<a>nav item</a>'.repeat(100)}</nav>
+      <main id="content">
+        <article>
+          <h1>Focused Article</h1>
+          <p>This is the article body with enough words for readability extraction and enough focused
+          content length to satisfy the safe root threshold without including page chrome.</p>
+        </article>
+      </main>
+      <aside>${'<p>recommendation</p>'.repeat(100)}</aside>
+    `;
+    document.title = 'Focused Article';
+
+    const module = await import('../../../src/content/extractors/articleExtractor');
+    const result = await module.extractArticle(document, 'https://example.com/article');
+
+    expect(result.markdown).toContain('Focused Article');
+    expect(result.markdown).toContain('article body');
+    expect(result.markdown).not.toContain('recommendation');
+    expect(result.markdown).not.toContain('nav item');
+  });
+
+  it('uses WeChat rich media content as a focused article root', async () => {
+    parseMock.mockImplementation((doc: Document) => ({
+      title: 'WeChat Article',
+      content: doc.body.innerHTML
+    }));
+    document.body.innerHTML = `
+      <div id="js_article">
+        <h1>Chrome Title Wrapper</h1>
+        <div id="js_content" class="rich_media_content">
+          <p>WeChat article paragraph with a meaningful amount of text for clipping.</p>
+        </div>
+      </div>
+      <div class="comment-panel">${'<p>comment noise</p>'.repeat(50)}</div>
+    `;
+    document.title = 'WeChat Article';
+
+    const module = await import('../../../src/content/extractors/articleExtractor');
+    const result = await module.extractArticle(document, 'https://mp.weixin.qq.com/s/example');
+
+    expect(result.markdown).toContain('WeChat article paragraph');
+    expect(result.markdown).not.toContain('comment noise');
   });
 });

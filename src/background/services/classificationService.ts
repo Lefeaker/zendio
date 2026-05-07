@@ -10,12 +10,16 @@ import type { ClassificationResult as ClassificationResultT } from '../../shared
 export type { ClassificationResult } from '../../shared/schemas';
 
 const CLASSIFICATION_PREVIEW_LENGTH = 4000;
+const DEFAULT_CLASSIFICATION_TIMEOUT_MS = 2000;
 
 export function createClassificationPreview(payload: ClipPayload): string {
   return payload.markdown.slice(0, CLASSIFICATION_PREVIEW_LENGTH);
 }
 
-export async function classifyClip(options: Options, payload: ClipPayload): Promise<ClassificationResultT> {
+export async function classifyClip(
+  options: Options,
+  payload: ClipPayload
+): Promise<ClassificationResultT> {
   const fallbackBase: ClassificationResultT = ClassificationResultSchema.parse({
     topics: [],
     tags: [],
@@ -30,25 +34,38 @@ export async function classifyClip(options: Options, payload: ClipPayload): Prom
 
   try {
     const preview = createClassificationPreview(payload);
-    const response = await classify(options.classifier, {
-      typeHint: payload.type || 'article',
-      platform: payload.meta?.platform || 'unknown',
-      url: payload.meta?.url || '',
-      title: payload.title || 'Untitled'
-    }, preview);
+    const response = await withTimeout(
+      classify(
+        options.classifier,
+        {
+          typeHint: payload.type || 'article',
+          platform: payload.meta?.platform || 'unknown',
+          url: payload.meta?.url || '',
+          title: payload.title || 'Untitled'
+        },
+        preview
+      ),
+      resolveClassificationTimeoutMs(options)
+    );
 
     if (response.ok) {
       return normalizeClassificationPayload(response, fallbackBase);
     }
 
-    const { error } = response as ClassifierFailure;
+    const { error } = response;
     await errorHandler.handle(error, { suppressNotifications: true });
     return ClassificationResultSchema.parse({
       ...fallbackBase,
       fallbackReason: 'error' as const,
       errorDetail: error
-    }) as ClassificationResultT;
+    });
   } catch (error) {
+    if (error instanceof Error && error.message === 'CLASSIFICATION_TIMEOUT') {
+      return ClassificationResultSchema.parse({
+        ...fallbackBase,
+        fallbackReason: 'timeout' as const
+      });
+    }
     const errorDetail = classifierErrors.transportFailure(
       error instanceof Error ? error.message : String(error),
       {
@@ -62,8 +79,34 @@ export async function classifyClip(options: Options, payload: ClipPayload): Prom
       ...fallbackBase,
       fallbackReason: 'error' as const,
       errorDetail
-    }) as ClassificationResultT;
+    });
   }
+}
+
+function resolveClassificationTimeoutMs(options: Options): number {
+  const configured = Number(options.classifier?.timeoutMs);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return DEFAULT_CLASSIFICATION_TIMEOUT_MS;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('CLASSIFICATION_TIMEOUT'));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
 function normalizeClassificationPayload(

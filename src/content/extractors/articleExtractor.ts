@@ -16,14 +16,59 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function sanitizeFallbackHtml(doc: Document): string {
-  const clone = doc.cloneNode(true) as Document;
+const ARTICLE_ROOT_SELECTORS = [
+  '#js_content.rich_media_content',
+  '#js_content',
+  'article',
+  'main article',
+  'main',
+  '[role="main"]',
+  '.article',
+  '.post',
+  '.entry-content',
+  '.rich_media_content'
+] as const;
+
+function resolveArticleRoot(doc: Document): Element | null {
+  for (const selector of ARTICLE_ROOT_SELECTORS) {
+    const element = doc.querySelector(selector);
+    if (!element) {
+      continue;
+    }
+    const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    if (text.length >= 120 || selector.includes('js_content')) {
+      return element;
+    }
+  }
+  return null;
+}
+
+function createFocusedArticleDocument(doc: Document, url: string): Document {
+  const focusedRoot = resolveArticleRoot(doc);
+  if (!focusedRoot) {
+    return doc.cloneNode(true) as Document;
+  }
+
+  const nextDoc = doc.implementation.createHTMLDocument(doc.title || '');
+  const base = nextDoc.createElement('base');
+  base.href = doc.baseURI || url;
+  nextDoc.head.append(base);
+
+  const title = nextDoc.createElement('title');
+  title.textContent = doc.title || '';
+  nextDoc.head.append(title);
+
+  nextDoc.body.append(focusedRoot.cloneNode(true));
+  return nextDoc;
+}
+
+function sanitizeFallbackHtml(preparedDoc: Document): string {
   const removeSelectors = ['script', 'style', 'noscript', 'template'];
   removeSelectors.forEach((selector) => {
-    clone.querySelectorAll(selector).forEach((node) => node.remove());
+    preparedDoc.querySelectorAll(selector).forEach((node) => node.remove());
   });
 
-  const elements = clone.querySelectorAll<HTMLElement>('*');
+  const elements = preparedDoc.querySelectorAll<HTMLElement>('*');
   elements.forEach((element) => {
     Array.from(element.attributes).forEach((attr) => {
       const name = attr.name.toLowerCase();
@@ -33,20 +78,27 @@ function sanitizeFallbackHtml(doc: Document): string {
       }
 
       if ((name === 'href' || name === 'src') && attr.value) {
-        if (hasDisallowedProtocol(attr.value, doc.baseURI ?? undefined, DISALLOWED_URL_PROTOCOLS)) {
+        if (
+          hasDisallowedProtocol(
+            attr.value,
+            preparedDoc.baseURI ?? undefined,
+            DISALLOWED_URL_PROTOCOLS
+          )
+        ) {
           element.removeAttribute(attr.name);
         }
       }
     });
   });
 
-  return clone.body?.innerHTML?.trim() ?? '';
+  return preparedDoc.body?.innerHTML?.trim() ?? '';
 }
 
 function resolveMarkdown(context: ExtractionContext, timestamp: Date) {
   const { document: doc, url } = context;
   const originalBaseUri = doc.baseURI ?? undefined;
-  const cloned = preprocessDocument(doc.cloneNode(true) as Document, url);
+  const extractionDoc = createFocusedArticleDocument(doc, url);
+  const cloned = preprocessDocument(extractionDoc, url);
   const baseUrl = tryParseUrl(url, originalBaseUri);
   const rd = new Readability(cloned).parse();
 
@@ -91,7 +143,7 @@ function resolveMarkdown(context: ExtractionContext, timestamp: Date) {
     }
   });
 
-  const fallbackText = doc.body?.textContent?.trim() ?? '';
+  const fallbackText = cloned.body?.textContent?.trim() ?? '';
   const contentHtml = rd?.content?.trim() || sanitizeFallbackHtml(cloned);
   const markdownSource =
     contentHtml ||

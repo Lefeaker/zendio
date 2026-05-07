@@ -12,6 +12,7 @@ class PanelStyleSheetManager {
   private static instance: PanelStyleSheetManager | null = null;
   private initialized = false;
   private pendingLoad: Promise<void> | null = null;
+  private videoPendingLoad: Promise<void> | null = null;
   private clipperSheet: CSSStyleSheet | null = null;
   private videoSheet: CSSStyleSheet | null = null;
   private clipperStyles: string | null = null;
@@ -35,30 +36,21 @@ class PanelStyleSheetManager {
       return this.pendingLoad;
     }
 
-    // 延迟加载样式，避免模块顶层导入失败
-    this.pendingLoad = Promise.all([
-      loadClipperStyle('clipper.tailwind'),
-      loadClipperStyle('video.tailwind')
-    ])
-      .then(([clipperCss, videoCss]) => {
+    this.pendingLoad = loadClipperStyle('clipper.tailwind')
+      .then((clipperCss) => {
         this.clipperStyles = clipperCss;
-        this.videoStyles = videoCss;
 
         if (supportsAdoptedStyleSheets()) {
           this.clipperSheet = createManagedStyleSheet(clipperCss);
-          this.videoSheet = createManagedStyleSheet(videoCss);
         } else {
           this.clipperSheet = null;
-          this.videoSheet = null;
         }
         this.replayRegisteredRoots();
       })
       .catch((error) => {
         console.warn('[PanelStyleSheetManager] Failed to load styles:', error);
         this.clipperSheet = null;
-        this.videoSheet = null;
         this.clipperStyles = null;
-        this.videoStyles = null;
       })
       .finally(() => {
         this.initialized = true;
@@ -66,6 +58,10 @@ class PanelStyleSheetManager {
       });
 
     return this.pendingLoad;
+  }
+
+  whenVideoStylesReady(): Promise<void> {
+    return this.videoPendingLoad ?? Promise.resolve();
   }
 
   applyReaderStyles(shadowRoot: ShadowRoot): void {
@@ -85,6 +81,7 @@ class PanelStyleSheetManager {
     if (!this.initialized) {
       void this.initialize();
     }
+    void this.loadVideoStyles();
     this.videoRoots.add(shadowRoot);
 
     applyManagedShadowStyle(
@@ -103,6 +100,7 @@ class PanelStyleSheetManager {
 
   destroy(): void {
     this.pendingLoad = null;
+    this.videoPendingLoad = null;
     this.clipperSheet = null;
     this.videoSheet = null;
     this.clipperStyles = null;
@@ -110,6 +108,32 @@ class PanelStyleSheetManager {
     this.readerRoots.clear();
     this.videoRoots.clear();
     this.initialized = false;
+  }
+
+  private loadVideoStyles(): Promise<void> {
+    if (this.videoStyles !== null) {
+      return this.videoPendingLoad ?? Promise.resolve();
+    }
+    if (this.videoPendingLoad !== null) {
+      return this.videoPendingLoad;
+    }
+
+    this.videoPendingLoad = loadClipperStyle('video.tailwind')
+      .then((videoCss) => {
+        this.videoStyles = videoCss;
+        this.videoSheet = supportsAdoptedStyleSheets() ? createManagedStyleSheet(videoCss) : null;
+        this.replayRegisteredRoots();
+      })
+      .catch((error) => {
+        console.warn('[PanelStyleSheetManager] Failed to load video styles:', error);
+        this.videoSheet = null;
+        this.videoStyles = null;
+      })
+      .finally(() => {
+        this.videoPendingLoad = null;
+      });
+
+    return this.videoPendingLoad;
   }
 
   private replayRegisteredRoots(): void {

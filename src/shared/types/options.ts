@@ -35,7 +35,12 @@ export type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
 export type ReadingExportMode = 'highlights' | 'full';
 
-export type ReaderHighlightTheme = 'gradient' | 'purple' | 'neonYellow' | 'neonGreen' | 'neonOrange';
+export type ReaderHighlightTheme =
+  | 'gradient'
+  | 'purple'
+  | 'neonYellow'
+  | 'neonGreen'
+  | 'neonOrange';
 
 export interface ReadingSessionOptions {
   exportMode: ReadingExportMode;
@@ -65,6 +70,7 @@ export interface ClassifierOptions {
   endpoint: string;
   apiKey: string;
   model: string;
+  timeoutMs?: number;
   taxonomy: ReadonlyDeep<TaxonomyConfig>;
 }
 

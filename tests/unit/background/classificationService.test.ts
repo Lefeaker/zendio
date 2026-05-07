@@ -28,7 +28,7 @@ describe('classificationService', () => {
     const result = await classifyClip(options, payload);
     expect(result.type).toBe(payload.type);
     expect(result.fallbackReason).toBe('disabled');
-     expect(result.status).toBe('fallback');
+    expect(result.status).toBe('fallback');
     expect(result.errorDetail).toBeUndefined();
     expect(classifyMock).not.toHaveBeenCalled();
   });
@@ -37,7 +37,10 @@ describe('classificationService', () => {
     const { classifyClip } = await import('../../../src/background/services/classificationService');
     const options = createOptions({ enabled: true });
     const payload = createPayload();
-    const classifierResult = { ok: true as const, payload: { type: 'custom', topics: ['tech'], tags: ['foo'] } };
+    const classifierResult = {
+      ok: true as const,
+      payload: { type: 'custom', topics: ['tech'], tags: ['foo'] }
+    };
 
     classifyMock.mockResolvedValueOnce(classifierResult);
 
@@ -103,8 +106,38 @@ describe('classificationService', () => {
     expect(result.errorDetail?.context).toMatchObject({ status: 401 });
   });
 
+  it('returns fallback timeout classification when classifier transport exceeds the budget', async () => {
+    vi.useFakeTimers();
+    classifyMock.mockReturnValue(new Promise(() => undefined) as never);
+    const { classifyClip } = await import('../../../src/background/services/classificationService');
+    const classifyPromise = classifyClip(
+      createOptions({
+        enabled: true,
+        timeoutMs: 50
+      }),
+      {
+        type: 'article',
+        title: 'Slow Clip',
+        markdown: 'Long article markdown',
+        meta: { url: 'https://example.com/slow' }
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(60);
+    const result = await Promise.race([
+      classifyPromise,
+      Promise.resolve({ status: 'pending', fallbackReason: undefined })
+    ]);
+
+    expect(result.status).toBe('fallback');
+    expect(result.fallbackReason).toBe('timeout');
+    vi.useRealTimers();
+  });
+
   it('limits preview length to 4000 characters', async () => {
-    const { createClassificationPreview } = await import('../../../src/background/services/classificationService');
+    const { createClassificationPreview } = await import(
+      '../../../src/background/services/classificationService'
+    );
     const longMarkdown = '#'.repeat(6000);
     const payload = createPayload({ markdown: longMarkdown });
 
@@ -162,13 +195,16 @@ describe('classificationService', () => {
   });
 });
 
-function createOptions(classifierOverrides: Partial<{ enabled: boolean }> = {}): OptionsState {
+function createOptions(
+  classifierOverrides: Partial<{ enabled: boolean; timeoutMs: number }> = {}
+): OptionsState {
   const classifier = {
     enabled: classifierOverrides.enabled ?? true,
     provider: 'ollama' as const,
     endpoint: 'http://localhost:11434/api/chat',
     apiKey: '',
     model: 'llama3.1',
+    timeoutMs: classifierOverrides.timeoutMs,
     taxonomy: DEFAULT_TAXONOMY_CONFIG
   };
 
