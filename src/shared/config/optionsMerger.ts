@@ -23,15 +23,19 @@ function mergeClassifierOptions(
   }
 
   const base = source ?? {};
-  return {
+  const timeoutMs = base.timeoutMs ?? defaults?.timeoutMs;
+  const merged: ClassifierOptions = {
     enabled: base.enabled ?? defaults?.enabled ?? false,
     provider: base.provider || defaults?.provider || 'ollama',
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
     apiKey: base.apiKey || defaults?.apiKey || '',
     model: base.model || defaults?.model || 'llama3.1',
-    timeoutMs: base.timeoutMs ?? defaults?.timeoutMs,
     taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
+  if (timeoutMs !== undefined) {
+    merged.timeoutMs = timeoutMs;
+  }
+  return merged;
 }
 
 const READER_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
