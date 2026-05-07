@@ -19,6 +19,7 @@ const OUT_DIR = process.argv.includes('--out')
 const PHASE_SETTLE_MS = Number(process.env.AIIOB_PERF_PHASE_SETTLE_MS ?? 750);
 const NAVIGATION_TIMEOUT_MS = Number(process.env.AIIOB_PERF_NAVIGATION_TIMEOUT_MS ?? 45_000);
 const ACTION_TIMEOUT_MS = Number(process.env.AIIOB_PERF_ACTION_TIMEOUT_MS ?? 10_000);
+const CDP_COMMAND_TIMEOUT_MS = Number(process.env.AIIOB_PERF_CDP_TIMEOUT_MS ?? 10_000);
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -62,7 +63,20 @@ class CdpConnection {
     const payload = sessionId ? { id, method, params, sessionId } : { id, method, params };
     this.ws.send(JSON.stringify(payload));
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Timed out waiting for CDP ${method}`));
+      }, CDP_COMMAND_TIMEOUT_MS);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        }
+      });
     });
   }
 
@@ -133,6 +147,12 @@ async function main() {
 }
 
 async function attachExtensionServiceWorker(cdp) {
+  await cdp.send('ServiceWorker.enable').catch(() => undefined);
+  await cdp
+    .send('ServiceWorker.startWorker', {
+      scopeURL: `chrome-extension://${EXTENSION_ID}/`
+    })
+    .catch(() => undefined);
   const targets = await cdp.send('Target.getTargets');
   console.log(`[perf] found ${targets.targetInfos.length} Chrome targets`);
   const worker = targets.targetInfos.find(
