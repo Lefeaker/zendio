@@ -9,8 +9,13 @@ import {
 
 class TestMutationObserver {
   static instances: TestMutationObserver[] = [];
-  public readonly observe = vi.fn();
+  public readonly observe = vi.fn((target: Node, options?: MutationObserverInit) => {
+    this.observeTarget = target;
+    this.observeOptions = options;
+  });
   public readonly disconnect = vi.fn();
+  public observeTarget: Node | null = null;
+  public observeOptions: MutationObserverInit | undefined;
 
   constructor(public readonly callback: MutationCallback) {
     TestMutationObserver.instances.push(this);
@@ -49,6 +54,54 @@ describe('videoPromptObserver scoped control targets', () => {
     const dm = document.querySelector('.bili-danmaku-x-dm');
     expect(dm).toBeTruthy();
     expect(isIgnoredVideoMutationNode(dm)).toBe(true);
+  });
+
+  it('observes a YouTube player root instead of body or documentElement while waiting for controls', () => {
+    document.body.innerHTML = '<div id="movie_player"><div class="ytp-chrome-bottom"></div></div>';
+
+    const stop = observeVideoControlTarget({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc',
+      onTarget: vi.fn()
+    });
+
+    const observer = TestMutationObserver.instances[0];
+    expect(observer.observeTarget).toBe(document.getElementById('movie_player'));
+    expect(observer.observeTarget).not.toBe(document.body);
+    expect(observer.observeTarget).not.toBe(document.documentElement);
+    expect(observer.observeOptions).toEqual(expect.objectContaining({ childList: true }));
+    stop();
+  });
+
+  it('observes a Bilibili player root instead of body or documentElement while waiting for controls', () => {
+    document.body.innerHTML =
+      '<div class="bpx-player-container"><div class="bpx-player-video-wrap"></div></div>';
+
+    const stop = observeVideoControlTarget({
+      doc: document,
+      url: 'https://www.bilibili.com/video/BV1abc/',
+      onTarget: vi.fn()
+    });
+
+    const observer = TestMutationObserver.instances[0];
+    expect(observer.observeTarget).toBe(document.querySelector('.bpx-player-container'));
+    expect(observer.observeTarget).not.toBe(document.body);
+    expect(observer.observeTarget).not.toBe(document.documentElement);
+    expect(observer.observeOptions).toEqual(expect.objectContaining({ childList: true }));
+    stop();
+  });
+
+  it('does not create a whole-document observer when no bounded player root is available', () => {
+    document.body.innerHTML = '<main><aside class="recommendations"></aside></main>';
+
+    const stop = observeVideoControlTarget({
+      doc: document,
+      url: 'https://www.bilibili.com/video/BV1abc/',
+      onTarget: vi.fn()
+    });
+
+    expect(TestMutationObserver.instances).toHaveLength(0);
+    stop();
   });
 
   it('disconnects after the control target is found', () => {

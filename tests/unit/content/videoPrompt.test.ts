@@ -439,6 +439,29 @@ describe('video prompt', () => {
     expect(createPromptElementMock).toHaveBeenCalledTimes(initialMounts);
   });
 
+  it('does not resync control entry from unrelated page churn before the control target exists', async () => {
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const initialControlSyncs = ensureVideoControlBarButtonMock.mock.calls.length;
+    const initialPromptMounts = createPromptElementMock.mock.calls.length;
+    controlTargetObservers.forEach(({ onTarget }) => {
+      const unrelated = document.createElement('aside');
+      unrelated.className = 'recommendations';
+      document.body.appendChild(unrelated);
+      onTarget(unrelated);
+    });
+    await flushMicrotasks();
+
+    expect(ensureVideoControlBarButtonMock.mock.calls.length).toBe(initialControlSyncs);
+    expect(createPromptElementMock.mock.calls.length).toBe(initialPromptMounts);
+  });
+
   it('applies config updates and removes prompt when disabled', async () => {
     const module: VideoPromptTestModule = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
