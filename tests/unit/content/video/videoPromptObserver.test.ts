@@ -105,6 +105,8 @@ describe('videoPromptObserver scoped control targets', () => {
   });
 
   it('disconnects after the control target is found', () => {
+    document.body.innerHTML = '<div class="bpx-player-container"></div>';
+    const root = document.querySelector('.bpx-player-container');
     const onTarget = vi.fn();
     const stop = observeVideoControlTarget({
       doc: document,
@@ -115,7 +117,7 @@ describe('videoPromptObserver scoped control targets', () => {
     const observer = TestMutationObserver.instances[0];
     const controls = document.createElement('div');
     controls.className = 'bpx-player-control-bottom-right';
-    document.body.appendChild(controls);
+    root?.appendChild(controls);
     observer.callback(
       [{ addedNodes: [controls], type: 'childList' } as unknown as MutationRecord],
       observer as unknown as MutationObserver

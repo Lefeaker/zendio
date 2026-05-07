@@ -123,6 +123,7 @@ vi.mock('../../../src/content/video/utils', () => ({
 
 const observerCallbacks = vi.hoisted(() => [] as Array<() => void>);
 const controlTargetState = vi.hoisted(() => ({ current: null as Element | null }));
+const controlObserverRootState = vi.hoisted(() => ({ current: null as Element | null }));
 const controlTargetObservers = vi.hoisted(
   () => [] as Array<{ onTarget(target: Element): void; stop: ReturnType<typeof vi.fn> }>
 );
@@ -131,6 +132,7 @@ const hasPlayableVideoMock = vi.hoisted(() => vi.fn(() => true));
 const isValidVideoPlayPageMock = vi.hoisted(() => vi.fn(() => true));
 vi.mock('../../../src/content/video/videoPromptObserver', () => ({
   findVideoControlTarget: vi.fn(() => controlTargetState.current),
+  findVideoControlObserverRoot: vi.fn(() => controlObserverRootState.current),
   isIgnoredVideoMutationNode: vi.fn(() => false),
   observeVideoControlTarget: vi.fn((options: { onTarget(target: Element): void }) => {
     const stop = vi.fn();
@@ -326,6 +328,7 @@ describe('video prompt', () => {
     vi.resetModules();
     observerCallbacks.length = 0;
     controlTargetState.current = null;
+    controlObserverRootState.current = document.createElement('div');
     controlTargetObservers.length = 0;
     dragHandlersRef.current = null;
     lastRendererConfig.current = null;

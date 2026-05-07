@@ -8,6 +8,20 @@ export const BILIBILI_CONTROL_TARGET_SELECTORS = [
   '.bilibili-player-video-control-bottom-right',
   '.squirtle-controller-right'
 ] as const;
+export const YOUTUBE_PLAYER_ROOT_SELECTORS = [
+  '#movie_player',
+  '.html5-video-player',
+  'ytd-player',
+  '#player'
+] as const;
+export const BILIBILI_PLAYER_ROOT_SELECTORS = [
+  '.bpx-player-container',
+  '.bpx-player-primary-area',
+  '.bpx-player-video-area',
+  '.bilibili-player',
+  '#bilibili-player',
+  '.squirtle-video-wrap'
+] as const;
 
 const IGNORED_DYNAMIC_REGION_SELECTOR = [
   '.bpx-player-render-dm-wrap',
@@ -36,6 +50,16 @@ function selectControlTarget(doc: Document, selectors: readonly string[]): Eleme
   return null;
 }
 
+function selectFirstConnected(doc: Document, selectors: readonly string[]): Element | null {
+  for (const selector of selectors) {
+    const target = doc.querySelector(selector);
+    if (target?.isConnected) {
+      return target;
+    }
+  }
+  return null;
+}
+
 /**
  * Finds the supported player control target that can host the AiiinOB entry button.
  */
@@ -47,6 +71,21 @@ export function findVideoControlTarget(doc: Document, url: string): Element | nu
     }
     if (hostname.includes('bilibili.com')) {
       return selectControlTarget(doc, BILIBILI_CONTROL_TARGET_SELECTORS);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function findVideoControlObserverRoot(doc: Document, url: string): Element | null {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return selectFirstConnected(doc, YOUTUBE_PLAYER_ROOT_SELECTORS);
+    }
+    if (hostname.includes('bilibili.com')) {
+      return selectFirstConnected(doc, BILIBILI_PLAYER_ROOT_SELECTORS);
     }
   } catch {
     return null;
@@ -71,13 +110,18 @@ export function isIgnoredVideoMutationNode(node: Node | null): boolean {
 }
 
 export function observeVideoControlTarget(options: VideoControlTargetObserverOptions): () => void {
+  const existingTarget = findVideoControlTarget(options.doc, options.url);
+  if (existingTarget) {
+    options.onTarget(existingTarget);
+    return () => undefined;
+  }
+
   if (typeof MutationObserver === 'undefined') {
     return () => undefined;
   }
 
-  const existingTarget = findVideoControlTarget(options.doc, options.url);
-  if (existingTarget) {
-    options.onTarget(existingTarget);
+  const root = findVideoControlObserverRoot(options.doc, options.url);
+  if (!root) {
     return () => undefined;
   }
 
@@ -112,7 +156,7 @@ export function observeVideoControlTarget(options: VideoControlTargetObserverOpt
   });
 
   try {
-    observer.observe(options.doc.body ?? options.doc.documentElement, {
+    observer.observe(root, {
       childList: true,
       subtree: true
     });

@@ -7,6 +7,7 @@ import { DEFAULT_OPTIONS } from '../../shared/config';
 import type { VideoPromptDependencies } from './videoPromptDependencies';
 import {
   findVideoControlTarget,
+  findVideoControlObserverRoot,
   observeVideoControlTarget,
   matchesSupportedVideoHost,
   hasPlayableVideo,
@@ -45,6 +46,7 @@ import {
 const PROMPT_ID = 'aiob-video-floating-prompt';
 const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
 const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
+const CONTROL_TARGET_RETRY_DELAYS_MS = [100, 250, 500, 1000] as const;
 
 let videoPromptDependencies: VideoPromptDependencies | null = null;
 
@@ -88,6 +90,8 @@ const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
 let stopControlTargetObserver: (() => void) | null = null;
+let controlTargetRetryHandle: number | null = null;
+let controlTargetRetryIndex = 0;
 let navigationWatcher: VideoNavigationWatcher | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
@@ -223,6 +227,31 @@ function clearControlTargetObserver(): void {
   stopControlTargetObserver = null;
 }
 
+function clearControlTargetRetry(): void {
+  if (controlTargetRetryHandle !== null) {
+    window.clearTimeout(controlTargetRetryHandle);
+    controlTargetRetryHandle = null;
+  }
+  controlTargetRetryIndex = 0;
+}
+
+function scheduleControlTargetRetry(): void {
+  if (controlTargetRetryHandle !== null) {
+    return;
+  }
+
+  const delay = CONTROL_TARGET_RETRY_DELAYS_MS[controlTargetRetryIndex];
+  if (delay === undefined) {
+    return;
+  }
+
+  controlTargetRetryIndex += 1;
+  controlTargetRetryHandle = window.setTimeout(() => {
+    controlTargetRetryHandle = null;
+    ensureControlTargetObserver();
+  }, delay);
+}
+
 function syncVideoControlBarButton(): void {
   ensureVideoControlBarButton({
     doc: document,
@@ -247,6 +276,7 @@ function syncVideoControlBarButton(): void {
 function ensureControlTargetObserver(): void {
   if (findVideoControlTarget(document, window.location.href)) {
     clearControlTargetObserver();
+    clearControlTargetRetry();
     syncVideoControlBarButton();
     return;
   }
@@ -254,11 +284,22 @@ function ensureControlTargetObserver(): void {
     return;
   }
 
+  if (!findVideoControlObserverRoot(document, window.location.href)) {
+    scheduleControlTargetRetry();
+    return;
+  }
+
+  clearControlTargetRetry();
   stopControlTargetObserver = observeVideoControlTarget({
     doc: document,
     url: window.location.href,
-    onTarget: () => {
+    onTarget: (target) => {
+      const currentTarget = findVideoControlTarget(document, window.location.href);
+      if (!currentTarget || currentTarget !== target) {
+        return;
+      }
       stopControlTargetObserver = null;
+      clearControlTargetRetry();
       syncVideoControlBarButton();
       evaluatePrompt(true);
     }
@@ -336,15 +377,20 @@ function evaluatePrompt(force = false): void {
 
   if (!isValidVideoPage) {
     clearControlTargetObserver();
+    clearControlTargetRetry();
     removeVideoControlBarButton(document);
   } else if (controlTarget) {
     clearControlTargetObserver();
+    clearControlTargetRetry();
     syncVideoControlBarButton();
     removePrompt();
     return;
   } else if (promptEnabled && !promptSuppressed) {
     removeVideoControlBarButton(document);
     ensureControlTargetObserver();
+  } else {
+    clearControlTargetObserver();
+    clearControlTargetRetry();
   }
 
   if (!shouldShow) {
@@ -564,6 +610,7 @@ function teardownPromptWatchers(): void {
   navigationWatcher?.stop();
   navigationWatcher = null;
   clearControlTargetObserver();
+  clearControlTargetRetry();
   removeVideoControlBarButton(document);
 }
 
