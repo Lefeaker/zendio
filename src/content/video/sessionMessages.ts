@@ -28,6 +28,7 @@ export const DEFAULT_SESSION_MESSAGES: VideoSessionMessages = {
     captureSaveLabel: 'Save note',
     captureCancelLabel: 'Cancel',
     captureEditPlaceholder: 'Add a note for this timestamp...',
+    fragmentEditPlaceholder: 'Update the note here...',
     captureFocusLabel: 'Jump to capture {index}'
   },
   hintNoVideo: 'Waiting for video element to be ready…',

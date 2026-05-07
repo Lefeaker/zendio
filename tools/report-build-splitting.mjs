@@ -18,7 +18,9 @@ const ENTRY_BUDGETS = new Map([
 ]);
 const MAX_CHUNK_COUNT = 132;
 const MAX_SINGLE_CHUNK_SIZE = 650 * 1024;
-const SHARED_CHUNK_BUDGETS = [175 * 1024, 145 * 1024, 101 * 1024];
+// Shared #1 carries the cross-entry options/repository schema. The first budget
+// includes the video control-bar persisted preference contract.
+const SHARED_CHUNK_BUDGETS = [196 * 1024, 145 * 1024, 130 * 1024];
 const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
 const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
 const REST_SECTION_CHUNK_PATTERN = /^RestSection-/;

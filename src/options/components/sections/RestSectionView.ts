@@ -8,12 +8,8 @@ import {
   initializeVaultRouterStore
 } from '../../state/vaultRouterStore';
 import { VaultRouterController } from '../controls/vaultRouterController';
-import { type FormSectionHandlers } from '../formSections/formSectionManager';
-import { getOptionsMessages } from '../../app/i18nContext';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
-import { createConnectionTester, type ConnectionTester } from '../controls/connectionTest';
-import type { ConnectionResultType } from '../../services/connectionTestRunner';
-import { requestConnectionTest, requestVaultConnectionTest } from '../../services/connectionTester';
+import type { ConnectionTester } from '../controls/connectionTest';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';
 import {
@@ -29,9 +25,12 @@ import {
   resetRestConnectionTestResult
 } from './restSectionConnectionResult';
 import { renderRestVaultRows } from './restSectionVaultRow';
-
+import {
+  createRestSectionConnectionTester,
+  registerRestSectionFormBinding,
+  subscribeRestSectionRepository
+} from './restSectionRuntime';
 const REST_DEFAULTS = configProvider.getRestDefaults();
-
 export class RestSection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
   private readonly messagingRepo: IMessagingRepository;
@@ -58,27 +57,22 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.optionsRepo = optionsRepo;
     this.messagingRepo = messagingRepo;
   }
-
   protected renderWithState(_context: SectionRenderContext): HTMLElement {
     if (this.messages) {
       this.vaultRouterController.setMessages(this.messages);
     }
     this.vaultRouterController.render();
     this.applySectionChrome();
-
     this.defaultNameInput = null;
     this.defaultHttpsInput = null;
     this.defaultHttpInput = null;
     this.defaultApiKeyInput = null;
-
     const header = this.buildSectionHeader({
       title: this.messages?.apiConfigTitle ?? 'Obsidian Local REST API',
       description: this.messages?.apiConfigHint ?? '配置默认仓库和额外仓库的连接信息'
     });
     const body = this.buildBody();
-
     this.container.replaceChildren(header, body);
-
     this.unsubscribeVaultStore?.();
     this.unsubscribeVaultStore = subscribeVaultRouter((state) => {
       this.defaultVaultId =
@@ -88,7 +82,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
         null;
       this.renderAdditionalVaultRows(state.vaults, state.defaultVaultId);
     });
-
     const snapshot = getVaultRouterConfig();
     this.defaultVaultId =
       snapshot?.defaultVaultId ??
@@ -99,10 +92,8 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.subscribeToRepository();
     this.registerFormIntegration();
     this.initializeConnectionTester();
-
     return this.container;
   }
-
   override destroy(): void {
     this.unsubscribeVaultStore?.();
     this.unsubscribeVaultStore = null;
@@ -117,7 +108,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.vaultRouterController.dispose();
     super.destroy();
   }
-
   private buildBody(): HTMLElement {
     const layout = buildRestSectionLayout({
       createElement: (tagName: string) =>
@@ -135,19 +125,12 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     this.defaultApiKeyInput = layout.defaultApiKeyInput;
     return layout.body;
   }
-
-  private renderConnectionTestResult(type: ConnectionResultType, text: string): void {
-    renderRestConnectionTestResult({
-      connectionResultHost: this.connectionResultHost,
-      type,
-      text
-    });
+  private renderConnectionTestResult(type: 'success' | 'error' | 'info', text: string): void {
+    renderRestConnectionTestResult({ connectionResultHost: this.connectionResultHost, type, text });
   }
-
   private resetConnectionTestResult(): void {
     resetRestConnectionTestResult(this.connectionResultHost);
   }
-
   private renderAdditionalVaultRows(vaults: VaultConfig[], defaultVaultId?: string): void {
     renderRestVaultRows({
       additionalRowsHost: this.additionalRowsHost,
@@ -166,7 +149,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
         })
     });
   }
-
   private updateDefaultVaultField(
     field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
     rawValue: string
@@ -175,13 +157,10 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       markPendingAutoSave('rest');
       getOptionsController()?.scheduleAutoSave();
     }
-
     if (!this.defaultVaultId) {
       return;
     }
-
     const updates: Partial<VaultConfig> = {};
-
     if (field === 'name') {
       const trimmed = rawValue.trim();
       updates.vault = trimmed;
@@ -193,26 +172,23 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     } else if (field === 'apiKey') {
       updates.apiKey = rawValue;
     }
-
     this.vaultRouterController.updateVault(this.defaultVaultId, updates, {
       silent: this.isApplyingSnapshot
     });
   }
-
   private registerFormIntegration(): void {
-    const binding: FormSectionHandlers = {
+    registerRestSectionFormBinding({
+      registerManagedFormSection: (sectionId, binding) =>
+        this.registerManagedFormSection(sectionId, binding),
       applySnapshot: (options) => {
         this.applySnapshot(options);
       },
       collectChanges: (previous) => this.collectChanges(previous)
-    };
-    this.registerManagedFormSection('rest', binding);
+    });
   }
-
   private applySnapshot(options: StoredOptions | CompleteOptions): void {
     initializeVaultRouterStore(options.vaultRouter ?? null);
     const router = getVaultRouterConfig() ?? null;
-
     this.isApplyingSnapshot = true;
     const resolved = applyRestSectionSnapshot({
       options,
@@ -234,9 +210,8 @@ export class RestSection extends BaseSection<SectionRenderContext> {
     }
     this.isApplyingSnapshot = false;
   }
-
   private collectChanges(previous: StoredOptions | null): Partial<CompleteOptions> {
-    const partial = collectRestSectionChanges({
+    return collectRestSectionChanges({
       previous,
       defaultInputs: {
         nameInput: this.defaultNameInput,
@@ -246,30 +221,23 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       },
       defaults: REST_DEFAULTS
     });
-    return partial;
   }
-
   private initializeConnectionTester(): void {
     this.connectionTester?.dispose();
-    const button = this.container.querySelector<HTMLButtonElement>('#testConnectionBtn');
-    const resultHost = this.container.querySelector<HTMLDivElement>('#connectionResult');
-    if (!button || !resultHost) {
-      this.connectionTester = null;
-      return;
-    }
-    this.connectionTester = createConnectionTester({
-      button,
-      resultHost,
-      getMessages: getOptionsMessages,
-      getRestDraft: () => this.collectRestDraftForTest(),
-      getAdditionalVaultConfigs: () => this.collectAdditionalVaultConfigsForTest(),
-      renderResult: (_host, type, text) => this.renderConnectionTestResult(type, text),
-      resetResult: () => this.resetConnectionTestResult(),
-      runDefaultTest: (draft) => requestConnectionTest(draft, this.messagingRepo),
-      runVaultTest: (vault) => requestVaultConnectionTest(vault, this.messagingRepo)
+    this.connectionTester = createRestSectionConnectionTester({
+      button: this.container.querySelector<HTMLButtonElement>('#testConnectionBtn'),
+      resultHost: this.container.querySelector<HTMLDivElement>('#connectionResult'),
+      defaultInputs: {
+        nameInput: this.defaultNameInput,
+        httpsInput: this.defaultHttpsInput,
+        httpInput: this.defaultHttpInput,
+        apiKeyInput: this.defaultApiKeyInput
+      },
+      additionalRowsHost: this.additionalRowsHost,
+      defaultVaultId: this.defaultVaultId,
+      messagingRepo: this.messagingRepo
     });
   }
-
   private collectRestDraftForTest(): Partial<RestOptions> {
     return collectRestDraftForTest({
       nameInput: this.defaultNameInput,
@@ -278,7 +246,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       apiKeyInput: this.defaultApiKeyInput
     });
   }
-
   private collectAdditionalVaultConfigsForTest(): VaultConfig[] {
     return collectAdditionalVaultConfigsForTest({
       additionalRowsHost: this.additionalRowsHost,
@@ -286,13 +253,12 @@ export class RestSection extends BaseSection<SectionRenderContext> {
       defaultVaultId: this.defaultVaultId
     });
   }
-
   private readRowValue(row: HTMLElement, selector: string, trim = true): string | null {
     return readRestRowValue(row, selector, trim);
   }
   private subscribeToRepository(): void {
     this.unsubscribeRepo?.();
-    this.unsubscribeRepo = this.optionsRepo.onChange((options) => {
+    this.unsubscribeRepo = subscribeRestSectionRepository(this.optionsRepo, (options) => {
       this.applySnapshot(options);
     });
   }

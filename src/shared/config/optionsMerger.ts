@@ -8,7 +8,11 @@ import type {
   AiChatOptions,
   VideoOptions,
   ReaderHighlightTheme,
-  RestOptions
+  RestOptions,
+  ExperimentalAiOptions,
+  PageSummaryOptions,
+  ReadingOverlaySummaryOptions,
+  SubtitleTranslationOptions
 } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 import { sanitizeVaultRouterConfig } from './optionsSanitizer';
@@ -23,8 +27,7 @@ function mergeClassifierOptions(
   }
 
   const base = source ?? {};
-  const timeoutMs = base.timeoutMs ?? defaults?.timeoutMs;
-  const merged: ClassifierOptions = {
+  return {
     enabled: base.enabled ?? defaults?.enabled ?? false,
     provider: base.provider || defaults?.provider || 'ollama',
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
@@ -32,10 +35,6 @@ function mergeClassifierOptions(
     model: base.model || defaults?.model || 'llama3.1',
     taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
-  if (timeoutMs !== undefined) {
-    merged.timeoutMs = timeoutMs;
-  }
-  return merged;
 }
 
 const READER_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
@@ -138,7 +137,11 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
   }
 
   const base = source ?? {};
-  return {
+  const legacy = base as typeof base & {
+    controlBarAutoPauseEnabled?: boolean;
+    controlBarCaptureScreenshotEnabled?: boolean;
+  };
+  const merged: VideoOptions = {
     floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true,
     promptButtonLabel:
       (base.promptButtonLabel ?? defaults?.promptButtonLabel ?? '').trim() ||
@@ -147,7 +150,92 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
     promptShortcut:
       (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() ||
       defaults?.promptShortcut ||
-      'Alt+V'
+      'Alt+V',
+    controlBarAutoPause:
+      base.controlBarAutoPause ??
+      legacy.controlBarAutoPauseEnabled ??
+      defaults?.controlBarAutoPause ??
+      true,
+    controlBarScreenshot:
+      base.controlBarScreenshot ??
+      legacy.controlBarCaptureScreenshotEnabled ??
+      defaults?.controlBarScreenshot ??
+      true
+  };
+  const promptPosition = base.promptPosition ?? defaults?.promptPosition;
+  if (promptPosition) {
+    merged.promptPosition = {
+      x: Number(promptPosition.x) || 0,
+      y: Number(promptPosition.y) || 0
+    };
+  }
+  return merged;
+}
+
+function mergeExperimentalAiOptions(
+  source?: StoredOptions['experimentalAi']
+): ExperimentalAiOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.experimentalAi;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  return {
+    provider:
+      (base.provider ?? defaults?.provider ?? '').trim() || defaults?.provider || 'compatible',
+    model: (base.model ?? defaults?.model ?? '').trim() || defaults?.model || 'gpt-4.1-mini',
+    apiUrl:
+      (base.apiUrl ?? defaults?.apiUrl ?? '').trim() ||
+      defaults?.apiUrl ||
+      'https://api.openai.com/v1/chat/completions',
+    apiKey: (base.apiKey ?? defaults?.apiKey ?? '').trim() || defaults?.apiKey || ''
+  };
+}
+
+function mergePageSummaryOptions(
+  source?: StoredOptions['pageSummary']
+): PageSummaryOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.pageSummary;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  return {
+    enabled: base.enabled ?? defaults?.enabled ?? false
+  };
+}
+
+function mergeReadingOverlaySummaryOptions(
+  source?: StoredOptions['readingOverlaySummary']
+): ReadingOverlaySummaryOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.readingOverlaySummary;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  return {
+    enabled: base.enabled ?? defaults?.enabled ?? false
+  };
+}
+
+function mergeSubtitleTranslationOptions(
+  source?: StoredOptions['subtitleTranslation']
+): SubtitleTranslationOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.subtitleTranslation;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  return {
+    enabled: base.enabled ?? defaults?.enabled ?? false,
+    targetLanguage:
+      (base.targetLanguage ?? defaults?.targetLanguage ?? '').trim() ||
+      defaults?.targetLanguage ||
+      'zh-CN'
   };
 }
 
@@ -215,10 +303,30 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     : { ...defaults.domainMappings };
 
   const options: OptionsState = {
+    interfaceTheme: source.interfaceTheme === 'light' ? 'light' : 'dark',
     rest,
     templates,
     domainMappings
   };
+
+  const knownKeys = new Set([
+    'rest',
+    'interfaceTheme',
+    'templates',
+    'domainMappings',
+    'aiChat',
+    'deepResearch',
+    'fragmentClipper',
+    'readingSession',
+    'video',
+    'classifier',
+    'experimentalAi',
+    'pageSummary',
+    'readingOverlaySummary',
+    'subtitleTranslation',
+    'vaultRouter',
+    'yamlConfig'
+  ]);
 
   const classifier = mergeClassifierOptions(source.classifier);
   if (classifier !== undefined) {
@@ -250,6 +358,26 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     options.video = video;
   }
 
+  const experimentalAi = mergeExperimentalAiOptions(source.experimentalAi);
+  if (experimentalAi !== undefined) {
+    options.experimentalAi = experimentalAi;
+  }
+
+  const pageSummary = mergePageSummaryOptions(source.pageSummary);
+  if (pageSummary !== undefined) {
+    options.pageSummary = pageSummary;
+  }
+
+  const readingOverlaySummary = mergeReadingOverlaySummaryOptions(source.readingOverlaySummary);
+  if (readingOverlaySummary !== undefined) {
+    options.readingOverlaySummary = readingOverlaySummary;
+  }
+
+  const subtitleTranslation = mergeSubtitleTranslationOptions(source.subtitleTranslation);
+  if (subtitleTranslation !== undefined) {
+    options.subtitleTranslation = subtitleTranslation;
+  }
+
   const vaultRouter = sanitizeVaultRouter(source.vaultRouter);
   if (vaultRouter !== undefined) {
     options.vaultRouter = vaultRouter;
@@ -257,6 +385,12 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
 
   if (source.yamlConfig !== undefined) {
     options.yamlConfig = source.yamlConfig;
+  }
+
+  for (const [key, value] of Object.entries(source as unknown as Record<string, unknown>)) {
+    if (!knownKeys.has(key)) {
+      (options as unknown as Record<string, unknown>)[key] = value;
+    }
   }
 
   return options;

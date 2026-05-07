@@ -3,6 +3,7 @@ import type { TaxonomyConfig, ReadonlyDeep } from './taxonomy';
 import type { YamlConfigOverrides } from './yamlConfig';
 
 export type ClassifierProvider = 'openai' | 'compatible' | 'ollama';
+export type InterfaceTheme = 'dark' | 'light';
 
 export interface RestOptions {
   baseUrl: string;
@@ -51,6 +52,8 @@ export interface VideoOptions {
   floatingPromptEnabled: boolean;
   promptButtonLabel: string;
   promptShortcut: string;
+  controlBarAutoPause: boolean;
+  controlBarScreenshot: boolean;
   promptPosition?: { x: number; y: number };
 }
 
@@ -74,7 +77,28 @@ export interface ClassifierOptions {
   taxonomy: ReadonlyDeep<TaxonomyConfig>;
 }
 
+export interface ExperimentalAiOptions {
+  provider: string;
+  model: string;
+  apiUrl: string;
+  apiKey: string;
+}
+
+export interface PageSummaryOptions {
+  enabled: boolean;
+}
+
+export interface ReadingOverlaySummaryOptions {
+  enabled: boolean;
+}
+
+export interface SubtitleTranslationOptions {
+  enabled: boolean;
+  targetLanguage: string;
+}
+
 export interface StoredOptions {
+  interfaceTheme?: InterfaceTheme;
   rest?: Partial<RestOptions> & { baseUrl?: string };
   templates?: Partial<TemplateOptions> & { fragment?: string; reading?: string };
   domainMappings?: Record<string, string>;
@@ -84,12 +108,17 @@ export interface StoredOptions {
   readingSession?: Partial<ReadingSessionOptions>;
   video?: Partial<VideoOptions>;
   classifier?: Partial<ClassifierOptions>;
+  experimentalAi?: Partial<ExperimentalAiOptions>;
+  pageSummary?: Partial<PageSummaryOptions>;
+  readingOverlaySummary?: Partial<ReadingOverlaySummaryOptions>;
+  subtitleTranslation?: Partial<SubtitleTranslationOptions>;
   vaultRouter?: VaultRouterConfig;
   yamlConfig?: YamlConfigOverrides | null;
   [key: string]: unknown;
 }
 
 export interface CompleteOptions extends StoredOptions {
+  interfaceTheme?: InterfaceTheme;
   rest: RestOptions;
   templates: TemplateOptions;
   aiChat: AiChatOptions;
@@ -98,10 +127,15 @@ export interface CompleteOptions extends StoredOptions {
   readingSession: ReadingSessionOptions;
   video: VideoOptions;
   classifier: ClassifierOptions;
+  experimentalAi: ExperimentalAiOptions;
+  pageSummary: PageSummaryOptions;
+  readingOverlaySummary: ReadingOverlaySummaryOptions;
+  subtitleTranslation: SubtitleTranslationOptions;
   domainMappings: Record<string, string>;
 }
 
 export interface OptionsState {
+  interfaceTheme?: InterfaceTheme;
   rest: RestOptions;
   templates: TemplateOptions;
   domainMappings: Record<string, string>;
@@ -111,6 +145,10 @@ export interface OptionsState {
   readingSession?: ReadingSessionOptions;
   video?: VideoOptions;
   classifier?: ClassifierOptions;
+  experimentalAi?: ExperimentalAiOptions;
+  pageSummary?: PageSummaryOptions;
+  readingOverlaySummary?: ReadingOverlaySummaryOptions;
+  subtitleTranslation?: SubtitleTranslationOptions;
   vaultRouter?: VaultRouterConfig;
   yamlConfig?: YamlConfigOverrides | null;
 }

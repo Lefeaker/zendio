@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesRu as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -425,8 +426,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: 'Я уже оставил отзыв',
   supportPromptDislikeToastTitle: 'Поделитесь своим отзывом',
   supportPromptDislikeRedditLinkLabel: 'Обсудить на Reddit',
-  supportPromptDislikeQrLinkLabel: 'Присоединиться к группе Xiaohongshu',
-  supportPromptDislikeQrPlaceholder: 'QR-код скоро появится',
 
   // Dialog
   clipDialogTitle: 'Обрезать выделение',
@@ -654,6 +653,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: 'Журнал изменений',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: 'Это содержимое выделенного текста',

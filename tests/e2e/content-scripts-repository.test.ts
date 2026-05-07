@@ -4,7 +4,12 @@ import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vites
 import { setWindowProp, asType } from '../utils/typeHelpers';
 import type { PageI18nController, Messages } from '../../src/i18n';
 import { partialOf } from '../utils/typeHelpers';
-import { MockClipRepository, MockVideoRepository, MockReaderRepository, MockNavigationRepository } from '../utils/repositories';
+import {
+  MockClipRepository,
+  MockVideoRepository,
+  MockReaderRepository,
+  MockNavigationRepository
+} from '../utils/repositories';
 import { VideoSessionExporter } from '../../src/content/video/videoSessionExporter';
 import type { VideoCapture } from '../../src/content/video/types';
 import { DEFAULT_SESSION_MESSAGES as VIDEO_MESSAGES } from '../../src/content/video/sessionMessages';
@@ -32,19 +37,40 @@ type I18nContextModule = typeof import('../../src/content/i18n/context');
 type StyleSheetManagerModule = typeof import('../../src/content/clipper/shared/styleSheetManager');
 
 const ensureContentI18nMock = vi.hoisted(() =>
-  vi.fn<Parameters<I18nContextModule['ensureContentI18n']>, ReturnType<I18nContextModule['ensureContentI18n']>>()
+  vi.fn<
+    Parameters<I18nContextModule['ensureContentI18n']>,
+    ReturnType<I18nContextModule['ensureContentI18n']>
+  >()
 );
 const getContentI18nBinderMock = vi.hoisted(() =>
-  vi.fn<Parameters<I18nContextModule['getContentI18nBinder']>, ReturnType<I18nContextModule['getContentI18nBinder']>>()
+  vi.fn<
+    Parameters<I18nContextModule['getContentI18nBinder']>,
+    ReturnType<I18nContextModule['getContentI18nBinder']>
+  >()
 );
 const getContentMessagesMock = vi.hoisted(() =>
-  vi.fn<Parameters<I18nContextModule['getContentMessages']>, ReturnType<I18nContextModule['getContentMessages']>>()
+  vi.fn<
+    Parameters<I18nContextModule['getContentMessages']>,
+    ReturnType<I18nContextModule['getContentMessages']>
+  >()
 );
 const initializeStylesMock = vi.hoisted(() =>
-  vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>>()
+  vi.fn<
+    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>,
+    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+  >()
 );
 const applyStylesMock = vi.hoisted(() =>
-  vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>>()
+  vi.fn<
+    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>,
+    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+  >()
+);
+const applyStitchRuntimeStylesMock = vi.hoisted(() =>
+  vi.fn<
+    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>,
+    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+  >()
 );
 
 vi.mock('../../src/content/i18n/context', () => ({
@@ -56,16 +82,17 @@ vi.mock('../../src/content/i18n/context', () => ({
 vi.mock('../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeStylesMock,
-    applyTo: applyStylesMock
+    applyTo: applyStylesMock,
+    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
   },
   supportsAdoptedStyleSheets: () => true
 }));
 
 // Reuse real comment form implementation
 vi.mock('../../src/content/clipper/components/commentForm', async () => {
-  const actual = await vi.importActual<typeof import('../../src/content/clipper/components/commentForm')>(
-    '../../src/content/clipper/components/commentForm'
-  );
+  const actual = await vi.importActual<
+    typeof import('../../src/content/clipper/components/commentForm')
+  >('../../src/content/clipper/components/commentForm');
   return actual;
 });
 
@@ -80,7 +107,7 @@ const dialogMessages = partialOf<Messages>({
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-type ReaderSessionCtor = typeof import('../../src/content/reader/session')['ReaderSession'];
+type ReaderSessionCtor = (typeof import('../../src/content/reader/session'))['ReaderSession'];
 type ReaderSessionInstance = InstanceType<ReaderSessionCtor>;
 type ReaderSessionTestAdapter = {
   __setTestHighlights(records: ReaderHighlightRecord[]): void;
@@ -89,13 +116,20 @@ let ReaderSessionClass: ReaderSessionCtor;
 
 const asTestReaderSession = (
   session: ReaderSessionInstance
-): ReaderSessionInstance & ReaderSessionTestAdapter => session as ReaderSessionInstance & ReaderSessionTestAdapter;
+): ReaderSessionInstance & ReaderSessionTestAdapter =>
+  session as ReaderSessionInstance & ReaderSessionTestAdapter;
 
-const overrideReadingConfig = (session: ReaderSessionInstance, config: ReadingSessionOptions): void => {
+const overrideReadingConfig = (
+  session: ReaderSessionInstance,
+  config: ReadingSessionOptions
+): void => {
   Reflect.set(session, 'readingConfig', config);
 };
 
-const injectTestHighlights = (session: ReaderSessionInstance, highlights: ReaderHighlightRecord[]): void => {
+const injectTestHighlights = (
+  session: ReaderSessionInstance,
+  highlights: ReaderHighlightRecord[]
+): void => {
   asTestReaderSession(session).__setTestHighlights(highlights);
 };
 
@@ -107,7 +141,10 @@ beforeAll(() => {
         super(type, init);
       }
     }
-    restorePointerEvent = setWindowProp('PointerEvent', asType<typeof PointerEvent>(TestPointerEvent));
+    restorePointerEvent = setWindowProp(
+      'PointerEvent',
+      asType<typeof PointerEvent>(TestPointerEvent)
+    );
   }
 });
 
@@ -117,9 +154,15 @@ afterAll(() => {
 
 beforeAll(async () => {
   repositoryContainer.reset();
-  repositoryContainer.registerSingleton(DI_TOKENS.IReaderRepository, () => new MockReaderRepository());
+  repositoryContainer.registerSingleton(
+    DI_TOKENS.IReaderRepository,
+    () => new MockReaderRepository()
+  );
   repositoryContainer.registerSingleton(DI_TOKENS.IClipRepository, () => new MockClipRepository());
-  repositoryContainer.registerSingleton(DI_TOKENS.IVideoRepository, () => new MockVideoRepository());
+  repositoryContainer.registerSingleton(
+    DI_TOKENS.IVideoRepository,
+    () => new MockVideoRepository()
+  );
   const readerModule = await import('../../src/content/reader/session');
   ReaderSessionClass = readerModule.ReaderSession;
 });
@@ -129,7 +172,7 @@ describe('Content scripts repository integration (Clipper)', () => {
     vi.clearAllMocks();
     ensureContentI18nMock.mockResolvedValue(asType<PageI18nController>(undefined));
     getContentI18nBinderMock.mockReturnValue(null);
-    getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
+    getContentMessagesMock.mockResolvedValue(dialogMessages);
     initializeStylesMock.mockResolvedValue(undefined);
     applyStylesMock.mockResolvedValue(undefined);
     document.body.innerHTML = '';
@@ -293,7 +336,8 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
     highlightTheme: 'gradient'
   } as Partial<ReadingOptions>);
 
-  let preparedHighlights: Array<{ text: string; note?: string; color: string; timestamp: number }> = [];
+  let preparedHighlights: Array<{ text: string; note?: string; color: string; timestamp: number }> =
+    [];
   const exporterMocks = {
     prepareHighlights: vi.fn((records: ReaderHighlightRecord[]) => {
       preparedHighlights = records.map((record) => ({
@@ -315,10 +359,12 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
   const dependencies: ReaderSessionDependencies = {
     ...overrides,
     viewFactory:
-      overrides?.viewFactory ?? ({ createView: vi.fn() } as ReaderSessionDependencies['viewFactory']),
+      overrides?.viewFactory ??
+      ({ createView: vi.fn() } as ReaderSessionDependencies['viewFactory']),
     optionsRepository: overrides?.optionsRepository ?? ({} as IOptionsRepository),
     storage: overrides?.storage ?? ({} as StorageService),
-    messaging: overrides?.messaging ?? ({ send: vi.fn() } as ReaderSessionDependencies['messaging']),
+    messaging:
+      overrides?.messaging ?? ({ send: vi.fn() } as ReaderSessionDependencies['messaging']),
     readerRepository: overrides?.readerRepository ?? readerRepositoryMocks,
     createHighlightManager:
       overrides?.createHighlightManager ??
@@ -336,7 +382,8 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
       overrides?.createLifecycle ?? (() => asType<ReaderSessionLifecycle>(lifecycleMocks)),
     exporter: overrides?.exporter ?? asType<ReaderSessionDependencies['exporter']>(exporterMocks),
     dispatchClipResult:
-      overrides?.dispatchClipResult ?? (async (payload) => {
+      overrides?.dispatchClipResult ??
+      (async (payload) => {
         const result = await readerRepositoryMocks.sendReadingClip({
           content: payload.markdown,
           title: payload.title ?? '',
@@ -353,7 +400,12 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
   const clipPrompt: ClipPromptGateway = {
     requestSelectionAction: vi.fn(() => Promise.resolve({ action: 'clip', comment: '' }))
   };
-  const session = new ReaderSessionClass(document, 'https://example.com/article', clipPrompt, dependencies);
+  const session = new ReaderSessionClass(
+    document,
+    'https://example.com/article',
+    clipPrompt,
+    dependencies
+  );
 
   return {
     session,

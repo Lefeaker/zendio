@@ -1,10 +1,14 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { StoredOptions } from '@shared/types/options';
-import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
-import { createOptionsManagedFixtures, resetOptionsManagedFixtures } from '../../utils/optionsFixtures';
+import {
+  createOptionsManagedFixtures,
+  resetOptionsManagedFixtures
+} from '../../utils/optionsFixtures';
 
-const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = { current: null };
+const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = {
+  current: null
+};
 
 vi.mock('@options/state/vaultRouterStore', () => ({
   getVaultRouterConfig: () => fixturesRef.current?.getVaultRouterConfig() ?? null
@@ -13,7 +17,6 @@ vi.mock('@options/state/vaultRouterStore', () => ({
 import { createOptionsFormAdapter } from '@options/components/optionsFormAdapter';
 
 describe('optionsFormAdapter.read', () => {
-  let registry: FormSectionRegistry;
   let fixtures: ReturnType<typeof createOptionsManagedFixtures>;
 
   beforeEach(() => {
@@ -23,19 +26,14 @@ describe('optionsFormAdapter.read', () => {
       resetOptionsManagedFixtures(fixturesRef.current);
     }
     fixtures = fixturesRef.current!;
-
-    registry = new FormSectionRegistry();
-    vi.spyOn(registry, 'collect').mockImplementation((snapshot) =>
-      fixtures.collectManagedSectionChanges(snapshot)
-    );
   });
 
   afterEach(() => {
-    registry.clear();
+    resetOptionsManagedFixtures(fixtures);
   });
 
   it('returns baseline defaults when no snapshot provided', () => {
-    const adapter = createOptionsFormAdapter(registry);
+    const adapter = createOptionsFormAdapter();
     const result = adapter.read(null);
 
     expect(result.rest).toEqual(DEFAULT_OPTIONS.rest);
@@ -47,10 +45,14 @@ describe('optionsFormAdapter.read', () => {
     expect(result.fragmentClipper).toEqual(DEFAULT_OPTIONS.fragmentClipper);
     expect(result.readingSession).toEqual(DEFAULT_OPTIONS.readingSession);
     expect(result.classifier).toEqual(DEFAULT_OPTIONS.classifier);
+    expect(result.experimentalAi).toEqual(DEFAULT_OPTIONS.experimentalAi);
+    expect(result.pageSummary).toEqual(DEFAULT_OPTIONS.pageSummary);
+    expect(result.readingOverlaySummary).toEqual(DEFAULT_OPTIONS.readingOverlaySummary);
+    expect(result.subtitleTranslation).toEqual(DEFAULT_OPTIONS.subtitleTranslation);
   });
 
   it('merges previous snapshot data and preserves unknown keys', () => {
-    const adapter = createOptionsFormAdapter(registry);
+    const adapter = createOptionsFormAdapter();
     const previous = {
       rest: {
         httpsUrl: 'https://custom.local/',
@@ -74,26 +76,42 @@ describe('optionsFormAdapter.read', () => {
     expect((result as StoredOptions).yamlConfig).toEqual(previous.yamlConfig);
   });
 
-  it('applies managed section overrides', () => {
-    const adapter = createOptionsFormAdapter(registry);
-    fixtures.managedChanges = {
-      rest: {
-        baseUrl: 'https://override.example.com/',
-        httpsUrl: 'https://override.example.com/',
-        httpUrl: undefined,
-        vault: 'Override',
-        apiKey: 'OVERRIDE'
+  it('merges experimental snapshot values with defaults', () => {
+    const adapter = createOptionsFormAdapter();
+    const previous: StoredOptions = {
+      experimentalAi: {
+        provider: 'openai',
+        model: 'gpt-4o-mini'
+      },
+      pageSummary: {
+        enabled: true
+      },
+      readingOverlaySummary: {
+        enabled: true
+      },
+      subtitleTranslation: {
+        enabled: true
       }
     };
 
-    const result = adapter.read(null);
+    const result = adapter.read(previous);
 
-    expect(result.rest.vault).toBe('Override');
-    expect(result.rest.apiKey).toBe('OVERRIDE');
+    expect(result.experimentalAi).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      apiUrl: DEFAULT_OPTIONS.experimentalAi?.apiUrl ?? '',
+      apiKey: DEFAULT_OPTIONS.experimentalAi?.apiKey ?? ''
+    });
+    expect(result.pageSummary).toEqual({ enabled: true });
+    expect(result.readingOverlaySummary).toEqual({ enabled: true });
+    expect(result.subtitleTranslation).toEqual({
+      enabled: true,
+      targetLanguage: DEFAULT_OPTIONS.subtitleTranslation?.targetLanguage ?? 'zh-CN'
+    });
   });
 
   it('includes vault router snapshot when available', () => {
-    const adapter = createOptionsFormAdapter(registry);
+    const adapter = createOptionsFormAdapter();
     const snapshot = {
       defaultVaultId: 'default',
       vaults: [

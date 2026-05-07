@@ -1,5 +1,6 @@
 import type { ActionService } from './interfaces/actions';
 import type { ContextMenusService } from './interfaces/contextMenus';
+import type { DownloadsService } from './interfaces/downloads';
 import type { MessagingService } from './interfaces/messaging';
 import type { NotificationsService } from './interfaces/notifications';
 import type { RuntimeService } from './interfaces/runtime';
@@ -14,6 +15,7 @@ export interface PlatformServices {
   messaging: MessagingService;
   runtime: RuntimeService;
   contextMenus: ContextMenusService;
+  downloads: DownloadsService;
   notifications: NotificationsService;
   tabs: TabsService;
   action: ActionService;

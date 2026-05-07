@@ -1,7 +1,10 @@
+export type VideoAddCaptureSource = 'button' | 'note-input';
+
 export interface VideoPanelCallbacks {
-  onAddCapture: () => void;
+  onAddCapture: (source?: VideoAddCaptureSource) => void;
   onFinish: () => void;
   onCancel: () => void;
+  onSelectDestination?: (id: string) => void | Promise<void>;
   onDeleteCapture: (id: string) => void;
   onSubmitCaptureEdit: (id: string, comment: string) => void | Promise<void>;
   onFocusCapture: (id: string) => void;
@@ -36,5 +39,6 @@ export interface VideoPanelTexts {
   captureSaveLabel: string;
   captureCancelLabel: string;
   captureEditPlaceholder: string;
+  fragmentEditPlaceholder?: string;
   captureFocusLabel: string;
 }

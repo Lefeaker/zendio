@@ -10,13 +10,27 @@ const SHARED_ICONS = {
   256: 'icons/bannerlogo-256.png'
 };
 
-const SHARED_PERMISSIONS = ['activeTab', 'scripting', 'storage', 'contextMenus', 'notifications'];
+const SHARED_PERMISSIONS = [
+  'activeTab',
+  'scripting',
+  'storage',
+  'contextMenus',
+  'notifications',
+  'downloads'
+];
 
 const SHARED_HOST_PERMISSIONS = ['<all_urls>', 'http://127.0.0.1/*', 'https://127.0.0.1/*'];
 
 const SHARED_WEB_ACCESSIBLE_RESOURCES = [
   {
-    resources: ['chunks/*', 'content/*', 'icons/*', 'styles/clipper/*', 'onboarding/*'],
+    resources: [
+      'chunks/*',
+      'content/*',
+      'icons/*',
+      'styles/clipper/*',
+      'options/stitch/styles/*',
+      'onboarding/*'
+    ],
     matches: ['<all_urls>']
   }
 ];

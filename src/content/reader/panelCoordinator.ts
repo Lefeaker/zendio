@@ -1,8 +1,6 @@
 import type { ReaderPanelCallbacks } from './application/readerPanelModel';
-import type {
-  ReaderSessionView,
-  ReaderSessionViewFactory
-} from './application/readerSessionView';
+import type { ReaderSessionView, ReaderSessionViewFactory } from './application/readerSessionView';
+import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import type { ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderSessionMessages, ReaderHintState } from './sessionMessages';
 import { DEFAULT_SESSION_MESSAGES } from './sessionMessages';
@@ -52,6 +50,10 @@ export class ReaderPanelCoordinator {
     }
     this.presenter.render(highlights);
     this.applyHint(this.currentHintState, highlights.length);
+  }
+
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
+    this.view?.updateDestination?.(destination);
   }
 
   getElement(): HTMLElement | null {

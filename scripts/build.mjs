@@ -182,6 +182,9 @@ try {
     throw error;
   }
 }
+await rm('build/dist/options/stitch', { recursive: true, force: true });
+await mkdir('build/dist/options/stitch/styles', { recursive: true });
+await cp('src/options/stitch/styles', 'build/dist/options/stitch/styles', { recursive: true });
 
 // Copy onboarding pages and assets
 await mkdir('build/dist/onboarding', { recursive: true });

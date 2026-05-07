@@ -1,7 +1,4 @@
-import type {
-  IVideoRepository,
-  VideoClipData
-} from '../../shared/repositories/IVideoRepository';
+import type { IVideoRepository, VideoClipData } from '../../shared/repositories/IVideoRepository';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
 import type { VideoOptions } from '../../shared/types/options';
 import type { ClipResult } from '../../shared/repositories/IClipRepository';
@@ -36,6 +33,20 @@ export class ChromeVideoRepository implements IVideoRepository {
       video: {
         ...current,
         promptPosition: position
+      }
+    });
+  }
+
+  async saveControlBarPreferences(preferences: {
+    autoPauseEnabled: boolean;
+    captureScreenshotEnabled: boolean;
+  }): Promise<void> {
+    const current = await this.getVideoConfig();
+    await this.optionsRepo.set({
+      video: {
+        ...current,
+        controlBarAutoPause: preferences.autoPauseEnabled,
+        controlBarScreenshot: preferences.captureScreenshotEnabled
       }
     });
   }

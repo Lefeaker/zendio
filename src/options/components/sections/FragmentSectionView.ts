@@ -21,6 +21,11 @@ import {
   createEmptyFragmentLayoutRefs,
   resolveFragmentModifierLabel
 } from './fragmentSectionViewHelpers';
+import {
+  bindFragmentSectionEvents,
+  createFragmentSectionBindings,
+  type EventBinding
+} from './fragmentSectionBindings';
 
 const FRAGMENT_DEFAULTS = configProvider.getFragmentClipperDefaults();
 const MODIFIER_KEYS: Array<FragmentClipperOptions['selectionModifierKeys'][number]> = [
@@ -30,12 +35,6 @@ const MODIFIER_KEYS: Array<FragmentClipperOptions['selectionModifierKeys'][numbe
   'shift'
 ];
 const CONTEXT_MODES: Array<FragmentClipperOptions['contextMode']> = ['chars', 'sentences'];
-
-interface EventBinding {
-  target: EventTarget;
-  type: string;
-  handler: EventListener;
-}
 
 export class FragmentSection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
@@ -108,50 +107,24 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
       modifierKeys: MODIFIER_KEYS,
       contextModes: CONTEXT_MODES,
       resolveModifierLabel: (key) =>
-        resolveFragmentModifierLabel({ key, messages: this.messages as Record<string, string | undefined> | null | undefined })
+        resolveFragmentModifierLabel({
+          key,
+          messages: this.messages as Record<string, string | undefined> | null | undefined
+        })
     });
     this.refs = refs;
     return body;
   }
 
   private bindEvents(): void {
-    const {
-      footnoteCheckbox,
-      captureContextCheckbox,
-      modifierToggle,
-      modifierKeyCheckboxes,
-      keyboardShortcutsCheckbox,
-      contextLengthInput,
-      contextModeSelect
-    } = this.refs;
-
-    if (footnoteCheckbox) {
-      this.bindEvent(footnoteCheckbox, 'change', this.handleValueChanged);
-    }
-    if (captureContextCheckbox) {
-      this.bindEvent(captureContextCheckbox, 'change', this.handleCaptureContextChange);
-    }
-    if (modifierToggle) {
-      this.bindEvent(modifierToggle, 'change', this.handleModifierToggleChange);
-    }
-    modifierKeyCheckboxes.forEach((checkbox) => {
-      this.bindEvent(checkbox, 'change', this.handleValueChanged);
+    this.eventBindings = bindFragmentSectionEvents({
+      refs: this.refs,
+      onValueChanged: this.handleValueChanged,
+      onCaptureContextChange: this.handleCaptureContextChange,
+      onModifierToggleChange: this.handleModifierToggleChange,
+      onContextLengthChange: this.handleContextLengthChange,
+      onContextLengthBlur: this.handleContextLengthBlur
     });
-    if (keyboardShortcutsCheckbox) {
-      this.bindEvent(keyboardShortcutsCheckbox, 'change', this.handleValueChanged);
-    }
-    if (contextLengthInput) {
-      this.bindEvent(contextLengthInput, 'change', this.handleContextLengthChange);
-      this.bindEvent(contextLengthInput, 'blur', this.handleContextLengthBlur);
-    }
-    if (contextModeSelect) {
-      this.bindEvent(contextModeSelect, 'change', this.handleValueChanged);
-    }
-  }
-
-  private bindEvent(target: EventTarget, type: string, handler: EventListener): void {
-    target.addEventListener(type, handler);
-    this.eventBindings.push({ target, type, handler });
   }
 
   private disposeListeners(): void {
@@ -203,15 +176,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
 
   private applySnapshot(options: StoredOptions): void {
     applyFragmentSectionSnapshot({
-      bindings: {
-        footnoteCheckbox: this.refs.footnoteCheckbox,
-        captureContextCheckbox: this.refs.captureContextCheckbox,
-        modifierToggle: this.refs.modifierToggle,
-        modifierKeyCheckboxes: this.refs.modifierKeyCheckboxes,
-        keyboardShortcutsCheckbox: this.refs.keyboardShortcutsCheckbox,
-        contextLengthInput: this.refs.contextLengthInput,
-        contextModeSelect: this.refs.contextModeSelect
-      },
+      bindings: createFragmentSectionBindings(this.refs),
       options,
       defaults: FRAGMENT_DEFAULTS,
       contextModes: CONTEXT_MODES
@@ -222,15 +187,7 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
 
   private collectChanges(previous: StoredOptions | null): Partial<CompleteOptions> {
     const partial = collectFragmentSectionChanges({
-      bindings: {
-        footnoteCheckbox: this.refs.footnoteCheckbox,
-        captureContextCheckbox: this.refs.captureContextCheckbox,
-        modifierToggle: this.refs.modifierToggle,
-        modifierKeyCheckboxes: this.refs.modifierKeyCheckboxes,
-        keyboardShortcutsCheckbox: this.refs.keyboardShortcutsCheckbox,
-        contextLengthInput: this.refs.contextLengthInput,
-        contextModeSelect: this.refs.contextModeSelect
-      },
+      bindings: createFragmentSectionBindings(this.refs),
       previous,
       defaults: FRAGMENT_DEFAULTS,
       contextModes: CONTEXT_MODES,

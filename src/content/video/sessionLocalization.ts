@@ -61,6 +61,7 @@ function applyVideoSessionMessages(
       captureSaveLabel: msgs.videoCaptureSaveLabel,
       captureCancelLabel: msgs.videoCaptureCancelLabel,
       captureEditPlaceholder: msgs.videoCaptureEditPlaceholder,
+      fragmentEditPlaceholder: msgs.readerHighlightEditPlaceholder,
       captureFocusLabel: msgs.videoCaptureFocusLabel
     },
     hintNoVideo: msgs.videoHintNoVideo,

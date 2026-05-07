@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesDe as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -426,8 +427,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: 'Ich habe bereits eine Bewertung hinterlassen',
   supportPromptDislikeToastTitle: 'Teilen Sie Ihr Feedback',
   supportPromptDislikeRedditLinkLabel: 'Auf Reddit diskutieren',
-  supportPromptDislikeQrLinkLabel: 'Xiaohongshu-Gruppe beitreten',
-  supportPromptDislikeQrPlaceholder: 'QR-Code kommt bald',
 
   // Dialog
   clipDialogTitle: 'Auswahl ausschneiden',
@@ -657,6 +656,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: 'Änderungsprotokoll',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: 'Dies ist der Inhalt des ausgewählten Textes',

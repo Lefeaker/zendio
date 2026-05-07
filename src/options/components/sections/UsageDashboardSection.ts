@@ -1,8 +1,5 @@
 import type { UsageStats } from '@shared/types/usage';
-import {
-  normalizeUsageStats,
-  USAGE_STATS_STORAGE_KEY
-} from '@shared/constants';
+import { normalizeUsageStats, USAGE_STATS_STORAGE_KEY } from '@shared/constants';
 import type { CompleteOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { StorageService } from '@platform/interfaces/storage';
@@ -13,12 +10,11 @@ import {
   cloneDefaultUsageStats,
   emitUsageStatsWindowEvent,
   reportUsageIncrementChanges,
-  resolveUsageStatsFromOptions,
   type UsageSnapshot
 } from './usageDashboardState';
 import { resetUsageStatsAction } from '../../app/actions';
 import { buildUsageDashboardLayout, type UsageDomRefs } from './usageDashboardLayout';
-const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
+import { resolveUsageStatsSnapshot, subscribeToUsageStorage } from './usageDashboardData';
 
 export class UsageSection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
@@ -43,7 +39,6 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
     xAxis: null
   };
   private lastSnapshot: UsageSnapshot | null = null;
-  private currentStats: UsageStats | null = null;
   private resetButton: HTMLButtonElement | null = null;
 
   constructor(
@@ -107,28 +102,10 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
       void this.refreshUsageStats();
     });
 
-    this.unsubscribeLocalUsage = this.subscribeToLocalUsage();
+    this.unsubscribeLocalUsage = subscribeToUsageStorage(this.storage, (value) => {
+      this.handleLocalUsageChange(value);
+    });
     void this.refreshUsageStats();
-  }
-
-  private subscribeToLocalUsage(): () => void {
-    const stopCurrent = this.storage.local.watchKey<UsageStats>(
-      USAGE_STATS_STORAGE_KEY,
-      (value) => {
-        this.handleLocalUsageChange(value);
-      }
-    );
-    const stopLegacy = this.storage.local.watchKey<UsageStats>(
-      LEGACY_USAGE_STATS_STORAGE_KEY,
-      (value) => {
-        this.handleLocalUsageChange(value);
-      }
-    );
-
-    return () => {
-      stopCurrent();
-      stopLegacy();
-    };
   }
 
   private handleLocalUsageChange(value: UsageStats | undefined): void {
@@ -140,54 +117,18 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
   }
 
   private async refreshUsageStats(): Promise<void> {
-    const stats = await this.resolveUsageStats(this.latestOptions);
+    const stats = await resolveUsageStatsSnapshot(this.storage, this.latestOptions);
     this.applyUsage(stats);
   }
 
-  private async resolveUsageStats(options: CompleteOptions | null): Promise<UsageStats> {
-    const localStats = await this.readUsageStatsFromLocal();
-    if (localStats) {
-      return localStats;
-    }
-    return resolveUsageStatsFromOptions(options);
-  }
-
-  private async readUsageStatsFromLocal(): Promise<UsageStats | null> {
-    try {
-      const stored = await this.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY);
-      if (stored) {
-        return normalizeUsageStats(stored);
-      }
-
-      const legacyStored = await this.storage.local.get<UsageStats>(LEGACY_USAGE_STATS_STORAGE_KEY);
-      return legacyStored ? normalizeUsageStats(legacyStored) : null;
-    } catch (error) {
-      console.debug('[UsageSection] Failed to read usage stats from local storage:', error);
-      return null;
-    }
-  }
-
-  private cloneDefaultUsageStats(): UsageStats {
-    return cloneDefaultUsageStats();
-  }
-
   private applyUsage(stats: UsageStats): void {
-    this.currentStats = stats;
     const total = stats.aiChatSaves + stats.fragmentSaves + stats.articleSaves;
     this.setValue(this.elements.totalValue, total.toString());
     this.setValue(this.elements.aiValue, stats.aiChatSaves.toString());
     this.setValue(this.elements.fragmentValue, stats.fragmentSaves.toString());
     this.setValue(this.elements.articleValue, stats.articleSaves.toString());
     renderUsageChart(this.chart, stats);
-    this.emitUsageEvent(stats, total);
-    this.reportUsageIncrements(stats);
-  }
-
-  private emitUsageEvent(stats: UsageStats, total: number): void {
     emitUsageStatsWindowEvent(stats, total);
-  }
-
-  private reportUsageIncrements(stats: UsageStats): void {
     const current = buildUsageSnapshot(stats);
     this.lastSnapshot = reportUsageIncrementChanges({
       messagingRepo: this.messagingRepo,
@@ -212,12 +153,12 @@ export class UsageSection extends BaseSection<SectionRenderContext> {
     this.resetButton.disabled = true;
     this.resetButton.setAttribute('aria-busy', 'true');
     try {
-      const defaults = this.cloneDefaultUsageStats();
+      const defaults = cloneDefaultUsageStats();
       await resetUsageStatsAction(defaults, {
         optionsRepository: this.optionsRepo,
         storage: this.storage,
         messagingRepository: this.messagingRepo,
-        storageKeys: [USAGE_STATS_STORAGE_KEY, LEGACY_USAGE_STATS_STORAGE_KEY],
+        storageKeys: [USAGE_STATS_STORAGE_KEY, 'usage_stats'],
         now: Date.now
       });
     } catch (error) {

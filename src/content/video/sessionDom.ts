@@ -9,12 +9,13 @@ import {
   type VideoSessionState
 } from './sessionState';
 import type { VideoFragmentCapture } from './types';
+import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 export interface VideoSessionDomListenerHandlers {
-  onMouseDown: (event: MouseEvent) => void;
-  onKeyDown: (event: KeyboardEvent) => void;
-  onKeyUp: (event: KeyboardEvent) => void;
-  onWindowBlur: () => void;
+  onMouseDown(event: MouseEvent): void;
+  onKeyDown(event: KeyboardEvent): void;
+  onKeyUp(event: KeyboardEvent): void;
+  onWindowBlur(): void;
 }
 
 export class VideoSessionDomController {
@@ -48,20 +49,12 @@ export class VideoSessionDomController {
       }
       await new Promise<void>((resolve) => {
         const view = this.doc.defaultView ?? window;
-        let attempts = 0;
-        const waitForBody = (): void => {
+        const interval = view.setInterval(() => {
           if (this.doc.body) {
+            view.clearInterval(interval);
             resolve();
-            return;
           }
-          attempts += 1;
-          if (attempts >= 250) {
-            resolve();
-            return;
-          }
-          view.setTimeout(waitForBody, 16);
-        };
-        waitForBody();
+        }, 16);
       });
       return;
     }
@@ -98,6 +91,10 @@ export class VideoSessionDomController {
     this.panelPresenter?.updateTexts(texts);
   }
 
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
+    this.panel?.updateDestination?.(destination);
+  }
+
   syncPanel(
     state: VideoSessionState,
     getFragmentElement: (capture: VideoFragmentCapture) => HTMLElement | null
@@ -129,6 +126,10 @@ export class VideoSessionDomController {
 
   stopEditing(): void {
     this.panel?.stopEditing();
+  }
+
+  collapsePanel(): void {
+    this.panel?.collapse?.();
   }
 
   registerInteractionHandlers(handlers: VideoSessionDomListenerHandlers): void {

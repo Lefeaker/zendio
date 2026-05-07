@@ -1,3 +1,11 @@
+export interface VideoCaptureScreenshot {
+  id: string;
+  fileName: string;
+  mimeType: 'image/png';
+  dataUrl: string;
+  capturedAt: number;
+}
+
 export interface VideoTimestampCapture {
   kind: 'timestamp';
   id: string;
@@ -5,6 +13,7 @@ export interface VideoTimestampCapture {
   url: string;
   comment: string;
   createdAt: number;
+  screenshot?: VideoCaptureScreenshot;
 }
 
 export interface VideoFragmentCapture {

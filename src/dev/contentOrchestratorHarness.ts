@@ -13,6 +13,11 @@ import {
   buildReaderHighlightsMarkdown
 } from '../content/reader/utils/markdownBuilder';
 import { VideoSession } from '../content/video/session';
+import { createPromptElement } from '../content/video/videoPromptRenderer';
+import { panelStyleSheetManager } from '../content/shared/panels/styleSheetManager';
+import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
+import { SupportPrompt } from '../content/ui/supportPrompt';
+import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
 import type {
   StorageAreaChangeCallback,
   StorageAreaService,
@@ -71,9 +76,14 @@ const storage: StorageService = {
   session: createStorageArea()
 };
 
+const configuredInterfaceTheme =
+  new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
+setControlledRuntimeTheme(window, configuredInterfaceTheme);
+
 const optionsRepository = {
   async get() {
     return {
+      interfaceTheme: configuredInterfaceTheme,
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' },
       video: {
         floatingPromptEnabled: true,
@@ -110,6 +120,10 @@ registerService(TOKENS.platformServices, () => previewPlatformServices);
 registerFallbackRepositories();
 
 const runtime = previewPlatformServices.runtime;
+const runtimeState = createContentRuntimeState({
+  optionsRepository: optionsRepository as never,
+  window
+});
 
 const errorHandler = {
   async handle(error: unknown) {
@@ -119,6 +133,7 @@ const errorHandler = {
 
 let activeReader: ReaderSession | null = null;
 let activeVideo: VideoSession | null = null;
+let activeVideoPromptHost: HTMLElement | null = null;
 
 function buildReaderDependencies(): ReaderSessionDependencies {
   return {
@@ -166,7 +181,15 @@ async function openClipperDialog(): Promise<void> {
     runtime: runtime as never,
     clipRepo: clipRepo as never
   });
-  void dialog.show('Harness selection', { initialComment: 'Harness note' });
+  void dialog
+    .show('Harness selection', { initialComment: 'Harness note', allowVideoMode: true })
+    .then((result) => {
+      if (result.action === 'clip') {
+        setStatus('ClipperDialog confirmed');
+        return;
+      }
+      setStatus(`ClipperDialog ${result.action}`);
+    });
   setStatus('ClipperDialog opened');
 }
 
@@ -219,10 +242,13 @@ async function startVideoSession(): Promise<void> {
         return {
           floatingPromptEnabled: true,
           promptButtonLabel: '开启视频笔记',
-          promptShortcut: 'Alt+V'
+          promptShortcut: 'Alt+V',
+          controlBarAutoPause: true,
+          controlBarScreenshot: true
         };
       },
       async savePromptPosition() {},
+      async saveControlBarPreferences() {},
       async getPromptPosition() {
         return null;
       },
@@ -239,6 +265,42 @@ async function startVideoSession(): Promise<void> {
   await activeVideo.start();
   await (activeVideo as unknown as { handleAddCapture: () => Promise<void> }).handleAddCapture();
   setStatus('VideoSession mounted and one capture added');
+}
+
+async function showVideoFloatingPrompt(): Promise<void> {
+  activeVideoPromptHost?.remove();
+  await panelStyleSheetManager.initialize();
+  const host = document.createElement('div');
+  const shadow = host.attachShadow({ mode: 'open' });
+  panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+  const { container } = createPromptElement({
+    id: 'aiob-video-floating-prompt',
+    label: '开启视频笔记',
+    shortcut: 'Alt+V',
+    previewTheme: configuredInterfaceTheme,
+    messages: {
+      videoPromptDismiss: '关闭视频笔记提示'
+    } as never,
+    getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
+    onPrimaryAction: () => {
+      setStatus('Video floating prompt primary action');
+    },
+    onDismiss: () => {
+      activeVideoPromptHost?.remove();
+      activeVideoPromptHost = null;
+      setStatus('Video floating prompt dismissed');
+    }
+  });
+  shadow.appendChild(container);
+  document.body.appendChild(host);
+  activeVideoPromptHost = host;
+  setStatus('Video floating prompt mounted');
+}
+
+async function showSupportPrompt(): Promise<void> {
+  const prompt = new SupportPrompt(document);
+  await prompt.show({ status: 'success', vaultName: 'Harness Vault' });
+  setStatus('SupportPrompt mounted');
 }
 
 document.getElementById('open-clipper')?.addEventListener('click', () => {
@@ -259,6 +321,18 @@ document.getElementById('start-video')?.addEventListener('click', () => {
     setStatus(`Video failed: ${String(error)}`);
   });
 });
+document.getElementById('show-video-floating-prompt')?.addEventListener('click', () => {
+  void showVideoFloatingPrompt().catch((error) => {
+    console.error('[harness:video-floating-prompt]', error);
+    setStatus(`Video floating prompt failed: ${String(error)}`);
+  });
+});
+document.getElementById('show-support-prompt')?.addEventListener('click', () => {
+  void showSupportPrompt().catch((error) => {
+    console.error('[harness:support]', error);
+    setStatus(`Support prompt failed: ${String(error)}`);
+  });
+});
 
 (
   window as Window & {
@@ -266,12 +340,18 @@ document.getElementById('start-video')?.addEventListener('click', () => {
       openClipperDialog: () => Promise<void>;
       startReaderSession: () => Promise<void>;
       startVideoSession: () => Promise<void>;
+      showVideoFloatingPrompt: () => Promise<void>;
+      showSupportPrompt: () => Promise<void>;
     };
   }
 ).harness = {
   openClipperDialog,
   startReaderSession,
-  startVideoSession
+  startVideoSession,
+  showVideoFloatingPrompt,
+  showSupportPrompt
 };
 
-setStatus('Harness ready');
+void runtimeState.refreshFragmentConfig().finally(() => {
+  setStatus('Harness ready');
+});

@@ -17,6 +17,8 @@ import type { VideoSessionDomController } from './sessionDom';
 import { clearVideoSession } from '../runtime/contentSessionRegistry';
 import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
+import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -43,13 +45,22 @@ export interface VideoSessionOperationContext {
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
+  getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
 
 export async function handleVideoSessionAddCapture(
-  context: VideoSessionOperationContext
-): Promise<void> {
+  context: VideoSessionOperationContext,
+  options: {
+    comment?: string;
+    captureScreenshot?: boolean;
+    pauseVideo?: boolean;
+    beginEditing?: boolean;
+    resumePlayback?: boolean;
+    collapseAfterCapture?: boolean;
+  } = {}
+): Promise<VideoTimestampCapture | null> {
   if (context.state.exporting || context.state.saving) {
-    return;
+    return null;
   }
 
   context.updateVideoContext();
@@ -57,28 +68,36 @@ export async function handleVideoSessionAddCapture(
   const video = context.state.videoElement ?? context.findVideoElement();
   if (!video) {
     context.applyHint('noVideo');
-    return;
+    return null;
+  }
+
+  if (options.pauseVideo && typeof video.pause === 'function') {
+    video.pause();
   }
 
   const currentTime = Math.floor(video.currentTime || 0);
   if (!Number.isFinite(currentTime) || currentTime < 0) {
     context.applyHint('failure');
-    return;
+    return null;
   }
 
   const shareUrl = context.buildTimestampUrl(currentTime);
   if (!shareUrl) {
     context.applyHint('failure');
-    return;
+    return null;
   }
 
+  const screenshot = options.captureScreenshot
+    ? captureVideoFrameScreenshot(video, currentTime)
+    : null;
   const capture: VideoTimestampCapture = {
     kind: 'timestamp',
     id: `aiob-video-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     timeSec: currentTime,
-    comment: '',
+    comment: options.comment?.trim() ?? '',
     url: shareUrl,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    ...(screenshot ? { screenshot } : {})
   };
 
   context.state.captures.push(capture);
@@ -86,7 +105,18 @@ export async function handleVideoSessionAddCapture(
   context.applyHint('saving');
   await saveVideoCaptures(context);
   context.syncPanel();
-  context.dom.beginEditingCapture(capture.id, capture.comment);
+  if (options.beginEditing !== false) {
+    context.dom.beginEditingCapture(capture.id, capture.comment);
+  } else {
+    context.dom.stopEditing();
+  }
+  if (options.resumePlayback && typeof video.play === 'function') {
+    void Promise.resolve(video.play()).catch(() => undefined);
+  }
+  if (options.collapseAfterCapture) {
+    context.dom.collapsePanel();
+  }
+  return capture;
 }
 
 export function ingestVideoSessionTextCapture(
@@ -223,6 +253,7 @@ export async function finishVideoSession(
   context.applyHint('exporting');
 
   try {
+    const exportDestination = context.getExportDestinationMetadata?.();
     const result = await context.exporter.export({
       captures: context.state.captures,
       videoTitle: context.state.videoTitle,
@@ -230,8 +261,12 @@ export async function finishVideoSession(
       videoUrl: context.state.videoUrl,
       platform: context.state.platform,
       messages: context.messages,
-      storageKey: context.state.storageKey
+      storageKey: context.state.storageKey,
+      ...(exportDestination ? { exportDestination } : {})
     });
+    if (typeof result !== 'object' || result === null || typeof result.success !== 'boolean') {
+      throw new Error('Invalid video export response');
+    }
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }

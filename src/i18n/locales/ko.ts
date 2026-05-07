@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesKo as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -408,8 +409,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: '이미 리뷰를 남겼습니다',
   supportPromptDislikeToastTitle: '피드백을 공유해 주세요',
   supportPromptDislikeRedditLinkLabel: 'Reddit에서 토론',
-  supportPromptDislikeQrLinkLabel: 'Xiaohongshu 그룹 가입',
-  supportPromptDislikeQrPlaceholder: 'QR 코드 곧 제공',
 
   // Dialog
   clipDialogTitle: '선택 항목 클립',
@@ -628,6 +627,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: '변경 로그',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: '이것은 선택된 텍스트의 내용입니다',

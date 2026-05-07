@@ -1,9 +1,8 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
-import { DEFAULT_OPTIONS } from '../../shared/config';
+import { DEFAULT_OPTIONS } from '../../shared/config/defaultOptions';
 import { mergeOptions } from '../../shared/config/optionsMerger';
 import { getVaultRouterConfig } from '../state/vaultRouterStore';
 import { deepClone } from '../utils/clone';
-import { type FormSectionRegistry } from './formSections/formSectionManager';
 
 const KNOWN_KEYS = new Set([
   'rest',
@@ -15,6 +14,10 @@ const KNOWN_KEYS = new Set([
   'fragmentClipper',
   'readingSession',
   'classifier',
+  'experimentalAi',
+  'pageSummary',
+  'readingOverlaySummary',
+  'subtitleTranslation',
   'vaultRouter',
   'yamlConfig'
 ]);
@@ -29,7 +32,9 @@ const DEFAULT_DEEP_RESEARCH = DEFAULT_OPTIONS.deepResearch ?? {
 const DEFAULT_VIDEO = DEFAULT_OPTIONS.video ?? {
   floatingPromptEnabled: true,
   promptButtonLabel: 'Clip video',
-  promptShortcut: ''
+  promptShortcut: '',
+  controlBarAutoPause: true,
+  controlBarScreenshot: true
 };
 const DEFAULT_FRAGMENT_CLIPPER = DEFAULT_OPTIONS.fragmentClipper ?? {
   useFootnoteFormat: false,
@@ -58,7 +63,15 @@ function buildBaselineOptions(previous: StoredOptions | null): CompleteOptions {
     video: deepClone(merged.video ?? DEFAULT_VIDEO),
     fragmentClipper: deepClone(merged.fragmentClipper ?? DEFAULT_FRAGMENT_CLIPPER),
     readingSession: deepClone(merged.readingSession ?? DEFAULT_READING_SESSION),
-    classifier: deepClone(merged.classifier ?? DEFAULT_CLASSIFIER)
+    classifier: deepClone(merged.classifier ?? DEFAULT_CLASSIFIER),
+    experimentalAi: deepClone(merged.experimentalAi ?? DEFAULT_OPTIONS.experimentalAi!),
+    pageSummary: deepClone(merged.pageSummary ?? DEFAULT_OPTIONS.pageSummary!),
+    readingOverlaySummary: deepClone(
+      merged.readingOverlaySummary ?? DEFAULT_OPTIONS.readingOverlaySummary!
+    ),
+    subtitleTranslation: deepClone(
+      merged.subtitleTranslation ?? DEFAULT_OPTIONS.subtitleTranslation!
+    )
   };
 
   const vaultRouterSnapshot = getVaultRouterConfig();
@@ -88,15 +101,14 @@ export interface OptionsFormAdapter {
   apply(options: StoredOptions): Promise<void>;
 }
 
-export function createOptionsFormAdapter(registry: FormSectionRegistry): OptionsFormAdapter {
+export function createOptionsFormAdapter(): OptionsFormAdapter {
   return {
     read(previous: StoredOptions | null): CompleteOptions {
       const baseline = buildBaselineOptions(previous);
-      const managed = registry.collect(previous);
-      return { ...baseline, ...managed };
+      return { ...baseline };
     },
-    async apply(options: StoredOptions): Promise<void> {
-      await registry.apply(options);
+    async apply(_options: StoredOptions): Promise<void> {
+      // Schema shell owns form state; applying snapshots is handled by its store/widgets.
     }
   };
 }

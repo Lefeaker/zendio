@@ -18,6 +18,8 @@ import {
   registerReaderSession
 } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
+import { ContentExportDestinationState } from '../shared/exportDestinationState';
+import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
 import {
   addReaderHighlightFromRange,
@@ -41,6 +43,7 @@ export class ReaderSession {
   private readonly selectionController: ReaderSelectionController;
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
+  private readonly destinationState: ContentExportDestinationState;
 
   private get operationContext() {
     return {
@@ -52,7 +55,8 @@ export class ReaderSession {
       highlightManager: this.highlightManager,
       panelCoordinator: this.panelCoordinator,
       lifecycle: this.lifecycle,
-      dependencies: this.dependencies
+      dependencies: this.dependencies,
+      getExportDestinationMetadata: () => this.destinationState.metadata
     };
   }
 
@@ -69,6 +73,7 @@ export class ReaderSession {
       callbacks: {
         onFinish: () => this.finish(),
         onCancel: () => this.cancel(),
+        onSelectDestination: (id) => this.selectDestination(id),
         onDeleteHighlight: (id) => this.removeHighlightById(id),
         onSubmitHighlightEdit: (id, comment) => this.submitHighlightEdit(id, comment),
         onFocusHighlight: (id) => this.focusHighlight(id)
@@ -122,6 +127,11 @@ export class ReaderSession {
           });
         }
       }
+    );
+    this.destinationState = new ContentExportDestinationState(
+      this.dependencies.optionsRepository,
+      () => this.createDestinationPayload(),
+      this.dependencies.optionsPageUrl
     );
   }
 
@@ -180,6 +190,7 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
+      await this.refreshDestinationPreview();
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
       this.bootstrapHighlights(initialHighlights);
@@ -277,6 +288,45 @@ export class ReaderSession {
       () => this.loadReadingConfig(),
       (config) => this.applyReadingConfig(config)
     );
+  }
+
+  private async refreshDestinationPreview(): Promise<void> {
+    const preview = await this.destinationState.refresh();
+    this.panelCoordinator.updateDestination(preview);
+  }
+
+  private async selectDestination(id: string): Promise<void> {
+    this.destinationState.select(id);
+    await this.refreshDestinationPreview();
+  }
+
+  private createDestinationPayload(): ClipPayload {
+    const parsedUrl = this.parseCurrentUrl();
+    const title = this.doc.title || parsedUrl?.hostname || 'Untitled';
+    const domain = parsedUrl?.hostname ?? '';
+    const markdown = this.state.highlights
+      .map((highlight) => this.highlightManager.reconstructText(highlight))
+      .join('\n\n');
+    return {
+      markdown: markdown || title,
+      title,
+      type: 'clipper',
+      meta: {
+        url: this.url,
+        sourceUrl: this.url,
+        resolvedUrl: this.url,
+        ...(domain ? { domain } : {}),
+        readerMode: true
+      }
+    };
+  }
+
+  private parseCurrentUrl(): URL | null {
+    try {
+      return new URL(this.url);
+    } catch {
+      return null;
+    }
   }
 
   private cancel(): void {

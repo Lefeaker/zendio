@@ -37,36 +37,26 @@ export function setLayoutState(state: PromptLayoutState, patch: Partial<PromptLa
 export function getLayoutStateSnapshot(state: PromptLayoutState): PromptLayoutState {
   return { ...state };
 }
-export function applySideClass(element: HTMLDivElement, side: PromptSide): void {
+export function applySideClass(element: HTMLElement, side: PromptSide): void {
   if (side === 'left') {
-    element.classList.add('aiob-video-prompt--left');
-    element.classList.remove('aiob-video-prompt--right');
-    const hint = element.querySelector('.aiob-video-prompt__hint');
-    if (hint) {
-      hint.classList.remove('right-full', 'left-auto', '-translate-x-3');
-      hint.classList.add('right-auto', 'left-full', 'translate-x-3');
-    }
+    element.classList.add('video-floating-prompt--left');
+    element.classList.remove('video-floating-prompt--right');
   } else {
-    element.classList.add('aiob-video-prompt--right');
-    element.classList.remove('aiob-video-prompt--left');
-    const hint = element.querySelector('.aiob-video-prompt__hint');
-    if (hint) {
-      hint.classList.remove('right-auto', 'left-full', 'translate-x-3');
-      hint.classList.add('right-full', 'left-auto', '-translate-x-3');
-    }
+    element.classList.add('video-floating-prompt--right');
+    element.classList.remove('video-floating-prompt--left');
   }
 }
 export function setPromptSide(
   state: PromptLayoutState,
   side: PromptSide,
-  element: HTMLDivElement | null
+  element: HTMLElement | null
 ): void {
   state.side = side;
   if (element) {
     applySideClass(element, side);
   }
 }
-export function applyStoredPosition(state: PromptLayoutState, element: HTMLDivElement): void {
+export function applyStoredPosition(state: PromptLayoutState, element: HTMLElement): void {
   const rect = element.getBoundingClientRect();
   const viewportWidth = window.innerWidth || rect.width + EDGE_MARGIN * 2;
   const viewportHeight = window.innerHeight || rect.height + EDGE_MARGIN * 2;
@@ -99,19 +89,31 @@ export function applyStoredPosition(state: PromptLayoutState, element: HTMLDivEl
     element.style.bottom = `${EDGE_MARGIN}px`;
     const inferredLeft = viewportWidth - EDGE_MARGIN - rect.width;
     const inferredTop = viewportHeight - EDGE_MARGIN - rect.height;
-    const maxLeft = Math.max(DRAG_BOUNDARY_PADDING, viewportWidth - rect.width - DRAG_BOUNDARY_PADDING);
-    const maxTop = Math.max(DRAG_BOUNDARY_PADDING, viewportHeight - rect.height - DRAG_BOUNDARY_PADDING);
+    const maxLeft = Math.max(
+      DRAG_BOUNDARY_PADDING,
+      viewportWidth - rect.width - DRAG_BOUNDARY_PADDING
+    );
+    const maxTop = Math.max(
+      DRAG_BOUNDARY_PADDING,
+      viewportHeight - rect.height - DRAG_BOUNDARY_PADDING
+    );
     state.left = clamp(inferredLeft, DRAG_BOUNDARY_PADDING, maxLeft);
     state.top = clamp(inferredTop, DRAG_BOUNDARY_PADDING, maxTop);
     setPromptSide(state, 'right', element);
   }
 }
-export function adjustLayoutForResize(state: PromptLayoutState, element: HTMLDivElement): void {
+export function adjustLayoutForResize(state: PromptLayoutState, element: HTMLElement): void {
   const rect = element.getBoundingClientRect();
   const viewportWidth = window.innerWidth || rect.width + EDGE_MARGIN * 2;
   const viewportHeight = window.innerHeight || rect.height + EDGE_MARGIN * 2;
-  const maxLeft = Math.max(DRAG_BOUNDARY_PADDING, viewportWidth - rect.width - DRAG_BOUNDARY_PADDING);
-  const maxTop = Math.max(DRAG_BOUNDARY_PADDING, viewportHeight - rect.height - DRAG_BOUNDARY_PADDING);
+  const maxLeft = Math.max(
+    DRAG_BOUNDARY_PADDING,
+    viewportWidth - rect.width - DRAG_BOUNDARY_PADDING
+  );
+  const maxTop = Math.max(
+    DRAG_BOUNDARY_PADDING,
+    viewportHeight - rect.height - DRAG_BOUNDARY_PADDING
+  );
   if (state.hasCustomPosition) {
     state.left = clamp(state.left, DRAG_BOUNDARY_PADDING, maxLeft);
     state.top = clamp(state.top, DRAG_BOUNDARY_PADDING, maxTop);

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { StoredOptionsSchema, RestOptionsSchema, TemplateOptionsSchema } from '../../shared/schemas';
+import {
+  StoredOptionsSchema,
+  RestOptionsSchema,
+  TemplateOptionsSchema
+} from '../../shared/schemas/options.schema';
 
 const TaxonomyConditionSchema = z.object({
   type: z.string().min(1),

@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesFr as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -426,8 +427,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: "J'ai déjà laissé un avis",
   supportPromptDislikeToastTitle: 'Partagez vos commentaires',
   supportPromptDislikeRedditLinkLabel: 'Discuter sur Reddit',
-  supportPromptDislikeQrLinkLabel: 'Rejoindre le groupe Xiaohongshu',
-  supportPromptDislikeQrPlaceholder: 'Code QR bientôt disponible',
 
   // Dialog
   clipDialogTitle: 'Découper la sélection',
@@ -662,6 +661,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: 'Journal des modifications',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: 'Ceci est le contenu du texte sélectionné',

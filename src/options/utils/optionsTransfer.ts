@@ -1,4 +1,4 @@
-import { mergeOptions } from '../../shared/config';
+import { mergeOptions } from '../../shared/config/optionsMerger';
 import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { deepClone } from './clone';

@@ -1,4 +1,5 @@
 import type { ReaderHighlightTheme } from '../../shared/types/options';
+import type { VideoAddCaptureSource } from './application/videoPanelModel';
 import type { VideoFragmentCapture } from './types';
 import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
@@ -51,6 +52,8 @@ import type { VideoFragmentSelectionController } from './videoFragmentSelectionC
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionControllers } from './videoSessionControllers';
+import { ContentExportDestinationState } from '../shared/exportDestinationState';
+import type { ClipPayload } from '../../shared/types';
 
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -66,6 +69,7 @@ export class VideoSession {
   private exporter!: VideoSessionExporter;
   private platformController!: VideoSessionPlatformController;
   private dom!: VideoSessionDomController;
+  private readonly destinationState: ContentExportDestinationState;
   private controllersReadyPromise: Promise<void> | null = null;
 
   private get operationContext() {
@@ -88,22 +92,28 @@ export class VideoSession {
       messages: this.messages,
       updateVideoContext: () => this.platformController.updateVideoContext(),
       findVideoElement: () => this.doc.querySelector('video'),
-      buildTimestampUrl: (timeSec: number) =>
-        this.platformController.buildTimestampUrl(timeSec),
+      buildTimestampUrl: (timeSec: number) => this.platformController.buildTimestampUrl(timeSec),
       applyHint: (state: VideoHintState) => this.applyHint(state),
       syncPanel: () => this.syncPanel(),
       ensureCaptureHighlight: (capture: VideoFragmentCapture) =>
         this.ensureCaptureHighlight(capture),
       getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(this.doc, node),
       highlightFragmentText: (text: string) =>
-        highlightVideoFragmentText({ doc: this.doc, state: this.state, text })
+        highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
+      getExportDestinationMetadata: () => this.destinationState.metadata
     });
   }
 
   constructor(
     private readonly doc: Document,
     private readonly dependencies: VideoSessionDependencies
-  ) {}
+  ) {
+    this.destinationState = new ContentExportDestinationState(
+      this.dependencies.optionsRepository,
+      () => this.createDestinationPayload(),
+      this.dependencies.optionsPageUrl
+    );
+  }
 
   private async ensureControllers(): Promise<void> {
     if (this.controllersReadyPromise) {
@@ -201,9 +211,10 @@ export class VideoSession {
         fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
         highlightThemePromise,
         panelCallbacks: {
-          onAddCapture: () => void handleVideoSessionAddCapture(this.operationContext),
+          onAddCapture: (source) => void this.handleAddCapture(source),
           onFinish: () => void this.finish(),
           onCancel: () => this.cancel(),
+          onSelectDestination: (id) => this.selectDestination(id),
           onDeleteCapture: (id) => removeVideoSessionCapture(this.operationContext, id),
           onSubmitCaptureEdit: (id, comment) =>
             void submitVideoSessionCaptureEdit(this.operationContext, id, comment),
@@ -213,6 +224,7 @@ export class VideoSession {
         applyHint: (state) => this.applyHint(state),
         refreshContext: () => this.refreshContext()
       });
+      await this.refreshDestinationPreview();
     } catch (error) {
       this.cleanup();
       throw error;
@@ -246,6 +258,42 @@ export class VideoSession {
     });
   }
 
+  private async refreshDestinationPreview(): Promise<void> {
+    const preview = await this.destinationState.refresh();
+    this.dom.updateDestination(preview);
+  }
+
+  private async selectDestination(id: string): Promise<void> {
+    this.destinationState.select(id);
+    await this.refreshDestinationPreview();
+  }
+
+  private createDestinationPayload(): ClipPayload {
+    const pageUrl = this.state.canonicalUrl || this.state.videoUrl || this.doc.location.href;
+    const parsedUrl = this.parseUrl(pageUrl);
+    const title = this.state.videoTitle || this.doc.title || parsedUrl?.hostname || 'Video Capture';
+    return {
+      markdown: title,
+      title,
+      type: 'video',
+      meta: {
+        url: pageUrl,
+        sourceUrl: this.state.videoUrl || pageUrl,
+        videoUrl: this.state.videoUrl || pageUrl,
+        platform: this.state.platform,
+        ...(parsedUrl?.hostname ? { domain: parsedUrl.hostname } : {})
+      }
+    };
+  }
+
+  private parseUrl(url: string): URL | null {
+    try {
+      return new URL(url);
+    } catch {
+      return null;
+    }
+  }
+
   ingestTextCapture(
     selectedHtml: string,
     selectedText: string,
@@ -261,8 +309,35 @@ export class VideoSession {
     );
   }
 
-  private async handleAddCapture(): Promise<void> {
-    await handleVideoSessionAddCapture(this.operationContext);
+  async addCurrentTimestamp(
+    source: VideoAddCaptureSource = 'button',
+    options: {
+      comment?: string;
+      captureScreenshot?: boolean;
+      pauseVideo?: boolean;
+      beginEditing?: boolean;
+      resumePlayback?: boolean;
+      collapseAfterCapture?: boolean;
+    } = {}
+  ): Promise<void> {
+    await this.handleAddCapture(source, options);
+  }
+
+  private async handleAddCapture(
+    source: VideoAddCaptureSource = 'button',
+    options: {
+      comment?: string;
+      captureScreenshot?: boolean;
+      pauseVideo?: boolean;
+      beginEditing?: boolean;
+      resumePlayback?: boolean;
+      collapseAfterCapture?: boolean;
+    } = {}
+  ): Promise<void> {
+    await handleVideoSessionAddCapture(this.operationContext, {
+      pauseVideo: source === 'note-input',
+      ...options
+    });
   }
 
   private applyHighlightTheme(theme: ReaderHighlightTheme): void {
@@ -309,5 +384,4 @@ export class VideoSession {
   private cleanup(): void {
     cleanupVideoSession(this.operationContext);
   }
-
 }

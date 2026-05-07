@@ -4,21 +4,24 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
-import type {
-  ReaderSessionView,
-  ReaderSessionViewFactory
-} from '../application/readerSessionView';
+import type { ReaderSessionView, ReaderSessionViewFactory } from '../application/readerSessionView';
+import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 type ReaderPanelLike = {
   readonly element: HTMLElement;
   updateCount(count: number): void;
   updateHint(message: string): void;
   updateTexts(texts: ReaderPanelTexts): void;
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void;
   setHighlights(highlights: ReaderPanelHighlight[]): void;
   stopEditing(): void;
   isEditing(): boolean;
   destroy(): void;
 };
+
+interface ReaderPanelViewFactoryOptions {
+  resolveAssetUrl?: (path: string) => string;
+}
 
 class ReaderPanelViewAdapter implements ReaderSessionView {
   constructor(private readonly panel: ReaderPanelLike) {}
@@ -39,6 +42,10 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
     this.panel.updateTexts(texts);
   }
 
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
+    this.panel.updateDestination(destination);
+  }
+
   setHighlights(highlights: ReaderPanelHighlight[]): void {
     this.panel.setHighlights(highlights);
   }
@@ -56,9 +63,15 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
   }
 }
 
-export const createReaderPanelViewFactory = (): ReaderSessionViewFactory => ({
+export const createReaderPanelViewFactory = (
+  options: ReaderPanelViewFactoryOptions = {}
+): ReaderSessionViewFactory => ({
   createView(callbacks: ReaderPanelCallbacks, texts: ReaderPanelTexts): ReaderSessionView {
-    const panel = new ReaderDialogPanel({ callbacks, texts });
+    const panel = new ReaderDialogPanel({
+      callbacks,
+      texts,
+      ...(options.resolveAssetUrl ? { resolveAssetUrl: options.resolveAssetUrl } : {})
+    });
     panel.show();
     return new ReaderPanelViewAdapter(panel);
   }

@@ -14,6 +14,7 @@ import type { ShadowSelectionBridge } from './shadowSelectionBridge';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionOperationContext } from './sessionOperations';
+import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 
 interface CreateVideoSessionOperationContextArgs {
   session: object;
@@ -40,6 +41,7 @@ interface CreateVideoSessionOperationContextArgs {
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
+  getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
 
 export function createVideoSessionOperationContext(
@@ -69,6 +71,9 @@ export function createVideoSessionOperationContext(
     syncPanel: args.syncPanel,
     ensureCaptureHighlight: args.ensureCaptureHighlight,
     getSelectionForNode: args.getSelectionForNode,
-    highlightFragmentText: args.highlightFragmentText
+    highlightFragmentText: args.highlightFragmentText,
+    ...(args.getExportDestinationMetadata
+      ? { getExportDestinationMetadata: args.getExportDestinationMetadata }
+      : {})
   };
 }

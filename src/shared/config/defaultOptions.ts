@@ -1,17 +1,14 @@
 import { DEFAULT_DOMAIN_MAPPINGS } from '../constants';
 import { DEFAULT_CLASSIFIER_TAXONOMY_MIGRATED } from './taxonomyMigration';
 import type { OptionsState } from '../types';
-import {
-  getDefaultFragmentClipper,
-  getDefaultRestOptions,
-  getDefaultTemplates
-} from './appConfig';
+import { getDefaultFragmentClipper, getDefaultRestOptions, getDefaultTemplates } from './appConfig';
 
 const REST_DEFAULTS = getDefaultRestOptions();
 const TEMPLATE_DEFAULTS = getDefaultTemplates();
 const FRAGMENT_DEFAULTS = getDefaultFragmentClipper();
 
 export const DEFAULT_OPTIONS: OptionsState = {
+  interfaceTheme: 'dark',
   rest: {
     baseUrl: REST_DEFAULTS.baseUrl,
     httpsUrl: REST_DEFAULTS.httpsUrl,
@@ -57,6 +54,24 @@ export const DEFAULT_OPTIONS: OptionsState = {
   video: {
     floatingPromptEnabled: true,
     promptButtonLabel: '开启视频笔记',
-    promptShortcut: 'Alt+V'
+    promptShortcut: 'Alt+V',
+    controlBarAutoPause: true,
+    controlBarScreenshot: true
+  },
+  experimentalAi: {
+    provider: 'compatible',
+    model: 'gpt-4.1-mini',
+    apiUrl: 'https://api.openai.com/v1/chat/completions',
+    apiKey: ''
+  },
+  pageSummary: {
+    enabled: false
+  },
+  readingOverlaySummary: {
+    enabled: false
+  },
+  subtitleTranslation: {
+    enabled: false,
+    targetLanguage: 'zh-CN'
   }
 };

@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from '@content/video/sessionMessages';
+import {
+  DEFAULT_SESSION_MESSAGES,
+  type VideoSessionMessages
+} from '@content/video/sessionMessages';
 import type { VideoCapture } from '@content/video/types';
 import { VideoSessionExporter } from '@content/video/videoSessionExporter';
 import type { ClipResult } from '@shared/repositories/IClipRepository';
@@ -12,12 +15,13 @@ import {
 } from '@shared/state/yamlConfigOverridesStore';
 
 describe('VideoSessionExporter', () => {
-  const sendVideoClipMock = vi.fn((_clip: VideoClipData): Promise<ClipResult> =>
-    Promise.resolve({ success: true })
+  const sendVideoClipMock = vi.fn(
+    (_clip: VideoClipData): Promise<ClipResult> => Promise.resolve({ success: true })
   );
   const videoRepository: IVideoRepository = {
     getVideoConfig: vi.fn(),
     savePromptPosition: vi.fn(),
+    saveControlBarPreferences: vi.fn(),
     getPromptPosition: vi.fn(),
     sendVideoClip: sendVideoClipMock,
     onConfigChange: vi.fn(() => () => {})
@@ -35,7 +39,12 @@ describe('VideoSessionExporter', () => {
         video: {
           customFields: [
             { name: 'video_alias', type: 'text', enabled: true, valuePath: 'title' },
-            { name: 'video_topics', type: 'array', enabled: true, defaultValue: ['video', 'curated'] }
+            {
+              name: 'video_topics',
+              type: 'array',
+              enabled: true,
+              defaultValue: ['video', 'curated']
+            }
           ]
         }
       }
@@ -79,9 +88,10 @@ describe('VideoSessionExporter', () => {
       storageKey: null
     });
 
-    const frontMatter = payload.markdown.split('---\n', 2).length > 1
-      ? `---\n${payload.markdown.split('---\n', 3)[1]}\n---`
-      : '';
+    const frontMatter =
+      payload.markdown.split('---\n', 2).length > 1
+        ? `---\n${payload.markdown.split('---\n', 3)[1]}\n---`
+        : '';
     expect(frontMatter).toContain('video_alias: "Deep Talk"');
     expect(frontMatter).toContain('video_topics: ["video", "curated"]');
   });
@@ -112,6 +122,71 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload.platform).toBe('youtube');
     expect(clipPayload.videoUrl).toBe('https://example.com/watch?v=1');
     expect(typeof clipPayload.timestamp).toBe('number');
+  });
+
+  it('adds current-frame screenshots to markdown and export attachments', async () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+    const screenshot = {
+      id: 'shot-1',
+      fileName: 'video-0m42s-screenshot.png',
+      mimeType: 'image/png' as const,
+      dataUrl: 'data:image/png;base64,frame',
+      capturedAt: 1
+    };
+
+    const payload = exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshot
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    expect(payload.markdown).toContain('![Screenshot](data:image/png;base64,frame)');
+    expect(payload.meta.attachments).toEqual([
+      {
+        id: 'shot-1',
+        fileName: 'video-0m42s-screenshot.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,frame'
+      }
+    ]);
+
+    await exporter.export({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshot
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    const [clipPayload] = sendVideoClipMock.mock.calls.at(-1) ?? [];
+    expect(clipPayload?.attachments).toEqual(payload.meta.attachments);
   });
 
   it('falls back to the unknown-platform defaults and empty canonical url handling', () => {

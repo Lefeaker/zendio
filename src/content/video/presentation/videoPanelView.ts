@@ -4,10 +4,8 @@ import type {
   VideoPanelCapture,
   VideoPanelTexts
 } from '../application/videoPanelModel';
-import type {
-  VideoSessionView,
-  VideoSessionViewFactory
-} from '../application/videoSessionView';
+import type { VideoSessionView, VideoSessionViewFactory } from '../application/videoSessionView';
+import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 class VideoPanelViewAdapter implements VideoSessionView {
   constructor(private readonly panel: VideoDialogPanel) {}
@@ -18,6 +16,10 @@ class VideoPanelViewAdapter implements VideoSessionView {
 
   setCaptures(captures: VideoPanelCapture[]): void {
     this.panel.setCaptures(captures);
+  }
+
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
+    this.panel.updateDestination(destination);
   }
 
   updateHint(message: string): void {
@@ -36,6 +38,10 @@ class VideoPanelViewAdapter implements VideoSessionView {
     this.panel.stopEditing();
   }
 
+  collapse(): void {
+    this.panel.collapse();
+  }
+
   destroy(): void {
     this.panel.destroy();
   }
@@ -45,7 +51,7 @@ export const createVideoPanelViewFactory = (): VideoSessionViewFactory => ({
   createView(callbacks: VideoPanelCallbacks, texts: VideoPanelTexts): VideoSessionView {
     const panel = new VideoDialogPanel({
       callbacks,
-      texts,
+      texts
     });
     panel.show();
     return new VideoPanelViewAdapter(panel);

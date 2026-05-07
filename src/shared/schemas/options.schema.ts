@@ -80,7 +80,15 @@ export const ReadingSessionOptionsSchema = z.object({
 export const VideoOptionsSchema = z.object({
   floatingPromptEnabled: z.boolean(),
   promptButtonLabel: z.string().min(1),
-  promptShortcut: z.string().min(1)
+  promptShortcut: z.string().min(1),
+  controlBarAutoPause: z.boolean().optional(),
+  controlBarScreenshot: z.boolean().optional(),
+  promptPosition: z
+    .object({
+      x: z.number(),
+      y: z.number()
+    })
+    .optional()
 });
 
 /**
@@ -113,11 +121,34 @@ export const ClassifierOptionsSchema = z.object({
   taxonomy: z.any()
 });
 
+export const ExperimentalAiOptionsSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  apiUrl: z.string().url(),
+  apiKey: z.string()
+});
+
+export const PageSummaryOptionsSchema = z.object({
+  enabled: z.boolean()
+});
+
+export const ReadingOverlaySummaryOptionsSchema = z.object({
+  enabled: z.boolean()
+});
+
+export const SubtitleTranslationOptionsSchema = z.object({
+  enabled: z.boolean(),
+  targetLanguage: z.string().min(1)
+});
+
+export const InterfaceThemeSchema = z.enum(['dark', 'light']);
+
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）
  */
 export const StoredOptionsSchema = z
   .object({
+    interfaceTheme: InterfaceThemeSchema.optional(),
     rest: RestOptionsSchema.partial().extend({ baseUrl: z.string().optional() }).optional(),
     templates: TemplateOptionsSchema.partial()
       .extend({
@@ -132,6 +163,10 @@ export const StoredOptionsSchema = z
     readingSession: ReadingSessionOptionsSchema.partial().optional(),
     video: VideoOptionsSchema.partial().optional(),
     classifier: ClassifierOptionsSchema.partial().optional(),
+    experimentalAi: ExperimentalAiOptionsSchema.partial().optional(),
+    pageSummary: PageSummaryOptionsSchema.partial().optional(),
+    readingOverlaySummary: ReadingOverlaySummaryOptionsSchema.partial().optional(),
+    subtitleTranslation: SubtitleTranslationOptionsSchema.partial().optional(),
     vaultRouter: VaultRouterConfigSchema.optional(),
     yamlConfig: YamlConfigOverridesSchema.nullable().optional()
   })
@@ -141,6 +176,7 @@ export const StoredOptionsSchema = z
  * CompleteOptions Schema（合并默认值后的完整配置）
  */
 export const CompleteOptionsSchema = z.object({
+  interfaceTheme: InterfaceThemeSchema.optional(),
   rest: RestOptionsSchema,
   templates: TemplateOptionsSchema,
   aiChat: AiChatOptionsSchema,
@@ -149,6 +185,10 @@ export const CompleteOptionsSchema = z.object({
   readingSession: ReadingSessionOptionsSchema,
   video: VideoOptionsSchema,
   classifier: ClassifierOptionsSchema,
+  experimentalAi: ExperimentalAiOptionsSchema,
+  pageSummary: PageSummaryOptionsSchema,
+  readingOverlaySummary: ReadingOverlaySummaryOptionsSchema,
+  subtitleTranslation: SubtitleTranslationOptionsSchema,
   domainMappings: z.record(z.string())
 });
 
@@ -168,5 +208,10 @@ export type VideoOptions = z.infer<typeof VideoOptionsSchema>;
 export type FragmentClipperOptions = z.infer<typeof FragmentClipperOptionsSchema>;
 export type ClassifierProvider = z.infer<typeof ClassifierProviderSchema>;
 export type ClassifierOptions = z.infer<typeof ClassifierOptionsSchema>;
+export type ExperimentalAiOptions = z.infer<typeof ExperimentalAiOptionsSchema>;
+export type PageSummaryOptions = z.infer<typeof PageSummaryOptionsSchema>;
+export type ReadingOverlaySummaryOptions = z.infer<typeof ReadingOverlaySummaryOptionsSchema>;
+export type SubtitleTranslationOptions = z.infer<typeof SubtitleTranslationOptionsSchema>;
+export type InterfaceTheme = z.infer<typeof InterfaceThemeSchema>;
 export type StoredOptions = z.infer<typeof StoredOptionsSchema>;
 export type CompleteOptions = z.infer<typeof CompleteOptionsSchema>;

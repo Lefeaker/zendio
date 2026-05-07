@@ -1,5 +1,6 @@
 import type { ClipResult } from './IClipRepository';
 import type { VideoOptions } from '../types/options';
+import type { ExportDestinationMetadata } from '../exportDestination';
 
 /**
  * 视频剪藏数据
@@ -12,6 +13,13 @@ export interface VideoClipData {
   timestamp: number;
   duration?: number;
   platform: 'youtube' | 'bilibili' | 'other';
+  attachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    dataUrl: string;
+  }>;
+  exportDestination?: ExportDestinationMetadata;
 }
 
 /**
@@ -28,6 +36,11 @@ export interface IVideoRepository {
    * 保存浮层位置。
    */
   savePromptPosition(position: { x: number; y: number }): Promise<void>;
+
+  saveControlBarPreferences(preferences: {
+    autoPauseEnabled: boolean;
+    captureScreenshotEnabled: boolean;
+  }): Promise<void>;
 
   /**
    * 获取浮层位置。

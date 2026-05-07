@@ -318,7 +318,9 @@ export class VideoSection extends BaseSection<SectionRenderContext> {
       video: {
         floatingPromptEnabled,
         promptButtonLabel,
-        promptShortcut
+        promptShortcut,
+        controlBarAutoPause: previousVideo?.controlBarAutoPause ?? true,
+        controlBarScreenshot: previousVideo?.controlBarScreenshot ?? true
       }
     };
     return partial;

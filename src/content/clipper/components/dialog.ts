@@ -3,7 +3,9 @@ import type { RuntimeService } from '@platform/interfaces/runtime';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { ErrorHandler } from '@shared/errors';
 import type { IClipRepository } from '@shared/repositories/IClipRepository';
-import { ContentDialogHost } from '@ui/hosts/content';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
+import type { ClipPayload } from '@shared/types';
+import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import { ensureContentI18n, getContentI18nBinder } from '../../i18n/context';
 import {
   createClipperDialogDependencies,
@@ -19,11 +21,13 @@ import {
 import {
   addButtonShortcutHints,
   applyReadonlyTextareaPresentation,
-  buildDialogPresenter,
-  setInitialDialogPosition,
   renderShortcutHint,
   updateDialogPosition
 } from './dialogPresenter';
+import { createClipperSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
+import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
@@ -37,12 +41,14 @@ import { clipperStyleSheetManager } from '../shared/styleSheetManager';
 import { DragController } from '../shared/dragController';
 import type { ReaderModeBehavior } from './dialogTypes';
 import type { PopupCoordinator } from '../../runtime/popupCoordinator';
+import { generateClipperTitle } from '../utils/datetime';
 
 export type ClipperDialogAction = 'clip' | 'cancel' | 'reader' | 'video';
 
 export interface ClipperDialogResult {
   action: ClipperDialogAction;
   comment: string;
+  destination?: ExportDestinationMetadata;
 }
 
 export interface ClipperDialogOptions {
@@ -77,8 +83,10 @@ const FALLBACK_MESSAGES: Partial<Messages> = {
 };
 
 export class ClipperDialog {
-  private dialogHost: ContentDialogHost | null = null;
+  readonly popupLifecycle = { preserveOnTransientClose: true };
+
   private host: HTMLElement | null = null;
+  private shadowRoot: ShadowRoot | null = null;
   private dialogSurface: HTMLDivElement | null = null;
   private textarea: HTMLTextAreaElement | null = null;
   private hintElement: HTMLDivElement | null = null;
@@ -95,6 +103,9 @@ export class ClipperDialog {
   private errorHandler: ErrorHandler;
   private runtimeService: RuntimeService;
   private clipRepo: IClipRepository;
+  private optionsRepository: IOptionsRepository;
+  private destinationState: ContentExportDestinationState | null = null;
+  private selectedText = '';
   private unsubscribeFragmentConfig: (() => void) | null = null;
 
   private get keyboardShortcutsEnabled(): boolean {
@@ -102,11 +113,18 @@ export class ClipperDialog {
   }
 
   constructor(deps: Partial<ClipperDialogDependencies> = {}) {
-    if (deps.storage && deps.errorHandler && deps.runtime && deps.clipRepo) {
+    if (
+      deps.storage &&
+      deps.errorHandler &&
+      deps.runtime &&
+      deps.clipRepo &&
+      deps.optionsRepository
+    ) {
       this.storageService = deps.storage;
       this.errorHandler = deps.errorHandler;
       this.runtimeService = deps.runtime;
       this.clipRepo = deps.clipRepo;
+      this.optionsRepository = deps.optionsRepository;
       return;
     }
 
@@ -115,6 +133,7 @@ export class ClipperDialog {
     this.errorHandler = deps.errorHandler ?? resolved.errorHandler;
     this.runtimeService = deps.runtime ?? resolved.runtime;
     this.clipRepo = deps.clipRepo ?? resolved.clipRepo;
+    this.optionsRepository = deps.optionsRepository ?? resolved.optionsRepository;
   }
 
   async show(selectedText: string, options?: ClipperDialogOptions): Promise<ClipperDialogResult> {
@@ -127,6 +146,12 @@ export class ClipperDialog {
 
     this.sessionState.applyOptions(options);
     this.dialogRegistry = options?.dialogRegistry ?? null;
+    this.selectedText = selectedText;
+    this.destinationState = new ContentExportDestinationState(
+      this.optionsRepository,
+      () => this.createDestinationPayload(),
+      this.runtimeService.getURL('options/index.html#storage')
+    );
 
     await loadShortcutUsageCount(this.sessionState, this.storageService, this.errorHandler);
     await initializeDialogFragmentConfig({
@@ -172,20 +197,13 @@ export class ClipperDialog {
     }
 
     this.disposeI18nHandles();
-    this.detachDragHandlers();
+    this.detachDialogEventListeners();
     this.sessionState.resetPendingEnter();
 
-    if (this.textarea) {
-      this.textarea.removeEventListener('keydown', this.onTextareaKeydown);
-    }
-    window.removeEventListener('keydown', this.onWindowKeydown);
-    this.dialogSurface?.removeEventListener('keydown', this.onWindowKeydown);
-    this.dialogHost?.destroy();
-    this.dialogHost = null;
-    this.dialogSurface = null;
-    this.textarea = null;
-    this.hintElement = null;
+    this.host?.remove();
+    this.shadowRoot = null;
     this.host = null;
+    this.destinationState = null;
     delete document.documentElement.dataset.aiobClipperDialog;
 
     if (this.previousActiveElement) {
@@ -204,77 +222,194 @@ export class ClipperDialog {
     const binder = getContentI18nBinder();
     this.messages = await safeGetDialogMessages(this.errorHandler);
     this.disposeI18nHandles();
+    const sourceUrl = document.location.href;
+    const sourceHost = document.location.hostname || 'current page';
+    const sourceTitle = document.title || sourceUrl;
+    const sourceInitials =
+      sourceHost
+        .split('.')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('')
+        .slice(0, 3) || 'PG';
 
     await clipperStyleSheetManager.initialize();
-    this.dialogHost?.destroy();
-    this.dialogHost = new ContentDialogHost({
-      title: this.getMessage('clipDialogTitle', this.getFallback('clipDialogTitle')),
-      showHeader: false,
-      closeOnBackdrop: false,
-      closeOnEscape: false,
-      trapFocus: true,
-      initialFocus: '#clipper-comment-input',
-      modalClassName: 'modal fixed inset-0 bg-transparent z-[2147483647]',
-      modalBoxClassName:
-        'obsidian-clipper-content absolute max-h-[80vh] max-w-[600px] w-[90%] translate-0 transform rounded-[14px] border border-white/20 bg-black/90 p-0 shadow-[0_18px_45px_rgba(0,0,0,0.6)] backdrop-blur-xl pointer-events-auto transition-shadow duration-200 ease-out animate-[scaleIn_0.2s_ease_0.2s_1] text-[#f2f4ff]',
-      bodyClassName: 'clipper-dialog-body p-0',
-      footerClassName: 'hidden',
-      onClose: () => this.finalize('cancel', '')
+    this.detachDialogEventListeners();
+    this.host?.remove();
+    const destination = await this.destinationState?.refresh();
+
+    const surface = renderStitchRuntimeSurface({
+      surfaceId: 'clipper',
+      appData: createClipperSurfaceContent({
+        selectedText,
+        iconUrl: this.resolveAssetUrl('icons/60x60/allinob_icon_clipt.png'),
+        commentPlaceholder: this.getMessage(
+          'commentPlaceholder',
+          this.getFallback('commentPlaceholder')
+        ),
+        labels: {
+          title: this.getMessage('clipDialogTitle', this.getFallback('clipDialogTitle')),
+          selectionPreview:
+            (this.messages as Record<string, string> | null)?.clipperSelectionPreviewLabel ??
+            'Selection Preview',
+          commentLabel: this.getMessage('commentLabel', this.getFallback('commentLabel'))
+        },
+        source: {
+          title: sourceTitle,
+          host: sourceHost,
+          initials: sourceInitials,
+          verifiedLabel: sourceUrl
+        },
+        ...(destination ? { destination } : {}),
+        actions: [
+          ...(this.sessionState.allowReaderMode
+            ? [
+                {
+                  id: 'reader',
+                  label:
+                    this.sessionState.readerModeBehavior === 'append'
+                      ? this.getMessage('addToReaderButton', this.getFallback('addToReaderButton'))
+                      : this.getMessage('openReaderButton', this.getFallback('openReaderButton')),
+                  variant: 'secondary' as const
+                }
+              ]
+            : []),
+          ...(this.sessionState.allowVideoMode
+            ? [
+                {
+                  id: 'video',
+                  label: this.getMessage('openVideoModeButton', '进入视频模式'),
+                  variant: 'secondary' as const
+                }
+              ]
+            : []),
+          {
+            id: 'clip',
+            label: this.getMessage('clipButton', this.getFallback('clipButton')),
+            variant: 'primary' as const
+          }
+        ]
+      }),
+      actions: {
+        reader: () => this.finalize('reader', this.getCurrentComment()),
+        video: () => this.finalize('video', this.getCurrentComment()),
+        cancel: () => this.finalize('cancel', ''),
+        clip: () => this.finalize('clip', this.getCurrentComment()),
+        'resource:close': () => this.finalize('cancel', ''),
+        'export-destination:select': (event) => {
+          const id = this.resolveDestinationId(event);
+          if (!id) {
+            return;
+          }
+          void this.selectDestination(id);
+        }
+      }
     });
 
-    const presenter = buildDialogPresenter({
-      selectedText,
-      initialComment: this.sessionState.initialComment,
-      allowReaderMode: this.sessionState.allowReaderMode,
-      allowVideoMode: this.sessionState.allowVideoMode,
-      readerModeBehavior: this.sessionState.readerModeBehavior,
-      binder,
-      getFallback: (key) => this.getFallback(key),
-      resolveAssetUrl: (path) => this.resolveAssetUrl(path),
-      bindings: {
-        applyText: (element, key, fallback, activeBinder) =>
-          this.applyText(element, key, fallback, activeBinder),
-        applyAttr: (element, attribute, datasetKey, key, fallback, activeBinder) =>
-          this.applyAttr(element, attribute, datasetKey, key, fallback, activeBinder)
-      },
-      registerI18nHandles: (handles) => {
-        this.i18nHandles.push(...handles);
-      },
-      onReader: () => this.finalize('reader', this.getCurrentComment()),
-      onVideo: () => this.finalize('video', this.getCurrentComment()),
-      onCancel: () => this.finalize('cancel', ''),
-      onConfirm: () => this.finalize('clip', this.getCurrentComment())
-    });
-
-    this.dialogHost.setContent(presenter.content);
-    this.host = this.dialogHost.render();
+    this.prepareStitchSurface(surface, binder);
+    this.host = document.createElement('div');
     this.host.id = 'obsidian-clipper-dialog';
     this.host.setAttribute('role', 'dialog');
     this.host.setAttribute('aria-modal', 'true');
-    clipperStyleSheetManager.applyTo(this.dialogHost.getShadowRoot());
-    this.textarea = presenter.textarea;
-    this.hintElement = presenter.hintElement;
-    this.dialogHost.mount(document.body);
-    this.dialogSurface = this.dialogHost.getDialogElement();
-    setInitialDialogPosition(this.dialogSurface);
-    this.dialogHost.show();
+    this.host.dataset.aiobPanelTheme = 'tool';
+    this.host.style.position = 'fixed';
+    this.host.style.inset = '0';
+    this.host.style.zIndex = '2147483647';
+    this.shadowRoot = this.host.attachShadow({ mode: 'open' });
+    clipperStyleSheetManager.applyStitchRuntimeStyles(this.shadowRoot);
+    this.shadowRoot.append(surface);
+    this.textarea = surface.querySelector<HTMLTextAreaElement>('.clipper-comment-textarea');
+    this.hintElement = surface.querySelector<HTMLDivElement>('.clipper-comment-completed-hint');
+    document.body.append(this.host);
+    this.dialogSurface =
+      surface.querySelector<HTMLDivElement>('.resource-modal') ?? (surface as HTMLDivElement);
     document.documentElement.dataset.aiobClipperDialog = 'open';
 
-    this.dragController = new DragController({
-      handle: presenter.header,
-      initialPosition: { x: 0, y: 0 },
-      onMove: ({ x, y }) => this.updatePosition(x, y)
-    });
-    this.dragController.setPosition({ x: 0, y: 0 });
-    this.dragController.attach();
+    const header = surface.querySelector<HTMLDivElement>('.clipper-dialog-header');
+    if (header) {
+      this.dragController = new DragController({
+        handle: header,
+        initialPosition: { x: 0, y: 0 },
+        onMove: ({ x, y }) => this.updatePosition(x, y)
+      });
+      this.dragController.setPosition({ x: 0, y: 0 });
+      this.dragController.attach();
+    }
 
     this.textarea?.addEventListener('keydown', this.onTextareaKeydown);
+    this.textarea?.addEventListener('input', this.onTextareaInput);
+    if (this.textarea?.value.trim()) {
+      this.syncTextareaHeight();
+    }
     window.addEventListener('keydown', this.onWindowKeydown);
+    document.addEventListener('focusin', this.onDocumentFocusIn, true);
+    this.shadowRoot.addEventListener('keydown', this.onFocusTrapKeydown);
     this.dialogSurface.addEventListener('keydown', this.onWindowKeydown);
 
     queueMicrotask(() => {
       this.textarea?.focus();
       this.textarea?.select();
+    });
+  }
+
+  private prepareStitchSurface(surface: HTMLElement, binder: I18nBinder | null): void {
+    const textarea = surface.querySelector<HTMLTextAreaElement>('.clipper-comment-textarea');
+    const title = surface.querySelector<HTMLElement>('.surface-window-title');
+    if (title) {
+      this.applyText(title, 'clipDialogTitle', this.getFallback('clipDialogTitle'), binder);
+    }
+    const instructions = document.createElement('p');
+    instructions.id = 'clipper-dialog-instructions';
+    instructions.className = 'sr-only';
+    Object.assign(instructions.style, {
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      padding: '0',
+      margin: '-1px',
+      overflow: 'hidden',
+      clip: 'rect(0, 0, 0, 0)',
+      whiteSpace: 'nowrap',
+      border: '0'
+    });
+    this.applyText(
+      instructions,
+      'clipDialogInstructions',
+      this.getFallback('clipDialogInstructions'),
+      binder
+    );
+    surface.appendChild(instructions);
+    if (textarea) {
+      textarea.id = 'clipper-comment-input';
+      textarea.value = this.sessionState.initialComment;
+      this.applyAttr(
+        textarea,
+        'aria-label',
+        'i18nAriaLabel',
+        'commentLabel',
+        this.getFallback('commentLabel'),
+        binder
+      );
+    }
+
+    const bindings: Array<[string, keyof Messages]> = [
+      [
+        'reader',
+        this.sessionState.readerModeBehavior === 'append' ? 'addToReaderButton' : 'openReaderButton'
+      ],
+      ['clip', 'clipButton']
+    ];
+    bindings.forEach(([actionId, key]) => {
+      const button = surface.querySelector<HTMLElement>(`[data-action-id="${actionId}"]`);
+      if (button) {
+        this.applyText(
+          button.querySelector<HTMLElement>('span') ?? button,
+          key,
+          button.textContent ?? '',
+          binder
+        );
+      }
     });
   }
 
@@ -323,6 +458,45 @@ export class ClipperDialog {
     void this.addButtonShortcutHints();
   };
 
+  private readonly onTextareaInput = (): void => {
+    this.syncTextareaHeight();
+  };
+
+  private async selectDestination(id: string): Promise<void> {
+    const comment = this.getCurrentComment();
+    this.destinationState?.select(id);
+    this.sessionState.initialComment = comment;
+    const destination = await this.destinationState?.refresh();
+    const patched = this.shadowRoot
+      ? patchExportDestinationRow(this.shadowRoot, destination)
+      : false;
+    if (!patched) {
+      await this.buildDialog(this.selectedText);
+    }
+  }
+
+  private syncTextareaHeight(): void {
+    const textarea = this.textarea;
+    if (!textarea) {
+      return;
+    }
+
+    const style = getComputedStyle(textarea);
+    const lineHeight = Number.parseFloat(style.lineHeight) || 20;
+    const padding =
+      (Number.parseFloat(style.paddingTop) || 0) + (Number.parseFloat(style.paddingBottom) || 0);
+    const border =
+      (Number.parseFloat(style.borderTopWidth) || 0) +
+      (Number.parseFloat(style.borderBottomWidth) || 0);
+    const oneLineHeight = Math.ceil(lineHeight + padding + border);
+    const twoLineHeight = Math.ceil(lineHeight * 2 + padding + border);
+
+    textarea.style.height = `${oneLineHeight}px`;
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, oneLineHeight), twoLineHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > twoLineHeight ? 'auto' : 'hidden';
+  }
+
   private readonly onWindowKeydown = (event: KeyboardEvent): void => {
     if (!this.dialogSurface) {
       return;
@@ -359,11 +533,99 @@ export class ClipperDialog {
     }
   };
 
+  private readonly onFocusTrapKeydown = (event: Event): void => {
+    if (!(event instanceof KeyboardEvent) || event.key !== 'Tab') {
+      return;
+    }
+
+    const focusables = this.getFocusableElements();
+    if (!focusables.length) {
+      event.preventDefault();
+      return;
+    }
+
+    const active = this.shadowRoot?.activeElement;
+    const first = focusables[0];
+    const last = focusables.at(-1) ?? first;
+    if (event.shiftKey) {
+      if (active === first || !focusables.includes(active as HTMLElement)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+
+    if (active === last || !focusables.includes(active as HTMLElement)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  private readonly onDocumentFocusIn = (event: FocusEvent): void => {
+    if (!this.host || !this.shadowRoot || !this.textarea) {
+      return;
+    }
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    const target = event.target instanceof Node ? event.target : null;
+    if (path.includes(this.host) || (target && this.host.contains(target))) {
+      return;
+    }
+    queueMicrotask(() => {
+      if (this.textarea && this.host?.isConnected) {
+        this.textarea.focus();
+      }
+    });
+  };
+
   private finalize(action: ClipperDialogAction, comment: string): void {
     const resolver = this.resolve;
     this.resolve = null;
-    resolver?.({ action, comment });
+    resolver?.({
+      action,
+      comment,
+      ...(this.destinationState?.metadata ? { destination: this.destinationState.metadata } : {})
+    });
     this.remove();
+  }
+
+  private detachDialogEventListeners(): void {
+    if (this.textarea) {
+      this.textarea.removeEventListener('keydown', this.onTextareaKeydown);
+      this.textarea.removeEventListener('input', this.onTextareaInput);
+    }
+    window.removeEventListener('keydown', this.onWindowKeydown);
+    document.removeEventListener('focusin', this.onDocumentFocusIn, true);
+    this.shadowRoot?.removeEventListener('keydown', this.onFocusTrapKeydown);
+    this.dialogSurface?.removeEventListener('keydown', this.onWindowKeydown);
+    this.detachDragHandlers();
+    this.textarea = null;
+    this.hintElement = null;
+    this.dialogSurface = null;
+  }
+
+  private createDestinationPayload(): ClipPayload {
+    const url = document.location.href;
+    const parsedDomain = document.location.hostname || undefined;
+    const pageTitle = document.title || parsedDomain || 'Untitled';
+    return {
+      markdown: this.selectedText || pageTitle,
+      title: generateClipperTitle(pageTitle, new Date()),
+      type: 'clipper',
+      meta: {
+        url,
+        sourceUrl: url,
+        resolvedUrl: url,
+        ...(parsedDomain ? { domain: parsedDomain } : {})
+      }
+    };
+  }
+
+  private resolveDestinationId(event: Event | undefined): string | null {
+    const target = event?.currentTarget ?? event?.target;
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+    return target.dataset.destinationId ?? null;
   }
 
   private updatePosition(deltaX: number, deltaY: number, relative = false): void {
@@ -373,6 +635,18 @@ export class ClipperDialog {
 
     const nextPosition = updateDialogPosition(this.dialogSurface, deltaX, deltaY, relative);
     this.dragController?.setPosition(nextPosition);
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    const root = this.shadowRoot;
+    if (!root) {
+      return [];
+    }
+    return Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
   }
 
   private makeTextareaReadonly(): void {
@@ -410,6 +684,7 @@ export class ClipperDialog {
         this.getFallback('clipperShortcutHintEscape')
       )
     });
+    this.hintElement.style.display = '';
   }
 
   private addButtonShortcutHints(): void {

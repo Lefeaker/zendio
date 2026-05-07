@@ -5,7 +5,7 @@ import type { PlatformServices } from '@platform/types';
 const STYLE_DIRECTORY = 'styles/clipper';
 const styleCache = new Map<string, Promise<string>>();
 
-function isJsdomRuntime(): boolean {
+export function isJsdomRuntime(): boolean {
   return /jsdom/i.test(globalThis.navigator?.userAgent ?? '');
 }
 
@@ -46,6 +46,26 @@ export function loadClipperStyle(name: string): Promise<string> {
     throw new Error(`[styleRegistry] Missing cached style entry for "${name}"`);
   }
   return cached;
+}
+
+export async function loadExtensionStyle(path: string): Promise<string> {
+  if (isJsdomRuntime()) {
+    return '';
+  }
+  let url = path;
+  try {
+    const platformServices = getService<PlatformServices>(TOKENS.platformServices);
+    url = platformServices.runtime.getURL(path);
+  } catch {
+    url = path;
+  }
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(
+      `[styleRegistry] Failed to load style "${path}": ${response.status} ${response.statusText}`
+    );
+  }
+  return await response.text();
 }
 
 export function clearClipperStyleCache(): void {

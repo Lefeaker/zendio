@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { createOptionsController } from '@options/app/optionsController';
-import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
 
@@ -10,7 +9,6 @@ describe('OptionsController', () => {
   let persistence: OptionsPersistenceService;
   let formAdapter: OptionsFormAdapter;
   let savedOptions: Array<CompleteOptions | StoredOptions>;
-  let formRegistry: FormSectionRegistry;
   let loadMock: Mock<[], Promise<StoredOptions>>;
   let saveMock: Mock<[CompleteOptions | StoredOptions], Promise<void>>;
   let getCachedMock: Mock<[], StoredOptions | null>;
@@ -36,29 +34,28 @@ describe('OptionsController', () => {
       getCached: getCachedMock
     };
 
-    readMock = vi.fn<[StoredOptions | null], CompleteOptions>((_snapshot) => ({
-      rest: { baseUrl: 'https://changed.example.com/' }
-    }) as CompleteOptions);
+    readMock = vi.fn<[StoredOptions | null], CompleteOptions>(
+      (_snapshot) =>
+        ({
+          rest: { baseUrl: 'https://changed.example.com/' }
+        }) as CompleteOptions
+    );
     applyMock = vi.fn<[StoredOptions], Promise<void>>((_options) => Promise.resolve());
 
     formAdapter = {
       read: readMock,
       apply: applyMock
     };
-
-    formRegistry = new FormSectionRegistry();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    formRegistry.clear();
   });
 
   it('loads options and updates snapshot', async () => {
     const controller = createOptionsController({
       persistence,
-      formAdapter,
-      formRegistry
+      formAdapter
     });
 
     const stored = await controller.loadInitialState();
@@ -74,7 +71,6 @@ describe('OptionsController', () => {
     const controller = createOptionsController({
       persistence,
       formAdapter,
-      formRegistry,
       onSaveSuccess
     });
     await controller.loadInitialState();
@@ -84,9 +80,12 @@ describe('OptionsController', () => {
     expect(readMock).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions[0]?.rest?.baseUrl).toBe('https://changed.example.com/');
-    expect(onSaveSuccess).toHaveBeenCalledWith('manual', expect.objectContaining({
-      rest: { baseUrl: 'https://changed.example.com/' }
-    }));
+    expect(onSaveSuccess).toHaveBeenCalledWith(
+      'manual',
+      expect.objectContaining({
+        rest: { baseUrl: 'https://changed.example.com/' }
+      })
+    );
   });
 
   it('debounces auto save requests', async () => {
@@ -97,8 +96,7 @@ describe('OptionsController', () => {
 
     const controller = createOptionsController({
       persistence,
-      formAdapter,
-      formRegistry
+      formAdapter
     });
     await controller.loadInitialState();
 
@@ -125,8 +123,7 @@ describe('OptionsController', () => {
 
     const controller = createOptionsController({
       persistence,
-      formAdapter,
-      formRegistry
+      formAdapter
     });
     await controller.loadInitialState();
 
@@ -148,7 +145,6 @@ describe('OptionsController', () => {
     const controller = createOptionsController({
       persistence,
       formAdapter,
-      formRegistry,
       onSaveError
     });
     await controller.loadInitialState();
@@ -174,8 +170,7 @@ describe('OptionsController', () => {
 
     const controller = createOptionsController({
       persistence,
-      formAdapter,
-      formRegistry
+      formAdapter
     });
     await controller.loadInitialState();
 
@@ -191,14 +186,16 @@ describe('OptionsController', () => {
   it('dispose cancels pending auto save timer', async () => {
     vi.useFakeTimers();
 
-    const collect = vi.fn(() => ({
-      rest: { baseUrl: 'https://dispose.example.com/' }
-    }) as CompleteOptions);
+    const collect = vi.fn(
+      () =>
+        ({
+          rest: { baseUrl: 'https://dispose.example.com/' }
+        }) as CompleteOptions
+    );
 
     const controller = createOptionsController({
       persistence,
-      formAdapter,
-      formRegistry
+      formAdapter
     });
     await controller.loadInitialState();
 

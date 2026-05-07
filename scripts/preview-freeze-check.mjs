@@ -1,0 +1,248 @@
+import { spawn } from 'child_process';
+import { createHash } from 'crypto';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..');
+
+function findWorkspaceRoot(startDir) {
+  let current = startDir;
+  while (true) {
+    if (existsSync(path.join(current, 'future/options-component-preview 2/index.html'))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return path.resolve(startDir, '..');
+    }
+    current = parent;
+  }
+}
+
+const workspaceRoot = findWorkspaceRoot(repoRoot);
+const originalReferenceRoot = path.join(workspaceRoot, 'future/options-component-preview 2');
+const modifiedPreviewRoot = path.join(workspaceRoot, 'future/options-component-preview');
+const currentRoot = path.join(
+  workspaceRoot,
+  '.tmp/preview-freeze-current/options-component-preview'
+);
+const reportPath = path.join(workspaceRoot, '.tmp/preview-freeze-current/report.json');
+const productionSourceHtml = path.join(repoRoot, 'src/options/index.html');
+const productionBuiltHtml = path.join(repoRoot, 'build/dist/options/index.html');
+const updateBaseline = process.argv.includes('--update-baseline');
+const REQUIRED_EQUAL_COMPARISONS = new Set([
+  'original reference index.html vs current generated preview index.html',
+  'production source options/index.html vs latest built options/index.html'
+]);
+const ALLOWED_PREVIEW_DRIFT = new Map([
+  [
+    'original reference styles.css vs current generated preview styles.css',
+    {
+      reason:
+        'Generated Stitch Secondary runtime CSS intentionally includes production-only parity rules, schema-registered floating prompt styles, the product-approved non-blocking Reader/Video bottom-right floating runtime placement, the Clipper no-backdrop-blur runtime overlay, compact one-to-two-line Clipper comments, compact session headers, lighter video capture markers, shrink-safe session footer actions, unified video add marker colors, the resizable session panel handle, collapsible Reader/Video session headers that align the collapse control with the title line, shrink to content-fit bottom-right title-only header chrome, hide collapsed subtitle/expand controls, and release the collapsed transparent area from pointer hit testing, reduced session icon chrome, no-glow session export buttons, bottom-aligned compact resource links, non-compressing Reader/Video session item rows, two-line expandable captured text previews, shared Clipper/Reader/Video export destination preview/dropdown styling with Clipper opening downward outside the Clipper window bounds, Clipper destination dropdown vault/path values kept on one line, Reader/Video destination dropdown values wrapping only when needed, caret-free export destination summaries, session destination and footer sharing one divider line, compact session footer buttons/counter alignment, session panels opening upward, light runtime border tokens aligned to the Stitch accent instead of gray/black chrome, and the production bottom-right content-fit task-success panel with contiguous header/support/feedback sections plus a Stitch-tokenized bottom-right support toast absent from the frozen original reference.',
+      leftSha256: '8df52cb64cbd04975f9f005641d087e4aeddcd0f62b7a86695432caf213e87b8',
+      rightSha256: 'bf0e95dacfdc82be77a7cb1f18448a4aae6fc712e83e9feae531e20981aacd3f'
+    }
+  ],
+  [
+    'original reference index.js vs current generated preview index.js',
+    {
+      reason:
+        'Generated Stitch Secondary preview JS intentionally carries production parity/runtime harness wiring, schema-registered runtime surfaces, Reader/Video item-level session controls, the shared Reader/Video collapse action, Clipper removal of preview-incompatible visible cancel/comment/selection labels, the inline video capture action plus readonly add-note trigger, persistent video control-bar auto-pause/screenshot preferences, shared Clipper/Reader/Video export destination preview/dropdown content without visible destination carets, shared session width/height resize handle wiring, video fragment captures rendered as reader-style numbered text items with text-note placeholders, All in Ob production branding, QR-free task-success feedback toasts, the product-approved removal of the visible Settings sidebar title, the performance branch classification timeout fallback enum, and the product-approved Reader/Video/task-success bottom-right floating runtime contract with no static task-success toast previews, compact feedback row, and Stitch-tokenized runtime toast root absent from the frozen original reference.',
+      leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
+      rightSha256: 'ed1ac8b1312546e619b982a013fc89912f73f59adc62f5237b5a718991c3ee2e'
+    }
+  ]
+]);
+
+function runBuildPreview(outdir) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [path.join(repoRoot, 'scripts/build-preview.mjs'), '--outdir', outdir],
+      {
+        cwd: repoRoot,
+        stdio: 'inherit'
+      }
+    );
+
+    child.on('error', reject);
+    child.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(
+        new Error(`Preview build failed with ${signal ? `signal ${signal}` : `exit code ${code}`}`)
+      );
+    });
+  });
+}
+
+async function readOptional(file) {
+  try {
+    return await readFile(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function sha256(content) {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+function firstDifference(left, right) {
+  const limit = Math.min(left.length, right.length);
+  for (let index = 0; index < limit; index += 1) {
+    if (left[index] !== right[index]) {
+      return index;
+    }
+  }
+  return left.length === right.length ? -1 : limit;
+}
+
+function isAllowedPreviewDrift(comparison) {
+  const allowlistEntry = ALLOWED_PREVIEW_DRIFT.get(comparison.label);
+  if (!allowlistEntry || comparison.equal) {
+    return false;
+  }
+  return (
+    comparison.leftSha256 === allowlistEntry.leftSha256 &&
+    comparison.rightSha256 === allowlistEntry.rightSha256
+  );
+}
+
+function validateFreezeComparisons(comparisons) {
+  const failures = [];
+
+  for (const comparison of comparisons) {
+    if (comparison.missing?.length) {
+      failures.push(`${comparison.label}: missing ${comparison.missing.join(', ')}`);
+      continue;
+    }
+
+    if (REQUIRED_EQUAL_COMPARISONS.has(comparison.label) && !comparison.equal) {
+      failures.push(`${comparison.label}: expected exact match`);
+      continue;
+    }
+
+    if (
+      ALLOWED_PREVIEW_DRIFT.has(comparison.label) &&
+      !comparison.equal &&
+      !isAllowedPreviewDrift(comparison)
+    ) {
+      failures.push(`${comparison.label}: drift does not match the explicit allowlist`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `Preview freeze check failed:\n${failures.map((failure) => `- ${failure}`).join('\n')}`
+    );
+  }
+}
+
+async function summarizePair(label, leftFile, rightFile) {
+  const [left, right] = await Promise.all([readOptional(leftFile), readOptional(rightFile)]);
+  const missing = [...(left === null ? [leftFile] : []), ...(right === null ? [rightFile] : [])];
+
+  if (left === null || right === null) {
+    return {
+      label,
+      leftFile,
+      rightFile,
+      equal: false,
+      missing
+    };
+  }
+
+  return {
+    label,
+    leftFile,
+    rightFile,
+    equal: left === right,
+    leftLength: left.length,
+    rightLength: right.length,
+    leftSha256: sha256(left),
+    rightSha256: sha256(right),
+    firstDifference: firstDifference(left, right)
+  };
+}
+
+async function run() {
+  if (updateBaseline) {
+    throw new Error(
+      'Refusing to update preview baseline. The truth source is the original reference at future/options-component-preview 2.'
+    );
+  }
+
+  await rm(currentRoot, { recursive: true, force: true });
+  await runBuildPreview(currentRoot);
+
+  const comparisons = await Promise.all([
+    summarizePair(
+      'original reference index.html vs current generated preview index.html',
+      path.join(originalReferenceRoot, 'index.html'),
+      path.join(currentRoot, 'index.html')
+    ),
+    summarizePair(
+      'original reference styles.css vs current generated preview styles.css',
+      path.join(originalReferenceRoot, 'styles.css'),
+      path.join(currentRoot, 'styles.css')
+    ),
+    summarizePair(
+      'original reference index.js vs current generated preview index.js',
+      path.join(originalReferenceRoot, 'index.js'),
+      path.join(currentRoot, 'index.js')
+    ),
+    summarizePair(
+      'developer-modified standalone preview vs current generated standalone preview',
+      path.join(modifiedPreviewRoot, 'options-preview-stitch-secondary.html'),
+      path.join(currentRoot, 'options-preview-stitch-secondary.html')
+    ),
+    summarizePair(
+      'production source options/index.html vs latest built options/index.html',
+      productionSourceHtml,
+      productionBuiltHtml
+    )
+  ]);
+
+  const report = {
+    truthSource: {
+      originalReferenceRoot,
+      originalReferenceEntry: path.join(originalReferenceRoot, 'index.html'),
+      note: 'Do not rewrite this reference to make tests pass.'
+    },
+    generatedCurrentPreviewRoot: currentRoot,
+    modifiedPreviewRoot,
+    production: {
+      sourceHtml: productionSourceHtml,
+      builtHtml: productionBuiltHtml
+    },
+    comparisons
+  };
+
+  await mkdir(path.dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, JSON.stringify(report, null, 2));
+
+  validateFreezeComparisons(comparisons);
+
+  console.log(`✅ Preview comparison report written: ${reportPath}`);
+  console.log(`   Truth source: ${originalReferenceRoot}`);
+  for (const [label, entry] of ALLOWED_PREVIEW_DRIFT) {
+    const comparison = comparisons.find((item) => item.label === label);
+    if (comparison && isAllowedPreviewDrift(comparison)) {
+      console.log(`   Allowed drift: ${label} (${entry.reason})`);
+    }
+  }
+}
+
+run().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

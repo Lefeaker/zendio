@@ -55,6 +55,7 @@ describe('VideoPrompt repository integration helpers', () => {
   let storage: StorageService;
   let runtime: RuntimeService;
   let savePromptPositionMock: VideoRepoMock<'savePromptPosition'>;
+  let saveControlBarPreferencesMock: VideoRepoMock<'saveControlBarPreferences'>;
   let getPromptPositionMock: VideoRepoMock<'getPromptPosition'>;
   let getVideoConfigMock: VideoRepoMock<'getVideoConfig'>;
   let onConfigChangeMock: VideoRepoMock<'onConfigChange'>;
@@ -65,10 +66,14 @@ describe('VideoPrompt repository integration helpers', () => {
     getVideoConfigMock.mockResolvedValue({
       floatingPromptEnabled: true,
       promptButtonLabel: 'Start capture',
-      promptShortcut: 'Alt+V'
+      promptShortcut: 'Alt+V',
+      controlBarAutoPause: true,
+      controlBarScreenshot: true
     });
     savePromptPositionMock = createVideoRepoMock<'savePromptPosition'>();
     savePromptPositionMock.mockResolvedValue(undefined);
+    saveControlBarPreferencesMock = createVideoRepoMock<'saveControlBarPreferences'>();
+    saveControlBarPreferencesMock.mockResolvedValue(undefined);
     getPromptPositionMock = createVideoRepoMock<'getPromptPosition'>();
     getPromptPositionMock.mockResolvedValue(null);
     sendVideoClipMock = createVideoRepoMock<'sendVideoClip'>();
@@ -79,6 +84,7 @@ describe('VideoPrompt repository integration helpers', () => {
     mockRepo = {
       getVideoConfig: getVideoConfigMock,
       savePromptPosition: savePromptPositionMock,
+      saveControlBarPreferences: saveControlBarPreferencesMock,
       getPromptPosition: getPromptPositionMock,
       sendVideoClip: sendVideoClipMock,
       onConfigChange: onConfigChangeMock
@@ -94,7 +100,8 @@ describe('VideoPrompt repository integration helpers', () => {
       storage,
       runtime,
       videoRepo: mockRepo,
-      createVideoSession: vi.fn(() => ({ start: vi.fn(() => Promise.resolve()) }))
+      createVideoSession: vi.fn(() => ({ start: vi.fn(() => Promise.resolve()) })),
+      getRuntimeTheme: vi.fn(() => null)
     };
     setDependenciesForTests(deps);
     setPromptStateForTests({ left: 40, top: 60, side: 'right', hasCustomPosition: false });
@@ -142,6 +149,8 @@ describe('VideoPrompt repository integration helpers', () => {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Record highlight',
       promptShortcut: 'Shift+V',
+      controlBarAutoPause: true,
+      controlBarScreenshot: true,
       promptPosition: { x: 90, y: 140 }
     };
     configCallbacks.forEach((callback) => callback(newConfig));

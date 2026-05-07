@@ -1,4 +1,4 @@
-import { configProvider } from '../shared/config';
+import { configProvider } from '../shared/config/provider';
 import { pseudoLocalizeString } from './pseudoLocalization';
 import type { Language } from './locales';
 
@@ -94,9 +94,11 @@ const dynamicMessageFactories: Partial<Record<Language, DynamicMessageFactory>> 
 const FALLBACK_LANGUAGE: Language = 'zh-CN';
 
 function resolveDynamicMessageFactory(language: Language): DynamicMessageFactory {
-  return dynamicMessageFactories[language]
-    ?? dynamicMessageFactories[FALLBACK_LANGUAGE]
-    ?? englishDynamicFactory;
+  return (
+    dynamicMessageFactories[language] ??
+    dynamicMessageFactories[FALLBACK_LANGUAGE] ??
+    englishDynamicFactory
+  );
 }
 
 /**
@@ -133,7 +135,7 @@ export function updateDynamicMessages(language: Language) {
 
   // Update vault name placeholder
   const vaultInputs = document.querySelectorAll('input[id*="vault"], input[placeholder*="Vault"]');
-  vaultInputs.forEach(input => {
+  vaultInputs.forEach((input) => {
     if (input instanceof HTMLInputElement && !input.value) {
       input.placeholder = messages.vaultNamePlaceholder;
     }

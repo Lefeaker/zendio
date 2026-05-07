@@ -1,7 +1,7 @@
 import type { VaultRouterConfig, VaultConfig, RoutingRule } from '../../shared/types';
 import { generateId } from '../../background/vault-router';
 import { STATE_KEYS, getStateStore } from '../../shared/state';
-import { configProvider } from '../../shared/config';
+import { configProvider } from '../../shared/config/provider';
 import { cloneStateValue } from './stateValue';
 
 interface VaultRouterState {

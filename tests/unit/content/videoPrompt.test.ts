@@ -92,8 +92,12 @@ type VideoRepositoryStub = {
 const loadClipperStyleMock = vi.hoisted(() =>
   vi.fn((name: string) => Promise.resolve(`.${name}{display:block;}`))
 );
+const loadExtensionStyleMock = vi.hoisted(() =>
+  vi.fn((path: string) => Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`))
+);
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
-  loadClipperStyle: loadClipperStyleMock
+  loadClipperStyle: loadClipperStyleMock,
+  loadExtensionStyle: loadExtensionStyleMock
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn<[], Promise<void>>(() => Promise.resolve()));
@@ -177,7 +181,9 @@ const createPromptElementMock = vi.hoisted(() =>
     lastRendererConfig.current = config;
     const container = document.createElement('div');
     container.id = config.id;
+    container.dataset.stitchSurface = 'video-floating-prompt';
     const bubble = document.createElement('button');
+    bubble.className = 'video-floating-prompt__bubble';
     container.appendChild(bubble);
     return { container, bubble };
   })
@@ -254,6 +260,7 @@ type TestDeps = {
   runtime: RuntimeStub;
   videoRepo: VideoRepositoryStub;
   createVideoSession: typeof videoSessionFactoryMock;
+  getRuntimeTheme: ReturnType<typeof vi.fn<[], Promise<null>>>;
   emitConfigChange: (config: VideoOptionsStub) => void;
   triggerLanguageChange: () => void;
 };
@@ -322,6 +329,7 @@ function createTestDependencies(): TestDeps {
     runtime,
     videoRepo,
     createVideoSession: videoSessionFactoryMock,
+    getRuntimeTheme: vi.fn<[], Promise<null>>(() => Promise.resolve(null)),
     emitConfigChange: (config) => configListener?.(config),
     triggerLanguageChange: () => languageWatcher?.()
   } as TestDeps & { createVideoSession: typeof videoSessionFactoryMock };
@@ -350,6 +358,10 @@ describe('video prompt', () => {
     loadClipperStyleMock.mockImplementation((name: string) =>
       Promise.resolve(`.${name}{display:block;}`)
     );
+    loadExtensionStyleMock.mockClear();
+    loadExtensionStyleMock.mockImplementation((path: string) =>
+      Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`)
+    );
     ensureContentI18nMock.mockClear();
     getContentI18nResourceMock.mockClear();
     getContentMessagesMock.mockClear();
@@ -363,8 +375,10 @@ describe('video prompt', () => {
     vi.spyOn(window, 'setInterval').mockImplementation(setIntervalSpy);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await flushMicrotasks();
     currentTestUtils?.cleanupPromptForTests();
+    await flushMicrotasks();
     vi.restoreAllMocks();
     currentTestUtils?.resetDependenciesForTests();
     currentTestUtils = null;
@@ -538,15 +552,22 @@ describe('video prompt', () => {
     expect(isValidVideoPlayPageMock.mock.calls.length).toBeGreaterThan(initialCalls);
   });
 
-  it('replays panel bridge styles after async load on first prompt mount', async () => {
+  it('replays Stitch runtime styles after async load on first prompt mount', async () => {
     const clipperDeferred = createDeferred<string>();
-    const videoDeferred = createDeferred<string>();
+    const stitchDeferred = createDeferred<string>();
+    const stitchSecondaryDeferred = createDeferred<string>();
     loadClipperStyleMock.mockImplementation((name: string) => {
       if (name === 'clipper.tailwind') {
         return clipperDeferred.promise;
       }
-      if (name === 'video.tailwind') {
-        return videoDeferred.promise;
+      return Promise.resolve('');
+    });
+    loadExtensionStyleMock.mockImplementation((path: string) => {
+      if (path === 'options/stitch/styles/stitch.css') {
+        return stitchDeferred.promise;
+      }
+      if (path === 'options/stitch/styles/variants/stitch-secondary.css') {
+        return stitchSecondaryDeferred.promise;
       }
       return Promise.resolve('');
     });
@@ -558,7 +579,6 @@ describe('video prompt', () => {
 
     void module.initVideoPrompt();
     clipperDeferred.resolve('.clipper-ready{opacity:1;}');
-    videoDeferred.resolve('.video-ready{opacity:1;}');
     await flushMicrotasks();
     observerCallbacks.forEach((callback) => callback());
     await flushMicrotasks();
@@ -568,9 +588,17 @@ describe('video prompt', () => {
     );
     const shadow = host?.shadowRoot ?? null;
     expect(shadow).toBeTruthy();
+    stitchDeferred.resolve('.stitch-ready{opacity:1;}');
+    stitchSecondaryDeferred.resolve('.stitch-secondary-ready{opacity:1;}');
+    await flushMicrotasks();
+    await flushMicrotasks();
     expect(
-      shadow?.querySelector('style[data-aiob-style-bridge="panel-video-tailwind"]')?.textContent
-    ).toContain('.video-ready');
+      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')?.textContent
+    ).toContain('.stitch-ready');
+    expect(
+      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
+        ?.textContent
+    ).toContain('.stitch-secondary-ready');
   });
 
   it('tears down prompt DOM on pagehide and restores it on pageshow', async () => {

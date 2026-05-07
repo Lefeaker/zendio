@@ -17,10 +17,11 @@ import type {
   SupportPromptOptions
 } from './supportPrompt/types';
 import type { SupportPromptToastController } from './supportPrompt/SupportPromptToastController';
-import type { SupportPromptView } from '@ui/domains/support-prompt';
-import { SupportPromptView as SupportPromptViewCtor } from '@ui/domains/support-prompt';
 import type { PopupCoordinator } from '../runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '../runtime/popupCoordinatorAccess';
+import { createTaskSuccessSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
@@ -50,8 +51,8 @@ const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
   reviewAcknowledgedLabel: '我已写过评论',
   dislikeToastTitle: '反馈问题',
   dislikeRedditLinkLabel: '在 Reddit 讨论',
-  dislikeQrLinkLabel: '加入小红书群',
-  dislikeQrPlaceholder: '二维码稍后提供'
+  dislikeQrLinkLabel: '扫码反馈',
+  dislikeQrPlaceholder: '二维码暂不可用'
 };
 
 const SEVERITY_STATUS_MAP: Record<ErrorSeverity, PromptStatus> = {
@@ -139,7 +140,7 @@ export class SupportPrompt
   implements
     UiMountable<SupportPromptOptions | undefined, SupportPromptOptions | undefined, Promise<void>>
 {
-  private view: SupportPromptView | null = null;
+  private host: HTMLElement | null = null;
   private readonly deps: SupportPromptDependencies;
   private readonly popupCoordinator: PopupCoordinator | null;
   private messagesPromise: Promise<SupportPromptMessages> | null = null;
@@ -180,35 +181,66 @@ export class SupportPrompt
         title: messages.afdianTitle,
         description: messages.afdianDescription,
         url: 'https://afdian.com/a/LefShi'
-      },
-      {
-        icon: this.resolveAssetUrl('icons/github-fill.svg'),
-        title: messages.githubTitle,
-        description: messages.githubDescription,
-        url: 'https://github.com/Lefeaker/AllinOB/issues'
       }
     ];
 
-    this.view = new SupportPromptViewCtor({
-      messages,
-      links,
+    const appData = createTaskSuccessSurfaceContent();
+    appData.surfaces.taskSuccess = {
+      ...appData.surfaces.taskSuccess,
       status: promptStatus,
-      statusMessage,
-      onLike: () => {
-        void this.handleLikeClick();
+      statusMessage: statusMessage.text,
+      statusDetail: statusMessage.extraLine ?? '',
+      feedbackLabel: messages.feedbackGroupLabel,
+      likeLabel: messages.likeLabel,
+      dislikeLabel: messages.dislikeLabel,
+      dismissLabel: messages.dismiss,
+      likeToast: {
+        ...appData.surfaces.taskSuccess.likeToast,
+        title: messages.likeThankYou,
+        actions: [messages.reviewLinkLabel, messages.reviewAcknowledgedLabel]
       },
-      onDislike: () => {
-        void this.handleDislikeClick();
-      },
-      onClose: () => this.hide(),
-      onLinkClick: (url) => {
-        void this.trackUsageEvent('support_link_clicked', { url });
+      dislikeToast: {
+        ...appData.surfaces.taskSuccess.dislikeToast,
+        title: messages.dislikeToastTitle,
+        actions: [messages.dislikeRedditLinkLabel, messages.githubTitle]
+      }
+    };
+    appData.resources.support = {
+      ...appData.resources.support,
+      channels: links.map((link) => ({
+        title: link.title,
+        icon: link.icon,
+        ...(link.description ? { subtitle: link.description } : {}),
+        href: link.url
+      }))
+    };
+
+    const surface = renderStitchRuntimeSurface({
+      surfaceId: 'task-success',
+      appData,
+      actions: {
+        'resource:close': () => this.hide(),
+        'task-success:like': () => {
+          void this.handleLikeClick();
+        },
+        'task-success:dislike': () => {
+          void this.handleDislikeClick();
+        }
       }
     });
+    this.decorateSurface(surface);
 
-    const host = this.view.render();
+    const host = this.doc.createElement('div');
     host.id = 'aiob-support-prompt';
-    this.view.show();
+    host.style.position = 'fixed';
+    host.style.inset = '0';
+    host.style.zIndex = '2147483647';
+    host.style.pointerEvents = 'none';
+    const shadow = host.attachShadow({ mode: 'open' });
+    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    shadow.append(surface);
+    this.doc.body.append(host);
+    this.host = host;
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
@@ -227,8 +259,8 @@ export class SupportPrompt
   hide(): void {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    this.view?.destroy();
-    this.view = null;
+    this.host?.remove();
+    this.host = null;
   }
 
   destroy(): void {
@@ -253,6 +285,27 @@ export class SupportPrompt
 
     toastController.showLikeToast(messages, variant);
     await this.trackUsageEvent('support_like_clicked', { variant });
+  }
+
+  private decorateSurface(surface: HTMLElement): void {
+    surface.style.pointerEvents = 'auto';
+    const like = surface.querySelector<HTMLElement>('[data-action-id="task-success:like"]');
+    const dislike = surface.querySelector<HTMLElement>('[data-action-id="task-success:dislike"]');
+    like?.setAttribute('data-role', 'like-btn');
+    dislike?.setAttribute('data-role', 'dislike-btn');
+    surface
+      .querySelector<HTMLElement>('.task-header-status')
+      ?.setAttribute('data-role', 'status-text');
+    surface
+      .querySelector<HTMLElement>('.task-feedback-dismiss')
+      ?.setAttribute('data-role', 'dismiss-text');
+    const detail = surface.querySelector<HTMLElement>('.task-status-detail');
+    detail?.setAttribute('data-role', 'status-detail');
+    surface.querySelectorAll<HTMLAnchorElement>('.task-support-link[href]').forEach((link) => {
+      link.addEventListener('click', () => {
+        void this.trackUsageEvent('support_link_clicked', { url: link.href });
+      });
+    });
   }
 
   private async handleDislikeClick(): Promise<void> {
@@ -290,8 +343,8 @@ export class SupportPrompt
             onDislikeRedditClick: () => {
               void this.trackUsageEvent('support_dislike_reddit_clicked');
             },
-            onDislikeQrClick: () => {
-              void this.trackUsageEvent('support_dislike_qr_clicked');
+            onGitHubFeedbackClick: () => {
+              void this.trackUsageEvent('support_github_feedback_clicked');
             },
             onLikeToastShown: (variant) => {
               void this.trackUsageEvent('support_like_toast_shown', { variant });
@@ -334,7 +387,8 @@ export class SupportPrompt
             likeThankYou:
               messages.supportPromptLikeThankYou ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.likeThankYou,
             reviewLinkLabel:
-              messages.supportPromptReviewLinkLabel ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
+              messages.supportPromptReviewLinkLabel ??
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewLinkLabel,
             reviewAcknowledgedLabel:
               messages.supportPromptReviewAcknowledgedLabel ??
               FALLBACK_SUPPORT_PROMPT_MESSAGES.reviewAcknowledgedLabel,

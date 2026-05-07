@@ -6,6 +6,7 @@ import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/h
 import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderSessionDependencies } from './sessionTypes';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
+import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
@@ -14,12 +15,13 @@ interface ReaderSessionOperationContext {
   session: object;
   doc: Document;
   url: string;
-  clipPrompt: ClipPromptGateway;
+  clipPrompt?: ClipPromptGateway;
   state: ReaderSessionState;
   highlightManager: ReaderHighlightManager;
   panelCoordinator: ReaderPanelCoordinator;
   lifecycle: ReaderSessionLifecycle;
   dependencies: ReaderSessionDependencies;
+  getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
 
 export async function handleReaderSessionSelection(
@@ -29,22 +31,12 @@ export async function handleReaderSessionSelection(
   context.state.handlingSelection = true;
 
   try {
-    const promptResult = await context.clipPrompt.requestSelectionAction({
-      selectedText: payload.selectedText,
-      allowReaderMode: false,
-      readerModeBehavior: 'start'
-    });
-    if (promptResult.action !== 'clip') {
-      context.doc.defaultView?.getSelection()?.removeAllRanges();
-      return;
-    }
-
     addReaderHighlightFromRange(
       context,
       payload.range,
       payload.selectedHtml,
       payload.selectedText,
-      promptResult.comment.trim()
+      ''
     );
     context.doc.defaultView?.getSelection()?.removeAllRanges();
   } catch (error) {
@@ -187,6 +179,13 @@ export async function finishReaderSession(
       highlights,
       ...(documentClone !== undefined && { documentClone })
     });
+    const exportDestination = context.getExportDestinationMetadata?.();
+    if (exportDestination) {
+      payload.meta = {
+        ...payload.meta,
+        exportDestination
+      };
+    }
 
     await context.dependencies.dispatchClipResult(payload);
     cleanupReaderSession(context);

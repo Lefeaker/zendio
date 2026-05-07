@@ -69,8 +69,11 @@ export class VideoFragmentSelectionController {
 
   shouldTrackSelection(): boolean {
     const fragmentConfig = this.deps.getFragmentConfig();
-    if (!fragmentConfig?.selectionModifierEnabled) {
+    if (!fragmentConfig) {
       return false;
+    }
+    if (!fragmentConfig.selectionModifierEnabled) {
+      return true;
     }
     return (
       shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState) ||

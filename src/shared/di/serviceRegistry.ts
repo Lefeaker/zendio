@@ -346,10 +346,13 @@ function createFallbackVideoRepository(): IVideoRepository {
       return {
         floatingPromptEnabled: true,
         promptButtonLabel: '开启视频笔记',
-        promptShortcut: 'Alt+V'
+        promptShortcut: 'Alt+V',
+        controlBarAutoPause: true,
+        controlBarScreenshot: true
       };
     },
     async savePromptPosition() {},
+    async saveControlBarPreferences() {},
     async getPromptPosition() {
       return null;
     },

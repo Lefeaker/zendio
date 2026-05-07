@@ -16,6 +16,10 @@ describe('shared optionsMerger', () => {
     expect(result.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(result.readingSession?.exportMode).toBe(defaultReadingSession.exportMode);
     expect(result.readingSession?.highlightTheme).toBe(defaultReadingSession.highlightTheme);
+    expect(result.experimentalAi).toEqual(DEFAULT_OPTIONS.experimentalAi);
+    expect(result.pageSummary).toEqual(DEFAULT_OPTIONS.pageSummary);
+    expect(result.readingOverlaySummary).toEqual(DEFAULT_OPTIONS.readingOverlaySummary);
+    expect(result.subtitleTranslation).toEqual(DEFAULT_OPTIONS.subtitleTranslation);
   });
 
   it('merges partial rest and classifier values', () => {
@@ -119,5 +123,35 @@ describe('shared optionsMerger', () => {
     expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(
       defaultFragmentClipper.keyboardShortcutsEnabled
     );
+  });
+
+  it('merges experimental options with defaults', () => {
+    const stored: StoredOptions = {
+      experimentalAi: {
+        provider: 'openai',
+        model: 'gpt-4o-mini'
+      },
+      pageSummary: {
+        enabled: true
+      },
+      subtitleTranslation: {
+        enabled: true
+      }
+    };
+
+    const result = mergeOptions(stored);
+
+    expect(result.experimentalAi).toEqual({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      apiUrl: DEFAULT_OPTIONS.experimentalAi?.apiUrl ?? '',
+      apiKey: DEFAULT_OPTIONS.experimentalAi?.apiKey ?? ''
+    });
+    expect(result.pageSummary).toEqual({ enabled: true });
+    expect(result.readingOverlaySummary).toEqual(DEFAULT_OPTIONS.readingOverlaySummary);
+    expect(result.subtitleTranslation).toEqual({
+      enabled: true,
+      targetLanguage: DEFAULT_OPTIONS.subtitleTranslation?.targetLanguage ?? 'zh-CN'
+    });
   });
 });

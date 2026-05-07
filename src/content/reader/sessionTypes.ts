@@ -1,9 +1,20 @@
 import type { ReaderSessionViewFactory } from './application/readerSessionView';
 import type { ReaderHighlightManager } from './services/highlightManager';
-import type { ReaderSelectionController, ReaderSelectionControllerOptions } from './services/selectionController';
+import type {
+  ReaderSelectionController,
+  ReaderSelectionControllerOptions
+} from './services/selectionController';
 import type { ReaderPanelCoordinator, ReaderPanelCoordinatorOptions } from './panelCoordinator';
-import type { ReaderEnvironmentController, ReaderEnvironmentDependencies, ReaderEnvironmentHandlers } from './environmentController';
-import type { ReaderSessionLifecycle, ReaderSessionLifecycleDependencies, ReaderSessionLifecycleHandlers } from './sessionLifecycle';
+import type {
+  ReaderEnvironmentController,
+  ReaderEnvironmentDependencies,
+  ReaderEnvironmentHandlers
+} from './environmentController';
+import type {
+  ReaderSessionLifecycle,
+  ReaderSessionLifecycleDependencies,
+  ReaderSessionLifecycleHandlers
+} from './sessionLifecycle';
 import type { ReaderSessionExporter } from './services/exporter';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
@@ -18,8 +29,11 @@ export interface ReaderSessionDependencies {
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
   readerRepository: IReaderRepository;
+  optionsPageUrl?: string;
   createHighlightManager: (doc: Document) => ReaderHighlightManager;
-  createSelectionController: (options: ReaderSelectionControllerOptions) => ReaderSelectionController;
+  createSelectionController: (
+    options: ReaderSelectionControllerOptions
+  ) => ReaderSelectionController;
   createPanelCoordinator: (options: ReaderPanelCoordinatorOptions) => ReaderPanelCoordinator;
   createEnvironmentController: (
     deps: ReaderEnvironmentDependencies,

@@ -26,13 +26,10 @@
     "scripting",
     "storage",
     "contextMenus",
-    "notifications"
+    "notifications",
+    "downloads"
   ],
-  "host_permissions": [
-    "<all_urls>",
-    "http://127.0.0.1/*",
-    "https://127.0.0.1/*"
-  ],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1/*", "https://127.0.0.1/*"],
   "background": {
     "service_worker": "background/index.js"
   },
@@ -42,24 +39,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": [
-        "icons/*",
-        "styles/clipper/*",
-        "onboarding/*"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "resources": ["icons/*", "styles/clipper/*", "options/stitch/styles/*", "onboarding/*"],
+      "matches": ["<all_urls>"]
     }
   ],
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content/index.js"
-      ],
+      "matches": ["<all_urls>"],
+      "js": ["content/index.js"],
       "run_at": "document_end"
     }
   ],

@@ -3,10 +3,16 @@ import type {
   VideoPanelCapture,
   VideoPanelTexts
 } from '../application/videoPanelModel';
-import { VideoDialog } from '@ui/domains/video';
 import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
+import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
+import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
+import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
+import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
@@ -22,66 +28,32 @@ export class VideoDialogPanel
       HTMLElement
     >
 {
-  private readonly dialog: VideoDialog;
-  private readonly renderRoot: HTMLElement;
-  private readonly pointerDownHandler: (event: PointerEvent) => void;
+  readonly popupLifecycle = { preserveOnTransientClose: true };
+
+  private renderRoot: HTMLElement;
   private readonly popupCoordinator: PopupCoordinator | null;
   private unregisterPopup: (() => void) | null = null;
-  private pointerListenerAttached = false;
+  private resizeDisposer: (() => void) | null = null;
+  private previewExpansionDisposer: (() => void) | null = null;
   private texts: VideoPanelTexts;
+  private captures: VideoPanelCapture[] = [];
+  private destination: ExportDestinationSurfacePreview | undefined;
   private captureCount = 0;
+  private editingCaptureId: string | null = null;
+  private editingDraft = '';
+  private collapsed = false;
 
-  constructor(options: VideoDialogPanelOptions) {
+  constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
-    this.dialog = new VideoDialog({
-      title: options.texts.title,
-      status: options.texts.status,
-      captures: [],
-      texts: {
-        hint: options.texts.hint,
-        add: options.texts.add,
-        finish: options.texts.finish,
-        cancel: options.texts.cancel,
-        captureNoComment: options.texts.captureNoComment,
-        captureFocusLabel: options.texts.captureFocusLabel,
-        captureEditPlaceholder: options.texts.captureEditPlaceholder,
-        captureSaveLabel: options.texts.captureSaveLabel,
-        captureCancelLabel: options.texts.captureCancelLabel,
-        captureDeleteLabel: options.texts.captureDeleteLabel
-      },
-      onClose: options.callbacks.onCancel,
-      onAddCapture: options.callbacks.onAddCapture,
-      onFinish: options.callbacks.onFinish,
-      onCancel: options.callbacks.onCancel,
-      onDeleteCapture: options.callbacks.onDeleteCapture,
-      onFocusCapture: options.callbacks.onFocusCapture,
-      onSubmitCaptureEdit: options.callbacks.onSubmitCaptureEdit
-    });
-    this.renderRoot = this.dialog.render();
-    this.renderRoot.id = 'aiob-video-panel';
-    this.renderRoot.dataset.stitchSurface = 'video';
-    Object.assign(this.renderRoot.style, {
-      inset: '0',
-      pointerEvents: 'none',
-      position: 'fixed',
-      zIndex: '2147483647'
-    });
-    this.dialog.setCounterText(this.formatCounter(0));
     this.popupCoordinator = resolveContentPopupCoordinator();
-
-    this.pointerDownHandler = (event: PointerEvent) => {
-      const path = event.composedPath();
-      const target = path[0];
-      if (!(target instanceof Element)) {
-        return;
-      }
-      const captureItem = target.closest<HTMLElement>('[data-capture-id]');
-      const captureId = captureItem?.dataset.captureId ?? null;
-      this.dialog.maybeCommitEditing(captureId);
-      if (!captureItem) {
-        this.dialog.clearExpanded();
-      }
-    };
+    this.renderRoot = document.createElement('div');
+    this.renderRoot.style.position = 'fixed';
+    this.renderRoot.style.inset = '0';
+    this.renderRoot.style.zIndex = '2147483647';
+    this.renderRoot.style.pointerEvents = 'none';
+    const shadow = this.renderRoot.attachShadow({ mode: 'open' });
+    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    this.rerender();
   }
 
   get element(): HTMLElement {
@@ -97,11 +69,7 @@ export class VideoDialogPanel
 
   show(): void {
     this.mount();
-    this.dialog.show();
-    if (!this.pointerListenerAttached) {
-      document.addEventListener('pointerdown', this.pointerDownHandler);
-      this.pointerListenerAttached = true;
-    }
+    this.renderRoot.hidden = false;
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
@@ -110,11 +78,7 @@ export class VideoDialogPanel
   hide(): void {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    if (this.pointerListenerAttached) {
-      document.removeEventListener('pointerdown', this.pointerDownHandler);
-      this.pointerListenerAttached = false;
-    }
-    this.dialog.hide();
+    this.renderRoot.hidden = true;
   }
 
   update(payload?: {
@@ -127,59 +91,255 @@ export class VideoDialogPanel
       return this.renderRoot;
     }
     if (payload.texts) {
-      this.updateTexts(payload.texts);
+      this.texts = payload.texts;
     }
     if (typeof payload.count === 'number') {
-      this.updateCount(payload.count);
+      this.captureCount = payload.count;
     }
     if (typeof payload.hint === 'string') {
-      this.updateHint(payload.hint);
+      this.texts = { ...this.texts, hint: payload.hint };
     }
     if (payload.captures) {
-      this.setCaptures(payload.captures);
+      if (this.collapsed && payload.captures.length > this.captures.length) {
+        this.collapsed = false;
+      }
+      this.captures = [...payload.captures];
+      this.captureCount = payload.captures.length;
     }
+    this.rerender();
     return this.renderRoot;
   }
 
   updateTexts(texts: VideoPanelTexts): void {
     this.texts = texts;
-    this.dialog.updateTitle(texts.title);
-    this.dialog.setStatusText(texts.status);
-    this.dialog.setHintText(texts.hint);
-    this.dialog.setCounterText(this.formatCounter(this.captureCount));
+    this.rerender();
+  }
+
+  updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
+    this.destination = destination;
+    const shadow = this.renderRoot.shadowRoot;
+    if (!shadow || !patchExportDestinationRow(shadow, destination)) {
+      this.rerender();
+    }
   }
 
   updateCount(count: number): void {
     this.captureCount = count;
-    this.dialog.setCounterText(this.formatCounter(count));
+    this.rerender();
   }
 
   updateHint(text: string): void {
-    this.dialog.setHintText(text);
+    this.texts = { ...this.texts, hint: text };
+    this.rerender();
   }
 
   setCaptures(captures: VideoPanelCapture[]): void {
+    if (this.collapsed && captures.length > this.captures.length) {
+      this.collapsed = false;
+    }
+    this.captures = [...captures];
     this.captureCount = captures.length;
-    this.dialog.updateCaptures(captures);
-    this.dialog.setCounterText(this.formatCounter(captures.length));
+    this.rerender();
   }
 
   beginEditingCapture(id: string, draft: string): void {
-    this.dialog.beginEditingCapture(id, draft);
+    this.editingCaptureId = id;
+    this.editingDraft = draft;
+    this.rerender();
+    queueMicrotask(() => {
+      const input =
+        Array.from(
+          this.renderRoot.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-capture-input]') ??
+            []
+        ).find((candidate) => candidate.dataset.captureInput === id) ?? null;
+      input?.focus();
+    });
   }
 
   stopEditing(): void {
-    this.dialog.stopEditing();
+    this.editingCaptureId = null;
+    this.editingDraft = '';
+    this.rerender();
+  }
+
+  collapse(): void {
+    this.collapsed = true;
+    this.rerender();
   }
 
   destroy(): void {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    if (this.pointerListenerAttached) {
-      document.removeEventListener('pointerdown', this.pointerDownHandler);
-      this.pointerListenerAttached = false;
+    this.resizeDisposer?.();
+    this.resizeDisposer = null;
+    this.previewExpansionDisposer?.();
+    this.previewExpansionDisposer = null;
+    this.renderRoot.remove();
+  }
+
+  private rerender(): void {
+    const shadow = this.renderRoot.shadowRoot;
+    if (!shadow) {
+      return;
     }
-    this.dialog.destroy();
+    this.resizeDisposer?.();
+    this.resizeDisposer = null;
+    this.previewExpansionDisposer?.();
+    this.previewExpansionDisposer = null;
+    const surface = this.renderSurface();
+    shadow.replaceChildren(surface);
+    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    this.resizeDisposer = bindSessionPanelResize(surface);
+    this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
+  }
+
+  private renderSurface(): HTMLElement {
+    const content = createVideoSurfaceContent({
+      texts: this.texts,
+      captures: this.captures,
+      counter: this.formatCounter(this.captureCount),
+      ...(this.destination ? { destination: this.destination } : {}),
+      actions: [
+        { id: 'video:finish', label: this.texts.finish, variant: 'primary' },
+        { id: 'video:cancel', label: this.texts.cancel, variant: 'ghost' }
+      ]
+    });
+    if (this.collapsed) {
+      content.surfaces.video.labels.subtitle = '';
+    }
+    content.surfaces.video.captures = content.surfaces.video.captures.map((capture) =>
+      capture.id === this.editingCaptureId
+        ? { ...capture, editing: true, draft: this.editingDraft }
+        : capture
+    );
+    const surface = renderStitchRuntimeSurface({
+      surfaceId: 'video',
+      appData: content,
+      actions: {
+        'video:add': () => this.options.callbacks.onAddCapture('button'),
+        'video:add-note': () => this.options.callbacks.onAddCapture('note-input'),
+        'video:finish': () => this.options.callbacks.onFinish(),
+        'video:cancel': () => this.options.callbacks.onCancel(),
+        'export-destination:select': (event) => {
+          const id = this.resolveActionId(event, 'destinationId');
+          if (id) {
+            void this.options.callbacks.onSelectDestination?.(id);
+          }
+        },
+        'session:toggleCollapse': () => {
+          this.collapsed = !this.collapsed;
+          this.rerender();
+        },
+        'resource:close': () => this.options.callbacks.onCancel(),
+        'video:delete': (event) => {
+          const id = this.resolveActionId(event, 'captureId');
+          if (id) {
+            this.options.callbacks.onDeleteCapture(id);
+          }
+        }
+      }
+    });
+    this.applyCompatibilityAttributes(surface);
+    this.bindCaptureInteractions(surface);
+    return surface;
+  }
+
+  private applyCompatibilityAttributes(surface: HTMLElement): void {
+    surface.style.pointerEvents = 'none';
+    const modal = surface.querySelector<HTMLElement>('.resource-modal--session');
+    modal?.classList.toggle('is-collapsed', this.collapsed);
+    const surfaceWindow = surface.querySelector<HTMLElement>('.video-surface-window');
+    surfaceWindow?.classList.toggle('is-collapsed', this.collapsed);
+    const dialog = surface.querySelector<HTMLElement>('[role="dialog"]');
+    if (dialog) {
+      dialog.dataset.element = 'dialog';
+      dialog.style.pointerEvents = 'auto';
+    }
+    surfaceWindow?.style.setProperty('pointer-events', 'auto');
+    if (this.collapsed && surfaceWindow) {
+      surfaceWindow.addEventListener('click', () => {
+        this.collapsed = false;
+        this.rerender();
+      });
+    }
+    surface
+      .querySelector<HTMLElement>('[data-action-id="video:finish"]')
+      ?.setAttribute('data-role', 'finish-btn');
+    surface
+      .querySelector<HTMLElement>('[data-action-id="video:cancel"]')
+      ?.setAttribute('data-role', 'close-btn');
+    surface
+      .querySelector<HTMLElement>('[data-action-id="video:add"]')
+      ?.setAttribute('data-role', 'add-btn');
+    surface
+      .querySelector<HTMLElement>('[data-action-id="video:add-note"]')
+      ?.setAttribute('data-role', 'add-note-input');
+    const collapseTrigger = surface.querySelector<HTMLButtonElement>(
+      '[data-action-id="session:toggleCollapse"]'
+    );
+    if (collapseTrigger) {
+      collapseTrigger.hidden = this.collapsed;
+      collapseTrigger.setAttribute('aria-expanded', this.collapsed ? 'false' : 'true');
+      collapseTrigger.setAttribute(
+        'aria-label',
+        this.collapsed ? 'Expand panel' : 'Collapse panel'
+      );
+      collapseTrigger.textContent = this.collapsed ? '⌃' : '⌄';
+    }
+    surface.querySelectorAll<HTMLElement>('article[data-capture-id]').forEach((item) => {
+      item.dataset.role = 'capture-item';
+    });
+  }
+
+  private currentSurface(): HTMLElement | null {
+    return (
+      this.renderRoot.shadowRoot?.querySelector<HTMLElement>('[data-stitch-surface="video"]') ??
+      null
+    );
+  }
+
+  private resolveActionId(event: Event, datasetKey: 'captureId' | 'destinationId'): string | null {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (datasetKey === 'destinationId') {
+      return target?.dataset.destinationId ?? null;
+    }
+    return (
+      target?.dataset[datasetKey] ??
+      target?.closest<HTMLElement>('[data-capture-id]')?.dataset.captureId ??
+      null
+    );
+  }
+
+  private bindCaptureInteractions(surface: HTMLElement): void {
+    surface.querySelectorAll<HTMLElement>('[data-capture-id]').forEach((item) => {
+      const id = item.dataset.captureId;
+      if (!id) {
+        return;
+      }
+      item.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (this.isInteractiveCaptureTarget(target)) {
+          return;
+        }
+        this.options.callbacks.onFocusCapture(id);
+      });
+      const input = item.querySelector<HTMLInputElement>('[data-capture-input]');
+      input?.addEventListener('keydown', (event) => {
+        if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') {
+          return;
+        }
+        event.preventDefault();
+        void this.options.callbacks.onSubmitCaptureEdit(id, input.value);
+      });
+    });
+  }
+
+  private isInteractiveCaptureTarget(target: Element | null): boolean {
+    return Boolean(
+      target?.closest(
+        'button, input, textarea, select, a, [contenteditable="true"], [data-action-id]'
+      )
+    );
   }
 
   private formatCounter(count: number): string {

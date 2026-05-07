@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesEn } from '../schemaShellMessages';
 
 const runtime: Messages = {
   extensionName: '[Àːľľ ìːñ Òːƀ·9]',
@@ -387,8 +388,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: '[Ìː àːľřèːàːďý ľèːƒť àː řèːṽìːèːŵ·23]',
   supportPromptDislikeToastTitle: '[Šĥàːřèː ýòːùːř ƒèːèːďƀàːçķ·19]',
   supportPromptDislikeRedditLinkLabel: '[Ďìːšçùːšš òːñ Řèːďďìːť·17]',
-  supportPromptDislikeQrLinkLabel: '[Ĵòːìːñ ťĥèː Ẋìːàːòːĥòːñğšĥùː ğřòːùːṕ·26]',
-  supportPromptDislikeQrPlaceholder: '[ʠŘ çòːďèː çòːṁìːñğ šòːòːñ·19]',
   clipDialogTitle: '[Çľìːṕ Šèːľèːçťìːòːñ·14]',
   clipDialogInstructions:
     '[Ùːšèː Ťàːƀ ťòː ṁòːṽèː ƀèːťŵèːèːñ çòːñťřòːľš. Ṕřèːšš Àːľť + Àːřřòːŵ ķèːýš ťòː řèːṕòːšìːťìːòːñ ťĥèː ďìːàːľòːğ.·82]',
@@ -593,6 +592,7 @@ const runtime: Messages = {
   supportLinkAfdian: '[Àːƒďìːàːñ·6]',
   versionNumber: '[ṽ0.2.0·6]',
   changelogModalTitle: '[Çĥàːñğèːľòːğ·9]',
+  ...schemaShellMessagesEn,
   fragmentFootnoteExampleContent: '[Ťĥìːš ìːš ťĥèː šèːľèːçťèːď ťèːẋť çòːñťèːñť·33]',
   fragmentFootnoteExampleComment: '[Ťĥìːš ìːš ṁý çòːṁṁèːñť·18]',
   fragmentContextHighlightExampleTitle: '[Çòːñťèːẋť Ĥìːğĥľìːğĥť Èːẋàːṁṕľèː:·26]',

@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesZhHant as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -388,8 +389,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: '我已經留下評論',
   supportPromptDislikeToastTitle: '分享您的回饋',
   supportPromptDislikeRedditLinkLabel: '在 Reddit 上討論',
-  supportPromptDislikeQrLinkLabel: '加入小紅書群組',
-  supportPromptDislikeQrPlaceholder: 'QR 碼即將推出',
 
   // Dialog
   clipDialogTitle: '剪藏選取內容',
@@ -591,6 +590,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: '更新日誌',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: '這是選取文字的內容',

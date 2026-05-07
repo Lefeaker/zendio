@@ -1,4 +1,14 @@
-import { chromeActionService, chromeContextMenusService, chromeMessagingService, chromeNotificationsService, chromeRuntimeService, chromeScriptingService, chromeStorageService, chromeTabsService } from './chrome';
+import {
+  chromeActionService,
+  chromeContextMenusService,
+  chromeDownloadsService,
+  chromeMessagingService,
+  chromeNotificationsService,
+  chromeRuntimeService,
+  chromeScriptingService,
+  chromeStorageService,
+  chromeTabsService
+} from './chrome';
 import { createFirefoxServices } from './firefox';
 import type { PartialPlatformServices, PlatformServices } from './types';
 import { registry, TOKENS } from '../shared/di';
@@ -32,6 +42,7 @@ function createDefaultServices(): PlatformServices {
     messaging: chromeMessagingService,
     runtime: chromeRuntimeService,
     contextMenus: chromeContextMenusService,
+    downloads: chromeDownloadsService,
     notifications: chromeNotificationsService,
     tabs: chromeTabsService,
     action: chromeActionService,

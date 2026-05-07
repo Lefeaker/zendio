@@ -5,12 +5,15 @@ import { renderOptionsLanguageCanvas } from './utils/optionsLanguageRenderer';
 const LANGUAGES: Language[] = [
   'en',
   'de',
+  'es-419',
+  'es-ES',
   'fr',
+  'it',
   'ru',
   'pt-BR',
-  'es-ES',
   'ja',
   'zh-CN',
+  'zh-TW',
   'ko',
   'qps-ploc'
 ];

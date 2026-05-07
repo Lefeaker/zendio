@@ -62,6 +62,9 @@ export function createMockPlatformServices(): PlatformServices {
       onShown: () => () => undefined,
       refresh: () => undefined
     },
+    downloads: {
+      download: () => Promise.resolve(undefined)
+    },
     notifications: {
       create: () => Promise.resolve(undefined),
       clear: () => Promise.resolve(undefined)
@@ -146,13 +149,14 @@ export function createMockGlobalStateManager() {
  */
 export function createMockUsageStatsStore() {
   return {
-    getStats: () => Promise.resolve({
-      aiChatSaves: 0,
-      fragmentSaves: 0,
-      articleSaves: 0,
-      lastUpdatedISO: new Date().toISOString(),
-      history: []
-    }),
+    getStats: () =>
+      Promise.resolve({
+        aiChatSaves: 0,
+        fragmentSaves: 0,
+        articleSaves: 0,
+        lastUpdatedISO: new Date().toISOString(),
+        history: []
+      }),
     recordUsage: () => Promise.resolve(null),
     initialize: () => Promise.resolve(undefined)
   };
@@ -174,13 +178,13 @@ export function createMockDialogRegistry() {
  */
 export function createTestRegistryWithMocks(): ServiceRegistry {
   const registry = createServiceRegistry();
-  
+
   registry.register(TOKENS.platformServices, createMockPlatformServices);
   registry.register(TOKENS.errorHandler, createMockErrorHandler);
   registry.register(TOKENS.globalStateManager, createMockGlobalStateManager);
   registry.register(TOKENS.usageStatsStore, createMockUsageStatsStore);
   registry.register(TOKENS.dialogRegistry, createMockDialogRegistry);
-  
+
   return registry;
 }
 
@@ -192,12 +196,12 @@ export async function withMockPlatform<T>(
   fn: () => T | Promise<T>
 ): Promise<T> {
   const testRegistry = createServiceRegistry();
-  
+
   testRegistry.register(TOKENS.platformServices, () => ({
     ...createMockPlatformServices(),
     ...services
   }));
-  
+
   // 这里需要临时替换全局注册表的逻辑
   // 实际实现中可能需要更复杂的作用域管理
   return await fn();

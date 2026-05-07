@@ -7,11 +7,13 @@ import { getErrorHandlerInstance } from '@shared/errors';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '@shared/di/tokens';
 import type { IClipRepository } from '@shared/repositories/IClipRepository';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 
 export interface ClipperDialogDependencies {
   storage: StorageService;
   runtime: RuntimeService;
   clipRepo: IClipRepository;
+  optionsRepository: IOptionsRepository;
   errorHandler: ErrorHandler;
 }
 
@@ -21,6 +23,7 @@ export function createClipperDialogDependencies(): ClipperDialogDependencies {
     storage: platform.storage,
     runtime: platform.runtime,
     clipRepo: resolveRepository<IClipRepository>(DI_TOKENS.IClipRepository),
+    optionsRepository: resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository),
     errorHandler: getErrorHandlerInstance()
   };
 }

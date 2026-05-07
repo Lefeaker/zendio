@@ -6,19 +6,26 @@
 
 ## 0. 快速上手
 
+### 0.0 Stitch Secondary 正式主链
+
+- 正式 Options UI 启动链是 `src/options/index.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
+- `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
+- `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
+- Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
+
 ### 0.1 目录与入口
 
-- `index.ts -> app/bootstrap.ts`：唯一正式入口，负责 I18n、Controller、Shell 初始化。
-- `bootstrap.ts`：legacy compatibility helper，仅供旧 DI 测试/兼容场景使用，不再视为页面主启动链。
-- `components/layout/*`：页面的 Shell 与主内容挂载，`OptionsApp.ts` 拼装 Layout。
-- `components/sections/*`：设置面板；每个 Section 继承 `BaseSection`，通过 `FormSectionRegistry` 接入数据层。
-- `components/formSections/*`：`FormSectionRegistry` 及作用域，集中管理 `render/applySnapshot/collectChanges`。
+- `index.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 I18n、Controller、Stitch Shell 初始化。
+- `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
+- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链。
+- `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
+- `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
 - `utils/`：辅助方法（导入导出、transfer 等）；`styles/` 目录承载 Tailwind 输入与必要的外部样式（如 `styles/aob-options.css`）。
 
 ### 0.2 样式规范速览
 
-- 样式入口固定为 `src/styles/design-tokens.css`、`src/options/styles/tailwind.css` 与 `src/styles/global.tailwind.css` 的静态产物链路；所有 DOM 类名继续使用 `.aobx-*` 前缀。
+- 样式入口固定为 `src/styles/design-tokens.css`、`src/styles/global.tailwind.css` 与 `src/options/stitch/styles/stitch.css` 的静态产物链路；legacy compatibility 代码可继续消费 `src/options/styles/tailwind.css`。
 - `src/options/styles/design-tokens.css` 已删除；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
@@ -91,8 +98,10 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 src/options/
 ├── app/
 │   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Shell
+│   ├── productionStitchShell.ts # 正式 Stitch Secondary production adapter
 │   ├── optionsController.ts  # 控制器：持久化、自动保存、导入导出
 │   └── optionsControllerContext.ts
+├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
 │   ├── layout/
 │   │   ├── OptionsApp.ts     # 装配 Shell、Sidebar、MainContent
@@ -113,8 +122,9 @@ src/options/
 - `teardownMountedShell()` + `disposeCleanupHandlers()`：保证二次初始化时清理旧实例。
 - `applyI18n()`：创建并挂载 `PageI18nController`。
 - `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
-- `mountExperimentalShell()`：挂载 Shell，实现导航、预加载与页面交互。
+- `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
 - `src/options/index.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；`src/options/bootstrap.ts` 不参与页面装配决策。
+- `mountOptionsShell`、`OptionsApp`、`MainContent`、`Sidebar`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
 - `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
 2. **Options 主状态链（Phase 3 当前口径）**

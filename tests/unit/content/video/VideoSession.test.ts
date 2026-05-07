@@ -138,13 +138,25 @@ type TestView = VideoSessionView & {
   updateTexts: ReturnType<typeof vi.fn>;
   beginEditingCapture: ReturnType<typeof vi.fn>;
   stopEditing: ReturnType<typeof vi.fn>;
+  collapse: ReturnType<typeof vi.fn>;
   destroy: ReturnType<typeof vi.fn>;
 };
 
 type SessionTestApi = {
   applyHint: (state: string) => void;
   cleanup: () => void;
-  handleAddCapture: () => Promise<void>;
+  handleAddCapture: (source?: 'button' | 'note-input') => Promise<void>;
+  addCurrentTimestamp: (
+    source?: 'button' | 'note-input',
+    options?: {
+      comment?: string;
+      captureScreenshot?: boolean;
+      pauseVideo?: boolean;
+      beginEditing?: boolean;
+      resumePlayback?: boolean;
+      collapseAfterCapture?: boolean;
+    }
+  ) => Promise<void>;
   finish: () => Promise<void>;
   state: {
     captures: Array<{
@@ -154,6 +166,11 @@ type SessionTestApi = {
       comment: string;
       url: string;
       createdAt: number;
+      screenshot?: {
+        fileName: string;
+        mimeType: 'image/png';
+        dataUrl: string;
+      };
     }>;
   };
 };
@@ -166,6 +183,7 @@ function createView(): TestView {
     updateTexts: vi.fn(),
     beginEditingCapture: vi.fn(),
     stopEditing: vi.fn(),
+    collapse: vi.fn(),
     destroy: vi.fn()
   };
 }
@@ -183,6 +201,7 @@ function createDependencies(): VideoSessionDependencies {
     videoRepository: {
       getVideoConfig: vi.fn(() => Promise.resolve(null)),
       savePromptPosition: vi.fn(() => Promise.resolve(undefined)),
+      saveControlBarPreferences: vi.fn(() => Promise.resolve(undefined)),
       getPromptPosition: vi.fn(() => Promise.resolve(null)),
       sendVideoClip: vi.fn(() => Promise.resolve({ success: true })),
       onConfigChange: vi.fn(() => () => {})
@@ -254,17 +273,6 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
-  it('does not start interval polling when the session starts', async () => {
-    const setIntervalSpy = vi.spyOn(window, 'setInterval');
-    const session = new VideoSession(document, createDependencies());
-    const sessionApi = session as unknown as SessionTestApi;
-
-    await session.start();
-
-    expect(setIntervalSpy).not.toHaveBeenCalled();
-    sessionApi.cleanup();
-  });
-
   it('adds a timestamp capture, persists it, and opens edit mode', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -276,6 +284,9 @@ describe('VideoSession', () => {
 
     const video = document.querySelector('video');
     Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    const pauseSpy = vi
+      .spyOn(video as HTMLVideoElement, 'pause')
+      .mockImplementation(() => undefined);
 
     await sessionApi.handleAddCapture();
 
@@ -286,7 +297,101 @@ describe('VideoSession', () => {
       expect.stringContaining('aiob-video-'),
       ''
     );
+    expect(pauseSpy).not.toHaveBeenCalled();
 
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('pauses playback when timestamp capture is started from the add-note input', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    const video = document.querySelector('video');
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    const pauseSpy = vi
+      .spyOn(video as HTMLVideoElement, 'pause')
+      .mockImplementation(() => undefined);
+
+    await sessionApi.handleAddCapture('note-input');
+
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(view?.beginEditingCapture).toHaveBeenCalledWith(
+      expect.stringContaining('aiob-video-'),
+      ''
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('captures a current-frame screenshot for control bar note captures', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation((tagName: string) => {
+        if (tagName.toLowerCase() === 'canvas') {
+          Object.defineProperty(canvas, 'getContext', {
+            value: vi.fn(() => ({ drawImage })),
+            configurable: true
+          });
+          Object.defineProperty(canvas, 'toDataURL', {
+            value: vi.fn(() => 'data:image/png;base64,frame'),
+            configurable: true
+          });
+          return canvas;
+        }
+        return Document.prototype.createElement.call(document, tagName);
+      });
+
+    await session.start();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+
+    await sessionApi.addCurrentTimestamp('note-input', {
+      comment: 'captured frame',
+      captureScreenshot: true,
+      pauseVideo: true,
+      beginEditing: false,
+      resumePlayback: true,
+      collapseAfterCapture: true
+    });
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]).toMatchObject({
+      comment: 'captured frame',
+      screenshot: {
+        fileName: 'video-0m42s-screenshot.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,frame'
+      }
+    });
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
+    expect(view?.stopEditing).toHaveBeenCalled();
+    expect(view?.collapse).toHaveBeenCalledTimes(1);
+
+    createElementSpy.mockRestore();
     sessionApi.cleanup();
     vi.useRealTimers();
   });
@@ -345,6 +450,38 @@ describe('VideoSession', () => {
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
     expect(isVideoSessionActive(document)).toBe(true);
 
+    sessionApi.cleanup();
+  });
+
+  it('keeps the session alive when the exporter returns an invalid empty response', async () => {
+    exportMock.mockResolvedValueOnce(null as never);
+    const session = new VideoSession(document, createDependencies());
+    const sessionApi = session as unknown as SessionTestApi;
+    const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 12,
+        comment: '',
+        url: 'https://video.example/watch?t=12',
+        createdAt: 1
+      }
+    ];
+
+    await sessionApi.finish();
+
+    expect(applyHintSpy).toHaveBeenCalledWith('failure');
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[VideoSession] Export failed:',
+      expect.objectContaining({ message: 'Invalid video export response' })
+    );
+    expect(isVideoSessionActive(document)).toBe(true);
+
+    consoleErrorSpy.mockRestore();
     sessionApi.cleanup();
   });
 

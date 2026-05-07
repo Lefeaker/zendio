@@ -1,6 +1,6 @@
 /**
  * Configuration type utilities and constraints.
- * 
+ *
  * This module provides type utilities for configuration management,
  * including readonly constraints and validation helpers.
  */
@@ -59,20 +59,20 @@ export function isValidConfigValue(value: unknown): boolean {
   if (value === null || value === undefined) {
     return true;
   }
-  
+
   const type = typeof value;
   if (type === 'string' || type === 'number' || type === 'boolean') {
     return true;
   }
-  
+
   if (Array.isArray(value)) {
     return value.every(isValidConfigValue);
   }
-  
+
   if (type === 'object') {
     return Object.values(value as Record<string, unknown>).every(isValidConfigValue);
   }
-  
+
   return false;
 }
 
@@ -146,6 +146,8 @@ export type ReadonlyVideoOptions = ReadonlyDeep<{
   floatingPromptEnabled: boolean;
   promptButtonLabel: string;
   promptShortcut: string;
+  controlBarAutoPause: boolean;
+  controlBarScreenshot: boolean;
 }>;
 
 export type ReadonlyDeepResearchOptions = ReadonlyDeep<{
@@ -186,7 +188,7 @@ export function validateConfigStructure(
 ): ConfigValidationResult {
   const errors: ConfigValidationError[] = [];
   const warnings: ConfigValidationError[] = [];
-  
+
   function validateValue(value: unknown, schema: ConfigSchema, path: string): void {
     if (schema.type === 'object' && schema.properties) {
       if (typeof value !== 'object' || value === null) {
@@ -198,9 +200,9 @@ export function validateConfigStructure(
         });
         return;
       }
-      
+
       const obj = value as Record<string, unknown>;
-      
+
       // Check required properties
       if (schema.required) {
         for (const prop of schema.required) {
@@ -214,7 +216,7 @@ export function validateConfigStructure(
           }
         }
       }
-      
+
       // Validate properties
       for (const [prop, propSchema] of Object.entries(schema.properties)) {
         if (prop in obj) {
@@ -222,7 +224,7 @@ export function validateConfigStructure(
         }
       }
     }
-    
+
     // Custom validation
     if (schema.validation && !schema.validation(value)) {
       errors.push({
@@ -233,9 +235,9 @@ export function validateConfigStructure(
       });
     }
   }
-  
+
   validateValue(config, schema, '');
-  
+
   return {
     valid: errors.length === 0,
     errors,

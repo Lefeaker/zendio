@@ -2,7 +2,6 @@ import type { CompleteOptions, StoredOptions } from '../../shared/types/options'
 import { deepClone } from '../utils/clone';
 import type { OptionsPersistenceService } from '../services/persistence';
 import type { OptionsFormAdapter } from '../components/optionsFormAdapter';
-import type { FormSectionRegistry } from '../components/formSections/formSectionManager';
 
 export type SaveReason = 'manual' | 'auto' | 'import';
 
@@ -14,7 +13,6 @@ export interface OptionsControllerCallbacks {
 export interface OptionsControllerDeps extends OptionsControllerCallbacks {
   persistence: OptionsPersistenceService;
   formAdapter: OptionsFormAdapter;
-  formRegistry: FormSectionRegistry;
   autoSaveDebounceMs?: number;
 }
 
@@ -28,7 +26,12 @@ function toStoredOptions(options: CompleteOptions | StoredOptions): StoredOption
 }
 
 type AutoSaveCollector =
-  | (() => CompleteOptions | StoredOptions | null | undefined | Promise<CompleteOptions | StoredOptions | null | undefined>)
+  | (() =>
+      | CompleteOptions
+      | StoredOptions
+      | null
+      | undefined
+      | Promise<CompleteOptions | StoredOptions | null | undefined>)
   | undefined;
 
 function buildCallbacks(callbacks: OptionsControllerCallbacks): OptionsControllerCallbacks {
@@ -50,19 +53,16 @@ export class OptionsController {
   private readonly autoSaveDebounceMs: number;
   private readonly callbacks: OptionsControllerCallbacks;
   private unsubscribePersistence: (() => void) | null = null;
-  private readonly formRegistry: FormSectionRegistry;
 
   constructor({
     persistence,
     formAdapter,
-    formRegistry,
     autoSaveDebounceMs = 400,
     onSaveError,
     onSaveSuccess
   }: OptionsControllerDeps) {
     this.persistence = persistence;
     this.formAdapter = formAdapter;
-    this.formRegistry = formRegistry;
     this.autoSaveDebounceMs = autoSaveDebounceMs;
     this.callbacks = buildCallbacks({
       ...(onSaveError !== undefined && { onSaveError }),
@@ -140,7 +140,10 @@ export class OptionsController {
     await this.formAdapter.apply(target);
   }
 
-  async saveSnapshot({ reason, draft }: SaveSnapshotOptions): Promise<CompleteOptions | StoredOptions> {
+  async saveSnapshot({
+    reason,
+    draft
+  }: SaveSnapshotOptions): Promise<CompleteOptions | StoredOptions> {
     const payload = draft ?? this.formAdapter.read(this.snapshot);
     const cloned = deepClone(payload);
     try {
@@ -171,7 +174,6 @@ export class OptionsController {
       this.unsubscribePersistence();
       this.unsubscribePersistence = null;
     }
-    this.formRegistry.clear();
   }
 }
 

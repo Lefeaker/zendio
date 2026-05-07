@@ -1,6 +1,7 @@
 import type { RestClient } from '../../shared/interfaces/restClient';
 import type { ActionService } from '../interfaces/actions';
 import type { ContextMenusService } from '../interfaces/contextMenus';
+import type { DownloadsService } from '../interfaces/downloads';
 import type { MessagingService } from '../interfaces/messaging';
 import type { NotificationsService } from '../interfaces/notifications';
 import type { RuntimeService } from '../interfaces/runtime';
@@ -122,6 +123,14 @@ function createPreviewRestClient(): RestClient {
   };
 }
 
+function createPreviewDownloadsService(): DownloadsService {
+  return {
+    download() {
+      return Promise.resolve(undefined);
+    }
+  };
+}
+
 export function createPreviewPlatformServices(
   storage: StorageService = createMemoryStorageService()
 ): PlatformServices {
@@ -130,6 +139,7 @@ export function createPreviewPlatformServices(
     messaging: createPreviewMessagingService(),
     runtime: createPreviewRuntimeService(),
     contextMenus: createPreviewContextMenusService(),
+    downloads: createPreviewDownloadsService(),
     notifications: createPreviewNotificationsService(),
     tabs: createPreviewTabsService(),
     action: createPreviewActionService(),

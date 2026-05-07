@@ -6,22 +6,19 @@ import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { createOptionsController } from '@options/app/optionsController';
 import { createOptionsFormAdapter } from '@options/components/optionsFormAdapter';
-import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import type { OptionsPersistenceService } from '@options/services/persistence';
-import { createOptionsManagedFixtures, resetOptionsManagedFixtures } from '../../utils/optionsFixtures';
+import {
+  createOptionsManagedFixtures,
+  resetOptionsManagedFixtures
+} from '../../utils/optionsFixtures';
 
-const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = { current: null };
+const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = {
+  current: null
+};
 
 vi.mock('@options/state/vaultRouterStore', () => ({
   getVaultRouterConfig: () => fixturesRef.current?.getVaultRouterConfig() ?? null
 }));
-
-function requireRegistry(registry: FormSectionRegistry | null): FormSectionRegistry {
-  if (!registry) {
-    throw new Error('FormSectionRegistry is not initialized');
-  }
-  return registry;
-}
 
 describe('OptionsController baseline integration', () => {
   let persistence: OptionsPersistenceService;
@@ -39,14 +36,6 @@ describe('OptionsController baseline integration', () => {
       resetOptionsManagedFixtures(fixturesRef.current);
     }
     fixtures = fixturesRef.current!;
-    const registry = new FormSectionRegistry();
-    fixtures.registry = registry;
-    vi.spyOn(registry, 'collect').mockImplementation((snapshot) =>
-      fixtures.collectManagedSectionChanges(snapshot)
-    );
-    vi.spyOn(registry, 'apply').mockImplementation((options) => {
-      return Promise.resolve(fixtures.applyManagedSections(options));
-    });
 
     persistenceMocks = {
       load: vi.fn<[], Promise<StoredOptions>>(() => Promise.resolve({} as StoredOptions)),
@@ -60,11 +49,11 @@ describe('OptionsController baseline integration', () => {
   });
 
   afterEach(() => {
-    fixtures.registry?.clear();
+    resetOptionsManagedFixtures(fixtures);
   });
 
-  it('merges baseline defaults and managed data during saveSnapshot', async () => {
-    fixtures.managedChanges = {
+  it('merges baseline defaults and persisted snapshot data during saveSnapshot', async () => {
+    const persisted: StoredOptions = {
       rest: {
         baseUrl: 'https://managed.example.com/',
         httpsUrl: 'https://managed.example.com/',
@@ -82,29 +71,28 @@ describe('OptionsController baseline integration', () => {
         }
       }
     };
+    persistenceMocks.load.mockResolvedValueOnce(persisted);
     fixtures.vaultRouterSnapshot = {
       defaultVaultId: 'default',
-      vaults: [{
-        id: 'default',
-        vault: 'Primary',
-        name: 'Primary Vault',
-        httpsUrl: 'https://managed.example.com/',
-        httpUrl: 'http://managed.example.com/',
-        apiKey: 'managed-token',
-        enabled: true
-      }]
+      vaults: [
+        {
+          id: 'default',
+          vault: 'Primary',
+          name: 'Primary Vault',
+          httpsUrl: 'https://managed.example.com/',
+          httpUrl: 'http://managed.example.com/',
+          apiKey: 'managed-token',
+          enabled: true
+        }
+      ]
     };
 
-    const registry = requireRegistry(fixtures.registry);
-    const formAdapter = createOptionsFormAdapter(registry);
-    const controller = createOptionsController({ persistence, formAdapter, formRegistry: registry });
+    const formAdapter = createOptionsFormAdapter();
+    const controller = createOptionsController({ persistence, formAdapter });
 
     await controller.loadInitialState();
     await controller.saveSnapshot({ reason: 'manual' });
 
-    const collectManagedSectionChangesMock = vi.mocked(fixtures.collectManagedSectionChanges);
-    const collectCalls = collectManagedSectionChangesMock.mock.calls;
-    expect(collectCalls[0]?.[0]).toEqual(expect.objectContaining({}));
     expect(persistenceMocks.save.mock.calls.length).toBe(1);
 
     const saved = fixtures.savedOptions[0] as CompleteOptions;
@@ -114,13 +102,12 @@ describe('OptionsController baseline integration', () => {
     expect(saved.rest.vault).toBe('ManagedVault');
     expect(saved.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(saved.vaultRouter).toEqual(fixtures.vaultRouterSnapshot);
-    expect((saved as StoredOptions).yamlConfig).toEqual(fixtures.managedChanges.yamlConfig);
+    expect((saved as StoredOptions).yamlConfig).toEqual(persisted.yamlConfig);
   });
 
   it('preserves imported snapshot and reconstitutes defaults on subsequent save', async () => {
-    const registry = requireRegistry(fixtures.registry);
-    const formAdapter = createOptionsFormAdapter(registry);
-    const controller = createOptionsController({ persistence, formAdapter, formRegistry: registry });
+    const formAdapter = createOptionsFormAdapter();
+    const controller = createOptionsController({ persistence, formAdapter });
     await controller.loadInitialState();
 
     const importedOptions = {
@@ -166,9 +153,6 @@ describe('OptionsController baseline integration', () => {
 
     await controller.applyImportedConfig(importedOptions);
 
-    const applyManagedSectionsMock = vi.mocked(fixtures.applyManagedSections);
-
-    expect(applyManagedSectionsMock.mock.calls[0]?.[0]).toEqual(importedOptions);
     expect(persistenceMocks.save.mock.calls.length).toBe(1);
     expect(fixtures.savedOptions[0]).toEqual(importedOptions);
 

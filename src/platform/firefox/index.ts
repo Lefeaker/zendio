@@ -8,6 +8,7 @@ import { firefoxStorageService } from './storage';
 import { firefoxMessagingService } from './messaging';
 import { firefoxRuntimeService } from './runtime';
 import { firefoxContextMenusService } from './contextMenus';
+import { firefoxDownloadsService } from './downloads';
 import { firefoxNotificationsService } from './notifications';
 import { firefoxTabsService } from './tabs';
 import { firefoxActionService } from './action';
@@ -26,6 +27,7 @@ function createFirefoxServices(): PlatformServices {
     messaging: firefoxMessagingService,
     runtime: firefoxRuntimeService,
     contextMenus: firefoxContextMenusService,
+    downloads: firefoxDownloadsService,
     notifications: firefoxNotificationsService,
     tabs: firefoxTabsService,
     action: firefoxActionService,

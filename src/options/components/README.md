@@ -2,18 +2,20 @@
 
 > 开发须知：所有 Options/Clipper 样式与组件改动都要先跑完 `docs/options-pre-251120-checklist.md`，并在 PR 中附上 `tmp/tailwind-baseline/` 日志；Tailwind 迁移细节参考 `docs/251126-design-system-poc/archived/tailwind-migration/251120/1-options-style-baseline-validation-guide.md`、`docs/clipper-tailwind-migration-plan.md`。
 
+> 当前正式口径：Options 生产 UI 已迁移到 `src/options/app/productionStitchShell.ts` + `src/options/stitch/*`。本目录下的 `layout/`、`sections/`、`formSections/` 与 legacy modal/controller 代码是兼容和回归测试资产，不再拥有正式生产 UI 主链。
+
 ## 目录结构
 
 ```
 src/options/components/
 ├── controls/        # 可复用的业务控制组件
-├── sections/        # Options 页面的各个配置区块
+├── sections/        # legacy/compat 配置区块；正式生产 UI 由 src/options/stitch/* 渲染
 ├── layout/          # Options 页面布局组件
-│   ├── OptionsApp.ts      # 根容器
-│   ├── Navigation.ts      # 左侧导航
-│   └── MainContent.ts     # 右侧内容区
-├── infrastructure/  # Options 专属基础设施与列表编辑器
-└── formSections/    # 表单区块管理器
+│   ├── OptionsApp.ts      # legacy 根容器
+│   ├── Navigation.ts      # legacy 左侧导航
+│   └── MainContent.ts     # legacy 右侧内容区
+├── infrastructure/  # legacy Options 专属基础设施与列表编辑器
+└── formSections/    # legacy 表单区块管理器
     └── formSectionManager.ts
 
 src/ui/
@@ -29,45 +31,45 @@ src/ui/
 ```
 src/options/app/
 ├── bootstrap.ts              # Options 页面启动入口
+├── productionStitchShell.ts  # 正式 Stitch Secondary production adapter
 ├── optionsController.ts      # Options 状态管理控制器
-├── optionsActions.ts         # 用户操作处理（保存、重置等）
-├── i18nContext.ts            # 国际化上下文
-└── experimentalShell.ts      # 实验性功能外壳
+└── i18nContext.ts            # 国际化上下文
 ```
 
 **职责**：
 
-- 协调 layout/ 和 sections/ 的渲染
+- 协调 `src/options/stitch/*` 的渲染与 production state 绑定
 - 管理全局状态（optionsStore）
 - 处理用户操作（保存、重置、导入/导出）
 
 ## 如何查找代码？
 
-| 需求                           | 位置                                       |
-| ------------------------------ | ------------------------------------------ |
-| 修改某个 Section 的 UI         | `src/options/components/sections/`         |
-| 添加新的可复用基础组件         | `src/ui/primitives/` 或 `src/ui/patterns/` |
-| 修改页面布局（导航、主内容区） | `src/options/components/layout/`           |
-| 修改启动逻辑                   | `src/options/app/bootstrap.ts`             |
-| 修改保存/重置逻辑              | `src/options/app/optionsActions.ts`        |
-| 添加新的配置项                 | `src/shared/types/options.ts`              |
+| 需求                           | 位置                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| 修改正式 Options UI            | `src/options/stitch/`                                                               |
+| 修改兼容 Section 的 UI         | `src/options/components/sections/`                                                  |
+| 添加新的可复用基础组件         | `src/ui/primitives/` 或 `src/ui/patterns/`                                          |
+| 修改页面布局（导航、主内容区） | `src/options/stitch/render/`                                                        |
+| 修改启动逻辑                   | `src/options/app/bootstrap.ts` / `src/options/app/productionStitchShell.ts`         |
+| 修改保存/重置逻辑              | `src/options/app/optionsController.ts` / `src/options/app/productionStitchShell.ts` |
+| 添加新的配置项                 | `src/shared/types/options.ts`                                                       |
 
 本目录按功能职责划分为以下子目录，便于定位组件类型与依赖：
 
 - `layout/`  
-  包含页面框架与导航相关组件，例如 `OptionsApp`、`MainContent`、`Sidebar`、`NavigationController` 等，负责整体布局、Section 挂载和导航高亮。
+  legacy 页面框架与导航相关组件，例如 `OptionsApp`、`MainContent`、`Sidebar`、`NavigationController` 等。它们不得重新接入正式 production startup chain。
 
 - `controls/`  
   可在多个 Section 复用的控件与业务控制器，如 `domainMappings.ts`、`vaultRouterController.ts` 等，通常负责具体表单或交互逻辑。
 
 - `sections/`  
-  选项页面的具体 Section 组件以及关联的工具文件（例如 `usageDashboard.utils.ts`）。每个 Section 继承 `BaseSection`，封装对应设置区域的渲染与状态处理。
+  legacy 选项页面 Section 组件以及关联的工具文件（例如 `usageDashboard.utils.ts`）。正式 UI 的 schema/render 真值位于 `src/options/stitch/*`。
 
 - `infrastructure/`  
-  页面级的基础设施模块，目前包含 `ModalController.ts`，用于管理模态框的生命周期。
+  legacy 页面级基础设施模块。Stitch resource modal chrome 由 `src/options/stitch/render/renderStitchView.ts` 管理。
 
 - `formSections/`  
-  表单 Section 统一注册与快照应用的基础设施，例如 `formSectionManager.ts`。
+  legacy 表单 Section 统一注册与快照应用基础设施，例如 `formSectionManager.ts`。正式生产绑定在 `productionStitchShell.ts` 中完成。
 
 - `src/ui/`
   正式基础 UI 入口，新增业务代码必须优先复用：

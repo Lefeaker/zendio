@@ -177,7 +177,7 @@ export const LANGUAGE_CONFIG: Record<LangCode, LanguageMetadata> = {
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-export const DEFAULT_LANGUAGE: LangCode = (isDevelopment ? 'qps-ploc' : 'en');
+export const DEFAULT_LANGUAGE: LangCode = 'en';
 
 export const CHROME_STATIC_KEYS = ['extName', 'extDescription'] as const;
 

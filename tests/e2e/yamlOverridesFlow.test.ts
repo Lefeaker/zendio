@@ -1,10 +1,15 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { StorageAreaService, StorageService, StorageChangeCallback } from '../../src/platform/interfaces/storage';
+import type {
+  StorageAreaService,
+  StorageService,
+  StorageChangeCallback
+} from '../../src/platform/interfaces/storage';
 import type { PlatformServices } from '../../src/platform/types';
 import type { MessagingService } from '../../src/platform/interfaces/messaging';
 import type { ContextMenusService } from '../../src/platform/interfaces/contextMenus';
+import type { DownloadsService } from '../../src/platform/interfaces/downloads';
 import type { NotificationsService } from '../../src/platform/interfaces/notifications';
 import type { TabsService } from '../../src/platform/interfaces/tabs';
 import type { ActionService } from '../../src/platform/interfaces/actions';
@@ -31,8 +36,13 @@ function cloneValue<T>(value: T): T {
 
 function createMemoryStorageArea() {
   const store = new Map<string, unknown>();
-  const keyWatchers = new Map<string, Set<(value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void>>();
-  const allWatchers = new Set<(changes: Record<string, { oldValue?: unknown; newValue?: unknown }>) => void>();
+  const keyWatchers = new Map<
+    string,
+    Set<(value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void>
+  >();
+  const allWatchers = new Set<
+    (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>) => void
+  >();
 
   const notify = (key: string, oldValue: unknown, newValue: unknown) => {
     const change = { oldValue, newValue };
@@ -83,10 +93,14 @@ function createMemoryStorageArea() {
     },
     watchKey<T = unknown>(key: string, callback: StorageChangeCallback<T>) {
       const listeners = keyWatchers.get(key) ?? new Set();
-      listeners.add(callback as (value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void);
+      listeners.add(
+        callback as (value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void
+      );
       keyWatchers.set(key, listeners);
       return () => {
-        listeners.delete(callback as (value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void);
+        listeners.delete(
+          callback as (value: unknown, change: { oldValue?: unknown; newValue?: unknown }) => void
+        );
       };
     },
     watchAll(callback) {
@@ -210,6 +224,12 @@ const mockRestClient: RestClient = {
   }
 };
 
+const mockDownloads: DownloadsService = {
+  download() {
+    return Promise.resolve(undefined);
+  }
+};
+
 describe('YAML overrides integration flow', () => {
   let syncArea: StorageAreaService;
   let optionsStore: OptionsStore;
@@ -226,6 +246,7 @@ describe('YAML overrides integration flow', () => {
       messaging: mockMessaging,
       runtime: mockRuntime,
       contextMenus: mockContextMenus,
+      downloads: mockDownloads,
       notifications: mockNotifications,
       tabs: mockTabs,
       action: mockAction,

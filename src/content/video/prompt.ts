@@ -82,7 +82,7 @@ function getStorageService() {
 let promptEnabled = true;
 let promptSuppressed = false;
 let promptHost: HTMLDivElement | null = null;
-let promptElement: HTMLDivElement | null = null;
+let promptElement: HTMLElement | null = null;
 let lastEvaluatedUrl = '';
 let messagesCache: Messages | null = null;
 let sessionStarting = false;
@@ -471,13 +471,15 @@ async function mountPrompt(): Promise<void> {
 
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });
-    panelStyleSheetManager.applyVideoStyles(shadow);
+    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const previewTheme = await getVideoPromptDependencies().getRuntimeTheme();
 
     const { container, bubble } = createPromptElement({
       id: PROMPT_ID,
       label: promptButtonLabel,
       shortcut: promptShortcut,
       messages,
+      ...(previewTheme ? { previewTheme } : {}),
       getIconUrl: () => {
         try {
           return getRuntimeService().getURL('icons/bannerlogo-48.png');
@@ -700,7 +702,7 @@ export const __videoPromptTestUtils = {
   computeTentativePosition,
   computeSnapSide,
   applySideClass,
-  setPromptSide: (side: PromptSide, element?: HTMLDivElement | null) =>
+  setPromptSide: (side: PromptSide, element?: HTMLElement | null) =>
     setPromptSide(layoutState, side, element ?? null),
   computeDockedPlacement,
   EDGE_MARGIN,

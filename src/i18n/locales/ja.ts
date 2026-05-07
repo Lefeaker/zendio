@@ -1,5 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
+import { schemaShellMessagesJa as schemaShellMessagesLocale } from '../schemaShellMessages';
 
 const runtime: Messages = {
   // General
@@ -418,8 +419,6 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: 'レビューは書きました',
   supportPromptDislikeToastTitle: 'フィードバックをお寄せください',
   supportPromptDislikeRedditLinkLabel: 'Reddit でディスカッション',
-  supportPromptDislikeQrLinkLabel: '小紅書グループに参加',
-  supportPromptDislikeQrPlaceholder: 'QR コードは後ほど提供します',
 
   // Dialog
   clipDialogTitle: '選択範囲をクリップ',
@@ -636,6 +635,8 @@ const runtime: Messages = {
   // Version and changelog
   versionNumber: 'v0.2.0',
   changelogModalTitle: '更新履歴',
+
+  ...schemaShellMessagesLocale,
 
   // Fragment examples
   fragmentFootnoteExampleContent: 'これは選択されたテキストの内容です',

@@ -14,7 +14,9 @@ const DEFAULT_VIDEO_OPTIONS: VideoOptions = clone(
   DEFAULT_OPTIONS.video ?? {
     floatingPromptEnabled: true,
     promptButtonLabel: '开启视频笔记',
-    promptShortcut: 'Alt+V'
+    promptShortcut: 'Alt+V',
+    controlBarAutoPause: true,
+    controlBarScreenshot: true
   }
 );
 
@@ -33,6 +35,19 @@ export class MockVideoRepository implements IVideoRepository {
     this.videoConfig = {
       ...this.videoConfig,
       promptPosition: { ...position }
+    };
+    this.emitConfigChange();
+    return Promise.resolve();
+  }
+
+  saveControlBarPreferences(preferences: {
+    autoPauseEnabled: boolean;
+    captureScreenshotEnabled: boolean;
+  }): Promise<void> {
+    this.videoConfig = {
+      ...this.videoConfig,
+      controlBarAutoPause: preferences.autoPauseEnabled,
+      controlBarScreenshot: preferences.captureScreenshotEnabled
     };
     this.emitConfigChange();
     return Promise.resolve();

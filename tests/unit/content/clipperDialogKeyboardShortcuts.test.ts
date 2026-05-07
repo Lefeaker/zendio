@@ -11,10 +11,18 @@ import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
 import type { ErrorHandler } from '@shared/errors';
 
-type StyleSheetManagerModule = typeof import('../../../src/content/clipper/shared/styleSheetManager');
+type StyleSheetManagerModule =
+  typeof import('../../../src/content/clipper/shared/styleSheetManager');
 
-const initializeStylesMock = vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>>();
-const applyStylesMock = vi.fn<Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>, ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>>();
+const initializeStylesMock = vi.fn<
+  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>,
+  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+>();
+const applyStylesMock = vi.fn<
+  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>,
+  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+>();
+const applyStitchRuntimeStylesMock = vi.fn();
 const ensureContentI18nMock = vi.fn();
 const getContentI18nBinderMock = vi.fn();
 const getContentMessagesMock = vi.fn();
@@ -32,14 +40,16 @@ vi.mock('../../../src/content/i18n/context', () => ({
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeStylesMock,
-    applyTo: applyStylesMock
+    applyTo: applyStylesMock,
+    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
   },
   supportsAdoptedStyleSheets: () => true
 }));
 
 const dialogMessages = {
   clipDialogTitle: 'Clip Selection',
-  clipDialogInstructions: 'Use Tab to move between controls. Press Alt + Arrow keys to reposition the dialog.',
+  clipDialogInstructions:
+    'Use Tab to move between controls. Press Alt + Arrow keys to reposition the dialog.',
   cancelButton: 'Cancel',
   clipButton: 'Save',
   commentLabel: 'Comment',
@@ -49,6 +59,12 @@ const dialogMessages = {
 };
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+const expectDialogResult = (result: unknown, expected: { action: string; comment: string }) => {
+  expect(result).toEqual({
+    ...expected,
+    destination: { kind: 'downloads' }
+  });
+};
 const getDialogRoot = () => {
   const host = document.getElementById('obsidian-clipper-dialog');
   if (!host) {
@@ -57,7 +73,8 @@ const getDialogRoot = () => {
   return host.shadowRoot ?? host;
 };
 const getTextarea = (): HTMLTextAreaElement => {
-  const textarea = getDialogRoot()?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
+  const textarea =
+    getDialogRoot()?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
   if (!textarea) {
     throw new Error('textarea missing');
   }
@@ -82,7 +99,10 @@ beforeAll(() => {
         super(type, init);
       }
     }
-    restorePointerEvent = setWindowProp('PointerEvent', TestPointerEvent as unknown as typeof PointerEvent);
+    restorePointerEvent = setWindowProp(
+      'PointerEvent',
+      TestPointerEvent as unknown as typeof PointerEvent
+    );
   }
 });
 
@@ -98,6 +118,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     getContentMessagesMock.mockResolvedValue(dialogMessages);
     initializeStylesMock.mockResolvedValue(undefined);
     applyStylesMock.mockResolvedValue(undefined);
+    applyStitchRuntimeStylesMock.mockReturnValue(undefined);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     clipRepo = new MockClipRepository();
@@ -137,27 +158,31 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       expect(textarea).not.toBeNull();
-      
+
       textarea.value = 'Test comment';
-      
+
       // First Enter
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Enter', 
-        bubbles: true, 
-        cancelable: true 
-      }));
-      
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true
+        })
+      );
+
       // Second Enter within 600ms
       setTimeout(() => {
-        textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-          key: 'Enter', 
-          bubbles: true, 
-          cancelable: true 
-        }));
+        textarea.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true
+          })
+        );
       }, 100);
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'reader', comment: 'Test comment' });
+      expectDialogResult(result, { action: 'reader', comment: 'Test comment' });
     });
 
     it('Cmd+Enter triggers clip action on Mac', async () => {
@@ -174,16 +199,18 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Enter',
-        metaKey: true,
-        bubbles: true, 
-        cancelable: true 
-      }));
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          metaKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      );
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'clip', comment: 'Test comment' });
+      expectDialogResult(result, { action: 'clip', comment: 'Test comment' });
     });
 
     it('Alt+Enter triggers clip action on Windows', async () => {
@@ -200,16 +227,18 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Enter',
-        altKey: true,
-        bubbles: true, 
-        cancelable: true 
-      }));
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          altKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      );
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'clip', comment: 'Test comment' });
+      expectDialogResult(result, { action: 'clip', comment: 'Test comment' });
     });
 
     it('double-enter triggers clip action in reader mode', async () => {
@@ -223,25 +252,29 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
+
       // First Enter
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Enter', 
-        bubbles: true, 
-        cancelable: true 
-      }));
-      
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true
+        })
+      );
+
       // Second Enter within 600ms
       setTimeout(() => {
-        textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-          key: 'Enter', 
-          bubbles: true, 
-          cancelable: true 
-        }));
+        textarea.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Enter',
+            bubbles: true,
+            cancelable: true
+          })
+        );
       }, 100);
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'clip', comment: 'Test comment' });
+      expectDialogResult(result, { action: 'clip', comment: 'Test comment' });
     });
   });
 
@@ -260,20 +293,24 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       textarea.value = 'Test comment';
 
       // First Enter
-      textarea.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter',
-        bubbles: true,
-        cancelable: true
-      }));
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true
+        })
+      );
 
       // Second Enter within 600ms
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         setTimeout(() => {
-          textarea.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'Enter',
-            bubbles: true,
-            cancelable: true
-          }));
+          textarea.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              key: 'Enter',
+              bubbles: true,
+              cancelable: true
+            })
+          );
           resolve(undefined);
         }, 100);
       });
@@ -307,7 +344,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       // Trigger double-enter
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         setTimeout(() => {
           textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
           resolve(undefined);
@@ -329,7 +366,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
+
       // First double-enter to activate shortcuts
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       setTimeout(() => {
@@ -345,7 +382,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       }, 100);
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'reader', comment: 'Test comment' });
+      expectDialogResult(result, { action: 'reader', comment: 'Test comment' });
     });
 
     it('Escape cancels when shortcuts are temporarily activated', async () => {
@@ -356,7 +393,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
+
       // First double-enter to activate shortcuts
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       setTimeout(() => {
@@ -366,14 +403,16 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       await flushPromises();
 
       // Now press Escape
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Escape',
-        bubbles: true, 
-        cancelable: true 
-      }));
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true
+        })
+      );
 
       const result = await resultPromise;
-      expect(result).toEqual({ action: 'cancel', comment: '' });
+      expectDialogResult(result, { action: 'cancel', comment: '' });
     });
   });
 
@@ -386,23 +425,27 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
+
       // Shift+Enter should be ignored
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { 
-        key: 'Enter',
-        shiftKey: true,
-        bubbles: true, 
-        cancelable: true 
-      }));
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      );
 
       await flushPromises();
 
       // Dialog should still be open
       const dialogElement = document.getElementById('obsidian-clipper-dialog');
       expect(dialogElement).not.toBeNull();
-      
+
       // Clean up
-      const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>('[data-i18n="cancelButton"]');
+      const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>(
+        '[data-i18n="cancelButton"]'
+      );
       cancelBtn?.click();
     });
 
@@ -414,13 +457,13 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const textarea = getTextarea();
       textarea.value = 'Test comment';
-      
+
       // First Enter
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-      
+
       // Wait longer than timeout (600ms)
-      await new Promise(resolve => setTimeout(resolve, 700));
-      
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
       // Second Enter (should not trigger double-enter)
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
 
@@ -429,9 +472,11 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       // Dialog should still be open
       const dialogElement = document.getElementById('obsidian-clipper-dialog');
       expect(dialogElement).not.toBeNull();
-      
+
       // Clean up
-      const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>('[data-i18n="cancelButton"]');
+      const cancelBtn = getDialogRoot()?.querySelector<HTMLButtonElement>(
+        '[data-i18n="cancelButton"]'
+      );
       cancelBtn?.click();
     });
   });

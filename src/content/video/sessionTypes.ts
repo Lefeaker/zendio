@@ -7,6 +7,7 @@ export interface VideoSessionDependencies {
   viewFactory: VideoSessionViewFactory;
   optionsRepository: IOptionsRepository;
   videoRepository: IVideoRepository;
+  optionsPageUrl?: string;
   storage: {
     local: StorageAreaService;
     sync: StorageAreaService;

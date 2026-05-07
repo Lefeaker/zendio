@@ -33,10 +33,10 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
       });
     }
 
-    for (const capture of fragments) {
+    fragments.forEach((capture, fragmentIndex) => {
       items.push({
         id: capture.id,
-        index: items.length + 1,
+        index: fragmentIndex + 1,
         kind: 'fragment',
         fragmentLabel: this.buildFragmentLabel(capture.selectedText),
         fragmentUrl: capture.fragmentUrl,
@@ -44,7 +44,7 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
         commentPreview: this.buildCommentPreview(capture.comment),
         selectionPreview: capture.selectedText
       });
-    }
+    });
 
     this.view.updateCount(items.length);
     this.view.setCaptures(items);
