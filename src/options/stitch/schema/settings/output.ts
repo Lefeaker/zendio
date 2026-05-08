@@ -93,6 +93,7 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
+                  rowClassName: 'domain-mapping-table-scroll',
                   columns: ['Domain', 'Folder Alias', 'Notes', 'Actions'],
                   rows: (current) => {
                     const mappings = current.appData.output.domainMappings.length

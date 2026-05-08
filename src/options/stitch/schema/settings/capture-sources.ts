@@ -89,7 +89,11 @@ const schema: SettingsSchema = {
                   })
                 ])
               ],
-              body: [emptyState('控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。')]
+              body: [
+                emptyState(
+                  '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。灰色圆点表示该时间戳尚未保存截图，绿色圆点表示该时间戳已有截图。'
+                )
+              ]
             }
           ]
         }

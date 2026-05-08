@@ -366,6 +366,10 @@ describe('VideoSession', () => {
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
+    view?.setCaptures.mockClear();
+    view?.collapse.mockClear();
 
     await sessionApi.addCurrentTimestamp('note-input', {
       comment: 'captured frame',
@@ -387,10 +391,11 @@ describe('VideoSession', () => {
         dataUrl: 'data:image/png;base64,frame'
       }
     });
-    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
-      ?.value as TestView | undefined;
     expect(view?.stopEditing).toHaveBeenCalled();
     expect(view?.collapse).toHaveBeenCalledTimes(1);
+    expect(view?.collapse.mock.invocationCallOrder[0]).toBeLessThan(
+      view?.setCaptures.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
 
     createElementSpy.mockRestore();
     sessionApi.cleanup();
@@ -439,7 +444,7 @@ describe('VideoSession', () => {
 
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
 
-    expect(video.currentTime).toBe(42);
+    expect(video.currentTime).toBe(8);
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshot: {

@@ -41,6 +41,20 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('top: 0;');
   });
 
+  it('keeps Domain Mappings inline-scrolled and centers collapsed session headers', () => {
+    expect(stitchCss).toContain('.domain-mapping-table-scroll');
+    expect(stitchCss).toContain('max-height: 360px;');
+    expect(stitchCss).toContain('.domain-mapping-table-scroll thead th');
+    expect(stitchCss).toContain('.resource-modal--session.is-collapsed .surface-window-header');
+    expect(stitchCss).toContain('grid-template-columns: auto minmax(0, auto);');
+    expect(stitchCss).toContain('justify-content: center;');
+  });
+
+  it('uses green for active video screenshot timestamp dots', () => {
+    expect(stitchCss).toContain('.video-screenshot-toggle.is-on');
+    expect(stitchCss).toContain('background: var(--success);');
+  });
+
   it('uses polished Stitch button treatments for YAML actions and deletes', () => {
     expect(stitchCss).toContain('.yaml-action-button,');
     expect(stitchCss).toContain('.yaml-delete-button');

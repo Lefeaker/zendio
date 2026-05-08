@@ -101,6 +101,9 @@ export async function handleVideoSessionAddCapture(
   };
 
   context.state.captures.push(capture);
+  if (options.collapseAfterCapture) {
+    context.dom.collapsePanel();
+  }
   context.syncPanel();
   context.applyHint('saving');
   await saveVideoCaptures(context);
@@ -112,9 +115,6 @@ export async function handleVideoSessionAddCapture(
   }
   if (options.resumePlayback && typeof video.play === 'function') {
     void Promise.resolve(video.play()).catch(() => undefined);
-  }
-  if (options.collapseAfterCapture) {
-    context.dom.collapsePanel();
   }
   return capture;
 }
@@ -250,6 +250,7 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
 
+  const originalTime = Number.isFinite(video.currentTime) ? video.currentTime : null;
   try {
     video.currentTime = target.timeSec;
   } catch {
@@ -257,6 +258,13 @@ export async function toggleVideoSessionCaptureScreenshot(
   }
 
   const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
+  if (originalTime !== null) {
+    try {
+      video.currentTime = originalTime;
+    } catch {
+      // Keep the saved screenshot state independent from host-player seek behavior.
+    }
+  }
   if (!screenshot) {
     context.applyHint('failure');
     return;

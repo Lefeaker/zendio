@@ -128,7 +128,7 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('renders timestamp screenshot toggles as gray or orange dots', () => {
+  it('renders timestamp screenshot toggles before the timestamp as gray or green dots', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
     panel.setCaptures([
@@ -143,7 +143,12 @@ describe('VideoDialogPanel', () => {
     const on = shadow?.querySelector<HTMLButtonElement>(
       '[data-capture-id="with-shot"] [data-action-id="video:toggle-screenshot"]'
     );
+    const markerChildren = Array.from(
+      shadow?.querySelector('[data-capture-id="no-shot"] .video-timestamp-marker')?.children ?? []
+    );
 
+    expect(markerChildren[0]).toBe(off);
+    expect(markerChildren[1]?.classList.contains('session-item-marker-time')).toBe(true);
     expect(off?.classList.contains('is-off')).toBe(true);
     expect(off?.getAttribute('aria-label')).toBe('Capture screenshot');
     expect(on?.classList.contains('is-on')).toBe(true);
@@ -166,6 +171,7 @@ describe('VideoDialogPanel', () => {
     expect(callbacks.onFocusCapture).toHaveBeenCalledWith('capture-1');
 
     vi.mocked(callbacks.onFocusCapture).mockClear();
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:toggle-screenshot"]')?.click();
     shadow?.querySelector<HTMLInputElement>('[data-capture-input]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:delete"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:add"]')?.click();

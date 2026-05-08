@@ -2056,11 +2056,26 @@ code,
   overflow: auto;
 }
 
+.domain-mapping-table-scroll {
+  max-height: 360px;
+  overflow: auto;
+}
+
 .yaml-table-scroll table {
   min-width: 920px;
 }
 
+.domain-mapping-table-scroll table {
+  min-width: 760px;
+}
+
 .yaml-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sidebar);
+}
+
+.domain-mapping-table-scroll thead th {
   position: sticky;
   top: 0;
   z-index: var(--z-sidebar);
@@ -3510,6 +3525,17 @@ td {
   pointer-events: auto;
 }
 
+.resource-modal--session.is-collapsed .surface-window-header {
+  grid-template-columns: auto minmax(0, auto);
+  justify-content: center;
+  align-items: center;
+}
+
+.resource-modal--session.is-collapsed .surface-window-brand {
+  display: flex;
+  justify-content: center;
+}
+
 .resource-modal--session.is-collapsed .surface-window-subtitle,
 .resource-modal--session.is-collapsed .session-panel-collapse-trigger {
   display: none;
@@ -3625,7 +3651,7 @@ td {
 }
 
 .video-screenshot-toggle.is-on {
-  background: var(--warning);
+  background: var(--success);
 }
 
 .video-screenshot-toggle:hover,

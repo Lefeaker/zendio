@@ -42,6 +42,7 @@ export class VideoDialogPanel
   private editingCaptureId: string | null = null;
   private editingDraft = '';
   private collapsed = false;
+  private keepCollapsedForNextCaptureUpdate = false;
 
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
@@ -100,9 +101,14 @@ export class VideoDialogPanel
       this.texts = { ...this.texts, hint: payload.hint };
     }
     if (payload.captures) {
-      if (this.collapsed && payload.captures.length > this.captures.length) {
+      if (
+        this.collapsed &&
+        payload.captures.length > this.captures.length &&
+        !this.keepCollapsedForNextCaptureUpdate
+      ) {
         this.collapsed = false;
       }
+      this.keepCollapsedForNextCaptureUpdate = false;
       this.captures = [...payload.captures];
       this.captureCount = payload.captures.length;
     }
@@ -134,9 +140,14 @@ export class VideoDialogPanel
   }
 
   setCaptures(captures: VideoPanelCapture[]): void {
-    if (this.collapsed && captures.length > this.captures.length) {
+    if (
+      this.collapsed &&
+      captures.length > this.captures.length &&
+      !this.keepCollapsedForNextCaptureUpdate
+    ) {
       this.collapsed = false;
     }
+    this.keepCollapsedForNextCaptureUpdate = false;
     this.captures = [...captures];
     this.captureCount = captures.length;
     this.rerender();
@@ -164,6 +175,7 @@ export class VideoDialogPanel
 
   collapse(): void {
     this.collapsed = true;
+    this.keepCollapsedForNextCaptureUpdate = true;
     this.rerender();
   }
 

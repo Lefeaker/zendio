@@ -285,10 +285,6 @@ function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): Nod
 function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
   const hasScreenshot = Boolean(capture.hasScreenshot);
   return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
-    element('span', {
-      className: classNames.session.markerTime,
-      text: capture.markerLabel ?? capture.summary
-    }),
     element('button', {
       className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
       type: 'button',
@@ -299,6 +295,10 @@ function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
         screenshotState: hasScreenshot ? 'on' : 'off'
       },
       onClick: { id: 'video:toggle-screenshot' }
+    }),
+    element('span', {
+      className: classNames.session.markerTime,
+      text: capture.markerLabel ?? capture.summary
     })
   ]);
 }

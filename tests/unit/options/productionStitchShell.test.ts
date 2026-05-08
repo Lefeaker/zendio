@@ -548,6 +548,7 @@ describe('mountProductionStitchShell', () => {
 
     const card = findCardByTitle('Domain Mappings');
     expect(card.querySelector('table')).toBeTruthy();
+    expect(card.querySelector('.domain-mapping-table-scroll')).toBeTruthy();
     expect(card.querySelector('thead')?.textContent).toContain('Domain');
     const values = Array.from(card.querySelectorAll<HTMLInputElement>('input')).map(
       (input) => input.value
@@ -602,6 +603,8 @@ describe('mountProductionStitchShell', () => {
     const toolbar = header?.querySelector<HTMLElement>('.toolbar');
     expect(toolbar?.textContent).toContain('在视频网站显示笔记按钮');
     expect(toolbar?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
+    expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
     expect(card.querySelector('.row')?.textContent ?? '').not.toContain('在视频网站显示笔记按钮');
   });
 
