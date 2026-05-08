@@ -6,6 +6,7 @@ import type { PageI18nController, Messages } from '../../src/i18n';
 import { partialOf } from '../utils/typeHelpers';
 import {
   MockClipRepository,
+  MockOptionsRepository,
   MockVideoRepository,
   MockReaderRepository,
   MockNavigationRepository
@@ -154,6 +155,10 @@ afterAll(() => {
 
 beforeAll(async () => {
   repositoryContainer.reset();
+  repositoryContainer.registerSingleton(
+    DI_TOKENS.IOptionsRepository,
+    () => new MockOptionsRepository()
+  );
   repositoryContainer.registerSingleton(
     DI_TOKENS.IReaderRepository,
     () => new MockReaderRepository()

@@ -4,14 +4,12 @@ import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
-import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
 const prod = args.includes('--mode=prod') || args.includes('--prod');
 const skipChecks = args.includes('--skip-checks');
 const firefox = args.includes('--firefox');
-const buildCommandEnv = createCleanCliEnv({ NODE_OPTIONS: process.env.NODE_OPTIONS ?? '' });
 
 function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
@@ -22,16 +20,6 @@ if (prod && !skipChecks && !watch) {
   console.log('🔍 运行质量检查...');
   await runQualityChecks();
   console.log('');
-}
-
-const { execSync } = await import('child_process');
-// Build Global Tailwind (in all modes)
-console.log('🎨 Building Global Tailwind...');
-try {
-  execSync('npm run tailwind:build:global', { stdio: 'inherit', env: buildCommandEnv });
-} catch (error) {
-  console.error('❌ Global Tailwind build failed:', error);
-  process.exit(1);
 }
 
 await rm('build/dist', { recursive: true, force: true });
@@ -123,8 +111,6 @@ await cp('public', 'build/dist', { recursive: true });
 // Copy styles
 await mkdir('build/dist/styles', { recursive: true });
 await cp('src/styles/design-tokens.css', 'build/dist/styles/design-tokens.css');
-
-await cp('src/styles/global.tailwind.css', 'build/dist/styles/global.tailwind.css');
 try {
   await mkdir('build/dist/styles/clipper', { recursive: true });
   await cp(

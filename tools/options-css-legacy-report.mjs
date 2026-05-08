@@ -7,10 +7,7 @@ const ROOTS = ['src/options'];
 const INCLUDED_EXTS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.html', '.css', '.scss']);
 
 const IGNORE_PATHS = new Set(
-  [
-    'src/options/aob-option-preview.html',
-    'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html'
-  ].map((p) => path.resolve(p))
+  ['docs/archive/legacy-options-assets/obsidian-hybrid-preview.html'].map((p) => path.resolve(p))
 );
 
 const legacyMap = new Map();

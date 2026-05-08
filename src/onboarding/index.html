@@ -1,201 +1,275 @@
 <!doctype html>
 <html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>All in Ob – 欢迎使用</title>
+    <link rel="stylesheet" href="../options/stitch/styles/stitch.css" />
+    <link rel="stylesheet" href="../options/stitch/styles/variants/stitch-secondary.css" />
+  </head>
 
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All in Ob – 欢迎使用</title>
-  <link rel="stylesheet" href="../styles/design-tokens.css">
-  <link rel="stylesheet" href="../styles/global.tailwind.css">
-</head>
-
-<body data-route="onboarding">
-  <div class="progress-indicator">
-    <div class="progress-bar" id="progressBar"></div>
-  </div>
-
-  <div class="onboarding-container">
-    <!-- 头部欢迎区域 -->
-    <div class="onboarding-header">
-      <img src="../icons/bannerlogo-128.png" alt="All in Ob Logo">
-      <h1 data-i18n="onboardingTitle">欢迎使用 All in Ob</h1>
-      <p class="subtitle" data-i18n="onboardingSubtitle">让我们快速配置您的剪藏插件</p>
-      <p class="welcome-message" data-i18n="onboardingWelcomeMessage">
-        感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。
-      </p>
+  <body data-route="onboarding" data-preview-skin="stitch-secondary" data-preview-theme="dark">
+    <div class="progress-indicator">
+      <div class="progress-bar" id="progressBar"></div>
     </div>
 
-    <!-- 引导步骤 -->
-    <div class="onboarding-steps">
-      <!-- 步骤 1: 配置 Local REST API -->
-      <div class="onboarding-step" id="step1">
-        <div class="step-header">
-          <div class="step-number"><span>1</span></div>
-          <h2 class="step-title" data-i18n="step1Title">配置 Obsidian Local REST API</h2>
-        </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="step1Description">
-            首先需要在 Obsidian 中安装并配置 Local REST API 插件，这是连接插件与 Obsidian 的桥梁。
-          </p>
-          <div class="step-details">
-
-            <ul>
-              <li data-i18n="step1Detail1">在 Obsidian 中安装并启用 "Local REST API" 插件</li>
-              <li data-i18n="step1Detail2">打开插件中的 Enable Non-encrypted (HTTP) Server</li>
-              <li data-i18n="step1Detail3">记录 HTTPS URL（通常是 https://127.0.0.1:27124）</li>
-              <li data-i18n="step1Detail4">记录 HTTP URL（通常是 http://127.0.0.1:27123）</li>
-              <li data-i18n="step1Detail5">记录您的 Obsidian 仓库名称，copy Local REST API 的 API 密钥</li>
-              <li data-i18n="step1Detail6">将以上信息填入插件里，并进行连接测试</li>
-            </ul>
-          </div>
-          <div class="step-action">
-            <button type="button" id="configureApiBtn" data-i18n="step1ActionPrimary">前往配置 API</button>
-            <button type="button" class="secondary" id="skipStep1Btn" data-i18n="step1ActionSecondary">稍后配置</button>
-          </div>
-        </div>
+    <div class="onboarding-container">
+      <!-- 头部欢迎区域 -->
+      <div class="onboarding-header">
+        <img src="../icons/bannerlogo-128.png" alt="All in Ob Logo" />
+        <h1 data-i18n="onboardingTitle">欢迎使用 All in Ob</h1>
+        <p class="subtitle" data-i18n="onboardingSubtitle">让我们快速配置您的剪藏插件</p>
+        <p class="welcome-message" data-i18n="onboardingWelcomeMessage">
+          感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI
+          对话保存到 Obsidian 中。
+        </p>
       </div>
 
-      <!-- 步骤 2: 配置额外仓库 -->
-      <div class="onboarding-step" id="step2">
-        <div class="step-header">
-          <div class="step-number"><span>2</span></div>
-          <h2 class="step-title" data-i18n="step2Title">配置额外仓库（可选）</h2>
-        </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="step2Description">
-            如果您有多个 Obsidian 仓库，可以配置额外仓库并设置路由规则，让不同类型的内容自动保存到对应的仓库中。
-          </p>
-          <div class="step-details">
-
-            <ul>
-              <li data-i18n="step2Detail1">仓库配置方法和上面一致</li>
-              <li data-i18n="step2Detail2">可根据域名、关键词或 URL 模式设置路由规则：将特定域名或含有特定关键词的内容保存到额外仓库中</li>
-              <li data-i18n="step2Detail3">不符合规则的内容会保存到默认仓库</li>
-            </ul>
+      <!-- 引导步骤 -->
+      <div class="onboarding-steps">
+        <!-- 步骤 1: 配置 Local REST API -->
+        <div class="onboarding-step" id="step1">
+          <div class="step-header">
+            <div class="step-number"><span>1</span></div>
+            <h2 class="step-title" data-i18n="step1Title">配置 Obsidian Local REST API</h2>
           </div>
-          <div class="step-action">
-            <button type="button" id="configureVaultsBtn" data-i18n="step2ActionPrimary">配置额外仓库</button>
-            <button type="button" class="secondary" id="skipStep2Btn" data-i18n="step2ActionSecondary">跳过此步骤</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 步骤 3: 主要功能 -->
-      <div class="onboarding-step" id="step3">
-        <div class="step-header">
-          <div class="step-number"><span>3</span></div>
-          <h2 class="step-title" data-i18n="step3Title">主要功能</h2>
-        </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="step3Description">
-            让我们快速了解一下插件的主要功能，帮助您更好地使用插件。
-          </p>
-          <div class="step-details">
-
-
-            <div class="feature-section">
-              <h5 data-i18n="step3Section1Title">网页剪藏</h5>
+          <div class="step-content">
+            <p class="step-description" data-i18n="step1Description">
+              首先需要在 Obsidian 中安装并配置 Local REST API 插件，这是连接插件与 Obsidian 的桥梁。
+            </p>
+            <div class="step-details">
               <ul>
-                <li data-i18n="step3Section1Detail1">点击网页空白处，即可剪藏整个网页（请等待网页加载完毕，并滚动网页使得图片资源完全加载）</li>
-                <li data-i18n="step3Section1Detail2">自动识别主流 AI 聊天对话，格式化保存 AI 对话记录</li>
+                <li data-i18n="step1Detail1">在 Obsidian 中安装并启用 "Local REST API" 插件</li>
+                <li data-i18n="step1Detail2">打开插件中的 Enable Non-encrypted (HTTP) Server</li>
+                <li data-i18n="step1Detail3">记录 HTTPS URL（通常是 https://127.0.0.1:27124）</li>
+                <li data-i18n="step1Detail4">记录 HTTP URL（通常是 http://127.0.0.1:27123）</li>
+                <li data-i18n="step1Detail5">
+                  记录您的 Obsidian 仓库名称，copy Local REST API 的 API 密钥
+                </li>
+                <li data-i18n="step1Detail6">将以上信息填入插件里，并进行连接测试</li>
               </ul>
             </div>
-
-            <div class="feature-section">
-              <h5 data-i18n="step3Section2Title">剪藏/阅读模式</h5>
-              <ul>
-                <li data-i18n="step3Section2Detail1">选中文本后右键，或打开辅助键后，按下辅助键选择内容，即可对内容进行评论，并将选中内容与批注一起保存到obsidian里</li>
-                <li data-i18n="step3Section2Detail2">亦可进入阅读模式，在同一页面中选取多个片段进行评论，一同保存到obsidian里</li>
-                <li data-i18n="step3Section2Detail3">阅读模式中根据页面排布，自动排列文字片段顺序，点击选中文字的序号，一键定位</li>
-                <li data-i18n="step3Section2Detail4">阅读模式可保存全文到 obsidian 里，选中内容以高亮形式显示</li>
-                <li data-i18n="step3Section2Detail5">无论片段还是阅读模式选中内容，保存页面精准链接，随时一键返回网页位置</li>
-                <li data-i18n="step3Section2Detail6">在 obsidian 里安装 sidebar highlights 插件，查看批注内容更方便</li>
-              </ul>
-            </div>
-
-            <div class="feature-section">
-              <h5 data-i18n="step3Section3Title">视频模式</h5>
-              <ul>
-                <li data-i18n="step3Section3Detail1">YouTube 或 bilibili 适配播放页面，打开视频模式，随时记录视频时间点并添加笔记</li>
-                <li data-i18n="step3Section3Detail2">点击时间点旁边的序号，一键定位反复观看</li>
-                <li data-i18n="step3Section3Detail3">勾选页面文字，精彩评论，一键捕捉</li>
-                <li data-i18n="step3Section3Detail4">保存到obsidian 后，随时一键回溯视频精准时间点</li>
-              </ul>
+            <div class="step-action">
+              <button type="button" id="configureApiBtn" data-i18n="step1ActionPrimary">
+                前往配置 API
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="skipStep1Btn"
+                data-i18n="step1ActionSecondary"
+              >
+                稍后配置
+              </button>
             </div>
           </div>
-          <div class="step-action">
-            <button type="button" id="exploreSettingsBtn" data-i18n="step3ActionPrimary">查看详细设置</button>
-            <button type="button" class="secondary" id="skipStep3Btn" data-i18n="step3ActionSecondary">稍后了解</button>
+        </div>
+
+        <!-- 步骤 2: 配置额外仓库 -->
+        <div class="onboarding-step" id="step2">
+          <div class="step-header">
+            <div class="step-number"><span>2</span></div>
+            <h2 class="step-title" data-i18n="step2Title">配置额外仓库（可选）</h2>
+          </div>
+          <div class="step-content">
+            <p class="step-description" data-i18n="step2Description">
+              如果您有多个 Obsidian
+              仓库，可以配置额外仓库并设置路由规则，让不同类型的内容自动保存到对应的仓库中。
+            </p>
+            <div class="step-details">
+              <ul>
+                <li data-i18n="step2Detail1">仓库配置方法和上面一致</li>
+                <li data-i18n="step2Detail2">
+                  可根据域名、关键词或 URL
+                  模式设置路由规则：将特定域名或含有特定关键词的内容保存到额外仓库中
+                </li>
+                <li data-i18n="step2Detail3">不符合规则的内容会保存到默认仓库</li>
+              </ul>
+            </div>
+            <div class="step-action">
+              <button type="button" id="configureVaultsBtn" data-i18n="step2ActionPrimary">
+                配置额外仓库
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="skipStep2Btn"
+                data-i18n="step2ActionSecondary"
+              >
+                跳过此步骤
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 步骤 3: 主要功能 -->
+        <div class="onboarding-step" id="step3">
+          <div class="step-header">
+            <div class="step-number"><span>3</span></div>
+            <h2 class="step-title" data-i18n="step3Title">主要功能</h2>
+          </div>
+          <div class="step-content">
+            <p class="step-description" data-i18n="step3Description">
+              让我们快速了解一下插件的主要功能，帮助您更好地使用插件。
+            </p>
+            <div class="step-details">
+              <div class="feature-section">
+                <h5 data-i18n="step3Section1Title">网页剪藏</h5>
+                <ul>
+                  <li data-i18n="step3Section1Detail1">
+                    点击网页空白处，即可剪藏整个网页（请等待网页加载完毕，并滚动网页使得图片资源完全加载）
+                  </li>
+                  <li data-i18n="step3Section1Detail2">
+                    自动识别主流 AI 聊天对话，格式化保存 AI 对话记录
+                  </li>
+                </ul>
+              </div>
+
+              <div class="feature-section">
+                <h5 data-i18n="step3Section2Title">剪藏/阅读模式</h5>
+                <ul>
+                  <li data-i18n="step3Section2Detail1">
+                    选中文本后右键，或打开辅助键后，按下辅助键选择内容，即可对内容进行评论，并将选中内容与批注一起保存到obsidian里
+                  </li>
+                  <li data-i18n="step3Section2Detail2">
+                    亦可进入阅读模式，在同一页面中选取多个片段进行评论，一同保存到obsidian里
+                  </li>
+                  <li data-i18n="step3Section2Detail3">
+                    阅读模式中根据页面排布，自动排列文字片段顺序，点击选中文字的序号，一键定位
+                  </li>
+                  <li data-i18n="step3Section2Detail4">
+                    阅读模式可保存全文到 obsidian 里，选中内容以高亮形式显示
+                  </li>
+                  <li data-i18n="step3Section2Detail5">
+                    无论片段还是阅读模式选中内容，保存页面精准链接，随时一键返回网页位置
+                  </li>
+                  <li data-i18n="step3Section2Detail6">
+                    在 obsidian 里安装 sidebar highlights 插件，查看批注内容更方便
+                  </li>
+                </ul>
+              </div>
+
+              <div class="feature-section">
+                <h5 data-i18n="step3Section3Title">视频模式</h5>
+                <ul>
+                  <li data-i18n="step3Section3Detail1">
+                    YouTube 或 bilibili 适配播放页面，打开视频模式，随时记录视频时间点并添加笔记
+                  </li>
+                  <li data-i18n="step3Section3Detail2">点击时间点旁边的序号，一键定位反复观看</li>
+                  <li data-i18n="step3Section3Detail3">勾选页面文字，精彩评论，一键捕捉</li>
+                  <li data-i18n="step3Section3Detail4">
+                    保存到obsidian 后，随时一键回溯视频精准时间点
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="step-action">
+              <button type="button" id="exploreSettingsBtn" data-i18n="step3ActionPrimary">
+                查看详细设置
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="skipStep3Btn"
+                data-i18n="step3ActionSecondary"
+              >
+                稍后了解
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 步骤 4: 辅助功能 -->
+        <div class="onboarding-step" id="step4">
+          <div class="step-header">
+            <div class="step-number"><span>4</span></div>
+            <h2 class="step-title" data-i18n="step4Title">辅助功能</h2>
+          </div>
+          <div class="step-content">
+            <p class="step-description" data-i18n="step4Description">
+              插件还提供了多种辅助功能，让您的使用体验更加便捷。
+            </p>
+            <div class="step-details">
+              <ul>
+                <li data-i18n="step4Detail1">
+                  同一设备多个浏览器，一键复制当前配置，粘贴同步，无需重复设置
+                </li>
+                <li data-i18n="step4Detail2">域名映射：将常用网站映射为友好的文件夹名称</li>
+                <li data-i18n="step4Detail3">自定义路径配置，根据需要调整路径</li>
+                <li data-i18n="step4Detail4">智能诊断：配置有问题？智能诊断，快速排查</li>
+              </ul>
+            </div>
+            <div class="step-action">
+              <button type="button" id="exploreAuxiliaryBtn" data-i18n="step4ActionPrimary">
+                查看详细设置
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="skipStep4Btn"
+                data-i18n="step4ActionSecondary"
+              >
+                稍后了解
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 步骤 5: 更多精彩，持续迭代 -->
+        <div class="onboarding-step" id="step5">
+          <div class="step-header">
+            <div class="step-number"><span>5</span></div>
+            <h2 class="step-title" data-i18n="step5Title">更多精彩，持续迭代</h2>
+          </div>
+          <div class="step-content">
+            <p class="step-description" data-i18n="step5Description">
+              插件正在不断发展，为您带来更多智能化功能。
+            </p>
+            <div class="step-details">
+              <ul>
+                <li data-i18n="step5Detail1">引入 AI 功能，让丝滑，更智能</li>
+                <li data-i18n="step5Detail2">
+                  双向交互，不再只能保存笔记，更是浏览器与 obsidian 的桥梁
+                </li>
+                <li data-i18n="step5Detail3">欢迎提出建议，开发不易，感谢支持</li>
+              </ul>
+            </div>
+            <div class="footer-links">
+              <a href="#" id="suggestionsLink" class="footer-link" data-i18n="footerSuggestionsLink"
+                >提出建议</a
+              >
+              <a href="#" id="supportLink" class="footer-link" data-i18n="footerSupportLink"
+                >感谢支持</a
+              >
+              <a href="#" id="contactLink" class="footer-link" data-i18n="footerContactLink"
+                >联系作者</a
+              >
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 步骤 4: 辅助功能 -->
-      <div class="onboarding-step" id="step4">
-        <div class="step-header">
-          <div class="step-number"><span>4</span></div>
-          <h2 class="step-title" data-i18n="step4Title">辅助功能</h2>
+      <!-- 底部操作区 -->
+      <div class="onboarding-footer">
+        <div class="footer-actions">
+          <button type="button" class="secondary" id="skipOnboardingBtn" data-i18n="skipOnboarding">
+            跳过引导
+          </button>
+          <button
+            type="button"
+            id="completeOnboardingBtn"
+            class="hidden"
+            data-i18n="completeOnboarding"
+          >
+            完成引导
+          </button>
         </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="step4Description">
-            插件还提供了多种辅助功能，让您的使用体验更加便捷。
-          </p>
-          <div class="step-details">
-
-            <ul>
-              <li data-i18n="step4Detail1">同一设备多个浏览器，一键复制当前配置，粘贴同步，无需重复设置</li>
-              <li data-i18n="step4Detail2">域名映射：将常用网站映射为友好的文件夹名称</li>
-              <li data-i18n="step4Detail3">自定义路径配置，根据需要调整路径</li>
-              <li data-i18n="step4Detail4">智能诊断：配置有问题？智能诊断，快速排查</li>
-            </ul>
-          </div>
-          <div class="step-action">
-            <button type="button" id="exploreAuxiliaryBtn" data-i18n="step4ActionPrimary">查看详细设置</button>
-            <button type="button" class="secondary" id="skipStep4Btn" data-i18n="step4ActionSecondary">稍后了解</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 步骤 5: 更多精彩，持续迭代 -->
-      <div class="onboarding-step" id="step5">
-        <div class="step-header">
-          <div class="step-number"><span>5</span></div>
-          <h2 class="step-title" data-i18n="step5Title">更多精彩，持续迭代</h2>
-        </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="step5Description">
-            插件正在不断发展，为您带来更多智能化功能。
-          </p>
-          <div class="step-details">
-
-            <ul>
-              <li data-i18n="step5Detail1">引入 AI 功能，让丝滑，更智能</li>
-              <li data-i18n="step5Detail2">双向交互，不再只能保存笔记，更是浏览器与 obsidian 的桥梁</li>
-              <li data-i18n="step5Detail3">欢迎提出建议，开发不易，感谢支持</li>
-            </ul>
-          </div>
-          <div class="footer-links">
-            <a href="#" id="suggestionsLink" class="footer-link" data-i18n="footerSuggestionsLink">提出建议</a>
-            <a href="#" id="supportLink" class="footer-link" data-i18n="footerSupportLink">感谢支持</a>
-            <a href="#" id="contactLink" class="footer-link" data-i18n="footerContactLink">联系作者</a>
-          </div>
-        </div>
+        <p class="footer-note" data-i18n="onboardingFooterNote">
+          您可以随时在设置页面中重新配置这些选项。
+        </p>
       </div>
     </div>
 
-    <!-- 底部操作区 -->
-    <div class="onboarding-footer">
-      <div class="footer-actions">
-        <button type="button" class="secondary" id="skipOnboardingBtn" data-i18n="skipOnboarding">跳过引导</button>
-        <button type="button" id="completeOnboardingBtn" class="hidden" data-i18n="completeOnboarding">完成引导</button>
-      </div>
-      <p class="footer-note" data-i18n="onboardingFooterNote">
-        您可以随时在设置页面中重新配置这些选项。
-      </p>
-    </div>
-  </div>
-
-  <script type="module" src="index.js"></script>
-</body>
-
+    <script type="module" src="index.js"></script>
+  </body>
 </html>

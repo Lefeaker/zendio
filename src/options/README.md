@@ -30,7 +30,7 @@
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
 - 需要实验性样式时，在 README / PR 中写明范围与回滚方式，并确保 `npm run report:options-legacy` 通过。
-- ⚠️ Tailwind 迁移已完成：请遵循 `docs/251126-design-system-poc/tailwind-css-migration/251122tailwind_css_migration/tailwind-migration-guide.md` 进行开发。所有新样式应优先使用 Tailwind Utility。
+- Tailwind / DaisyUI 构建链路已退出主线；新增或修改样式必须落在 Stitch schema / renderer / `stitch/styles/`，不得恢复 Tailwind 配置、CLI 脚本或旧 CSS bridge。
 
 ### 0.3 必跑命令
 
@@ -83,12 +83,12 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 - 懒加载/自动保存/I18n 等运行时问题详见 §6《常见问题》。
 - 暗色模式不生效：检查是否复用 Token、Utility，并参考 `docs/options-style-validation-guide.md`。
-- Tailwind 迁移进度：跟踪 `docs/tailwind-pre-migration-check.md`、`docs/tailwind-migration-guide.md`，并在 PR 中说明是否影响迁移节奏。
+- Stitch 样式异常：先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否覆盖当前 surface，再检查构建产物中的静态 CSS 路径。
 
 ### 0.6 任务前置指南
 
 - 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
-- `docs/251126-design-system-poc/archived/tailwind-migration/251120/` 目录包含四份「1-...~4-...」分步指南，依赖关系与 Agent/README 已同步，请严格按顺序推进。
+- 旧 Tailwind 迁移材料只保留在归档文档中用于追溯，不再作为新开发指南或验收依据。
 
 ---
 
@@ -193,7 +193,7 @@ src/options/
   - `.aobx-table`: 标准表格样式。
   - `.aobx-button-row`: 行内按钮布局工具。
   - `.aobx-chip` / `.aobx-chip-btn`: Tag/Chip 控件样式。
-  - **注意**: 尽量复用以上组件，减少手写重复样式，并在 Tailwind 迁移前保持语义一致。
+  - **注意**: 尽量复用以上组件，减少手写重复样式，并保持 Stitch schema、renderer 与 CSS 真值一致。
 - **历史背景/参考**：此次治理的阶段性记录已归档到 `trash/options-css-*`（Batch1/2/Legacy Removal 等）。如需了解迁移缘由，可查阅历史 PR 或 `trash/options-css-consolidation-guide.md`。
 - **验证命令示例**：
   ```bash
@@ -226,7 +226,7 @@ src/options/
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：运行 `ensureDeclarativeI18nController()` 后调用 `section.setMessages(messages)`；对于静态模板应检查 `data-i18n` 是否配置正确。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
-- **Tailwind 迁移影响**：若新增 Utility 计划在 Tailwind 中复用，请在 PR 描述与 `docs/tailwind-pre-migration-check.md` 中登记，避免迁移任务遗漏最新抽象。
+- **Stitch 样式未生效**：确认页面或 runtime surface 是否加载 `stitch.css` 与 `stitch-secondary.css`，并检查是否遗漏对应 schema slot 或 renderer class。
 
 ---
 

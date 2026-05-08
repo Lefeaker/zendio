@@ -9,7 +9,7 @@
 - **动机**：旧版 Options 页面为巨型 HTML + 全局脚本，存在 DOM/逻辑强耦合、维护困难、性能体验不佳等问题。
 - **核心目标**：
   1. **组件化**：每个设置区块由独立 TypeScript Section 托管，具备完整生命周期。
-  2. **设计一致**：对齐 `aob-option-preview` 的样式规范，替换旧 `options-*` 样式。
+  2. **设计一致**：对齐当期 Options 预览规范，替换旧 `options-*` 样式。
   3. **性能与稳定**：为懒加载、自动保存、测试回归打基础。
   4. **可验证性**：补齐单元与端到端测试，接入 CI/CD。
 
@@ -49,7 +49,7 @@
 
 ### 3.4 样式 & 设计对齐
 
-- 新增 `options-aob.css`，统一 `.aob-*` 命名；移除大部分旧 `options-*` 样式（2025-10）。  
+- 新增 `options-aob.css`，统一 `.aob-*` 命名；移除大部分旧 `options-*` 样式（2025-10）。
 - 2025-11-08 完成 CSS Consolidation 后，`options-aob.css` 删除，`aob-options.css` 成为唯一 Options 页面样式文件。
 - `options/index.html` 套用 preview 布局，Sidebar + Content 结构与设计稿一致。
 - 优化阴影、按钮、表单控件样式，适配浅/深色主题；保留响应式基础（后续可再增强）。
@@ -83,22 +83,22 @@
 
 ## 6. 附录：相关文件索引
 
-- 架构与入口  
-  - `src/options/app/bootstrap.ts`  
-  - `src/options/components/layout/OptionsApp.ts`  
+- 架构与入口
+  - `src/options/app/bootstrap.ts`
+  - `src/options/components/layout/OptionsApp.ts`
   - `src/options/components/layout/MainContent.ts`
-- Section 示例  
-  - `src/options/components/sections/FragmentSection.ts`  
+- Section 示例
+  - `src/options/components/sections/FragmentSection.ts`
   - `src/options/components/sections/TemplatesSection.ts`
-- Helper 与服务  
-  - `src/options/components/controls/domainMappings.ts`  
-  - `src/options/components/controls/yamlConfigTable.ts`  
+- Helper 与服务
+  - `src/options/components/controls/domainMappings.ts`
+  - `src/options/components/controls/yamlConfigTable.ts`
   - `src/options/components/sectionRegistry.ts`
-- 测试  
-  - `tests/unit/options/sections/*.test.ts`  
-  - `tests/unit/options/layout/MainContent.test.ts`  
+- 测试
+  - `tests/unit/options/sections/*.test.ts`
+  - `tests/unit/options/layout/MainContent.test.ts`
   - `tests/e2e/optionsFragmentAutoSave.test.ts`
-- CI  
+- CI
   - `.github/workflows/ci.yml`
 
 ---

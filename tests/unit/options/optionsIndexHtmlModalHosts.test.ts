@@ -39,4 +39,15 @@ describe('options index modal hosts', () => {
       expect(builtSource).not.toContain('./styles/tailwind.css');
     }
   });
+
+  it('loads onboarding from Stitch styles without the retired global bridge', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/onboarding/index.html'), 'utf8');
+
+    expect(source).toContain('../options/stitch/styles/stitch.css');
+    expect(source).toContain('../options/stitch/styles/variants/stitch-secondary.css');
+    expect(source).toContain('data-route="onboarding"');
+    expect(source).toContain('data-preview-skin="stitch-secondary"');
+    expect(source).not.toContain('../styles/global.tailwind.css');
+    expect(source).not.toContain('../styles/design-tokens.css');
+  });
 });

@@ -108,7 +108,7 @@
 
 - `Options`：`src/options/stitch/styles/stitch.css` + `src/options/stitch/styles/variants/stitch-secondary.css`
 - `content runtime`：`src/options/stitch/styles/stitch.css` + `src/options/stitch/styles/variants/stitch-secondary.css` 通过 shadow style host 注入；Reader / Clipper / Video runtime 不再加载 `clipper.tailwind.css` 或 `video.tailwind.css`
-- `onboarding / preview global`：`src/styles/design-tokens.css` + `src/styles/global.tailwind.css`
+- `onboarding`：`src/options/stitch/styles/stitch.css` + `src/options/stitch/styles/variants/stitch-secondary.css`
 - `reader highlight themes`：`src/styles/clipper/highlight-themes.css`
 - shadow 样式桥：`src/ui/foundation/style-host/index.ts`
 
