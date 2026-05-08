@@ -40,7 +40,7 @@ describe('video listener scope jsdom fixtures', () => {
     vi.clearAllMocks();
   });
 
-  it('inserts one YouTube control-bar logo and opens the panel from the logo', () => {
+  it('inserts one YouTube control-bar logo and opens the add-note popover from the logo', () => {
     document.body.innerHTML = '<div class="ytp-right-controls"></div>';
     const onPrimaryAction = vi.fn(() => {
       const panel = document.createElement('section');
@@ -54,6 +54,10 @@ describe('video listener scope jsdom fixtures', () => {
         url: 'https://www.youtube.com/watch?v=abc',
         label: 'Clip video',
         shortcut: 'Alt+V',
+        preferences: {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: false
+        },
         onPrimaryAction
       })
     ).toBe(true);
@@ -67,7 +71,26 @@ describe('video listener scope jsdom fixtures', () => {
       'translateY(0)'
     );
     button?.click();
-    expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+    expect(onPrimaryAction).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-aiob-video-control-bar-popover="true"]')).toBeTruthy();
+
+    const screenshotToggle = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        '[data-aiob-video-control-bar-popover="true"] input[type="checkbox"]'
+      )
+    ).find((input) => input.dataset.preference === 'captureScreenshotEnabled');
+    expect(screenshotToggle).toBeTruthy();
+    screenshotToggle!.checked = true;
+    screenshotToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+
+    document
+      .querySelector<HTMLButtonElement>('[data-aiob-video-control-bar-action="add-note"]')
+      ?.click();
+
+    expect(onPrimaryAction).toHaveBeenCalledWith({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
     expect(document.querySelector('[data-stitch-surface="video"]')).toBeTruthy();
   });
 

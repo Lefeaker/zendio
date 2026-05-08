@@ -37,6 +37,7 @@ import { previewUi } from '@options/stitch/ui/components';
 import { previewContent } from '@options/stitch/content';
 import { normalizeOptionsForTransfer } from '@options/utils/optionsTransfer';
 import { YamlConfigWidget } from '@options/widgets';
+import { prepareHistory } from '@options/widgets/shared/usage/usageDashboard.utils';
 import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
 import {
   getAnalyticsConfigManager,
@@ -502,7 +503,7 @@ function usageStatsToOverview(usageStats: UsageStats): PreviewContent['overview'
       { label: 'Reading + Video + Fragment', value: usageStats.fragmentSaves },
       { label: 'Articles', value: usageStats.articleSaves }
     ],
-    history: usageStats.history.map((entry) => ({
+    history: prepareHistory(usageStats).map((entry) => ({
       label: usageHistoryLabel(entry.date),
       value: entry.aiChat + entry.fragment + entry.article
     }))
@@ -640,7 +641,6 @@ function localizeStitchContent(content: PreviewContent, language: string): Previ
     'capture-sources': '采集来源',
     'capture-behavior': '采集行为',
     output: '输出与元数据',
-    experimental: '实验功能',
     maintenance: '维护'
   };
   const resourceLabels: Record<string, string> = {
@@ -687,11 +687,7 @@ function localizeStitchContent(content: PreviewContent, language: string): Previ
       ...content.captureBehavior,
       hero: { ...content.captureBehavior.hero, title: '采集行为' }
     },
-    output: { ...content.output, hero: { ...content.output.hero, title: '输出与元数据' } },
-    experimental: {
-      ...content.experimental,
-      hero: { ...content.experimental.hero, title: '实验功能' }
-    }
+    output: { ...content.output, hero: { ...content.output.hero, title: '输出与元数据' } }
   };
 }
 

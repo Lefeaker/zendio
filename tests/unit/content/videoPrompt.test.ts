@@ -46,6 +46,8 @@ type VideoOptionsStub = {
   promptButtonLabel: string;
   promptShortcut: string;
   promptPosition: PromptPosition;
+  controlBarAutoPause: boolean;
+  controlBarScreenshot: boolean;
 };
 
 type StorageChangeSnapshot = {
@@ -84,6 +86,10 @@ type RuntimeStub = {
 type VideoRepositoryStub = {
   getVideoConfig: () => Promise<VideoOptionsStub>;
   savePromptPosition: (position: PromptPosition) => Promise<void>;
+  saveControlBarPreferences: (preferences: {
+    autoPauseEnabled: boolean;
+    captureScreenshotEnabled: boolean;
+  }) => Promise<void>;
   getPromptPosition: () => Promise<PromptPosition | null>;
   sendVideoClip: ReturnType<typeof vi.fn>;
   onConfigChange: (callback: (config: VideoOptionsStub) => void) => () => void;
@@ -145,14 +151,27 @@ vi.mock('../../../src/content/video/videoPromptObserver', () => ({
 }));
 
 const ensureVideoControlBarButtonMock = vi.hoisted(() =>
-  vi.fn((options: { doc: Document; onPrimaryAction(): void }) => {
-    const button = options.doc.createElement('button');
-    button.className = 'aiob-video-control-bar-button';
-    button.dataset.aiobVideoControlBarButton = 'true';
-    button.addEventListener('click', options.onPrimaryAction);
-    options.doc.body.appendChild(button);
-    return true;
-  })
+  vi.fn(
+    (options: {
+      doc: Document;
+      preferences: { autoPauseEnabled: boolean; captureScreenshotEnabled: boolean };
+      onPreferencesChange(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
+      onPrimaryAction(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
+    }) => {
+      const button = options.doc.createElement('button');
+      button.className = 'aiob-video-control-bar-button';
+      button.dataset.aiobVideoControlBarButton = 'true';
+      button.addEventListener('click', () => options.onPrimaryAction(options.preferences));
+      options.doc.body.appendChild(button);
+      return true;
+    }
+  )
 );
 const removeVideoControlBarButtonMock = vi.hoisted(() =>
   vi.fn((doc: Document) => {
@@ -196,9 +215,24 @@ vi.mock('../../../src/content/video/videoPromptRenderer', () => ({
 }));
 
 const startVideoSessionMock = vi.hoisted(() => vi.fn<[], Promise<void>>(() => Promise.resolve()));
+const addCurrentTimestampMock = vi.hoisted(() =>
+  vi.fn<
+    [
+      'button' | 'note-input' | undefined,
+      {
+        captureScreenshot?: boolean;
+        pauseVideo?: boolean;
+        beginEditing?: boolean;
+        collapseAfterCapture?: boolean;
+      }
+    ],
+    Promise<void>
+  >(() => Promise.resolve())
+);
 const videoSessionFactoryMock = vi.hoisted(() =>
   vi.fn(() => ({
-    start: startVideoSessionMock
+    start: startVideoSessionMock,
+    addCurrentTimestamp: addCurrentTimestampMock
   }))
 );
 vi.mock('../../../src/content/video/session', () => ({
@@ -307,9 +341,20 @@ function createTestDependencies(): TestDeps {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
       promptShortcut: 'Ctrl+Shift+V',
-      promptPosition: { x: 90, y: 150 }
+      promptPosition: { x: 90, y: 150 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     }),
     savePromptPosition: vi.fn<[PromptPosition], Promise<void>>(() => Promise.resolve()),
+    saveControlBarPreferences: vi.fn<
+      [
+        {
+          autoPauseEnabled: boolean;
+          captureScreenshotEnabled: boolean;
+        }
+      ],
+      Promise<void>
+    >(() => Promise.resolve()),
     getPromptPosition: vi
       .fn<[], Promise<PromptPosition | null>>()
       .mockResolvedValue({ x: 120, y: 200 }),
@@ -359,6 +404,7 @@ describe('video prompt', () => {
     getContentMessagesMock.mockClear();
     detectVideoIdentityMock.mockClear();
     startVideoSessionMock.mockClear();
+    addCurrentTimestampMock.mockClear();
     videoSessionFactoryMock.mockClear();
     setIntervalSpy.mockImplementation((callback: () => void) => {
       callback();
@@ -440,6 +486,51 @@ describe('video prompt', () => {
     expect(ensureVideoControlBarButtonMock).toHaveBeenCalled();
   });
 
+  it('opens a control-bar capture with persisted preferences', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    expect(controlOptions?.preferences).toEqual({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: false
+    });
+
+    controlOptions?.onPreferencesChange({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+    await flushMicrotasks();
+    expect(deps.videoRepo.saveControlBarPreferences).toHaveBeenCalledWith({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+
+    controlOptions?.onPrimaryAction({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+    await flushMicrotasks();
+
+    expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('button', {
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: true,
+      collapseAfterCapture: true
+    });
+  });
+
   it('ignores danmaku-only observer callbacks without remounting the prompt', async () => {
     const module: VideoPromptTestModule = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
@@ -493,7 +584,9 @@ describe('video prompt', () => {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Quick clip',
       promptShortcut: 'Alt+Q',
-      promptPosition: { x: 40, y: 80 }
+      promptPosition: { x: 40, y: 80 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     };
     deps.emitConfigChange(updatedConfig);
     await flushMicrotasks();
@@ -505,7 +598,9 @@ describe('video prompt', () => {
       floatingPromptEnabled: false,
       promptButtonLabel: 'Hidden',
       promptShortcut: 'None',
-      promptPosition: { x: 0, y: 0 }
+      promptPosition: { x: 0, y: 0 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     };
     deps.emitConfigChange(disabledConfig);
     await flushMicrotasks();

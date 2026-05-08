@@ -28,7 +28,6 @@ describe('Stitch shared registry contracts', () => {
       'capture-sources',
       'capture-behavior',
       'output',
-      'experimental',
       'maintenance'
     ]);
     expect(Object.keys(resourceSchemas)).toEqual([

@@ -821,7 +821,6 @@ a {
 }
 
 .panel-section[data-panel-id='overview'] .mini-card,
-.panel-section[data-panel-id='experimental'] .card,
 .panel-section[data-panel-id='maintenance'] .card {
   background: color-mix(in srgb, var(--panel) 86%, var(--surface-muted));
 }
@@ -1980,6 +1979,11 @@ td {
   border: var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--panel);
+}
+
+.yaml-table-shell.yaml-table-scroll {
+  max-height: 440px;
+  overflow: auto;
 }
 
 .yaml-table-shell table {

@@ -31,4 +31,13 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('overflow: hidden;');
     expect(stitchCss).not.toContain('background-clip: padding-box;');
   });
+
+  it('keeps the YAML field table as an inline scrolling region with sticky headers', () => {
+    expect(stitchCss).toContain('.yaml-table-shell.yaml-table-scroll');
+    expect(stitchCss).toContain('max-height: 440px;');
+    expect(stitchCss).toContain('overflow: auto;');
+    expect(stitchCss).toContain('.yaml-table-scroll thead th');
+    expect(stitchCss).toContain('position: sticky;');
+    expect(stitchCss).toContain('top: 0;');
+  });
 });

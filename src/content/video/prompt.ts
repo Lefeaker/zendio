@@ -4,7 +4,7 @@ import { detectVideoIdentity } from './utils';
 import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
 import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { DEFAULT_OPTIONS } from '../../shared/config';
-import type { VideoPromptDependencies } from './videoPromptDependencies';
+import type { VideoPromptDependencies, VideoPromptSessionLike } from './videoPromptDependencies';
 import {
   findVideoControlTarget,
   findVideoControlObserverRoot,
@@ -13,7 +13,11 @@ import {
   hasPlayableVideo,
   isValidVideoPlayPage
 } from './videoPromptObserver';
-import { ensureVideoControlBarButton, removeVideoControlBarButton } from './videoControlBarButton';
+import {
+  ensureVideoControlBarButton,
+  removeVideoControlBarButton,
+  type VideoControlBarPreferences
+} from './videoControlBarButton';
 import {
   clamp,
   computeTentativePosition,
@@ -48,6 +52,10 @@ declare const __DEV__: boolean;
 const PROMPT_ID = 'aiob-video-floating-prompt';
 const VIDEO_PROMPT_DEFAULT_LABEL = DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video';
 const VIDEO_PROMPT_DEFAULT_SHORTCUT = DEFAULT_OPTIONS.video?.promptShortcut ?? '';
+const VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES: VideoControlBarPreferences = {
+  autoPauseEnabled: DEFAULT_OPTIONS.video?.controlBarAutoPause ?? true,
+  captureScreenshotEnabled: DEFAULT_OPTIONS.video?.controlBarScreenshot ?? true
+};
 const CONTROL_TARGET_RETRY_DELAYS_MS = [100, 250, 500, 1000] as const;
 
 let videoPromptDependencies: VideoPromptDependencies | null = null;
@@ -98,6 +106,7 @@ let navigationWatcher: VideoNavigationWatcher | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
+let controlBarPreferences = { ...VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES };
 type VideoPromptDebugState = {
   shouldShow: boolean;
   promptEnabled: boolean;
@@ -289,10 +298,15 @@ function syncVideoControlBarButton(): void {
         return null;
       }
     },
-    onPrimaryAction: () => {
+    preferences: controlBarPreferences,
+    onPreferencesChange: (preferences) => {
+      controlBarPreferences = preferences;
+      void getVideoRepository().saveControlBarPreferences(preferences);
+    },
+    onPrimaryAction: (preferences) => {
       promptSuppressed = true;
       removePrompt();
-      void startVideoSession();
+      void captureFromControlBar(preferences);
     }
   });
 }
@@ -348,6 +362,7 @@ async function refreshSettings(): Promise<void> {
     promptEnabled = true;
     promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
     promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
+    controlBarPreferences = { ...VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES };
     updatePromptDomLabels();
   }
 }
@@ -570,6 +585,45 @@ async function startVideoSession(): Promise<void> {
   }
 }
 
+async function captureFromControlBar(preferences: VideoControlBarPreferences): Promise<void> {
+  if (sessionStarting) {
+    return;
+  }
+
+  const existingSession = getVideoSession<VideoPromptSessionLike>();
+  if (existingSession) {
+    await existingSession.addCurrentTimestamp?.('button', {
+      pauseVideo: preferences.autoPauseEnabled,
+      captureScreenshot: preferences.captureScreenshotEnabled,
+      beginEditing: true,
+      collapseAfterCapture: true
+    });
+    return;
+  }
+
+  sessionStarting = true;
+  try {
+    console.info('[VideoPrompt] Starting video session from control bar…');
+    const session = getVideoPromptDependencies().createVideoSession(document);
+    await session.start();
+    await session.addCurrentTimestamp?.('button', {
+      pauseVideo: preferences.autoPauseEnabled,
+      captureScreenshot: preferences.captureScreenshotEnabled,
+      beginEditing: true,
+      collapseAfterCapture: true
+    });
+    console.info('[VideoPrompt] Video session started from control bar.');
+    evaluatePrompt(true);
+  } catch (error) {
+    console.warn('[VideoPrompt] Failed to start video session from control bar:', error);
+    clearVideoSession(undefined, document);
+    promptSuppressed = false;
+    evaluatePrompt(true);
+  } finally {
+    sessionStarting = false;
+  }
+}
+
 function setupVideoConfigListener(): void {
   stopSettingsWatcher?.();
 
@@ -686,6 +740,12 @@ function applyVideoSettings(video?: VideoOptions): void {
   promptEnabled = video?.floatingPromptEnabled !== false;
   promptButtonLabel = resolvePromptLabel(video?.promptButtonLabel);
   promptShortcut = resolvePromptShortcut(video?.promptShortcut);
+  controlBarPreferences = {
+    autoPauseEnabled:
+      video?.controlBarAutoPause ?? VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES.autoPauseEnabled,
+    captureScreenshotEnabled:
+      video?.controlBarScreenshot ?? VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES.captureScreenshotEnabled
+  };
   applyPromptPositionFromConfig(video?.promptPosition ?? null);
   updatePromptDomLabels();
 }

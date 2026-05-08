@@ -32,28 +32,13 @@ describe('Stitch preview runtime widgets', () => {
     expect(host?.querySelector('[class*="aobx-"]')).toBeFalsy();
   });
 
-  it('renders experimental summary and subtitle controls as disabled coming-soon placeholders', () => {
+  it('does not render the future experimental panel in the preview runtime', () => {
     mountPreviewApp({ rootId: 'app', mode: 'main' });
 
-    document.querySelector<HTMLElement>('[data-nav-panel="experimental"]')?.click();
-
     const text = document.body.textContent ?? '';
-    expect(text).toContain('敬请期待');
-    expect(text).toContain('Coming soon');
-    const controls = Array.from(
-      document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
-        '.summary-toggle-item input[type="checkbox"], .subtitle-inline-item input[type="checkbox"], .subtitle-inline-grid select'
-      )
-    );
-    expect(controls).toHaveLength(4);
-    expect(controls.every((control) => control.disabled)).toBe(true);
-    const aiServiceCard = Array.from(document.querySelectorAll<HTMLElement>('.card')).find((card) =>
-      card.textContent?.includes('Shared AI Connection')
-    );
-    const aiServiceControls = Array.from(
-      aiServiceCard?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select') ?? []
-    );
-    expect(aiServiceControls.length).toBeGreaterThanOrEqual(4);
-    expect(aiServiceControls.every((control) => control.disabled)).toBe(true);
+    expect(document.querySelector('[data-nav-panel="experimental"]')).toBeFalsy();
+    expect(text).not.toContain('敬请期待');
+    expect(text).not.toContain('Coming soon');
+    expect(text).not.toContain('启用视频字幕翻译');
   });
 });

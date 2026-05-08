@@ -286,6 +286,10 @@ describe('mountProductionStitchShell', () => {
     expect(statText).toContain('5');
     expect(statText).toContain('3');
     expect(statText).not.toContain('1284');
+
+    const chartLabels = document.querySelectorAll('#usageXAxis text');
+    expect(chartLabels.length).toBeGreaterThanOrEqual(5);
+    expect(document.querySelector('#usageWavePath')?.getAttribute('d')).toBeTruthy();
   });
 
   it('persists theme changes through the Stitch segmented control', () => {
@@ -518,7 +522,7 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft().domainMappings).toEqual({});
   });
 
-  it('renders experimental summary and subtitle placeholders as disabled coming-soon controls', () => {
+  it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -531,28 +535,11 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const pageSummary = findCheckboxInText('保存页面时生成 AI 总结');
-    const overlaySummary = findCheckboxInText('在阅读模式顶部显示页面总结');
-    const subtitleTranslation = findCheckboxInText('启用视频字幕翻译');
-    expect(document.body.textContent).toContain('敬请期待');
-    expect(document.body.textContent).toContain('Coming soon');
-    expect(pageSummary.disabled).toBe(true);
-    expect(overlaySummary.disabled).toBe(true);
-    expect(subtitleTranslation.disabled).toBe(true);
-    const aiServiceCard = Array.from(document.querySelectorAll<HTMLElement>('.card')).find((card) =>
-      card.textContent?.includes('Shared AI Connection')
-    );
-    const aiServiceControls = Array.from(
-      aiServiceCard?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select') ?? []
-    );
-    expect(aiServiceControls.length).toBeGreaterThanOrEqual(4);
-    expect(aiServiceControls.every((control) => control.disabled)).toBe(true);
-
-    const languageSelect = Array.from(document.querySelectorAll<HTMLSelectElement>('select')).find(
-      (select) => select.closest('.field')?.textContent?.includes('翻译目标语言')
-    );
-    expect(languageSelect).toBeTruthy();
-    expect(languageSelect!.disabled).toBe(true);
+    expect(document.querySelector('[data-nav-panel="experimental"]')).toBeFalsy();
+    expect(document.body.textContent).not.toContain('敬请期待');
+    expect(document.body.textContent).not.toContain('Coming soon');
+    expect(document.body.textContent).not.toContain('启用视频字幕翻译');
+    expect(document.body.textContent).not.toContain('实验功能预留项');
 
     const collected = mounted.collectDraft();
     expect(collected.pageSummary.enabled).toBe(false);
@@ -1276,7 +1263,7 @@ describe('mountProductionStitchShell', () => {
     });
   });
 
-  it('persists classifier settings from Stitch controls', () => {
+  it('does not expose future classifier controls in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -1300,22 +1287,19 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const enabled = findCheckboxInText('启用智能分类');
-    enabled.checked = true;
-    enabled.dispatchEvent(new Event('change', { bubbles: true }));
-    input('llama3.1', 'qwen2.5');
-
+    expect(document.body.textContent).not.toContain('启用智能分类');
+    expect(document.querySelector('textarea.classifier-taxonomy')).toBeFalsy();
     expect(mounted.collectDraft().classifier).toEqual(
       expect.objectContaining({
-        enabled: true,
+        enabled: false,
         provider: 'ollama',
-        model: 'qwen2.5'
+        model: 'llama3.1'
       })
     );
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+    expect(vi.mocked(controller.scheduleAutoSave)).not.toHaveBeenCalled();
   });
 
-  it('keeps the previous classifier taxonomy when JSON is valid but schema-invalid', () => {
+  it('keeps stored classifier taxonomy while the release options shell hides its editor', () => {
     const controller = createController();
     const existingTaxonomy = {
       version: '1',
@@ -1340,13 +1324,7 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const taxonomyTextarea = document.querySelector<HTMLTextAreaElement>(
-      'textarea.classifier-taxonomy'
-    );
-    expect(taxonomyTextarea).toBeTruthy();
-    taxonomyTextarea!.value = '{"valid":"taxonomy"}';
-    taxonomyTextarea!.dispatchEvent(new Event('input', { bubbles: true }));
-
+    expect(document.querySelector('textarea.classifier-taxonomy')).toBeFalsy();
     expect(mounted.collectDraft().classifier.taxonomy).toEqual(existingTaxonomy);
   });
 

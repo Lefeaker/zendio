@@ -60,12 +60,8 @@ export function prepareHistory(stats: UsageStats): UsageStatsHistoryEntry[] {
   }
 
   const endDate = parseDateKey(sorted[sorted.length - 1].date) ?? new Date();
-  const earliestDate = parseDateKey(sorted[0].date) ?? endDate;
   const startDate = new Date(endDate);
   startDate.setDate(startDate.getDate() - 29);
-  if (startDate < earliestDate) {
-    startDate.setTime(earliestDate.getTime());
-  }
 
   const values = new Map<string, UsageStatsHistoryEntry>();
   sorted.forEach((entry) => {

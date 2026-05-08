@@ -82,7 +82,6 @@ export const previewContent: PreviewContent = {
       hint: '路径模板、映射、YAML、预设',
       icon: 'output'
     },
-    { id: 'experimental', label: 'Experimental', hint: 'AI 总结、字幕翻译', icon: 'science' },
     {
       id: 'maintenance',
       label: 'Maintenance',
@@ -384,7 +383,7 @@ export const previewContent: PreviewContent = {
         },
         {
           title: '本地配置',
-          body: 'Vault、REST API、路径模板、YAML 字段和实验功能配置保存在浏览器扩展存储中，可通过 Maintenance 导出或清除相关分析数据。'
+          body: 'Vault、REST API、路径模板、YAML 字段和运行时配置保存在浏览器扩展存储中，可通过 Maintenance 导出或清除相关分析数据。'
         }
       ]
     },
