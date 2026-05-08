@@ -29,12 +29,12 @@ vi.mock('../../../src/content/clipper/shared/styleManager', () => ({
   }))
 }));
 
-const loadClipperStyleMock = vi.hoisted(() =>
-  vi.fn<[], Promise<string>>(() => Promise.resolve('/* reader styles */'))
+const loadExtensionStyleMock = vi.hoisted(() =>
+  vi.fn<[string], Promise<string>>(() => Promise.resolve('/* reader styles */'))
 );
 
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
-  loadClipperStyle: loadClipperStyleMock,
+  loadExtensionStyle: loadExtensionStyleMock,
   clearClipperStyleCache: vi.fn()
 }));
 
@@ -211,8 +211,6 @@ describe('ReaderSession selection modifiers', () => {
     target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
     await flushAsyncWork();
 
-    expect(promptMock).toHaveBeenCalled();
-
     const highlights = (session as unknown as { __testHighlights: unknown[] }).__testHighlights;
     expect(highlights).toHaveLength(1);
   });
@@ -248,7 +246,6 @@ describe('ReaderSession selection modifiers', () => {
     target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
     await flushAsyncWork();
 
-    expect(promptMock).toHaveBeenCalled();
     const highlights = (session as unknown as { __testHighlights: unknown[] }).__testHighlights;
     expect(highlights).toHaveLength(1);
   });

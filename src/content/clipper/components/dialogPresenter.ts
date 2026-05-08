@@ -69,13 +69,11 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   } = options;
 
   const content = createContentSurfacePanel({
-    className:
-      'clipper-dialog-shell font-sans text-[#f2f4ff]'
+    className: 'clipper-dialog-shell'
   });
 
   const header = createContentActionRow({
-    className:
-      'clipper-dialog-header flex cursor-move items-center gap-2 rounded-t-[14px] p-[24px_28px_18px_28px] select-none transition-colors duration-200 ease-out hover:bg-text/5'
+    className: 'clipper-dialog-header'
   });
 
   const title = document.createElement('h2');
@@ -132,17 +130,19 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   );
   content.appendChild(commentForm.container);
 
-  content.setAttribute('aria-describedby', [textarea.id, instructions.id].filter(Boolean).join(' '));
+  content.setAttribute(
+    'aria-describedby',
+    [textarea.id, instructions.id].filter(Boolean).join(' ')
+  );
 
   const actions = createContentActionRow({
-    className:
-      'clipper-dialog-actions flex justify-end gap-3 rounded-b-[14px] border-t border-white/10 bg-[#0c0f1e]/94 p-[16px_24px_24px_24px]'
+    className: 'clipper-dialog-actions'
   });
 
   if (allowReaderMode) {
     const readerIcon = createIcon(Icons.ChevronRight, {
       size: 16,
-      className: 'text-[#f2f4ff]/80'
+      className: 'clipper-btn-icon'
     });
     readerIcon.setAttribute('aria-hidden', 'true');
     actions.appendChild(
@@ -162,7 +162,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   if (allowVideoMode) {
     const videoIcon = createIcon(Icons.ChevronRight, {
       size: 16,
-      className: 'text-[#f2f4ff]/80'
+      className: 'clipper-btn-icon'
     });
     videoIcon.setAttribute('aria-hidden', 'true');
     actions.appendChild(
@@ -172,21 +172,19 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
 
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
-  cancelButton.className =
-    'clipper-btn clipper-btn--secondary rounded-[10px] p-[10px_18px] text-sm cursor-pointer border border-white/12 transition-all duration-200 ease-out bg-[#0c0f1e]/94 text-[#f2f4ff] hover:bg-[#f2f4ff]/10 flex-1 min-w-0';
+  cancelButton.className = 'clipper-btn clipper-btn--secondary';
   bindings.applyText(cancelButton, 'cancelButton', getFallback('cancelButton'), binder);
   cancelButton.addEventListener('click', onCancel);
   actions.appendChild(cancelButton);
 
   const confirmButton = document.createElement('button');
   confirmButton.type = 'button';
-  confirmButton.className =
-    'clipper-btn clipper-btn--primary rounded-[10px] p-[10px_18px] text-sm cursor-pointer border-none transition-all duration-200 ease-out bg-gradient-to-br from-[#8B5CF6] to-[#6366F1] text-white shadow-[0_10px_25px_rgba(99,102,241,0.35)] hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(99,102,241,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c5cff]/35';
+  confirmButton.className = 'clipper-btn clipper-btn--primary';
   const confirmContent = document.createElement('span');
   confirmContent.className = 'clipper-btn-content';
   const confirmIcon = createIcon(Icons.Check, {
     size: 18,
-    className: 'clipper-btn-icon text-white'
+    className: 'clipper-btn-icon'
   });
   confirmIcon.setAttribute('aria-hidden', 'true');
   const confirmLabel = document.createElement('span');
@@ -335,8 +333,7 @@ function createGhostButton(
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className =
-    'clipper-btn clipper-btn--ghost rounded-[10px] p-[10px_18px] text-sm cursor-pointer border-none transition-all duration-200 ease-out bg-transparent text-[#f2f4ff]/70 hover:text-[#f2f4ff] hover:bg-[#0c0f1e]/70';
+  button.className = 'clipper-btn clipper-btn--ghost';
 
   const content = document.createElement('span');
   content.className = 'clipper-btn-content';

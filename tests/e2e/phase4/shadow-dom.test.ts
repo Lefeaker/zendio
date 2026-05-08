@@ -45,16 +45,16 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
           const firstShadow = firstHost.attachShadow({ mode: 'open' });
           clipperStyleSheetManager.applyTo(firstShadow);
 
-          expect(firstShadow.adoptedStyleSheets).toHaveLength(1);
-          const [sheet] = firstShadow.adoptedStyleSheets;
+          expect(firstShadow.adoptedStyleSheets).toHaveLength(2);
+          const firstSheets = firstShadow.adoptedStyleSheets;
 
           const secondHost = document.createElement('div');
           document.body.append(secondHost);
           const secondShadow = secondHost.attachShadow({ mode: 'open' });
           clipperStyleSheetManager.applyTo(secondShadow);
 
-          expect(secondShadow.adoptedStyleSheets).toHaveLength(1);
-          expect(secondShadow.adoptedStyleSheets[0]).toBe(sheet);
+          expect(secondShadow.adoptedStyleSheets).toHaveLength(2);
+          expect(secondShadow.adoptedStyleSheets).toEqual(firstSheets);
         } finally {
           restore();
           restoreFetch();
@@ -99,7 +99,10 @@ function stubClipperFetch(window: WindowShim): () => void {
   } as Response;
   const fetchStub = ((input: RequestInfo | URL) => {
     const value = String(input);
-    if (value.includes('styles/clipper/clipper.tailwind.css')) {
+    if (
+      value.includes('options/stitch/styles/stitch.css') ||
+      value.includes('options/stitch/styles/variants/stitch-secondary.css')
+    ) {
       return Promise.resolve(cssResponse);
     }
     return Promise.reject(new Error(`Unexpected fetch: ${value}`));
@@ -133,7 +136,10 @@ function enableConstructableStyles(window: WindowShim): () => void {
   globals.Document = window.Document;
 
   const originalDocDescriptor = Object.getOwnPropertyDescriptor(docProto, 'adoptedStyleSheets');
-  const originalShadowDescriptor = Object.getOwnPropertyDescriptor(shadowProto, 'adoptedStyleSheets');
+  const originalShadowDescriptor = Object.getOwnPropertyDescriptor(
+    shadowProto,
+    'adoptedStyleSheets'
+  );
 
   Object.defineProperty(docProto, 'adoptedStyleSheets', createAdoptedDescriptor<Document>());
   Object.defineProperty(shadowProto, 'adoptedStyleSheets', createAdoptedDescriptor<ShadowRoot>());

@@ -13,11 +13,11 @@ vi.mock('focus-trap', () => ({
   })
 }));
 
-const loadClipperStyleMock = vi.hoisted(() =>
-  vi.fn<[], Promise<string>>(() => Promise.resolve('.prompt{}'))
+const loadExtensionStyleMock = vi.hoisted(() =>
+  vi.fn<[string], Promise<string>>(() => Promise.resolve('.prompt{}'))
 );
 vi.mock('../../src/content/clipper/shared/styleRegistry', () => ({
-  loadClipperStyle: loadClipperStyleMock
+  loadExtensionStyle: loadExtensionStyleMock
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
@@ -101,17 +101,16 @@ describe('support prompt flow', () => {
     vi.clearAllMocks();
   });
 
-  it('shows and closes prompt', async () => {
+  it('shows and closes prompt from the Stitch overlay action', async () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
     expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
 
-    const overlay =
-      document
-        .getElementById('aiob-support-prompt')
-        ?.shadowRoot?.querySelector<HTMLDivElement>('.modal') ?? null;
-    overlay?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('aiob-support-prompt')
+      ?.shadowRoot?.querySelector<HTMLDivElement>('.resource-modal-overlay')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
   });
 
@@ -157,7 +156,7 @@ describe('support prompt flow', () => {
     );
   });
 
-  it('shows dislike flow and toggles qr section', async () => {
+  it('shows dislike flow with Reddit and GitHub actions', async () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
@@ -168,9 +167,10 @@ describe('support prompt flow', () => {
     await flushMicrotasks();
 
     const qr = getToastRoot()?.querySelector<HTMLElement>('[data-role="qr-container"]') ?? null;
-    expect(qr?.hidden).toBe(true);
-    getToastRoot()?.querySelector<HTMLButtonElement>('[data-role="qr-toggle-btn"]')?.click();
-    expect(qr?.hidden).toBe(false);
+    expect(qr).toBeNull();
+    expect(getToastRoot()?.querySelector('[data-role="qr-toggle-btn"]')).toBeNull();
+    expect(getToastRoot()?.querySelector('[data-role="reddit-link"]')).toBeTruthy();
+    expect(getToastRoot()?.querySelector('[data-role="github-link"]')).toBeTruthy();
     expect(messagingSendMock).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'support_dislike_clicked' })
     );

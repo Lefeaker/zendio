@@ -45,8 +45,8 @@ export const LEGACY_STYLE_BRIDGES = [
 ];
 
 export const LEGACY_STYLE_BRIDGE_SIGNATURES: Record<string, string[]> = {
-  'clipper-tailwind': ['.clipper-btn', '.modal-box'],
-  'panel-clipper-tailwind': ['.clipper-btn', '.modal-box'],
+  'clipper-tailwind': ['.clipper-card', '.modal-box'],
+  'panel-clipper-tailwind': ['.clipper-card', '.modal-box'],
   'panel-video-tailwind': [
     '.z-\\[2147483645\\]',
     '.max-w-\\[240px\\]',

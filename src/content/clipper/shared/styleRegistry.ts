@@ -2,70 +2,45 @@ import { getService } from '@shared/di';
 import { TOKENS } from '@shared/di/tokens';
 import type { PlatformServices } from '@platform/types';
 
-const STYLE_DIRECTORY = 'styles/clipper';
 const styleCache = new Map<string, Promise<string>>();
 
 export function isJsdomRuntime(): boolean {
   return /jsdom/i.test(globalThis.navigator?.userAgent ?? '');
 }
 
-function resolveStyleUrl(name: string): string {
-  const normalized = name.endsWith('.css') ? name : `${name}.css`;
-  try {
-    const platformServices = getService<PlatformServices>(TOKENS.platformServices);
-    return platformServices.runtime.getURL(`${STYLE_DIRECTORY}/${normalized}`);
-  } catch {
-    return `${STYLE_DIRECTORY}/${normalized}`;
-  }
-}
-
-async function fetchStyle(name: string): Promise<string> {
-  if (isJsdomRuntime()) {
-    return '';
-  }
-  const url = resolveStyleUrl(name);
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(
-      `[styleRegistry] Failed to load clipper style "${name}": ${response.status} ${response.statusText}`
-    );
-  }
-  return await response.text();
-}
-
-export function loadClipperStyle(name: string): Promise<string> {
-  if (!styleCache.has(name)) {
-    const entry = fetchStyle(name).catch((error) => {
-      styleCache.delete(name);
-      throw error;
-    });
-    styleCache.set(name, entry);
-  }
-  const cached = styleCache.get(name);
-  if (!cached) {
-    throw new Error(`[styleRegistry] Missing cached style entry for "${name}"`);
-  }
-  return cached;
-}
-
 export async function loadExtensionStyle(path: string): Promise<string> {
+  const cached = styleCache.get(path);
+  if (cached) {
+    return cached;
+  }
+
   if (isJsdomRuntime()) {
-    return '';
+    const emptyStyle = Promise.resolve('');
+    styleCache.set(path, emptyStyle);
+    return emptyStyle;
   }
-  let url = path;
-  try {
-    const platformServices = getService<PlatformServices>(TOKENS.platformServices);
-    url = platformServices.runtime.getURL(path);
-  } catch {
-    url = path;
-  }
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(
-      `[styleRegistry] Failed to load style "${path}": ${response.status} ${response.statusText}`
-    );
-  }
-  return await response.text();
+
+  const pending = (async () => {
+    let url = path;
+    try {
+      const platformServices = getService<PlatformServices>(TOKENS.platformServices);
+      url = platformServices.runtime.getURL(path);
+    } catch {
+      url = path;
+    }
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(
+        `[styleRegistry] Failed to load style "${path}": ${response.status} ${response.statusText}`
+      );
+    }
+    return await response.text();
+  })().catch((error) => {
+    styleCache.delete(path);
+    throw error;
+  });
+  styleCache.set(path, pending);
+  return pending;
 }
 
 export function clearClipperStyleCache(): void {

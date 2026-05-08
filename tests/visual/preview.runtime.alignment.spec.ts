@@ -953,7 +953,7 @@ test.describe('Stitch runtime surface alignment', () => {
           </div>
         \`;
         const sheet = new CSSStyleSheet();
-        sheet.replaceSync('.clipper-btn{border-radius:10px}.modal-box{padding:24px}');
+        sheet.replaceSync('.clipper-card{border-radius:10px}.modal-box{padding:24px}');
         const videoSheet = new CSSStyleSheet();
         videoSheet.replaceSync('.z-\\\\[2147483645\\\\]{z-index:2147483645}.max-w-\\\\[240px\\\\]{max-width:240px}');
         shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet, videoSheet];

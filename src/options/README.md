@@ -44,7 +44,7 @@ npm run verify:stitch-secondary # Stitch Secondary 主链回归
 
 如改动 I18n 或 CLI，请追加 `npm run validate:i18n:keys`、`npm run typecheck:tests`。
 
-> 提示：Options 主 UI 不再生成 Options 专属 Tailwind 产物；content runtime 仍保留 `clipper.tailwind.css` / `video.tailwind.css` 样式桥。
+> 提示：Options 主 UI 与 content runtime 的 Clipper / Reader / Video 面板都走 Stitch runtime CSS；`clipper.tailwind.css` / `video.tailwind.css` 样式桥已退役。
 
 ### 0.4 组件 / Utility 清单
 
@@ -87,7 +87,7 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 ### 0.6 任务前置指南
 
-- 在执行 Options/Tailwind 相关任务前，必须先完成 `docs/options-pre-251120-checklist.md` 并记录日志；若 PR 涉及剪藏/内容脚本，请参阅 `docs/clipper-tailwind-migration-plan.md`。
+- 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
 - `docs/251126-design-system-poc/archived/tailwind-migration/251120/` 目录包含四份「1-...~4-...」分步指南，依赖关系与 Agent/README 已同步，请严格按顺序推进。
 
 ---
@@ -176,8 +176,8 @@ src/options/
 - **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
 - **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
 - **CSS 编写准则**：
-  - 优先使用 Tailwind Utility 实现样式。
-  - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在组件 DOM utility、共享 Tailwind 层或 token 链路。
+  - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/stitch.css`。
+  - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在 Stitch runtime CSS 或 token 链路。
   - 组件级样式优先靠 Token/Utility（如 `--aobx-space-*`、`.aobx-button-row`），避免复制粘贴局部颜色/间距。
   - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
 - **开发流程建议**：

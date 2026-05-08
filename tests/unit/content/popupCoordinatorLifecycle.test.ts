@@ -108,27 +108,31 @@ vi.mock('../../../src/content/i18n/context', () => ({
 
 const initializeClipperStylesMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const applyClipperStylesMock = vi.hoisted(() => vi.fn());
+const applyClipperStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeClipperStylesMock,
-    applyTo: applyClipperStylesMock
+    applyTo: applyClipperStylesMock,
+    applyStitchRuntimeStyles: applyClipperStitchRuntimeStylesMock
   }
 }));
 
 const initializePanelStylesMock = vi.hoisted(() => vi.fn());
 const applyReaderStylesMock = vi.hoisted(() => vi.fn());
+const applyStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
 vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({
   panelStyleSheetManager: {
     initialize: initializePanelStylesMock,
-    applyReaderStyles: applyReaderStylesMock
+    applyReaderStyles: applyReaderStylesMock,
+    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
   }
 }));
 
-const loadClipperStyleMock = vi.hoisted(() =>
-  vi.fn((name: string) => Promise.resolve(`.${name}{display:block;}`))
+const loadExtensionStyleMock = vi.hoisted(() =>
+  vi.fn((path: string) => Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`))
 );
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
-  loadClipperStyle: loadClipperStyleMock
+  loadExtensionStyle: loadExtensionStyleMock
 }));
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -268,10 +272,8 @@ describe('content popup coordinator lifecycle', () => {
   }
 
   function expectReaderAndVideoClosed(reader: ReaderDialogPanel, video: VideoDialogPanel): void {
-    const readerOverlay = reader.element.shadowRoot?.querySelector('.modal');
-    const videoOverlay = video.element.shadowRoot?.querySelector('.modal');
-    expect(readerOverlay?.classList.contains('modal-open')).toBe(false);
-    expect(videoOverlay?.classList.contains('modal-open')).toBe(false);
+    expect(reader.element.hidden).toBe(true);
+    expect(video.element.hidden).toBe(true);
   }
 
   it('closes clipper, reader, video, and support popups on visibilitychange', async () => {
@@ -279,8 +281,10 @@ describe('content popup coordinator lifecycle', () => {
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeTruthy();
     expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
-    expect(reader.element.shadowRoot?.querySelector('.modal-open')).toBeTruthy();
-    expect(video.element.shadowRoot?.querySelector('.modal-open')).toBeTruthy();
+    expect(reader.element.hidden).toBe(false);
+    expect(video.element.hidden).toBe(false);
+    expect(reader.element.shadowRoot?.querySelector('.resource-modal--session')).toBeTruthy();
+    expect(video.element.shadowRoot?.querySelector('.resource-modal--session')).toBeTruthy();
     expect(popupCoordinator.getActive()).toBeTruthy();
 
     Object.defineProperty(document, 'hidden', {

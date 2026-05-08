@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { clearClipperStyleCache, loadClipperStyle } from '@content/clipper/shared/styleRegistry';
+import { clearClipperStyleCache, loadExtensionStyle } from '@content/clipper/shared/styleRegistry';
 
 describe('styleRegistry', () => {
   afterEach(() => {
@@ -10,7 +10,7 @@ describe('styleRegistry', () => {
   });
 
   it('returns an empty stylesheet in jsdom instead of warning on relative URLs', async () => {
-    const css = await loadClipperStyle('clipper.tailwind');
+    const css = await loadExtensionStyle('options/stitch/styles/stitch.css');
     expect(css).toBe('');
   });
 });

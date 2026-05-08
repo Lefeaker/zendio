@@ -24,32 +24,13 @@ if (prod && !skipChecks && !watch) {
   console.log('');
 }
 
-// 在开发模式下构建 Clipper Tailwind
-// Build Clipper Tailwind (in all modes)
-console.log('🎨 Building Clipper Tailwind...');
 const { execSync } = await import('child_process');
-try {
-  execSync('npm run tailwind:build:clipper', { stdio: 'inherit', env: buildCommandEnv });
-} catch (error) {
-  console.error('❌ Clipper Tailwind build failed:', error);
-  process.exit(1);
-}
-
 // Build Global Tailwind (in all modes)
 console.log('🎨 Building Global Tailwind...');
 try {
   execSync('npm run tailwind:build:global', { stdio: 'inherit', env: buildCommandEnv });
 } catch (error) {
   console.error('❌ Global Tailwind build failed:', error);
-  process.exit(1);
-}
-
-// Build Video Tailwind (in all modes)
-console.log('🎨 Building Video Tailwind...');
-try {
-  execSync('npm run tailwind:build:video', { stdio: 'inherit', env: buildCommandEnv });
-} catch (error) {
-  console.error('❌ Video Tailwind build failed:', error);
   process.exit(1);
 }
 
@@ -146,11 +127,6 @@ await cp('src/styles/design-tokens.css', 'build/dist/styles/design-tokens.css');
 await cp('src/styles/global.tailwind.css', 'build/dist/styles/global.tailwind.css');
 try {
   await mkdir('build/dist/styles/clipper', { recursive: true });
-  await cp(
-    'src/styles/clipper/clipper.tailwind.css',
-    'build/dist/styles/clipper/clipper.tailwind.css'
-  );
-  await cp('src/styles/clipper/video.tailwind.css', 'build/dist/styles/clipper/video.tailwind.css');
   await cp(
     'src/styles/clipper/highlight-themes.css',
     'build/dist/styles/clipper/highlight-themes.css'

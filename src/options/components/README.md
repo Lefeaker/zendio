@@ -1,6 +1,6 @@
 # Options 组件目录说明
 
-> 开发须知：所有 Options/Clipper 样式与组件改动都要先跑完 `docs/options-pre-251120-checklist.md`，并在 PR 中附上 `tmp/tailwind-baseline/` 日志；Tailwind 迁移细节参考 `docs/251126-design-system-poc/archived/tailwind-migration/251120/1-options-style-baseline-validation-guide.md`、`docs/clipper-tailwind-migration-plan.md`。
+> 开发须知：正式 Options 与 content runtime 样式以 Stitch 为准；不要恢复 Options Tailwind、`clipper.tailwind.css` 或 `video.tailwind.css`。样式改动需要同步跑 Stitch/runtime 相关验证。
 
 > 当前正式口径：Options 生产 UI 已迁移到 `src/options/app/productionStitchShell.ts` + `src/options/stitch/*`。本目录下的 `layout/`、`sections/`、`formSections/` 与 legacy modal/controller 代码是兼容和回归测试资产，不再拥有正式生产 UI 主链。
 

@@ -2,20 +2,22 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const loadClipperStyleMock = vi.fn<[], Promise<string>>();
+const loadExtensionStyleMock = vi.fn<[string], Promise<string>>();
 
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
-  loadClipperStyle: loadClipperStyleMock
+  loadExtensionStyle: loadExtensionStyleMock
 }));
 
 describe('clipperStyleSheetManager', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    loadClipperStyleMock.mockResolvedValue('.clipper-root { color: red; }');
+    loadExtensionStyleMock.mockImplementation((path) =>
+      Promise.resolve(`.${path}{display:block;}`)
+    );
   });
 
-  it('loads clipper tailwind css before applying managed fallback styles', async () => {
+  it('loads Stitch runtime CSS before applying managed fallback styles', async () => {
     const { clipperStyleSheetManager } = await import(
       '../../../src/content/clipper/shared/styleSheetManager'
     );
@@ -25,20 +27,30 @@ describe('clipperStyleSheetManager', () => {
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });
     clipperStyleSheetManager.applyTo(shadow);
-    const style = shadow.querySelector('style[data-aiob-style-bridge="clipper-tailwind"]');
 
-    expect(loadClipperStyleMock).toHaveBeenCalledWith('clipper.tailwind');
-    expect(style?.textContent).toContain('.clipper-root { color: red; }');
+    expect(loadExtensionStyleMock).toHaveBeenCalledWith('options/stitch/styles/stitch.css');
+    expect(loadExtensionStyleMock).toHaveBeenCalledWith(
+      'options/stitch/styles/variants/stitch-secondary.css'
+    );
+    expect(shadow.querySelector('style[data-aiob-style-bridge="clipper-tailwind"]')).toBeNull();
+    expect(
+      shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-runtime"]')
+    ).toBeTruthy();
+    expect(
+      shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-secondary-runtime"]')
+    ).toBeTruthy();
   });
 
   it('reuses the same pending load across concurrent initialize calls', async () => {
     let resolveLoad: ((value: string) => void) | null = null;
-    loadClipperStyleMock.mockImplementation(
-      () =>
-        new Promise<string>((resolve) => {
+    loadExtensionStyleMock.mockImplementation((path) => {
+      if (path === 'options/stitch/styles/stitch.css') {
+        return new Promise<string>((resolve) => {
           resolveLoad = resolve;
-        })
-    );
+        });
+      }
+      return Promise.resolve('.secondary { display: block; }');
+    });
 
     const { clipperStyleSheetManager } = await import(
       '../../../src/content/clipper/shared/styleSheetManager'
@@ -48,7 +60,7 @@ describe('clipperStyleSheetManager', () => {
     const first = clipperStyleSheetManager.initialize();
     const second = clipperStyleSheetManager.initialize();
 
-    expect(loadClipperStyleMock).toHaveBeenCalledTimes(1);
+    expect(loadExtensionStyleMock).toHaveBeenCalledTimes(2);
 
     if (!resolveLoad) {
       throw new Error('style loader resolver missing');
@@ -59,7 +71,7 @@ describe('clipperStyleSheetManager', () => {
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });
     clipperStyleSheetManager.applyTo(shadow);
-    const style = shadow.querySelector('style[data-aiob-style-bridge="clipper-tailwind"]');
+    const style = shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-runtime"]');
     expect(style?.textContent).toContain('.clipper-root { color: blue; }');
   });
 });
