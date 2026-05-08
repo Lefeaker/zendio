@@ -170,6 +170,7 @@ export interface VideoSurfaceCapture {
   comment?: string;
   draft?: string;
   meta: string;
+  hasScreenshot?: boolean;
   editing?: boolean;
 }
 

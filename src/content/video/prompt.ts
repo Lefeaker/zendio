@@ -619,7 +619,7 @@ function toControlBarCaptureOptions(
     captureScreenshot: preferences.captureScreenshotEnabled,
     beginEditing: false,
     resumePlayback: preferences.autoPauseEnabled,
-    collapseAfterCapture: false
+    collapseAfterCapture: true
   };
 }
 

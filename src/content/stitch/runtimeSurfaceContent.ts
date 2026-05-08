@@ -334,6 +334,7 @@ export function createVideoSurfaceContent(input: {
           fullText: capture.selectionPreview || '',
           commentPreview: capture.commentPreview ?? capture.comment ?? '',
           comment: capture.comment ?? '',
+          hasScreenshot: capture.hasScreenshot ?? false,
           meta: capture.shareUrl || capture.fragmentUrl || ''
         }))
       }

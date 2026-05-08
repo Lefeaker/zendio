@@ -24,7 +24,8 @@ import {
   ingestVideoSessionTextCapture,
   loadVideoSessionHighlightTheme,
   removeVideoSessionCapture,
-  submitVideoSessionCaptureEdit
+  submitVideoSessionCaptureEdit,
+  toggleVideoSessionCaptureScreenshot
 } from './sessionOperations';
 import {
   finalizeVideoSessionStart,
@@ -218,6 +219,7 @@ export class VideoSession {
           onDeleteCapture: (id) => removeVideoSessionCapture(this.operationContext, id),
           onSubmitCaptureEdit: (id, comment) =>
             void submitVideoSessionCaptureEdit(this.operationContext, id, comment),
+          onToggleScreenshot: (id) => void this.toggleCaptureScreenshot(id),
           onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id)
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
@@ -321,6 +323,10 @@ export class VideoSession {
     } = {}
   ): Promise<void> {
     await this.handleAddCapture(source, options);
+  }
+
+  async toggleCaptureScreenshot(id: string): Promise<void> {
+    await toggleVideoSessionCaptureScreenshot(this.operationContext, id);
   }
 
   private async handleAddCapture(

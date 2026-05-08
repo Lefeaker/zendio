@@ -224,6 +224,50 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
     });
 }
 
+export async function toggleVideoSessionCaptureScreenshot(
+  context: VideoSessionOperationContext,
+  id: string
+): Promise<void> {
+  const target = context.state.captures.find(
+    (capture): capture is VideoTimestampCapture => capture.kind === 'timestamp' && capture.id === id
+  );
+  if (!target) {
+    return;
+  }
+
+  if (target.screenshot) {
+    delete target.screenshot;
+    context.applyHint('saving');
+    await saveVideoCaptures(context);
+    context.syncPanel();
+    return;
+  }
+
+  context.updateVideoContext();
+  const video = context.state.videoElement ?? context.findVideoElement();
+  if (!video) {
+    context.applyHint('noVideo');
+    return;
+  }
+
+  try {
+    video.currentTime = target.timeSec;
+  } catch {
+    // Some host players can reject seeking; still attempt to capture the current frame.
+  }
+
+  const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
+  if (!screenshot) {
+    context.applyHint('failure');
+    return;
+  }
+
+  target.screenshot = screenshot;
+  context.applyHint('saving');
+  await saveVideoCaptures(context);
+  context.syncPanel();
+}
+
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
   const target = context.state.captures.find((capture) => capture.id === id);
   if (!target) {

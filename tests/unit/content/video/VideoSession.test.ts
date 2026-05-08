@@ -146,6 +146,7 @@ type SessionTestApi = {
   applyHint: (state: string) => void;
   cleanup: () => void;
   handleAddCapture: (source?: 'button' | 'note-input') => Promise<void>;
+  toggleCaptureScreenshot: (id: string) => Promise<void>;
   addCurrentTimestamp: (
     source?: 'button' | 'note-input',
     options?: {
@@ -390,6 +391,77 @@ describe('VideoSession', () => {
       ?.value as TestView | undefined;
     expect(view?.stopEditing).toHaveBeenCalled();
     expect(view?.collapse).toHaveBeenCalledTimes(1);
+
+    createElementSpy.mockRestore();
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('toggles timestamp screenshots without exposing screenshot content in the panel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: vi.fn(() => 'data:image/png;base64,toggled-frame'),
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+
+    await session.start();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 8, writable: true, configurable: true });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: Date.now()
+      }
+    ];
+
+    await sessionApi.toggleCaptureScreenshot('timestamp-1');
+
+    expect(video.currentTime).toBe(42);
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]).toMatchObject({
+      screenshot: {
+        fileName: 'video-0m42s-screenshot.png',
+        dataUrl: 'data:image/png;base64,toggled-frame'
+      }
+    });
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
+    const panelCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | undefined;
+    expect(panelCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(panelCaptures?.[0]?.screenshot).toBeUndefined();
+
+    await sessionApi.toggleCaptureScreenshot('timestamp-1');
+
+    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    const toggledOffCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean }>
+      | undefined;
+    expect(toggledOffCaptures?.[0]).toMatchObject({ hasScreenshot: false });
 
     createElementSpy.mockRestore();
     sessionApi.cleanup();

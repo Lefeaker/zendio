@@ -7,6 +7,7 @@ export interface VideoPanelCallbacks {
   onSelectDestination?: (id: string) => void | Promise<void>;
   onDeleteCapture: (id: string) => void;
   onSubmitCaptureEdit: (id: string, comment: string) => void | Promise<void>;
+  onToggleScreenshot: (id: string) => void | Promise<void>;
   onFocusCapture: (id: string) => void;
 }
 
@@ -19,6 +20,7 @@ export interface VideoPanelCapture {
   fragmentLabel?: string;
   fragmentUrl?: string;
   shareUrl?: string;
+  hasScreenshot?: boolean;
   comment: string;
   commentPreview: string;
   selectionPreview?: string;

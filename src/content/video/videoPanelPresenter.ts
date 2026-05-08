@@ -28,6 +28,7 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
         timeLabel: this.formatTime(capture.timeSec),
         timeSeconds: capture.timeSec,
         shareUrl: capture.url,
+        hasScreenshot: Boolean(capture.screenshot),
         comment: capture.comment,
         commentPreview: this.buildCommentPreview(capture.comment)
       });

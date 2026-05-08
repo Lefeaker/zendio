@@ -3609,6 +3609,31 @@ td {
   letter-spacing: var(--tracking-compact);
 }
 
+.video-timestamp-marker {
+  gap: var(--space-1-5);
+}
+
+.video-screenshot-toggle {
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--runtime-subtle);
+  cursor: pointer;
+}
+
+.video-screenshot-toggle.is-on {
+  background: var(--warning);
+}
+
+.video-screenshot-toggle:hover,
+.video-screenshot-toggle:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+}
+
 .session-add-capture-button {
   appearance: none;
   display: inline-flex;

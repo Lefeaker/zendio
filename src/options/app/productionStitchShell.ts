@@ -4,6 +4,7 @@ import { mergeOptions } from '@shared/config/optionsMerger';
 import { configProvider } from '@shared/config/provider';
 import {
   DEFAULT_USAGE_STATS,
+  DEFAULT_DOMAIN_MAPPINGS,
   normalizeUsageStats,
   USAGE_STATS_STORAGE_KEY
 } from '@shared/constants';
@@ -438,19 +439,25 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
 
 function toRoutingRules(options: CompleteOptions): RoutingRule[] {
   const vaultById = new Map((options.vaultRouter?.vaults ?? []).map((vault) => [vault.id, vault]));
+  const seenIds = new Set<string>();
   const seen = new Set<string>();
   const rules = [
     ...(options.vaultRouter?.rules ?? []),
     ...(options.vaultRouter?.vaults ?? []).flatMap((vault) => vault.rules ?? [])
   ].filter((rule) => {
-    const key =
-      rule.id ||
-      [rule.type, rule.pattern, rule.vaultId, rule.priority, rule.enabled].join('\u0000');
-    if (seen.has(key)) {
-      return false;
+    const canonicalKey = [
+      rule.type,
+      rule.pattern.trim().toLowerCase(),
+      rule.vaultId,
+      rule.priority,
+      rule.enabled
+    ].join('\u0000');
+    const duplicate = seen.has(canonicalKey) || (rule.id ? seenIds.has(rule.id) : false);
+    if (rule.id) {
+      seenIds.add(rule.id);
     }
-    seen.add(key);
-    return true;
+    seen.add(canonicalKey);
+    return !duplicate;
   });
 
   return rules.map((rule) => ({
@@ -705,11 +712,20 @@ export function mountProductionStitchShell({
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
   let draft = mergeOptions(initialOptions) as CompleteOptions;
+  function resolveDefaultDomainMappingRows(): Array<[string, string]> {
+    const entries = Object.entries(draft.domainMappings);
+    if (entries.length) {
+      return entries;
+    }
+    draft.domainMappings = { ...DEFAULT_DOMAIN_MAPPINGS };
+    return Object.entries(draft.domainMappings);
+  }
+
   let currentLanguage = language;
   let currentMessages = messages;
   let connectionNotice: PreviewContent['storage']['connectionNotice'] | undefined;
   let maintenanceLog = previewContent.maintenanceLog;
-  let domainMappingRows: Array<[string, string]> = Object.entries(draft.domainMappings);
+  let domainMappingRows: Array<[string, string]> = resolveDefaultDomainMappingRows();
   let appData = createProductionContent(previewContent, draft, { maintenanceLog });
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
   state.interfaceThemePreference = resolveThemePreference(draft);
@@ -836,6 +852,7 @@ export function mountProductionStitchShell({
         priority: Number(rule.priority) || 0
       })
     );
+    router.vaults = router.vaults.map((vault) => ({ ...vault, rules: [] }));
     draft.vaultRouter = router;
   }
 
@@ -1992,7 +2009,7 @@ export function mountProductionStitchShell({
     },
     refreshOptions(options = null) {
       draft = mergeOptions(options) as CompleteOptions;
-      domainMappingRows = Object.entries(draft.domainMappings);
+      domainMappingRows = resolveDefaultDomainMappingRows();
       dirtyWidgetKeys.clear();
       refreshAppData();
       state = applyOptionsToState(state, draft, appData);

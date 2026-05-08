@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
@@ -534,7 +535,7 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft().domainMappings).toEqual({});
   });
 
-  it('keeps an editable Domain Mappings table visible when mappings are empty', () => {
+  it('restores default Domain Mappings rows when mappings are empty', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -548,6 +549,29 @@ describe('mountProductionStitchShell', () => {
     const card = findCardByTitle('Domain Mappings');
     expect(card.querySelector('table')).toBeTruthy();
     expect(card.querySelector('thead')?.textContent).toContain('Domain');
+    const values = Array.from(card.querySelectorAll<HTMLInputElement>('input')).map(
+      (input) => input.value
+    );
+    expect(values).toContain('mp.weixin.qq.com');
+    expect(values).toContain('YouTube');
+    expect(mounted.collectDraft().domainMappings).toEqual(DEFAULT_DOMAIN_MAPPINGS);
+  });
+
+  it('keeps an editable Domain Mappings fallback row after deleting all mappings', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        domainMappings: {
+          'single.example': 'Single'
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('删除').click();
+    const card = findCardByTitle('Domain Mappings');
 
     const inputs = Array.from(card.querySelectorAll<HTMLInputElement>('tbody input'));
     expect(inputs).toHaveLength(2);
@@ -601,7 +625,7 @@ describe('mountProductionStitchShell', () => {
               isDefault: true,
               rules: [
                 {
-                  id: 'rule-1',
+                  id: 'vault-rule-1',
                   vaultId: 'research',
                   type: 'domain',
                   pattern: 'duplicate.example',
@@ -614,6 +638,14 @@ describe('mountProductionStitchShell', () => {
           rules: [
             {
               id: 'rule-1',
+              vaultId: 'research',
+              type: 'domain',
+              pattern: 'duplicate.example',
+              enabled: true,
+              priority: 10
+            },
+            {
+              id: 'rule-2',
               vaultId: 'research',
               type: 'domain',
               pattern: 'duplicate.example',

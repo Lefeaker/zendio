@@ -3,7 +3,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoDialogPanel } from '../../src/content/video/ui/VideoDialogPanel';
 import { VideoPanelPresenter } from '../../src/content/video/videoPanelPresenter';
-import type { VideoPanelCallbacks, VideoPanelTexts } from '../../src/content/video/application/videoPanelModel';
+import type {
+  VideoPanelCallbacks,
+  VideoPanelTexts
+} from '../../src/content/video/application/videoPanelModel';
 import type { VideoFragmentCapture, VideoTimestampCapture } from '../../src/content/video/types';
 
 const callbacks: VideoPanelCallbacks = {
@@ -12,6 +15,7 @@ const callbacks: VideoPanelCallbacks = {
   onCancel: vi.fn(),
   onDeleteCapture: vi.fn(),
   onSubmitCaptureEdit: vi.fn(() => Promise.resolve()),
+  onToggleScreenshot: vi.fn(),
   onFocusCapture: vi.fn()
 };
 
@@ -33,7 +37,9 @@ const texts: VideoPanelTexts = {
   captureFocusLabel: 'Focus {index}'
 };
 
-function createTimestampCapture(overrides: Partial<VideoTimestampCapture> = {}): VideoTimestampCapture {
+function createTimestampCapture(
+  overrides: Partial<VideoTimestampCapture> = {}
+): VideoTimestampCapture {
   return {
     kind: 'timestamp',
     id: 'ts-1',
@@ -45,7 +51,9 @@ function createTimestampCapture(overrides: Partial<VideoTimestampCapture> = {}):
   };
 }
 
-function createFragmentCapture(overrides: Partial<VideoFragmentCapture> = {}): VideoFragmentCapture {
+function createFragmentCapture(
+  overrides: Partial<VideoFragmentCapture> = {}
+): VideoFragmentCapture {
   return {
     kind: 'fragment',
     id: 'frag-1',
@@ -93,19 +101,13 @@ describe('Video Panel E2E Flow', () => {
     });
 
     const shadow = panel.element.shadowRoot;
-    const comment = shadow?.querySelector<HTMLElement>('[data-role="capture-comment"]');
-    expect(comment).toBeTruthy();
-    comment?.click();
+    panel.beginEditingCapture('ts-1', '');
 
-    const textarea = shadow?.querySelector<HTMLTextAreaElement>('[data-role="capture-editor"]');
-    expect(textarea).toBeTruthy();
-    if (!textarea) throw new Error('textarea missing');
-    textarea.value = 'Important timestamp';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-    const saveBtn = shadow?.querySelector<HTMLButtonElement>('[data-role="capture-save-btn"]');
-    expect(saveBtn).toBeTruthy();
-    saveBtn?.click();
+    const input = shadow?.querySelector<HTMLInputElement>('[data-capture-input="ts-1"]');
+    expect(input).toBeTruthy();
+    if (!input) throw new Error('input missing');
+    input.value = 'Important timestamp';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
     await Promise.resolve();
     expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('ts-1', 'Important timestamp');
@@ -115,7 +117,9 @@ describe('Video Panel E2E Flow', () => {
 
   it('fires finish action from dialog footer', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
-    const finishBtn = panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="finish-btn"]');
+    const finishBtn = panel.element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-role="finish-btn"]'
+    );
 
     expect(finishBtn).toBeTruthy();
     finishBtn?.click();

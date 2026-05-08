@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { VideoPanelCallbacks, VideoPanelTexts } from '@content/video/application/videoPanelModel';
+import type {
+  VideoPanelCallbacks,
+  VideoPanelTexts
+} from '@content/video/application/videoPanelModel';
 
 const mocks = vi.hoisted(() => {
   const dialogCtor = vi.fn();
@@ -38,6 +41,7 @@ describe('createVideoPanelViewFactory', () => {
     onCancel: vi.fn(),
     onDeleteCapture: vi.fn(),
     onSubmitCaptureEdit: vi.fn(),
+    onToggleScreenshot: vi.fn(),
     onFocusCapture: vi.fn()
   };
 
@@ -62,7 +66,9 @@ describe('createVideoPanelViewFactory', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.dialogCtor.mockReset();
-    ({ createVideoPanelViewFactory } = await import('../../../../src/content/video/presentation/videoPanelView'));
+    ({ createVideoPanelViewFactory } = await import(
+      '../../../../src/content/video/presentation/videoPanelView'
+    ));
   });
 
   it('creates VideoDialogPanel and proxies view calls', () => {

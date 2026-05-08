@@ -553,7 +553,7 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: false,
-      collapseAfterCapture: false
+      collapseAfterCapture: true
     });
   });
 
@@ -589,7 +589,7 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: true,
-      collapseAfterCapture: false
+      collapseAfterCapture: true
     });
   });
 

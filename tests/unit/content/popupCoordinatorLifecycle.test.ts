@@ -186,6 +186,7 @@ const videoCallbacks: VideoPanelCallbacks = {
   onCancel: vi.fn(),
   onDeleteCapture: vi.fn(),
   onFocusCapture: vi.fn(),
+  onToggleScreenshot: vi.fn(),
   onSubmitCaptureEdit: vi.fn()
 };
 

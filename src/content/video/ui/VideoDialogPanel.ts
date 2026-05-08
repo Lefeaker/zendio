@@ -236,6 +236,12 @@ export class VideoDialogPanel
           if (id) {
             this.options.callbacks.onDeleteCapture(id);
           }
+        },
+        'video:toggle-screenshot': (event) => {
+          const id = this.resolveActionId(event, 'captureId');
+          if (id) {
+            void this.options.callbacks.onToggleScreenshot(id);
+          }
         }
       }
     });

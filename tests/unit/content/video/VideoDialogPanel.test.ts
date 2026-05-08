@@ -14,6 +14,7 @@ const callbacks: VideoPanelCallbacks = {
   onCancel: vi.fn(),
   onDeleteCapture: vi.fn(),
   onSubmitCaptureEdit: vi.fn(),
+  onToggleScreenshot: vi.fn(),
   onFocusCapture: vi.fn()
 };
 
@@ -115,12 +116,38 @@ describe('VideoDialogPanel', () => {
     const shadow = panel.element.shadowRoot;
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:add"]')?.click();
     shadow?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')?.click();
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:toggle-screenshot"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:delete"]')?.click();
 
     expect(callbacks.onAddCapture).toHaveBeenCalledTimes(2);
     expect(callbacks.onAddCapture).toHaveBeenNthCalledWith(1, 'button');
     expect(callbacks.onAddCapture).toHaveBeenNthCalledWith(2, 'note-input');
+    expect(callbacks.onToggleScreenshot).toHaveBeenCalledWith('capture-1');
     expect(callbacks.onDeleteCapture).toHaveBeenCalledWith('capture-1');
+
+    panel.destroy();
+  });
+
+  it('renders timestamp screenshot toggles as gray or orange dots', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([
+      createCapture({ id: 'no-shot', hasScreenshot: false }),
+      createCapture({ id: 'with-shot', hasScreenshot: true })
+    ]);
+
+    const shadow = panel.element.shadowRoot;
+    const off = shadow?.querySelector<HTMLButtonElement>(
+      '[data-capture-id="no-shot"] [data-action-id="video:toggle-screenshot"]'
+    );
+    const on = shadow?.querySelector<HTMLButtonElement>(
+      '[data-capture-id="with-shot"] [data-action-id="video:toggle-screenshot"]'
+    );
+
+    expect(off?.classList.contains('is-off')).toBe(true);
+    expect(off?.getAttribute('aria-label')).toBe('Capture screenshot');
+    expect(on?.classList.contains('is-on')).toBe(true);
+    expect(on?.getAttribute('aria-label')).toBe('Remove screenshot');
 
     panel.destroy();
   });

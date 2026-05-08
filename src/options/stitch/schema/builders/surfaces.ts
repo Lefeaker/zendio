@@ -282,6 +282,27 @@ function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): Nod
   ]);
 }
 
+function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
+  const hasScreenshot = Boolean(capture.hasScreenshot);
+  return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
+    element('span', {
+      className: classNames.session.markerTime,
+      text: capture.markerLabel ?? capture.summary
+    }),
+    element('button', {
+      className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
+      type: 'button',
+      ariaLabel: hasScreenshot ? 'Remove screenshot' : 'Capture screenshot',
+      dataset: {
+        actionId: 'video:toggle-screenshot',
+        captureId: capture.id,
+        screenshotState: hasScreenshot ? 'on' : 'off'
+      },
+      onClick: { id: 'video:toggle-screenshot' }
+    })
+  ]);
+}
+
 function sessionItemCloseButton(
   label: string,
   actionId: 'reader:delete' | 'video:delete',
@@ -447,7 +468,7 @@ export function videoCaptureItem(
     : (capture.commentPreview ?? capture.comment ?? '');
 
   return sessionItemCard(
-    sessionItemMarker(capture.markerLabel ?? capture.summary, 'time'),
+    videoTimestampMarker(capture),
     displayText,
     capture.commentPreview,
     '',

@@ -92,15 +92,19 @@ describe('VideoSessionDomController', () => {
       }
     ];
 
-    controller.mountPanel({
-      onAddCapture: vi.fn(),
-      onFinish: vi.fn(),
-      onCancel: vi.fn(),
-      onDeleteCapture: vi.fn(),
-      onSubmitCaptureEdit: vi.fn(),
-      onFocusCapture: vi.fn()
-    }, DEFAULT_SESSION_MESSAGES.panel);
-    controller.syncPanel(state, (capture) => document.getElementById(capture.wrapperId ?? '') as HTMLElement | null);
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel
+    );
+    controller.syncPanel(state, (capture) => document.getElementById(capture.wrapperId ?? ''));
     controller.applyHint('ready', state);
 
     expect(view.updateCount).toHaveBeenLastCalledWith(2);
