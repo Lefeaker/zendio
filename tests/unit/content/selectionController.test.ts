@@ -4,7 +4,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { selection as mkSelection } from '../../utils/typeHelpers';
 import { testPlatformHarness } from '../../setup/globalSetup';
 import type { TestPlatformHarness } from '../../utils/platformTestHarness';
-import type { ClipPromptRequest, ClipPromptResponse } from '@content/clipper/application/clipPromptGateway';
+import type {
+  ClipPromptRequest,
+  ClipPromptResponse
+} from '@content/clipper/application/clipPromptGateway';
 import * as selectionExtractor from '@content/extractors/selectionExtractor';
 import type { SelectionClipResult } from '@content/extractors/selectionExtractor';
 import {
@@ -156,7 +159,9 @@ describe('content selectionController service', () => {
     const selection = createSelection('   ');
 
     const { controller } = await createController();
-    await expect(controller.handleSelectionClip(document, 'https://example.com', selection)).rejects.toThrow('Selected text is empty');
+    await expect(
+      controller.handleSelectionClip(document, 'https://example.com', selection)
+    ).rejects.toThrow('Selected text is empty');
   });
 
   it('throws when there are no selection ranges', async () => {
@@ -172,7 +177,9 @@ describe('content selectionController service', () => {
     });
 
     const { controller } = await createController();
-    await expect(controller.handleSelectionClip(document, 'https://example.com', selection)).rejects.toThrow('No text selected');
+    await expect(
+      controller.handleSelectionClip(document, 'https://example.com', selection)
+    ).rejects.toThrow('No text selected');
   });
 
   it('reuses registered reader session without falling back to window globals', async () => {
@@ -190,6 +197,26 @@ describe('content selectionController service', () => {
     expect(result).toBeNull();
     expect(existingSession.ingestExternalHighlight).toHaveBeenCalledTimes(1);
     expect(readerSessionFactory).not.toHaveBeenCalled();
+  });
+
+  it('passes the selected export destination into a new reader session', async () => {
+    promptMock.mockResolvedValue({
+      action: 'reader',
+      comment: 'note',
+      destination: { kind: 'vault', vaultId: 'research' }
+    });
+    const selection = createSelection('Selected text');
+
+    const { controller, readerSessionFactory } = await createController();
+    await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+    const readerSession = readerSessionFactory.mock.results[0]?.value;
+    expect(readerSession.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comment: 'note',
+        destination: { kind: 'vault', vaultId: 'research' }
+      })
+    );
   });
 
   it('reuses registered video session for selection clip', async () => {

@@ -29,11 +29,13 @@ import {
   isReaderSessionActive,
   registerReaderSession
 } from '@content/runtime/contentSessionRegistry';
+import { mergeOptions } from '@shared/config/optionsMerger';
 
 type TestView = ReaderSessionView & {
   updateCount: Mock<[count: number], void>;
   updateHint: Mock<[message: string], void>;
   updateTexts: Mock<[texts: ReaderPanelTexts], void>;
+  updateDestination: Mock<[destination: unknown], void>;
   setHighlights: Mock<[highlights: ReaderPanelHighlight[]], void>;
   stopEditing: Mock<[], void>;
   isEditing: Mock<[], boolean>;
@@ -46,6 +48,7 @@ function createView(): TestView {
     updateCount: vi.fn(),
     updateHint: vi.fn(),
     updateTexts: vi.fn(),
+    updateDestination: vi.fn(),
     setHighlights: vi.fn(),
     stopEditing: vi.fn(),
     isEditing: vi.fn(() => false),
@@ -170,7 +173,40 @@ function createSessionContext() {
       })
     },
     optionsRepository: {
-      get: vi.fn(),
+      get: vi.fn().mockResolvedValue(
+        mergeOptions({
+          rest: {
+            vault: 'Default Vault',
+            baseUrl: 'https://localhost:27124',
+            apiKey: 'token'
+          },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                id: 'default',
+                name: 'Default Vault',
+                vault: 'Default Vault',
+                httpsUrl: 'https://localhost:27124',
+                httpUrl: 'http://localhost:27123',
+                apiKey: 'token',
+                enabled: true,
+                isDefault: true
+              },
+              {
+                id: 'research',
+                name: 'Research Vault',
+                vault: 'Research Vault',
+                httpsUrl: 'https://localhost:27125',
+                httpUrl: 'http://localhost:27122',
+                apiKey: 'token',
+                enabled: true
+              }
+            ],
+            rules: []
+          }
+        })
+      ),
       set: vi.fn(),
       onChange: vi.fn(() => () => undefined)
     },
@@ -266,6 +302,32 @@ describe('ReaderSession', () => {
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
     expect(context.view.setHighlights).toHaveBeenLastCalledWith([]);
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
+  });
+
+  it('uses the clipper-selected destination for the initial reader path preview', async () => {
+    const context = createSessionContext();
+    const content = document.getElementById('content')?.firstChild;
+    if (!content) {
+      throw new Error('content missing');
+    }
+    const range = document.createRange();
+    range.selectNodeContents(content);
+
+    await context.session.initialize({
+      range,
+      selectedHtml: 'Hello reader session world.',
+      selectedText: 'Hello reader session world.',
+      comment: '',
+      destination: { kind: 'vault', vaultId: 'research' }
+    });
+
+    expect(context.view.updateDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
   });
 
   it('destroy delegates to cancel cleanup and resets mounted state', async () => {

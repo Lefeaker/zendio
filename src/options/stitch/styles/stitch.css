@@ -1796,10 +1796,11 @@ html[data-preview-theme='dark'] .slider::before {
 
 .interface-theme-grid .chips {
   position: relative;
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(86px, 1fr));
   align-items: center;
-  gap: var(--space-1-5);
-  width: fit-content;
+  gap: 0;
+  width: min(100%, 330px);
   padding: var(--space-1);
   border: var(--border-default);
   border-radius: var(--radius-full);
@@ -1811,7 +1812,7 @@ html[data-preview-theme='dark'] .slider::before {
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
-  width: calc((100% - var(--space-2)) / 2);
+  width: calc((100% - var(--space-2)) / 3);
   height: calc(100% - var(--space-2));
   border-radius: var(--radius-full);
   background: var(--accent-strong);
@@ -1819,13 +1820,19 @@ html[data-preview-theme='dark'] .slider::before {
   transition: transform var(--motion-base) var(--ease-standard);
 }
 
-.interface-theme-grid .chips[data-active-value='light']::before {
+.interface-theme-grid .chips[data-active-value='dark']::before {
   transform: translateX(100%);
+}
+
+.interface-theme-grid .chips[data-active-value='light']::before {
+  transform: translateX(200%);
 }
 
 .interface-theme-grid .chip {
   position: relative;
   z-index: 1;
+  justify-content: center;
+  width: 100%;
   min-height: var(--control-height-lg);
   padding: 0 var(--space-5);
   border: 0;
@@ -2898,6 +2905,9 @@ td {
 }
 
 .clipper-comment-textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
   min-height: calc(var(--control-height-md) + 2px);
   max-height: calc((var(--font-size-sm) * var(--line-height-normal) * 2) + var(--space-4));
   border-color: var(--runtime-line);
@@ -3038,7 +3048,18 @@ td {
 }
 
 [data-stitch-surface='clipper'] .export-destination-row {
+  width: calc(100% + (var(--space-7) * 2));
+  margin-inline: calc(var(--space-7) * -1);
   margin-bottom: calc(var(--space-5-5) * -1);
+}
+
+[data-stitch-surface='clipper'] .export-destination-menu {
+  width: 100%;
+}
+
+[data-stitch-surface='clipper'] .export-destination-summary {
+  border-inline: 0;
+  border-radius: 0;
 }
 
 [data-stitch-surface='clipper'] .export-destination-options {
@@ -3209,6 +3230,12 @@ td {
   max-height: calc(80vh - 100px);
   overflow-y: auto;
   padding: var(--space-12) var(--space-7);
+}
+
+[data-stitch-surface='clipper'] .clipper-comment-form {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
 }
 
 .clipper-comment-label {

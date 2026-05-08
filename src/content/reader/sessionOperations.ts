@@ -31,12 +31,23 @@ export async function handleReaderSessionSelection(
   context.state.handlingSelection = true;
 
   try {
+    const promptResult = context.clipPrompt
+      ? await context.clipPrompt.requestSelectionAction({
+          selectedText: payload.selectedText,
+          allowReaderMode: false,
+          readerModeBehavior: 'append'
+        })
+      : { action: 'clip' as const, comment: '' };
+    if (promptResult.action === 'cancel') {
+      context.doc.defaultView?.getSelection()?.removeAllRanges();
+      return;
+    }
     addReaderHighlightFromRange(
       context,
       payload.range,
       payload.selectedHtml,
       payload.selectedText,
-      ''
+      promptResult.comment
     );
     context.doc.defaultView?.getSelection()?.removeAllRanges();
   } catch (error) {

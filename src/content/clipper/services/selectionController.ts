@@ -133,7 +133,8 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
           range: savedRange,
           selectedHtml,
           selectedText,
-          comment
+          comment,
+          ...(promptResult.destination ? { destination: promptResult.destination } : {})
         });
       }
       selection.removeAllRanges();

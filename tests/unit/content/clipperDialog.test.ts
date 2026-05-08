@@ -147,6 +147,49 @@ const createDialogDeps = (
   };
 };
 
+function createVaultOptions() {
+  return {
+    rest: {
+      rootDir: '',
+      vault: 'Default Vault',
+      baseUrl: 'https://localhost:27124',
+      apiKey: 'token'
+    },
+    templates: {
+      article: 'Articles/{{title}}.md',
+      fragment: 'Fragments/{{title}}.md',
+      reading: 'Readings/{{title}}.md',
+      ai: 'AI/{{title}}.md'
+    },
+    domainMappings: {},
+    vaultRouter: {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'Default Vault',
+          vault: 'Default Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token',
+          enabled: true,
+          isDefault: true
+        },
+        {
+          id: 'research',
+          name: 'Research Vault',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27125',
+          httpUrl: 'http://localhost:27122',
+          apiKey: 'token',
+          enabled: true
+        }
+      ],
+      rules: []
+    }
+  };
+}
+
 beforeAll(() => {
   if (typeof window.PointerEvent === 'undefined') {
     class TestPointerEvent extends MouseEvent {
@@ -320,6 +363,36 @@ describe('ClipperDialog UI', () => {
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await promise;
+  });
+
+  it('returns the selected destination when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    const optionsRepository = deps.optionsRepository;
+    if (!optionsRepository) {
+      throw new Error('options repository missing');
+    }
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    const dialog = new ClipperDialog(deps);
+
+    const promise = dialog.show('Reader destination');
+    await flushPromises();
+
+    const shadow = getDialogRoot();
+    const researchOption = shadow?.querySelector<HTMLButtonElement>(
+      '.export-destination-option[data-destination-id="research"]'
+    );
+    expect(researchOption).toBeTruthy();
+    researchOption?.click();
+    await flushPromises();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    await expect(promise).resolves.toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'vault', vaultId: 'research' }
+    });
   });
 
   it('renders comment form with class-based styles only', async () => {

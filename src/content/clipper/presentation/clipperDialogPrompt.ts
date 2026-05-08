@@ -33,7 +33,8 @@ class ClipperDialogPromptGateway implements ClipPromptGateway {
     });
     return {
       action: result.action,
-      comment: result.comment ?? ''
+      comment: result.comment ?? '',
+      ...(result.destination ? { destination: result.destination } : {})
     };
   }
 }
