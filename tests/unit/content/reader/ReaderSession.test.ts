@@ -399,13 +399,9 @@ describe('ReaderSession', () => {
     expect(context.view.destroy).toHaveBeenCalled();
   });
 
-  it('captures selection through the selection controller and trims annotation comments', async () => {
+  it('captures selection directly inside reader mode without opening the clipper prompt', async () => {
     const context = createSessionContext();
     await context.session.initialize();
-    context.clipPrompt.requestSelectionAction.mockResolvedValue({
-      action: 'clip',
-      comment: '  hello  '
-    });
 
     const content = document.getElementById('content');
     if (!content?.firstChild) {
@@ -421,13 +417,14 @@ describe('ReaderSession', () => {
       }
     ).__testHighlights;
     expect(highlights).toHaveLength(1);
-    expect(highlights[0]?.comment).toBe('hello');
+    expect(highlights[0]?.comment).toBe('');
     expect(highlights[0]?.selectedText).toContain('Hello reader session world.');
+    expect(context.clipPrompt.requestSelectionAction).not.toHaveBeenCalled();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(1);
     expect(context.view.setHighlights).toHaveBeenCalled();
   });
 
-  it('ignores cancel actions and reports selection failures', async () => {
+  it('reports selection failures', async () => {
     const context = createSessionContext();
     await context.session.initialize();
 
@@ -435,20 +432,7 @@ describe('ReaderSession', () => {
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
-      action: 'cancel',
-      comment: ''
-    });
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
-    expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toHaveLength(0);
-
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
-      action: 'clip',
-      comment: ''
-    });
     context.highlightManager.createHighlight.mockImplementationOnce(() => {
       throw new Error('network');
     });

@@ -40,6 +40,8 @@ describe('ReaderHighlightManager', () => {
       '--reader-highlight-neon-yellow: rgba(255, 233, 88, 0.58)'
     );
     expect(style?.textContent).toContain("body[data-aiob-reader-highlight='purple']");
+    expect(style?.textContent).toContain('box-decoration-break: clone');
+    expect(style?.textContent).toContain('-webkit-box-decoration-break: clone');
   });
 
   it('creates highlight, trims comments, and annotates wrapper metadata', () => {

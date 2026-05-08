@@ -22,4 +22,11 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain("[data-stitch-surface='clipper'] .export-destination-summary");
     expect(stitchCss).toContain('border-radius: 0;');
   });
+
+  it('keeps runtime surface fills clipped to their rounded borders', () => {
+    expect(stitchCss).toContain('.clipper-footer-bar');
+    expect(stitchCss).toContain('border-radius: 0 0 var(--radius-xl) var(--radius-xl);');
+    expect(stitchCss).toContain('overflow: hidden;');
+    expect(stitchCss).toContain('background-clip: padding-box;');
+  });
 });

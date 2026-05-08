@@ -2,6 +2,7 @@ import { findVideoControlTarget } from './videoPromptObserver';
 
 const CONTROL_BUTTON_CLASS = 'aiob-video-control-bar-button';
 const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
+type VideoControlBarPlatform = 'youtube' | 'bilibili' | 'generic';
 
 export interface VideoControlBarButtonOptions {
   doc: Document;
@@ -25,6 +26,8 @@ function ensureStyle(doc: Document): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  flex: 0 0 auto;
   width: 31px !important;
   height: 31px !important;
   min-width: 31px !important;
@@ -35,6 +38,17 @@ function ensureStyle(doc: Document): void {
   color: #fff;
   cursor: pointer;
   opacity: 0.94;
+  vertical-align: middle;
+}
+.${CONTROL_BUTTON_CLASS}--youtube {
+  transform: translateY(2px);
+}
+.${CONTROL_BUTTON_CLASS}--bilibili {
+  width: 25px !important;
+  height: 25px !important;
+  min-width: 25px !important;
+  margin: 0 6px;
+  transform: translateY(-2px);
 }
 .${CONTROL_BUTTON_CLASS}:hover,
 .${CONTROL_BUTTON_CLASS}:focus-visible {
@@ -52,8 +66,27 @@ function ensureStyle(doc: Document): void {
   font: 700 13px/1 system-ui, sans-serif;
   pointer-events: none;
 }
+.${CONTROL_BUTTON_CLASS}--bilibili .${CONTROL_BUTTON_CLASS}__icon {
+  width: 22px;
+  height: 22px;
+}
 `;
   (doc.head ?? doc.documentElement).appendChild(style);
+}
+
+function resolvePlatform(url: string): VideoControlBarPlatform {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return 'youtube';
+    }
+    if (hostname.includes('bilibili.com')) {
+      return 'bilibili';
+    }
+  } catch {
+    return 'generic';
+  }
+  return 'generic';
 }
 
 function createControlBarButton(doc: Document): HTMLButtonElement {
@@ -70,6 +103,9 @@ function createControlBarButton(doc: Document): HTMLButtonElement {
 }
 
 function updateButton(button: HTMLButtonElement, options: VideoControlBarButtonOptions): void {
+  const platform = resolvePlatform(options.url);
+  button.classList.toggle(`${CONTROL_BUTTON_CLASS}--youtube`, platform === 'youtube');
+  button.classList.toggle(`${CONTROL_BUTTON_CLASS}--bilibili`, platform === 'bilibili');
   button.setAttribute('aria-label', options.label);
   button.title = options.shortcut ? `${options.label} - ${options.shortcut}` : options.label;
   button.onclick = (event) => {

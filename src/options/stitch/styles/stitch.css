@@ -2549,7 +2549,9 @@ td {
   border-radius: var(--radius-xl);
   border: 1px solid var(--runtime-line);
   background: var(--runtime-panel);
+  background-clip: padding-box;
   box-shadow: var(--shadow-runtime-panel);
+  overflow: hidden;
 }
 
 .task-success-window {
@@ -3127,6 +3129,7 @@ td {
   margin: 0 calc(var(--space-7) * -1) calc(var(--space-6-5) * -1);
   padding: var(--space-4-5) var(--space-7);
   border-top: 1px solid var(--runtime-line);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: var(--runtime-actionbar);
 }
 

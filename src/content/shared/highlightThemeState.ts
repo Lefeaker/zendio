@@ -49,14 +49,43 @@ body[data-aiob-reader-highlight='neonOrange'] {
 }
 
 .aiob-reader-highlight {
+  position: relative;
+  display: inline;
+  border-radius: 3px;
+  padding: 1px 0;
   background: var(--reader-highlight-bg);
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  background-clip: border-box;
   background-color: transparent !important;
   color: inherit !important;
+  transition: box-shadow 0.3s ease;
+  isolation: isolate;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .aiob-reader-highlight,
 .aiob-reader-highlight * {
   color: inherit !important;
+}
+
+.aiob-reader-highlight.aiob-reader-highlight--focus {
+  animation: aiob-reader-highlight-focus 1.4s ease-out;
+}
+
+@keyframes aiob-reader-highlight-focus {
+  0% {
+    box-shadow: 0 0 0 0 var(--reader-highlight-focus-color);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px var(--reader-highlight-focus-color-soft);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 `.trim();
 

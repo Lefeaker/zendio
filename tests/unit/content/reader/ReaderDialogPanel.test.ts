@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderDialogPanel } from '../../../../src/content/reader/ui/ReaderDialogPanel';
 import type {
   ReaderPanelCallbacks,
@@ -50,6 +50,11 @@ function createReaderPanelCallbacks(): ReaderPanelCallbacks {
 }
 
 describe('ReaderDialogPanel', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+  });
+
   it('mounts reader panel with the stable aiob-reader-panel id', () => {
     const panel = new ReaderDialogPanel({
       texts: createReaderPanelTexts(),
@@ -60,6 +65,31 @@ describe('ReaderDialogPanel', () => {
 
     expect(panel.element.id).toBe('aiob-reader-panel');
     expect(document.getElementById('aiob-reader-panel')).toBe(panel.element);
+
+    panel.destroy();
+  });
+
+  it('focuses the newest highlight note input when a reader selection is added', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+
+    panel.setHighlights([
+      {
+        id: 'h-1',
+        index: 1,
+        excerpt: 'Selected text',
+        fullText: 'Selected text',
+        comment: '',
+        commentPreview: '',
+        timestamp: Date.now()
+      }
+    ]);
+
+    const noteInput = panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]');
+    expect(panel.element.shadowRoot?.activeElement).toBe(noteInput);
 
     panel.destroy();
   });
