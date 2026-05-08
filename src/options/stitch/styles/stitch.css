@@ -1147,6 +1147,20 @@ body[data-route='onboarding'] {
   gap: var(--space-3);
 }
 
+.video-entry-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.video-entry-toggle .switch-line {
+  flex-wrap: nowrap;
+}
+
 .group {
   margin-top: var(--space-11);
 }

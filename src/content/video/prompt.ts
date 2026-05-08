@@ -16,6 +16,7 @@ import {
 import {
   ensureVideoControlBarButton,
   removeVideoControlBarButton,
+  type VideoControlBarNotePayload,
   type VideoControlBarPreferences
 } from './videoControlBarButton';
 import {
@@ -303,10 +304,15 @@ function syncVideoControlBarButton(): void {
       controlBarPreferences = preferences;
       void getVideoRepository().saveControlBarPreferences(preferences);
     },
-    onPrimaryAction: (preferences) => {
+    onPopoverOpen: (preferences) => {
+      if (preferences.autoPauseEnabled) {
+        pauseActiveVideoForControlBar();
+      }
+    },
+    onPrimaryAction: (preferences, payload) => {
       promptSuppressed = true;
       removePrompt();
-      void captureFromControlBar(preferences);
+      void captureFromControlBar(preferences, payload);
     }
   });
 }
@@ -585,19 +591,52 @@ async function startVideoSession(): Promise<void> {
   }
 }
 
-async function captureFromControlBar(preferences: VideoControlBarPreferences): Promise<void> {
+function pauseActiveVideoForControlBar(): void {
+  const video = document.querySelector('video');
+  try {
+    video?.pause();
+  } catch {
+    // Some host players wrap native controls; saving still works on submit.
+  }
+}
+
+function toControlBarCaptureOptions(
+  preferences: VideoControlBarPreferences,
+  payload?: VideoControlBarNotePayload
+): Parameters<NonNullable<VideoPromptSessionLike['addCurrentTimestamp']>>[1] {
+  if (!payload) {
+    return {
+      pauseVideo: preferences.autoPauseEnabled,
+      captureScreenshot: preferences.captureScreenshotEnabled,
+      beginEditing: true,
+      collapseAfterCapture: true
+    };
+  }
+
+  return {
+    comment: payload.comment,
+    pauseVideo: false,
+    captureScreenshot: preferences.captureScreenshotEnabled,
+    beginEditing: false,
+    resumePlayback: preferences.autoPauseEnabled,
+    collapseAfterCapture: false
+  };
+}
+
+async function captureFromControlBar(
+  preferences: VideoControlBarPreferences,
+  payload?: VideoControlBarNotePayload
+): Promise<void> {
   if (sessionStarting) {
     return;
   }
 
   const existingSession = getVideoSession<VideoPromptSessionLike>();
   if (existingSession) {
-    await existingSession.addCurrentTimestamp?.('button', {
-      pauseVideo: preferences.autoPauseEnabled,
-      captureScreenshot: preferences.captureScreenshotEnabled,
-      beginEditing: true,
-      collapseAfterCapture: true
-    });
+    await existingSession.addCurrentTimestamp?.(
+      payload?.source ?? 'button',
+      toControlBarCaptureOptions(preferences, payload)
+    );
     return;
   }
 
@@ -606,12 +645,10 @@ async function captureFromControlBar(preferences: VideoControlBarPreferences): P
     console.info('[VideoPrompt] Starting video session from control bar…');
     const session = getVideoPromptDependencies().createVideoSession(document);
     await session.start();
-    await session.addCurrentTimestamp?.('button', {
-      pauseVideo: preferences.autoPauseEnabled,
-      captureScreenshot: preferences.captureScreenshotEnabled,
-      beginEditing: true,
-      collapseAfterCapture: true
-    });
+    await session.addCurrentTimestamp?.(
+      payload?.source ?? 'button',
+      toControlBarCaptureOptions(preferences, payload)
+    );
     console.info('[VideoPrompt] Video session started from control bar.');
     evaluatePrompt(true);
   } catch (error) {

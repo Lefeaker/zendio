@@ -438,10 +438,20 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
 
 function toRoutingRules(options: CompleteOptions): RoutingRule[] {
   const vaultById = new Map((options.vaultRouter?.vaults ?? []).map((vault) => [vault.id, vault]));
+  const seen = new Set<string>();
   const rules = [
     ...(options.vaultRouter?.rules ?? []),
     ...(options.vaultRouter?.vaults ?? []).flatMap((vault) => vault.rules ?? [])
-  ];
+  ].filter((rule) => {
+    const key =
+      rule.id ||
+      [rule.type, rule.pattern, rule.vaultId, rule.priority, rule.enabled].join('\u0000');
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 
   return rules.map((rule) => ({
     type:
@@ -699,6 +709,7 @@ export function mountProductionStitchShell({
   let currentMessages = messages;
   let connectionNotice: PreviewContent['storage']['connectionNotice'] | undefined;
   let maintenanceLog = previewContent.maintenanceLog;
+  let domainMappingRows: Array<[string, string]> = Object.entries(draft.domainMappings);
   let appData = createProductionContent(previewContent, draft, { maintenanceLog });
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
   state.interfaceThemePreference = resolveThemePreference(draft);
@@ -829,6 +840,7 @@ export function mountProductionStitchShell({
   }
 
   function syncDomainEntries(entries: Array<[string, string]>): void {
+    domainMappingRows = entries.map(([domain, alias]) => [domain, alias]);
     draft.domainMappings = entries.reduce<Record<string, string>>((next, [domain, alias]) => {
       const key = domain.trim();
       if (key) {
@@ -839,7 +851,9 @@ export function mountProductionStitchShell({
   }
 
   function currentDomainEntries(): Array<[string, string]> {
-    return Object.entries(draft.domainMappings);
+    return domainMappingRows.length
+      ? domainMappingRows.map(([domain, alias]) => [domain, alias])
+      : [['', '']];
   }
 
   function getPrivacySnapshot(): {
@@ -1157,6 +1171,7 @@ export function mountProductionStitchShell({
     }
     if (partial.domainMappings) {
       draft.domainMappings = { ...partial.domainMappings };
+      domainMappingRows = Object.entries(draft.domainMappings);
     }
     if (partial.vaultRouter) {
       draft.vaultRouter = partial.vaultRouter;
@@ -1411,7 +1426,9 @@ export function mountProductionStitchShell({
         })();
       },
       'domain:add': () => {
-        const entries = currentDomainEntries();
+        const entries = currentDomainEntries().filter(
+          ([domain, alias]) => domain.trim() || alias.trim()
+        );
         entries.push([`example-${entries.length + 1}.com`, 'folder']);
         syncDomainEntries(entries);
         scheduleDraftSave();
@@ -1870,6 +1887,7 @@ export function mountProductionStitchShell({
           ai: 'AI/{platform}/{yyyy}/{title}.md'
         };
         draft.domainMappings = {};
+        domainMappingRows = [];
         draft.yamlConfig = createPresetYamlConfig('Minimal');
         break;
       case 'Research':
@@ -1885,6 +1903,7 @@ export function mountProductionStitchShell({
           'mp.weixin.qq.com': '公众号',
           'scholar.google.com': 'Scholar'
         };
+        domainMappingRows = Object.entries(draft.domainMappings);
         draft.yamlConfig = createPresetYamlConfig('Research');
         break;
       case 'Conversation':
@@ -1900,6 +1919,7 @@ export function mountProductionStitchShell({
           'claude.ai': 'Claude',
           'gemini.google.com': 'Gemini'
         };
+        domainMappingRows = Object.entries(draft.domainMappings);
         draft.yamlConfig = createPresetYamlConfig('Conversation');
         break;
       default:
@@ -1972,6 +1992,7 @@ export function mountProductionStitchShell({
     },
     refreshOptions(options = null) {
       draft = mergeOptions(options) as CompleteOptions;
+      domainMappingRows = Object.entries(draft.domainMappings);
       dirtyWidgetKeys.clear();
       refreshAppData();
       state = applyOptionsToState(state, draft, appData);

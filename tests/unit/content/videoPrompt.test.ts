@@ -159,10 +159,17 @@ const ensureVideoControlBarButtonMock = vi.hoisted(() =>
         autoPauseEnabled: boolean;
         captureScreenshotEnabled: boolean;
       }): void;
-      onPrimaryAction(preferences: {
+      onPopoverOpen?(preferences: {
         autoPauseEnabled: boolean;
         captureScreenshotEnabled: boolean;
       }): void;
+      onPrimaryAction(
+        preferences: {
+          autoPauseEnabled: boolean;
+          captureScreenshotEnabled: boolean;
+        },
+        payload?: { comment?: string; source?: string }
+      ): void;
     }) => {
       const button = options.doc.createElement('button');
       button.className = 'aiob-video-control-bar-button';
@@ -495,6 +502,11 @@ describe('video prompt', () => {
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    const pauseSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => undefined);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -515,6 +527,86 @@ describe('video prompt', () => {
       captureScreenshotEnabled: true
     });
 
+    controlOptions?.onPopoverOpen?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+
+    controlOptions?.onPrimaryAction(
+      {
+        autoPauseEnabled: false,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'watch this',
+        source: 'note-input'
+      }
+    );
+    await flushMicrotasks();
+
+    expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('note-input', {
+      comment: 'watch this',
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: false,
+      resumePlayback: false,
+      collapseAfterCapture: false
+    });
+  });
+
+  it('resumes playback after submitting a control-bar note when auto-pause is enabled', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPrimaryAction(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'resume after save',
+        source: 'note-input'
+      }
+    );
+    await flushMicrotasks();
+
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('note-input', {
+      comment: 'resume after save',
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: false,
+      resumePlayback: true,
+      collapseAfterCapture: false
+    });
+  });
+
+  it('opens a legacy control-bar capture without a typed note when called directly', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
     controlOptions?.onPrimaryAction({
       autoPauseEnabled: false,
       captureScreenshotEnabled: true

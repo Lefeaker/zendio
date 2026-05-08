@@ -10,6 +10,11 @@ export interface VideoControlBarPreferences {
   captureScreenshotEnabled: boolean;
 }
 
+export interface VideoControlBarNotePayload {
+  comment: string;
+  source: 'note-input';
+}
+
 export interface VideoControlBarButtonOptions {
   doc: Document;
   url: string;
@@ -18,7 +23,11 @@ export interface VideoControlBarButtonOptions {
   getIconUrl?: () => string | null;
   preferences?: VideoControlBarPreferences;
   onPreferencesChange?: (preferences: VideoControlBarPreferences) => void;
-  onPrimaryAction: (preferences: VideoControlBarPreferences) => void;
+  onPopoverOpen?: (preferences: VideoControlBarPreferences) => void;
+  onPrimaryAction: (
+    preferences: VideoControlBarPreferences,
+    payload?: VideoControlBarNotePayload
+  ) => void;
 }
 
 const DEFAULT_PREFERENCES: VideoControlBarPreferences = {
@@ -84,6 +93,7 @@ function ensureStyle(doc: Document): void {
   height: 22px;
 }
 .${CONTROL_POPOVER_CLASS} {
+  --aiob-video-control-accent: #8b5cf6;
   position: fixed;
   z-index: 2147483647;
   display: grid;
@@ -100,10 +110,24 @@ function ensureStyle(doc: Document): void {
 .${CONTROL_POPOVER_CLASS}[hidden] {
   display: none;
 }
-.${CONTROL_POPOVER_CLASS}__title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
+.${CONTROL_POPOVER_CLASS}__note-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: 13px/1.35 system-ui, sans-serif;
+}
+.${CONTROL_POPOVER_CLASS}__note-input::placeholder {
+  color: rgba(255, 255, 255, 0.46);
+}
+.${CONTROL_POPOVER_CLASS}__note-input:focus-visible {
+  border-color: var(--aiob-video-control-accent);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28);
+  outline: 0;
 }
 .${CONTROL_POPOVER_CLASS}__option {
   display: flex;
@@ -116,20 +140,7 @@ function ensureStyle(doc: Document): void {
   width: 15px;
   height: 15px;
   margin: 0;
-}
-.${CONTROL_POPOVER_CLASS}__action {
-  min-height: 30px;
-  border: 0;
-  border-radius: 8px;
-  background: #7c3aed;
-  color: #fff;
-  cursor: pointer;
-  font: 700 13px/1 system-ui, sans-serif;
-}
-.${CONTROL_POPOVER_CLASS}__action:hover,
-.${CONTROL_POPOVER_CLASS}__action:focus-visible {
-  background: #8b5cf6;
-  outline: 0;
+  accent-color: var(--aiob-video-control-accent);
 }
 `;
   (doc.head ?? doc.documentElement).appendChild(style);
@@ -230,9 +241,12 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', options.label);
 
-  const title = doc.createElement('p');
-  title.className = `${CONTROL_POPOVER_CLASS}__title`;
-  title.textContent = options.label;
+  const noteInput = doc.createElement('input');
+  noteInput.type = 'text';
+  noteInput.className = `${CONTROL_POPOVER_CLASS}__note-input`;
+  noteInput.dataset.aiobVideoControlBarNoteInput = 'true';
+  noteInput.placeholder = 'Add note';
+  noteInput.setAttribute('aria-label', 'Add video note');
 
   const onToggle = (preference: keyof VideoControlBarPreferences, checked: boolean): void => {
     preferences = {
@@ -257,22 +271,30 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     onToggle
   );
 
-  const action = doc.createElement('button');
-  action.type = 'button';
-  action.className = `${CONTROL_POPOVER_CLASS}__action`;
-  action.dataset.aiobVideoControlBarAction = 'add-note';
-  action.textContent = '添加视频笔记';
-  action.addEventListener('click', (event) => {
+  const submitNote = (): void => {
+    popover.remove();
+    options.onPrimaryAction(preferences, {
+      comment: noteInput.value.trim(),
+      source: 'note-input'
+    });
+  };
+
+  noteInput.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
-    popover.remove();
-    options.onPrimaryAction(preferences);
+    submitNote();
   });
 
-  popover.append(title, autoPause, screenshot, action);
+  popover.append(noteInput, autoPause, screenshot);
   (doc.body ?? doc.documentElement).appendChild(popover);
   positionPopover(button, popover);
-  action.focus({ preventScroll: true });
+  options.onPopoverOpen?.(preferences);
+  if (preferences.autoPauseEnabled) {
+    noteInput.focus({ preventScroll: true });
+  }
 }
 
 function updateButton(button: HTMLButtonElement, options: VideoControlBarButtonOptions): void {

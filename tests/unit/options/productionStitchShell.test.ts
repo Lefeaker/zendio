@@ -54,6 +54,18 @@ function findButton(label: string): HTMLButtonElement {
   return button;
 }
 
+function findCardByTitle(title: string): HTMLElement {
+  const card = Array.from(document.querySelectorAll<HTMLElement>('.card')).find((candidate) =>
+    Array.from(candidate.querySelectorAll('h2, h3')).some(
+      (heading) => heading.textContent?.trim() === title
+    )
+  );
+  if (!card) {
+    throw new Error(`Missing card: ${title}`);
+  }
+  return card;
+}
+
 function findInputByValue(value: string): HTMLInputElement {
   const input = Array.from(document.querySelectorAll<HTMLInputElement>('input')).find(
     (candidate) => candidate.value === value
@@ -522,6 +534,106 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft().domainMappings).toEqual({});
   });
 
+  it('keeps an editable Domain Mappings table visible when mappings are empty', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        domainMappings: {}
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const card = findCardByTitle('Domain Mappings');
+    expect(card.querySelector('table')).toBeTruthy();
+    expect(card.querySelector('thead')?.textContent).toContain('Domain');
+
+    const inputs = Array.from(card.querySelectorAll<HTMLInputElement>('tbody input'));
+    expect(inputs).toHaveLength(2);
+
+    inputs[0].value = 'docs.example';
+    inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+    inputs[1].value = 'Docs';
+    inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(mounted.collectDraft().domainMappings).toEqual({
+      'docs.example': 'Docs'
+    });
+  });
+
+  it('renders Video Prompt & Entry with the note-button switch in the card header', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        video: { floatingPromptEnabled: true }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const card = findCardByTitle('Video Prompt & Entry');
+    const header = card.querySelector<HTMLElement>('.card-header');
+    const toolbar = header?.querySelector<HTMLElement>('.toolbar');
+    expect(toolbar?.textContent).toContain('在视频网站显示笔记按钮');
+    expect(toolbar?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(card.querySelector('.row')?.textContent ?? '').not.toContain('在视频网站显示笔记按钮');
+  });
+
+  it('deduplicates routing rules that exist in both legacy and vault-scoped storage', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: { vault: 'Research Vault' },
+        vaultRouter: {
+          defaultVaultId: 'research',
+          vaults: [
+            {
+              id: 'research',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'token',
+              enabled: true,
+              isDefault: true,
+              rules: [
+                {
+                  id: 'rule-1',
+                  vaultId: 'research',
+                  type: 'domain',
+                  pattern: 'duplicate.example',
+                  enabled: true,
+                  priority: 10
+                }
+              ]
+            }
+          ],
+          rules: [
+            {
+              id: 'rule-1',
+              vaultId: 'research',
+              type: 'domain',
+              pattern: 'duplicate.example',
+              enabled: true,
+              priority: 10
+            }
+          ]
+        }
+      },
+      messages: null,
+      language: 'en'
+    } as never);
+
+    const card = findCardByTitle('Routing Rules');
+    const duplicateInputs = Array.from(card.querySelectorAll<HTMLInputElement>('input')).filter(
+      (candidate) => candidate.value === 'duplicate.example'
+    );
+    expect(duplicateInputs).toHaveLength(1);
+  });
+
   it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
@@ -654,10 +766,9 @@ describe('mountProductionStitchShell', () => {
     expect(text).not.toContain('promptPosition');
     expect(text).toContain('在视频网站显示笔记按钮');
 
-    const videoRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
-      row.textContent?.includes('在视频网站显示笔记按钮')
+    const videoSwitch = findCardByTitle('Video Prompt & Entry').querySelector<HTMLInputElement>(
+      '.card-header input[type="checkbox"]'
     );
-    const videoSwitch = videoRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
     expect(videoSwitch).toBeTruthy();
     videoSwitch!.checked = false;
     videoSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
