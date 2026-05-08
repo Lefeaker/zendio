@@ -64,7 +64,7 @@ describe('video listener scope jsdom fixtures', () => {
     expect(button).toBeTruthy();
     expect(button?.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
-      'translateY(2px)'
+      'translateY(0)'
     );
     button?.click();
     expect(onPrimaryAction).toHaveBeenCalledTimes(1);
@@ -101,6 +101,9 @@ describe('video listener scope jsdom fixtures', () => {
     expect(button?.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
       'width: 25px !important'
+    );
+    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
+      'translateY(-4px)'
     );
     expect(findVideoControlTarget(document, 'https://www.bilibili.com/video/BV1abc/')).toBe(
       document.querySelector('.bpx-player-control-bottom-right')

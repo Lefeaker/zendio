@@ -53,7 +53,7 @@ body[data-aiob-reader-highlight='neonOrange'] {
   display: inline;
   border-radius: 3px;
   padding: 1px 0;
-  background: var(--reader-highlight-bg);
+  background: var(--reader-highlight-bg) !important;
   background-repeat: no-repeat;
   background-origin: border-box;
   background-clip: border-box;

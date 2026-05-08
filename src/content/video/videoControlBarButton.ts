@@ -41,14 +41,14 @@ function ensureStyle(doc: Document): void {
   vertical-align: middle;
 }
 .${CONTROL_BUTTON_CLASS}--youtube {
-  transform: translateY(2px);
+  transform: translateY(0);
 }
 .${CONTROL_BUTTON_CLASS}--bilibili {
   width: 25px !important;
   height: 25px !important;
   min-width: 25px !important;
   margin: 0 6px;
-  transform: translateY(-2px);
+  transform: translateY(-4px);
 }
 .${CONTROL_BUTTON_CLASS}:hover,
 .${CONTROL_BUTTON_CLASS}:focus-visible {

@@ -91,6 +91,11 @@ describe('ReaderDialogPanel', () => {
     const noteInput = panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]');
     expect(panel.element.shadowRoot?.activeElement).toBe(noteInput);
 
+    panel.update({ hint: 'Updated hint after capture' });
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]')
+    );
+
     panel.destroy();
   });
 });

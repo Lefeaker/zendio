@@ -2549,7 +2549,6 @@ td {
   border-radius: var(--radius-xl);
   border: 1px solid var(--runtime-line);
   background: var(--runtime-panel);
-  background-clip: padding-box;
   box-shadow: var(--shadow-runtime-panel);
   overflow: hidden;
 }
@@ -2700,6 +2699,7 @@ td {
 .resource-modal--clipper .surface-window-header {
   padding: var(--space-6-5) var(--space-7) var(--space-5-5);
   border-bottom: var(--border-default);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-color: var(--runtime-line);
   background: var(--runtime-panel);
 }
@@ -2707,6 +2707,7 @@ td {
 .resource-modal--clipper .surface-window-body {
   gap: var(--space-5-5);
   padding: var(--space-6-5) var(--space-7);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: var(--runtime-panel);
 }
 

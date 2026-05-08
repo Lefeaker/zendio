@@ -42,6 +42,7 @@ describe('ReaderHighlightManager', () => {
     expect(style?.textContent).toContain("body[data-aiob-reader-highlight='purple']");
     expect(style?.textContent).toContain('box-decoration-break: clone');
     expect(style?.textContent).toContain('-webkit-box-decoration-break: clone');
+    expect(style?.textContent).toContain('background: var(--reader-highlight-bg) !important');
   });
 
   it('creates highlight, trims comments, and annotates wrapper metadata', () => {
@@ -65,6 +66,7 @@ describe('ReaderHighlightManager', () => {
     expect(highlight?.wrapper.classList.contains('aiob-reader-highlight')).toBe(true);
     expect(highlight?.wrapper.dataset.readerHighlightId).toBe('h-1');
     expect(highlight?.wrapper.dataset.readerComment).toBe('keep this');
+    expect(highlight?.wrapper.getAttribute('style')).toBeNull();
     expect(highlight?.wrapper.textContent).toContain('Hello reader world');
   });
 

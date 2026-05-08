@@ -25,8 +25,9 @@ describe('Stitch runtime polish CSS contracts', () => {
 
   it('keeps runtime surface fills clipped to their rounded borders', () => {
     expect(stitchCss).toContain('.clipper-footer-bar');
+    expect(stitchCss).toContain('.resource-modal--clipper .surface-window-body');
     expect(stitchCss).toContain('border-radius: 0 0 var(--radius-xl) var(--radius-xl);');
     expect(stitchCss).toContain('overflow: hidden;');
-    expect(stitchCss).toContain('background-clip: padding-box;');
+    expect(stitchCss).not.toContain('background-clip: padding-box;');
   });
 });

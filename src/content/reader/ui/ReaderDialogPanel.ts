@@ -46,6 +46,7 @@ export class ReaderDialogPanel
   private destination: ExportDestinationSurfacePreview | undefined;
   private highlightCount = 0;
   private editingHighlightId: string | null = null;
+  private pendingNoteFocusHighlightId: string | null = null;
   private collapsed = false;
 
   constructor(private readonly options: ReaderDialogPanelOptions) {
@@ -114,6 +115,10 @@ export class ReaderDialogPanel
       this.highlightCount = payload.highlights.length;
       const newestHighlight =
         payload.highlights.length > previousCount ? payload.highlights.at(-1) : undefined;
+      if (newestHighlight?.id) {
+        this.editingHighlightId = newestHighlight.id;
+        this.pendingNoteFocusHighlightId = newestHighlight.id;
+      }
       this.rerender();
       this.focusHighlightNoteInput(newestHighlight?.id);
       return this.renderRoot;
@@ -153,6 +158,10 @@ export class ReaderDialogPanel
     this.highlights = [...highlights];
     this.highlightCount = highlights.length;
     const newestHighlight = highlights.length > previousCount ? highlights.at(-1) : undefined;
+    if (newestHighlight?.id) {
+      this.editingHighlightId = newestHighlight.id;
+      this.pendingNoteFocusHighlightId = newestHighlight.id;
+    }
     this.rerender();
     this.focusHighlightNoteInput(newestHighlight?.id);
   }
@@ -190,6 +199,7 @@ export class ReaderDialogPanel
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
+    this.focusHighlightNoteInput(this.pendingNoteFocusHighlightId ?? this.editingHighlightId);
   }
 
   private renderSurface(): HTMLElement {
@@ -347,14 +357,20 @@ export class ReaderDialogPanel
     });
   }
 
-  private focusHighlightNoteInput(highlightId: string | undefined): void {
+  private focusHighlightNoteInput(highlightId: string | null | undefined): void {
     if (!highlightId) {
       return;
     }
     const input = Array.from(
       this.renderRoot.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-highlight-input]') ?? []
     ).find((element) => element.dataset.highlightInput === highlightId);
-    input?.focus();
+    if (!input) {
+      return;
+    }
+    input.focus();
+    if (this.renderRoot.shadowRoot?.activeElement === input) {
+      this.pendingNoteFocusHighlightId = null;
+    }
   }
 
   private isInteractiveHighlightTarget(target: Element | null): boolean {
