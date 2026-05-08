@@ -118,6 +118,25 @@ const createDialogDeps = (
 
   return {
     clipRepo,
+    optionsRepository: {
+      get: vi.fn(() =>
+        Promise.resolve({
+          rest: {
+            rootDir: '',
+            vault: 'Test Vault',
+            baseUrl: '',
+            apiKey: ''
+          },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [],
+            rules: []
+          }
+        })
+      ),
+      set: vi.fn(() => Promise.resolve()),
+      onChange: vi.fn(() => () => undefined)
+    } as unknown as ClipperDialogDependencies['optionsRepository'],
     storage,
     runtime: {
       getURL: vi.fn((path: string) => path)
@@ -315,18 +334,15 @@ describe('ClipperDialog UI', () => {
     expect(form).toBeTruthy();
     expect(form?.hasAttribute('style')).toBe(false);
 
-    const preview = form?.querySelector('.clipper-comment-preview');
     const label = form?.querySelector('.clipper-comment-label');
     const textarea = form?.querySelector('.clipper-comment-textarea');
 
-    expect(preview).toBeTruthy();
+    expect(form?.querySelector('.clipper-comment-preview')).toBeNull();
     expect(label).toBeNull();
     expect(textarea).toBeTruthy();
     expect(textarea?.getAttribute('aria-label')).toBe('Comment');
 
-    for (const element of [preview, textarea]) {
-      expect(element?.hasAttribute('style')).toBe(false);
-    }
+    expect(textarea?.hasAttribute('style')).toBe(false);
 
     const nestedStyles = form?.querySelectorAll('style');
     expect(nestedStyles?.length ?? 0).toBe(0);

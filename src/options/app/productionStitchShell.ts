@@ -11,7 +11,7 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
-import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
@@ -132,6 +132,7 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
     activePanel: 'overview',
     activeResource: null,
     previewTheme: resolveStoredTheme(),
+    interfaceThemePreference: resolveThemePreference(),
     previewLanguage: 'zh-CN',
     yamlFilter: 'all',
     readingPathMode: 'custom',
@@ -177,27 +178,61 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
   };
 }
 
-function resolveStoredTheme(
-  options?: StoredOptions | CompleteOptions | null
-): PreviewStoreState['previewTheme'] {
-  if (options?.interfaceTheme === 'light' || options?.interfaceTheme === 'dark') {
+function resolveThemePreference(options?: StoredOptions | CompleteOptions | null): InterfaceTheme {
+  if (
+    options?.interfaceTheme === 'light' ||
+    options?.interfaceTheme === 'dark' ||
+    options?.interfaceTheme === 'system'
+  ) {
     return options.interfaceTheme;
   }
   try {
-    return window.localStorage.getItem('aob-theme') === 'light' ? 'light' : 'dark';
+    const stored = window.localStorage.getItem('aob-theme');
+    if (stored === 'light' || stored === 'system') {
+      return stored;
+    }
+  } catch {
+    // localStorage can be unavailable in isolated test contexts.
+  }
+  return 'dark';
+}
+
+function resolveSystemPreviewTheme(): PreviewStoreState['previewTheme'] {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   } catch {
     return 'dark';
   }
 }
 
-function persistTheme(theme: PreviewStoreState['previewTheme']): void {
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.dataset.previewTheme = theme;
-  document.body.dataset.previewTheme = theme;
+function resolveStoredTheme(
+  options?: StoredOptions | CompleteOptions | null
+): PreviewStoreState['previewTheme'] {
+  const preference = resolveThemePreference(options);
+  return preference === 'system' ? resolveSystemPreviewTheme() : preference;
+}
+
+function persistTheme(preference: InterfaceTheme): PreviewStoreState['previewTheme'] {
+  const resolved = preference === 'system' ? resolveSystemPreviewTheme() : preference;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.previewTheme = resolved;
+  document.body.dataset.previewTheme = resolved;
   try {
-    window.localStorage.setItem('aob-theme', theme);
+    window.localStorage.setItem('aob-theme', preference);
   } catch {
     // localStorage can be unavailable in isolated test contexts.
+  }
+  return resolved;
+}
+
+function createThemeMediaQuery(): Pick<MediaQueryList, 'addEventListener' | 'removeEventListener'> {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)');
+  } catch {
+    return {
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined
+    };
   }
 }
 
@@ -682,9 +717,11 @@ export function mountProductionStitchShell({
   let maintenanceLog = previewContent.maintenanceLog;
   let appData = createProductionContent(previewContent, draft, { maintenanceLog });
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  state.interfaceThemePreference = resolveThemePreference(draft);
   state.previewTheme = resolveStoredTheme(draft);
   state.previewLanguage = currentLanguage;
-  persistTheme(state.previewTheme);
+  state.previewTheme = persistTheme(state.interfaceThemePreference);
+  const themeMediaQuery = createThemeMediaQuery();
   const widgetInstances = new Set<
     OptionsWidgetMountContract<Record<string, unknown>, Partial<CompleteOptions>>
   >();
@@ -1162,7 +1199,7 @@ export function mountProductionStitchShell({
     collected.pageSummary.enabled = false;
     collected.readingOverlaySummary.enabled = false;
     collected.subtitleTranslation.enabled = false;
-    collected.interfaceTheme = state.previewTheme;
+    collected.interfaceTheme = state.interfaceThemePreference ?? state.previewTheme;
     if (!dirtyWidgetKeys.size) {
       return collected;
     }
@@ -1182,7 +1219,7 @@ export function mountProductionStitchShell({
     merged.pageSummary.enabled = false;
     merged.readingOverlaySummary.enabled = false;
     merged.subtitleTranslation.enabled = false;
-    merged.interfaceTheme = state.previewTheme;
+    merged.interfaceTheme = state.interfaceThemePreference ?? state.previewTheme;
     return merged;
   }
 
@@ -1232,14 +1269,14 @@ export function mountProductionStitchShell({
     mutate,
     handlers: {
       'preview:setTheme': ({ value, mutate: update }) => {
-        const theme = value === 'light' ? 'light' : 'dark';
+        const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
         update(
           (next) => {
-            next.previewTheme = theme;
+            next.interfaceThemePreference = theme;
+            next.previewTheme = persistTheme(theme);
           },
           { silent: true }
         );
-        persistTheme(theme);
         void resolvedOptionsRepository.set({ interfaceTheme: theme } as Partial<CompleteOptions>);
         syncPreviewThemeControls();
       },
@@ -1637,19 +1674,34 @@ export function mountProductionStitchShell({
   }
 
   function syncPreviewThemeControls(): void {
-    const theme = state.previewTheme === 'light' ? 'light' : 'dark';
+    const preference =
+      state.interfaceThemePreference === 'light' || state.interfaceThemePreference === 'system'
+        ? state.interfaceThemePreference
+        : 'dark';
     mountRoot.querySelectorAll<HTMLButtonElement>('.chips button[data-value]').forEach((button) => {
-      if (button.dataset.value !== 'light' && button.dataset.value !== 'dark') {
+      if (
+        button.dataset.value !== 'light' &&
+        button.dataset.value !== 'dark' &&
+        button.dataset.value !== 'system'
+      ) {
         return;
       }
-      const isActive = button.dataset.value === theme;
+      const isActive = button.dataset.value === preference;
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       button.classList.toggle('is-active', isActive);
       const chipGroup = button.closest<HTMLElement>('.chips');
       if (chipGroup) {
-        chipGroup.dataset.activeValue = theme;
+        chipGroup.dataset.activeValue = preference;
       }
     });
+  }
+
+  function applySystemThemePreferenceChange(): void {
+    if (state.interfaceThemePreference !== 'system') {
+      return;
+    }
+    state.previewTheme = persistTheme('system');
+    syncPreviewThemeControls();
   }
 
   function render(): void {
@@ -1673,6 +1725,8 @@ export function mountProductionStitchShell({
     if (chartHost) {
       previewUi.renderUsageChart(chartHost, appData.overview.history);
     }
+    syncPreviewThemeControls();
+    syncHighlightThemeControls();
     renderActiveResourceModal();
   }
 
@@ -1936,6 +1990,7 @@ export function mountProductionStitchShell({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      themeMediaQuery.removeEventListener?.('change', applySystemThemePreferenceChange);
       schemaRenderer.dispose();
       destroyWidgets();
       clear(mountRoot);
@@ -1948,8 +2003,9 @@ export function mountProductionStitchShell({
       dirtyWidgetKeys.clear();
       refreshAppData();
       state = applyOptionsToState(state, draft, appData);
+      state.interfaceThemePreference = resolveThemePreference(draft);
       state.previewTheme = resolveStoredTheme(draft);
-      persistTheme(state.previewTheme);
+      state.previewTheme = persistTheme(state.interfaceThemePreference);
       render();
     },
     setMessages(nextMessages, nextLanguage) {
@@ -1962,6 +2018,8 @@ export function mountProductionStitchShell({
       render();
     }
   };
+
+  themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
 
   render();
   void loadUsageStatsFromStorage();

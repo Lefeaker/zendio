@@ -55,7 +55,7 @@ describe('Stitch shared registry contracts', () => {
 
     expect(control).toMatchObject({
       kind: 'segmentedNav',
-      bind: 'previewTheme',
+      bind: 'interfaceThemePreference',
       action: { id: STITCH_ACTIONS.setTheme }
     });
   });

@@ -1,4 +1,5 @@
 import type { MessagingService } from '../../platform/interfaces/messaging';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
@@ -10,6 +11,7 @@ export interface ReaderLazyRuntimeDependencies {
   optionsRepository: IOptionsRepository;
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
+  runtime: Pick<RuntimeService, 'getURL'>;
   promptGateway: ClipPromptGateway;
 }
 
@@ -26,7 +28,8 @@ export function createReaderSessionAdapter(
         const readerDependencies = createReaderSessionDependencies({
           optionsRepository: dependencies.optionsRepository,
           storage: dependencies.storage,
-          messaging: dependencies.messaging
+          messaging: dependencies.messaging,
+          runtime: dependencies.runtime
         });
         return new ReaderSession(doc, url, dependencies.promptGateway, readerDependencies);
       });

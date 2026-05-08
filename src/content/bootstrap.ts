@@ -8,8 +8,11 @@ import { createErrorHandler } from '../shared/errors/errorHandler';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
 import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
 import { initializeErrorAnalytics } from '../shared/errors/analytics';
-import { configureGlobalStateManagerStorage, createGlobalStateManager } from '../shared/state/globalStateManager';
-import { createPopupCoordinator, type PopupCoordinator } from './runtime/popupCoordinator';
+import {
+  configureGlobalStateManagerStorage,
+  createGlobalStateManager
+} from '../shared/state/globalStateManager';
+import { createPopupCoordinator } from './runtime/popupCoordinator';
 import { addBrowserClassToHtml } from '../shared/utils/browserDetection';
 import type { StorageService } from '../platform/interfaces/storage';
 
@@ -61,23 +64,26 @@ export function __setContentBootstrapLoadersForTests(
     loadStyleManagers?: (() => ContentStyleManagers) | null;
   } | null
 ): void {
-  loadPlatformModuleForContentBootstrap = overrides?.loadPlatformModule ?? (() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
-    return require('../platform') as PlatformModule;
-  });
-  loadStyleManagersForContentBootstrap = overrides?.loadStyleManagers ?? (() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { clipperStyleSheetManager } = require('./clipper/shared/styleSheetManager') as {
-      clipperStyleSheetManager: { initialize: () => void };
-    };
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { panelStyleSheetManager } = require('./shared/panels/styleSheetManager') as {
-      panelStyleSheetManager: { initialize: () => void };
-    };
-    return { clipperStyleSheetManager, panelStyleSheetManager };
-  });
+  loadPlatformModuleForContentBootstrap =
+    overrides?.loadPlatformModule ??
+    (() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-member-access
+      return require('../platform') as PlatformModule;
+    });
+  loadStyleManagersForContentBootstrap =
+    overrides?.loadStyleManagers ??
+    (() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { clipperStyleSheetManager } = require('./clipper/shared/styleSheetManager') as {
+        clipperStyleSheetManager: { initialize: () => void };
+      };
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { panelStyleSheetManager } = require('./shared/panels/styleSheetManager') as {
+        panelStyleSheetManager: { initialize: () => void };
+      };
+      return { clipperStyleSheetManager, panelStyleSheetManager };
+    });
 }
-
 
 /**
  * 内容脚本依赖上下文
@@ -99,7 +105,8 @@ export class ContentScriptContext {
     this.bootstrapDependencies(storage);
 
     // 预初始化 Shadow DOM 样式（依赖 DI 已就绪）
-    const { clipperStyleSheetManager, panelStyleSheetManager } = loadStyleManagersForContentBootstrap();
+    const { clipperStyleSheetManager, panelStyleSheetManager } =
+      loadStyleManagersForContentBootstrap();
     clipperStyleSheetManager.initialize();
     panelStyleSheetManager.initialize();
 
@@ -140,15 +147,15 @@ export class ContentScriptContext {
 
     console.log('[ContentScript] Disposing context...');
     this.isDisposed = true;
-    
+
     // 清理作用域注册表
     this.scopedRegistry.disposeScope();
     this.cleanupGlobalErrorBoundary?.();
     this.cleanupGlobalErrorBoundary = null;
-    
+
     // 移除事件监听器
     this.removeCleanupListeners();
-    
+
     console.log('[ContentScript] Context disposed');
   }
 
@@ -196,39 +203,14 @@ export class ContentScriptContext {
   private setupCleanupListeners(): void {
     // 页面卸载时自动清理
     window.addEventListener('beforeunload', this.handleBeforeUnload);
-    window.addEventListener('pagehide', this.handlePageHide);
-    
-    // 页面隐藏时关闭所有正式 popup，避免残留遮罩与监听器
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   private removeCleanupListeners(): void {
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
-    window.removeEventListener('pagehide', this.handlePageHide);
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   private handleBeforeUnload = (): void => {
     this.dispose();
-  };
-
-  private handlePageHide = (): void => {
-    this.closeAllPopups();
-  };
-
-  private handleVisibilityChange = (): void => {
-    if (!document.hidden) {
-      return;
-    }
-    this.closeAllPopups();
-  };
-
-  private closeAllPopups(): void {
-    if (!this.scopedRegistry.has(TOKENS.dialogRegistry)) {
-      return;
-    }
-    const popupCoordinator = this.scopedRegistry.resolve<PopupCoordinator>(TOKENS.dialogRegistry);
-    popupCoordinator?.closeAll();
   };
 }
 
@@ -273,9 +255,9 @@ export function getContentService<T>(token: symbol): T {
  */
 export function bootstrapContentScript(storage?: StorageService): ContentScriptContext {
   console.log('[ContentScript] Bootstrapping...');
-  
+
   const context = getGlobalContentContext(storage);
-  
+
   console.log('[ContentScript] Bootstrap complete');
   return context;
 }

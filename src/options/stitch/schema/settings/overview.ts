@@ -185,7 +185,10 @@ const schema: SettingsSchema = {
                         action: { id: 'resource:open', args: ['data-usage'] }
                       }
                     ]),
-                    state((current) => current.state.privacyStatus ?? '')
+                    (current) =>
+                      current.state.privacyStatus
+                        ? state((inner) => inner.state.privacyStatus ?? '')
+                        : null
                   ])
                 ])
               ]

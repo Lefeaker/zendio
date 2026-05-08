@@ -123,8 +123,35 @@ describe('ChromeOptionsRepository', () => {
       const callbackArg = callbackCalls[0]?.[0];
       expect(callbackArg?.rest.baseUrl).toBe('https://updated.example/');
 
-      // ✅ Verify storage.sync.watchKey was NEVER called (no watcher attached)
-      expect(mockStorage.sync.watchKey).not.toHaveBeenCalled();
+      expect(mockStorage.sync.watchKey).toHaveBeenCalledWith('options', expect.any(Function));
+    });
+
+    it('should notify subscribers when options are changed from another extension context', async () => {
+      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const externalOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      externalOptions.interfaceTheme = 'light';
+      mockStorage.sync.get.mockResolvedValue(initialOptions);
+      let externalChange: ((value: CompleteOptions | undefined) => void) | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = callback as (value: CompleteOptions | undefined) => void;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      repo.onChange(callback);
+
+      await vi.waitFor(() => {
+        expect(callback).toHaveBeenCalledTimes(1);
+      });
+      callback.mockClear();
+
+      expect(externalChange).toBeDefined();
+      externalChange?.(externalOptions);
+
+      await vi.waitFor(() => {
+        expect(callback).toHaveBeenCalledTimes(1);
+      });
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({ interfaceTheme: 'light' }));
     });
 
     it('should emit initial state immediately when onChange is called', async () => {
@@ -144,10 +171,12 @@ describe('ChromeOptionsRepository', () => {
       expect(callbackArg?.rest.vault).toBe('InitialVault');
     });
 
-    it('should unsubscribe correctly without detaching non-existent watcher', async () => {
+    it('should unsubscribe correctly and detach the storage watcher for the last listener', async () => {
       const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
       initialOptions.rest.vault = 'InitialVault';
       mockStorage.sync.get.mockResolvedValue(initialOptions);
+      const stopWatching = vi.fn();
+      mockStorage.sync.watchKey.mockReturnValue(stopWatching);
 
       const callback = vi.fn();
       const unsubscribe = repo.onChange(callback);
@@ -173,10 +202,11 @@ describe('ChromeOptionsRepository', () => {
       });
 
       // Wait a bit to ensure callback is not called
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // ✅ Should NOT be called after unsubscribe
       expect(callback).not.toHaveBeenCalled();
+      expect(stopWatching).toHaveBeenCalledTimes(1);
     });
 
     it('should notify multiple subscribers when options change', async () => {
@@ -238,7 +268,9 @@ describe('ChromeOptionsRepository', () => {
 
       expect(mockStorage.sync.get).toHaveBeenCalledWith('options');
       expect(result.rest.baseUrl).toBe('https://stored.example/');
-      expect(result.templates.fragment).toBe((DEFAULT_OPTIONS as CompleteOptions).templates.fragment);
+      expect(result.templates.fragment).toBe(
+        (DEFAULT_OPTIONS as CompleteOptions).templates.fragment
+      );
       expect(result.domainMappings).toEqual((DEFAULT_OPTIONS as CompleteOptions).domainMappings);
     });
 
@@ -259,7 +291,9 @@ describe('ChromeOptionsRepository', () => {
       const result = await repo.get();
 
       expect(result.rest.baseUrl).toBe('https://partial.example/');
-      expect(result.templates.fragment).toBe((DEFAULT_OPTIONS as CompleteOptions).templates.fragment);
+      expect(result.templates.fragment).toBe(
+        (DEFAULT_OPTIONS as CompleteOptions).templates.fragment
+      );
       expect(result.domainMappings).toEqual((DEFAULT_OPTIONS as CompleteOptions).domainMappings);
     });
 

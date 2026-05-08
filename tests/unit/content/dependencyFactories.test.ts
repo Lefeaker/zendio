@@ -64,7 +64,8 @@ describe('content dependency factories', () => {
         set: vi.fn(),
         onChange: vi.fn(() => () => undefined)
       },
-      storage: { sync: {}, local: {}, session: {} }
+      storage: { sync: {}, local: {}, session: {} },
+      runtime: { getURL: vi.fn((path: string) => path) }
     };
     const dependencies = createReaderSessionDependencies(platform as never, {
       viewFactory: vi.fn() as never,

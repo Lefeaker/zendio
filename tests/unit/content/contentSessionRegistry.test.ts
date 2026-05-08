@@ -34,16 +34,43 @@ describe('contentSessionRegistry', () => {
     registerVideoSession(video, document);
 
     expect(isReaderSessionActive(document)).toBe(true);
-    expect(getReaderSession()).toBe(reader);
+    expect(getReaderSession(document)).toBe(reader);
     expect(isVideoSessionActive(document)).toBe(true);
-    expect(getVideoSession()).toBe(video);
+    expect(getVideoSession(document)).toBe(video);
 
     clearReaderSession(reader, document);
     clearVideoSession(video, document);
 
     expect(isReaderSessionActive(document)).toBe(false);
-    expect(getReaderSession()).toBeNull();
+    expect(getReaderSession(document)).toBeNull();
     expect(isVideoSessionActive(document)).toBe(false);
-    expect(getVideoSession()).toBeNull();
+    expect(getVideoSession(document)).toBeNull();
+  });
+
+  it('keeps reader and video sessions isolated per document', () => {
+    const otherDocument = document.implementation.createHTMLDocument('other');
+    __resetContentSessionRegistryForTests(otherDocument);
+    const currentReader = { id: 'current-reader' };
+    const otherReader = { id: 'other-reader' };
+    const currentVideo = { id: 'current-video' };
+    const otherVideo = { id: 'other-video' };
+
+    registerReaderSession(currentReader, document);
+    registerReaderSession(otherReader, otherDocument);
+    registerVideoSession(currentVideo, document);
+    registerVideoSession(otherVideo, otherDocument);
+
+    expect(getReaderSession(document)).toBe(currentReader);
+    expect(getReaderSession(otherDocument)).toBe(otherReader);
+    expect(getVideoSession(document)).toBe(currentVideo);
+    expect(getVideoSession(otherDocument)).toBe(otherVideo);
+
+    clearReaderSession(currentReader, document);
+    clearVideoSession(otherVideo, otherDocument);
+
+    expect(isReaderSessionActive(document)).toBe(false);
+    expect(isReaderSessionActive(otherDocument)).toBe(true);
+    expect(isVideoSessionActive(document)).toBe(true);
+    expect(isVideoSessionActive(otherDocument)).toBe(false);
   });
 });

@@ -20,14 +20,16 @@ export function themeSegmentedSwitch(): NodeSchema {
     items: (current) =>
       current.state.previewLanguage === 'en'
         ? [
+            { label: 'System', value: 'system' },
             { label: 'Dark', value: 'dark' },
             { label: 'Light', value: 'light' }
           ]
         : [
+            { label: '跟随系统', value: 'system' },
             { label: '暗色', value: 'dark' },
             { label: '亮色', value: 'light' }
           ],
-    bind: 'previewTheme',
+    bind: 'interfaceThemePreference',
     action: { id: 'preview:setTheme' }
   };
 }

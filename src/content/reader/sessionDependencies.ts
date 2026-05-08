@@ -5,6 +5,7 @@ import type { ReaderSessionDependencies } from './sessionTypes';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
 import { createReaderPanelViewFactory } from './presentation/readerPanelView';
 import { ReaderHighlightManager } from './services/highlightManager';
 import { ReaderSelectionController } from './services/selectionController';
@@ -18,6 +19,7 @@ export interface ReaderSessionPlatformDependencies {
   optionsRepository: IOptionsRepository;
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
+  runtime: Pick<RuntimeService, 'getURL'>;
 }
 
 type ReaderSessionDependencyOverrides = Omit<
@@ -32,31 +34,36 @@ export function createReaderSessionDependencies(
   const readerRepository = resolveRepository<IReaderRepository>(DI_TOKENS.IReaderRepository);
 
   return {
-    viewFactory: overrides.viewFactory ?? createReaderPanelViewFactory(),
+    viewFactory:
+      overrides.viewFactory ??
+      createReaderPanelViewFactory({
+        resolveAssetUrl: (path) => deps.runtime.getURL(path)
+      }),
     optionsRepository: deps.optionsRepository,
     storage: deps.storage,
     messaging: deps.messaging,
     readerRepository,
-    createHighlightManager: overrides.createHighlightManager ?? ((doc) => new ReaderHighlightManager(doc)),
+    createHighlightManager:
+      overrides.createHighlightManager ?? ((doc) => new ReaderHighlightManager(doc)),
     createSelectionController:
       overrides.createSelectionController ?? ((options) => new ReaderSelectionController(options)),
     createPanelCoordinator:
       overrides.createPanelCoordinator ?? ((options) => new ReaderPanelCoordinator(options)),
     createEnvironmentController:
-      overrides.createEnvironmentController ?? ((deps, handlers) => new ReaderEnvironmentController(deps, handlers)),
+      overrides.createEnvironmentController ??
+      ((deps, handlers) => new ReaderEnvironmentController(deps, handlers)),
     createLifecycle:
       overrides.createLifecycle ?? ((deps, handlers) => new ReaderSessionLifecycle(deps, handlers)),
     exporter:
       overrides.exporter ??
       new ReaderSessionExporter({
         loadMarkdownBuilders: () =>
-          import('./utils/markdownBuilder').then(({
-            buildReaderFullMarkdown,
-            buildReaderHighlightsMarkdown
-          }) => ({
-            buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
-            buildFullMarkdown: buildReaderFullMarkdown
-          }))
+          import('./utils/markdownBuilder').then(
+            ({ buildReaderFullMarkdown, buildReaderHighlightsMarkdown }) => ({
+              buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
+              buildFullMarkdown: buildReaderFullMarkdown
+            })
+          )
       }),
     dispatchClipResult:
       overrides.dispatchClipResult ??

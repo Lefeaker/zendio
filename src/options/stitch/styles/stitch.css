@@ -3037,6 +3037,10 @@ td {
   flex: 1 1 auto;
 }
 
+[data-stitch-surface='clipper'] .export-destination-row {
+  margin-bottom: calc(var(--space-5-5) * -1);
+}
+
 [data-stitch-surface='clipper'] .export-destination-options {
   top: calc(100% + var(--space-2));
   bottom: auto;
@@ -3099,7 +3103,7 @@ td {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin: var(--space-3) calc(var(--space-7) * -1) calc(var(--space-6-5) * -1);
+  margin: 0 calc(var(--space-7) * -1) calc(var(--space-6-5) * -1);
   padding: var(--space-4-5) var(--space-7);
   border-top: 1px solid var(--runtime-line);
   background: var(--runtime-actionbar);
@@ -3205,20 +3209,6 @@ td {
   max-height: calc(80vh - 100px);
   overflow-y: auto;
   padding: var(--space-12) var(--space-7);
-}
-
-.clipper-comment-preview {
-  max-height: 150px;
-  margin-bottom: var(--space-10);
-  overflow-y: auto;
-  padding: 14px 22px;
-  border: var(--border-default);
-  border-left: 4px solid color-mix(in srgb, var(--accent) 70%, transparent);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--runtime-panel-2) 70%, transparent);
-  color: color-mix(in srgb, var(--text) 75%, transparent);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-copy);
 }
 
 .clipper-comment-label {

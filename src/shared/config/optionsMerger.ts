@@ -303,7 +303,10 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     : { ...defaults.domainMappings };
 
   const options: OptionsState = {
-    interfaceTheme: source.interfaceTheme === 'light' ? 'light' : 'dark',
+    interfaceTheme:
+      source.interfaceTheme === 'light' || source.interfaceTheme === 'system'
+        ? source.interfaceTheme
+        : 'dark',
     rest,
     templates,
     domainMappings

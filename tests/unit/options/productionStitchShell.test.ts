@@ -290,11 +290,13 @@ describe('mountProductionStitchShell', () => {
 
   it('persists theme changes through the Stitch segmented control', () => {
     const controller = createController();
+    const repository = createRepository();
     mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
       initialOptions: null,
       messages: null,
-      language: 'en'
+      language: 'en',
+      optionsRepository: repository
     });
 
     const main = document.querySelector<HTMLElement>('.main');
@@ -308,6 +310,7 @@ describe('mountProductionStitchShell', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('light');
     expect(document.body.dataset.previewTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('light');
+    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'light' });
 
     const darkButton = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.chips button')
@@ -318,6 +321,43 @@ describe('mountProductionStitchShell', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('dark');
     expect(document.body.dataset.previewTheme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
+    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'dark' });
+  });
+
+  it('adds a system theme preference and resolves it immediately from media changes', () => {
+    const controller = createController();
+    const repository = createRepository();
+    const mediaListeners = new Set<() => void>();
+    const media = {
+      matches: true,
+      addEventListener: vi.fn((_event: string, callback: () => void) => {
+        mediaListeners.add(callback);
+      }),
+      removeEventListener: vi.fn()
+    };
+    vi.spyOn(window, 'matchMedia').mockReturnValue(media as never);
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: { interfaceTheme: 'system' },
+      messages: null,
+      language: 'en',
+      optionsRepository: repository
+    });
+
+    const systemButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.chips button')
+    ).find((button) => button.textContent === 'System');
+    expect(systemButton).toBeTruthy();
+    expect(document.documentElement.dataset.previewTheme).toBe('dark');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+
+    media.matches = false;
+    mediaListeners.forEach((callback) => callback());
+
+    expect(document.documentElement.dataset.previewTheme).toBe('light');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
   });
 
   it('binds production option values and schedules autosave after edits', () => {

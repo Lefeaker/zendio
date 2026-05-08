@@ -168,7 +168,6 @@ export function selectionPreviewBox(_label: string, text: string): NodeSchema {
 
 export function commentEditorBlock(_label: string, placeholder: string): NodeSchema {
   return div('field clipper-comment-form', [
-    element('div', { className: 'clipper-comment-preview', text: '' }),
     {
       kind: 'textarea',
       value: '',

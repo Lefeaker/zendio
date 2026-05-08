@@ -117,6 +117,7 @@ export function createLazyReaderSessionFactory(
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage,
             messaging: dependencies.messaging as MessagingService,
+            runtime: dependencies.runtime,
             promptGateway: dependencies.promptGateway
           })
         );

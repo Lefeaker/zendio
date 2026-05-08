@@ -141,7 +141,7 @@ export const SubtitleTranslationOptionsSchema = z.object({
   targetLanguage: z.string().min(1)
 });
 
-export const InterfaceThemeSchema = z.enum(['dark', 'light']);
+export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）

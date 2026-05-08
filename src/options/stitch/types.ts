@@ -339,6 +339,7 @@ export interface PreviewStoreState {
   activePanel: string;
   activeResource: string | null;
   previewTheme: 'dark' | 'light';
+  interfaceThemePreference?: 'dark' | 'light' | 'system';
   previewLanguage: string;
   yamlFilter: string;
   readingPathMode: string;
@@ -408,7 +409,12 @@ export interface StateBinding extends Omit<SharedStateBinding, 'source'> {
 
 export type PreviewStyle = Partial<CSSStyleDeclaration> & Record<`--${string}`, string | number>;
 
-export type NodeChild = NodeSchema | ((ctx: SchemaContext) => NodeSchema);
+export type NodeChild =
+  | NodeSchema
+  | null
+  | false
+  | undefined
+  | ((ctx: SchemaContext) => NodeSchema | null | false | undefined);
 
 export interface BaseNode {
   kind: string;

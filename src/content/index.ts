@@ -23,6 +23,7 @@ import { resolveRepository } from '../shared/di/serviceRegistry';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
+import { startRuntimeThemeSync } from './stitch/runtimeTheme';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -47,6 +48,7 @@ function initializeClipperRuntime(): void {
     optionsRepository: primaryOptionsRepository,
     window
   });
+  const stopRuntimeThemeSync = startRuntimeThemeSync(primaryOptionsRepository, window);
   const clipPromptGateway = createClipperDialogPromptGateway();
   const supportPrompt = createLazySupportPrompt(document);
   const createReaderSession = createLazyReaderSessionFactory({
@@ -111,7 +113,7 @@ function initializeClipperRuntime(): void {
         selectionController,
         createVideoSession: () => createVideoSession(document),
         isVideoSessionActive: () => isVideoSessionActive(document),
-        getVideoSession: () => getVideoSession<ReturnType<typeof createVideoSession>>(),
+        getVideoSession: () => getVideoSession<ReturnType<typeof createVideoSession>>(document),
         resolveActiveSelection: () => selectionTracker.resolveActiveSelection(),
         restoreSelectionFromSnapshot: (snapshot) =>
           selectionTracker.restoreSelectionFromSnapshot(snapshot),
@@ -120,5 +122,12 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
-  window.addEventListener('pagehide', () => runtime.stop(), { passive: true });
+  window.addEventListener(
+    'pagehide',
+    () => {
+      stopRuntimeThemeSync();
+      runtime.stop();
+    },
+    { passive: true }
+  );
 }

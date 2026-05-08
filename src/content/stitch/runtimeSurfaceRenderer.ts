@@ -3,7 +3,7 @@ import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
-import { getControlledRuntimeTheme } from './runtimeTheme';
+import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
 export interface RuntimeSurfaceRenderOptions {
   surfaceId: 'clipper' | 'reader' | 'video' | 'video-floating-prompt' | 'task-success';
@@ -90,5 +90,6 @@ export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions)
   rendered.dataset.stitchSurface = options.surfaceId;
   rendered.setAttribute('data-preview-skin', 'stitch-secondary');
   rendered.setAttribute('data-preview-theme', state.previewTheme);
+  registerRuntimeSurfaceThemeRoot(rendered);
   return rendered;
 }

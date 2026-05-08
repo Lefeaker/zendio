@@ -24,10 +24,14 @@ describe('createReaderSessionDependencies', () => {
     const deps = createReaderSessionDependencies({
       optionsRepository: { type: 'optionsRepository' } as never,
       storage: { local: {} } as never,
-      messaging
+      messaging,
+      runtime: {
+        getURL: (path: string) => `chrome-extension://reader/${path}`
+      } as never
     });
 
     expect(deps.readerRepository).toBe(readerRepository);
+    expect(deps.viewFactory).toBeDefined();
     expect(typeof deps.createHighlightManager).toBe('function');
     expect(typeof deps.createSelectionController).toBe('function');
     expect(typeof deps.createPanelCoordinator).toBe('function');
@@ -56,7 +60,8 @@ describe('createReaderSessionDependencies', () => {
       {
         optionsRepository: { type: 'optionsRepository' } as never,
         storage: { local: {} } as never,
-        messaging: { send: vi.fn() }
+        messaging: { send: vi.fn() },
+        runtime: { getURL: vi.fn((path: string) => path) } as never
       },
       {
         viewFactory,

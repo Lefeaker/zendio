@@ -1,9 +1,5 @@
 import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
-import {
-  createContentHintText,
-  createContentLayoutElement,
-  createContentSurfacePanel
-} from '@ui/primitives/layout';
+import { createContentHintText, createContentLayoutElement } from '@ui/primitives/layout';
 import { COMMENT_FORM_CLASSES } from './commentFormStyles';
 
 export interface CommentFormMessages {
@@ -14,7 +10,6 @@ export interface CommentFormMessages {
 export interface CommentFormElements {
   container: HTMLDivElement;
   textarea: HTMLTextAreaElement;
-  preview: HTMLDivElement;
   handles: I18nBindingHandle[];
 }
 
@@ -30,13 +25,6 @@ export function createCommentForm(
   const container = createContentLayoutElement({
     className: COMMENT_FORM_CLASSES.container
   });
-
-  const preview = createContentSurfacePanel({
-    className: COMMENT_FORM_CLASSES.preview
-  });
-  const truncated =
-    selectedText.length > 500 ? selectedText.substring(0, 501) + '...' : selectedText;
-  preview.textContent = truncated;
 
   const label = createContentLayoutElement({
     tag: 'label',
@@ -56,7 +44,6 @@ export function createCommentForm(
   bindText(label, 'commentLabel', messages.commentLabel, binder, handles);
   bindPlaceholder(textarea, 'commentPlaceholder', messages.commentPlaceholder, binder, handles);
 
-  container.appendChild(preview);
   container.appendChild(label);
   container.appendChild(textarea);
 
@@ -67,7 +54,8 @@ export function createCommentForm(
   hint.hidden = true;
   container.appendChild(hint);
 
-  return { container, textarea, preview, handles };
+  void selectedText;
+  return { container, textarea, handles };
 }
 
 function bindText(
