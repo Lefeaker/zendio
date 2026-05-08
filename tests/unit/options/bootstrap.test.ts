@@ -3,6 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { repositoryContainer } from '@shared/di/serviceRegistry';
+import { DI_TOKENS } from '@shared/di/tokens';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 
 const showStatusMessageMock = vi.hoisted(() => vi.fn());
@@ -117,6 +119,15 @@ describe('options bootstrap', () => {
     controllerLoadInitialStateMock.mockResolvedValue({ rest: { vault: 'Demo' } });
     consumeYamlMigrationNoticeMock.mockReturnValue(null);
     configureOptionsAppBootstrapStorage(storageMock);
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: vi.fn(),
+      set: vi.fn(),
+      onChange: vi.fn(() => () => undefined)
+    }));
+    repositoryContainer.registerSingleton(DI_TOKENS.IMessagingRepository, () => ({
+      send: vi.fn()
+    }));
   });
 
   it('shows auto-save notices for yamlConfig and templates only', async () => {

@@ -1,36 +1,75 @@
 <!doctype html>
-<html lang="zh-CN" class="aobx-preview">
+<html
+  lang="zh-CN"
+  class="aobx-preview"
+  data-preview-skin="stitch-secondary"
+  data-preview-theme="dark"
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Runtime Observability Harness</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles/design-tokens.css" />
-    <link rel="stylesheet" href="./styles/global.tailwind.css" />
-    <link rel="stylesheet" href="./options/styles/tailwind.css" />
+    <link rel="stylesheet" href="./options/stitch/styles/stitch.css" />
+    <link rel="stylesheet" href="./options/stitch/styles/variants/stitch-secondary.css" />
+    <style>
+      .harness-body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--background);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      .harness-main {
+        width: min(1120px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 32px 0;
+        display: grid;
+        gap: 24px;
+      }
+
+      .harness-controls,
+      .harness-requests {
+        display: grid;
+        gap: 12px;
+      }
+
+      .harness-status {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 16px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.04);
+      }
+    </style>
   </head>
-  <body class="aobx-preview m-0 min-h-screen bg-surface text-text font-ui text-md leading-[1.56]">
-    <main class="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 p-8">
-      <section class="rounded-2xl border border-base-300 bg-base-100 p-6 shadow-card">
-        <h1 class="m-0 text-2xl font-semibold tracking-tight text-base-content">
-          Runtime Observability Harness
-        </h1>
-        <p class="mt-2 text-sm text-base-content/60">
-          Validate consent, debug mode, global error boundary, GA4 debug endpoint, and Sentry
-          envelope reporting in a real browser.
-        </p>
-        <div id="controls" class="mt-6 flex flex-wrap gap-3"></div>
-        <div
-          id="status"
-          class="mt-4 rounded-lg border border-base-300 bg-base-200/60 px-4 py-3 text-sm text-base-content/70"
-        >
-          Booting harness...
+  <body class="harness-body">
+    <main class="harness-main">
+      <section class="card">
+        <div class="card-header">
+          <h1>Runtime Observability Harness</h1>
+          <p>
+            Validate consent, debug mode, global error boundary, GA4 debug endpoint, and Sentry
+            envelope reporting in a real browser.
+          </p>
         </div>
+        <div id="controls" class="harness-controls"></div>
+        <div id="status" class="harness-status">Booting harness...</div>
       </section>
 
-      <section class="rounded-2xl border border-base-300 bg-base-100 p-6 shadow-card">
-        <h2 class="m-0 text-lg font-semibold text-base-content">Captured Requests</h2>
-        <div id="requests" class="mt-4 grid gap-3"></div>
+      <section class="card">
+        <div class="card-header">
+          <h2>Captured Requests</h2>
+        </div>
+        <div id="requests" class="harness-requests"></div>
       </section>
     </main>
     <script type="module" src="./runtime-observability-harness.js"></script>

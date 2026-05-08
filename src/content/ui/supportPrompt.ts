@@ -359,13 +359,14 @@ export class SupportPrompt
   }
 
   private async resolveMessages(): Promise<SupportPromptMessages> {
-    if (this.messagesPromise === null) {
-      this.messagesPromise = (async () => {
+    let messagesPromise = this.messagesPromise;
+    if (messagesPromise === null) {
+      messagesPromise = (async () => {
         try {
           await ensureContentI18n(this.doc);
           const resource = getContentI18nResource();
           const messages = resource?.messages ?? (await getContentMessages());
-          return {
+          const resolvedMessages: SupportPromptMessages = {
             dialogLabel: messages.supportPromptDialogLabel,
             title: messages.supportPromptTitle,
             koFiTitle: messages.supportPromptKoFiTitle,
@@ -400,19 +401,24 @@ export class SupportPrompt
               FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
             dislikeQrLinkLabel:
               messages.supportPromptDislikeQrLinkLabel ??
-              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
-            dislikeQrPlaceholder:
-              messages.supportPromptDislikeQrPlaceholder ??
-              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder
+              FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel
           };
+          const dislikeQrPlaceholder =
+            messages.supportPromptDislikeQrPlaceholder ??
+            FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrPlaceholder;
+          if (typeof dislikeQrPlaceholder === 'string') {
+            resolvedMessages.dislikeQrPlaceholder = dislikeQrPlaceholder;
+          }
+          return resolvedMessages;
         } catch (error) {
           console.warn('[support-prompt] Failed to load i18n messages:', error);
           return FALLBACK_SUPPORT_PROMPT_MESSAGES;
         }
       })();
+      this.messagesPromise = messagesPromise;
     }
 
-    return this.messagesPromise;
+    return messagesPromise;
   }
 
   private resolveAssetUrl(path: string): string {

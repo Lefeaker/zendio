@@ -47,8 +47,6 @@
     "report:release-summary": "node tools/generate-release-summary.mjs",
     "format": "prettier --write \"{src,tests,docs}/**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"{src,tests,docs}/**/*.{ts,tsx,js,jsx,json,md}\"",
-    "tailwind:build": "tailwindcss -c tailwind.config.cjs -i src/options/styles/tailwind.input.css -o src/options/styles/tailwind.css --minify",
-    "tailwind:watch": "tailwindcss -c tailwind.config.cjs -i src/options/styles/tailwind.input.css -o src/options/styles/tailwind.css --watch",
     "tailwind:build:clipper": "tailwindcss -c tailwind.config.clipper.cjs -i src/styles/clipper/tailwind.input.css -o src/styles/clipper/clipper.tailwind.css --minify",
     "tailwind:build:global": "tailwindcss -c tailwind.config.global.cjs -i src/styles/tailwind.input.global.css -o src/styles/global.tailwind.css --minify",
     "tailwind:watch:global": "tailwindcss -c tailwind.config.global.cjs -i src/styles/tailwind.input.global.css -o src/styles/global.tailwind.css --watch",

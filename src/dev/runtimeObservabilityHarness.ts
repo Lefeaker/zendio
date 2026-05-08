@@ -10,7 +10,6 @@ import {
 } from '../shared/errors/analytics/analyticsConfig';
 import { trackUsageEvent } from '../background/services/analyticsEvents';
 import { registerService, TOKENS } from '../shared/di';
-import { createOptionsButtonElement } from '../ui/primitives/button';
 
 type CapturedRequest = {
   url: string;
@@ -95,15 +94,14 @@ function renderRequests(): void {
   requestsHost.replaceChildren(
     ...capturedRequests.map((request, index) => {
       const card = document.createElement('article');
-      card.className = 'rounded-xl border border-base-300 bg-base-200/40 p-4';
+      card.className = 'card';
 
       const title = document.createElement('div');
-      title.className = 'text-sm font-semibold text-base-content';
+      title.className = 'card-header';
       title.textContent = `${index + 1}. ${request.method} ${request.url}`;
 
       const body = document.createElement('pre');
-      body.className =
-        'mt-2 overflow-x-auto rounded-lg bg-base-100 p-3 text-xs text-base-content/70';
+      body.className = 'harness-status';
       body.textContent = request.bodyText || '[empty body]';
 
       card.append(title, body);
@@ -164,13 +162,14 @@ function createControlButton(
   label: string,
   handler: () => void | Promise<void>
 ): HTMLButtonElement {
-  return createOptionsButtonElement({
-    label,
-    variant: 'primary',
-    onClick: () => {
-      void handler();
-    }
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn primary';
+  button.textContent = label;
+  button.addEventListener('click', () => {
+    void handler();
   });
+  return button;
 }
 
 controls.append(

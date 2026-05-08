@@ -89,17 +89,40 @@ const forbiddenFiles = [
 ];
 
 const requiredSnippets = {
-  'src/options/components/layout/MainContent.ts': [['../../../ui/hosts/options', '@ui/hosts/options']],
-  'src/options/components/sections/BaseSection.ts': [['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']],
-  'src/options/components/sections/RoutingSection.ts': [['../../../ui/domains/vault-router', '@ui/domains/vault-router']],
-  'src/options/components/sections/YamlConfigSection.ts': [['../../../ui/domains/yaml-config', '@ui/domains/yaml-config']],
-  'src/options/components/sections/PrivacySection.ts': [['../../../ui/domains/privacy', '@ui/domains/privacy']],
-  'src/content/reader/ui/ReaderDialogPanel.ts': [['../../../ui/domains/reading', '@ui/domains/reading']],
-  'src/content/video/ui/VideoDialogPanel.ts': [['../../../ui/domains/video', '@ui/domains/video']],
-  'src/content/ui/supportPrompt.ts': [['../../ui/domains/support-prompt', '@ui/domains/support-prompt']],
-  'src/options/app/bootstrap.ts': [['../../ui/domains/theme', '@ui/domains/theme']],
-  'src/content/shared/panels/styleSheetManager.ts': [['../../../ui/foundation/style-host', '@ui/foundation/style-host']],
-  'src/content/clipper/shared/styleSheetManager.ts': [['../../../ui/foundation/style-host', '@ui/foundation/style-host']]
+  'src/options/components/layout/MainContent.ts': [
+    ['../../../ui/hosts/options', '@ui/hosts/options']
+  ],
+  'src/options/components/sections/BaseSection.ts': [
+    ['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']
+  ],
+  'src/options/components/sections/RoutingSection.ts': [
+    ['../../../ui/domains/vault-router', '@ui/domains/vault-router']
+  ],
+  'src/options/components/sections/YamlConfigSection.ts': [
+    ['../../../ui/domains/yaml-config', '@ui/domains/yaml-config']
+  ],
+  'src/options/components/sections/PrivacySection.ts': [
+    ['../../../ui/domains/privacy', '@ui/domains/privacy']
+  ],
+  'src/content/reader/ui/ReaderDialogPanel.ts': [
+    ['@content/stitch/runtimeSurfaceRenderer'],
+    ['@content/stitch/runtimeSurfaceContent']
+  ],
+  'src/content/video/ui/VideoDialogPanel.ts': [
+    ['@content/stitch/runtimeSurfaceRenderer'],
+    ['@content/stitch/runtimeSurfaceContent']
+  ],
+  'src/content/ui/supportPrompt.ts': [
+    ['@content/stitch/runtimeSurfaceRenderer'],
+    ['@content/stitch/runtimeSurfaceContent']
+  ],
+  'src/options/app/bootstrap.ts': [['./productionStitchShell']],
+  'src/content/shared/panels/styleSheetManager.ts': [
+    ['../../../ui/foundation/style-host', '@ui/foundation/style-host']
+  ],
+  'src/content/clipper/shared/styleSheetManager.ts': [
+    ['../../../ui/foundation/style-host', '@ui/foundation/style-host']
+  ]
 };
 
 const findings = [];
@@ -135,12 +158,14 @@ for (const [relativePath, snippetGroups] of Object.entries(requiredSnippets)) {
 const forbiddenPatterns = [
   {
     file: 'src/content/reader/session.ts',
-    pattern: /initializeDefaultReaderSessionDependencies|getDefaultReaderSessionDependencies|defaultReaderSessionDependencies/,
+    pattern:
+      /initializeDefaultReaderSessionDependencies|getDefaultReaderSessionDependencies|defaultReaderSessionDependencies/,
     message: 'reader session still exposes default dependency injection'
   },
   {
     file: 'src/content/video/session.ts',
-    pattern: /initializeDefaultVideoSessionDependencies|getDefaultVideoSessionDependencies|defaultVideoSessionDependencies/,
+    pattern:
+      /initializeDefaultVideoSessionDependencies|getDefaultVideoSessionDependencies|defaultVideoSessionDependencies/,
     message: 'video session still exposes default dependency injection'
   },
   {
@@ -186,7 +211,11 @@ function walk(dir) {
       findings.push(`domain implementation still depends on feature layer: ${relativePath}`);
     }
 
-    if (/from ['"][^'"]*(?:options\/components\/shared\/(?:Daisy(?:Alert|Badge|Button|Checkbox|Dialog|Input|Select|Textarea|Toggle)|OptionsLayout)|options\/components\/controls\/(?:YamlConfigView|VaultRouterView|privacySettings|yamlConfigTable(?:Model|Validation|Types|Dom|ControllerState(?:\.impl)?|ControllerTypes)?|yamlConfigTable)|content\/shared\/daisy|content\/reader\/components\/ReaderDialog|content\/video\/components\/VideoDialog|content\/ui\/supportPrompt\/SupportPromptView|ui\/domains\/video\/SupportPromptView)/.test(source)) {
+    if (
+      /from ['"][^'"]*(?:options\/components\/shared\/(?:Daisy(?:Alert|Badge|Button|Checkbox|Dialog|Input|Select|Textarea|Toggle)|OptionsLayout)|options\/components\/controls\/(?:YamlConfigView|VaultRouterView|privacySettings|yamlConfigTable(?:Model|Validation|Types|Dom|ControllerState(?:\.impl)?|ControllerTypes)?|yamlConfigTable)|content\/shared\/daisy|content\/reader\/components\/ReaderDialog|content\/video\/components\/VideoDialog|content\/ui\/supportPrompt\/SupportPromptView|ui\/domains\/video\/SupportPromptView)/.test(
+        source
+      )
+    ) {
       findings.push(`production file still imports retired wrapper/alias: ${relativePath}`);
     }
   }

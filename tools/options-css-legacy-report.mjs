@@ -9,13 +9,13 @@ const INCLUDED_EXTS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.html', '.
 const IGNORE_PATHS = new Set(
   [
     'src/options/aob-option-preview.html',
-    'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html',
-    'src/options/styles/aob-option-preview.css'
+    'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html'
   ].map((p) => path.resolve(p))
 );
 
 const legacyMap = new Map();
 const allTokens = new Set();
+const IGNORED_NON_CLASS_TOKENS = new Set(['aob-theme']);
 
 async function walk(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -48,6 +48,9 @@ function collectTokens(content, file, ext) {
   const regex = /\b(aobx?-[a-z0-9_-]+)\b/gi;
   for (const match of content.matchAll(regex)) {
     const token = match[1].toLowerCase();
+    if (IGNORED_NON_CLASS_TOKENS.has(token)) {
+      continue;
+    }
     const start = match.index ?? 0;
     const end = start + match[0].length;
     if (content.slice(end, end + 4) === '.css') {
@@ -128,8 +131,7 @@ async function main() {
   const missing = rows.filter((row) => !row.hasAobx);
   const existing = rows.filter((row) => row.hasAobx);
 
-  const formatRow = (row) =>
-    `- ${row.token} (total: ${row.total}, files: ${row.fileCount})`;
+  const formatRow = (row) => `- ${row.token} (total: ${row.total}, files: ${row.fileCount})`;
 
   if (missing.length) {
     console.log('Legacy classes without `.aobx-*` counterparts:');

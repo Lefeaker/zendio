@@ -35,15 +35,6 @@ try {
   process.exit(1);
 }
 
-// Build Options Tailwind (in all modes)
-console.log('🎨 Building Options Tailwind...');
-try {
-  execSync('npm run tailwind:build', { stdio: 'inherit', env: buildCommandEnv });
-} catch (error) {
-  console.error('❌ Options Tailwind build failed:', error);
-  process.exit(1);
-}
-
 // Build Global Tailwind (in all modes)
 console.log('🎨 Building Global Tailwind...');
 try {
@@ -173,15 +164,6 @@ try {
 // Copy options pages and assets
 await mkdir('build/dist/options', { recursive: true });
 await cp('src/options/index.html', 'build/dist/options/index.html');
-await rm('build/dist/options/styles', { recursive: true, force: true });
-await mkdir('build/dist/options/styles', { recursive: true });
-try {
-  await cp('src/options/styles', 'build/dist/options/styles', { recursive: true });
-} catch (error) {
-  if (error?.code !== 'ENOENT') {
-    throw error;
-  }
-}
 await rm('build/dist/options/stitch', { recursive: true, force: true });
 await mkdir('build/dist/options/stitch/styles', { recursive: true });
 await cp('src/options/stitch/styles', 'build/dist/options/stitch/styles', { recursive: true });

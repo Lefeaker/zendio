@@ -21,12 +21,12 @@
 - `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
 - `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
-- `utils/`：辅助方法（导入导出、transfer 等）；`styles/` 目录承载 Tailwind 输入与必要的外部样式（如 `styles/aob-options.css`）。
+- `utils/`：辅助方法（导入导出、transfer 等）；正式 Options 样式由 `stitch/styles/` 承载。
 
 ### 0.2 样式规范速览
 
-- 样式入口固定为 `src/styles/design-tokens.css`、`src/styles/global.tailwind.css` 与 `src/options/stitch/styles/stitch.css` 的静态产物链路；legacy compatibility 代码可继续消费 `src/options/styles/tailwind.css`。
-- `src/options/styles/design-tokens.css` 已删除；真实 token 真值源只有 `src/styles/design-tokens.css`。
+- 样式入口固定为 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的静态产物链路。
+- `src/options/styles/*` legacy 样式链路已退出正式构建；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
 - 需要实验性样式时，在 README / PR 中写明范围与回滚方式，并确保 `npm run report:options-legacy` 通过。
@@ -39,12 +39,12 @@ npm run lint                 # Typescript + ESLint/Stylelint 基线
 npm run lint:options-css     # 限定 Options CSS 的 Stylelint
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
 npm run test:unit            # Section/Controller 的最小回归
-npm run tailwind:build       # 生成 Options Tailwind utility (已集成到 build.mjs)
+npm run verify:stitch-secondary # Stitch Secondary 主链回归
 ```
 
 如改动 I18n 或 CLI，请追加 `npm run validate:i18n:keys`、`npm run typecheck:tests`。
 
-> 提示：Tailwind 相关 PR 需确保 `npm run tailwind:build` 成功且无冗余 CSS。
+> 提示：Options 主 UI 不再生成 Options 专属 Tailwind 产物；content runtime 仍保留 `clipper.tailwind.css` / `video.tailwind.css` 样式桥。
 
 ### 0.4 组件 / Utility 清单
 
@@ -123,7 +123,7 @@ src/options/
 - `applyI18n()`：创建并挂载 `PageI18nController`。
 - `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
-- `src/options/index.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；`src/options/bootstrap.ts` 不参与页面装配决策。
+- `src/options/index.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
 - `mountOptionsShell`、`OptionsApp`、`MainContent`、`Sidebar`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
 - `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
@@ -173,7 +173,7 @@ src/options/
 
 ## 4. 样式与命名约束（2025-11 更新）
 
-- **唯一样式入口**：Options 页主要依赖 `src/styles/design-tokens.css`、`src/options/styles/tailwind.css` 与 `src/styles/global.tailwind.css` 的构建产物；`src/options/styles/design-tokens.css` 已删除，不再保留 legacy wrapper。
+- **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
 - **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
 - **CSS 编写准则**：
   - 优先使用 Tailwind Utility 实现样式。
@@ -182,7 +182,7 @@ src/options/
   - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
 - **开发流程建议**：
   1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。
-  2. 在组件 DOM、`tailwind.input.css` 或共享 `tailwind.input.global.css` 中补齐对应规则。
+  2. 在 Stitch schema / renderer / `stitch/styles/stitch.css` 中补齐对应规则。
   3. 执行 `npm run report:options-legacy && npm run lint:options-css`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
   4. 运行 `npm run test:unit` 或必要的 UI 回归（可配合 `npm run build:dev` + `chrome://extensions` 刷新）。
   5. 若需要对照 Legacy → `.aobx-*` 的映射，可参见 `docs/options-css-naming-map.md`。

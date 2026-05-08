@@ -154,7 +154,7 @@ header.className = 'bg-base-200 border-b border-base-300';
 ```bash
 npm run lint:options-css
 npm run report:options-legacy
-npm run tailwind:build      # 若改动需要产出 Tailwind utility
+npm run verify:stitch-secondary # 若改动影响正式 Options UI
 ```
 
 ## 阶段 3 迁移规范（Stage 3 Migration Guidelines）

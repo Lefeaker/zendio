@@ -26,7 +26,6 @@ export default defineConfig({
         'src/**/__tests__/**',
         'src/**/types.ts',
         'src/**/index.ts',
-        'src/options/styles/**',
         'src/styles/**'
       ],
       thresholds: {
