@@ -80,8 +80,15 @@ export class VideoSessionDomController {
     });
   }
 
-  mountPanel(callbacks: VideoPanelCallbacks, texts: VideoPanelTexts): void {
-    this.panel = this.viewFactory.createView(callbacks, texts);
+  mountPanel(
+    callbacks: VideoPanelCallbacks,
+    texts: VideoPanelTexts,
+    options: { initialCollapsed?: boolean } = {}
+  ): void {
+    this.panel = this.viewFactory.createView(callbacks, texts, options);
+    if (options.initialCollapsed) {
+      this.panel.collapse?.();
+    }
     this.panelPresenter = new VideoPanelPresenter(this.panel);
     this.panelPresenter.updateTexts(texts);
     this.panelPresenter.render({ timestamps: [], fragments: [] });

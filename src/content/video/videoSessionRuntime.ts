@@ -165,7 +165,7 @@ export class VideoSession {
     return this.controllersReadyPromise;
   }
 
-  async start(): Promise<void> {
+  async start(options: { initialCollapsed?: boolean } = {}): Promise<void> {
     await this.ensureControllers();
 
     if (isVideoSessionActive(this.doc)) {
@@ -206,6 +206,7 @@ export class VideoSession {
         state: this.state,
         dom: this.dom,
         messages: this.messages,
+        initialCollapsed: Boolean(options.initialCollapsed),
         platformController: this.platformController,
         lifecycle: this.lifecycle,
         operationContext: this.operationContext,

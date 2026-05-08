@@ -221,7 +221,9 @@ vi.mock('../../../src/content/video/videoPromptRenderer', () => ({
   updatePromptLabels: updatePromptLabelsMock
 }));
 
-const startVideoSessionMock = vi.hoisted(() => vi.fn<[], Promise<void>>(() => Promise.resolve()));
+const startVideoSessionMock = vi.hoisted(() =>
+  vi.fn<[{ initialCollapsed?: boolean }?], Promise<void>>(() => Promise.resolve())
+);
 const addCurrentTimestampMock = vi.hoisted(() =>
   vi.fn<
     [
@@ -546,7 +548,7 @@ describe('video prompt', () => {
     await flushMicrotasks();
 
     expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
-    expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledWith({ initialCollapsed: true });
     expect(addCurrentTimestampMock).toHaveBeenCalledWith('note-input', {
       comment: 'watch this',
       pauseVideo: false,
@@ -614,7 +616,7 @@ describe('video prompt', () => {
     await flushMicrotasks();
 
     expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
-    expect(startVideoSessionMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledWith({ initialCollapsed: true });
     expect(addCurrentTimestampMock).toHaveBeenCalledWith('button', {
       pauseVideo: false,
       captureScreenshot: true,

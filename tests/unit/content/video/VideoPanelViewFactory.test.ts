@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     updateTexts = vi.fn();
     beginEditingCapture = vi.fn();
     stopEditing = vi.fn();
+    collapse = vi.fn();
     destroy = vi.fn();
 
     constructor(options: unknown) {
@@ -77,5 +78,16 @@ describe('createVideoPanelViewFactory', () => {
 
     expect(mocks.dialogCtor).toHaveBeenCalledWith({ callbacks, texts });
     expect(view).toBeTruthy();
+  });
+
+  it('passes the initial collapsed option into the Stitch video panel', () => {
+    const factory = createVideoPanelViewFactory();
+    factory.createView(callbacks, texts, { initialCollapsed: true });
+
+    expect(mocks.dialogCtor).toHaveBeenCalledWith({
+      callbacks,
+      texts,
+      initialCollapsed: true
+    });
   });
 });

@@ -53,6 +53,9 @@ describe('Stitch runtime polish CSS contracts', () => {
   it('uses green for active video screenshot timestamp dots', () => {
     expect(stitchCss).toContain('.video-screenshot-toggle.is-on');
     expect(stitchCss).toContain('background: var(--success);');
+    expect(stitchCss).toContain('.video-timestamp-marker');
+    expect(stitchCss).toContain('gap: var(--space-2-5);');
+    expect(stitchCss).toContain('margin-left: -2px;');
   });
 
   it('uses polished Stitch button treatments for YAML actions and deletes', () => {

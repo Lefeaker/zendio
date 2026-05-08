@@ -644,7 +644,7 @@ async function captureFromControlBar(
   try {
     console.info('[VideoPrompt] Starting video session from control bar…');
     const session = getVideoPromptDependencies().createVideoSession(document);
-    await session.start();
+    await session.start({ initialCollapsed: true });
     await session.addCurrentTimestamp?.(
       payload?.source ?? 'button',
       toControlBarCaptureOptions(preferences, payload)

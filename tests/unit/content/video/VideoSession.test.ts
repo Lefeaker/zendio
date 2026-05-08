@@ -428,7 +428,12 @@ describe('VideoSession', () => {
     await session.start();
 
     const video = document.querySelector('video') as HTMLVideoElement;
-    Object.defineProperty(video, 'currentTime', { value: 8, writable: true, configurable: true });
+    const currentTimeSetSpy = vi.fn();
+    Object.defineProperty(video, 'currentTime', {
+      get: () => 8,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
     Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
     sessionApi.state.captures = [
@@ -445,6 +450,7 @@ describe('VideoSession', () => {
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
 
     expect(video.currentTime).toBe(8);
+    expect(currentTimeSetSpy).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshot: {

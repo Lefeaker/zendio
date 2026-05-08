@@ -17,6 +17,7 @@ import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
   texts: VideoPanelTexts;
+  initialCollapsed?: boolean;
 }
 
 export class VideoDialogPanel
@@ -46,6 +47,8 @@ export class VideoDialogPanel
 
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
+    this.collapsed = Boolean(options.initialCollapsed);
+    this.keepCollapsedForNextCaptureUpdate = this.collapsed;
     this.popupCoordinator = resolveContentPopupCoordinator();
     this.renderRoot = document.createElement('div');
     this.renderRoot.style.position = 'fixed';

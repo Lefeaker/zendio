@@ -238,6 +238,22 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('can start in the title-only collapsed state before it is shown', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts, initialCollapsed: true });
+    panel.show();
+
+    const shadow = panel.element.shadowRoot;
+    expect(
+      shadow?.querySelector('.resource-modal--session')?.classList.contains('is-collapsed')
+    ).toBe(true);
+    expect(shadow?.querySelector('[data-action-id="session:toggleCollapse"]')).toHaveProperty(
+      'hidden',
+      true
+    );
+
+    panel.destroy();
+  });
+
   it('renders text fragments below timestamps with reader-style numbering', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.setCaptures([

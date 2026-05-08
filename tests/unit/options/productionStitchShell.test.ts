@@ -608,6 +608,56 @@ describe('mountProductionStitchShell', () => {
     expect(card.querySelector('.row')?.textContent ?? '').not.toContain('在视频网站显示笔记按钮');
   });
 
+  it('opens onboarding through the production onboarding page path', () => {
+    const controller = createController();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('Onboarding').click();
+
+    expect(openSpy).toHaveBeenCalledWith(
+      '../onboarding/index.html',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+
+  it('keeps the Options scroller stable when Vault List actions re-render', async () => {
+    const controller = createController();
+    const messagingRepository = createMessaging({ success: true, message: 'ok' });
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: { vault: 'Research Vault' }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository
+    } as never);
+    const main = document.querySelector<HTMLElement>('.main');
+    expect(main).toBeTruthy();
+    main!.scrollTop = 520;
+
+    findButton('添加仓库').click();
+    await flushPromises();
+    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+
+    document.querySelector<HTMLElement>('.main')!.scrollTop = 520;
+    findButton('删除').click();
+    await flushPromises();
+    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+
+    document.querySelector<HTMLElement>('.main')!.scrollTop = 520;
+    findButton('测试连接').click();
+    await flushPromises();
+    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+  });
+
   it('deduplicates routing rules that exist in both legacy and vault-scoped storage', () => {
     const controller = createController();
     mountProductionStitchShell({

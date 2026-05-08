@@ -1742,6 +1742,10 @@ export function mountProductionStitchShell({
   function render(): void {
     const previousMain = mountRoot.querySelector('.main');
     const previousScrollTop = previousMain instanceof HTMLElement ? previousMain.scrollTop : 0;
+    const previousWindowScroll = {
+      x: window.scrollX,
+      y: window.scrollY
+    };
     flushDirtyWidgets();
     destroyWidgets();
     clear(mountRoot).append(
@@ -1752,9 +1756,20 @@ export function mountProductionStitchShell({
       })
     );
     const nextMain = mountRoot.querySelector('.main');
+    const restoreScroll = () => {
+      const currentMain = mountRoot.querySelector('.main');
+      if (currentMain instanceof HTMLElement) {
+        currentMain.scrollTop = previousScrollTop;
+      }
+      if (window.scrollX !== previousWindowScroll.x || window.scrollY !== previousWindowScroll.y) {
+        window.scrollTo(previousWindowScroll.x, previousWindowScroll.y);
+      }
+    };
     if (nextMain instanceof HTMLElement) {
-      nextMain.scrollTop = previousScrollTop;
+      restoreScroll();
       bindScrollSync(nextMain);
+      queueMicrotask(restoreScroll);
+      window.requestAnimationFrame?.(() => restoreScroll());
     }
     const chartHost = mountRoot.querySelector<HTMLElement>('[data-role="usage-chart-shell"]');
     if (chartHost) {
@@ -1805,7 +1820,8 @@ export function mountProductionStitchShell({
       return;
     }
     if (meta.openMode === 'page') {
-      window.open(meta.href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
+      const href = resourceId === 'onboarding' ? '../onboarding/index.html' : meta.href;
+      window.open(href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
       return;
     }
     state = {

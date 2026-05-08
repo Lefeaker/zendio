@@ -250,21 +250,7 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
 
-  const originalTime = Number.isFinite(video.currentTime) ? video.currentTime : null;
-  try {
-    video.currentTime = target.timeSec;
-  } catch {
-    // Some host players can reject seeking; still attempt to capture the current frame.
-  }
-
   const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
-  if (originalTime !== null) {
-    try {
-      video.currentTime = originalTime;
-    } catch {
-      // Keep the saved screenshot state independent from host-player seek behavior.
-    }
-  }
   if (!screenshot) {
     context.applyHint('failure');
     return;
