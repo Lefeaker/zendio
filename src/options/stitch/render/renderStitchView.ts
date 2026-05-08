@@ -353,7 +353,10 @@ function renderInputNode(node: InputNode, ctx: RendererContext): HTMLInputElemen
     onFocus: node.onFocus ? (event: Event) => runEventAction(node.onFocus, event, ctx) : undefined,
     onBlur: node.onBlur ? (event: Event) => runEventAction(node.onBlur, event, ctx) : undefined,
     onClick: node.onClick
-      ? (event: MouseEvent) => runEventAction(node.onClick, event, ctx)
+      ? (event: MouseEvent) => {
+          event.preventDefault();
+          runEventAction(node.onClick, event, ctx);
+        }
       : undefined,
     onKeyUp: node.onKeyUp
       ? (event: KeyboardEvent) => runEventAction(node.onKeyUp, event, ctx)
@@ -502,8 +505,13 @@ function renderChipsNode(node: ChipsNode, ctx: RendererContext): HTMLDivElement 
         className: 'chip',
         'aria-pressed': pressed ? 'true' : 'false',
         text: label,
+        dataset: { value: String(value) },
         onMousedown: (event: MouseEvent) => event.preventDefault(),
-        onClick: () => runAction(node.action, ctx, value)
+        onClick: (event: MouseEvent) => {
+          event.preventDefault();
+          event.stopPropagation();
+          runAction(node.action, ctx, value, event);
+        }
       });
     })
   );

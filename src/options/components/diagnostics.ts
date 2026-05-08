@@ -159,7 +159,6 @@ export function buildDiagnosticsReport(
     } else {
       report += `✅ 用户名称: ${userName}\n`;
     }
-    report += options.aiChat.includeTimestamps ? '✅ 已启用时间戳记录\n' : 'ℹ️ 未启用时间戳记录\n';
   }
 
   report += '\n✂️ 片段剪藏配置:\n';
@@ -221,12 +220,8 @@ export function buildDiagnosticsReport(
     report += 'ℹ️ 未检测到视频模式配置\n';
   } else {
     report += options.video.floatingPromptEnabled
-      ? '✅ 已启用浮动提示，可在视频网站快速开启笔记模式\n'
-      : 'ℹ️ 未启用浮动提示\n';
-    const resolvedLabel = options.video.promptButtonLabel?.trim();
-    report += resolvedLabel ? `📝 按钮文案: ${resolvedLabel}\n` : '📝 按钮文案: 使用默认文案\n';
-    const resolvedShortcut = options.video.promptShortcut?.trim();
-    report += resolvedShortcut ? `⌨️ 快捷键: ${resolvedShortcut}\n` : '⌨️ 快捷键: 使用 Alt+V\n';
+      ? '✅ 已启用视频笔记按钮，可在视频网站控制栏快速开启笔记模式\n'
+      : 'ℹ️ 未启用视频笔记按钮\n';
   }
 
   report += '\n🔌 端口检查:\n';

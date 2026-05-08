@@ -67,7 +67,7 @@ export const previewContent: PreviewContent = {
     {
       id: 'capture-sources',
       label: 'Capture Sources',
-      hint: 'AI、Deep Research、Video',
+      hint: 'AI、Video',
       icon: 'ads_click'
     },
     {
@@ -187,8 +187,8 @@ export const previewContent: PreviewContent = {
   captureSources: {
     hero: {
       title: 'Capture Sources',
-      description: '配置 AI、Deep Research 和 Video 的来源型捕获能力。',
-      pills: ['AI Chat', 'Deep Research', 'Video'],
+      description: '配置 AI 和 Video 的来源型捕获能力。',
+      pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
     },
     aiPlatforms: ['ChatGPT', 'Claude', 'Gemini', 'Kimi', 'DeepSeek', 'Tongyi', 'Doubao', 'Monica']
@@ -890,5 +890,5 @@ export const previewContent: PreviewContent = {
       }
     }
   },
-  maintenanceLog: `诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.promptPosition 已存在于 schema，但正式 UI 尚未单独暴露`
+  maintenanceLog: `诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.floatingPromptEnabled 控制视频网站控制栏笔记按钮显示`
 };

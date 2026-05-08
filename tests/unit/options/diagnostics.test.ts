@@ -14,18 +14,19 @@ const loadRawMock = vi.hoisted(() =>
   vi.fn<[], ReturnType<DiagnosticsController['loadRaw']>>(() => Promise.resolve({}))
 );
 const saveSnapshotMock = vi.hoisted(() =>
-  vi.fn<Parameters<DiagnosticsController['saveSnapshot']>, ReturnType<DiagnosticsController['saveSnapshot']>>(
-    () => Promise.resolve({} as StoredOptions)
-  )
+  vi.fn<
+    Parameters<DiagnosticsController['saveSnapshot']>,
+    ReturnType<DiagnosticsController['saveSnapshot']>
+  >(() => Promise.resolve({} as StoredOptions))
 );
 const repoGetMock = vi.hoisted(() =>
-  vi.fn<Parameters<IOptionsRepository['get']>, ReturnType<IOptionsRepository['get']>>(
-    () => Promise.resolve({} as CompleteOptions)
+  vi.fn<Parameters<IOptionsRepository['get']>, ReturnType<IOptionsRepository['get']>>(() =>
+    Promise.resolve({} as CompleteOptions)
   )
 );
 const repoSetMock = vi.hoisted(() =>
-  vi.fn<Parameters<IOptionsRepository['set']>, ReturnType<IOptionsRepository['set']>>(
-    () => Promise.resolve(undefined)
+  vi.fn<Parameters<IOptionsRepository['set']>, ReturnType<IOptionsRepository['set']>>(() =>
+    Promise.resolve(undefined)
   )
 );
 const getOptionsControllerMock = vi.hoisted(() =>
@@ -35,15 +36,23 @@ const getOptionsControllerMock = vi.hoisted(() =>
     saveSnapshot: saveSnapshotMock
   }))
 );
-const getOptionsMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ portConflictDetected: 'Port conflict: {ports}' })));
-const formatMessageMock = vi.hoisted(() => vi.fn((template: string, values: Record<string, string>) => template.replace('{ports}', values.ports)));
+const getOptionsMessagesMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ portConflictDetected: 'Port conflict: {ports}' }))
+);
+const formatMessageMock = vi.hoisted(() =>
+  vi.fn((template: string, values: Record<string, string>) =>
+    template.replace('{ports}', values.ports)
+  )
+);
 
 vi.mock('../../../src/options/app/optionsControllerContext', () => ({
   getOptionsController: getOptionsControllerMock
 }));
 vi.mock('@options/app/i18nContext', () => ({ getOptionsMessages: getOptionsMessagesMock }));
 vi.mock('../../../src/i18n', () => ({ formatMessage: formatMessageMock }));
-vi.mock('@shared/di/serviceRegistry', () => ({ resolveRepository: () => ({ get: repoGetMock, set: repoSetMock }) }));
+vi.mock('@shared/di/serviceRegistry', () => ({
+  resolveRepository: () => ({ get: repoGetMock, set: repoSetMock })
+}));
 
 describe('diagnostics', () => {
   beforeEach(() => {
@@ -64,7 +73,8 @@ describe('diagnostics', () => {
       saveSnapshot: saveSnapshotMock
     });
     vi.useRealTimers();
-    document.body.innerHTML = '<div id="diagSection" style="display:none"></div><pre id="diagOutput"></pre>';
+    document.body.innerHTML =
+      '<div id="diagSection" style="display:none"></div><pre id="diagOutput"></pre>';
   });
 
   it('renders diagnostic output from controller snapshots', async () => {
@@ -74,7 +84,13 @@ describe('diagnostics', () => {
       vaultRouter: { vaults: [], rules: [] },
       domainMappings: {},
       aiChat: { userName: ' ', includeTimestamps: false },
-      fragmentClipper: { useFootnoteFormat: true, captureContext: false, contextLength: 10, selectionModifierEnabled: true, selectionModifierKeys: [] },
+      fragmentClipper: {
+        useFootnoteFormat: true,
+        captureContext: false,
+        contextLength: 10,
+        selectionModifierEnabled: true,
+        selectionModifierKeys: []
+      },
       readingSession: { exportMode: 'weird', highlightTheme: 'strange' },
       video: { floatingPromptEnabled: false, promptButtonLabel: '', promptShortcut: '' }
     } as unknown as StoredOptions);
@@ -101,11 +117,25 @@ describe('diagnostics', () => {
   it('loads raw options when controller snapshot is empty and reports port conflicts', async () => {
     getSnapshotMock.mockReturnValue({} as StoredOptions);
     loadRawMock.mockResolvedValue({
-      rest: { httpsUrl: 'https://localhost:27124', httpUrl: 'http://localhost:27123', apiKey: 'key' },
-      templates: { article: 'Articles/{title}.md', fragment: 'Fragments/{title}.md', ai: 'AI/{title}.md' },
+      rest: {
+        httpsUrl: 'https://localhost:27124',
+        httpUrl: 'http://localhost:27123',
+        apiKey: 'key'
+      },
+      templates: {
+        article: 'Articles/{title}.md',
+        fragment: 'Fragments/{title}.md',
+        ai: 'AI/{title}.md'
+      },
       vaultRouter: {
         vaults: [
-          { id: 'v1', name: 'One', enabled: true, httpsUrl: 'https://localhost:27124', apiKey: 'k1' },
+          {
+            id: 'v1',
+            name: 'One',
+            enabled: true,
+            httpsUrl: 'https://localhost:27124',
+            apiKey: 'k1'
+          },
           { id: 'v2', name: 'Two', enabled: true, httpUrl: 'http://localhost:27124', apiKey: 'k2' }
         ],
         rules: []
@@ -122,14 +152,37 @@ describe('diagnostics', () => {
     expect(output).toContain('映射条目数量: 1');
   });
 
-
   it('falls back to repository get when controller is unavailable and surfaces complete diagnostic statuses', async () => {
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockResolvedValueOnce({
-      rest: { httpsUrl: 'https://localhost:27124', httpUrl: 'http://localhost:27123', apiKey: 'key' },
-      templates: { article: 'Articles/{title}.md', fragment: 'Fragments/{title}.md', ai: 'AI/{title}.md' },
+      rest: {
+        httpsUrl: 'https://localhost:27124',
+        httpUrl: 'http://localhost:27123',
+        apiKey: 'key'
+      },
+      templates: {
+        article: 'Articles/{title}.md',
+        fragment: 'Fragments/{title}.md',
+        ai: 'AI/{title}.md'
+      },
       vaultRouter: {
-        vaults: [{ id: 'v1', name: 'One', enabled: true, rules: [{ id: 'r1', vaultId: 'v1', type: 'domain', pattern: 'one.com', enabled: true, priority: 1 }] }],
+        vaults: [
+          {
+            id: 'v1',
+            name: 'One',
+            enabled: true,
+            rules: [
+              {
+                id: 'r1',
+                vaultId: 'v1',
+                type: 'domain',
+                pattern: 'one.com',
+                enabled: true,
+                priority: 1
+              }
+            ]
+          }
+        ],
         rules: []
       },
       domainMappings: { 'example.com': 'article' },
@@ -152,14 +205,14 @@ describe('diagnostics', () => {
     expect(output).toContain('✅ 启用的仓库数量: 1');
     expect(output).toContain('✅ 路由规则数量: 1');
     expect(output).toContain('✅ 用户名称: Alice');
-    expect(output).toContain('✅ 已启用时间戳记录');
+    expect(output).not.toContain('时间戳记录');
     expect(output).toContain('✅ 上下文长度: 120');
     expect(output).toContain('✅ 辅助键触发: alt + shift');
     expect(output).toContain('✅ 导出全文，并保留高亮标注');
     expect(output).toContain('✅ 高亮主题: purple');
-    expect(output).toContain('✅ 已启用浮动提示，可在视频网站快速开启笔记模式');
-    expect(output).toContain('📝 按钮文案: Clip');
-    expect(output).toContain('⌨️ 快捷键: K');
+    expect(output).toContain('✅ 已启用视频笔记按钮，可在视频网站控制栏快速开启笔记模式');
+    expect(output).not.toContain('按钮文案');
+    expect(output).not.toContain('快捷键');
     expect(output).toContain('✅ 仓库端口配置正常');
   });
 
@@ -183,9 +236,19 @@ describe('diagnostics', () => {
     expect(document.getElementById('diagOutput')?.textContent).toContain('未找到配置');
 
     getSnapshotMock.mockReturnValueOnce({
-      rest: { httpsUrl: 'https://localhost:27124', httpUrl: 'http://localhost:27123', apiKey: 'key' },
+      rest: {
+        httpsUrl: 'https://localhost:27124',
+        httpUrl: 'http://localhost:27123',
+        apiKey: 'key'
+      },
       templates: { article: 'A', fragment: 'F', ai: 'I' },
-      fragmentClipper: { useFootnoteFormat: false, captureContext: true, contextLength: -1, selectionModifierEnabled: false, selectionModifierKeys: [] },
+      fragmentClipper: {
+        useFootnoteFormat: false,
+        captureContext: true,
+        contextLength: -1,
+        selectionModifierEnabled: false,
+        selectionModifierKeys: []
+      },
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' }
     } as unknown as StoredOptions);
     await runDiagnostics();

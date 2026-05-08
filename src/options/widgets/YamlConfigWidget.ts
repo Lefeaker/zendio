@@ -742,7 +742,9 @@ export class YamlConfigWidget
       button.className = `yaml-filter${this.filter === value ? ' is-active' : ''}`;
       button.textContent = label;
       button.dataset.value = value;
-      button.addEventListener('click', () => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         this.filter = value;
         this.render();
       });
@@ -893,10 +895,12 @@ export class YamlConfigWidget
   private renderDeleteButton(remove: () => void, disabled = false): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'schema-button ghost';
+    button.className = 'schema-button yaml-delete-button';
     button.textContent = 'Delete';
     button.disabled = disabled;
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       remove();
       this.markDirty();
       this.render();
@@ -1021,9 +1025,11 @@ export class YamlConfigWidget
       });
       const addField = document.createElement('button');
       addField.type = 'button';
-      addField.className = 'schema-button secondary';
+      addField.className = 'schema-button yaml-action-button secondary';
       addField.textContent = '+ Add field';
-      addField.addEventListener('click', () => {
+      addField.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         entry.fields.push(this.createDomainField(entry.contentType));
         this.markDirty();
         this.render();
@@ -1041,9 +1047,11 @@ export class YamlConfigWidget
     actions.className = 'yaml-actions stitch-yaml-actions';
     const addField = document.createElement('button');
     addField.type = 'button';
-    addField.className = 'schema-button primary';
+    addField.className = 'schema-button yaml-action-button primary';
     addField.textContent = '+ Add field';
-    addField.addEventListener('click', () => {
+    addField.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const row: YamlFieldRow = {
         id: createId('yaml-custom'),
         name: 'custom_field',
@@ -1065,9 +1073,11 @@ export class YamlConfigWidget
     });
     const addRule = document.createElement('button');
     addRule.type = 'button';
-    addRule.className = 'schema-button secondary';
+    addRule.className = 'schema-button yaml-action-button secondary';
     addRule.textContent = '+ Add domain rule';
-    addRule.addEventListener('click', () => {
+    addRule.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const entry: YamlDomainEntry = {
         id: createId('domain-rule'),
         domain: '',

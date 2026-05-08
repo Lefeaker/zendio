@@ -627,31 +627,112 @@ describe('mountProductionStitchShell', () => {
     expect(widgetActions).toContain('+ Add domain rule');
   });
 
-  it('binds AI timestamp and video prompt position fields to production options', () => {
+  it('hides unreleased AI timestamp, Deep Research, and advanced video controls', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
       initialOptions: {
-        aiChat: { includeTimestamps: false },
-        video: { promptPosition: { x: 99, y: 77 } }
+        aiChat: { includeTimestamps: true },
+        deepResearch: { pureMode: true },
+        video: {
+          floatingPromptEnabled: true,
+          promptButtonLabel: 'Legacy prompt',
+          promptShortcut: 'Alt+V',
+          promptPosition: { x: 99, y: 77 }
+        }
       },
       messages: null,
       language: 'en'
     });
 
-    const timestampRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
-      row.textContent?.includes('包含时间戳')
+    const text = document.body.textContent ?? '';
+    expect(text).not.toContain('包含时间戳');
+    expect(text).not.toContain('Gemini Deep Research');
+    expect(text).not.toContain('Deep Research');
+    expect(text).not.toContain('Advanced Video Schema');
+    expect(text).not.toContain('提示文案与快捷键');
+    expect(text).not.toContain('promptPosition');
+    expect(text).toContain('在视频网站显示笔记按钮');
+
+    const videoRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
+      row.textContent?.includes('在视频网站显示笔记按钮')
     );
-    const timestampSwitch = timestampRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    expect(timestampSwitch).toBeTruthy();
-    timestampSwitch!.checked = true;
-    timestampSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
+    const videoSwitch = videoRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(videoSwitch).toBeTruthy();
+    videoSwitch!.checked = false;
+    videoSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
 
-    input('99', '111');
-    input('77', '222');
+    const draft = mounted.collectDraft();
+    expect(draft.video.floatingPromptEnabled).toBe(false);
+    expect(draft.aiChat.includeTimestamps).toBe(true);
+    expect(draft.deepResearch.pureMode).toBe(true);
+    expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
+  });
 
-    expect(mounted.collectDraft().aiChat.includeTimestamps).toBe(true);
-    expect(mounted.collectDraft().video.promptPosition).toEqual({ x: 111, y: 222 });
+  it('updates fragment modifier chips without remounting the options shell', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        fragmentClipper: {
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['alt']
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const main = document.querySelector<HTMLElement>('.main');
+    const altChip = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
+    ).find((button) => button.textContent?.trim() === 'Alt');
+    expect(main).toBeTruthy();
+    expect(altChip).toBeTruthy();
+
+    altChip!.click();
+
+    expect(document.querySelector('.main')).toBe(main);
+    expect(altChip!.getAttribute('aria-pressed')).toBe('false');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(false);
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual([]);
+  });
+
+  it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            }
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const main = document.querySelector<HTMLElement>('.main');
+    const widgetHost = document.querySelector<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const articleFilter = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.stitch-yaml-filter-row button')
+    ).find((button) => button.textContent?.trim() === 'Article');
+    const addField = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.stitch-yaml-actions button')
+    ).find((button) => button.textContent?.trim() === '+ Add field');
+    expect(main).toBeTruthy();
+    expect(widgetHost).toBeTruthy();
+    expect(articleFilter).toBeTruthy();
+    expect(addField).toBeTruthy();
+
+    articleFilter!.click();
+    addField!.click();
+
+    expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {

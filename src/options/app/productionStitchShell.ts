@@ -145,12 +145,10 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
     highlightTheme: 'gradient',
     readingExportMode: 'full',
     aiUserName: 'USER',
-    aiIncludeTimestamps: false,
     privacyAnalytics: false,
     privacyErrorReporting: false,
     privacyDebugMode: false,
     privacyStatus: '',
-    deepResearchPureMode: false,
     classifierEnabled: false,
     classifierProvider: 'ollama',
     classifierEndpoint: 'http://localhost:11434/api/chat',
@@ -158,10 +156,6 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
     classifierApiKey: '',
     classifierTaxonomyText: '',
     videoFloatingPromptEnabled: true,
-    videoPromptButtonLabel: '开启视频笔记',
-    videoPromptShortcut: 'Alt+V',
-    videoPromptPositionX: 24,
-    videoPromptPositionY: 24,
     fragmentUseFootnoteFormat: true,
     fragmentCaptureContext: true,
     fragmentContextLength: 200,
@@ -549,7 +543,6 @@ function applyOptionsToState(
     highlightTheme: options.readingSession.highlightTheme,
     readingExportMode: options.readingSession.exportMode,
     aiUserName: options.aiChat.userName,
-    aiIncludeTimestamps: options.aiChat.includeTimestamps,
     privacyAnalytics: Boolean(
       (options as { privacyPreferences?: { analytics?: boolean } }).privacyPreferences?.analytics
     ),
@@ -560,7 +553,6 @@ function applyOptionsToState(
     privacyDebugMode: Boolean(
       (options as { privacyPreferences?: { debugMode?: boolean } }).privacyPreferences?.debugMode
     ),
-    deepResearchPureMode: options.deepResearch.pureMode,
     classifierEnabled: options.classifier.enabled,
     classifierProvider: options.classifier.provider,
     classifierEndpoint: options.classifier.endpoint,
@@ -568,10 +560,6 @@ function applyOptionsToState(
     classifierApiKey: options.classifier.apiKey,
     classifierTaxonomyText: JSON.stringify(options.classifier.taxonomy, null, 2),
     videoFloatingPromptEnabled: options.video.floatingPromptEnabled,
-    videoPromptButtonLabel: options.video.promptButtonLabel,
-    videoPromptShortcut: options.video.promptShortcut,
-    videoPromptPositionX: options.video.promptPosition?.x ?? 24,
-    videoPromptPositionY: options.video.promptPosition?.y ?? 24,
     fragmentUseFootnoteFormat: options.fragmentClipper.useFootnoteFormat,
     fragmentCaptureContext: options.fragmentClipper.captureContext,
     fragmentContextLength: options.fragmentClipper.contextLength,
@@ -1515,7 +1503,7 @@ export function mountProductionStitchShell({
           draft.fragmentClipper.selectionModifierKeys = ['alt'];
         }
         scheduleDraftSave();
-        render();
+        syncModifierControls();
       },
       'modifier:toggleKey': ({ value }) => {
         const key = String(value ?? '');
@@ -1526,7 +1514,7 @@ export function mountProductionStitchShell({
         draft.fragmentClipper.selectionModifierEnabled = state.fragmentModifierEnabled;
         draft.fragmentClipper.selectionModifierKeys = optionsFromModifierLabels(state.modifierKeys);
         scheduleDraftSave();
-        render();
+        syncModifierControls();
       },
       'options:updateField': ({ args, value }) => {
         const path = String(args[0] ?? '');
@@ -1669,6 +1657,23 @@ export function mountProductionStitchShell({
     }
   }
 
+  function syncModifierControls(): void {
+    const activeKeys = new Set(state.modifierKeys);
+    mountRoot
+      .querySelectorAll<HTMLInputElement>('.modifier-key-inline .switch input[type="checkbox"]')
+      .forEach((input) => {
+        input.checked = state.fragmentModifierEnabled;
+      });
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')
+      .forEach((button) => {
+        const isActive =
+          state.fragmentModifierEnabled && activeKeys.has(button.dataset.value ?? '');
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        button.classList.toggle('is-active', isActive);
+      });
+  }
+
   function syncPreviewThemeControls(): void {
     const preference =
       state.interfaceThemePreference === 'light' || state.interfaceThemePreference === 'system'
@@ -1723,6 +1728,7 @@ export function mountProductionStitchShell({
     }
     syncPreviewThemeControls();
     syncHighlightThemeControls();
+    syncModifierControls();
     renderActiveResourceModal();
   }
 
@@ -1912,39 +1918,9 @@ export function mountProductionStitchShell({
         draft.aiChat.userName = String(value ?? '');
         state.aiUserName = draft.aiChat.userName;
         break;
-      case 'aiChat.includeTimestamps':
-        draft.aiChat.includeTimestamps = Boolean(value);
-        state.aiIncludeTimestamps = draft.aiChat.includeTimestamps;
-        break;
-      case 'deepResearch.pureMode':
-        draft.deepResearch.pureMode = Boolean(value);
-        state.deepResearchPureMode = draft.deepResearch.pureMode;
-        break;
       case 'video.floatingPromptEnabled':
         draft.video.floatingPromptEnabled = Boolean(value);
         state.videoFloatingPromptEnabled = draft.video.floatingPromptEnabled;
-        break;
-      case 'video.promptButtonLabel':
-        draft.video.promptButtonLabel = String(value ?? '');
-        state.videoPromptButtonLabel = draft.video.promptButtonLabel;
-        break;
-      case 'video.promptShortcut':
-        draft.video.promptShortcut = String(value ?? '');
-        state.videoPromptShortcut = draft.video.promptShortcut;
-        break;
-      case 'video.promptPosition.x':
-        draft.video.promptPosition = {
-          ...(draft.video.promptPosition ?? { x: 24, y: 24 }),
-          x: Number(value) || 0
-        };
-        state.videoPromptPositionX = draft.video.promptPosition.x;
-        break;
-      case 'video.promptPosition.y':
-        draft.video.promptPosition = {
-          ...(draft.video.promptPosition ?? { x: 24, y: 24 }),
-          y: Number(value) || 0
-        };
-        state.videoPromptPositionY = draft.video.promptPosition.y;
         break;
       case 'readingSession.exportMode':
         draft.readingSession.exportMode = String(

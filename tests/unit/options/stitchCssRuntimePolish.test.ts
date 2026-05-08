@@ -40,4 +40,13 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('position: sticky;');
     expect(stitchCss).toContain('top: 0;');
   });
+
+  it('uses polished Stitch button treatments for YAML actions and deletes', () => {
+    expect(stitchCss).toContain('.yaml-action-button,');
+    expect(stitchCss).toContain('.yaml-delete-button');
+    expect(stitchCss).toContain('min-height: var(--control-height-sm);');
+    expect(stitchCss).toContain('.yaml-delete-button:not(:disabled)');
+    expect(stitchCss).toContain('color: var(--danger);');
+    expect(stitchCss).toContain('.yaml-actions .yaml-action-button');
+  });
 });

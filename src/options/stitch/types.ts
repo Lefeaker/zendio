@@ -356,12 +356,10 @@ export interface PreviewStoreState {
   highlightTheme: string;
   readingExportMode?: string;
   aiUserName?: string;
-  aiIncludeTimestamps?: boolean;
   privacyAnalytics?: boolean;
   privacyErrorReporting?: boolean;
   privacyDebugMode?: boolean;
   privacyStatus?: string;
-  deepResearchPureMode?: boolean;
   classifierEnabled?: boolean;
   classifierProvider?: string;
   classifierEndpoint?: string;
@@ -369,10 +367,6 @@ export interface PreviewStoreState {
   classifierApiKey?: string;
   classifierTaxonomyText?: string;
   videoFloatingPromptEnabled?: boolean;
-  videoPromptButtonLabel?: string;
-  videoPromptShortcut?: string;
-  videoPromptPositionX?: number;
-  videoPromptPositionY?: number;
   fragmentUseFootnoteFormat?: boolean;
   fragmentCaptureContext?: boolean;
   fragmentContextLength?: number;

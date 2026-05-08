@@ -72,9 +72,7 @@ export const classNames = {
   settings: {
     interfaceThemeGrid: 'field-grid-2 interface-theme-grid',
     aiPlatformLinkRow: 'ai-platform-link-row',
-    aiPlatformLink: 'ai-platform-link',
-    deepResearchTitleInline: 'deep-research-title-inline',
-    purifyModeNotice: 'purify-mode-notice'
+    aiPlatformLink: 'ai-platform-link'
   },
   clipper: {
     shell: 'clipper-surface-window',
