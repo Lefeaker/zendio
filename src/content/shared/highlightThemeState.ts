@@ -57,7 +57,6 @@ body[data-aiob-reader-highlight='neonOrange'] {
   background-repeat: no-repeat;
   background-origin: border-box;
   background-clip: border-box;
-  background-color: transparent !important;
   color: inherit !important;
   transition: box-shadow 0.3s ease;
   isolation: isolate;

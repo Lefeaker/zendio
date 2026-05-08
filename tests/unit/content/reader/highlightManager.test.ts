@@ -43,6 +43,7 @@ describe('ReaderHighlightManager', () => {
     expect(style?.textContent).toContain('box-decoration-break: clone');
     expect(style?.textContent).toContain('-webkit-box-decoration-break: clone');
     expect(style?.textContent).toContain('background: var(--reader-highlight-bg) !important');
+    expect(style?.textContent).not.toContain('background-color: transparent');
   });
 
   it('creates highlight, trims comments, and annotates wrapper metadata', () => {

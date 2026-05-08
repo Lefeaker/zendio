@@ -946,9 +946,9 @@ body[data-route='onboarding'] {
   width: min(var(--modal-width-large), calc(100vw - var(--modal-edge-gap)));
 }
 
-.resource-modal--clipper,
-.resource-modal--session,
-.resource-modal--task-success {
+.resource-modal.resource-modal--clipper,
+.resource-modal.resource-modal--session,
+.resource-modal.resource-modal--task-success {
   background: transparent;
   border: 0;
   box-shadow: none;
