@@ -19,7 +19,7 @@ export function normalizeRuntimeTheme(value: unknown): RuntimeTheme | null {
 }
 
 export function normalizeRuntimeThemePreference(value: unknown): RuntimeThemePreference {
-  return value === 'light' || value === 'system' ? value : 'dark';
+  return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
 }
 
 function getSurfaceRoots(targetWindow: Window): Set<HTMLElement> {
@@ -115,7 +115,7 @@ export function startRuntimeThemeSync(
   targetWindow: Window = window,
   mediaWindow: MatchMediaLike = targetWindow
 ): () => void {
-  let preference: RuntimeThemePreference = 'dark';
+  let preference: RuntimeThemePreference = 'system';
   const mediaQuery = createThemeMediaQuery(mediaWindow);
   const applyPreference = (): void => {
     setControlledRuntimeTheme(targetWindow, resolveRuntimeThemePreference(preference, mediaWindow));

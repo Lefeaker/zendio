@@ -190,7 +190,7 @@ function resolveThemePreference(options?: StoredOptions | CompleteOptions | null
   } catch {
     // localStorage can be unavailable in isolated test contexts.
   }
-  return 'dark';
+  return 'system';
 }
 
 function resolveSystemPreviewTheme(): PreviewStoreState['previewTheme'] {

@@ -7,6 +7,7 @@ const selectVaultMock = vi.fn();
 const classifyClipMock = vi.fn();
 const resolvePathMock = vi.fn();
 const writeMarkdownMock = vi.fn();
+const writeAttachmentMock = vi.fn();
 const recordUsageMock = vi.fn();
 const downloadMock = vi.fn();
 
@@ -29,7 +30,8 @@ vi.mock('../../../src/background/pathResolver', () => ({
 }));
 
 vi.mock('../../../src/background/services/obsidianWriter', () => ({
-  writeMarkdownToVault: writeMarkdownMock
+  writeMarkdownToVault: writeMarkdownMock,
+  writeAttachmentToVault: writeAttachmentMock
 }));
 
 vi.mock('../../../src/background/services/usageStats', () => ({
@@ -52,6 +54,7 @@ describe('clipProcessor', () => {
     classifyClipMock.mockReset();
     resolvePathMock.mockReset();
     writeMarkdownMock.mockReset();
+    writeAttachmentMock.mockReset();
     recordUsageMock.mockReset();
     downloadMock.mockReset();
   });
@@ -233,6 +236,125 @@ describe('clipProcessor', () => {
       destination: 'downloads',
       classification: classificationResult
     });
+  });
+
+  it('downloads multiple video screenshots into a note-named folder and indexes them from markdown', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    const classificationResult = {
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('Video/video-note.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
+    await processClipPayload(
+      createPayload({
+        markdown:
+          '# video\n![Screenshot](aiob-attachment:shot-1)\n![Screenshot](aiob-attachment:shot-2)',
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          exportDestination: { kind: 'downloads' },
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'file-20260509194226985.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            },
+            {
+              id: 'shot-2',
+              fileName: 'file-20260509194227986.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,bbb'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(downloadMock).toHaveBeenNthCalledWith(1, {
+      filename: 'video-note/file-20260509194226985.jpg',
+      url: 'data:image/jpeg;base64,aaa',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(2, {
+      filename: 'video-note/file-20260509194227986.jpg',
+      url: 'data:image/jpeg;base64,bbb',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(3, {
+      filename: 'video-note.md',
+      content:
+        '# video\n![Screenshot](video-note/file-20260509194226985.jpg)\n![Screenshot](video-note/file-20260509194227986.jpg)',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+  });
+
+  it('writes video screenshots to the Obsidian custom attachment location', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: null,
+      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
+      context: {}
+    });
+    const classificationResult = {
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('Reading/公众号/2026/2026-05-05/test.md');
+    writeAttachmentMock.mockResolvedValue(undefined);
+    writeMarkdownMock.mockResolvedValue(undefined);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
+    await processClipPayload(
+      createPayload({
+        markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'file-20260509194226985.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(writeAttachmentMock).toHaveBeenCalledWith(
+      { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
+      'Reading/公众号/2026/2026-05-05/assets/test/file-20260509194226985.jpg',
+      'data:image/jpeg;base64,aaa',
+      'image/jpeg'
+    );
+    expect(writeMarkdownMock).toHaveBeenCalledWith(
+      { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
+      'Reading/公众号/2026/2026-05-05/test.md',
+      '# video\n![Screenshot](assets/test/file-20260509194226985.jpg)'
+    );
   });
 
   it('includes classificationWarning when classification falls back with error', async () => {

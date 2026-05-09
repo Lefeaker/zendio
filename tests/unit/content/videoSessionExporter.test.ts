@@ -131,9 +131,9 @@ describe('VideoSessionExporter', () => {
     const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
     const screenshot = {
       id: 'shot-1',
-      fileName: 'video-0m42s-screenshot.png',
-      mimeType: 'image/png' as const,
-      dataUrl: 'data:image/png;base64,frame',
+      fileName: 'file-20260314100000000.jpg',
+      mimeType: 'image/jpeg' as const,
+      dataUrl: 'data:image/jpeg;base64,frame',
       capturedAt: 1
     };
 
@@ -157,13 +157,13 @@ describe('VideoSessionExporter', () => {
       storageKey: 'video:1'
     });
 
-    expect(payload.markdown).toContain('![Screenshot](data:image/png;base64,frame)');
+    expect(payload.markdown).toContain('![Screenshot](aiob-attachment:shot-1)');
     expect(payload.meta.attachments).toEqual([
       {
         id: 'shot-1',
-        fileName: 'video-0m42s-screenshot.png',
-        mimeType: 'image/png',
-        dataUrl: 'data:image/png;base64,frame'
+        fileName: 'file-20260314100000000.jpg',
+        mimeType: 'image/jpeg',
+        dataUrl: 'data:image/jpeg;base64,frame'
       }
     ]);
 

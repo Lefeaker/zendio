@@ -40,8 +40,8 @@ describe('VideoPanelPresenter', () => {
           screenshot: {
             id: 'shot-1',
             fileName: 'video-61m11s-screenshot.png',
-            mimeType: 'image/png',
-            dataUrl: 'data:image/png;base64,frame',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,frame',
             capturedAt: 1
           }
         }

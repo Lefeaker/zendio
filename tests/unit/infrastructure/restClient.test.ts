@@ -38,6 +38,26 @@ describe('RestClient Implementation', () => {
     });
   });
 
+  it('writes binary attachments with their content type', async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200, statusText: 'OK' }));
+    const blob = new Blob(['image'], { type: 'image/jpeg' });
+
+    await restClient.writeFile(mockConnection, 'assets/test/file.jpg', blob, {
+      contentType: 'image/jpeg'
+    });
+
+    const firstCall = mockFetch.mock.calls[0];
+    expect(firstCall?.[0]).toBe('https://test.com/assets/test/file.jpg');
+    expect(firstCall?.[1]).toMatchObject({
+      method: 'PUT',
+      body: blob,
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'image/jpeg'
+      }
+    });
+  });
+
   it('should handle HTTP fallback when HTTPS fails', async () => {
     const connectionWithFallback: RestConnection = {
       ...mockConnection,
@@ -56,7 +76,8 @@ describe('RestClient Implementation', () => {
 
     // 验证确实尝试了三次调用：HTTPS, HTTPS(vault), HTTP
     expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(mockFetch).toHaveBeenNthCalledWith(1,
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
       'https://secure.test.com/test.md',
       expect.any(Object)
     );
@@ -65,7 +86,8 @@ describe('RestClient Implementation', () => {
       'https://secure.test.com/vault/test-vault/test.md',
       expect.any(Object)
     );
-    expect(mockFetch).toHaveBeenNthCalledWith(3,
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
       'http://fallback.test.com/test.md',
       expect.any(Object)
     );
@@ -102,7 +124,9 @@ describe('RestClient Implementation', () => {
   it('should sanitize config-level failures instead of leaking engine errors', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockFetch
-      .mockResolvedValueOnce(new Response('Bad request', { status: 400, statusText: 'Bad Request' }))
+      .mockResolvedValueOnce(
+        new Response('Bad request', { status: 400, statusText: 'Bad Request' })
+      )
       .mockRejectedValueOnce(new Error(`${ENGINE_PROPERTY_ERROR} (reading 'baz')`));
 
     try {

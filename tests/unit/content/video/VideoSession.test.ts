@@ -169,7 +169,7 @@ type SessionTestApi = {
       createdAt: number;
       screenshot?: {
         fileName: string;
-        mimeType: 'image/png';
+        mimeType: 'image/jpeg';
         dataUrl: string;
       };
     }>;
@@ -350,7 +350,7 @@ describe('VideoSession', () => {
             configurable: true
           });
           Object.defineProperty(canvas, 'toDataURL', {
-            value: vi.fn(() => 'data:image/png;base64,frame'),
+            value: vi.fn(() => 'data:image/jpeg;base64,frame'),
             configurable: true
           });
           return canvas;
@@ -386,9 +386,9 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
       screenshot: {
-        fileName: 'video-0m42s-screenshot.png',
-        mimeType: 'image/png',
-        dataUrl: 'data:image/png;base64,frame'
+        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
+        mimeType: 'image/jpeg',
+        dataUrl: 'data:image/jpeg;base64,frame'
       }
     });
     expect(view?.stopEditing).toHaveBeenCalled();
@@ -417,7 +417,7 @@ describe('VideoSession', () => {
           configurable: true
         });
         Object.defineProperty(canvas, 'toDataURL', {
-          value: vi.fn(() => 'data:image/png;base64,toggled-frame'),
+          value: vi.fn(() => 'data:image/jpeg;base64,toggled-frame'),
           configurable: true
         });
         return canvas;
@@ -454,8 +454,8 @@ describe('VideoSession', () => {
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshot: {
-        fileName: 'video-0m42s-screenshot.png',
-        dataUrl: 'data:image/png;base64,toggled-frame'
+        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
+        dataUrl: 'data:image/jpeg;base64,toggled-frame'
       }
     });
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]

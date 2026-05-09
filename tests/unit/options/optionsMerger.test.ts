@@ -12,6 +12,7 @@ describe('shared optionsMerger', () => {
     const result = mergeOptions(undefined);
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
     expect(result.templates.article).toBe(DEFAULT_OPTIONS.templates.article);
+    expect(result.interfaceTheme).toBe('system');
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(result.readingSession?.exportMode).toBe(defaultReadingSession.exportMode);

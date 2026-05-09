@@ -377,6 +377,25 @@ describe('mountProductionStitchShell', () => {
     expect(window.localStorage.getItem('aob-theme')).toBe('system');
   });
 
+  it('defaults the interface theme preference to system', () => {
+    const controller = createController();
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as never);
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(document.documentElement.dataset.previewTheme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+  });
+
   it('binds production option values and schedules autosave after edits', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

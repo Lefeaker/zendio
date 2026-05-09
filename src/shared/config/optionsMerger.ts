@@ -304,9 +304,11 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
 
   const options: OptionsState = {
     interfaceTheme:
-      source.interfaceTheme === 'light' || source.interfaceTheme === 'system'
+      source.interfaceTheme === 'light' ||
+      source.interfaceTheme === 'dark' ||
+      source.interfaceTheme === 'system'
         ? source.interfaceTheme
-        : 'dark',
+        : (defaults.interfaceTheme ?? 'system'),
     rest,
     templates,
     domainMappings

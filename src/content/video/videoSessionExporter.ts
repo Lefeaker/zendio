@@ -93,7 +93,7 @@ export class VideoSessionExporter {
         const comment = capture.comment ? ` ${capture.comment}` : '';
         bodyLines.push(`${index + 1}. [${label}](${capture.url})${comment}`);
         if (capture.screenshot) {
-          bodyLines.push(`   ![Screenshot](${capture.screenshot.dataUrl})`);
+          bodyLines.push(`   ![Screenshot](aiob-attachment:${capture.screenshot.id})`);
         }
       });
     }

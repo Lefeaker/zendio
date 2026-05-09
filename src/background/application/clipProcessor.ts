@@ -3,7 +3,7 @@ import { resolvePath } from '../pathResolver';
 import { selectVaultForClip } from '../services/vaultRouterService';
 import { classifyClip } from '../services/classificationService';
 import type { ClassificationResult } from '../services/classificationService';
-import { writeMarkdownToVault } from '../services/obsidianWriter';
+import { writeAttachmentToVault, writeMarkdownToVault } from '../services/obsidianWriter';
 import { recordClipUsage } from '../services/usageStats';
 import type { ClipResultMessage } from '../../shared/types';
 import {
@@ -25,6 +25,23 @@ export interface ClipProcessingResult {
 
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
 
+interface ClipAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
+interface ResolvedClipAttachment extends ClipAttachment {
+  outputPath: string;
+  markdownPath: string;
+}
+
+interface PreparedClipPayload {
+  markdown: string;
+  attachments: ResolvedClipAttachment[];
+}
+
 export async function processClipPayload(payload: ClipPayload): Promise<ClipProcessingResult> {
   const options = await getOptions();
   const classification = await classifyClip(options, payload);
@@ -33,9 +50,17 @@ export async function processClipPayload(payload: ClipPayload): Promise<ClipProc
 
   if (exportDestination?.kind === 'downloads') {
     const filename = toDownloadsFilename(filePath);
+    const prepared = prepareClipAttachments(payload, filename, 'downloads');
+    for (const attachment of prepared.attachments) {
+      await getPlatformServices().downloads.download({
+        filename: attachment.outputPath,
+        url: attachment.dataUrl,
+        mimeType: attachment.mimeType
+      });
+    }
     await getPlatformServices().downloads.download({
       filename,
-      content: payload.markdown,
+      content: prepared.markdown,
       mimeType: 'text/markdown;charset=utf-8'
     });
 
@@ -54,8 +79,18 @@ export async function processClipPayload(payload: ClipPayload): Promise<ClipProc
   }
 
   const { vault, restConfig } = selectVaultForClip(options, payload);
+  const prepared = prepareClipAttachments(payload, filePath, 'vault');
 
-  await writeMarkdownToVault(restConfig, filePath, payload.markdown);
+  for (const attachment of prepared.attachments) {
+    await writeAttachmentToVault(
+      restConfig,
+      attachment.outputPath,
+      attachment.dataUrl,
+      attachment.mimeType
+    );
+  }
+
+  await writeMarkdownToVault(restConfig, filePath, prepared.markdown);
 
   try {
     await recordClipUsage(payload);
@@ -90,4 +125,107 @@ export async function processClipPayload(payload: ClipPayload): Promise<ClipProc
   };
 
   return result;
+}
+
+function prepareClipAttachments(
+  payload: ClipPayload,
+  notePath: string,
+  destination: 'vault' | 'downloads'
+): PreparedClipPayload {
+  const attachments = parseClipAttachments(payload.meta?.attachments);
+  if (attachments.length === 0) {
+    return { markdown: payload.markdown, attachments: [] };
+  }
+
+  const noteName = getFileStem(notePath);
+  const noteDirectory = getDirectoryName(notePath);
+  const resolvedAttachments = attachments.map((attachment) => {
+    const fileName = sanitizeAttachmentFileName(attachment.fileName);
+    if (destination === 'downloads') {
+      const shouldUseFolder = attachments.length > 1;
+      const markdownPath = shouldUseFolder ? `${noteName}/${fileName}` : fileName;
+      return {
+        ...attachment,
+        fileName,
+        outputPath: markdownPath,
+        markdownPath
+      };
+    }
+
+    const markdownPath = `assets/${noteName}/${fileName}`;
+    return {
+      ...attachment,
+      fileName,
+      outputPath: joinPath(noteDirectory, markdownPath),
+      markdownPath
+    };
+  });
+
+  const markdown = resolvedAttachments.reduce((current, attachment) => {
+    const marker = `aiob-attachment:${attachment.id}`;
+    return current.split(marker).join(attachment.markdownPath);
+  }, payload.markdown);
+
+  return {
+    markdown,
+    attachments: resolvedAttachments
+  };
+}
+
+function parseClipAttachments(value: unknown): ClipAttachment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item): ClipAttachment[] => {
+    if (typeof item !== 'object' || item === null) {
+      return [];
+    }
+    const candidate = item as Partial<ClipAttachment>;
+    if (
+      typeof candidate.id !== 'string' ||
+      typeof candidate.fileName !== 'string' ||
+      typeof candidate.mimeType !== 'string' ||
+      typeof candidate.dataUrl !== 'string' ||
+      !candidate.dataUrl.startsWith(`data:${candidate.mimeType};base64,`)
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: candidate.id,
+        fileName: candidate.fileName,
+        mimeType: candidate.mimeType,
+        dataUrl: candidate.dataUrl
+      }
+    ];
+  });
+}
+
+function getFileStem(filePath: string): string {
+  const fileName = filePath.split(/[\\/]/u).filter(Boolean).at(-1) ?? 'note.md';
+  const withoutExtension = fileName.replace(/\.[^.]+$/u, '');
+  return sanitizePathSegment(withoutExtension || 'note');
+}
+
+function getDirectoryName(filePath: string): string {
+  const segments = filePath.split(/[\\/]/u).filter(Boolean);
+  segments.pop();
+  return segments.join('/');
+}
+
+function joinPath(...segments: string[]): string {
+  return segments
+    .flatMap((segment) => segment.split(/[\\/]/u))
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join('/');
+}
+
+function sanitizeAttachmentFileName(fileName: string): string {
+  const safeName = fileName.split(/[\\/]/u).filter(Boolean).at(-1);
+  return sanitizePathSegment(safeName || 'attachment.jpg');
+}
+
+function sanitizePathSegment(segment: string): string {
+  return segment.replace(/[\\/:*?"<>|]/g, '_').slice(0, 180) || 'note';
 }
