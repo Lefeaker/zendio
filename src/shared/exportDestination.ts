@@ -229,7 +229,10 @@ function resolveTemplateKey(payload: ClipPayload): TemplateKey {
   if (payload.type === 'ai_chat') {
     return 'ai';
   }
-  if (payload.type === 'clipper' || payload.type === 'video') {
+  if (payload.type === 'video') {
+    return 'article';
+  }
+  if (payload.type === 'clipper') {
     return payload.meta?.readerMode ? 'reading' : 'fragment';
   }
   return 'article';

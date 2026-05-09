@@ -191,6 +191,76 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload?.attachments).toEqual(payload.meta.attachments);
   });
 
+  it('separates video timestamp entries with blank lines and nests screenshots under each item', () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = {
+      ...DEFAULT_SESSION_MESSAGES,
+      timestampSectionTitle: '视频时间点'
+    };
+    const payload = exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 1,
+          url: 'https://www.bilibili.com/video/BV1?t=1',
+          comment: '好看',
+          createdAt: 1,
+          screenshot: {
+            id: 'shot-1',
+            fileName: 'file-20260509202351868.jpg',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,frame',
+            capturedAt: 1
+          }
+        },
+        {
+          kind: 'timestamp',
+          id: 'ts-2',
+          timeSec: 10,
+          url: 'https://www.bilibili.com/video/BV1?t=10',
+          comment: '确实好看',
+          createdAt: 2,
+          screenshot: {
+            id: 'shot-2',
+            fileName: 'file-20260509202403524.jpg',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,frame2',
+            capturedAt: 2
+          }
+        },
+        {
+          kind: 'timestamp',
+          id: 'ts-3',
+          timeSec: 14,
+          url: 'https://www.bilibili.com/video/BV1?t=14',
+          comment: '不会呼呼呼',
+          createdAt: 3
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://www.bilibili.com/video/BV1',
+      videoUrl: 'https://www.bilibili.com/video/BV1',
+      platform: 'bilibili',
+      messages,
+      storageKey: null
+    });
+
+    expect(payload.markdown).toContain(
+      [
+        '## 视频时间点',
+        '',
+        '1. [0:01](https://www.bilibili.com/video/BV1?t=1) 好看',
+        '\t![Screenshot](aiob-attachment:shot-1)',
+        '',
+        '2. [0:10](https://www.bilibili.com/video/BV1?t=10) 确实好看',
+        '\t![Screenshot](aiob-attachment:shot-2)',
+        '',
+        '3. [0:14](https://www.bilibili.com/video/BV1?t=14) 不会呼呼呼'
+      ].join('\n')
+    );
+  });
+
   it('falls back to the unknown-platform defaults and empty canonical url handling', () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const payload = exporter.buildPayload({

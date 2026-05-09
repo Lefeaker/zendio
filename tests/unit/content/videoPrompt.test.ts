@@ -163,6 +163,10 @@ const ensureVideoControlBarButtonMock = vi.hoisted(() =>
         autoPauseEnabled: boolean;
         captureScreenshotEnabled: boolean;
       }): void;
+      onPopoverDismiss?(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
       onPrimaryAction(
         preferences: {
           autoPauseEnabled: boolean;
@@ -593,6 +597,33 @@ describe('video prompt', () => {
       resumePlayback: true,
       collapseAfterCapture: true
     });
+  });
+
+  it('resumes playback when an auto-paused control-bar popover is dismissed outside', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module: VideoPromptTestModule = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    const playSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockImplementation(() => Promise.resolve());
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPopoverDismiss?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+
+    expect(playSpy).toHaveBeenCalledTimes(1);
   });
 
   it('opens a legacy control-bar capture without a typed note when called directly', async () => {

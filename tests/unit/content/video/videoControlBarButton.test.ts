@@ -87,4 +87,35 @@ describe('ensureVideoControlBarButton', () => {
     );
     expect(document.querySelector('.aiob-video-control-bar-popover')).toBeNull();
   });
+
+  it('dismisses the popover on outside click and notifies the host with current preferences', () => {
+    mountYoutubeControls();
+    const onPrimaryAction = vi.fn();
+    const onPopoverDismiss = vi.fn();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPopoverDismiss,
+      onPrimaryAction
+    });
+
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    expect(document.querySelector('.aiob-video-control-bar-popover')).toBeTruthy();
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(document.querySelector('.aiob-video-control-bar-popover')).toBeNull();
+    expect(onPopoverDismiss).toHaveBeenCalledWith({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+    expect(onPrimaryAction).not.toHaveBeenCalled();
+  });
 });

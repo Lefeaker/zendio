@@ -18,19 +18,14 @@ const REST_DEFAULTS = configProvider.getRestDefaults();
 
 export function buildVaultUrl(baseUrl: string, vault: string, encodedPath: string): string {
   const trimmed = baseUrl.trim();
-  const normalizedBase = stripTrailingSlash(trimmed);
-  const safeVault = vault.trim();
+  const normalizedBase = normalizeVaultEndpointBase(stripTrailingSlash(trimmed), vault);
   const endsWithVaultOnly = /\/vault$/i.test(normalizedBase);
-  const endsWithVaultAndName = /\/vault\/[^/]+$/i.test(normalizedBase);
 
   let baseWithVault: string;
-  if (endsWithVaultOnly && !endsWithVaultAndName) {
-    baseWithVault = safeVault ? `${normalizedBase}/${safeVault}` : `${normalizedBase}/`;
-  } else if (endsWithVaultAndName) {
+  if (endsWithVaultOnly) {
     baseWithVault = normalizedBase;
   } else {
-    const vaultSegment = safeVault ? `vault/${safeVault}` : 'vault';
-    baseWithVault = joinUrl(normalizedBase, vaultSegment);
+    baseWithVault = joinUrl(normalizedBase, 'vault');
   }
 
   const safePath = encodedPath.trim();
@@ -48,7 +43,7 @@ export function isLocalAddress(url: string): boolean {
 export function createRestCandidates(
   config: RestConfig,
   encodedPath: string,
-  vaultNameOrNull?: string | null  // null 表示连接测试,跳过 vault 路径
+  vaultNameOrNull?: string | null // null 表示连接测试,跳过 vault 路径
 ): RestCandidate[] {
   const urlsToTry: RestCandidate[] = [];
   const resolvedHttpsUrl = coerceUrl(config.httpsUrl, REST_DEFAULTS.httpsUrl);
@@ -79,13 +74,7 @@ export function createRestCandidates(
     }
 
     // 正常模式:拼接 vault 路径(用于 clipper 写入)
-    const effectivePath = encodedPath.trim();
     const effectiveVault = vaultNameOrNull ?? vaultName;
-
-    if (effectivePath) {
-      const directUrl = joinUrl(normalizedBase, effectivePath);
-      addUniqueCandidate(urlsToTry, directUrl, protocol);
-    }
 
     const hasVaultInBase = /\/vault(\/|$)/i.test(normalizedBase);
     const vaultUrl = buildVaultUrl(trimmed, effectiveVault, encodedPath);
@@ -101,7 +90,10 @@ export function createRestCandidates(
     pushCandidate(httpUrl, 'HTTP (用户配置)');
 
     if (httpsUrl && httpUrl && isLocalAddress(httpsUrl)) {
-      const httpAltPort = httpUrl.replace(`:${REST_DEFAULTS.httpPort}`, `:${REST_DEFAULTS.httpsPort}`);
+      const httpAltPort = httpUrl.replace(
+        `:${REST_DEFAULTS.httpPort}`,
+        `:${REST_DEFAULTS.httpsPort}`
+      );
       if (httpAltPort !== httpUrl) {
         pushCandidate(httpAltPort, 'HTTP (备用端口)');
       }
@@ -117,7 +109,9 @@ export function createRestCandidates(
   if (baseUrl.startsWith('https://')) {
     pushCandidate(baseUrl, 'HTTPS');
     pushCandidate(baseUrl.replace(/^https:/, 'http:'), 'HTTP (same port)');
-    const httpAltPort = baseUrl.replace(/^https:/, 'http:').replace(`:${REST_DEFAULTS.httpsPort}`, `:${REST_DEFAULTS.httpPort}`);
+    const httpAltPort = baseUrl
+      .replace(/^https:/, 'http:')
+      .replace(`:${REST_DEFAULTS.httpsPort}`, `:${REST_DEFAULTS.httpPort}`);
     if (httpAltPort !== baseUrl.replace(/^https:/, 'http:')) {
       pushCandidate(httpAltPort, `HTTP (port ${REST_DEFAULTS.httpPort})`);
     }
@@ -126,7 +120,9 @@ export function createRestCandidates(
 
   pushCandidate(baseUrl, 'HTTP');
   pushCandidate(baseUrl.replace(/^http:/, 'https:'), 'HTTPS (same port)');
-  const httpsAltPort = baseUrl.replace(/^http:/, 'https:').replace(`:${REST_DEFAULTS.httpPort}`, `:${REST_DEFAULTS.httpsPort}`);
+  const httpsAltPort = baseUrl
+    .replace(/^http:/, 'https:')
+    .replace(`:${REST_DEFAULTS.httpPort}`, `:${REST_DEFAULTS.httpsPort}`);
   if (httpsAltPort !== baseUrl.replace(/^http:/, 'https:')) {
     pushCandidate(httpsAltPort, `HTTPS (port ${REST_DEFAULTS.httpsPort})`);
   }
@@ -150,7 +146,7 @@ function coerceUrl(value: string | undefined, fallback: string | undefined): str
 }
 
 function addUniqueCandidate(list: RestCandidate[], url: string, protocol: string): void {
-  if (list.some(candidate => candidate.url === url)) {
+  if (list.some((candidate) => candidate.url === url)) {
     return;
   }
   list.push({ url, protocol });
@@ -158,6 +154,15 @@ function addUniqueCandidate(list: RestCandidate[], url: string, protocol: string
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
+}
+
+function normalizeVaultEndpointBase(baseUrl: string, vault: string): string {
+  const safeVault = vault.trim();
+  if (!safeVault) {
+    return baseUrl;
+  }
+  const escapedVault = safeVault.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return baseUrl.replace(new RegExp(`/vault/${escapedVault}$`, 'i'), '/vault');
 }
 
 function joinUrl(base: string, segment: string): string {

@@ -24,6 +24,7 @@ export interface VideoControlBarButtonOptions {
   preferences?: VideoControlBarPreferences;
   onPreferencesChange?: (preferences: VideoControlBarPreferences) => void;
   onPopoverOpen?: (preferences: VideoControlBarPreferences) => void;
+  onPopoverDismiss?: (preferences: VideoControlBarPreferences) => void;
   onPrimaryAction: (
     preferences: VideoControlBarPreferences,
     payload?: VideoControlBarNotePayload
@@ -241,6 +242,25 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', options.label);
 
+  const closePopover = (notifyDismiss: boolean): void => {
+    doc.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+    popover.remove();
+    if (notifyDismiss) {
+      options.onPopoverDismiss?.(preferences);
+    }
+  };
+
+  function handleDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (popover.contains(target) || button.contains(target)) {
+      return;
+    }
+    closePopover(true);
+  }
+
   const noteInput = doc.createElement('input');
   noteInput.type = 'text';
   noteInput.className = `${CONTROL_POPOVER_CLASS}__note-input`;
@@ -272,7 +292,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   );
 
   const submitNote = (): void => {
-    popover.remove();
+    closePopover(false);
     options.onPrimaryAction(preferences, {
       comment: noteInput.value.trim(),
       source: 'note-input'
@@ -290,6 +310,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
 
   popover.append(noteInput, autoPause, screenshot);
   (doc.body ?? doc.documentElement).appendChild(popover);
+  doc.addEventListener('pointerdown', handleDocumentPointerDown, true);
   positionPopover(button, popover);
   options.onPopoverOpen?.(preferences);
   if (preferences.autoPauseEnabled) {

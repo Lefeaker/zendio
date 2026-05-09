@@ -20,7 +20,9 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.resolve(undefined));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import('../../../src/background/services/obsidianWriter');
+    const { writeMarkdownToVault } = await import(
+      '../../../src/background/services/obsidianWriter'
+    );
     await writeMarkdownToVault(
       {
         baseUrl: 'https://vault.example',
@@ -42,7 +44,8 @@ describe('obsidianWriter', () => {
         apiKey: 'secret'
       },
       'Articles/test.md',
-      '# Hello'
+      '# Hello',
+      { contentType: 'text/markdown; charset=utf-8' }
     );
   });
 
@@ -51,7 +54,9 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.reject(error));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import('../../../src/background/services/obsidianWriter');
+    const { writeMarkdownToVault } = await import(
+      '../../../src/background/services/obsidianWriter'
+    );
 
     await expect(
       writeMarkdownToVault(
@@ -68,7 +73,7 @@ describe('obsidianWriter', () => {
     expect(handleErrorMock).toHaveBeenCalledWith(
       expect.objectContaining({
         domain: 'rest',
-        message: 'Failed to write markdown to vault: Articles/test.md',
+        message: 'Failed to write file to vault: Articles/test.md',
         context: expect.objectContaining({
           endpoint: 'https://vault.example',
           vault: 'Main',
@@ -85,7 +90,9 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.resolve(undefined));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import('../../../src/background/services/obsidianWriter');
+    const { writeMarkdownToVault } = await import(
+      '../../../src/background/services/obsidianWriter'
+    );
     await writeMarkdownToVault(
       {
         baseUrl: 'http://fallback.example',
@@ -99,13 +106,12 @@ describe('obsidianWriter', () => {
     expect(writeFileMock).toHaveBeenCalledWith(
       {
         baseUrl: 'http://fallback.example',
-        httpsUrl: undefined,
-        httpUrl: undefined,
         vault: 'Inbox',
         apiKey: 'secret'
       },
       'Inbox/test.md',
-      'content'
+      'content',
+      { contentType: 'text/markdown; charset=utf-8' }
     );
   });
 });

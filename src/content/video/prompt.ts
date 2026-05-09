@@ -309,6 +309,11 @@ function syncVideoControlBarButton(): void {
         pauseActiveVideoForControlBar();
       }
     },
+    onPopoverDismiss: (preferences) => {
+      if (preferences.autoPauseEnabled) {
+        resumeActiveVideoForControlBar();
+      }
+    },
     onPrimaryAction: (preferences, payload) => {
       promptSuppressed = true;
       removePrompt();
@@ -597,6 +602,15 @@ function pauseActiveVideoForControlBar(): void {
     video?.pause();
   } catch {
     // Some host players wrap native controls; saving still works on submit.
+  }
+}
+
+function resumeActiveVideoForControlBar(): void {
+  const video = document.querySelector('video');
+  try {
+    void video?.play().catch(() => undefined);
+  } catch {
+    // Host players may block scripted playback; dismissing the popover should not break capture.
   }
 }
 

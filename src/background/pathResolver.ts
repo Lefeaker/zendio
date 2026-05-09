@@ -82,8 +82,7 @@ export function resolvePath(
       });
     }
 
-    case 'clipper':
-    case 'video': {
+    case 'clipper': {
       const templateKey: TemplateKey = payload.meta?.readerMode ? 'reading' : 'fragment';
       const template = getTemplateValue(templates, templateKey);
       const domain = resolveDomain(payload, domainMappings);
@@ -99,6 +98,24 @@ export function resolvePath(
         HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
         ss: secondTwoDigit,
         platform: payload.meta?.platform ?? classification.ai_platform ?? 'clipper'
+      });
+    }
+
+    case 'video': {
+      const template = getTemplateValue(templates, 'article');
+      const domain = resolveDomain(payload, domainMappings);
+      return populateTemplate(template, {
+        domain: safe(domain),
+        yyyy: String(yyyy),
+        mm: monthTwoDigit,
+        dd,
+        HH: hourTwoDigit,
+        slug: slug(title),
+        title: safe(title),
+        HHmmss: `${hourTwoDigit}${minuteTwoDigit}${secondTwoDigit}`,
+        HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
+        ss: secondTwoDigit,
+        platform: payload.meta?.platform ?? classification.ai_platform ?? 'video'
       });
     }
 
@@ -122,10 +139,7 @@ export function resolvePath(
   }
 }
 
-function populateTemplate(
-  template: string,
-  values: Record<string, string>
-): string {
+function populateTemplate(template: string, values: Record<string, string>): string {
   const tokenEntries = Object.entries(values).sort((a, b) => b[0].length - a[0].length);
   let result = template;
   for (const [token, value] of tokenEntries) {
