@@ -6,6 +6,7 @@ import type { VideoSessionMessages } from './sessionMessages';
 import type { VideoPlatform } from './utils';
 import type { IVideoRepository, VideoClipData } from '../../shared/repositories/IVideoRepository';
 import type { ClipResult } from '../../shared/repositories/IClipRepository';
+import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 
 export interface ExportPayload {
   markdown: string;
@@ -22,6 +23,7 @@ export interface BuildPayloadContext {
   platform: VideoPlatform;
   messages: VideoSessionMessages;
   storageKey: string | null;
+  exportDestination?: ExportDestinationMetadata;
 }
 
 export class VideoSessionExporter {
@@ -37,8 +39,18 @@ export class VideoSessionExporter {
       return aTime - bTime;
     });
 
-    const timestampCaptures = sorted.filter((capture): capture is VideoTimestampCapture => capture.kind === 'timestamp');
-    const fragmentCaptures = sorted.filter((capture): capture is VideoFragmentCapture => capture.kind === 'fragment');
+    const timestampCaptures = sorted.filter(
+      (capture): capture is VideoTimestampCapture => capture.kind === 'timestamp'
+    );
+    const fragmentCaptures = sorted.filter(
+      (capture): capture is VideoFragmentCapture => capture.kind === 'fragment'
+    );
+    const attachments = timestampCaptures
+      .map((capture) => capture.screenshot)
+      .filter((screenshot): screenshot is NonNullable<VideoTimestampCapture['screenshot']> =>
+        Boolean(screenshot)
+      )
+      .map(({ id, fileName, mimeType, dataUrl }) => ({ id, fileName, mimeType, dataUrl }));
 
     const defaultTitle =
       ctx.platform === 'youtube'
@@ -80,6 +92,9 @@ export class VideoSessionExporter {
         const label = this.formatTime(capture.timeSec);
         const comment = capture.comment ? ` ${capture.comment}` : '';
         bodyLines.push(`${index + 1}. [${label}](${capture.url})${comment}`);
+        if (capture.screenshot) {
+          bodyLines.push(`   ![Screenshot](${capture.screenshot.dataUrl})`);
+        }
       });
     }
 
@@ -89,14 +104,19 @@ export class VideoSessionExporter {
         if (bodyLines.length) {
           bodyLines.push('');
         }
-        bodyLines.push(`## ${ctx.messages.fragmentSectionTitle ?? 'Captured fragments'}`, '', fragmentMarkdown.trim());
+        bodyLines.push(
+          `## ${ctx.messages.fragmentSectionTitle ?? 'Captured fragments'}`,
+          '',
+          fragmentMarkdown.trim()
+        );
       }
     }
 
-    const body = bodyLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-    const markdown = body
-      ? `${frontMatter}\n\n${body}\n`
-      : `${frontMatter}\n\n`;
+    const body = bodyLines
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    const markdown = body ? `${frontMatter}\n\n${body}\n` : `${frontMatter}\n\n`;
 
     return {
       markdown,
@@ -109,25 +129,36 @@ export class VideoSessionExporter {
         captureCount: sorted.length,
         timestampCount: timestampCaptures.length,
         fragmentCount: fragmentCaptures.length,
-        storageKey: ctx.storageKey ?? undefined
+        storageKey: ctx.storageKey ?? undefined,
+        ...(attachments.length ? { attachments } : {}),
+        ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
       }
     };
   }
 
   async export(ctx: BuildPayloadContext): Promise<ClipResult> {
     const payload = this.buildPayload(ctx);
+    const attachments = Array.isArray(payload.meta.attachments)
+      ? (payload.meta.attachments as NonNullable<VideoClipData['attachments']>)
+      : null;
     const clipData: VideoClipData = {
       content: payload.markdown,
       title: payload.title,
       url: (payload.meta.url as string | undefined) ?? ctx.canonicalUrl ?? ctx.videoUrl ?? '',
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
-      platform: this.mapPlatform(ctx.platform)
+      platform: this.mapPlatform(ctx.platform),
+      ...(attachments ? { attachments } : {}),
+      ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
     return this.videoRepository.sendVideoClip(clipData);
   }
 
-  private buildFragmentsMarkdown(captures: VideoFragmentCapture[], pageUrl: string, pageTitle: string): string {
+  private buildFragmentsMarkdown(
+    captures: VideoFragmentCapture[],
+    pageUrl: string,
+    pageTitle: string
+  ): string {
     try {
       const { markdown } = buildReaderHighlightsMarkdown({
         pageTitle,
@@ -151,11 +182,13 @@ export class VideoSessionExporter {
       }
       return markdown.trim();
     } catch {
-      return captures.map((capture) => {
-        const label = this.buildFragmentLabel(capture.selectedText);
-        const commentPart = capture.comment ? `\n  - ${capture.comment}` : '';
-        return `- ${label}${commentPart}`;
-      }).join('\n');
+      return captures
+        .map((capture) => {
+          const label = this.buildFragmentLabel(capture.selectedText);
+          const commentPart = capture.comment ? `\n  - ${capture.comment}` : '';
+          return `- ${label}${commentPart}`;
+        })
+        .join('\n');
     }
   }
 

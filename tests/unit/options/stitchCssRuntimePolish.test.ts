@@ -66,4 +66,12 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('color: var(--danger);');
     expect(stitchCss).toContain('.yaml-actions .yaml-action-button');
   });
+
+  it('lets the onboarding document scroll and uses the Stitch page layout', () => {
+    expect(stitchCss).toContain("html[data-route='onboarding'],");
+    expect(stitchCss).toContain("body[data-route='onboarding']");
+    expect(stitchCss).toContain('overflow-y: auto;');
+    expect(stitchCss).toContain('grid-template-columns: auto minmax(0, 1fr);');
+    expect(stitchCss).toContain('border-bottom: var(--border-default);');
+  });
 });

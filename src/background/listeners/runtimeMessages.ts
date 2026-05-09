@@ -21,12 +21,15 @@ import {
   notificationErrors
 } from '../../shared/errors';
 import { trackUsageEvent } from '../services/analyticsEvents';
+import { processClipPayload } from '../application/clipProcessor';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
 import type { ConnectionTestResult } from '../../shared/types/connection';
+import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
+import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
 
 interface OpenOptionsPageMessage {
   type: 'openOptionsPage';
@@ -59,6 +62,76 @@ function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
   }
 
   return payload;
+}
+
+function isRepositoryClipMessage(message: unknown): message is { type: 'clip'; data: ClipPayload } {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as { type?: unknown }).type === 'clip' &&
+    typeof (message as { data?: { markdown?: unknown } }).data?.markdown === 'string'
+  );
+}
+
+function isRepositoryReadingClipMessage(
+  message: unknown
+): message is { type: 'readingClip'; data: ReadingClipData } {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as { type?: unknown }).type === 'readingClip' &&
+    typeof (message as { data?: { content?: unknown } }).data?.content === 'string'
+  );
+}
+
+function isRepositoryVideoClipMessage(
+  message: unknown
+): message is { type: 'videoClip'; data: VideoClipData } {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as { type?: unknown }).type === 'videoClip' &&
+    typeof (message as { data?: { content?: unknown } }).data?.content === 'string'
+  );
+}
+
+function toReadingClipPayload(data: ReadingClipData): ClipPayload {
+  return {
+    markdown: data.content,
+    title: data.title,
+    type: 'clipper',
+    meta: {
+      url: data.url,
+      readerMode: true,
+      exportMode: data.exportMode
+    }
+  };
+}
+
+function toVideoClipPayload(data: VideoClipData): ClipPayload {
+  return {
+    markdown: data.content,
+    title: data.title,
+    type: 'video',
+    meta: {
+      url: data.url || data.videoUrl,
+      sourceUrl: data.videoUrl || data.url,
+      platform: data.platform,
+      ...(data.exportDestination ? { exportDestination: data.exportDestination } : {})
+    }
+  };
+}
+
+async function processRepositoryClipPayload(payload: ClipPayload): Promise<MessagePayload> {
+  try {
+    const result = await processClipPayload(payload);
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 export interface RuntimeMessageListenerDependencies {
@@ -97,7 +170,9 @@ async function safeNotifyExtraction(message: string): Promise<void> {
   }
 }
 
-export function registerRuntimeMessageListener(dependencies: RuntimeMessageListenerDependencies): void {
+export function registerRuntimeMessageListener(
+  dependencies: RuntimeMessageListenerDependencies
+): void {
   dependencies.messaging.addListener(async (message, sender) => {
     // Handle analytics messages before clip result messages so the generic
     // clip branch cannot swallow other payload shapes that also carry `event`.
@@ -106,12 +181,28 @@ export function registerRuntimeMessageListener(dependencies: RuntimeMessageListe
       return;
     }
 
+    if (isRepositoryClipMessage(message)) {
+      return processRepositoryClipPayload(message.data);
+    }
+
+    if (isRepositoryReadingClipMessage(message)) {
+      return processRepositoryClipPayload(toReadingClipPayload(message.data));
+    }
+
+    if (isRepositoryVideoClipMessage(message)) {
+      return processRepositoryClipPayload(toVideoClipPayload(message.data));
+    }
+
     if (isTestConnectionMessage(message)) {
       return handleConnectionTest(message.rest)
         .then(toConnectionTestPayload)
         .catch((error) => {
           const msg = error instanceof Error ? error.message : String(error);
-          return { success: false, error: msg, message: `连接失败: ${msg}` } satisfies MessagePayload;
+          return {
+            success: false,
+            error: msg,
+            message: `连接失败: ${msg}`
+          } satisfies MessagePayload;
         });
     }
 
@@ -120,7 +211,11 @@ export function registerRuntimeMessageListener(dependencies: RuntimeMessageListe
         .then(toConnectionTestPayload)
         .catch((error) => {
           const msg = error instanceof Error ? error.message : String(error);
-          return { success: false, error: msg, message: `连接失败: ${msg}` } satisfies MessagePayload;
+          return {
+            success: false,
+            error: msg,
+            message: `连接失败: ${msg}`
+          } satisfies MessagePayload;
         });
     }
 
@@ -145,7 +240,11 @@ export function registerRuntimeMessageListener(dependencies: RuntimeMessageListe
         await safeNotifyExtraction('Invalid clip payload received.');
         return;
       }
-      await handleClipResult({ ...message, payload: parsed.data as ClipPayload }, sender.tabId, dependencies.clipPipeline);
+      await handleClipResult(
+        { ...message, payload: parsed.data as ClipPayload },
+        sender.tabId,
+        dependencies.clipPipeline
+      );
       return;
     }
 

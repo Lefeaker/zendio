@@ -36,6 +36,7 @@ export const ClipPayloadSchema = z
 export const ClipProcessingResultSchema = z.object({
   filePath: z.string(),
   restVault: z.string(),
+  destination: z.enum(['vault', 'downloads']).optional(),
   classification: ClassificationResultSchema,
   vaultName: z.string().optional(),
   classificationWarning: AppErrorSchema.optional()

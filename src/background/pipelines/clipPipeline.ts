@@ -17,10 +17,7 @@ import {
   normalizeClipPayload,
   safeNotify
 } from './clipPipelineHelpers';
-import {
-  dispatchSupportPrompt,
-  type ClipPipelineDependencies
-} from './clipPipelineSupport';
+import { dispatchSupportPrompt, type ClipPipelineDependencies } from './clipPipelineSupport';
 
 export type { ClipPipelineDependencies } from './clipPipelineSupport';
 
@@ -42,10 +39,10 @@ async function handleClipFailure(
 ): Promise<void> {
   await errorHandler.handle(appError, { suppressNotifications: true });
 
-  await safeNotify(
-    () => notifyClipFailure(appError.userMessage ?? appError.message),
-    { channel: 'clipper.failure', title: 'notifyClipFailure' }
-  );
+  await safeNotify(() => notifyClipFailure(appError.userMessage ?? appError.message), {
+    channel: 'clipper.failure',
+    title: 'notifyClipFailure'
+  });
 
   let fallbackVault: string | undefined;
   try {
@@ -81,16 +78,16 @@ export async function handleClipResult(
     let supportStatus: 'success' | 'failure' | 'warning' = 'success';
     let supportError: AppError | undefined;
 
-    await safeNotify(
-      () => notifyClipSuccess(result.filePath, result.vaultName),
-      { channel: 'clipper.success', title: 'notifyClipSuccess' }
-    );
+    await safeNotify(() => notifyClipSuccess(result.filePath, result.vaultName), {
+      channel: 'clipper.success',
+      title: 'notifyClipSuccess'
+    });
 
-    const classificationWarning = result.classificationWarning ?? (
-      classification.status === 'fallback' && classification.fallbackReason === 'error'
+    const classificationWarning =
+      result.classificationWarning ??
+      (classification.status === 'fallback' && classification.fallbackReason === 'error'
         ? classification.errorDetail
-        : undefined
-    );
+        : undefined);
 
     if (classificationWarning) {
       const warningError = isAppError(classificationWarning)
@@ -104,13 +101,14 @@ export async function handleClipResult(
       supportStatus = 'warning';
       supportError = warningError;
       await errorHandler.handle(warningError, { suppressNotifications: true });
-      await safeNotify(
-        () => notifyClipWarning(warningError.userMessage ?? warningError.message),
-        { channel: 'clipper.warning', title: 'notifyClipWarning' }
-      );
+      await safeNotify(() => notifyClipWarning(warningError.userMessage ?? warningError.message), {
+        channel: 'clipper.warning',
+        title: 'notifyClipWarning'
+      });
     }
 
-    const supportVault = result.vaultName ?? result.restVault;
+    const supportVault =
+      result.destination === 'downloads' ? undefined : (result.vaultName ?? result.restVault);
     dispatchSupportPrompt(
       dependencies,
       tabId,

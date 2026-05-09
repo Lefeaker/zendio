@@ -8,6 +8,7 @@ const classifyClipMock = vi.fn();
 const resolvePathMock = vi.fn();
 const writeMarkdownMock = vi.fn();
 const recordUsageMock = vi.fn();
+const downloadMock = vi.fn();
 
 const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
 
@@ -35,6 +36,14 @@ vi.mock('../../../src/background/services/usageStats', () => ({
   recordClipUsage: recordUsageMock
 }));
 
+vi.mock('../../../src/platform', () => ({
+  getPlatformServices: () => ({
+    downloads: {
+      download: downloadMock
+    }
+  })
+}));
+
 describe('clipProcessor', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -44,6 +53,7 @@ describe('clipProcessor', () => {
     resolvePathMock.mockReset();
     writeMarkdownMock.mockReset();
     recordUsageMock.mockReset();
+    downloadMock.mockReset();
   });
 
   afterEach(() => {
@@ -71,13 +81,20 @@ describe('clipProcessor', () => {
       restConfig: { baseUrl: 'https://vault', vault: 'Secondary', apiKey: 'key' },
       context: {}
     });
-    const classificationResult = { type: 'article', topics: [], tags: [], status: 'success' as const };
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/foo.md');
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import('../../../src/background/application/clipProcessor');
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
     const result = await processClipPayload(createPayload());
 
     expect(writeMarkdownMock).toHaveBeenCalledWith(
@@ -90,6 +107,7 @@ describe('clipProcessor', () => {
       filePath: 'Articles/foo.md',
       vaultName: 'Secondary Vault',
       restVault: 'Secondary',
+      destination: 'vault',
       classification: classificationResult
     });
   });
@@ -105,21 +123,32 @@ describe('clipProcessor', () => {
       restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
       context: {}
     });
-    const classificationResult = { type: 'article', topics: [], tags: [], status: 'success' as const };
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/foo.md');
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockRejectedValue(new Error('usage failed'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const { processClipPayload } = await import('../../../src/background/application/clipProcessor');
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
     await expect(processClipPayload(createPayload())).resolves.toMatchObject({
       filePath: 'Articles/foo.md',
+      destination: 'vault',
       restVault: 'Vault'
     });
 
     expect(recordUsageMock).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith('[clipProcessor] Failed to record usage stats:', expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[clipProcessor] Failed to record usage stats:',
+      expect.any(Error)
+    );
   });
 
   it('returns result that conforms to ClipProcessingResultSchema', async () => {
@@ -133,13 +162,20 @@ describe('clipProcessor', () => {
       restConfig: { baseUrl: 'https://vault', vault: 'Test', apiKey: 'key' },
       context: {}
     });
-    const classificationResult = { type: 'article', topics: ['tech'], tags: ['test'], status: 'success' as const };
+    const classificationResult = {
+      type: 'article',
+      topics: ['tech'],
+      tags: ['test'],
+      status: 'success' as const
+    };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/test.md');
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import('../../../src/background/application/clipProcessor');
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
     const result = await processClipPayload(createPayload());
 
     // Verify result conforms to Schema
@@ -150,8 +186,53 @@ describe('clipProcessor', () => {
       expect(parseResult.data.filePath).toBe('Articles/test.md');
       expect(parseResult.data.restVault).toBe('Test');
       expect(parseResult.data.vaultName).toBe('Test Vault');
+      expect(parseResult.data.destination).toBe('vault');
       expect(parseResult.data.classification).toEqual(classificationResult);
     }
+  });
+
+  it('downloads markdown instead of writing to a vault when downloads is selected', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('Articles/downloaded-note.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
+    const result = await processClipPayload(
+      createPayload({
+        meta: {
+          url: 'https://example.com',
+          exportDestination: { kind: 'downloads' }
+        }
+      })
+    );
+
+    expect(selectVaultMock).not.toHaveBeenCalled();
+    expect(writeMarkdownMock).not.toHaveBeenCalled();
+    expect(downloadMock).toHaveBeenCalledWith({
+      filename: 'downloaded-note.md',
+      content: '# note',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+    expect(result).toEqual({
+      filePath: 'downloaded-note.md',
+      restVault: '',
+      destination: 'downloads',
+      classification: classificationResult
+    });
   });
 
   it('includes classificationWarning when classification falls back with error', async () => {
@@ -185,7 +266,9 @@ describe('clipProcessor', () => {
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import('../../../src/background/application/clipProcessor');
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
     const result = await processClipPayload(createPayload());
 
     // Verify result includes classificationWarning

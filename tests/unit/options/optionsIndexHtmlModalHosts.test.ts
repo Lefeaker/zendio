@@ -45,7 +45,7 @@ describe('options index modal hosts', () => {
 
     expect(source).toContain('../options/stitch/styles/stitch.css');
     expect(source).toContain('../options/stitch/styles/variants/stitch-secondary.css');
-    expect(source).toContain('data-route="onboarding"');
+    expect(source).toContain('<html lang="zh-CN" data-route="onboarding"');
     expect(source).toContain('data-preview-skin="stitch-secondary"');
     expect(source).not.toContain('../styles/global.tailwind.css');
     expect(source).not.toContain('../styles/design-tokens.css');

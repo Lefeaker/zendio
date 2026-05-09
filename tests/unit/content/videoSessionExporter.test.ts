@@ -108,7 +108,8 @@ describe('VideoSessionExporter', () => {
       videoUrl: 'https://example.com/watch?v=1',
       platform: 'youtube',
       messages,
-      storageKey: 'video:1'
+      storageKey: 'video:1',
+      exportDestination: { kind: 'downloads' }
     });
 
     expect(sendVideoClipMock).toHaveBeenCalledTimes(1);
@@ -121,6 +122,7 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload.content).toContain('---');
     expect(clipPayload.platform).toBe('youtube');
     expect(clipPayload.videoUrl).toBe('https://example.com/watch?v=1');
+    expect(clipPayload.exportDestination).toEqual({ kind: 'downloads' });
     expect(typeof clipPayload.timestamp).toBe('number');
   });
 
