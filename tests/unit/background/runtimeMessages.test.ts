@@ -158,6 +158,14 @@ describe('runtime message listener', () => {
           videoUrl: 'https://youtube.com/watch?v=1',
           timestamp: 1,
           platform: 'youtube',
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'file-20260509194226985.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            }
+          ],
           exportDestination: { kind: 'downloads' }
         }
       },
@@ -173,6 +181,14 @@ describe('runtime message listener', () => {
         url: 'https://youtube.com/watch?v=1',
         sourceUrl: 'https://youtube.com/watch?v=1',
         platform: 'youtube',
+        attachments: [
+          {
+            id: 'shot-1',
+            fileName: 'file-20260509194226985.jpg',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,aaa'
+          }
+        ],
         exportDestination: { kind: 'downloads' }
       }
     });

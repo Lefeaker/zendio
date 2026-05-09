@@ -117,6 +117,7 @@ function toVideoClipPayload(data: VideoClipData): ClipPayload {
       url: data.url || data.videoUrl,
       sourceUrl: data.videoUrl || data.url,
       platform: data.platform,
+      ...(data.attachments ? { attachments: data.attachments } : {}),
       ...(data.exportDestination ? { exportDestination: data.exportDestination } : {})
     }
   };
