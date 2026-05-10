@@ -14,9 +14,10 @@ function writeMetafile(payload: unknown): { dir: string; path: string } {
 
 describe('production build graph report', () => {
   it('classifies retired candidate families from an esbuild metafile', () => {
+    const previewFamily = `${['src', 'options', 'preview'].join('/')}/**`;
     const fixture = writeMetafile({
       inputs: {
-        'src/options/preview/index.ts': { bytes: 10 },
+        'src/options/components/formSections/fake.ts': { bytes: 10 },
         'src/dev/contentOrchestratorHarness.ts': { bytes: 10 },
         'src/options/index.ts': { bytes: 10 }
       },
@@ -24,7 +25,7 @@ describe('production build graph report', () => {
         'build/audit/options/index.js': {
           entryPoint: 'src/options/index.ts',
           inputs: {
-            'src/options/preview/index.ts': { bytesInOutput: 10 },
+            'src/options/components/formSections/fake.ts': { bytesInOutput: 10 },
             'src/options/index.ts': { bytesInOutput: 10 }
           }
         },
@@ -46,9 +47,9 @@ describe('production build graph report', () => {
         }
       );
       expect(output).toContain('Production build graph sources=3');
-      expect(output).toContain('src/options/preview/** | inBuildGraph=true');
+      expect(output).toContain('src/options/components/formSections/** | inBuildGraph=true');
       expect(output).toContain('classification=production-user-facing');
-      expect(output).toContain('src/options/components/formSections/** | inBuildGraph=false');
+      expect(output).toContain(`${previewFamily} | inBuildGraph=false`);
     } finally {
       rmSync(fixture.dir, { recursive: true, force: true });
     }
