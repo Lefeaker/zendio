@@ -2,11 +2,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mergeOptions } from '../../src/shared/config/optionsMerger';
 import { selectVaultForClip } from '../../src/background/services/vaultRouterService';
 import { resolvePath } from '../../src/background/pathResolver';
-import { notifyClipSuccess, setNotificationAdapter } from '../../src/background/services/notifications';
+import {
+  notifyClipSuccess,
+  setNotificationAdapter
+} from '../../src/background/services/notifications';
 import type { ClipPayload } from '../../src/shared/types';
 import type { ClassificationResult } from '../../src/background/services/classificationService';
 import { createTestVaultRouterConfig, createTestVaultConfig } from '../fixtures/configTestHelpers';
-import { captureGlobalSnapshot, restoreGlobalSnapshot, assignGlobalValues } from '../utils/globalTestHelpers';
+import {
+  captureGlobalSnapshot,
+  restoreGlobalSnapshot,
+  assignGlobalValues
+} from '../utils/globalTestHelpers';
 import {
   createChromeMock,
   type ChromeChangeListener,
@@ -100,16 +107,29 @@ describe('clipper end-to-end simulation', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('Articles/TechExample/2024/shared-clip.md');
 
     const notificationSpy = vi.fn();
     setNotificationAdapter(notificationSpy);
     await notifyClipSuccess(filePath, selection.vault?.name);
-    expect(notificationSpy).toHaveBeenCalledWith(expect.stringMatching(/^clipper-success-/), expect.objectContaining({
-      channel: 'clipper.success',
-      severity: 'success',
-      message: filePath
-    }));
+    expect(notificationSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/^clipper-success-/),
+      expect.objectContaining({
+        channel: 'clipper.success',
+        severity: 'success',
+        message: 'Saved via Obsidian REST API to: Tech Vault',
+        metadata: {
+          filePath,
+          storageTarget: 'rest-api',
+          vaultName: 'Tech Vault'
+        }
+      })
+    );
   });
 });

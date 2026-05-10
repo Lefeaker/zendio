@@ -226,14 +226,22 @@ export class ClipperDialog {
   }
 
   private readonly onPageHide = (): void => {
-    this.close();
+    this.closeRegisteredPopups();
   };
 
   private readonly onVisibilityChange = (): void => {
     if (document.hidden) {
-      this.close();
+      this.closeRegisteredPopups();
     }
   };
+
+  private closeRegisteredPopups(): void {
+    if (this.dialogRegistry) {
+      this.dialogRegistry.closeAll();
+      return;
+    }
+    this.close();
+  }
 
   private async buildDialog(selectedText: string): Promise<void> {
     await ensureContentI18n(document);

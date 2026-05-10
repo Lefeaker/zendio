@@ -98,4 +98,31 @@ describe('ReaderDialogPanel', () => {
 
     panel.destroy();
   });
+
+  it('reports editing only while the highlight note input keeps focus', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+
+    panel.setHighlights([
+      {
+        id: 'h-1',
+        index: 1,
+        excerpt: 'Selected text',
+        fullText: 'Selected text',
+        comment: '',
+        commentPreview: '',
+        timestamp: Date.now()
+      }
+    ]);
+
+    expect(panel.isEditing()).toBe(true);
+    panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.focus();
+
+    expect(panel.isEditing()).toBe(false);
+
+    panel.destroy();
+  });
 });

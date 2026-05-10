@@ -83,14 +83,25 @@ describe('video listener scope jsdom fixtures', () => {
     screenshotToggle!.checked = true;
     screenshotToggle!.dispatchEvent(new Event('change', { bubbles: true }));
 
-    document
-      .querySelector<HTMLButtonElement>('[data-aiob-video-control-bar-action="add-note"]')
-      ?.click();
+    const noteInput = document.querySelector<HTMLInputElement>(
+      '[data-aiob-video-control-bar-note-input="true"]'
+    );
+    expect(noteInput).toBeTruthy();
+    noteInput!.value = 'Control bar note';
+    noteInput!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
 
-    expect(onPrimaryAction).toHaveBeenCalledWith({
-      autoPauseEnabled: true,
-      captureScreenshotEnabled: true
-    });
+    expect(onPrimaryAction).toHaveBeenCalledWith(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'Control bar note',
+        source: 'note-input'
+      }
+    );
     expect(document.querySelector('[data-stitch-surface="video"]')).toBeTruthy();
   });
 
