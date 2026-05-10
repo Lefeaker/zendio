@@ -11,10 +11,10 @@ import {
 import { createContentRuntimeState } from './runtime/contentRuntimeState';
 import { createContentMessageRouter } from './runtime/contentMessageRouter';
 import { createContentSelectionTracker } from './runtime/contentSelectionTracker';
-import { createLocalVaultPermissionPrompt } from './runtime/localVaultPermissionPrompt';
 import { createContentRuntime } from './runtime/bootstrapRuntime';
 import {
   createLazyExtractorRegistry,
+  createLazyLocalVaultPermissionPrompt,
   createLazyReaderSessionFactory,
   createLazySupportPrompt,
   createLazyVideoSessionFactory,
@@ -53,7 +53,7 @@ function initializeClipperRuntime(): void {
   const stopRuntimeThemeSync = startRuntimeThemeSync(primaryOptionsRepository, window);
   const clipPromptGateway = createClipperDialogPromptGateway();
   const supportPrompt = createLazySupportPrompt(document);
-  const localVaultPermissionPrompt = createLocalVaultPermissionPrompt({
+  const localVaultPermissionPrompt = createLazyLocalVaultPermissionPrompt({
     document,
     window,
     runtime: platform.runtime
