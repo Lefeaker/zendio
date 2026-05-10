@@ -8,7 +8,7 @@ import type { StorageService, StorageAreaService } from '../../../src/platform/i
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
 import type { VideoOptions } from '@shared/types/options';
 
-import { __videoPromptTestUtils } from '@content/video/prompt';
+import { __videoPromptTestUtils } from '@content/video/videoPromptTestHarness';
 
 type VideoRepoMock<K extends keyof IVideoRepository> = Mock<
   Parameters<IVideoRepository[K]>,
