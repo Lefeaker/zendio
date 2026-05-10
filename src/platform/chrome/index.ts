@@ -3,6 +3,7 @@ export { chromeMessagingService } from './messaging';
 export { chromeRuntimeService } from './runtime';
 export { chromeContextMenusService } from './contextMenus';
 export { chromeDownloadsService } from './downloads';
+export { chromeFileSystemAccessService } from './fileSystemAccess';
 export { chromeNotificationsService } from './notifications';
 export { chromeTabsService } from './tabs';
 export { chromeActionService } from './action';
