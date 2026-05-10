@@ -55,7 +55,7 @@
 - `sectionRegistry.ts` 仅保留极少量兼容协调，不再接受新增职责
 - 新增协作优先采用 typed controller、explicit callback 或 state-driven rendering
 - `privacy`、`vault-router`、`yaml-config`、`reading`、`video` 的真实 UI 所有权已进入 `src/ui/domains/*`
-- `src/options/preview/**` 在 preview-backed 验证迁出前属于验证 owner，不得被视为可直接删除的生产外路径
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；retired preview 源树不再是生产或验证 owner
 
 ## 7. 持续审计
 

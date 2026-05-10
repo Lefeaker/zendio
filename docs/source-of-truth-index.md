@@ -26,7 +26,7 @@
 - 当前 hotspot 体量观察以 `docs/production-code-hotspots.md` 和 `npm run audit:production-shape:report` 为准
 - 当前生产 UI 样式真值以 Stitch runtime CSS、`src/styles/design-tokens.css`、`src/options/stitch/styles/*` 为准
 - Tailwind / DaisyUI 只作为历史迁移材料或归档参考；除非本页和设计系统治理文档同步恢复，否则不得作为新生产路径
-- `src/options/preview/**`、旧 Options layout/formSections/section classes 在验证 owner 迁出或替换前属于验证/兼容资产，不是可直接删除的生产真值
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 迁出或替换前属于验证/兼容资产，不是可直接删除的生产真值
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 当前交付归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准
 

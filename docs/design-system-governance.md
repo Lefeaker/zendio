@@ -133,7 +133,7 @@
 ### 禁止规则
 
 - 生产代码、正式 harness、构建脚本不得重新引用上述 archive 资产
-- `src/options/preview/**`、旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间
 - 已退役 wrapper / alias 不得再恢复为 compatibility wrapper
 

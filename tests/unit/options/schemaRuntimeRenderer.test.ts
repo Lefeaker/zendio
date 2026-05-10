@@ -77,9 +77,9 @@ describe('schema runtime renderer', () => {
     expect(destroyMock).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps preview wired to the shared renderer and removes parallel preview core files', () => {
+  it('keeps the preview fixture wired to the shared renderer and removes parallel preview core files', () => {
     const runtimeSource = readFileSync(
-      resolve(process.cwd(), 'src/options/preview/app/runtime.ts'),
+      resolve(process.cwd(), 'tests/fixtures/options-preview/app/runtime.ts'),
       'utf8'
     );
     const sharedUiSource = readFileSync(
@@ -89,13 +89,17 @@ describe('schema runtime renderer', () => {
 
     expect(runtimeSource).toContain('@options/schema-runtime/renderer');
     expect(runtimeSource).not.toContain('../renderer/schemaRenderer');
-    expect(existsSync(resolve(process.cwd(), 'src/options/preview/ui/components.ts'))).toBe(false);
+    expect(
+      existsSync(resolve(process.cwd(), 'tests/fixtures/options-preview/ui/components.ts'))
+    ).toBe(false);
     expect(sharedUiSource).not.toMatch(/from ['"]lucide['"]/);
     expect(
-      existsSync(resolve(process.cwd(), 'src/options/preview/schema/contracts/index.ts'))
+      existsSync(resolve(process.cwd(), 'tests/fixtures/options-preview/schema/contracts/index.ts'))
     ).toBe(false);
     expect(
-      existsSync(resolve(process.cwd(), 'src/options/preview/renderer/schemaRenderer.ts'))
+      existsSync(
+        resolve(process.cwd(), 'tests/fixtures/options-preview/renderer/schemaRenderer.ts')
+      )
     ).toBe(false);
   });
 });

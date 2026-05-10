@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mountPreviewApp } from '@options/preview/app/runtime';
+import { mountPreviewApp } from '../fixtures/options-preview/app/runtime';
 
 describe('Stitch preview runtime widgets', () => {
   beforeEach(() => {
