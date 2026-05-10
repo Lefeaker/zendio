@@ -289,6 +289,10 @@ export interface Messages {
 
   // Notifications
   clipSuccess: string;
+  clipSuccessLocalFolder: string;
+  clipSuccessRestApi: string;
+  clipSuccessRestFallback: string;
+  clipSuccessDownloads: string;
   clipFailed: string;
   extractionFailed: string;
   connectionFailed: string;
