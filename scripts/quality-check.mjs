@@ -12,6 +12,10 @@ const checks = [
   { name: 'TypeScript 类型检查（strict 基线）', cmd: ['npm', 'run', 'typecheck:strict'] },
   { name: '平台调用 allowlist 审计', cmd: ['npm', 'run', 'audit:platform-services:report'] },
   { name: '深层导入边界审计', cmd: ['npm', 'run', 'audit:imports:report'] },
+  { name: 'Retired code 回归守卫', cmd: ['npm', 'run', 'audit:retired-code:report'] },
+  { name: 'Production shape 守卫', cmd: ['npm', 'run', 'audit:production-shape:report'] },
+  { name: 'Production build graph 守卫', cmd: ['npm', 'run', 'audit:build-graph:report'] },
+  { name: 'Dependency graph 覆盖守卫', cmd: ['npm', 'run', 'audit:deps:report'] },
   { name: 'Lint Warning 基线守卫', cmd: ['npm', 'run', 'lint:warnings-guard'] },
   { name: 'i18n 消息一致性校验', cmd: ['npm', 'run', 'i18n:lint'] },
   { name: '字符预算校验', cmd: ['npm', 'run', 'validate:i18n:budgets'] }

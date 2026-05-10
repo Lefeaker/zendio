@@ -14,6 +14,10 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `audit:retired-code:report`
+  - 显式包含 `audit:production-shape:report`
+  - 显式包含 `audit:build-graph:report`
+  - 显式包含 `audit:deps:report`
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -28,10 +32,10 @@
   - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
 - `npm run audit:retired-code:report`
   - 读取 `docs/retired-code-inventory.md`
-  - 在删除 milestone 前打印 owners/blockers；硬化后用于阻止 `delete-now` path 回归
+  - 阻止 `delete-now` path 在 `src` 中回归，或被 package/scripts/src/tests/public/manifest 与视觉/浏览器验证继续引用
 - `npm run audit:production-shape:report`
   - 读取 `docs/production-code-hotspots.md`
-  - 在 hardening 前打印热点 LOC/DOM/event/text 计数；hardening 后启用最终阈值
+  - 强制热点 LOC 阈值，并阻止 renderer/widget facade 重新出现硬编码可见文本赋值
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
 

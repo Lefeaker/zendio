@@ -2,6 +2,8 @@
 
 Last updated: 2026-05-10
 
+`npm run audit:production-shape:report` now enforces the final hotspot thresholds below. The audit fails if a listed facade exceeds its LOC budget or if the YAML widget / Stitch renderer adapter reintroduces direct visible text assignments instead of schema or i18n-backed content.
+
 | File                                            | Current Problem                                          | Target Owner Split                                                                      | Hard Gate                                                              | Refactor Milestone            |
 | ----------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------- |
 | `src/options/app/productionStitchShell.ts`      | god module: state, persistence, actions, widgets, render | state mapper, actions, persistence, widget host, render adapter                         | file <= 900 LOC after split; no action map above 250 LOC               | production Stitch shell split |
