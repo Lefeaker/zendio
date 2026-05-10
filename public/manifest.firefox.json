@@ -39,7 +39,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "styles/clipper/*", "options/stitch/styles/*", "onboarding/*"],
+      "resources": [
+        "chunks/*",
+        "content/*",
+        "icons/*",
+        "styles/clipper/*",
+        "options/stitch/styles/*",
+        "onboarding/*"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

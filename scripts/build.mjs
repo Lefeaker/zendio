@@ -82,11 +82,14 @@ const appBuildOptions = {
   ...sharedBuildOptions,
   entryPoints: {
     'content/runtime': 'src/content/index.ts',
+    'local-vault-permission': 'src/content/runtime/localVaultPermissionFrame.ts',
+    'offscreen/local-vault': 'src/offscreen/localVault.ts',
     'options/index': 'src/options/index.ts',
     'onboarding/index': 'src/onboarding/index.ts',
     'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
     'content-orchestrator-harness': 'src/dev/contentOrchestratorHarness.ts',
-    'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts'
+    'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts',
+    'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
   },
   format: 'esm',
   splitting: true,

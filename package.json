@@ -65,6 +65,7 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:e2e:browser": "node scripts/run-playwright.mjs test tests/visual/yaml-config.interaction.spec.ts",
+    "test:e2e:browser:local-vault": "node scripts/run-playwright.mjs test tests/visual/local-vault-write-harness.spec.ts --project=chromium-desktop",
     "test:e2e:browser:smoke": "node scripts/run-playwright.mjs test tests/visual/migration-harness.spec.ts --project=chromium-desktop",
     "test:e2e:browser:reader-panel": "node scripts/run-playwright.mjs test tests/e2e/readerPanelFlow.test.ts --config=playwright.reader.config.ts",
     "test:e2e:browser:firefox": "node scripts/run-firefox-browser-tests.mjs",
@@ -83,6 +84,7 @@
     "package:trial": "node scripts/package-trial.mjs",
     "package:trial:quick": "node scripts/package-trial.mjs --skip-build",
     "release": "npm run build && node scripts/create-release.mjs",
+    "release:chrome": "node scripts/publish-chrome-webstore.mjs",
     "prepare": "husky",
     "test:coverage": "vitest run --config vitest.unit.config.ts --coverage",
     "audit:ui-architecture:report": "node tools/report-ui-architecture-alignment.mjs"

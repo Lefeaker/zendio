@@ -27,6 +27,8 @@ const SHARED_WEB_ACCESSIBLE_RESOURCES = [
       'chunks/*',
       'content/*',
       'icons/*',
+      'local-vault-permission.html',
+      'local-vault-permission.js',
       'styles/clipper/*',
       'options/stitch/styles/*',
       'onboarding/*'
@@ -70,6 +72,7 @@ function applyBrowserOverrides(manifest, browser) {
   if (browser === 'chrome') {
     return {
       ...manifest,
+      permissions: [...manifest.permissions, 'offscreen'],
       incognito: 'spanning'
     };
   }
