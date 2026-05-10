@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 describe('production code shape report', () => {
-  it('prints hotspot counts without enforcing final thresholds yet', () => {
+  it('prints hotspot counts and enforces final thresholds', () => {
     const output = execFileSync(
       process.execPath,
       [resolve('tools/report-production-code-shape.mjs')],

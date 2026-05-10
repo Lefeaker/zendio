@@ -8,7 +8,7 @@ const INVENTORY_PATH = 'docs/retired-code-inventory.md';
 const SCAN_ROOTS = ['package.json', 'scripts', 'src', 'tests', 'public'];
 
 function parseArgs(args) {
-  const parsed = { enforceDeleteNow: args.includes('--enforce-delete-now') };
+  const parsed = { enforceDeleteNow: !args.includes('--no-enforce-delete-now') };
   const writeIndex = args.indexOf('--write-build-graph');
   if (writeIndex !== -1) {
     parsed.writeBuildGraph = args[writeIndex + 1];

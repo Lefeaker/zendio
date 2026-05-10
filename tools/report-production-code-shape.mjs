@@ -1,6 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 const HOTSPOT_PATH = 'docs/production-code-hotspots.md';
+const LOC_LIMITS = new Map([
+  ['src/options/app/productionStitchShell.ts', 900],
+  ['src/options/widgets/YamlConfigWidget.ts', 450],
+  ['src/content/video/prompt.ts', 300],
+  ['src/content/clipper/components/dialog.ts', 450],
+  ['src/options/stitch/render/renderStitchView.ts', 450],
+  ['src/shared/services/yamlConfigService.ts', 250]
+]);
+const TEXT_ASSIGNMENT_GATED_FILES = new Set([
+  'src/options/widgets/YamlConfigWidget.ts',
+  'src/options/stitch/render/renderStitchView.ts'
+]);
 
 function readHotspotFiles(source = readFileSync(HOTSPOT_PATH, 'utf8')) {
   return source
@@ -29,10 +41,30 @@ export function buildProductionShapeReport(source = readFileSync(HOTSPOT_PATH, '
   });
 }
 
+export function buildProductionShapeFailures(report) {
+  const failures = [];
+  for (const row of report) {
+    const limit = LOC_LIMITS.get(row.file);
+    if (limit !== undefined && row.loc > limit) {
+      failures.push(`${row.file} exceeds ${limit} LOC: ${row.loc}`);
+    }
+    if (TEXT_ASSIGNMENT_GATED_FILES.has(row.file) && row.textAssignments > 0) {
+      failures.push(`${row.file} has hard-coded visible text assignments: ${row.textAssignments}`);
+    }
+  }
+  return failures;
+}
+
 const report = buildProductionShapeReport();
 console.log('Production code shape report');
 for (const row of report) {
   console.log(
     `${row.file} | exists=${row.exists} | loc=${row.loc} | createElement=${row.createElement} | addEventListener=${row.addEventListener} | switch=${row.switchCount} | textAssignments=${row.textAssignments}`
   );
+}
+
+const failures = buildProductionShapeFailures(report);
+if (failures.length > 0) {
+  console.error(failures.join('\n'));
+  process.exit(1);
 }
