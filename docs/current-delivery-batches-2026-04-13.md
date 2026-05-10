@@ -10,6 +10,7 @@
 ## 当前真值
 
 - 当前交付主线采用 `B1 / B2 / B3 / B4` 四个交付提交
+- 当前技术债稳定化主线已将 retired-code、production-shape、production build graph 与 dependency-cruiser 报告接入 `quality` hard gate；本文件只保留 2026-04-14 批次归属口径，不覆盖当前工程门禁真值。
 - 当前交付分支工作树：`0` 个开放路径
 - `B4` 提交 `ea6f3b6` 相对基线 `9b9d300`：`295 files changed, 16365 insertions(+), 7929 deletions(-)`
 - 原始超量工作树已保全到 `parking/m4-overflow-2026-04-14`

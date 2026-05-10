@@ -1,6 +1,6 @@
 # 设计系统治理基线
 
-日期：2026-03-30
+日期：2026-05-11
 
 适用范围：`Options`、`content`、`onboarding` 的共享 UI、样式宿主、领域控件与长期守门规则。
 
@@ -99,7 +99,7 @@
 
 ## 4. 样式与 Token 真值
 
-当前生产 UI 样式路径以 Stitch runtime CSS 为准。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁移追溯，除非 `docs/source-of-truth-index.md` 与本文同步恢复，否则不得作为新生产样式入口。
+当前生产 UI 样式路径以 Stitch runtime CSS 为准，覆盖 Options、content runtime panels 与 onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁移追溯，除非 `docs/source-of-truth-index.md` 与本文同步恢复，否则不得作为新生产样式入口或构建链。
 
 ### 唯一 token 真值源
 
@@ -136,6 +136,7 @@
 - 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间
 - 已退役 wrapper / alias 不得再恢复为 compatibility wrapper
+- retired Options compatibility classes 与 preview runtime 不得重新作为生产 UI、正式验证或 fallback shell 引入。
 
 ## 6. 持续守门
 
@@ -146,6 +147,7 @@
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`
+- `npm run quality` 已强制包含 retired-code、production-shape、build-graph 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
 
 ## 7. 开发要求
 

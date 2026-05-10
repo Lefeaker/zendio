@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-04-14
+日期：2026-05-11
 
 ## 1. 构建真值
 
@@ -14,23 +14,23 @@ npm run audit:build:report
 当前真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `54.5 KB`
-- `build/dist/options/index.js`: `94.7 KB`
-- `build/dist/onboarding/index.js`: `11.1 KB`
-- 总 chunk 数：`130`
+- `build/dist/content/runtime.js`: `57,299` bytes (`56.0 KB`)
+- `build/dist/options/index.js`: `997` bytes
+- `build/dist/onboarding/index.js`: `12,601` bytes (`12.3 KB`)
+- 总 chunk 数：`98`
 
 当前共享 chunk Top 3：
 
-- 最大 shared chunk：`173.3 KB`
-- 第二大 shared chunk：`82.8 KB`
-- 第三大 shared chunk：`67.6 KB`
+- 最大 shared chunk：`181.8 KB`
+- 第二大 shared chunk：`128.3 KB`
+- 第三大 shared chunk：`82.8 KB`
 
 当前重点功能 chunk：
 
-- `chunks/RestSection-*.js`: `34.2 KB`
-- `chunks/yaml-config-*.js`: `9.6 KB`
-- `chunks/yamlConfigTable-*.js`: `570 B`
-- `diagnostics` lazy chunk：`13.2 KB`
+- `chunks/runtimeEntry-*.js`: `271.0 KB`
+- `chunks/videoSessionControllers-*.js`: `71.0 KB`
+- `chunks/localVaultPermissionPrompt-*.js`: `3.3 KB`
+- `diagnostics` lazy chunk：由 production build graph 与 build splitting report 继续审计
 
 当前 `audit:build:report` 预算口径：
 
@@ -42,6 +42,7 @@ npm run audit:build:report
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
+- 当前 `content/runtime.js` 只剩 `45` bytes 预算余量；任何 content startup 静态 import 相关改动必须额外跑 `npm run build:dev` 与 `npm run audit:build:report`。
 
 ## 2. 热点真值
 
@@ -51,16 +52,14 @@ npm run audit:build:report
 npm run audit:performance:report
 ```
 
-当前热点：
+当前生产代码形状真值：
 
-- `src/content/video/videoSessionRuntime.ts`: `314` 行
-- `src/options/components/sections/RestSectionView.ts`: `300` 行
-- `src/ui/domains/privacy/PrivacySettingsView.ts`: `260` 行
-- `src/options/components/sections/UsageDashboardSection.ts`: `231` 行
-- `src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts`: `471` 行
-- `src/content/reader/utils/markdownBuilder.ts`: `288` 行
-- `src/options/state/StateManager.ts`: `deepClone=0`, `JSON.stringify=0`
-- `src/options/state/optionsStore.ts`: `deepClone=0`, `JSON.stringify=0`
+- `src/options/app/productionStitchShell.ts`: `854` LOC
+- `src/options/widgets/YamlConfigWidget.ts`: `34` LOC
+- `src/content/video/prompt.ts`: `5` LOC
+- `src/content/clipper/components/dialog.ts`: `7` LOC
+- `src/options/stitch/render/renderStitchView.ts`: `91` LOC
+- `src/shared/services/yamlConfigService.ts`: `80` LOC
 
 本轮有效收口结果：
 
@@ -71,6 +70,7 @@ npm run audit:performance:report
 - 本轮新增子模块已按热点治理范围压到目标值，避免用拆分制造新的超限热点
 - Options 低频 diagnostics 已从主入口拆出
 - `YamlConfigView` 已改为 view/controller 双层 lazy，`yaml-config` 主块已压到 `9.6 KB`
+- `npm run audit:production-shape:report` 已进入 `quality` hard gate，并强制上述热点 facade 阈值。
 
 ## 3. 浏览器验真
 
@@ -90,5 +90,5 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 `quality` 已报告 warning 总量下降到 `356` 条，不代表 lint 债务已经清零。
+- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 `quality` 已报告 warning 总量下降到 `301` 条，不代表 lint 债务已经清零。
 - Firefox 不在本轮强制浏览器收口范围内，仍保留为后续增强项。
