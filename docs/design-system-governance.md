@@ -99,6 +99,8 @@
 
 ## 4. 样式与 Token 真值
 
+当前生产 UI 样式路径以 Stitch runtime CSS 为准。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁移追溯，除非 `docs/source-of-truth-index.md` 与本文同步恢复，否则不得作为新生产样式入口。
+
 ### 唯一 token 真值源
 
 - 正式 token 文件：`src/styles/design-tokens.css`
@@ -131,6 +133,7 @@
 ### 禁止规则
 
 - 生产代码、正式 harness、构建脚本不得重新引用上述 archive 资产
+- `src/options/preview/**`、旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间
 - 已退役 wrapper / alias 不得再恢复为 compatibility wrapper
 

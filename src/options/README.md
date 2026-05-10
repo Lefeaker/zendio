@@ -11,6 +11,7 @@
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
 - `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
+- `src/options/preview/**` 是 preview-backed 验证 owner；在 `verify:stitch-secondary`、preview freeze、视觉/browser 验证迁出或替换前，不得把它作为可直接删除路径。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
 
 ### 0.1 目录与入口
