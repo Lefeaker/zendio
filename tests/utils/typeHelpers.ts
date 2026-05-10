@@ -15,11 +15,14 @@ export function asType<T>(v: unknown): T {
 /**
  * Set a globalThis property with proper typing and return a restore function.
  */
-export function setGlobal<K extends keyof typeof globalThis>(key: K, value: (typeof globalThis)[K]): () => void {
-  const prev = (globalThis as any)[key] as (typeof globalThis)[K];
-  (globalThis as any)[key] = value;
+export function setGlobal<K extends keyof typeof globalThis>(
+  key: K,
+  value: (typeof globalThis)[K]
+): () => void {
+  const prev = globalThis[key];
+  globalThis[key] = value;
   return () => {
-    (globalThis as any)[key] = prev;
+    globalThis[key] = prev;
   };
 }
 
@@ -30,8 +33,8 @@ export function setWindowProp<K extends keyof (Window & typeof globalThis)>(
   key: K,
   value: (Window & typeof globalThis)[K]
 ): () => void {
-  const w = window as any;
-  const prev = w[key] as (Window & typeof globalThis)[K];
+  const w = window;
+  const prev = w[key];
   w[key] = value;
   return () => {
     w[key] = prev;
@@ -45,13 +48,13 @@ export function mutationRecord(init: Partial<MutationRecord>): MutationRecord {
   const fallback: MutationRecord = {
     type: 'attributes',
     target: document.createElement('div'),
-    addedNodes: [] as any,
-    removedNodes: [] as any,
+    addedNodes: document.createDocumentFragment().childNodes,
+    removedNodes: document.createDocumentFragment().childNodes,
     previousSibling: null,
     nextSibling: null,
     attributeName: null,
     attributeNamespace: null,
-    oldValue: null,
+    oldValue: null
   };
   return { ...fallback, ...init } as MutationRecord;
 }
@@ -69,21 +72,21 @@ export function selection(init: Partial<Selection>): Selection {
     isCollapsed: true,
     rangeCount: 0,
     type: 'None',
-    addRange: () => undefined as any,
-    collapse: () => undefined as any,
-    collapseToEnd: () => undefined as any,
-    collapseToStart: () => undefined as any,
+    addRange: () => undefined,
+    collapse: () => undefined,
+    collapseToEnd: () => undefined,
+    collapseToStart: () => undefined,
     containsNode: () => false,
-    deleteFromDocument: () => undefined as any,
-    empty: () => undefined as any,
-    extend: () => undefined as any,
+    deleteFromDocument: () => undefined,
+    empty: () => undefined,
+    extend: () => undefined,
     getRangeAt: () => fallbackRange,
-    removeAllRanges: () => undefined as any,
-    removeRange: () => undefined as any,
-    selectAllChildren: () => undefined as any,
-    setBaseAndExtent: () => undefined as any,
-    setPosition: () => undefined as any,
-    toString: () => '',
+    removeAllRanges: () => undefined,
+    removeRange: () => undefined,
+    selectAllChildren: () => undefined,
+    setBaseAndExtent: () => undefined,
+    setPosition: () => undefined,
+    toString: () => ''
   } as unknown as Selection;
   return { ...fallback, ...init } as Selection;
 }

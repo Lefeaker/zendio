@@ -168,10 +168,10 @@ function installSmoothMainScrollSimulation(): () => void {
 
   Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
     configurable: true,
-    get() {
+    get(this: HTMLElement) {
       return values.get(this) ?? 0;
     },
-    set(value: number) {
+    set(this: HTMLElement, value: number) {
       const nextValue = Number(value) || 0;
       if (this.classList.contains('main') && this.style.scrollBehavior !== 'auto') {
         values.set(this, 0);
@@ -241,7 +241,7 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft()).toEqual(
       expect.objectContaining({
         ...mergeOptions({ rest: { vault: 'Research Vault' } }),
-        rest: expect.objectContaining({ vault: 'Research Vault' })
+        rest: expect.objectContaining({ vault: 'Research Vault' }) as unknown
       })
     );
 
@@ -1746,7 +1746,7 @@ describe('mountProductionStitchShell', () => {
         id: 'research',
         localFolderId: 'folder-local',
         localFolderName: 'LocalFolder'
-      })
+      }) as unknown
     });
     expect(vi.mocked(messagingRepository.send)).not.toHaveBeenCalledWith(
       expect.objectContaining({ vaultId: 'disabled' })
@@ -1777,7 +1777,7 @@ describe('mountProductionStitchShell', () => {
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
       expect.objectContaining({
-        aiChat: expect.objectContaining({ userName: 'Imported' })
+        aiChat: expect.objectContaining({ userName: 'Imported' }) as unknown
       })
     );
   });
@@ -1815,8 +1815,8 @@ describe('mountProductionStitchShell', () => {
     expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
       reason: 'manual',
       draft: expect.objectContaining({
-        rest: expect.objectContaining({ baseUrl: 'https://localhost:27124' })
-      })
+        rest: expect.objectContaining({ baseUrl: 'https://localhost:27124' }) as unknown
+      }) as unknown
     });
   });
 
