@@ -36,6 +36,13 @@ export function localizeStitchContent(content: PreviewContent, language: string)
       ...content.brand,
       title: 'All in Ob'
     },
+    rendererLabels: {
+      ...content.rendererLabels,
+      resourceOpenAction: '打开',
+      highlightExamplePrefix: '导出后的示例会像这样 ',
+      highlightExampleText: '标出重点内容',
+      highlightExampleSuffix: '，方便回看。'
+    },
     nav: content.nav.map((item) => ({
       ...item,
       label: navLabels[item.id] ?? item.label

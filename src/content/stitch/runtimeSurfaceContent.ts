@@ -33,6 +33,13 @@ function createRuntimeContent(): PreviewContent {
       subtitle: '',
       logo: ''
     },
+    rendererLabels: {
+      resourcePendingBadge: 'Pending',
+      resourceOpenAction: '打开',
+      highlightExamplePrefix: '导出后的示例会像这样 ',
+      highlightExampleText: '标出重点内容',
+      highlightExampleSuffix: '，方便回看。'
+    },
     sidebarLinks: [],
     surfaceLinks: [],
     nav: [],

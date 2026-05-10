@@ -285,6 +285,13 @@ export interface PreviewContent {
     subtitle: string;
     logo: string;
   };
+  rendererLabels: {
+    resourcePendingBadge: string;
+    resourceOpenAction: string;
+    highlightExamplePrefix: string;
+    highlightExampleText: string;
+    highlightExampleSuffix: string;
+  };
   sidebarLinks: NavItem[];
   surfaceLinks: NavItem[];
   nav: NavItem[];
