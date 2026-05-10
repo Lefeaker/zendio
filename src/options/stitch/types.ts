@@ -35,6 +35,8 @@ export interface UsagePoint {
 export interface VaultRecord {
   id?: string;
   name: string;
+  localFolderId?: string;
+  localFolderName?: string;
   https: string;
   http: string;
   key: string;
@@ -224,6 +226,10 @@ export interface PreviewSurfaces {
     status: string;
     statusMessage: string;
     statusDetail?: string;
+    progress?: {
+      value: number;
+      variant: 'progress' | 'success' | 'failure' | 'warning';
+    };
     feedbackLabel: string;
     likeLabel: string;
     dislikeLabel: string;
@@ -375,6 +381,7 @@ export interface PreviewStoreState {
   fragmentKeyboardShortcutsEnabled?: boolean;
   fragmentModifierEnabled: boolean;
   modifierKeys: string[];
+  activeLocalFolderVaultIndex?: number | null;
   yamlFieldStates: Record<string, string>;
   routingRules: RoutingRule[];
   templateValues: Record<string, string>;
@@ -663,6 +670,7 @@ export interface ElementNode extends BaseNode {
   ariaPressed?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
+  title?: DynamicValue<string>;
   onClick?: DynamicValue<ActionDescriptor>;
   children?: DynamicValue<NodeChild[]>;
 }

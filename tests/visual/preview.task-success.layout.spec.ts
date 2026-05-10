@@ -39,6 +39,7 @@ test.describe('Stitch task success surface layout', () => {
     await expect(modal).toHaveClass(/resource-modal--task-success/);
     await expect(page.locator('.task-success-window')).toBeVisible();
     await expect(page.locator('.task-success-body')).toBeVisible();
+    await expect(page.locator('[data-role="task-progress"]')).toHaveCount(1);
     await expect(page.locator('.task-support-link')).toHaveCount(2);
     await expect(page.locator('.task-support-strip')).not.toContainText('GitHub');
     await expect(page.locator('.task-feedback-card')).toBeVisible();
@@ -86,18 +87,25 @@ test.describe('Stitch task success surface layout', () => {
       throw new Error('missing task success header rect');
     }
     expect(Math.abs(rect.width - headerRect.width)).toBeLessThanOrEqual(4);
-    expect(rect.width).toBeLessThan(viewport.width * 0.62);
+    if (viewport.width >= 640) {
+      expect(rect.width).toBeLessThan(viewport.width * 0.62);
+    } else {
+      expect(rect.width).toBeLessThanOrEqual(viewport.width - 16);
+    }
     expect(rect.x + rect.width).toBeGreaterThan(viewport.width - 48);
     expect(rect.y + rect.height).toBeGreaterThan(viewport.height - 48);
 
+    const progressRect = await page.locator('[data-role="task-progress"]').first().boundingBox();
     const stripRect = await page.locator('.task-support-strip').first().boundingBox();
     const feedbackRect = await page.locator('.task-feedback-card').first().boundingBox();
+    expect(progressRect).toBeTruthy();
     expect(stripRect).toBeTruthy();
     expect(feedbackRect).toBeTruthy();
-    if (!stripRect || !feedbackRect) {
-      throw new Error('missing task-success strip or feedback rect');
+    if (!progressRect || !stripRect || !feedbackRect) {
+      throw new Error('missing task-success progress, strip, or feedback rect');
     }
-    expect(Math.round(stripRect.y - (headerRect.y + headerRect.height))).toBe(0);
+    expect(Math.round(progressRect.y - (headerRect.y + headerRect.height))).toBe(0);
+    expect(Math.round(stripRect.y - (progressRect.y + progressRect.height))).toBe(0);
     expect(Math.round(feedbackRect.y - (stripRect.y + stripRect.height))).toBe(0);
     expect(
       Math.round(rect.y + rect.height - (feedbackRect.y + feedbackRect.height))

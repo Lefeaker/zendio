@@ -5,12 +5,17 @@ import type { FormSectionHandlers } from '../formSections/formSectionManager';
 import { createConnectionTester, type ConnectionTester } from '../controls/connectionTest';
 import type { ConnectionResultType } from '../../services/connectionTestRunner';
 import { requestConnectionTest, requestVaultConnectionTest } from '../../services/connectionTester';
-import { collectAdditionalVaultConfigsForTest, collectRestDraftForTest } from './restSectionState';
+import {
+  applyRestSectionSnapshot,
+  collectAdditionalVaultConfigsForTest,
+  collectRestDraftForTest,
+  type RestSectionDefaultInputs
+} from './restSectionState';
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
 } from './restSectionConnectionResult';
-import { getVaultRouterConfig } from '../../state/vaultRouterStore';
+import { getVaultRouterConfig, initializeVaultRouterStore } from '../../state/vaultRouterStore';
 import { getOptionsMessages } from '../../app/i18nContext';
 
 interface RestDefaultInputs {
@@ -40,6 +45,42 @@ export function subscribeRestSectionRepository(
   return optionsRepo.onChange((options) => {
     onSnapshot(options);
   });
+}
+
+export function applyRestSectionRepositorySnapshot(options: {
+  snapshot: StoredOptions | CompleteOptions;
+  defaultInputs: RestSectionDefaultInputs;
+  defaultVaultId: string | null;
+  defaults: RestOptions;
+  setApplyingSnapshot: (isApplying: boolean) => void;
+  updateDefaultVaultField: (
+    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey' | 'localFolder',
+    value: string | { id?: string | undefined; name?: string | undefined }
+  ) => void;
+}): void {
+  initializeVaultRouterStore(options.snapshot.vaultRouter ?? null);
+  options.setApplyingSnapshot(true);
+  try {
+    const resolved = applyRestSectionSnapshot({
+      options: options.snapshot,
+      defaultInputs: options.defaultInputs,
+      defaultVaultId: options.defaultVaultId,
+      vaultRouterSnapshot: getVaultRouterConfig() ?? null,
+      defaults: options.defaults
+    });
+    if (options.defaultVaultId) {
+      options.updateDefaultVaultField('name', resolved.name);
+      options.updateDefaultVaultField('localFolder', {
+        id: resolved.localFolderId || undefined,
+        name: resolved.localFolderName || undefined
+      });
+      options.updateDefaultVaultField('httpsUrl', resolved.httpsUrl);
+      options.updateDefaultVaultField('httpUrl', resolved.httpUrl);
+      options.updateDefaultVaultField('apiKey', resolved.apiKey);
+    }
+  } finally {
+    options.setApplyingSnapshot(false);
+  }
 }
 
 export function createRestSectionConnectionTester(options: {
