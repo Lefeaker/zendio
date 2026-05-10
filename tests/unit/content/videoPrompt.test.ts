@@ -290,12 +290,20 @@ type VideoPromptTestUtils = {
 
 type VideoPromptTestModule = {
   initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void>;
+};
+
+type LoadedVideoPromptTestModule = VideoPromptTestModule & {
   __videoPromptTestUtils: VideoPromptTestUtils;
 };
 
-async function loadPromptModule(): Promise<VideoPromptTestModule> {
-  const module = await vi.importActual<VideoPromptTestModule>('../../../src/content/video/prompt');
-  return module;
+async function loadPromptModule(): Promise<LoadedVideoPromptTestModule> {
+  const [module, harness] = await Promise.all([
+    vi.importActual<VideoPromptTestModule>('../../../src/content/video/prompt'),
+    vi.importActual<{ __videoPromptTestUtils: VideoPromptTestUtils }>(
+      '../../../src/content/video/videoPromptTestHarness'
+    )
+  ]);
+  return { ...module, __videoPromptTestUtils: harness.__videoPromptTestUtils };
 }
 
 type TestDeps = {
@@ -438,7 +446,7 @@ describe('video prompt', () => {
   });
 
   it('mounts prompt when evaluation passes and persists drag position', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -471,7 +479,7 @@ describe('video prompt', () => {
   });
 
   it('does not start interval polling during prompt initialization', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -486,7 +494,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -504,7 +512,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -568,7 +576,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -604,7 +612,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -631,7 +639,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -657,7 +665,7 @@ describe('video prompt', () => {
   });
 
   it('ignores danmaku-only observer callbacks without remounting the prompt', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -673,7 +681,7 @@ describe('video prompt', () => {
   });
 
   it('does not resync control entry from unrelated page churn before the control target exists', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -696,7 +704,7 @@ describe('video prompt', () => {
   });
 
   it('applies config updates and removes prompt when disabled', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -733,7 +741,7 @@ describe('video prompt', () => {
   });
 
   it('re-evaluates when language setting changes', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -749,7 +757,7 @@ describe('video prompt', () => {
   });
 
   it('re-evaluates on YouTube navigation finish events', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -777,7 +785,7 @@ describe('video prompt', () => {
       return Promise.resolve('');
     });
 
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -805,7 +813,7 @@ describe('video prompt', () => {
   });
 
   it('tears down prompt DOM on pagehide and restores it on pageshow', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
