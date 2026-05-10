@@ -255,6 +255,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: 'Obsidian에 저장됨',
+  clipSuccessLocalFolder: '로컬 보관소 폴더에 저장됨: {folderName}',
+  clipSuccessRestApi: 'Obsidian REST API로 저장됨: {vaultName}',
+  clipSuccessRestFallback: '로컬 폴더를 사용할 수 없어 REST API로 저장했습니다',
+  clipSuccessDownloads: '다운로드에 저장됨: {filePath}',
   clipFailed: '저장 실패',
   extractionFailed: '콘텐츠 추출 실패',
   connectionFailed: '연결 실패',
@@ -409,6 +413,8 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: '이미 리뷰를 남겼습니다',
   supportPromptDislikeToastTitle: '피드백을 공유해 주세요',
   supportPromptDislikeRedditLinkLabel: 'Reddit에서 토론',
+  supportPromptDislikeQrLinkLabel: '피드백 공유 QR 스캔',
+  supportPromptDislikeQrPlaceholder: 'QR 코드를 사용할 수 없음',
 
   // Dialog
   clipDialogTitle: '선택 항목 클립',

@@ -143,7 +143,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
 
     const fragmentConfig = await loadFragmentConfig(deps.optionsRepository);
 
-    return extractSelectionClip({
+    const clip = await extractSelectionClip({
       doc,
       url,
       selectedHtml,
@@ -152,6 +152,16 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
       config: fragmentConfig,
       selectionRange: savedRange
     });
+    if (!promptResult.destination) {
+      return clip;
+    }
+    return {
+      ...clip,
+      meta: {
+        ...clip.meta,
+        exportDestination: promptResult.destination
+      }
+    };
   }
 
   async function handleVideoSelectionClip(

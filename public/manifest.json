@@ -26,7 +26,8 @@
     "storage",
     "contextMenus",
     "notifications",
-    "downloads"
+    "downloads",
+    "offscreen"
   ],
   "host_permissions": ["<all_urls>", "http://127.0.0.1/*", "https://127.0.0.1/*"],
   "background": {
@@ -38,7 +39,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "styles/clipper/*", "options/stitch/styles/*", "onboarding/*"],
+      "resources": [
+        "chunks/*",
+        "content/*",
+        "icons/*",
+        "styles/clipper/*",
+        "options/stitch/styles/*",
+        "onboarding/*"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

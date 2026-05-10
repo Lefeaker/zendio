@@ -2,8 +2,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
-import { createTestRegistry, withTestRegistry } from '@shared/di';
-import { DI_TOKENS } from '@shared/di/tokens';
+import { createTestRegistry, registerService, withTestRegistry } from '@shared/di';
+import { DI_TOKENS, TOKENS } from '@shared/di/tokens';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { FormSectionRegistry } from '@options/components/formSections/formSectionManager';
 import { RestSection } from '@options/components/sections/RestSection';
@@ -14,6 +14,7 @@ const restFixtures = vi.hoisted(() => ({
   updateAdditionalVaultMock: vi.fn(),
   markPendingAutoSaveMock: vi.fn(),
   scheduleAutoSaveMock: vi.fn(),
+  chooseDirectoryMock: vi.fn(),
   initializeVaultRouterStoreMock: vi.fn(),
   setRouterSnapshot: ((_snapshot: unknown) => undefined) as (snapshot: unknown) => void,
   resetRouterSnapshot: (() => undefined) as () => void,
@@ -99,6 +100,20 @@ describe('RestSection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    restFixtures.chooseDirectoryMock.mockResolvedValue({
+      id: 'folder-picked',
+      name: 'PickedVault'
+    });
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory: restFixtures.chooseDirectoryMock,
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
     restFixtures.resetRouterSnapshot();
     document.body.innerHTML = '<section id="rest-section"></section>';
     registry = new FormSectionRegistry();
@@ -214,7 +229,15 @@ describe('RestSection', () => {
     expect(collected.rest?.vault).toBe('RepoVault');
   });
   it('applies repository snapshot values to default vault inputs', async () => {
-    const section = await renderSection();
+    const section = await renderSection({
+      rest: {
+        baseUrl: 'https://initial.example.com/',
+        httpsUrl: 'https://initial.example.com/',
+        httpUrl: 'http://initial.example.com/',
+        vault: 'InitialVault',
+        apiKey: 'initial-key'
+      }
+    } as Partial<CompleteOptions>);
     const snapshot = {
       rest: {
         baseUrl: 'https://api.example.com/',
@@ -262,7 +285,15 @@ describe('RestSection', () => {
   });
 
   it('collects rest changes and schedules auto save through the controller chain', async () => {
-    const section = await renderSection();
+    const section = await renderSection({
+      rest: {
+        baseUrl: 'https://initial.example.com/',
+        httpsUrl: 'https://initial.example.com/',
+        httpUrl: 'http://initial.example.com/',
+        vault: 'InitialVault',
+        apiKey: 'initial-key'
+      }
+    } as Partial<CompleteOptions>);
     const previous = {
       rest: {
         baseUrl: 'https://prev.example.com/',
@@ -304,6 +335,73 @@ describe('RestSection', () => {
     expect(restFixtures.updateAdditionalVaultMock).toHaveBeenCalled();
     expect(restFixtures.markPendingAutoSaveMock).toHaveBeenCalledWith('vaultRouter');
     expect(restFixtures.markPendingAutoSaveMock).toHaveBeenCalledWith('rest');
+
+    section.destroy();
+  });
+
+  it('renders local folder controls between vault and HTTPS columns and stores selections', async () => {
+    restFixtures.setRouterSnapshot({
+      defaultVaultId: 'vault-default',
+      vaults: [
+        { ...restFixtures.defaultVault },
+        {
+          id: 'vault-2',
+          vault: 'ExtraVault',
+          name: 'ExtraVault',
+          httpsUrl: 'https://extra.example.com/',
+          httpUrl: 'http://extra.example.com/',
+          apiKey: 'extra-key',
+          enabled: true,
+          rules: []
+        }
+      ]
+    });
+    const section = await renderSection({
+      rest: {
+        baseUrl: 'https://initial.example.com/',
+        httpsUrl: 'https://initial.example.com/',
+        httpUrl: 'http://initial.example.com/',
+        vault: 'InitialVault',
+        apiKey: 'initial-key',
+        localFolderId: 'folder-default',
+        localFolderName: 'InitialVault'
+      }
+    } as Partial<CompleteOptions>);
+
+    const header = document.querySelector('.rest-vault-header-row');
+    expect(header?.textContent ?? '').toMatch(/仓库名称.*本地目录.*HTTPS URL/u);
+
+    const defaultFolderButton = document.getElementById(
+      'restLocalFolderButton'
+    ) as HTMLButtonElement;
+    defaultFolderButton.click();
+
+    await vi.waitFor(() => {
+      expect(restFixtures.chooseDirectoryMock).toHaveBeenCalled();
+      expect(restFixtures.updateAdditionalVaultMock).toHaveBeenCalledWith(
+        'vault-default',
+        expect.objectContaining({
+          localFolderId: 'folder-picked',
+          localFolderName: 'PickedVault'
+        })
+      );
+    });
+
+    const extraFolderButton = document.querySelector<HTMLButtonElement>(
+      '[data-vault-id="vault-2"] .rest-vault-local-folder'
+    );
+    expect(extraFolderButton).toBeTruthy();
+    extraFolderButton?.click();
+
+    await vi.waitFor(() => {
+      expect(restFixtures.updateAdditionalVaultMock).toHaveBeenCalledWith(
+        'vault-2',
+        expect.objectContaining({
+          localFolderId: 'folder-picked',
+          localFolderName: 'PickedVault'
+        })
+      );
+    });
 
     section.destroy();
   });

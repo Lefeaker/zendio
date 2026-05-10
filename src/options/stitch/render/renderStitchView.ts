@@ -644,6 +644,7 @@ function renderElementNode(node: ElementNode, ctx: RendererContext): HTMLElement
       'aria-pressed': resolveValue(node.ariaPressed, ctx),
       'aria-label': resolveValue(node.ariaLabel, ctx),
       disabled: resolveValue(node.disabled, ctx),
+      title: resolveValue(node.title, ctx),
       onClick: node.onClick ? (event: Event) => runEventAction(node.onClick, event, ctx) : undefined
     },
     renderNodeList(node.children, ctx)

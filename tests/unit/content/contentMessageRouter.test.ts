@@ -2,7 +2,31 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createContentMessageRouter } from '@content/runtime/contentMessageRouter';
-import { SHOW_SUPPORT_PROMPT } from '@shared/types/clip';
+import { SHOW_LOCAL_VAULT_PERMISSION_PROMPT, SHOW_SUPPORT_PROMPT } from '@shared/types/clip';
+
+function createRouter(overrides: Partial<Parameters<typeof createContentMessageRouter>[0]> = {}) {
+  return createContentMessageRouter({
+    document,
+    window,
+    messaging: { addListener: vi.fn(() => () => undefined), send: vi.fn() },
+    supportPrompt: { show: vi.fn() },
+    localVaultPermissionPrompt: { request: vi.fn() },
+    setClipMode: vi.fn(),
+    runClip: vi.fn(),
+    selectionController: {
+      handleVideoSelectionClip: vi.fn(),
+      handleVideoSelectionClipFromData: vi.fn()
+    },
+    createVideoSession: vi.fn(),
+    isVideoSessionActive: vi.fn(() => false),
+    getVideoSession: vi.fn(() => null),
+    resolveActiveSelection: vi.fn(() => null),
+    restoreSelectionFromSnapshot: vi.fn(() => null),
+    getLastSelectionSnapshot: vi.fn(() => null),
+    clearLastSelectionSnapshot: vi.fn(),
+    ...overrides
+  });
+}
 
 describe('contentMessageRouter', () => {
   beforeEach(() => {
@@ -12,32 +36,20 @@ describe('contentMessageRouter', () => {
 
   it('routes support prompt messages with normalized options', async () => {
     const supportPrompt = { show: vi.fn() };
-    const router = createContentMessageRouter({
-      document,
-      window,
-      messaging: { addListener: vi.fn(() => () => undefined), send: vi.fn() },
+    const router = createRouter({
       supportPrompt,
-      setClipMode: vi.fn(),
-      runClip: vi.fn(),
-      selectionController: {
-        handleVideoSelectionClip: vi.fn(),
-        handleVideoSelectionClipFromData: vi.fn()
-      },
-      createVideoSession: vi.fn(),
-      isVideoSessionActive: vi.fn(() => false),
-      getVideoSession: vi.fn(() => null),
-      resolveActiveSelection: vi.fn(() => null),
-      restoreSelectionFromSnapshot: vi.fn(() => null),
-      getLastSelectionSnapshot: vi.fn(() => null),
-      clearLastSelectionSnapshot: vi.fn()
+      localVaultPermissionPrompt: { request: vi.fn() }
     });
 
-    await router.handleMessage({
-      type: SHOW_SUPPORT_PROMPT,
-      vaultName: 'Main Vault',
-      status: 'warning',
-      errorMessage: 'send failed'
-    }, {});
+    await router.handleMessage(
+      {
+        type: SHOW_SUPPORT_PROMPT,
+        vaultName: 'Main Vault',
+        status: 'warning',
+        errorMessage: 'send failed'
+      },
+      {}
+    );
 
     expect(supportPrompt.show).toHaveBeenCalledWith({
       vaultName: 'Main Vault',
@@ -46,26 +58,58 @@ describe('contentMessageRouter', () => {
     });
   });
 
+  it('routes support progress messages with progress metadata', async () => {
+    const supportPrompt = { show: vi.fn() };
+    const router = createRouter({
+      supportPrompt,
+      localVaultPermissionPrompt: { request: vi.fn() }
+    });
+
+    await router.handleMessage(
+      {
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'progress',
+        progress: { value: 64, label: '正在写入附件' }
+      },
+      {}
+    );
+
+    expect(supportPrompt.show).toHaveBeenCalledWith({
+      status: 'progress',
+      progress: { value: 64, label: '正在写入附件' }
+    });
+  });
+
   it('short-circuits startVideoMode when a session is already active', async () => {
     const createVideoSession = vi.fn();
-    const router = createContentMessageRouter({
-      document,
-      window,
-      messaging: { addListener: vi.fn(() => () => undefined), send: vi.fn() },
-      supportPrompt: { show: vi.fn() },
-      setClipMode: vi.fn(),
-      runClip: vi.fn(),
-      selectionController: {
-        handleVideoSelectionClip: vi.fn(),
-        handleVideoSelectionClipFromData: vi.fn()
-      },
+    const router = createRouter({
       createVideoSession,
       isVideoSessionActive: vi.fn(() => true),
-      getVideoSession: vi.fn(() => ({ start: vi.fn() } as never)),
-      resolveActiveSelection: vi.fn(() => null),
-      restoreSelectionFromSnapshot: vi.fn(() => null),
-      getLastSelectionSnapshot: vi.fn(() => null),
-      clearLastSelectionSnapshot: vi.fn()
+      getVideoSession: vi.fn(() => ({ start: vi.fn() }) as never)
+    });
+
+    const localVaultPermissionPrompt = {
+      request: vi.fn().mockResolvedValue({ action: 'granted', permissionState: 'granted' })
+    };
+    const localVaultRouter = createRouter({ localVaultPermissionPrompt });
+
+    await expect(
+      localVaultRouter.handleMessage(
+        {
+          type: SHOW_LOCAL_VAULT_PERMISSION_PROMPT,
+          folderId: 'folder-main',
+          folderName: 'Blog',
+          vaultName: 'blog'
+        },
+        {}
+      )
+    ).resolves.toEqual({ action: 'granted', permissionState: 'granted' });
+
+    expect(localVaultPermissionPrompt.request).toHaveBeenCalledWith({
+      type: SHOW_LOCAL_VAULT_PERMISSION_PROMPT,
+      folderId: 'folder-main',
+      folderName: 'Blog',
+      vaultName: 'blog'
     });
 
     const result = await router.handleMessage({ action: 'startVideoMode' }, {});
@@ -94,21 +138,11 @@ describe('contentMessageRouter', () => {
       root: document
     }));
 
-    const router = createContentMessageRouter({
-      document,
-      window,
-      messaging: { addListener: vi.fn(() => () => undefined), send: vi.fn() },
-      supportPrompt: { show: vi.fn() },
-      setClipMode: vi.fn(),
-      runClip: vi.fn(),
+    const router = createRouter({
       selectionController: {
         handleVideoSelectionClip,
         handleVideoSelectionClipFromData: vi.fn()
       },
-      createVideoSession: vi.fn(),
-      isVideoSessionActive: vi.fn(() => false),
-      getVideoSession: vi.fn(() => null),
-      resolveActiveSelection: vi.fn(() => null),
       restoreSelectionFromSnapshot,
       getLastSelectionSnapshot,
       clearLastSelectionSnapshot
@@ -117,7 +151,11 @@ describe('contentMessageRouter', () => {
     const result = await router.handleMessage({ action: 'videoClipSelection' }, {});
 
     expect(restoreSelectionFromSnapshot).toHaveBeenCalledWith(snapshot);
-    expect(handleVideoSelectionClip).toHaveBeenCalledWith(document, location.href, restoredSelection);
+    expect(handleVideoSelectionClip).toHaveBeenCalledWith(
+      document,
+      location.href,
+      restoredSelection
+    );
     expect(clearLastSelectionSnapshot).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ success: true });
   });
@@ -142,24 +180,14 @@ describe('contentMessageRouter', () => {
       getSelection: vi.fn(() => selection)
     } as unknown as Window;
 
-    const router = createContentMessageRouter({
+    const router = createRouter({
       document,
       window: frameWindow,
       messaging: { addListener: vi.fn(() => () => undefined), send },
-      supportPrompt: { show: vi.fn() },
-      setClipMode: vi.fn(),
-      runClip: vi.fn(),
       selectionController: {
         handleVideoSelectionClip: vi.fn(),
         handleVideoSelectionClipFromData: vi.fn()
-      },
-      createVideoSession: vi.fn(),
-      isVideoSessionActive: vi.fn(() => false),
-      getVideoSession: vi.fn(() => null),
-      resolveActiveSelection: vi.fn(() => null),
-      restoreSelectionFromSnapshot: vi.fn(() => null),
-      getLastSelectionSnapshot: vi.fn(() => null),
-      clearLastSelectionSnapshot: vi.fn()
+      }
     });
 
     const result = await router.handleMessage({ action: 'videoClipSelection', frameId: 3 }, {});

@@ -7,6 +7,7 @@ import type { ContentMessageRouter } from './contentMessageRouter';
 import { initClipFlow } from './clipFlow';
 import { wireDomEvents } from './domEvents';
 import { registerMessageRouter } from './messageRouter';
+import type { SupportProgressReporter } from './supportProgress';
 
 export interface CreateContentRuntimeOptions {
   document: Document;
@@ -16,6 +17,7 @@ export interface CreateContentRuntimeOptions {
   selectionTracker: ContentSelectionTracker;
   selectionController: SelectionController;
   extractorRegistry: ExtractorRegistryApi;
+  showSupportProgress?: SupportProgressReporter;
   createRouter: (runClip: () => void) => ContentMessageRouter;
 }
 
@@ -33,6 +35,7 @@ export function createContentRuntime(options: CreateContentRuntimeOptions): Cont
     selectionTracker,
     selectionController,
     extractorRegistry,
+    showSupportProgress,
     createRouter
   } = options;
 
@@ -48,7 +51,8 @@ export function createContentRuntime(options: CreateContentRuntimeOptions): Cont
         runtimeState,
         selectionTracker,
         selectionController,
-        extractorRegistry
+        extractorRegistry,
+        ...(showSupportProgress ? { showSupportProgress } : {})
       });
 
       const router = createRouter(() => {

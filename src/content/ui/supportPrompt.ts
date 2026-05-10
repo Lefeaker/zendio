@@ -26,6 +26,7 @@ import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
+const TERMINAL_PROGRESS_DISMISS_MS = 2200;
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
   dialogLabel: '支持 All in Ob',
@@ -95,8 +96,9 @@ function resolveStatusMessage(input: {
   reason?: string;
   messages: SupportPromptMessages;
   error?: AppError;
+  progressLabel?: string;
 }): ResolvedStatusMessage {
-  const { status, vaultLabel, reason, messages, error } = input;
+  const { status, vaultLabel, reason, messages, error, progressLabel } = input;
   let text: string;
 
   const fill = (template: string, token: string, value: string): string => {
@@ -107,7 +109,11 @@ function resolveStatusMessage(input: {
     return `${template}${template.endsWith('：') || template.endsWith(':') ? '' : '：'}${value}`;
   };
 
-  if (status === 'failure') {
+  if (progressLabel?.trim()) {
+    text = progressLabel.trim();
+  } else if (status === 'progress') {
+    text = '正在发送到 Obsidian';
+  } else if (status === 'failure') {
     text = reason
       ? fill(messages.statusFailureWithReason, 'reason', reason)
       : messages.statusFailure;
@@ -136,6 +142,38 @@ function resolveStatusMessage(input: {
   return result;
 }
 
+function clampProgressValue(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function resolveProgress(
+  options: SupportPromptOptions | undefined,
+  status: PromptStatus
+): {
+  value: number;
+  variant: 'progress' | 'success' | 'failure' | 'warning';
+} {
+  if (options?.progress) {
+    return {
+      value: clampProgressValue(options.progress.value, status === 'progress' ? 8 : 100),
+      variant: options.progress.variant ?? status
+    };
+  }
+  if (status === 'failure') {
+    return { value: 100, variant: 'failure' };
+  }
+  if (status === 'warning') {
+    return { value: 100, variant: 'warning' };
+  }
+  if (status === 'progress') {
+    return { value: 8, variant: 'progress' };
+  }
+  return { value: 100, variant: 'success' };
+}
+
 export class SupportPrompt
   implements
     UiMountable<SupportPromptOptions | undefined, SupportPromptOptions | undefined, Promise<void>>
@@ -147,6 +185,8 @@ export class SupportPrompt
   private toastControllerPromise: Promise<SupportPromptToastController> | null = null;
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
   private unregisterPopup: (() => void) | null = null;
+  private autoDismissTimer: number | null = null;
+  private renderSequence = 0;
 
   constructor(private readonly doc: Document) {
     this.deps = resolveSupportPromptDependencies();
@@ -154,8 +194,12 @@ export class SupportPrompt
   }
 
   async show(options?: SupportPromptOptions): Promise<void> {
-    this.hide();
+    const renderId = ++this.renderSequence;
+    this.removeHost();
     const messages = await this.resolveMessages();
+    if (renderId !== this.renderSequence) {
+      return;
+    }
     const resolvedError = options?.error;
     const promptStatus =
       options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
@@ -166,8 +210,10 @@ export class SupportPrompt
       ...(vaultLabel ? { vaultLabel } : {}),
       ...(reason !== undefined && { reason }),
       messages,
-      ...(resolvedError !== undefined && { error: resolvedError })
+      ...(resolvedError !== undefined && { error: resolvedError }),
+      ...(options?.progress?.label ? { progressLabel: options.progress.label } : {})
     });
+    const progress = resolveProgress(options, promptStatus);
 
     const links: SupportLink[] = [
       {
@@ -190,6 +236,7 @@ export class SupportPrompt
       status: promptStatus,
       statusMessage: statusMessage.text,
       statusDetail: statusMessage.extraLine ?? '',
+      progress,
       feedbackLabel: messages.feedbackGroupLabel,
       likeLabel: messages.likeLabel,
       dislikeLabel: messages.dislikeLabel,
@@ -245,6 +292,7 @@ export class SupportPrompt
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
     queueMicrotask(() => host.focus());
+    this.scheduleAutoDismiss(options);
     await this.preloadLowFrequencyPaths();
   }
 
@@ -257,9 +305,17 @@ export class SupportPrompt
   }
 
   hide(): void {
+    this.renderSequence += 1;
+    this.removeHost();
+  }
+
+  private removeHost(): void {
+    this.clearAutoDismiss();
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    this.host?.remove();
+    this.doc.querySelectorAll<HTMLElement>('#aiob-support-prompt').forEach((host) => {
+      host.remove();
+    });
     this.host = null;
   }
 
@@ -287,6 +343,27 @@ export class SupportPrompt
     await this.trackUsageEvent('support_like_clicked', { variant });
   }
 
+  private scheduleAutoDismiss(options?: SupportPromptOptions): void {
+    this.clearAutoDismiss();
+    const variant = options?.progress?.variant;
+    if (variant !== 'success' && variant !== 'failure' && variant !== 'warning') {
+      return;
+    }
+    const view = this.doc.defaultView ?? window;
+    this.autoDismissTimer = view.setTimeout(() => {
+      this.hide();
+    }, TERMINAL_PROGRESS_DISMISS_MS);
+  }
+
+  private clearAutoDismiss(): void {
+    if (this.autoDismissTimer === null) {
+      return;
+    }
+    const view = this.doc.defaultView ?? window;
+    view.clearTimeout(this.autoDismissTimer);
+    this.autoDismissTimer = null;
+  }
+
   private decorateSurface(surface: HTMLElement): void {
     surface.style.pointerEvents = 'auto';
     const like = surface.querySelector<HTMLElement>('[data-action-id="task-success:like"]');
@@ -296,6 +373,9 @@ export class SupportPrompt
     surface
       .querySelector<HTMLElement>('.task-header-status')
       ?.setAttribute('data-role', 'status-text');
+    surface
+      .querySelector<HTMLElement>('.task-progress-track')
+      ?.setAttribute('data-role', 'task-progress');
     surface
       .querySelector<HTMLElement>('.task-feedback-dismiss')
       ?.setAttribute('data-role', 'dismiss-text');

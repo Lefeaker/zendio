@@ -8,9 +8,11 @@ import {
   normalizeUsageStats,
   USAGE_STATS_STORAGE_KEY
 } from '@shared/constants';
-import { DI_TOKENS } from '@shared/di/tokens';
+import { getService } from '@shared/di';
+import { DI_TOKENS, TOKENS } from '@shared/di/tokens';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { StorageService } from '@platform/interfaces/storage';
+import type { PlatformServices } from '@platform/types';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
@@ -24,7 +26,7 @@ import type {
 } from '@shared/types/vault';
 import type { Language, Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
-import { requestConnectionTest } from '@options/services/connectionTester';
+import { requestVaultConnectionTest } from '@options/services/connectionTester';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import {
   parseConfigInput,
@@ -164,6 +166,7 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
     fragmentKeyboardShortcutsEnabled: true,
     fragmentModifierEnabled: true,
     modifierKeys: ['Alt'],
+    activeLocalFolderVaultIndex: null,
     yamlFieldStates: createYamlFieldStates(appData),
     routingRules: appData.storage.routingRules.map((rule) => ({ ...rule })),
     templateValues: { ...appData.output.templateDefaults },
@@ -406,6 +409,113 @@ function resolveRoot(root?: HTMLElement | null): HTMLElement {
   return target;
 }
 
+interface OptionsScrollSnapshot {
+  main: HTMLElement | null;
+  mainTop: number;
+  windowX: number;
+  windowY: number;
+}
+
+interface ButtonPressScrollGuard {
+  cleanup(): void;
+  getSnapshot(): OptionsScrollSnapshot | null;
+}
+
+function captureOptionsScroll(root: HTMLElement): OptionsScrollSnapshot {
+  const main = root.querySelector<HTMLElement>('.main');
+  return {
+    main,
+    mainTop: main?.scrollTop ?? 0,
+    windowX: window.scrollX,
+    windowY: window.scrollY
+  };
+}
+
+function setScrollTopImmediately(element: HTMLElement, scrollTop: number): void {
+  const previousScrollBehavior = element.style.scrollBehavior;
+  element.style.scrollBehavior = 'auto';
+  element.scrollTop = scrollTop;
+  if (previousScrollBehavior) {
+    element.style.scrollBehavior = previousScrollBehavior;
+    return;
+  }
+  element.style.removeProperty('scroll-behavior');
+}
+
+function restoreOptionsScroll(root: HTMLElement, snapshot: OptionsScrollSnapshot): void {
+  const main =
+    snapshot.main?.isConnected === true ? snapshot.main : root.querySelector<HTMLElement>('.main');
+  if (main) {
+    setScrollTopImmediately(main, snapshot.mainTop);
+  }
+  if (window.scrollX !== snapshot.windowX || window.scrollY !== snapshot.windowY) {
+    window.scrollTo(snapshot.windowX, snapshot.windowY);
+  }
+}
+
+function restoreOptionsScrollSoon(root: HTMLElement, snapshot: OptionsScrollSnapshot): void {
+  restoreOptionsScroll(root, snapshot);
+  queueMicrotask(() => restoreOptionsScroll(root, snapshot));
+  window.requestAnimationFrame?.(() => restoreOptionsScroll(root, snapshot));
+  window.setTimeout(() => restoreOptionsScroll(root, snapshot), 0);
+}
+
+function shouldPreserveButtonActionScroll(actionId: string): boolean {
+  return !actionId.startsWith('navigation:');
+}
+
+function installButtonPressScrollGuard(root: HTMLElement): ButtonPressScrollGuard {
+  let lastScroll: OptionsScrollSnapshot | null = null;
+  let clearTimer: number | null = null;
+
+  const clearLater = (): void => {
+    if (clearTimer !== null) {
+      window.clearTimeout(clearTimer);
+    }
+    clearTimer = window.setTimeout(() => {
+      lastScroll = null;
+      clearTimer = null;
+    }, 250);
+  };
+
+  const remember = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('button')) {
+      return;
+    }
+    lastScroll = captureOptionsScroll(root);
+    clearLater();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  };
+
+  const restoreSoon = (): void => {
+    if (!lastScroll) {
+      return;
+    }
+    restoreOptionsScrollSoon(root, lastScroll);
+  };
+
+  root.addEventListener('pointerdown', remember, true);
+  root.addEventListener('mousedown', remember, true);
+  root.addEventListener('click', restoreSoon, true);
+
+  return {
+    cleanup() {
+      if (clearTimer !== null) {
+        window.clearTimeout(clearTimer);
+      }
+      root.removeEventListener('pointerdown', remember, true);
+      root.removeEventListener('mousedown', remember, true);
+      root.removeEventListener('click', restoreSoon, true);
+    },
+    getSnapshot() {
+      return lastScroll;
+    }
+  };
+}
+
 function toVaultRecord(options: CompleteOptions): VaultRecord[] {
   const routerVaults = options.vaultRouter?.vaults ?? [];
   if (routerVaults.length) {
@@ -415,6 +525,8 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
       return {
         id: vault.id,
         name: vault.name || vault.vault,
+        ...(vault.localFolderId ? { localFolderId: vault.localFolderId } : {}),
+        ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {}),
         https: vault.httpsUrl,
         http: vault.httpUrl,
         key: vault.apiKey,
@@ -428,6 +540,8 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
     {
       id: 'default',
       name: options.rest.vault,
+      ...(options.rest.localFolderId ? { localFolderId: options.rest.localFolderId } : {}),
+      ...(options.rest.localFolderName ? { localFolderName: options.rest.localFolderName } : {}),
       https: options.rest.httpsUrl ?? options.rest.baseUrl,
       http: options.rest.httpUrl ?? options.rest.baseUrl,
       key: options.rest.apiKey,
@@ -709,6 +823,7 @@ export function mountProductionStitchShell({
   now
 }: ProductionStitchShellDependencies): MountedProductionStitchShell {
   const mountRoot = resolveRoot(root);
+  const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
   let draft = mergeOptions(initialOptions) as CompleteOptions;
@@ -785,6 +900,8 @@ export function mountProductionStitchShell({
             id: 'default',
             name: draft.rest.vault,
             vault: draft.rest.vault,
+            ...(draft.rest.localFolderId ? { localFolderId: draft.rest.localFolderId } : {}),
+            ...(draft.rest.localFolderName ? { localFolderName: draft.rest.localFolderName } : {}),
             httpsUrl: draft.rest.httpsUrl ?? draft.rest.baseUrl,
             httpUrl: draft.rest.httpUrl ?? draft.rest.baseUrl,
             apiKey: draft.rest.apiKey,
@@ -804,6 +921,8 @@ export function mountProductionStitchShell({
     draft.rest.httpsUrl = vault.httpsUrl;
     draft.rest.httpUrl = vault.httpUrl;
     draft.rest.apiKey = vault.apiKey;
+    draft.rest.localFolderId = vault.localFolderId;
+    draft.rest.localFolderName = vault.localFolderName;
   }
 
   function syncDefaultVaultFromRest(): void {
@@ -818,8 +937,128 @@ export function mountProductionStitchShell({
     defaultVault.httpsUrl = draft.rest.httpsUrl ?? draft.rest.baseUrl;
     defaultVault.httpUrl = draft.rest.httpUrl ?? draft.rest.baseUrl;
     defaultVault.apiKey = draft.rest.apiKey;
+    defaultVault.localFolderId = draft.rest.localFolderId;
+    defaultVault.localFolderName = draft.rest.localFolderName;
     defaultVault.enabled = true;
     defaultVault.isDefault = true;
+  }
+
+  async function removeStoredLocalFolder(folderId: string | undefined): Promise<void> {
+    if (!folderId) {
+      return;
+    }
+    try {
+      await getService<PlatformServices>(TOKENS.platformServices).fileSystemAccess.removeDirectory(
+        folderId
+      );
+    } catch (error) {
+      console.warn('[Options] Failed to remove stored local vault folder handle:', error);
+    }
+  }
+
+  async function chooseVaultLocalFolder(index: number): Promise<void> {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    try {
+      const previousFolderId = vault.localFolderId;
+      const selection = await getService<PlatformServices>(
+        TOKENS.platformServices
+      ).fileSystemAccess.chooseDirectory({
+        suggestedName: vault.name || vault.vault
+      });
+      state.activeLocalFolderVaultIndex = null;
+      vault.localFolderId = selection.id;
+      vault.localFolderName = selection.name;
+      if (vault.isDefault || vault.id === router.defaultVaultId || index === 0) {
+        syncDefaultRestFromVault(vault);
+      }
+      draft.vaultRouter = router;
+      scheduleDraftSave();
+      render();
+      if (previousFolderId !== selection.id) {
+        void removeStoredLocalFolder(previousFolderId);
+      }
+    } catch (error) {
+      console.warn('[Options] Failed to choose local vault folder:', error);
+      connectionNotice = {
+        title: '本地目录',
+        body: '无法授权本地目录。Chromium 浏览器支持此功能，未授权时会继续使用 REST API。',
+        variant: 'warning'
+      };
+      refreshAppData();
+      render();
+    }
+  }
+
+  function clearVaultLocalFolder(index: number): void {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    const previousFolderId = vault.localFolderId;
+    state.activeLocalFolderVaultIndex = null;
+    vault.localFolderId = undefined;
+    vault.localFolderName = undefined;
+    if (vault.isDefault || vault.id === router.defaultVaultId || index === 0) {
+      syncDefaultRestFromVault(vault);
+    }
+    draft.vaultRouter = router;
+    scheduleDraftSave();
+    render();
+    void removeStoredLocalFolder(previousFolderId);
+  }
+
+  async function activateVaultLocalFolder(index: number): Promise<void> {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    if (!vault.localFolderId) {
+      void chooseVaultLocalFolder(index);
+      return;
+    }
+
+    try {
+      const permission = await getService<PlatformServices>(
+        TOKENS.platformServices
+      ).fileSystemAccess.ensurePermission(vault.localFolderId);
+      if (permission !== 'granted') {
+        connectionNotice = {
+          title: '本地目录需要重新授权',
+          body: `Chrome 已将“${vault.localFolderName ?? vault.name ?? vault.vault}”的本地目录权限恢复为待授权状态。请再次点击该目录并在浏览器权限提示中允许读写；未授权前发送会回退 REST API。`,
+          variant: 'warning'
+        };
+        state.activeLocalFolderVaultIndex = null;
+        refreshAppData();
+        render();
+        return;
+      }
+      connectionNotice = {
+        title: '本地目录权限已确认',
+        body: `“${vault.localFolderName ?? vault.name ?? vault.vault}”已可用于本地写入。`,
+        variant: 'success'
+      };
+    } catch (error) {
+      console.warn('[Options] Failed to refresh local vault folder permission:', error);
+      connectionNotice = {
+        title: '本地目录需要重新授权',
+        body: 'Chrome 暂时无法恢复这个本地目录权限。请重新选择目录，或继续使用 REST API。',
+        variant: 'warning'
+      };
+      state.activeLocalFolderVaultIndex = null;
+      refreshAppData();
+      render();
+      return;
+    }
+
+    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
+    refreshAppData();
+    render();
   }
 
   function toStoredRuleType(type: string): RoutingRuleType {
@@ -1025,6 +1264,49 @@ export function mountProductionStitchShell({
       variant: result.success ? 'success' : 'danger'
     };
     refreshAppData();
+  }
+
+  async function runVaultListConnectionTest(): Promise<ConnectionTestResult> {
+    const router = ensureVaultRouter();
+    const vaults = router.vaults.filter((vault, index) => {
+      return index === 0 || vault.isDefault || vault.enabled !== false;
+    });
+    if (vaults.length === 0) {
+      return {
+        success: false,
+        message: '没有可测试的启用仓库。',
+        error: '没有可测试的启用仓库。'
+      };
+    }
+
+    const results = await Promise.all(
+      vaults.map(async (vault) => {
+        try {
+          return await requestVaultConnectionTest(vault, resolvedMessagingRepository);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return {
+            success: false,
+            message: `[${vault.name || vault.vault || vault.id}] ${message}`,
+            error: message
+          } satisfies ConnectionTestResult;
+        }
+      })
+    );
+
+    const failures = results.filter((result) => !result.success);
+    return {
+      success: failures.length === 0,
+      message: results.map((result) => result.message || result.error || '').join('\n\n'),
+      ...(failures.length
+        ? {
+            error: failures
+              .map((result) => result.error || result.message)
+              .filter(Boolean)
+              .join('\n\n')
+          }
+        : {})
+    };
   }
 
   async function importConfigurationFromClipboard(): Promise<void> {
@@ -1421,6 +1703,19 @@ export function mountProductionStitchShell({
       'storage:updateVaultField': ({ args, value }) => {
         updateVaultField(Number(args[0] ?? -1), String(args[1] ?? ''), value);
       },
+      'storage:activateLocalFolder': ({ args }) => {
+        void activateVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:chooseLocalFolder': ({ args }) => {
+        void chooseVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:deleteLocalFolder': ({ args }) => {
+        clearVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:cancelLocalFolderDelete': () => {
+        state.activeLocalFolderVaultIndex = null;
+        render();
+      },
       'storage:updateRootDir': ({ value }) => {
         draft.rest.rootDir = String(value ?? '');
         scheduleDraftSave();
@@ -1428,9 +1723,7 @@ export function mountProductionStitchShell({
       'storage:testConnection': () => {
         void (async () => {
           try {
-            applyConnectionNotice(
-              await requestConnectionTest(draft.rest, resolvedMessagingRepository)
-            );
+            applyConnectionNotice(await runVaultListConnectionTest());
           } catch (error) {
             connectionNotice = {
               title: '连接测试结果',
@@ -1628,8 +1921,14 @@ export function mountProductionStitchShell({
   });
 
   function dispatch(actionId: string, args: unknown[] = [], value?: unknown, event?: Event): void {
+    const scrollSnapshot = shouldPreserveButtonActionScroll(actionId)
+      ? (buttonPressScrollGuard.getSnapshot() ?? captureOptionsScroll(mountRoot))
+      : null;
     flushDirtyWidgets();
     actionRuntime.dispatch({ id: actionId, args }, value === undefined ? event : value);
+    if (scrollSnapshot) {
+      restoreOptionsScrollSoon(mountRoot, scrollSnapshot);
+    }
   }
 
   function createRenderContext() {
@@ -1759,7 +2058,7 @@ export function mountProductionStitchShell({
     const restoreScroll = () => {
       const currentMain = mountRoot.querySelector('.main');
       if (currentMain instanceof HTMLElement) {
-        currentMain.scrollTop = previousScrollTop;
+        setScrollTopImmediately(currentMain, previousScrollTop);
       }
       if (window.scrollX !== previousWindowScroll.x || window.scrollY !== previousWindowScroll.y) {
         window.scrollTo(previousWindowScroll.x, previousWindowScroll.y);
@@ -2015,6 +2314,7 @@ export function mountProductionStitchShell({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      buttonPressScrollGuard.cleanup();
       themeMediaQuery.removeEventListener?.('change', applySystemThemePreferenceChange);
       schemaRenderer.dispose();
       destroyWidgets();

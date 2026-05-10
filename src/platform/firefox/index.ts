@@ -14,6 +14,7 @@ import { firefoxTabsService } from './tabs';
 import { firefoxActionService } from './action';
 import { firefoxScriptingService } from './scripting';
 import { createFetchRestClient } from '../../infrastructure/restClient';
+import { unsupportedFileSystemAccessService } from '../unsupportedFileSystemAccess';
 
 /**
  * 创建 Firefox 平台服务
@@ -28,6 +29,7 @@ function createFirefoxServices(): PlatformServices {
     runtime: firefoxRuntimeService,
     contextMenus: firefoxContextMenusService,
     downloads: firefoxDownloadsService,
+    fileSystemAccess: unsupportedFileSystemAccessService,
     notifications: firefoxNotificationsService,
     tabs: firefoxTabsService,
     action: firefoxActionService,

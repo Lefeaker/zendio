@@ -1,0 +1,55 @@
+name: Release Chrome Web Store
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish Chrome Web Store package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Package Chrome extension
+        run: npm run package:ci
+
+      - name: Resolve package path
+        id: package
+        shell: bash
+        run: |
+          mapfile -t zip_files < <(find . -maxdepth 1 -type f -name '*.zip' -print)
+          if [ "${#zip_files[@]}" -ne 1 ]; then
+            printf 'Expected exactly one root zip package, found %s\n' "${#zip_files[@]}" >&2
+            printf '%s\n' "${zip_files[@]}" >&2
+            exit 1
+          fi
+          printf 'zip_path=%s\n' "${zip_files[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to Chrome Web Store
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: node scripts/publish-chrome-webstore.mjs --zip "${{ steps.package.outputs.zip_path }}"

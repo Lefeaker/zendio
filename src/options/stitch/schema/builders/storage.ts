@@ -5,11 +5,15 @@ import type {
   TableRowSchema,
   VaultRecord
 } from '../../types';
-import { buttonNode, state, stack } from './primitives';
+import { buttonNode, element, state, stack } from './primitives';
 import { buttonCell, switchCell } from './table';
 import { boundInput, boundSwitch, routingBoundInput, routingBoundSelect } from './controls';
 
-export function vaultRow(vault: VaultRecord, index: number): TableRowSchema {
+export function vaultRow(
+  vault: VaultRecord,
+  index: number,
+  current: SchemaContext
+): TableRowSchema {
   return {
     cells: [
       switchCell(
@@ -36,6 +40,9 @@ export function vaultRow(vault: VaultRecord, index: number): TableRowSchema {
             }
           }
         ])
+      },
+      {
+        node: localFolderCell(vault, index, current)
       },
       {
         node: {
@@ -81,6 +88,39 @@ export function vaultRow(vault: VaultRecord, index: number): TableRowSchema {
       }
     ]
   };
+}
+
+function localFolderCell(vault: VaultRecord, index: number, current: SchemaContext): NodeSchema {
+  const hasFolder = Boolean(vault.localFolderId);
+  const isConfirming = current.state.activeLocalFolderVaultIndex === index;
+  const folderTitle = vault.localFolderName
+    ? `${vault.localFolderName}\nChrome File System Access 不暴露完整本地路径。`
+    : '选择本地目录';
+
+  return element('div', { className: 'local-folder-cell' }, [
+    element(
+      'button',
+      {
+        className: `btn secondary local-folder-trigger${hasFolder ? ' is-selected' : ''}`,
+        type: 'button',
+        title: folderTitle,
+        ariaLabel: hasFolder ? `${vault.localFolderName}，点击管理本地目录` : '选择本地目录',
+        onClick: {
+          id: 'storage:activateLocalFolder',
+          args: [index]
+        }
+      },
+      [vault.localFolderName || '选择目录']
+    ),
+    hasFolder && isConfirming
+      ? element('div', { className: 'local-folder-popover is-bubble', role: 'dialog' }, [
+          buttonNode('删除本地目录', 'danger', {
+            id: 'storage:deleteLocalFolder',
+            args: [index]
+          })
+        ])
+      : null
+  ]);
 }
 
 export function routingField(index: number, field: keyof RoutingRule, value: string): NodeSchema {

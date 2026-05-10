@@ -3,11 +3,13 @@
 > 目标：指导 AiiinOB 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
 
 ## 阶段 0：立项与责任人
+
 - [ ] 确认发布负责人、设计支持、法务/隐私负责人和技术负责人；建立协同渠道（建议在 Notion/Docs 建立任务看板）。
 - [ ] 确定计划发布日期、缓冲期，以及是否需要灰度（仅发布为受限测试）或全量发布。
 - [ ] 建立版本里程碑：Beta 内测、候选版 RC、正式版；约定回滚策略。
 
 ## 阶段 1：账号与合规准备
+
 - [ ] 使用团队 Google 账号登录 [Chrome Web Store Dashboard](https://chrome.google.com/webstore/devconsole)，完成一次性 5 美元开发者注册；确认主体名称、联系邮箱、客服电话是否显示给用户。
 - [ ] 准备隐私政策页面：解释数据采集、使用范围、 Obsidian 本地 REST API 的访问目的、数据删除方式。建议托管于公开可访问的独立页面（GitHub Pages 或官网）。可参考以下要素：
   - 明确列出收集/处理的数据类型（如剪藏内容、账号信息、诊断日志），并说明是否上传到云端。
@@ -19,6 +21,7 @@
 - [ ] 如扩展请求 "Host 权限" 或敏感 API（`<all_urls>`, `storage`, `scripting`, `notifications`），准备文字说明对应的使用场景和限制，后续录入审核问卷。可参考《权限使用说明》<../permissions-usage-notes.md> 并在提交前核实与 manifest 实际声明一致。
 
 ## 阶段 2：版本与构建
+
 - [ ] 确定发布版本号，更新 `src/manifest.json:3` 与 `package.json` 的 `version` 字段保持一致；在 commit 信息中记录发布说明。
 - [ ] 执行 `npm install`（如依赖更新）与 `npm run build`，产出 `dist/` 目录；手动验证构建时间戳与版本号正确写入。
 - [ ] 清理 `dist/`：仅保留运行期必须文件（`manifest.json`、构建后的 JS/CSS、必要资源）；剔除 `*.map`、测试文件、`node_modules/`、脚本和文档等。
@@ -26,6 +29,7 @@
 - [ ] 更新变更日志：在 `docs/zh-cn/release-notes/` 或 `README.md` 中增加本次版本亮点，便于商店描述引用。
 
 ## 阶段 3：素材与文案
+
 - [ ] 扩展图标：准备 16×16、32×32、48×48、128×128 PNG；确认 manifest 中引用的路径均存在，例如 `assets/icons/icon128.png`。
 - [ ] 宣传图：制作一张 440×280 PNG（可复用 `marketing/banner.png` 设计），并准备可选的重点功能截图（1280×800 或 640×400）。
 - [ ] 视频/GIF（可选）：制作 ≤30MB 的快速演示，展示剪藏、AI 解析、写入 Obsidian 的完整流程。
@@ -35,6 +39,7 @@
 - [ ] 本地化：如需多语言展示，在 `/_locales/<lang>/messages.json` 中补充 `appName`、`appShortName`、`appDesc` 等字段，并在 `manifest.json` 中配置 `default_locale`。
 
 ## 阶段 4：功能与质量验证
+
 - [ ] 在 Chrome 稳定版、Chrome Beta（可选）上加载构建版进行回归；重点覆盖剪藏、注释、AI 解析、Obsidian 写入等核心流程。
 - [ ] 验证权限触发：确保只有在触发剪藏和写入时才访问 `<all_urls>` 与本地 REST 接口；检查 console 中无未捕获异常或 `console.log` 噪音。
 - [ ] 访问控制：测试无 Obsidian REST API 或 API Key 错误时的提示是否清晰。
@@ -42,6 +47,7 @@
 - [ ] 记录测试结果：整理测试清单、环境和结论，归档到发布文档或 issue，供审核复盘使用。
 
 ## 阶段 5：提交审核
+
 - [ ] 使用 `zip -r all-in-ob-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
@@ -50,7 +56,27 @@
 - [ ] 如需受限权限（例如 `scripting`），按照 Google 最新政策提交额外证明材料。
 - [ ] 提交审核后记录时间，关注控制台通知与邮件；通常 3–7 个工作日内反馈。
 
+### GitHub Actions 自动提交审核
+
+已有 Chrome Web Store 条目后，可以使用 `.github/workflows/release-chrome-webstore.yml` 自动构建、打包并提交新版审核。该 workflow 仅在手动触发或推送 `v*` tag 时运行，不随普通 `main` push 自动发布。
+
+发布前确认仓库 Secrets 已配置：
+
+- `CWS_CLIENT_ID`
+- `CWS_CLIENT_SECRET`
+- `CWS_REFRESH_TOKEN`
+- `CWS_EXTENSION_ID`
+- `CWS_PUBLISHER_ID`
+
+触发方式：
+
+- 手动：GitHub Actions → `Release Chrome Web Store` → Run workflow
+- 标签：推送形如 `v0.2.1` 的 tag
+
+本流程会执行 `npm run build`、`npm run package:ci`，再调用 `npm run release:chrome` 将根目录生成的 zip 上传到 Chrome Web Store 并提交发布请求。首次上架的商店资料、隐私问卷、权限说明仍需先在 Chrome Web Store Developer Dashboard 中完成。
+
 ## 阶段 6：发布与上线后维护
+
 - [ ] 审核通过后，确认是否立即公开，或设置受限测试/逐步推广；如需要推送给特定用户，可配置测试用户名单。
 - [ ] 在仓库打 tag（如 `vX.Y.Z`），将变更日志、隐私政策更新同步到主分支。
 - [ ] 监控 Chrome Web Store 后台的安装量、崩溃报告、用户反馈；为差评/问题设置响应 SLA。
@@ -58,6 +84,7 @@
 - [ ] 收集用户反馈，规划下一版本迭代，整理到 `tech-debt-action-plan.md` 或 Roadmap 文档。
 
 ## 附录：建议的资料清单
+
 - 发布压缩包：`releases/all-in-ob-vX.Y.Z.zip`
 - 构建产物校验记录（截图或命令行输出）
 - 测试结果文档（可放在 `docs/structure/` 或 issue 链接）

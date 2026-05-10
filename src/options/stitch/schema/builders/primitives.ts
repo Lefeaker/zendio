@@ -26,6 +26,7 @@ interface ElementOptions {
   ariaPressed?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
+  title?: DynamicValue<string>;
   dataset?: DynamicValue<Record<string, string | number | boolean>>;
   style?: DynamicValue<PreviewStyle>;
   onClick?: DynamicValue<ActionDescriptor>;

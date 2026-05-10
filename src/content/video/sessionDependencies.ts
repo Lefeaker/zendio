@@ -5,12 +5,14 @@ import { createVideoPanelViewFactory } from './presentation/videoPanelView';
 import type { IVideoRepository } from '../../shared/repositories/IVideoRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { StorageService } from '../../platform/interfaces/storage';
+import type { SupportProgressReporter } from '../runtime/supportProgress';
 
 export interface VideoSessionPlatformDependencies {
   // Content composition root now passes the primary repository contract.
   optionsRepository: IOptionsRepository;
   videoRepository?: IVideoRepository;
   storage: StorageService;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 export function createVideoSessionDependencies(
@@ -21,6 +23,7 @@ export function createVideoSessionDependencies(
     optionsRepository: deps.optionsRepository,
     videoRepository:
       deps.videoRepository ?? resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
-    storage: deps.storage
+    storage: deps.storage,
+    ...(deps.showSupportProgress ? { showSupportProgress: deps.showSupportProgress } : {})
   };
 }

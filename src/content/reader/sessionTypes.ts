@@ -22,6 +22,7 @@ import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepos
 import type { IReaderRepository } from '../../shared/repositories/IReaderRepository';
 import type { ReadingSessionOptions } from '../../shared/types/options';
 import type { ReaderMarkdownPayload } from './utils/markdownBuilder';
+import type { SupportProgressReporter } from '../runtime/supportProgress';
 
 export interface ReaderSessionDependencies {
   viewFactory: ReaderSessionViewFactory;
@@ -45,6 +46,7 @@ export interface ReaderSessionDependencies {
   ) => ReaderSessionLifecycle;
   exporter: ReaderSessionExporter;
   dispatchClipResult: (payload: ReaderMarkdownPayload) => Promise<void>;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 export const DEFAULT_READING_CONFIG: ReadingSessionOptions = {

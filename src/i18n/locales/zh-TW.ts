@@ -244,6 +244,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: '已保存到 Obsidian',
+  clipSuccessLocalFolder: '已儲存到本機倉庫目錄：{folderName}',
+  clipSuccessRestApi: '已透過 Obsidian REST API 儲存到：{vaultName}',
+  clipSuccessRestFallback: '本機目錄不可用，已改用 REST API 儲存',
+  clipSuccessDownloads: '已儲存到下載目錄：{filePath}',
   clipFailed: '保存失敗',
   extractionFailed: '內容擷取失敗',
   connectionFailed: '連接失敗',
@@ -389,6 +393,8 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: '我已經留下評論',
   supportPromptDislikeToastTitle: '分享您的回饋',
   supportPromptDislikeRedditLinkLabel: '在 Reddit 上討論',
+  supportPromptDislikeQrLinkLabel: '掃碼回饋',
+  supportPromptDislikeQrPlaceholder: 'QR code 暫不可用',
 
   // Dialog
   clipDialogTitle: '剪藏選取內容',

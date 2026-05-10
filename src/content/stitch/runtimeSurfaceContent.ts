@@ -197,6 +197,10 @@ function createRuntimeContent(): PreviewContent {
         hero: hero('Task Success'),
         status: 'success',
         statusMessage: '',
+        progress: {
+          value: 100,
+          variant: 'success'
+        },
         feedbackLabel: '',
         likeLabel: '',
         dislikeLabel: '',

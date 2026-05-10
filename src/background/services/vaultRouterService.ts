@@ -3,6 +3,7 @@ import { VaultRouter } from '../vault-router';
 import type { ClipPayload, ClipContext, VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
 import { tryParseUrl } from '../../shared/url';
+import { parseExportDestinationMetadata } from '../../shared/exportDestination';
 
 export interface VaultSelectionResult {
   vault: VaultConfig | null;
@@ -28,8 +29,16 @@ export function selectVaultForClip(options: Options, payload: ClipPayload): Vaul
     return { vault: null, restConfig: defaultRest, context };
   }
 
+  const requestedDestination = parseExportDestinationMetadata(payload.meta?.exportDestination);
+  const requestedVault =
+    requestedDestination?.kind === 'vault' && requestedDestination.vaultId
+      ? options.vaultRouter.vaults.find(
+          (vault) => vault.enabled !== false && vault.id === requestedDestination.vaultId
+        )
+      : undefined;
+
   const router = new VaultRouter(options.vaultRouter);
-  const selectedVault = router.selectVault(context);
+  const selectedVault = requestedVault ?? router.selectVault(context) ?? router.getDefaultVault();
 
   if (!selectedVault) {
     return { vault: null, restConfig: defaultRest, context };
@@ -46,7 +55,9 @@ export function selectVaultForClip(options: Options, payload: ClipPayload): Vaul
     apiKey,
     ...(httpsUrl ? { httpsUrl } : {}),
     ...(httpUrl ? { httpUrl } : {}),
-    ...(defaultRest.rootDir ? { rootDir: defaultRest.rootDir } : {})
+    ...(defaultRest.rootDir ? { rootDir: defaultRest.rootDir } : {}),
+    ...(selectedVault.localFolderId ? { localFolderId: selectedVault.localFolderId } : {}),
+    ...(selectedVault.localFolderName ? { localFolderName: selectedVault.localFolderName } : {})
   };
 
   return { vault: selectedVault, restConfig, context };

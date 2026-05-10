@@ -11,6 +11,9 @@ export interface RestSectionMessagesLike {
   additionalVaultsHint?: string;
   ruleEnabledLabel?: string;
   vaultNameLabel?: string;
+  localFolderLabel?: string;
+  chooseLocalFolderButton?: string;
+  clearLocalFolderButton?: string;
   httpsUrlLabel?: string;
   httpUrlLabel?: string;
   apiKeyLabel?: string;
@@ -33,12 +36,21 @@ export function buildRestSectionLayout(params: {
   createElement: typeof document.createElement;
   messages: RestSectionMessagesLike | null;
   updateDefaultVaultField: (
-    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
-    value: string
+    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey' | 'localFolder',
+    value: string | { id?: string | undefined; name?: string | undefined }
   ) => void;
+  chooseDefaultLocalFolder: () => void;
+  clearDefaultLocalFolder: () => void;
   addVault: () => void;
 }): RestSectionLayoutRefs & { body: HTMLElement } {
-  const { createElement, messages, updateDefaultVaultField, addVault } = params;
+  const {
+    createElement,
+    messages,
+    updateDefaultVaultField,
+    chooseDefaultLocalFolder,
+    clearDefaultLocalFolder,
+    addVault
+  } = params;
 
   const body = createElement('div');
   body.className = 'space-y-4';
@@ -56,12 +68,14 @@ export function buildRestSectionLayout(params: {
     messages,
     additionalRowsHost,
     additionalEmptyHint,
-    updateDefaultVaultField
+    updateDefaultVaultField,
+    chooseDefaultLocalFolder,
+    clearDefaultLocalFolder
   });
   body.append(table.tableHost);
   body.append(buildRestVaultControls(createElement, messages, addVault));
 
-  const connectionResultHost = createElement('div') as HTMLDivElement;
+  const connectionResultHost = createElement('div');
   connectionResultHost.className = 'space-y-3';
   connectionResultHost.id = 'connectionResult';
   connectionResultHost.hidden = true;
@@ -80,6 +94,7 @@ export function buildRestSectionLayout(params: {
     additionalEmptyHint,
     connectionResultHost,
     defaultNameInput: table.defaultNameInput,
+    defaultLocalFolderButton: table.defaultLocalFolderButton,
     defaultHttpsInput: table.defaultHttpsInput,
     defaultHttpInput: table.defaultHttpInput,
     defaultApiKeyInput: table.defaultApiKeyInput

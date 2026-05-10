@@ -17,7 +17,16 @@ import {
   normalizeClipPayload,
   safeNotify
 } from './clipPipelineHelpers';
-import { dispatchSupportPrompt, type ClipPipelineDependencies } from './clipPipelineSupport';
+import {
+  buildLocalVaultPermissionPromptMessage,
+  dispatchSupportPrompt,
+  type ClipPipelineDependencies
+} from './clipPipelineSupport';
+import {
+  isLocalVaultPermissionPromptSuppressed,
+  suppressLocalVaultPermissionPrompt
+} from '../services/localVaultPermissionPrompts';
+import type { LocalVaultPermissionPromptRequest } from '../services/obsidianWriter';
 
 export type { ClipPipelineDependencies } from './clipPipelineSupport';
 
@@ -26,6 +35,9 @@ export function createClipPipelineDependencies(
 ): ClipPipelineDependencies {
   return {
     sendSupportPrompt(tabId, message) {
+      return tabs.sendMessage(tabId, message);
+    },
+    requestLocalVaultPermission(tabId, message) {
       return tabs.sendMessage(tabId, message);
     }
   };
@@ -52,11 +64,68 @@ async function handleClipFailure(
     fallbackVault = undefined;
   }
 
-  dispatchSupportPrompt(
+  dispatchSupportPrompt(dependencies, tabId, {
+    ...buildSupportOptions('failure', payload, fallbackVault, appError),
+    progress: {
+      value: 100,
+      variant: 'failure'
+    }
+  });
+}
+
+async function requestCurrentPageLocalVaultPermission(
+  dependencies: ClipPipelineDependencies,
+  tabId: number | undefined,
+  request: LocalVaultPermissionPromptRequest
+) {
+  if (await isLocalVaultPermissionPromptSuppressed(request.folderId)) {
+    return { action: 'use-rest' as const, persistRest: true };
+  }
+
+  if (typeof tabId !== 'number') {
+    return { action: 'use-rest' as const };
+  }
+
+  if (!dependencies.requestLocalVaultPermission) {
+    return { action: 'use-rest' as const };
+  }
+
+  dispatchClipProgress(
     dependencies,
     tabId,
-    buildSupportOptions('failure', payload, fallbackVault, appError)
+    60,
+    `正在请求本地目录授权：${request.folderName ?? request.vaultName ?? '本地仓库'}`
   );
+
+  try {
+    const result = await dependencies.requestLocalVaultPermission(
+      tabId,
+      buildLocalVaultPermissionPromptMessage(request)
+    );
+    if (result.action === 'use-rest' && result.persistRest) {
+      await suppressLocalVaultPermissionPrompt(request.folderId);
+    }
+    return result;
+  } catch (error) {
+    console.warn('[clipPipeline] Failed to request local vault permission in current page:', error);
+    return { action: 'use-rest' as const };
+  }
+}
+
+function dispatchClipProgress(
+  dependencies: ClipPipelineDependencies,
+  tabId: number | undefined,
+  value: number,
+  label: string
+): void {
+  dispatchSupportPrompt(dependencies, tabId, {
+    status: 'progress',
+    progress: {
+      value,
+      label,
+      variant: 'progress'
+    }
+  });
 }
 
 export async function handleClipResult(
@@ -73,15 +142,32 @@ export async function handleClipResult(
   }
 
   try {
-    const result = await processClipPayload(payload);
+    dispatchClipProgress(dependencies, tabId, 40, '正在接收剪藏内容');
+    const result = await processClipPayload(payload, {
+      onProgress: (progress) => {
+        dispatchClipProgress(dependencies, tabId, progress.value, progress.label);
+      },
+      requestLocalVaultPermission: (request) => {
+        return requestCurrentPageLocalVaultPermission(dependencies, tabId, request);
+      }
+    });
     const { classification } = result;
     let supportStatus: 'success' | 'failure' | 'warning' = 'success';
     let supportError: AppError | undefined;
 
-    await safeNotify(() => notifyClipSuccess(result.filePath, result.vaultName), {
-      channel: 'clipper.success',
-      title: 'notifyClipSuccess'
-    });
+    await safeNotify(
+      () =>
+        notifyClipSuccess(result.filePath, {
+          storageTarget: result.storageTarget,
+          ...(result.vaultName !== undefined && { vaultName: result.vaultName }),
+          ...(result.localFolderName !== undefined && { localFolderName: result.localFolderName }),
+          ...(result.fallbackReason !== undefined && { fallbackReason: result.fallbackReason })
+        }),
+      {
+        channel: 'clipper.success',
+        title: 'notifyClipSuccess'
+      }
+    );
 
     const classificationWarning =
       result.classificationWarning ??
@@ -109,11 +195,13 @@ export async function handleClipResult(
 
     const supportVault =
       result.destination === 'downloads' ? undefined : (result.vaultName ?? result.restVault);
-    dispatchSupportPrompt(
-      dependencies,
-      tabId,
-      buildSupportOptions(supportStatus, payload, supportVault, supportError)
-    );
+    dispatchSupportPrompt(dependencies, tabId, {
+      ...buildSupportOptions(supportStatus, payload, supportVault, supportError),
+      progress: {
+        value: 100,
+        variant: supportStatus
+      }
+    });
   } catch (error) {
     const appError = normalizeToAppError(error, {
       code: 'CLIP_PIPELINE_FAILURE',

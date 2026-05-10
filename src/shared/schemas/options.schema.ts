@@ -12,7 +12,9 @@ export const RestOptionsSchema = z.object({
   httpUrl: z.string().url().optional(),
   vault: z.string().min(1, 'Vault 名称不能为空'),
   apiKey: z.string().min(10, 'API Key 至少需要 10 个字符'),
-  rootDir: z.string().optional()
+  rootDir: z.string().optional(),
+  localFolderId: z.string().optional(),
+  localFolderName: z.string().optional()
 });
 
 /**

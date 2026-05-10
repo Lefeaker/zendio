@@ -874,6 +874,10 @@ export const previewContent: PreviewContent = {
       status: 'success',
       statusMessage: '成功发送到 Research Vault',
       statusDetail: '整页内容已按当前仓库路由写入 `Articles/Research/2026/`，分类结果同步完成。',
+      progress: {
+        value: 100,
+        variant: 'success'
+      },
       feedbackLabel: '快速反馈',
       likeLabel: '赞一个',
       dislikeLabel: '倒赞',

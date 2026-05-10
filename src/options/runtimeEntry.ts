@@ -3,9 +3,9 @@ import { registerFallbackRepositories, registerRepositories } from '@shared/di/s
 import { createMemoryStorageService } from '@platform/preview/memoryStorage';
 import { createPreviewPlatformServices } from '@platform/preview/services';
 import { registerService, TOKENS } from '@shared/di';
-import { getPlatformServices } from '../platform';
+import type { PlatformServices } from '../platform/types';
 
-export async function bootstrapOptionsRuntime(): Promise<void> {
+export async function bootstrapOptionsRuntime(platformServices?: PlatformServices): Promise<void> {
   const hasChromeStorage =
     typeof chrome !== 'undefined' &&
     Boolean(chrome.runtime) &&
@@ -13,11 +13,19 @@ export async function bootstrapOptionsRuntime(): Promise<void> {
     Boolean(chrome.storage?.local);
 
   const bootstrapStorage = hasChromeStorage
-    ? getPlatformServices().storage
+    ? platformServices?.storage
     : createMemoryStorageService();
 
+  if (!bootstrapStorage) {
+    throw new Error('Options runtime requires platform services when Chrome storage is available.');
+  }
+
   if (hasChromeStorage) {
-    const platformServices = getPlatformServices();
+    if (!platformServices) {
+      throw new Error(
+        'Options runtime requires platform services when Chrome storage is available.'
+      );
+    }
     registerRepositories({
       storage: platformServices.storage,
       messaging: platformServices.messaging,
