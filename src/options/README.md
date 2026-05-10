@@ -13,12 +13,13 @@
 - `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
+- 当前技术栈为 TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS 与 WebExtension APIs；formal specs/plans 归属外层 workspace `docs/codex-superpowers/*`。
 
 ### 0.1 目录与入口
 
 - `index.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
-- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链。
+- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；保留原因为 legacy layout/e2e 测试 owner 尚未全部迁出。
 - `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
 - `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。

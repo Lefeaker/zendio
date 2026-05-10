@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-10
+最后更新：2026-05-11
 
 ## 正式入口
 
@@ -19,6 +19,7 @@
 ## 当前执行主线
 
 - 当前统一门禁以 `quality` / `verify:preflight` / CI 三者一致为准
+- 当前技术栈真值：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 当前依赖边界真值以 `npm run audit:deps:report` 为准；该命令必须巡检完整 `src` graph，并对 dependency-cruiser violations fail closed
 - 当前 production build ownership 真值以 `npm run audit:build-graph:report` 为准；retired `src` 删除必须先证明 production、harness、validation、public/script/test owner 均已迁出
@@ -26,7 +27,8 @@
 - 当前 hotspot 体量观察以 `docs/production-code-hotspots.md` 和 `npm run audit:production-shape:report` 为准
 - 当前生产 UI 样式真值以 Stitch runtime CSS、`src/styles/design-tokens.css`、`src/options/stitch/styles/*` 为准
 - Tailwind / DaisyUI 只作为历史迁移材料或归档参考；除非本页和设计系统治理文档同步恢复，否则不得作为新生产路径
-- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 迁出或替换前属于验证/兼容资产，不是可直接删除的生产真值
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；retired preview runtime 不得重新接入生产或验证主链
+- 旧 Options layout/formSections/section classes 与非 YAML widgets 在验证 owner 迁出或替换前属于 `migrate-then-delete` 资产，不是可直接删除的生产真值
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 当前交付归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准
 
