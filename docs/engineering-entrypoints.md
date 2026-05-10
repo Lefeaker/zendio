@@ -26,6 +26,12 @@
 - `npm run audit:build-graph:report`
   - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
   - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
+- `npm run audit:retired-code:report`
+  - 读取 `docs/retired-code-inventory.md`
+  - 在删除 milestone 前打印 owners/blockers；硬化后用于阻止 `delete-now` path 回归
+- `npm run audit:production-shape:report`
+  - 读取 `docs/production-code-hotspots.md`
+  - 在 hardening 前打印热点 LOC/DOM/event/text 计数；hardening 后启用最终阈值
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
 
@@ -79,6 +85,8 @@ npm run visual:test
 - `npm run visual:test`
 - `npm run audit:deps:report`
 - `npm run audit:build-graph:report`
+- `npm run audit:retired-code:report`
+- `npm run audit:production-shape:report`
 - `npm run report:release-summary`
 
 ## 正式代码入口

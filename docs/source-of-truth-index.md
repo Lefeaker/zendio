@@ -11,6 +11,8 @@
 - 当前工作树批次归属：[`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 - 架构边界：[`architecture-boundaries.md`](./architecture-boundaries.md)
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
+- Retired code inventory：[`retired-code-inventory.md`](./retired-code-inventory.md)
+- Production code hotspots：[`production-code-hotspots.md`](./production-code-hotspots.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
 - 长期维护 backlog：[`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
 
@@ -20,6 +22,8 @@
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 当前依赖边界真值以 `npm run audit:deps:report` 为准；该命令必须巡检完整 `src` graph，并对 dependency-cruiser violations fail closed
 - 当前 production build ownership 真值以 `npm run audit:build-graph:report` 为准；retired `src` 删除必须先证明 production、harness、validation、public/script/test owner 均已迁出
+- 当前 retired-code 决策以 `docs/retired-code-inventory.md` 和 `npm run audit:retired-code:report` 为准
+- 当前 hotspot 体量观察以 `docs/production-code-hotspots.md` 和 `npm run audit:production-shape:report` 为准
 - 当前生产 UI 样式真值以 Stitch runtime CSS、`src/styles/design-tokens.css`、`src/options/stitch/styles/*` 为准
 - Tailwind / DaisyUI 只作为历史迁移材料或归档参考；除非本页和设计系统治理文档同步恢复，否则不得作为新生产路径
 - `src/options/preview/**`、旧 Options layout/formSections/section classes 在验证 owner 迁出或替换前属于验证/兼容资产，不是可直接删除的生产真值

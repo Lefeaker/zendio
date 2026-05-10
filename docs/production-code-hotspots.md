@@ -1,0 +1,12 @@
+# Production Code Hotspots
+
+Last updated: 2026-05-10
+
+| File                                            | Current Problem                                          | Target Owner Split                                                                      | Hard Gate                                                              | Refactor Milestone            |
+| ----------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------- |
+| `src/options/app/productionStitchShell.ts`      | god module: state, persistence, actions, widgets, render | state mapper, actions, persistence, widget host, render adapter                         | file <= 900 LOC after split; no action map above 250 LOC               | production Stitch shell split |
+| `src/options/widgets/YamlConfigWidget.ts`       | hand-built DOM plus model/validation/controller          | model adapter, validator presenter, DOM renderer, controller, public widget adapter     | no single YAML widget file > 450 LOC; no hard-coded labels in renderer | YAML widget split             |
+| `src/content/video/prompt.ts`                   | module-level global lifecycle state                      | lifecycle controller, prompt state, control bar adapter, settings watcher, test helpers | prompt entry <= 300 LOC; no exported internal test utility bag         | video prompt lifecycle split  |
+| `src/content/clipper/components/dialog.ts`      | custom host/focus/drag/i18n lifecycle                    | ContentDialogHost adapter, surface content adapter, interaction controller              | no duplicate focus trap implementation                                 | clipper dialog host alignment |
+| `src/options/stitch/render/renderStitchView.ts` | central switch renderer and action extraction            | node renderers, form renderers, action adapter, content helpers                         | no renderer file > 450 LOC; no hard-coded user text                    | Stitch renderer split         |
+| `src/shared/services/yamlConfigService.ts`      | sanitize/merge/domain resolution bundled together        | sanitize, merge, domain matching, facade                                                | facade <= 250 LOC; targeted unit tests per extracted module            | YAML config service split     |

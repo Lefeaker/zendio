@@ -31,6 +31,8 @@
     "audit:imports:report": "node tools/report-deep-imports.mjs",
     "audit:components:report": "node tools/report-component-entry-alignment.mjs",
     "audit:build-graph:report": "node tools/report-production-build-graph.mjs",
+    "audit:retired-code:report": "node tools/report-retired-code-inventory.mjs",
+    "audit:production-shape:report": "node tools/report-production-code-shape.mjs",
     "audit:build:report": "node tools/report-build-splitting.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
     "manifest:generate": "node scripts/generate-manifests.mjs",
