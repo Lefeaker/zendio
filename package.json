@@ -20,7 +20,7 @@
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
     "lint:warnings-guard": "node scripts/lint-warnings-guard.mjs",
-    "audit:deps:report": "npx --yes dependency-cruiser@16.10.4 --config .dependency-cruiser.cjs --output-type err-long src",
+    "audit:deps:report": "node tools/report-dependency-cruiser-coverage.mjs",
     "audit:platform-services:report": "node tools/report-platform-services-allowlist.mjs",
     "audit:design-tokens:report": "node tools/report-design-token-alignment.mjs",
     "audit:design-system-doc:report": "node tools/report-design-system-doc.mjs",

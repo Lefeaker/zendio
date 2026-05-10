@@ -1,6 +1,7 @@
 import type { Messages } from '@i18n';
 import { UiButton as DaisyButton } from '@ui/primitives/button';
-import { createUsageChartShell, type ChartElements } from './usageChart';
+import { createUsageChartShell } from './usageChart';
+import type { ChartElements } from './usageChartTypes';
 
 export interface UsageDomRefs {
   totalValue: HTMLElement | null;

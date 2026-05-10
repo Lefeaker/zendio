@@ -1,34 +1,8 @@
 import { buildRestConnectionResult } from './restSectionConnectionResult';
-import {
-  buildRestVaultControls,
-  buildRestVaultTable,
-  type RestDefaultVaultInputRefs
-} from './restSectionDefaultLayout';
+import { buildRestVaultControls, buildRestVaultTable } from './restSectionDefaultLayout';
+import type { RestSectionLayoutRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 
-export interface RestSectionMessagesLike {
-  apiConfigTitle?: string;
-  apiConfigHint?: string;
-  additionalVaultsHint?: string;
-  ruleEnabledLabel?: string;
-  vaultNameLabel?: string;
-  localFolderLabel?: string;
-  chooseLocalFolderButton?: string;
-  clearLocalFolderButton?: string;
-  httpsUrlLabel?: string;
-  httpUrlLabel?: string;
-  apiKeyLabel?: string;
-  defaultVaultBadge?: string;
-  vaultNamePlaceholder?: string;
-  addVaultButton?: string;
-  testConnectionButton?: string;
-  deleteVaultButton?: string;
-}
-
-export interface RestSectionLayoutRefs extends RestDefaultVaultInputRefs {
-  additionalRowsHost: HTMLElement;
-  additionalEmptyHint: HTMLElement;
-  connectionResultHost: HTMLDivElement;
-}
+export type { RestSectionLayoutRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export { buildRestVaultRow, updateRestVaultRow } from './restSectionVaultRow';
 

@@ -12,6 +12,9 @@ import {
   updatePoints,
   updateXAxis
 } from './usageChartRenderers';
+import type { ChartElements } from './usageChartTypes';
+
+export type { ChartElements } from './usageChartTypes';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -29,16 +32,6 @@ function createSvgElement<T extends Element>(
     throw new Error(`[UsageSection] Failed to create ${label} element for <${tagName}>`);
   }
   return element;
-}
-
-export interface ChartElements {
-  axis: HTMLElement | null;
-  graph: HTMLElement | null;
-  svg: SVGSVGElement | null;
-  path: SVGPathElement | null;
-  grid: SVGGElement | null;
-  points: SVGGElement | null;
-  xAxis: SVGGElement | null;
 }
 
 export function createUsageChartShell(createElement: (tagName: string) => HTMLElement): {

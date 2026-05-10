@@ -32,6 +32,39 @@ export interface DomainOverrideEntry {
   fields: DomainFieldRow[];
 }
 
+export interface RowActions {
+  onNameInput: (row: FieldRow, value: string) => void;
+  onNameBlur: (row: FieldRow) => void;
+  onTypeChange: (row: FieldRow, type: YamlFieldType) => void;
+  onToggleContentType: (row: FieldRow, contentType: YamlContentType, checked: boolean) => void;
+  onAdvancedToggle: (row: FieldRow) => void;
+  onMoveRow: (rowId: string, offset: number) => void;
+  onDeleteRow: (row: FieldRow) => void;
+  onDefaultValueInput: (row: FieldRow, value: string) => void;
+  onDefaultValueBlur: (row: FieldRow, value: string) => void;
+  onAdvancedValuePathInput: (row: FieldRow, value: string) => void;
+  onAdvancedValuePathBlur: (row: FieldRow, value: string) => void;
+}
+
+export interface DomainFieldRendererActions {
+  onRemoveDomainEntry: (entryId: string) => void;
+  onDomainInput: (entry: DomainOverrideEntry, value: string) => void;
+  onDomainBlur: () => void;
+  onContentTypeChange: (entry: DomainOverrideEntry, contentType: YamlContentType) => void;
+  onAddDomainField: (entry: DomainOverrideEntry) => void;
+  onRemoveDomainField: (entryId: string, fieldId: string) => void;
+  onDomainFieldNameChange: (
+    entry: DomainOverrideEntry,
+    field: DomainFieldRow,
+    name: string
+  ) => void;
+  onDomainFieldEnabledChange: (field: DomainFieldRow, checked: boolean) => void;
+  onDomainFieldDefaultInput: (field: DomainFieldRow, value: string) => void;
+  onDomainFieldDefaultBlur: (field: DomainFieldRow, value: string) => void;
+  onDomainFieldValuePathInput: (field: DomainFieldRow, value: string) => void;
+  onDomainFieldValuePathBlur: (field: DomainFieldRow, value: string) => void;
+}
+
 export interface YamlConfigTableLabels {
   field: string;
   type: string;

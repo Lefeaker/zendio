@@ -1,5 +1,5 @@
 import type { Messages } from '@i18n';
-import type { PrivacyConsentSnapshot } from './PrivacySettingsView';
+import type { PrivacyConsentSnapshot } from './privacySettingsTypes';
 
 interface PrivacyBindingState {
   analyticsCheckbox: HTMLInputElement | null;
@@ -10,7 +10,14 @@ interface PrivacyBindingState {
 }
 
 export function applyPrivacyConsentSnapshot(
-  bindings: Pick<PrivacyBindingState, 'analyticsCheckbox' | 'errorReportingCheckbox' | 'debugModeToggle' | 'statusMessage' | 'debugModeHint'>,
+  bindings: Pick<
+    PrivacyBindingState,
+    | 'analyticsCheckbox'
+    | 'errorReportingCheckbox'
+    | 'debugModeToggle'
+    | 'statusMessage'
+    | 'debugModeHint'
+  >,
   snapshot: PrivacyConsentSnapshot,
   showDebugToggle: boolean
 ): void {
