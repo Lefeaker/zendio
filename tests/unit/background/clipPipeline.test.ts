@@ -6,6 +6,15 @@ import {
   SHOW_SUPPORT_PROMPT,
   type ClipResultMessage
 } from '@shared/types';
+import type { ClipProcessingHooks } from '../../../src/background/application/clipProcessor';
+
+type ClipProcessingHooksWithProgress = ClipProcessingHooks & {
+  onProgress: NonNullable<ClipProcessingHooks['onProgress']>;
+};
+
+type ClipProcessingHooksWithPermission = ClipProcessingHooks & {
+  requestLocalVaultPermission: NonNullable<ClipProcessingHooks['requestLocalVaultPermission']>;
+};
 
 const getOptionsMock = vi.fn();
 const notifySuccessMock = vi.fn();
@@ -122,23 +131,25 @@ describe('background clipPipeline', () => {
   });
 
   it('emits progress updates while processing clip results', async () => {
-    processClipPayloadMock.mockImplementation(async (_payload, hooks) => {
-      hooks.onProgress({ value: 82, label: '正在写入笔记' });
-      return {
-        filePath: 'Articles/foo.md',
-        vaultName: 'Secondary Vault',
-        restVault: 'Secondary',
-        destination: 'vault',
-        storageTarget: 'rest-api',
-        classification: {
-          status: 'success' as const,
-          fallbackReason: undefined,
-          errorDetail: undefined,
-          topics: [],
-          tags: []
-        }
-      };
-    });
+    processClipPayloadMock.mockImplementation(
+      (_payload, hooks: ClipProcessingHooksWithProgress) => {
+        hooks.onProgress({ value: 82, label: '正在写入笔记' });
+        return Promise.resolve({
+          filePath: 'Articles/foo.md',
+          vaultName: 'Secondary Vault',
+          restVault: 'Secondary',
+          destination: 'vault',
+          storageTarget: 'rest-api',
+          classification: {
+            status: 'success' as const,
+            fallbackReason: undefined,
+            errorDetail: undefined,
+            topics: [],
+            tags: []
+          }
+        });
+      }
+    );
 
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 11, dependencies);
@@ -350,29 +361,31 @@ describe('background clipPipeline', () => {
       }
       return undefined;
     });
-    processClipPayloadMock.mockImplementation(async (_payload, hooks) => {
-      const reauthResult = await hooks.requestLocalVaultPermission({
-        folderId: 'folder-main',
-        folderName: 'Blog',
-        vaultName: 'blog'
-      });
-      expect(reauthResult).toEqual({ action: 'granted', permissionState: 'granted' });
-      return {
-        filePath: 'Articles/foo.md',
-        vaultName: 'blog',
-        restVault: 'blog',
-        destination: 'vault',
-        storageTarget: 'local-folder',
-        localFolderName: 'Blog',
-        classification: {
-          status: 'success' as const,
-          fallbackReason: undefined,
-          errorDetail: undefined,
-          topics: [],
-          tags: []
-        }
-      };
-    });
+    processClipPayloadMock.mockImplementation(
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
+          folderId: 'folder-main',
+          folderName: 'Blog',
+          vaultName: 'blog'
+        });
+        expect(reauthResult).toEqual({ action: 'granted', permissionState: 'granted' });
+        return {
+          filePath: 'Articles/foo.md',
+          vaultName: 'blog',
+          restVault: 'blog',
+          destination: 'vault',
+          storageTarget: 'local-folder',
+          localFolderName: 'Blog',
+          classification: {
+            status: 'success' as const,
+            fallbackReason: undefined,
+            errorDetail: undefined,
+            topics: [],
+            tags: []
+          }
+        };
+      }
+    );
 
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 23, dependencies);
@@ -404,34 +417,36 @@ describe('background clipPipeline', () => {
       }
       return undefined;
     });
-    processClipPayloadMock.mockImplementation(async (_payload, hooks) => {
-      const reauthResult = await hooks.requestLocalVaultPermission({
-        folderId: 'folder-main',
-        folderName: 'Blog',
-        vaultName: 'blog'
-      });
-      expect(reauthResult).toEqual({
-        action: 'use-rest',
-        persistRest: true,
-        permissionState: 'denied'
-      });
-      return {
-        filePath: 'Articles/foo.md',
-        vaultName: 'blog',
-        restVault: 'blog',
-        destination: 'vault',
-        storageTarget: 'rest-api',
-        localFolderName: 'Blog',
-        fallbackReason: 'permission-denied',
-        classification: {
-          status: 'success' as const,
-          fallbackReason: undefined,
-          errorDetail: undefined,
-          topics: [],
-          tags: []
-        }
-      };
-    });
+    processClipPayloadMock.mockImplementation(
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
+          folderId: 'folder-main',
+          folderName: 'Blog',
+          vaultName: 'blog'
+        });
+        expect(reauthResult).toEqual({
+          action: 'use-rest',
+          persistRest: true,
+          permissionState: 'denied'
+        });
+        return {
+          filePath: 'Articles/foo.md',
+          vaultName: 'blog',
+          restVault: 'blog',
+          destination: 'vault',
+          storageTarget: 'rest-api',
+          localFolderName: 'Blog',
+          fallbackReason: 'permission-denied',
+          classification: {
+            status: 'success' as const,
+            fallbackReason: undefined,
+            errorDetail: undefined,
+            topics: [],
+            tags: []
+          }
+        };
+      }
+    );
 
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 23, dependencies);
@@ -441,30 +456,32 @@ describe('background clipPipeline', () => {
 
   it('does not ask again when a local vault permission prompt is suppressed for the folder', async () => {
     isPromptSuppressedMock.mockResolvedValue(true);
-    processClipPayloadMock.mockImplementation(async (_payload, hooks) => {
-      const reauthResult = await hooks.requestLocalVaultPermission({
-        folderId: 'folder-main',
-        folderName: 'Blog',
-        vaultName: 'blog'
-      });
-      expect(reauthResult).toEqual({ action: 'use-rest', persistRest: true });
-      return {
-        filePath: 'Articles/foo.md',
-        vaultName: 'blog',
-        restVault: 'blog',
-        destination: 'vault',
-        storageTarget: 'rest-api',
-        localFolderName: 'Blog',
-        fallbackReason: 'permission-denied',
-        classification: {
-          status: 'success' as const,
-          fallbackReason: undefined,
-          errorDetail: undefined,
-          topics: [],
-          tags: []
-        }
-      };
-    });
+    processClipPayloadMock.mockImplementation(
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
+          folderId: 'folder-main',
+          folderName: 'Blog',
+          vaultName: 'blog'
+        });
+        expect(reauthResult).toEqual({ action: 'use-rest', persistRest: true });
+        return {
+          filePath: 'Articles/foo.md',
+          vaultName: 'blog',
+          restVault: 'blog',
+          destination: 'vault',
+          storageTarget: 'rest-api',
+          localFolderName: 'Blog',
+          fallbackReason: 'permission-denied',
+          classification: {
+            status: 'success' as const,
+            fallbackReason: undefined,
+            errorDetail: undefined,
+            topics: [],
+            tags: []
+          }
+        };
+      }
+    );
 
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 23, dependencies);

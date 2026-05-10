@@ -1,7 +1,5 @@
 import type { CompleteOptions, StoredOptions, ReadingSessionOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
 import { UiButton as DaisyButton } from '@ui/primitives/button';

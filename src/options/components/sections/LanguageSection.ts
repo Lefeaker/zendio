@@ -1,7 +1,5 @@
 import { getAvailableLanguages, type Language } from '@i18n';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { UiSelect as DaisySelect } from '@ui/primitives/select';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';

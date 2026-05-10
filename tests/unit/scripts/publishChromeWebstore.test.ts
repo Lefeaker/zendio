@@ -68,12 +68,13 @@ describe('Chrome Web Store publisher script', () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(fetchImpl.mock.calls[0]?.[0]).toBe('https://oauth2.googleapis.com/token');
-    expect(fetchImpl.mock.calls[0]?.[1]?.body.toString()).toContain('grant_type=refresh_token');
-    expect(fetchImpl.mock.calls[1]?.[0]).toBe(
+    const fetchCalls = fetchImpl.mock.calls as Array<[string, RequestInit | undefined]>;
+    expect(fetchCalls[0]?.[0]).toBe('https://oauth2.googleapis.com/token');
+    expect(String(fetchCalls[0]?.[1]?.body)).toContain('grant_type=refresh_token');
+    expect(fetchCalls[1]?.[0]).toBe(
       'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher-id/items/extension-id:upload'
     );
-    expect(fetchImpl.mock.calls[1]?.[1]).toMatchObject({
+    expect(fetchCalls[1]?.[1]).toMatchObject({
       method: 'POST',
       headers: {
         authorization: 'Bearer access-token',
@@ -81,15 +82,15 @@ describe('Chrome Web Store publisher script', () => {
       },
       body: Buffer.from('zip-bytes')
     });
-    expect(fetchImpl.mock.calls[2]?.[0]).toBe(
+    expect(fetchCalls[2]?.[0]).toBe(
       'https://chromewebstore.googleapis.com/v2/publishers/publisher-id/items/extension-id:publish'
     );
-    expect(fetchImpl.mock.calls[2]?.[1]).toMatchObject({
+    expect(fetchCalls[2]?.[1]).toMatchObject({
       method: 'POST',
       headers: {
         authorization: 'Bearer access-token'
       }
     });
-    expect(fetchImpl.mock.calls[2]?.[1]?.body).toBeUndefined();
+    expect(fetchCalls[2]?.[1]?.body).toBeUndefined();
   });
 });
