@@ -1,6 +1,6 @@
 import { DaisyCard } from '@ui/primitives/card';
 import { UiAlert as DaisyAlert } from '@ui/primitives/alert';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 import type { ConnectionResultType } from '../../services/connectionTestRunner';
 
 export function buildRestConnectionResult(

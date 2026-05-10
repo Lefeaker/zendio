@@ -16,16 +16,11 @@ import {
   shouldShowPrivacyReminder as shouldShowPrivacyReminderFromStorage,
   togglePrivacyDebugMode
 } from './privacySettingsAsyncActions';
+import type { PrivacyConsentSnapshot } from './privacySettingsTypes';
 
 declare const __DEV__: boolean;
 
 const SHOW_DEBUG_TOGGLE = typeof __DEV__ === 'boolean' ? __DEV__ : true;
-
-export interface PrivacyConsentSnapshot {
-  analytics: boolean;
-  errorReporting: boolean;
-  debugMode: boolean;
-}
 
 interface PrivacySettingsOptions {
   initialConsent?: PrivacyConsentSnapshot | null;

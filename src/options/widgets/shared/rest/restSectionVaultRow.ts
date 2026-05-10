@@ -2,7 +2,7 @@ import type { VaultConfig } from '@shared/types/vault';
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestVaultRow(params: {
   createElement: typeof document.createElement;

@@ -2,7 +2,7 @@ import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { DaisyCard } from '@ui/primitives/card';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestDefaultRow(params: {
   createElement: typeof document.createElement;

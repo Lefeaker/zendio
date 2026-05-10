@@ -5,7 +5,7 @@ import {
   FocusTrapController
 } from '../../primitives/dialog';
 import type { UiMountable } from '../shared/contract';
-import { mountContentHost, unmountContentHost } from './index';
+import { mountContentHost, unmountContentHost } from './contentHostMount';
 
 export type ContentDialogHostSize = 'md' | 'lg';
 

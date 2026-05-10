@@ -1,6 +1,6 @@
 import type { Messages } from '@i18n';
 import { createOptionsPanel, createOptionsSettingRow } from '../../primitives/layout';
-import type { PrivacyLayoutBindings, PrivacyLayoutOptions } from './privacySettingsLayout';
+import type { PrivacyLayoutBindings, PrivacyLayoutOptions } from './privacySettingsTypes';
 
 export function buildPrivacyFooterLinks(options: PrivacyLayoutOptions): HTMLElement {
   const section = createOptionsSettingRow();

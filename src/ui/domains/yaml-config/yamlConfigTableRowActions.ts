@@ -1,7 +1,6 @@
 import { createOptionsButtonElement } from '../../primitives/button';
 import { createOptionsActionRow } from '../../primitives/layout';
-import type { FieldRow, YamlConfigTableLabels } from './yamlConfigTableTypes';
-import type { RowActions } from './yamlConfigTableRowRenderers';
+import type { FieldRow, RowActions, YamlConfigTableLabels } from './yamlConfigTableTypes';
 
 export function buildYamlRowActionContainer(args: {
   row: FieldRow;

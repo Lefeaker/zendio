@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-04-14
+最后更新：2026-05-10
 
 ## 推荐运行环境
 
@@ -19,6 +19,10 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
+- `npm run audit:deps:report`
+  - 使用 `dependency-cruiser@16.10.4` 巡检 `src/**/*.ts`、`src/**/*.tsx`、`src/**/*.js`
+  - 当前必须覆盖至少 `400` modules 和 `300` dependencies
+  - 任何 dependency-cruiser violation（包含 circular dependency）均视为失败
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
 
@@ -70,6 +74,7 @@ npm run visual:test
 - `npm run test:coverage`
 - `npm run test:i18n`
 - `npm run visual:test`
+- `npm run audit:deps:report`
 - `npm run report:release-summary`
 
 ## 正式代码入口
