@@ -21,6 +21,13 @@ export const previewContent: PreviewContent = {
     subtitle: 'Component Preview',
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
+  rendererLabels: {
+    resourcePendingBadge: 'Pending',
+    resourceOpenAction: '打开',
+    highlightExamplePrefix: '导出后的示例会像这样 ',
+    highlightExampleText: '标出重点内容',
+    highlightExampleSuffix: '，方便回看。'
+  },
   sidebarLinks: [
     { id: 'onboarding', label: 'Onboarding', hint: '首次引导与快速了解', icon: 'rocket_launch' },
     {
