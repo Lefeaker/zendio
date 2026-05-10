@@ -6,7 +6,7 @@
 
 - 目标项目：`AiiinOB` / `all-in-ob`
 - 项目形态：浏览器扩展，主要面向 Obsidian 工作流，包含网页剪藏、AI 聊天导出、阅读模式、视频模式、多语言与多仓库配置能力。
-- 技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Tailwind CSS、DaisyUI。
+- 技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。
 - 关键目录：
   - `src/`：扩展源码
   - `tests/`：单元、E2E、视觉与浏览器相关测试
@@ -44,7 +44,8 @@
   - `public/_locales/`
   - 文本长度和布局影响
 - 样式改动应遵循当前仓库路线：
-  - 优先复用现有 design token、Tailwind / DaisyUI 方案
+  - 生产 UI 以 Stitch runtime CSS、`src/styles/design-tokens.css` 与现有 design token 为准
+  - Tailwind / DaisyUI 仅作为历史迁移材料或归档参考，除非新的 source-of-truth 文档明确恢复
   - 不随意引入新的样式体系
   - 不把一次性调试样式长期留在生产代码
 
@@ -67,6 +68,20 @@
 - 一次性分析报告、审计报告、过程性建议稿
 
 如确需保留，应先确认它属于正式长期文档，而不是过程产物。
+
+### 2.4 高风险技术债治理闸门
+
+执行技术债、退役代码删除、架构硬化、质量门禁调整或大规模 cleanup 计划前，必须先完成计划风险审计，不得直接执行 checklist。
+
+审计至少覆盖：
+
+- 当前 dirty tree 逐路径分类；存在未分类、漏项或 `unknown-stop` 时停止。
+- 删除 `src` 代码前同时具备 production build graph、import graph、test/script dependency 三类证明。
+- 任何 `delete-now` 路径不得仍被 package scripts、build scripts、manifest/public assets、测试、视觉/浏览器检查或必要验证命令引用。
+- 新增 hard gate 接入 `quality`、build、CI、package 或 release 前必须先 standalone 通过并评估误报面。
+- 禁止用 `git add -A src tests docs` 等宽泛 staging 伪装原子提交；每次提交前必须检查 `git diff --cached --name-status`。
+- 高风险计划必须维护本地 execution ledger，记录每个 milestone 的分支、worktree、base/final commit、命令、跳过项、回滚点和剩余风险。
+- 多 agent 并行时必须给每个 agent 分配不重叠的 write set；agent 不得 revert、格式化或暂存其他 agent 的文件。
 
 ## 3. 测试规范（强制）
 
@@ -124,12 +139,25 @@
 - 开始任何功能开发、修复、重构或批量文档整理前，必须先新建工作分支。
 - 所有提交默认应落在功能分支、修复分支或专项整理分支上，不得直接提交到 `main`。
 - 如需合入 `main`，应通过分支合并或 Pull Request 完成，而不是在 `main` 上直接开发和提交。
+- 执行高风险技术债、退役代码删除、架构硬化或大规模 cleanup 计划时，每个 milestone 必须使用独立 `codex/` 分支或工作树，从上一 milestone 已验证提交点切出。
+- 每个 milestone 结束时必须形成可回滚提交点；不得带未提交源码变更进入下一 milestone。
+- milestone 分支通过后应按计划合入专项 integration branch，而不是直接合入 `main`。
 
 ### 4.1 原子提交要求
 
 - 每完成一个相对完整的功能点或一组自洽修复，并完成对应验证后，立即 commit 一次。
 - 一个 commit 必须自洽：代码、测试、必要文档在同一提交中闭环。
 - 不要把无关的格式化噪音、临时文件、产物目录和一次性报告混入提交。
+- 自动提交仅允许在 staged diff 已审查、必要验证已通过、pre-commit 已通过后执行。
+- 每次提交前必须运行并检查：
+
+```bash
+git diff --cached --name-status
+git diff --cached --check
+git status --short
+```
+
+- 如果 staged 文件包含当前 batch/milestone 之外的路径，必须先拆分或取消暂存，禁止继续提交。
 
 ### 4.2 建议提交信息格式
 

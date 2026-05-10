@@ -9,7 +9,7 @@
 - `src/background/index.ts`
 - `src/content/index.ts`
 - `src/onboarding/index.ts`
-- `src/options/index.ts`
+- `src/options/index.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`
 - `src/platform/services.ts`
 
 验证命令：`npm run audit:platform-services:report`
@@ -46,8 +46,8 @@
 ## 5. Repository 与状态边界
 
 - `IOptionsRepository`、`IMessagingRepository`、`IYamlRepository` 仍是正式主合同
-- `MainContent.ts` 继续是 Options section 级 composition root
-- `BaseSection` 只处理 section shell 与 form registry 生命周期，不直接承担业务仓储装配
+- `productionStitchShell.ts` 是当前 Options 生产 UI 适配入口
+- `MainContent.ts`、`BaseSection`、`FormSectionRegistry` 属于旧 Options 兼容/验证路径；除兼容修复和验证迁移外，不得重新接入生产启动链
 - session / UI state 禁止重新使用 `window.__aiob*` 全局变量传递
 
 ## 6. registry 式协调的当前口径
@@ -55,6 +55,7 @@
 - `sectionRegistry.ts` 仅保留极少量兼容协调，不再接受新增职责
 - 新增协作优先采用 typed controller、explicit callback 或 state-driven rendering
 - `privacy`、`vault-router`、`yaml-config`、`reading`、`video` 的真实 UI 所有权已进入 `src/ui/domains/*`
+- `src/options/preview/**` 在 preview-backed 验证迁出前属于验证 owner，不得被视为可直接删除的生产外路径
 
 ## 7. 持续审计
 
