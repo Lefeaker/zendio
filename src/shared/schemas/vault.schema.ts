@@ -19,6 +19,8 @@ export const VaultConfigSchema = z.object({
   httpUrl: z.string(),
   vault: z.string().min(1),
   apiKey: z.string(),
+  localFolderId: z.string().optional(),
+  localFolderName: z.string().optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
   rules: z.array(RoutingRuleSchema).optional()

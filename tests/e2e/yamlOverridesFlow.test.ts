@@ -247,6 +247,15 @@ describe('YAML overrides integration flow', () => {
       runtime: mockRuntime,
       contextMenus: mockContextMenus,
       downloads: mockDownloads,
+      fileSystemAccess: {
+        isSupported: () => false,
+        chooseDirectory: () =>
+          Promise.reject(new Error('File System Access unavailable in tests.')),
+        queryPermission: () => Promise.resolve('unsupported'),
+        ensurePermission: () => Promise.resolve('unsupported'),
+        writeFile: () => Promise.reject(new Error('File System Access unavailable in tests.')),
+        removeDirectory: () => Promise.resolve(undefined)
+      },
       notifications: mockNotifications,
       tabs: mockTabs,
       action: mockAction,

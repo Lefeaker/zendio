@@ -84,7 +84,11 @@ export async function requestVaultConnectionTest(
     await errorHandler.handle(error, { suppressNotifications: true });
     throw error;
   }
-  const message: VaultConnectionTestMessage = { type: 'TEST_VAULT_CONNECTION', vaultId: vault.id, vault };
+  const message: VaultConnectionTestMessage = {
+    type: 'TEST_VAULT_CONNECTION',
+    vaultId: vault.id,
+    vault
+  };
   return requestTest(
     message,
     buildKey(vault.id),
@@ -217,6 +221,12 @@ function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
   }
   if (draft.apiKey?.trim()) {
     sanitized.apiKey = draft.apiKey.trim();
+  }
+  if (draft.localFolderId?.trim()) {
+    sanitized.localFolderId = draft.localFolderId.trim();
+  }
+  if (draft.localFolderName?.trim()) {
+    sanitized.localFolderName = draft.localFolderName.trim();
   }
 
   return sanitized;

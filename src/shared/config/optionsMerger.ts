@@ -280,6 +280,16 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     }
   }
 
+  const sourceLocalFolderId = source.rest?.localFolderId;
+  if (sourceLocalFolderId !== undefined) {
+    rest.localFolderId = sourceLocalFolderId;
+  }
+
+  const sourceLocalFolderName = source.rest?.localFolderName;
+  if (sourceLocalFolderName !== undefined) {
+    rest.localFolderName = sourceLocalFolderName;
+  }
+
   const storedTemplates = source.templates ?? {};
   const legacyClipper =
     typeof storedTemplates === 'object'

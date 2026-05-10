@@ -12,6 +12,8 @@ export interface RestOptions {
   vault: string;
   apiKey: string;
   rootDir?: string;
+  localFolderId?: string | undefined;
+  localFolderName?: string | undefined;
 }
 
 export interface TemplateOptions {

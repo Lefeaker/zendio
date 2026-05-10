@@ -37,6 +37,11 @@ export const ClipProcessingResultSchema = z.object({
   filePath: z.string(),
   restVault: z.string(),
   destination: z.enum(['vault', 'downloads']).optional(),
+  storageTarget: z.enum(['local-folder', 'rest-api', 'downloads']),
+  localFolderName: z.string().optional(),
+  fallbackReason: z
+    .enum(['permission-denied', 'folder-missing', 'unsupported', 'write-preflight-failed'])
+    .optional(),
   classification: ClassificationResultSchema,
   vaultName: z.string().optional(),
   classificationWarning: AppErrorSchema.optional()
