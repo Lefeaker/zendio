@@ -23,6 +23,9 @@
   - 使用 `dependency-cruiser@16.10.4` 巡检 `src/**/*.ts`、`src/**/*.tsx`、`src/**/*.js`
   - 当前必须覆盖至少 `400` modules 和 `300` dependencies
   - 任何 dependency-cruiser violation（包含 circular dependency）均视为失败
+- `npm run audit:build-graph:report`
+  - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
+  - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
 
@@ -75,6 +78,7 @@ npm run visual:test
 - `npm run test:i18n`
 - `npm run visual:test`
 - `npm run audit:deps:report`
+- `npm run audit:build-graph:report`
 - `npm run report:release-summary`
 
 ## 正式代码入口
