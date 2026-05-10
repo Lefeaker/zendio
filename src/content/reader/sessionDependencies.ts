@@ -6,6 +6,7 @@ import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepos
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
+import type { SupportProgressReporter } from '../runtime/supportProgress';
 import { createReaderPanelViewFactory } from './presentation/readerPanelView';
 import { ReaderHighlightManager } from './services/highlightManager';
 import { ReaderSelectionController } from './services/selectionController';
@@ -20,6 +21,7 @@ export interface ReaderSessionPlatformDependencies {
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
   runtime: Pick<RuntimeService, 'getURL'>;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 type ReaderSessionDependencyOverrides = Omit<
@@ -42,6 +44,9 @@ export function createReaderSessionDependencies(
     optionsRepository: deps.optionsRepository,
     storage: deps.storage,
     messaging: deps.messaging,
+    ...((overrides.showSupportProgress ?? deps.showSupportProgress)
+      ? { showSupportProgress: overrides.showSupportProgress ?? deps.showSupportProgress }
+      : {}),
     readerRepository,
     createHighlightManager:
       overrides.createHighlightManager ?? ((doc) => new ReaderHighlightManager(doc)),

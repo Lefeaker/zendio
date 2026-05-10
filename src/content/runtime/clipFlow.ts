@@ -1,10 +1,19 @@
-import { getErrorHandler, extractionErrors, normalizeToAppError, type AppError } from '../../shared/errors';
-import { shouldTriggerSelectionWithModifiers, syncModifierState } from '../clipper/services/fragmentConfig';
+import {
+  getErrorHandler,
+  extractionErrors,
+  normalizeToAppError,
+  type AppError
+} from '../../shared/errors';
+import {
+  shouldTriggerSelectionWithModifiers,
+  syncModifierState
+} from '../clipper/services/fragmentConfig';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker, SelectionSnapshot } from './contentSelectionTracker';
 import type { MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import { isReaderSessionActive, isVideoSessionActive } from './contentSessionRegistry';
+import type { SupportProgressReporter } from './supportProgress';
 
 export interface VideoSelectionController {
   handleSelectionClip(
@@ -23,6 +32,7 @@ export interface InitClipFlowOptions {
   selectionTracker: ContentSelectionTracker;
   selectionController: VideoSelectionController;
   extractorRegistry: ExtractorRegistryApi;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 export interface ClipFlowHandlers {
@@ -36,7 +46,16 @@ export interface ClipFlowHandlers {
 }
 
 export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
-  const { document, window, messaging, runtimeState, selectionTracker, selectionController, extractorRegistry } = options;
+  const {
+    document,
+    window,
+    messaging,
+    runtimeState,
+    selectionTracker,
+    selectionController,
+    extractorRegistry,
+    showSupportProgress
+  } = options;
 
   async function emitClipError(error: AppError): Promise<void> {
     const errorHandler = getErrorHandler();
@@ -61,13 +80,26 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
     const url = location.href;
     const doc = document;
     const clipMode = runtimeState.getClipMode();
+    if (clipMode !== 'selection') {
+      showSupportProgress?.({
+        value: 8,
+        label: '正在准备网页剪藏'
+      });
+    }
     try {
       let result: { markdown?: string; type?: string } | undefined;
 
       if (clipMode === 'selection') {
         let selectionInfo = selectionTracker.resolveActiveSelection();
-        if ((!selectionInfo || selectionInfo.selection.rangeCount === 0 || selectionInfo.selection.isCollapsed) && runtimeState.getLastSelectionSnapshot()) {
-          selectionInfo = selectionTracker.restoreSelectionFromSnapshot(runtimeState.getLastSelectionSnapshot());
+        if (
+          (!selectionInfo ||
+            selectionInfo.selection.rangeCount === 0 ||
+            selectionInfo.selection.isCollapsed) &&
+          runtimeState.getLastSelectionSnapshot()
+        ) {
+          selectionInfo = selectionTracker.restoreSelectionFromSnapshot(
+            runtimeState.getLastSelectionSnapshot()
+          );
         }
 
         const selection = selectionInfo?.selection ?? null;
@@ -93,6 +125,10 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
         if (!clip) {
           return;
         }
+        showSupportProgress?.({
+          value: 16,
+          label: '正在发送选区剪藏'
+        });
         result = clip;
       } else {
         result = await extractorRegistry.extract({ url, document: doc });
@@ -163,8 +199,9 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
     syncModifierState(runtimeState.getModifierState(), event);
     const fragmentClipperConfig = runtimeState.getFragmentClipperConfig();
     const modifierRequired = fragmentClipperConfig.selectionModifierEnabled;
-    const modifiersSatisfied = runtimeState.isSelectionModifierActive()
-      || shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState());
+    const modifiersSatisfied =
+      runtimeState.isSelectionModifierActive() ||
+      shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState());
     if (modifierRequired && !modifiersSatisfied) {
       runtimeState.setSelectionModifierActive(false);
       return;
@@ -185,7 +222,10 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       runtimeState.setSelectionModifierActive(false);
       return;
     }
-    if (selectionTracker.isSelectionInsideUi(selection) || selectionTracker.isSelectionEditable(selection)) {
+    if (
+      selectionTracker.isSelectionInsideUi(selection) ||
+      selectionTracker.isSelectionEditable(selection)
+    ) {
       runtimeState.setSelectionModifierActive(false);
       return;
     }

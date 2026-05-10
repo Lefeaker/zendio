@@ -2,6 +2,7 @@ import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { VideoSessionAdapter } from '../clipper/services/selectionController';
+import type { SupportProgressReporter } from '../runtime/supportProgress';
 import { initVideoPrompt } from './prompt';
 import { createVideoPromptDependencies } from './videoPromptDependencies';
 import { matchesSupportedVideoHost } from './videoPromptObserver';
@@ -11,6 +12,7 @@ import { createVideoSessionDependencies } from './sessionDependencies';
 export interface VideoLazyRuntimeDependencies {
   optionsRepository: IOptionsRepository;
   storage: StorageService;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 export interface VideoPromptRuntimeDependencies extends VideoLazyRuntimeDependencies {
@@ -28,7 +30,10 @@ export function createVideoSessionAdapter(
       sessionPromise = Promise.resolve().then(() => {
         const videoDependencies = createVideoSessionDependencies({
           optionsRepository: dependencies.optionsRepository,
-          storage: dependencies.storage
+          storage: dependencies.storage,
+          ...(dependencies.showSupportProgress
+            ? { showSupportProgress: dependencies.showSupportProgress }
+            : {})
         });
         return new VideoSession(doc, videoDependencies);
       });
@@ -66,7 +71,10 @@ export async function initializeVideoPromptRuntime(
           doc,
           createVideoSessionDependencies({
             optionsRepository: dependencies.optionsRepository,
-            storage: dependencies.storage
+            storage: dependencies.storage,
+            ...(dependencies.showSupportProgress
+              ? { showSupportProgress: dependencies.showSupportProgress }
+              : {})
           })
         )
     })

@@ -154,6 +154,39 @@ describe('content selectionController service', () => {
     });
   });
 
+  it('passes the selected export destination into confirmed selection clips', async () => {
+    promptMock.mockResolvedValue({
+      action: 'clip',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    const selection = createSelection('Selected text');
+    const clipResult: SelectionClipResult = {
+      type: 'clipper',
+      title: 'note',
+      pageTitle: 'note',
+      markdown: '# note',
+      meta: {
+        url: 'https://example.com/',
+        fragmentUrl: 'https://example.com/#:~:text=Selected%20text',
+        domain: 'example.com',
+        clippedAtISO: '1970-01-01T00:00:00.000Z',
+        hasComment: false,
+        selectedTextPreview: 'Selected text',
+        sourceUrl: 'https://example.com',
+        resolvedUrl: 'https://example.com/'
+      }
+    };
+    extractSelectionClipMock.mockResolvedValue(clipResult);
+
+    const { controller } = await createController();
+    const result = await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+    expect(result?.meta).toMatchObject({
+      exportDestination: { kind: 'downloads' }
+    });
+  });
+
   it('throws when selection is empty', async () => {
     promptMock.mockResolvedValue({ action: 'clip', comment: '' });
     const selection = createSelection('   ');

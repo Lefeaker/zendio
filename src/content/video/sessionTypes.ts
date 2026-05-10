@@ -2,6 +2,7 @@ import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { IVideoRepository } from '../../shared/repositories/IVideoRepository';
 import type { VideoSessionViewFactory } from './application/videoSessionView';
+import type { SupportProgressReporter } from '../runtime/supportProgress';
 
 export interface VideoSessionDependencies {
   viewFactory: VideoSessionViewFactory;
@@ -12,4 +13,5 @@ export interface VideoSessionDependencies {
     local: StorageAreaService;
     sync: StorageAreaService;
   };
+  showSupportProgress?: SupportProgressReporter;
 }

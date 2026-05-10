@@ -144,6 +144,74 @@ describe('SupportPrompt', () => {
     );
   });
 
+  it('renders an in-flight progress strip before the support links', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({
+      status: 'progress',
+      progress: { value: 42, label: '正在写入笔记' }
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const header = shadow?.querySelector('.task-success-header');
+    const progress = shadow?.querySelector<HTMLElement>('[data-role="task-progress"]');
+    const supportStrip = shadow?.querySelector('.task-support-strip');
+
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toBe('正在写入笔记');
+    expect(progress).toBeTruthy();
+    expect(progress?.style.getPropertyValue('--task-progress-value')).toBe('42%');
+    expect(progress?.classList.contains('is-progress')).toBe(true);
+    expect(header?.compareDocumentPosition(progress as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(progress?.compareDocumentPosition(supportStrip as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+  });
+
+  it('keeps one prompt host when progress updates race during async render', async () => {
+    const messagesGate = createDeferred<void>();
+    ensureContentI18nMock.mockReturnValueOnce(messagesGate.promise);
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    const firstShow = prompt.show({
+      status: 'progress',
+      progress: { value: 8, label: '第一步' }
+    });
+    const secondShow = prompt.show({
+      status: 'progress',
+      progress: { value: 42, label: '第二步' }
+    });
+
+    expect(document.querySelectorAll('#aiob-support-prompt')).toHaveLength(0);
+    messagesGate.resolve();
+    await Promise.all([firstShow, secondShow]);
+
+    expect(document.querySelectorAll('#aiob-support-prompt')).toHaveLength(1);
+    expect(
+      document
+        .querySelector('#aiob-support-prompt')
+        ?.shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
+    ).toBe('第二步');
+  });
+
+  it('auto-dismisses terminal progress prompts after completion', async () => {
+    vi.useFakeTimers();
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({
+      status: 'success',
+      progress: { value: 100, label: '成功发送到 Obsidian', variant: 'success' }
+    });
+
+    expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(2400);
+
+    expect(document.getElementById('aiob-support-prompt')).toBeNull();
+    vi.useRealTimers();
+  });
+
   it('renders warning and failure details', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);

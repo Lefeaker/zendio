@@ -289,9 +289,21 @@ export async function finishVideoSession(
   context.updateVideoContext();
   context.state.exporting = true;
   context.applyHint('exporting');
+  context.dependencies.showSupportProgress?.({
+    value: 10,
+    label: '正在准备视频导出'
+  });
 
   try {
     const exportDestination = context.getExportDestinationMetadata?.();
+    context.dependencies.showSupportProgress?.({
+      value: 34,
+      label: '正在生成视频笔记'
+    });
+    context.dependencies.showSupportProgress?.({
+      value: 70,
+      label: '正在写入 Obsidian'
+    });
     const result = await context.exporter.export({
       captures: context.state.captures,
       videoTitle: context.state.videoTitle,
@@ -308,9 +320,19 @@ export async function finishVideoSession(
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }
+    context.dependencies.showSupportProgress?.({
+      value: 100,
+      label: '成功发送到 Obsidian',
+      variant: 'success'
+    });
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
+    context.dependencies.showSupportProgress?.({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     context.applyHint('failure');
     context.state.exporting = false;
   }

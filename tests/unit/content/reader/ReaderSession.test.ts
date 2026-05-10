@@ -104,6 +104,7 @@ function createSessionContext() {
     stop: vi.fn()
   };
   const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
+  const showSupportProgress = vi.fn();
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
@@ -252,7 +253,8 @@ function createSessionContext() {
       buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
       buildFullMarkdown: buildReaderFullMarkdown
     }),
-    dispatchClipResult
+    dispatchClipResult,
+    showSupportProgress
   };
 
   const clipPrompt = createClipPrompt();
@@ -274,6 +276,7 @@ function createSessionContext() {
       getReadingConfig
     },
     dispatchClipResult,
+    showSupportProgress,
     getCallbacks: () => callbacks,
     emitReadingConfig: readerConfigListener
   };
@@ -544,6 +547,22 @@ describe('ReaderSession', () => {
     callbacks.onFinish();
     await vi.waitFor(() => {
       expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 10,
+      label: '正在准备阅读导出'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 24,
+      label: '正在整理阅读标注'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 32,
+      label: '正在生成阅读笔记'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 36,
+      label: '正在发送到 Obsidian'
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
     expect(isReaderSessionActive(document)).toBe(false);

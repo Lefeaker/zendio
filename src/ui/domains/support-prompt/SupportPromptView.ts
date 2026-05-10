@@ -12,7 +12,8 @@ import type { SupportPromptViewConfig } from './types';
 const STATUS_BADGE_VARIANT: Record<SupportPromptViewConfig['status'], 'info' | 'neutral'> = {
   success: 'info',
   warning: 'neutral',
-  failure: 'neutral'
+  failure: 'neutral',
+  progress: 'info'
 };
 
 export class SupportPromptView {

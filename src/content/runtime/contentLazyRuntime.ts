@@ -8,6 +8,7 @@ import type {
   ReaderSessionAdapter,
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
+import type { SupportProgressReporter } from './supportProgress';
 
 interface SupportPromptLike {
   show(options?: unknown): Promise<void> | void;
@@ -19,6 +20,7 @@ interface LazyRuntimeDependencies {
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
   runtime: RuntimeService;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 type VideoPromptRuntimeModule = typeof import('../video/videoLazyRuntime');
@@ -55,7 +57,10 @@ export function isVideoPromptCandidateUrl(href: string): boolean {
 
 export function createVideoPromptOnDemandInitializer(loadRuntime: LoadVideoPromptRuntime) {
   return async (
-    dependencies: Pick<LazyRuntimeDependencies, 'optionsRepository' | 'storage' | 'runtime'>,
+    dependencies: Pick<
+      LazyRuntimeDependencies,
+      'optionsRepository' | 'storage' | 'runtime' | 'showSupportProgress'
+    >,
     href: string
   ): Promise<void> => {
     if (!isVideoPromptCandidateUrl(href)) {
@@ -66,7 +71,10 @@ export function createVideoPromptOnDemandInitializer(loadRuntime: LoadVideoPromp
       {
         optionsRepository: dependencies.optionsRepository,
         storage: dependencies.storage,
-        runtime: dependencies.runtime
+        runtime: dependencies.runtime,
+        ...(dependencies.showSupportProgress
+          ? { showSupportProgress: dependencies.showSupportProgress }
+          : {})
       },
       href
     );
@@ -118,7 +126,10 @@ export function createLazyReaderSessionFactory(
             storage: dependencies.storage,
             messaging: dependencies.messaging as MessagingService,
             runtime: dependencies.runtime,
-            promptGateway: dependencies.promptGateway
+            promptGateway: dependencies.promptGateway,
+            ...(dependencies.showSupportProgress
+              ? { showSupportProgress: dependencies.showSupportProgress }
+              : {})
           })
         );
       }
@@ -159,7 +170,10 @@ export function createLazyVideoSessionFactory(
         adapterPromise = loadModule().then(({ createVideoSessionAdapter }) =>
           createVideoSessionAdapter(doc, {
             optionsRepository: dependencies.optionsRepository,
-            storage: dependencies.storage
+            storage: dependencies.storage,
+            ...(dependencies.showSupportProgress
+              ? { showSupportProgress: dependencies.showSupportProgress }
+              : {})
           })
         );
       }
