@@ -46,7 +46,9 @@ describe('resolvePath', () => {
 
   it('generates article path with mapped domain and slug', () => {
     const payload = createPayload();
-    const result = resolvePath(templates, payload, CLASSIFICATION, { 'example.com': 'ExampleSite' });
+    const result = resolvePath(templates, payload, CLASSIFICATION, {
+      'example.com': 'ExampleSite'
+    });
     expect(result).toBe('Articles/ExampleSite/2024/my-test-note.md');
   });
 
@@ -78,7 +80,10 @@ describe('resolvePath', () => {
   });
 
   it('supports time placeholders in templates', () => {
-    const payload = createPayload({ type: 'video', meta: { url: 'https://video.example.com/watch?v=1', domain: 'video.example.com' } });
+    const payload = createPayload({
+      type: 'fragment',
+      meta: { url: 'https://video.example.com/watch?v=1', domain: 'video.example.com' }
+    });
     const customTemplates: TemplateOptions = {
       ...templates,
       fragment: 'Fragments/{HHmmss}.md'
@@ -101,6 +106,8 @@ describe('resolvePath', () => {
     const expectedMonth = String(FIXED_DATE.getMonth() + 1).padStart(2, '0');
     const expectedHour = String(FIXED_DATE.getHours()).padStart(2, '0');
     const expectedMinute = String(FIXED_DATE.getMinutes()).padStart(2, '0');
-    expect(result).toBe(`Articles/${expectedYear}/${expectedMonth}/${expectedHour}${expectedMinute}.md`);
+    expect(result).toBe(
+      `Articles/${expectedYear}/${expectedMonth}/${expectedHour}${expectedMinute}.md`
+    );
   });
 });

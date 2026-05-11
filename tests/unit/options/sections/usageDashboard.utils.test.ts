@@ -37,6 +37,21 @@ describe('usageDashboard.utils', () => {
     });
   });
 
+  it('prepareHistory pads recorded history to a 30-day dashboard window', () => {
+    const stats = baseStats();
+    stats.history = [
+      { date: '2025-01-14', aiChat: 1, fragment: 0, article: 0 },
+      { date: '2025-01-15', aiChat: 0, fragment: 2, article: 0 }
+    ];
+
+    const history = prepareHistory(stats);
+
+    expect(history).toHaveLength(30);
+    expect(history[0]?.date).toBe('2024-12-17');
+    expect(history.at(-1)?.date).toBe('2025-01-15');
+    expect(history.find((entry) => entry.date === '2025-01-14')?.aiChat).toBe(1);
+  });
+
   it('computeChartGeometry produces points within bounds', () => {
     const stats = baseStats();
     stats.history = [

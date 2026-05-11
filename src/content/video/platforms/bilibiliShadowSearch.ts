@@ -1,4 +1,4 @@
-import type { BilibiliSelectionHelpers } from './bilibiliPlatformSelection';
+import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 export function findBilibiliTextRangeAcrossShadowRoots(
   text: string,

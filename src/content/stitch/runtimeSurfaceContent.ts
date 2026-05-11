@@ -33,6 +33,13 @@ function createRuntimeContent(): PreviewContent {
       subtitle: '',
       logo: ''
     },
+    rendererLabels: {
+      resourcePendingBadge: 'Pending',
+      resourceOpenAction: '打开',
+      highlightExamplePrefix: '导出后的示例会像这样 ',
+      highlightExampleText: '标出重点内容',
+      highlightExampleSuffix: '，方便回看。'
+    },
     sidebarLinks: [],
     surfaceLinks: [],
     nav: [],
@@ -197,6 +204,10 @@ function createRuntimeContent(): PreviewContent {
         hero: hero('Task Success'),
         status: 'success',
         statusMessage: '',
+        progress: {
+          value: 100,
+          variant: 'success'
+        },
         feedbackLabel: '',
         likeLabel: '',
         dislikeLabel: '',
@@ -334,6 +345,7 @@ export function createVideoSurfaceContent(input: {
           fullText: capture.selectionPreview || '',
           commentPreview: capture.commentPreview ?? capture.comment ?? '',
           comment: capture.comment ?? '',
+          hasScreenshot: capture.hasScreenshot ?? false,
           meta: capture.shareUrl || capture.fragmentUrl || ''
         }))
       }

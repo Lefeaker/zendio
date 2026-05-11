@@ -51,7 +51,9 @@ describe('options connectionTester service', () => {
       httpsUrl: ' https://host:1234 ',
       httpUrl: '',
       vault: ' DraftVault ',
-      apiKey: ' secret '
+      apiKey: ' secret ',
+      localFolderId: ' folder-main ',
+      localFolderName: ' Main Vault '
     };
     const result = await module.requestConnectionTest(draft);
 
@@ -60,7 +62,9 @@ describe('options connectionTester service', () => {
       rest: {
         httpsUrl: 'https://host:1234',
         vault: 'DraftVault',
-        apiKey: 'secret'
+        apiKey: 'secret',
+        localFolderId: 'folder-main',
+        localFolderName: 'Main Vault'
       }
     });
     expect(result).toEqual(response);
@@ -76,7 +80,11 @@ describe('options connectionTester service', () => {
     const vault = createVault('vault-1');
     const result = await module.requestVaultConnectionTest(vault);
 
-    expect(sendSpy).toHaveBeenCalledWith({ type: 'TEST_VAULT_CONNECTION', vaultId: 'vault-1', vault });
+    expect(sendSpy).toHaveBeenCalledWith({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-1',
+      vault
+    });
     expect(result).toEqual(response);
     expect(module.isVaultConnectionTestRunning('vault-1')).toBe(false);
   });
@@ -109,14 +117,15 @@ describe('options connectionTester service', () => {
     let resolveVault1: ((value: unknown) => void) | undefined;
     let resolveVault2: ((value: unknown) => void) | undefined;
 
-    messageHandler = (message: Message) => new Promise((resolve) => {
-      const vaultId = (message as { vaultId?: string }).vaultId;
-      if (vaultId === 'vault-1') {
-        resolveVault1 = resolve;
-      } else {
-        resolveVault2 = resolve;
-      }
-    });
+    messageHandler = (message: Message) =>
+      new Promise((resolve) => {
+        const vaultId = (message as { vaultId?: string }).vaultId;
+        if (vaultId === 'vault-1') {
+          resolveVault1 = resolve;
+        } else {
+          resolveVault2 = resolve;
+        }
+      });
 
     const module = await import('../../../src/options/services/connectionTester');
     module.__resetConnectionTesterStateForTests?.();

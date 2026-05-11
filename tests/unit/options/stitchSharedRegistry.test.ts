@@ -28,7 +28,6 @@ describe('Stitch shared registry contracts', () => {
       'capture-sources',
       'capture-behavior',
       'output',
-      'experimental',
       'maintenance'
     ]);
     expect(Object.keys(resourceSchemas)).toEqual([
@@ -55,7 +54,7 @@ describe('Stitch shared registry contracts', () => {
 
     expect(control).toMatchObject({
       kind: 'segmentedNav',
-      bind: 'previewTheme',
+      bind: 'interfaceThemePreference',
       action: { id: STITCH_ACTIONS.setTheme }
     });
   });
@@ -78,11 +77,7 @@ describe('Stitch shared registry contracts', () => {
         highlightTheme: 'gradient',
         readingExportMode: 'full',
         aiUserName: 'USER',
-        aiIncludeTimestamps: false,
-        deepResearchPureMode: false,
         videoFloatingPromptEnabled: true,
-        videoPromptButtonLabel: '开启视频笔记',
-        videoPromptShortcut: 'Alt+V',
         fragmentUseFootnoteFormat: true,
         fragmentCaptureContext: true,
         fragmentContextLength: 200,

@@ -101,6 +101,9 @@ export async function handleVideoSessionAddCapture(
   };
 
   context.state.captures.push(capture);
+  if (options.collapseAfterCapture) {
+    context.dom.collapsePanel();
+  }
   context.syncPanel();
   context.applyHint('saving');
   await saveVideoCaptures(context);
@@ -112,9 +115,6 @@ export async function handleVideoSessionAddCapture(
   }
   if (options.resumePlayback && typeof video.play === 'function') {
     void Promise.resolve(video.play()).catch(() => undefined);
-  }
-  if (options.collapseAfterCapture) {
-    context.dom.collapsePanel();
   }
   return capture;
 }
@@ -224,6 +224,44 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
     });
 }
 
+export async function toggleVideoSessionCaptureScreenshot(
+  context: VideoSessionOperationContext,
+  id: string
+): Promise<void> {
+  const target = context.state.captures.find(
+    (capture): capture is VideoTimestampCapture => capture.kind === 'timestamp' && capture.id === id
+  );
+  if (!target) {
+    return;
+  }
+
+  if (target.screenshot) {
+    delete target.screenshot;
+    context.applyHint('saving');
+    await saveVideoCaptures(context);
+    context.syncPanel();
+    return;
+  }
+
+  context.updateVideoContext();
+  const video = context.state.videoElement ?? context.findVideoElement();
+  if (!video) {
+    context.applyHint('noVideo');
+    return;
+  }
+
+  const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
+  if (!screenshot) {
+    context.applyHint('failure');
+    return;
+  }
+
+  target.screenshot = screenshot;
+  context.applyHint('saving');
+  await saveVideoCaptures(context);
+  context.syncPanel();
+}
+
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
   const target = context.state.captures.find((capture) => capture.id === id);
   if (!target) {
@@ -251,9 +289,21 @@ export async function finishVideoSession(
   context.updateVideoContext();
   context.state.exporting = true;
   context.applyHint('exporting');
+  context.dependencies.showSupportProgress?.({
+    value: 10,
+    label: '正在准备视频导出'
+  });
 
   try {
     const exportDestination = context.getExportDestinationMetadata?.();
+    context.dependencies.showSupportProgress?.({
+      value: 34,
+      label: '正在生成视频笔记'
+    });
+    context.dependencies.showSupportProgress?.({
+      value: 70,
+      label: '正在写入 Obsidian'
+    });
     const result = await context.exporter.export({
       captures: context.state.captures,
       videoTitle: context.state.videoTitle,
@@ -270,9 +320,19 @@ export async function finishVideoSession(
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }
+    context.dependencies.showSupportProgress?.({
+      value: 100,
+      label: '成功发送到 Obsidian',
+      variant: 'success'
+    });
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
+    context.dependencies.showSupportProgress?.({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     context.applyHint('failure');
     context.state.exporting = false;
   }

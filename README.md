@@ -75,14 +75,18 @@
    - Enable the plugin, set an API key, and confirm the endpoint (default `https://127.0.0.1:27124`)
 3. **Finish extension setup**
    - Right-click the extension icon → Options
-   - Provide vault paths, REST API settings, and AI API keys
+   - Provide vault paths, optional Chromium local folder access, REST API settings, and AI API keys
    - Define routing rules and templates (Article / Fragment / AI Chat / Reading Session)
 
 ## Development Baseline
 
 - Recommended Node.js: `20.x` (`.nvmrc`)
 - Recommended npm: `10.x`
+- Current engineering stack: TypeScript, esbuild, Vitest, Playwright, ESLint, Prettier, Stylelint, Zod, Stitch runtime CSS, and WebExtension APIs.
+- Production UI styling path: Stitch runtime CSS for Options, onboarding, and content runtime panels. Tailwind and DaisyUI are historical migration references only and are not part of the current production build chain.
+- Formal Superpowers specs and implementation plans live in the outer workspace under `docs/codex-superpowers/*`; do not move them into this nested repo.
 - Minimum preflight gate before large refactors:
+  - `npm run quality`
   - `npm run verify:preflight`
   - `npm run test:e2e:browser`
   - `npm run test:e2e:browser:smoke`
@@ -96,6 +100,7 @@
 | `storage`                               | Persist extension settings, routing rules, and pending tasks                                     | Data stays local in your browser                          |
 | `contextMenus`                          | Add the “Save to Obsidian” right-click entry                                                     | No history tracking—only used on demand                   |
 | `notifications`                         | Show completion toasts after clipping                                                            | No external calls; notifications vanish instantly         |
+| File System Access API                  | Optional Chromium-only Vault folder authorization from Options                                   | Used only for folders you explicitly choose               |
 | `host_permissions: <all_urls>`          | Allow clipping on any page                                                                       | Access occurs only when you trigger a clip                |
 | `host_permissions: https://127.0.0.1/*` | Talk to the [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | Communicates solely with your local Obsidian instance     |
 

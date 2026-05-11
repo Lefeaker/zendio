@@ -95,7 +95,9 @@ describe('VideoSection', () => {
     expect(collected.video).toEqual({
       floatingPromptEnabled: false,
       promptButtonLabel: '快速开启视频模式',
-      promptShortcut: 'SHIFT+V'
+      promptShortcut: 'SHIFT+V',
+      controlBarAutoPause: true,
+      controlBarScreenshot: true
     });
     section.destroy();
   });

@@ -1,4 +1,9 @@
-import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
+import type {
+  VideoCapture,
+  VideoCaptureScreenshot,
+  VideoFragmentCapture,
+  VideoTimestampCapture
+} from './types';
 
 export interface StoredVideoTimestampEntry {
   kind?: 'timestamp';
@@ -7,6 +12,7 @@ export interface StoredVideoTimestampEntry {
   comment: string;
   url: string;
   createdAt: number;
+  screenshot?: VideoCaptureScreenshot;
 }
 
 export interface StoredVideoFragmentEntry {
@@ -39,7 +45,10 @@ export interface DeserializeContext {
   fallbackUrl: string;
 }
 
-export function deserializeStoredCaptures(entries: StoredVideoCaptureEntry[], ctx: DeserializeContext): VideoCapture[] {
+export function deserializeStoredCaptures(
+  entries: StoredVideoCaptureEntry[],
+  ctx: DeserializeContext
+): VideoCapture[] {
   return entries.map((entry) => {
     if ((entry as StoredVideoFragmentEntry).kind === 'fragment') {
       const fragmentEntry = entry as StoredVideoFragmentEntry;
@@ -66,7 +75,8 @@ export function deserializeStoredCaptures(entries: StoredVideoCaptureEntry[], ct
       timeSec: timestampEntry.timeSec ?? 0,
       comment: timestampEntry.comment ?? '',
       url: timestampEntry.url ?? ctx.fallbackUrl,
-      createdAt: timestampEntry.createdAt ?? Date.now()
+      createdAt: timestampEntry.createdAt ?? Date.now(),
+      ...(timestampEntry.screenshot ? { screenshot: timestampEntry.screenshot } : {})
     };
     return capture;
   });
@@ -95,7 +105,8 @@ export function serializeCaptures(captures: VideoCapture[]): StoredVideoCaptureE
       timeSec: capture.timeSec,
       comment: capture.comment,
       url: capture.url,
-      createdAt: capture.createdAt
+      createdAt: capture.createdAt,
+      ...(capture.screenshot ? { screenshot: capture.screenshot } : {})
     };
     return timestampEntry;
   });

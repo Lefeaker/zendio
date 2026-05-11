@@ -2,6 +2,7 @@ import type { RestClient } from '../../shared/interfaces/restClient';
 import type { ActionService } from '../interfaces/actions';
 import type { ContextMenusService } from '../interfaces/contextMenus';
 import type { DownloadsService } from '../interfaces/downloads';
+import type { FileSystemAccessService } from '../interfaces/fileSystemAccess';
 import type { MessagingService } from '../interfaces/messaging';
 import type { NotificationsService } from '../interfaces/notifications';
 import type { RuntimeService } from '../interfaces/runtime';
@@ -13,11 +14,11 @@ import { createMemoryStorageService } from './memoryStorage';
 
 function createPreviewMessagingService(): MessagingService {
   return {
-    async send<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    send<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
-    async sendToTab<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    sendToTab<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
     addListener() {
       return () => {};
@@ -30,7 +31,9 @@ function createPreviewRuntimeService(): RuntimeService {
     getURL(path: string): string {
       return path;
     },
-    async openOptionsPage(): Promise<void> {},
+    openOptionsPage(): Promise<void> {
+      return Promise.resolve();
+    },
     getManifest() {
       return { version: 'preview' };
     },
@@ -45,21 +48,23 @@ function createPreviewRuntimeService(): RuntimeService {
 
 function createPreviewTabsService(): TabsService {
   return {
-    async create() {
-      return undefined;
+    create() {
+      return Promise.resolve(undefined);
     },
-    async remove() {},
-    async getCurrent() {
-      return undefined;
+    remove() {
+      return Promise.resolve();
     },
-    async get() {
-      return undefined;
+    getCurrent() {
+      return Promise.resolve(undefined);
     },
-    async query() {
-      return [];
+    get() {
+      return Promise.resolve(undefined);
     },
-    async sendMessage<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    query() {
+      return Promise.resolve([]);
+    },
+    sendMessage<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
     onActivated() {
       return () => {};
@@ -75,11 +80,15 @@ function createPreviewTabsService(): TabsService {
 
 function createPreviewContextMenusService(): ContextMenusService {
   return {
-    async create() {
-      return 'preview';
+    create() {
+      return Promise.resolve('preview');
     },
-    async update() {},
-    async removeAll() {},
+    update() {
+      return Promise.resolve();
+    },
+    removeAll() {
+      return Promise.resolve();
+    },
     onClicked() {
       return () => {};
     },
@@ -92,10 +101,12 @@ function createPreviewContextMenusService(): ContextMenusService {
 
 function createPreviewNotificationsService(): NotificationsService {
   return {
-    async create(id) {
-      return id;
+    create(id) {
+      return Promise.resolve(id);
     },
-    async clear() {}
+    clear() {
+      return Promise.resolve();
+    }
   };
 }
 
@@ -104,22 +115,28 @@ function createPreviewActionService(): ActionService {
     onClicked() {
       return () => {};
     },
-    async setBadgeText() {},
-    async setBadgeBackgroundColor() {}
+    setBadgeText() {
+      return Promise.resolve();
+    },
+    setBadgeBackgroundColor() {
+      return Promise.resolve();
+    }
   };
 }
 
 function createPreviewScriptingService(): ScriptingService {
   return {
-    async executeScript() {
-      return [];
+    executeScript() {
+      return Promise.resolve([]);
     }
   };
 }
 
 function createPreviewRestClient(): RestClient {
   return {
-    async writeFile() {}
+    writeFile() {
+      return Promise.resolve();
+    }
   };
 }
 
@@ -127,6 +144,29 @@ function createPreviewDownloadsService(): DownloadsService {
   return {
     download() {
       return Promise.resolve(undefined);
+    }
+  };
+}
+
+function createPreviewFileSystemAccessService(): FileSystemAccessService {
+  return {
+    isSupported() {
+      return false;
+    },
+    chooseDirectory() {
+      return Promise.reject(new Error('File System Access API is unavailable in preview.'));
+    },
+    queryPermission() {
+      return Promise.resolve('unsupported' as const);
+    },
+    ensurePermission() {
+      return Promise.resolve('unsupported' as const);
+    },
+    writeFile() {
+      return Promise.reject(new Error('File System Access API is unavailable in preview.'));
+    },
+    removeDirectory() {
+      return Promise.resolve();
     }
   };
 }
@@ -140,6 +180,7 @@ export function createPreviewPlatformServices(
     runtime: createPreviewRuntimeService(),
     contextMenus: createPreviewContextMenusService(),
     downloads: createPreviewDownloadsService(),
+    fileSystemAccess: createPreviewFileSystemAccessService(),
     notifications: createPreviewNotificationsService(),
     tabs: createPreviewTabsService(),
     action: createPreviewActionService(),

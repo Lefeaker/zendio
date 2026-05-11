@@ -29,11 +29,13 @@ import {
   isReaderSessionActive,
   registerReaderSession
 } from '@content/runtime/contentSessionRegistry';
+import { mergeOptions } from '@shared/config/optionsMerger';
 
 type TestView = ReaderSessionView & {
   updateCount: Mock<[count: number], void>;
   updateHint: Mock<[message: string], void>;
   updateTexts: Mock<[texts: ReaderPanelTexts], void>;
+  updateDestination: Mock<[destination: unknown], void>;
   setHighlights: Mock<[highlights: ReaderPanelHighlight[]], void>;
   stopEditing: Mock<[], void>;
   isEditing: Mock<[], boolean>;
@@ -46,6 +48,7 @@ function createView(): TestView {
     updateCount: vi.fn(),
     updateHint: vi.fn(),
     updateTexts: vi.fn(),
+    updateDestination: vi.fn(),
     setHighlights: vi.fn(),
     stopEditing: vi.fn(),
     isEditing: vi.fn(() => false),
@@ -101,6 +104,7 @@ function createSessionContext() {
     stop: vi.fn()
   };
   const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
+  const showSupportProgress = vi.fn();
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
@@ -170,7 +174,40 @@ function createSessionContext() {
       })
     },
     optionsRepository: {
-      get: vi.fn(),
+      get: vi.fn().mockResolvedValue(
+        mergeOptions({
+          rest: {
+            vault: 'Default Vault',
+            baseUrl: 'https://localhost:27124',
+            apiKey: 'token'
+          },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                id: 'default',
+                name: 'Default Vault',
+                vault: 'Default Vault',
+                httpsUrl: 'https://localhost:27124',
+                httpUrl: 'http://localhost:27123',
+                apiKey: 'token',
+                enabled: true,
+                isDefault: true
+              },
+              {
+                id: 'research',
+                name: 'Research Vault',
+                vault: 'Research Vault',
+                httpsUrl: 'https://localhost:27125',
+                httpUrl: 'http://localhost:27122',
+                apiKey: 'token',
+                enabled: true
+              }
+            ],
+            rules: []
+          }
+        })
+      ),
       set: vi.fn(),
       onChange: vi.fn(() => () => undefined)
     },
@@ -216,7 +253,8 @@ function createSessionContext() {
       buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
       buildFullMarkdown: buildReaderFullMarkdown
     }),
-    dispatchClipResult
+    dispatchClipResult,
+    showSupportProgress
   };
 
   const clipPrompt = createClipPrompt();
@@ -238,6 +276,7 @@ function createSessionContext() {
       getReadingConfig
     },
     dispatchClipResult,
+    showSupportProgress,
     getCallbacks: () => callbacks,
     emitReadingConfig: readerConfigListener
   };
@@ -266,6 +305,32 @@ describe('ReaderSession', () => {
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
     expect(context.view.setHighlights).toHaveBeenLastCalledWith([]);
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
+  });
+
+  it('uses the clipper-selected destination for the initial reader path preview', async () => {
+    const context = createSessionContext();
+    const content = document.getElementById('content')?.firstChild;
+    if (!content) {
+      throw new Error('content missing');
+    }
+    const range = document.createRange();
+    range.selectNodeContents(content);
+
+    await context.session.initialize({
+      range,
+      selectedHtml: 'Hello reader session world.',
+      selectedText: 'Hello reader session world.',
+      comment: '',
+      destination: { kind: 'vault', vaultId: 'research' }
+    });
+
+    expect(context.view.updateDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
   });
 
   it('destroy delegates to cancel cleanup and resets mounted state', async () => {
@@ -337,13 +402,9 @@ describe('ReaderSession', () => {
     expect(context.view.destroy).toHaveBeenCalled();
   });
 
-  it('captures selection through the selection controller and trims annotation comments', async () => {
+  it('captures selection directly inside reader mode without opening the clipper prompt', async () => {
     const context = createSessionContext();
     await context.session.initialize();
-    context.clipPrompt.requestSelectionAction.mockResolvedValue({
-      action: 'clip',
-      comment: '  hello  '
-    });
 
     const content = document.getElementById('content');
     if (!content?.firstChild) {
@@ -359,13 +420,14 @@ describe('ReaderSession', () => {
       }
     ).__testHighlights;
     expect(highlights).toHaveLength(1);
-    expect(highlights[0]?.comment).toBe('hello');
+    expect(highlights[0]?.comment).toBe('');
     expect(highlights[0]?.selectedText).toContain('Hello reader session world.');
+    expect(context.clipPrompt.requestSelectionAction).not.toHaveBeenCalled();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(1);
     expect(context.view.setHighlights).toHaveBeenCalled();
   });
 
-  it('ignores cancel actions and reports selection failures', async () => {
+  it('reports selection failures', async () => {
     const context = createSessionContext();
     await context.session.initialize();
 
@@ -373,20 +435,7 @@ describe('ReaderSession', () => {
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
-      action: 'cancel',
-      comment: ''
-    });
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
-    expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toHaveLength(0);
-
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    context.clipPrompt.requestSelectionAction.mockResolvedValueOnce({
-      action: 'clip',
-      comment: ''
-    });
     context.highlightManager.createHighlight.mockImplementationOnce(() => {
       throw new Error('network');
     });
@@ -498,6 +547,22 @@ describe('ReaderSession', () => {
     callbacks.onFinish();
     await vi.waitFor(() => {
       expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 10,
+      label: '正在准备阅读导出'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 24,
+      label: '正在整理阅读标注'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 32,
+      label: '正在生成阅读笔记'
+    });
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 36,
+      label: '正在发送到 Obsidian'
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
     expect(isReaderSessionActive(document)).toBe(false);

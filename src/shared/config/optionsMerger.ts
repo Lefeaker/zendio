@@ -280,6 +280,16 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     }
   }
 
+  const sourceLocalFolderId = source.rest?.localFolderId;
+  if (sourceLocalFolderId !== undefined) {
+    rest.localFolderId = sourceLocalFolderId;
+  }
+
+  const sourceLocalFolderName = source.rest?.localFolderName;
+  if (sourceLocalFolderName !== undefined) {
+    rest.localFolderName = sourceLocalFolderName;
+  }
+
   const storedTemplates = source.templates ?? {};
   const legacyClipper =
     typeof storedTemplates === 'object'
@@ -303,7 +313,12 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     : { ...defaults.domainMappings };
 
   const options: OptionsState = {
-    interfaceTheme: source.interfaceTheme === 'light' ? 'light' : 'dark',
+    interfaceTheme:
+      source.interfaceTheme === 'light' ||
+      source.interfaceTheme === 'dark' ||
+      source.interfaceTheme === 'system'
+        ? source.interfaceTheme
+        : (defaults.interfaceTheme ?? 'system'),
     rest,
     templates,
     domainMappings

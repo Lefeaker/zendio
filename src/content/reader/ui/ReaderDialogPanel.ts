@@ -46,12 +46,14 @@ export class ReaderDialogPanel
   private destination: ExportDestinationSurfacePreview | undefined;
   private highlightCount = 0;
   private editingHighlightId: string | null = null;
+  private pendingNoteFocusHighlightId: string | null = null;
   private collapsed = false;
 
   constructor(private readonly options: ReaderDialogPanelOptions) {
     this.texts = options.texts;
     this.popupCoordinator = resolveContentPopupCoordinator();
     this.renderRoot = document.createElement('div');
+    this.renderRoot.id = 'aiob-reader-panel';
     this.renderRoot.style.position = 'fixed';
     this.renderRoot.style.inset = '0';
     this.renderRoot.style.zIndex = '2147483647';
@@ -105,11 +107,21 @@ export class ReaderDialogPanel
       this.texts = { ...this.texts, hint: payload.hint };
     }
     if (payload.highlights) {
+      const previousCount = this.highlights.length;
       if (this.collapsed && payload.highlights.length > this.highlights.length) {
         this.collapsed = false;
       }
       this.highlights = [...payload.highlights];
       this.highlightCount = payload.highlights.length;
+      const newestHighlight =
+        payload.highlights.length > previousCount ? payload.highlights.at(-1) : undefined;
+      if (newestHighlight?.id) {
+        this.editingHighlightId = newestHighlight.id;
+        this.pendingNoteFocusHighlightId = newestHighlight.id;
+      }
+      this.rerender();
+      this.focusHighlightNoteInput(newestHighlight?.id);
+      return this.renderRoot;
     }
     this.rerender();
     return this.renderRoot;
@@ -139,12 +151,19 @@ export class ReaderDialogPanel
   }
 
   setHighlights(highlights: ReaderPanelHighlight[]): void {
+    const previousCount = this.highlights.length;
     if (this.collapsed && highlights.length > this.highlights.length) {
       this.collapsed = false;
     }
     this.highlights = [...highlights];
     this.highlightCount = highlights.length;
+    const newestHighlight = highlights.length > previousCount ? highlights.at(-1) : undefined;
+    if (newestHighlight?.id) {
+      this.editingHighlightId = newestHighlight.id;
+      this.pendingNoteFocusHighlightId = newestHighlight.id;
+    }
     this.rerender();
+    this.focusHighlightNoteInput(newestHighlight?.id);
   }
 
   stopEditing(): void {
@@ -153,7 +172,11 @@ export class ReaderDialogPanel
   }
 
   isEditing(): boolean {
-    return this.editingHighlightId !== null;
+    const activeElement = this.renderRoot.shadowRoot?.activeElement;
+    return (
+      activeElement instanceof HTMLInputElement &&
+      activeElement.dataset.highlightInput === this.editingHighlightId
+    );
   }
 
   destroy(): void {
@@ -180,6 +203,7 @@ export class ReaderDialogPanel
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
+    this.focusHighlightNoteInput(this.pendingNoteFocusHighlightId ?? this.editingHighlightId);
   }
 
   private renderSurface(): HTMLElement {
@@ -335,6 +359,22 @@ export class ReaderDialogPanel
         void this.options.callbacks.onSubmitHighlightEdit(id, input.value);
       });
     });
+  }
+
+  private focusHighlightNoteInput(highlightId: string | null | undefined): void {
+    if (!highlightId) {
+      return;
+    }
+    const input = Array.from(
+      this.renderRoot.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-highlight-input]') ?? []
+    ).find((element) => element.dataset.highlightInput === highlightId);
+    if (!input) {
+      return;
+    }
+    input.focus();
+    if (this.renderRoot.shadowRoot?.activeElement === input) {
+      this.pendingNoteFocusHighlightId = null;
+    }
   }
 
   private isInteractiveHighlightTarget(target: Element | null): boolean {

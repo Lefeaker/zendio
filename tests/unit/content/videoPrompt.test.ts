@@ -46,6 +46,8 @@ type VideoOptionsStub = {
   promptButtonLabel: string;
   promptShortcut: string;
   promptPosition: PromptPosition;
+  controlBarAutoPause: boolean;
+  controlBarScreenshot: boolean;
 };
 
 type StorageChangeSnapshot = {
@@ -84,6 +86,10 @@ type RuntimeStub = {
 type VideoRepositoryStub = {
   getVideoConfig: () => Promise<VideoOptionsStub>;
   savePromptPosition: (position: PromptPosition) => Promise<void>;
+  saveControlBarPreferences: (preferences: {
+    autoPauseEnabled: boolean;
+    captureScreenshotEnabled: boolean;
+  }) => Promise<void>;
   getPromptPosition: () => Promise<PromptPosition | null>;
   sendVideoClip: ReturnType<typeof vi.fn>;
   onConfigChange: (callback: (config: VideoOptionsStub) => void) => () => void;
@@ -145,14 +151,38 @@ vi.mock('../../../src/content/video/videoPromptObserver', () => ({
 }));
 
 const ensureVideoControlBarButtonMock = vi.hoisted(() =>
-  vi.fn((options: { doc: Document; onPrimaryAction(): void }) => {
-    const button = options.doc.createElement('button');
-    button.className = 'aiob-video-control-bar-button';
-    button.dataset.aiobVideoControlBarButton = 'true';
-    button.addEventListener('click', options.onPrimaryAction);
-    options.doc.body.appendChild(button);
-    return true;
-  })
+  vi.fn(
+    (options: {
+      doc: Document;
+      preferences: { autoPauseEnabled: boolean; captureScreenshotEnabled: boolean };
+      onPreferencesChange(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
+      onPopoverOpen?(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
+      onPopoverDismiss?(preferences: {
+        autoPauseEnabled: boolean;
+        captureScreenshotEnabled: boolean;
+      }): void;
+      onPrimaryAction(
+        preferences: {
+          autoPauseEnabled: boolean;
+          captureScreenshotEnabled: boolean;
+        },
+        payload?: { comment?: string; source?: string }
+      ): void;
+    }) => {
+      const button = options.doc.createElement('button');
+      button.className = 'aiob-video-control-bar-button';
+      button.dataset.aiobVideoControlBarButton = 'true';
+      button.addEventListener('click', () => options.onPrimaryAction(options.preferences));
+      options.doc.body.appendChild(button);
+      return true;
+    }
+  )
 );
 const removeVideoControlBarButtonMock = vi.hoisted(() =>
   vi.fn((doc: Document) => {
@@ -195,10 +225,27 @@ vi.mock('../../../src/content/video/videoPromptRenderer', () => ({
   updatePromptLabels: updatePromptLabelsMock
 }));
 
-const startVideoSessionMock = vi.hoisted(() => vi.fn<[], Promise<void>>(() => Promise.resolve()));
+const startVideoSessionMock = vi.hoisted(() =>
+  vi.fn<[{ initialCollapsed?: boolean }?], Promise<void>>(() => Promise.resolve())
+);
+const addCurrentTimestampMock = vi.hoisted(() =>
+  vi.fn<
+    [
+      'button' | 'note-input' | undefined,
+      {
+        captureScreenshot?: boolean;
+        pauseVideo?: boolean;
+        beginEditing?: boolean;
+        collapseAfterCapture?: boolean;
+      }
+    ],
+    Promise<void>
+  >(() => Promise.resolve())
+);
 const videoSessionFactoryMock = vi.hoisted(() =>
   vi.fn(() => ({
-    start: startVideoSessionMock
+    start: startVideoSessionMock,
+    addCurrentTimestamp: addCurrentTimestampMock
   }))
 );
 vi.mock('../../../src/content/video/session', () => ({
@@ -243,12 +290,20 @@ type VideoPromptTestUtils = {
 
 type VideoPromptTestModule = {
   initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void>;
+};
+
+type LoadedVideoPromptTestModule = VideoPromptTestModule & {
   __videoPromptTestUtils: VideoPromptTestUtils;
 };
 
-async function loadPromptModule(): Promise<VideoPromptTestModule> {
-  const module = await vi.importActual<VideoPromptTestModule>('../../../src/content/video/prompt');
-  return module;
+async function loadPromptModule(): Promise<LoadedVideoPromptTestModule> {
+  const [module, harness] = await Promise.all([
+    vi.importActual<VideoPromptTestModule>('../../../src/content/video/prompt'),
+    vi.importActual<{ __videoPromptTestUtils: VideoPromptTestUtils }>(
+      '../../../src/content/video/videoPromptTestHarness'
+    )
+  ]);
+  return { ...module, __videoPromptTestUtils: harness.__videoPromptTestUtils };
 }
 
 type TestDeps = {
@@ -307,9 +362,20 @@ function createTestDependencies(): TestDeps {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
       promptShortcut: 'Ctrl+Shift+V',
-      promptPosition: { x: 90, y: 150 }
+      promptPosition: { x: 90, y: 150 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     }),
     savePromptPosition: vi.fn<[PromptPosition], Promise<void>>(() => Promise.resolve()),
+    saveControlBarPreferences: vi.fn<
+      [
+        {
+          autoPauseEnabled: boolean;
+          captureScreenshotEnabled: boolean;
+        }
+      ],
+      Promise<void>
+    >(() => Promise.resolve()),
     getPromptPosition: vi
       .fn<[], Promise<PromptPosition | null>>()
       .mockResolvedValue({ x: 120, y: 200 }),
@@ -359,6 +425,7 @@ describe('video prompt', () => {
     getContentMessagesMock.mockClear();
     detectVideoIdentityMock.mockClear();
     startVideoSessionMock.mockClear();
+    addCurrentTimestampMock.mockClear();
     videoSessionFactoryMock.mockClear();
     setIntervalSpy.mockImplementation((callback: () => void) => {
       callback();
@@ -379,7 +446,7 @@ describe('video prompt', () => {
   });
 
   it('mounts prompt when evaluation passes and persists drag position', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -412,7 +479,7 @@ describe('video prompt', () => {
   });
 
   it('does not start interval polling during prompt initialization', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -427,7 +494,7 @@ describe('video prompt', () => {
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
     controlTargetState.current = controls;
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -440,8 +507,165 @@ describe('video prompt', () => {
     expect(ensureVideoControlBarButtonMock).toHaveBeenCalled();
   });
 
+  it('opens a control-bar capture with persisted preferences', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    const pauseSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => undefined);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    expect(controlOptions?.preferences).toEqual({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: false
+    });
+
+    controlOptions?.onPreferencesChange({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+    await flushMicrotasks();
+    expect(deps.videoRepo.saveControlBarPreferences).toHaveBeenCalledWith({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+
+    controlOptions?.onPopoverOpen?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+
+    controlOptions?.onPrimaryAction(
+      {
+        autoPauseEnabled: false,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'watch this',
+        source: 'note-input'
+      }
+    );
+    await flushMicrotasks();
+
+    expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledWith({ initialCollapsed: true });
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('note-input', {
+      comment: 'watch this',
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: false,
+      resumePlayback: false,
+      collapseAfterCapture: true
+    });
+  });
+
+  it('resumes playback after submitting a control-bar note when auto-pause is enabled', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPrimaryAction(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'resume after save',
+        source: 'note-input'
+      }
+    );
+    await flushMicrotasks();
+
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('note-input', {
+      comment: 'resume after save',
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: false,
+      resumePlayback: true,
+      collapseAfterCapture: true
+    });
+  });
+
+  it('resumes playback when an auto-paused control-bar popover is dismissed outside', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    const playSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockImplementation(() => Promise.resolve());
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPopoverDismiss?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a legacy control-bar capture without a typed note when called directly', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPrimaryAction({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+    await flushMicrotasks();
+
+    expect(videoSessionFactoryMock).toHaveBeenCalledTimes(1);
+    expect(startVideoSessionMock).toHaveBeenCalledWith({ initialCollapsed: true });
+    expect(addCurrentTimestampMock).toHaveBeenCalledWith('button', {
+      pauseVideo: false,
+      captureScreenshot: true,
+      beginEditing: true,
+      collapseAfterCapture: true
+    });
+  });
+
   it('ignores danmaku-only observer callbacks without remounting the prompt', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -457,7 +681,7 @@ describe('video prompt', () => {
   });
 
   it('does not resync control entry from unrelated page churn before the control target exists', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -480,7 +704,7 @@ describe('video prompt', () => {
   });
 
   it('applies config updates and removes prompt when disabled', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -493,7 +717,9 @@ describe('video prompt', () => {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Quick clip',
       promptShortcut: 'Alt+Q',
-      promptPosition: { x: 40, y: 80 }
+      promptPosition: { x: 40, y: 80 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     };
     deps.emitConfigChange(updatedConfig);
     await flushMicrotasks();
@@ -505,7 +731,9 @@ describe('video prompt', () => {
       floatingPromptEnabled: false,
       promptButtonLabel: 'Hidden',
       promptShortcut: 'None',
-      promptPosition: { x: 0, y: 0 }
+      promptPosition: { x: 0, y: 0 },
+      controlBarAutoPause: true,
+      controlBarScreenshot: false
     };
     deps.emitConfigChange(disabledConfig);
     await flushMicrotasks();
@@ -513,7 +741,7 @@ describe('video prompt', () => {
   });
 
   it('re-evaluates when language setting changes', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -529,7 +757,7 @@ describe('video prompt', () => {
   });
 
   it('re-evaluates on YouTube navigation finish events', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -557,7 +785,7 @@ describe('video prompt', () => {
       return Promise.resolve('');
     });
 
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
@@ -585,7 +813,7 @@ describe('video prompt', () => {
   });
 
   it('tears down prompt DOM on pagehide and restores it on pageshow', async () => {
-    const module: VideoPromptTestModule = await loadPromptModule();
+    const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);

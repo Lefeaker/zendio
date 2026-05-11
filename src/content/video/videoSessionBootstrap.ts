@@ -50,6 +50,7 @@ export async function finalizeVideoSessionStart(args: {
   state: VideoSessionState;
   dom: VideoSessionDomController;
   messages: VideoSessionMessages;
+  initialCollapsed?: boolean;
   platformController: VideoSessionPlatformController;
   lifecycle: VideoSessionLifecycle;
   operationContext: VideoSessionOperationContext;
@@ -64,7 +65,9 @@ export async function finalizeVideoSessionStart(args: {
 
   args.state.highlightTheme = highlightTheme;
   args.applyHighlightTheme(args.state.highlightTheme);
-  args.dom.mountPanel(args.panelCallbacks, args.messages.panel);
+  args.dom.mountPanel(args.panelCallbacks, args.messages.panel, {
+    initialCollapsed: Boolean(args.initialCollapsed)
+  });
   args.applyHint('noVideo');
 
   args.platformController.updateVideoContext();

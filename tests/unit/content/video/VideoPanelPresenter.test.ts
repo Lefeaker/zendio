@@ -29,8 +29,34 @@ describe('VideoPanelPresenter', () => {
     const presenter = new VideoPanelPresenter(view);
 
     const count = presenter.render({
-      timestamps: [{ id: 't1', kind: 'timestamp', timeSec: 3671, url: 'https://example.com?t=3671', comment: '  note  ', createdAt: 1 }],
-      fragments: [{ id: 'f1', kind: 'fragment', selectedText: '  a very long fragment '.repeat(8), selectedHtml: '<p>x</p>', fragmentUrl: 'https://example.com#frag', comment: '', createdAt: 2 }]
+      timestamps: [
+        {
+          id: 't1',
+          kind: 'timestamp',
+          timeSec: 3671,
+          url: 'https://example.com?t=3671',
+          comment: '  note  ',
+          createdAt: 1,
+          screenshot: {
+            id: 'shot-1',
+            fileName: 'video-61m11s-screenshot.png',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,frame',
+            capturedAt: 1
+          }
+        }
+      ],
+      fragments: [
+        {
+          id: 'f1',
+          kind: 'fragment',
+          selectedText: '  a very long fragment '.repeat(8),
+          selectedHtml: '<p>x</p>',
+          fragmentUrl: 'https://example.com#frag',
+          comment: '',
+          createdAt: 2
+        }
+      ]
     });
 
     const captures = view.setCaptures.mock.calls[0]?.[0] as VideoPanelCapture[] | undefined;
@@ -38,7 +64,13 @@ describe('VideoPanelPresenter', () => {
     expect(count).toBe(2);
     expect(view.updateCount).toHaveBeenCalledWith(2);
     expect(captures).toHaveLength(2);
-    expect(captures?.[0]).toMatchObject({ id: 't1', kind: 'timestamp', timeLabel: '01:01:11', commentPreview: 'note' });
+    expect(captures?.[0]).toMatchObject({
+      id: 't1',
+      kind: 'timestamp',
+      timeLabel: '01:01:11',
+      commentPreview: 'note',
+      hasScreenshot: true
+    });
     expect(captures?.[1]).toMatchObject({ id: 'f1', kind: 'fragment', commentPreview: '' });
     expect(captures?.[1]?.fragmentLabel).toContain('a very long fragment');
   });
@@ -47,7 +79,20 @@ describe('VideoPanelPresenter', () => {
     const view = createView();
     const presenter = new VideoPanelPresenter(view);
     presenter.updateTexts({ title: 'x' } as never);
-    presenter.render({ timestamps: [], fragments: [{ id: 'f2', kind: 'fragment', selectedText: '   ', selectedHtml: '', fragmentUrl: '', comment: ' ok ', createdAt: 3 }] });
+    presenter.render({
+      timestamps: [],
+      fragments: [
+        {
+          id: 'f2',
+          kind: 'fragment',
+          selectedText: '   ',
+          selectedHtml: '',
+          fragmentUrl: '',
+          comment: ' ok ',
+          createdAt: 3
+        }
+      ]
+    });
 
     expect(view.updateTexts).toHaveBeenCalled();
     expect(view.setCaptures).toHaveBeenCalledWith([

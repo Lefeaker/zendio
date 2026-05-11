@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { VideoPanelCallbacks, VideoPanelTexts } from '@content/video/application/videoPanelModel';
+import type {
+  VideoPanelCallbacks,
+  VideoPanelTexts
+} from '@content/video/application/videoPanelModel';
 
 const mocks = vi.hoisted(() => {
   const dialogCtor = vi.fn();
@@ -15,6 +18,7 @@ const mocks = vi.hoisted(() => {
     updateTexts = vi.fn();
     beginEditingCapture = vi.fn();
     stopEditing = vi.fn();
+    collapse = vi.fn();
     destroy = vi.fn();
 
     constructor(options: unknown) {
@@ -38,6 +42,7 @@ describe('createVideoPanelViewFactory', () => {
     onCancel: vi.fn(),
     onDeleteCapture: vi.fn(),
     onSubmitCaptureEdit: vi.fn(),
+    onToggleScreenshot: vi.fn(),
     onFocusCapture: vi.fn()
   };
 
@@ -62,7 +67,9 @@ describe('createVideoPanelViewFactory', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.dialogCtor.mockReset();
-    ({ createVideoPanelViewFactory } = await import('../../../../src/content/video/presentation/videoPanelView'));
+    ({ createVideoPanelViewFactory } = await import(
+      '../../../../src/content/video/presentation/videoPanelView'
+    ));
   });
 
   it('creates VideoDialogPanel and proxies view calls', () => {
@@ -71,5 +78,16 @@ describe('createVideoPanelViewFactory', () => {
 
     expect(mocks.dialogCtor).toHaveBeenCalledWith({ callbacks, texts });
     expect(view).toBeTruthy();
+  });
+
+  it('passes the initial collapsed option into the Stitch video panel', () => {
+    const factory = createVideoPanelViewFactory();
+    factory.createView(callbacks, texts, { initialCollapsed: true });
+
+    expect(mocks.dialogCtor).toHaveBeenCalledWith({
+      callbacks,
+      texts,
+      initialCollapsed: true
+    });
   });
 });

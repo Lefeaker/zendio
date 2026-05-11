@@ -20,8 +20,8 @@ describe('captureStorage', () => {
         screenshot: {
           id: 'shot-1',
           fileName: 'video-0m12s-screenshot.png',
-          mimeType: 'image/png',
-          dataUrl: 'data:image/png;base64,shot',
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,shot',
           capturedAt: now
         }
       },
@@ -41,7 +41,7 @@ describe('captureStorage', () => {
       kind: 'timestamp',
       screenshot: {
         fileName: 'video-0m12s-screenshot.png',
-        dataUrl: 'data:image/png;base64,shot'
+        dataUrl: 'data:image/jpeg;base64,shot'
       }
     });
     expect(serialized[1]).toMatchObject({ kind: 'fragment', wrapperId: 'wrap-1' });
@@ -67,7 +67,7 @@ describe('captureStorage', () => {
       url: 'https://video.example?t=12',
       screenshot: {
         fileName: 'video-0m12s-screenshot.png',
-        dataUrl: 'data:image/png;base64,shot'
+        dataUrl: 'data:image/jpeg;base64,shot'
       }
     });
     expect(restored[1]).toMatchObject({ kind: 'fragment', selectedHtml: '', fragmentUrl: '' });
@@ -75,14 +75,12 @@ describe('captureStorage', () => {
 
   it('delegates load and save to the provided storage namespace', async () => {
     const storage = {
-      get: vi
-        .fn()
-        .mockResolvedValue({
-          title: 'Saved',
-          url: 'https://example.com',
-          entries: [],
-          updatedAt: 1
-        }),
+      get: vi.fn().mockResolvedValue({
+        title: 'Saved',
+        url: 'https://example.com',
+        entries: [],
+        updatedAt: 1
+      }),
       set: vi.fn().mockResolvedValue(undefined)
     };
 

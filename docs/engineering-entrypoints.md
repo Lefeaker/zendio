@@ -1,12 +1,19 @@
 # 工程命令与入口
 
-最后更新：2026-04-14
+最后更新：2026-05-11
 
 ## 推荐运行环境
 
-- Node.js：`20.x`
+- Node.js：`20.x`，本轮最终矩阵使用 `20.20.2`
 - npm：`10.x`
 - Playwright：`npx playwright install --with-deps chromium`
+
+## 当前技术栈真值
+
+- TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。
+- Stitch runtime CSS 是 Options、onboarding 与 content runtime panels 的正式生产 UI 样式路径。
+- Tailwind / DaisyUI 仅保留为历史迁移材料或归档参考，不属于当前生产构建链。
+- formal `superpowers` specs/plans 固定存放在外层 workspace 的 `docs/codex-superpowers/*`。
 
 ## 本轮统一门禁真值
 
@@ -14,11 +21,29 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `audit:retired-code:report`
+  - 显式包含 `audit:production-shape:report`
+  - 显式包含 `audit:build-graph:report`
+  - 显式包含 `audit:deps:report`
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
+- `npm run audit:deps:report`
+  - 使用 `dependency-cruiser@16.10.4` 巡检 `src/**/*.ts`、`src/**/*.tsx`、`src/**/*.js`
+  - 当前必须覆盖至少 `400` modules 和 `300` dependencies
+  - 任何 dependency-cruiser violation（包含 circular dependency）均视为失败
+  - 当前实测：`modules=765 dependencies=2357 violations=0`
+- `npm run audit:build-graph:report`
+  - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
+  - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
+- `npm run audit:retired-code:report`
+  - 读取 `docs/retired-code-inventory.md`
+  - 阻止 `delete-now` path 在 `src` 中回归，或被 package/scripts/src/tests/public/manifest 与视觉/浏览器验证继续引用
+- `npm run audit:production-shape:report`
+  - 读取 `docs/production-code-hotspots.md`
+  - 强制热点 LOC 阈值，并阻止 renderer/widget facade 重新出现硬编码可见文本赋值
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
 
@@ -54,6 +79,7 @@ npm run visual:test
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
+- 当前实测 `content/runtime.js` 为 `57,299` bytes，预算上限为 `57,344` bytes。
 
 ## 核心命令
 
@@ -70,6 +96,10 @@ npm run visual:test
 - `npm run test:coverage`
 - `npm run test:i18n`
 - `npm run visual:test`
+- `npm run audit:deps:report`
+- `npm run audit:build-graph:report`
+- `npm run audit:retired-code:report`
+- `npm run audit:production-shape:report`
 - `npm run report:release-summary`
 
 ## 正式代码入口
@@ -81,6 +111,12 @@ npm run visual:test
 - domains：`src/ui/domains/*`
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
+
+## Retired / Compatibility Guardrails
+
+- 旧 Options preview 源树不得重新引入；验证夹具归属为 `tests/fixtures/options-preview/**`。
+- `src/options/components/layout/**`、`src/options/components/formSections/**`、旧 class section 文件与非 YAML widgets 保持 `migrate-then-delete`，直到 build graph、import graph、script/test/public owner 证明均清零。
+- 已删除的 retired preview/runtime compatibility 路径不得作为 production、test 或 verification owner 回流。
 
 ## 已降级为兼容壳的入口
 

@@ -2,6 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
+import { registerService, TOKENS } from '@shared/di';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
@@ -52,6 +54,18 @@ function findButton(label: string): HTMLButtonElement {
     throw new Error(`Missing button: ${label}`);
   }
   return button;
+}
+
+function findCardByTitle(title: string): HTMLElement {
+  const card = Array.from(document.querySelectorAll<HTMLElement>('.card')).find((candidate) =>
+    Array.from(candidate.querySelectorAll('h2, h3')).some(
+      (heading) => heading.textContent?.trim() === title
+    )
+  );
+  if (!card) {
+    throw new Error(`Missing card: ${title}`);
+  }
+  return card;
 }
 
 function findInputByValue(value: string): HTMLInputElement {
@@ -148,6 +162,34 @@ async function flushPromises(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+function installSmoothMainScrollSimulation(): () => void {
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTop');
+  const values = new WeakMap<HTMLElement, number>();
+
+  Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return values.get(this) ?? 0;
+    },
+    set(this: HTMLElement, value: number) {
+      const nextValue = Number(value) || 0;
+      if (this.classList.contains('main') && this.style.scrollBehavior !== 'auto') {
+        values.set(this, 0);
+        return;
+      }
+      values.set(this, nextValue);
+    }
+  });
+
+  return () => {
+    if (original) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollTop', original);
+      return;
+    }
+    delete (HTMLElement.prototype as unknown as { scrollTop?: number }).scrollTop;
+  };
+}
+
 describe('mountProductionStitchShell', () => {
   beforeEach(() => {
     document.documentElement.removeAttribute('data-theme');
@@ -199,7 +241,7 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft()).toEqual(
       expect.objectContaining({
         ...mergeOptions({ rest: { vault: 'Research Vault' } }),
-        rest: expect.objectContaining({ vault: 'Research Vault' })
+        rest: expect.objectContaining({ vault: 'Research Vault' }) as unknown
       })
     );
 
@@ -286,15 +328,21 @@ describe('mountProductionStitchShell', () => {
     expect(statText).toContain('5');
     expect(statText).toContain('3');
     expect(statText).not.toContain('1284');
+
+    const chartLabels = document.querySelectorAll('#usageXAxis text');
+    expect(chartLabels.length).toBeGreaterThanOrEqual(5);
+    expect(document.querySelector('#usageWavePath')?.getAttribute('d')).toBeTruthy();
   });
 
   it('persists theme changes through the Stitch segmented control', () => {
     const controller = createController();
+    const repository = createRepository();
     mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
       initialOptions: null,
       messages: null,
-      language: 'en'
+      language: 'en',
+      optionsRepository: repository
     });
 
     const main = document.querySelector<HTMLElement>('.main');
@@ -308,6 +356,7 @@ describe('mountProductionStitchShell', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('light');
     expect(document.body.dataset.previewTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('light');
+    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'light' });
 
     const darkButton = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.chips button')
@@ -318,6 +367,62 @@ describe('mountProductionStitchShell', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('dark');
     expect(document.body.dataset.previewTheme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
+    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'dark' });
+  });
+
+  it('adds a system theme preference and resolves it immediately from media changes', () => {
+    const controller = createController();
+    const repository = createRepository();
+    const mediaListeners = new Set<() => void>();
+    const media = {
+      matches: true,
+      addEventListener: vi.fn((_event: string, callback: () => void) => {
+        mediaListeners.add(callback);
+      }),
+      removeEventListener: vi.fn()
+    };
+    vi.spyOn(window, 'matchMedia').mockReturnValue(media as never);
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: { interfaceTheme: 'system' },
+      messages: null,
+      language: 'en',
+      optionsRepository: repository
+    });
+
+    const systemButton = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.chips button')
+    ).find((button) => button.textContent === 'System');
+    expect(systemButton).toBeTruthy();
+    expect(document.documentElement.dataset.previewTheme).toBe('dark');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+
+    media.matches = false;
+    mediaListeners.forEach((callback) => callback());
+
+    expect(document.documentElement.dataset.previewTheme).toBe('light');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+  });
+
+  it('defaults the interface theme preference to system', () => {
+    const controller = createController();
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as never);
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(document.documentElement.dataset.previewTheme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
   });
 
   it('binds production option values and schedules autosave after edits', () => {
@@ -429,6 +534,7 @@ describe('mountProductionStitchShell', () => {
       controller: controller as unknown as OptionsController,
       initialOptions: {
         rest: {
+          baseUrl: 'https://localhost:27124',
           vault: 'Research Vault',
           httpsUrl: 'https://localhost:27124',
           httpUrl: 'http://localhost:27123',
@@ -452,6 +558,178 @@ describe('mountProductionStitchShell', () => {
         vault: 'Notes Vault'
       })
     );
+  });
+
+  it('renders and persists Chromium local folders in the production Vault List', async () => {
+    const controller = createController();
+    const chooseDirectory = vi.fn(() =>
+      Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
+    );
+    const ensurePermission = vi.fn(() => Promise.resolve('granted'));
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory,
+            ensurePermission,
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: {
+          baseUrl: 'https://localhost:27124',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token'
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(
+      Array.from(vaultList.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
+    ).toEqual(['Enabled', 'Vault', 'Local Folder', 'HTTPS URL', 'HTTP URL', 'API Key', 'Actions']);
+
+    const chooseButton = Array.from(vaultList.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === '选择目录'
+    );
+    expect(chooseButton).toBeTruthy();
+    chooseButton?.click();
+    await flushPromises();
+
+    expect(chooseDirectory).toHaveBeenCalledWith({ suggestedName: 'Research Vault' });
+    const collected = mounted.collectDraft();
+    expect(collected.rest.localFolderId).toBe('folder-main');
+    expect(collected.rest.localFolderName).toBe('Local Vault');
+    expect(collected.vaultRouter?.vaults?.[0]).toEqual(
+      expect.objectContaining({
+        localFolderId: 'folder-main',
+        localFolderName: 'Local Vault'
+      })
+    );
+
+    const refreshedVaultList = findCardByTitle('Vault List');
+    expect(refreshedVaultList.textContent).not.toContain('清除');
+    const selectedFolderButton = Array.from(
+      refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    expect(selectedFolderButton).toBeTruthy();
+    expect(selectedFolderButton?.getAttribute('title')).toContain('Local Vault');
+    selectedFolderButton?.click();
+    await flushPromises();
+
+    expect(ensurePermission).toHaveBeenCalledWith('folder-main');
+    const popover =
+      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-popover');
+    expect(popover).toBeTruthy();
+    expect(popover?.classList.contains('is-bubble')).toBe(true);
+    expect(popover?.textContent?.trim()).toBe('删除本地目录');
+    expect(popover?.textContent).not.toContain('取消');
+    expect(popover?.textContent).not.toContain('Local Vault');
+    expect(popover?.querySelectorAll('button')).toHaveLength(1);
+
+    const deleteButton = popover?.querySelector<HTMLButtonElement>('button');
+    expect(deleteButton).toBeTruthy();
+    deleteButton?.click();
+    await flushPromises();
+
+    const cleared = mounted.collectDraft();
+    expect(cleared.rest.localFolderId).toBeUndefined();
+    expect(cleared.rest.localFolderName).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+  });
+
+  it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
+    const controller = createController();
+    const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory: vi.fn(),
+            ensurePermission,
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
+
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: {
+          baseUrl: 'https://localhost:27124',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token',
+          localFolderId: 'folder-main',
+          localFolderName: 'Local Vault'
+        },
+        vaultRouter: {
+          defaultVaultId: 'vault-default',
+          vaults: [
+            {
+              id: 'vault-default',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'token',
+              localFolderId: 'folder-main',
+              localFolderName: 'Local Vault',
+              enabled: true,
+              isDefault: true
+            }
+          ],
+          rules: []
+        }
+      } as Partial<CompleteOptions>,
+      messages: null,
+      language: 'en'
+    });
+
+    const selectedFolderButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    expect(selectedFolderButton).toBeTruthy();
+    selectedFolderButton?.click();
+    await flushPromises();
+
+    expect(ensurePermission).toHaveBeenCalledWith('folder-main');
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
+    expect(document.body.textContent).toContain('本地目录需要重新授权');
+  });
+
+  it('prevents mouse button presses from moving the production Options scroller', async () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+
+    const main = document.querySelector<HTMLElement>('.main');
+    expect(main).toBeTruthy();
+    main!.scrollTop = 420;
+
+    const yamlAddButton = findButton('+ Add field');
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    yamlAddButton.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(420);
   });
 
   it('persists domain mapping edits and delete actions', () => {
@@ -478,7 +756,218 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft().domainMappings).toEqual({});
   });
 
-  it('renders experimental summary and subtitle placeholders as disabled coming-soon controls', () => {
+  it('restores default Domain Mappings rows when mappings are empty', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        domainMappings: {}
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const card = findCardByTitle('Domain Mappings');
+    expect(card.querySelector('table')).toBeTruthy();
+    expect(card.querySelector('.domain-mapping-table-scroll')).toBeTruthy();
+    expect(card.querySelector('thead')?.textContent).toContain('Domain');
+    const values = Array.from(card.querySelectorAll<HTMLInputElement>('input')).map(
+      (input) => input.value
+    );
+    expect(values).toContain('mp.weixin.qq.com');
+    expect(values).toContain('YouTube');
+    expect(mounted.collectDraft().domainMappings).toEqual(DEFAULT_DOMAIN_MAPPINGS);
+  });
+
+  it('keeps an editable Domain Mappings fallback row after deleting all mappings', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        domainMappings: {
+          'single.example': 'Single'
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('删除').click();
+    const card = findCardByTitle('Domain Mappings');
+
+    const inputs = Array.from(card.querySelectorAll<HTMLInputElement>('tbody input'));
+    expect(inputs).toHaveLength(2);
+
+    inputs[0].value = 'docs.example';
+    inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+    inputs[1].value = 'Docs';
+    inputs[1].dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(mounted.collectDraft().domainMappings).toEqual({
+      'docs.example': 'Docs'
+    });
+  });
+
+  it('renders Video Prompt & Entry with the note-button switch in the card header', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        video: { floatingPromptEnabled: true }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const card = findCardByTitle('Video Prompt & Entry');
+    const header = card.querySelector<HTMLElement>('.card-header');
+    const toolbar = header?.querySelector<HTMLElement>('.toolbar');
+    expect(toolbar?.textContent).toContain('在视频网站显示笔记按钮');
+    expect(toolbar?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
+    expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
+    expect(card.querySelector('.row')?.textContent ?? '').not.toContain('在视频网站显示笔记按钮');
+  });
+
+  it('opens onboarding through the production onboarding page path', () => {
+    const controller = createController();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('Onboarding').click();
+
+    expect(openSpy).toHaveBeenCalledWith(
+      '../onboarding/index.html',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+
+  it('keeps the Options scroller stable when Vault List actions re-render', async () => {
+    const restoreScrollDescriptor = installSmoothMainScrollSimulation();
+    const controller = createController();
+    const messagingRepository = createMessaging({ success: true, message: 'ok' });
+    try {
+      mountProductionStitchShell({
+        controller: controller as unknown as OptionsController,
+        initialOptions: {
+          rest: { vault: 'Research Vault' }
+        },
+        messages: null,
+        language: 'en',
+        messagingRepository
+      } as never);
+      const main = document.querySelector<HTMLElement>('.main');
+      expect(main).toBeTruthy();
+      main!.style.scrollBehavior = 'auto';
+      main!.scrollTop = 520;
+      main!.style.removeProperty('scroll-behavior');
+
+      const addVaultButton = findButton('添加仓库');
+      const pointerEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      addVaultButton.dispatchEvent(pointerEvent);
+      document.getElementById('optionsShellRoot')?.addEventListener(
+        'click',
+        () => {
+          const currentMain = document.querySelector<HTMLElement>('.main');
+          if (currentMain) {
+            currentMain.scrollTop = 0;
+          }
+        },
+        { capture: true, once: true }
+      );
+
+      addVaultButton.click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+
+      const currentMain = document.querySelector<HTMLElement>('.main')!;
+      currentMain.style.scrollBehavior = 'auto';
+      currentMain.scrollTop = 520;
+      currentMain.style.removeProperty('scroll-behavior');
+      findButton('删除').click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+
+      const finalMain = document.querySelector<HTMLElement>('.main')!;
+      finalMain.style.scrollBehavior = 'auto';
+      finalMain.scrollTop = 520;
+      finalMain.style.removeProperty('scroll-behavior');
+      findButton('测试连接').click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+    } finally {
+      restoreScrollDescriptor();
+    }
+  });
+
+  it('deduplicates routing rules that exist in both legacy and vault-scoped storage', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: { vault: 'Research Vault' },
+        vaultRouter: {
+          defaultVaultId: 'research',
+          vaults: [
+            {
+              id: 'research',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'token',
+              enabled: true,
+              isDefault: true,
+              rules: [
+                {
+                  id: 'vault-rule-1',
+                  vaultId: 'research',
+                  type: 'domain',
+                  pattern: 'duplicate.example',
+                  enabled: true,
+                  priority: 10
+                }
+              ]
+            }
+          ],
+          rules: [
+            {
+              id: 'rule-1',
+              vaultId: 'research',
+              type: 'domain',
+              pattern: 'duplicate.example',
+              enabled: true,
+              priority: 10
+            },
+            {
+              id: 'rule-2',
+              vaultId: 'research',
+              type: 'domain',
+              pattern: 'duplicate.example',
+              enabled: true,
+              priority: 10
+            }
+          ]
+        }
+      },
+      messages: null,
+      language: 'en'
+    } as never);
+
+    const card = findCardByTitle('Routing Rules');
+    const duplicateInputs = Array.from(card.querySelectorAll<HTMLInputElement>('input')).filter(
+      (candidate) => candidate.value === 'duplicate.example'
+    );
+    expect(duplicateInputs).toHaveLength(1);
+  });
+
+  it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -491,28 +980,11 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const pageSummary = findCheckboxInText('保存页面时生成 AI 总结');
-    const overlaySummary = findCheckboxInText('在阅读模式顶部显示页面总结');
-    const subtitleTranslation = findCheckboxInText('启用视频字幕翻译');
-    expect(document.body.textContent).toContain('敬请期待');
-    expect(document.body.textContent).toContain('Coming soon');
-    expect(pageSummary.disabled).toBe(true);
-    expect(overlaySummary.disabled).toBe(true);
-    expect(subtitleTranslation.disabled).toBe(true);
-    const aiServiceCard = Array.from(document.querySelectorAll<HTMLElement>('.card')).find((card) =>
-      card.textContent?.includes('Shared AI Connection')
-    );
-    const aiServiceControls = Array.from(
-      aiServiceCard?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select') ?? []
-    );
-    expect(aiServiceControls.length).toBeGreaterThanOrEqual(4);
-    expect(aiServiceControls.every((control) => control.disabled)).toBe(true);
-
-    const languageSelect = Array.from(document.querySelectorAll<HTMLSelectElement>('select')).find(
-      (select) => select.closest('.field')?.textContent?.includes('翻译目标语言')
-    );
-    expect(languageSelect).toBeTruthy();
-    expect(languageSelect!.disabled).toBe(true);
+    expect(document.querySelector('[data-nav-panel="experimental"]')).toBeFalsy();
+    expect(document.body.textContent).not.toContain('敬请期待');
+    expect(document.body.textContent).not.toContain('Coming soon');
+    expect(document.body.textContent).not.toContain('启用视频字幕翻译');
+    expect(document.body.textContent).not.toContain('实验功能预留项');
 
     const collected = mounted.collectDraft();
     expect(collected.pageSummary.enabled).toBe(false);
@@ -600,31 +1072,111 @@ describe('mountProductionStitchShell', () => {
     expect(widgetActions).toContain('+ Add domain rule');
   });
 
-  it('binds AI timestamp and video prompt position fields to production options', () => {
+  it('hides unreleased AI timestamp, Deep Research, and advanced video controls', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
       initialOptions: {
-        aiChat: { includeTimestamps: false },
-        video: { promptPosition: { x: 99, y: 77 } }
+        aiChat: { includeTimestamps: true },
+        deepResearch: { pureMode: true },
+        video: {
+          floatingPromptEnabled: true,
+          promptButtonLabel: 'Legacy prompt',
+          promptShortcut: 'Alt+V',
+          promptPosition: { x: 99, y: 77 }
+        }
       },
       messages: null,
       language: 'en'
     });
 
-    const timestampRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
-      row.textContent?.includes('包含时间戳')
+    const text = document.body.textContent ?? '';
+    expect(text).not.toContain('包含时间戳');
+    expect(text).not.toContain('Gemini Deep Research');
+    expect(text).not.toContain('Deep Research');
+    expect(text).not.toContain('Advanced Video Schema');
+    expect(text).not.toContain('提示文案与快捷键');
+    expect(text).not.toContain('promptPosition');
+    expect(text).toContain('在视频网站显示笔记按钮');
+
+    const videoSwitch = findCardByTitle('Video Prompt & Entry').querySelector<HTMLInputElement>(
+      '.card-header input[type="checkbox"]'
     );
-    const timestampSwitch = timestampRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    expect(timestampSwitch).toBeTruthy();
-    timestampSwitch!.checked = true;
-    timestampSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(videoSwitch).toBeTruthy();
+    videoSwitch!.checked = false;
+    videoSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
 
-    input('99', '111');
-    input('77', '222');
+    const draft = mounted.collectDraft();
+    expect(draft.video.floatingPromptEnabled).toBe(false);
+    expect(draft.aiChat.includeTimestamps).toBe(true);
+    expect(draft.deepResearch.pureMode).toBe(true);
+    expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
+  });
 
-    expect(mounted.collectDraft().aiChat.includeTimestamps).toBe(true);
-    expect(mounted.collectDraft().video.promptPosition).toEqual({ x: 111, y: 222 });
+  it('updates fragment modifier chips without remounting the options shell', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        fragmentClipper: {
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['alt']
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const main = document.querySelector<HTMLElement>('.main');
+    const altChip = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
+    ).find((button) => button.textContent?.trim() === 'Alt');
+    expect(main).toBeTruthy();
+    expect(altChip).toBeTruthy();
+
+    altChip!.click();
+
+    expect(document.querySelector('.main')).toBe(main);
+    expect(altChip!.getAttribute('aria-pressed')).toBe('false');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(false);
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual([]);
+  });
+
+  it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            }
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const main = document.querySelector<HTMLElement>('.main');
+    const widgetHost = document.querySelector<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const articleFilter = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.stitch-yaml-filter-row button')
+    ).find((button) => button.textContent?.trim() === 'Article');
+    const addField = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.stitch-yaml-actions button')
+    ).find((button) => button.textContent?.trim() === '+ Add field');
+    expect(main).toBeTruthy();
+    expect(widgetHost).toBeTruthy();
+    expect(articleFilter).toBeTruthy();
+    expect(addField).toBeTruthy();
+
+    articleFilter!.click();
+    addField!.click();
+
+    expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
@@ -1135,12 +1687,13 @@ describe('mountProductionStitchShell', () => {
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
   });
 
-  it('runs the background REST connection tester and renders its result', async () => {
+  it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
     const controller = createController();
     const messagingRepository = createMessaging({
       success: false,
       status: 401,
-      message: 'API key rejected'
+      message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
+      error: '本地目录需要重新授权：LocalFolder'
     });
     mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -1149,6 +1702,33 @@ describe('mountProductionStitchShell', () => {
           vault: 'Research Vault',
           httpsUrl: 'https://localhost:27124',
           apiKey: 'bad-token'
+        },
+        vaultRouter: {
+          defaultVaultId: 'research',
+          vaults: [
+            {
+              id: 'research',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'bad-token',
+              localFolderId: 'folder-local',
+              localFolderName: 'LocalFolder',
+              enabled: true,
+              isDefault: true
+            },
+            {
+              id: 'disabled',
+              name: 'Disabled Vault',
+              vault: 'Disabled Vault',
+              httpsUrl: 'https://disabled.example',
+              httpUrl: '',
+              apiKey: 'disabled-token',
+              enabled: false,
+              isDefault: false
+            }
+          ]
         }
       },
       messages: null,
@@ -1160,14 +1740,18 @@ describe('mountProductionStitchShell', () => {
     await flushPromises();
 
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'TEST_CONNECTION',
-      rest: expect.objectContaining({
-        vault: 'Research Vault',
-        httpsUrl: 'https://localhost:27124',
-        apiKey: 'bad-token'
-      })
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'research',
+      vault: expect.objectContaining({
+        id: 'research',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder'
+      }) as unknown
     });
-    expect(document.body.textContent).toContain('API key rejected');
+    expect(vi.mocked(messagingRepository.send)).not.toHaveBeenCalledWith(
+      expect.objectContaining({ vaultId: 'disabled' })
+    );
+    expect(document.body.textContent).toContain('本地目录需要重新授权：LocalFolder');
   });
 
   it('imports configuration from clipboard and saves it through the controller', async () => {
@@ -1193,7 +1777,7 @@ describe('mountProductionStitchShell', () => {
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
       expect.objectContaining({
-        aiChat: expect.objectContaining({ userName: 'Imported' })
+        aiChat: expect.objectContaining({ userName: 'Imported' }) as unknown
       })
     );
   });
@@ -1231,12 +1815,12 @@ describe('mountProductionStitchShell', () => {
     expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
       reason: 'manual',
       draft: expect.objectContaining({
-        rest: expect.objectContaining({ baseUrl: 'https://localhost:27124' })
-      })
+        rest: expect.objectContaining({ baseUrl: 'https://localhost:27124' }) as unknown
+      }) as unknown
     });
   });
 
-  it('persists classifier settings from Stitch controls', () => {
+  it('does not expose future classifier controls in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -1260,22 +1844,19 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const enabled = findCheckboxInText('启用智能分类');
-    enabled.checked = true;
-    enabled.dispatchEvent(new Event('change', { bubbles: true }));
-    input('llama3.1', 'qwen2.5');
-
+    expect(document.body.textContent).not.toContain('启用智能分类');
+    expect(document.querySelector('textarea.classifier-taxonomy')).toBeFalsy();
     expect(mounted.collectDraft().classifier).toEqual(
       expect.objectContaining({
-        enabled: true,
+        enabled: false,
         provider: 'ollama',
-        model: 'qwen2.5'
+        model: 'llama3.1'
       })
     );
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+    expect(vi.mocked(controller.scheduleAutoSave)).not.toHaveBeenCalled();
   });
 
-  it('keeps the previous classifier taxonomy when JSON is valid but schema-invalid', () => {
+  it('keeps stored classifier taxonomy while the release options shell hides its editor', () => {
     const controller = createController();
     const existingTaxonomy = {
       version: '1',
@@ -1300,13 +1881,7 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const taxonomyTextarea = document.querySelector<HTMLTextAreaElement>(
-      'textarea.classifier-taxonomy'
-    );
-    expect(taxonomyTextarea).toBeTruthy();
-    taxonomyTextarea!.value = '{"valid":"taxonomy"}';
-    taxonomyTextarea!.dispatchEvent(new Event('input', { bubbles: true }));
-
+    expect(document.querySelector('textarea.classifier-taxonomy')).toBeFalsy();
     expect(mounted.collectDraft().classifier.taxonomy).toEqual(existingTaxonomy);
   });
 

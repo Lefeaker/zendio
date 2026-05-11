@@ -14,6 +14,7 @@ import { createContentSelectionTracker } from './runtime/contentSelectionTracker
 import { createContentRuntime } from './runtime/bootstrapRuntime';
 import {
   createLazyExtractorRegistry,
+  createLazyLocalVaultPermissionPrompt,
   createLazyReaderSessionFactory,
   createLazySupportPrompt,
   createLazyVideoSessionFactory,
@@ -23,6 +24,8 @@ import { resolveRepository } from '../shared/di/serviceRegistry';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
+import { startRuntimeThemeSync } from './stitch/runtimeTheme';
+import type { SupportProgressUpdate } from './runtime/supportProgress';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -47,22 +50,41 @@ function initializeClipperRuntime(): void {
     optionsRepository: primaryOptionsRepository,
     window
   });
+  const stopRuntimeThemeSync = startRuntimeThemeSync(primaryOptionsRepository, window);
   const clipPromptGateway = createClipperDialogPromptGateway();
   const supportPrompt = createLazySupportPrompt(document);
+  const localVaultPermissionPrompt = createLazyLocalVaultPermissionPrompt({
+    document,
+    window,
+    runtime: platform.runtime
+  });
+  const showSupportProgress = (progress: SupportProgressUpdate): void => {
+    const variant = progress.variant ?? 'progress';
+    const status = variant === 'progress' ? 'progress' : variant;
+    void supportPrompt.show({
+      status,
+      progress: {
+        ...progress,
+        variant
+      }
+    });
+  };
   const createReaderSession = createLazyReaderSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
     storage: platform.storage,
     messaging: platform.messaging,
     runtime: platform.runtime,
-    promptGateway: clipPromptGateway
+    promptGateway: clipPromptGateway,
+    showSupportProgress
   });
   const createVideoSession = createLazyVideoSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
     storage: platform.storage,
     messaging: platform.messaging,
-    runtime: platform.runtime
+    runtime: platform.runtime,
+    showSupportProgress
   });
   const selectionController = createSelectionController({
     prompt: clipPromptGateway,
@@ -87,7 +109,8 @@ function initializeClipperRuntime(): void {
     {
       optionsRepository: primaryOptionsRepository,
       storage: platform.storage,
-      runtime: platform.runtime
+      runtime: platform.runtime,
+      showSupportProgress
     },
     window.location.href
   );
@@ -100,18 +123,20 @@ function initializeClipperRuntime(): void {
     selectionTracker,
     selectionController,
     extractorRegistry,
+    showSupportProgress,
     createRouter: (runClip) =>
       createContentMessageRouter({
         document,
         window,
         messaging,
         supportPrompt,
+        localVaultPermissionPrompt,
         setClipMode: (mode) => runtimeState.setClipMode(mode),
         runClip,
         selectionController,
         createVideoSession: () => createVideoSession(document),
         isVideoSessionActive: () => isVideoSessionActive(document),
-        getVideoSession: () => getVideoSession<ReturnType<typeof createVideoSession>>(),
+        getVideoSession: () => getVideoSession<ReturnType<typeof createVideoSession>>(document),
         resolveActiveSelection: () => selectionTracker.resolveActiveSelection(),
         restoreSelectionFromSnapshot: (snapshot) =>
           selectionTracker.restoreSelectionFromSnapshot(snapshot),
@@ -120,5 +145,12 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
-  window.addEventListener('pagehide', () => runtime.stop(), { passive: true });
+  window.addEventListener(
+    'pagehide',
+    () => {
+      stopRuntimeThemeSync();
+      runtime.stop();
+    },
+    { passive: true }
+  );
 }

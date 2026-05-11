@@ -118,6 +118,25 @@ const createDialogDeps = (
 
   return {
     clipRepo,
+    optionsRepository: {
+      get: vi.fn(() =>
+        Promise.resolve({
+          rest: {
+            rootDir: '',
+            vault: 'Test Vault',
+            baseUrl: '',
+            apiKey: ''
+          },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [],
+            rules: []
+          }
+        })
+      ),
+      set: vi.fn(() => Promise.resolve()),
+      onChange: vi.fn(() => () => undefined)
+    } as unknown as ClipperDialogDependencies['optionsRepository'],
     storage,
     runtime: {
       getURL: vi.fn((path: string) => path)
@@ -127,6 +146,49 @@ const createDialogDeps = (
     } as unknown as ClipperDialogDependencies['errorHandler']
   };
 };
+
+function createVaultOptions() {
+  return {
+    rest: {
+      rootDir: '',
+      vault: 'Default Vault',
+      baseUrl: 'https://localhost:27124',
+      apiKey: 'token'
+    },
+    templates: {
+      article: 'Articles/{{title}}.md',
+      fragment: 'Fragments/{{title}}.md',
+      reading: 'Readings/{{title}}.md',
+      ai: 'AI/{{title}}.md'
+    },
+    domainMappings: {},
+    vaultRouter: {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'Default Vault',
+          vault: 'Default Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token',
+          enabled: true,
+          isDefault: true
+        },
+        {
+          id: 'research',
+          name: 'Research Vault',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27125',
+          httpUrl: 'http://localhost:27122',
+          apiKey: 'token',
+          enabled: true
+        }
+      ],
+      rules: []
+    }
+  };
+}
 
 beforeAll(() => {
   if (typeof window.PointerEvent === 'undefined') {
@@ -303,6 +365,36 @@ describe('ClipperDialog UI', () => {
     await promise;
   });
 
+  it('returns the selected destination when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    const optionsRepository = deps.optionsRepository;
+    if (!optionsRepository) {
+      throw new Error('options repository missing');
+    }
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    const dialog = new ClipperDialog(deps);
+
+    const promise = dialog.show('Reader destination');
+    await flushPromises();
+
+    const shadow = getDialogRoot();
+    const researchOption = shadow?.querySelector<HTMLButtonElement>(
+      '.export-destination-option[data-destination-id="research"]'
+    );
+    expect(researchOption).toBeTruthy();
+    researchOption?.click();
+    await flushPromises();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    await expect(promise).resolves.toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'vault', vaultId: 'research' }
+    });
+  });
+
   it('renders comment form with class-based styles only', async () => {
     const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
     const dialog = new ClipperDialog(createDialogDeps());
@@ -315,18 +407,15 @@ describe('ClipperDialog UI', () => {
     expect(form).toBeTruthy();
     expect(form?.hasAttribute('style')).toBe(false);
 
-    const preview = form?.querySelector('.clipper-comment-preview');
     const label = form?.querySelector('.clipper-comment-label');
     const textarea = form?.querySelector('.clipper-comment-textarea');
 
-    expect(preview).toBeTruthy();
+    expect(form?.querySelector('.clipper-comment-preview')).toBeNull();
     expect(label).toBeNull();
     expect(textarea).toBeTruthy();
     expect(textarea?.getAttribute('aria-label')).toBe('Comment');
 
-    for (const element of [preview, textarea]) {
-      expect(element?.hasAttribute('style')).toBe(false);
-    }
+    expect(textarea?.hasAttribute('style')).toBe(false);
 
     const nestedStyles = form?.querySelectorAll('style');
     expect(nestedStyles?.length ?? 0).toBe(0);

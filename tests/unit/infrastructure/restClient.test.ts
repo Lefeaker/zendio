@@ -26,7 +26,7 @@ describe('RestClient Implementation', () => {
     await restClient.writeFile(mockConnection, 'test.md', 'content');
 
     const firstCall = mockFetch.mock.calls[0];
-    expect(firstCall?.[0]).toBe('https://test.com/test.md');
+    expect(firstCall?.[0]).toBe('https://test.com/vault/test.md');
     const requestInit = firstCall?.[1];
     expect(requestInit).toMatchObject({
       method: 'PUT',
@@ -38,6 +38,26 @@ describe('RestClient Implementation', () => {
     });
   });
 
+  it('writes binary attachments with their content type', async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200, statusText: 'OK' }));
+    const blob = new Blob(['image'], { type: 'image/jpeg' });
+
+    await restClient.writeFile(mockConnection, 'assets/test/file.jpg', blob, {
+      contentType: 'image/jpeg'
+    });
+
+    const firstCall = mockFetch.mock.calls[0];
+    expect(firstCall?.[0]).toBe('https://test.com/vault/assets/test/file.jpg');
+    expect(firstCall?.[1]).toMatchObject({
+      method: 'PUT',
+      body: blob,
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'image/jpeg'
+      }
+    });
+  });
+
   it('should handle HTTP fallback when HTTPS fails', async () => {
     const connectionWithFallback: RestConnection = {
       ...mockConnection,
@@ -45,28 +65,20 @@ describe('RestClient Implementation', () => {
       httpUrl: 'http://fallback.test.com'
     };
 
-    // First HTTPS call fails with network error
     mockFetch.mockRejectedValueOnce(new Error('Failed to fetch'));
-    // Second HTTPS call (with vault path) also fails
-    mockFetch.mockRejectedValueOnce(new Error('Failed to fetch'));
-    // Third call (HTTP) succeeds
     mockFetch.mockResolvedValueOnce(new Response(null, { status: 200, statusText: 'OK' }));
 
     await restClient.writeFile(connectionWithFallback, 'test.md', 'content');
 
-    // 验证确实尝试了三次调用：HTTPS, HTTPS(vault), HTTP
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(mockFetch).toHaveBeenNthCalledWith(1,
-      'https://secure.test.com/test.md',
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://secure.test.com/vault/test.md',
       expect.any(Object)
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
-      'https://secure.test.com/vault/test-vault/test.md',
-      expect.any(Object)
-    );
-    expect(mockFetch).toHaveBeenNthCalledWith(3,
-      'http://fallback.test.com/test.md',
+      'http://fallback.test.com/vault/test.md',
       expect.any(Object)
     );
   });
@@ -101,9 +113,7 @@ describe('RestClient Implementation', () => {
 
   it('should sanitize config-level failures instead of leaking engine errors', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    mockFetch
-      .mockResolvedValueOnce(new Response('Bad request', { status: 400, statusText: 'Bad Request' }))
-      .mockRejectedValueOnce(new Error(`${ENGINE_PROPERTY_ERROR} (reading 'baz')`));
+    mockFetch.mockRejectedValueOnce(new Error(`${ENGINE_PROPERTY_ERROR} (reading 'baz')`));
 
     try {
       await restClient.writeFile(mockConnection, 'test.md', 'content');
@@ -131,7 +141,7 @@ describe('RestClient Implementation', () => {
     await restClient.writeFile(mockConnection, 'folder/file with spaces.md', 'content');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://test.com/folder/file%20with%20spaces.md',
+      'https://test.com/vault/folder/file%20with%20spaces.md',
       expect.any(Object)
     );
   });

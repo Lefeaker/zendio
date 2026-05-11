@@ -8,7 +8,7 @@ const TEMPLATE_DEFAULTS = getDefaultTemplates();
 const FRAGMENT_DEFAULTS = getDefaultFragmentClipper();
 
 export const DEFAULT_OPTIONS: OptionsState = {
-  interfaceTheme: 'dark',
+  interfaceTheme: 'system',
   rest: {
     baseUrl: REST_DEFAULTS.baseUrl,
     httpsUrl: REST_DEFAULTS.httpsUrl,

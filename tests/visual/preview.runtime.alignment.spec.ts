@@ -136,7 +136,11 @@ async function expectBottomRightRuntimeSurface(
       overlayAlignItems: overlay.alignItems,
       overlayJustifyContent: overlay.justifyContent,
       overlayPadding: overlay.padding,
-      modalPointerEvents: dialogStyle?.pointerEvents ?? ''
+      modalPointerEvents: dialogStyle?.pointerEvents ?? '',
+      modalBackgroundColor: dialogStyle?.backgroundColor ?? '',
+      modalBorderTopWidth: dialogStyle?.borderTopWidth ?? '',
+      modalBoxShadow: dialogStyle?.boxShadow ?? '',
+      modalOverflow: dialogStyle?.overflow ?? ''
     };
   });
   expect(styles.overlayPointerEvents).toBe('none');
@@ -146,6 +150,10 @@ async function expectBottomRightRuntimeSurface(
   expect(styles.overlayJustifyContent).toBe('flex-end');
   expect(styles.overlayPadding).not.toBe('0px');
   expect(styles.modalPointerEvents).toBe('auto');
+  expect(styles.modalBackgroundColor).toBe('rgba(0, 0, 0, 0)');
+  expect(styles.modalBorderTopWidth).toBe('0px');
+  expect(styles.modalBoxShadow).toBe('none');
+  expect(styles.modalOverflow).toBe('visible');
 }
 
 async function collectFloatingPromptContract(root: import('@playwright/test').Locator) {
@@ -602,6 +610,13 @@ test.describe('Stitch runtime surface alignment', () => {
     await page.mouse.up();
 
     await expect(highlights).toHaveCount(beforeCount + 1, { timeout: 10000 });
+    const latestPageHighlight = page.locator('mark.aiob-reader-highlight').last();
+    await expect(latestPageHighlight).toHaveCount(1);
+    await page.evaluate(() => {
+      document.body.dataset.aiobReaderHighlight = 'purple';
+      document.body.dataset.aiobReaderHighlightTheme = 'purple';
+    });
+    await expect(latestPageHighlight).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await page
       .locator('.resource-modal--session')
       .first()
@@ -754,6 +769,7 @@ test.describe('Stitch runtime surface alignment', () => {
     await expectBottomRightRuntimeSurface(page, surface);
 
     const article = page.locator('#reader-article p').first();
+    await article.evaluate((node) => node.scrollIntoView({ block: 'start', inline: 'nearest' }));
     const articleRect = await article.boundingBox();
     if (!articleRect) {
       throw new Error('missing article rect');
@@ -798,7 +814,7 @@ test.describe('Stitch runtime surface alignment', () => {
     await expect(fragmentText).toHaveCSS('-webkit-line-clamp', '2');
     await fragmentText.click();
     await expect(fragmentText).toHaveClass(/is-expanded/);
-    await page.locator('[data-stitch-surface="video"] .surface-window-footer').click();
+    await page.locator('[data-stitch-surface="video"] .surface-window-title').click();
     await expect(fragmentText).not.toHaveClass(/is-expanded/);
   });
 

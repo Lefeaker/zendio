@@ -74,7 +74,7 @@ const schema: SettingsSchema = {
               body: [
                 infoBox(
                   '诊断范围',
-                  'REST API、路径模板、域名映射、多仓路由、Fragment 上下文参数、Video prompt 和实验功能预留项都应在报告里可见。'
+                  'REST API、路径模板、域名映射、多仓路由、Fragment 上下文参数和 Video prompt 都应在报告里可见。'
                 ),
                 codeOutputBox((current) => current.appData.maintenanceLog)
               ]

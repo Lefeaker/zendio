@@ -42,6 +42,8 @@ function sanitizeStoredOptions(stored: unknown): StoredOptions | null {
  */
 export class ChromeOptionsRepository implements IOptionsRepository {
   private readonly changeListeners = new Set<(options: CompleteOptions) => void>();
+  private stopWatchingOptions: (() => void) | null = null;
+  private lastEmittedSignature: string | null = null;
   constructor(private readonly storage: StorageService) {}
 
   async get(): Promise<CompleteOptions> {
@@ -78,31 +80,62 @@ export class ChromeOptionsRepository implements IOptionsRepository {
 
   onChange(callback: (options: CompleteOptions) => void): () => void {
     this.changeListeners.add(callback);
+    this.ensureStorageWatcher();
 
     void this.get()
-      .then(callback)
+      .then((options) => {
+        this.lastEmittedSignature = JSON.stringify(options);
+        callback(options);
+      })
       .catch((error) => {
         console.error('[ChromeOptionsRepository] Failed to emit initial state:', error);
       });
 
     return () => {
       this.changeListeners.delete(callback);
+      if (this.changeListeners.size === 0) {
+        this.stopWatchingOptions?.();
+        this.stopWatchingOptions = null;
+      }
     };
+  }
+
+  private ensureStorageWatcher(): void {
+    if (this.stopWatchingOptions) {
+      return;
+    }
+    this.stopWatchingOptions = this.storage.sync.watchKey<StoredOptions>(
+      OPTIONS_STORAGE_KEY,
+      (stored) => {
+        const sanitized = sanitizeStoredOptions(stored);
+        const options = optionsMerger.merge(sanitized) as CompleteOptions;
+        this.emitToListeners(options);
+      }
+    );
   }
 
   private notifyListeners(): void {
     void this.get()
       .then((options) => {
-        this.changeListeners.forEach((listener) => {
-          try {
-            listener(options);
-          } catch (error) {
-            console.error('[ChromeOptionsRepository] onChange callback error:', error);
-          }
-        });
+        this.emitToListeners(options);
       })
       .catch((error) => {
         console.error('[ChromeOptionsRepository] Failed to notify listeners:', error);
       });
+  }
+
+  private emitToListeners(options: CompleteOptions): void {
+    const signature = JSON.stringify(options);
+    if (signature === this.lastEmittedSignature) {
+      return;
+    }
+    this.lastEmittedSignature = signature;
+    this.changeListeners.forEach((listener) => {
+      try {
+        listener(options);
+      } catch (error) {
+        console.error('[ChromeOptionsRepository] onChange callback error:', error);
+      }
+    });
   }
 }

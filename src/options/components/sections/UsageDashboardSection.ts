@@ -4,7 +4,8 @@ import type { CompleteOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { StorageService } from '@platform/interfaces/storage';
 import { BaseSection, type SectionRenderContext } from './BaseSection';
-import { renderUsageChart, type ChartElements } from './usageChart';
+import { renderUsageChart } from './usageChart';
+import type { ChartElements } from './usageChartTypes';
 import {
   buildUsageSnapshot,
   cloneDefaultUsageStats,

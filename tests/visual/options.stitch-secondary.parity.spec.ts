@@ -217,6 +217,7 @@ function expectSharedOptionsParity(
   preview: Awaited<ReturnType<typeof collectStitchContract>>,
   theme: 'dark' | 'light'
 ): void {
+  const previewReleaseNavLabels = preview.navLabels.filter((label) => label !== 'Experimental');
   expect(production.skin.previewSkin).toBe('stitch-secondary');
   expect(production.skin.previewTheme).toBe(theme);
   expect(preview.skin.previewSkin).toBeNull();
@@ -227,7 +228,7 @@ function expectSharedOptionsParity(
   expect(production.computed.card).toEqual(preview.computed.card);
   expect(production.computed.button).toEqual(preview.computed.button);
   expectElementSamplesToMatch(production.elementSamples, preview.elementSamples);
-  expect(production.navLabels).toEqual(preview.navLabels);
+  expect(production.navLabels).toEqual(previewReleaseNavLabels);
   expect(production.resourceLabels).toEqual(preview.resourceLabels);
   expect(production.surfaceLabels).toEqual([]);
   expect(preview.surfaceLabels).toEqual([
@@ -245,7 +246,7 @@ function expectSharedOptionsParity(
   if (preview.deepResearchNoticeText) {
     expect(production.deepResearchNoticeText).toBe(preview.deepResearchNoticeText);
   }
-  expect(production.panelSectionCount).toBeGreaterThanOrEqual(preview.panelSectionCount);
+  expect(production.panelSectionCount).toBeGreaterThanOrEqual(preview.panelSectionCount - 1);
   expect(preview.yamlWidget.hasNativeTable).toBe(false);
   expect(preview.yamlWidget.hasLegacyView).toBe(false);
   expect(preview.yamlWidget.hasMissingWidget).toBe(false);
@@ -385,21 +386,21 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     expect(production.yamlWidget.domainDefaultValueInputCount).toBeGreaterThan(0);
     expect(production.yamlWidget.domainValuePathInputCount).toBeGreaterThan(0);
 
+    expect(production.navLabels).not.toContain('Experimental');
+    expect(production.interactionInventory.switchLabels.map((item) => item.label)).not.toEqual(
+      expect.arrayContaining([
+        '保存页面时生成 AI 总结',
+        '在阅读模式顶部显示页面总结',
+        '启用视频字幕翻译'
+      ])
+    );
+    const previewSwitchLabels = preview.interactionInventory.switchLabels.map((item) => item.label);
     for (const label of [
       '保存页面时生成 AI 总结',
       '在阅读模式顶部显示页面总结',
       '启用视频字幕翻译'
     ]) {
-      const productionSwitch = production.interactionInventory.switchLabels.find(
-        (item) => item.label === label
-      );
-      const previewSwitch = preview.interactionInventory.switchLabels.find(
-        (item) => item.label === label
-      );
-      expect(productionSwitch).toMatchObject({ disabled: true });
-      if (previewSwitch) {
-        expect(previewSwitch).toMatchObject({ disabled: true });
-      }
+      expect(previewSwitchLabels.some((entry) => entry.includes(label))).toBe(true);
     }
   });
 });

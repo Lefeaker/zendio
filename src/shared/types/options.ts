@@ -3,7 +3,7 @@ import type { TaxonomyConfig, ReadonlyDeep } from './taxonomy';
 import type { YamlConfigOverrides } from './yamlConfig';
 
 export type ClassifierProvider = 'openai' | 'compatible' | 'ollama';
-export type InterfaceTheme = 'dark' | 'light';
+export type InterfaceTheme = 'dark' | 'light' | 'system';
 
 export interface RestOptions {
   baseUrl: string;
@@ -12,6 +12,8 @@ export interface RestOptions {
   vault: string;
   apiKey: string;
   rootDir?: string;
+  localFolderId?: string | undefined;
+  localFolderName?: string | undefined;
 }
 
 export interface TemplateOptions {

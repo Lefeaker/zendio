@@ -168,7 +168,6 @@ export function selectionPreviewBox(_label: string, text: string): NodeSchema {
 
 export function commentEditorBlock(_label: string, placeholder: string): NodeSchema {
   return div('field clipper-comment-form', [
-    element('div', { className: 'clipper-comment-preview', text: '' }),
     {
       kind: 'textarea',
       value: '',
@@ -279,6 +278,27 @@ function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): Nod
     element('span', {
       className: kind === 'time' ? classNames.session.markerTime : classNames.session.markerIndex,
       text: label
+    })
+  ]);
+}
+
+function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
+  const hasScreenshot = Boolean(capture.hasScreenshot);
+  return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
+    element('button', {
+      className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
+      type: 'button',
+      ariaLabel: hasScreenshot ? 'Remove screenshot' : 'Capture screenshot',
+      dataset: {
+        actionId: 'video:toggle-screenshot',
+        captureId: capture.id,
+        screenshotState: hasScreenshot ? 'on' : 'off'
+      },
+      onClick: { id: 'video:toggle-screenshot' }
+    }),
+    element('span', {
+      className: classNames.session.markerTime,
+      text: capture.markerLabel ?? capture.summary
     })
   ]);
 }
@@ -448,7 +468,7 @@ export function videoCaptureItem(
     : (capture.commentPreview ?? capture.comment ?? '');
 
   return sessionItemCard(
-    sessionItemMarker(capture.markerLabel ?? capture.summary, 'time'),
+    videoTimestampMarker(capture),
     displayText,
     capture.commentPreview,
     '',

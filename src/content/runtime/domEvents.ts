@@ -22,13 +22,13 @@ export function wireDomEvents(options: WireDomEventsOptions): DomEventsDisposer 
 
   let attached = false;
 
-  const keydown = handlers.handleModifierKey;
-  const keyup = handlers.handleModifierKey;
-  const blur = handlers.handleWindowBlur;
-  const mousedown = handlers.handlePrimaryMouseDown;
-  const mouseup = handlers.handleAutoSelectionClip;
-  const selectionchange = handlers.handleSelectionChange;
-  const selectstart = handlers.handleSelectStart as EventListener;
+  const keydown = (event: KeyboardEvent) => handlers.handleModifierKey(event);
+  const keyup = (event: KeyboardEvent) => handlers.handleModifierKey(event);
+  const blur = () => handlers.handleWindowBlur();
+  const mousedown = (event: MouseEvent) => handlers.handlePrimaryMouseDown(event);
+  const mouseup = (event: MouseEvent) => handlers.handleAutoSelectionClip(event);
+  const selectionchange = () => handlers.handleSelectionChange();
+  const selectstart = (event: Event) => handlers.handleSelectStart(event);
 
   if (!attached) {
     document.addEventListener('keydown', keydown, true);
@@ -55,4 +55,3 @@ export function wireDomEvents(options: WireDomEventsOptions): DomEventsDisposer 
     }
   };
 }
-

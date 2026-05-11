@@ -93,9 +93,13 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
+                  rowClassName: 'domain-mapping-table-scroll',
                   columns: ['Domain', 'Folder Alias', 'Notes', 'Actions'],
-                  rows: (current) =>
-                    current.appData.output.domainMappings.map(([domain, alias, notes], index) => ({
+                  rows: (current) => {
+                    const mappings = current.appData.output.domainMappings.length
+                      ? current.appData.output.domainMappings
+                      : ([['', '', '']] as Array<[string, string, string]>);
+                    return mappings.map(([domain, alias, notes], index) => ({
                       cells: [
                         {
                           node: boundInput({
@@ -121,7 +125,8 @@ const schema: SettingsSchema = {
                         textCell(notes),
                         buttonCell('删除', 'ghost', { id: 'domain:remove', args: [index] })
                       ]
-                    }))
+                    }));
+                  }
                 }
               ]
             }

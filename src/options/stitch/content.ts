@@ -21,6 +21,13 @@ export const previewContent: PreviewContent = {
     subtitle: 'Component Preview',
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
+  rendererLabels: {
+    resourcePendingBadge: 'Pending',
+    resourceOpenAction: '打开',
+    highlightExamplePrefix: '导出后的示例会像这样 ',
+    highlightExampleText: '标出重点内容',
+    highlightExampleSuffix: '，方便回看。'
+  },
   sidebarLinks: [
     { id: 'onboarding', label: 'Onboarding', hint: '首次引导与快速了解', icon: 'rocket_launch' },
     {
@@ -67,7 +74,7 @@ export const previewContent: PreviewContent = {
     {
       id: 'capture-sources',
       label: 'Capture Sources',
-      hint: 'AI、Deep Research、Video',
+      hint: 'AI、Video',
       icon: 'ads_click'
     },
     {
@@ -82,7 +89,6 @@ export const previewContent: PreviewContent = {
       hint: '路径模板、映射、YAML、预设',
       icon: 'output'
     },
-    { id: 'experimental', label: 'Experimental', hint: 'AI 总结、字幕翻译', icon: 'science' },
     {
       id: 'maintenance',
       label: 'Maintenance',
@@ -188,8 +194,8 @@ export const previewContent: PreviewContent = {
   captureSources: {
     hero: {
       title: 'Capture Sources',
-      description: '配置 AI、Deep Research 和 Video 的来源型捕获能力。',
-      pills: ['AI Chat', 'Deep Research', 'Video'],
+      description: '配置 AI 和 Video 的来源型捕获能力。',
+      pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
     },
     aiPlatforms: ['ChatGPT', 'Claude', 'Gemini', 'Kimi', 'DeepSeek', 'Tongyi', 'Doubao', 'Monica']
@@ -384,7 +390,7 @@ export const previewContent: PreviewContent = {
         },
         {
           title: '本地配置',
-          body: 'Vault、REST API、路径模板、YAML 字段和实验功能配置保存在浏览器扩展存储中，可通过 Maintenance 导出或清除相关分析数据。'
+          body: 'Vault、REST API、路径模板、YAML 字段和运行时配置保存在浏览器扩展存储中，可通过 Maintenance 导出或清除相关分析数据。'
         }
       ]
     },
@@ -875,6 +881,10 @@ export const previewContent: PreviewContent = {
       status: 'success',
       statusMessage: '成功发送到 Research Vault',
       statusDetail: '整页内容已按当前仓库路由写入 `Articles/Research/2026/`，分类结果同步完成。',
+      progress: {
+        value: 100,
+        variant: 'success'
+      },
       feedbackLabel: '快速反馈',
       likeLabel: '赞一个',
       dislikeLabel: '倒赞',
@@ -891,5 +901,5 @@ export const previewContent: PreviewContent = {
       }
     }
   },
-  maintenanceLog: `诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.promptPosition 已存在于 schema，但正式 UI 尚未单独暴露`
+  maintenanceLog: `诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.floatingPromptEnabled 控制视频网站控制栏笔记按钮显示`
 };

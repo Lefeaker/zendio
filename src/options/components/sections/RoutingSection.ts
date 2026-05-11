@@ -1,8 +1,5 @@
-import type { CompleteOptions } from '@shared/types/options';
 import type { VaultConfig, RoutingRule, RoutingRuleType } from '@shared/types/vault';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import {
   subscribeVaultRouter,
   getVaultRouterConfig,

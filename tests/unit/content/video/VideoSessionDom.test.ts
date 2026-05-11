@@ -14,6 +14,7 @@ type TestView = VideoSessionView & {
   updateTexts: ReturnType<typeof vi.fn>;
   beginEditingCapture: ReturnType<typeof vi.fn>;
   stopEditing: ReturnType<typeof vi.fn>;
+  collapse: ReturnType<typeof vi.fn>;
   destroy: ReturnType<typeof vi.fn>;
 };
 
@@ -25,6 +26,7 @@ function createView(): TestView {
     updateTexts: vi.fn(),
     beginEditingCapture: vi.fn(),
     stopEditing: vi.fn(),
+    collapse: vi.fn(),
     destroy: vi.fn()
   };
 }
@@ -92,15 +94,19 @@ describe('VideoSessionDomController', () => {
       }
     ];
 
-    controller.mountPanel({
-      onAddCapture: vi.fn(),
-      onFinish: vi.fn(),
-      onCancel: vi.fn(),
-      onDeleteCapture: vi.fn(),
-      onSubmitCaptureEdit: vi.fn(),
-      onFocusCapture: vi.fn()
-    }, DEFAULT_SESSION_MESSAGES.panel);
-    controller.syncPanel(state, (capture) => document.getElementById(capture.wrapperId ?? '') as HTMLElement | null);
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel
+    );
+    controller.syncPanel(state, (capture) => document.getElementById(capture.wrapperId ?? ''));
     controller.applyHint('ready', state);
 
     expect(view.updateCount).toHaveBeenLastCalledWith(2);
@@ -109,5 +115,33 @@ describe('VideoSessionDomController', () => {
       expect.objectContaining({ id: 'fragment-1', kind: 'fragment' })
     ]);
     expect(view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintReady);
+  });
+
+  it('can mount the panel in a collapsed state before the first capture sync', () => {
+    const view = createView();
+    const controller = new VideoSessionDomController(
+      document,
+      { createView: vi.fn(() => view) },
+      new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
+    );
+
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel,
+      { initialCollapsed: true }
+    );
+
+    expect(view.collapse).toHaveBeenCalledTimes(1);
+    expect(view.collapse.mock.invocationCallOrder[0]).toBeLessThan(
+      view.setCaptures.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
   });
 });

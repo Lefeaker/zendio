@@ -34,9 +34,19 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
-                  columns: ['Enabled', 'Vault', 'HTTPS URL', 'HTTP URL', 'API Key', 'Actions'],
+                  columns: [
+                    'Enabled',
+                    'Vault',
+                    'Local Folder',
+                    'HTTPS URL',
+                    'HTTP URL',
+                    'API Key',
+                    'Actions'
+                  ],
                   rows: (current) =>
-                    current.appData.storage.vaults.map((vault, index) => vaultRow(vault, index))
+                    current.appData.storage.vaults.map((vault, index) =>
+                      vaultRow(vault, index, current)
+                    )
                 },
                 {
                   kind: 'details',

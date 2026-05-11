@@ -4,9 +4,17 @@ import type { VaultRouterConfig } from '@shared/types';
 
 export interface RestSectionDefaultInputs {
   nameInput: HTMLInputElement | null;
+  localFolderButton?: HTMLButtonElement | null;
   httpsInput: HTMLInputElement | null;
   httpInput: HTMLInputElement | null;
   apiKeyInput: HTMLInputElement | null;
+}
+
+export function resolveRestDefaultVaultId(
+  vaults: VaultConfig[] | undefined,
+  defaultVaultId: string | undefined | null
+): string | null {
+  return defaultVaultId ?? vaults?.find((vault) => vault.isDefault)?.id ?? vaults?.[0]?.id ?? null;
 }
 
 function resolveDefaultVault(
@@ -28,6 +36,8 @@ export function applyRestSectionSnapshot(params: {
   defaults: RestOptions;
 }): {
   name: string;
+  localFolderId: string;
+  localFolderName: string;
   httpsUrl: string;
   httpUrl: string;
   apiKey: string;
@@ -38,6 +48,8 @@ export function applyRestSectionSnapshot(params: {
 
   const resolved = {
     name: rest.vault ?? defaultVault?.vault ?? defaults.vault,
+    localFolderId: rest.localFolderId ?? defaultVault?.localFolderId ?? '',
+    localFolderName: rest.localFolderName ?? defaultVault?.localFolderName ?? '',
     httpsUrl: rest.httpsUrl ?? defaultVault?.httpsUrl ?? '',
     httpUrl: rest.httpUrl ?? defaultVault?.httpUrl ?? '',
     apiKey: rest.apiKey ?? defaultVault?.apiKey ?? ''
@@ -46,6 +58,11 @@ export function applyRestSectionSnapshot(params: {
   if (defaultInputs.nameInput) {
     defaultInputs.nameInput.value = resolved.name;
   }
+  updateLocalFolderButton(
+    defaultInputs.localFolderButton ?? null,
+    resolved.localFolderId,
+    resolved.localFolderName
+  );
   if (defaultInputs.httpsInput) {
     defaultInputs.httpsInput.value = resolved.httpsUrl;
   }
@@ -70,6 +87,8 @@ export function collectRestSectionChanges(params: {
   const https = defaultInputs.httpsInput?.value.trim() ?? '';
   const http = defaultInputs.httpInput?.value.trim() ?? '';
   const vault = defaultInputs.nameInput?.value.trim() ?? '';
+  const localFolderId = defaultInputs.localFolderButton?.dataset.localFolderId?.trim() ?? '';
+  const localFolderName = defaultInputs.localFolderButton?.dataset.localFolderName?.trim() ?? '';
   const apiKey = defaultInputs.apiKeyInput?.value ?? '';
 
   const httpsUrl = https.length > 0 ? https : undefined;
@@ -84,7 +103,9 @@ export function collectRestSectionChanges(params: {
       apiKey,
       ...(httpsUrl !== undefined && { httpsUrl }),
       ...(httpUrl !== undefined && { httpUrl }),
-      ...(previousRest?.rootDir !== undefined && { rootDir: previousRest.rootDir })
+      ...(previousRest?.rootDir !== undefined && { rootDir: previousRest.rootDir }),
+      ...(localFolderId ? { localFolderId } : {}),
+      ...(localFolderName ? { localFolderName } : {})
     }
   };
 }
@@ -95,6 +116,8 @@ export function collectRestDraftForTest(
   const httpsInput = defaultInputs.httpsInput?.value.trim() ?? '';
   const httpInput = defaultInputs.httpInput?.value.trim() ?? '';
   const vaultInput = defaultInputs.nameInput?.value.trim() ?? '';
+  const localFolderId = defaultInputs.localFolderButton?.dataset.localFolderId?.trim() ?? '';
+  const localFolderName = defaultInputs.localFolderButton?.dataset.localFolderName?.trim() ?? '';
   const apiKeyInput = defaultInputs.apiKeyInput?.value ?? '';
 
   const draft: Partial<RestOptions> = {};
@@ -107,6 +130,12 @@ export function collectRestDraftForTest(
   if (vaultInput) {
     draft.vault = vaultInput;
   }
+  if (localFolderId) {
+    draft.localFolderId = localFolderId;
+  }
+  if (localFolderName) {
+    draft.localFolderName = localFolderName;
+  }
   if (apiKeyInput) {
     draft.apiKey = apiKeyInput;
   }
@@ -115,6 +144,26 @@ export function collectRestDraftForTest(
     draft.baseUrl = baseCandidate;
   }
   return draft;
+}
+
+export function updateLocalFolderButton(
+  button: HTMLButtonElement | null,
+  localFolderId: string | undefined,
+  localFolderName: string | undefined
+): void {
+  if (!button) {
+    return;
+  }
+  const resolvedName = localFolderName ?? '';
+  button.dataset.localFolderId = localFolderId ?? '';
+  button.dataset.localFolderName = resolvedName;
+  button.textContent = resolvedName || '选择目录';
+  const clearButton = button
+    .closest('.flex')
+    ?.querySelector<HTMLButtonElement>('.rest-vault-local-folder-clear');
+  if (clearButton) {
+    clearButton.hidden = !localFolderId;
+  }
 }
 
 export function readRestRowValue(row: HTMLElement, selector: string, trim = true): string | null {
@@ -149,6 +198,9 @@ export function collectAdditionalVaultConfigsForTest(params: {
       const http = readRestRowValue(row, '.rest-vault-http');
       const name = readRestRowValue(row, '.rest-vault-name');
       const apiKey = readRestRowValue(row, '.rest-vault-api', false);
+      const localFolderButton = row.querySelector<HTMLButtonElement>('.rest-vault-local-folder');
+      const localFolderId = localFolderButton?.dataset.localFolderId?.trim();
+      const localFolderName = localFolderButton?.dataset.localFolderName?.trim();
 
       return {
         ...vault,
@@ -169,7 +221,21 @@ export function collectAdditionalVaultConfigsForTest(params: {
             : {}),
         vault: name ?? vault.vault,
         name: name ?? vault.name,
-        apiKey: apiKey ?? vault.apiKey
+        apiKey: apiKey ?? vault.apiKey,
+        ...(localFolderId !== undefined
+          ? localFolderId
+            ? { localFolderId }
+            : {}
+          : vault.localFolderId
+            ? { localFolderId: vault.localFolderId }
+            : {}),
+        ...(localFolderName !== undefined
+          ? localFolderName
+            ? { localFolderName }
+            : {}
+          : vault.localFolderName
+            ? { localFolderName: vault.localFolderName }
+            : {})
       };
     })
     .filter((vault) => vault.enabled !== false);

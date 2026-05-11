@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createLazyLocalVaultPermissionPrompt,
   createVideoPromptOnDemandInitializer,
   isVideoPromptCandidateUrl
 } from '../../../src/content/runtime/contentLazyRuntime';
@@ -54,5 +55,37 @@ describe('contentLazyRuntime video prompt gating', () => {
       deps,
       'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
     );
+  });
+
+  it('defers local vault permission prompt import until a permission request arrives', async () => {
+    const request = vi.fn().mockResolvedValue({ action: 'granted', permissionState: 'granted' });
+    const createLocalVaultPermissionPrompt = vi.fn(() => ({ request }));
+    const loadPrompt = vi.fn().mockResolvedValue({ createLocalVaultPermissionPrompt });
+    const dependencies = {
+      document: {} as Document,
+      window: {} as Window,
+      runtime: { getURL: vi.fn((path: string) => `chrome-extension://test/${path}`) }
+    };
+    const prompt = createLazyLocalVaultPermissionPrompt(dependencies as never, loadPrompt);
+
+    expect(loadPrompt).not.toHaveBeenCalled();
+
+    await expect(
+      prompt.request({
+        type: 'SHOW_LOCAL_VAULT_PERMISSION_PROMPT',
+        folderId: 'folder-main',
+        folderName: 'Blog',
+        vaultName: 'blog'
+      })
+    ).resolves.toEqual({ action: 'granted', permissionState: 'granted' });
+
+    expect(loadPrompt).toHaveBeenCalledTimes(1);
+    expect(createLocalVaultPermissionPrompt).toHaveBeenCalledWith(dependencies);
+    expect(request).toHaveBeenCalledWith({
+      type: 'SHOW_LOCAL_VAULT_PERMISSION_PROMPT',
+      folderId: 'folder-main',
+      folderName: 'Blog',
+      vaultName: 'blog'
+    });
   });
 });

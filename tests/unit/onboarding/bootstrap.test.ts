@@ -2,11 +2,15 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const createDefaultPageI18nControllerMock = vi.hoisted(() => vi.fn(() => ({
-  load: vi.fn(() => Promise.resolve(undefined)),
-  mount: vi.fn(),
-  getCurrentResource: vi.fn(() => ({ messages: { supportModalTitle: 'Support', supportModalDescription: 'Help us' } }))
-})));
+const createDefaultPageI18nControllerMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    load: vi.fn(() => Promise.resolve(undefined)),
+    mount: vi.fn(),
+    getCurrentResource: vi.fn(() => ({
+      messages: { supportModalTitle: 'Support', supportModalDescription: 'Help us' }
+    }))
+  }))
+);
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const resolveRepositoryMock = vi.hoisted(() => vi.fn());
 const getServiceMock = vi.hoisted(() => vi.fn());
@@ -71,6 +75,11 @@ describe('onboarding bootstrap', () => {
     vi.resetModules();
     vi.clearAllMocks();
     installLocalStorageMock();
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    } as never);
     localStorage.clear();
     buildOnboardingDom();
   });
@@ -86,7 +95,10 @@ describe('onboarding bootstrap', () => {
       } as never,
       {
         storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
-        tabs: { getCurrent: vi.fn(() => Promise.resolve(undefined)), remove: vi.fn(() => Promise.resolve(undefined)) }
+        tabs: {
+          getCurrent: vi.fn(() => Promise.resolve(undefined)),
+          remove: vi.fn(() => Promise.resolve(undefined))
+        }
       } as never
     );
 
@@ -115,20 +127,30 @@ describe('onboarding bootstrap', () => {
     );
 
     controller.initialize();
-    document.getElementById('configureApiBtn')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('configureApiBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
     expect(navigationRepo.openOptions).toHaveBeenCalledTimes(1);
 
-    document.getElementById('skipStep1Btn')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('skipStep1Btn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('1');
 
-    document.getElementById('suggestionsLink')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('suggestionsLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
-    expect(navigationRepo.openExternalLink).toHaveBeenCalledWith('https://github.com/Lefeaker/AllinOB/issues');
+    expect(navigationRepo.openExternalLink).toHaveBeenCalledWith(
+      'https://github.com/Lefeaker/AllinOB/issues'
+    );
 
-    document.getElementById('skipOnboardingBtn')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('skipOnboardingBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
     expect(storageSet).toHaveBeenCalledWith('onboardingCompleted', true);
@@ -143,15 +165,46 @@ describe('onboarding bootstrap', () => {
     resolveRepositoryMock.mockReturnValue(navigationRepo);
     getServiceMock.mockReturnValue({
       storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
-      tabs: { getCurrent: vi.fn(() => Promise.resolve(undefined)), remove: vi.fn(() => Promise.resolve(undefined)) }
+      tabs: {
+        getCurrent: vi.fn(() => Promise.resolve(undefined)),
+        remove: vi.fn(() => Promise.resolve(undefined))
+      }
     });
 
     const mod = await import('../../../src/onboarding/bootstrap');
     await mod.bootstrapOnboardingApp();
 
-    document.getElementById('configureVaultsBtn')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    document
+      .getElementById('configureVaultsBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
     expect(navigationRepo.openOptions).toHaveBeenCalledTimes(1);
     expect(createDefaultPageI18nControllerMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies the stored options theme during bootstrap', async () => {
+    const navigationRepo = {
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    };
+    const optionsRepo = {
+      get: vi.fn(() => Promise.resolve({ interfaceTheme: 'light' }))
+    };
+    resolveRepositoryMock.mockReturnValueOnce(optionsRepo).mockReturnValue(navigationRepo);
+    getServiceMock.mockReturnValue({
+      storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
+      tabs: {
+        getCurrent: vi.fn(() => Promise.resolve(undefined)),
+        remove: vi.fn(() => Promise.resolve(undefined))
+      }
+    });
+
+    const mod = await import('../../../src/onboarding/bootstrap');
+    await mod.bootstrapOnboardingApp();
+
+    expect(document.documentElement.dataset.previewTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.body.dataset.previewTheme).toBe('light');
   });
 });

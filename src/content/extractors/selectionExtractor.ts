@@ -6,8 +6,12 @@ import { extractContextFromRange } from '../clipper/services/contextCapture';
 import { resolveContextRange, collectListPath } from '../clipper/shared/contextDom';
 import { buildAncestorListMarkdown } from '../clipper/shared/contextSerialization';
 import { createClipperTurndown } from '../clipper/shared/turndownFactory';
-import { buildFragmentMarkdown, type FragmentMarkdownParams } from '../clipper/markdown/fragmentBuilder';
+import {
+  buildFragmentMarkdown,
+  type FragmentMarkdownParams
+} from '../clipper/markdown/fragmentBuilder';
 import { tryParseUrl } from '../../shared/url';
+import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 
 export interface SelectionClipParams {
   doc: Document;
@@ -33,6 +37,7 @@ export interface SelectionClipResult {
     selectedTextPreview: string;
     sourceUrl: string;
     resolvedUrl: string;
+    exportDestination?: ExportDestinationMetadata;
   };
 }
 

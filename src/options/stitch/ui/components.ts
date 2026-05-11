@@ -160,6 +160,7 @@ function Button(label: string, options: ButtonOptions = {}): HTMLButtonElement {
       type: 'button',
       className: ['btn', options.variant].filter(Boolean).join(' '),
       disabled: options.disabled,
+      onMousedown: (event: MouseEvent) => event.preventDefault(),
       onClick: options.onClick
     },
     options.icon ? Icon(options.icon, { className: 'btn-icon', fill: options.iconFill }) : null,

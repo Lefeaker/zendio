@@ -35,6 +35,8 @@ export interface UsagePoint {
 export interface VaultRecord {
   id?: string;
   name: string;
+  localFolderId?: string;
+  localFolderName?: string;
   https: string;
   http: string;
   key: string;
@@ -170,6 +172,7 @@ export interface VideoSurfaceCapture {
   comment?: string;
   draft?: string;
   meta: string;
+  hasScreenshot?: boolean;
   editing?: boolean;
 }
 
@@ -223,6 +226,10 @@ export interface PreviewSurfaces {
     status: string;
     statusMessage: string;
     statusDetail?: string;
+    progress?: {
+      value: number;
+      variant: 'progress' | 'success' | 'failure' | 'warning';
+    };
     feedbackLabel: string;
     likeLabel: string;
     dislikeLabel: string;
@@ -277,6 +284,13 @@ export interface PreviewContent {
     title: string;
     subtitle: string;
     logo: string;
+  };
+  rendererLabels: {
+    resourcePendingBadge: string;
+    resourceOpenAction: string;
+    highlightExamplePrefix: string;
+    highlightExampleText: string;
+    highlightExampleSuffix: string;
   };
   sidebarLinks: NavItem[];
   surfaceLinks: NavItem[];
@@ -339,6 +353,7 @@ export interface PreviewStoreState {
   activePanel: string;
   activeResource: string | null;
   previewTheme: 'dark' | 'light';
+  interfaceThemePreference?: 'dark' | 'light' | 'system';
   previewLanguage: string;
   yamlFilter: string;
   readingPathMode: string;
@@ -355,12 +370,10 @@ export interface PreviewStoreState {
   highlightTheme: string;
   readingExportMode?: string;
   aiUserName?: string;
-  aiIncludeTimestamps?: boolean;
   privacyAnalytics?: boolean;
   privacyErrorReporting?: boolean;
   privacyDebugMode?: boolean;
   privacyStatus?: string;
-  deepResearchPureMode?: boolean;
   classifierEnabled?: boolean;
   classifierProvider?: string;
   classifierEndpoint?: string;
@@ -368,10 +381,6 @@ export interface PreviewStoreState {
   classifierApiKey?: string;
   classifierTaxonomyText?: string;
   videoFloatingPromptEnabled?: boolean;
-  videoPromptButtonLabel?: string;
-  videoPromptShortcut?: string;
-  videoPromptPositionX?: number;
-  videoPromptPositionY?: number;
   fragmentUseFootnoteFormat?: boolean;
   fragmentCaptureContext?: boolean;
   fragmentContextLength?: number;
@@ -379,6 +388,7 @@ export interface PreviewStoreState {
   fragmentKeyboardShortcutsEnabled?: boolean;
   fragmentModifierEnabled: boolean;
   modifierKeys: string[];
+  activeLocalFolderVaultIndex?: number | null;
   yamlFieldStates: Record<string, string>;
   routingRules: RoutingRule[];
   templateValues: Record<string, string>;
@@ -408,7 +418,12 @@ export interface StateBinding extends Omit<SharedStateBinding, 'source'> {
 
 export type PreviewStyle = Partial<CSSStyleDeclaration> & Record<`--${string}`, string | number>;
 
-export type NodeChild = NodeSchema | ((ctx: SchemaContext) => NodeSchema);
+export type NodeChild =
+  | NodeSchema
+  | null
+  | false
+  | undefined
+  | ((ctx: SchemaContext) => NodeSchema | null | false | undefined);
 
 export interface BaseNode {
   kind: string;
@@ -662,6 +677,7 @@ export interface ElementNode extends BaseNode {
   ariaPressed?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
+  title?: DynamicValue<string>;
   onClick?: DynamicValue<ActionDescriptor>;
   children?: DynamicValue<NodeChild[]>;
 }

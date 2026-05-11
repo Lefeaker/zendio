@@ -34,6 +34,7 @@ const schema: ResourceSchema = {
                     : null
                 ])
               ]),
+              taskProgress(surface.progress),
               surfaceBody('task-success-body', [
                 supportStrip(supportLinks),
                 div('task-feedback-card', [
@@ -56,6 +57,24 @@ const schema: ResourceSchema = {
     };
   }
 };
+
+function taskProgress(progress: { value: number; variant: string } | undefined): NodeSchema {
+  const value = Math.max(0, Math.min(100, Number(progress?.value ?? 0)));
+  const variant = progress?.variant ?? 'progress';
+  return div('task-progress-shell', [
+    element(
+      'div',
+      {
+        className: `task-progress-track is-${variant}`,
+        role: 'progressbar',
+        ariaLabel: '发送进度',
+        dataset: { role: 'task-progress' },
+        style: { '--task-progress-value': `${value}%` }
+      },
+      [element('div', { className: 'task-progress-fill' })]
+    )
+  ]);
+}
 
 function supportStrip(items: SupportChannel[]): NodeSchema {
   return div(

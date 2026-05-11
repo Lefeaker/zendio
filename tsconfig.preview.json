@@ -3,6 +3,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/options/preview/**/*"],
-  "exclude": ["tests", "build", "node_modules"]
+  "include": ["tests/fixtures/options-preview/**/*"],
+  "exclude": ["build", "node_modules"]
 }

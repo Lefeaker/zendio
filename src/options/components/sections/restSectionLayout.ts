@@ -1,31 +1,8 @@
 import { buildRestConnectionResult } from './restSectionConnectionResult';
-import {
-  buildRestVaultControls,
-  buildRestVaultTable,
-  type RestDefaultVaultInputRefs
-} from './restSectionDefaultLayout';
+import { buildRestVaultControls, buildRestVaultTable } from './restSectionDefaultLayout';
+import type { RestSectionLayoutRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 
-export interface RestSectionMessagesLike {
-  apiConfigTitle?: string;
-  apiConfigHint?: string;
-  additionalVaultsHint?: string;
-  ruleEnabledLabel?: string;
-  vaultNameLabel?: string;
-  httpsUrlLabel?: string;
-  httpUrlLabel?: string;
-  apiKeyLabel?: string;
-  defaultVaultBadge?: string;
-  vaultNamePlaceholder?: string;
-  addVaultButton?: string;
-  testConnectionButton?: string;
-  deleteVaultButton?: string;
-}
-
-export interface RestSectionLayoutRefs extends RestDefaultVaultInputRefs {
-  additionalRowsHost: HTMLElement;
-  additionalEmptyHint: HTMLElement;
-  connectionResultHost: HTMLDivElement;
-}
+export type { RestSectionLayoutRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export { buildRestVaultRow, updateRestVaultRow } from './restSectionVaultRow';
 
@@ -33,12 +10,21 @@ export function buildRestSectionLayout(params: {
   createElement: typeof document.createElement;
   messages: RestSectionMessagesLike | null;
   updateDefaultVaultField: (
-    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
-    value: string
+    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey' | 'localFolder',
+    value: string | { id?: string | undefined; name?: string | undefined }
   ) => void;
+  chooseDefaultLocalFolder: () => void;
+  clearDefaultLocalFolder: () => void;
   addVault: () => void;
 }): RestSectionLayoutRefs & { body: HTMLElement } {
-  const { createElement, messages, updateDefaultVaultField, addVault } = params;
+  const {
+    createElement,
+    messages,
+    updateDefaultVaultField,
+    chooseDefaultLocalFolder,
+    clearDefaultLocalFolder,
+    addVault
+  } = params;
 
   const body = createElement('div');
   body.className = 'space-y-4';
@@ -56,12 +42,14 @@ export function buildRestSectionLayout(params: {
     messages,
     additionalRowsHost,
     additionalEmptyHint,
-    updateDefaultVaultField
+    updateDefaultVaultField,
+    chooseDefaultLocalFolder,
+    clearDefaultLocalFolder
   });
   body.append(table.tableHost);
   body.append(buildRestVaultControls(createElement, messages, addVault));
 
-  const connectionResultHost = createElement('div') as HTMLDivElement;
+  const connectionResultHost = createElement('div');
   connectionResultHost.className = 'space-y-3';
   connectionResultHost.id = 'connectionResult';
   connectionResultHost.hidden = true;
@@ -80,6 +68,7 @@ export function buildRestSectionLayout(params: {
     additionalEmptyHint,
     connectionResultHost,
     defaultNameInput: table.defaultNameInput,
+    defaultLocalFolderButton: table.defaultLocalFolderButton,
     defaultHttpsInput: table.defaultHttpsInput,
     defaultHttpInput: table.defaultHttpInput,
     defaultApiKeyInput: table.defaultApiKeyInput

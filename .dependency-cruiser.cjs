@@ -3,7 +3,7 @@ module.exports = {
   forbidden: [
     {
       name: 'no-circular',
-      severity: 'warn',
+      severity: 'error',
       from: {},
       to: {
         circular: true
@@ -27,6 +27,66 @@ module.exports = {
       },
       to: {
         path: '^src/options'
+      }
+    },
+    {
+      name: 'no-ui-foundation-feature-imports',
+      severity: 'error',
+      from: {
+        path: '^src/ui/foundation'
+      },
+      to: {
+        path: '^src/(background|content|options|platform|ui/(domains|hosts|patterns))'
+      }
+    },
+    {
+      name: 'no-ui-primitives-feature-imports',
+      severity: 'error',
+      from: {
+        path: '^src/ui/primitives'
+      },
+      to: {
+        path: '^src/(background|content|options|platform|ui/(domains|hosts|patterns))'
+      }
+    },
+    {
+      name: 'no-ui-domains-to-options-content-imports',
+      severity: 'error',
+      from: {
+        path: '^src/ui/domains'
+      },
+      to: {
+        path: '^src/(options|content)'
+      }
+    },
+    {
+      name: 'no-production-form-section-imports',
+      severity: 'error',
+      from: {
+        path: '^src/(background|content|platform|shared|ui|options/(app|services|state|stitch|widgets|index\\.ts))'
+      },
+      to: {
+        path: '^src/options/components/formSections'
+      }
+    },
+    {
+      name: 'no-production-old-options-section-imports',
+      severity: 'error',
+      from: {
+        path: '^src/(background|content|platform|shared|ui|options/(app|services|state|stitch|widgets|index\\.ts))'
+      },
+      to: {
+        path: '^src/options/components/sections/(AiSection|ClassifierSection|DeepResearchSection|DiagnosisSection|FragmentSection|LanguageSection|PrivacySection|ReadingSection|RestSection|RoutingSection|TemplatesSection|TransferSection|UsageDashboardSection|UsageSection|VideoSection|YamlConfigSection)\\.ts$'
+      }
+    },
+    {
+      name: 'no-production-duplicate-video-support-prompt-imports',
+      severity: 'error',
+      from: {
+        path: '^src/(background|content|platform|shared|ui|options/(app|services|state|stitch|widgets|index\\.ts))'
+      },
+      to: {
+        path: '^src/ui/domains/video/SupportPromptView\\.ts$'
       }
     }
   ],

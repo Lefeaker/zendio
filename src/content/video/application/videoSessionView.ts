@@ -14,5 +14,9 @@ export interface VideoSessionView {
 }
 
 export interface VideoSessionViewFactory {
-  createView(callbacks: VideoPanelCallbacks, texts: VideoPanelTexts): VideoSessionView;
+  createView(
+    callbacks: VideoPanelCallbacks,
+    texts: VideoPanelTexts,
+    options?: { initialCollapsed?: boolean }
+  ): VideoSessionView;
 }

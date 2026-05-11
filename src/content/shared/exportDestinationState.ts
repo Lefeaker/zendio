@@ -1,6 +1,7 @@
 import {
   buildExportDestinationPreview,
   createExportDestinationMetadata,
+  parseExportDestinationMetadata,
   parseExportDestinationId,
   type ExportDestinationMetadata,
   type ExportDestinationSelection
@@ -50,5 +51,12 @@ export class ContentExportDestinationState {
 
   select(id: string): void {
     this.selection = parseExportDestinationId(id);
+  }
+
+  applyMetadata(metadata: ExportDestinationMetadata | undefined): void {
+    const selection = parseExportDestinationMetadata(metadata);
+    if (selection) {
+      this.selection = selection;
+    }
   }
 }

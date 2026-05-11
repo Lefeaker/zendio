@@ -146,6 +146,7 @@ type SessionTestApi = {
   applyHint: (state: string) => void;
   cleanup: () => void;
   handleAddCapture: (source?: 'button' | 'note-input') => Promise<void>;
+  toggleCaptureScreenshot: (id: string) => Promise<void>;
   addCurrentTimestamp: (
     source?: 'button' | 'note-input',
     options?: {
@@ -168,7 +169,7 @@ type SessionTestApi = {
       createdAt: number;
       screenshot?: {
         fileName: string;
-        mimeType: 'image/png';
+        mimeType: 'image/jpeg';
         dataUrl: string;
       };
     }>;
@@ -189,6 +190,7 @@ function createView(): TestView {
 }
 
 function createDependencies(): VideoSessionDependencies {
+  const showSupportProgress = vi.fn();
   return {
     viewFactory: {
       createView: vi.fn(() => createView())
@@ -225,7 +227,8 @@ function createDependencies(): VideoSessionDependencies {
         watch: vi.fn(() => () => {}),
         watchKey: vi.fn(() => () => {})
       }
-    }
+    },
+    showSupportProgress
   } as unknown as VideoSessionDependencies;
 }
 
@@ -243,7 +246,8 @@ describe('VideoSession', () => {
   });
 
   it('returns early when a session is already active', async () => {
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     registerVideoSession({ id: 'active' }, document);
@@ -349,7 +353,7 @@ describe('VideoSession', () => {
             configurable: true
           });
           Object.defineProperty(canvas, 'toDataURL', {
-            value: vi.fn(() => 'data:image/png;base64,frame'),
+            value: vi.fn(() => 'data:image/jpeg;base64,frame'),
             configurable: true
           });
           return canvas;
@@ -365,6 +369,10 @@ describe('VideoSession', () => {
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+    const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
+      ?.value as TestView | undefined;
+    view?.setCaptures.mockClear();
+    view?.collapse.mockClear();
 
     await sessionApi.addCurrentTimestamp('note-input', {
       comment: 'captured frame',
@@ -381,15 +389,93 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
       screenshot: {
-        fileName: 'video-0m42s-screenshot.png',
-        mimeType: 'image/png',
-        dataUrl: 'data:image/png;base64,frame'
+        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
+        mimeType: 'image/jpeg',
+        dataUrl: 'data:image/jpeg;base64,frame'
+      }
+    });
+    expect(view?.stopEditing).toHaveBeenCalled();
+    expect(view?.collapse).toHaveBeenCalledTimes(1);
+    expect(view?.collapse.mock.invocationCallOrder[0]).toBeLessThan(
+      view?.setCaptures.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+
+    createElementSpy.mockRestore();
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('toggles timestamp screenshots without exposing screenshot content in the panel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: vi.fn(() => 'data:image/jpeg;base64,toggled-frame'),
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+
+    await session.start();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    const currentTimeSetSpy = vi.fn();
+    Object.defineProperty(video, 'currentTime', {
+      get: () => 8,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: Date.now()
+      }
+    ];
+
+    await sessionApi.toggleCaptureScreenshot('timestamp-1');
+
+    expect(video.currentTime).toBe(8);
+    expect(currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]).toMatchObject({
+      screenshot: {
+        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
+        dataUrl: 'data:image/jpeg;base64,toggled-frame'
       }
     });
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
-    expect(view?.stopEditing).toHaveBeenCalled();
-    expect(view?.collapse).toHaveBeenCalledTimes(1);
+    const panelCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | undefined;
+    expect(panelCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(panelCaptures?.[0]?.screenshot).toBeUndefined();
+
+    await sessionApi.toggleCaptureScreenshot('timestamp-1');
+
+    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    const toggledOffCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean }>
+      | undefined;
+    expect(toggledOffCaptures?.[0]).toMatchObject({ hasScreenshot: false });
 
     createElementSpy.mockRestore();
     sessionApi.cleanup();
@@ -397,7 +483,8 @@ describe('VideoSession', () => {
   });
 
   it('exports through the exporter and cleans up on success', async () => {
-    const session = new VideoSession(document, createDependencies());
+    const dependencies = createDependencies();
+    const session = new VideoSession(document, dependencies);
     const sessionApi = session as unknown as SessionTestApi;
     const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
 
@@ -421,6 +508,23 @@ describe('VideoSession', () => {
         videoTitle: 'Video Title'
       })
     );
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 10,
+      label: '正在准备视频导出'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 34,
+      label: '正在生成视频笔记'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 70,
+      label: '正在写入 Obsidian'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '成功发送到 Obsidian',
+      variant: 'success'
+    });
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
@@ -429,7 +533,8 @@ describe('VideoSession', () => {
       success: boolean;
       error: string;
     });
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
 
@@ -448,6 +553,11 @@ describe('VideoSession', () => {
     await sessionApi.finish();
 
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
+    expect(deps.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     expect(isVideoSessionActive(document)).toBe(true);
 
     sessionApi.cleanup();
@@ -455,7 +565,8 @@ describe('VideoSession', () => {
 
   it('keeps the session alive when the exporter returns an invalid empty response', async () => {
     exportMock.mockResolvedValueOnce(null as never);
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -475,6 +586,11 @@ describe('VideoSession', () => {
     await sessionApi.finish();
 
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
+    expect(deps.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[VideoSession] Export failed:',
       expect.objectContaining({ message: 'Invalid video export response' })

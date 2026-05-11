@@ -1,15 +1,8 @@
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { DaisyTable } from '@ui/primitives/table';
 import { createOptionsActionRow } from '@ui/primitives/layout';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestDefaultVaultInputRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 import { buildRestDefaultRow } from './restSectionDefaultRow';
-
-export interface RestDefaultVaultInputRefs {
-  defaultNameInput: HTMLInputElement | null;
-  defaultHttpsInput: HTMLInputElement | null;
-  defaultHttpInput: HTMLInputElement | null;
-  defaultApiKeyInput: HTMLInputElement | null;
-}
 
 export function buildRestVaultTable(args: {
   createElement: typeof document.createElement;

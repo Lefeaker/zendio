@@ -23,9 +23,27 @@ describe('ReaderHighlightManager', () => {
     manager.applyTheme('gradient');
     expect(document.body.dataset.aiobReaderHighlight).toBe('gradient');
     expect(document.body.dataset.aiobReaderHighlightTheme).toBe('gradient');
+    expect(document.head.querySelector('style[data-aiob-reader-highlight-theme]')).toBeTruthy();
 
     manager.applyTheme('gradient');
     expect(document.body.dataset.aiobReaderHighlight).toBe('gradient');
+  });
+
+  it('injects reader highlight colors aligned with the options highlight preview palette', () => {
+    manager.applyTheme('purple');
+
+    const style = document.head.querySelector<HTMLStyleElement>(
+      'style[data-aiob-reader-highlight-theme]'
+    );
+    expect(style?.textContent).toContain('--reader-highlight-purple: rgba(111, 92, 255, 0.48)');
+    expect(style?.textContent).toContain(
+      '--reader-highlight-neon-yellow: rgba(255, 233, 88, 0.58)'
+    );
+    expect(style?.textContent).toContain("body[data-aiob-reader-highlight='purple']");
+    expect(style?.textContent).toContain('box-decoration-break: clone');
+    expect(style?.textContent).toContain('-webkit-box-decoration-break: clone');
+    expect(style?.textContent).toContain('background: var(--reader-highlight-bg) !important');
+    expect(style?.textContent).not.toContain('background-color: transparent');
   });
 
   it('creates highlight, trims comments, and annotates wrapper metadata', () => {
@@ -49,6 +67,7 @@ describe('ReaderHighlightManager', () => {
     expect(highlight?.wrapper.classList.contains('aiob-reader-highlight')).toBe(true);
     expect(highlight?.wrapper.dataset.readerHighlightId).toBe('h-1');
     expect(highlight?.wrapper.dataset.readerComment).toBe('keep this');
+    expect(highlight?.wrapper.getAttribute('style')).toBeNull();
     expect(highlight?.wrapper.textContent).toContain('Hello reader world');
   });
 

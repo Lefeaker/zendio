@@ -266,6 +266,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: 'Sauvegardé dans Obsidian',
+  clipSuccessLocalFolder: 'Saved to local vault folder: {folderName}',
+  clipSuccessRestApi: 'Saved via Obsidian REST API to: {vaultName}',
+  clipSuccessRestFallback: 'Local folder unavailable; saved via REST API',
+  clipSuccessDownloads: 'Saved to Downloads: {filePath}',
   clipFailed: 'Échec de la sauvegarde',
   extractionFailed: "Échec de l'extraction de contenu",
   connectionFailed: 'Échec de la connexion',
@@ -427,6 +431,8 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: "J'ai déjà laissé un avis",
   supportPromptDislikeToastTitle: 'Partagez vos commentaires',
   supportPromptDislikeRedditLinkLabel: 'Discuter sur Reddit',
+  supportPromptDislikeQrLinkLabel: 'Scan to share feedback',
+  supportPromptDislikeQrPlaceholder: 'QR code unavailable',
 
   // Dialog
   clipDialogTitle: 'Découper la sélection',

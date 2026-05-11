@@ -190,6 +190,7 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
+      this.applyInitialDestination(initialHighlights);
       await this.refreshDestinationPreview();
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
@@ -222,6 +223,20 @@ export class ReaderSession {
         console.error('[ReaderSession] Failed to add initial highlight:', error);
       }
     }
+  }
+
+  private applyInitialDestination(
+    initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
+  ): void {
+    const bootHighlights = initialHighlights
+      ? Array.isArray(initialHighlights)
+        ? initialHighlights
+        : [initialHighlights]
+      : [];
+    const initialDestination = bootHighlights.find(
+      (highlight) => highlight.destination
+    )?.destination;
+    this.destinationState.applyMetadata(initialDestination);
   }
 
   private async loadReadingConfig(): Promise<ReadingSessionOptions> {

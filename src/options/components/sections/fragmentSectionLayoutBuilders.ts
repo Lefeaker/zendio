@@ -3,29 +3,14 @@ import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
 import { UiSelect as DaisySelect } from '@ui/primitives/select';
 import type {
-  FragmentSectionLayoutRefs,
+  FragmentLayoutBuilderParams,
   FragmentSectionMessagesLike
-} from './fragmentSectionLayout';
-
-export interface FragmentLayoutBuilderParams {
-  createElement: (tag: keyof HTMLElementTagNameMap, className?: string) => HTMLElement;
-  messages: FragmentSectionMessagesLike | null;
-  defaults: FragmentClipperOptions;
-  modifierKeys: Array<FragmentClipperOptions['selectionModifierKeys'][number]>;
-  contextModes: Array<FragmentClipperOptions['contextMode']>;
-  resolveModifierLabel: (
-    key: FragmentClipperOptions['selectionModifierKeys'][number]
-  ) => string;
-  refs: FragmentSectionLayoutRefs;
-}
+} from './fragmentSectionLayoutTypes';
 
 export function buildCheckboxSetting(
   params: FragmentLayoutBuilderParams,
   inputId: string,
-  refKey:
-    | 'footnoteCheckbox'
-    | 'captureContextCheckbox'
-    | 'keyboardShortcutsCheckbox',
+  refKey: 'footnoteCheckbox' | 'captureContextCheckbox' | 'keyboardShortcutsCheckbox',
   copy: { label: string; hint: string }
 ): HTMLElement {
   const { createElement, refs } = params;

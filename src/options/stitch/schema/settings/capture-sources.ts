@@ -1,10 +1,6 @@
 import type { SettingsSchema } from '../../types';
-import { emptyState, grid, paragraph } from '../builders/primitives';
-import {
-  aiPlatformLinks,
-  deepResearchPurifyAction,
-  deepResearchPurifyNotice
-} from '../builders/settings';
+import { element, emptyState, grid } from '../builders/primitives';
+import { aiPlatformLinks } from '../builders/settings';
 import { boundInput, boundSwitch } from '../builders/controls';
 
 const schema: SettingsSchema = {
@@ -62,38 +58,10 @@ const schema: SettingsSchema = {
                         ],
                         'field-grid-2'
                       )
-                    },
-                    {
-                      kind: 'row',
-                      title: '包含时间戳',
-                      description: '控制 AI 对话导出时是否保留每条消息的时间戳。',
-                      control: boundSwitch({
-                        bind: 'aiIncludeTimestamps',
-                        stateText: (current) =>
-                          current.state.aiIncludeTimestamps ? '已开启' : '已关闭',
-                        onChange: {
-                          id: 'options:updateField',
-                          args: ['aiChat.includeTimestamps'],
-                          valueFrom: 'target.checked'
-                        }
-                      })
                     }
                   ]
                 }
               ]
-            }
-          ]
-        },
-        {
-          kind: 'group',
-          title: 'Deep Research',
-          children: [
-            {
-              kind: 'card',
-              title: 'Gemini Deep Research',
-              description: '控制 Deep Research 报告的捕获方式。',
-              actions: [deepResearchPurifyAction()],
-              body: [deepResearchPurifyNotice()]
             }
           ]
         },
@@ -104,126 +72,27 @@ const schema: SettingsSchema = {
             {
               kind: 'card',
               title: 'Video Prompt & Entry',
-              description: '配置视频站点的浮动提示入口和行为。',
-              body: [
-                {
-                  kind: 'rows',
-                  items: [
-                    {
-                      kind: 'row',
-                      title: '在视频网站显示浮动提示',
-                      description: '控制 YouTube / 哔哩哔哩右下角的提示按钮。',
-                      control: boundSwitch({
-                        bind: 'videoFloatingPromptEnabled',
-                        stateText: (current) =>
-                          current.state.videoFloatingPromptEnabled ? '已开启' : '已关闭',
-                        onChange: {
-                          id: 'options:updateField',
-                          args: ['video.floatingPromptEnabled'],
-                          valueFrom: 'target.checked'
-                        }
-                      })
-                    },
-                    {
-                      kind: 'row',
-                      title: '提示文案与快捷键',
-                      description: 'promptButtonLabel 与 promptShortcut 都是正式选项。',
-                      control: grid(
-                        2,
-                        [
-                          {
-                            kind: 'field',
-                            label: 'promptButtonLabel',
-                            control: boundInput({
-                              bind: 'videoPromptButtonLabel',
-                              onInput: {
-                                id: 'options:updateField',
-                                args: ['video.promptButtonLabel'],
-                                valueFrom: 'target.value'
-                              }
-                            })
-                          },
-                          {
-                            kind: 'field',
-                            label: 'promptShortcut',
-                            control: boundInput({
-                              bind: 'videoPromptShortcut',
-                              mono: true,
-                              onInput: {
-                                id: 'options:updateField',
-                                args: ['video.promptShortcut'],
-                                valueFrom: 'target.value'
-                              }
-                            })
-                          }
-                        ],
-                        'field-grid-2'
-                      )
-                    },
-                    {
-                      kind: 'row',
-                      title: '已适配平台',
-                      description: '来源型模块应展示平台覆盖。',
-                      control: grid(2, [
-                        {
-                          kind: 'miniCard',
-                          title: 'YouTube',
-                          content: paragraph('支持 watch / short 页面，自动显示浮动提示按钮。')
-                        },
-                        {
-                          kind: 'miniCard',
-                          title: '哔哩哔哩',
-                          content: paragraph('支持 BV / AV 视频页，带快捷键提示和弹幕区兼容说明。')
-                        }
-                      ])
+              description: '配置视频站点控制栏笔记入口。',
+              actions: [
+                element('div', { className: 'video-entry-toggle' }, [
+                  element('span', { text: '在视频网站显示笔记按钮' }),
+                  boundSwitch({
+                    bind: 'videoFloatingPromptEnabled',
+                    compact: true,
+                    stateText: (current) =>
+                      current.state.videoFloatingPromptEnabled ? '已开启' : '已关闭',
+                    onChange: {
+                      id: 'options:updateField',
+                      args: ['video.floatingPromptEnabled'],
+                      valueFrom: 'target.checked'
                     }
-                  ]
-                },
-                {
-                  kind: 'details',
-                  summary: 'Advanced Video Schema',
-                  children: [
-                    grid(
-                      3,
-                      [
-                        {
-                          kind: 'field',
-                          label: 'promptPosition.x',
-                          control: boundInput({
-                            bind: 'videoPromptPositionX',
-                            mono: true,
-                            type: 'number',
-                            onInput: {
-                              id: 'options:updateField',
-                              args: ['video.promptPosition.x'],
-                              valueFrom: 'target.value'
-                            }
-                          })
-                        },
-                        {
-                          kind: 'field',
-                          label: 'promptPosition.y',
-                          control: boundInput({
-                            bind: 'videoPromptPositionY',
-                            mono: true,
-                            type: 'number',
-                            onInput: {
-                              id: 'options:updateField',
-                              args: ['video.promptPosition.y'],
-                              valueFrom: 'target.value'
-                            }
-                          })
-                        },
-                        {
-                          kind: 'field',
-                          label: 'Status',
-                          control: emptyState('可选。保存浮动提示按钮位置。')
-                        }
-                      ],
-                      'field-grid-3'
-                    )
-                  ]
-                }
+                  })
+                ])
+              ],
+              body: [
+                emptyState(
+                  '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。灰色圆点表示该时间戳尚未保存截图，绿色圆点表示该时间戳已有截图。'
+                )
               ]
             }
           ]

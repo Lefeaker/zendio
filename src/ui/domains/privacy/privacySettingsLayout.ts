@@ -9,20 +9,7 @@ import {
   createOptionsSettingRow
 } from '../../primitives/layout';
 import { buildPrivacyFooterLinks, buildPrivacyStatusMessage } from './privacySettingsFooter';
-
-export interface PrivacyLayoutBindings {
-  analyticsCheckbox?: HTMLInputElement | null;
-  errorReportingCheckbox?: HTMLInputElement | null;
-  debugModeToggle?: HTMLInputElement | null;
-  debugModeHint?: HTMLElement | null;
-  statusMessage?: HTMLElement | null;
-}
-
-export interface PrivacyLayoutOptions {
-  showDebugToggle: boolean;
-  createElement: typeof document.createElement;
-  applyI18nText: (element: HTMLElement, key: keyof Messages) => void;
-}
+import type { PrivacyLayoutBindings, PrivacyLayoutOptions } from './privacySettingsTypes';
 
 export function buildPrivacySettingsLayout(options: PrivacyLayoutOptions): {
   nodes: HTMLElement[];

@@ -2,7 +2,7 @@ import type { VaultConfig } from '@shared/types/vault';
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestVaultRow(params: {
   createElement: typeof document.createElement;
@@ -10,11 +10,21 @@ export function buildRestVaultRow(params: {
   vault: VaultConfig;
   updateVault: (vaultId: string, updates: Partial<VaultConfig>) => void;
   removeVault: (vaultId: string) => void;
+  chooseLocalFolder: (vault: VaultConfig) => void;
+  clearLocalFolder: (vault: VaultConfig) => void;
 }): HTMLElement {
-  const { createElement, messages, vault, updateVault, removeVault } = params;
+  const {
+    createElement,
+    messages,
+    vault,
+    updateVault,
+    removeVault,
+    chooseLocalFolder,
+    clearLocalFolder
+  } = params;
   const row = createElement('div');
   row.className =
-    'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors';
+    'grid grid-cols-[60px_140px_170px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors';
   row.dataset.vaultId = vault.id;
 
   const enabledCell = createElement('div');
@@ -42,6 +52,15 @@ export function buildRestVaultRow(params: {
       messages?.vaultNamePlaceholder ?? 'AllInObsidian',
       updateVault
     )
+  );
+  row.append(
+    buildLocalFolderCell({
+      createElement,
+      messages,
+      vault,
+      onChoose: () => chooseLocalFolder(vault),
+      onClear: () => clearLocalFolder(vault)
+    })
   );
   row.append(
     buildVaultInputCell(
@@ -101,9 +120,67 @@ export function updateRestVaultRow(row: HTMLElement, vault: VaultConfig): void {
   }
 
   updateRestRowInput(row, '.rest-vault-name', vault.vault ?? '');
+  updateLocalFolderButton(row, vault.localFolderId, vault.localFolderName);
   updateRestRowInput(row, '.rest-vault-https', vault.httpsUrl ?? '');
   updateRestRowInput(row, '.rest-vault-http', vault.httpUrl ?? '');
   updateRestRowInput(row, '.rest-vault-api', vault.apiKey ?? '');
+}
+
+function buildLocalFolderCell(args: {
+  createElement: typeof document.createElement;
+  messages: RestSectionMessagesLike | null;
+  vault: VaultConfig;
+  onChoose: () => void;
+  onClear: () => void;
+}): HTMLElement {
+  const { createElement, messages, vault, onChoose, onClear } = args;
+  const host = createElement('div');
+  host.className = 'flex min-w-0 items-center gap-2';
+
+  const chooseHost = createElement('div');
+  chooseHost.className = 'min-w-0 flex-1';
+  const chooseButton = new DaisyButton(chooseHost).render({
+    label: vault.localFolderName || messages?.chooseLocalFolderButton || '选择目录',
+    variant: 'secondary',
+    size: 'sm',
+    iconName: 'FolderOpen',
+    onClick: onChoose
+  });
+  chooseButton.classList.add('rest-vault-local-folder', 'max-w-full', 'truncate');
+  chooseButton.dataset.localFolderId = vault.localFolderId ?? '';
+  chooseButton.dataset.localFolderName = vault.localFolderName ?? '';
+  host.append(chooseHost);
+
+  const clearHost = createElement('div');
+  const clearButton = new DaisyButton(clearHost).render({
+    label: messages?.clearLocalFolderButton ?? '清除',
+    variant: 'secondary',
+    size: 'sm',
+    iconName: 'X',
+    onClick: onClear
+  });
+  clearButton.classList.add('rest-vault-local-folder-clear');
+  clearButton.hidden = !vault.localFolderId;
+  host.append(clearHost);
+
+  return host;
+}
+
+function updateLocalFolderButton(
+  row: HTMLElement,
+  localFolderId: string | undefined,
+  localFolderName: string | undefined
+): void {
+  const button = row.querySelector<HTMLButtonElement>('.rest-vault-local-folder');
+  if (button) {
+    button.dataset.localFolderId = localFolderId ?? '';
+    button.dataset.localFolderName = localFolderName ?? '';
+    button.textContent = localFolderName || '选择目录';
+  }
+  const clearButton = row.querySelector<HTMLButtonElement>('.rest-vault-local-folder-clear');
+  if (clearButton) {
+    clearButton.hidden = !localFolderId;
+  }
 }
 
 export function renderRestVaultRows(params: {

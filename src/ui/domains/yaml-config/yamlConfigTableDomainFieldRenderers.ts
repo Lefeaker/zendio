@@ -9,6 +9,7 @@ import {
   createOptionsPanel
 } from '../../primitives/layout';
 import {
+  type DomainFieldRendererActions,
   type DomainFieldRow,
   type DomainOverrideEntry,
   type FieldRow,
@@ -16,24 +17,7 @@ import {
 } from './yamlConfigTableTypes';
 import { buildDomainFieldValueEditor } from './yamlConfigTableDomainFieldValueEditor';
 
-export interface DomainFieldRendererActions {
-  onRemoveDomainEntry: (entryId: string) => void;
-  onDomainInput: (entry: DomainOverrideEntry, value: string) => void;
-  onDomainBlur: () => void;
-  onContentTypeChange: (entry: DomainOverrideEntry, contentType: YamlContentType) => void;
-  onAddDomainField: (entry: DomainOverrideEntry) => void;
-  onRemoveDomainField: (entryId: string, fieldId: string) => void;
-  onDomainFieldNameChange: (
-    entry: DomainOverrideEntry,
-    field: DomainFieldRow,
-    name: string
-  ) => void;
-  onDomainFieldEnabledChange: (field: DomainFieldRow, checked: boolean) => void;
-  onDomainFieldDefaultInput: (field: DomainFieldRow, value: string) => void;
-  onDomainFieldDefaultBlur: (field: DomainFieldRow, value: string) => void;
-  onDomainFieldValuePathInput: (field: DomainFieldRow, value: string) => void;
-  onDomainFieldValuePathBlur: (field: DomainFieldRow, value: string) => void;
-}
+export type { DomainFieldRendererActions } from './yamlConfigTableTypes';
 
 export function buildDomainCard(args: {
   entry: DomainOverrideEntry;

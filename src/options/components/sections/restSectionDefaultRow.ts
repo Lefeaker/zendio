@@ -1,16 +1,20 @@
 import { UiInput as DaisyInput } from '@ui/primitives/input';
+import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { DaisyCard } from '@ui/primitives/card';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestDefaultRow(params: {
   createElement: typeof document.createElement;
   messages: RestSectionMessagesLike | null;
   onNameInput: (value: string) => void;
+  onChooseLocalFolder: () => void;
+  onClearLocalFolder: () => void;
   onHttpsInput: (value: string) => void;
   onHttpInput: (value: string) => void;
   onApiKeyInput: (value: string) => void;
   bindDefaultNameInput: (input: HTMLInputElement) => void;
+  bindDefaultLocalFolderButton: (button: HTMLButtonElement) => void;
   bindDefaultHttpsInput: (input: HTMLInputElement) => void;
   bindDefaultHttpInput: (input: HTMLInputElement) => void;
   bindDefaultApiKeyInput: (input: HTMLInputElement) => void;
@@ -19,10 +23,13 @@ export function buildRestDefaultRow(params: {
     createElement,
     messages,
     onNameInput,
+    onChooseLocalFolder,
+    onClearLocalFolder,
     onHttpsInput,
     onHttpInput,
     onApiKeyInput,
     bindDefaultNameInput,
+    bindDefaultLocalFolderButton,
     bindDefaultHttpsInput,
     bindDefaultHttpInput,
     bindDefaultApiKeyInput
@@ -36,10 +43,13 @@ export function buildRestDefaultRow(params: {
       createElement,
       messages,
       onNameInput,
+      onChooseLocalFolder,
+      onClearLocalFolder,
       onHttpsInput,
       onHttpInput,
       onApiKeyInput,
       bindDefaultNameInput,
+      bindDefaultLocalFolderButton,
       bindDefaultHttpsInput,
       bindDefaultHttpInput,
       bindDefaultApiKeyInput
@@ -84,10 +94,13 @@ function buildRestDefaultFields(args: {
   createElement: typeof document.createElement;
   messages: RestSectionMessagesLike | null;
   onNameInput: (value: string) => void;
+  onChooseLocalFolder: () => void;
+  onClearLocalFolder: () => void;
   onHttpsInput: (value: string) => void;
   onHttpInput: (value: string) => void;
   onApiKeyInput: (value: string) => void;
   bindDefaultNameInput: (input: HTMLInputElement) => void;
+  bindDefaultLocalFolderButton: (button: HTMLButtonElement) => void;
   bindDefaultHttpsInput: (input: HTMLInputElement) => void;
   bindDefaultHttpInput: (input: HTMLInputElement) => void;
   bindDefaultApiKeyInput: (input: HTMLInputElement) => void;
@@ -96,16 +109,19 @@ function buildRestDefaultFields(args: {
     createElement,
     messages,
     onNameInput,
+    onChooseLocalFolder,
+    onClearLocalFolder,
     onHttpsInput,
     onHttpInput,
     onApiKeyInput,
     bindDefaultNameInput,
+    bindDefaultLocalFolderButton,
     bindDefaultHttpsInput,
     bindDefaultHttpInput,
     bindDefaultApiKeyInput
   } = args;
   const fields = createElement('div');
-  fields.className = 'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4';
+  fields.className = 'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-5';
 
   const nameCell = buildRestInputCell(
     createElement,
@@ -119,7 +135,26 @@ function buildRestDefaultFields(args: {
     nameInput.setAttribute('data-i18n-placeholder', 'vaultNamePlaceholder');
     bindDefaultNameInput(nameInput);
   }
-  fields.append(wrapRestDefaultField(createElement, messages?.vaultNameLabel ?? '仓库名称', nameCell));
+  fields.append(
+    wrapRestDefaultField(createElement, messages?.vaultNameLabel ?? '仓库名称', nameCell)
+  );
+
+  const localFolderCell = buildRestLocalFolderCell({
+    createElement,
+    messages,
+    buttonId: 'restLocalFolderButton',
+    onChoose: onChooseLocalFolder,
+    onClear: onClearLocalFolder
+  });
+  const localFolderButton = localFolderCell.querySelector<HTMLButtonElement>(
+    '.rest-vault-local-folder'
+  );
+  if (localFolderButton) {
+    bindDefaultLocalFolderButton(localFolderButton);
+  }
+  fields.append(
+    wrapRestDefaultField(createElement, messages?.localFolderLabel ?? '本地目录', localFolderCell)
+  );
 
   const httpsCell = buildRestInputCell(
     createElement,
@@ -132,7 +167,9 @@ function buildRestDefaultFields(args: {
   if (httpsInput) {
     bindDefaultHttpsInput(httpsInput);
   }
-  fields.append(wrapRestDefaultField(createElement, messages?.httpsUrlLabel ?? 'HTTPS URL', httpsCell));
+  fields.append(
+    wrapRestDefaultField(createElement, messages?.httpsUrlLabel ?? 'HTTPS URL', httpsCell)
+  );
 
   const httpCell = buildRestInputCell(
     createElement,
@@ -145,7 +182,9 @@ function buildRestDefaultFields(args: {
   if (httpInput) {
     bindDefaultHttpInput(httpInput);
   }
-  fields.append(wrapRestDefaultField(createElement, messages?.httpUrlLabel ?? 'HTTP URL', httpCell));
+  fields.append(
+    wrapRestDefaultField(createElement, messages?.httpUrlLabel ?? 'HTTP URL', httpCell)
+  );
 
   const apiCell = buildRestInputCell(
     createElement,
@@ -161,6 +200,47 @@ function buildRestDefaultFields(args: {
   fields.append(wrapRestDefaultField(createElement, messages?.apiKeyLabel ?? 'API Key', apiCell));
 
   return fields;
+}
+
+function buildRestLocalFolderCell(args: {
+  createElement: typeof document.createElement;
+  messages: RestSectionMessagesLike | null;
+  buttonId: string;
+  onChoose: () => void;
+  onClear: () => void;
+}): HTMLElement {
+  const { createElement, messages, buttonId, onChoose, onClear } = args;
+  const host = createElement('div');
+  host.className = 'flex min-w-0 items-center gap-2';
+
+  const chooseHost = createElement('div');
+  chooseHost.className = 'min-w-0 flex-1';
+  const chooseButton = new DaisyButton(chooseHost).render({
+    label: messages?.chooseLocalFolderButton ?? '选择目录',
+    variant: 'secondary',
+    size: 'sm',
+    iconName: 'FolderOpen',
+    onClick: onChoose
+  });
+  chooseButton.id = buttonId;
+  chooseButton.classList.add('rest-vault-local-folder', 'max-w-full', 'truncate');
+  chooseButton.dataset.localFolderId = '';
+  chooseButton.dataset.localFolderName = '';
+  host.append(chooseHost);
+
+  const clearHost = createElement('div');
+  const clearButton = new DaisyButton(clearHost).render({
+    label: messages?.clearLocalFolderButton ?? '清除',
+    variant: 'secondary',
+    size: 'sm',
+    iconName: 'X',
+    onClick: onClear
+  });
+  clearButton.classList.add('rest-vault-local-folder-clear');
+  clearButton.hidden = true;
+  host.append(clearHost);
+
+  return host;
 }
 
 function buildRestDefaultActions(

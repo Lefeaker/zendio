@@ -1,15 +1,8 @@
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { DaisyTable } from '@ui/primitives/table';
 import { createOptionsActionRow } from '@ui/primitives/layout';
-import type { RestSectionMessagesLike } from './restSectionLayout';
+import type { RestDefaultVaultInputRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 import { buildRestDefaultRow } from './restSectionDefaultRow';
-
-export interface RestDefaultVaultInputRefs {
-  defaultNameInput: HTMLInputElement | null;
-  defaultHttpsInput: HTMLInputElement | null;
-  defaultHttpInput: HTMLInputElement | null;
-  defaultApiKeyInput: HTMLInputElement | null;
-}
 
 export function buildRestVaultTable(args: {
   createElement: typeof document.createElement;
@@ -17,30 +10,46 @@ export function buildRestVaultTable(args: {
   additionalRowsHost: HTMLElement;
   additionalEmptyHint: HTMLElement;
   updateDefaultVaultField: (
-    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey',
-    value: string
+    field: 'name' | 'httpsUrl' | 'httpUrl' | 'apiKey' | 'localFolder',
+    value: string | { id?: string | undefined; name?: string | undefined }
   ) => void;
+  chooseDefaultLocalFolder: () => void;
+  clearDefaultLocalFolder: () => void;
 }): RestDefaultVaultInputRefs & { tableHost: HTMLElement } {
-  const { createElement, messages, additionalRowsHost, additionalEmptyHint, updateDefaultVaultField } = args;
+  const {
+    createElement,
+    messages,
+    additionalRowsHost,
+    additionalEmptyHint,
+    updateDefaultVaultField,
+    chooseDefaultLocalFolder,
+    clearDefaultLocalFolder
+  } = args;
   let defaultNameInput: HTMLInputElement | null = null;
+  let defaultLocalFolderButton: HTMLButtonElement | null = null;
   let defaultHttpsInput: HTMLInputElement | null = null;
   let defaultHttpInput: HTMLInputElement | null = null;
   let defaultApiKeyInput: HTMLInputElement | null = null;
 
   const tableHost = createElement('div');
   new DaisyTable(tableHost).render({
-    minWidthClass: 'min-w-[900px]',
+    minWidthClass: 'min-w-[1080px]',
     header: buildRestVaultHeaderRow(createElement, messages),
     body: [
       buildRestDefaultRow({
         createElement,
         messages,
         onNameInput: (value) => updateDefaultVaultField('name', value),
+        onChooseLocalFolder: chooseDefaultLocalFolder,
+        onClearLocalFolder: clearDefaultLocalFolder,
         onHttpsInput: (value) => updateDefaultVaultField('httpsUrl', value),
         onHttpInput: (value) => updateDefaultVaultField('httpUrl', value),
         onApiKeyInput: (value) => updateDefaultVaultField('apiKey', value),
         bindDefaultNameInput: (input) => {
           defaultNameInput = input;
+        },
+        bindDefaultLocalFolderButton: (button) => {
+          defaultLocalFolderButton = button;
         },
         bindDefaultHttpsInput: (input) => {
           defaultHttpsInput = input;
@@ -60,6 +69,7 @@ export function buildRestVaultTable(args: {
   return {
     tableHost,
     defaultNameInput,
+    defaultLocalFolderButton,
     defaultHttpsInput,
     defaultHttpInput,
     defaultApiKeyInput
@@ -104,6 +114,7 @@ function buildRestVaultHeaderRow(
   const labels = [
     messages?.ruleEnabledLabel ?? '启用',
     messages?.vaultNameLabel ?? '仓库名称',
+    messages?.localFolderLabel ?? '本地目录',
     messages?.httpsUrlLabel ?? 'HTTPS URL',
     messages?.httpUrlLabel ?? 'HTTP URL',
     messages?.apiKeyLabel ?? 'API Key',
@@ -111,8 +122,9 @@ function buildRestVaultHeaderRow(
   ];
 
   const headerRow = createElement('div');
+  headerRow.classList.add('rest-vault-header-row');
   headerRow.className =
-    'grid grid-cols-[60px_140px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 bg-base-200 border-b border-base-300 font-medium text-base-content/60';
+    'rest-vault-header-row grid grid-cols-[60px_140px_170px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 bg-base-200 border-b border-base-300 font-medium text-base-content/60';
   for (const label of labels) {
     const cell = document.createElement('span');
     cell.textContent = label;

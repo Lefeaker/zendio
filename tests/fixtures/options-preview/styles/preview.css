@@ -821,7 +821,6 @@ a {
 }
 
 .panel-section[data-panel-id='overview'] .mini-card,
-.panel-section[data-panel-id='experimental'] .card,
 .panel-section[data-panel-id='maintenance'] .card {
   background: color-mix(in srgb, var(--panel) 86%, var(--surface-muted));
 }
@@ -1313,54 +1312,6 @@ html[data-preview-theme='dark'] .slider::before {
 
 .ai-platform-link {
   text-decoration: none;
-}
-
-.deep-research-title-inline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--text);
-}
-
-.deep-research-title-inline strong {
-  font-size: var(--font-size-base);
-  white-space: nowrap;
-}
-
-.purify-mode-inline {
-  display: grid;
-  grid-template-columns: minmax(160px, 0.42fr) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: center;
-}
-
-.purify-mode-copy {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-control);
-}
-
-.compact-inline-notice {
-  display: grid;
-  gap: var(--space-1-5);
-  min-width: 0;
-  padding: var(--space-4) var(--space-5);
-  border: var(--border-warning);
-  border-radius: var(--radius-lg);
-  background: var(--warning-soft);
-}
-
-.compact-inline-notice strong {
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-tight);
-}
-
-.compact-inline-notice p {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-control);
 }
 
 .modifier-key-inline {
@@ -1975,11 +1926,65 @@ td {
   color: var(--text);
 }
 
+.yaml-action-button,
+.yaml-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-3-5);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  transition: var(--transition-button);
+}
+
+.yaml-action-button:hover,
+.yaml-delete-button:not(:disabled):hover {
+  border-color: var(--line-strong);
+  background: var(--surface-muted-strong);
+}
+
+.yaml-action-button.primary {
+  border-color: transparent;
+  background: var(--accent-strong);
+  color: var(--on-accent);
+}
+
+.yaml-action-button.secondary {
+  background: var(--surface-muted);
+}
+
+.yaml-actions .yaml-action-button {
+  min-width: 132px;
+}
+
+.yaml-delete-button:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.yaml-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .yaml-table-shell {
   overflow: hidden;
   border: var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--panel);
+}
+
+.yaml-table-shell.yaml-table-scroll {
+  max-height: 440px;
+  overflow: auto;
 }
 
 .yaml-table-shell table {
@@ -3640,7 +3645,6 @@ td {
   .field-grid-2,
   .field-grid-3,
   .fragment-context-inline,
-  .purify-mode-inline,
   .summary-toggle-grid,
   .subtitle-inline-grid,
   .consent-inline-grid,

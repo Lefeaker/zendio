@@ -1,0 +1,14 @@
+# Production Code Hotspots
+
+Last updated: 2026-05-11
+
+`npm run audit:production-shape:report` now enforces the final hotspot thresholds below. The audit fails if a listed facade exceeds its LOC budget or if the YAML widget / Stitch renderer adapter reintroduces direct visible text assignments instead of schema or i18n-backed content.
+
+| File                                            | Current LOC | Current Problem                                                 | Target Owner Split                                                                      | Hard Gate                                                              | Refactor Milestone            |
+| ----------------------------------------------- | ----------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------- |
+| `src/options/app/productionStitchShell.ts`      | 854         | former god module: state, persistence, actions, widgets, render | state mapper, actions, persistence, widget host, render adapter                         | file <= 900 LOC after split; no action map above 250 LOC               | production Stitch shell split |
+| `src/options/widgets/YamlConfigWidget.ts`       | 34          | public adapter for split model/validation/controller/renderers  | model adapter, validator presenter, DOM renderer, controller, public widget adapter     | no single YAML widget file > 450 LOC; no hard-coded labels in renderer | YAML widget split             |
+| `src/content/video/prompt.ts`                   | 5           | public adapter for split lifecycle modules                      | lifecycle controller, prompt state, control bar adapter, settings watcher, test helpers | prompt entry <= 300 LOC; no exported internal test utility bag         | video prompt lifecycle split  |
+| `src/content/clipper/components/dialog.ts`      | 7           | public adapter for aligned content dialog host                  | ContentDialogHost adapter, surface content adapter, interaction controller              | no duplicate focus trap implementation                                 | clipper dialog host alignment |
+| `src/options/stitch/render/renderStitchView.ts` | 91          | public page/modal renderer adapter                              | node renderers, form renderers, action adapter, content helpers                         | no renderer file > 450 LOC; no hard-coded user text                    | Stitch renderer split         |
+| `src/shared/services/yamlConfigService.ts`      | 80          | public facade for split sanitize/merge/domain modules           | sanitize, merge, domain matching, facade                                                | facade <= 250 LOC; targeted unit tests per extracted module            | YAML config service split     |

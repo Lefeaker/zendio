@@ -1,6 +1,6 @@
 import type { UsageStats } from '@shared/types/usage';
 import { formatDateLabel, pickLabelIndices, type ChartGeometry } from './usageDashboard.utils';
-import type { ChartElements } from './usageChart';
+import type { ChartElements } from './usageChartTypes';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const X_AXIS_LABEL_OFFSET = 12;

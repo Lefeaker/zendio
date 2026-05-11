@@ -7,51 +7,51 @@
 body {
   --reader-highlight-gradient: linear-gradient(
     90deg,
-    rgba(124, 92, 255, 0.45),
-    rgba(87, 205, 255, 0.35)
+    rgba(111, 92, 255, 0.44),
+    rgba(30, 108, 255, 0.46)
   );
-  --reader-highlight-purple: rgba(124, 92, 255, 0.35);
-  --reader-highlight-neon-yellow: rgba(255, 248, 0, 0.55);
-  --reader-highlight-neon-green: rgba(48, 255, 173, 0.45);
-  --reader-highlight-neon-orange: rgba(255, 176, 72, 0.5);
+  --reader-highlight-purple: rgba(111, 92, 255, 0.48);
+  --reader-highlight-neon-yellow: rgba(255, 233, 88, 0.58);
+  --reader-highlight-neon-green: rgba(114, 244, 126, 0.4);
+  --reader-highlight-neon-orange: rgba(255, 184, 76, 0.42);
   --reader-highlight-bg: var(--reader-highlight-gradient);
-  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
-  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.2);
+  --reader-highlight-focus-color: rgba(111, 92, 255, 0.44);
+  --reader-highlight-focus-color-soft: rgba(111, 92, 255, 0.2);
 }
 
 /* 渐变主题 */
 body[data-aiob-reader-highlight='gradient'] {
   --reader-highlight-bg: var(--reader-highlight-gradient);
-  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
-  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.2);
+  --reader-highlight-focus-color: rgba(111, 92, 255, 0.44);
+  --reader-highlight-focus-color-soft: rgba(111, 92, 255, 0.2);
 }
 
 /* 紫色主题 */
 body[data-aiob-reader-highlight='purple'] {
   --reader-highlight-bg: var(--reader-highlight-purple);
-  --reader-highlight-focus-color: rgba(124, 92, 255, 0.45);
-  --reader-highlight-focus-color-soft: rgba(124, 92, 255, 0.22);
+  --reader-highlight-focus-color: rgba(111, 92, 255, 0.48);
+  --reader-highlight-focus-color-soft: rgba(111, 92, 255, 0.22);
 }
 
 /* 荧黄色主题 */
 body[data-aiob-reader-highlight='neonYellow'] {
   --reader-highlight-bg: var(--reader-highlight-neon-yellow);
-  --reader-highlight-focus-color: rgba(255, 248, 0, 0.55);
-  --reader-highlight-focus-color-soft: rgba(255, 248, 0, 0.22);
+  --reader-highlight-focus-color: rgba(255, 233, 88, 0.58);
+  --reader-highlight-focus-color-soft: rgba(255, 233, 88, 0.22);
 }
 
 /* 荧绿色主题 */
 body[data-aiob-reader-highlight='neonGreen'] {
   --reader-highlight-bg: var(--reader-highlight-neon-green);
-  --reader-highlight-focus-color: rgba(48, 255, 173, 0.45);
-  --reader-highlight-focus-color-soft: rgba(48, 255, 173, 0.18);
+  --reader-highlight-focus-color: rgba(114, 244, 126, 0.4);
+  --reader-highlight-focus-color-soft: rgba(114, 244, 126, 0.18);
 }
 
 /* 荧橙色主题 */
 body[data-aiob-reader-highlight='neonOrange'] {
   --reader-highlight-bg: var(--reader-highlight-neon-orange);
-  --reader-highlight-focus-color: rgba(255, 176, 72, 0.5);
-  --reader-highlight-focus-color-soft: rgba(255, 176, 72, 0.18);
+  --reader-highlight-focus-color: rgba(255, 184, 76, 0.42);
+  --reader-highlight-focus-color-soft: rgba(255, 184, 76, 0.18);
 }
 
 /* 阅读模式高亮样式 */

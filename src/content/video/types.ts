@@ -1,7 +1,7 @@
 export interface VideoCaptureScreenshot {
   id: string;
   fileName: string;
-  mimeType: 'image/png';
+  mimeType: 'image/jpeg';
   dataUrl: string;
   capturedAt: number;
 }

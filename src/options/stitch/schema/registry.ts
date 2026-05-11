@@ -5,7 +5,6 @@ import storage from './settings/storage';
 import captureSources from './settings/capture-sources';
 import captureBehavior from './settings/capture-behavior';
 import output from './settings/output';
-import experimental from './settings/experimental';
 import maintenance from './settings/maintenance';
 
 import onboarding from './resources/onboarding';
@@ -26,7 +25,6 @@ export const settingsSchemas: Record<string, SettingsSchema> = {
   'capture-sources': captureSources,
   'capture-behavior': captureBehavior,
   output,
-  experimental,
   maintenance
 };
 

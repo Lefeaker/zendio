@@ -246,6 +246,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: '已保存到 Obsidian',
+  clipSuccessLocalFolder: '已保存到本地仓库目录：{folderName}',
+  clipSuccessRestApi: '已通过 Obsidian REST API 保存到：{vaultName}',
+  clipSuccessRestFallback: '本地目录不可用，已改用 REST API 保存',
+  clipSuccessDownloads: '已保存到下载目录：{filePath}',
   clipFailed: '剪藏失败',
   extractionFailed: '内容提取失败',
   connectionFailed: '连接失败',

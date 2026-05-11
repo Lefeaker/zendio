@@ -40,7 +40,7 @@ describe('video listener scope jsdom fixtures', () => {
     vi.clearAllMocks();
   });
 
-  it('inserts one YouTube control-bar logo and opens the panel from the logo', () => {
+  it('inserts one YouTube control-bar logo and opens the add-note popover from the logo', () => {
     document.body.innerHTML = '<div class="ytp-right-controls"></div>';
     const onPrimaryAction = vi.fn(() => {
       const panel = document.createElement('section');
@@ -54,6 +54,10 @@ describe('video listener scope jsdom fixtures', () => {
         url: 'https://www.youtube.com/watch?v=abc',
         label: 'Clip video',
         shortcut: 'Alt+V',
+        preferences: {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: false
+        },
         onPrimaryAction
       })
     ).toBe(true);
@@ -62,8 +66,42 @@ describe('video listener scope jsdom fixtures', () => {
       '[data-aiob-video-control-bar-button="true"]'
     );
     expect(button).toBeTruthy();
+    expect(button?.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
+    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
+      'translateY(0)'
+    );
     button?.click();
-    expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+    expect(onPrimaryAction).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-aiob-video-control-bar-popover="true"]')).toBeTruthy();
+
+    const screenshotToggle = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        '[data-aiob-video-control-bar-popover="true"] input[type="checkbox"]'
+      )
+    ).find((input) => input.dataset.preference === 'captureScreenshotEnabled');
+    expect(screenshotToggle).toBeTruthy();
+    screenshotToggle!.checked = true;
+    screenshotToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const noteInput = document.querySelector<HTMLInputElement>(
+      '[data-aiob-video-control-bar-note-input="true"]'
+    );
+    expect(noteInput).toBeTruthy();
+    noteInput!.value = 'Control bar note';
+    noteInput!.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+
+    expect(onPrimaryAction).toHaveBeenCalledWith(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'Control bar note',
+        source: 'note-input'
+      }
+    );
     expect(document.querySelector('[data-stitch-surface="video"]')).toBeTruthy();
   });
 
@@ -90,6 +128,16 @@ describe('video listener scope jsdom fixtures', () => {
 
     expect(document.querySelectorAll('[data-aiob-video-control-bar-button="true"]')).toHaveLength(
       1
+    );
+    const button = document.querySelector<HTMLButtonElement>(
+      '[data-aiob-video-control-bar-button="true"]'
+    );
+    expect(button?.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
+    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
+      'width: 25px !important'
+    );
+    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
+      'translateY(-4px)'
     );
     expect(findVideoControlTarget(document, 'https://www.bilibili.com/video/BV1abc/')).toBe(
       document.querySelector('.bpx-player-control-bottom-right')

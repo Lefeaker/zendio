@@ -48,10 +48,15 @@ class VideoPanelViewAdapter implements VideoSessionView {
 }
 
 export const createVideoPanelViewFactory = (): VideoSessionViewFactory => ({
-  createView(callbacks: VideoPanelCallbacks, texts: VideoPanelTexts): VideoSessionView {
+  createView(
+    callbacks: VideoPanelCallbacks,
+    texts: VideoPanelTexts,
+    options: { initialCollapsed?: boolean } = {}
+  ): VideoSessionView {
     const panel = new VideoDialogPanel({
       callbacks,
-      texts
+      texts,
+      ...(options.initialCollapsed ? { initialCollapsed: true } : {})
     });
     panel.show();
     return new VideoPanelViewAdapter(panel);

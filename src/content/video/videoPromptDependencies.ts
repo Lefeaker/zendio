@@ -9,7 +9,7 @@ import { getControlledRuntimeTheme, resolveRuntimeThemeFromOptions } from '../st
 export type VideoPromptRuntimeTheme = 'dark' | 'light';
 
 export interface VideoPromptSessionLike {
-  start(): Promise<void>;
+  start(options?: { initialCollapsed?: boolean }): Promise<void>;
   addCurrentTimestamp?(
     source?: 'button' | 'note-input',
     options?: {

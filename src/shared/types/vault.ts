@@ -5,6 +5,8 @@ export type VaultConfig = {
   httpUrl: string;
   vault: string;
   apiKey: string;
+  localFolderId?: string | undefined;
+  localFolderName?: string | undefined;
   isDefault?: boolean;
   enabled?: boolean;
   rules?: RoutingRule[];

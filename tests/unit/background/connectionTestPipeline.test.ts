@@ -4,22 +4,36 @@ import { getRestDefaults } from '../../utils/restDefaults';
 const REST_DEFAULTS = getRestDefaults();
 const DEFAULT_ROOT_URL = withTrailingSlash(
   REST_DEFAULTS.httpsUrl ??
-  REST_DEFAULTS.baseUrl ??
-  REST_DEFAULTS.httpUrl ??
-  'https://127.0.0.1:27124/'
+    REST_DEFAULTS.baseUrl ??
+    REST_DEFAULTS.httpUrl ??
+    'https://127.0.0.1:27124/'
 );
 const BODY_STREAM_REUSE_ERROR = ['Body', 'is', 'unusable'].join(' ');
 
 const getOptionsMock = vi.fn();
+const queryPermissionMock = vi.fn();
 
 vi.mock('../../../src/background/store', () => ({
   getOptions: getOptionsMock
+}));
+
+vi.mock('../../../src/shared/di', () => ({
+  getService: () => ({
+    fileSystemAccess: {
+      queryPermission: queryPermissionMock
+    }
+  }),
+  TOKENS: {
+    platformServices: Symbol('platformServices')
+  }
 }));
 
 describe('connectionTest pipeline', () => {
   beforeEach(() => {
     vi.resetModules();
     getOptionsMock.mockReset();
+    queryPermissionMock.mockReset();
+    queryPermissionMock.mockResolvedValue('missing');
   });
 
   afterEach(() => {
@@ -30,12 +44,16 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns success when first candidate passes', async () => {
-    const { handleConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
-    getOptionsMock.mockResolvedValue(createOptions({
-      baseUrl: REST_DEFAULTS.baseUrl,
-      httpsUrl: REST_DEFAULTS.httpsUrl
-    }));
+    getOptionsMock.mockResolvedValue(
+      createOptions({
+        baseUrl: REST_DEFAULTS.baseUrl,
+        httpsUrl: REST_DEFAULTS.httpsUrl
+      })
+    );
 
     const fetchMock = setFetchMock();
     fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
@@ -50,13 +68,17 @@ describe('connectionTest pipeline', () => {
   });
 
   it('tries multiple candidates until success', async () => {
-    const { handleConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
-    getOptionsMock.mockResolvedValue(createOptions({
-      baseUrl: REST_DEFAULTS.baseUrl,
-      httpsUrl: REST_DEFAULTS.httpsUrl,
-      httpUrl: REST_DEFAULTS.httpUrl
-    }));
+    getOptionsMock.mockResolvedValue(
+      createOptions({
+        baseUrl: REST_DEFAULTS.baseUrl,
+        httpsUrl: REST_DEFAULTS.httpsUrl,
+        httpUrl: REST_DEFAULTS.httpUrl
+      })
+    );
 
     const fetchMock = setFetchMock();
     const error = Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' });
@@ -71,12 +93,16 @@ describe('connectionTest pipeline', () => {
   });
 
   it('applies draft overrides when testing default REST configuration', async () => {
-    const { handleConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
-    getOptionsMock.mockResolvedValue(createOptions({
-      baseUrl: 'https://stored.example/',
-      httpsUrl: 'https://stored.example/'
-    }));
+    getOptionsMock.mockResolvedValue(
+      createOptions({
+        baseUrl: 'https://stored.example/',
+        httpsUrl: 'https://stored.example/'
+      })
+    );
 
     const fetchMock = setFetchMock();
     fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
@@ -94,13 +120,17 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns failure summary when all candidates fail', async () => {
-    const { handleConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
-    getOptionsMock.mockResolvedValue(createOptions({
-      baseUrl: 'https://service.example.com/',
-      httpsUrl: undefined,
-      httpUrl: undefined
-    }));
+    getOptionsMock.mockResolvedValue(
+      createOptions({
+        baseUrl: 'https://service.example.com/',
+        httpsUrl: undefined,
+        httpUrl: undefined
+      })
+    );
 
     const fetchMock = setFetchMock();
     const failure = Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' });
@@ -114,12 +144,16 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns failure when server responds with non-2xx status', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('Unauthorized', { status: 401, statusText: 'Unauthorized' }));
+    fetchMock.mockResolvedValue(
+      createResponse('Unauthorized', { status: 401, statusText: 'Unauthorized' })
+    );
 
     const result = await handleVaultConnectionTest({
       type: 'TEST_VAULT_CONNECTION',
@@ -146,12 +180,16 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails when vault name does not exist on server', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
     const fetchMock = setFetchMock();
-    fetchMock.mockResolvedValue(createResponse('Vault not found', { status: 404, statusText: 'Not Found' }));
+    fetchMock.mockResolvedValue(
+      createResponse('Vault not found', { status: 404, statusText: 'Not Found' })
+    );
 
     const result = await handleVaultConnectionTest({
       type: 'TEST_VAULT_CONNECTION',
@@ -178,7 +216,9 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails fast when API key is missing', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -205,7 +245,9 @@ describe('connectionTest pipeline', () => {
   });
 
   it('tests vault connection using provided config without saving first', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -232,25 +274,97 @@ describe('connectionTest pipeline', () => {
     expect(getAuthorizationHeader(init)).toBe('Bearer secret');
   });
 
-  it('tests vault connection using stored configuration when payload has no vault', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+  it('includes local folder permission in a vault connection test when configured', async () => {
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
-    getOptionsMock.mockResolvedValue(createOptions(
-      { baseUrl: 'https://default.example/' },
-      {
-        vaults: [
-          {
-            id: 'vault-1',
-            name: 'Stored Vault',
-            httpsUrl: 'https://stored.example.com',
-            httpUrl: 'http://stored.example.com',
-            vault: 'Stored',
-            apiKey: 'stored-token',
-            isDefault: false
-          }
-        ]
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    queryPermissionMock.mockResolvedValue('granted');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local',
+      vault: {
+        id: 'vault-local',
+        name: 'Local Vault',
+        httpsUrl: 'https://api.example.com',
+        httpUrl: '',
+        vault: 'LocalVault',
+        apiKey: 'secret',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder',
+        isDefault: false
       }
-    ));
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('[Local Vault]');
+    expect(result.message).toContain('REST API');
+    expect(result.message).toContain('本地目录可用：LocalFolder');
+    expect(queryPermissionMock).toHaveBeenCalledWith('folder-local');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails a vault connection test when the configured local folder needs reauthorization', async () => {
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
+    queryPermissionMock.mockResolvedValue('prompt');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local',
+      vault: {
+        id: 'vault-local',
+        name: 'Local Vault',
+        httpsUrl: 'https://api.example.com',
+        httpUrl: '',
+        vault: 'LocalVault',
+        apiKey: 'secret',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('REST API');
+    expect(result.message).toContain('本地目录需要重新授权：LocalFolder');
+    expect(result.error).toContain('本地目录需要重新授权：LocalFolder');
+  });
+
+  it('tests vault connection using stored configuration when payload has no vault', async () => {
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
+
+    getOptionsMock.mockResolvedValue(
+      createOptions(
+        { baseUrl: 'https://default.example/' },
+        {
+          vaults: [
+            {
+              id: 'vault-1',
+              name: 'Stored Vault',
+              httpsUrl: 'https://stored.example.com',
+              httpUrl: 'http://stored.example.com',
+              vault: 'Stored',
+              apiKey: 'stored-token',
+              isDefault: false
+            }
+          ]
+        }
+      )
+    );
 
     const fetchMock = setFetchMock();
     fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
@@ -267,7 +381,9 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails when additional vault is missing URLs', async () => {
-    const { handleVaultConnectionTest } = await import('../../../src/background/pipelines/connectionTest');
+    const { handleVaultConnectionTest } = await import(
+      '../../../src/background/pipelines/connectionTest'
+    );
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -306,15 +422,17 @@ function withTrailingSlash(url: string): string {
 
 function createOptions(
   restOverrides: Partial<{ baseUrl: string; httpsUrl?: string; httpUrl?: string }>,
-  vaultOverrides?: { vaults: Array<{
-    id: string;
-    name: string;
-    httpsUrl: string;
-    httpUrl: string;
-    vault: string;
-    apiKey: string;
-    isDefault?: boolean;
-  }> }
+  vaultOverrides?: {
+    vaults: Array<{
+      id: string;
+      name: string;
+      httpsUrl: string;
+      httpUrl: string;
+      vault: string;
+      apiKey: string;
+      isDefault?: boolean;
+    }>;
+  }
 ) {
   return {
     rest: {
@@ -367,5 +485,10 @@ function getAuthorizationHeader(init?: RequestInit): string | undefined {
 }
 
 function isHeaderRecord(headers: HeadersInit): headers is Record<string, string> {
-  return typeof headers === 'object' && headers !== null && !Array.isArray(headers) && !(headers instanceof Headers);
+  return (
+    typeof headers === 'object' &&
+    headers !== null &&
+    !Array.isArray(headers) &&
+    !(headers instanceof Headers)
+  );
 }

@@ -186,7 +186,11 @@ export async function collectRuntimeSurfaceContract(
         'margin',
         'transform',
         'width',
-        'max-height'
+        'max-height',
+        'background-color',
+        'border-top-width',
+        'box-shadow',
+        'overflow'
       ]),
       surfaceWindow: await surfaceWindow.evaluate((node) => {
         const style = window.getComputedStyle(node);

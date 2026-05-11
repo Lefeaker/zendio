@@ -23,6 +23,13 @@ export type {
   MenuUpdateProperties
 } from './contextMenus';
 export type { DownloadsService, DownloadTextFileOptions } from './downloads';
+export type {
+  ChooseLocalVaultDirectoryOptions,
+  FileSystemAccessService,
+  LocalVaultDirectorySelection,
+  LocalVaultPermissionState,
+  WriteLocalVaultFileOptions
+} from './fileSystemAccess';
 export type { NotificationsService, NotificationOptions } from './notifications';
 export type { TabsService, TabsSendOptions } from './tabs';
 export type { ActionService } from './actions';

@@ -2,7 +2,7 @@ import { resolveRepository } from '../di/serviceRegistry';
 import { DI_TOKENS } from '../di/tokens';
 import type { IMessagingRepository } from '../repositories';
 import { TRACK_USAGE_EVENT, type TrackUsageEventPayload } from '../types/analytics';
-import type { AdaptiveTextResult } from './textAdaptation';
+import type { AdaptiveTextResult } from './textAdaptationTypes';
 
 const loggedOverflowTokens = new WeakMap<HTMLElement, Set<string>>();
 
@@ -25,7 +25,9 @@ export function logTextOverflowEvent(element: HTMLElement, result: AdaptiveTextR
   }
 
   const key =
-    element.dataset.budgetKey ?? element.getAttribute('data-i18n') ?? element.getAttribute('data-i18n-html');
+    element.dataset.budgetKey ??
+    element.getAttribute('data-i18n') ??
+    element.getAttribute('data-i18n-html');
   if (!key) {
     return;
   }

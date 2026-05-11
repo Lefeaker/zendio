@@ -1,6 +1,14 @@
-import type { RestClient, RestConnection } from '../shared/interfaces/restClient';
+import type {
+  RestClient,
+  RestConnection,
+  RestWriteFileOptions
+} from '../shared/interfaces/restClient';
 import type { AppError } from '../shared/errors/types';
-import { createRestCandidates, maskApiKey, buildVaultUrl } from '../background/utils/restCandidates';
+import {
+  createRestCandidates,
+  maskApiKey,
+  buildVaultUrl
+} from '../background/utils/restCandidates';
 import { errorHandler, restErrors } from '../shared/errors';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
@@ -38,7 +46,10 @@ function describeRestResponse(error: RestResponseError): string | undefined {
   return sanitizeSnippet(rawDetail);
 }
 
-function deriveRestFailure(error: unknown): { category: FailureCategory; detail: string | undefined } {
+function deriveRestFailure(error: unknown): {
+  category: FailureCategory;
+  detail: string | undefined;
+} {
   if (error instanceof RestResponseError) {
     const detail = describeRestResponse(error);
     const normalizedDetail = detail?.replace(new RegExp(`^${error.status}\\s*`), '').trim();
@@ -86,7 +97,7 @@ function bindFetch(fetchImpl?: typeof fetch | FetchLike): FetchLike {
   // 绑定到 globalThis，避免在 Service Worker 环境中出现 Illegal invocation
   const fetchFunction = impl as FetchLike;
   const boundFetch: FetchLike = (input, init) => {
-    const result = fetchFunction.call(globalThis, input, init) as Promise<Response>;
+    const result = fetchFunction.call(globalThis, input, init);
     return result;
   };
   return boundFetch;
@@ -109,7 +120,7 @@ class RestResponseError extends Error {
 
 /**
  * 基于 fetch 的 REST 客户端实现
- * 
+ *
  * 这是 RestClient 接口的默认实现，使用全局 fetch API
  * 支持 HTTPS/HTTP 协议遍历和错误聚合
  */
@@ -120,7 +131,12 @@ export class FetchRestClient implements RestClient {
     this.fetchImpl = bindFetch(fetchImpl);
   }
 
-  async writeFile(config: RestConnection, filePath: string, content: string): Promise<void> {
+  async writeFile(
+    config: RestConnection,
+    filePath: string,
+    content: BodyInit,
+    options: RestWriteFileOptions = {}
+  ): Promise<void> {
     const [encodedPath] = this.buildCandidatePaths(filePath, config.vault);
 
     console.log('Writing to Obsidian:', {
@@ -144,8 +160,11 @@ export class FetchRestClient implements RestClient {
 
     for (const candidate of candidates) {
       try {
-        await this.doPut(candidate.url, candidate.protocol, config.apiKey, content);
-        console.log(`✅ Write successful (${candidate.protocol}):`, maskApiKey(candidate.url, config.apiKey));
+        await this.doPut(candidate.url, candidate.protocol, config.apiKey, content, options);
+        console.log(
+          `✅ Write successful (${candidate.protocol}):`,
+          maskApiKey(candidate.url, config.apiKey)
+        );
         return;
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -165,11 +184,9 @@ export class FetchRestClient implements RestClient {
           context.statusCode = err.status;
         }
 
-        const appError = restErrors.requestFailed(
-          sanitizedMessage,
-          context,
-          { cause: createSanitizedRestCause(sanitizedMessage) }
-        );
+        const appError = restErrors.requestFailed(sanitizedMessage, context, {
+          cause: createSanitizedRestCause(sanitizedMessage)
+        });
         errors.push(appError);
         await errorHandler.handle(appError, { suppressNotifications: true });
 
@@ -198,7 +215,13 @@ export class FetchRestClient implements RestClient {
     throw aggregatedError;
   }
 
-  private async doPut(url: string, protocol: string, apiKey: string, content: string): Promise<Response> {
+  private async doPut(
+    url: string,
+    protocol: string,
+    apiKey: string,
+    content: BodyInit,
+    options: RestWriteFileOptions
+  ): Promise<Response> {
     const maskedUrl = maskApiKey(url, apiKey);
     console.log(`Trying ${protocol}:`, maskedUrl);
 
@@ -206,7 +229,7 @@ export class FetchRestClient implements RestClient {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'text/markdown; charset=utf-8'
+        'Content-Type': options.contentType ?? 'text/markdown; charset=utf-8'
       },
       body: content
     });
@@ -248,7 +271,7 @@ export class FetchRestClient implements RestClient {
 
 /**
  * 创建基于 fetch 的 REST 客户端实例
- * 
+ *
  * @param fetchImpl fetch 实现，默认使用全局 fetch，测试时可传入 mock
  * @returns RestClient 实例
  */
