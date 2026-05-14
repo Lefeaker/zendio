@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -63,24 +64,51 @@ export interface StitchParityContract {
   elementSamples: Record<string, StitchElementSample>;
 }
 
-function findWorkspaceRoot(startDir: string): string {
+const EXTERNAL_PREVIEW_ENTRY = 'future/options-component-preview 2/index.html';
+const GENERATED_PREVIEW_ROOT = resolve(
+  process.cwd(),
+  '..',
+  '.tmp/stitch-parity-preview/options-component-preview'
+);
+let generatedPreviewBuilt = false;
+
+function findExternalPreviewEntry(startDir: string): string | null {
   let current = startDir;
   for (;;) {
-    if (existsSync(join(current, 'future/options-component-preview 2/index.html'))) {
-      return current;
+    const candidate = join(current, EXTERNAL_PREVIEW_ENTRY);
+    if (existsSync(candidate)) {
+      return candidate;
     }
     const parent = dirname(current);
     if (parent === current) {
-      return resolve(startDir, '..');
+      return null;
     }
     current = parent;
   }
 }
 
+function buildGeneratedPreviewEntry(): string {
+  if (!generatedPreviewBuilt) {
+    execFileSync(
+      process.execPath,
+      [resolve(process.cwd(), 'scripts/build-preview.mjs'), '--outdir', GENERATED_PREVIEW_ROOT],
+      {
+        cwd: process.cwd(),
+        stdio: 'inherit'
+      }
+    );
+    generatedPreviewBuilt = true;
+  }
+
+  return join(GENERATED_PREVIEW_ROOT, 'index.html');
+}
+
+function resolvePreviewEntry(): string {
+  return findExternalPreviewEntry(process.cwd()) ?? buildGeneratedPreviewEntry();
+}
+
 export function createPreviewUrl(): string {
-  return pathToFileURL(
-    resolve(findWorkspaceRoot(process.cwd()), 'future/options-component-preview 2/index.html')
-  ).toString();
+  return pathToFileURL(resolvePreviewEntry()).toString();
 }
 
 export function createProductionUrl(): string {

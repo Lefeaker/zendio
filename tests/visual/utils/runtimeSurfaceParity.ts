@@ -95,6 +95,12 @@ export async function collectRuntimeSurfaceContract(
   root: Locator
 ): Promise<RuntimeSurfaceContract> {
   await root.page().mouse.move(0, 0);
+  await root.page().evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
+  await root.page().waitForTimeout(100);
 
   const countSelectors = async (selectors: string[]): Promise<Record<string, number>> => {
     const entries = await Promise.all(
