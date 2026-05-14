@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import prettier from 'prettier';
 import { createBrowserManifest, MANIFEST_BROWSERS } from './utils/manifestSources.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +22,13 @@ async function writeManifest(browser) {
 
   const filePath = path.join(PUBLIC_DIR, fileName);
   const manifest = createBrowserManifest(browser);
-  const content = `${JSON.stringify(manifest, null, 2)}\n`;
+  const rawContent = `${JSON.stringify(manifest, null, 2)}\n`;
+  const prettierOptions = await prettier.resolveConfig(filePath);
+  const content = await prettier.format(rawContent, {
+    ...prettierOptions,
+    filepath: filePath,
+    parser: 'json'
+  });
   await fs.writeFile(filePath, content, 'utf8');
 }
 
