@@ -94,6 +94,8 @@ export async function collectLegacyStyleBridgeCounts(
 export async function collectRuntimeSurfaceContract(
   root: Locator
 ): Promise<RuntimeSurfaceContract> {
+  await root.page().mouse.move(0, 0);
+
   const countSelectors = async (selectors: string[]): Promise<Record<string, number>> => {
     const entries = await Promise.all(
       selectors.map(async (selector) => [selector, await root.locator(selector).count()] as const)

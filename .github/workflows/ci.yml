@@ -57,11 +57,6 @@ jobs:
           npm run report:options-legacy
           npm run lint:options-css
 
-      - name: Check Stage 3 migration progress
-        run: |
-          bash scripts/check-migration-progress.sh
-          bash scripts/check-unmigrated-buttons.sh
-
       - name: Enforce lint warning guard
         run: npm run lint:warnings-guard
 

@@ -47,8 +47,8 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
-# Analytics Configuration (contains sensitive data)
-src/shared/errors/analytics/analyticsConfig.ts
+# Local analytics overrides
+src/shared/errors/analytics/analyticsConfig.local.ts
 
 # Temporary files
 *.tmp
