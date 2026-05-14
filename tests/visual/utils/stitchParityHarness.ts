@@ -15,6 +15,8 @@ export interface StitchElementSample {
   style?: Record<string, string>;
 }
 
+export type PreviewSourceKind = 'external-reference' | 'generated-preview';
+
 export interface StitchParityContract {
   skin: {
     previewSkin: string | null;
@@ -65,6 +67,7 @@ export interface StitchParityContract {
 }
 
 const EXTERNAL_PREVIEW_ENTRY = 'future/options-component-preview 2/index.html';
+const FORCE_GENERATED_PREVIEW = process.env.AIIINOB_FORCE_GENERATED_STITCH_PREVIEW === '1';
 const GENERATED_PREVIEW_ROOT = resolve(
   process.cwd(),
   '..',
@@ -104,7 +107,18 @@ function buildGeneratedPreviewEntry(): string {
 }
 
 function resolvePreviewEntry(): string {
+  if (FORCE_GENERATED_PREVIEW) {
+    return buildGeneratedPreviewEntry();
+  }
   return findExternalPreviewEntry(process.cwd()) ?? buildGeneratedPreviewEntry();
+}
+
+export function getPreviewSourceKind(): PreviewSourceKind {
+  if (FORCE_GENERATED_PREVIEW) {
+    return 'generated-preview';
+  }
+
+  return findExternalPreviewEntry(process.cwd()) ? 'external-reference' : 'generated-preview';
 }
 
 export function createPreviewUrl(): string {
