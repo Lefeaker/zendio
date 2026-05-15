@@ -17,7 +17,7 @@ describe('production build graph report', () => {
     const previewFamily = `${['src', 'options', 'preview'].join('/')}/**`;
     const fixture = writeMetafile({
       inputs: {
-        'src/options/components/formSections/fake.ts': { bytes: 10 },
+        'src/options/widgets/fake.ts': { bytes: 10 },
         'src/dev/contentOrchestratorHarness.ts': { bytes: 10 },
         'src/options/index.ts': { bytes: 10 }
       },
@@ -25,7 +25,7 @@ describe('production build graph report', () => {
         'build/audit/options/index.js': {
           entryPoint: 'src/options/index.ts',
           inputs: {
-            'src/options/components/formSections/fake.ts': { bytesInOutput: 10 },
+            'src/options/widgets/fake.ts': { bytesInOutput: 10 },
             'src/options/index.ts': { bytesInOutput: 10 }
           }
         },
@@ -47,7 +47,7 @@ describe('production build graph report', () => {
         }
       );
       expect(output).toContain('Production build graph sources=3');
-      expect(output).toContain('src/options/components/formSections/** | inBuildGraph=true');
+      expect(output).toContain('src/options/widgets/** | inBuildGraph=true');
       expect(output).toContain('classification=production-user-facing');
       expect(output).toContain(`${previewFamily} | inBuildGraph=false`);
     } finally {

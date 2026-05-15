@@ -8,6 +8,7 @@ import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageService } from '@platform/interfaces/storage';
+import { ensureWindowLocalStorage } from '../../utils/localStorage';
 
 const analyticsMocks = vi.hoisted(() => ({
   clearAllData: vi.fn(() => Promise.resolve()),
@@ -193,7 +194,7 @@ function installSmoothMainScrollSimulation(): () => void {
 describe('mountProductionStitchShell', () => {
   beforeEach(() => {
     document.documentElement.removeAttribute('data-theme');
-    window.localStorage.clear();
+    ensureWindowLocalStorage().clear();
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
     Object.values(analyticsMocks).forEach((mock) => mock.mockClear());
     analyticsMocks.getConfig.mockReturnValue({ debugMode: false });

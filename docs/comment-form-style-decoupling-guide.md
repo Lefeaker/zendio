@@ -10,7 +10,7 @@
   - `src/content/clipper/components/commentFormStyles.ts`
 - 当前路线不是恢复 `comment-form.css`。
   - 该文件已不再存在，也不是现仓库的推荐方案。
-  - 现行方案是：组件只负责结构与 i18n 绑定，样式合同以共享 class map 形式维护，并复用 Daisy/Tailwind/design token 语义类。
+  - 现行方案是：组件只负责结构与 i18n 绑定，样式合同以共享 class map 形式维护，并复用 Stitch runtime CSS、`src/styles/design-tokens.css` 与现有 token/utility class contract。
 
 ## 代码边界
 
@@ -34,7 +34,7 @@
   - 通过 `window.harness.openClipperDialog()` 拉起剪藏对话框
   - shadow root 内 `textarea#clipper-comment-input` class 为：
     - `clipper-comment-textarea textarea textarea-bordered mb-6 min-h-[120px] w-full resize-y text-sm leading-relaxed`
-  - `clipper-comment-preview` 已只使用 token / Daisy 语义类，无 `#xxxxxx` 原始颜色字面量
+  - `clipper-comment-preview` 已只使用 token / shared class contract，无 `#xxxxxx` 原始颜色字面量
 
 截图：
 

@@ -144,10 +144,11 @@
 - 组件入口守门：`npm run audit:components:report`
 - 交互 contract 审计：`npm run audit:interaction-contract:report`
 - token / wrapper 审计：`npm run audit:design-tokens:report`
+- 设计系统文档真值审计：`npm run audit:design-system-doc:report`
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`
-- `npm run quality` 已强制包含 retired-code、production-shape、build-graph 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
+- `npm run quality` 已强制包含 design-system-doc、retired-code、production-shape、build-graph 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
 
 ## 7. 开发要求
 
