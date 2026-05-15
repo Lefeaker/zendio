@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 const ROOT = process.cwd();
 const PRODUCTION_GRAPH_PATH = 'build/reports/production-build-graph.json';
 const TEXT_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|json|html|css|md|yml|yaml)$/;
+const AUDIT_CLASSIFICATION_METADATA_PATH = 'tools/report-non-production-source.mjs';
 const REQUIRED_VERIFICATION_SCRIPT_NAMES = new Set([
   'quality',
   'verify:preflight',
@@ -283,7 +284,24 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
   }
 ];
 
-const EXPLICIT_DELETE_NOW_PATTERNS = [];
+const EXPLICIT_DELETE_NOW_PATTERNS = [
+  'src/options/components/controls/domainMappings.ts',
+  'src/options/components/formSections/formSectionManager.ts',
+  'src/options/components/layout/Navigation.ts',
+  'src/options/components/layout/NavigationController.ts',
+  'src/options/components/layout/OptionsApp.ts',
+  'src/options/components/layout/Sidebar.ts',
+  'src/options/components/sections/AiSection.ts',
+  'src/options/components/sections/ClassifierSection.ts',
+  'src/options/components/sections/DeepResearchSection.ts',
+  'src/options/components/sections/DiagnosisSection.ts',
+  'src/options/components/sections/LanguageSection.ts',
+  'src/options/components/sections/ReadingSection.ts',
+  'src/options/components/sections/TemplatesSection.ts',
+  'src/options/components/sections/TransferSection.ts',
+  'src/options/components/sections/VideoSection.ts',
+  'src/options/utils/defaults.ts'
+];
 
 async function walk(dir) {
   if (!existsSync(dir)) {
@@ -376,6 +394,10 @@ function collectTextOwners(files, targetFile) {
     .sort();
 }
 
+function removeAuditClassificationMetadataOwner(owners) {
+  return owners.filter((owner) => owner !== AUDIT_CLASSIFICATION_METADATA_PATH);
+}
+
 function parsePackageScripts() {
   if (!existsSync('package.json')) {
     return {};
@@ -419,6 +441,17 @@ function explicitClassificationRule(file, patterns) {
   );
 }
 
+function isExactDeleteNowPattern(pattern) {
+  return !/[*{}]/.test(pattern);
+}
+
+function explicitDeleteNowRule(file, patterns) {
+  return patterns.find((pattern) => {
+    const candidate = typeof pattern === 'string' ? pattern : pattern.pattern;
+    return isExactDeleteNowPattern(candidate) && candidate === file;
+  });
+}
+
 function hasOnlyTestOwners(input) {
   return (
     !input.productionBuildGraphOwners?.length &&
@@ -435,7 +468,7 @@ function hasScriptOwners(input) {
 
 function classifySourceFile(input) {
   const proofs = ownerProofsFor(input);
-  const deleteCandidate = matchesAnyPattern(input.file, input.explicitDeleteNowPatterns ?? []);
+  const deleteCandidate = Boolean(explicitDeleteNowRule(input.file, input.explicitDeleteNowPatterns ?? []));
   const unknownProof = Object.values(proofs).some((value) => value === 'unknown');
   if (deleteCandidate && unknownProof) {
     return {
@@ -619,7 +652,7 @@ async function buildNonProductionSourceRows() {
       productionBuildGraphOwners: graph.reachableSources?.[file]?.entrypointOwners ?? [],
       productionImportOwners,
       testOwners: collectTextOwners(testTextFiles, file),
-      scriptOwners: collectTextOwners(scriptTextFiles, file),
+      scriptOwners: removeAuditClassificationMetadataOwner(collectTextOwners(scriptTextFiles, file)),
       publicAssetOwners: collectTextOwners(publicTextFiles, file),
       requiredVerificationOwners: collectRequiredVerificationOwners(file, scripts),
       explicitRetainPatterns: EXPLICIT_RETAIN_PATTERNS,
