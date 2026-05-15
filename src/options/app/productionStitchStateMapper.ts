@@ -1,6 +1,6 @@
 import { normalizeUsageStats } from '@shared/constants';
 import { previewContent } from '@options/stitch/content';
-import { prepareHistory } from '@options/widgets/shared/usage/usageDashboard.utils';
+import { prepareUsageHistory } from '@options/stitch/usageHistory';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
@@ -395,7 +395,7 @@ function usageStatsToOverview(usageStats: UsageStats): PreviewContent['overview'
       { label: 'Reading + Video + Fragment', value: usageStats.fragmentSaves },
       { label: 'Articles', value: usageStats.articleSaves }
     ],
-    history: prepareHistory(usageStats).map((entry) => ({
+    history: prepareUsageHistory(usageStats).map((entry) => ({
       label: usageHistoryLabel(entry.date),
       value: entry.aiChat + entry.fragment + entry.article
     }))
