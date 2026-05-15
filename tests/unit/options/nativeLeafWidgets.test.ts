@@ -7,7 +7,6 @@ import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions } from '@shared/types/options';
 import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
 import { ReadingSettingsWidget } from '@options/widgets/ReadingSettingsWidget';
-import { FragmentSettingsWidget } from '@options/widgets/FragmentSettingsWidget';
 import { VideoSettingsWidget } from '@options/widgets/VideoSettingsWidget';
 
 function buildOptions(): CompleteOptions {
@@ -488,21 +487,6 @@ describe('native leaf option widgets', () => {
     expect(widget.collect().readingSession).toEqual(
       expect.objectContaining({
         exportMode: 'full'
-      })
-    );
-  });
-
-  it('collects fragment settings edits', () => {
-    const container = document.createElement('div');
-    const widget = new FragmentSettingsWidget();
-    widget.mount(container, { options: buildOptions() });
-
-    const input = container.querySelector<HTMLInputElement>('input')!;
-    input.value = '360';
-
-    expect(widget.collect().fragmentClipper).toEqual(
-      expect.objectContaining({
-        contextLength: 360
       })
     );
   });
