@@ -52,14 +52,14 @@ npm run verify:stitch-secondary # Stitch Secondary 主链回归
 
 #### 基础组件优先级 (当前正式口径)
 
-| 语义        | 首选入口                                  | 说明                                                                                     |
-| ----------- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 按钮        | `UiButton` / `createOptionsButtonElement` | 正式入口：`src/ui/primitives/button/index.ts`                                            |
-| 输入框      | `UiInput` / `createInputElement`          | 正式入口：`src/ui/primitives/input/index.ts`                                             |
-| 选择框      | `UiSelect` / `createSelectElement`        | 正式入口：`src/ui/primitives/select/index.ts`                                            |
-| 复选框      | `UiCheckbox` / `createCheckboxElement`    | 正式入口：`src/ui/primitives/checkbox/index.ts`                                          |
-| 表格/伪表格 | `DaisyTable`                              | 统一表头、行区与滚动容器                                                                 |
-| 对话框      | `createDialogFrame` / `ShadowDialogHost`  | 正式入口：`src/ui/primitives/dialog/index.ts`、`src/ui/hosts/shadow/ShadowDialogHost.ts` |
+| 语义        | 首选入口                                                | 说明                                                                                     |
+| ----------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 按钮        | `UiButton` / `createOptionsButtonElement`               | 正式入口：`src/ui/primitives/button/index.ts`                                            |
+| 输入框      | `UiInput` / `createInputElement`                        | 正式入口：`src/ui/primitives/input/index.ts`                                             |
+| 选择框      | `UiSelect` / `createSelectElement`                      | 正式入口：`src/ui/primitives/select/index.ts`                                            |
+| 复选框      | `UiCheckbox` / `createCheckboxElement`                  | 正式入口：`src/ui/primitives/checkbox/index.ts`                                          |
+| 表格/伪表格 | table primitive (`DaisyTable` compatibility class name) | 统一表头、行区与滚动容器；class name is historical compatibility, not DaisyUI guidance   |
+| 对话框      | `createDialogFrame` / `ShadowDialogHost`                | 正式入口：`src/ui/primitives/dialog/index.ts`、`src/ui/hosts/shadow/ShadowDialogHost.ts` |
 
 DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives/button/index.ts` 导出的 `createOptionsButtonElement()`。
 
