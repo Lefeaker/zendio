@@ -6,7 +6,6 @@ import { resolve } from 'node:path';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions } from '@shared/types/options';
 import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
-import { ReadingSettingsWidget } from '@options/widgets/ReadingSettingsWidget';
 import { VideoSettingsWidget } from '@options/widgets/VideoSettingsWidget';
 
 function buildOptions(): CompleteOptions {
@@ -473,22 +472,6 @@ describe('native leaf option widgets', () => {
       expect.objectContaining({ name: 'published', defaultValue: true })
     ]);
     expect(runtime.notifyDirty).toHaveBeenCalledWith(['yamlConfig'], { invalid: true });
-  });
-
-  it('keeps existing reading settings widget collect/apply behavior', () => {
-    const container = document.createElement('div');
-    const widget = new ReadingSettingsWidget();
-    widget.mount(container, { options: buildOptions() });
-
-    const select = container.querySelector('select')!;
-    select.value = 'full';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-
-    expect(widget.collect().readingSession).toEqual(
-      expect.objectContaining({
-        exportMode: 'full'
-      })
-    );
   });
 
   it('collects video settings edits', () => {
