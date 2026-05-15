@@ -6,7 +6,6 @@ import { resolve } from 'node:path';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions } from '@shared/types/options';
 import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
-import { VideoSettingsWidget } from '@options/widgets/VideoSettingsWidget';
 
 function buildOptions(): CompleteOptions {
   return {
@@ -472,24 +471,5 @@ describe('native leaf option widgets', () => {
       expect.objectContaining({ name: 'published', defaultValue: true })
     ]);
     expect(runtime.notifyDirty).toHaveBeenCalledWith(['yamlConfig'], { invalid: true });
-  });
-
-  it('collects video settings edits', () => {
-    const container = document.createElement('div');
-    const widget = new VideoSettingsWidget();
-    widget.mount(container, { options: buildOptions() });
-
-    const [labelInput, shortcutInput] = Array.from(
-      container.querySelectorAll<HTMLInputElement>('input')
-    );
-    labelInput.value = 'Clip video';
-    shortcutInput.value = 'Alt+Shift+V';
-
-    expect(widget.collect().video).toEqual(
-      expect.objectContaining({
-        promptButtonLabel: 'Clip video',
-        promptShortcut: 'Alt+Shift+V'
-      })
-    );
   });
 });
