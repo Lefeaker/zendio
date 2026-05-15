@@ -8,7 +8,7 @@
 
 ### 0.0 Stitch Secondary 正式主链
 
-- 正式 Options UI 启动链是 `src/options/index.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
+- 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
 - `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
@@ -17,7 +17,7 @@
 
 ### 0.1 目录与入口
 
-- `index.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 I18n、Controller、Stitch Shell 初始化。
+- `index.ts -> runtimeEntry.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 repository 注册、I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
 - `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；保留原因为 legacy layout/e2e 测试 owner 尚未全部迁出。
 - `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
@@ -125,9 +125,9 @@ src/options/
 - `applyI18n()`：创建并挂载 `PageI18nController`。
 - `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
-- `src/options/index.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
+- `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
 - `mountOptionsShell`、`OptionsApp`、`MainContent`、`Sidebar`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
-- `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
+- `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；repository 注册归属 `src/options/runtimeEntry.ts`；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
 2. **Options 主状态链（Phase 3 当前口径）**
 

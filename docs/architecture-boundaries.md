@@ -11,7 +11,7 @@
 - `src/background/index.ts`
 - `src/content/index.ts`
 - `src/onboarding/index.ts`
-- `src/options/index.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`
+- `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`
 - `src/platform/services.ts`
 
 验证命令：`npm run audit:platform-services:report`

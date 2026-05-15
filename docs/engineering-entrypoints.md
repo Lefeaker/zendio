@@ -114,7 +114,7 @@ npm run visual:test
 - patterns：`src/ui/patterns/*`
 - hosts：`src/ui/hosts/*`
 - domains：`src/ui/domains/*`
-- Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
+- Options 主链：`src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 
 ## Retired / Compatibility Guardrails
