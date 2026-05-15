@@ -2,11 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountPreviewApp } from '../fixtures/options-preview/app/runtime';
+import { ensureWindowLocalStorage } from '../utils/localStorage';
 
 describe('Stitch preview runtime widgets', () => {
   beforeEach(() => {
     document.documentElement.removeAttribute('data-theme');
-    window.localStorage.clear();
+    ensureWindowLocalStorage().clear();
     document.body.innerHTML = '<div id="app"></div>';
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       callback(0);
