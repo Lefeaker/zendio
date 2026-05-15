@@ -1,25 +1,22 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { cssTextPlugin } from '../scripts/plugins/cssTextPlugin.mjs';
 
-const ROOT = process.cwd();
-const BUILD_GRAPH_FAMILIES = [
-  'src/options/preview/**',
-  'src/options/components/formSections/**',
-  'src/options/components/layout/**',
-  'src/options/components/sections/*Section.ts',
-  'src/options/widgets/**',
-  'src/ui/domains/video/SupportPromptView.ts',
-  'src/options/stitch/schema/settings/experimental.ts',
-  'src/infrastructure/optionsRepository.ts'
+const REPORT_PATH = 'build/reports/production-build-graph.json';
+const REQUIRED_ENTRYPOINTS = [
+  'src/background/index.ts',
+  'src/content/index.ts',
+  'src/options/index.ts',
+  'src/onboarding/index.ts'
 ];
 
-const ENTRYPOINTS = {
-  'background/index': 'src/background/index.ts',
+const BACKGROUND_ENTRYPOINTS = {
+  'background/index': 'src/background/index.ts'
+};
+
+const APP_ENTRYPOINTS = {
   'content/runtime': 'src/content/index.ts',
   'local-vault-permission': 'src/content/runtime/localVaultPermissionFrame.ts',
   'offscreen/local-vault': 'src/offscreen/localVault.ts',
@@ -31,15 +28,20 @@ const ENTRYPOINTS = {
   'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
 };
 
-const BACKGROUND_ENTRYPOINTS = {
-  'background/index': 'src/background/index.ts'
+const ALL_ENTRYPOINTS = {
+  ...BACKGROUND_ENTRYPOINTS,
+  ...APP_ENTRYPOINTS
 };
 
 function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
 }
 
-function getSharedBuildOptions() {
+function normalizePath(path) {
+  return path.replace(/^\.\//, '');
+}
+
+function sharedBuildOptions() {
   return {
     bundle: true,
     platform: 'browser',
@@ -67,8 +69,15 @@ function getSharedBuildOptions() {
   };
 }
 
+function mergeMetafiles(metafiles) {
+  return {
+    inputs: Object.assign({}, ...metafiles.map((metafile) => metafile.inputs ?? {})),
+    outputs: Object.assign({}, ...metafiles.map((metafile) => metafile.outputs ?? {}))
+  };
+}
+
 async function createMetafile() {
-  const shared = getSharedBuildOptions();
+  const shared = sharedBuildOptions();
   const background = await build({
     ...shared,
     entryPoints: BACKGROUND_ENTRYPOINTS,
@@ -77,246 +86,221 @@ async function createMetafile() {
   });
   const app = await build({
     ...shared,
-    entryPoints: ENTRYPOINTS,
+    entryPoints: APP_ENTRYPOINTS,
     format: 'esm',
     splitting: true,
     outdir: 'build/audit'
   });
+
+  if (!background.metafile || !app.metafile) {
+    throw new Error('esbuild metafile is missing; production build graph cannot be proven');
+  }
+
   return mergeMetafiles([background.metafile, app.metafile]);
 }
 
-function mergeMetafiles(metafiles) {
-  return {
-    inputs: Object.assign({}, ...metafiles.map((metafile) => metafile.inputs ?? {})),
-    outputs: Object.assign({}, ...metafiles.map((metafile) => metafile.outputs ?? {}))
-  };
-}
+function collectReachableSources(metafile) {
+  const reachable = {};
+  const outputEntrypoints = new Set();
+  const outputOwners = collectOutputEntrypointOwners(metafile);
 
-async function walk(dir) {
-  if (!existsSync(dir)) {
-    return [];
-  }
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await walk(fullPath)));
-      continue;
-    }
-    if (entry.isFile()) {
-      files.push(fullPath);
-    }
-  }
-  return files;
-}
-
-async function readTextFiles(paths) {
-  const files = [];
-  for (const base of paths) {
-    const fullBase = join(ROOT, base);
-    if (!existsSync(fullBase)) {
-      continue;
-    }
-    const stats = await stat(fullBase);
-    const candidates = stats.isDirectory() ? await walk(fullBase) : [fullBase];
-    for (const file of candidates) {
-      if (/\.(ts|tsx|js|mjs|cjs|json|html|css|md)$/.test(file)) {
-        files.push({
-          path: relative(ROOT, file),
-          source: await readFile(file, 'utf8')
-        });
-      }
-    }
-  }
-  return files;
-}
-
-function normalizeInputPath(input) {
-  return input.replace(/^\.\//, '');
-}
-
-function familyPatternToRegExp(family) {
-  const pattern = family.replaceAll('**', '__DOUBLE_STAR__').replaceAll('*', '__STAR__');
-  const escaped = pattern
-    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-    .replaceAll('__DOUBLE_STAR__', '.*')
-    .replaceAll('__STAR__', '[^/]*');
-  return new RegExp(`^${escaped}$`);
-}
-
-function familySearchTokens(family) {
-  const base = family.replace('/**', '').replace('/*Section.ts', '').replace('.ts', '');
-  const noSrc = base.replace(/^src\//, '');
-  return Array.from(new Set([base, noSrc]));
-}
-
-function classifyInput(path) {
-  if (path.startsWith('src/dev/')) {
-    return 'build-sensitive-harness';
-  }
-  return 'production-user-facing';
-}
-
-function classifySources(metafile) {
-  const sourceMap = new Map();
-  for (const input of Object.keys(metafile.inputs ?? {})) {
-    const normalized = normalizeInputPath(input);
-    if (!normalized.startsWith('src/')) {
-      continue;
-    }
-    sourceMap.set(normalized, classifyInput(normalized));
-  }
-  return sourceMap;
-}
-
-function collectEntrypointOwners(metafile) {
-  const owners = new Map();
   for (const [outputPath, output] of Object.entries(metafile.outputs ?? {})) {
-    const entryPoint = output.entryPoint ? normalizeInputPath(output.entryPoint) : null;
-    for (const input of Object.keys(output.inputs ?? {})) {
-      const normalized = normalizeInputPath(input);
-      if (!normalized.startsWith('src/')) {
+    const entrypoint = output.entryPoint ? normalizePath(output.entryPoint) : null;
+    if (entrypoint) {
+      outputEntrypoints.add(entrypoint);
+    }
+
+    for (const [inputPath, input] of Object.entries(output.inputs ?? {})) {
+      const source = normalizePath(inputPath);
+      if (!source.startsWith('src/')) {
         continue;
       }
-      const list = owners.get(normalized) ?? [];
-      list.push(entryPoint ?? outputPath);
-      owners.set(normalized, Array.from(new Set(list)));
+      const entrypointOwners = outputOwners.get(outputPath) ?? (entrypoint ? [entrypoint] : []);
+      const current = reachable[source] ?? {
+        entrypointOwners: [],
+        outputOwners: [],
+        bytesInOutput: 0
+      };
+      for (const owner of entrypointOwners) {
+        if (!current.entrypointOwners.includes(owner)) {
+          current.entrypointOwners.push(owner);
+        }
+      }
+      if (!current.outputOwners.includes(outputPath)) {
+        current.outputOwners.push(outputPath);
+      }
+      current.bytesInOutput += input.bytesInOutput ?? 0;
+      reachable[source] = current;
     }
   }
-  return owners;
-}
 
-function collectFamilyMatches(family, sourceMap) {
-  const pattern = familyPatternToRegExp(family);
-  return Array.from(sourceMap.keys()).filter((path) => {
-    if (pattern.test(path)) {
-      return true;
-    }
-    if (family.endsWith('*Section.ts')) {
-      return /^src\/options\/components\/sections\/[A-Z].*Section\.ts$/.test(path);
-    }
-    return false;
-  });
-}
-
-function collectTextOwners(files, family) {
-  const tokens = familySearchTokens(family);
-  return files
-    .filter((file) => tokens.some((token) => file.source.includes(token)))
-    .map((file) => file.path);
-}
-
-function readDeleteNowFamilies(inventoryPath = 'docs/retired-code-inventory.md') {
-  if (!existsSync(inventoryPath)) {
-    return [];
+  for (const value of Object.values(reachable)) {
+    value.entrypointOwners.sort();
+    value.outputOwners.sort();
   }
-  const source = readFileSync(inventoryPath, 'utf8');
-  return source
-    .split('\n')
-    .filter((line) => line.includes('|') && line.includes('delete-now'))
-    .map((line) => line.match(/`([^`]+)`/)?.[1])
-    .filter(Boolean);
+
+  return { reachable, outputEntrypoints };
 }
 
-export async function buildProductionGraphReport(args = {}) {
-  const metafile = args.metafile ?? (await createMetafile());
-  const sourceMap = classifySources(metafile);
-  const entrypointOwners = collectEntrypointOwners(metafile);
-  const textFiles = await readTextFiles(['package.json', 'scripts', 'tests', 'public']);
-  const deleteNowFamilies = args.deleteNowFamilies ?? readDeleteNowFamilies();
+function collectOutputEntrypointOwners(metafile) {
+  const outputs = metafile.outputs ?? {};
+  const owners = new Map();
+  const importers = new Map();
 
-  const families = BUILD_GRAPH_FAMILIES.map((family) => {
-    const buildMatches = collectFamilyMatches(family, sourceMap);
-    const textOwners = collectTextOwners(textFiles, family);
-    const classifications = Array.from(
-      new Set(buildMatches.map((path) => sourceMap.get(path) ?? 'unused'))
-    );
-    const entrypoints = Array.from(
-      new Set(buildMatches.flatMap((path) => entrypointOwners.get(path) ?? []))
-    );
-    return {
-      family,
-      inBuildGraph: buildMatches.length > 0,
-      classification: classifications.length ? classifications.join(',') : 'unused',
-      buildMatches,
-      entrypoints,
-      textOwners
-    };
-  });
-
-  const failures = [];
-  for (const family of families) {
-    if (!deleteNowFamilies.includes(family.family)) {
-      continue;
+  for (const [outputPath, output] of Object.entries(outputs)) {
+    if (output.entryPoint) {
+      owners.set(outputPath, new Set([normalizePath(output.entryPoint)]));
     }
-    const stillOwned =
-      family.inBuildGraph || family.textOwners.some((owner) => !owner.startsWith('docs/'));
-    if (stillOwned) {
-      failures.push(`delete-now family still has owners: ${family.family}`);
+    for (const imported of output.imports ?? []) {
+      if (imported.kind !== 'import-statement' && imported.kind !== 'dynamic-import') {
+        continue;
+      }
+      const importedPath = normalizePath(imported.path);
+      const list = importers.get(importedPath) ?? [];
+      list.push(outputPath);
+      importers.set(importedPath, list);
     }
   }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [outputPath] of Object.entries(outputs)) {
+      const current = owners.get(outputPath) ?? new Set();
+      for (const importer of importers.get(outputPath) ?? []) {
+        for (const owner of owners.get(importer) ?? []) {
+          if (!current.has(owner)) {
+            current.add(owner);
+            changed = true;
+          }
+        }
+      }
+      if (current.size) {
+        owners.set(outputPath, current);
+      }
+    }
+  }
+
+  return new Map(
+    Array.from(owners.entries()).map(([outputPath, entrypointOwners]) => [
+      outputPath,
+      Array.from(entrypointOwners).sort()
+    ])
+  );
+}
+
+function buildProductionGraphReport({ metafile }) {
+  if (!metafile || !metafile.inputs || !metafile.outputs) {
+    throw new Error('missing esbuild metafile inputs/outputs');
+  }
+
+  const { reachable, outputEntrypoints } = collectReachableSources(metafile);
+  const configuredEntrypoints = Object.values(ALL_ENTRYPOINTS);
+  const missingConfiguredEntrypoints = configuredEntrypoints.filter(
+    (entrypoint) => existsSync(entrypoint) && !outputEntrypoints.has(entrypoint)
+  );
+  const missingRequiredEntrypoints = REQUIRED_ENTRYPOINTS.filter(
+    (entrypoint) => !outputEntrypoints.has(entrypoint)
+  );
+  const missingReachableRequiredSources = REQUIRED_ENTRYPOINTS.filter(
+    (entrypoint) => !reachable[entrypoint]
+  );
+  const failures = [
+    ...missingRequiredEntrypoints.map((entrypoint) => `missing required entrypoint: ${entrypoint}`),
+    ...missingReachableRequiredSources.map(
+      (entrypoint) => `required entrypoint is not reachable: ${entrypoint}`
+    ),
+    ...missingConfiguredEntrypoints.map(
+      (entrypoint) => `configured build entrypoint did not appear in metafile: ${entrypoint}`
+    )
+  ];
 
   return {
-    sourceCount: sourceMap.size,
-    families,
-    failures
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    configuredEntrypoints: ALL_ENTRYPOINTS,
+    requiredEntrypoints: {
+      expected: REQUIRED_ENTRYPOINTS,
+      missing: Array.from(new Set([...missingRequiredEntrypoints, ...missingReachableRequiredSources]))
+    },
+    sourceCount: Object.keys(reachable).length,
+    reachableSources: reachable,
+    failures: Array.from(new Set(failures))
   };
+}
+
+function formatProductionBuildGraphReport(report) {
+  const lines = [
+    '# Production Build Graph Report',
+    '',
+    `Source count: ${report.sourceCount}`,
+    '',
+    '## Required Entrypoints',
+    '',
+    `Missing: ${report.requiredEntrypoints.missing.length ? report.requiredEntrypoints.missing.join(', ') : 'none'}`,
+    '',
+    '## Reachable Sources',
+    '',
+    '| Source | Entrypoint owners | Output owners |',
+    '| --- | --- | --- |'
+  ];
+
+  for (const [source, owners] of Object.entries(report.reachableSources).sort(([a], [b]) =>
+    a.localeCompare(b)
+  )) {
+    lines.push(
+      `| \`${source}\` | ${owners.entrypointOwners.join(', ') || 'none'} | ${owners.outputOwners.join(', ') || 'none'} |`
+    );
+  }
+
+  if (report.failures.length) {
+    lines.push('', '## Failures', '', ...report.failures.map((failure) => `- ${failure}`));
+  }
+
+  return `${lines.join('\n')}\n`;
 }
 
 function parseArgs(args) {
-  const result = {};
+  const parsed = {
+    writeJson: REPORT_PATH
+  };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--input-metafile') {
-      result.inputMetafile = args[index + 1];
+      parsed.inputMetafile = args[index + 1];
       index += 1;
-    } else if (arg === '--write-build-graph') {
-      result.writeBuildGraph = args[index + 1];
+    } else if (arg === '--write-json' || arg === '--write-build-graph') {
+      parsed.writeJson = args[index + 1];
       index += 1;
+    } else if (arg === '--no-write-json') {
+      parsed.writeJson = null;
     }
   }
-  return result;
+  return parsed;
 }
 
-function printReport(report) {
-  console.log(`Production build graph sources=${report.sourceCount}`);
-  for (const family of report.families) {
-    console.log(
-      [
-        family.family,
-        `inBuildGraph=${family.inBuildGraph}`,
-        `classification=${family.classification}`,
-        `buildMatches=${family.buildMatches.length}`,
-        `textOwners=${family.textOwners.length}`
-      ].join(' | ')
-    );
-    if (family.entrypoints.length) {
-      console.log(`  entrypoints: ${family.entrypoints.join(', ')}`);
-    }
-    if (family.textOwners.length) {
-      console.log(`  text owners: ${family.textOwners.join(', ')}`);
-    }
+function writeJsonReport(path, report) {
+  if (!path) {
+    return;
   }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const metafile = args.inputMetafile
     ? JSON.parse(readFileSync(args.inputMetafile, 'utf8'))
-    : undefined;
-  const report = await buildProductionGraphReport({ metafile });
-  printReport(report);
-
-  if (args.writeBuildGraph) {
-    writeFileSync(args.writeBuildGraph, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  }
-
+    : await createMetafile();
+  const report = buildProductionGraphReport({ metafile });
+  writeJsonReport(args.writeJson, report);
+  process.stdout.write(formatProductionBuildGraphReport(report));
   if (report.failures.length > 0) {
-    console.error(report.failures.join('\n'));
     process.exit(1);
   }
 }
+
+export { buildProductionGraphReport, formatProductionBuildGraphReport };
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
