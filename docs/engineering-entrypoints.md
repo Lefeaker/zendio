@@ -25,6 +25,7 @@
   - 显式包含 `audit:production-shape:report`
   - 显式包含 `audit:build-graph:report`
   - 显式包含 `audit:deps:report`
+  - 显式包含 `audit:design-system-doc:report`
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -41,6 +42,10 @@
 - `npm run audit:retired-code:report`
   - 读取 `docs/retired-code-inventory.md`
   - 阻止 `delete-now` path 在 `src` 中回归，或被 package/scripts/src/tests/public/manifest 与视觉/浏览器验证继续引用
+- `npm run audit:design-system-doc:report`
+  - 检查设计系统治理文档的必需入口、引用与文件存在性
+  - fail closed 阻止 active docs/workflow files 恢复当前 Tailwind/DaisyUI 指导
+  - 明确排除 `src/options/**/*.ts` 兼容 alias；source alias 清理必须另开 AST/import-aware 迁移计划
 - `npm run audit:production-shape:report`
   - 读取 `docs/production-code-hotspots.md`
   - 强制热点 LOC 阈值，并阻止 renderer/widget facade 重新出现硬编码可见文本赋值
