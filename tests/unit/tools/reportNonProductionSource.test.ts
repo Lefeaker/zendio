@@ -4,6 +4,8 @@ type NonProductionSourceModule = {
   classifySourceFile: (input: Record<string, unknown>) => {
     decision: string;
     requiredAction: string;
+    owner?: string;
+    deletionCondition?: string;
   };
   formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
 };
@@ -23,6 +25,7 @@ function input(overrides: Record<string, unknown> = {}) {
     publicAssetOwners: [],
     requiredVerificationOwners: [],
     explicitRetainPatterns: [],
+    explicitClassificationPatterns: [],
     explicitDeleteNowPatterns: [],
     ...overrides
   };
@@ -48,7 +51,85 @@ describe('report-non-production-source', () => {
     );
 
     expect(result.decision).toBe('migrate-test-owner');
+    expect(result.owner).toContain('test');
     expect(result.requiredAction).toContain('Move behavior coverage');
+  });
+
+  it('uses explicit retained facade rules with owner and deletion condition', () => {
+    const result = classifySourceFile(
+      input({
+        file: 'src/ui/domains/theme/index.ts',
+        explicitClassificationPatterns: [
+          {
+            pattern: 'src/ui/domains/theme/index.ts',
+            decision: 'retain-production-facade',
+            owner: 'theme domain public barrel',
+            deletionCondition: 'delete only after public imports move to concrete theme module'
+          }
+        ]
+      })
+    );
+
+    expect(result.decision).toBe('retain-production-facade');
+    expect(result.owner).toBe('theme domain public barrel');
+    expect(result.deletionCondition).toContain('public imports');
+  });
+
+  it('uses explicit migration rules without making unknown files pass by default', () => {
+    const result = classifySourceFile(
+      input({
+        file: 'src/options/components/sections/restSectionRuntime.ts',
+        explicitClassificationPatterns: [
+          {
+            pattern: 'src/options/components/sections/restSection*.ts',
+            decision: 'migrate-test-owner',
+            owner: 'legacy REST section helper retained by old section tests',
+            deletionCondition: 'delete after REST behavior is covered by production Stitch tests'
+          }
+        ]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-test-owner');
+    expect(result.owner).toContain('legacy REST');
+    expect(classifySourceFile(input({ file: 'src/unknown/unused.ts' })).decision).toBe(
+      'stop-unknown'
+    );
+  });
+
+  it('matches explicit brace classification patterns without broadening ownership', () => {
+    const result = classifySourceFile(
+      input({
+        file: 'src/content/reader/styles.ts',
+        explicitClassificationPatterns: [
+          {
+            pattern: 'src/content/reader/{highlightController,sessionExportUtils,styles,types}.ts',
+            decision: 'retain-production-facade',
+            owner: 'reader runtime compatibility contract',
+            deletionCondition: 'delete only after reader runtime imports migrate'
+          }
+        ]
+      })
+    );
+
+    expect(result.decision).toBe('retain-production-facade');
+    expect(result.owner).toContain('reader runtime');
+    expect(
+      classifySourceFile(
+        input({
+          file: 'src/content/reader/unrelated.ts',
+          explicitClassificationPatterns: [
+            {
+              pattern:
+                'src/content/reader/{highlightController,sessionExportUtils,styles,types}.ts',
+              decision: 'retain-production-facade',
+              owner: 'reader runtime compatibility contract',
+              deletionCondition: 'delete only after reader runtime imports migrate'
+            }
+          ]
+        })
+      ).decision
+    ).toBe('stop-unknown');
   });
 
   it('does not allow delete-now when one owner proof is unknown', () => {
@@ -103,6 +184,8 @@ describe('report-non-production-source', () => {
     ]);
 
     expect(report).toContain('Non-Production Source Ownership Report');
+    expect(report).toContain('Owner');
+    expect(report).toContain('Deletion condition');
     expect(report).toContain('migrate-test-owner');
     expect(report).toContain('src/options/widgets/ExampleWidget.ts');
   });
