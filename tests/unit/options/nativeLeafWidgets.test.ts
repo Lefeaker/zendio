@@ -5,7 +5,6 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions } from '@shared/types/options';
-import { RestStorageWidget } from '@options/widgets/RestStorageWidget';
 import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
 import { ReadingSettingsWidget } from '@options/widgets/ReadingSettingsWidget';
 import { FragmentSettingsWidget } from '@options/widgets/FragmentSettingsWidget';
@@ -77,25 +76,6 @@ describe('native leaf option widgets', () => {
 
     expect(source).not.toContain('YamlConfigView');
     expect(source).not.toContain('@ui/domains/yaml-config');
-  });
-
-  it('collects REST storage edits', () => {
-    const container = document.createElement('div');
-    const widget = new RestStorageWidget();
-    widget.mount(container, { options: buildOptions() });
-
-    const [vaultInput, httpsInput] = Array.from(
-      container.querySelectorAll<HTMLInputElement>('input')
-    );
-    vaultInput.value = 'Research';
-    httpsInput.value = 'https://127.0.0.1:27124/';
-
-    expect(widget.collect().rest).toEqual(
-      expect.objectContaining({
-        vault: 'Research',
-        httpsUrl: 'https://127.0.0.1:27124/'
-      })
-    );
   });
 
   it('collects structured YAML edits', async () => {
