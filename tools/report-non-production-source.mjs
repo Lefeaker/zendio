@@ -287,6 +287,8 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
 const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/UsageWidget.ts',
   'src/options/widgets/VaultRouterWidget.ts',
+  'src/options/widgets/ReadingSettingsWidget.ts',
+  'src/options/widgets/VideoSettingsWidget.ts',
   'src/options/widgets/index.ts',
   'src/options/components/controls/domainMappings.ts',
   'src/options/components/formSections/formSectionManager.ts',
