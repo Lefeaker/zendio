@@ -74,6 +74,19 @@ npm run test:e2e
 
 The thresholds are evaluated in CI through `npm run test:coverage`.
 
+The coverage denominator excludes documented Non-Production Code 3.0
+retained/deferred Options compatibility surfaces that are no longer production
+implementation targets:
+
+- `src/options/components/formSections/**`
+- `src/options/components/layout/**`
+- `src/options/components/sections/**`
+- `src/options/widgets/shared/**`
+
+Those paths remain governed by `audit:non-production-source:report` and
+`audit:non-production-source:check`; production Stitch behavior remains covered
+by the production Stitch tests.
+
 ## Recommended author workflow
 
 ### Small refactor

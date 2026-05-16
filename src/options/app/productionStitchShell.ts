@@ -1,25 +1,12 @@
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
-import { mergeOptions } from '@shared/config/optionsMerger';
-import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
-import { DI_TOKENS } from '@shared/di/tokens';
-import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { Language, Messages } from '@i18n';
-import { parseClassifierTaxonomy } from '@options/services/validation';
 import { clear, el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
 import { previewContent } from '@options/stitch/content';
-import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
-import {
-  buildAppShell,
-  buildPanelStack,
-  buildScrollSection,
-  buildSidebar
-} from '@options/stitch/render/shellBuilders';
-import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import type {
   PreviewContent,
@@ -29,20 +16,14 @@ import type {
 } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import {
-  HIGHLIGHT_THEME_CLASSES,
-  RUNTIME_SURFACE_RESOURCE_IDS,
   applyOptionsToState,
   createInitialStitchState,
-  createPresetYamlConfig,
   createProductionContent,
   createThemeMediaQuery,
-  isHighlightTheme,
   persistTheme,
   resolveExtensionVersionLabel,
-  resolveReadingPathMode,
   resolveStoredTheme,
-  resolveThemePreference,
-  toTemplateValues
+  resolveThemePreference
 } from './productionStitchStateMapper';
 import { createProductionStitchActions } from './productionStitchActions';
 import { createProductionStitchWidgetHost } from './productionStitchWidgetHost';
@@ -52,10 +33,25 @@ import {
   captureOptionsScroll,
   installButtonPressScrollGuard,
   restoreOptionsScrollSoon,
-  setScrollTopImmediately,
   shouldPreserveButtonActionScroll
 } from './productionStitchScrollGuard';
 import { localizeStitchContent } from './productionStitchLocalization';
+import {
+  createProductionStitchRenderLifecycle,
+  type ProductionStitchRenderLifecycle
+} from './productionStitchRenderLifecycle';
+import {
+  applyOutputPresetToDraft,
+  applyTemplateStateToDraft,
+  createInitialDraft,
+  mergePartialIntoDraft,
+  resolveDefaultDomainMappingRows,
+  resolveMessagingRepositoryFallback,
+  resolveOptionsRepositoryFallback,
+  resolveRoot,
+  updateClassifierField,
+  updateDraftPath
+} from './productionStitchShellState';
 
 export interface MountedProductionStitchShell {
   cleanup(): void;
@@ -79,63 +75,6 @@ export interface ProductionStitchShellDependencies {
   now?: () => number;
 }
 
-function createLocalOptionsRepositoryFallback(): IOptionsRepository {
-  let snapshot = mergeOptions(null) as CompleteOptions;
-  const listeners = new Set<(options: CompleteOptions) => void>();
-  return {
-    get() {
-      return Promise.resolve(snapshot);
-    },
-    set(options) {
-      snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;
-      listeners.forEach((listener) => listener(snapshot));
-      return Promise.resolve();
-    },
-    onChange(callback) {
-      listeners.add(callback);
-      callback(snapshot);
-      return () => {
-        listeners.delete(callback);
-      };
-    }
-  };
-}
-
-function createLocalMessagingRepositoryFallback(): IMessagingRepository {
-  return {
-    send<T>() {
-      return Promise.resolve(undefined as T);
-    },
-    onMessage() {
-      return () => {};
-    }
-  };
-}
-
-function resolveOptionsRepositoryFallback(): IOptionsRepository {
-  try {
-    return resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-  } catch {
-    return createLocalOptionsRepositoryFallback();
-  }
-}
-
-function resolveMessagingRepositoryFallback(): IMessagingRepository {
-  try {
-    return resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
-  } catch {
-    return createLocalMessagingRepositoryFallback();
-  }
-}
-
-function resolveRoot(root?: HTMLElement | null): HTMLElement {
-  const target = root ?? document.getElementById('optionsShellRoot');
-  if (!target) {
-    throw new Error('[Options] Missing #optionsShellRoot for Stitch shell.');
-  }
-  return target;
-}
-
 export function mountProductionStitchShell({
   root,
   controller,
@@ -152,21 +91,13 @@ export function mountProductionStitchShell({
   const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
-  let draft = mergeOptions(initialOptions) as CompleteOptions;
-  function resolveDefaultDomainMappingRows(): Array<[string, string]> {
-    const entries = Object.entries(draft.domainMappings);
-    if (entries.length) {
-      return entries;
-    }
-    draft.domainMappings = { ...DEFAULT_DOMAIN_MAPPINGS };
-    return Object.entries(draft.domainMappings);
-  }
+  let draft = createInitialDraft(initialOptions);
 
   let currentLanguage = language;
   let currentMessages = messages;
   let connectionNotice: PreviewContent['storage']['connectionNotice'] | undefined;
   let maintenanceLog = previewContent.maintenanceLog;
-  let domainMappingRows: Array<[string, string]> = resolveDefaultDomainMappingRows();
+  let domainMappingRows: Array<[string, string]> = resolveDefaultDomainMappingRows(draft);
   let appData = createProductionContent(previewContent, draft, { maintenanceLog });
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
   state.interfaceThemePreference = resolveThemePreference(draft);
@@ -236,71 +167,6 @@ export function mountProductionStitchShell({
       : null;
   }
 
-  function updateClassifierField(field: string, value: unknown): void {
-    switch (field) {
-      case 'enabled':
-        draft.classifier.enabled = Boolean(value);
-        state.classifierEnabled = draft.classifier.enabled;
-        break;
-      case 'provider':
-        draft.classifier.provider = String(
-          value ?? 'ollama'
-        ) as CompleteOptions['classifier']['provider'];
-        state.classifierProvider = draft.classifier.provider;
-        break;
-      case 'endpoint':
-        draft.classifier.endpoint = String(value ?? '');
-        state.classifierEndpoint = draft.classifier.endpoint;
-        break;
-      case 'model':
-        draft.classifier.model = String(value ?? '');
-        state.classifierModel = draft.classifier.model;
-        break;
-      case 'apiKey':
-        draft.classifier.apiKey = String(value ?? '');
-        state.classifierApiKey = draft.classifier.apiKey;
-        break;
-      case 'taxonomy':
-        state.classifierTaxonomyText = String(value ?? '');
-        try {
-          draft.classifier.taxonomy = resolveTaxonomy(
-            parseClassifierTaxonomy(state.classifierTaxonomyText)
-          );
-        } catch {
-          // Keep the previous taxonomy until the JSON is valid and matches the classifier schema.
-        }
-        break;
-      default:
-        return;
-    }
-    scheduleDraftSave();
-  }
-
-  function mergePartialIntoDraft(partial: Partial<CompleteOptions>): void {
-    if (partial.rest) {
-      draft.rest = { ...draft.rest, ...partial.rest };
-    }
-    if (partial.templates) {
-      draft.templates = { ...draft.templates, ...partial.templates };
-    }
-    if (partial.domainMappings) {
-      draft.domainMappings = { ...partial.domainMappings };
-      domainMappingRows = Object.entries(draft.domainMappings);
-    }
-    if (partial.vaultRouter) {
-      draft.vaultRouter = partial.vaultRouter;
-    }
-    if (partial.yamlConfig !== undefined) {
-      draft.yamlConfig = partial.yamlConfig;
-    }
-    Object.entries(partial).forEach(([key, value]) => {
-      if (['rest', 'templates', 'domainMappings', 'vaultRouter', 'yamlConfig'].includes(key)) {
-        return;
-      }
-      (draft as Record<string, unknown>)[key] = value;
-    });
-  }
-
   const storageController = createProductionStitchStorageController({
     getConnectionNotice: () => connectionNotice,
     getDraft: () => draft,
@@ -319,7 +185,14 @@ export function mountProductionStitchShell({
     getState: () => state,
     getMessages: () => currentMessages,
     ensureVaultRouter: () => storageController.ensureVaultRouter(),
-    mergePartialIntoDraft,
+    mergePartialIntoDraft: (partial) =>
+      mergePartialIntoDraft(
+        draft,
+        (entries) => {
+          domainMappingRows = entries;
+        },
+        partial
+      ),
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest(),
     refreshAppData,
     scheduleDraftSave
@@ -353,6 +226,40 @@ export function mountProductionStitchShell({
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest()
   });
 
+  let renderLifecycle: ProductionStitchRenderLifecycle | null = null;
+
+  function render(): void {
+    renderLifecycle?.render();
+  }
+
+  function renderActiveResourceModal(): void {
+    renderLifecycle?.renderActiveResourceModal();
+  }
+
+  function scrollToPanel(panelId: string): void {
+    renderLifecycle?.scrollToPanel(panelId);
+  }
+
+  function openResource(resourceId: string): void {
+    renderLifecycle?.openResource(resourceId);
+  }
+
+  function syncHighlightThemeControls(): void {
+    renderLifecycle?.syncHighlightThemeControls();
+  }
+
+  function syncModifierControls(): void {
+    renderLifecycle?.syncModifierControls();
+  }
+
+  function syncPreviewThemeControls(): void {
+    renderLifecycle?.syncPreviewThemeControls();
+  }
+
+  function applySystemThemePreferenceChange(): void {
+    renderLifecycle?.applySystemThemePreferenceChange();
+  }
+
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
     getContext: createSchemaContext,
     mutate,
@@ -378,8 +285,19 @@ export function mountProductionStitchShell({
       },
       activateVaultLocalFolder: (index) => storageController.activateVaultLocalFolder(index),
       applyConnectionNotice: (result) => storageController.applyConnectionNotice(result),
-      applyOutputPreset,
-      applyTemplateStateToDraft,
+      applyOutputPreset: (name) =>
+        applyOutputPresetToDraft({
+          draft,
+          state,
+          setDomainMappingRows: (entries) => {
+            domainMappingRows = entries;
+          },
+          refreshAppData,
+          scheduleDraftSave,
+          render,
+          name
+        }),
+      applyTemplateStateToDraft: () => applyTemplateStateToDraft(draft, state),
       ...(changeLanguage ? { changeLanguage } : {}),
       chooseVaultLocalFolder: (index) => storageController.chooseVaultLocalFolder(index),
       clearAnalyticsPrivacyData: () => persistence.clearAnalyticsPrivacyData(),
@@ -414,8 +332,9 @@ export function mountProductionStitchShell({
       syncModifierControls,
       syncPreviewThemeControls,
       syncRoutingRulesToDraft: () => storageController.syncRoutingRulesToDraft(),
-      updateClassifierField,
-      updateDraftPath,
+      updateClassifierField: (field, value) =>
+        updateClassifierField(draft, state, scheduleDraftSave, field, value),
+      updateDraftPath: (path, value) => updateDraftPath(draft, state, path, value),
       updateVaultField: (index, field, value) =>
         storageController.updateVaultField(index, field, value)
     }),
@@ -465,347 +384,19 @@ export function mountProductionStitchShell({
     }
   );
 
-  function syncHighlightThemeControls(): void {
-    const theme = isHighlightTheme(state.highlightTheme) ? state.highlightTheme : 'gradient';
-    const themeValues = new Set(Object.keys(HIGHLIGHT_THEME_CLASSES));
-    mountRoot.querySelectorAll<HTMLButtonElement>('.chips button[data-value]').forEach((button) => {
-      if (!themeValues.has(button.dataset.value ?? '')) {
-        return;
-      }
-      const isActive = button.dataset.value === theme;
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      button.classList.toggle('is-active', isActive);
-      const chipGroup = button.closest<HTMLElement>('.chips');
-      if (chipGroup) {
-        chipGroup.dataset.activeValue = theme;
-      }
-    });
-
-    const highlight = mountRoot.querySelector<HTMLElement>(
-      '.highlight-inline-example .inline-highlight'
-    );
-    if (highlight) {
-      highlight.classList.remove(...Object.values(HIGHLIGHT_THEME_CLASSES));
-      highlight.classList.add(HIGHLIGHT_THEME_CLASSES[theme]);
-    }
-  }
-
-  function syncModifierControls(): void {
-    const activeKeys = new Set(state.modifierKeys);
-    mountRoot
-      .querySelectorAll<HTMLInputElement>('.modifier-key-inline .switch input[type="checkbox"]')
-      .forEach((input) => {
-        input.checked = state.fragmentModifierEnabled;
-      });
-    mountRoot
-      .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')
-      .forEach((button) => {
-        const isActive =
-          state.fragmentModifierEnabled && activeKeys.has(button.dataset.value ?? '');
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        button.classList.toggle('is-active', isActive);
-      });
-  }
-
-  function syncPreviewThemeControls(): void {
-    const preference =
-      state.interfaceThemePreference === 'light' || state.interfaceThemePreference === 'system'
-        ? state.interfaceThemePreference
-        : 'dark';
-    mountRoot.querySelectorAll<HTMLButtonElement>('.chips button[data-value]').forEach((button) => {
-      if (
-        button.dataset.value !== 'light' &&
-        button.dataset.value !== 'dark' &&
-        button.dataset.value !== 'system'
-      ) {
-        return;
-      }
-      const isActive = button.dataset.value === preference;
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      button.classList.toggle('is-active', isActive);
-      const chipGroup = button.closest<HTMLElement>('.chips');
-      if (chipGroup) {
-        chipGroup.dataset.activeValue = preference;
-      }
-    });
-  }
-
-  function applySystemThemePreferenceChange(): void {
-    if (state.interfaceThemePreference !== 'system') {
-      return;
-    }
-    state.previewTheme = persistTheme('system');
-    syncPreviewThemeControls();
-  }
-
-  function render(): void {
-    const previousMain = mountRoot.querySelector('.main');
-    const previousScrollTop = previousMain instanceof HTMLElement ? previousMain.scrollTop : 0;
-    const previousWindowScroll = {
-      x: window.scrollX,
-      y: window.scrollY
-    };
-    widgetHost.flushDirtyWidgets();
-    widgetHost.destroyWidgets();
-    clear(mountRoot).append(
-      buildAppShell({
-        el,
-        sidebar: renderSidebar(),
-        panelStack: renderSectionStack()
-      })
-    );
-    const nextMain = mountRoot.querySelector('.main');
-    const restoreScroll = () => {
-      const currentMain = mountRoot.querySelector('.main');
-      if (currentMain instanceof HTMLElement) {
-        setScrollTopImmediately(currentMain, previousScrollTop);
-      }
-      if (window.scrollX !== previousWindowScroll.x || window.scrollY !== previousWindowScroll.y) {
-        window.scrollTo(previousWindowScroll.x, previousWindowScroll.y);
-      }
-    };
-    if (nextMain instanceof HTMLElement) {
-      restoreScroll();
-      bindScrollSync(nextMain);
-      queueMicrotask(restoreScroll);
-      window.requestAnimationFrame?.(() => restoreScroll());
-    }
-    const chartHost = mountRoot.querySelector<HTMLElement>('[data-role="usage-chart-shell"]');
-    if (chartHost) {
-      previewUi.renderUsageChart(chartHost, appData.overview.history);
-    }
-    syncPreviewThemeControls();
-    syncHighlightThemeControls();
-    syncModifierControls();
-    renderActiveResourceModal();
-  }
-
-  function renderSidebar(): HTMLElement {
-    const appData = createSchemaContext().appData;
-    return buildSidebar({
-      el,
-      brand: appData.brand,
-      settingsTitle: '',
-      resourcesTitle: '',
-      runtimeTitle: currentLanguage === 'en' ? 'Runtime UI' : '运行时界面',
-      navItems: appData.nav,
-      sidebarLinks: appData.sidebarLinks,
-      surfaceLinks: appData.surfaceLinks,
-      activePanel: state.activePanel,
-      activeResource: state.activeResource,
-      onPanelClick: scrollToPanel,
-      onFooterClick: openResource
-    });
-  }
-
-  function renderSectionStack(): HTMLElement {
-    return buildPanelStack({
-      el,
-      items: appData.nav,
-      renderSection: (panelId) => {
-        const view = getSettingsView(panelId, createSchemaContext());
-        const content = view ? schemaRenderer.renderView(view as never) : el('div');
-        return buildScrollSection({ el, panelId, content });
-      }
-    });
-  }
-
-  function openResource(resourceId: string): void {
-    if (RUNTIME_SURFACE_RESOURCE_IDS.has(resourceId)) {
-      return;
-    }
-    const meta = getFooterMeta(resourceId);
-    if (!meta) {
-      return;
-    }
-    if (meta.openMode === 'page') {
-      const href = resourceId === 'onboarding' ? '../onboarding/index.html' : meta.href;
-      window.open(href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    state = {
-      ...state,
-      activeResource: resourceId
-    };
-    renderActiveResourceModal();
-  }
-
-  function renderActiveResourceModal(): void {
-    mountRoot.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
-    if (!state.activeResource) {
-      return;
-    }
-    const view = getFooterView(state.activeResource, createSchemaContext());
-    const modal = view ? schemaRenderer.renderView(view as never) : null;
-    if (modal) {
-      mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]')?.append(modal);
-    }
-  }
-
-  function scrollToPanel(panelId: string): void {
-    state = {
-      ...state,
-      activePanel: panelId
-    };
-    const main = mountRoot.querySelector<HTMLElement>('.main');
-    const section = mountRoot.querySelector<HTMLElement>(`[data-panel-id="${panelId}"]`);
-    if (main && section) {
-      const top = Math.max(section.offsetTop - 12, 0);
-      if (typeof main.scrollTo === 'function') {
-        main.scrollTo({ top, behavior: 'smooth' });
-      } else {
-        main.scrollTop = top;
-      }
-    }
-    syncActiveLinks();
-  }
-
-  function bindScrollSync(main: HTMLElement): void {
-    main.addEventListener(
-      'scroll',
-      () => {
-        const sections = Array.from(
-          mountRoot.querySelectorAll<HTMLElement>('[data-scroll-section="true"]')
-        );
-        const threshold = main.scrollTop + 120;
-        let nextActive = sections[0]?.dataset.panelId ?? state.activePanel;
-        sections.forEach((section) => {
-          if (section.offsetTop <= threshold) {
-            nextActive = section.dataset.panelId ?? nextActive;
-          }
-        });
-        if (nextActive !== state.activePanel) {
-          state = {
-            ...state,
-            activePanel: nextActive
-          };
-          syncActiveLinks();
-        }
-      },
-      { passive: true }
-    );
-  }
-
-  function syncActiveLinks(): void {
-    mountRoot.querySelectorAll<HTMLElement>('[data-nav-panel]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.navPanel === state.activePanel);
-    });
-    mountRoot.querySelectorAll<HTMLElement>('[data-footer-panel]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.footerPanel === state.activeResource);
-    });
-  }
-
-  function applyTemplateStateToDraft(): void {
-    draft.templates.article = state.templateValues.articleVideo ?? draft.templates.article;
-    draft.templates.fragment = state.templateValues.fragment ?? draft.templates.fragment;
-    draft.templates.ai = state.templateValues.aiChat ?? draft.templates.ai;
-    if (state.readingPathMode === 'article') {
-      draft.templates.reading = draft.templates.article;
-    } else if (state.readingPathMode === 'fragment') {
-      draft.templates.reading = draft.templates.fragment;
-    } else {
-      draft.templates.reading = state.templateValues.readingCustom ?? draft.templates.reading;
-    }
-  }
-
-  function applyOutputPreset(name: string): void {
-    switch (name) {
-      case 'Minimal':
-        draft.templates = {
-          ...draft.templates,
-          article: 'Articles/{domain}/{yyyy}/{slug}.md',
-          fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
-          reading: 'Reading/{domain}/{yyyy}/{slug}.md',
-          ai: 'AI/{platform}/{yyyy}/{title}.md'
-        };
-        draft.domainMappings = {};
-        domainMappingRows = [];
-        draft.yamlConfig = createPresetYamlConfig('Minimal');
-        break;
-      case 'Research':
-        draft.templates = {
-          ...draft.templates,
-          article: 'Research/{domain}/{yyyy}/{slug}.md',
-          fragment: 'Research/Fragments/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-          reading: 'Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-          ai: 'Research/AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
-        };
-        draft.domainMappings = {
-          'arxiv.org': 'Arxiv',
-          'mp.weixin.qq.com': '公众号',
-          'scholar.google.com': 'Scholar'
-        };
-        domainMappingRows = Object.entries(draft.domainMappings);
-        draft.yamlConfig = createPresetYamlConfig('Research');
-        break;
-      case 'Conversation':
-        draft.templates = {
-          ...draft.templates,
-          article: 'Articles/{domain}/{yyyy}/{slug}.md',
-          fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
-          reading: 'Reading/{domain}/{yyyy}/{slug}.md',
-          ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
-        };
-        draft.domainMappings = {
-          'chatgpt.com': 'ChatGPT',
-          'claude.ai': 'Claude',
-          'gemini.google.com': 'Gemini'
-        };
-        domainMappingRows = Object.entries(draft.domainMappings);
-        draft.yamlConfig = createPresetYamlConfig('Conversation');
-        break;
-      default:
-        return;
-    }
-    state.templateValues = toTemplateValues(draft);
-    state.readingPathMode = resolveReadingPathMode(draft);
-    refreshAppData();
-    scheduleDraftSave();
-    render();
-  }
-
-  function updateDraftPath(path: string, value: unknown): void {
-    switch (path) {
-      case 'aiChat.userName':
-        draft.aiChat.userName = String(value ?? '');
-        state.aiUserName = draft.aiChat.userName;
-        break;
-      case 'video.floatingPromptEnabled':
-        draft.video.floatingPromptEnabled = Boolean(value);
-        state.videoFloatingPromptEnabled = draft.video.floatingPromptEnabled;
-        break;
-      case 'readingSession.exportMode':
-        draft.readingSession.exportMode = String(
-          value ?? 'highlights'
-        ) as CompleteOptions['readingSession']['exportMode'];
-        state.readingExportMode = draft.readingSession.exportMode;
-        break;
-      case 'fragmentClipper.useFootnoteFormat':
-        draft.fragmentClipper.useFootnoteFormat = Boolean(value);
-        state.fragmentUseFootnoteFormat = draft.fragmentClipper.useFootnoteFormat;
-        break;
-      case 'fragmentClipper.captureContext':
-        draft.fragmentClipper.captureContext = Boolean(value);
-        state.fragmentCaptureContext = draft.fragmentClipper.captureContext;
-        break;
-      case 'fragmentClipper.contextLength':
-        draft.fragmentClipper.contextLength = Number(value) || draft.fragmentClipper.contextLength;
-        state.fragmentContextLength = draft.fragmentClipper.contextLength;
-        break;
-      case 'fragmentClipper.contextMode':
-        draft.fragmentClipper.contextMode = String(
-          value ?? 'chars'
-        ) as CompleteOptions['fragmentClipper']['contextMode'];
-        state.fragmentContextMode = draft.fragmentClipper.contextMode;
-        break;
-      case 'fragmentClipper.keyboardShortcutsEnabled':
-        draft.fragmentClipper.keyboardShortcutsEnabled = Boolean(value);
-        state.fragmentKeyboardShortcutsEnabled = draft.fragmentClipper.keyboardShortcutsEnabled;
-        break;
-      default:
-        break;
-    }
-  }
+  renderLifecycle = createProductionStitchRenderLifecycle({
+    mountRoot,
+    getAppData: () => appData,
+    getCurrentLanguage: () => currentLanguage,
+    getState: () => state,
+    setState: (nextState) => {
+      state = nextState;
+    },
+    createSchemaContext,
+    dispatch,
+    schemaRenderer,
+    widgetHost
+  });
 
   function scheduleDraftSave(): void {
     refreshAppData();
@@ -824,8 +415,8 @@ export function mountProductionStitchShell({
       return widgetHost.collectDraftWithWidgets();
     },
     refreshOptions(options = null) {
-      draft = mergeOptions(options) as CompleteOptions;
-      domainMappingRows = resolveDefaultDomainMappingRows();
+      draft = createInitialDraft(options);
+      domainMappingRows = resolveDefaultDomainMappingRows(draft);
       widgetHost.resetDirty();
       refreshAppData();
       state = applyOptionsToState(state, draft, appData);

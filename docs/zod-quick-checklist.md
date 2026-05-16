@@ -1,6 +1,8 @@
 # Zod 引入快速检查清单
 
 > 用于在修复 lint warning 时快速判断是否应该使用 Zod
+>
+> Historical scope note: this checklist predates the Stitch Secondary Options mainline. Paths under old Options `formSections/*` are retained as historical migration examples only; they are not current implementation guidance and must not be reconnected to the production Options startup chain.
 
 ---
 

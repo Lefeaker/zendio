@@ -1,5 +1,5 @@
 import { mergeOptions } from '@shared/config/optionsMerger';
-import { YamlConfigWidget } from '@options/widgets';
+import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
 import type { Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';

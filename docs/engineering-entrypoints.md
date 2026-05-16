@@ -24,6 +24,7 @@
   - 显式包含 `audit:retired-code:report`
   - 显式包含 `audit:production-shape:report`
   - 显式包含 `audit:build-graph:report`
+  - 显式包含 `audit:non-production-source:check`
   - 显式包含 `audit:deps:report`
   - 显式包含 `audit:design-system-doc:report`
 - `npm run verify:preflight`
@@ -35,10 +36,17 @@
   - 使用 `dependency-cruiser@16.10.4` 巡检 `src/**/*.ts`、`src/**/*.tsx`、`src/**/*.js`
   - 当前必须覆盖至少 `400` modules 和 `300` dependencies
   - 任何 dependency-cruiser violation（包含 circular dependency）均视为失败
-  - 当前实测：`modules=765 dependencies=2357 violations=0`
+  - 当前实测：`modules=760 dependencies=2325 violations=0`
 - `npm run audit:build-graph:report`
   - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
   - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
+- `npm run audit:non-production-source:report`
+  - 输出 Non-Production Source ownership inventory，可因 `migrate-*` / `retain-*` 报告行以 report-only 语义退出非零
+  - 退出非零时记录 counts 与 `stop-unknown` 状态；只要 `check` 通过，该退出码本身不是 hard-gate 失败
+  - 不得直接接入 `quality`、`verify:preflight`、CI、package 或 release hard gate
+- `npm run audit:non-production-source:check`
+  - 使用同一份 ownership evidence 做 hard-gate 安全检查
+  - 仅因 `stop-unknown`、不安全 `delete-now` 证明矛盾或缺失结构化删除证明失败；不会只因 `migrate-import-owner`、`migrate-script-owner`、`migrate-test-owner`、`retain-production` 或 `retain-production-facade` inventory 失败
 - `npm run audit:retired-code:report`
   - 读取 `docs/retired-code-inventory.md`
   - 阻止 `delete-now` path 在 `src` 中回归，或被 package/scripts/src/tests/public/manifest 与视觉/浏览器验证继续引用
