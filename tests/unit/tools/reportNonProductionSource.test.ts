@@ -8,12 +8,17 @@ type NonProductionSourceModule = {
     deletionCondition?: string;
   };
   formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
+  validateNonProductionSourceCheck: (rows: Array<Record<string, unknown>>) => {
+    ok: boolean;
+    violations: Array<{ file: string; reason: string }>;
+  };
 };
 
-const { classifySourceFile, formatNonProductionSourceReport } = (await import(
-  // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
-  '../../../tools/report-non-production-source.mjs'
-)) as NonProductionSourceModule;
+const { classifySourceFile, formatNonProductionSourceReport, validateNonProductionSourceCheck } =
+  (await import(
+    // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
+    '../../../tools/report-non-production-source.mjs'
+  )) as NonProductionSourceModule;
 
 const approvedPostTestDeleteCandidate = [
   'src',
@@ -448,5 +453,105 @@ describe('report-non-production-source', () => {
     expect(report).toContain('Deletion condition');
     expect(report).toContain('migrate-test-owner');
     expect(report).toContain('src/options/widgets/ExampleWidget.ts');
+  });
+
+  it('keeps report mode inventory visible for migration rows', () => {
+    const report = formatNonProductionSourceReport([
+      classifySourceFile(
+        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+      ),
+      classifySourceFile(input({ scriptOwners: ['tools/report-ui-architecture-alignment.mjs'] })),
+      classifySourceFile(input({ testOwners: ['tests/unit/options/example.test.ts'] }))
+    ]);
+
+    expect(report).toContain('migrate-import-owner');
+    expect(report).toContain('migrate-script-owner');
+    expect(report).toContain('migrate-test-owner');
+  });
+
+  it('passes check mode for migrate and retain inventory without stop-unknown or delete-now', () => {
+    const rows = [
+      classifySourceFile(
+        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+      ),
+      classifySourceFile(input({ scriptOwners: ['tools/report-ui-architecture-alignment.mjs'] })),
+      classifySourceFile(input({ testOwners: ['tests/unit/options/example.test.ts'] })),
+      classifySourceFile(
+        input({
+          productionBuildGraphOwners: ['options/index'],
+          productionImportOwners: ['src/options/app/bootstrap.ts']
+        })
+      ),
+      classifySourceFile(
+        input({
+          file: 'src/ui/domains/theme/index.ts',
+          explicitClassificationPatterns: [
+            {
+              pattern: 'src/ui/domains/theme/index.ts',
+              decision: 'retain-production-facade',
+              owner: 'theme domain public barrel',
+              deletionCondition: 'delete only after public imports move to concrete theme module'
+            }
+          ]
+        })
+      )
+    ];
+
+    expect(validateNonProductionSourceCheck(rows).ok).toBe(true);
+  });
+
+  it('fails check mode for stop-unknown rows', () => {
+    const result = validateNonProductionSourceCheck([
+      classifySourceFile(input({ file: 'src/unknown/unused.ts' }))
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.violations[0]?.reason).toContain('stop-unknown');
+  });
+
+  it('fails check mode when delete-now coexists with retained import graph owners', () => {
+    const result = validateNonProductionSourceCheck([
+      {
+        file: approvedOptionsAppDeleteCandidate,
+        decision: 'delete-now',
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        retainedSourceImportTargets: ['src/options/components/layout/MainContent.ts']
+      }
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.violations[0]?.reason).toContain('retained source import');
+  });
+
+  it('fails check mode for delete-now rows with non-empty owner proofs', () => {
+    const result = validateNonProductionSourceCheck([
+      {
+        file: approvedPostTestDeleteCandidate,
+        decision: 'delete-now',
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'owned',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'owned',
+          requiredVerification: 'owned'
+        },
+        scriptOwners: ['tools/report-ui-architecture-alignment.mjs'],
+        testOwners: ['tests/unit/options/layout/Navigation.test.ts'],
+        requiredVerificationOwners: ['package.json#scripts.quality']
+      }
+    ]);
+
+    expect(result.ok).toBe(false);
+    expect(result.violations[0]?.reason).toContain('packageBuildScripts');
+    expect(result.violations[0]?.reason).toContain('testsVisualBrowser');
+    expect(result.violations[0]?.reason).toContain('requiredVerification');
   });
 });

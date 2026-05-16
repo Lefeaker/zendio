@@ -19,6 +19,14 @@ const REQUIRED_VERIFICATION_SCRIPT_NAMES = new Set([
   'test:ci',
   'verify:stitch-secondary'
 ]);
+const DELETION_PROOF_KEYS = [
+  'productionBuildGraph',
+  'importGraph',
+  'packageBuildScripts',
+  'publicManifestAssets',
+  'testsVisualBrowser',
+  'requiredVerification'
+];
 
 const EXPLICIT_RETAIN_PATTERNS = [
   {
@@ -753,6 +761,55 @@ function formatNonProductionSourceReport(rows) {
   return `${lines.join('\n')}\n`;
 }
 
+function validateNonProductionSourceCheck(rows) {
+  const violations = [];
+
+  for (const row of rows) {
+    if (row.decision === 'stop-unknown') {
+      violations.push({
+        file: row.file,
+        reason: 'stop-unknown ownership classification must be resolved before hard gate pass'
+      });
+      continue;
+    }
+
+    if (row.decision !== 'delete-now') {
+      continue;
+    }
+
+    const proofs = row.ownerProofs;
+    if (!proofs || typeof proofs !== 'object') {
+      violations.push({
+        file: row.file,
+        reason: 'delete-now row is missing structured six-proof owner evidence'
+      });
+      continue;
+    }
+
+    const proofViolations = DELETION_PROOF_KEYS.filter((key) => proofs[key] !== 'empty');
+    if (proofViolations.length > 0) {
+      violations.push({
+        file: row.file,
+        reason: `delete-now row has non-empty or malformed proof keys: ${proofViolations.join(', ')}`
+      });
+    }
+
+    const importGraphOwners = retainedImportGraphReferences(row);
+    if (importGraphOwners.length > 0) {
+      violations.push({
+        file: row.file,
+        reason:
+          'delete-now row still has retained source import/re-export/dependency ownership'
+      });
+    }
+  }
+
+  return {
+    ok: violations.length === 0,
+    violations
+  };
+}
+
 async function listSourceFiles() {
   const files = await walk(join(ROOT, 'src'));
   return files
@@ -806,8 +863,25 @@ async function buildNonProductionSourceRows() {
 }
 
 async function main() {
+  const checkMode = process.argv.includes('--check');
   const rows = await buildNonProductionSourceRows();
   process.stdout.write(formatNonProductionSourceReport(rows));
+
+  if (checkMode) {
+    const result = validateNonProductionSourceCheck(rows);
+    if (!result.ok) {
+      console.error(
+        `non-production source check failed with ${result.violations.length} hard safety violation(s)`
+      );
+      for (const violation of result.violations) {
+        console.error(`- ${violation.file}: ${violation.reason}`);
+      }
+      process.exit(1);
+    }
+    console.error('non-production source check passed hard safety gates');
+    return;
+  }
+
   const blocking = rows.filter((row) =>
     ['stop-unknown', 'migrate-test-owner', 'migrate-script-owner', 'delete-now'].includes(row.decision)
   );
@@ -819,7 +893,12 @@ async function main() {
   }
 }
 
-export { classifySourceFile, formatNonProductionSourceReport, buildNonProductionSourceRows };
+export {
+  classifySourceFile,
+  formatNonProductionSourceReport,
+  validateNonProductionSourceCheck,
+  buildNonProductionSourceRows
+};
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
