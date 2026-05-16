@@ -134,6 +134,8 @@
 
 - 生产代码、正式 harness、构建脚本不得重新引用上述 archive 资产
 - 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
+- 非 YAML `src/options/widgets/**` 不得重新获得 production UI ownership；真实 Options UI behavior 必须落在 Stitch schema/render/domain code 或 `src/ui/domains/*`
+- compatibility shells、barrel/type-only files、source aliases 与 public UI boundary files 必须有明确 owner 与删除条件；它们不是 source-of-truth docs，也不能绕过 Non-Production Code 3.0 owner scan
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间
 - 已退役 wrapper / alias 不得再恢复为 compatibility wrapper
 - retired Options compatibility classes 与 preview runtime 不得重新作为生产 UI、正式验证或 fallback shell 引入。
@@ -148,7 +150,8 @@
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`
-- `npm run quality` 已强制包含 design-system-doc、retired-code、production-shape、build-graph 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
+- Non-production source ownership：`npm run audit:non-production-source:report` 产出完整 inventory，可因已确认迁移/保留清单退出非零；`npm run audit:non-production-source:check` 是 hard gate，必须通过
+- `npm run quality` 已强制包含 design-system-doc、retired-code、production-shape、build-graph、non-production-source check 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
 
 ## 7. 开发要求
 

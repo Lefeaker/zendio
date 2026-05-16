@@ -1,5 +1,7 @@
 # Options DOM Refresh Log
 
+Historical migration log: entries below document retired Tailwind/Daisy-era work and must not be treated as current production guidance. Current Options UI behavior belongs to the Stitch Secondary schema/render/domain path described in `src/options/README.md` and `docs/non-production-code-ownership.md`.
+
 ## 2025-11-22 Component Migration: aobx-alert
 
 ### Goal
