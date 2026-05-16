@@ -29,6 +29,9 @@ const approvedReadingVideoDeleteCandidate = [
   'widgets',
   'ReadingSettingsWidget.ts'
 ].join('/');
+const approvedFamilyWidgetDeleteCandidate = ['src', 'options', 'widgets', 'PrivacyWidget.ts'].join(
+  '/'
+);
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -219,6 +222,25 @@ describe('report-non-production-source', () => {
           requiredVerification: 'empty'
         },
         explicitDeleteNowPatterns: [approvedReadingVideoDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('delete-now');
+  });
+
+  it('marks exact family widget candidates as delete-now after all six proofs are empty', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedFamilyWidgetDeleteCandidate,
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedFamilyWidgetDeleteCandidate]
       })
     );
 
