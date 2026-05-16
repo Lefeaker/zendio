@@ -32,6 +32,21 @@ const approvedReadingVideoDeleteCandidate = [
 const approvedFamilyWidgetDeleteCandidate = ['src', 'options', 'widgets', 'PrivacyWidget.ts'].join(
   '/'
 );
+const approvedFormSectionDeleteCandidate = [
+  'src',
+  'options',
+  'components',
+  'formSections',
+  'formSectionManager.ts'
+].join('/');
+const approvedUtilsDefaultsDeleteCandidate = ['src', 'options', 'utils', 'defaults.ts'].join('/');
+const approvedOptionsAppDeleteCandidate = [
+  'src',
+  'options',
+  'components',
+  'layout',
+  'OptionsApp.ts'
+].join('/');
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -307,6 +322,101 @@ describe('report-non-production-source', () => {
     );
 
     expect(result.decision).toBe('migrate-test-owner');
+  });
+
+  it('does not classify formSectionManager as delete-now while retained source imports it', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedFormSectionDeleteCandidate,
+        retainedSourceImportOwners: [
+          'src/options/components/layout/MainContent.ts',
+          'src/options/components/sections/BaseSection.ts',
+          'src/options/components/sections/FragmentSectionView.ts',
+          'src/options/components/sections/restSectionRuntime.ts',
+          'src/options/components/sections/RoutingSection.ts',
+          'src/options/components/sections/YamlConfigSection.ts'
+        ],
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedFormSectionDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-import-owner');
+    expect(result.owner).toContain('retained source import');
+  });
+
+  it('does not classify defaults as delete-now while re-exported by a retained source barrel', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedUtilsDefaultsDeleteCandidate,
+        retainedSourceImportOwners: ['src/options/utils/index.ts'],
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedUtilsDefaultsDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-import-owner');
+    expect(result.deletionCondition).toContain('re-exports');
+  });
+
+  it('does not classify layout and section files as delete-now while retained source imports remain', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedPostTestDeleteCandidate,
+        retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'],
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedPostTestDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-import-owner');
+  });
+
+  it('does not classify OptionsApp as delete-now while it imports retained source dependencies', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedOptionsAppDeleteCandidate,
+        retainedSourceImportTargets: [
+          'src/options/components/layout/MainContent.ts',
+          'src/options/components/layout/Navigation.ts',
+          'src/options/components/layout/NavigationController.ts',
+          'src/options/components/layout/Sidebar.ts'
+        ],
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedOptionsAppDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-import-owner');
+    expect(result.deletionCondition).toContain('dependencies');
   });
 
   it('does not treat retained test owners as delete-now for approved post-widget candidates', () => {
