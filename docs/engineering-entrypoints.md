@@ -24,6 +24,7 @@
   - 显式包含 `audit:retired-code:report`
   - 显式包含 `audit:production-shape:report`
   - 显式包含 `audit:build-graph:report`
+  - 显式包含 `audit:non-production-source:check`
   - 显式包含 `audit:deps:report`
   - 显式包含 `audit:design-system-doc:report`
 - `npm run verify:preflight`
@@ -39,6 +40,12 @@
 - `npm run audit:build-graph:report`
   - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
   - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
+- `npm run audit:non-production-source:report`
+  - 输出 Non-Production Source ownership inventory，可因 `migrate-*` 或 `delete-now` 报告行以 report-only 语义退出非零
+  - 不得直接接入 `quality`、`verify:preflight`、CI、package 或 release hard gate
+- `npm run audit:non-production-source:check`
+  - 使用同一份 ownership evidence 做 hard-gate 安全检查
+  - 仅因 `stop-unknown`、不安全 `delete-now` 证明矛盾或缺失结构化删除证明失败；不会只因 `migrate-import-owner`、`migrate-script-owner` 或 `migrate-test-owner` inventory 失败
 - `npm run audit:retired-code:report`
   - 读取 `docs/retired-code-inventory.md`
   - 阻止 `delete-now` path 在 `src` 中回归，或被 package/scripts/src/tests/public/manifest 与视觉/浏览器验证继续引用
