@@ -193,12 +193,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     deletionCondition: 'delete only after public utility imports move to concrete modules'
   },
   {
-    pattern: 'src/options/widgets/PrivacyWidget.ts',
-    decision: 'retain-production-facade',
-    owner: 'privacy widget compatibility adapter',
-    deletionCondition: 'delete after M3 privacy controls move fully to Stitch/domain owners and barrel exports are removed'
-  },
-  {
     pattern: 'src/options/widgets/shared/rest/**',
     decision: 'migrate-test-owner',
     owner: 'legacy REST widget helper retained for REST/widget migration',
@@ -287,7 +281,12 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
 const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/UsageWidget.ts',
   'src/options/widgets/VaultRouterWidget.ts',
+  'src/options/widgets/DomainMappingsWidget.ts',
+  'src/options/widgets/FragmentSettingsWidget.ts',
+  'src/options/widgets/PrivacyWidget.ts',
   'src/options/widgets/ReadingSettingsWidget.ts',
+  'src/options/widgets/RestStorageWidget.ts',
+  'src/options/widgets/TemplatesWidget.ts',
   'src/options/widgets/VideoSettingsWidget.ts',
   'src/options/widgets/index.ts',
   'src/options/components/controls/domainMappings.ts',
