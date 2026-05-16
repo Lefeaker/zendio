@@ -2,16 +2,18 @@ import { buildDiagnosticsReport } from '@options/components/diagnostics';
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { Language, Messages } from '@i18n';
 import type { CompleteOptions, InterfaceTheme } from '@shared/types/options';
-import type { VaultRouterConfig } from '@shared/types/vault';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
+import type { VaultRouterConfig } from '@shared/types/vault';
+import { optionsFromModifierLabels, persistTheme } from './productionStitchStateMapper';
 import {
-  optionsFromModifierLabels,
-  persistTheme,
-  toRoutingRules
-} from './productionStitchStateMapper';
+  createProductionDomainActions,
+  createProductionRoutingActions,
+  createProductionStorageActions,
+  updateExperimentalBoolean
+} from './productionStitchActionGroups';
 
-interface ProductionStitchActionContext {
+export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
   getDraft(): CompleteOptions;
@@ -67,6 +69,9 @@ export function createProductionStitchActions(
   context: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
   return {
+    ...createProductionRoutingActions(context),
+    ...createProductionStorageActions(context),
+    ...createProductionDomainActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
       update(
@@ -119,150 +124,6 @@ export function createProductionStitchActions(
       context.setState({ ...context.getState(), activeResource: null });
       context.renderActiveResourceModal();
       context.scrollToPanel(String(args[0] ?? 'overview'));
-    },
-    'routing:add': () => {
-      const state = context.getState();
-      const draft = context.getDraft();
-      state.routingRules = [
-        ...state.routingRules,
-        {
-          type: 'Domain',
-          pattern: '',
-          target: context.getAppData().storage.vaults[0]?.name ?? draft.rest.vault,
-          priority: 50,
-          enabled: true
-        }
-      ];
-      context.syncRoutingRulesToDraft();
-      context.scheduleDraftSave();
-      context.render();
-    },
-    'routing:remove': ({ args }) => {
-      const index = Number(args[0] ?? -1);
-      const state = context.getState();
-      state.routingRules = state.routingRules.filter((_, ruleIndex) => ruleIndex !== index);
-      context.syncRoutingRulesToDraft();
-      context.scheduleDraftSave();
-      context.render();
-    },
-    'routing:updateField': ({ args, value }) => {
-      const state = context.getState();
-      const rule = state.routingRules[Number(args[0] ?? -1)];
-      const field = String(args[1] ?? '');
-      if (rule && field) {
-        (rule as unknown as Record<string, unknown>)[field] = value;
-        context.syncRoutingRulesToDraft();
-        context.scheduleDraftSave();
-      }
-    },
-    'routing:updatePriority': ({ args, value }) => {
-      const rule = context.getState().routingRules[Number(args[0] ?? -1)];
-      if (rule) {
-        rule.priority = typeof value === 'number' || value === '' ? value : Number(value);
-        context.syncRoutingRulesToDraft();
-        context.scheduleDraftSave();
-      }
-    },
-    'storage:addVault': () => {
-      const draft = context.getDraft();
-      const router = context.ensureVaultRouter();
-      const nextIndex = router.vaults.length + 1;
-      router.vaults.push({
-        id: `vault-${nextIndex}`,
-        name: `Vault ${nextIndex}`,
-        vault: `Vault ${nextIndex}`,
-        httpsUrl: draft.rest.httpsUrl ?? draft.rest.baseUrl,
-        httpUrl: draft.rest.httpUrl ?? draft.rest.baseUrl,
-        apiKey: '',
-        enabled: true
-      });
-      draft.vaultRouter = router;
-      context.scheduleDraftSave();
-      context.render();
-    },
-    'storage:removeVault': ({ args }) => {
-      const index = Number(args[0] ?? -1);
-      const draft = context.getDraft();
-      const router = context.ensureVaultRouter();
-      const vault = router.vaults[index];
-      if (!vault || vault.isDefault || vault.id === router.defaultVaultId || index === 0) {
-        return;
-      }
-      router.vaults.splice(index, 1);
-      router.rules = (router.rules ?? []).filter((rule) => rule.vaultId !== vault.id);
-      draft.vaultRouter = router;
-      context.getState().routingRules = toRoutingRules(draft);
-      context.scheduleDraftSave();
-      context.render();
-    },
-    'storage:updateVaultField': ({ args, value }) => {
-      context.updateVaultField(Number(args[0] ?? -1), String(args[1] ?? ''), value);
-    },
-    'storage:activateLocalFolder': ({ args }) => {
-      void context.activateVaultLocalFolder(Number(args[0] ?? -1));
-    },
-    'storage:chooseLocalFolder': ({ args }) => {
-      void context.chooseVaultLocalFolder(Number(args[0] ?? -1));
-    },
-    'storage:deleteLocalFolder': ({ args }) => {
-      context.clearVaultLocalFolder(Number(args[0] ?? -1));
-    },
-    'storage:cancelLocalFolderDelete': () => {
-      context.getState().activeLocalFolderVaultIndex = null;
-      context.render();
-    },
-    'storage:updateRootDir': ({ value }) => {
-      context.getDraft().rest.rootDir = String(value ?? '');
-      context.scheduleDraftSave();
-    },
-    'storage:testConnection': () => {
-      void (async () => {
-        try {
-          context.applyConnectionNotice(await context.runVaultListConnectionTest());
-        } catch (error) {
-          context.setConnectionNotice({
-            title: '连接测试结果',
-            body: error instanceof Error ? error.message : String(error),
-            variant: 'danger'
-          });
-          context.refreshAppData();
-        }
-        context.render();
-      })();
-    },
-    'domain:add': () => {
-      const entries = context
-        .currentDomainEntries()
-        .filter(([domain, alias]) => domain.trim() || alias.trim());
-      entries.push([`example-${entries.length + 1}.com`, 'folder']);
-      context.syncDomainEntries(entries);
-      context.scheduleDraftSave();
-      context.render();
-    },
-    'domain:update': ({ args, value }) => {
-      const index = Number(args[0] ?? -1);
-      const field = String(args[1] ?? '');
-      const entries = context.currentDomainEntries();
-      const entry = entries[index];
-      if (!entry) {
-        return;
-      }
-      if (field === 'domain') {
-        entry[0] = String(value ?? '');
-      } else if (field === 'alias') {
-        entry[1] = String(value ?? '');
-      }
-      context.syncDomainEntries(entries);
-      context.scheduleDraftSave();
-    },
-    'domain:remove': ({ args }) => {
-      const index = Number(args[0] ?? -1);
-      const entries = context
-        .currentDomainEntries()
-        .filter((_, entryIndex) => entryIndex !== index);
-      context.syncDomainEntries(entries);
-      context.scheduleDraftSave();
-      context.render();
     },
     'yaml:setFilter': ({ args }) => {
       context.getState().yamlFilter = String(args[0] ?? 'all');
@@ -359,16 +220,21 @@ export function createProductionStitchActions(
       }
     },
     'experimental:setPageSummaryEnabled': () => {
-      context.getDraft().pageSummary.enabled = false;
-      context.getState().pageSummaryEnabled = false;
+      updateExperimentalBoolean(context.getDraft(), context.getState(), 'pageSummaryEnabled');
     },
     'experimental:setReadingOverlaySummaryEnabled': () => {
-      context.getDraft().readingOverlaySummary.enabled = false;
-      context.getState().readingOverlaySummaryEnabled = false;
+      updateExperimentalBoolean(
+        context.getDraft(),
+        context.getState(),
+        'readingOverlaySummaryEnabled'
+      );
     },
     'experimental:setSubtitleTranslationEnabled': () => {
-      context.getDraft().subtitleTranslation.enabled = false;
-      context.getState().subtitleTranslationEnabled = false;
+      updateExperimentalBoolean(
+        context.getDraft(),
+        context.getState(),
+        'subtitleTranslationEnabled'
+      );
     },
     'experimental:setSubtitleTargetLanguage': () => {
       const state = context.getState();

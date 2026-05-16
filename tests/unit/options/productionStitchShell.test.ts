@@ -5,6 +5,8 @@ import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import { createProductionStitchActions } from '@options/app/productionStitchActions';
+import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageService } from '@platform/interfaces/storage';
@@ -323,6 +325,7 @@ describe('mountProductionStitchShell', () => {
     } as never);
     await flushPromises();
 
+    expect(storage.local.get).toHaveBeenCalledWith('usageStats');
     const statText = document.querySelector('.stats-grid')?.textContent ?? '';
     expect(statText).toContain('15');
     expect(statText).toContain('7');
@@ -424,6 +427,60 @@ describe('mountProductionStitchShell', () => {
     expect(mounted.collectDraft().interfaceTheme).toBe('system');
     expect(document.documentElement.dataset.previewTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('system');
+  });
+
+  it('routes theme dispatch through the production action owner', () => {
+    const state = { interfaceThemePreference: 'dark', previewTheme: 'dark' };
+    const persistThemePreference = vi.fn();
+    const syncPreviewThemeControls = vi.fn();
+    const actions = createProductionStitchActions({
+      getCurrentLanguage: () => 'en',
+      getMessages: () => null,
+      getState: () => state,
+      persistThemePreference,
+      syncPreviewThemeControls
+    } as never);
+
+    actions['preview:setTheme']({
+      value: 'light',
+      mutate: (mutator: (next: typeof state) => void) => mutator(state)
+    } as never);
+
+    expect(state.interfaceThemePreference).toBe('light');
+    expect(state.previewTheme).toBe('light');
+    expect(persistThemePreference).toHaveBeenCalledWith('light');
+    expect(syncPreviewThemeControls).toHaveBeenCalled();
+  });
+
+  it('tests modal render lifecycle without widget-host mutation', () => {
+    const mountRoot = document.createElement('div');
+    mountRoot.innerHTML =
+      '<div class="resource-modal-overlay"></div><div data-modal-host="true"></div>';
+    const flushDirtyWidgets = vi.fn();
+    const destroyWidgets = vi.fn();
+    const lifecycle = createProductionStitchRenderLifecycle({
+      mountRoot,
+      getAppData: () => ({ overview: { history: [] }, nav: [] }) as never,
+      getCurrentLanguage: () => 'en',
+      getState: () => ({ activeResource: null }) as never,
+      setState: vi.fn(),
+      createSchemaContext: () =>
+        ({ appData: { nav: [], sidebarLinks: [], surfaceLinks: [] }, state: {} }) as never,
+      dispatch: vi.fn(),
+      schemaRenderer: { renderView: vi.fn() },
+      widgetHost: {
+        createWidgetFactory: vi.fn(),
+        destroyWidgets,
+        flushDirtyWidgets,
+        mountWidget: vi.fn()
+      }
+    });
+
+    lifecycle.renderActiveResourceModal();
+
+    expect(mountRoot.querySelector('.resource-modal-overlay')).toBeNull();
+    expect(flushDirtyWidgets).not.toHaveBeenCalled();
+    expect(destroyWidgets).not.toHaveBeenCalled();
   });
 
   it('binds production option values and schedules autosave after edits', () => {
