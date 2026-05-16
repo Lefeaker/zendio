@@ -5,6 +5,11 @@ import { execFileSync } from 'node:child_process';
 
 const scriptPath = resolve('tools/report-production-build-graph.mjs');
 
+interface ProductionBuildGraphFixtureReport {
+  reachableSources: Record<string, { entrypointOwners: string[] }>;
+  requiredEntrypoints: { missing: string[] };
+}
+
 function writeMetafile(payload: unknown): { dir: string; path: string } {
   const dir = mkdtempSync(join(tmpdir(), 'aiiinob-production-build-graph-'));
   const path = join(dir, 'metafile.json');
@@ -114,7 +119,9 @@ describe('report-production-build-graph', () => {
       expect(output).toContain('src/options/index.ts');
       expect(output).toContain('src/content/index.ts');
 
-      const json = JSON.parse(readFileSync(join(fixture.dir, 'graph.json'), 'utf8'));
+      const json = JSON.parse(
+        readFileSync(join(fixture.dir, 'graph.json'), 'utf8')
+      ) as ProductionBuildGraphFixtureReport;
       expect(json.reachableSources['src/options/index.ts'].entrypointOwners).toContain(
         'src/options/index.ts'
       );
