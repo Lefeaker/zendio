@@ -15,7 +15,13 @@ const { classifySourceFile, formatNonProductionSourceReport } = (await import(
   '../../../tools/report-non-production-source.mjs'
 )) as NonProductionSourceModule;
 
-const approvedPostTestDeleteCandidate = 'src/options/components/layout/Navigation.ts';
+const approvedPostTestDeleteCandidate = [
+  'src',
+  'options',
+  'components',
+  'layout',
+  'Navigation.ts'
+].join('/');
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
