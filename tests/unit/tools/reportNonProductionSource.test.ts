@@ -22,6 +22,7 @@ const approvedPostTestDeleteCandidate = [
   'layout',
   'Navigation.ts'
 ].join('/');
+const approvedPostWidgetDeleteCandidate = ['src', 'options', 'widgets', 'UsageWidget.ts'].join('/');
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -179,6 +180,26 @@ describe('report-non-production-source', () => {
     expect(result.decision).toBe('delete-now');
   });
 
+  it('marks exact owner-approved post-widget candidates as delete-now after all six proofs are empty', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedPostWidgetDeleteCandidate,
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedPostWidgetDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('delete-now');
+    expect(result.requiredAction).toContain('planned deletion milestone');
+  });
+
   it('keeps exact post-test-delete candidates out of delete-now when any proof is non-empty', () => {
     const result = classifySourceFile(
       input({
@@ -235,6 +256,18 @@ describe('report-non-production-source', () => {
         file: approvedPostTestDeleteCandidate,
         testOwners: ['tests/unit/options/layout/Navigation.retainedLegacyCoverage.test.ts'],
         explicitDeleteNowPatterns: [approvedPostTestDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('migrate-test-owner');
+  });
+
+  it('does not treat retained test owners as delete-now for approved post-widget candidates', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedPostWidgetDeleteCandidate,
+        testOwners: ['tests/unit/options/UsageWidget.retainedLegacyCoverage.test.ts'],
+        explicitDeleteNowPatterns: [approvedPostWidgetDeleteCandidate]
       })
     );
 
