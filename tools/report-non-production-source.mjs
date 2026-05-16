@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
@@ -398,6 +398,97 @@ function collectTextOwners(files, targetFile) {
     .sort();
 }
 
+function normalizePath(value) {
+  return value.replaceAll('\\', '/');
+}
+
+function extractImportSpecifiers(source) {
+  const specifiers = [];
+  const importExportPattern =
+    /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+  const dynamicImportPattern = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  for (const match of source.matchAll(importExportPattern)) {
+    specifiers.push(match[1]);
+  }
+  for (const match of source.matchAll(dynamicImportPattern)) {
+    specifiers.push(match[1]);
+  }
+  return specifiers;
+}
+
+function resolveAliasSpecifier(specifier) {
+  const aliases = [
+    ['@shared/', 'src/shared/'],
+    ['@content/', 'src/content/'],
+    ['@options/', 'src/options/'],
+    ['@ui/', 'src/ui/'],
+    ['@platform/', 'src/platform/'],
+    ['@third-party/', 'src/third_party/'],
+    ['@i18n/', 'src/i18n/']
+  ];
+  if (specifier === '@i18n') {
+    return 'src/i18n/index';
+  }
+  for (const [prefix, replacement] of aliases) {
+    if (specifier.startsWith(prefix)) {
+      return `${replacement}${specifier.slice(prefix.length)}`;
+    }
+  }
+  return null;
+}
+
+function resolveSourceImport(importerPath, specifier, sourceFileSet) {
+  const base = specifier.startsWith('.')
+    ? normalizePath(join(dirname(importerPath), specifier))
+    : resolveAliasSpecifier(specifier);
+  if (!base) {
+    return null;
+  }
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}.js`,
+    `${base}.mjs`,
+    `${base}.css`,
+    `${base}/index.ts`,
+    `${base}/index.tsx`,
+    `${base}/index.js`,
+    `${base}/index.mjs`,
+    `${base}/index.css`
+  ].map(normalizePath);
+  return candidates.find((candidate) => sourceFileSet.has(candidate)) ?? null;
+}
+
+function collectSourceImportGraph(files, sourceFiles) {
+  const sourceFileSet = new Set(sourceFiles);
+  const ownersByTarget = new Map();
+  const targetsByOwner = new Map();
+  const sourceTextFiles = files.filter((file) => sourceFileSet.has(file.path));
+  for (const file of sourceTextFiles) {
+    for (const specifier of extractImportSpecifiers(file.source)) {
+      const target = resolveSourceImport(file.path, specifier, sourceFileSet);
+      if (!target || target === file.path) {
+        continue;
+      }
+      const owners = ownersByTarget.get(target) ?? new Set();
+      owners.add(file.path);
+      ownersByTarget.set(target, owners);
+      const targets = targetsByOwner.get(file.path) ?? new Set();
+      targets.add(target);
+      targetsByOwner.set(file.path, targets);
+    }
+  }
+  return {
+    ownersByTarget: new Map(
+      Array.from(ownersByTarget, ([target, owners]) => [target, Array.from(owners).sort()])
+    ),
+    targetsByOwner: new Map(
+      Array.from(targetsByOwner, ([owner, targets]) => [owner, Array.from(targets).sort()])
+    )
+  };
+}
+
 function removeAuditClassificationMetadataOwner(owners) {
   return owners.filter((owner) => owner !== AUDIT_CLASSIFICATION_METADATA_PATH);
 }
@@ -420,12 +511,16 @@ function collectRequiredVerificationOwners(targetFile, scripts) {
 }
 
 function ownerProofsFor(input) {
+  const importOwners = retainedImportGraphReferences(input);
   if (input.ownerProofs) {
-    return input.ownerProofs;
+    return {
+      ...input.ownerProofs,
+      importGraph: importOwners.length ? 'owned' : input.ownerProofs.importGraph
+    };
   }
   return {
     productionBuildGraph: input.productionBuildGraphOwners?.length ? 'owned' : 'empty',
-    importGraph: input.productionImportOwners?.length ? 'owned' : 'empty',
+    importGraph: importOwners.length ? 'owned' : 'empty',
     packageBuildScripts: input.scriptOwners?.length ? 'owned' : 'empty',
     publicManifestAssets: input.publicAssetOwners?.length ? 'owned' : 'empty',
     testsVisualBrowser: input.testOwners?.length ? 'owned' : 'empty',
@@ -460,6 +555,8 @@ function hasOnlyTestOwners(input) {
   return (
     !input.productionBuildGraphOwners?.length &&
     !input.productionImportOwners?.length &&
+    !(input.retainedSourceImportOwners?.length ?? 0) &&
+    !(input.retainedSourceImportTargets?.length ?? 0) &&
     !input.scriptOwners?.length &&
     !input.publicAssetOwners?.length &&
     ((input.testOwners?.length ?? 0) > 0 || (input.requiredVerificationOwners?.length ?? 0) > 0)
@@ -468,6 +565,14 @@ function hasOnlyTestOwners(input) {
 
 function hasScriptOwners(input) {
   return (input.scriptOwners?.length ?? 0) > 0 || (input.publicAssetOwners?.length ?? 0) > 0;
+}
+
+function retainedImportOwners(input) {
+  return input.retainedSourceImportOwners ?? input.productionImportOwners ?? [];
+}
+
+function retainedImportGraphReferences(input) {
+  return [...retainedImportOwners(input), ...(input.retainedSourceImportTargets ?? [])];
 }
 
 function classifySourceFile(input) {
@@ -483,7 +588,10 @@ function classifySourceFile(input) {
     };
   }
 
-  if ((input.productionBuildGraphOwners?.length ?? 0) > 0 || (input.productionImportOwners?.length ?? 0) > 0) {
+  if (
+    (input.productionBuildGraphOwners?.length ?? 0) > 0 ||
+    (input.productionImportOwners?.length ?? 0) > 0
+  ) {
     return {
       ...input,
       ownerProofs: proofs,
@@ -491,6 +599,17 @@ function classifySourceFile(input) {
       owner: 'production build/import graph',
       deletionCondition: 'not a deletion candidate while production build or import ownership remains',
       requiredAction: 'Retain; source has production ownership.'
+    };
+  }
+
+  if (retainedImportGraphReferences(input).length > 0) {
+    return {
+      ...input,
+      ownerProofs: proofs,
+      decision: 'migrate-import-owner',
+      owner: 'retained source import graph owner',
+      deletionCondition: 'delete only after retained source imports, re-exports, and dependencies are migrated',
+      requiredAction: 'Remove retained source import/re-export/dependency ownership before deletion.'
     };
   }
 
@@ -582,6 +701,20 @@ function formatOwnerList(owners) {
   return owners?.length ? owners.join('<br>') : 'none';
 }
 
+function formatImportOwners(row) {
+  const owners = row.retainedSourceImportOwners ?? row.productionImportOwners ?? [];
+  const targets = row.retainedSourceImportTargets ?? [];
+  if (!owners.length && !targets.length) {
+    return 'none';
+  }
+  return [
+    owners.length ? `imported by: ${owners.join('<br>')}` : null,
+    targets.length ? `imports/re-exports: ${targets.join('<br>')}` : null
+  ]
+    .filter(Boolean)
+    .join('<br>');
+}
+
 function formatNonProductionSourceReport(rows) {
   const lines = [
     '# Non-Production Source Ownership Report',
@@ -598,7 +731,7 @@ function formatNonProductionSourceReport(rows) {
         row.owner ?? 'n/a',
         row.deletionCondition ?? 'n/a',
         formatOwnerList(row.productionBuildGraphOwners),
-        formatOwnerList(row.productionImportOwners),
+        formatImportOwners(row),
         formatOwnerList(row.testOwners),
         formatOwnerList(row.scriptOwners),
         formatOwnerList(row.publicAssetOwners),
@@ -646,15 +779,20 @@ async function buildNonProductionSourceRows() {
   const scriptTextFiles = await readTextFiles(['package.json', 'scripts', 'tools', '.github']);
   const publicTextFiles = await readTextFiles(['public']);
   const productionSources = new Set(Object.keys(graph.reachableSources ?? {}));
+  const sourceImportGraph = collectSourceImportGraph(srcTextFiles, sourceFiles);
 
   return sourceFiles.map((file) => {
-    const productionImportOwners = collectTextOwners(srcTextFiles, file).filter((owner) =>
+    const retainedSourceImportOwners = sourceImportGraph.ownersByTarget.get(file) ?? [];
+    const retainedSourceImportTargets = sourceImportGraph.targetsByOwner.get(file) ?? [];
+    const productionImportOwners = retainedSourceImportOwners.filter((owner) =>
       productionSources.has(owner)
     );
     const row = {
       file,
       productionBuildGraphOwners: graph.reachableSources?.[file]?.entrypointOwners ?? [],
       productionImportOwners,
+      retainedSourceImportOwners,
+      retainedSourceImportTargets,
       testOwners: collectTextOwners(testTextFiles, file),
       scriptOwners: removeAuditClassificationMetadataOwner(collectTextOwners(scriptTextFiles, file)),
       publicAssetOwners: collectTextOwners(publicTextFiles, file),
