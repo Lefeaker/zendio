@@ -25,6 +25,7 @@ import {
 import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
+import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
@@ -57,23 +58,6 @@ export interface ProductionStitchPersistence {
   ): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
-}
-
-function getMessage(messages: Messages | null, key: keyof Messages, fallback: string): string {
-  const value = messages?.[key];
-  return typeof value === 'string' && value.length > 0 ? value : fallback;
-}
-
-function setButtonBusy(button: HTMLButtonElement | null, busy: boolean): void {
-  if (!button) {
-    return;
-  }
-  button.disabled = busy;
-  if (busy) {
-    button.setAttribute('aria-busy', 'true');
-  } else {
-    button.removeAttribute('aria-busy');
-  }
 }
 
 export function createProductionStitchPersistence(
