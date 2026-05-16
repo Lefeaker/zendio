@@ -1,13 +1,33 @@
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
+import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
+import type { VaultRouterConfig } from '@shared/types/vault';
 import { toRoutingRules } from './productionStitchStateMapper';
-import type { ProductionStitchActionContext } from './productionStitchActions';
 
 type ProductionStitchActions = ActionRegistry<PreviewStoreState, PreviewContent>;
+interface ProductionStitchActionGroupContext {
+  getAppData(): PreviewContent;
+  getDraft(): CompleteOptions;
+  getState(): PreviewStoreState;
+  setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
+  activateVaultLocalFolder(index: number): Promise<void>;
+  applyConnectionNotice(result: ConnectionTestResult): void;
+  chooseVaultLocalFolder(index: number): Promise<void>;
+  clearVaultLocalFolder(index: number): void;
+  currentDomainEntries(): Array<[string, string]>;
+  ensureVaultRouter(): VaultRouterConfig;
+  refreshAppData(): void;
+  render(): void;
+  runVaultListConnectionTest(): Promise<ConnectionTestResult>;
+  scheduleDraftSave(): void;
+  syncDomainEntries(entries: Array<[string, string]>): void;
+  syncRoutingRulesToDraft(): void;
+  updateVaultField(index: number, field: string, value: unknown): void;
+}
 
 export function createProductionRoutingActions(
-  context: ProductionStitchActionContext
+  context: ProductionStitchActionGroupContext
 ): ProductionStitchActions {
   return {
     'routing:add': () => {
@@ -57,7 +77,7 @@ export function createProductionRoutingActions(
 }
 
 export function createProductionStorageActions(
-  context: ProductionStitchActionContext
+  context: ProductionStitchActionGroupContext
 ): ProductionStitchActions {
   return {
     'storage:addVault': () => {
@@ -131,7 +151,7 @@ export function createProductionStorageActions(
 }
 
 export function createProductionDomainActions(
-  context: ProductionStitchActionContext
+  context: ProductionStitchActionGroupContext
 ): ProductionStitchActions {
   return {
     'domain:add': () => {
