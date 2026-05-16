@@ -59,7 +59,10 @@
 - 新增协作优先采用 typed controller、explicit callback 或 state-driven rendering
 - `privacy`、`vault-router`、`yaml-config`、`reading`、`video` 的真实 UI 所有权已进入 `src/ui/domains/*`
 - 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；retired preview 源树不再是生产或验证 owner
-- `npm run quality` 当前强制执行 retired-code、production-shape、build-graph 与 dependency-cruiser hard gates；架构边界变更必须保持这些报告为绿。
+- `src/options/widgets/**` 不得重新获得非 YAML production UI ownership；非 YAML widget 只能在明确 owner 与删除条件下作为迁移资产保留。
+- compatibility shells、barrel/type-only files 与 source aliases 不是 source-of-truth docs；它们必须有明确 owner 与删除条件，且删除前必须通过 Non-Production Code 3.0 六项 owner proof。
+- `npm run quality` 当前强制执行 retired-code、production-shape、build-graph、non-production-source check 与 dependency-cruiser hard gates；架构边界变更必须保持这些 hard gates 为绿。
+- `npm run audit:non-production-source:report` 是 inventory evidence，可能因已确认迁移/保留清单退出非零；`npm run audit:non-production-source:check` 才是可接入 hard gate 的安全命令。
 
 ## 7. 持续审计
 

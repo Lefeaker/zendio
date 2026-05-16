@@ -7,6 +7,7 @@
 - [`engineering-entrypoints.md`](./engineering-entrypoints.md)
 - [`performance-baseline.md`](./performance-baseline.md)
 - [`source-of-truth-index.md`](./source-of-truth-index.md)
+- [`non-production-code-ownership.md`](./non-production-code-ownership.md)
 - [`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - [`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
 - [`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
@@ -26,6 +27,7 @@
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
 - `audit:build:report` 使用 2026-04-14 复核后的预算真值
+- `audit:non-production-source:report` 是 inventory evidence，可因已确认 `migrate-*` / `retain-*` 清单退出非零；`audit:non-production-source:check` 是 hard gate
 - `M4` 已按重定义口径通过：当前分支保留已验真的 retained set，原始规模预算已下沉到 backlog
 - 当前交付归属统一落到 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 
