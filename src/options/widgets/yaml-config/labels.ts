@@ -1,7 +1,7 @@
 import type {
   YamlConfigDomainLabels,
   YamlConfigTableLabels
-} from '../../../ui/domains/yaml-config/yamlConfigTableTypes';
+} from '@ui/domains/yaml-config/yamlConfigTableTypes';
 import type { YamlContentType } from '@shared/types/yamlConfig';
 
 export const CONTENT_TYPE_LABELS: Record<YamlContentType, string> = {

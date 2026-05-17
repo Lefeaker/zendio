@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-11
+最后更新：2026-05-18
 
 ## 推荐运行环境
 
@@ -31,7 +31,9 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
-  - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
+  - 串行继续执行 `lint -- --quiet`、`build:dev`
+  - 在后续 audit report commands 前显式包含 `audit:imports:check`
+  - 串行继续执行 UI 架构、交互契约、Options 主链、构建与性能 audit report commands
 - `npm run audit:deps:report`
   - 使用 `dependency-cruiser@16.10.4` 巡检 `src/**/*.ts`、`src/**/*.tsx`、`src/**/*.js`
   - 当前必须覆盖至少 `400` modules 和 `300` dependencies
@@ -54,6 +56,10 @@
   - 检查设计系统治理文档的必需入口、引用与文件存在性
   - fail closed 阻止 active docs/workflow files 恢复当前 Tailwind/DaisyUI 指导
   - 明确排除 `src/options/**/*.ts` 兼容 alias；source alias 清理必须另开 AST/import-aware 迁移计划
+- `npm run audit:imports:check`
+  - 作为 `verify:preflight` hard gate 运行在 type/lint/build checks 之后、后续 audit report commands 之前
+  - 阻止 `src/**/*.{ts,tsx,mts,cts}` 中三层及以上 deep relative imports
+  - 覆盖 static imports、dynamic imports 与 re-exports；当前 allowlist 为空
 - `npm run audit:production-shape:report`
   - 读取 `docs/production-code-hotspots.md`
   - 强制热点 LOC 阈值，并阻止 renderer/widget facade 重新出现硬编码可见文本赋值
@@ -110,6 +116,7 @@ npm run visual:test
 - `npm run test:i18n`
 - `npm run visual:test`
 - `npm run audit:deps:report`
+- `npm run audit:imports:check`
 - `npm run audit:build-graph:report`
 - `npm run audit:retired-code:report`
 - `npm run audit:production-shape:report`

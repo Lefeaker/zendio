@@ -1,11 +1,8 @@
 import {
   validateYamlConfig,
   type YamlValidationResult
-} from '../../../ui/domains/yaml-config/yamlConfigTableValidation';
-import type {
-  DomainOverrideEntry,
-  FieldRow
-} from '../../../ui/domains/yaml-config/yamlConfigTableTypes';
+} from '@ui/domains/yaml-config/yamlConfigTableValidation';
+import type { DomainOverrideEntry, FieldRow } from '@ui/domains/yaml-config/yamlConfigTableTypes';
 import type { YamlContentType } from '@shared/types/yamlConfig';
 import { DOMAIN_LABELS, TABLE_LABELS } from './labels';
 import {

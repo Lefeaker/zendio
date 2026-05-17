@@ -26,7 +26,7 @@ import {
   renderValidationState,
   validateYamlWidgetState
 } from './validationPresenter';
-import type { YamlValidationResult } from '../../../ui/domains/yaml-config/yamlConfigTableValidation';
+import type { YamlValidationResult } from '@ui/domains/yaml-config/yamlConfigTableValidation';
 
 export interface YamlConfigControllerProps {
   options?: StoredOptions | CompleteOptions | null;

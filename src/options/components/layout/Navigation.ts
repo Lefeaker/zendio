@@ -1,4 +1,4 @@
-import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import { BaseComponent } from '@ui/foundation/lifecycle/BaseComponent';
 
 export interface NavigationItem {
   id: string;

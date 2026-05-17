@@ -1,4 +1,4 @@
-import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import { BaseComponent } from '@ui/foundation/lifecycle/BaseComponent';
 import type { OptionsStateManager } from '../../state/StateManager';
 import type { BaseSection, SectionRenderContext } from '../sections/BaseSection';
 import type { FormSectionRegistry } from '../formSections/formSectionManager';
@@ -16,8 +16,8 @@ import {
   createOptionsMainHost,
   createOptionsSectionHost,
   markOptionsSectionMounted
-} from '../../../ui/hosts/options';
-import type { UiMountable } from '../../../ui/hosts/shared/contract';
+} from '@ui/hosts/options';
+import type { UiMountable } from '@ui/hosts/shared/contract';
 
 export interface MainContentConfig {
   stateManager: OptionsStateManager;

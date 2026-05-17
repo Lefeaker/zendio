@@ -4,7 +4,7 @@ import type { YamlContentType, YamlFieldConfig, YamlFieldType } from '@shared/ty
 import {
   parseDefaultValue,
   stringifyDefaultValue
-} from '../../../ui/domains/yaml-config/yamlConfigTableValueCodecs';
+} from '@ui/domains/yaml-config/yamlConfigTableValueCodecs';
 
 export type ToggleMap = Record<YamlContentType, boolean>;
 export type YamlFilter = YamlContentType | 'all';
