@@ -27,9 +27,6 @@ export interface MainContentConfig {
 
 type SectionComponent = BaseSection<SectionRenderContext>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SectionCtor<T extends SectionComponent = SectionComponent> = new (...args: any[]) => T;
-
 interface OptionsSectionDependencies {
   optionsRepository: IOptionsRepository;
   messagingRepository: IMessagingRepository;
@@ -37,15 +34,20 @@ interface OptionsSectionDependencies {
   storage: StorageService;
 }
 
+type SectionFactory = (
+  container: HTMLElement,
+  deps: OptionsSectionDependencies
+) => SectionComponent;
+
 interface SectionDefinition {
   id: string;
-  load: () => Promise<SectionCtor>;
+  load: () => Promise<SectionFactory>;
 }
 
 interface SectionRecord {
   definition: SectionDefinition;
   container: HTMLElement;
-  ctor: SectionCtor | null;
+  factory: SectionFactory | null;
   instance: SectionComponent | null;
 }
 
@@ -61,53 +63,120 @@ export class MainContent
   private formRegistry: FormSectionRegistry | null = null;
   private sectionDependencies: OptionsSectionDependencies | null = null;
   private readonly sectionDefinitions: SectionDefinition[] = [
-    { id: 'usage', load: async () => (await import('../sections/UsageSection')).UsageSection },
+    {
+      id: 'usage',
+      load: async () => {
+        const { UsageSection } = await import('../sections/UsageSection');
+        return (container, deps) =>
+          new UsageSection(
+            container,
+            deps.optionsRepository,
+            deps.messagingRepository,
+            deps.storage
+          );
+      }
+    },
     {
       id: 'language',
-      load: async () => (await import('../sections/LanguageSection')).LanguageSection
+      load: async () => {
+        const { LanguageSection } = await import('../sections/LanguageSection');
+        return (container, deps) => new LanguageSection(container, deps.optionsRepository);
+      }
     },
     {
       id: 'privacy',
-      load: async () => (await import('../sections/PrivacySection')).PrivacySection
+      load: async () => {
+        const { PrivacySection } = await import('../sections/PrivacySection');
+        return (container, deps) => new PrivacySection(container, deps.optionsRepository);
+      }
     },
-    { id: 'rest', load: async () => (await import('../sections/RestSection')).RestSection },
+    {
+      id: 'rest',
+      load: async () => {
+        const { RestSection } = await import('../sections/RestSection');
+        return (container, deps) =>
+          new RestSection(container, deps.optionsRepository, deps.messagingRepository);
+      }
+    },
     {
       id: 'routing',
-      load: async () => (await import('../sections/RoutingSection')).RoutingSection
+      load: async () => {
+        const { RoutingSection } = await import('../sections/RoutingSection');
+        return (container, deps) => new RoutingSection(container, deps.optionsRepository);
+      }
     },
     {
       id: 'yaml',
-      load: async () => (await import('../sections/YamlConfigSection')).YamlConfigSection
+      load: async () => {
+        const { YamlConfigSection } = await import('../sections/YamlConfigSection');
+        return (container, deps) =>
+          new YamlConfigSection(container, {
+            yamlRepository: deps.yamlRepository
+          });
+      }
     },
     {
       id: 'templates',
-      load: async () => (await import('../sections/TemplatesSection')).TemplatesSection
+      load: async () => {
+        const { TemplatesSection } = await import('../sections/TemplatesSection');
+        return (container, deps) => new TemplatesSection(container, deps.optionsRepository);
+      }
     },
-    { id: 'ai', load: async () => (await import('../sections/AiSection')).AiSection },
+    {
+      id: 'ai',
+      load: async () => {
+        const { AiSection } = await import('../sections/AiSection');
+        return (container, deps) => new AiSection(container, deps.optionsRepository);
+      }
+    },
     {
       id: 'deepResearch',
-      load: async () => (await import('../sections/DeepResearchSection')).DeepResearchSection
+      load: async () => {
+        const { DeepResearchSection } = await import('../sections/DeepResearchSection');
+        return (container) => new DeepResearchSection(container);
+      }
     },
     {
       id: 'classifier',
-      load: async () => (await import('../sections/ClassifierSection')).ClassifierSection
+      load: async () => {
+        const { ClassifierSection } = await import('../sections/ClassifierSection');
+        return (container, deps) => new ClassifierSection(container, deps.optionsRepository);
+      }
     },
-    { id: 'video', load: async () => (await import('../sections/VideoSection')).VideoSection },
+    {
+      id: 'video',
+      load: async () => {
+        const { VideoSection } = await import('../sections/VideoSection');
+        return (container, deps) => new VideoSection(container, deps.optionsRepository);
+      }
+    },
     {
       id: 'reading',
-      load: async () => (await import('../sections/ReadingSection')).ReadingSection
+      load: async () => {
+        const { ReadingSection } = await import('../sections/ReadingSection');
+        return (container, deps) => new ReadingSection(container, deps.optionsRepository);
+      }
     },
     {
       id: 'fragment',
-      load: async () => (await import('../sections/FragmentSection')).FragmentSection
+      load: async () => {
+        const { FragmentSection } = await import('../sections/FragmentSection');
+        return (container, deps) => new FragmentSection(container, deps.optionsRepository);
+      }
     },
     {
       id: 'transfer',
-      load: async () => (await import('../sections/TransferSection')).TransferSection
+      load: async () => {
+        const { TransferSection } = await import('../sections/TransferSection');
+        return (container, deps) => new TransferSection(container, deps.optionsRepository);
+      }
     },
     {
       id: 'diagnosis',
-      load: async () => (await import('../sections/DiagnosisSection')).DiagnosisSection
+      load: async () => {
+        const { DiagnosisSection } = await import('../sections/DiagnosisSection');
+        return (container) => new DiagnosisSection(container);
+      }
     }
   ];
   private sectionRecords = new Map<string, SectionRecord>();
@@ -141,10 +210,10 @@ export class MainContent
   async preloadSections(sectionIds: string[]): Promise<void> {
     const preloadTasks = sectionIds.map(async (sectionId) => {
       const record = this.sectionRecords.get(sectionId);
-      if (!record || record.ctor) {
+      if (!record || record.factory) {
         return;
       }
-      record.ctor = await record.definition.load();
+      record.factory = await record.definition.load();
     });
     await Promise.all(preloadTasks);
   }
@@ -187,7 +256,7 @@ export class MainContent
       this.sectionRecords.set(definition.id, {
         definition,
         container,
-        ctor: null,
+        factory: null,
         instance: null
       });
     }
@@ -232,17 +301,12 @@ export class MainContent
       throw new Error('[MainContent] Section dependencies unavailable during section mount.');
     }
     const mountTask = (async (): Promise<SectionComponent | null> => {
-      let ctor = record.ctor;
-      if (!ctor) {
-        ctor = await record.definition.load();
-        record.ctor = ctor;
+      let factory = record.factory;
+      if (!factory) {
+        factory = await record.definition.load();
+        record.factory = factory;
       }
-      const section = this.instantiateSection(
-        record.definition.id,
-        ctor,
-        record.container,
-        sectionDependencies
-      );
+      const section = factory(record.container, sectionDependencies);
       if (this.messages) {
         section.setMessages(this.messages);
       }
@@ -366,39 +430,5 @@ export class MainContent
       yamlRepository,
       storage
     };
-  }
-
-  private instantiateSection(
-    sectionId: string,
-    ctor: SectionCtor,
-    container: HTMLElement,
-    deps: OptionsSectionDependencies
-  ): SectionComponent {
-    switch (sectionId) {
-      case 'usage':
-        return new ctor(container, deps.optionsRepository, deps.messagingRepository, deps.storage);
-      case 'rest':
-        return new ctor(container, deps.optionsRepository, deps.messagingRepository);
-      case 'yaml':
-        return new ctor(container, {
-          yamlRepository: deps.yamlRepository
-        });
-      case 'language':
-      case 'privacy':
-      case 'routing':
-      case 'templates':
-      case 'ai':
-      case 'classifier':
-      case 'video':
-      case 'reading':
-      case 'fragment':
-      case 'transfer':
-        return new ctor(container, deps.optionsRepository);
-      case 'deepResearch':
-      case 'diagnosis':
-        return new ctor(container);
-      default:
-        return new ctor(container);
-    }
   }
 }
