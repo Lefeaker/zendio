@@ -113,6 +113,79 @@ describe('report-non-production-source', () => {
     expect(result.deletionCondition).toContain('public imports');
   });
 
+  it('supports exact retained classifications for completion-audit source contracts', () => {
+    const retainedContracts: Array<{
+      pattern: string;
+      owner: string;
+      testOwners?: string[];
+      scriptOwners?: string[];
+      publicAssetOwners?: string[];
+    }> = [
+      {
+        pattern: 'src/components/trial-notice.ts',
+        owner: 'trial notice documented UI contract',
+        testOwners: ['tests/unit/components/trialNotice.test.ts']
+      },
+      {
+        pattern: 'src/content/clipper/shared/styleManager.ts',
+        owner: 'clipper inline style manager documented contract',
+        testOwners: ['tests/unit/content/styleManager.test.ts']
+      },
+      {
+        pattern: 'src/env.d.ts',
+        owner: 'TypeScript build and audit global declaration contract',
+        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
+      },
+      {
+        pattern: 'src/options/stitch/runtime/actions.ts',
+        owner: 'Stitch runtime action id contract',
+        testOwners: ['tests/unit/options/stitchSharedRegistry.test.ts']
+      },
+      {
+        pattern: 'src/options/stitch/styles/variants/stitch-secondary.css',
+        owner: 'Stitch Secondary static style asset contract',
+        publicAssetOwners: ['public/content-orchestrator-harness.html']
+      },
+      {
+        pattern: 'src/styles/clipper/highlight-themes.css',
+        owner: 'reader and video highlight theme build asset contract',
+        scriptOwners: ['scripts/build.mjs']
+      },
+      {
+        pattern: 'src/styles/design-tokens.css',
+        owner: 'design token source-of-truth asset',
+        scriptOwners: ['scripts/build.mjs']
+      },
+      {
+        pattern: 'src/ui/foundation/tokens/index.ts',
+        owner: 'design token metadata source contract',
+        scriptOwners: ['tools/report-design-system-doc.mjs']
+      }
+    ];
+
+    for (const contract of retainedContracts) {
+      const result = classifySourceFile(
+        input({
+          file: contract.pattern,
+          testOwners: contract.testOwners ?? [],
+          scriptOwners: contract.scriptOwners ?? [],
+          publicAssetOwners: contract.publicAssetOwners ?? [],
+          explicitClassificationPatterns: [
+            {
+              pattern: contract.pattern,
+              decision: 'retain-production-facade',
+              owner: contract.owner,
+              deletionCondition: 'delete only after owner-approved migration or six-proof deletion'
+            }
+          ]
+        })
+      );
+
+      expect(result.decision).toBe('retain-production-facade');
+      expect(result.owner).toBe(contract.owner);
+    }
+  });
+
   it('uses explicit migration rules without making unknown files pass by default', () => {
     const result = classifySourceFile(
       input({

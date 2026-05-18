@@ -13,7 +13,7 @@
 - `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
 - 旧 sections/layout/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
-- `audit:non-production-source:report` 是 inventory evidence，可能因已确认的 `migrate-*` / `retain-*` inventory 退出非零；不要把该退出码当作 Options hard-gate 失败。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
+- `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
 - 当前技术栈为 TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS 与 WebExtension APIs；formal specs/plans 归属外层 workspace `docs/codex-superpowers/*`。
 

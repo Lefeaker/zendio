@@ -6,7 +6,7 @@ Last updated: 2026-05-18
 
 Non-Production Code 3.0 treats every `src/**` path as owned until structured evidence proves otherwise. A file is not deletion-ready merely because it is absent from the production esbuild output. Retained source imports, barrel re-exports, tests, scripts, public or manifest assets, and required browser or visual verification commands are all owners.
 
-`npm run audit:non-production-source:report` is the ownership inventory. It prints every classified row and may exit non-zero while intentional `migrate-*` or retained inventory remains. That non-zero exit is evidence to inspect and record; it is not by itself a hard-gate failure.
+`npm run audit:non-production-source:report` is the ownership inventory. It prints every classified row and must exit 0 once every `src/**` path has a structured owner decision. A non-zero report exit means unresolved `stop-unknown`, `delete-now`, `migrate-test-owner`, or `migrate-script-owner` rows remain and the completion state is blocked until each exact path is migrated, deleted with six proofs, or reclassified with an explicit owner and deletion condition.
 
 `npm run audit:non-production-source:check` is the enforceable hard gate. It must exit 0 in `quality` and any equivalent preflight, CI, package, or release gate.
 
@@ -51,7 +51,7 @@ npm run audit:non-production-source:report
 npm run audit:non-production-source:check
 ```
 
-Record the report command's exit status and decision counts. A report exit 1 is acceptable when the counts are understood, `stop-unknown` is 0, and remaining rows are owner-approved `migrate-*` or `retain-*` inventory.
+Record the report command's exit status and decision counts. The expected completion state is report exit 0. If the report exits 1, do not claim completion; record the exact blocking rows and either migrate them, delete them with six proofs, or add an exact retained-contract decision.
 
 Require the check command to exit 0. It fails on:
 
@@ -59,27 +59,28 @@ Require the check command to exit 0. It fails on:
 - unsafe `delete-now` rows whose six deletion proofs are missing, malformed, or non-empty;
 - internal classifier contradictions where retained source import, re-export, dependency, script, test, public, manifest, or required verification owners coexist with `delete-now`.
 
-It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains.
+It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains. The separate report command is stricter for completion audits: unresolved `migrate-test-owner` and `migrate-script-owner` rows must not remain in a completed orchestration.
 
-## Current Report-Only Backlog
+## Current Retained Contracts
 
 The 2026-05-17 technical-debt orchestration completed classification and deletion safety
-governance. It did not clear the non-production migration backlog, and no existing
-`src/**` file was deleted in Plan 6.
+governance. The 2026-05-18 gap-closure audit resolved the remaining report-blocking
+rows through exact retained-contract classifications. No existing `src/**` file was
+deleted in Plan 6 or in the gap-closure pass.
 
-As of the 2026-05-18 completion audit, `npm run audit:non-production-source:report`
-exits 1 with eight report-only rows:
+As of the 2026-05-18 gap-closure audit, `npm run audit:non-production-source:report`
+exits 0. These exact source contracts remain intentionally retained with owner and
+deletion-condition metadata in `tools/report-non-production-source.mjs`:
 
-- `src/components/trial-notice.ts`
-- `src/content/clipper/shared/styleManager.ts`
-- `src/env.d.ts`
-- `src/options/stitch/runtime/actions.ts`
-- `src/options/stitch/styles/variants/stitch-secondary.css`
-- `src/styles/clipper/highlight-themes.css`
-- `src/styles/design-tokens.css`
-- `src/ui/foundation/tokens/index.ts`
+- `src/components/trial-notice.ts` — trial notice documented UI contract.
+- `src/content/clipper/shared/styleManager.ts` — clipper inline style manager documented contract.
+- `src/env.d.ts` — TypeScript build and audit global declaration contract.
+- `src/options/stitch/runtime/actions.ts` — Stitch runtime action id contract.
+- `src/options/stitch/styles/variants/stitch-secondary.css` — Stitch Secondary static style asset contract.
+- `src/styles/clipper/highlight-themes.css` — reader and video highlight theme build asset contract.
+- `src/styles/design-tokens.css` — design token source-of-truth asset.
+- `src/ui/foundation/tokens/index.ts` — design token metadata source contract.
 
-These rows are tracked in `docs/long-term-maintenance-backlog-2026-03-29.md` with
-owner evidence and acceptance commands. They must not be hidden by a broad allowlist
-or promoted into a production hard gate until each row has an owner-approved
-migration or explicit retained-contract decision.
+Future changes must not hide new rows with broad allowlists or promote unresolved
+report blockers into production hard gates. Each new blocker needs an exact owner
+migration, exact retained-contract decision, or six-proof deletion record.

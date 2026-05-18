@@ -150,7 +150,7 @@
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`
-- Non-production source ownership：`npm run audit:non-production-source:report` 产出完整 inventory，可因已确认迁移/保留清单退出非零；`npm run audit:non-production-source:check` 是 hard gate，必须通过
+- Non-production source ownership：`npm run audit:non-production-source:report` 产出完整 inventory，完成态必须退出 0；`npm run audit:non-production-source:check` 是 hard gate，必须通过
 - `npm run quality` 已强制包含 design-system-doc、retired-code、production-shape、build-graph、non-production-source check 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
 
 ## 7. 开发要求

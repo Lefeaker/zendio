@@ -43,8 +43,8 @@
   - 使用 production esbuild entrypoints 的 metafile 证据区分 production、harness、validation/public owners 和 unused retired candidates
   - 删除 `src` retired path 前必须结合该报告、import graph、script/test/public scan 共同证明无 owner
 - `npm run audit:non-production-source:report`
-  - 输出 Non-Production Source ownership inventory，可因 `migrate-*` / `retain-*` 报告行以 report-only 语义退出非零
-  - 退出非零时记录 counts 与 `stop-unknown` 状态；只要 `check` 通过，该退出码本身不是 hard-gate 失败
+  - 输出 Non-Production Source ownership inventory；完成态必须退出 0
+  - 退出非零时记录 exact blocking rows，逐项迁移、六证据删除或显式 retained-contract 分类后再声明完成
   - 不得直接接入 `quality`、`verify:preflight`、CI、package 或 release hard gate
 - `npm run audit:non-production-source:check`
   - 使用同一份 ownership evidence 做 hard-gate 安全检查

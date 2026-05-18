@@ -33,7 +33,8 @@ const EXPLICIT_RETAIN_PATTERNS = [
     pattern: 'src/content/video/session.ts',
     decision: 'retain-production-facade',
     owner: 'content video compatibility shell',
-    deletionCondition: 'delete only after public imports and tests migrate to runtime session owners'
+    deletionCondition:
+      'delete only after public imports and tests migrate to runtime session owners'
   },
   {
     pattern: 'src/content/video/platforms/bilibiliPlatform.ts',
@@ -69,34 +70,57 @@ const EXPLICIT_RETAIN_PATTERNS = [
 
 const EXPLICIT_CLASSIFICATION_PATTERNS = [
   {
+    pattern: 'src/components/trial-notice.ts',
+    decision: 'retain-production-facade',
+    owner: 'trial notice documented UI contract',
+    deletionCondition:
+      'delete only after trial notice docs and tests migrate to a current licensing/trial UI owner',
+    requiredAction:
+      'Retain the exact trial notice contract until an owner-approved trial UI migration or six-proof deletion is recorded.'
+  },
+  {
     pattern: 'src/background/sinks/obsidianRest.ts',
     decision: 'retain-production-facade',
     owner: 'background sink compatibility boundary',
-    deletionCondition: 'delete only after Obsidian sink imports move to the current writer/service owner'
+    deletionCondition:
+      'delete only after Obsidian sink imports move to the current writer/service owner'
   },
   {
     pattern: 'src/content/clipper/components/dialogTypes.ts',
     decision: 'retain-production-facade',
     owner: 'clipper dialog public type boundary',
-    deletionCondition: 'delete only after dialog contracts move to the current content runtime owner'
+    deletionCondition:
+      'delete only after dialog contracts move to the current content runtime owner'
+  },
+  {
+    pattern: 'src/content/clipper/shared/styleManager.ts',
+    decision: 'retain-production-facade',
+    owner: 'clipper inline style manager documented contract',
+    deletionCondition:
+      'delete only after clipper style injection docs and tests migrate to the current style sheet manager owner',
+    requiredAction:
+      'Retain the exact inline style manager contract until the clipper style injection owner migrates or retires it with six-proof deletion.'
   },
   {
     pattern: 'src/content/reader/{highlightController,sessionExportUtils,styles,types}.ts',
     decision: 'retain-production-facade',
     owner: 'reader runtime compatibility contract',
-    deletionCondition: 'delete only after reader runtime imports and tests move to the current reader domain owner'
+    deletionCondition:
+      'delete only after reader runtime imports and tests move to the current reader domain owner'
   },
   {
     pattern: 'src/content/runtime/supportProgress.ts',
     decision: 'retain-production-facade',
     owner: 'content runtime support progress contract',
-    deletionCondition: 'delete only after support progress UI imports move to the current runtime surface owner'
+    deletionCondition:
+      'delete only after support progress UI imports move to the current runtime surface owner'
   },
   {
     pattern: 'src/content/shared/markdown.ts',
     decision: 'retain-production-facade',
     owner: 'content markdown shared contract',
-    deletionCondition: 'delete only after markdown callers use current formatter/domain modules directly'
+    deletionCondition:
+      'delete only after markdown callers use current formatter/domain modules directly'
   },
   {
     pattern: 'src/content/ui/supportPrompt/types.ts',
@@ -108,19 +132,31 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/content/video/platforms/bilibiliSelectionTypes.ts',
     decision: 'retain-production-facade',
     owner: 'Bilibili video platform type boundary',
-    deletionCondition: 'delete only after Bilibili selection callers move to current platform contracts'
+    deletionCondition:
+      'delete only after Bilibili selection callers move to current platform contracts'
+  },
+  {
+    pattern: 'src/env.d.ts',
+    decision: 'retain-production-facade',
+    owner: 'TypeScript build and audit global declaration contract',
+    deletionCondition:
+      'delete only after build tooling, audit tooling, and inline CSS module declarations no longer require this global declaration file',
+    requiredAction:
+      'Retain the exact declaration contract until TypeScript build and audit owners remove every declaration dependency.'
   },
   {
     pattern: 'src/infrastructure/index.ts',
     decision: 'retain-production-facade',
     owner: 'infrastructure public barrel',
-    deletionCondition: 'delete only after public imports no longer require the infrastructure barrel shape'
+    deletionCondition:
+      'delete only after public imports no longer require the infrastructure barrel shape'
   },
   {
     pattern: 'src/options/app/actions/*.ts',
     decision: 'retain-production-facade',
     owner: 'Options action public boundary',
-    deletionCondition: 'delete only after production Stitch action dispatch moves to focused action owners'
+    deletionCondition:
+      'delete only after production Stitch action dispatch moves to focused action owners'
   },
   {
     pattern: 'src/options/app/changelogContent.ts',
@@ -132,19 +168,22 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/options/app/optionsShellState.ts',
     decision: 'retain-production-facade',
     owner: 'Options shell state compatibility module',
-    deletionCondition: 'delete only after production shell state is fully represented by split shell owners'
+    deletionCondition:
+      'delete only after production shell state is fully represented by split shell owners'
   },
   {
     pattern: 'src/options/components/controls/connectionTest.ts',
     decision: 'migrate-test-owner',
     owner: 'legacy Options connection test control retained by old section coverage',
-    deletionCondition: 'delete after connection test behavior is covered by production Stitch/storage tests'
+    deletionCondition:
+      'delete after connection test behavior is covered by production Stitch/storage tests'
   },
   {
     pattern: 'src/options/components/sectionRegistry.ts',
     decision: 'retain-production-facade',
     owner: 'legacy Options section registry compatibility boundary',
-    deletionCondition: 'delete after production Stitch schema registry fully replaces legacy section lookup'
+    deletionCondition:
+      'delete after production Stitch schema registry fully replaces legacy section lookup'
   },
   {
     pattern: 'src/options/components/sections/fragmentSection*.ts',
@@ -156,7 +195,8 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/options/components/sections/restSection*.ts',
     decision: 'migrate-test-owner',
     owner: 'legacy REST section helper retained by old section coverage',
-    deletionCondition: 'delete after REST/storage behavior is covered by production Stitch/storage tests'
+    deletionCondition:
+      'delete after REST/storage behavior is covered by production Stitch/storage tests'
   },
   {
     pattern: 'src/options/components/sections/usage*.ts',
@@ -168,19 +208,22 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/options/schema-runtime/index.ts',
     decision: 'retain-production-facade',
     owner: 'Options schema runtime public barrel',
-    deletionCondition: 'delete only after schema runtime imports move to concrete Stitch runtime modules'
+    deletionCondition:
+      'delete only after schema runtime imports move to concrete Stitch runtime modules'
   },
   {
     pattern: 'src/options/services/connectionTestRuntime.ts',
     decision: 'retain-production-facade',
     owner: 'Options connection test runtime contract',
-    deletionCondition: 'delete only after storage connection testing is owned by current production service modules'
+    deletionCondition:
+      'delete only after storage connection testing is owned by current production service modules'
   },
   {
     pattern: 'src/options/state/selectors.ts',
     decision: 'retain-production-facade',
     owner: 'Options state selector compatibility module',
-    deletionCondition: 'delete only after production Stitch state mapping no longer imports legacy selectors'
+    deletionCondition:
+      'delete only after production Stitch state mapping no longer imports legacy selectors'
   },
   {
     pattern: 'src/options/stitch/schema/surfaces/helpers.ts',
@@ -189,10 +232,29 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     deletionCondition: 'delete only after schema surfaces inline or replace this helper boundary'
   },
   {
+    pattern: 'src/options/stitch/runtime/actions.ts',
+    decision: 'retain-production-facade',
+    owner: 'Stitch runtime action id contract',
+    deletionCondition:
+      'delete only after Stitch runtime actions and theme action tests migrate to a current runtime action owner',
+    requiredAction:
+      'Retain the exact Stitch action id contract until the runtime action owner records a replacement or six-proof deletion.'
+  },
+  {
+    pattern: 'src/options/stitch/styles/variants/stitch-secondary.css',
+    decision: 'retain-production-facade',
+    owner: 'Stitch Secondary static style asset contract',
+    deletionCondition:
+      'delete only after Options, onboarding, content runtime, and public harness style owners stop loading this asset',
+    requiredAction:
+      'Retain the exact Stitch Secondary style asset until every static and runtime loader is migrated or six-proof deletion is recorded.'
+  },
+  {
     pattern: 'src/options/stitch/state.ts',
     decision: 'retain-production-facade',
     owner: 'Stitch state public contract',
-    deletionCondition: 'delete only after production Stitch state moves to focused state owner modules'
+    deletionCondition:
+      'delete only after production Stitch state moves to focused state owner modules'
   },
   {
     pattern: 'src/options/utils/index.ts',
@@ -204,7 +266,8 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/options/widgets/shared/rest/**',
     decision: 'migrate-test-owner',
     owner: 'legacy REST widget helper retained for REST/widget migration',
-    deletionCondition: 'delete after REST storage widget behavior is covered by Stitch/domain owners'
+    deletionCondition:
+      'delete after REST storage widget behavior is covered by Stitch/domain owners'
   },
   {
     pattern: 'src/options/widgets/shared/usage/**',
@@ -216,19 +279,22 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/shared/config/types.ts',
     decision: 'retain-production-facade',
     owner: 'shared configuration type contract',
-    deletionCondition: 'delete only after all config type exports move to current shared schemas/types'
+    deletionCondition:
+      'delete only after all config type exports move to current shared schemas/types'
   },
   {
     pattern: 'src/shared/errors/analytics/analyticsConfig.template.ts',
     decision: 'retain-production-facade',
     owner: 'analytics error configuration template contract',
-    deletionCondition: 'delete only after analytics error configuration is removed or replaced by current config owner'
+    deletionCondition:
+      'delete only after analytics error configuration is removed or replaced by current config owner'
   },
   {
     pattern: 'src/shared/i18n/textAdaptationTypes.ts',
     decision: 'retain-production-facade',
     owner: 'shared i18n text adaptation type contract',
-    deletionCondition: 'delete only after text adaptation exports move to current i18n schema/type owners'
+    deletionCondition:
+      'delete only after text adaptation exports move to current i18n schema/type owners'
   },
   {
     pattern: 'src/shared/interfaces/index.ts',
@@ -240,13 +306,15 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/shared/repositories/*.ts',
     decision: 'retain-production-facade',
     owner: 'shared repository public contract',
-    deletionCondition: 'delete only after repository imports move to concrete current repository contracts'
+    deletionCondition:
+      'delete only after repository imports move to concrete current repository contracts'
   },
   {
     pattern: 'src/shared/schemas/taxonomy.schema.ts',
     decision: 'retain-production-facade',
     owner: 'shared taxonomy schema contract',
-    deletionCondition: 'delete only after taxonomy schema is removed from public shared schema surface'
+    deletionCondition:
+      'delete only after taxonomy schema is removed from public shared schema surface'
   },
   {
     pattern: 'src/shared/types/external.ts',
@@ -258,31 +326,63 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     pattern: 'src/styles/firefox.css',
     decision: 'retain-production-facade',
     owner: 'Firefox style compatibility asset',
-    deletionCondition: 'delete only after Firefox build/public asset checks prove the style is unused'
+    deletionCondition:
+      'delete only after Firefox build/public asset checks prove the style is unused'
+  },
+  {
+    pattern: 'src/styles/clipper/highlight-themes.css',
+    decision: 'retain-production-facade',
+    owner: 'reader and video highlight theme build asset contract',
+    deletionCondition:
+      'delete only after reader/video highlight theme behavior and build copy steps migrate to a current style owner',
+    requiredAction:
+      'Retain the exact highlight theme asset until build and reader/video style owners record a replacement or six-proof deletion.'
+  },
+  {
+    pattern: 'src/styles/design-tokens.css',
+    decision: 'retain-production-facade',
+    owner: 'design token source-of-truth asset',
+    deletionCondition:
+      'delete only after design token tooling, docs, tests, and build copy steps no longer require this CSS token source',
+    requiredAction:
+      'Retain the exact design token CSS source until design system owners record a replacement or six-proof deletion.'
   },
   {
     pattern: 'src/ui/ZagCombobox.js',
     decision: 'retain-production-facade',
     owner: 'Zag combobox UI compatibility module',
-    deletionCondition: 'delete only after combobox consumers move to current UI primitive/domain owner'
+    deletionCondition:
+      'delete only after combobox consumers move to current UI primitive/domain owner'
+  },
+  {
+    pattern: 'src/ui/foundation/tokens/index.ts',
+    decision: 'retain-production-facade',
+    owner: 'design token metadata source contract',
+    deletionCondition:
+      'delete only after design token reporting, UI architecture reporting, and token docs move to a current metadata owner',
+    requiredAction:
+      'Retain the exact design token metadata contract until design system tooling owners record a replacement or six-proof deletion.'
   },
   {
     pattern: 'src/ui/domains/**',
     decision: 'retain-production-facade',
     owner: 'UI domain public boundary',
-    deletionCondition: 'delete only after source-of-truth docs and imports no longer require this domain boundary'
+    deletionCondition:
+      'delete only after source-of-truth docs and imports no longer require this domain boundary'
   },
   {
     pattern: 'src/ui/patterns/**',
     decision: 'retain-production-facade',
     owner: 'UI pattern public boundary',
-    deletionCondition: 'delete only after source-of-truth docs and imports no longer require this pattern boundary'
+    deletionCondition:
+      'delete only after source-of-truth docs and imports no longer require this pattern boundary'
   },
   {
     pattern: 'src/ui/primitives/**',
     decision: 'retain-production-facade',
     owner: 'UI primitive public boundary',
-    deletionCondition: 'delete only after source-of-truth docs and imports no longer require this primitive boundary'
+    deletionCondition:
+      'delete only after source-of-truth docs and imports no longer require this primitive boundary'
   }
 ];
 
@@ -384,7 +484,9 @@ function matchesPattern(file, pattern) {
 
 function matchesAnyPattern(file, patterns) {
   return patterns.some((pattern) =>
-    typeof pattern === 'string' ? matchesPattern(file, pattern) : matchesPattern(file, pattern.pattern)
+    typeof pattern === 'string'
+      ? matchesPattern(file, pattern)
+      : matchesPattern(file, pattern.pattern)
   );
 }
 
@@ -538,13 +640,17 @@ function ownerProofsFor(input) {
 
 function explicitRetainRule(file, patterns) {
   return patterns.find((pattern) =>
-    typeof pattern === 'string' ? matchesPattern(file, pattern) : matchesPattern(file, pattern.pattern)
+    typeof pattern === 'string'
+      ? matchesPattern(file, pattern)
+      : matchesPattern(file, pattern.pattern)
   );
 }
 
 function explicitClassificationRule(file, patterns) {
   return patterns.find((pattern) =>
-    typeof pattern === 'string' ? matchesPattern(file, pattern) : matchesPattern(file, pattern.pattern)
+    typeof pattern === 'string'
+      ? matchesPattern(file, pattern)
+      : matchesPattern(file, pattern.pattern)
   );
 }
 
@@ -585,7 +691,9 @@ function retainedImportGraphReferences(input) {
 
 function classifySourceFile(input) {
   const proofs = ownerProofsFor(input);
-  const deleteCandidate = Boolean(explicitDeleteNowRule(input.file, input.explicitDeleteNowPatterns ?? []));
+  const deleteCandidate = Boolean(
+    explicitDeleteNowRule(input.file, input.explicitDeleteNowPatterns ?? [])
+  );
   const unknownProof = Object.values(proofs).some((value) => value === 'unknown');
   if (deleteCandidate && unknownProof) {
     return {
@@ -605,7 +713,8 @@ function classifySourceFile(input) {
       ownerProofs: proofs,
       decision: 'retain-production',
       owner: 'production build/import graph',
-      deletionCondition: 'not a deletion candidate while production build or import ownership remains',
+      deletionCondition:
+        'not a deletion candidate while production build or import ownership remains',
       requiredAction: 'Retain; source has production ownership.'
     };
   }
@@ -616,8 +725,10 @@ function classifySourceFile(input) {
       ownerProofs: proofs,
       decision: 'migrate-import-owner',
       owner: 'retained source import graph owner',
-      deletionCondition: 'delete only after retained source imports, re-exports, and dependencies are migrated',
-      requiredAction: 'Remove retained source import/re-export/dependency ownership before deletion.'
+      deletionCondition:
+        'delete only after retained source imports, re-exports, and dependencies are migrated',
+      requiredAction:
+        'Remove retained source import/re-export/dependency ownership before deletion.'
     };
   }
 
@@ -644,8 +755,8 @@ function classifySourceFile(input) {
       requiredAction:
         typeof classificationRule === 'string'
           ? 'Retain documented compatibility shell or production contract.'
-          : classificationRule.requiredAction ??
-            'Retain or migrate according to the documented owner and deletion condition.'
+          : (classificationRule.requiredAction ??
+            'Retain or migrate according to the documented owner and deletion condition.')
     };
   }
 
@@ -657,7 +768,9 @@ function classifySourceFile(input) {
       decision: typeof retainRule === 'string' ? 'retain-production-facade' : retainRule.decision,
       owner: typeof retainRule === 'string' ? 'explicit retain rule' : retainRule.owner,
       deletionCondition:
-        typeof retainRule === 'string' ? 'remove after explicit retain owner is retired' : retainRule.deletionCondition,
+        typeof retainRule === 'string'
+          ? 'remove after explicit retain owner is retired'
+          : retainRule.deletionCondition,
       requiredAction: 'Retain documented compatibility shell or production contract.'
     };
   }
@@ -668,8 +781,10 @@ function classifySourceFile(input) {
       ownerProofs: proofs,
       decision: 'migrate-test-owner',
       owner: 'test/visual/browser verification owner',
-      deletionCondition: 'delete only after behavior coverage moves to production owners or tests/fixtures',
-      requiredAction: 'Move behavior coverage to production owners or tests/fixtures before deletion.'
+      deletionCondition:
+        'delete only after behavior coverage moves to production owners or tests/fixtures',
+      requiredAction:
+        'Move behavior coverage to production owners or tests/fixtures before deletion.'
     };
   }
 
@@ -798,8 +913,7 @@ function validateNonProductionSourceCheck(rows) {
     if (importGraphOwners.length > 0) {
       violations.push({
         file: row.file,
-        reason:
-          'delete-now row still has retained source import/re-export/dependency ownership'
+        reason: 'delete-now row still has retained source import/re-export/dependency ownership'
       });
     }
   }
@@ -832,7 +946,11 @@ async function buildNonProductionSourceRows() {
   const scripts = parsePackageScripts();
   const sourceFiles = await listSourceFiles();
   const srcTextFiles = await readTextFiles(['src']);
-  const testTextFiles = await readTextFiles(['tests', 'playwright.config.ts', 'playwright.reader.config.ts']);
+  const testTextFiles = await readTextFiles([
+    'tests',
+    'playwright.config.ts',
+    'playwright.reader.config.ts'
+  ]);
   const scriptTextFiles = await readTextFiles(['package.json', 'scripts', 'tools', '.github']);
   const publicTextFiles = await readTextFiles(['public']);
   const productionSources = new Set(Object.keys(graph.reachableSources ?? {}));
@@ -851,7 +969,9 @@ async function buildNonProductionSourceRows() {
       retainedSourceImportOwners,
       retainedSourceImportTargets,
       testOwners: collectTextOwners(testTextFiles, file),
-      scriptOwners: removeAuditClassificationMetadataOwner(collectTextOwners(scriptTextFiles, file)),
+      scriptOwners: removeAuditClassificationMetadataOwner(
+        collectTextOwners(scriptTextFiles, file)
+      ),
       publicAssetOwners: collectTextOwners(publicTextFiles, file),
       requiredVerificationOwners: collectRequiredVerificationOwners(file, scripts),
       explicitRetainPatterns: EXPLICIT_RETAIN_PATTERNS,
@@ -883,11 +1003,13 @@ async function main() {
   }
 
   const blocking = rows.filter((row) =>
-    ['stop-unknown', 'migrate-test-owner', 'migrate-script-owner', 'delete-now'].includes(row.decision)
+    ['stop-unknown', 'migrate-test-owner', 'migrate-script-owner', 'delete-now'].includes(
+      row.decision
+    )
   );
   if (blocking.length > 0) {
     console.error(
-      `non-production source audit has ${blocking.length} report-only blocking rows; do not wire into hard gates yet`
+      `non-production source audit has ${blocking.length} completion-blocking rows; resolve each exact path before claiming completion`
     );
     process.exit(1);
   }

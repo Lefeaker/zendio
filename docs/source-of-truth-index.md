@@ -25,7 +25,7 @@
 - 当前依赖边界真值以 `npm run audit:deps:report` 为准；该命令必须巡检完整 `src` graph，并对 dependency-cruiser violations fail closed
 - 当前 production build ownership 真值以 `npm run audit:build-graph:report` 为准；retired `src` 删除必须先证明 production、harness、validation、public/script/test owner 均已迁出
 - 当前 non-production source ownership 规则以 [`non-production-code-ownership.md`](./non-production-code-ownership.md) 为准
-- 当前 non-production source ownership inventory 以 `npm run audit:non-production-source:report` 为准；该命令会输出完整分类，可因保留的 `migrate-*` / `retain-*` inventory 以 report-only 语义退出非零，不能直接作为 hard gate
+- 当前 non-production source ownership inventory 以 `npm run audit:non-production-source:report` 为准；该命令会输出完整分类，完成态必须退出 0。若出现 `stop-unknown`、`delete-now`、`migrate-test-owner` 或 `migrate-script-owner` report blocker，必须逐 exact path 迁移、六证据删除或显式保留后再声明完成
 - 当前 non-production source hard gate 以 `npm run audit:non-production-source:check` 为准；只阻断 `stop-unknown`、不安全 `delete-now` 证明矛盾或缺失结构化证据，不因已确认保留/迁移中的 inventory 阻断
 - 当前 retired-code 决策以 `docs/retired-code-inventory.md` 和 `npm run audit:retired-code:report` 为准
 - 当前 hotspot 体量观察以 `docs/production-code-hotspots.md` 和 `npm run audit:production-shape:report` 为准

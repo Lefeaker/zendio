@@ -9,7 +9,7 @@ Last updated: 2026-05-11
 - `retain-production`: path participates in production build or is the current domain owner.
 - `retain-test-fixture`: path is not production but is an explicit fixture outside `src`.
 - Non-Production Code 3.0 source deletion requires all six exact-path owner proofs to be present and empty: production build graph, retained source import/re-export graph, tests/visual/browser checks, package/build scripts, public/manifest assets, and required verification commands.
-- `npm run audit:non-production-source:report` is inventory evidence and is allowed to exit 1 while intentional `migrate-*` / `retain-*` inventory remains. Record its counts and exit status.
+- `npm run audit:non-production-source:report` is inventory evidence and must exit 0 in a completed orchestration. Record its counts and exit status; a non-zero report exit means exact blocking rows still require migration, six-proof deletion, or explicit retained-contract classification.
 - `npm run audit:non-production-source:check` is the hard gate; it must exit 0 and fail closed on unclassified stop rows or unsafe `delete-now` proof contradictions.
 - `npm run audit:retired-code:report` now fails when any `delete-now` path exists under `src` or is referenced by package scripts, build scripts, `src`, tests, public/manifest assets, or required visual/browser verification.
 - Retired Options compatibility classes and the retired preview runtime must not be reintroduced. Any retained `migrate-then-delete` family below must keep its owner/reason wording until production build graph, import graph, script/public ownership, and test/visual ownership all prove it can move to `delete-now`.
