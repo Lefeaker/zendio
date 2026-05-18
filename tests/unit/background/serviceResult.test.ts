@@ -20,7 +20,12 @@ describe('serviceResult', () => {
   it('creates service errors with optional fields', () => {
     const cause = new Error('boom');
     const error = createServiceError('STORAGE_ERROR', 'failed', { key: 'options' }, cause);
-    expect(error).toEqual({ code: 'STORAGE_ERROR', message: 'failed', details: { key: 'options' }, cause });
+    expect(error).toEqual({
+      code: 'STORAGE_ERROR',
+      message: 'failed',
+      details: { key: 'options' },
+      cause
+    });
     expect(createStorageError('storage failed').code).toBe('STORAGE_ERROR');
   });
 
@@ -39,7 +44,9 @@ describe('serviceResult', () => {
 
     const successResult = serviceSuccess(2);
     expect(mapServiceResult(successResult, (value) => value + 1)).toEqual(serviceSuccess(3));
-    expect(flatMapServiceResult(successResult, (value) => serviceSuccess(String(value)))).toEqual(serviceSuccess('2'));
+    expect(flatMapServiceResult(successResult, (value) => serviceSuccess(String(value)))).toEqual(
+      serviceSuccess('2')
+    );
   });
 
   it('validates and combines results, and logs failures', () => {

@@ -46,12 +46,15 @@ describe('reader highlight markdown builder', () => {
 
     const body = stripFrontMatter(markdown);
 
-    expect(body).toContain('- ==Primary insight== [^1]    [](https://example.com/post#:~:text=Primary%20insight)');
-    expect(body).toContain('- ==Secondary note==    [](https://example.com/post#:~:text=Secondary%20note)');
+    expect(body).toContain(
+      '- ==Primary insight== [^1]    [](https://example.com/post#:~:text=Primary%20insight)'
+    );
+    expect(body).toContain(
+      '- ==Secondary note==    [](https://example.com/post#:~:text=Secondary%20note)'
+    );
     expect(body).toContain('[^1]: Remember to revisit this later.');
   });
 });
-
 
 function createDocument(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html');
@@ -78,7 +81,7 @@ describe('reader full markdown builder', () => {
     expect(body).toContain('- ==Second point==');
     expect(body).toContain('[^2]: Needs follow up.');
     expect(body).not.toContain('[](');
-      });
+  });
 
   it('builds full markdown, removes ui artifacts, and preserves segmented highlight footnotes', () => {
     const documentClone = createDocument(`
@@ -125,8 +128,8 @@ describe('reader full markdown builder', () => {
   });
 });
 
-  it('omits empty comments and keeps single highlight tokens well-formed in full export', () => {
-    const documentClone = createDocument(`
+it('omits empty comments and keeps single highlight tokens well-formed in full export', () => {
+  const documentClone = createDocument(`
       <html>
         <body>
           <article>
@@ -140,27 +143,26 @@ describe('reader full markdown builder', () => {
       </html>
     `);
 
-    const payload = buildReaderFullMarkdown({
-      pageTitle: 'Solo Highlight',
-      pageUrl: 'https://example.com/solo',
-      documentClone,
-      highlights: [
-        {
-          id: 'solo',
-          selectedHtml: '<p>Solo</p>',
-          selectedText: 'Solo',
-          comment: '',
-          fragmentUrl: 'https://example.com/solo#:~:text=Solo'
-        }
-      ]
-    });
-
-    const body = stripFrontMatter(payload.markdown);
-    expect(body).toContain('==Solo==');
-    expect(body).not.toContain('[^');
-    expect(requireMeta(payload).commentCount).toBe(0);
+  const payload = buildReaderFullMarkdown({
+    pageTitle: 'Solo Highlight',
+    pageUrl: 'https://example.com/solo',
+    documentClone,
+    highlights: [
+      {
+        id: 'solo',
+        selectedHtml: '<p>Solo</p>',
+        selectedText: 'Solo',
+        comment: '',
+        fragmentUrl: 'https://example.com/solo#:~:text=Solo'
+      }
+    ]
   });
 
+  const body = stripFrontMatter(payload.markdown);
+  expect(body).toContain('==Solo==');
+  expect(body).not.toContain('[^');
+  expect(requireMeta(payload).commentCount).toBe(0);
+});
 
 it('omits fragment links when highlight urls are empty and tolerates blank page metadata', () => {
   const { markdown } = buildReaderHighlightsMarkdown({
@@ -180,7 +182,7 @@ it('omits fragment links when highlight urls are empty and tolerates blank page 
   expect(body).toContain('- ==Standalone insight==');
   expect(body).not.toContain('[](');
   expect(body).not.toContain('[^');
-  });
+});
 
 it('keeps full export stable when highlight fragment links are missing and title is empty', () => {
   const documentClone = createDocument(`
@@ -214,7 +216,6 @@ it('keeps full export stable when highlight fragment links are missing and title
   expect(requireMeta(payload).exportMode).toBe('full');
   expect(requireMeta(payload).fragmentUrls).toEqual(['']);
 });
-
 
 it('keeps comment metadata count without emitting footnotes when footnote index is absent', () => {
   const payload = buildReaderHighlightsMarkdown({
@@ -262,8 +263,6 @@ it('builds full markdown without highlights and keeps article text plain', () =>
   expect(body).not.toContain('==');
   expect(requireMeta(payload).highlightCount).toBe(0);
 });
-
-
 
 it('converts explicit mark segment roles during full export', () => {
   const documentClone = createDocument(`
@@ -380,7 +379,7 @@ it('falls back to document body html when readability content is empty', () => {
     const body = stripFrontMatter(markdown);
     expect(body).toContain('Fallback body content');
     expect(body).toContain('==Loose mark==[^6]');
-      } finally {
+  } finally {
     if (originalParseDescriptor) {
       Object.defineProperty(Readability.prototype, 'parse', originalParseDescriptor);
     }
@@ -428,7 +427,11 @@ it('covers helper branches for unmatched highlights and token unescaping', () =>
   expect(documentClone.body.textContent).toContain('[[AIIOB_HL:solo:S]]');
   expect(documentClone.body.textContent).toContain('[[AIIOB_HL:solo:E:9]]');
   expect(documentClone.body.textContent).not.toContain('10');
-  expect(utils.applyHighlightTokens(String.raw`\[\[AIIOB_HL:item:S\]\]Focus\_Here \[\[AIIOB_HL:item:E:8\]\]`)).toBe('==Focus_Here==[^8]');
+  expect(
+    utils.applyHighlightTokens(
+      String.raw`\[\[AIIOB_HL:item:S\]\]Focus\_Here \[\[AIIOB_HL:item:E:8\]\]`
+    )
+  ).toBe('==Focus_Here==[^8]');
 });
 
 it('exposes markdown helper utilities for segment normalization and token cleanup', () => {
@@ -446,7 +449,9 @@ it('exposes markdown helper utilities for segment normalization and token cleanu
 
   const article = documentClone.getElementById('article');
   const firstSegment = documentClone.querySelectorAll<HTMLElement>('mark.aiob-reader-highlight')[0];
-  const secondSegment = documentClone.querySelectorAll<HTMLElement>('mark.aiob-reader-highlight')[1];
+  const secondSegment = documentClone.querySelectorAll<HTMLElement>(
+    'mark.aiob-reader-highlight'
+  )[1];
   if (!article || !firstSegment || !secondSegment) {
     throw new Error('Expected test fixture nodes to exist');
   }
@@ -474,7 +479,9 @@ it('exposes markdown helper utilities for segment normalization and token cleanu
   expect(documentClone.body.textContent).toContain('[[AIIOB_HL:hl__1:E:7]]');
   expect(documentClone.querySelector('mark.aiob-reader-highlight')).toBeNull();
 
-  const inlineDoc = createDocument('<html><body><p id="host">[[AIIOB_HL:one:S]]<span>Alpha</span><mark>Beta</mark>[[AIIOB_HL:one:E]]</p></body></html>');
+  const inlineDoc = createDocument(
+    '<html><body><p id="host">[[AIIOB_HL:one:S]]<span>Alpha</span><mark>Beta</mark>[[AIIOB_HL:one:E]]</p></body></html>'
+  );
   const host = inlineDoc.getElementById('host');
   if (!host || !host.firstChild || !host.lastChild) {
     throw new Error('Expected inline host nodes to exist');
@@ -486,7 +493,9 @@ it('exposes markdown helper utilities for segment normalization and token cleanu
   expect(host.querySelector('span')).toBeNull();
   expect(host.querySelector('mark')).toBeNull();
 
-  const wrapDoc = createDocument('<html><body><div id="wrap"><span id="node">Text</span></div></body></html>');
+  const wrapDoc = createDocument(
+    '<html><body><div id="wrap"><span id="node">Text</span></div></body></html>'
+  );
   const node = wrapDoc.getElementById('node');
   if (!(node instanceof HTMLElement)) {
     throw new Error('Expected node element');
@@ -495,7 +504,9 @@ it('exposes markdown helper utilities for segment normalization and token cleanu
   expect(wrapDoc.getElementById('node')).toBeNull();
   expect(wrapDoc.body.textContent).toContain('Text');
 
-  expect(utils.applyHighlightTokens('[[AIIOB_HL:solo:S]]Focus [[AIIOB_HL:solo:E:2]]')).toBe('==Focus==[^2]');
+  expect(utils.applyHighlightTokens('[[AIIOB_HL:solo:S]]Focus [[AIIOB_HL:solo:E:2]]')).toBe(
+    '==Focus==[^2]'
+  );
 });
 
 it('includes locator links only for highlights that provide fragment urls', () => {
@@ -541,14 +552,16 @@ it('full export keeps segmented highlights readable and preserves footnote defin
     pageTitle: 'Segmented',
     pageUrl: 'https://example.com/segmented',
     documentClone,
-    highlights: [{
-      id: 'seg',
-      selectedHtml: '<p>First Second</p>',
-      selectedText: 'First Second',
-      comment: 'note',
-      fragmentUrl: '',
-      footnoteIndex: 8
-    }]
+    highlights: [
+      {
+        id: 'seg',
+        selectedHtml: '<p>First Second</p>',
+        selectedText: 'First Second',
+        comment: 'note',
+        fragmentUrl: '',
+        footnoteIndex: 8
+      }
+    ]
   });
 
   const body = stripFrontMatter(markdown);
@@ -556,8 +569,6 @@ it('full export keeps segmented highlights readable and preserves footnote defin
   expect(body).toContain('==Second==');
   expect(body).toContain('[^8]: note');
 });
-
-
 
 it('returns stable highlight markdown when highlights list is empty', () => {
   const { markdown } = buildReaderHighlightsMarkdown({
@@ -569,7 +580,6 @@ it('returns stable highlight markdown when highlights list is empty', () => {
   const body = stripFrontMatter(markdown);
   expect(body.trim()).toBe('');
 });
-
 
 it('preserves whitespace-only highlight content without emitting highlight wrappers', () => {
   const documentClone = createDocument(`
@@ -586,13 +596,15 @@ it('preserves whitespace-only highlight content without emitting highlight wrapp
     pageTitle: 'Whitespace',
     pageUrl: 'https://example.com/whitespace',
     documentClone,
-    highlights: [{
-      id: 'blank',
-      selectedHtml: '<p>   </p>',
-      selectedText: '   ',
-      comment: '',
-      fragmentUrl: ''
-    }]
+    highlights: [
+      {
+        id: 'blank',
+        selectedHtml: '<p>   </p>',
+        selectedText: '   ',
+        comment: '',
+        fragmentUrl: ''
+      }
+    ]
   });
 
   const body = stripFrontMatter(markdown);
@@ -606,7 +618,9 @@ it('returns null common ancestor for detached nodes and keeps token stripping st
   const utils = __readerMarkdownBuilderTestUtils;
   expect(utils.resolveCommonAncestor(a, b)).toBeNull();
 
-  const host = createDocument('<html><body><p id="host">[[AIIOB_HL:x:S]]<strong>Alpha</strong>[[AIIOB_HL:x:E]]</p></body></html>').getElementById('host');
+  const host = createDocument(
+    '<html><body><p id="host">[[AIIOB_HL:x:S]]<strong>Alpha</strong>[[AIIOB_HL:x:E]]</p></body></html>'
+  ).getElementById('host');
   if (!(host instanceof HTMLElement)) {
     throw new Error('Expected host');
   }
@@ -621,13 +635,15 @@ it('omits footnotes for uncommented single highlights while keeping locator link
   const { markdown } = buildReaderHighlightsMarkdown({
     pageTitle: 'Single',
     pageUrl: 'https://example.com/single',
-    highlights: [{
-      id: 'single',
-      selectedHtml: '<p>Alpha</p>',
-      selectedText: 'Alpha',
-      comment: '',
-      fragmentUrl: 'https://example.com/single#:~:text=Alpha'
-    }]
+    highlights: [
+      {
+        id: 'single',
+        selectedHtml: '<p>Alpha</p>',
+        selectedText: 'Alpha',
+        comment: '',
+        fragmentUrl: 'https://example.com/single#:~:text=Alpha'
+      }
+    ]
   });
 
   const body = stripFrontMatter(markdown);
@@ -635,7 +651,6 @@ it('omits footnotes for uncommented single highlights while keeping locator link
   expect(body).toContain('[](https://example.com/single#:~:text=Alpha)');
   expect(body).not.toContain('[^1]:');
 });
-
 
 it('falls back to body html when readability parse returns null', () => {
   const documentClone = createDocument(`
@@ -661,13 +676,15 @@ it('falls back to body html when readability parse returns null', () => {
       pageTitle: 'Null Parse',
       pageUrl: 'https://example.com/null-parse',
       documentClone,
-      highlights: [{
-        id: 'solo',
-        selectedHtml: '<p>Solo</p>',
-        selectedText: 'Solo',
-        comment: '',
-        fragmentUrl: ''
-      }]
+      highlights: [
+        {
+          id: 'solo',
+          selectedHtml: '<p>Solo</p>',
+          selectedText: 'Solo',
+          comment: '',
+          fragmentUrl: ''
+        }
+      ]
     });
 
     const body = stripFrontMatter(payload.markdown);

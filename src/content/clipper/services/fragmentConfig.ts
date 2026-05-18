@@ -12,10 +12,13 @@ export interface ModifierState {
 
 export type ModifierSource = Partial<ModifierState>;
 
-export const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions = configProvider.getFragmentClipperDefaults();
+export const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions =
+  configProvider.getFragmentClipperDefaults();
 type FragmentConfigRepository = OptionsRepository | IOptionsRepository;
 
-function isLegacyOptionsRepository(repository: FragmentConfigRepository): repository is OptionsRepository {
+function isLegacyOptionsRepository(
+  repository: FragmentConfigRepository
+): repository is OptionsRepository {
   return 'load' in repository && typeof repository.load === 'function';
 }
 
@@ -58,7 +61,9 @@ export function resetModifierState(target: ModifierState): void {
   target.shiftKey = false;
 }
 
-function isValidModifierKey(value: unknown): value is FragmentClipperOptions['selectionModifierKeys'][number] {
+function isValidModifierKey(
+  value: unknown
+): value is FragmentClipperOptions['selectionModifierKeys'][number] {
   return value === 'alt' || value === 'meta' || value === 'ctrl' || value === 'shift';
 }
 
@@ -71,7 +76,9 @@ export function normalizeModifierKeys(
   return value.filter(isValidModifierKey);
 }
 
-export async function loadFragmentConfig(optionsRepository?: FragmentConfigRepository): Promise<FragmentClipperOptions> {
+export async function loadFragmentConfig(
+  optionsRepository?: FragmentConfigRepository
+): Promise<FragmentClipperOptions> {
   try {
     if (!optionsRepository) {
       return DEFAULT_FRAGMENT_CONFIG;
@@ -88,12 +95,19 @@ export async function loadFragmentConfig(optionsRepository?: FragmentConfigRepos
       captureContext: merged.captureContext,
       contextLength: DEFAULT_FRAGMENT_CONFIG.contextLength,
       contextMode: DEFAULT_FRAGMENT_CONFIG.contextMode,
-      selectionModifierEnabled: Boolean(fragmentConfig?.selectionModifierEnabled ?? merged.selectionModifierEnabled),
+      selectionModifierEnabled: Boolean(
+        fragmentConfig?.selectionModifierEnabled ?? merged.selectionModifierEnabled
+      ),
       selectionModifierKeys: normalizeModifierKeys(merged.selectionModifierKeys),
-      keyboardShortcutsEnabled: Boolean(fragmentConfig?.keyboardShortcutsEnabled ?? merged.keyboardShortcutsEnabled)
+      keyboardShortcutsEnabled: Boolean(
+        fragmentConfig?.keyboardShortcutsEnabled ?? merged.keyboardShortcutsEnabled
+      )
     };
   } catch (error) {
-    console.warn('[fragmentConfig] Failed to load fragment clipper options, using defaults:', error);
+    console.warn(
+      '[fragmentConfig] Failed to load fragment clipper options, using defaults:',
+      error
+    );
     return DEFAULT_FRAGMENT_CONFIG;
   }
 }

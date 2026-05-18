@@ -10,10 +10,15 @@ export function getOptionalElementById<T extends HTMLElement>(id: string): T | n
   return document.getElementById(id) as T | null;
 }
 
-export function querySelector<T extends Element>(selector: string, root: Document | Element = document): T | null {
+export function querySelector<T extends Element>(
+  selector: string,
+  root: Document | Element = document
+): T | null {
   return root.querySelector(selector);
 }
 
-export function createElement<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] {
+export function createElement<K extends keyof HTMLElementTagNameMap>(
+  tag: K
+): HTMLElementTagNameMap[K] {
   return document.createElement(tag);
 }

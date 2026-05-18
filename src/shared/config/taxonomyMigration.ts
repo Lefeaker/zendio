@@ -1,11 +1,16 @@
 /**
  * Taxonomy migration utilities.
- * 
+ *
  * This module provides utilities to migrate from legacy taxonomy formats
  * to the new structured TaxonomyConfig format.
  */
 
-import type { TaxonomyConfig, TaxonomyCategory, TaxonomyTag, ReadonlyDeep } from '../types/taxonomy';
+import type {
+  TaxonomyConfig,
+  TaxonomyCategory,
+  TaxonomyTag,
+  ReadonlyDeep
+} from '../types/taxonomy';
 import { DEFAULT_TAXONOMY_CONFIG } from '../types/taxonomy';
 
 // Legacy taxonomy format (for backward compatibility)
@@ -86,7 +91,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
     }
   }
 
-  const defaultCategory = categories.length > 0 ? categories[0].id : DEFAULT_TAXONOMY_CONFIG.defaultCategory;
+  const defaultCategory =
+    categories.length > 0 ? categories[0].id : DEFAULT_TAXONOMY_CONFIG.defaultCategory;
 
   const result: TaxonomyConfig = {
     version: '1.0.0',
@@ -96,7 +102,9 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
     tags: tags.length > 0 ? tags : DEFAULT_TAXONOMY_CONFIG.tags,
     rules: [],
     defaultTags: [],
-    ...(DEFAULT_TAXONOMY_CONFIG.settings !== undefined && { settings: DEFAULT_TAXONOMY_CONFIG.settings }),
+    ...(DEFAULT_TAXONOMY_CONFIG.settings !== undefined && {
+      settings: DEFAULT_TAXONOMY_CONFIG.settings
+    }),
     ...(defaultCategory !== undefined && { defaultCategory })
   };
 
@@ -109,12 +117,12 @@ export function resolveTaxonomy(value: unknown): ReadonlyDeep<TaxonomyConfig> {
   if (isTaxonomyConfig(value)) {
     return value as ReadonlyDeep<TaxonomyConfig>;
   }
-  
+
   // If it's a legacy format, migrate it
   if (isLegacyTaxonomy(value)) {
     return migrateLegacyTaxonomy(value);
   }
-  
+
   // If it's a string, try to parse it as JSON
   if (typeof value === 'string') {
     try {
@@ -125,7 +133,7 @@ export function resolveTaxonomy(value: unknown): ReadonlyDeep<TaxonomyConfig> {
       return DEFAULT_TAXONOMY_CONFIG;
     }
   }
-  
+
   // Fallback to default
   return DEFAULT_TAXONOMY_CONFIG;
 }

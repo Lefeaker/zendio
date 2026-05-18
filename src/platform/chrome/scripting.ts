@@ -2,7 +2,9 @@ import type { ScriptExecutionOptions, ScriptingService } from '../interfaces/scr
 import { ensureChrome, getChromeLastError, normalizePromise } from './utils';
 
 export const chromeScriptingService: ScriptingService = {
-  async executeScript(options: ScriptExecutionOptions): Promise<chrome.scripting.InjectionResult[] | void> {
+  async executeScript(
+    options: ScriptExecutionOptions
+  ): Promise<chrome.scripting.InjectionResult[] | void> {
     const chromeApi = ensureChrome();
     if (!chromeApi.scripting?.executeScript) {
       throw new Error('chrome.scripting.executeScript is unavailable');

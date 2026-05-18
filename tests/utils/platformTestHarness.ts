@@ -1,10 +1,30 @@
 import { configurePlatformServices, resetPlatformServices } from '../../src/platform';
-import type { ContextMenusService, MenuCreateProperties, MenuID, MenuUpdateProperties } from '../../src/platform/interfaces/contextMenus';
-import type { MessageListener, MessageSenderInfo, MessagingService } from '../../src/platform/interfaces/messaging';
-import type { NotificationOptions, NotificationsService } from '../../src/platform/interfaces/notifications';
+import type {
+  ContextMenusService,
+  MenuCreateProperties,
+  MenuID,
+  MenuUpdateProperties
+} from '../../src/platform/interfaces/contextMenus';
+import type {
+  MessageListener,
+  MessageSenderInfo,
+  MessagingService
+} from '../../src/platform/interfaces/messaging';
+import type {
+  NotificationOptions,
+  NotificationsService
+} from '../../src/platform/interfaces/notifications';
 import type { RuntimeService } from '../../src/platform/interfaces/runtime';
-import type { ScriptExecutionOptions, ScriptingService } from '../../src/platform/interfaces/scripting';
-import type { StorageAreaService, StorageChange, StorageChangeMap, StorageService } from '../../src/platform/interfaces/storage';
+import type {
+  ScriptExecutionOptions,
+  ScriptingService
+} from '../../src/platform/interfaces/scripting';
+import type {
+  StorageAreaService,
+  StorageChange,
+  StorageChangeMap,
+  StorageService
+} from '../../src/platform/interfaces/storage';
 import type { ActionService } from '../../src/platform/interfaces/actions';
 import type { TabsSendOptions, TabsService } from '../../src/platform/interfaces/tabs';
 import type { RestClient } from '../../src/shared/interfaces/restClient';
@@ -82,7 +102,10 @@ class InMemoryStorageArea implements StorageAreaService {
     return Promise.resolve();
   }
 
-  watchKey<T = unknown>(key: string, callback: (value: T | undefined, change: StorageChange<T>) => void): () => void {
+  watchKey<T = unknown>(
+    key: string,
+    callback: (value: T | undefined, change: StorageChange<T>) => void
+  ): () => void {
     const watcher: KeyWatcher = (value, change) => {
       callback(value as T | undefined, change as StorageChange<T>);
     };
@@ -98,7 +121,9 @@ class InMemoryStorageArea implements StorageAreaService {
   }
 
   snapshot(): StorageRecord {
-    return Object.fromEntries(Array.from(this.data.entries()).map(([key, value]) => [key, structuredClone(value)]));
+    return Object.fromEntries(
+      Array.from(this.data.entries()).map(([key, value]) => [key, structuredClone(value)])
+    );
   }
 
   resetAll(): void {
@@ -129,12 +154,12 @@ class InMemoryStorageArea implements StorageAreaService {
       const value = this.data.has(key) ? structuredClone(this.data.get(key)) : undefined;
       for (const watcher of watcherSet) {
         watcher(
-            value,
-            change ?? {
-              oldValue: undefined,
-              newValue: value
-            }
-          );
+          value,
+          change ?? {
+            oldValue: undefined,
+            newValue: value
+          }
+        );
       }
     }
 
@@ -175,7 +200,11 @@ class MessagingStub implements MessagingService {
     return this.handler(message) as Promise<TResult>;
   }
 
-  sendToTab<TResult = unknown>(_tabId: number, message: unknown, _options?: { frameId?: number }): Promise<TResult> {
+  sendToTab<TResult = unknown>(
+    _tabId: number,
+    message: unknown,
+    _options?: { frameId?: number }
+  ): Promise<TResult> {
     return this.handler(message) as Promise<TResult>;
   }
 
@@ -210,7 +239,11 @@ function createNoopTabsService(): TabsService {
     query(): Promise<chrome.tabs.Tab[]> {
       return Promise.resolve<chrome.tabs.Tab[]>([]);
     },
-    sendMessage<TResult = unknown>(_tabId: number, _message: unknown, _options?: TabsSendOptions): Promise<TResult> {
+    sendMessage<TResult = unknown>(
+      _tabId: number,
+      _message: unknown,
+      _options?: TabsSendOptions
+    ): Promise<TResult> {
       return Promise.resolve<TResult>(undefined as TResult);
     },
     onActivated() {
@@ -313,7 +346,10 @@ export interface TestPlatformHarness {
   resetDI(): void;
 }
 
-export function createTestPlatformHarness(initialSync?: StorageRecord, initialLocal?: StorageRecord): TestPlatformHarness {
+export function createTestPlatformHarness(
+  initialSync?: StorageRecord,
+  initialLocal?: StorageRecord
+): TestPlatformHarness {
   const syncArea = new InMemoryStorageArea(initialSync);
   const localArea = new InMemoryStorageArea(initialLocal);
   const sessionArea = new InMemoryStorageArea();

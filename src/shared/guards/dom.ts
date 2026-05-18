@@ -1,6 +1,6 @@
 /**
  * DOM type guards for safe element type checking.
- * 
+ *
  * These guards replace unsafe type assertions (as HTMLElement) with
  * runtime type checking to ensure type safety.
  */
@@ -64,12 +64,18 @@ export function isSVGPathElement(element: Element | null): element is SVGPathEle
 }
 
 // Input-like element guards (for form handling)
-export function isInputLikeElement(element: Element | null): element is HTMLInputElement | HTMLTextAreaElement {
+export function isInputLikeElement(
+  element: Element | null
+): element is HTMLInputElement | HTMLTextAreaElement {
   return isHTMLInputElement(element) || isHTMLTextAreaElement(element);
 }
 
-export function isFormControlElement(element: Element | null): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
-  return isHTMLInputElement(element) || isHTMLTextAreaElement(element) || isHTMLSelectElement(element);
+export function isFormControlElement(
+  element: Element | null
+): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+  return (
+    isHTMLInputElement(element) || isHTMLTextAreaElement(element) || isHTMLSelectElement(element)
+  );
 }
 
 // Safe querySelector with type guard
@@ -114,23 +120,38 @@ export function queryHTMLElement(parent: ParentNode, selector: string): HTMLElem
   return querySelector(parent, selector, isHTMLElement);
 }
 
-export function queryHTMLInputElement(parent: ParentNode, selector: string): HTMLInputElement | null {
+export function queryHTMLInputElement(
+  parent: ParentNode,
+  selector: string
+): HTMLInputElement | null {
   return querySelector(parent, selector, isHTMLInputElement);
 }
 
-export function queryHTMLTextAreaElement(parent: ParentNode, selector: string): HTMLTextAreaElement | null {
+export function queryHTMLTextAreaElement(
+  parent: ParentNode,
+  selector: string
+): HTMLTextAreaElement | null {
   return querySelector(parent, selector, isHTMLTextAreaElement);
 }
 
-export function queryHTMLSelectElement(parent: ParentNode, selector: string): HTMLSelectElement | null {
+export function queryHTMLSelectElement(
+  parent: ParentNode,
+  selector: string
+): HTMLSelectElement | null {
   return querySelector(parent, selector, isHTMLSelectElement);
 }
 
-export function queryHTMLButtonElement(parent: ParentNode, selector: string): HTMLButtonElement | null {
+export function queryHTMLButtonElement(
+  parent: ParentNode,
+  selector: string
+): HTMLButtonElement | null {
   return querySelector(parent, selector, isHTMLButtonElement);
 }
 
-export function queryFormControlElement(parent: ParentNode, selector: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
+export function queryFormControlElement(
+  parent: ParentNode,
+  selector: string
+): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null {
   return querySelector(parent, selector, isFormControlElement);
 }
 
@@ -139,7 +160,10 @@ export function queryAllHTMLElements(parent: ParentNode, selector: string): HTML
   return querySelectorAll(parent, selector, isHTMLElement);
 }
 
-export function queryAllFormControlElements(parent: ParentNode, selector: string): (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)[] {
+export function queryAllFormControlElements(
+  parent: ParentNode,
+  selector: string
+): (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)[] {
   return querySelectorAll(parent, selector, isFormControlElement);
 }
 
@@ -185,9 +209,10 @@ export function getFocusableElements(container: Element): HTMLElement[] {
     'a[href]',
     '[tabindex]:not([tabindex="-1"])'
   ].join(', ');
-  
-  return queryAllHTMLElements(container, focusableSelectors)
-    .filter(el => !el.hasAttribute('disabled'));
+
+  return queryAllHTMLElements(container, focusableSelectors).filter(
+    (el) => !el.hasAttribute('disabled')
+  );
 }
 
 // Event target guards

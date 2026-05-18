@@ -27,7 +27,11 @@ function extractTongyiChatData(doc: Document): ParsedResult {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  let title = doc.title.replace(TONGYI_TITLE_REPLACE_TEXT, '').replace(' - 你的超级个人助理', '').replace(' - 通义千问', '').trim();
+  let title = doc.title
+    .replace(TONGYI_TITLE_REPLACE_TEXT, '')
+    .replace(' - 你的超级个人助理', '')
+    .replace(' - 通义千问', '')
+    .trim();
 
   if (!title || title === '通义') {
     if (questionItems.length > 0) {
@@ -46,7 +50,9 @@ function extractTongyiChatData(doc: Document): ParsedResult {
       const match = selectedModel.match(/qwen(\d+)[\s-]*(max|plus|turbo|pro)?/i);
       if (match) {
         const version = match[1];
-        const variant = match[2] ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase() : '';
+        const variant = match[2]
+          ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase()
+          : '';
         model = `Qwen${version}${variant ? '-' + variant : ''}`;
       }
     }
@@ -59,7 +65,9 @@ function extractTongyiChatData(doc: Document): ParsedResult {
     const qwenMatch = bodyText.match(/Qwen[\s-]?(\d+)[\s-]*(max|plus|turbo|pro)?/i);
     if (qwenMatch) {
       const version = qwenMatch[1];
-      const variant = qwenMatch[2] ? qwenMatch[2].charAt(0).toUpperCase() + qwenMatch[2].slice(1).toLowerCase() : '';
+      const variant = qwenMatch[2]
+        ? qwenMatch[2].charAt(0).toUpperCase() + qwenMatch[2].slice(1).toLowerCase()
+        : '';
       model = `Qwen${version}${variant ? '-' + variant : ''}`;
     }
   }
@@ -97,7 +105,9 @@ function extractTongyiChatData(doc: Document): ParsedResult {
 
     if (element.matches(TONGYI_USER_MESSAGE_SELECTOR)) {
       role = 'user';
-      contentElem = element.querySelector('[class*="content"], [class*="msgText"], pre, article, div, p');
+      contentElem = element.querySelector(
+        '[class*="content"], [class*="msgText"], pre, article, div, p'
+      );
     } else if (element.matches(TONGYI_ASSISTANT_MESSAGE_SELECTOR)) {
       role = 'assistant';
       contentElem = element.querySelector(
@@ -147,21 +157,23 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
     const rawLanguageLabel = container.querySelector('span.font-medium')?.textContent?.trim();
     const languageLabel = rawLanguageLabel?.toLowerCase();
 
-    const lineNumberNodes = Array.from(container.querySelectorAll(
-      '[class*="line-number"], [class*="linenumber"]'
-    ));
+    const lineNumberNodes = Array.from(
+      container.querySelectorAll('[class*="line-number"], [class*="linenumber"]')
+    );
     const hadLineNumbers = lineNumberNodes.length > 0;
 
     lineNumberNodes.forEach((node) => node.remove());
 
-    Array.from(container.querySelectorAll('[class*="cursor-pointer"], [role="img"]')).forEach((node) => node.remove());
+    Array.from(container.querySelectorAll('[class*="cursor-pointer"], [role="img"]')).forEach(
+      (node) => node.remove()
+    );
     container.querySelector('span.font-medium')?.remove();
 
     const pre = container.querySelector('pre');
     if (!pre) return;
 
     const normalisedLanguage = languageLabel
-      ? (LANGUAGE_ALIASES[languageLabel] || languageLabel)
+      ? LANGUAGE_ALIASES[languageLabel] || languageLabel
       : undefined;
 
     const preClone = pre.cloneNode(true) as HTMLElement;
@@ -171,8 +183,8 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
     if (code && normalisedLanguage) {
       const languageClass = `language-${normalisedLanguage}`;
       Array.from(code.classList)
-        .filter(cls => cls.startsWith('language-'))
-        .forEach(cls => code.classList.remove(cls));
+        .filter((cls) => cls.startsWith('language-'))
+        .forEach((cls) => code.classList.remove(cls));
       code.classList.add(languageClass);
     }
 
@@ -186,7 +198,7 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
       const lines = textContent.split('\n');
 
       const numericPrefixes = lines
-        .map(line => {
+        .map((line) => {
           const trimmed = line.trimStart();
           const match = trimmed.match(/^(\d{1,4})(?=\D|$)/);
           if (!match) return null;
@@ -205,35 +217,37 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
       const shouldStripLineNumbers = hadLineNumbers || (sequentialNumbering && coversMostLines);
 
       const processedLines = shouldStripLineNumbers
-        ? lines.map(line => {
-          const leadingWhitespaceMatch = line.match(/^\s*/);
-          const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : '';
-          const withoutLeading = line.slice(leadingWhitespace.length);
-          const numberMatch = withoutLeading.match(/^(\d{1,5})(\s*)/);
+        ? lines.map((line) => {
+            const leadingWhitespaceMatch = line.match(/^\s*/);
+            const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0] : '';
+            const withoutLeading = line.slice(leadingWhitespace.length);
+            const numberMatch = withoutLeading.match(/^(\d{1,5})(\s*)/);
 
-          if (!numberMatch) {
-            return line;
-          }
+            if (!numberMatch) {
+              return line;
+            }
 
-          const preservedIndent = numberMatch[2];
-          return leadingWhitespace + preservedIndent + withoutLeading.slice(numberMatch[0].length);
-        })
+            const preservedIndent = numberMatch[2];
+            return (
+              leadingWhitespace + preservedIndent + withoutLeading.slice(numberMatch[0].length)
+            );
+          })
         : lines;
 
-      const nonEmptyLines = processedLines.filter(line => line.trim().length > 0);
+      const nonEmptyLines = processedLines.filter((line) => line.trim().length > 0);
       const minIndent = nonEmptyLines.reduce((min, line) => {
         const match = line.match(/^\s*/);
         const indent = match ? match[0].length : 0;
         return Math.min(min, indent);
       }, Number.POSITIVE_INFINITY);
 
-      const normalisedLines = processedLines.map(line => {
+      const normalisedLines = processedLines.map((line) => {
         if (minIndent === Number.POSITIVE_INFINITY) return line;
         return line.slice(Math.min(minIndent, line.length));
       });
 
       code.textContent = normalisedLines
-        .map(line => line.replace(/\s+$/g, ''))
+        .map((line) => line.replace(/\s+$/g, ''))
         .join('\n')
         .replace(/[\s\u00a0]+$/g, '');
     }

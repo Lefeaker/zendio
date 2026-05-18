@@ -43,11 +43,11 @@ export class DragController {
       this.currentY = options.initialPosition.y;
     }
 
-    this.pointerDownHandler = event => this.onPointerDown(event);
-    this.pointerMoveHandler = event => this.onPointerMove(event);
-    this.pointerUpHandler = event => this.onPointerUp(event);
-    this.pointerCancelHandler = event => this.onPointerCancel(event);
-    this.lostPointerCaptureHandler = event => this.onLostPointerCapture(event);
+    this.pointerDownHandler = (event) => this.onPointerDown(event);
+    this.pointerMoveHandler = (event) => this.onPointerMove(event);
+    this.pointerUpHandler = (event) => this.onPointerUp(event);
+    this.pointerCancelHandler = (event) => this.onPointerCancel(event);
+    this.lostPointerCaptureHandler = (event) => this.onLostPointerCapture(event);
   }
 
   attach(): void {
@@ -132,7 +132,9 @@ export class DragController {
     this.ownerDocument.addEventListener('pointermove', this.pointerMoveHandler);
     this.ownerDocument.addEventListener('pointerup', this.pointerUpHandler, { once: true });
     this.ownerDocument.addEventListener('pointercancel', this.pointerCancelHandler, { once: true });
-    this.handle.addEventListener('lostpointercapture', this.lostPointerCaptureHandler, { once: true });
+    this.handle.addEventListener('lostpointercapture', this.lostPointerCaptureHandler, {
+      once: true
+    });
   }
 
   private removePointerListeners(): void {

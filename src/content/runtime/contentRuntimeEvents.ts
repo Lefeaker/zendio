@@ -21,14 +21,8 @@ export interface ContentRuntimeEvents {
 export function createContentRuntimeEvents(
   options: CreateContentRuntimeEventsOptions
 ): ContentRuntimeEvents {
-  const {
-    document,
-    window,
-    runtimeState,
-    selectionTracker,
-    isReaderSessionActive,
-    runClip
-  } = options;
+  const { document, window, runtimeState, selectionTracker, isReaderSessionActive, runClip } =
+    options;
 
   const handleModifierKey = (event: KeyboardEvent): void => {
     syncModifierState(runtimeState.getModifierState(), event);
@@ -64,8 +58,9 @@ export function createContentRuntimeEvents(
     syncModifierState(runtimeState.getModifierState(), event);
     const fragmentClipperConfig = runtimeState.getFragmentClipperConfig();
     const modifierRequired = fragmentClipperConfig.selectionModifierEnabled;
-    const modifiersSatisfied = runtimeState.isSelectionModifierActive()
-      || shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState());
+    const modifiersSatisfied =
+      runtimeState.isSelectionModifierActive() ||
+      shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState());
     if (modifierRequired && !modifiersSatisfied) {
       runtimeState.setSelectionModifierActive(false);
       return;
@@ -86,7 +81,10 @@ export function createContentRuntimeEvents(
       runtimeState.setSelectionModifierActive(false);
       return;
     }
-    if (selectionTracker.isSelectionInsideUi(selection) || selectionTracker.isSelectionEditable(selection)) {
+    if (
+      selectionTracker.isSelectionInsideUi(selection) ||
+      selectionTracker.isSelectionEditable(selection)
+    ) {
       runtimeState.setSelectionModifierActive(false);
       return;
     }

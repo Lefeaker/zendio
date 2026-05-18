@@ -67,7 +67,9 @@ describe('createReaderPanelViewFactory', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.dialogCtor.mockReset();
-    ({ createReaderPanelViewFactory } = await import('../../../../src/content/reader/presentation/readerPanelView'));
+    ({ createReaderPanelViewFactory } = await import(
+      '../../../../src/content/reader/presentation/readerPanelView'
+    ));
   });
 
   it('creates ReaderDialogPanel', () => {

@@ -37,7 +37,11 @@ describe('analyticsEvents', () => {
     await trackUsageEvent('ignored');
     expect(fetchMock).not.toHaveBeenCalled();
 
-    getConfigMock.mockReturnValue({ userConsent: { analytics: true }, measurementId: 'XXXX1234', clientId: 'cid' });
+    getConfigMock.mockReturnValue({
+      userConsent: { analytics: true },
+      measurementId: 'XXXX1234',
+      clientId: 'cid'
+    });
     await trackUsageEvent('ignored-again');
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -53,7 +57,10 @@ describe('analyticsEvents', () => {
       debugMode: true
     });
     renewSessionMock.mockRejectedValueOnce(new Error('renew failed'));
-    fetchMock.mockResolvedValue({ ok: true, clone: () => ({ text: () => Promise.resolve('{"ok":true}') }) });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('{"ok":true}') })
+    });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
     await trackUsageEvent('open_options', { source: 'toolbar' });
@@ -62,7 +69,10 @@ describe('analyticsEvents', () => {
       expect.stringContaining('debug/mp/collect?measurement_id=G-1234'),
       expect.objectContaining({ method: 'POST' })
     );
-    expect(consoleWarnSpy).toHaveBeenCalledWith('[analytics-events] Failed to renew analytics session id:', expect.any(Error));
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[analytics-events] Failed to renew analytics session id:',
+      expect.any(Error)
+    );
     expect(consoleInfoSpy).toHaveBeenCalled();
     consoleWarnSpy.mockRestore();
     consoleInfoSpy.mockRestore();
@@ -74,11 +84,25 @@ describe('analyticsEvents', () => {
     getConfigMock.mockReturnValueOnce({ userConsent: { analytics: false } });
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
     await trackUsageEvent('first');
-    expect(consoleWarnSpy).toHaveBeenCalledWith('[analytics-events] Failed to initialize analytics config:', expect.any(Error));
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[analytics-events] Failed to initialize analytics config:',
+      expect.any(Error)
+    );
 
     initializeAnalyticsConfigMock.mockResolvedValueOnce(undefined);
-    getConfigMock.mockReturnValue({ userConsent: { analytics: true }, measurementId: 'G-1234', clientId: 'client-1', sessionId: 'session-1', debugMode: false });
-    fetchMock.mockResolvedValue({ ok: false, status: 500, statusText: 'Fail', clone: () => ({ text: () => Promise.resolve('broken') }) });
+    getConfigMock.mockReturnValue({
+      userConsent: { analytics: true },
+      measurementId: 'G-1234',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      debugMode: false
+    });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Fail',
+      clone: () => ({ text: () => Promise.resolve('broken') })
+    });
     await trackUsageEvent('second');
     expect(consoleWarnSpy).toHaveBeenCalledWith('[analytics-events] GA4 request failed: 500 Fail');
     consoleWarnSpy.mockRestore();

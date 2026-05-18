@@ -5,7 +5,10 @@ export interface StorageChange<T = unknown> {
 
 export type StorageChangeMap = Record<string, StorageChange>;
 
-export type StorageChangeCallback<T = unknown> = (value: T | undefined, change: StorageChange<T>) => void;
+export type StorageChangeCallback<T = unknown> = (
+  value: T | undefined,
+  change: StorageChange<T>
+) => void;
 export type StorageAreaChangeCallback = (changes: StorageChangeMap) => void;
 
 export interface StorageAreaService {

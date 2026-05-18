@@ -5,6 +5,7 @@
 Repository-level mocking keeps unit tests deterministic and prevents direct dependence on browser APIs such as `chrome.storage` or `chrome.runtime`.
 
 Use mocks when testing:
+
 - options sections
 - options store / merger behavior
 - content sessions and presenters
@@ -15,6 +16,7 @@ Use mocks when testing:
 ### 1. Mock the interface, not Chrome
 
 Prefer mocking repository contracts such as:
+
 - `IOptionsRepository`
 - `IYamlRepository`
 - `IMessagingRepository`
@@ -41,6 +43,7 @@ const repository = {
 ### 3. Test subscription semantics explicitly
 
 When a consumer relies on `onChange`, verify:
+
 - initial callback delivery
 - change propagation
 - unsubscribe cleanup
@@ -49,6 +52,7 @@ When a consumer relies on `onChange`, verify:
 ## When to use platform mocks instead
 
 Use platform-level mocks only when the repository itself is the unit under test, for example:
+
 - `ChromeOptionsRepository`
 - `ChromeYamlRepository`
 - `ChromeMessagingRepository`
@@ -59,6 +63,7 @@ In those cases, mock the platform storage or messaging adapter, not the reposito
 ## Content test guidance
 
 For Reader / Video / Support Prompt tests:
+
 - inject repositories or service dependencies through constructor parameters or internal test hooks
 - avoid top-level `getPlatformServices()` access in test subjects
 - keep DOM setup local to the test file
@@ -66,6 +71,7 @@ For Reader / Video / Support Prompt tests:
 ## Anti-patterns
 
 Avoid these patterns in unit tests:
+
 - stubbing `chrome.*` for every test when a repository mock would do
 - sharing mutable mock state across suites
 - asserting internal implementation details instead of observable behavior

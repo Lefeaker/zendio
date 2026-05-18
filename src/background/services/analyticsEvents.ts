@@ -1,4 +1,7 @@
-import { getAnalyticsConfigManager, initializeAnalyticsConfig } from '../../shared/errors/analytics/analyticsConfig';
+import {
+  getAnalyticsConfigManager,
+  initializeAnalyticsConfig
+} from '../../shared/errors/analytics/analyticsConfig';
 import type { AnalyticsEventParams } from '../../shared/types/analytics';
 
 let initializationPromise: Promise<void> | null = null;
@@ -45,7 +48,10 @@ async function ensureSessionId(): Promise<string | undefined> {
   }
 }
 
-export async function trackUsageEvent(eventName: string, params?: AnalyticsEventParams): Promise<void> {
+export async function trackUsageEvent(
+  eventName: string,
+  params?: AnalyticsEventParams
+): Promise<void> {
   try {
     await ensureAnalyticsReady();
   } catch {
@@ -60,7 +66,11 @@ export async function trackUsageEvent(eventName: string, params?: AnalyticsEvent
     return;
   }
 
-  if (!config.measurementId || config.measurementId.trim().length === 0 || /X{4,}/i.test(config.measurementId)) {
+  if (
+    !config.measurementId ||
+    config.measurementId.trim().length === 0 ||
+    /X{4,}/i.test(config.measurementId)
+  ) {
     // 未配置有效的 GA4 ID 时跳过
     return;
   }

@@ -101,14 +101,8 @@ function registerTestRepositories(): void {
     DI_TOKENS.IMessagingRepository,
     () => new MockMessagingRepository()
   );
-  repositoryContainer.registerSingleton(
-    DI_TOKENS.IYamlRepository,
-    () => new MockYamlRepository()
-  );
-  repositoryContainer.registerSingleton(
-    DI_TOKENS.IClipRepository,
-    () => new MockClipRepository()
-  );
+  repositoryContainer.registerSingleton(DI_TOKENS.IYamlRepository, () => new MockYamlRepository());
+  repositoryContainer.registerSingleton(DI_TOKENS.IClipRepository, () => new MockClipRepository());
   repositoryContainer.registerSingleton(
     DI_TOKENS.IVideoRepository,
     () => new MockVideoRepository()
@@ -130,7 +124,7 @@ beforeEach(() => {
   ensureDomConstructors();
   ensureChromeRuntime();
   harness.reset();
-  harness.configure();  // 保留,确保每次测试都重置
+  harness.configure(); // 保留,确保每次测试都重置
 
   // ===== 注册 Mock Repositories =====
   // 确保所有测试都有可用的 Repository 实例

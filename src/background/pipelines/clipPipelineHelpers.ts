@@ -1,10 +1,6 @@
 import { tryParseUrl } from '../../shared/url';
 import type { ClipResultMessage } from '../../shared/types';
-import {
-  AppError,
-  errorHandler,
-  notificationErrors
-} from '../../shared/errors';
+import { AppError, errorHandler, notificationErrors } from '../../shared/errors';
 
 export async function safeNotify(
   action: () => Promise<void>,
@@ -26,7 +22,9 @@ export async function safeNotify(
   }
 }
 
-export function normalizeClipPayload(payload: ClipResultMessage['payload']): ClipResultMessage['payload'] {
+export function normalizeClipPayload(
+  payload: ClipResultMessage['payload']
+): ClipResultMessage['payload'] {
   if (!payload) {
     return payload;
   }
@@ -38,17 +36,15 @@ export function normalizeClipPayload(payload: ClipResultMessage['payload']): Cli
   const meta = payload.meta;
 
   const resolvedCandidate =
-    (typeof meta.resolvedUrl === 'string' && meta.resolvedUrl.trim().length > 0)
+    typeof meta.resolvedUrl === 'string' && meta.resolvedUrl.trim().length > 0
       ? meta.resolvedUrl
       : undefined;
   const sourceCandidate =
-    (typeof meta.sourceUrl === 'string' && meta.sourceUrl.trim().length > 0)
+    typeof meta.sourceUrl === 'string' && meta.sourceUrl.trim().length > 0
       ? meta.sourceUrl
       : undefined;
   const urlCandidate =
-    (typeof meta.url === 'string' && meta.url.trim().length > 0)
-      ? meta.url
-      : undefined;
+    typeof meta.url === 'string' && meta.url.trim().length > 0 ? meta.url : undefined;
 
   const canonicalUrl = urlCandidate || resolvedCandidate || sourceCandidate;
   if (canonicalUrl && canonicalUrl !== meta.url) {
@@ -74,9 +70,10 @@ export function buildFailureContext(
   };
 }
 
-export function buildPipelineErrorContext(
-  payload?: ClipResultMessage['payload']
-): { url?: string; payloadType?: string } {
+export function buildPipelineErrorContext(payload?: ClipResultMessage['payload']): {
+  url?: string;
+  payloadType?: string;
+} {
   return {
     ...(payload?.meta?.url !== undefined && { url: payload.meta.url }),
     ...(payload?.meta?.resolvedUrl !== undefined && payload?.meta?.url === undefined

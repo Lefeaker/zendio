@@ -28,7 +28,9 @@ export class ConfigTransferError extends Error {
   }
 }
 
-export async function copyOptionsToClipboard(options: StoredOptions | CompleteOptions | ConfigTransferPayload): Promise<void> {
+export async function copyOptionsToClipboard(
+  options: StoredOptions | CompleteOptions | ConfigTransferPayload
+): Promise<void> {
   const jsonText = JSON.stringify(options, null, 2);
   await writeToClipboard(jsonText);
 }

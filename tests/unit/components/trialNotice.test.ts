@@ -42,23 +42,27 @@ describe('TrialNotice', () => {
   });
 
   it('adds blink effect for expired status and refreshes content', async () => {
-    checkTrialStatusMock.mockResolvedValueOnce({
-      isTrial: true,
-      isExpired: true,
-      remainingDays: 0,
-      remainingHours: 0,
-      expirationDate: new Date('2026-03-08T00:00:00Z'),
-      isExpiringSoon: false
-    }).mockResolvedValueOnce({
-      isTrial: true,
-      isExpired: true,
-      remainingDays: 0,
-      remainingHours: 0,
-      expirationDate: new Date('2026-03-08T00:00:00Z'),
-      isExpiringSoon: false
-    });
+    checkTrialStatusMock
+      .mockResolvedValueOnce({
+        isTrial: true,
+        isExpired: true,
+        remainingDays: 0,
+        remainingHours: 0,
+        expirationDate: new Date('2026-03-08T00:00:00Z'),
+        isExpiringSoon: false
+      })
+      .mockResolvedValueOnce({
+        isTrial: true,
+        isExpired: true,
+        remainingDays: 0,
+        remainingHours: 0,
+        expirationDate: new Date('2026-03-08T00:00:00Z'),
+        isExpiringSoon: false
+      });
 
-    const { TrialNotice, initializeTrialNotice, getTrialNotice } = await import('../../../src/components/trial-notice');
+    const { TrialNotice, initializeTrialNotice, getTrialNotice } = await import(
+      '../../../src/components/trial-notice'
+    );
     const notice = new TrialNotice();
     await notice.initialize();
     const noticeElement = document.querySelector('.trial-notice');

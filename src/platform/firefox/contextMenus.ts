@@ -10,11 +10,17 @@ import { ensureFirefox } from './utils';
 
 type BrowserContextMenus = typeof browser.contextMenus;
 type FirefoxOnClickedListener = Parameters<BrowserContextMenus['onClicked']['addListener']>[0];
-type FirefoxOnShownListener = BrowserContextMenus extends { onShown: { addListener(cb: infer T): unknown } } ? T : never;
+type FirefoxOnShownListener = BrowserContextMenus extends {
+  onShown: { addListener(cb: infer T): unknown };
+}
+  ? T
+  : never;
 
 function getFirefoxMenus(): typeof browser.contextMenus {
   const firefoxApi = ensureFirefox();
-  const menus = firefoxApi.contextMenus ?? (firefoxApi as typeof browser & { menus?: typeof browser.contextMenus }).menus;
+  const menus =
+    firefoxApi.contextMenus ??
+    (firefoxApi as typeof browser & { menus?: typeof browser.contextMenus }).menus;
   if (!menus) {
     throw new Error('Firefox contextMenus API is unavailable');
   }
@@ -34,7 +40,7 @@ function wrapClickListener(listener: ContextMenuOnClickListener): FirefoxOnClick
 function wrapShownListener(listener: ContextMenuOnShownListener): FirefoxOnShownListener {
   return (info, tab) => {
     const clickInfo = {
-      menuItemId: Array.isArray(info.menuIds) ? info.menuIds[0] ?? '' : '',
+      menuItemId: Array.isArray(info.menuIds) ? (info.menuIds[0] ?? '') : '',
       editable: false,
       ...(info.pageUrl !== undefined && { pageUrl: info.pageUrl })
     } as unknown as chrome.contextMenus.OnClickData;
@@ -45,14 +51,19 @@ function wrapShownListener(listener: ContextMenuOnShownListener): FirefoxOnShown
 export const firefoxContextMenusService: ContextMenusService = {
   async create(properties: MenuCreateProperties): Promise<MenuID> {
     const menus = getFirefoxMenus();
-    const createdId = await Promise.resolve(menus.create(properties as unknown as Parameters<typeof menus.create>[0]));
+    const createdId = await Promise.resolve(
+      menus.create(properties as unknown as Parameters<typeof menus.create>[0])
+    );
     return (createdId ?? properties.id ?? '') as MenuID;
   },
 
   async update(id: MenuID, properties: MenuUpdateProperties): Promise<void> {
     const menus = getFirefoxMenus();
     await Promise.resolve(
-      menus.update(id as Parameters<typeof menus.update>[0], properties as unknown as Parameters<typeof menus.update>[1])
+      menus.update(
+        id as Parameters<typeof menus.update>[0],
+        properties as unknown as Parameters<typeof menus.update>[1]
+      )
     );
   },
 

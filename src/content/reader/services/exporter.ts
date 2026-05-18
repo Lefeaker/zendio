@@ -115,7 +115,10 @@ export class ReaderSessionExporter {
     return this.markdownBuildersPromise;
   }
 
-  private normalizeCloneHighlightSegments(clone: Document, highlights: ReaderHighlightInput[]): void {
+  private normalizeCloneHighlightSegments(
+    clone: Document,
+    highlights: ReaderHighlightInput[]
+  ): void {
     const processed = new Set<string>();
     for (const highlight of highlights) {
       const id = highlight.id;
@@ -125,7 +128,9 @@ export class ReaderSessionExporter {
       processed.add(id);
 
       const segments = Array.from(
-        clone.querySelectorAll<HTMLElement>(`mark.aiob-reader-highlight[data-reader-highlight-id="${id}"]`)
+        clone.querySelectorAll<HTMLElement>(
+          `mark.aiob-reader-highlight[data-reader-highlight-id="${id}"]`
+        )
       );
       if (!segments.length) {
         continue;
@@ -194,7 +199,9 @@ export class ReaderSessionExporter {
       if (!highlight.id) {
         continue;
       }
-      const nodes = clone.querySelectorAll<HTMLElement>(`[data-reader-highlight-id="${highlight.id}"]`);
+      const nodes = clone.querySelectorAll<HTMLElement>(
+        `[data-reader-highlight-id="${highlight.id}"]`
+      );
       nodes.forEach((node) => {
         const role = node.dataset.readerSegmentRole ?? 'single';
         if (highlight.footnoteIndex && (role === 'end' || role === 'single')) {
@@ -212,7 +219,18 @@ export class ReaderSessionExporter {
   }
 
   private stripInlineFormattingBetweenTokens(startToken: Node, endToken: Node): void {
-    const inlineTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'MARK', 'SMALL', 'SUB', 'SUP']);
+    const inlineTags = new Set([
+      'B',
+      'STRONG',
+      'I',
+      'EM',
+      'U',
+      'SPAN',
+      'MARK',
+      'SMALL',
+      'SUB',
+      'SUP'
+    ]);
     let current: Node | null = startToken.nextSibling;
     while (current && current !== endToken) {
       const next = current.nextSibling;

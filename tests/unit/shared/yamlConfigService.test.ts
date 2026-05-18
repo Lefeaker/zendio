@@ -103,7 +103,9 @@ describe('YamlConfigService', () => {
           customFields: [{ name: 'custom_flag', type: 'boolean', enabled: true, isCustom: true }],
           domainOverrides: {
             '*': [{ name: 'base_tag', type: 'text', enabled: true }],
-            '*.example.com': [{ name: 'title', type: 'text', enabled: false, defaultValue: 'example' }],
+            '*.example.com': [
+              { name: 'title', type: 'text', enabled: false, defaultValue: 'example' }
+            ],
             'news.example.com': [
               { name: 'title', type: 'text', enabled: true, defaultValue: 'news headline' },
               { name: 'breaking_tag', type: 'text', enabled: true }
@@ -123,7 +125,10 @@ describe('YamlConfigService', () => {
     expect(titleField?.defaultValue).toBe('news headline');
     expect(findField(resolved.fields, 'base_tag')).toBeDefined();
     expect(findField(resolved.fields, 'breaking_tag')).toBeDefined();
-    expect(findField(resolved.fields, 'author')).toMatchObject({ description: 'from overrides', enabled: true });
+    expect(findField(resolved.fields, 'author')).toMatchObject({
+      description: 'from overrides',
+      enabled: true
+    });
     expect(findField(resolved.fields, 'workspace')).toBeDefined();
     expect(findField(resolved.fields, 'custom_flag')?.isCustom).toBe(true);
   });
@@ -229,7 +234,9 @@ describe('YamlConfigService', () => {
     };
 
     try {
-      const result = service.resolveConfig('video', null, { domain: 'https://news.example.com/watch?v=1' });
+      const result = service.resolveConfig('video', null, {
+        domain: 'https://news.example.com/watch?v=1'
+      });
       expect(findField(result.fields, 'from_defaults')).toBeDefined();
     } finally {
       if (originalDomainOverrides) {
@@ -252,9 +259,10 @@ describe('YamlConfigService', () => {
       }
     };
 
-    const resolved = service.resolveConfig('article', overrides, { domain: 'https://www.example.com/post' });
+    const resolved = service.resolveConfig('article', overrides, {
+      domain: 'https://www.example.com/post'
+    });
     expect(findField(resolved.fields, 'wildcard_field')).toBeDefined();
     expect(findField(resolved.fields, 'www_only')).toBeDefined();
   });
-
 });

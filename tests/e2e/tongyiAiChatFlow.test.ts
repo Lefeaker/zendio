@@ -9,7 +9,12 @@ import { resolvePath } from '../../src/background/pathResolver';
 import type { ClipPayload } from '../../src/shared/types';
 import type { VaultRouterConfig } from '../../src/shared/types/vault';
 import type { ClassificationResult } from '../../src/background/services/classificationService';
-import { captureGlobalSnapshot, restoreGlobalSnapshot, installJsdom, assignGlobalValues } from '../utils/globalTestHelpers';
+import {
+  captureGlobalSnapshot,
+  restoreGlobalSnapshot,
+  installJsdom,
+  assignGlobalValues
+} from '../utils/globalTestHelpers';
 import {
   createChromeMock,
   type ChromeChangeListener,
@@ -55,14 +60,19 @@ describe('tongyi ai chat integration', () => {
   });
 
   it('parses Tongyi chat, removes UI chrome, and routes to the correct vault path', async () => {
-    const html = readFileSync(join(process.cwd(), 'tests/fixtures/ai-chat/tongyi-code.html'), 'utf8');
+    const html = readFileSync(
+      join(process.cwd(), 'tests/fixtures/ai-chat/tongyi-code.html'),
+      'utf8'
+    );
     const dom = new JSDOM(html, { url: tongyiUrl });
 
     dom.window.localStorage.setItem('selectedQwenModel', 'qwen2-max');
 
     installJsdom(dom);
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: tongyiUrl });
 
@@ -145,7 +155,12 @@ describe('tongyi ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/tongyi/2025/03/04/代码块测试.md');
   });
 });

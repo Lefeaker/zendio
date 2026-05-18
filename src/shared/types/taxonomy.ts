@@ -1,6 +1,6 @@
 /**
  * Taxonomy types for content classification.
- * 
+ *
  * These types define the structure for AI-powered content classification
  * including categories, tags, and classification rules.
  */
@@ -10,8 +10,8 @@ export type ReadonlyDeep<T> = {
   readonly [P in keyof T]: T[P] extends (infer U)[]
     ? ReadonlyArray<ReadonlyDeep<U>>
     : T[P] extends Record<string, unknown>
-    ? ReadonlyDeep<T[P]>
-    : T[P];
+      ? ReadonlyDeep<T[P]>
+      : T[P];
 };
 
 // Basic taxonomy structures
@@ -104,7 +104,12 @@ export interface ClassificationTag {
 
 // Validation and utility types
 export interface TaxonomyValidationError {
-  readonly type: 'missing_id' | 'duplicate_id' | 'invalid_reference' | 'circular_dependency' | 'invalid_format';
+  readonly type:
+    | 'missing_id'
+    | 'duplicate_id'
+    | 'invalid_reference'
+    | 'circular_dependency'
+    | 'invalid_format';
   readonly path: string;
   readonly message: string;
   readonly severity: 'error' | 'warning';
@@ -141,12 +146,7 @@ export function isTaxonomyCategory(value: unknown): value is TaxonomyCategory {
   }
 
   const obj = value as Record<string, unknown>;
-  return (
-    'id' in obj &&
-    'name' in obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string'
-  );
+  return 'id' in obj && 'name' in obj && typeof obj.id === 'string' && typeof obj.name === 'string';
 }
 
 export function isTaxonomyTag(value: unknown): value is TaxonomyTag {
@@ -155,12 +155,7 @@ export function isTaxonomyTag(value: unknown): value is TaxonomyTag {
   }
 
   const obj = value as Record<string, unknown>;
-  return (
-    'id' in obj &&
-    'name' in obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string'
-  );
+  return 'id' in obj && 'name' in obj && typeof obj.id === 'string' && typeof obj.name === 'string';
 }
 
 // Default configurations

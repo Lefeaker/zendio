@@ -1,6 +1,6 @@
 /**
  * Service layer Result types and utilities.
- * 
+ *
  * This module provides Result types specifically for background services,
  * with common error types and utility functions.
  */
@@ -17,7 +17,7 @@ export interface ServiceError {
 }
 
 // Specific service error codes
-export type ServiceErrorCode = 
+export type ServiceErrorCode =
   | 'STORAGE_ERROR'
   | 'NETWORK_ERROR'
   | 'VALIDATION_ERROR'
@@ -53,7 +53,10 @@ export function createNetworkError(message: string, cause?: Error): ServiceError
   return createServiceError('NETWORK_ERROR', message, undefined, cause);
 }
 
-export function createValidationError(message: string, details?: Record<string, unknown>): ServiceError {
+export function createValidationError(
+  message: string,
+  details?: Record<string, unknown>
+): ServiceError {
   return createServiceError('VALIDATION_ERROR', message, details);
 }
 
@@ -61,11 +64,18 @@ export function createPermissionError(message: string): ServiceError {
   return createServiceError('PERMISSION_ERROR', message);
 }
 
-export function createConfigurationError(message: string, details?: Record<string, unknown>): ServiceError {
+export function createConfigurationError(
+  message: string,
+  details?: Record<string, unknown>
+): ServiceError {
   return createServiceError('CONFIGURATION_ERROR', message, details);
 }
 
-export function createExternalApiError(message: string, details?: Record<string, unknown>, cause?: Error): ServiceError {
+export function createExternalApiError(
+  message: string,
+  details?: Record<string, unknown>,
+  cause?: Error
+): ServiceError {
   return createServiceError('EXTERNAL_API_ERROR', message, details, cause);
 }
 
@@ -95,7 +105,7 @@ export async function wrapServiceCall<T>(
     const result = await operation();
     return serviceSuccess(result);
   } catch (error) {
-    const serviceError = errorMapper 
+    const serviceError = errorMapper
       ? errorMapper(error)
       : createUnknownError(
           error instanceof Error ? error.message : String(error),
@@ -190,14 +200,14 @@ export function combineServiceResults<T extends readonly unknown[]>(
   ...results: { [K in keyof T]: ServiceResult<T[K]> }
 ): ServiceResult<T> {
   const data: unknown[] = [];
-  
+
   for (const result of results) {
     if (!result.success) {
       return result as ServiceResult<T>;
     }
     data.push(result.data);
   }
-  
+
   return serviceSuccess(data as unknown as T);
 }
 
@@ -210,10 +220,7 @@ export function logServiceError(error: ServiceError, context?: string): void {
   });
 }
 
-export function logServiceResult<T>(
-  result: ServiceResult<T>,
-  context?: string
-): ServiceResult<T> {
+export function logServiceResult<T>(result: ServiceResult<T>, context?: string): ServiceResult<T> {
   if (!result.success && 'error' in result) {
     logServiceError(result.error, context);
   }

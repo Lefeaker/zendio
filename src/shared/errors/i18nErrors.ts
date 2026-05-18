@@ -36,4 +36,4 @@ export const i18nErrors = {
   }
 } as const;
 
-export type I18nErrorCode = ReturnType<typeof i18nErrors[keyof typeof i18nErrors]>['code'];
+export type I18nErrorCode = ReturnType<(typeof i18nErrors)[keyof typeof i18nErrors]>['code'];

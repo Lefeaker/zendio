@@ -22,15 +22,17 @@ export class VaultRouter {
   selectVault(context: ClipContext): VaultConfig | null {
     // 1. 按优先级排序规则
     const sortedRules = this.getActiveRules()
-      .filter(rule => rule.enabled)
+      .filter((rule) => rule.enabled)
       .sort((a, b) => b.priority - a.priority);
 
     // 2. 依次匹配规则
     for (const rule of sortedRules) {
       if (this.matchRule(rule, context)) {
-        const vault = this.config.vaults.find(v => v.id === rule.vaultId);
+        const vault = this.config.vaults.find((v) => v.id === rule.vaultId);
         if (vault) {
-          console.log(`[VaultRouter] Matched rule: ${rule.description || rule.pattern} -> ${vault.name}`);
+          console.log(
+            `[VaultRouter] Matched rule: ${rule.description || rule.pattern} -> ${vault.name}`
+          );
           return vault;
         }
       }
@@ -47,13 +49,13 @@ export class VaultRouter {
     switch (rule.type) {
       case 'domain':
         return this.matchDomain(rule.pattern, context.domain);
-      
+
       case 'keyword':
         return this.matchKeyword(rule.pattern, context);
-      
+
       case 'url-pattern':
         return this.matchUrlPattern(rule.pattern, context.url);
-      
+
       default:
         return false;
     }
@@ -72,14 +74,16 @@ export class VaultRouter {
 
     const candidates = pattern
       .split(';')
-      .map(part => part.trim().toLowerCase())
-      .filter(part => part.length > 0);
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part.length > 0);
 
     if (candidates.length === 0) {
       return false;
     }
 
-    return candidates.some(candidate => this.matchSingleDomainPattern(candidate, normalizedDomain));
+    return candidates.some((candidate) =>
+      this.matchSingleDomainPattern(candidate, normalizedDomain)
+    );
   }
 
   /**
@@ -89,8 +93,8 @@ export class VaultRouter {
   private matchKeyword(pattern: string, context: ClipContext): boolean {
     const keywords = pattern
       .split(',')
-      .map(k => k.trim().toLowerCase())
-      .filter(keyword => keyword.length > 0);
+      .map((k) => k.trim().toLowerCase())
+      .filter((keyword) => keyword.length > 0);
 
     if (keywords.length === 0) {
       return false;
@@ -99,7 +103,7 @@ export class VaultRouter {
     const searchText = `${context.title} ${context.content}`.toLowerCase();
 
     // 任意关键词匹配即可
-    return keywords.some(keyword => searchText.includes(keyword));
+    return keywords.some((keyword) => searchText.includes(keyword));
   }
 
   private matchSingleDomainPattern(pattern: string, normalizedDomain: string): boolean {
@@ -160,30 +164,32 @@ export class VaultRouter {
   getDefaultVault(): VaultConfig | null {
     // 1. 使用配置的默认仓库
     if (this.config.defaultVaultId) {
-      const vault = this.config.vaults.find(v => v.id === this.config.defaultVaultId && v.enabled !== false);
+      const vault = this.config.vaults.find(
+        (v) => v.id === this.config.defaultVaultId && v.enabled !== false
+      );
       if (vault) return vault;
     }
 
     // 2. 使用标记为默认的仓库
-    const defaultVault = this.config.vaults.find(v => v.isDefault && v.enabled !== false);
+    const defaultVault = this.config.vaults.find((v) => v.isDefault && v.enabled !== false);
     if (defaultVault) return defaultVault;
 
     // 3. 返回第一个仓库
-    return this.config.vaults.find(v => v.enabled !== false) || null;
+    return this.config.vaults.find((v) => v.enabled !== false) || null;
   }
 
   /**
    * 获取所有仓库
    */
   getAllVaults(): VaultConfig[] {
-    return this.config.vaults.filter(v => v.enabled !== false);
+    return this.config.vaults.filter((v) => v.enabled !== false);
   }
 
   /**
    * 根据 ID 获取仓库
    */
   getVaultById(id: string): VaultConfig | null {
-    const vault = this.config.vaults.find(v => v.id === id);
+    const vault = this.config.vaults.find((v) => v.id === id);
     if (!vault || vault.enabled === false) {
       return null;
     }
@@ -194,7 +200,7 @@ export class VaultRouter {
    * 获取所有规则
    */
   getAllRules(): RoutingRule[] {
-    return this.getActiveRules().map(rule => ({ ...rule }));
+    return this.getActiveRules().map((rule) => ({ ...rule }));
   }
 
   /**
@@ -208,12 +214,12 @@ export class VaultRouter {
       errors.push('至少需要配置一个仓库');
     }
 
-    if (!this.config.vaults.some(vault => vault.enabled !== false)) {
+    if (!this.config.vaults.some((vault) => vault.enabled !== false)) {
       errors.push('至少需要启用一个仓库');
     }
 
     // 检查仓库 ID 唯一性
-    const vaultIds = this.config.vaults.map(v => v.id);
+    const vaultIds = this.config.vaults.map((v) => v.id);
     const duplicateVaultIds = vaultIds.filter((id, index) => vaultIds.indexOf(id) !== index);
     if (duplicateVaultIds.length > 0) {
       errors.push(`仓库 ID 重复: ${duplicateVaultIds.join(', ')}`);
@@ -221,14 +227,14 @@ export class VaultRouter {
 
     // 检查规则引用的仓库是否存在
     for (const rule of this.getActiveRules()) {
-      if (!this.config.vaults.find(v => v.id === rule.vaultId)) {
+      if (!this.config.vaults.find((v) => v.id === rule.vaultId)) {
         errors.push(`规则 "${rule.description || rule.id}" 引用了不存在的仓库: ${rule.vaultId}`);
       }
     }
 
     // 检查默认仓库是否存在
     if (this.config.defaultVaultId) {
-      const defaultVault = this.config.vaults.find(v => v.id === this.config.defaultVaultId);
+      const defaultVault = this.config.vaults.find((v) => v.id === this.config.defaultVaultId);
       if (!defaultVault) {
         errors.push(`默认仓库不存在: ${this.config.defaultVaultId}`);
       } else if (defaultVault.enabled === false) {
@@ -248,9 +254,9 @@ export class VaultRouter {
     const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
 
     const rulesFromVaults = this.config.vaults
-      .filter(vault => vault.enabled !== false)
-      .flatMap(vault =>
-        (vault.rules ?? []).map(rule => ({
+      .filter((vault) => vault.enabled !== false)
+      .flatMap((vault) =>
+        (vault.rules ?? []).map((rule) => ({
           ...rule,
           vaultId: rule.vaultId ?? vault.id
         }))
@@ -259,7 +265,7 @@ export class VaultRouter {
     const merged = [...legacyRules, ...rulesFromVaults];
     const seen = new Set<string>();
 
-    return merged.filter(rule => {
+    return merged.filter((rule) => {
       if (!rule.id) {
         return true;
       }
@@ -270,14 +276,13 @@ export class VaultRouter {
       if (rule.enabled === false) {
         return false;
       }
-      const targetVault = this.config.vaults.find(v => v.id === rule.vaultId);
+      const targetVault = this.config.vaults.find((v) => v.id === rule.vaultId);
       if (!targetVault || targetVault.enabled === false) {
         return false;
       }
       return true;
     });
   }
-
 }
 
 /**
@@ -293,7 +298,7 @@ export function generateId(): string {
 export function createDefaultVaultRouterConfig(): VaultRouterConfig {
   const defaultVaultId = generateId();
   const restDefaults = configProvider.getRestDefaults();
-  
+
   return {
     vaults: [
       {
@@ -315,7 +320,9 @@ export function createDefaultVaultRouterConfig(): VaultRouterConfig {
 /**
  * 从旧配置迁移
  */
-export function migrateFromLegacyConfig(legacyRest?: Partial<RestOptions> | null): VaultRouterConfig {
+export function migrateFromLegacyConfig(
+  legacyRest?: Partial<RestOptions> | null
+): VaultRouterConfig {
   const vaultId = generateId();
   const restDefaults = configProvider.getRestDefaults();
   const legacy = legacyRest ?? {};
@@ -324,7 +331,7 @@ export function migrateFromLegacyConfig(legacyRest?: Partial<RestOptions> | null
   const httpUrl = legacy.httpUrl?.trim() || restDefaults.httpUrl;
   const vault = legacy.vault?.trim() || restDefaults.vault;
   const apiKey = legacy.apiKey?.trim() || restDefaults.apiKey;
-  
+
   return {
     vaults: [
       {

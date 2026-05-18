@@ -1,7 +1,4 @@
-import type {
-  FragmentClipperOptions,
-  TemplateOptions
-} from '../types';
+import type { FragmentClipperOptions, TemplateOptions } from '../types';
 import {
   CLIPPER_DEFAULTS,
   type ClipperDefaults,
@@ -53,7 +50,10 @@ interface ProviderState {
   ui: UiDefaults;
 }
 
-function mergeRestDefaults(defaults: RestDefaults, overrides?: Partial<RestDefaults>): RestDefaults {
+function mergeRestDefaults(
+  defaults: RestDefaults,
+  overrides?: Partial<RestDefaults>
+): RestDefaults {
   if (!overrides) {
     return { ...defaults };
   }
@@ -87,7 +87,10 @@ function mergeRestDefaults(defaults: RestDefaults, overrides?: Partial<RestDefau
   return result;
 }
 
-function mergeTemplates(defaults: TemplateOptions, overrides?: Partial<TemplateOptions>): TemplateOptions {
+function mergeTemplates(
+  defaults: TemplateOptions,
+  overrides?: Partial<TemplateOptions>
+): TemplateOptions {
   if (!overrides) {
     return { ...defaults };
   }
@@ -114,11 +117,13 @@ function mergeFragmentClipper(
     captureContext: overrides.captureContext ?? defaults.captureContext,
     contextLength: overrides.contextLength ?? defaults.contextLength,
     contextMode: overrides.contextMode ?? defaults.contextMode,
-    selectionModifierEnabled: overrides.selectionModifierEnabled ?? defaults.selectionModifierEnabled,
+    selectionModifierEnabled:
+      overrides.selectionModifierEnabled ?? defaults.selectionModifierEnabled,
     selectionModifierKeys: overrides.selectionModifierKeys
       ? [...overrides.selectionModifierKeys]
       : [...defaults.selectionModifierKeys],
-    keyboardShortcutsEnabled: overrides.keyboardShortcutsEnabled ?? defaults.keyboardShortcutsEnabled
+    keyboardShortcutsEnabled:
+      overrides.keyboardShortcutsEnabled ?? defaults.keyboardShortcutsEnabled
   };
 }
 

@@ -26,7 +26,9 @@ export class ChromeSyncOptionsRepository implements OptionsRepository {
 
   constructor(private readonly storage: StorageService) {}
 
-  private ensureClone(value: StoredOptions | CompleteOptions | undefined | null): StoredOptions | undefined {
+  private ensureClone(
+    value: StoredOptions | CompleteOptions | undefined | null
+  ): StoredOptions | undefined {
     if (!value) {
       return undefined;
     }
@@ -113,7 +115,9 @@ export class LegacyOptionsRepositoryAdapter implements OptionsRepository {
 
   constructor(private readonly repository: IOptionsRepository) {}
 
-  private ensureClone(value: StoredOptions | CompleteOptions | null | undefined): StoredOptions | undefined {
+  private ensureClone(
+    value: StoredOptions | CompleteOptions | null | undefined
+  ): StoredOptions | undefined {
     if (!value) {
       return undefined;
     }
@@ -140,7 +144,7 @@ export class LegacyOptionsRepositoryAdapter implements OptionsRepository {
         .then((options) => {
           const cloned = this.ensureClone(options) ?? ({} as StoredOptions);
           this.store.setSilent(cloned);
-          return deepClone(cloned) as StoredOptions;
+          return deepClone(cloned);
         })
         .finally(() => {
           this.pendingLoad = null;

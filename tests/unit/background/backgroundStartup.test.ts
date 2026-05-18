@@ -41,12 +41,33 @@ describe('backgroundStartup', () => {
     const { startBackgroundRuntime } = await import('../../../src/background/backgroundStartup');
     const deps: BackgroundStartupDependencies = {
       action: { onClicked: vi.fn() },
-      contextMenus: { create: vi.fn(), update: vi.fn(), removeAll: vi.fn(), onClicked: vi.fn(), onShown: vi.fn() },
+      contextMenus: {
+        create: vi.fn(),
+        update: vi.fn(),
+        removeAll: vi.fn(),
+        onClicked: vi.fn(),
+        onShown: vi.fn()
+      },
       messaging: { addListener: vi.fn(), send: vi.fn(), sendToTab: vi.fn() },
-      runtime: { onInstalled: vi.fn(), onStartup: vi.fn(), getURL: vi.fn(), openOptionsPage: vi.fn() },
+      runtime: {
+        onInstalled: vi.fn(),
+        onStartup: vi.fn(),
+        getURL: vi.fn(),
+        openOptionsPage: vi.fn()
+      },
       scripting: { executeScript: vi.fn() },
       storage: asType<BackgroundStartupDependencies['storage']>({ sync: {}, local: {} }),
-      tabs: { query: vi.fn(), get: vi.fn(), create: vi.fn(), sendMessage: vi.fn(), onActivated: vi.fn(), onUpdated: vi.fn(), onRemoved: vi.fn(), remove: vi.fn(), getCurrent: vi.fn() }
+      tabs: {
+        query: vi.fn(),
+        get: vi.fn(),
+        create: vi.fn(),
+        sendMessage: vi.fn(),
+        onActivated: vi.fn(),
+        onUpdated: vi.fn(),
+        onRemoved: vi.fn(),
+        remove: vi.fn(),
+        getCurrent: vi.fn()
+      }
     };
 
     startBackgroundRuntime(deps);

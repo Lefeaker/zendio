@@ -7,7 +7,10 @@ export interface AncestorMarkdownInfo {
   depth: number;
 }
 
-export function buildAncestorListMarkdown(listPath: Element[], turndown: TurndownService): AncestorMarkdownInfo {
+export function buildAncestorListMarkdown(
+  listPath: Element[],
+  turndown: TurndownService
+): AncestorMarkdownInfo {
   if (listPath.length === 0) {
     return { markdown: '', depth: 0 };
   }
@@ -68,7 +71,7 @@ export function serializeElement(element: Element): string {
 
 export function extractListItemLabel(li: Element, turndown: TurndownService): string {
   const clone = li.cloneNode(true) as Element;
-  clone.querySelectorAll('ul, ol').forEach(el => el.remove());
+  clone.querySelectorAll('ul, ol').forEach((el) => el.remove());
 
   const wrapper = document.createElement('ul');
   wrapper.appendChild(clone);

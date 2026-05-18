@@ -28,15 +28,20 @@ const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
 const createUsageStatsStoreMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => () => undefined));
-const storageMock = vi.hoisted(() => ({
-  kind: 'storage',
-  // minimal shape needed for tests; other fields unused here
-  sync: { kind: 'sync' } as unknown as StorageService['sync'],
-  local: { kind: 'local' } as unknown as StorageService['local']
-}) as unknown as StorageService);
+const storageMock = vi.hoisted(
+  () =>
+    ({
+      kind: 'storage',
+      // minimal shape needed for tests; other fields unused here
+      sync: { kind: 'sync' } as unknown as StorageService['sync'],
+      local: { kind: 'local' } as unknown as StorageService['local']
+    }) as unknown as StorageService
+);
 
 vi.mock('../../../src/shared/di', () => ({ registry: registryMock, TOKENS }));
-vi.mock('../../../src/shared/errors/errorHandler', () => ({ createErrorHandler: createErrorHandlerMock }));
+vi.mock('../../../src/shared/errors/errorHandler', () => ({
+  createErrorHandler: createErrorHandlerMock
+}));
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
   configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock
 }));
@@ -74,13 +79,21 @@ describe('background/bootstrap', () => {
     expect(configureI18nStorageMock).toHaveBeenCalledWith(storageMock.sync);
     expect(configureUsageStatsStorageMock).toHaveBeenCalledWith(storageMock);
     expect(registryMock.register).toHaveBeenCalledWith(TOKENS.errorHandler, expect.any(Function));
-    expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(expect.objectContaining({
-      domain: 'background',
-      metadata: expect.objectContaining({ extensionContext: 'background' })
-    }));
+    expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: 'background',
+        metadata: expect.objectContaining({ extensionContext: 'background' })
+      })
+    );
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
-    expect(registryMock.register).toHaveBeenCalledWith(TOKENS.globalStateManager, createGlobalStateManagerMock);
-    expect(registryMock.register).toHaveBeenCalledWith(TOKENS.usageStatsStore, createUsageStatsStoreMock);
+    expect(registryMock.register).toHaveBeenCalledWith(
+      TOKENS.globalStateManager,
+      createGlobalStateManagerMock
+    );
+    expect(registryMock.register).toHaveBeenCalledWith(
+      TOKENS.usageStatsStore,
+      createUsageStatsStoreMock
+    );
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
   });
 
@@ -104,9 +117,14 @@ describe('background/bootstrap', () => {
     mod.configureBackgroundDependencyStorage(storageMock);
     mod.bootstrapBackgroundDependencies();
 
-    registryMock.dispose.mockImplementationOnce(() => { throw new Error('dispose failed'); });
+    registryMock.dispose.mockImplementationOnce(() => {
+      throw new Error('dispose failed');
+    });
     mod.cleanupBackgroundDependencies();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[Background] Error during dependency cleanup:', expect.any(Error));
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[Background] Error during dependency cleanup:',
+      expect.any(Error)
+    );
 
     registryMock.dispose.mockImplementation((token: symbol) => {
       registryState.tokens.delete(token);

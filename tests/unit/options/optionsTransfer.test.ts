@@ -62,9 +62,7 @@ describe('options transfer normalizer', () => {
       yamlConfig: {
         contentTypes: {
           article: {
-            customFields: [
-              { name: 'alias', type: 'text', enabled: true, valuePath: 'title' }
-            ]
+            customFields: [{ name: 'alias', type: 'text', enabled: true, valuePath: 'title' }]
           },
           clipper: {
             domainOverrides: {

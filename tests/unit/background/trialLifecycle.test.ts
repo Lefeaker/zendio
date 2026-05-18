@@ -24,10 +24,12 @@ describe('trialLifecycle', () => {
   it('initializes trial config on first install and opens onboarding when needed', async () => {
     const { handleFirstInstall } = await import('../../../src/background/trialLifecycle');
     const initializeTrial = vi.fn(() => Promise.resolve(undefined));
-    const fetchMock = vi.fn(() => Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({ trialDays: 14 })
-    }));
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ trialDays: 14 })
+      })
+    );
     const tabsCreate = vi.fn(() => Promise.resolve(undefined));
 
     await handleFirstInstall(
@@ -101,7 +103,10 @@ describe('trialLifecycle', () => {
       isExpiringSoon: true
     }));
     const scheduled: Array<() => void> = [];
-    const setIntervalStub = (cb: () => void) => { scheduled.push(cb); return intervalId(1); };
+    const setIntervalStub = (cb: () => void) => {
+      scheduled.push(cb);
+      return intervalId(1);
+    };
 
     await initializeTrialSystem({
       checkTrialStatus: checkTrialStatusExpiring,

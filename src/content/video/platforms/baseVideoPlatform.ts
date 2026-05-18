@@ -96,9 +96,7 @@ export class BaseVideoPlatform implements VideoPlatformAdapter {
   }
 
   restoreHighlight(capture: VideoFragmentCapture): string | undefined {
-    const existing = capture.wrapperId
-      ? this.context.getElementByIdDeep(capture.wrapperId)
-      : null;
+    const existing = capture.wrapperId ? this.context.getElementByIdDeep(capture.wrapperId) : null;
     if (existing) {
       this.context.decorateHighlight(existing);
       this.context.scheduleFragmentHighlightRestore();
@@ -205,16 +203,7 @@ export class BaseVideoPlatform implements VideoPlatformAdapter {
 
     selection.removeAllRanges();
     const found =
-      findMethod.call(
-        finder,
-        normalized,
-        false,
-        false,
-        true,
-        false,
-        false,
-        false
-      ) === true;
+      findMethod.call(finder, normalized, false, false, true, false, false, false) === true;
     if (found && selection.rangeCount > 0) {
       const clone = selection.getRangeAt(0).cloneRange();
       selection.removeAllRanges();
@@ -295,7 +284,10 @@ export class BaseVideoPlatform implements VideoPlatformAdapter {
     return range;
   }
 
-  protected traverseShadowInclusive<T>(node: Node | null, visitor: (node: Node) => T | null): T | null {
+  protected traverseShadowInclusive<T>(
+    node: Node | null,
+    visitor: (node: Node) => T | null
+  ): T | null {
     if (!node) {
       return null;
     }

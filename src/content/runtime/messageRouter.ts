@@ -12,7 +12,9 @@ export interface MessageRouterRegistration {
 
 let registered = false;
 
-export function registerMessageRouter(options: RegisterMessageRouterOptions): MessageRouterRegistration {
+export function registerMessageRouter(
+  options: RegisterMessageRouterOptions
+): MessageRouterRegistration {
   const { messaging, router } = options;
   if (registered) {
     return { dispose: () => undefined };
@@ -27,4 +29,3 @@ export function registerMessageRouter(options: RegisterMessageRouterOptions): Me
     }
   };
 }
-

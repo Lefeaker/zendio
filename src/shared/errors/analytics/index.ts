@@ -1,6 +1,6 @@
 /**
  * 错误分析系统统一导出
- * 
+ *
  * 提供完整的错误报告和分析功能，包括：
  * - Google Analytics 错误报告
  * - 数据匿名化处理
@@ -18,7 +18,11 @@ export * from './sentryConfig';
 import { createGoogleAnalyticsReporter } from './googleAnalyticsReporter';
 import { createSentryErrorReporter } from './sentryReporter';
 import { getSentryBuildConfig } from './sentryConfig';
-import { getAnalyticsConfigManager, initializeAnalyticsConfig, shouldReportErrors } from './analyticsConfig';
+import {
+  getAnalyticsConfigManager,
+  initializeAnalyticsConfig,
+  shouldReportErrors
+} from './analyticsConfig';
 import { ErrorSeverity } from '../types';
 import { getErrorHandlerInstance } from '../index';
 import type { ErrorHandler } from '../errorHandler';
@@ -51,13 +55,15 @@ function unregisterReporter(key: ReporterKey): void {
 
 /**
  * 初始化错误分析系统
- * 
+ *
  * 这个函数应该在扩展启动时调用，用于：
  * 1. 初始化 Analytics 配置
  * 2. 创建 Google Analytics 报告器
  * 3. 注册到错误处理系统
  */
-export async function initializeErrorAnalytics(targetErrorHandler: Pick<ErrorHandler, 'addReporter'> = getErrorHandlerInstance()): Promise<void> {
+export async function initializeErrorAnalytics(
+  targetErrorHandler: Pick<ErrorHandler, 'addReporter'> = getErrorHandlerInstance()
+): Promise<void> {
   try {
     // 初始化配置
     const config = await initializeAnalyticsConfig();
@@ -172,9 +178,9 @@ export async function reportTestError(): Promise<void> {
   }
 
   const isDevelopment =
-    typeof globalThis !== 'undefined'
-      && typeof (globalThis as GlobalWithProcess).process === 'object'
-      && (globalThis as GlobalWithProcess).process?.env?.NODE_ENV === 'development';
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as GlobalWithProcess).process === 'object' &&
+    (globalThis as GlobalWithProcess).process?.env?.NODE_ENV === 'development';
 
   if (!isDevelopment) {
     console.warn('[Error Analytics] Test error reporting only available in development mode');
@@ -200,14 +206,9 @@ export async function reportTestError(): Promise<void> {
 }
 
 // 类型导出
-export type {
-  AnalyticsConfig,
-  UserConsent
-} from './analyticsConfig';
+export type { AnalyticsConfig, UserConsent } from './analyticsConfig';
 
-export type {
-  SanitizationReport
-} from './dataSanitizer';
+export type { SanitizationReport } from './dataSanitizer';
 
 /**
  * 使用示例：

@@ -1,7 +1,9 @@
 import type { NotificationOptions, NotificationsService } from '../interfaces/notifications';
 import { ensureFirefox } from './utils';
 
-function toFirefoxOptions(options: NotificationOptions): browser.notifications.CreateNotificationOptions {
+function toFirefoxOptions(
+  options: NotificationOptions
+): browser.notifications.CreateNotificationOptions {
   return {
     ...options,
     type: (options.type as browser.notifications.TemplateType) ?? 'basic'

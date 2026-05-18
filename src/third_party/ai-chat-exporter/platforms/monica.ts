@@ -49,7 +49,9 @@ function pickContentElement(node: HTMLElement): HTMLElement | null {
 }
 
 function cleanupContent(fragment: HTMLElement) {
-  fragment.querySelectorAll('[class*="toolbar"], [class*="reply-header"], button, svg').forEach((el) => el.remove());
+  fragment
+    .querySelectorAll('[class*="toolbar"], [class*="reply-header"], button, svg')
+    .forEach((el) => el.remove());
 }
 
 function normaliseModelCandidate(text: string): string | null {
@@ -58,7 +60,11 @@ function normaliseModelCandidate(text: string): string | null {
   if (cleaned.length > 40) return null;
   if (cleaned.split(/\s+/).length > 5) return null;
   if (/[。！？…:：]/.test(cleaned)) return null;
-  if (!/(GPT|Claude|Gemini|Monica|o[0-9]|LLaMA|Llama|Sonnet|Haiku|Pro|Turbo|Qwen|通义|文心|讯飞|DeepSeek|Copilot|Mistral|Yi|Yuanbao|Qianwen|Spark)/i.test(cleaned)) {
+  if (
+    !/(GPT|Claude|Gemini|Monica|o[0-9]|LLaMA|Llama|Sonnet|Haiku|Pro|Turbo|Qwen|通义|文心|讯飞|DeepSeek|Copilot|Mistral|Yi|Yuanbao|Qianwen|Spark)/i.test(
+      cleaned
+    )
+  ) {
     return null;
   }
   return cleaned;

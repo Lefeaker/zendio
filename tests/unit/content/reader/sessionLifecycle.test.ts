@@ -13,15 +13,21 @@ describe('ReaderSessionLifecycle', () => {
   const createLifecycle = () => {
     const selectionController = { start: vi.fn(), stop: vi.fn() };
     const panelCoordinator = { mount: vi.fn(), destroy: vi.fn() };
-    const environment = { start: vi.fn(() => Promise.resolve({ messages: { start: 'ok' } })), stop: vi.fn() };
+    const environment = {
+      start: vi.fn(() => Promise.resolve({ messages: { start: 'ok' } })),
+      stop: vi.fn()
+    };
     const handlers = { onSelection: vi.fn(), onExternalHighlight: vi.fn(), onKeydown: vi.fn() };
-    const lifecycle = new ReaderSessionLifecycle({
-      doc: document,
-      selectionController,
-      panelCoordinator,
-      environment,
-      externalHighlightEvent: 'external-highlight'
-    } as never, handlers as never);
+    const lifecycle = new ReaderSessionLifecycle(
+      {
+        doc: document,
+        selectionController,
+        panelCoordinator,
+        environment,
+        externalHighlightEvent: 'external-highlight'
+      } as never,
+      handlers as never
+    );
     return { lifecycle, selectionController, panelCoordinator, environment, handlers };
   };
 

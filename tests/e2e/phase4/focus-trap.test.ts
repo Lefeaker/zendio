@@ -29,7 +29,10 @@ const focusTrapStubModule = vi.hoisted(() => {
       target?.focus();
     };
 
-    constructor(private container: HTMLElement, private options: FocusTrapOptions) {}
+    constructor(
+      private container: HTMLElement,
+      private options: FocusTrapOptions
+    ) {}
 
     activate(): FocusTrapInstance {
       if (this.active) {
@@ -70,7 +73,8 @@ const focusTrapStubModule = vi.hoisted(() => {
     }
 
     private focusInitialTarget(): void {
-      const target = this.resolveFocusTarget(this.options.initialFocus) ?? this.pickFirstFocusable();
+      const target =
+        this.resolveFocusTarget(this.options.initialFocus) ?? this.pickFirstFocusable();
       (target ?? this.resolveFocusTarget(this.options.fallbackFocus) ?? this.container).focus();
     }
 
@@ -97,7 +101,11 @@ const focusTrapStubModule = vi.hoisted(() => {
     }
 
     updateContainerElements(
-      containerElements: HTMLElement | SVGElement | string | Array<HTMLElement | SVGElement | string>
+      containerElements:
+        | HTMLElement
+        | SVGElement
+        | string
+        | Array<HTMLElement | SVGElement | string>
     ): FocusTrapInstance {
       const candidate = Array.isArray(containerElements) ? containerElements[0] : containerElements;
       if (typeof candidate === 'string') {
@@ -112,10 +120,9 @@ const focusTrapStubModule = vi.hoisted(() => {
     }
 
     private getFocusableElements(): HTMLElement[] {
-      const selector =
-        'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
+      const selector = 'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])';
       return Array.from(this.container.querySelectorAll<HTMLElement>(selector)).filter(
-        element => !element.hasAttribute('disabled')
+        (element) => !element.hasAttribute('disabled')
       );
     }
   }
@@ -160,51 +167,51 @@ describe('phase4/focus trap keyboard flow', () => {
       { globals: DOM_GLOBALS },
       async ({ document, window }) => {
         const outside = document.createElement('button');
-      outside.textContent = 'Outside';
-      document.body.append(outside);
-      outside.focus();
+        outside.textContent = 'Outside';
+        document.body.append(outside);
+        outside.focus();
 
-      const dialogContainer = document.createElement('div');
-      dialogContainer.id = 'clipper-dialog';
-      dialogContainer.innerHTML = `
+        const dialogContainer = document.createElement('div');
+        dialogContainer.id = 'clipper-dialog';
+        dialogContainer.innerHTML = `
         <button id="first">Comment</button>
         <button id="second">Reader</button>
         <button id="third">Save</button>
       `;
-      document.body.append(dialogContainer);
+        document.body.append(dialogContainer);
 
-      const controller = new FocusTrapController(dialogContainer, {
-        initialFocus: '#first',
-        fallbackFocus: dialogContainer,
-        returnFocusOnDeactivate: true
-      });
-      controller.activate();
-      await nextTick();
+        const controller = new FocusTrapController(dialogContainer, {
+          initialFocus: '#first',
+          fallbackFocus: dialogContainer,
+          returnFocusOnDeactivate: true
+        });
+        controller.activate();
+        await nextTick();
 
-      const first = document.getElementById('first') as HTMLButtonElement;
-      const second = document.getElementById('second') as HTMLButtonElement;
-      const third = document.getElementById('third') as HTMLButtonElement;
+        const first = document.getElementById('first') as HTMLButtonElement;
+        const second = document.getElementById('second') as HTMLButtonElement;
+        const third = document.getElementById('third') as HTMLButtonElement;
 
-      first.focus();
-      await nextTick();
-      expect(document.activeElement).toBe(first);
+        first.focus();
+        await nextTick();
+        expect(document.activeElement).toBe(first);
 
-      await pressTab(first, window);
-      expect(document.activeElement).toBe(second);
+        await pressTab(first, window);
+        expect(document.activeElement).toBe(second);
 
-      await pressTab(second, window);
-      expect(document.activeElement).toBe(third);
+        await pressTab(second, window);
+        expect(document.activeElement).toBe(third);
 
-      // wrap to first when reaching the last element
-      await pressTab(third, window);
-      expect(document.activeElement).toBe(first);
+        // wrap to first when reaching the last element
+        await pressTab(third, window);
+        expect(document.activeElement).toBe(first);
 
-      // reverse direction with Shift+Tab
-      await pressTab(first, window, { shiftKey: true });
-      expect(document.activeElement).toBe(third);
+        // reverse direction with Shift+Tab
+        await pressTab(first, window, { shiftKey: true });
+        expect(document.activeElement).toBe(third);
 
-      controller.deactivate();
-      expect(document.activeElement).toBe(outside);
+        controller.deactivate();
+        expect(document.activeElement).toBe(outside);
       }
     );
   });
@@ -226,5 +233,5 @@ async function pressTab(
 }
 
 async function nextTick(): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }

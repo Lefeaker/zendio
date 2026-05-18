@@ -32,14 +32,7 @@ function getDependencies(): ContextMenuListenerDependencies {
 export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
   listenerDependencies = dependencies;
 
-  const {
-    action,
-    contextMenus,
-    runtime,
-    tabs,
-    messaging,
-    optionsRepository
-  } = dependencies;
+  const { action, contextMenus, runtime, tabs, messaging, optionsRepository } = dependencies;
 
   runtime.onInstalled(() => {
     void setupContextMenus(dependencies, runtimeState);
@@ -72,11 +65,13 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
 
     const frameId = typeof info.frameId === 'number' ? info.frameId : 0;
     const candidateUrl = tab.url ?? info.pageUrl ?? null;
-    const isVideo = typeof tab.id === 'number'
-      ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
-      : isVideoUrl(candidateUrl);
+    const isVideo =
+      typeof tab.id === 'number'
+        ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
+        : isVideoUrl(candidateUrl);
 
-    let actionType: 'clipFull' | 'clipSelection' | 'videoClipSelection' | 'startVideoMode' | null = null;
+    let actionType: 'clipFull' | 'clipSelection' | 'videoClipSelection' | 'startVideoMode' | null =
+      null;
     let waitMs = 50;
     let targetFrameId: number | undefined = 0;
 
@@ -115,7 +110,11 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     await delay(waitMs);
 
     try {
-      await tabs.sendMessage(tab.id, { action: actionType, frameId: targetFrameId, tabId: tab.id }, { frameId: targetFrameId });
+      await tabs.sendMessage(
+        tab.id,
+        { action: actionType, frameId: targetFrameId, tabId: tab.id },
+        { frameId: targetFrameId }
+      );
     } catch (error) {
       console.error('[contextMenu] Failed to dispatch action to tab:', error);
     }
@@ -125,13 +124,15 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     const selectionText = typeof info.selectionText === 'string' ? info.selectionText.trim() : '';
     const hasSelection = selectionText.length > 0;
     const candidateUrl = tab?.url ?? info.pageUrl ?? null;
-    const isVideo = typeof tab?.id === 'number'
-      ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
-      : isVideoUrl(candidateUrl);
+    const isVideo =
+      typeof tab?.id === 'number'
+        ? deriveVideoState(dependencies, runtimeState, tab.id, candidateUrl)
+        : isVideoUrl(candidateUrl);
 
-    const selectionTitle = hasSelection && isVideo
-      ? runtimeState.clipSelectionVideoTitle || runtimeState.clipSelectionDefaultTitle
-      : runtimeState.clipSelectionDefaultTitle;
+    const selectionTitle =
+      hasSelection && isVideo
+        ? runtimeState.clipSelectionVideoTitle || runtimeState.clipSelectionDefaultTitle
+        : runtimeState.clipSelectionDefaultTitle;
     const pageTitle = isVideo ? runtimeState.videoModeTitle : runtimeState.clipFullPageTitle;
 
     void contextMenus.update('clip-selection', { title: selectionTitle }).catch(() => {});
@@ -153,9 +154,10 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
       return { success: false, error: 'NO_TAB' };
     }
 
-    const rawPayload = (typeof message.payload === 'object' && message.payload !== null)
-      ? message.payload as Record<string, unknown>
-      : {};
+    const rawPayload =
+      typeof message.payload === 'object' && message.payload !== null
+        ? (message.payload as Record<string, unknown>)
+        : {};
 
     const payload = {
       selectedHtml: String(rawPayload.selectedHtml ?? ''),
@@ -164,7 +166,8 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
       sourceUrl: typeof rawPayload.sourceUrl === 'string' ? rawPayload.sourceUrl : null
     } as const;
 
-    return tabs.sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })
+    return tabs
+      .sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })
       .then(() => ({ success: true }))
       .catch((error) => {
         const msg = error instanceof Error ? error.message : String(error);
@@ -182,9 +185,12 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
   });
 
   tabs.onActivated(({ tabId }) => {
-    void tabs.get(tabId).then((tab) => {
-      void autoInjectIfNeeded(dependencies, runtimeState, tabId, tab?.url);
-    }).catch(() => {});
+    void tabs
+      .get(tabId)
+      .then((tab) => {
+        void autoInjectIfNeeded(dependencies, runtimeState, tabId, tab?.url);
+      })
+      .catch(() => {});
   });
 
   tabs.onUpdated((tabId, changeInfo, tab) => {

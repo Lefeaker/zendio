@@ -8,9 +8,15 @@ import type { IOptionsRepository } from '../../shared/repositories';
 
 export interface ContextMenuListenerDependencies {
   action: Pick<ActionService, 'onClicked'>;
-  contextMenus: Pick<ContextMenusService, 'create' | 'update' | 'removeAll' | 'onClicked' | 'onShown' | 'refresh'>;
+  contextMenus: Pick<
+    ContextMenusService,
+    'create' | 'update' | 'removeAll' | 'onClicked' | 'onShown' | 'refresh'
+  >;
   runtime: Pick<RuntimeService, 'onInstalled' | 'onStartup'>;
-  tabs: Pick<TabsService, 'query' | 'get' | 'sendMessage' | 'onActivated' | 'onUpdated' | 'onRemoved'>;
+  tabs: Pick<
+    TabsService,
+    'query' | 'get' | 'sendMessage' | 'onActivated' | 'onUpdated' | 'onRemoved'
+  >;
   scripting: Pick<ScriptingService, 'executeScript'>;
   messaging: Pick<MessagingService, 'addListener'>;
   optionsRepository: Pick<IOptionsRepository, 'onChange'>;

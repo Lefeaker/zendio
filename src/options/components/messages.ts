@@ -2,7 +2,11 @@ import type { Messages } from '../../i18n';
 import { getElementById, getOptionalElementById } from '../utils/dom';
 import { OptionsValidationError } from '../services/validation';
 import { ConfigTransferError } from '../services/configTransfer';
-import { bindLocalizedText, type BoundElement, type LocalizedContent } from '../utils/localizedText';
+import {
+  bindLocalizedText,
+  type BoundElement,
+  type LocalizedContent
+} from '../utils/localizedText';
 
 type MessageType = 'success' | 'error';
 
@@ -106,7 +110,11 @@ function applyMessage(
   }, classConfig.timeoutMs);
 }
 
-function updateElementClass(element: HTMLElement, type: MessageType, classConfig: MessageClassConfig): void {
+function updateElementClass(
+  element: HTMLElement,
+  type: MessageType,
+  classConfig: MessageClassConfig
+): void {
   element.className = type === 'success' ? classConfig.success : classConfig.error;
 }
 
@@ -129,7 +137,11 @@ function clearMessage(element: HTMLElement, state: MessageState, baseClass: stri
   element.textContent = '';
 }
 
-function updateMessageContent(element: HTMLElement, content: MessageContent, state: MessageState): void {
+function updateMessageContent(
+  element: HTMLElement,
+  content: MessageContent,
+  state: MessageState
+): void {
   disposeStateBinding(state);
   state.binding = bindLocalizedText(element, content);
 }

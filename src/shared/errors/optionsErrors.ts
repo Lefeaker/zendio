@@ -66,4 +66,6 @@ export const optionsErrors = {
   }
 } as const;
 
-export type OptionsErrorCode = ReturnType<typeof optionsErrors[keyof typeof optionsErrors]>['code'];
+export type OptionsErrorCode = ReturnType<
+  (typeof optionsErrors)[keyof typeof optionsErrors]
+>['code'];

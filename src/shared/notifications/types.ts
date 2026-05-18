@@ -38,4 +38,7 @@ export interface NormalizedNotification extends AppNotification {
 
 export type NotificationAdapterResult = void | string | Promise<void | string>;
 
-export type NotificationAdapter = (id: string, notification: NormalizedNotification) => NotificationAdapterResult;
+export type NotificationAdapter = (
+  id: string,
+  notification: NormalizedNotification
+) => NotificationAdapterResult;

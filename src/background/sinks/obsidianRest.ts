@@ -9,7 +9,11 @@ interface RestConfig {
   apiKey: string;
 }
 
-export async function writeFile(rest: RestConfig, filePath: string, content: string): Promise<void> {
+export async function writeFile(
+  rest: RestConfig,
+  filePath: string,
+  content: string
+): Promise<void> {
   // 将旧的 RestConfig 转换为新的 RestConnection 格式
   const connection: RestConnection = {
     baseUrl: rest.baseUrl,
@@ -23,8 +27,6 @@ export async function writeFile(rest: RestConfig, filePath: string, content: str
   const restClient = defaultRestClient;
   await restClient.writeFile(connection, filePath, content);
 }
-
-
 
 // 默认 REST 客户端实例，用于向后兼容
 export const defaultRestClient = createFetchRestClient();

@@ -1,4 +1,9 @@
-import type { IMessagingRepository, Message, MessageHandler, MessageSender } from '@shared/repositories';
+import type {
+  IMessagingRepository,
+  Message,
+  MessageHandler,
+  MessageSender
+} from '@shared/repositories';
 
 interface LoggedMessage {
   message: Message;
@@ -43,7 +48,7 @@ export class MockMessagingRepository implements IMessagingRepository {
   }
 
   simulateIncomingMessage(message: Message, sender: MessageSender = {}): void {
-    this.handlers.forEach(handler => {
+    this.handlers.forEach((handler) => {
       try {
         void handler(message, sender);
       } catch (error) {

@@ -1,19 +1,12 @@
 import { DEFAULT_YAML_CONFIG } from '@shared/config';
-import type {
-  YamlConfigOverrides,
-  YamlContentType,
-  YamlFieldType
-} from '@shared/types/yamlConfig';
+import type { YamlConfigOverrides, YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import {
   CONTENT_TYPES,
   type DomainFieldRow,
   type DomainOverrideEntry,
   type FieldRow
 } from './yamlConfigTableTypes';
-import {
-  createToggleMap,
-  stringifyDefaultValue
-} from './yamlConfigTableValueCodecs';
+import { createToggleMap, stringifyDefaultValue } from './yamlConfigTableValueCodecs';
 
 export function createRowId(seed: string): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

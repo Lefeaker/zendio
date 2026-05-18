@@ -65,7 +65,11 @@ export function removeManagedShadowStyle(shadowRoot: ShadowRoot, key: string): v
   detachManagedFallbackStyle(shadowRoot, key);
 }
 
-export function createManagedStyleElement(doc: Document, key: string, cssText: string): HTMLStyleElement {
+export function createManagedStyleElement(
+  doc: Document,
+  key: string,
+  cssText: string
+): HTMLStyleElement {
   const style = doc.createElement('style');
   style.setAttribute(MANAGED_FALLBACK_ATTR, key);
   style.textContent = cssText;
@@ -104,6 +108,8 @@ function ensureManagedFallbackStyle(shadowRoot: ShadowRoot, key: string): HTMLSt
 }
 
 function detachManagedFallbackStyle(shadowRoot: ShadowRoot, key: string): void {
-  const style = shadowRoot.querySelector<HTMLStyleElement>(`style[${MANAGED_FALLBACK_ATTR}="${key}"]`);
+  const style = shadowRoot.querySelector<HTMLStyleElement>(
+    `style[${MANAGED_FALLBACK_ATTR}="${key}"]`
+  );
   style?.remove();
 }

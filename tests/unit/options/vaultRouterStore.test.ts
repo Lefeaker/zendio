@@ -4,7 +4,9 @@ import type { StateStore } from '@shared/state';
 const stateStores = vi.hoisted(() => new Map<string, StateStore<unknown>>());
 
 vi.mock('../../../src/shared/state', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/shared/state')>('../../../src/shared/state');
+  const actual = await vi.importActual<typeof import('../../../src/shared/state')>(
+    '../../../src/shared/state'
+  );
 
   return {
     ...actual,
@@ -12,7 +14,7 @@ vi.mock('../../../src/shared/state', async () => {
       ...actual.STATE_KEYS,
       vaultRouter: 'vaultRouter'
     },
-    getStateStore: <T,>(key: string): StateStore<T> => {
+    getStateStore: <T>(key: string): StateStore<T> => {
       const existing = stateStores.get(key);
       if (existing) {
         return existing as StateStore<T>;
@@ -101,7 +103,6 @@ describe('vaultRouterStore', () => {
     expect(config).toBeUndefined();
   });
 
-
   it('resets state and applies fallback default vault resolution', () => {
     addAdditionalVault({ id: 'a', name: 'A', isDefault: true });
     resetVaultRouterStore();
@@ -133,15 +134,17 @@ describe('vaultRouterStore', () => {
     expect(getVaultRouterConfig()?.defaultVaultId).toBe('second');
 
     initializeVaultRouterStore({
-      vaults: [{
-        id: 'fallback',
-        name: 'Fallback',
-        httpsUrl: 'https://fallback.example.com/',
-        httpUrl: 'http://fallback.example.com/',
-        vault: 'Fallback',
-        apiKey: 'fallback-key',
-        enabled: true
-      }]
+      vaults: [
+        {
+          id: 'fallback',
+          name: 'Fallback',
+          httpsUrl: 'https://fallback.example.com/',
+          httpUrl: 'http://fallback.example.com/',
+          vault: 'Fallback',
+          apiKey: 'fallback-key',
+          enabled: true
+        }
+      ]
     });
     expect(getVaultRouterConfig()?.defaultVaultId).toBe('fallback');
   });
@@ -152,19 +155,27 @@ describe('vaultRouterStore', () => {
     const rule = addRoutingRule({ vaultId: first.id, pattern: 'example.com', type: 'domain' });
 
     updateAdditionalVault('missing', { name: 'ignored' });
-    updateAdditionalVault(second.id, { isDefault: true, rules: [{ ...rule, id: 'moved', vaultId: '' }] });
+    updateAdditionalVault(second.id, {
+      isDefault: true,
+      rules: [{ ...rule, id: 'moved', vaultId: '' }]
+    });
 
     const config = getVaultRouterConfig();
     expect(config?.defaultVaultId).toBe('second');
-    expect(config?.vaults.find(v => v.id === 'second')?.rules?.[0].vaultId).toBe('');
-    expect(config?.vaults.find(v => v.id === 'first')?.name).toBe('First');
+    expect(config?.vaults.find((v) => v.id === 'second')?.rules?.[0].vaultId).toBe('');
+    expect(config?.vaults.find((v) => v.id === 'first')?.name).toBe('First');
   });
 
   it('falls back to first vault, supports missing-rule no-op, and notifies subscribers', () => {
     const first = addAdditionalVault({ id: 'first', name: 'First' });
     addAdditionalVault({ id: 'second', name: 'Second' });
     const updates: Array<{ vaults: Array<{ id: string }>; defaultVaultId?: string }> = [];
-    const unsubscribe = subscribeVaultRouter((state) => { updates.push({ vaults: state.vaults.map(v => ({ id: v.id })), defaultVaultId: state.defaultVaultId }); });
+    const unsubscribe = subscribeVaultRouter((state) => {
+      updates.push({
+        vaults: state.vaults.map((v) => ({ id: v.id })),
+        defaultVaultId: state.defaultVaultId
+      });
+    });
 
     const fallbackRule = addRoutingRule({ vaultId: 'missing', pattern: 'fallback.me' });
     expect(fallbackRule.vaultId).toBe(first.id);
@@ -191,17 +202,28 @@ describe('vaultRouterStore', () => {
 
   it('merges legacy top-level rules into matching vaults during initialization', () => {
     initializeVaultRouterStore({
-      vaults: [{
-        id: 'main',
-        name: 'Main',
-        httpsUrl: 'https://main.example.com/',
-        httpUrl: 'http://main.example.com/',
-        vault: 'Main',
-        apiKey: 'main-key',
-        enabled: true,
-        rules: []
-      }],
-      rules: [{ id: 'legacy-rule', type: 'domain', pattern: 'legacy.example.com', vaultId: 'main', enabled: true, priority: 3 }],
+      vaults: [
+        {
+          id: 'main',
+          name: 'Main',
+          httpsUrl: 'https://main.example.com/',
+          httpUrl: 'http://main.example.com/',
+          vault: 'Main',
+          apiKey: 'main-key',
+          enabled: true,
+          rules: []
+        }
+      ],
+      rules: [
+        {
+          id: 'legacy-rule',
+          type: 'domain',
+          pattern: 'legacy.example.com',
+          vaultId: 'main',
+          enabled: true,
+          priority: 3
+        }
+      ],
       defaultVaultId: 'missing'
     });
 
@@ -209,5 +231,4 @@ describe('vaultRouterStore', () => {
     expect(config?.defaultVaultId).toBe('missing');
     expect(config?.vaults[0].rules?.[0].id).toBe('legacy-rule');
   });
-
 });

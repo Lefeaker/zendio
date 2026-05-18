@@ -1,4 +1,7 @@
-import type { ReaderSelectionController, ReaderSelectionPayload } from './services/selectionController';
+import type {
+  ReaderSelectionController,
+  ReaderSelectionPayload
+} from './services/selectionController';
 import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderEnvironmentController, ReaderEnvironmentState } from './environmentController';
 import type { ExternalHighlightPayload } from './types';
@@ -51,7 +54,10 @@ export class ReaderSessionLifecycle {
       };
 
       this.deps.doc.addEventListener('keydown', this.keydownHandler, true);
-      this.deps.doc.addEventListener(this.deps.externalHighlightEvent, this.highlightHandler as EventListener);
+      this.deps.doc.addEventListener(
+        this.deps.externalHighlightEvent,
+        this.highlightHandler as EventListener
+      );
 
       return envState;
     } catch (error) {
@@ -72,7 +78,10 @@ export class ReaderSessionLifecycle {
       this.deps.doc.removeEventListener('keydown', this.keydownHandler, true);
     }
     if (this.highlightHandler) {
-      this.deps.doc.removeEventListener(this.deps.externalHighlightEvent, this.highlightHandler as EventListener);
+      this.deps.doc.removeEventListener(
+        this.deps.externalHighlightEvent,
+        this.highlightHandler as EventListener
+      );
     }
     this.keydownHandler = null;
     this.highlightHandler = null;

@@ -7,30 +7,35 @@ AiiinOB 现在拥有一个完整的统一错误码方案，配合 Google Analyti
 ## 🎯 核心特性
 
 ### ✅ 统一错误码方案
+
 - **标准化命名**：`{DOMAIN}_{CATEGORY}_{SPECIFIC_ERROR}` 格式
 - **30+ 预定义错误码**：覆盖所有主要功能域
 - **自动生成工具**：`generateErrorCode()` 函数
 - **错误码解析**：`parseErrorCode()` 函数
 
 ### ✅ Google Analytics 4 集成
+
 - **Measurement Protocol**：服务端事件追踪
 - **自定义维度**：错误域、类别、严重程度等
 - **实时报告**：错误发生时立即发送到 GA4
 - **批量处理**：支持离线缓存和批量上传
 
 ### ✅ 数据隐私保护
+
 - **全面匿名化**：自动清理 PII（个人身份信息）
 - **敏感数据过滤**：邮箱、IP、用户名、路径等
 - **验证机制**：确保数据已充分匿名化
 - **GDPR/CCPA 合规**：符合主要隐私法规
 
 ### ✅ 用户隐私控制
+
 - **明确同意**：用户可选择是否参与数据收集
 - **细粒度控制**：分别控制分析和错误报告
 - **随时撤销**：用户可随时更改隐私设置
 - **透明说明**：详细说明收集的数据类型
 
 ### ✅ 错误监控仪表板
+
 - **实时监控**：错误趋势和频率分析
 - **多维度分析**：按域、类别、严重程度分组
 - **版本对比**：不同版本的错误率对比
@@ -68,7 +73,7 @@ AiiinOB/
 export const STANDARDIZED_ERROR_CODES = {
   EXTRACTION_CONTENT_NO_MARKDOWN: 'EXTRACTION_CONTENT_NO_MARKDOWN',
   REST_NETWORK_REQUEST_FAILED: 'REST_NETWORK_REQUEST_FAILED',
-  CHROME_API_PERMISSION_DENIED: 'CHROME_API_PERMISSION_DENIED',
+  CHROME_API_PERMISSION_DENIED: 'CHROME_API_PERMISSION_DENIED'
   // ... 30+ 错误码
 };
 
@@ -150,6 +155,7 @@ node scripts/setup-error-analytics.js
 ### 2. 配置 GA4
 
 在 `analyticsConfig.ts` 中更新：
+
 - `MEASUREMENT_ID`: 你的 GA4 测量 ID
 - `API_SECRET`: 你的 Measurement Protocol API 密钥
 

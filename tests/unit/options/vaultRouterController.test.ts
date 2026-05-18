@@ -38,7 +38,8 @@ vi.mock('@options/app/optionsControllerContext', () => ({
 }));
 
 vi.mock('@options/state/vaultRouterStore', () => ({
-  addAdditionalVault: (initial?: Partial<VaultConfig>) => vaultStoreMocks.addAdditionalVault(initial),
+  addAdditionalVault: (initial?: Partial<VaultConfig>) =>
+    vaultStoreMocks.addAdditionalVault(initial),
   updateAdditionalVault: (id: string, updates: Partial<VaultConfig>) =>
     vaultStoreMocks.updateAdditionalVault(id, updates),
   removeAdditionalVault: (id: string) => vaultStoreMocks.removeAdditionalVault(id),
@@ -67,7 +68,9 @@ describe('VaultRouterController', () => {
     const controller = new VaultRouterController();
     controller.updateRule('rule-1', { pattern: 'docs.example.com' }, { silent: true });
 
-    expect(vaultStoreMocks.updateRoutingRule).toHaveBeenCalledWith('rule-1', { pattern: 'docs.example.com' });
+    expect(vaultStoreMocks.updateRoutingRule).toHaveBeenCalledWith('rule-1', {
+      pattern: 'docs.example.com'
+    });
     expect(optionsContextMocks.markPendingAutoSave).not.toHaveBeenCalled();
     expect(optionsContextMocks.scheduleAutoSave).not.toHaveBeenCalled();
   });
@@ -76,7 +79,9 @@ describe('VaultRouterController', () => {
     const controller = new VaultRouterController();
     controller.updateVault('vault-1', { name: 'Updated' });
 
-    expect(vaultStoreMocks.updateAdditionalVault).toHaveBeenCalledWith('vault-1', { name: 'Updated' });
+    expect(vaultStoreMocks.updateAdditionalVault).toHaveBeenCalledWith('vault-1', {
+      name: 'Updated'
+    });
     expect(optionsContextMocks.markPendingAutoSave).toHaveBeenCalledWith('vaultRouter');
     expect(optionsContextMocks.scheduleAutoSave).toHaveBeenCalledTimes(1);
   });

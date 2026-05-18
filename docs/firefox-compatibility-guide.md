@@ -23,18 +23,18 @@ src/platform/
 
 #### Manifest 文件差异
 
-| 特性 | Chrome | Firefox |
-|------|--------|---------|
-| Background | `service_worker` | `service_worker` |
-| Action API | `action` | `browserAction` (旧版) |
-| 扩展 ID | 自动生成 | 需要在 `browser_specific_settings` 中指定 |
+| 特性       | Chrome           | Firefox                                   |
+| ---------- | ---------------- | ----------------------------------------- |
+| Background | `service_worker` | `service_worker`                          |
+| Action API | `action`         | `browserAction` (旧版)                    |
+| 扩展 ID    | 自动生成         | 需要在 `browser_specific_settings` 中指定 |
 
 #### API 差异
 
-| API | Chrome | Firefox |
-|-----|--------|---------|
-| 全局对象 | `chrome.*` | `browser.*` |
-| Promise 支持 | 需要 polyfill | 原生支持 |
+| API           | Chrome             | Firefox                             |
+| ------------- | ------------------ | ----------------------------------- |
+| 全局对象      | `chrome.*`         | `browser.*`                         |
+| Promise 支持  | 需要 polyfill      | 原生支持                            |
 | Scripting API | `chrome.scripting` | `browser.tabs.executeScript` (回退) |
 
 > ℹ️ Firefox 自 113 起开始支持 MV3 `background.service_worker`，因此我们保持与 Chrome 同步的 Service Worker 形态。若需兼容旧版，请在构建脚本中降级处理。
@@ -66,10 +66,11 @@ npm run build:firefox:fast
 ### 安装测试
 
 1. **Firefox 开发版安装**：
+
    ```bash
    # 构建 Firefox 版本
    npm run build:firefox
-   
+
    # 打开 Firefox
    # 访问 about:debugging#/runtime/this-firefox
    # 点击 "临时载入附加组件"
@@ -157,6 +158,7 @@ npm run test:e2e -- --browser=firefox
 ### 1. API 使用
 
 **✅ 推荐做法**：
+
 ```typescript
 // 使用平台服务
 import { getPlatformServices } from '../platform/services';
@@ -166,6 +168,7 @@ await services.storage.sync.set({ key: 'value' });
 ```
 
 **❌ 避免直接使用**：
+
 ```typescript
 // 不要直接使用浏览器 API
 chrome.storage.sync.set({ key: 'value' }); // 在 Firefox 中不可用
@@ -205,6 +208,7 @@ if (capabilities.serviceWorker) {
 **问题**：Firefox 提示 "无法加载扩展"
 
 **解决方案**：
+
 - 检查 `manifest.firefox.json` 语法
 - 确保 `browser_specific_settings.gecko.id` 已设置
 - 检查最低版本要求 `strict_min_version`
@@ -214,6 +218,7 @@ if (capabilities.serviceWorker) {
 **问题**：某些 Chrome API 在 Firefox 中不存在
 
 **解决方案**：
+
 - 使用平台适配层
 - 添加功能检测
 - 提供回退方案
@@ -223,28 +228,30 @@ if (capabilities.serviceWorker) {
 **问题**：Firefox 中样式与 Chrome 不一致
 
 **解决方案**：
+
 - 检查 CSS 前缀（`-moz-` vs `-webkit-`）
 - 使用 Firefox 特定样式文件
 - 测试不同 Firefox 版本
 
 ## 📊 兼容性矩阵
 
-| 功能 | Chrome | Firefox | 状态 |
-|------|--------|---------|------|
-| 基础剪藏 | ✅ | ✅ | 完成 |
-| 右键菜单 | ✅ | ✅ | 完成 |
-| 快捷键 | ✅ | ✅ | 完成 |
-| 通知 | ✅ | ✅ | 完成 |
-| 选项页面 | ✅ | ✅ | 完成 |
-| 多语言 | ✅ | ✅ | 完成 |
-| 视频模式 | ✅ | ✅ | 完成 |
-| 阅读器模式 | ✅ | ✅ | 完成 |
+| 功能       | Chrome | Firefox | 状态 |
+| ---------- | ------ | ------- | ---- |
+| 基础剪藏   | ✅     | ✅      | 完成 |
+| 右键菜单   | ✅     | ✅      | 完成 |
+| 快捷键     | ✅     | ✅      | 完成 |
+| 通知       | ✅     | ✅      | 完成 |
+| 选项页面   | ✅     | ✅      | 完成 |
+| 多语言     | ✅     | ✅      | 完成 |
+| 视频模式   | ✅     | ✅      | 完成 |
+| 阅读器模式 | ✅     | ✅      | 完成 |
 
 ## 🔄 更新和维护
 
 ### 版本同步
 
 Firefox 版本与 Chrome 版本保持同步：
+
 - 版本号相同
 - 功能特性一致
 - 同时发布更新

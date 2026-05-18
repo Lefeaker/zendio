@@ -19,7 +19,9 @@ function createController() {
     observeDomChanges: vi.fn(),
     handleMutations: vi.fn(),
     buildTimestampUrl: vi.fn(() => null),
-    formatVideoTitle: vi.fn((rawTitle: string) => rawTitle.replace(/_+哔哩哔哩.*/i, '').trim() || null),
+    formatVideoTitle: vi.fn(
+      (rawTitle: string) => rawTitle.replace(/_+哔哩哔哩.*/i, '').trim() || null
+    ),
     dispose
   };
   const onAdapterChange = vi.fn();
@@ -87,14 +89,16 @@ describe('VideoSessionPlatformController', () => {
       canonicalUrl: document.location.href,
       storageKey: null
     } as never);
-    setup.state.captures = [{
-      kind: 'timestamp',
-      id: 'timestamp-1',
-      timeSec: 1,
-      comment: '',
-      url: 'https://video.example/watch?t=1',
-      createdAt: 1
-    }];
+    setup.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 1,
+        comment: '',
+        url: 'https://video.example/watch?t=1',
+        createdAt: 1
+      }
+    ];
 
     await expect(setup.controller.refreshContext()).resolves.toEqual({
       hintState: 'noVideo',
@@ -103,14 +107,16 @@ describe('VideoSessionPlatformController', () => {
     expect(setup.state.captures).toEqual([]);
 
     setup.state.storageKey = 'video:test';
-    setup.state.captures = [{
-      kind: 'timestamp',
-      id: 'timestamp-2',
-      timeSec: 2,
-      comment: '',
-      url: 'https://video.example/watch?t=2',
-      createdAt: 2
-    }];
+    setup.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-2',
+        timeSec: 2,
+        comment: '',
+        url: 'https://video.example/watch?t=2',
+        createdAt: 2
+      }
+    ];
     setup.detectVideoIdentity.mockReturnValueOnce({
       platform: 'bilibili',
       videoId: 'BV1xx411c7mD',
@@ -134,15 +140,17 @@ describe('VideoSessionPlatformController', () => {
     setup.loadStoredCaptureData.mockResolvedValueOnce({
       title: 'Restored Title',
       url: 'https://www.bilibili.com/video/BV1changed',
-      entries: serializeCaptures([{
-        kind: 'fragment',
-        id: 'fragment-1',
-        comment: '',
-        selectedText: 'Alpha fragment',
-        selectedHtml: '<p>Alpha fragment</p>',
-        fragmentUrl: 'https://www.bilibili.com/video/BV1changed#:~:text=Alpha',
-        createdAt: 3
-      }]),
+      entries: serializeCaptures([
+        {
+          kind: 'fragment',
+          id: 'fragment-1',
+          comment: '',
+          selectedText: 'Alpha fragment',
+          selectedHtml: '<p>Alpha fragment</p>',
+          fragmentUrl: 'https://www.bilibili.com/video/BV1changed#:~:text=Alpha',
+          createdAt: 3
+        }
+      ]),
       updatedAt: Date.now()
     } as never);
     setup.adapter.restoreHighlight.mockReturnValueOnce('fragment-wrapper' as never);
@@ -153,7 +161,9 @@ describe('VideoSessionPlatformController', () => {
     });
     expect(setup.state.videoTitle).toBe('Restored Title');
     expect(setup.state.canonicalUrl).toBe('https://www.bilibili.com/video/BV1changed');
-    expect(setup.ensureCaptureHighlight).toHaveBeenCalledWith(expect.objectContaining({ id: 'fragment-1' }));
+    expect(setup.ensureCaptureHighlight).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'fragment-1' })
+    );
   });
 
   it('falls back to a URL-based timestamp when the platform adapter cannot build one', () => {
@@ -161,7 +171,9 @@ describe('VideoSessionPlatformController', () => {
     setup.controller.updateVideoContext();
     setup.controller.syncPlatformAdapter();
 
-    expect(setup.controller.buildTimestampUrl(135)).toBe('https://www.bilibili.com/video/BV1xx411c7mD?t=135');
+    expect(setup.controller.buildTimestampUrl(135)).toBe(
+      'https://www.bilibili.com/video/BV1xx411c7mD?t=135'
+    );
     expect(
       VideoSessionPlatformController.buildFallbackTimestampUrl(9, {
         canonicalUrl: '',

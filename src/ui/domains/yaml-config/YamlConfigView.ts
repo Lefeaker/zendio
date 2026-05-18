@@ -7,10 +7,7 @@ import type { YamlConfigController } from './yamlConfigTable';
 const ARRAY_PLACEHOLDER_EXAMPLE = 'value1; value2; value3';
 const ARRAY_HINT_TEXT = 'Use ";" to separate items.';
 
-function applyDataset(
-  element: HTMLElement,
-  values: Record<string, string | undefined>
-): void {
+function applyDataset(element: HTMLElement, values: Record<string, string | undefined>): void {
   Object.entries(values).forEach(([key, value]) => {
     if (value !== undefined) {
       element.dataset[key] = value;
@@ -160,14 +157,14 @@ export class YamlConfigView extends BaseComponent<YamlConfigViewRenderContext> {
       errorDomainDuplicate:
         extMessages?.yamlDomainErrorDomainDuplicate ?? '同一内容类型中存在重复的域名规则。',
       errorFieldRequired: extMessages?.yamlDomainErrorFieldRequired ?? '至少选择一个字段。',
-      errorFieldDuplicate:
-        extMessages?.yamlDomainErrorFieldDuplicate ?? '同一规则中存在重复字段。',
+      errorFieldDuplicate: extMessages?.yamlDomainErrorFieldDuplicate ?? '同一规则中存在重复字段。',
       errorFieldUnsupported:
         extMessages?.yamlDomainErrorFieldUnsupported ?? '字段在当前内容类型中不可用：',
       errorValueInvalid: extMessages?.yamlDomainErrorValueInvalid ?? '字段默认值与类型不匹配：',
       errorValuePathInvalid:
         extMessages?.yamlDomainErrorValuePathInvalid ?? 'Value path 不能包含空格。',
-      warningUnresolved: extMessages?.yamlDomainWarningUnresolved ?? '修复域名规则中的错误后再保存。'
+      warningUnresolved:
+        extMessages?.yamlDomainWarningUnresolved ?? '修复域名规则中的错误后再保存。'
     });
 
     const actions = createOptionsActionRow();

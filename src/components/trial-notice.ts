@@ -15,7 +15,7 @@ export class TrialNotice {
    */
   async initialize(): Promise<void> {
     this.status = await checkTrialStatus();
-    
+
     if (this.status.isTrial) {
       this.createNoticeElement();
       this.startPeriodicCheck();
@@ -91,7 +91,7 @@ export class TrialNotice {
     }
 
     const timeStr = formatRemainingTime(this.status);
-    
+
     if (this.status.isExpired) {
       this.container.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -181,7 +181,7 @@ export class TrialNotice {
     `;
 
     const timeStr = formatRemainingTime(this.status);
-    const expirationStr = this.status.expirationDate 
+    const expirationStr = this.status.expirationDate
       ? this.status.expirationDate.toLocaleString('zh-CN')
       : '未知';
 
@@ -193,9 +193,10 @@ export class TrialNotice {
         <div style="color: #666; line-height: 1.6;">
           <p><strong>状态:</strong> ${timeStr}</p>
           <p><strong>过期时间:</strong> ${expirationStr}</p>
-          ${this.status.isExpired 
-            ? '<p style="color: #ff4757;"><strong>功能已被限制，请联系开发者获取正式版本。</strong></p>'
-            : '<p style="color: #2ed573;">扩展功能正常可用。</p>'
+          ${
+            this.status.isExpired
+              ? '<p style="color: #ff4757;"><strong>功能已被限制，请联系开发者获取正式版本。</strong></p>'
+              : '<p style="color: #2ed573;">扩展功能正常可用。</p>'
           }
         </div>
       </div>
@@ -265,7 +266,7 @@ export class TrialNotice {
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
-    
+
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
     }
@@ -290,7 +291,7 @@ export async function initializeTrialNotice(): Promise<void> {
   if (globalTrialNotice) {
     globalTrialNotice.destroy();
   }
-  
+
   globalTrialNotice = new TrialNotice();
   await globalTrialNotice.initialize();
 }

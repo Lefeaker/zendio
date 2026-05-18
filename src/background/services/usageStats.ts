@@ -1,6 +1,10 @@
 import type { ClipPayload } from '../../shared/types';
 import type { UsageStats, UsageStatCategory, UsageStatsHistoryEntry } from '../../shared/types';
-import { USAGE_STATS_STORAGE_KEY, DEFAULT_USAGE_STATS, normalizeUsageStats } from '../../shared/constants';
+import {
+  USAGE_STATS_STORAGE_KEY,
+  DEFAULT_USAGE_STATS,
+  normalizeUsageStats
+} from '../../shared/constants';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { PlatformError } from '../../platform/errors';
 import { registry, TOKENS } from '../../shared/di';
@@ -18,7 +22,8 @@ export class UsageStatsStore {
   async getStats(): Promise<UsageStats> {
     try {
       const stored = await this.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY);
-      const legacyStored = stored ?? await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY);
+      const legacyStored =
+        stored ?? (await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY));
       const normalized = normalizeUsageStats(legacyStored);
       this.updateMemoryStats(normalized);
       if (!stored && legacyStored) {
@@ -58,7 +63,8 @@ export class UsageStatsStore {
   async initialize(): Promise<void> {
     try {
       const stored = await this.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY);
-      const legacyStored = stored ?? await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY);
+      const legacyStored =
+        stored ?? (await this.storage.local.get<UsageStats>(UsageStatsStore.LEGACY_STORAGE_KEY));
       if (!stored && !legacyStored) {
         await this.persistStats(DEFAULT_USAGE_STATS);
         this.updateMemoryStats(DEFAULT_USAGE_STATS);
@@ -86,7 +92,10 @@ export class UsageStatsStore {
         await this.storage.local.set(key, stats);
       } catch (error) {
         if (!isRecoverableStorageError(error) && !isChromeUnavailableError(error)) {
-          console.warn(`[UsageStats] Failed to persist stats for key ${key}, using in-memory fallback:`, error);
+          console.warn(
+            `[UsageStats] Failed to persist stats for key ${key}, using in-memory fallback:`,
+            error
+          );
         }
       }
     }
@@ -166,7 +175,7 @@ function resolveUsageCategory(payload: ClipPayload): UsageStatCategory {
 function cloneStats(stats: UsageStats): UsageStats {
   return {
     ...stats,
-    history: Array.isArray(stats.history) ? stats.history.map(entry => ({ ...entry })) : []
+    history: Array.isArray(stats.history) ? stats.history.map((entry) => ({ ...entry })) : []
   };
 }
 
@@ -192,7 +201,7 @@ function updateHistory(
   category: UsageStatCategory
 ): UsageStatsHistoryEntry[] {
   const today = formatDate(new Date());
-  const safeHistory = Array.isArray(history) ? history.map(entry => ({ ...entry })) : [];
+  const safeHistory = Array.isArray(history) ? history.map((entry) => ({ ...entry })) : [];
   const historyMap = new Map<string, UsageStatsHistoryEntry>();
 
   for (const entry of safeHistory) {
@@ -241,7 +250,7 @@ function trimHistory(entries: UsageStatsHistoryEntry[], limit: number): UsageSta
   cutoff.setDate(cutoff.getDate() - (limit - 1));
   const cutoffStr = formatDate(cutoff);
 
-  const filtered = entries.filter(entry => entry.date >= cutoffStr);
+  const filtered = entries.filter((entry) => entry.date >= cutoffStr);
   if (filtered.length > limit) {
     return filtered.slice(filtered.length - limit);
   }

@@ -39,7 +39,9 @@ function createBinder(bindingAdapter: I18nBindingAdapter): I18nBinder {
 
 function ensureResource(resource: I18nResource | null): asserts resource is I18nResource {
   if (!resource) {
-    throw new Error('[i18n] PageI18nController: resource not loaded. Call load() before mount/register.');
+    throw new Error(
+      '[i18n] PageI18nController: resource not loaded. Call load() before mount/register.'
+    );
   }
 }
 
@@ -52,28 +54,28 @@ function isMessageKey(value: string | null): value is keyof Messages {
 function scanStaticBindings(root: ParentNode, binder: I18nBinder): Array<I18nBindingHandle> {
   const handles: Array<I18nBindingHandle> = [];
 
-  root.querySelectorAll<HTMLElement>('[data-i18n]').forEach(element => {
+  root.querySelectorAll<HTMLElement>('[data-i18n]').forEach((element) => {
     const key = element.getAttribute('data-i18n');
     if (isMessageKey(key)) {
       handles.push(binder.bindText(element, key));
     }
   });
 
-  root.querySelectorAll<HTMLElement>('[data-i18n-html]').forEach(element => {
+  root.querySelectorAll<HTMLElement>('[data-i18n-html]').forEach((element) => {
     const key = element.getAttribute('data-i18n-html');
     if (isMessageKey(key)) {
       handles.push(binder.bindHtml(element, key));
     }
   });
 
-  root.querySelectorAll<HTMLElement>('[data-i18n-placeholder]').forEach(element => {
+  root.querySelectorAll<HTMLElement>('[data-i18n-placeholder]').forEach((element) => {
     const key = element.getAttribute('data-i18n-placeholder');
     if (isMessageKey(key)) {
       handles.push(binder.bindAttr(element, 'placeholder', key));
     }
   });
 
-  root.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach(element => {
+  root.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach((element) => {
     const key = element.getAttribute('data-i18n-title');
     if (isMessageKey(key)) {
       handles.push(binder.bindAttr(element, 'title', key));
@@ -134,13 +136,13 @@ export function createPageI18nController(deps: PageI18nControllerDependencies): 
 
   return {
     async load(languageOverride) {
-      const language = languageOverride ?? await readCurrentLanguage();
+      const language = languageOverride ?? (await readCurrentLanguage());
       await loadResource(language);
     },
     mount(root) {
       ensureResource(currentResource);
       if (staticHandles.length > 0) {
-        staticHandles.forEach(handle => handle.dispose());
+        staticHandles.forEach((handle) => handle.dispose());
         staticHandles = [];
       }
       staticHandles = scanStaticBindings(root, binder);
@@ -166,7 +168,7 @@ export function createPageI18nController(deps: PageI18nControllerDependencies): 
       updateDynamicMessages(resolvedLanguage);
     },
     dispose() {
-      staticHandles.forEach(handle => handle.dispose());
+      staticHandles.forEach((handle) => handle.dispose());
       staticHandles = [];
       bindingAdapter.clear();
       currentResource = null;

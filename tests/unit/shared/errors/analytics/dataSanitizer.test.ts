@@ -10,7 +10,8 @@ import { ErrorSeverity, type AppError } from '@shared/errors/types';
 
 describe('dataSanitizer', () => {
   it('redacts sensitive values from plain strings', () => {
-    const input = 'email test@example.com ip 127.0.0.1 user:alice ssn 123-45-6789 card 4111 1111 1111 1111';
+    const input =
+      'email test@example.com ip 127.0.0.1 user:alice ssn 123-45-6789 card 4111 1111 1111 1111';
     const sanitized = sanitizeString(input);
 
     expect(sanitized).toContain('[EMAIL_REDACTED]');
@@ -40,7 +41,9 @@ describe('dataSanitizer', () => {
     expect((context.nested as Record<string, unknown>).step).toBe('parse');
     expect(Array.isArray(context.items)).toBe(true);
     expect(String((context.items as unknown[])[0])).toContain('[USERNAME_REDACTED]');
-    expect(String(((context.items as unknown[])[1] as Record<string, unknown>).path)).toContain('[PATH_REDACTED]');
+    expect(String(((context.items as unknown[])[1] as Record<string, unknown>).path)).toContain(
+      '[PATH_REDACTED]'
+    );
   });
 
   it('sanitizes app errors for analytics payloads', () => {

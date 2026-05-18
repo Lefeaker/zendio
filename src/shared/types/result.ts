@@ -1,6 +1,6 @@
 /**
  * Result type for safe error handling.
- * 
+ *
  * This type represents the result of an operation that can either succeed or fail.
  * It's used throughout the platform layer to provide consistent error handling.
  */
@@ -54,7 +54,10 @@ export function mapError<T, E, F>(result: Result<T, E>, fn: (error: E) => F): Re
   return isFailure(result) ? failure(fn(result.error)) : result;
 }
 
-export function flatMap<T, U, E>(result: Result<T, E>, fn: (data: T) => Result<U, E>): Result<U, E> {
+export function flatMap<T, U, E>(
+  result: Result<T, E>,
+  fn: (data: T) => Result<U, E>
+): Result<U, E> {
   return isSuccess(result) ? fn(result.data) : result;
 }
 
@@ -87,7 +90,10 @@ export interface ChromeApiError {
   readonly originalError?: chrome.runtime.LastError;
 }
 
-export function createChromeApiError(message: string, originalError?: chrome.runtime.LastError): ChromeApiError {
+export function createChromeApiError(
+  message: string,
+  originalError?: chrome.runtime.LastError
+): ChromeApiError {
   if (originalError !== undefined) {
     return {
       code: 'CHROME_API_ERROR',
@@ -107,21 +113,25 @@ export async function fromChromeApi<T>(
 ): Promise<Result<T, ChromeApiError>> {
   try {
     const data = await apiCall();
-    
+
     // Check for Chrome runtime errors
     if (chrome.runtime.lastError) {
-      return failure(createChromeApiError(
-        chrome.runtime.lastError.message || 'Unknown Chrome API error',
-        chrome.runtime.lastError
-      ));
+      return failure(
+        createChromeApiError(
+          chrome.runtime.lastError.message || 'Unknown Chrome API error',
+          chrome.runtime.lastError
+        )
+      );
     }
-    
+
     return success(data);
   } catch (error) {
-    return failure(createChromeApiError(
-      error instanceof Error ? error.message : String(error),
-      chrome.runtime.lastError
-    ));
+    return failure(
+      createChromeApiError(
+        error instanceof Error ? error.message : String(error),
+        chrome.runtime.lastError
+      )
+    );
   }
 }
 
@@ -132,10 +142,14 @@ export function wrapChromeCallback<T>(
   return new Promise((resolve) => {
     apiCall((result) => {
       if (chrome.runtime.lastError) {
-        resolve(failure(createChromeApiError(
-          chrome.runtime.lastError.message || 'Unknown Chrome API error',
-          chrome.runtime.lastError
-        )));
+        resolve(
+          failure(
+            createChromeApiError(
+              chrome.runtime.lastError.message || 'Unknown Chrome API error',
+              chrome.runtime.lastError
+            )
+          )
+        );
       } else {
         resolve(success(result));
       }

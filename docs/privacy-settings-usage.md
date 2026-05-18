@@ -65,16 +65,18 @@
 ### 开发者操作
 
 1. **配置 Google Analytics**
+
    ```typescript
    // 在 src/shared/errors/analytics/analyticsConfig.ts 中
    export const GA4_CONFIG = {
      MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID',
-     API_SECRET: 'YOUR_API_SECRET',
+     API_SECRET: 'YOUR_API_SECRET'
      // ...
    };
    ```
 
 2. **初始化错误分析**
+
    ```typescript
    // 在扩展启动时
    import { initializeErrorAnalytics } from './shared/errors/analytics';
@@ -82,10 +84,11 @@
    ```
 
 3. **使用标准化错误码**
+
    ```typescript
    import { STANDARDIZED_ERROR_CODES } from './shared/errors/errorCodes';
    import { handleError } from './shared/errors';
-   
+
    await handleError({
      code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN,
      domain: 'extraction',
@@ -187,10 +190,11 @@ AiiinOB/
 ### 调试工具
 
 1. **浏览器控制台**
+
    ```javascript
    // 检查隐私设置状态
    chrome.storage.local.get(['analytics_user_consent'], console.log);
-   
+
    // 检查错误分析状态
    console.log('Analytics status:', getErrorAnalyticsStatus());
    ```

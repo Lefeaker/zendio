@@ -12,15 +12,23 @@ describe('gemini parser', () => {
   });
 
   it('returns empty result when no gemini messages exist', async () => {
-    const { geminiParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
-    const doc = new DOMParser().parseFromString('<html><head><title>Gemini - Empty</title></head><body></body></html>', 'text/html');
+    const { geminiParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
+    );
+    const doc = new DOMParser().parseFromString(
+      '<html><head><title>Gemini - Empty</title></head><body></body></html>',
+      'text/html'
+    );
     const result = geminiParser.parse(doc);
     expect(result.messages).toEqual([]);
   });
 
   it('parses user and assistant messages and strips gemini title prefix', async () => {
-    const { geminiParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
-    const doc = new DOMParser().parseFromString(`
+    const { geminiParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
       <html>
         <head><title>Gemini - Planning Chat</title></head>
         <body>
@@ -28,7 +36,9 @@ describe('gemini parser', () => {
           <model-response><message-content><p>General Kenobi</p></message-content></model-response>
         </body>
       </html>
-    `, 'text/html');
+    `,
+      'text/html'
+    );
     const result = geminiParser.parse(doc);
     expect(result.title).toBe('Planning Chat');
     expect(result.messages).toHaveLength(2);
@@ -38,8 +48,13 @@ describe('gemini parser', () => {
   });
 
   it('supports pure deep research mode fallback', async () => {
-    const { geminiParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
-    const doc = new DOMParser().parseFromString('<html><body><model-response><div>No report</div></model-response></body></html>', 'text/html');
+    const { geminiParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
+    );
+    const doc = new DOMParser().parseFromString(
+      '<html><body><model-response><div>No report</div></model-response></body></html>',
+      'text/html'
+    );
     const result = geminiParser.parse(doc, { deepResearch: { pureMode: true } });
     expect(result.title).toBeDefined();
     expect(Array.isArray(result.messages)).toBe(true);

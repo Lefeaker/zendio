@@ -231,7 +231,10 @@ describe('ChromeYamlRepository', () => {
       } as CompleteOptions);
 
       await vi.waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith('[ChromeYamlRepository] onChange callback error:', expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          '[ChromeYamlRepository] onChange callback error:',
+          expect.any(Error)
+        );
         expect(healthy).toHaveBeenCalledTimes(1);
       });
 

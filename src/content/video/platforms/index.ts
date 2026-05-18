@@ -7,7 +7,11 @@ import { BilibiliVideoPlatform } from './bilibiliPlatform';
 import { YoutubeVideoPlatform } from './youtubePlatform';
 import type { VideoPlatform } from '../utils';
 
-export { type PlatformSelectionInput, type PlatformSelectionResult, type TimestampBuildContext } from './baseVideoPlatform';
+export {
+  type PlatformSelectionInput,
+  type PlatformSelectionResult,
+  type TimestampBuildContext
+} from './baseVideoPlatform';
 export type { VideoPlatformAdapter, VideoPlatformContext } from './baseVideoPlatform';
 
 export function createVideoPlatformAdapter(

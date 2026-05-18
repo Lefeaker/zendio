@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { captureGlobalSnapshot, restoreGlobalSnapshot, installJsdom } from '../utils/globalTestHelpers';
+import {
+  captureGlobalSnapshot,
+  restoreGlobalSnapshot,
+  installJsdom
+} from '../utils/globalTestHelpers';
 
 describe('article extraction hardening e2e', () => {
   let globalSnapshot: ReturnType<typeof captureGlobalSnapshot>;
@@ -39,7 +43,10 @@ describe('article extraction hardening e2e', () => {
     installJsdom(dom, { includeLocalStorage: false });
 
     const { extractArticle } = await import('../../src/content/extractors/articleExtractor');
-    const clip = await extractArticle(dom.window.document, 'chrome-extension://deadbeef/sample.html');
+    const clip = await extractArticle(
+      dom.window.document,
+      'chrome-extension://deadbeef/sample.html'
+    );
 
     expect(clip.type).toBe('article');
     expect(clip.meta.domain).toBe('deadbeef');

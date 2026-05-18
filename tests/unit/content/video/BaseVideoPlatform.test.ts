@@ -55,7 +55,9 @@ describe('BaseVideoPlatform', () => {
 
   it('returns null when normalized selection text is empty', () => {
     const platform = new BaseVideoPlatform('youtube', createContext(document));
-    expect(platform.resolveSelection({ range: null, selectedText: '   ', selectedHtml: '' })).toBeNull();
+    expect(
+      platform.resolveSelection({ range: null, selectedText: '   ', selectedHtml: '' })
+    ).toBeNull();
   });
 
   it('restores an existing wrapper by id and decorates it', () => {
@@ -80,7 +82,8 @@ describe('BaseVideoPlatform', () => {
     const wrapper = document.createElement('mark');
     const context = createContext(document);
     const decorateHighlight = vi.fn();
-    context.querySelectorDeep = <T extends Element>(_selector: string): T | null => wrapper as unknown as T;
+    context.querySelectorDeep = <T extends Element>(_selector: string): T | null =>
+      wrapper as unknown as T;
     context.decorateHighlight = decorateHighlight;
     const platform = new BaseVideoPlatform('bilibili', context);
 

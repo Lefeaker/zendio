@@ -6,7 +6,9 @@ function isPromiseLike<T>(value: unknown): value is Promise<T> {
 }
 
 export const chromeTabsService: TabsService = {
-  async create(createProperties: chrome.tabs.CreateProperties): Promise<chrome.tabs.Tab | undefined> {
+  async create(
+    createProperties: chrome.tabs.CreateProperties
+  ): Promise<chrome.tabs.Tab | undefined> {
     const chromeApi = ensureChrome();
     return normalizePromise<chrome.tabs.Tab | undefined>((resolve, reject) => {
       try {
@@ -99,7 +101,11 @@ export const chromeTabsService: TabsService = {
     });
   },
 
-  async sendMessage<TResult = unknown>(tabId: number, message: unknown, options?: TabsSendOptions): Promise<TResult> {
+  async sendMessage<TResult = unknown>(
+    tabId: number,
+    message: unknown,
+    options?: TabsSendOptions
+  ): Promise<TResult> {
     const chromeApi = ensureChrome();
     return normalizePromise<TResult>((resolve, reject) => {
       try {
@@ -134,7 +140,11 @@ export const chromeTabsService: TabsService = {
 
   onUpdated(listener) {
     const chromeApi = ensureChrome();
-    const wrapped = (tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => {
+    const wrapped = (
+      tabId: number,
+      changeInfo: chrome.tabs.OnUpdatedInfo,
+      tab: chrome.tabs.Tab
+    ) => {
       try {
         listener(tabId, changeInfo, tab);
       } catch {

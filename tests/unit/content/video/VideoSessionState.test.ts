@@ -13,14 +13,16 @@ describe('VideoSessionState helpers', () => {
     expect(buildVideoHintContext(state)).toEqual({ videoAvailable: false, hasCaptures: false });
 
     state.videoElement = document.createElement('video');
-    state.captures = [{
-      kind: 'timestamp',
-      id: 'timestamp-1',
-      timeSec: 9,
-      comment: '',
-      url: 'https://video.example/watch?t=9',
-      createdAt: 1
-    }];
+    state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 9,
+        comment: '',
+        url: 'https://video.example/watch?t=9',
+        createdAt: 1
+      }
+    ];
 
     expect(buildVideoHintContext(state)).toEqual({ videoAvailable: true, hasCaptures: true });
   });
@@ -80,10 +82,14 @@ describe('VideoSessionState helpers', () => {
       if (!capture.wrapperId) {
         return null;
       }
-      return document.getElementById(capture.wrapperId) as HTMLElement | null;
+      return document.getElementById(capture.wrapperId);
     });
 
     expect(groups.timestamps.map((capture) => capture.id)).toEqual(['timestamp-1', 'timestamp-2']);
-    expect(groups.fragments.map((capture) => capture.id)).toEqual(['fragment-b', 'fragment-a', 'fragment-c']);
+    expect(groups.fragments.map((capture) => capture.id)).toEqual([
+      'fragment-b',
+      'fragment-a',
+      'fragment-c'
+    ]);
   });
 });

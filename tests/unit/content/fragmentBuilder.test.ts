@@ -65,7 +65,12 @@ describe('buildFragmentMarkdown', () => {
         clipper: {
           customFields: [
             { name: 'clip_alias', type: 'text', enabled: true, valuePath: 'title' },
-            { name: 'clip_topics', type: 'array', enabled: true, defaultValue: ['clip', 'research'] }
+            {
+              name: 'clip_topics',
+              type: 'array',
+              enabled: true,
+              defaultValue: ['clip', 'research']
+            }
           ]
         }
       }

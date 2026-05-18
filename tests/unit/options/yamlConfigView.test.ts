@@ -5,8 +5,7 @@ import type { YamlConfigControllerOptions } from '../../../src/ui/domains/yaml-c
 import { YamlConfigView } from '../../../src/ui/domains/yaml-config';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 
-const createMockFn = <T extends (...args: any[]) => any>() =>
-  vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
 
 type ControllerStub = {
   render: ReturnType<typeof createMockFn<(value: YamlConfigOverrides | null) => void>>;

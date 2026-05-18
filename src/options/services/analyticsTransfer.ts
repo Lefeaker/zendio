@@ -8,7 +8,9 @@ export interface AnalyticsTransferPayload {
   debugMode?: boolean;
 }
 
-export async function exportAnalyticsTransferPayload(): Promise<AnalyticsTransferPayload | undefined> {
+export async function exportAnalyticsTransferPayload(): Promise<
+  AnalyticsTransferPayload | undefined
+> {
   const manager = getAnalyticsConfigManager();
   await manager.refreshFromStorage();
 
@@ -35,7 +37,9 @@ export async function exportAnalyticsTransferPayload(): Promise<AnalyticsTransfe
   return undefined;
 }
 
-export async function applyAnalyticsTransferPayload(payload: AnalyticsTransferPayload | undefined): Promise<void> {
+export async function applyAnalyticsTransferPayload(
+  payload: AnalyticsTransferPayload | undefined
+): Promise<void> {
   if (!payload) {
     return;
   }

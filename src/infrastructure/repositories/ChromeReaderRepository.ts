@@ -1,4 +1,8 @@
-import type { IReaderRepository, ReadingClipData, ReadingOptions } from '../../shared/repositories/IReaderRepository';
+import type {
+  IReaderRepository,
+  ReadingClipData,
+  ReadingOptions
+} from '../../shared/repositories/IReaderRepository';
 import type { ClipResult } from '../../shared/repositories/IClipRepository';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
 

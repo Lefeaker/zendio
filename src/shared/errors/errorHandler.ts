@@ -1,9 +1,4 @@
-import {
-  AppError,
-  ErrorReporter,
-  ErrorSeverity,
-  HandleErrorOptions
-} from './types';
+import { AppError, ErrorReporter, ErrorSeverity, HandleErrorOptions } from './types';
 
 type ErrorNotificationBridge = (error: AppError) => Promise<void> | void;
 

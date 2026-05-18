@@ -9,9 +9,5 @@ export {
   getDefaultUi,
   resolveRestUrls
 } from './appConfig';
-export {
-  configProvider,
-  createConfigProvider,
-  loadOverrideFromEnv
-} from './provider';
+export { configProvider, createConfigProvider, loadOverrideFromEnv } from './provider';
 export { DEFAULT_YAML_CONFIG } from './yamlDefaults';

@@ -39,15 +39,17 @@
 #### 1.2 设置配置文件
 
 1. **复制模板文件**：
+
    ```bash
    cp src/shared/errors/analytics/analyticsConfig.template.ts src/shared/errors/analytics/analyticsConfig.ts
    ```
 
 2. **更新配置**：
    在 `src/shared/errors/analytics/analyticsConfig.ts` 中更新你的 Measurement ID：
+
    ```typescript
    export const GA4_CONFIG = {
-     MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID', // 替换为你的实际 Measurement ID
+     MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID' // 替换为你的实际 Measurement ID
      // ... 其他配置保持不变
    };
    ```
@@ -70,7 +72,7 @@ async function initializeExtension() {
   try {
     // 初始化错误分析系统
     await initializeErrorAnalytics();
-    
+
     // 其他初始化代码...
   } catch (error) {
     console.error('Extension initialization failed:', error);
@@ -110,7 +112,7 @@ export const oldErrors = {
   extractionFailed(): AppError {
     return {
       code: 'EXTRACTION_FAILED', // 旧的错误码
-      domain: 'extraction',
+      domain: 'extraction'
       // ...
     };
   }
@@ -123,7 +125,7 @@ export const newErrors = {
   extractionFailed(): AppError {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN, // 标准化错误码
-      domain: 'extraction',
+      domain: 'extraction'
       // ...
     };
   }
@@ -144,19 +146,19 @@ export const newErrors = {
 
 ```typescript
 // 内容提取错误
-EXTRACTION_CONTENT_NO_MARKDOWN      // 内容提取未产生 Markdown
-EXTRACTION_SELECTION_NO_SELECTION   // 未找到有效选区
-EXTRACTION_CONTENT_UNSUPPORTED      // 不支持的内容类型
+EXTRACTION_CONTENT_NO_MARKDOWN; // 内容提取未产生 Markdown
+EXTRACTION_SELECTION_NO_SELECTION; // 未找到有效选区
+EXTRACTION_CONTENT_UNSUPPORTED; // 不支持的内容类型
 
 // 网络请求错误
-REST_NETWORK_REQUEST_FAILED         // 网络请求失败
-REST_NETWORK_TIMEOUT                // 请求超时
-REST_VALIDATION_UNEXPECTED_RESPONSE // 意外的响应格式
+REST_NETWORK_REQUEST_FAILED; // 网络请求失败
+REST_NETWORK_TIMEOUT; // 请求超时
+REST_VALIDATION_UNEXPECTED_RESPONSE; // 意外的响应格式
 
 // Chrome API 错误
-CHROME_API_PERMISSION_DENIED        // 权限被拒绝
-CHROME_API_RUNTIME_ERROR           // 运行时错误
-CHROME_API_STORAGE_ACCESS_DENIED   // 存储访问被拒绝
+CHROME_API_PERMISSION_DENIED; // 权限被拒绝
+CHROME_API_RUNTIME_ERROR; // 运行时错误
+CHROME_API_STORAGE_ACCESS_DENIED; // 存储访问被拒绝
 ```
 
 ### 创建新错误码
@@ -190,7 +192,9 @@ const newErrorCode = generateErrorCode('content', 'RENDERING', 'UI_FAILED');
 ```typescript
 import { validateSanitization, generateSanitizationReport } from '../analytics/dataSanitizer';
 
-const originalError = { /* 包含敏感信息的错误 */ };
+const originalError = {
+  /* 包含敏感信息的错误 */
+};
 const sanitizedError = sanitizeErrorForAnalytics(originalError);
 
 // 验证匿名化

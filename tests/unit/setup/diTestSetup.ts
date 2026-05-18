@@ -26,14 +26,14 @@ import { createUsageStatsStore } from '../../../src/background/services/usageSta
  */
 export function createTestRegistryWithDefaults(): ServiceRegistry {
   const testRegistry = createTestRegistry();
-  
+
   // 注册常用的mock服务
   testRegistry.register(TOKENS.platformServices, createMockPlatformServices);
   testRegistry.register(TOKENS.errorHandler, createMockErrorHandler);
   testRegistry.register(TOKENS.globalStateManager, createMockGlobalStateManager);
   testRegistry.register(TOKENS.usageStatsStore, createMockUsageStatsStore);
   testRegistry.register(TOKENS.dialogRegistry, createMockDialogRegistry);
-  
+
   return testRegistry;
 }
 
@@ -90,12 +90,12 @@ export async function withIsolatedDI<T>(
       originalServices.set(token, registry.resolve(token));
     }
   }
-  
+
   try {
     // 重置并设置测试环境
     resetGlobalRegistry();
     setupDIForTest();
-    
+
     // 注册自定义服务
     if (customServices) {
       for (const token of Object.getOwnPropertySymbols(customServices)) {
@@ -105,7 +105,7 @@ export async function withIsolatedDI<T>(
         }
       }
     }
-    
+
     // 运行测试
     return await testFn();
   } finally {
@@ -120,9 +120,11 @@ export async function withIsolatedDI<T>(
 /**
  * 创建用于特定测试场景的注册表
  */
-export function createScenarioRegistry(scenario: 'background' | 'content' | 'options'): ServiceRegistry {
+export function createScenarioRegistry(
+  scenario: 'background' | 'content' | 'options'
+): ServiceRegistry {
   const testRegistry = createTestRegistry();
-  
+
   switch (scenario) {
     case 'background':
       // 背景页场景：包含所有服务
@@ -131,7 +133,7 @@ export function createScenarioRegistry(scenario: 'background' | 'content' | 'opt
       testRegistry.register(TOKENS.globalStateManager, createMockGlobalStateManager);
       testRegistry.register(TOKENS.usageStatsStore, createMockUsageStatsStore);
       break;
-      
+
     case 'content':
       // 内容脚本场景：包含UI相关服务
       testRegistry.register(TOKENS.platformServices, createMockPlatformServices);
@@ -139,7 +141,7 @@ export function createScenarioRegistry(scenario: 'background' | 'content' | 'opt
       testRegistry.register(TOKENS.globalStateManager, createMockGlobalStateManager);
       testRegistry.register(TOKENS.dialogRegistry, createMockDialogRegistry);
       break;
-      
+
     case 'options':
       // 选项页场景：不包含使用统计等背景页服务
       testRegistry.register(TOKENS.platformServices, createMockPlatformServices);
@@ -147,7 +149,7 @@ export function createScenarioRegistry(scenario: 'background' | 'content' | 'opt
       testRegistry.register(TOKENS.globalStateManager, createMockGlobalStateManager);
       break;
   }
-  
+
   return testRegistry;
 }
 
@@ -167,7 +169,9 @@ export function assertDIState(expectedTokens: symbol[]): void {
  */
 export function getTestService<T>(token: symbol): T {
   if (!registry.has(token)) {
-    throw new Error(`Test service ${token.toString()} not registered. Call setupDIForTest() first.`);
+    throw new Error(
+      `Test service ${token.toString()} not registered. Call setupDIForTest() first.`
+    );
   }
   return registry.resolve<T>(token);
 }

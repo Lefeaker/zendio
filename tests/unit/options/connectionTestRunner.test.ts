@@ -69,12 +69,17 @@ describe('connectionTestRunner', () => {
 
       // 验证结果显示
       expect(mockResult.hidden).toBe(false);
-      expect(mockResult.className).toBe('aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-success)_65%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-success)_18%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-success)_80%,black)] flex gap-2 leading-relaxed items-start');
+      expect(mockResult.className).toBe(
+        'aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-success)_65%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-success)_18%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-success)_80%,black)] flex gap-2 leading-relaxed items-start'
+      );
       expect(mockResult.textContent).toBe('连接成功');
 
       // 验证钩子被调用
       expect(onBeforeRun).toHaveBeenCalledOnce();
-      expect(onAfterRun).toHaveBeenCalledWith(expect.objectContaining({ success: true }), undefined);
+      expect(onAfterRun).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+        undefined
+      );
     });
 
     it('handles failed connection test', async () => {
@@ -100,7 +105,9 @@ describe('connectionTestRunner', () => {
 
       // 验证错误结果显示
       expect(mockResult.hidden).toBe(false);
-      expect(mockResult.className).toBe('aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start');
+      expect(mockResult.className).toBe(
+        'aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start'
+      );
       expect(mockResult.textContent).toContain('连接失败: Internal Server Error');
       expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
     });
@@ -125,7 +132,9 @@ describe('connectionTestRunner', () => {
 
       // 验证异常结果显示
       expect(mockResult.hidden).toBe(false);
-      expect(mockResult.className).toBe('aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start');
+      expect(mockResult.className).toBe(
+        'aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start'
+      );
       expect(mockResult.textContent).toContain('连接失败: 网络错误');
       expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
 
@@ -188,7 +197,9 @@ describe('connectionTestRunner', () => {
 
       // 验证测试期间显示测试中消息
       expect(resultTextWhenRunning).toBe('正在测试连接...');
-      expect(resultClassWhenRunning).toBe('aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start');
+      expect(resultClassWhenRunning).toBe(
+        'aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start'
+      );
     });
 
     it('supports custom result renderer', async () => {
@@ -260,7 +271,9 @@ describe('connectionTestRunner', () => {
       expect(mockButton.disabled).toBe(false);
       expect(mockResult.hidden).toBe(true);
       expect(mockResult.textContent).toBe('');
-      expect(mockResult.className).toBe('aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start');
+      expect(mockResult.className).toBe(
+        'aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start'
+      );
       expect(mockResult.getAttribute('aria-live')).toBe('polite');
     });
 
@@ -289,7 +302,9 @@ describe('connectionTestRunner', () => {
 
       expect(mockResult.hidden).toBe(true);
       expect(mockResult.textContent).toBe('');
-      expect(mockResult.className).toBe('aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start');
+      expect(mockResult.className).toBe(
+        'aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start'
+      );
     });
   });
 });

@@ -1,4 +1,9 @@
-import type { RuntimeInstallDetails, RuntimeInstallListener, RuntimeService, RuntimeStartupListener } from '../interfaces/runtime';
+import type {
+  RuntimeInstallDetails,
+  RuntimeInstallListener,
+  RuntimeService,
+  RuntimeStartupListener
+} from '../interfaces/runtime';
 import { ensureChrome, getChromeLastError, normalizePromise } from './utils';
 
 function toInstallDetails(details: chrome.runtime.InstalledDetails): RuntimeInstallDetails {

@@ -49,7 +49,9 @@ describe('options messages i18n behavior', () => {
       messages: { importSuccess: 'Imported successfully' }
     });
 
-    const { showTransferMessage, clearTransferMessage } = await import('../../../src/options/components/messages');
+    const { showTransferMessage, clearTransferMessage } = await import(
+      '../../../src/options/components/messages'
+    );
     showTransferMessage('success', { key: 'importSuccess', text: 'Imported successfully' });
 
     expect(binderMock.bindText).toHaveBeenCalledWith(expect.any(HTMLElement), 'importSuccess');

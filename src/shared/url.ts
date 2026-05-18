@@ -16,7 +16,9 @@ export function tryParseUrl(
   fallback?: string,
   allowedProtocols: ReadonlySet<string> = ALLOWED_URL_PROTOCOLS
 ): ParsedUrl | undefined {
-  const candidates = [rawUrl, fallback].filter((candidate): candidate is string => Boolean(candidate));
+  const candidates = [rawUrl, fallback].filter((candidate): candidate is string =>
+    Boolean(candidate)
+  );
   for (const candidate of candidates) {
     try {
       const parsed = new URL(candidate);

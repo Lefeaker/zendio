@@ -1,6 +1,7 @@
 # 三个插件代码逻辑拆解
 
 本文对仓库中的三款浏览器插件进行代码层面的拆解，帮助快速理解它们的整体架构、关键流程与核心模块。三个目录分别是：
+
 - `markdownload`（MarkDownload - Markdown Web Clipper）
 - `chatgpt-to-markdown`（ChatGPT to Markdown）
 - `obsidian-clipper`（Obsidian Web Clipper）
@@ -13,6 +14,7 @@
 - 技术点：WebExtension API、Readability 内容提取、Turndown HTML→Markdown、自定义 Turndown 规则、后台脚本统一调度。
 
 ### 架构与关键文件
+
 - 后台脚本：`markdownload/src/background/background.js:1`
 - 内容脚本：`markdownload/src/contentScript/contentScript.js:1`
 - 前端弹窗：`markdownload/src/popup/popup.html:1`、`markdownload/src/popup/popup.js:1`
@@ -20,6 +22,7 @@
 - Readability 与 Turndown：`markdownload/src/background/Readability.js:1`、`markdownload/src/background/turndown.js:1`
 
 ### 主要流程
+
 1. 触发动作
    - 通过右键菜单、快捷键或弹窗发起剪藏。上下文事件在后台处理：`markdownload/src/background/background.js:540` 之后的 contextMenus 与 commands。
 2. 获取网页 DOM
@@ -43,6 +46,7 @@
    - 下载图片前先用 XHR 拿 blob 判定 MIME → 扩展名，修正 `.idunno`：`markdownload/src/background/background.js:470` 起。
 
 ### 选项与动态占位
+
 - 文件名、图片名、模板的动态变量替换：`textReplace()` 可处理日期格式、`{keywords:sep}`、大小写/命名风格等：`markdownload/src/background/background.js:246` 起。
 
 ---
@@ -53,6 +57,7 @@
 - 技术点：MV3 Service Worker 注入脚本、直接遍历 DOM 节点生成 Markdown、简单标签转义、代码块/列表/表格处理、自带文件保存（Blob+a.click）。
 
 ### 架构与关键文件
+
 - 背景脚本：`chatgpt-to-markdown/background.js:1`（仅在 ChatGPT 域名注入执行脚本）
 - 主逻辑入口：`chatgpt-to-markdown/src/chatGptToMarkdown.js:1`
 - DOM 解析工具：
@@ -62,6 +67,7 @@
   - 保存文件：`chatgpt-to-markdown/src/utils/consoleSave.js:1`
 
 ### 主要流程
+
 1. 触发与注入
    - 点击扩展图标或快捷键后，背景脚本校验 URL 并注入打包后的脚本 `dist/minimizedChatGptToMarkdown.js`：`chatgpt-to-markdown/background.js:11`。
 2. DOM 抓取
@@ -78,11 +84,12 @@
    - 通过 `consoleSave(console, 'md')` 注册 `console.save()` 并以页面 `<title>` 生成文件名，创建 Blob 触发下载：`src/utils/consoleSave.js:22`。
 
 ### 界面内容格式化细节（gpt-to-markdown）
+
 - 元素选择与入口：页面注入后选取 ChatGPT 对话块 `document.querySelectorAll("[class*='min-h-[20px]']")`，逐个交给 `parseNode(firstChild, level=0)`：`chatgpt-to-markdown/src/chatGptToMarkdown.js:4`、`src/utils/parseElements.js:1`。
 - 问答分段：
   - 若块 `className == 'empty:hidden'`，插入分隔线与 `# _Question_` 标题。
   - 若包含 `markdown prose`，插入 `# _Answer_` 标题：`src/utils/parseNode.js:20` 起。
-- 行内格式：`replaceString()` 将 `<strong>/<em>/<del>/<code>` 转 `**/_/~~/\``；`<a>` 先被 `convertUrlToMarkdown()` 转 `[text](url)`，再提取纯文本，避免残留标签：`src/utils/replaceString.js:1`。
+- 行内格式：`replaceString()` 将 `<strong>/<em>/<del>/<code>` 转 `**/_/~~/\``；`<a>`先被`convertUrlToMarkdown()`转`[text](url)`，再提取纯文本，避免残留标签：`src/utils/replaceString.js:1`。
 - 引用块：`parseBlockQuote()` 递归解析并通过 `blockQuoteUtils` 生成 `> ` 前缀、去重多余前缀、修正结尾：`src/utils/blockQuoteUtils.js:1`。
 - 列表：
   - 有序 `<ol>` 使用 `start` 属性与索引生成 `1. / 2. ...`；无序 `<ul>` 使用 `- `。
@@ -99,6 +106,7 @@
 - 技术点：TypeScript + WebExtension API、多浏览器（Chrome/Firefox/Safari）打包、Defuddle 抽取结构化内容、Turndown 深度定制（表格/数学/嵌入/Callout）、模板语言（变量/选择器/schema/prompt/for 循环）、高亮持久化与渲染、侧栏/嵌入面板。
 
 ### 架构与关键文件
+
 - 背景页（事件与状态中枢）：`obsidian-clipper/src/background.ts:1`
 - 内容脚本（页面侧逻辑/高亮/内嵌面板）：`obsidian-clipper/src/content.ts:1`
 - Markdown 转换：`obsidian-clipper/src/utils/markdown-converter.ts:1`
@@ -107,6 +115,7 @@
 - 其他工具：选择器/过滤器/字符串/日期等 `obsidian-clipper/src/utils/*`
 
 ### 主要流程
+
 1. 注入与上下文菜单
    - 安装/激活后创建上下文菜单，按页/选区/媒体提供“保存”“高亮”等命令：`obsidian-clipper/src/background.ts:620` 起。
    - 针对不同浏览器做兼容，监听活动标签页切换与加载完成，动态刷新菜单/高亮：`obsidian-clipper/src/background.ts:548` 起。
@@ -142,6 +151,7 @@
    - 注入 `reader.css` + `reader-script.js`，通过消息切换阅读模式：`obsidian-clipper/src/background.ts:715` 起、`obsidian-clipper/src/content.ts:309` 起。
 
 ### 通信技术与事件流（obsidian-clipper）
+
 - 统一封装：使用 `webextension-polyfill` 提供的 `browser.*` API 做跨浏览器兼容。
 - 背景 ↔ 内容脚本：
   - 消息：`browser.runtime.onMessage.addListener` + `browser.tabs.sendMessage`；动作如 `toggle-iframe`、`paintHighlights`、`setHighlighterMode`、`copy-text-to-clipboard` 等：`obsidian-clipper/src/background.ts:520, 585, 612`；`obsidian-clipper/src/content.ts:97, 200`。
@@ -158,6 +168,7 @@
 ---
 
 ## 对比与取舍建议
+
 - 若仅需“把网页/选区变成 Markdown 并下载/复制”，`markdownload` 足够，图片下载/重命名规则很完善。
 - 若仅在 ChatGPT 导出会话，`chatgpt-to-markdown` 体量最小、逻辑清晰，按页面结构直出 Markdown。
 - 若需要模板、结构化字段、阅读视图、与 Obsidian 紧密协作（含高亮、侧面板、URI 写入、多浏览器支持），选 `obsidian-clipper`。
@@ -165,6 +176,7 @@
 ---
 
 ## 可扩展点（示例）
+
 - markdownload：
   - 在 `turndown()` 中新增自定义规则（例如 callout、任务列表）或增强图片命名策略。
 - chatgpt-to-markdown：
@@ -182,11 +194,13 @@
 - 技术点：纯前端用户脚本（Tampermonkey/Greasemonkey）注入，内联自定义 Turndown 实现 HTML→Markdown，多站点 DOM 选择器适配，UI 悬浮控制面板与大纲、选择导出、文件名模板、局部状态存储（GM_getValue/GM_setValue）。
 
 ### 架构与关键文件
+
 - 用户脚本主文件：`ai-chat-exporter/ai-chat-exporter.user.js:1`
 - 测试脚本与演示：`ai-chat-exporter/test-ai-chat-exporter.user.js:1`、`ai-chat-exporter/sample.md:1`
 - 文档与参考 DOM：`ai-chat-exporter/README.md:1`、`ai-chat-exporter/reference-html-dom/*`
 
 ### 主要流程
+
 1. 站点识别与常量配置
    - 基于 `window.location.hostname` 判定平台：ChatGPT/Claude/Copilot/Gemini：`ai-chat-exporter/ai-chat-exporter.user.js:236` 起。
    - 针对每站点配置标题清洗、消息容器选择器、语言标识位置与特殊 UI 节点：`ai-chat-exporter/ai-chat-exporter.user.js:224` 起。
@@ -220,6 +234,7 @@
    - 通过 Blob + a.click 触发下载；支持选择导出 Markdown 或 JSON：`downloadFile()` 于 `ai-chat-exporter/ai-chat-exporter.user.js:407`。
 
 ### 与现有三个插件的差异与互补
+
 - 运行形态：UserScript（无需打包/上架），注入于目标站点；相比浏览器扩展，更轻量但缺少扩展级权限与后台通信。
 - 站点适配：面向四家平台的 DOM 差异做了细粒度规则；相比 `chatgpt-to-markdown` 仅针对 ChatGPT，适配范围更广。
 - 输出结构：附带 YAML Frontmatter 与 TOC、“返回顶部”导航；相比 `markdownload` 的通用网页剪藏，此脚本更聚焦对话语义结构。

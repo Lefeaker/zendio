@@ -9,7 +9,9 @@ import { ensureFirefox } from './utils';
 type FirefoxOnInstalledListener = Parameters<typeof browser.runtime.onInstalled.addListener>[0];
 type FirefoxOnStartupListener = Parameters<typeof browser.runtime.onStartup.addListener>[0];
 
-function mapInstallDetails(details: Parameters<FirefoxOnInstalledListener>[0]): RuntimeInstallDetails {
+function mapInstallDetails(
+  details: Parameters<FirefoxOnInstalledListener>[0]
+): RuntimeInstallDetails {
   const mapped: RuntimeInstallDetails = {};
   if (details.reason !== undefined) {
     mapped.reason = details.reason as Exclude<RuntimeInstallDetails['reason'], undefined>;

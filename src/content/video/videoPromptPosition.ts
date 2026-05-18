@@ -75,8 +75,14 @@ export function computeDockedPlacement({
   viewportWidth,
   viewportHeight
 }: DockedPlacementInput): DockedPlacement {
-  const maxLeft = Math.max(DRAG_BOUNDARY_PADDING, viewportWidth - elementWidth - DRAG_BOUNDARY_PADDING);
-  const maxTop = Math.max(DRAG_BOUNDARY_PADDING, viewportHeight - elementHeight - DRAG_BOUNDARY_PADDING);
+  const maxLeft = Math.max(
+    DRAG_BOUNDARY_PADDING,
+    viewportWidth - elementWidth - DRAG_BOUNDARY_PADDING
+  );
+  const maxTop = Math.max(
+    DRAG_BOUNDARY_PADDING,
+    viewportHeight - elementHeight - DRAG_BOUNDARY_PADDING
+  );
   const dockLeft = Math.max(DRAG_BOUNDARY_PADDING, EDGE_MARGIN);
   const dockRight = Math.max(DRAG_BOUNDARY_PADDING, EDGE_MARGIN);
 
@@ -100,7 +106,11 @@ export function computeDockedPlacement({
     };
   }
 
-  const snappedLeft = clamp(viewportWidth - elementWidth - dockRight, DRAG_BOUNDARY_PADDING, maxLeft);
+  const snappedLeft = clamp(
+    viewportWidth - elementWidth - dockRight,
+    DRAG_BOUNDARY_PADDING,
+    maxLeft
+  );
   const rightOffset = Math.max(DRAG_BOUNDARY_PADDING, viewportWidth - snappedLeft - elementWidth);
   return {
     side: 'right',

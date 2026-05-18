@@ -25,10 +25,12 @@ This appendix inventories boundary payloads and call sites tightened in Phase 5 
   - Schema: `ClassificationRequestSchema` in `src/shared/schemas/classification.schema.ts`.
 
 Call sites map
+
 - Message listener → Clip pipeline: `src/background/listeners/runtimeMessages.ts` (safeParse inbound `ClipPayload`).
 - Classification service → LLM: `src/background/services/classificationService.ts` (parse fallback result; parse normalized success/error result).
 
 Guidelines
+
 - Keep cross-context schemas `.passthrough()`.
 - Avoid over-tightening (no `url()` enforcement yet).
 - Prefer `safeParse` at boundaries; use `parse` for internal construction/normalization.

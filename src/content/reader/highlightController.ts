@@ -18,7 +18,12 @@ export class ReaderHighlightController {
 
   constructor(private readonly options: ReaderHighlightControllerOptions) {}
 
-  addHighlightFromRange(range: Range, selectedHtml: string, selectedText: string, comment: string): void {
+  addHighlightFromRange(
+    range: Range,
+    selectedHtml: string,
+    selectedText: string,
+    comment: string
+  ): void {
     const highlightId = `aiob-reader-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const fragmentUrl = generateTextFragmentUrl(this.options.url, selectedText);
 
@@ -40,7 +45,12 @@ export class ReaderHighlightController {
     this.syncPanel('panel');
   }
 
-  ingestExternalHighlight(range: Range, selectedHtml: string, selectedText: string, comment: string): void {
+  ingestExternalHighlight(
+    range: Range,
+    selectedHtml: string,
+    selectedText: string,
+    comment: string
+  ): void {
     this.addHighlightFromRange(range, selectedHtml, selectedText, comment);
   }
 
@@ -127,8 +137,10 @@ export class ReaderHighlightController {
       window.clearTimeout(this.highlightFocusTimeout);
       this.highlightFocusTimeout = null;
     }
-    this.options.doc.querySelectorAll<HTMLElement>('.aiob-reader-highlight--focus').forEach((element) => {
-      element.classList.remove('aiob-reader-highlight--focus');
-    });
+    this.options.doc
+      .querySelectorAll<HTMLElement>('.aiob-reader-highlight--focus')
+      .forEach((element) => {
+        element.classList.remove('aiob-reader-highlight--focus');
+      });
   }
 }

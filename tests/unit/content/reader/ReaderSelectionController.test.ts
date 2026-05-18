@@ -17,7 +17,10 @@ function createConfig(overrides: Partial<FragmentClipperOptions> = {}): Fragment
   };
 }
 
-function installSelection(text = 'Hello world'): { selection: Selection; removeAllRanges: ReturnType<typeof vi.fn> } {
+function installSelection(text = 'Hello world'): {
+  selection: Selection;
+  removeAllRanges: ReturnType<typeof vi.fn>;
+} {
   document.body.innerHTML = `<p id="source">${text}</p>`;
   const node = document.getElementById('source')?.firstChild;
   if (!(node instanceof Text)) throw new Error('missing source text');
@@ -58,7 +61,9 @@ describe('ReaderSelectionController', () => {
     document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
 
-    expect(onSelectionReady).toHaveBeenCalledWith(expect.objectContaining({ selectedText: 'Important quote' }));
+    expect(onSelectionReady).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedText: 'Important quote' })
+    );
     expect(removeAllRanges).toHaveBeenCalled();
   });
 
@@ -86,7 +91,10 @@ describe('ReaderSelectionController', () => {
     const onSelectionReady = vi.fn();
     const controller = new ReaderSelectionController({
       doc: document,
-      fragmentConfig: createConfig({ selectionModifierEnabled: true, selectionModifierKeys: ['shift'] as never }),
+      fragmentConfig: createConfig({
+        selectionModifierEnabled: true,
+        selectionModifierKeys: ['shift'] as never
+      }),
       canHandleSelection: () => true,
       isNodeInsideUi: () => false,
       onSelectionReady
@@ -97,7 +105,9 @@ describe('ReaderSelectionController', () => {
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
     expect(onSelectionReady).not.toHaveBeenCalled();
 
-    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, shiftKey: true }));
+    document.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, button: 0, shiftKey: true })
+    );
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, shiftKey: true }));
     expect(onSelectionReady).toHaveBeenCalledTimes(1);
 

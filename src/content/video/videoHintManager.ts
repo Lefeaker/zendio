@@ -1,7 +1,13 @@
 import type { VideoSessionMessages } from './sessionMessages';
 import { BaseHintManager } from '../shared/hints/baseHintManager';
 
-export type VideoHintState = 'ready' | 'noVideo' | 'noCaptures' | 'saving' | 'exporting' | 'failure';
+export type VideoHintState =
+  | 'ready'
+  | 'noVideo'
+  | 'noCaptures'
+  | 'saving'
+  | 'exporting'
+  | 'failure';
 
 export interface VideoHintContext {
   videoAvailable: boolean;

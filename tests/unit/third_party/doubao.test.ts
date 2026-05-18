@@ -8,15 +8,23 @@ describe('doubao parser', () => {
   });
 
   it('returns empty result when no Doubao messages exist', async () => {
-    const { doubaoParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/doubao');
-    const doc = new DOMParser().parseFromString('<html><head><title>豆包</title></head><body></body></html>', 'text/html');
+    const { doubaoParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/doubao'
+    );
+    const doc = new DOMParser().parseFromString(
+      '<html><head><title>豆包</title></head><body></body></html>',
+      'text/html'
+    );
     const result = doubaoParser.parse(doc);
     expect(result.messages).toEqual([]);
   });
 
   it('parses assistant and user Doubao containers and extracts model text', async () => {
-    const { doubaoParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/doubao');
-    const doc = new DOMParser().parseFromString(`
+    const { doubaoParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/doubao'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
       <html>
         <head><title>Project Chat - 豆包</title></head>
         <body>
@@ -25,7 +33,9 @@ describe('doubao parser', () => {
           <div class="message-block-container"><img alt="豆包助手" /><div class="flow-markdown-body"><p>已收到</p></div></div>
         </body>
       </html>
-    `, 'text/html');
+    `,
+      'text/html'
+    );
     const result = doubaoParser.parse(doc);
     expect(result.title).toBe('Project Chat');
     expect(result.model).toBe('豆包 Pro');

@@ -1,8 +1,8 @@
 export function generateTextFragmentUrl(baseUrl: string, selectedText: string): string {
   const paragraphs = selectedText
     .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
 
   let textToUse = '';
   for (const paragraph of paragraphs) {

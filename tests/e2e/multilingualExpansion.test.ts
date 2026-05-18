@@ -36,7 +36,14 @@ async function renderWithLanguage(language: string): Promise<RenderResult> {
     TEMPLATE_HTML,
     {
       url: 'https://options.test/',
-      globals: ['document', 'navigator', 'HTMLElement', 'HTMLInputElement', 'HTMLButtonElement', 'Node']
+      globals: [
+        'document',
+        'navigator',
+        'HTMLElement',
+        'HTMLInputElement',
+        'HTMLButtonElement',
+        'Node'
+      ]
     },
     async ({ window }) => {
       const controller: PageI18nController = createDefaultPageI18nController();
@@ -49,9 +56,11 @@ async function renderWithLanguage(language: string): Promise<RenderResult> {
         return {
           resolvedLanguage: resource?.language ?? null,
           labels: {
-            languageSettings: window.document.getElementById('language-settings')?.textContent?.trim() ?? null,
+            languageSettings:
+              window.document.getElementById('language-settings')?.textContent?.trim() ?? null,
             saveButton: window.document.querySelector('.btn-save')?.textContent?.trim() ?? null,
-            diagnoseButton: window.document.querySelector('.btn-diagnose')?.textContent?.trim() ?? null
+            diagnoseButton:
+              window.document.querySelector('.btn-diagnose')?.textContent?.trim() ?? null
           }
         };
       } finally {

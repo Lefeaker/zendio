@@ -16,10 +16,7 @@ import {
   registerRuntimeMessageListener
 } from './listeners/runtimeMessages';
 import { ensureUsageStatsInitialized } from './services/usageStats';
-import {
-  bootstrapBackgroundDependencies,
-  configureBackgroundDependencyStorage
-} from './bootstrap';
+import { bootstrapBackgroundDependencies, configureBackgroundDependencyStorage } from './bootstrap';
 
 export interface BackgroundStartupDependencies {
   action: ActionService;
@@ -36,15 +33,17 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
   bootstrapBackgroundDependencies();
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
-  registerContextMenuListeners(createContextMenuListenerDependencies({
-    action: dependencies.action,
-    contextMenus: dependencies.contextMenus,
-    runtime: dependencies.runtime,
-    tabs: dependencies.tabs,
-    scripting: dependencies.scripting,
-    messaging: dependencies.messaging,
-    optionsRepository
-  }));
+  registerContextMenuListeners(
+    createContextMenuListenerDependencies({
+      action: dependencies.action,
+      contextMenus: dependencies.contextMenus,
+      runtime: dependencies.runtime,
+      tabs: dependencies.tabs,
+      scripting: dependencies.scripting,
+      messaging: dependencies.messaging,
+      optionsRepository
+    })
+  );
 
   registerRuntimeMessageListener(
     createRuntimeMessageListenerDependencies(
@@ -54,7 +53,7 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
     )
   );
 
-  void ensureUsageStatsInitialized().catch(error => {
+  void ensureUsageStatsInitialized().catch((error) => {
     console.error('[background] Failed to initialize usage stats storage:', error);
   });
 }

@@ -1,4 +1,9 @@
-import type { StorageAreaService, StorageService, StorageChange, StorageChangeCallback } from '../interfaces/storage';
+import type {
+  StorageAreaService,
+  StorageService,
+  StorageChange,
+  StorageChangeCallback
+} from '../interfaces/storage';
 import { ensureChrome, getChromeLastError, normalizePromise } from './utils';
 
 type StorageAreaName = 'sync' | 'local' | 'session';
@@ -144,7 +149,10 @@ function createStorageArea(area: StorageAreaName): StorageAreaService {
       if (!onChanged || typeof onChanged.addListener !== 'function') {
         return () => undefined;
       }
-      const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      const listener = (
+        changes: Record<string, chrome.storage.StorageChange>,
+        areaName: string
+      ) => {
         if (areaName !== area) {
           return;
         }
@@ -170,7 +178,10 @@ function createStorageArea(area: StorageAreaName): StorageAreaService {
       if (!onChanged || typeof onChanged.addListener !== 'function') {
         return () => undefined;
       }
-      const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
+      const listener = (
+        changes: Record<string, chrome.storage.StorageChange>,
+        areaName: string
+      ) => {
         if (areaName !== area) {
           return;
         }

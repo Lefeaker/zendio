@@ -8,22 +8,19 @@ import TurndownService from 'turndown';
  * Apply Obsidian-specific Turndown rules to a TurndownService instance
  */
 export function applyObsidianRules(turndownService: TurndownService): void {
-  
   // Highlight rule (mark -> ==text==)
   turndownService.addRule('highlight', {
     filter: 'mark',
-    replacement: function(content: string) {
+    replacement: function (content: string) {
       return '==' + content + '==';
     }
   });
 
   // Strikethrough rule (del/s/strike -> ~~text~~)
   turndownService.addRule('strikethrough', {
-    filter: (node: Node) => 
-      node.nodeName === 'DEL' || 
-      node.nodeName === 'S' || 
-      node.nodeName === 'STRIKE',
-    replacement: function(content: string) {
+    filter: (node: Node) =>
+      node.nodeName === 'DEL' || node.nodeName === 'S' || node.nodeName === 'STRIKE',
+    replacement: function (content: string) {
       return '~~' + content + '~~';
     }
   });
@@ -38,7 +35,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       const isTaskListItem = node.classList.contains('task-list-item');
       const checkbox = node.querySelector('input[type="checkbox"]');
       let taskListMarker = '';
-      
+
       if (isTaskListItem && checkbox) {
         // Remove the checkbox from content since we'll add markdown checkbox
         content = content.replace(/<input[^>]*>/, '');
@@ -51,7 +48,7 @@ export function applyObsidianRules(turndownService: TurndownService): void {
         // Split into lines
         .split('\n')
         // Remove empty lines
-        .filter(line => line.length > 0)
+        .filter((line) => line.length > 0)
         // Add indentation to continued lines
         .join('\n\t');
 
@@ -61,7 +58,10 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       // Calculate the nesting level
       let level = 0;
       let currentParent = node.parentNode;
-      while (currentParent && (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL')) {
+      while (
+        currentParent &&
+        (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL')
+      ) {
         level++;
         currentParent = currentParent.parentNode;
       }
@@ -76,19 +76,24 @@ export function applyObsidianRules(turndownService: TurndownService): void {
         prefix = '\t'.repeat(level - 1) + (start ? Number(start) + index - 1 : index) + '. ';
       }
 
-      return prefix + taskListMarker + content.trim() + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
+      return (
+        prefix +
+        taskListMarker +
+        content.trim() +
+        (node.nextSibling && !/\n$/.test(content) ? '\n' : '')
+      );
     }
   });
 
   // Enhanced table handling
   turndownService.addRule('table', {
     filter: 'table',
-    replacement: function(content: string, node: Node) {
+    replacement: function (content: string, node: Node) {
       if (!(node instanceof HTMLTableElement)) return content;
 
       // Check if the table has colspan or rowspan
-      const hasComplexStructure = Array.from(node.querySelectorAll('td, th')).some(cell => 
-        cell.hasAttribute('colspan') || cell.hasAttribute('rowspan')
+      const hasComplexStructure = Array.from(node.querySelectorAll('td, th')).some(
+        (cell) => cell.hasAttribute('colspan') || cell.hasAttribute('rowspan')
       );
 
       if (hasComplexStructure) {
@@ -97,12 +102,10 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       }
 
       // Process simple tables as markdown
-      const rows = Array.from(node.rows).map(row => {
-        const cells = Array.from(row.cells).map(cell => {
+      const rows = Array.from(node.rows).map((row) => {
+        const cells = Array.from(row.cells).map((cell) => {
           // Remove newlines and trim the content
-          let cellContent = turndownService.turndown(cell.innerHTML)
-            .replace(/\n/g, ' ')
-            .trim();
+          let cellContent = turndownService.turndown(cell.innerHTML).replace(/\n/g, ' ').trim();
           // Escape pipe characters
           cellContent = cellContent.replace(/\|/g, '\\|');
           return cellContent;
@@ -111,7 +114,9 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       });
 
       // Create the separator row
-      const separatorRow = `| ${Array(rows[0].split('|').length - 2).fill('---').join(' | ')} |`;
+      const separatorRow = `| ${Array(rows[0].split('|').length - 2)
+        .fill('---')
+        .join(' | ')} |`;
 
       // Combine all rows
       const tableContent = [rows[0], separatorRow, ...rows.slice(1)].join('\n');
@@ -123,11 +128,14 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   // Math support (inline and block)
   turndownService.addRule('math', {
     filter: (node: HTMLElement) => {
-      return node.nodeName.toLowerCase() === 'math' || 
-        (node instanceof Element && node.classList && 
-        (node.classList.contains('mwe-math-element') || 
-        node.classList.contains('mwe-math-fallback-image-inline') || 
-        node.classList.contains('mwe-math-fallback-image-display')));
+      return (
+        node.nodeName.toLowerCase() === 'math' ||
+        (node instanceof Element &&
+          node.classList &&
+          (node.classList.contains('mwe-math-element') ||
+            node.classList.contains('mwe-math-fallback-image-inline') ||
+            node.classList.contains('mwe-math-fallback-image-display')))
+      );
     },
     replacement: (content: string, node: Node) => {
       if (!(node instanceof Element)) return content;
@@ -138,7 +146,8 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       if (!latex) return content;
 
       // Determine if it's display math or inline math
-      const isDisplayMath = node.classList.contains('mwe-math-fallback-image-display') ||
+      const isDisplayMath =
+        node.classList.contains('mwe-math-fallback-image-display') ||
         (node instanceof HTMLElement && node.style.display === 'block');
 
       if (isDisplayMath) {
@@ -150,11 +159,15 @@ export function applyObsidianRules(turndownService: TurndownService): void {
         const prevChar = prevNode?.textContent?.slice(-1) || '';
         const nextChar = nextNode?.textContent?.[0] || '';
 
-        const isStartOfLine = !prevNode || (prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent?.trim() === '');
-        const isEndOfLine = !nextNode || (nextNode.nodeType === Node.TEXT_NODE && nextNode.textContent?.trim() === '');
+        const isStartOfLine =
+          !prevNode ||
+          (prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent?.trim() === '');
+        const isEndOfLine =
+          !nextNode ||
+          (nextNode.nodeType === Node.TEXT_NODE && nextNode.textContent?.trim() === '');
 
-        const leftSpace = (!isStartOfLine && prevChar && !/[\s$]/.test(prevChar)) ? ' ' : '';
-        const rightSpace = (!isEndOfLine && nextChar && !/[\s$]/.test(nextChar)) ? ' ' : '';
+        const leftSpace = !isStartOfLine && prevChar && !/[\s$]/.test(prevChar) ? ' ' : '';
+        const rightSpace = !isEndOfLine && nextChar && !/[\s$]/.test(nextChar) ? ' ' : '';
 
         return `${leftSpace}$${latex}$${rightSpace}`;
       }
@@ -164,23 +177,22 @@ export function applyObsidianRules(turndownService: TurndownService): void {
   // Callouts/Alerts (GitHub-style alerts -> Obsidian callouts)
   turndownService.addRule('callout', {
     filter: (node: HTMLElement) => {
-      return (
-        node.nodeName.toLowerCase() === 'div' && 
-        (node).classList.contains('markdown-alert')
-      );
+      return node.nodeName.toLowerCase() === 'div' && node.classList.contains('markdown-alert');
     },
     replacement: (content: string, node: Node) => {
       const element = node as HTMLElement;
-      
+
       // Get alert type from the class (e.g., markdown-alert-note -> NOTE)
       const alertClasses = Array.from(element.classList);
-      const typeClass = alertClasses.find(c => c.startsWith('markdown-alert-') && c !== 'markdown-alert');
+      const typeClass = alertClasses.find(
+        (c) => c.startsWith('markdown-alert-') && c !== 'markdown-alert'
+      );
       const type = typeClass ? typeClass.replace('markdown-alert-', '').toUpperCase() : 'NOTE';
 
       // Find the title element and content
       const titleElement = element.querySelector('.markdown-alert-title');
       const contentElement = element.querySelector('p:not(.markdown-alert-title)');
-      
+
       // Extract content, removing the title from it if present
       let alertContent = content;
       if (titleElement && titleElement.textContent) {
@@ -197,9 +209,9 @@ export function applyObsidianRules(turndownService: TurndownService): void {
     filter: function (node: Node): boolean {
       if (node instanceof HTMLIFrameElement) {
         const src = node.getAttribute('src');
-        return !!src && (
-          !!src.match(/(?:youtube\.com|youtu\.be)/) ||
-          !!src.match(/(?:twitter\.com|x\.com)/)
+        return (
+          !!src &&
+          (!!src.match(/(?:youtube\.com|youtu\.be)/) || !!src.match(/(?:twitter\.com|x\.com)/))
         );
       }
       return false;
@@ -208,11 +220,13 @@ export function applyObsidianRules(turndownService: TurndownService): void {
       if (node instanceof HTMLIFrameElement) {
         const src = node.getAttribute('src');
         if (src) {
-          const youtubeMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/);
+          const youtubeMatch = src.match(
+            /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/
+          );
           if (youtubeMatch) {
             return `[YouTube Video](https://www.youtube.com/watch?v=${youtubeMatch[1]})`;
           }
-          
+
           const twitterMatch = src.match(/(?:twitter\.com|x\.com)/);
           if (twitterMatch) {
             return `[Twitter/X Embed](${src})`;
@@ -225,9 +239,15 @@ export function applyObsidianRules(turndownService: TurndownService): void {
 
   // Remove unwanted elements
   turndownService.remove(['style', 'script', 'button']);
-  
+
   // Keep certain elements as HTML
-  const keepElements: Array<keyof HTMLElementTagNameMap> = ['iframe', 'video', 'audio', 'sup', 'sub'];
+  const keepElements: Array<keyof HTMLElementTagNameMap> = [
+    'iframe',
+    'video',
+    'audio',
+    'sup',
+    'sub'
+  ];
   turndownService.keep(keepElements);
   turndownService.keep((node: HTMLElement) => isSvgElement(node));
 }
@@ -241,21 +261,33 @@ function isSvgElement(node: unknown): node is Element {
   return nodeName.toLowerCase() === 'svg';
 }
 
-
 /**
  * Helper function to clean up table HTML for complex tables
  */
 function cleanupTableHTML(table: HTMLTableElement): string {
-  const allowedAttributes = ['src', 'href', 'style', 'align', 'width', 'height', 'rowspan', 'colspan', 'bgcolor', 'scope', 'valign', 'headers'];
-  
+  const allowedAttributes = [
+    'src',
+    'href',
+    'style',
+    'align',
+    'width',
+    'height',
+    'rowspan',
+    'colspan',
+    'bgcolor',
+    'scope',
+    'valign',
+    'headers'
+  ];
+
   const cleanElement = (element: Element) => {
-    Array.from(element.attributes).forEach(attr => {
+    Array.from(element.attributes).forEach((attr) => {
       if (!allowedAttributes.includes(attr.name)) {
         element.removeAttribute(attr.name);
       }
     });
-    
-    element.childNodes.forEach(child => {
+
+    element.childNodes.forEach((child) => {
       if (child instanceof Element) {
         cleanElement(child);
       }

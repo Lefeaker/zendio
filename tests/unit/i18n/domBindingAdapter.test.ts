@@ -26,7 +26,11 @@ describe('domBindingAdapter', () => {
     } as unknown as HTMLInputElement;
 
     const textHandle = adapter.bindText(element, 'extensionName');
-    const placeholderHandle = adapter.bindAttribute(input, 'placeholder', 'domainMappingDomainPlaceholder');
+    const placeholderHandle = adapter.bindAttribute(
+      input,
+      'placeholder',
+      'domainMappingDomainPlaceholder'
+    );
 
     const zhCNMessages = await loadLocaleMessages('zh-CN');
     const enMessages = await loadLocaleMessages('en');

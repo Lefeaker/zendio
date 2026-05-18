@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { validateGlossary, GLOSSARY_RULES } from '../../../src/i18n/glossary';
 import zhCN from '../../../src/i18n/locales/zh-CN';
 
-function flattenMessages(record: unknown, prefix = '', output: Record<string, string> = {}): Record<string, string> {
+function flattenMessages(
+  record: unknown,
+  prefix = '',
+  output: Record<string, string> = {}
+): Record<string, string> {
   if (!record || typeof record !== 'object') {
     return output;
   }
@@ -33,6 +37,8 @@ describe('i18n glossary validation', () => {
     };
     const messages = flattenMessages(altered);
     const violations = validateGlossary(messages, 'zh-CN', GLOSSARY_RULES);
-    expect(violations.some((violation) => violation.key === 'clipButton' && violation.term === '剪藏')).toBe(true);
+    expect(
+      violations.some((violation) => violation.key === 'clipButton' && violation.term === '剪藏')
+    ).toBe(true);
   });
 });

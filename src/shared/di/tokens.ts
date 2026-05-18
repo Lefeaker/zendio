@@ -60,7 +60,7 @@ export const TOKENS = DI_TOKENS;
 /**
  * 服务标识符类型
  */
-export type ServiceToken = typeof TOKENS[keyof typeof TOKENS];
+export type ServiceToken = (typeof TOKENS)[keyof typeof TOKENS];
 
 /**
  * Repository Token -> 实现实例的类型映射

@@ -1,6 +1,7 @@
 # Selection Clip & Clip Pipeline 耦合梳理（F1）
 
 ## selectionExtractor.ts
+
 - 主要职责：
   1. 组装 Turndown 工具并应用 Obsidian Markdown 规则；
   2. 根据配置决定脚注格式或直接 Markdown 输出；
@@ -12,6 +13,7 @@
   - Turndown 初始化每次重复执行，无法复用配置。
 
 ## clipPipeline.ts
+
 - 当前结构：
   - orchestrator，调用 `contextCapture`、`selectionExtractor`、`obsidianRest`、`vaultRouter`、通知服务等。
   - pipeline 包含大量分支（剪藏类型、AI 片段、thumbnail 等），函数内 if/else 较多。
@@ -20,6 +22,7 @@
   - REST 写入、通知逻辑已经拆出，但 pipeline 中仍包含较多具体操作顺序，可考虑封装为更小的步骤对象或命令模式，以便测试。
 
 ## 拟拆分方向
+
 1. **Selection Markdown Builder**
    - 抽象出 `generateFragmentMarkdown`，负责 frontmatter、正文、评论、footnote 组合；`selectionExtractor.ts` 只负责 DOM -> Markdown 数据准备。
    - Turndown 初始化迁移到 `shared/markdown.ts` 提供工厂（便于复用与测试）。
@@ -28,4 +31,4 @@
 3. **Clip Pipeline Steps**
    - 抽出 `prepareClipPayload`（生成 meta + markdown）与 `writeClip`（写入 + 通知）两个步骤，pipeline 只 orchestrate step，便于测试与复用到其他入口。
 
-以上作为后续 F2-F4 的改造基础。 
+以上作为后续 F2-F4 的改造基础。

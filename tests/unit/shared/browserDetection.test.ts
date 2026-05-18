@@ -2,7 +2,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { detectBrowser, isFirefox, isChrome, isMobile, addBrowserClassToHtml, getBrowserVersion, getBrowserCapabilities } from '@shared/utils/browserDetection';
+import {
+  detectBrowser,
+  isFirefox,
+  isChrome,
+  isMobile,
+  addBrowserClassToHtml,
+  getBrowserVersion,
+  getBrowserCapabilities
+} from '@shared/utils/browserDetection';
 
 function installChromeRuntime(): void {
   Object.defineProperty(globalThis, 'chrome', {
@@ -68,9 +76,11 @@ describe('browserDetection', () => {
   it('returns unknown version for unknown browsers', () => {
     Reflect.deleteProperty(globalThis as typeof globalThis & { browser?: unknown }, 'browser');
     Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: unknown }, 'chrome');
-    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'CustomAgent/1.0' });
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'CustomAgent/1.0'
+    });
     expect(detectBrowser()).toBe('unknown');
     expect(getBrowserVersion()).toBe('unknown');
   });
-
 });

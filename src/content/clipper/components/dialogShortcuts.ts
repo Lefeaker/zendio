@@ -12,11 +12,7 @@ export function isPlainEnter(
   event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'altKey' | 'metaKey' | 'ctrlKey'>
 ): boolean {
   return (
-    event.key === 'Enter' &&
-    !event.shiftKey &&
-    !event.altKey &&
-    !event.metaKey &&
-    !event.ctrlKey
+    event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey
   );
 }
 

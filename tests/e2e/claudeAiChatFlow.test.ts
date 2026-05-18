@@ -62,11 +62,16 @@ describe('claude ai chat integration', () => {
   });
 
   it('parses Claude chat, keeps language fences, and routes correctly', async () => {
-    const html = readFileSync(join(process.cwd(), 'tests/fixtures/ai-chat/claude-code.html'), 'utf8');
+    const html = readFileSync(
+      join(process.cwd(), 'tests/fixtures/ai-chat/claude-code.html'),
+      'utf8'
+    );
     const dom = new JSDOM(html, { url: claudeUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: claudeUrl });
 
@@ -146,7 +151,12 @@ describe('claude ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/claude/2025/03/05/代码演示.md');
   });
 });

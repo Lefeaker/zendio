@@ -96,7 +96,7 @@ describe('configProvider', () => {
       vi.stubEnv('AIIINOB_REST_VAULT_NAME', 'EnvVault');
 
       const overrides = loadOverrideFromEnv();
-      
+
       expect(overrides).toBeDefined();
       expect(overrides?.rest?.httpsHost).toBe('env.local');
       expect(overrides?.rest?.httpsPort).toBe(8443);
@@ -109,7 +109,7 @@ describe('configProvider', () => {
       vi.stubEnv('AIIINOB_REST_HTTP_PORT', 'NaN');
 
       const overrides = loadOverrideFromEnv();
-      
+
       // Should not include invalid ports
       expect(overrides?.rest?.httpsPort).toBeUndefined();
       expect(overrides?.rest?.httpPort).toBeUndefined();

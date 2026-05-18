@@ -66,13 +66,17 @@ describe('kimi ai chat integration', () => {
     const dom = new JSDOM(html, { url: kimiUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: kimiUrl });
 
     expect(clip.type).toBe('ai_chat');
     expect(clip.meta.platform).toBe('kimi');
-    expect(clip.markdown).toContain('| 表格 | Feature | OpenAI | Google DeepMind (Gemini) | Anthropic (Claude) |');
+    expect(clip.markdown).toContain(
+      '| 表格 | Feature | OpenAI | Google DeepMind (Gemini) | Anthropic (Claude) |'
+    );
     expect(clip.markdown).not.toMatch(/预览|复制|分享/);
 
     const clipPayload: ClipPayload = {
@@ -144,7 +148,12 @@ describe('kimi ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/kimi/2025/01/02/研究计划.md');
   });
 });

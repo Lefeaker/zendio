@@ -88,8 +88,9 @@ describe('ErrorHandler', () => {
     const cause = new Error('underlying failure');
     const appError = createError({ cause });
 
-    await expect(errorHandler.handle(appError, { rethrow: true, suppressNotifications: true }))
-      .rejects.toBe(cause);
+    await expect(
+      errorHandler.handle(appError, { rethrow: true, suppressNotifications: true })
+    ).rejects.toBe(cause);
   });
 
   it('produces serializable error payloads', () => {

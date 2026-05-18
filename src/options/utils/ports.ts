@@ -42,7 +42,7 @@ export function collectPortEntriesFromConfig(
   addPortEntry(entries, rest?.httpUrl, '__default__');
 
   (vaults ?? [])
-    .filter(vault => vault.enabled !== false)
+    .filter((vault) => vault.enabled !== false)
     .forEach((vault, index) => {
       const vaultId = vault.id ?? `vault-${index}`;
       addPortEntry(entries, vault.httpsUrl, vaultId);
@@ -56,7 +56,7 @@ export function findDuplicatePorts(entries: PortUsageEntry[], targetId?: string)
   const duplicates = new Set<string>();
   const usage = new Map<string, Set<string>>();
 
-  entries.forEach(entry => {
+  entries.forEach((entry) => {
     if (!entry.port) {
       return;
     }

@@ -34,13 +34,17 @@ export class ModalController {
 
   constructor(options: ModalControllerOptions = {}) {
     this.document = options.document ?? (typeof document !== 'undefined' ? document : null);
-    this.window = options.window ?? this.document?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+    this.window =
+      options.window ??
+      this.document?.defaultView ??
+      (typeof window !== 'undefined' ? window : null);
 
     if (!this.document) {
       return;
     }
 
-    const bindings = options.bindings && options.bindings.length > 0 ? options.bindings : DEFAULT_BINDINGS;
+    const bindings =
+      options.bindings && options.bindings.length > 0 ? options.bindings : DEFAULT_BINDINGS;
     this.initialize(bindings);
   }
 

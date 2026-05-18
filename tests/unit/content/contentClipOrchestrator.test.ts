@@ -8,7 +8,7 @@ import { ErrorHandler, registerErrorHandler } from '@shared/errors/errorHandler'
 
 function createRuntimeState(): ContentRuntimeState {
   let clipMode: 'full' | 'selection' = 'selection';
-  let snapshot = ({ id: 'saved' } as unknown) as SelectionSnapshot | null;
+  let snapshot = { id: 'saved' } as unknown as SelectionSnapshot | null;
 
   return {
     getClipMode: () => clipMode,
@@ -83,7 +83,11 @@ describe('contentClipOrchestrator', () => {
 
     await orchestrator.runClip();
 
-    expect(selectionController.handleSelectionClip).toHaveBeenCalledWith(document, location.href, selection);
+    expect(selectionController.handleSelectionClip).toHaveBeenCalledWith(
+      document,
+      location.href,
+      selection
+    );
     expect(messaging.send).toHaveBeenCalledWith({
       type: 'CLIP_RESULT',
       payload: { markdown: '# hello', type: 'selection' }

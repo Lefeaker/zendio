@@ -1,6 +1,10 @@
 import type { FragmentClipperOptions } from '@shared/types/options';
 import { findPreviousBlockElement, getCleanTextContent } from '../shared/contextDom';
-import { wrapListFragment, serializeFragment, serializeElement } from '../shared/contextSerialization';
+import {
+  wrapListFragment,
+  serializeFragment,
+  serializeElement
+} from '../shared/contextSerialization';
 
 const CONTEXT_CONTAINER_PRIORITY: Record<string, number> = {
   li: 1,
@@ -50,7 +54,11 @@ export function extractContextFromRange(
     };
   }
 
-  const { segments: beforeSegments, remaining: remainingAfterBefore } = collectBeforeSegments(range, container, contextLimit);
+  const { segments: beforeSegments, remaining: remainingAfterBefore } = collectBeforeSegments(
+    range,
+    container,
+    contextLimit
+  );
   const { segments: afterSegments } = collectAfterSegments(range, container, remainingAfterBefore);
 
   return {
@@ -81,7 +89,12 @@ function resolveContextContainer(range: Range): Element | null {
         bestContainer = contextContainer;
       }
 
-      if (tagName === 'li' || tagName === 'article' || tagName === 'section' || tagName === 'main') {
+      if (
+        tagName === 'li' ||
+        tagName === 'article' ||
+        tagName === 'section' ||
+        tagName === 'main'
+      ) {
         break;
       }
     }
@@ -93,10 +106,7 @@ function resolveContextContainer(range: Range): Element | null {
     return null;
   }
 
-  if (
-    !candidate.contains(range.startContainer) ||
-    !candidate.contains(range.endContainer)
-  ) {
+  if (!candidate.contains(range.startContainer) || !candidate.contains(range.endContainer)) {
     return null;
   }
 
@@ -109,19 +119,27 @@ function calculateContextLimit(config: FragmentClipperOptions, selectedLength: n
   return mode === 'chars' ? Math.max(baseLength - selectedLength, 0) : baseLength;
 }
 
-function collectBeforeSegments(range: Range, container: Element, limit: number): { segments: ContextSegment[]; remaining: number } {
+function collectBeforeSegments(
+  range: Range,
+  container: Element,
+  limit: number
+): { segments: ContextSegment[]; remaining: number } {
   const segments: ContextSegment[] = [];
   let remaining = limit;
 
   if (remaining > 0) {
-    remaining = collectLeadingRangeSegments(segments, remaining, () => {
-      const beforeRange = range.cloneRange();
-      beforeRange.setStart(container, 0);
-      beforeRange.setEnd(range.startContainer, range.startOffset);
-      return beforeRange;
-    }, (fragment, text, tagName) => tagName === 'li'
-      ? wrapListFragment(container, fragment)
-      : serializeFragment(fragment));
+    remaining = collectLeadingRangeSegments(
+      segments,
+      remaining,
+      () => {
+        const beforeRange = range.cloneRange();
+        beforeRange.setStart(container, 0);
+        beforeRange.setEnd(range.startContainer, range.startOffset);
+        return beforeRange;
+      },
+      (fragment, text, tagName) =>
+        tagName === 'li' ? wrapListFragment(container, fragment) : serializeFragment(fragment)
+    );
   }
 
   if (remaining > 0) {
@@ -135,19 +153,27 @@ function collectBeforeSegments(range: Range, container: Element, limit: number):
   return { segments, remaining };
 }
 
-function collectAfterSegments(range: Range, container: Element, limit: number): { segments: ContextSegment[]; remaining: number } {
+function collectAfterSegments(
+  range: Range,
+  container: Element,
+  limit: number
+): { segments: ContextSegment[]; remaining: number } {
   const segments: ContextSegment[] = [];
   let remaining = limit;
 
   if (remaining > 0) {
-    remaining = collectLeadingRangeSegments(segments, remaining, () => {
-      const afterRange = range.cloneRange();
-      afterRange.setStart(range.endContainer, range.endOffset);
-      afterRange.setEnd(container, container.childNodes.length);
-      return afterRange;
-    }, (fragment, text, tagName) => tagName === 'li'
-      ? wrapListFragment(container, fragment)
-      : serializeFragment(fragment));
+    remaining = collectLeadingRangeSegments(
+      segments,
+      remaining,
+      () => {
+        const afterRange = range.cloneRange();
+        afterRange.setStart(range.endContainer, range.endOffset);
+        afterRange.setEnd(container, container.childNodes.length);
+        return afterRange;
+      },
+      (fragment, text, tagName) =>
+        tagName === 'li' ? wrapListFragment(container, fragment) : serializeFragment(fragment)
+    );
   }
 
   if (remaining > 0) {
@@ -182,7 +208,10 @@ function collectLeadingRangeSegments(
       return remaining;
     }
     const fragment = range.cloneContents();
-    const container = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+    const container =
+      range.startContainer instanceof Element
+        ? range.startContainer
+        : range.startContainer.parentElement;
     const tagName = container?.tagName.toLowerCase() ?? '';
     segments.push({
       html: htmlRenderer(fragment, text, tagName),
@@ -194,7 +223,12 @@ function collectLeadingRangeSegments(
   }
 }
 
-function collectSiblingSegments(range: Range, segments: ContextSegment[], remaining: number, before: boolean): number {
+function collectSiblingSegments(
+  range: Range,
+  segments: ContextSegment[],
+  remaining: number,
+  before: boolean
+): number {
   let reference: Element | null = before ? findPreviousBlockElement(range) : null;
   while (reference && remaining > 0) {
     const blockTextLength = getCleanTextContent(reference).trim().length;
@@ -242,9 +276,8 @@ function collectAncestorSegments(
       const parentText = parentRange.toString().trim();
       if (parentText) {
         const fragment = parentRange.cloneContents();
-        const parentHtml = parentTag === 'li'
-          ? wrapListFragment(parent, fragment)
-          : serializeFragment(fragment);
+        const parentHtml =
+          parentTag === 'li' ? wrapListFragment(parent, fragment) : serializeFragment(fragment);
         segments.push({
           html: parentHtml,
           textLength: parentText.length
@@ -267,14 +300,5 @@ function joinSegments(segments: ContextSegment[], reverse: boolean): string {
     return '';
   }
   const list = reverse ? segments.slice().reverse() : segments;
-  return list.map(segment => segment.html).join('');
+  return list.map((segment) => segment.html).join('');
 }
-
-
-
-
-
-
-
-
-

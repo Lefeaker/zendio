@@ -36,8 +36,7 @@ export function getFirefoxLastError(): Error | null {
  * 检测是否为 Firefox 环境
  */
 export function isFirefoxEnvironment(): boolean {
-  return typeof browser !== 'undefined' && 
-         typeof chrome === 'undefined';
+  return typeof browser !== 'undefined' && typeof chrome === 'undefined';
 }
 
 /**

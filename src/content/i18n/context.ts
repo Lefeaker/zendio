@@ -1,4 +1,12 @@
-import { createDefaultPageI18nController, type PageI18nController, type I18nBinder, type I18nResource, getMessages, type Messages, configureI18nStorage } from '../../i18n';
+import {
+  createDefaultPageI18nController,
+  type PageI18nController,
+  type I18nBinder,
+  type I18nResource,
+  getMessages,
+  type Messages,
+  configureI18nStorage
+} from '../../i18n';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';

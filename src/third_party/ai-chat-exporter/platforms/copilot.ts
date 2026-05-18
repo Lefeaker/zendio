@@ -17,12 +17,9 @@ function extractCopilotChatData(doc: Document): ParsedResult {
   let rawTitle = '';
   const selected = doc.querySelector('[role="option"][aria-selected="true"]');
   if (selected) {
-    rawTitle = selected.querySelector('p')?.textContent?.trim() ||
-      (selected.getAttribute('aria-label') || '')
-        .split(',')
-        .slice(1)
-        .join(',')
-        .trim();
+    rawTitle =
+      selected.querySelector('p')?.textContent?.trim() ||
+      (selected.getAttribute('aria-label') || '').split(',').slice(1).join(',').trim();
   }
   if (!rawTitle) {
     rawTitle = (doc.title || '')

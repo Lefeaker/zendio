@@ -1,11 +1,28 @@
 import type { JSDOM } from 'jsdom';
 
-type GlobalKeys = 'window' | 'document' | 'Node' | 'HTMLElement' | 'HTMLIFrameElement' | 'Element' | 'localStorage' | 'chrome';
+type GlobalKeys =
+  | 'window'
+  | 'document'
+  | 'Node'
+  | 'HTMLElement'
+  | 'HTMLIFrameElement'
+  | 'Element'
+  | 'localStorage'
+  | 'chrome';
 
 export type GlobalSnapshot = Partial<Record<GlobalKeys, unknown>>;
 
 const globalTarget = globalThis as Record<string, unknown>;
-const GLOBAL_KEYS: GlobalKeys[] = ['window', 'document', 'Node', 'HTMLElement', 'HTMLIFrameElement', 'Element', 'localStorage', 'chrome'];
+const GLOBAL_KEYS: GlobalKeys[] = [
+  'window',
+  'document',
+  'Node',
+  'HTMLElement',
+  'HTMLIFrameElement',
+  'Element',
+  'localStorage',
+  'chrome'
+];
 
 function setValue(key: GlobalKeys, value: unknown): void {
   if (value === undefined) {

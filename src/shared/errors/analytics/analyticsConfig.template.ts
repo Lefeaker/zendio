@@ -1,11 +1,11 @@
 /**
  * Analytics 配置模板文件
- * 
+ *
  * 使用说明：
  * 1. 复制此文件为 analyticsConfig.ts
  * 2. 替换 MEASUREMENT_ID 为你的 Google Analytics 4 Measurement ID
  * 3. 根据需要调整其他配置项
- * 
+ *
  * 注意：analyticsConfig.ts 文件已被添加到 .gitignore 中，不会被提交到版本控制
  */
 import type { StorageService } from '@platform/interfaces/storage';
@@ -14,7 +14,7 @@ import type { StorageService } from '@platform/interfaces/storage';
 export const GA4_CONFIG = {
   // 生产环境配置 - 请替换为你的实际 Measurement ID
   MEASUREMENT_ID: 'G-XXXXXXXXXX', // 替换为你的 GA4 Measurement ID
-  
+
   // GA4 事件名称
   EVENT_NAMES: {
     ERROR: 'extension_error',
@@ -74,8 +74,8 @@ export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
   debugMode: false,
   measurementId: GA4_CONFIG.MEASUREMENT_ID,
   reportingInterval: 30000, // 30秒
-  maxErrorsPerSession: 50,   // 每个会话最多50个错误
-  batchSize: 10              // 批量发送10个事件
+  maxErrorsPerSession: 50, // 每个会话最多50个错误
+  batchSize: 10 // 批量发送10个事件
 };
 
 /**
@@ -97,20 +97,21 @@ export class AnalyticsConfigManager {
   private async initializeConfig(): Promise<void> {
     try {
       // 加载存储的配置
-      const storedConfig = await this.storage.local.get<AnalyticsConfig>(GA4_CONFIG.STORAGE_KEYS.CONFIG);
+      const storedConfig = await this.storage.local.get<AnalyticsConfig>(
+        GA4_CONFIG.STORAGE_KEYS.CONFIG
+      );
       if (storedConfig) {
         this.config = { ...DEFAULT_ANALYTICS_CONFIG, ...storedConfig };
       }
 
       // 生成或加载客户端 ID
       await this.ensureClientId();
-      
+
       // 生成新的会话 ID
       await this.generateNewSession();
 
       // 加载用户同意状态
       await this.loadUserConsent();
-
     } catch (error) {
       console.error('[Analytics Config] Failed to initialize:', error);
     }
@@ -121,7 +122,7 @@ export class AnalyticsConfigManager {
    */
   private async ensureClientId(): Promise<void> {
     let clientId = this.config.clientId;
-    
+
     if (!clientId) {
       const stored = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
       clientId = stored;
@@ -141,7 +142,7 @@ export class AnalyticsConfigManager {
   private async generateNewSession(): Promise<void> {
     const sessionId = this.generateSessionId();
     this.config.sessionId = sessionId;
-    
+
     await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
   }
 
@@ -150,7 +151,9 @@ export class AnalyticsConfigManager {
    */
   private async loadUserConsent(): Promise<void> {
     try {
-      const consent = await this.storage.local.get<UserConsent>(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT);
+      const consent = await this.storage.local.get<UserConsent>(
+        GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
+      );
       if (consent) {
         this.config.userConsent = consent;
         this.config.enabled = consent.analytics || consent.errorReporting;
@@ -262,8 +265,8 @@ export class AnalyticsConfigManager {
    */
   async clearAllData(): Promise<void> {
     const keys = Object.values(GA4_CONFIG.STORAGE_KEYS);
-    await Promise.all(keys.map(key => this.storage.local.remove(key)));
-    
+    await Promise.all(keys.map((key) => this.storage.local.remove(key)));
+
     this.config = { ...DEFAULT_ANALYTICS_CONFIG };
   }
 }
@@ -296,7 +299,10 @@ export function getAnalyticsConfigManager(): AnalyticsConfigManager {
 /**
  * 设置用户同意状态的便捷函数
  */
-export async function setAnalyticsConsent(analytics: boolean, errorReporting: boolean): Promise<void> {
+export async function setAnalyticsConsent(
+  analytics: boolean,
+  errorReporting: boolean
+): Promise<void> {
   const manager = getAnalyticsConfigManager();
   await manager.setUserConsent(analytics, errorReporting);
 }

@@ -13,13 +13,15 @@ describe('globalErrorBoundary', () => {
       metadata: { extensionContext: 'content' }
     });
 
-    window.dispatchEvent(new ErrorEvent('error', {
-      message: 'boom',
-      error: new Error('boom'),
-      filename: 'content.js',
-      lineno: 12,
-      colno: 4
-    }));
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: 'boom',
+        error: new Error('boom'),
+        filename: 'content.js',
+        lineno: 12,
+        colno: 4
+      })
+    );
 
     await Promise.resolve();
 

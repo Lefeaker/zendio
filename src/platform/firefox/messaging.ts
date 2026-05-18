@@ -1,4 +1,9 @@
-import type { MessageListener, MessageSenderInfo, MessagingService, MessageSendOptions } from '../interfaces/messaging';
+import type {
+  MessageListener,
+  MessageSenderInfo,
+  MessagingService,
+  MessageSendOptions
+} from '../interfaces/messaging';
 import { ensureFirefox } from './utils';
 
 function mapSender(sender: browser.runtime.MessageSender): MessageSenderInfo {
@@ -21,7 +26,11 @@ export const firefoxMessagingService: MessagingService = {
     return response as TResult;
   },
 
-  async sendToTab<TResult = unknown>(tabId: number, message: unknown, options?: MessageSendOptions): Promise<TResult> {
+  async sendToTab<TResult = unknown>(
+    tabId: number,
+    message: unknown,
+    options?: MessageSendOptions
+  ): Promise<TResult> {
     const firefoxApi = ensureFirefox();
     const response: unknown = await firefoxApi.tabs.sendMessage(tabId, message, options);
     return response as TResult;
@@ -29,7 +38,11 @@ export const firefoxMessagingService: MessagingService = {
 
   addListener(listener: MessageListener): () => void {
     const firefoxApi = ensureFirefox();
-    const wrapped: Parameters<typeof firefoxApi.runtime.onMessage.addListener>[0] = (message, sender, sendResponse) => {
+    const wrapped: Parameters<typeof firefoxApi.runtime.onMessage.addListener>[0] = (
+      message,
+      sender,
+      sendResponse
+    ) => {
       const result = listener(message, mapSender(sender));
       if (isPromise(result)) {
         result

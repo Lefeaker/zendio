@@ -8,16 +8,16 @@
 
 ### Required Screenshots
 
-| Screenshot | Filename | Status | Priority |
-|------------|----------|--------|----------|
-| **Full Options page (light mode)** | `options-full-light.png` | ⏸️ Pending | P0 |
-| **Button variants grid** | `buttons-all-variants.png` | ⏸️ Pending | P0 |
-| **Input states** | `inputs-states.png` | ⏸️ Pending | P0 |
-| **Checkbox states** | `checkboxes-states.png` | ⏸️ Pending | P0 |
-| **Select dropdown** | `select-dropdown.png` | ⏸️ Pending | P1 |
-| **Alerts (all types)** | `alerts-all-types.png` | ⏸️ Pending | P1 |
-| **Cards (sections)** | `cards-sections.png` | ⏸️ Pending | P1 |
-| **Dark mode (if enabled)** | `options-full-dark.png` | ⏸️ Future | P2 |
+| Screenshot                         | Filename                   | Status     | Priority |
+| ---------------------------------- | -------------------------- | ---------- | -------- |
+| **Full Options page (light mode)** | `options-full-light.png`   | ⏸️ Pending | P0       |
+| **Button variants grid**           | `buttons-all-variants.png` | ⏸️ Pending | P0       |
+| **Input states**                   | `inputs-states.png`        | ⏸️ Pending | P0       |
+| **Checkbox states**                | `checkboxes-states.png`    | ⏸️ Pending | P0       |
+| **Select dropdown**                | `select-dropdown.png`      | ⏸️ Pending | P1       |
+| **Alerts (all types)**             | `alerts-all-types.png`     | ⏸️ Pending | P1       |
+| **Cards (sections)**               | `cards-sections.png`       | ⏸️ Pending | P1       |
+| **Dark mode (if enabled)**         | `options-full-dark.png`    | ⏸️ Future  | P2       |
 
 ---
 
@@ -35,6 +35,7 @@
 ### Method 2: Manual Screenshot Tool
 
 Use any screenshot tool (Snagit, Lightshot, macOS Screenshot, etc.) to capture:
+
 - Full page: `Cmd+Shift+5` (Mac) or `Win+Shift+S` (Windows)
 - Specific area: Select the component area
 
@@ -43,16 +44,19 @@ Use any screenshot tool (Snagit, Lightshot, macOS Screenshot, etc.) to capture:
 ## 🎯 Screenshot Guidelines
 
 ### Resolution
+
 - **Desktop**: 1920x1080 (primary)
 - **Tablet**: 1366x768 (optional)
 - **Mobile**: 768x1024 (low priority for Options page)
 
 ### Format
+
 - **File format**: PNG (lossless)
 - **Color depth**: 24-bit (millions of colors)
 - **Compression**: None or minimal
 
 ### Naming Convention
+
 ```
 <component>-<variant>-<state>.png
 
@@ -69,9 +73,9 @@ Examples:
 
 ### Execution Log
 
-| Date | Tester | Browser | Screenshots Taken | Issues Found | Notes |
-|------|--------|---------|-------------------|--------------|-------|
-| - | - | - | 0/7 | - | Awaiting manual execution |
+| Date | Tester | Browser | Screenshots Taken | Issues Found | Notes                     |
+| ---- | ------ | ------- | ----------------- | ------------ | ------------------------- |
+| -    | -      | -       | 0/7               | -            | Awaiting manual execution |
 
 **Status**: ⏸️ **Not yet executed** (Directory created, awaiting manual testing)
 
@@ -80,10 +84,13 @@ Examples:
 ## 📊 Comparison Reference
 
 ### Pre-Migration Baseline
+
 If you have screenshots from before Phase 1, store them in `docs/screenshots/baseline/` for comparison.
 
 ### Expected vs. Actual
+
 When comparing screenshots, look for:
+
 - ✅ Consistent spacing and alignment
 - ✅ Correct colors (matches DaisyUI theme)
 - ✅ Smooth transitions (hover/focus)
@@ -97,15 +104,18 @@ When comparing screenshots, look for:
 ## 🔧 Troubleshooting
 
 ### Screenshot Too Large
+
 - Use Chrome DevTools "Capture node screenshot" for specific elements
 - Crop unnecessary white space
 
 ### Colors Look Different
+
 - Ensure color profile is sRGB
 - Use consistent browser zoom level (100%)
 - Disable browser extensions that modify colors
 
 ### Can't Capture Full Page
+
 - Use "Capture full size screenshot" in DevTools
 - Or use a browser extension like "Full Page Screen Capture"
 

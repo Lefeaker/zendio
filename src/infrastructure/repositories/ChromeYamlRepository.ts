@@ -57,7 +57,9 @@ export class ChromeYamlRepository implements IYamlRepository {
     try {
       await this.optionsRepository.set({ yamlConfig: clone(overrides) });
     } catch (error) {
-      throw new RepositoryError('Failed to save YAML overrides', 'YamlRepositoryError', { cause: error });
+      throw new RepositoryError('Failed to save YAML overrides', 'YamlRepositoryError', {
+        cause: error
+      });
     }
   }
 

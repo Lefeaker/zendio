@@ -83,7 +83,7 @@ export async function classify(
       return parseClassifierPayload(content, cfg.provider, endpoint);
     }
 
-    const { error } = response as PostJsonFailure;
+    const { error } = response;
     return {
       ok: false,
       error
@@ -113,7 +113,7 @@ export async function classify(
     return parseClassifierPayload(content, cfg.provider, endpoint);
   }
 
-  const { error } = response as PostJsonFailure;
+  const { error } = response;
   return {
     ok: false,
     error
@@ -144,15 +144,12 @@ async function postJson<T>(
       const text = await safeReadText(response);
       return {
         ok: false,
-        error: classifierErrors.transportFailure(
-          text || `HTTP ${response.status}`,
-          {
-            provider,
-            endpoint,
-            status: response.status,
-            method: 'POST'
-          }
-        )
+        error: classifierErrors.transportFailure(text || `HTTP ${response.status}`, {
+          provider,
+          endpoint,
+          status: response.status,
+          method: 'POST'
+        })
       };
     }
 

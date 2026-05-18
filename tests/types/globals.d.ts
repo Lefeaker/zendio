@@ -8,4 +8,3 @@ declare module 'tests/utils/typeHelpers' {
   export function selection(init: Partial<Selection>): Selection;
   export function intervalId(id: number): ReturnType<typeof setInterval>;
 }
-

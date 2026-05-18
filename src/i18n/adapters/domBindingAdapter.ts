@@ -111,7 +111,7 @@ export function createDomBindingAdapter(): I18nBindingAdapter {
     },
     refresh(resource) {
       currentResource = resource;
-      bindings.forEach(binding => {
+      bindings.forEach((binding) => {
         applyBinding(binding, resource);
       });
     },

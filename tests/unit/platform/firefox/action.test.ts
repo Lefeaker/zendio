@@ -3,16 +3,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 let clickListener: ((tab: browser.tabs.Tab) => void) | undefined;
 const firefoxApi = vi.hoisted(() => ({
   browserAction: {
-    onClicked: { addListener: vi.fn((listener: typeof clickListener) => { clickListener = listener ?? undefined; }), removeListener: vi.fn() },
+    onClicked: {
+      addListener: vi.fn((listener: typeof clickListener) => {
+        clickListener = listener ?? undefined;
+      }),
+      removeListener: vi.fn()
+    },
     setBadgeText: vi.fn(() => Promise.resolve()),
     setBadgeBackgroundColor: vi.fn(() => Promise.resolve())
   },
   action: undefined
 }));
-vi.mock('../../../../src/platform/firefox/utils', () => ({ ensureFirefox: (): typeof firefoxApi => firefoxApi }));
+vi.mock('../../../../src/platform/firefox/utils', () => ({
+  ensureFirefox: (): typeof firefoxApi => firefoxApi
+}));
 
 describe('firefoxActionService', () => {
-  beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); clickListener = undefined; });
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    clickListener = undefined;
+  });
 
   it('uses browserAction handlers and badge apis', async () => {
     const { firefoxActionService } = await import('../../../../src/platform/firefox/action');
@@ -43,5 +54,4 @@ describe('firefoxActionService', () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
-
 });
