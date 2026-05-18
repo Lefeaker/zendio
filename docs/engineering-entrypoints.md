@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-04-14
+最后更新：2026-05-18
 
 ## 推荐运行环境
 
@@ -35,9 +35,11 @@ npm run typecheck:strict
 浏览器与交互验真：
 
 ```bash
+npm run test:e2e:browser:local-vault
 npm run test:e2e:browser:smoke
 npm run test:e2e:browser
 npm run test:e2e:browser:reader-panel
+npm run verify:stitch-secondary
 npm run visual:test
 ```
 
@@ -47,13 +49,22 @@ npm run visual:test
 
 - `content/runtime.js <= 56 KB`
 - `options/index.js <= 107 KB`
-- 最大 shared chunk `<= 175 KB`
+- 最大 shared chunk `<= 196 KB`
 - 第二大 shared chunk `<= 145 KB`
-- 第三大 shared chunk `<= 101 KB`
+- 第三大 shared chunk `<= 130 KB`
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
+
+2026-05-18 fresh build truth:
+
+- `npm run clean && npm run build:dev && npm run audit:build:report` 通过
+- `build/dist/content/runtime.js`: `56.0 KB`
+- `build/dist/options/index.js`: `997 B`
+- `build/dist/onboarding/index.js`: `12.3 KB`
+- chunks: `98`
+- `npm run build` 与 `npm run build:firefox` 均通过
 
 ## 核心命令
 

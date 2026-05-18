@@ -3,29 +3,34 @@
 > 目标：指导 AiiinOB 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
 
 ## 阶段 0：立项与责任人
+
 - [ ] 确认发布负责人、设计支持、法务/隐私负责人和技术负责人；建立协同渠道（建议在 Notion/Docs 建立任务看板）。
 - [ ] 确定计划发布日期、缓冲期，以及是否需要灰度（仅发布为受限测试）或全量发布。
 - [ ] 建立版本里程碑：Beta 内测、候选版 RC、正式版；约定回滚策略。
 
 ## 阶段 1：账号与合规准备
+
 - [ ] 使用团队 Google 账号登录 [Chrome Web Store Dashboard](https://chrome.google.com/webstore/devconsole)，完成一次性 5 美元开发者注册；确认主体名称、联系邮箱、客服电话是否显示给用户。
 - [ ] 准备隐私政策页面：解释数据采集、使用范围、 Obsidian 本地 REST API 的访问目的、数据删除方式。建议托管于公开可访问的独立页面（GitHub Pages 或官网）。可参考以下要素：
   - 明确列出收集/处理的数据类型（如剪藏内容、账号信息、诊断日志），并说明是否上传到云端。
   - 描述每类数据的使用场景与受限范围，强调仅用于核心功能、不会进行二次销售或广告定向。
   - 说明扩展访问 Obsidian 本地 REST API 的原因（写入/同步用户内容），补充连接安全措施与本地网络限制。
+  - 说明可选本地 Vault 目录写入仅限 Chromium File System Access，必须由用户主动选择目录；权限缺失、拒绝、不支持或写入预检失败时会回退 REST API。
   - 提供用户删除数据的自助路径（扩展设置、手动清理缓存或撤销 API Token），以及联系支持团队请求删除的方式。
   - 记录隐私政策更新时间戳、版本号，并在仓库/官网保留 PDF 或 Markdown 备份以便审查。
 - [ ] 编写用户支持/联系页面，包含常见问题、支持邮箱与问题反馈流程。建议复用《用户支持与联系指引》<../support-contact.md>，确保渠道、SLA 与 FAQ 与产品现状一致。
-- [ ] 如扩展请求 "Host 权限" 或敏感 API（`<all_urls>`, `storage`, `scripting`, `notifications`），准备文字说明对应的使用场景和限制，后续录入审核问卷。可参考《权限使用说明》<../permissions-usage-notes.md> 并在提交前核实与 manifest 实际声明一致。
+- [ ] 如扩展请求 "Host 权限" 或敏感 API（`<all_urls>`, `storage`, `scripting`, `notifications`, `downloads`, `offscreen`），准备文字说明对应的使用场景和限制，后续录入审核问卷。可参考《权限使用说明》<../permissions-usage-notes.md> 并在提交前核实与 manifest 实际声明一致。
 
 ## 阶段 2：版本与构建
+
 - [ ] 确定发布版本号，更新 `src/manifest.json:3` 与 `package.json` 的 `version` 字段保持一致；在 commit 信息中记录发布说明。
-- [ ] 执行 `npm install`（如依赖更新）与 `npm run build`，产出 `dist/` 目录；手动验证构建时间戳与版本号正确写入。
+- [ ] 执行 fresh build 验证：`npm run clean`、`npm run build:dev`、`npm run audit:build:report`、`npm run build`；如发布 Firefox 包，再执行 `npm run build:firefox`。
 - [ ] 清理 `dist/`：仅保留运行期必须文件（`manifest.json`、构建后的 JS/CSS、必要资源）；剔除 `*.map`、测试文件、`node_modules/`、脚本和文档等。
 - [ ] 运行最低限度的自动化测试（如 `npm run test` 或 `npm run lint`）；若测试覆盖不足，补充纸面检查说明并记录测试结果链接。
 - [ ] 更新变更日志：在 `docs/zh-cn/release-notes/` 或 `README.md` 中增加本次版本亮点，便于商店描述引用。
 
 ## 阶段 3：素材与文案
+
 - [ ] 扩展图标：准备 16×16、32×32、48×48、128×128 PNG；确认 manifest 中引用的路径均存在，例如 `assets/icons/icon128.png`。
 - [ ] 宣传图：制作一张 440×280 PNG（可复用 `marketing/banner.png` 设计），并准备可选的重点功能截图（1280×800 或 640×400）。
 - [ ] 视频/GIF（可选）：制作 ≤30MB 的快速演示，展示剪藏、AI 解析、写入 Obsidian 的完整流程。
@@ -35,22 +40,27 @@
 - [ ] 本地化：如需多语言展示，在 `/_locales/<lang>/messages.json` 中补充 `appName`、`appShortName`、`appDesc` 等字段，并在 `manifest.json` 中配置 `default_locale`。
 
 ## 阶段 4：功能与质量验证
+
 - [ ] 在 Chrome 稳定版、Chrome Beta（可选）上加载构建版进行回归；重点覆盖剪藏、注释、AI 解析、Obsidian 写入等核心流程。
 - [ ] 验证权限触发：确保只有在触发剪藏和写入时才访问 `<all_urls>` 与本地 REST 接口；检查 console 中无未捕获异常或 `console.log` 噪音。
 - [ ] 访问控制：测试无 Obsidian REST API 或 API Key 错误时的提示是否清晰。
+- [ ] 本地 Vault：运行 `npm run test:e2e:browser:local-vault`，确认本地目录写入、目录穿越拒绝、权限拒绝、重新授权和 REST fallback 均符合预期。
+- [ ] 发布脚本：运行 publish script unit 与 dry-run；没有 Chrome Web Store 环境变量时，dry-run 应在发布前安全失败。
 - [ ] 性能与可用性：确认拖拽、键盘导航、无障碍标签等功能符合之前的改进记录（参考 `docs/structure/clipper-dialog-a11y-update.md`）。
 - [ ] 记录测试结果：整理测试清单、环境和结论，归档到发布文档或 issue，供审核复盘使用。
 
 ## 阶段 5：提交审核
+
 - [ ] 使用 `zip -r all-in-ob-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
 - [ ] 完成 “用户数据隐私” 问卷：解释数据是否上传服务器、保留时长、用户删除机制。
-- [ ] 在 “权限” 面板补充敏感权限说明，尤其是 `<all_urls>` 与 `https://127.0.0.1/*`；必要时附上 Obsidian REST API 的文档链接。
+- [ ] 在 “权限” 面板补充敏感权限说明，尤其是 `<all_urls>`、`http(s)://127.0.0.1/*`、`offscreen` 与 `downloads`；必要时附上 Obsidian REST API 与本地目录写入说明。
 - [ ] 如需受限权限（例如 `scripting`），按照 Google 最新政策提交额外证明材料。
 - [ ] 提交审核后记录时间，关注控制台通知与邮件；通常 3–7 个工作日内反馈。
 
 ## 阶段 6：发布与上线后维护
+
 - [ ] 审核通过后，确认是否立即公开，或设置受限测试/逐步推广；如需要推送给特定用户，可配置测试用户名单。
 - [ ] 在仓库打 tag（如 `vX.Y.Z`），将变更日志、隐私政策更新同步到主分支。
 - [ ] 监控 Chrome Web Store 后台的安装量、崩溃报告、用户反馈；为差评/问题设置响应 SLA。
@@ -58,6 +68,7 @@
 - [ ] 收集用户反馈，规划下一版本迭代，整理到 `tech-debt-action-plan.md` 或 Roadmap 文档。
 
 ## 附录：建议的资料清单
+
 - 发布压缩包：`releases/all-in-ob-vX.Y.Z.zip`
 - 构建产物校验记录（截图或命令行输出）
 - 测试结果文档（可放在 `docs/structure/` 或 issue 链接）
