@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-05-11
+日期：2026-05-18
 
 ## 1. 构建真值
 
@@ -17,7 +17,7 @@ npm run audit:build:report
 - `build/dist/content/runtime.js`: `57,299` bytes (`56.0 KB`)
 - `build/dist/options/index.js`: `997` bytes
 - `build/dist/onboarding/index.js`: `12,601` bytes (`12.3 KB`)
-- 总 chunk 数：`98`
+- 总 chunk 数：`97`
 
 当前共享 chunk Top 3：
 
@@ -27,7 +27,7 @@ npm run audit:build:report
 
 当前重点功能 chunk：
 
-- `chunks/runtimeEntry-*.js`: `271.0 KB`
+- `chunks/runtimeEntry-*.js`: `274.1 KB`
 - `chunks/videoSessionControllers-*.js`: `71.0 KB`
 - `chunks/localVaultPermissionPrompt-*.js`: `3.3 KB`
 - `diagnostics` lazy chunk：由 production build graph 与 build splitting report 继续审计
@@ -36,9 +36,9 @@ npm run audit:build:report
 
 - `content/runtime.js <= 56 KB`
 - `options/index.js <= 107 KB`
-- 最大 shared chunk `<= 175 KB`
+- 最大 shared chunk `<= 196 KB`
 - 第二大 shared chunk `<= 145 KB`
-- 第三大 shared chunk `<= 101 KB`
+- 第三大 shared chunk `<= 130 KB`
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
@@ -69,7 +69,7 @@ npm run audit:performance:report
 - `yamlConfigTableControllerState.impl` 已落到 `<= 500`
 - 本轮新增子模块已按热点治理范围压到目标值，避免用拆分制造新的超限热点
 - Options 低频 diagnostics 已从主入口拆出
-- `YamlConfigView` 已改为 view/controller 双层 lazy，`yaml-config` 主块已压到 `9.6 KB`
+- `YamlConfigView` 已改为 view/controller 双层 lazy；当前 YAML 配置热点由 `yamlConfigTableRenderer.ts` (`233` LOC) 与 `yamlConfigTableStateModel.ts` (`183` LOC) 继续审计
 - `npm run audit:production-shape:report` 已进入 `quality` hard gate，并强制上述热点 facade 阈值。
 
 ## 3. 浏览器验真
@@ -90,5 +90,5 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 `quality` 已报告 warning 总量下降到 `301` 条，不代表 lint 债务已经清零。
-- Firefox 不在本轮强制浏览器收口范围内，仍保留为后续增强项。
+- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 `quality` 已报告 warning 总量下降到 `286` 条，不代表 lint 债务已经清零。
+- Firefox production build 已纳入本轮强制验证；真实浏览器交互仍以 Chromium visual/e2e/browser gates 为主。

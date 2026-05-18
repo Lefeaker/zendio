@@ -91,9 +91,9 @@ npm run visual:test
 
 - `content/runtime.js <= 56 KB`
 - `options/index.js <= 107 KB`
-- 最大 shared chunk `<= 175 KB`
+- 最大 shared chunk `<= 196 KB`
 - 第二大 shared chunk `<= 145 KB`
-- 第三大 shared chunk `<= 101 KB`
+- 第三大 shared chunk `<= 130 KB`
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`

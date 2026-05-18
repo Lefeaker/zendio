@@ -9,22 +9,23 @@
    - 剩余风险：后续脚本或 CI 变更再次把 `strict` 从主门禁里移出
 
 2. 维持本轮包体预算不回退
-   - 当前真值：`content/runtime 54.5 KB`、`options/index 94.7 KB`、shared Top3 `173.3 / 82.8 / 67.6 KB`、`RestSection 34.2 KB`、`yaml-config 9.6 KB`、`chunk count 130`
+   - 当前真值：`content/runtime 57,299 bytes (56.0 KB)`、`options/index 997 B`、shared Top3 `181.8 / 128.3 / 82.8 KB`、`runtimeEntry 274.1 KB`、`videoSessionControllers 71.0 KB`、`chunk count 97`
    - 守门：`npm run audit:build:report`
 
 3. 维持热点模块行数不回弹
    - 当前真值：
-     - `videoSessionRuntime.ts = 314`
-     - `RestSectionView.ts = 300`
-     - `PrivacySettingsView.ts = 260`
-     - `UsageDashboardSection.ts = 231`
-     - `yamlConfigTableControllerState.impl.ts = 471`
+     - `videoSessionRuntime.ts = 395`
+     - `RestSectionView.ts = 260`
+     - `PrivacySettingsView.ts = 255`
+     - `UsageDashboardSection.ts = 173`
+     - `yamlConfigTableRenderer.ts = 233`
+     - `yamlConfigTableStateModel.ts = 183`
    - 守门：`npm run audit:performance:report`
 
 ## P2
 
 4. 继续清理 lint warning 基线债务
-   - 当前真值：`quality` 当前报告 warning 总量下降到 `356`
+   - 当前真值：`quality` 当前报告 warning 总量下降到 `286`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
 
 5. 继续治理浏览器验真稳定性
@@ -40,5 +41,5 @@
 ## P3
 
 7. Firefox 路径补强
-   - 本轮不作为强制收口项
-   - 后续在 Chromium 稳态保持前提下补充最小 smoke
+   - 当前真值：`npm run build:firefox` 已纳入本轮强制验证
+   - 后续在 Chromium 稳态保持前提下补充最小 Firefox browser smoke
