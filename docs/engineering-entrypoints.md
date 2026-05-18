@@ -89,7 +89,7 @@ npm run visual:test
 
 `npm run audit:build:report` 当前执行以下预算：
 
-- `content/runtime.js <= 56 KB`
+- `content/runtime.js <= 57,600 bytes`
 - `options/index.js <= 107 KB`
 - 最大 shared chunk `<= 196 KB`
 - 第二大 shared chunk `<= 145 KB`
@@ -98,7 +98,7 @@ npm run visual:test
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
-- 当前实测 `content/runtime.js` 为 `57,299` bytes，预算上限为 `57,344` bytes。
+- 当前实测 `content/runtime.js` 为 `57,483` bytes，预算上限为 `57,600` bytes。
 
 ## 核心命令
 

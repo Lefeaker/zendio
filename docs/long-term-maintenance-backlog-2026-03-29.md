@@ -9,7 +9,7 @@
    - 剩余风险：后续脚本或 CI 变更再次把 `strict` 从主门禁里移出
 
 2. 维持本轮包体预算不回退
-   - 当前真值：`content/runtime 57,299 bytes (56.0 KB)`、`options/index 997 B`、shared Top3 `181.8 / 128.3 / 82.8 KB`、`runtimeEntry 274.1 KB`、`videoSessionControllers 71.0 KB`、`chunk count 97`
+   - 当前真值：`content/runtime 57,483 bytes (56.1 KB)`、`options/index 997 B`、shared Top3 `181.8 / 128.3 / 82.8 KB`、`runtimeEntry 274.0 KB`、`videoSessionControllers 70.9 KB`、`chunk count 97`
    - 守门：`npm run audit:build:report`
 
 3. 维持热点模块行数不回弹

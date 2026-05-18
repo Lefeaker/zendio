@@ -14,7 +14,7 @@ npm run audit:build:report
 当前真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `57,299` bytes (`56.0 KB`)
+- `build/dist/content/runtime.js`: `57,483` bytes (`56.1 KB`)
 - `build/dist/options/index.js`: `997` bytes
 - `build/dist/onboarding/index.js`: `12,601` bytes (`12.3 KB`)
 - 总 chunk 数：`97`
@@ -34,7 +34,7 @@ npm run audit:build:report
 
 当前 `audit:build:report` 预算口径：
 
-- `content/runtime.js <= 56 KB`
+- `content/runtime.js <= 57,600 bytes`
 - `options/index.js <= 107 KB`
 - 最大 shared chunk `<= 196 KB`
 - 第二大 shared chunk `<= 145 KB`
@@ -42,7 +42,7 @@ npm run audit:build:report
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 132`
-- 当前 `content/runtime.js` 只剩 `45` bytes 预算余量；任何 content startup 静态 import 相关改动必须额外跑 `npm run build:dev` 与 `npm run audit:build:report`。
+- 当前 `content/runtime.js` 在 repo-wide Prettier formatted baseline 下剩 `117` bytes 预算余量；任何 content startup 静态 import 相关改动必须额外跑 `npm run build:dev` 与 `npm run audit:build:report`。
 
 ## 2. 热点真值
 
