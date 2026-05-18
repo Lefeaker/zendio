@@ -190,6 +190,7 @@ function createView(): TestView {
 }
 
 function createDependencies(): VideoSessionDependencies {
+  const showSupportProgress = vi.fn();
   return {
     viewFactory: {
       createView: vi.fn(() => createView())
@@ -226,7 +227,8 @@ function createDependencies(): VideoSessionDependencies {
         watch: vi.fn(() => () => {}),
         watchKey: vi.fn(() => () => {})
       }
-    }
+    },
+    showSupportProgress
   } as unknown as VideoSessionDependencies;
 }
 
@@ -244,7 +246,8 @@ describe('VideoSession', () => {
   });
 
   it('returns early when a session is already active', async () => {
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     registerVideoSession({ id: 'active' }, document);
@@ -383,10 +386,10 @@ describe('VideoSession', () => {
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalledTimes(1);
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
       screenshot: {
-        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
         mimeType: 'image/jpeg',
         dataUrl: 'data:image/jpeg;base64,frame'
       }
@@ -452,9 +455,9 @@ describe('VideoSession', () => {
     expect(video.currentTime).toBe(8);
     expect(currentTimeSetSpy).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshot: {
-        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
         dataUrl: 'data:image/jpeg;base64,toggled-frame'
       }
     });
@@ -480,7 +483,8 @@ describe('VideoSession', () => {
   });
 
   it('exports through the exporter and cleans up on success', async () => {
-    const session = new VideoSession(document, createDependencies());
+    const dependencies = createDependencies();
+    const session = new VideoSession(document, dependencies);
     const sessionApi = session as unknown as SessionTestApi;
     const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
 
@@ -504,6 +508,23 @@ describe('VideoSession', () => {
         videoTitle: 'Video Title'
       })
     );
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 10,
+      label: '正在准备视频导出'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 34,
+      label: '正在生成视频笔记'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 70,
+      label: '正在写入 Obsidian'
+    });
+    expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '成功发送到 Obsidian',
+      variant: 'success'
+    });
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
@@ -512,7 +533,8 @@ describe('VideoSession', () => {
       success: boolean;
       error: string;
     });
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
 
@@ -531,6 +553,11 @@ describe('VideoSession', () => {
     await sessionApi.finish();
 
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
+    expect(deps.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     expect(isVideoSessionActive(document)).toBe(true);
 
     sessionApi.cleanup();
@@ -538,7 +565,8 @@ describe('VideoSession', () => {
 
   it('keeps the session alive when the exporter returns an invalid empty response', async () => {
     exportMock.mockResolvedValueOnce(null as never);
-    const session = new VideoSession(document, createDependencies());
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -558,6 +586,11 @@ describe('VideoSession', () => {
     await sessionApi.finish();
 
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
+    expect(deps.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[VideoSession] Export failed:',
       expect.objectContaining({ message: 'Invalid video export response' })

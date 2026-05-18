@@ -262,8 +262,8 @@ export class ReaderSession {
     this.highlightManager.applyTheme(config.highlightTheme);
   }
 
-  private async handleSelection(payload: ReaderSelectionPayload): Promise<void> {
-    await handleReaderSessionSelection(this.operationContext, payload);
+  private handleSelection(payload: ReaderSelectionPayload): void {
+    handleReaderSessionSelection(this.operationContext, payload);
   }
 
   private async handleMouseUp(event: MouseEvent): Promise<void> {

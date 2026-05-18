@@ -93,6 +93,8 @@ describe('VideoSection', () => {
 
     const collected = registry.collect(snapshot);
     expect(collected.video).toEqual({
+      controlBarAutoPause: true,
+      controlBarScreenshot: true,
       floatingPromptEnabled: false,
       promptButtonLabel: '快速开启视频模式',
       promptShortcut: 'SHIFT+V'

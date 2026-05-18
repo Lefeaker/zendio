@@ -4,7 +4,6 @@ import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
-  isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
 } from './runtime/contentSessionRegistry';
@@ -24,6 +23,7 @@ import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 import { startRuntimeThemeSync } from './stitch/runtimeTheme';
+import type { SupportProgressUpdate } from './runtime/supportProgress';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -51,20 +51,33 @@ function initializeClipperRuntime(): void {
   const stopRuntimeThemeSync = startRuntimeThemeSync(primaryOptionsRepository, window);
   const clipPromptGateway = createClipperDialogPromptGateway();
   const supportPrompt = createLazySupportPrompt(document);
+  const showSupportProgress = (progress: SupportProgressUpdate): void => {
+    const variant = progress.variant ?? 'progress';
+    const status = variant === 'progress' ? 'progress' : variant;
+    void supportPrompt.show({
+      status,
+      progress: {
+        ...progress,
+        variant
+      }
+    });
+  };
   const createReaderSession = createLazyReaderSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
     storage: platform.storage,
     messaging: platform.messaging,
     runtime: platform.runtime,
-    promptGateway: clipPromptGateway
+    promptGateway: clipPromptGateway,
+    showSupportProgress
   });
   const createVideoSession = createLazyVideoSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
     storage: platform.storage,
     messaging: platform.messaging,
-    runtime: platform.runtime
+    runtime: platform.runtime,
+    showSupportProgress
   });
   const selectionController = createSelectionController({
     prompt: clipPromptGateway,
@@ -89,7 +102,8 @@ function initializeClipperRuntime(): void {
     {
       optionsRepository: primaryOptionsRepository,
       storage: platform.storage,
-      runtime: platform.runtime
+      runtime: platform.runtime,
+      showSupportProgress
     },
     window.location.href
   );
@@ -102,6 +116,7 @@ function initializeClipperRuntime(): void {
     selectionTracker,
     selectionController,
     extractorRegistry,
+    showSupportProgress,
     createRouter: (runClip) =>
       createContentMessageRouter({
         document,

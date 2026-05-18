@@ -224,6 +224,10 @@ export interface PreviewSurfaces {
     status: string;
     statusMessage: string;
     statusDetail?: string;
+    progress?: {
+      value: number;
+      variant: 'progress' | 'success' | 'failure' | 'warning';
+    };
     feedbackLabel: string;
     likeLabel: string;
     dislikeLabel: string;

@@ -24,10 +24,10 @@ interface ReaderSessionOperationContext {
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
 
-export async function handleReaderSessionSelection(
+export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
   payload: ReaderSelectionPayload
-): Promise<void> {
+): void {
   context.state.handlingSelection = true;
 
   try {
@@ -82,7 +82,7 @@ export async function handleReaderSessionMouseUp(
   const container = context.doc.createElement('div');
   container.appendChild(range.cloneContents());
 
-  await handleReaderSessionSelection(context, {
+  handleReaderSessionSelection(context, {
     range,
     selectedHtml: container.innerHTML,
     selectedText,
@@ -155,9 +155,17 @@ export async function finishReaderSession(
 
   context.state.exporting = true;
   context.panelCoordinator.applyHint('exporting', context.state.highlights.length);
+  context.dependencies.showSupportProgress?.({
+    value: 10,
+    label: '正在准备阅读导出'
+  });
 
   try {
     applyReadingConfig(await loadReadingConfig());
+    context.dependencies.showSupportProgress?.({
+      value: 24,
+      label: '正在整理阅读标注'
+    });
     const highlights = context.dependencies.exporter.prepareHighlights(
       context.state.highlights,
       context.highlightManager
@@ -172,6 +180,10 @@ export async function finishReaderSession(
       context.dependencies.exporter.applyTokens(documentClone, highlights);
     }
 
+    context.dependencies.showSupportProgress?.({
+      value: 32,
+      label: '正在生成阅读笔记'
+    });
     const payload = await context.dependencies.exporter.buildMarkdown({
       mode: context.state.readingConfig.exportMode,
       pageTitle,
@@ -187,10 +199,19 @@ export async function finishReaderSession(
       };
     }
 
+    context.dependencies.showSupportProgress?.({
+      value: 36,
+      label: '正在发送到 Obsidian'
+    });
     await context.dependencies.dispatchClipResult(payload);
     cleanupReaderSession(context);
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
+    context.dependencies.showSupportProgress?.({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
     context.panelCoordinator.applyHint('failure', context.state.highlights.length);
     context.state.exporting = false;
   }

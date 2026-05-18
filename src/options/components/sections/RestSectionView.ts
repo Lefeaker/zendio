@@ -47,7 +47,6 @@ export class RestSection extends BaseSection<SectionRenderContext> {
   private defaultHttpInput: HTMLInputElement | null = null;
   private defaultApiKeyInput: HTMLInputElement | null = null;
   private isApplyingSnapshot = false;
-
   constructor(
     container: HTMLElement,
     optionsRepo: IOptionsRepository,

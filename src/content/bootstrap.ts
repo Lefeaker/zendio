@@ -93,6 +93,14 @@ export class ContentScriptContext {
   private scopedRegistry: ScopedServiceRegistry;
   private isDisposed = false;
   private cleanupGlobalErrorBoundary: (() => void) | null = null;
+  private readonly handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.closeActivePopups();
+    }
+  };
+  private readonly handlePageHide = (): void => {
+    this.closeActivePopups();
+  };
 
   constructor(storage?: StorageService) {
     // 创建作用域注册表，继承全局注册表
@@ -203,15 +211,29 @@ export class ContentScriptContext {
   private setupCleanupListeners(): void {
     // 页面卸载时自动清理
     window.addEventListener('beforeunload', this.handleBeforeUnload);
+    window.addEventListener('pagehide', this.handlePageHide, { passive: true });
+    document.addEventListener('visibilitychange', this.handleVisibilityChange, { passive: true });
   }
 
   private removeCleanupListeners(): void {
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    window.removeEventListener('pagehide', this.handlePageHide);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   private handleBeforeUnload = (): void => {
     this.dispose();
   };
+
+  private closeActivePopups(): void {
+    try {
+      this.scopedRegistry
+        .resolve<ReturnType<typeof createPopupCoordinator>>(TOKENS.dialogRegistry)
+        .closeAll();
+    } catch (error) {
+      console.warn('[ContentScript] Failed to close active popups:', error);
+    }
+  }
 }
 
 /**

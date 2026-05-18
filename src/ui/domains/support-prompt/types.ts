@@ -7,13 +7,20 @@ export interface SupportLink {
   url: string;
 }
 
-export type PromptStatus = 'success' | 'failure' | 'warning';
+export type PromptStatus = 'success' | 'failure' | 'warning' | 'progress';
+
+export interface SupportPromptProgress {
+  value: number;
+  label?: string;
+  variant?: 'progress' | 'success' | 'failure' | 'warning';
+}
 
 export interface SupportPromptOptions {
   vaultName?: string;
   status?: PromptStatus;
   errorMessage?: string;
   error?: AppError;
+  progress?: SupportPromptProgress;
 }
 
 export interface SupportPromptMessages {
