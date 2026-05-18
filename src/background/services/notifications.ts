@@ -37,12 +37,12 @@ const NOTIFICATION_CHANNELS = {
   developer: 'system.developer' as const
 };
 
-type KnownNotificationChannel = typeof NOTIFICATION_CHANNELS[keyof typeof NOTIFICATION_CHANNELS];
+type KnownNotificationChannel = (typeof NOTIFICATION_CHANNELS)[keyof typeof NOTIFICATION_CHANNELS];
 
 let customNotificationAdapter: NotificationAdapter | null = null;
 
 const TEMPLATE_BASIC: PlatformNotificationOptions['type'] =
-  (typeof chrome !== 'undefined' && chrome.notifications?.TemplateType)
+  typeof chrome !== 'undefined' && chrome.notifications?.TemplateType
     ? chrome.notifications.TemplateType.BASIC
     : 'basic';
 
@@ -170,7 +170,10 @@ async function mapErrorToNotification(error: AppError): Promise<AppNotification 
   const message = error.userMessage ?? error.message;
   const metadata = createNotificationMetadata(error);
 
-  if ((error.domain === 'extraction' || error.domain === 'content') && (severity === 'error' || severity === 'critical')) {
+  if (
+    (error.domain === 'extraction' || error.domain === 'content') &&
+    (severity === 'error' || severity === 'critical')
+  ) {
     const msgs = await getMessages();
     const result: AppNotification = {
       channel: NOTIFICATION_CHANNELS.clipFailure,
@@ -270,7 +273,10 @@ async function dispatchNotification(payload: AppNotification): Promise<string | 
     return customNotificationAdapter(id, normalized);
   }
 
-  return getNotificationPlatformServices().notifications.create(id, toNotificationOptions(normalized));
+  return getNotificationPlatformServices().notifications.create(
+    id,
+    toNotificationOptions(normalized)
+  );
 }
 
 export async function notifyAppEvent(payload: AppNotification): Promise<string | void> {
@@ -281,20 +287,70 @@ function mapChannelForClipper(channel: KnownNotificationChannel): NotificationCh
   return channel;
 }
 
-export async function notifyClipSuccess(filePath: string, vaultName?: string): Promise<void> {
+export type ClipSuccessStorageTarget = 'local-folder' | 'rest-api' | 'downloads';
+export type ClipSuccessFallbackReason =
+  | 'permission-denied'
+  | 'folder-missing'
+  | 'unsupported'
+  | 'write-preflight-failed';
+
+export interface ClipSuccessNotificationDetails {
+  vaultName?: string;
+  storageTarget?: ClipSuccessStorageTarget;
+  localFolderName?: string;
+  fallbackReason?: ClipSuccessFallbackReason;
+}
+
+export async function notifyClipSuccess(
+  filePath: string,
+  detailsOrVaultName?: string | ClipSuccessNotificationDetails
+): Promise<void> {
   const msgs = await getMessages();
+  const details =
+    typeof detailsOrVaultName === 'string'
+      ? { vaultName: detailsOrVaultName, storageTarget: 'rest-api' as const }
+      : (detailsOrVaultName ?? {});
+  const vaultName = details.vaultName;
   const title = vaultName ? `${msgs.clipSuccess} (${vaultName})` : msgs.clipSuccess;
+  const storageTarget = details.storageTarget ?? 'rest-api';
+  const message = formatClipSuccessMessage(msgs, filePath, details, storageTarget);
   await notifyAppEvent({
     channel: mapChannelForClipper(NOTIFICATION_CHANNELS.clipSuccess),
-    severity: 'success',
+    severity: details.fallbackReason ? 'info' : 'success',
     iconUrl: APP_ICON_PATH,
     title,
-    message: String(filePath),
+    message,
     metadata: {
       filePath,
-      vaultName
+      vaultName,
+      storageTarget,
+      ...(details.localFolderName !== undefined && { localFolderName: details.localFolderName }),
+      ...(details.fallbackReason !== undefined && { fallbackReason: details.fallbackReason })
     }
   });
+}
+
+function formatClipSuccessMessage(
+  msgs: Awaited<ReturnType<typeof getMessages>>,
+  filePath: string,
+  details: ClipSuccessNotificationDetails,
+  storageTarget: ClipSuccessStorageTarget
+): string {
+  if (details.fallbackReason) {
+    return msgs.clipSuccessRestFallback;
+  }
+  if (storageTarget === 'local-folder') {
+    return formatMessage(msgs.clipSuccessLocalFolder, {
+      folderName: details.localFolderName ?? details.vaultName ?? ''
+    });
+  }
+  if (storageTarget === 'downloads') {
+    return formatMessage(msgs.clipSuccessDownloads, { filePath });
+  }
+  if (details.vaultName) {
+    return formatMessage(msgs.clipSuccessRestApi, { vaultName: details.vaultName });
+  }
+  return String(filePath);
 }
 
 export async function notifyClipFailure(error: string): Promise<void> {
@@ -335,7 +391,9 @@ export async function notifyInjectionFailure(errorMessage: string): Promise<void
 
 export async function notifyClipWarning(reason?: string): Promise<void> {
   const msgs = await getMessages();
-  const normalizedReason = reason?.trim() ? reason.trim() : msgs.classificationFallbackDefaultReason;
+  const normalizedReason = reason?.trim()
+    ? reason.trim()
+    : msgs.classificationFallbackDefaultReason;
   await notifyAppEvent({
     channel: mapChannelForClipper(NOTIFICATION_CHANNELS.clipWarning),
     severity: ErrorSeverity.WARNING,

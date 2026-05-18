@@ -20,6 +20,7 @@ const SHARED_PERMISSIONS = [
 ];
 
 const SHARED_HOST_PERMISSIONS = ['<all_urls>', 'http://127.0.0.1/*', 'https://127.0.0.1/*'];
+const WEB_ACCESSIBLE_RESOURCE_MATCHES = ['http://*/*', 'https://*/*'];
 
 const SHARED_WEB_ACCESSIBLE_RESOURCES = [
   {
@@ -27,11 +28,13 @@ const SHARED_WEB_ACCESSIBLE_RESOURCES = [
       'chunks/*',
       'content/*',
       'icons/*',
+      'local-vault-permission.html',
+      'local-vault-permission.js',
       'styles/clipper/*',
       'options/stitch/styles/*',
       'onboarding/*'
     ],
-    matches: ['<all_urls>']
+    matches: [...WEB_ACCESSIBLE_RESOURCE_MATCHES]
   }
 ];
 
@@ -70,6 +73,7 @@ function applyBrowserOverrides(manifest, browser) {
   if (browser === 'chrome') {
     return {
       ...manifest,
+      permissions: [...manifest.permissions, 'offscreen'],
       incognito: 'spanning'
     };
   }

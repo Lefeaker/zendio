@@ -1,5 +1,9 @@
 import type { AppError } from '../../shared/errors';
 import { isSupportPromptMessage } from '../../shared/types';
+import type {
+  LocalVaultPermissionPromptMessage,
+  LocalVaultPermissionPromptResponse
+} from '../../shared/types';
 import { isAppError } from '../../shared/errors';
 import type {
   MessageListener,
@@ -8,7 +12,7 @@ import type {
 } from '../../platform/interfaces/messaging';
 import type { ActiveSelectionInfo, SelectionSnapshot } from './contentSelectionTracker';
 
-type SupportPromptStatus = 'success' | 'failure' | 'warning';
+type SupportPromptStatus = 'success' | 'failure' | 'warning' | 'progress';
 type ClipMode = 'full' | 'selection';
 
 interface SupportPromptOptions {
@@ -16,10 +20,19 @@ interface SupportPromptOptions {
   status?: SupportPromptStatus;
   error?: AppError;
   errorMessage?: string;
+  progress?: {
+    value: number;
+    label?: string;
+    variant?: 'progress' | 'success' | 'failure' | 'warning';
+  };
 }
 
 interface SupportPromptLike {
   show(options?: SupportPromptOptions): Promise<void> | void;
+}
+
+interface LocalVaultPermissionPromptLike {
+  request(message: LocalVaultPermissionPromptMessage): Promise<LocalVaultPermissionPromptResponse>;
 }
 
 interface VideoSessionLike {
@@ -41,6 +54,7 @@ export interface CreateContentMessageRouterOptions {
   window: Window;
   messaging: Pick<MessagingService, 'addListener' | 'send'>;
   supportPrompt: SupportPromptLike;
+  localVaultPermissionPrompt: LocalVaultPermissionPromptLike;
   setClipMode: (mode: ClipMode) => void;
   runClip: () => void;
   selectionController: VideoSelectionController;
@@ -65,7 +79,10 @@ function createSuccessPayload(extra: Record<string, MessagePayload> = {}): Messa
   };
 }
 
-function createFailurePayload(error: string, extra: Record<string, MessagePayload> = {}): MessagePayload {
+function createFailurePayload(
+  error: string,
+  extra: Record<string, MessagePayload> = {}
+): MessagePayload {
   return {
     success: false,
     error,
@@ -81,6 +98,7 @@ export function createContentMessageRouter(
     window,
     messaging,
     supportPrompt,
+    localVaultPermissionPrompt,
     setClipMode,
     runClip,
     selectionController,
@@ -104,6 +122,7 @@ export function createContentMessageRouter(
       const rawError = message.error;
       const error = isAppError(rawError) ? rawError : undefined;
       const errorMessage = message.errorMessage;
+      const progress = message.progress;
       const supportPromptOptions: SupportPromptOptions = {};
 
       const vaultName = message.vaultName;
@@ -119,9 +138,23 @@ export function createContentMessageRouter(
       if (errorMessage !== undefined) {
         supportPromptOptions.errorMessage = errorMessage;
       }
+      if (progress !== undefined) {
+        supportPromptOptions.progress = progress;
+      }
 
       void supportPrompt.show(supportPromptOptions);
       return;
+    }
+
+    const localVaultMessage = rawMessage as Partial<LocalVaultPermissionPromptMessage>;
+    if (
+      localVaultMessage.type === 'SHOW_LOCAL_VAULT_PERMISSION_PROMPT' &&
+      typeof localVaultMessage.folderId === 'string' &&
+      localVaultMessage.folderId.length > 0
+    ) {
+      return localVaultPermissionPrompt.request(
+        localVaultMessage as LocalVaultPermissionPromptMessage
+      ) as unknown as Promise<MessagePayload>;
     }
 
     const message = rawMessage as Record<string, unknown>;

@@ -264,6 +264,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: 'Obsidian に保存されました',
+  clipSuccessLocalFolder: 'ローカル保管庫フォルダーに保存しました: {folderName}',
+  clipSuccessRestApi: 'Obsidian REST API 経由で保存しました: {vaultName}',
+  clipSuccessRestFallback: 'ローカルフォルダーを使用できないため REST API で保存しました',
+  clipSuccessDownloads: 'ダウンロードに保存しました: {filePath}',
   clipFailed: 'クリップに失敗しました',
   extractionFailed: 'コンテンツの抽出に失敗しました',
   connectionFailed: '接続に失敗しました',
@@ -419,6 +423,8 @@ const runtime: Messages = {
   supportPromptReviewAcknowledgedLabel: 'レビューは書きました',
   supportPromptDislikeToastTitle: 'フィードバックをお寄せください',
   supportPromptDislikeRedditLinkLabel: 'Reddit でディスカッション',
+  supportPromptDislikeQrLinkLabel: 'フィードバック共有用 QR をスキャン',
+  supportPromptDislikeQrPlaceholder: 'QR コードを利用できません',
 
   // Dialog
   clipDialogTitle: '選択範囲をクリップ',

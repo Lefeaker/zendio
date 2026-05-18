@@ -8,8 +8,14 @@ const classifyClipMock = vi.fn();
 const resolvePathMock = vi.fn();
 const writeMarkdownMock = vi.fn();
 const writeAttachmentMock = vi.fn();
+const createWriteSessionMock = vi.fn();
 const recordUsageMock = vi.fn();
 const downloadMock = vi.fn();
+const getServiceMock = vi.fn(() => ({
+  downloads: {
+    download: downloadMock
+  }
+}));
 
 const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
 
@@ -30,6 +36,7 @@ vi.mock('../../../src/background/pathResolver', () => ({
 }));
 
 vi.mock('../../../src/background/services/obsidianWriter', () => ({
+  createVaultWriteSession: createWriteSessionMock,
   writeMarkdownToVault: writeMarkdownMock,
   writeAttachmentToVault: writeAttachmentMock
 }));
@@ -38,12 +45,8 @@ vi.mock('../../../src/background/services/usageStats', () => ({
   recordClipUsage: recordUsageMock
 }));
 
-vi.mock('../../../src/platform', () => ({
-  getPlatformServices: () => ({
-    downloads: {
-      download: downloadMock
-    }
-  })
+vi.mock('../../../src/shared/di', () => ({
+  getService: getServiceMock
 }));
 
 describe('clipProcessor', () => {
@@ -55,8 +58,20 @@ describe('clipProcessor', () => {
     resolvePathMock.mockReset();
     writeMarkdownMock.mockReset();
     writeAttachmentMock.mockReset();
+    createWriteSessionMock.mockReset();
     recordUsageMock.mockReset();
     downloadMock.mockReset();
+    getServiceMock.mockReset();
+    getServiceMock.mockReturnValue({
+      downloads: {
+        download: downloadMock
+      }
+    });
+    createWriteSessionMock.mockResolvedValue({
+      target: { storageTarget: 'rest-api' },
+      writeMarkdown: writeMarkdownMock,
+      writeAttachment: writeAttachmentMock
+    });
   });
 
   afterEach(() => {
@@ -100,17 +115,22 @@ describe('clipProcessor', () => {
     );
     const result = await processClipPayload(createPayload());
 
-    expect(writeMarkdownMock).toHaveBeenCalledWith(
-      { baseUrl: 'https://vault', vault: 'Secondary', apiKey: 'key' },
-      'Articles/foo.md',
-      '# note'
+    expect(createWriteSessionMock).toHaveBeenCalledWith(
+      {
+        baseUrl: 'https://vault',
+        vault: 'Secondary',
+        apiKey: 'key'
+      },
+      {}
     );
+    expect(writeMarkdownMock).toHaveBeenCalledWith('Articles/foo.md', '# note');
     expect(recordUsageMock).toHaveBeenCalled();
     expect(result).toEqual({
       filePath: 'Articles/foo.md',
       vaultName: 'Secondary Vault',
       restVault: 'Secondary',
       destination: 'vault',
+      storageTarget: 'rest-api',
       classification: classificationResult
     });
   });
@@ -144,7 +164,8 @@ describe('clipProcessor', () => {
     await expect(processClipPayload(createPayload())).resolves.toMatchObject({
       filePath: 'Articles/foo.md',
       destination: 'vault',
-      restVault: 'Vault'
+      restVault: 'Vault',
+      storageTarget: 'rest-api'
     });
 
     expect(recordUsageMock).toHaveBeenCalled();
@@ -190,6 +211,7 @@ describe('clipProcessor', () => {
       expect(parseResult.data.restVault).toBe('Test');
       expect(parseResult.data.vaultName).toBe('Test Vault');
       expect(parseResult.data.destination).toBe('vault');
+      expect(parseResult.data.storageTarget).toBe('rest-api');
       expect(parseResult.data.classification).toEqual(classificationResult);
     }
   });
@@ -234,6 +256,7 @@ describe('clipProcessor', () => {
       filePath: 'downloaded-note.md',
       restVault: '',
       destination: 'downloads',
+      storageTarget: 'downloads',
       classification: classificationResult
     });
   });
@@ -345,16 +368,61 @@ describe('clipProcessor', () => {
     );
 
     expect(writeAttachmentMock).toHaveBeenCalledWith(
-      { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
       'Reading/公众号/2026/2026-05-05/assets/test/file-20260509194226985.jpg',
       'data:image/jpeg;base64,aaa',
       'image/jpeg'
     );
     expect(writeMarkdownMock).toHaveBeenCalledWith(
-      { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
       'Reading/公众号/2026/2026-05-05/test.md',
       '# video\n![Screenshot](assets/test/file-20260509194226985.jpg)'
     );
+  });
+
+  it('returns the actual local storage target from the write session', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: { name: 'Local Routed Vault' },
+      restConfig: {
+        baseUrl: 'https://vault',
+        vault: 'RemoteName',
+        apiKey: 'key',
+        localFolderId: 'folder-main',
+        localFolderName: 'LocalMain'
+      },
+      context: {}
+    });
+    createWriteSessionMock.mockResolvedValue({
+      target: { storageTarget: 'local-folder', localFolderName: 'LocalMain' },
+      writeMarkdown: writeMarkdownMock,
+      writeAttachment: writeAttachmentMock
+    });
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('Articles/local.md');
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } = await import(
+      '../../../src/background/application/clipProcessor'
+    );
+    const result = await processClipPayload(createPayload());
+
+    expect(result).toMatchObject({
+      filePath: 'Articles/local.md',
+      vaultName: 'Local Routed Vault',
+      restVault: 'RemoteName',
+      destination: 'vault',
+      storageTarget: 'local-folder',
+      localFolderName: 'LocalMain'
+    });
   });
 
   it('includes classificationWarning when classification falls back with error', async () => {

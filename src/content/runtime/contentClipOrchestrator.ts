@@ -1,15 +1,12 @@
 import type { AppError } from '../../shared/errors';
-import {
-  extractionErrors,
-  getErrorHandler,
-  normalizeToAppError
-} from '../../shared/errors';
+import { extractionErrors, getErrorHandler, normalizeToAppError } from '../../shared/errors';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { ExtractionResult } from '../../shared/types/extraction';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
 import type { SelectionController } from '../clipper/services/selectionController';
 import type { ExtractorRegistryApi } from '../extractors/registry';
+import type { SupportProgressReporter } from './supportProgress';
 
 interface ClipPayloadLike {
   markdown?: string;
@@ -24,6 +21,7 @@ export interface CreateContentClipOrchestratorOptions {
   selectionController: SelectionController;
   extractorRegistry: Pick<ExtractorRegistryApi, 'extract'>;
   isVideoSessionActive: (doc: Document) => boolean;
+  showSupportProgress?: SupportProgressReporter;
 }
 
 export interface ContentClipOrchestrator {
@@ -40,7 +38,8 @@ export function createContentClipOrchestrator(
     selectionTracker,
     selectionController,
     extractorRegistry,
-    isVideoSessionActive
+    isVideoSessionActive,
+    showSupportProgress
   } = options;
 
   async function emitClipError(error: AppError): Promise<void> {
@@ -101,7 +100,9 @@ export function createContentClipOrchestrator(
         selectionInfo.selection.isCollapsed) &&
       runtimeState.getLastSelectionSnapshot()
     ) {
-      selectionInfo = selectionTracker.restoreSelectionFromSnapshot(runtimeState.getLastSelectionSnapshot());
+      selectionInfo = selectionTracker.restoreSelectionFromSnapshot(
+        runtimeState.getLastSelectionSnapshot()
+      );
     }
 
     const selection = selectionInfo?.selection ?? null;
@@ -134,15 +135,25 @@ export function createContentClipOrchestrator(
   async function runClip(): Promise<void> {
     const url = location.href;
     const clipMode = runtimeState.getClipMode();
+    if (clipMode !== 'selection') {
+      showSupportProgress?.({
+        value: 8,
+        label: '正在准备网页剪藏'
+      });
+    }
 
     try {
       const result =
-        clipMode === 'selection'
-          ? await resolveSelectionClip(url)
-          : await resolveFullPageClip(url);
+        clipMode === 'selection' ? await resolveSelectionClip(url) : await resolveFullPageClip(url);
 
       if (!result) {
         return;
+      }
+      if (clipMode === 'selection') {
+        showSupportProgress?.({
+          value: 16,
+          label: '正在发送选区剪藏'
+        });
       }
 
       await dispatchClipResult(url, result);

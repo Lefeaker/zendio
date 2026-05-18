@@ -860,7 +860,6 @@ body[data-route='onboarding'] {
   height: 100vh;
   overflow-y: auto;
   padding: var(--space-12) var(--space-13) var(--space-16);
-  scroll-behavior: smooth;
 }
 
 .content {
@@ -1243,6 +1242,102 @@ body[data-route='onboarding'] {
 .panel-section[data-panel-id='capture-sources'] .card,
 .panel-section[data-panel-id='capture-behavior'] .card {
   background: color-mix(in srgb, var(--panel) 90%, var(--surface-muted));
+}
+
+.panel-section[data-panel-id='storage'] table {
+  table-layout: fixed;
+  min-width: 1040px;
+}
+
+.panel-section[data-panel-id='storage'] th:nth-child(1),
+.panel-section[data-panel-id='storage'] td:nth-child(1) {
+  width: 72px;
+}
+
+.panel-section[data-panel-id='storage'] th:nth-child(2),
+.panel-section[data-panel-id='storage'] td:nth-child(2) {
+  width: 136px;
+}
+
+.panel-section[data-panel-id='storage'] th:nth-child(3),
+.panel-section[data-panel-id='storage'] td:nth-child(3) {
+  width: 172px;
+}
+
+.panel-section[data-panel-id='storage'] th:nth-child(6),
+.panel-section[data-panel-id='storage'] td:nth-child(6) {
+  width: 128px;
+}
+
+.panel-section[data-panel-id='storage'] th:nth-child(7),
+.panel-section[data-panel-id='storage'] td:nth-child(7) {
+  width: 96px;
+}
+
+.panel-section[data-panel-id='storage'] td {
+  position: relative;
+}
+
+.local-folder-cell {
+  position: relative;
+  min-width: 0;
+}
+
+.local-folder-trigger {
+  width: 100%;
+  min-width: 0;
+}
+
+.local-folder-trigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.local-folder-trigger.is-selected {
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+}
+
+.local-folder-popover {
+  position: absolute;
+  z-index: calc(var(--z-sidebar) + 1);
+  top: calc(100% + 10px);
+  left: 50%;
+  display: flex;
+  min-width: 132px;
+  max-width: min(220px, calc(100vw - var(--space-8)));
+  padding: var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-xl);
+  transform: translateX(-50%);
+}
+
+.local-folder-popover.is-bubble::before {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-top: var(--border-default);
+  border-left: var(--border-default);
+  background: var(--panel-strong);
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.local-folder-popover .btn {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.local-folder-popover .schema-button {
+  width: 100%;
+  min-height: 32px;
+  white-space: nowrap;
 }
 
 .resource-card-grid,
@@ -4028,6 +4123,35 @@ td {
   color: var(--runtime-muted);
   font-size: var(--font-size-sm);
   font-weight: 600;
+}
+
+.task-progress-shell {
+  margin-inline: calc(var(--space-7) * -1);
+  padding: 0 var(--space-7);
+  background: var(--runtime-panel);
+}
+
+.task-progress-track {
+  overflow: hidden;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.task-progress-fill {
+  width: var(--task-progress-value, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 180ms ease, background 160ms ease;
+}
+
+.task-progress-track.is-failure .task-progress-fill {
+  background: var(--danger);
+}
+
+.task-progress-track.is-warning .task-progress-fill {
+  background: var(--warning);
 }
 
 .task-support-strip {

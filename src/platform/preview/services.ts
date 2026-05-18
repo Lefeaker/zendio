@@ -2,6 +2,7 @@ import type { RestClient } from '../../shared/interfaces/restClient';
 import type { ActionService } from '../interfaces/actions';
 import type { ContextMenusService } from '../interfaces/contextMenus';
 import type { DownloadsService } from '../interfaces/downloads';
+import type { FileSystemAccessService } from '../interfaces/fileSystemAccess';
 import type { MessagingService } from '../interfaces/messaging';
 import type { NotificationsService } from '../interfaces/notifications';
 import type { RuntimeService } from '../interfaces/runtime';
@@ -131,6 +132,27 @@ function createPreviewDownloadsService(): DownloadsService {
   };
 }
 
+function createPreviewFileSystemAccessService(): FileSystemAccessService {
+  return {
+    isSupported() {
+      return false;
+    },
+    async chooseDirectory() {
+      throw new Error('File System Access API is unavailable in preview.');
+    },
+    async queryPermission() {
+      return 'unsupported';
+    },
+    async ensurePermission() {
+      return 'unsupported';
+    },
+    async writeFile() {
+      throw new Error('File System Access API is unavailable in preview.');
+    },
+    async removeDirectory() {}
+  };
+}
+
 export function createPreviewPlatformServices(
   storage: StorageService = createMemoryStorageService()
 ): PlatformServices {
@@ -140,6 +162,7 @@ export function createPreviewPlatformServices(
     runtime: createPreviewRuntimeService(),
     contextMenus: createPreviewContextMenusService(),
     downloads: createPreviewDownloadsService(),
+    fileSystemAccess: createPreviewFileSystemAccessService(),
     notifications: createPreviewNotificationsService(),
     tabs: createPreviewTabsService(),
     action: createPreviewActionService(),

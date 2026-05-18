@@ -9,9 +9,17 @@ import type {
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from './supportProgress';
+import type {
+  LocalVaultPermissionPromptMessage,
+  LocalVaultPermissionPromptResponse
+} from '../../shared/types';
 
 interface SupportPromptLike {
   show(options?: unknown): Promise<void> | void;
+}
+
+interface LocalVaultPermissionPromptLike {
+  request(message: LocalVaultPermissionPromptMessage): Promise<LocalVaultPermissionPromptResponse>;
 }
 
 interface LazyRuntimeDependencies {
@@ -97,6 +105,23 @@ export function createLazySupportPrompt(document: Document): SupportPromptLike {
     async show(options?: unknown): Promise<void> {
       const prompt = await loadPrompt();
       await prompt.show(options as never);
+    }
+  };
+}
+
+export function createLazyLocalVaultPermissionPrompt(params: {
+  document: Document;
+  window: Window;
+  runtime: Pick<RuntimeService, 'getURL'>;
+}): LocalVaultPermissionPromptLike {
+  let promptPromise: Promise<LocalVaultPermissionPromptLike> | null = null;
+
+  return {
+    request(message) {
+      promptPromise ??= import('./localVaultPermissionPrompt').then(
+        ({ createLocalVaultPermissionPrompt }) => createLocalVaultPermissionPrompt(params)
+      );
+      return promptPromise.then((prompt) => prompt.request(message));
     }
   };
 }

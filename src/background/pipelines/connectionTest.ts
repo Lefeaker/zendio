@@ -3,6 +3,10 @@ import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { TestVaultConnectionMessage, VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
 import { createRestCandidates, type RestConfig } from '../utils/restCandidates';
+import { getService } from '../../shared/di';
+import { TOKENS } from '../../shared/di/tokens';
+import type { PlatformServices } from '../../platform/types';
+import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 
@@ -73,9 +77,13 @@ interface ConnectionTestConfig {
   apiKey: string;
   vault: string;
   label?: string;
+  localFolderId?: string;
+  localFolderName?: string;
 }
 
-export async function handleConnectionTest(restDraft?: Partial<RestOptions>): Promise<ConnectionTestResult> {
+export async function handleConnectionTest(
+  restDraft?: Partial<RestOptions>
+): Promise<ConnectionTestResult> {
   try {
     const options = await getOptions();
     const rest = mergeRestOptions(options.rest, restDraft);
@@ -86,10 +94,12 @@ export async function handleConnectionTest(restDraft?: Partial<RestOptions>): Pr
         vault: rest.vault,
         label: rest.vault,
         ...(rest.httpsUrl ? { httpsUrl: rest.httpsUrl } : {}),
-        ...(rest.httpUrl ? { httpUrl: rest.httpUrl } : {})
+        ...(rest.httpUrl ? { httpUrl: rest.httpUrl } : {}),
+        ...(rest.localFolderId ? { localFolderId: rest.localFolderId } : {}),
+        ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {})
       };
 
-      return await executeConnectionTest(config);
+      return await executeStorageTargetTest(config);
     } catch (error) {
       return buildFailureResult(error, rest.vault);
     }
@@ -98,10 +108,12 @@ export async function handleConnectionTest(restDraft?: Partial<RestOptions>): Pr
   }
 }
 
-export async function handleVaultConnectionTest(message: TestVaultConnectionMessage): Promise<ConnectionTestResult> {
+export async function handleVaultConnectionTest(
+  message: TestVaultConnectionMessage
+): Promise<ConnectionTestResult> {
   try {
     const options = await getOptions();
-    const activeVaults = (options.vaultRouter?.vaults ?? []).filter(v => v.enabled !== false);
+    const activeVaults = (options.vaultRouter?.vaults ?? []).filter((v) => v.enabled !== false);
     const vault = resolveVaultConfig(message, activeVaults);
     const httpsUrl = sanitizeUrl(vault.httpsUrl);
     const httpUrl = sanitizeUrl(vault.httpUrl);
@@ -120,16 +132,103 @@ export async function handleVaultConnectionTest(message: TestVaultConnectionMess
         vault: vault.vault,
         label,
         ...(httpsUrl ? { httpsUrl } : {}),
-        ...(httpUrl ? { httpUrl } : {})
+        ...(httpUrl ? { httpUrl } : {}),
+        ...(vault.localFolderId ? { localFolderId: vault.localFolderId } : {}),
+        ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {})
       };
 
-      return await executeConnectionTest(config);
+      return await executeStorageTargetTest(config);
     } catch (error) {
       return buildFailureResult(error, label);
     }
   } catch (error) {
     return buildFailureResult(error);
   }
+}
+
+async function executeStorageTargetTest(
+  config: ConnectionTestConfig
+): Promise<ConnectionTestResult> {
+  const restResult = await executeConnectionTest(config);
+  const localResult = await executeLocalFolderTest(config);
+
+  if (!localResult) {
+    return {
+      ...restResult,
+      message: `${formatRestMessage(restResult)}\n本地目录：未配置，已跳过。`
+    };
+  }
+
+  const success = restResult.success && localResult.success;
+  const messages = [formatRestMessage(restResult), localResult.message];
+  const errors = [restResult.error, localResult.error].filter(
+    (message): message is string => typeof message === 'string' && message.length > 0
+  );
+
+  return {
+    success,
+    ...(restResult.status !== undefined && { status: restResult.status }),
+    message: messages.join('\n'),
+    ...(restResult.response !== undefined && { response: restResult.response }),
+    ...(errors.length ? { error: errors.join('\n') } : {})
+  };
+}
+
+function formatRestMessage(result: ConnectionTestResult): string {
+  return `REST API：${result.message || result.error || (result.success ? '连接成功。' : '连接失败。')}`;
+}
+
+async function executeLocalFolderTest(
+  config: ConnectionTestConfig
+): Promise<ConnectionTestResult | null> {
+  if (!config.localFolderId) {
+    return null;
+  }
+
+  const folderName = config.localFolderName || config.label || config.vault;
+  try {
+    const permission = await getService<PlatformServices>(
+      TOKENS.platformServices
+    ).fileSystemAccess.queryPermission(config.localFolderId);
+    if (permission === 'granted') {
+      return {
+        success: true,
+        message: `本地目录可用：${folderName}`
+      };
+    }
+    return {
+      success: false,
+      message: formatLocalFolderFailure(permission, folderName),
+      error: formatLocalFolderFailure(permission, folderName)
+    };
+  } catch (error) {
+    const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
+    const message = `本地目录测试失败：${folderName}${detail ? ` - ${detail}` : ''}`;
+    return {
+      success: false,
+      message,
+      error: message
+    };
+  }
+}
+
+function formatLocalFolderFailure(
+  permission: LocalVaultPermissionState,
+  folderName: string
+): string {
+  if (permission === 'prompt') {
+    return `本地目录需要重新授权：${folderName}`;
+  }
+  if (permission === 'denied') {
+    return `本地目录权限被拒绝：${folderName}`;
+  }
+  if (permission === 'missing') {
+    return `本地目录记录不存在，请重新选择：${folderName}`;
+  }
+  if (permission === 'unsupported') {
+    return '当前浏览器不支持本地目录测试。';
+  }
+  return `本地目录不可用：${folderName}`;
 }
 
 async function executeConnectionTest(config: ConnectionTestConfig): Promise<ConnectionTestResult> {
@@ -181,7 +280,10 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
           'HTTP error',
           normalizeFailureDetail('HTTP error', message)
         )}`;
-        console.warn(`[connectionTest] candidate responded with error${config.label ? ` (${config.label})` : ''}:`, formatted);
+        console.warn(
+          `[connectionTest] candidate responded with error${config.label ? ` (${config.label})` : ''}:`,
+          formatted
+        );
         errors.push(formatted);
         continue;
       }
@@ -198,7 +300,10 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
         category,
         normalizeFailureDetail(category, detail)
       )}`;
-      console.warn(`[connectionTest] candidate failed${config.label ? ` (${config.label})` : ''}:`, formatted);
+      console.warn(
+        `[connectionTest] candidate failed${config.label ? ` (${config.label})` : ''}:`,
+        formatted
+      );
       errors.push(formatted);
 
       if (!isRecoverableNetworkError(error)) {
@@ -240,20 +345,10 @@ function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): Rest
 
   const httpsUrl = sanitizeUrl(draft.httpsUrl) ?? rest.httpsUrl;
   const httpUrl = sanitizeUrl(draft.httpUrl) ?? rest.httpUrl;
-  const vault =
-    draft.vault !== undefined
-      ? draft.vault.trim()
-      : rest.vault;
-  const apiKey =
-    draft.apiKey !== undefined
-      ? draft.apiKey.trim()
-      : rest.apiKey;
+  const vault = draft.vault !== undefined ? draft.vault.trim() : rest.vault;
+  const apiKey = draft.apiKey !== undefined ? draft.apiKey.trim() : rest.apiKey;
   const baseUrl =
-    sanitizeUrl(draft.baseUrl) ??
-    httpsUrl ??
-    httpUrl ??
-    sanitizeUrl(rest.baseUrl) ??
-    rest.baseUrl;
+    sanitizeUrl(draft.baseUrl) ?? httpsUrl ?? httpUrl ?? sanitizeUrl(rest.baseUrl) ?? rest.baseUrl;
 
   return {
     baseUrl,
@@ -261,7 +356,9 @@ function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): Rest
     apiKey,
     ...(httpsUrl !== undefined && { httpsUrl }),
     ...(httpUrl !== undefined && { httpUrl }),
-    ...(rest.rootDir !== undefined && { rootDir: rest.rootDir })
+    ...(rest.rootDir !== undefined && { rootDir: rest.rootDir }),
+    ...(rest.localFolderId !== undefined && { localFolderId: rest.localFolderId }),
+    ...(rest.localFolderName !== undefined && { localFolderName: rest.localFolderName })
   };
 }
 
@@ -270,7 +367,7 @@ function createConnectionCandidates(config: RestConfig): UrlCandidate[] {
   // 传入 null 作为特殊标记,让 createRestCandidates 跳过 vault 路径拼接
   const candidates = createRestCandidates(config, '', null);
   if (candidates.length > 0) {
-    return candidates.map(candidate => ({
+    return candidates.map((candidate) => ({
       url: candidate.url,
       protocol: candidate.protocol
     }));
@@ -279,10 +376,12 @@ function createConnectionCandidates(config: RestConfig): UrlCandidate[] {
   // Fallback:直接使用 baseUrl,不拼接 vault
   const trimmed = config.baseUrl.trim();
   const fallbackUrl = trimmed.replace(/\/+$/, '') + '/';
-  return [{
-    url: fallbackUrl,
-    protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
-  }];
+  return [
+    {
+      url: fallbackUrl,
+      protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
+    }
+  ];
 }
 
 function isRecoverableNetworkError(error: unknown): boolean {
@@ -327,7 +426,7 @@ function buildFailureResult(error: unknown, label?: string): ConnectionTestResul
 }
 
 function findVaultConfig(vaults: VaultConfig[], vaultId: string): VaultConfig {
-  const vault = vaults.find(item => item.id === vaultId);
+  const vault = vaults.find((item) => item.id === vaultId);
   if (!vault) {
     throw new Error('未找到对应的额外仓库配置');
   }

@@ -257,6 +257,10 @@ const runtime: Messages = {
 
   // Notifications
   clipSuccess: 'Saved to Obsidian',
+  clipSuccessLocalFolder: 'Saved to local vault folder: {folderName}',
+  clipSuccessRestApi: 'Saved via Obsidian REST API to: {vaultName}',
+  clipSuccessRestFallback: 'Local folder unavailable; saved via REST API',
+  clipSuccessDownloads: 'Saved to Downloads: {filePath}',
   clipFailed: 'Clip failed',
   extractionFailed: 'Content extraction failed',
   connectionFailed: 'Connection failed',
