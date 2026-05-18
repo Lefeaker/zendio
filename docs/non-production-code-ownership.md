@@ -1,6 +1,6 @@
 # Non-Production Code Ownership
 
-Last updated: 2026-05-16
+Last updated: 2026-05-18
 
 ## 3.0 Definition
 
@@ -60,3 +60,26 @@ Require the check command to exit 0. It fails on:
 - internal classifier contradictions where retained source import, re-export, dependency, script, test, public, manifest, or required verification owners coexist with `delete-now`.
 
 It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains.
+
+## Current Report-Only Backlog
+
+The 2026-05-17 technical-debt orchestration completed classification and deletion safety
+governance. It did not clear the non-production migration backlog, and no existing
+`src/**` file was deleted in Plan 6.
+
+As of the 2026-05-18 completion audit, `npm run audit:non-production-source:report`
+exits 1 with eight report-only rows:
+
+- `src/components/trial-notice.ts`
+- `src/content/clipper/shared/styleManager.ts`
+- `src/env.d.ts`
+- `src/options/stitch/runtime/actions.ts`
+- `src/options/stitch/styles/variants/stitch-secondary.css`
+- `src/styles/clipper/highlight-themes.css`
+- `src/styles/design-tokens.css`
+- `src/ui/foundation/tokens/index.ts`
+
+These rows are tracked in `docs/long-term-maintenance-backlog-2026-03-29.md` with
+owner evidence and acceptance commands. They must not be hidden by a broad allowlist
+or promoted into a production hard gate until each row has an owner-approved
+migration or explicit retained-contract decision.

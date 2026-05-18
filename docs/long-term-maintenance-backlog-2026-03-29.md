@@ -1,6 +1,6 @@
 # 长期维护 Backlog
 
-日期：2026-04-14
+日期：2026-05-18
 
 ## P1
 
@@ -43,3 +43,16 @@
 7. Firefox 路径补强
    - 当前真值：`npm run build:firefox` 已纳入本轮强制验证
    - 后续在 Chromium 稳态保持前提下补充最小 Firefox browser smoke
+
+8. Non-production source migration backlog
+   - 当前真值：技术债 orchestration 已完成分类和防误删治理；`npm run audit:non-production-source:check` 是生产 hard gate，`npm run audit:non-production-source:report` 仍以 report-only 语义退出 1。
+   - Owner：对应域 owner 迁移项目；删除前必须更新 `docs/non-production-code-ownership.md`，并为每个 exact path 留存六项 owner proof。
+   - 当前 remaining rows：
+     - `src/components/trial-notice.ts`：test owner `tests/unit/components/trialNotice.test.ts`；验收为迁移覆盖后 `npm run audit:non-production-source:report` 不再报告该 path，且 `npm run test:unit -- tests/unit/components/trialNotice.test.ts` 通过。
+     - `src/content/clipper/shared/styleManager.ts`：test owners `tests/unit/content/readerSessionModifiers.test.ts`、`tests/unit/content/styleManager.test.ts`；验收为覆盖迁移后对应 unit tests、`npm run test:unit` 和 report 命令不再报告该 path。
+     - `src/env.d.ts`：script owner `tools/report-ui-architecture-alignment.mjs`；验收为工具 owner 迁出或显式保留后 `npm run audit:ui-architecture:report`、`npm run audit:non-production-source:report` 通过对应检查。
+     - `src/options/stitch/runtime/actions.ts`：test owner `tests/unit/options/stitchSharedRegistry.test.ts`；验收为 Stitch action 覆盖迁移后对应 unit test、`npm run verify:stitch-secondary` 和 report 命令不再报告该 path。
+     - `src/options/stitch/styles/variants/stitch-secondary.css`：public owners `public/content-orchestrator-harness.html`、`public/runtime-observability-harness.html` plus visual/unit owners；验收为 harness/style owner 决策完成后 `npm run verify:stitch-secondary`、`npm run visual:test`、`npm run audit:non-production-source:report` 状态一致。
+     - `src/styles/clipper/highlight-themes.css`：script owner `scripts/build.mjs`；验收为 build style owner 迁出或正式保留后 `npm run build`、`npm run build:firefox`、`npm run audit:non-production-source:report` 状态一致。
+     - `src/styles/design-tokens.css`：script owners `scripts/build.mjs`、`tools/report-design-token-alignment.mjs`、`tools/report-ui-architecture-alignment.mjs` and test owner `tests/unit/options/optionsIndexHtmlModalHosts.test.ts`；验收为 design-token owner 决策完成后 `npm run audit:design-token-alignment:report`、`npm run audit:ui-architecture:report`、`npm run audit:non-production-source:report` 状态一致。
+     - `src/ui/foundation/tokens/index.ts`：script owners `tools/report-design-system-doc.mjs`、`tools/report-ui-architecture-alignment.mjs` and test owner `tests/unit/tools/reportDesignSystemDoc.test.ts`；验收为 UI token barrel owner 迁出或正式保留后 `npm run audit:design-system-doc:report`、`npm run audit:ui-architecture:report`、`npm run audit:non-production-source:report` 状态一致。
