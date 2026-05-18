@@ -14,11 +14,11 @@ import { createMemoryStorageService } from './memoryStorage';
 
 function createPreviewMessagingService(): MessagingService {
   return {
-    async send<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    send<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
-    async sendToTab<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    sendToTab<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
     addListener() {
       return () => {};
@@ -46,21 +46,21 @@ function createPreviewRuntimeService(): RuntimeService {
 
 function createPreviewTabsService(): TabsService {
   return {
-    async create() {
-      return undefined;
+    create() {
+      return Promise.resolve(undefined);
     },
     async remove() {},
-    async getCurrent() {
-      return undefined;
+    getCurrent() {
+      return Promise.resolve(undefined);
     },
-    async get() {
-      return undefined;
+    get() {
+      return Promise.resolve(undefined);
     },
-    async query() {
-      return [];
+    query() {
+      return Promise.resolve([]);
     },
-    async sendMessage<TResult = unknown>(): Promise<TResult> {
-      return undefined as TResult;
+    sendMessage<TResult = unknown>(): Promise<TResult> {
+      return Promise.resolve(undefined as TResult);
     },
     onActivated() {
       return () => {};
@@ -76,8 +76,8 @@ function createPreviewTabsService(): TabsService {
 
 function createPreviewContextMenusService(): ContextMenusService {
   return {
-    async create() {
-      return 'preview';
+    create() {
+      return Promise.resolve('preview');
     },
     async update() {},
     async removeAll() {},
@@ -93,8 +93,8 @@ function createPreviewContextMenusService(): ContextMenusService {
 
 function createPreviewNotificationsService(): NotificationsService {
   return {
-    async create(id) {
-      return id;
+    create(id) {
+      return Promise.resolve(id);
     },
     async clear() {}
   };
@@ -112,8 +112,8 @@ function createPreviewActionService(): ActionService {
 
 function createPreviewScriptingService(): ScriptingService {
   return {
-    async executeScript() {
-      return [];
+    executeScript() {
+      return Promise.resolve([]);
     }
   };
 }
@@ -137,17 +137,17 @@ function createPreviewFileSystemAccessService(): FileSystemAccessService {
     isSupported() {
       return false;
     },
-    async chooseDirectory() {
-      throw new Error('File System Access API is unavailable in preview.');
+    chooseDirectory() {
+      return Promise.reject(new Error('File System Access API is unavailable in preview.'));
     },
-    async queryPermission() {
-      return 'unsupported';
+    queryPermission() {
+      return Promise.resolve('unsupported');
     },
-    async ensurePermission() {
-      return 'unsupported';
+    ensurePermission() {
+      return Promise.resolve('unsupported');
     },
-    async writeFile() {
-      throw new Error('File System Access API is unavailable in preview.');
+    writeFile() {
+      return Promise.reject(new Error('File System Access API is unavailable in preview.'));
     },
     async removeDirectory() {}
   };

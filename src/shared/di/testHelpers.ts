@@ -13,7 +13,7 @@ export function createMockPlatformServices(): PlatformServices {
   return {
     storage: {
       sync: {
-        get: async <T = unknown>() => undefined as T | undefined,
+        get: <T = unknown>() => Promise.resolve(undefined as T | undefined),
         getMany: () => Promise.resolve({}),
         set: () => Promise.resolve(undefined),
         setMany: () => Promise.resolve(undefined),
@@ -23,7 +23,7 @@ export function createMockPlatformServices(): PlatformServices {
         watchAll: () => () => undefined
       },
       local: {
-        get: async <T = unknown>() => undefined as T | undefined,
+        get: <T = unknown>() => Promise.resolve(undefined as T | undefined),
         getMany: () => Promise.resolve({}),
         set: () => Promise.resolve(undefined),
         setMany: () => Promise.resolve(undefined),
@@ -33,7 +33,7 @@ export function createMockPlatformServices(): PlatformServices {
         watchAll: () => () => undefined
       },
       session: {
-        get: async <T = unknown>() => undefined as T | undefined,
+        get: <T = unknown>() => Promise.resolve(undefined as T | undefined),
         getMany: () => Promise.resolve({}),
         set: () => Promise.resolve(undefined),
         setMany: () => Promise.resolve(undefined),
@@ -44,8 +44,8 @@ export function createMockPlatformServices(): PlatformServices {
       }
     },
     messaging: {
-      send: async <TResult = unknown>() => undefined as TResult,
-      sendToTab: async <TResult = unknown>() => undefined as TResult,
+      send: <TResult = unknown>() => Promise.resolve(undefined as TResult),
+      sendToTab: <TResult = unknown>() => Promise.resolve(undefined as TResult),
       addListener: () => () => undefined
     },
     runtime: {
@@ -80,10 +80,10 @@ export function createMockPlatformServices(): PlatformServices {
     tabs: {
       create: () => Promise.resolve(undefined),
       remove: () => Promise.resolve(undefined),
-      getCurrent: async () => undefined as chrome.tabs.Tab | undefined,
-      get: async () => undefined as chrome.tabs.Tab | undefined,
+      getCurrent: () => Promise.resolve(undefined as chrome.tabs.Tab | undefined),
+      get: () => Promise.resolve(undefined as chrome.tabs.Tab | undefined),
       query: () => Promise.resolve([]),
-      sendMessage: async <TResult = unknown>() => undefined as TResult,
+      sendMessage: <TResult = unknown>() => Promise.resolve(undefined as TResult),
       onActivated: () => () => undefined,
       onUpdated: () => () => undefined,
       onRemoved: () => () => undefined

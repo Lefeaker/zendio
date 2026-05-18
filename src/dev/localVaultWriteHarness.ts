@@ -52,8 +52,8 @@ class FakeFileHandle implements FileSystemFileHandleLike {
     private readonly root: FakeDirectoryHandle
   ) {}
 
-  async createWritable(): Promise<FileSystemWritableFileStreamLike> {
-    return new FakeWritableFileStream(this, this.root);
+  createWritable(): Promise<FileSystemWritableFileStreamLike> {
+    return Promise.resolve(new FakeWritableFileStream(this, this.root));
   }
 }
 
@@ -83,16 +83,16 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandleLike {
     this.requestResult = requestResult;
   }
 
-  async getDirectoryHandle(
+  getDirectoryHandle(
     name: string,
     options: { create?: boolean } = {}
   ): Promise<FileSystemDirectoryHandleLike> {
     const existing = this.directories.get(name);
     if (existing) {
-      return existing;
+      return Promise.resolve(existing);
     }
     if (!options.create) {
-      throw new Error(`Directory not found: ${name}`);
+      return Promise.reject(new Error(`Directory not found: ${name}`));
     }
     const directory = new FakeDirectoryHandle(
       name,
@@ -101,23 +101,23 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandleLike {
       this.root ?? this
     );
     this.directories.set(name, directory);
-    return directory;
+    return Promise.resolve(directory);
   }
 
-  async getFileHandle(
+  getFileHandle(
     name: string,
     options: { create?: boolean } = {}
   ): Promise<FileSystemFileHandleLike> {
     const existing = this.files.get(name);
     if (existing) {
-      return existing;
+      return Promise.resolve(existing);
     }
     if (!options.create) {
-      throw new Error(`File not found: ${name}`);
+      return Promise.reject(new Error(`File not found: ${name}`));
     }
     const file = new FakeFileHandle(name, this.root ?? this);
     this.files.set(name, file);
-    return file;
+    return Promise.resolve(file);
   }
 }
 
@@ -255,7 +255,7 @@ const restClient: RestClient = {
   }
 };
 
-async function reset(options: ResetOptions = {}): Promise<HarnessSnapshot> {
+function reset(options: ResetOptions = {}): Promise<HarnessSnapshot> {
   fakeDb = null;
   const root = new FakeDirectoryHandle(
     'HarnessVault',
@@ -270,7 +270,7 @@ async function reset(options: ResetOptions = {}): Promise<HarnessSnapshot> {
     fileSystemAccess: chromeFileSystemAccessService,
     restClient
   });
-  return snapshot();
+  return Promise.resolve(snapshot());
 }
 
 async function chooseDirectory(): Promise<HarnessSnapshot> {
@@ -339,9 +339,9 @@ async function writeAfterInlineRestSuppression(): Promise<unknown> {
   state.root.setPermission('prompt', 'granted');
   let reauthRequests = 0;
   const session = await createVaultWriteSession(createRestConfig(), {
-    requestLocalVaultPermission: async () => {
+    requestLocalVaultPermission: () => {
       reauthRequests += 1;
-      return { action: 'use-rest', permissionState: 'denied', persistRest: true };
+      return Promise.resolve({ action: 'use-rest', permissionState: 'denied', persistRest: true });
     }
   });
   await session.writeMarkdown('Articles/rest-suppressed.md', '# rest');

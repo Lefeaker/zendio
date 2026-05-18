@@ -1,8 +1,6 @@
 import { getMessages, formatMessage } from '../../i18n';
 import { APP_ICON_PATH } from '../../shared/constants';
 import type { NotificationOptions as PlatformNotificationOptions } from '../../platform/interfaces/notifications';
-import type { NotificationsService } from '../../platform/interfaces/notifications';
-import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { PlatformServices } from '../../platform/types';
 import type {
   AppNotification,

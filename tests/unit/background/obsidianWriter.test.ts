@@ -82,7 +82,7 @@ describe('obsidianWriter', () => {
           vault: 'Main',
           method: 'PUT',
           filePath: 'Articles/test.md'
-        }),
+        }) as unknown,
         cause: error
       }),
       { suppressNotifications: true }
@@ -160,7 +160,7 @@ describe('obsidianWriter', () => {
     expect(writeLocalFileMock).toHaveBeenNthCalledWith(1, {
       folderId: 'folder-main',
       filePath: 'Articles/assets/test/image.png',
-      content: expect.any(Blob),
+      content: expect.any(Blob) as unknown,
       contentType: 'image/png'
     });
     expect(writeLocalFileMock).toHaveBeenNthCalledWith(2, {
@@ -275,7 +275,7 @@ describe('obsidianWriter', () => {
     );
     await expect(session.writeMarkdown('Articles/test.md', '# Hello')).rejects.toMatchObject({
       code: 'LOCAL_VAULT_WRITE_FAILED',
-      userMessage: expect.stringContaining('本地目录写入失败')
+      userMessage: expect.stringContaining('本地目录写入失败') as unknown
     });
     expect(writeFileMock).not.toHaveBeenCalled();
   });
@@ -366,7 +366,7 @@ describe('obsidianWriter', () => {
     });
     await expect(session.writeMarkdown('Articles/test.md', '# Hello')).rejects.toMatchObject({
       code: 'LOCAL_VAULT_REAUTH_REQUIRED',
-      userMessage: expect.stringContaining('本地目录需要重新授权')
+      userMessage: expect.stringContaining('本地目录需要重新授权') as unknown
     });
     expect(writeFileMock).toHaveBeenCalled();
   });

@@ -2,7 +2,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  const prototype = Object.getPrototypeOf(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
@@ -11,17 +11,14 @@ export function cloneStateValue<T>(value: T): T {
     return value;
   }
 
-  const structured = (
-    globalThis as typeof globalThis & {
-      structuredClone?: <U>(input: U) => U;
-    }
-  ).structuredClone;
+  const structured: (<U>(input: U) => U) | undefined = globalThis.structuredClone;
   if (typeof structured === 'function') {
     return structured(value);
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => cloneStateValue(item)) as T;
+    const items = value as unknown[];
+    return items.map((item) => cloneStateValue(item)) as T;
   }
 
   if (isPlainObject(value)) {
