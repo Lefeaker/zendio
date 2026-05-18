@@ -1,7 +1,11 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachDragHandlers, createPromptElement, updatePromptLabels } from '@content/video/videoPromptRenderer';
+import {
+  attachDragHandlers,
+  createPromptElement,
+  updatePromptLabels
+} from '@content/video/videoPromptRenderer';
 import type { Messages } from '../../../../src/i18n';
 import { asType } from '../../../utils/typeHelpers';
 
@@ -55,13 +59,18 @@ describe('videoPromptRenderer', () => {
     bubble.click();
     bubble.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
     updatePromptLabels(container, 'Capture now', 'Alt+V');
-    const icon = container.querySelector<HTMLElement>('.aiob-video-prompt__icon');
+    const icon = container.querySelector<HTMLElement>('.video-floating-prompt__icon');
 
     expect(onPrimaryAction).toHaveBeenCalled();
     expect(onDismiss).toHaveBeenCalled();
-    expect(icon?.style.getPropertyValue('--aiob-video-prompt-icon')).toContain('/icon.svg');
+    expect(icon?.style.getPropertyValue('--video-floating-prompt-icon')).toContain('/icon.svg');
     expect(icon?.style.backgroundImage).toContain('/icon.svg');
-    expect(container.querySelector('.aiob-video-prompt__hint')?.textContent).toBe('Capture now · Alt+V');
+    expect(container.querySelector('.video-floating-prompt__hint')?.textContent).toBe(
+      'Capture now · Alt+V'
+    );
+    expect(container.querySelector('.aiob-video-prompt')).toBeNull();
+    expect(container.querySelector('.aiob-video-prompt__bubble')).toBeNull();
+    expect(container.querySelector('.aiob-video-prompt__hint')).toBeNull();
   });
 
   it('renders the configured label as readable prompt text by default', () => {
@@ -74,8 +83,8 @@ describe('videoPromptRenderer', () => {
       onDismiss: vi.fn()
     });
 
-    const bubble = container.querySelector<HTMLButtonElement>('.aiob-video-prompt__bubble');
-    const hint = container.querySelector<HTMLSpanElement>('.aiob-video-prompt__hint');
+    const bubble = container.querySelector<HTMLButtonElement>('.video-floating-prompt__bubble');
+    const hint = container.querySelector<HTMLSpanElement>('.video-floating-prompt__hint');
 
     expect(bubble?.textContent).toContain('Quick clip');
     expect(hint).not.toBeNull();
@@ -90,7 +99,9 @@ describe('videoPromptRenderer', () => {
       label: 'Clip video',
       shortcut: '',
       messages: promptMessages,
-      getIconUrl: () => { throw new Error('boom'); },
+      getIconUrl: () => {
+        throw new Error('boom');
+      },
       onPrimaryAction,
       onDismiss: vi.fn()
     });
@@ -111,9 +122,12 @@ describe('videoPromptRenderer', () => {
     mockRect(container, { left: 200, top: 100, width: 40, height: 40 });
     Object.defineProperty(container, 'animate', {
       configurable: true,
-      value: vi.fn(() => ({} as Animation))
+      value: vi.fn(() => ({}) as Animation)
     });
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false }))
+    );
 
     const applySideClass = vi.fn();
     const setPromptSide = vi.fn();
@@ -135,10 +149,22 @@ describe('videoPromptRenderer', () => {
       savePromptPosition
     });
 
-    bubble.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1, clientX: 210, clientY: 110 }));
-    bubble.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 260, clientY: 170 }));
+    bubble.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 1,
+        clientX: 210,
+        clientY: 110
+      })
+    );
+    bubble.dispatchEvent(
+      new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 260, clientY: 170 })
+    );
     mockRect(container, { left: 248, top: 160, width: 40, height: 40 });
-    bubble.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 260, clientY: 170 }));
+    bubble.dispatchEvent(
+      new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 260, clientY: 170 })
+    );
     vi.runAllTimers();
 
     expect(applySideClass).toHaveBeenCalled();
@@ -170,9 +196,21 @@ describe('videoPromptRenderer', () => {
       savePromptPosition: vi.fn()
     });
 
-    bubble.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 3, clientX: 55, clientY: 45 }));
-    bubble.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 3, clientX: 56, clientY: 46 }));
-    bubble.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 3, clientX: 56, clientY: 46 }));
+    bubble.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        pointerId: 3,
+        clientX: 55,
+        clientY: 45
+      })
+    );
+    bubble.dispatchEvent(
+      new PointerEvent('pointermove', { bubbles: true, pointerId: 3, clientX: 56, clientY: 46 })
+    );
+    bubble.dispatchEvent(
+      new PointerEvent('pointerup', { bubbles: true, pointerId: 3, clientX: 56, clientY: 46 })
+    );
 
     expect(applyStoredPosition).toHaveBeenCalledWith(container);
     expect(updateDebugPosition).toHaveBeenCalled();
@@ -201,12 +239,27 @@ describe('videoPromptRenderer', () => {
       savePromptPosition
     });
 
-    bubble.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 1, pointerId: 9, clientX: 20, clientY: 20 }));
-    bubble.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 1, pointerId: 9, clientX: 120, clientY: 120 }));
+    bubble.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 1,
+        pointerId: 9,
+        clientX: 20,
+        clientY: 20
+      })
+    );
+    bubble.dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        button: 1,
+        pointerId: 9,
+        clientX: 120,
+        clientY: 120
+      })
+    );
 
     expect(onPositionCommitted).not.toHaveBeenCalled();
     expect(savePromptPosition).not.toHaveBeenCalled();
     expect(applyStoredPosition).not.toHaveBeenCalled();
   });
-
 });

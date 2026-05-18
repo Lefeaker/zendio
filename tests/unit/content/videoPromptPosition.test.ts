@@ -51,14 +51,8 @@ describe('video prompt positioning helpers', () => {
       height: 40
     });
 
-    const expectedLeft = Math.max(
-      DRAG_BOUNDARY_PADDING,
-      300 - 40 - DRAG_BOUNDARY_PADDING
-    );
-    const expectedTop = Math.max(
-      DRAG_BOUNDARY_PADDING,
-      280 - 40 - DRAG_BOUNDARY_PADDING
-    );
+    const expectedLeft = Math.max(DRAG_BOUNDARY_PADDING, 300 - 40 - DRAG_BOUNDARY_PADDING);
+    const expectedTop = Math.max(DRAG_BOUNDARY_PADDING, 280 - 40 - DRAG_BOUNDARY_PADDING);
 
     expect(result.left).toBe(expectedLeft);
     expect(result.top).toBe(expectedTop);
@@ -76,21 +70,25 @@ describe('video prompt positioning helpers', () => {
   it('applySideClass toggles helper classes correctly', () => {
     const element = document.createElement('div');
     applySideClass(element, 'left');
-    expect(element.classList.contains('aiob-video-prompt--left')).toBe(true);
+    expect(element.classList.contains('video-floating-prompt--left')).toBe(true);
+    expect(element.classList.contains('video-floating-prompt--right')).toBe(false);
+    expect(element.classList.contains('aiob-video-prompt--left')).toBe(false);
     expect(element.classList.contains('aiob-video-prompt--right')).toBe(false);
 
     applySideClass(element, 'right');
+    expect(element.classList.contains('video-floating-prompt--left')).toBe(false);
+    expect(element.classList.contains('video-floating-prompt--right')).toBe(true);
     expect(element.classList.contains('aiob-video-prompt--left')).toBe(false);
-    expect(element.classList.contains('aiob-video-prompt--right')).toBe(true);
+    expect(element.classList.contains('aiob-video-prompt--right')).toBe(false);
   });
 
   it('setPromptSide persists and updates classes', () => {
     const element = document.createElement('div');
     setPromptSide('left', element);
-    expect(element.classList.contains('aiob-video-prompt--left')).toBe(true);
+    expect(element.classList.contains('video-floating-prompt--left')).toBe(true);
 
     setPromptSide('right', element);
-    expect(element.classList.contains('aiob-video-prompt--right')).toBe(true);
+    expect(element.classList.contains('video-floating-prompt--right')).toBe(true);
   });
 
   it('exposes drag constants for downstream validation', () => {
@@ -142,10 +140,7 @@ describe('video prompt positioning helpers', () => {
       viewportHeight: 400
     });
 
-    const expectedTop = Math.max(
-      DRAG_BOUNDARY_PADDING,
-      400 - 40 - DRAG_BOUNDARY_PADDING
-    );
+    const expectedTop = Math.max(DRAG_BOUNDARY_PADDING, 400 - 40 - DRAG_BOUNDARY_PADDING);
     expect(placement.top).toBe(expectedTop);
   });
 });

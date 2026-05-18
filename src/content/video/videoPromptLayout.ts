@@ -41,13 +41,9 @@ export function applySideClass(element: HTMLElement, side: PromptSide): void {
   if (side === 'left') {
     element.classList.add('video-floating-prompt--left');
     element.classList.remove('video-floating-prompt--right');
-    element.classList.add('aiob-video-prompt--left');
-    element.classList.remove('aiob-video-prompt--right');
   } else {
     element.classList.add('video-floating-prompt--right');
     element.classList.remove('video-floating-prompt--left');
-    element.classList.add('aiob-video-prompt--right');
-    element.classList.remove('aiob-video-prompt--left');
   }
 }
 export function setPromptSide(

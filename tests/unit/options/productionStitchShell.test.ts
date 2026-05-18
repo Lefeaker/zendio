@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
+import { registerService, TOKENS } from '@shared/di';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
@@ -159,6 +160,34 @@ function findCheckboxInText(text: string): HTMLInputElement {
 
 async function flushPromises(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function installSmoothMainScrollSimulation(): () => void {
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTop');
+  const values = new WeakMap<HTMLElement, number>();
+
+  Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return values.get(this) ?? 0;
+    },
+    set(this: HTMLElement, value: number) {
+      const nextValue = Number(value) || 0;
+      if (this.classList.contains('main') && this.style.scrollBehavior !== 'auto') {
+        values.set(this, 0);
+        return;
+      }
+      values.set(this, nextValue);
+    }
+  });
+
+  return () => {
+    if (original) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollTop', original);
+      return;
+    }
+    delete (HTMLElement.prototype as unknown as { scrollTop?: number }).scrollTop;
+  };
 }
 
 describe('mountProductionStitchShell', () => {
@@ -505,6 +534,7 @@ describe('mountProductionStitchShell', () => {
       controller: controller as unknown as OptionsController,
       initialOptions: {
         rest: {
+          baseUrl: 'https://localhost:27124',
           vault: 'Research Vault',
           httpsUrl: 'https://localhost:27124',
           httpUrl: 'http://localhost:27123',
@@ -528,6 +558,178 @@ describe('mountProductionStitchShell', () => {
         vault: 'Notes Vault'
       })
     );
+  });
+
+  it('renders and persists Chromium local folders in the production Vault List', async () => {
+    const controller = createController();
+    const chooseDirectory = vi.fn(() =>
+      Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
+    );
+    const ensurePermission = vi.fn(() => Promise.resolve('granted'));
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory,
+            ensurePermission,
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: {
+          baseUrl: 'https://localhost:27124',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token'
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(
+      Array.from(vaultList.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
+    ).toEqual(['Enabled', 'Vault', 'Local Folder', 'HTTPS URL', 'HTTP URL', 'API Key', 'Actions']);
+
+    const chooseButton = Array.from(vaultList.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === '选择目录'
+    );
+    expect(chooseButton).toBeTruthy();
+    chooseButton?.click();
+    await flushPromises();
+
+    expect(chooseDirectory).toHaveBeenCalledWith({ suggestedName: 'Research Vault' });
+    const collected = mounted.collectDraft();
+    expect(collected.rest.localFolderId).toBe('folder-main');
+    expect(collected.rest.localFolderName).toBe('Local Vault');
+    expect(collected.vaultRouter?.vaults?.[0]).toEqual(
+      expect.objectContaining({
+        localFolderId: 'folder-main',
+        localFolderName: 'Local Vault'
+      })
+    );
+
+    const refreshedVaultList = findCardByTitle('Vault List');
+    expect(refreshedVaultList.textContent).not.toContain('清除');
+    const selectedFolderButton = Array.from(
+      refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    expect(selectedFolderButton).toBeTruthy();
+    expect(selectedFolderButton?.getAttribute('title')).toContain('Local Vault');
+    selectedFolderButton?.click();
+    await flushPromises();
+
+    expect(ensurePermission).toHaveBeenCalledWith('folder-main');
+    const popover =
+      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-popover');
+    expect(popover).toBeTruthy();
+    expect(popover?.classList.contains('is-bubble')).toBe(true);
+    expect(popover?.textContent?.trim()).toBe('删除本地目录');
+    expect(popover?.textContent).not.toContain('取消');
+    expect(popover?.textContent).not.toContain('Local Vault');
+    expect(popover?.querySelectorAll('button')).toHaveLength(1);
+
+    const deleteButton = popover?.querySelector<HTMLButtonElement>('button');
+    expect(deleteButton).toBeTruthy();
+    deleteButton?.click();
+    await flushPromises();
+
+    const cleared = mounted.collectDraft();
+    expect(cleared.rest.localFolderId).toBeUndefined();
+    expect(cleared.rest.localFolderName).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+  });
+
+  it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
+    const controller = createController();
+    const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory: vi.fn(),
+            ensurePermission,
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
+
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: {
+        rest: {
+          baseUrl: 'https://localhost:27124',
+          vault: 'Research Vault',
+          httpsUrl: 'https://localhost:27124',
+          httpUrl: 'http://localhost:27123',
+          apiKey: 'token',
+          localFolderId: 'folder-main',
+          localFolderName: 'Local Vault'
+        },
+        vaultRouter: {
+          defaultVaultId: 'vault-default',
+          vaults: [
+            {
+              id: 'vault-default',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'token',
+              localFolderId: 'folder-main',
+              localFolderName: 'Local Vault',
+              enabled: true,
+              isDefault: true
+            }
+          ],
+          rules: []
+        }
+      } as Partial<CompleteOptions>,
+      messages: null,
+      language: 'en'
+    });
+
+    const selectedFolderButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    expect(selectedFolderButton).toBeTruthy();
+    selectedFolderButton?.click();
+    await flushPromises();
+
+    expect(ensurePermission).toHaveBeenCalledWith('folder-main');
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
+    expect(document.body.textContent).toContain('本地目录需要重新授权');
+  });
+
+  it('prevents mouse button presses from moving the production Options scroller', async () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+
+    const main = document.querySelector<HTMLElement>('.main');
+    expect(main).toBeTruthy();
+    main!.scrollTop = 420;
+
+    const yamlAddButton = findButton('+ Add field');
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    yamlAddButton.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(420);
   });
 
   it('persists domain mapping edits and delete actions', () => {
@@ -647,34 +849,61 @@ describe('mountProductionStitchShell', () => {
   });
 
   it('keeps the Options scroller stable when Vault List actions re-render', async () => {
+    const restoreScrollDescriptor = installSmoothMainScrollSimulation();
     const controller = createController();
     const messagingRepository = createMessaging({ success: true, message: 'ok' });
-    mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
-      initialOptions: {
-        rest: { vault: 'Research Vault' }
-      },
-      messages: null,
-      language: 'en',
-      messagingRepository
-    } as never);
-    const main = document.querySelector<HTMLElement>('.main');
-    expect(main).toBeTruthy();
-    main!.scrollTop = 520;
+    try {
+      mountProductionStitchShell({
+        controller: controller as unknown as OptionsController,
+        initialOptions: {
+          rest: { vault: 'Research Vault' }
+        },
+        messages: null,
+        language: 'en',
+        messagingRepository
+      } as never);
+      const main = document.querySelector<HTMLElement>('.main');
+      expect(main).toBeTruthy();
+      main!.style.scrollBehavior = 'auto';
+      main!.scrollTop = 520;
+      main!.style.removeProperty('scroll-behavior');
 
-    findButton('添加仓库').click();
-    await flushPromises();
-    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+      const addVaultButton = findButton('添加仓库');
+      const pointerEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      addVaultButton.dispatchEvent(pointerEvent);
+      document.getElementById('optionsShellRoot')?.addEventListener(
+        'click',
+        () => {
+          const currentMain = document.querySelector<HTMLElement>('.main');
+          if (currentMain) {
+            currentMain.scrollTop = 0;
+          }
+        },
+        { capture: true, once: true }
+      );
 
-    document.querySelector<HTMLElement>('.main')!.scrollTop = 520;
-    findButton('删除').click();
-    await flushPromises();
-    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+      addVaultButton.click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
 
-    document.querySelector<HTMLElement>('.main')!.scrollTop = 520;
-    findButton('测试连接').click();
-    await flushPromises();
-    expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+      const currentMain = document.querySelector<HTMLElement>('.main')!;
+      currentMain.style.scrollBehavior = 'auto';
+      currentMain.scrollTop = 520;
+      currentMain.style.removeProperty('scroll-behavior');
+      findButton('删除').click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+
+      const finalMain = document.querySelector<HTMLElement>('.main')!;
+      finalMain.style.scrollBehavior = 'auto';
+      finalMain.scrollTop = 520;
+      finalMain.style.removeProperty('scroll-behavior');
+      findButton('测试连接').click();
+      await flushPromises();
+      expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
+    } finally {
+      restoreScrollDescriptor();
+    }
   });
 
   it('deduplicates routing rules that exist in both legacy and vault-scoped storage', () => {
@@ -1458,12 +1687,13 @@ describe('mountProductionStitchShell', () => {
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
   });
 
-  it('runs the background REST connection tester and renders its result', async () => {
+  it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
     const controller = createController();
     const messagingRepository = createMessaging({
       success: false,
       status: 401,
-      message: 'API key rejected'
+      message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
+      error: '本地目录需要重新授权：LocalFolder'
     });
     mountProductionStitchShell({
       controller: controller as unknown as OptionsController,
@@ -1472,6 +1702,33 @@ describe('mountProductionStitchShell', () => {
           vault: 'Research Vault',
           httpsUrl: 'https://localhost:27124',
           apiKey: 'bad-token'
+        },
+        vaultRouter: {
+          defaultVaultId: 'research',
+          vaults: [
+            {
+              id: 'research',
+              name: 'Research Vault',
+              vault: 'Research Vault',
+              httpsUrl: 'https://localhost:27124',
+              httpUrl: 'http://localhost:27123',
+              apiKey: 'bad-token',
+              localFolderId: 'folder-local',
+              localFolderName: 'LocalFolder',
+              enabled: true,
+              isDefault: true
+            },
+            {
+              id: 'disabled',
+              name: 'Disabled Vault',
+              vault: 'Disabled Vault',
+              httpsUrl: 'https://disabled.example',
+              httpUrl: '',
+              apiKey: 'disabled-token',
+              enabled: false,
+              isDefault: false
+            }
+          ]
         }
       },
       messages: null,
@@ -1483,14 +1740,18 @@ describe('mountProductionStitchShell', () => {
     await flushPromises();
 
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'TEST_CONNECTION',
-      rest: expect.objectContaining({
-        vault: 'Research Vault',
-        httpsUrl: 'https://localhost:27124',
-        apiKey: 'bad-token'
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'research',
+      vault: expect.objectContaining({
+        id: 'research',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder'
       })
     });
-    expect(document.body.textContent).toContain('API key rejected');
+    expect(vi.mocked(messagingRepository.send)).not.toHaveBeenCalledWith(
+      expect.objectContaining({ vaultId: 'disabled' })
+    );
+    expect(document.body.textContent).toContain('本地目录需要重新授权：LocalFolder');
   });
 
   it('imports configuration from clipboard and saves it through the controller', async () => {

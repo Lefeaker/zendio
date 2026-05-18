@@ -58,13 +58,12 @@ function initializeClipperRuntime(): void {
     runtime: platform.runtime
   });
   const showSupportProgress = (progress: SupportProgressUpdate): void => {
-    const variant = progress.variant ?? 'progress';
-    const status = variant === 'progress' ? 'progress' : variant;
+    const status = progress.variant ?? 'progress';
     void supportPrompt.show({
       status,
       progress: {
         ...progress,
-        variant
+        variant: status
       }
     });
   };

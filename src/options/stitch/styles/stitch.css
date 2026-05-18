@@ -4511,6 +4511,16 @@ td {
 }
 
 @media (max-width: 980px) {
+  .resource-modal--session.floating-bottom-right {
+    --session-panel-max-width: min(226px, calc(100vw - var(--surface-side-gap)));
+    --session-panel-min-width: min(226px, calc(100vw - var(--surface-side-gap)));
+  }
+
+  .resource-modal--session.floating-bottom-right .surface-window-footer {
+    min-height: 96px;
+    align-items: flex-end;
+  }
+
   .video-floating-prompt {
     right: var(--space-4);
     bottom: var(--space-4);

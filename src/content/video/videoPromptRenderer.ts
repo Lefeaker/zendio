@@ -50,28 +50,21 @@ export function createPromptElement(options: PromptElementOptions): PromptElemen
     }
   });
   container.id = options.id;
-  container.classList.add('aiob-video-prompt');
 
   const bubble = container.querySelector<HTMLButtonElement>('.video-floating-prompt__bubble');
   if (!bubble) {
     throw new Error('Video floating prompt schema did not render a bubble action');
   }
-  bubble.classList.add('aiob-video-prompt__bubble');
   bubble.addEventListener('contextmenu', (event) => {
     event.preventDefault();
     options.onDismiss();
   });
 
   const icon = container.querySelector<HTMLElement>('.video-floating-prompt__icon');
-  icon?.classList.add('aiob-video-prompt__icon');
-  container
-    .querySelector<HTMLElement>('.video-floating-prompt__hint')
-    ?.classList.add('aiob-video-prompt__hint');
   try {
     const iconUrl = options.getIconUrl?.();
     if (iconUrl && icon) {
       icon.style.setProperty('--video-floating-prompt-icon', `url("${iconUrl}")`);
-      icon.style.setProperty('--aiob-video-prompt-icon', `url("${iconUrl}")`);
       icon.style.backgroundImage = `url("${iconUrl}")`;
     }
   } catch {

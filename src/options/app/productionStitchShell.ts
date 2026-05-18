@@ -8,9 +8,11 @@ import {
   normalizeUsageStats,
   USAGE_STATS_STORAGE_KEY
 } from '@shared/constants';
-import { DI_TOKENS } from '@shared/di/tokens';
+import { getService } from '@shared/di';
+import { DI_TOKENS, TOKENS } from '@shared/di/tokens';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { StorageService } from '@platform/interfaces/storage';
+import type { PlatformServices } from '@platform/types';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
@@ -24,7 +26,6 @@ import type {
 } from '@shared/types/vault';
 import type { Language, Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
-import { requestConnectionTest } from '@options/services/connectionTester';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import {
   parseConfigInput,
@@ -62,6 +63,20 @@ import type {
   ViewSchema
 } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
+import {
+  captureOptionsScroll,
+  installButtonPressScrollGuard,
+  restoreOptionsScrollSoon,
+  setScrollTopImmediately,
+  shouldPreserveButtonActionScroll
+} from './buttonPressScrollGuard';
+import {
+  activateVaultLocalFolder as activateLocalVaultFolderAction,
+  chooseVaultLocalFolder as chooseLocalVaultFolderAction,
+  clearVaultLocalFolder as clearLocalVaultFolderAction,
+  removeStoredLocalFolder
+} from './localVaultFolderActions';
+import { runVaultListConnectionTest } from './vaultConnectionTests';
 
 export interface MountedProductionStitchShell {
   cleanup(): void;
@@ -164,6 +179,7 @@ function createInitialStitchState(appData: PreviewContent): PreviewStoreState {
     fragmentKeyboardShortcutsEnabled: true,
     fragmentModifierEnabled: true,
     modifierKeys: ['Alt'],
+    activeLocalFolderVaultIndex: null,
     yamlFieldStates: createYamlFieldStates(appData),
     routingRules: appData.storage.routingRules.map((rule) => ({ ...rule })),
     templateValues: { ...appData.output.templateDefaults },
@@ -415,6 +431,8 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
       return {
         id: vault.id,
         name: vault.name || vault.vault,
+        ...(vault.localFolderId ? { localFolderId: vault.localFolderId } : {}),
+        ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {}),
         https: vault.httpsUrl,
         http: vault.httpUrl,
         key: vault.apiKey,
@@ -428,6 +446,8 @@ function toVaultRecord(options: CompleteOptions): VaultRecord[] {
     {
       id: 'default',
       name: options.rest.vault,
+      ...(options.rest.localFolderId ? { localFolderId: options.rest.localFolderId } : {}),
+      ...(options.rest.localFolderName ? { localFolderName: options.rest.localFolderName } : {}),
       https: options.rest.httpsUrl ?? options.rest.baseUrl,
       http: options.rest.httpUrl ?? options.rest.baseUrl,
       key: options.rest.apiKey,
@@ -709,6 +729,7 @@ export function mountProductionStitchShell({
   now
 }: ProductionStitchShellDependencies): MountedProductionStitchShell {
   const mountRoot = resolveRoot(root);
+  const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
   let draft = mergeOptions(initialOptions) as CompleteOptions;
@@ -785,6 +806,8 @@ export function mountProductionStitchShell({
             id: 'default',
             name: draft.rest.vault,
             vault: draft.rest.vault,
+            ...(draft.rest.localFolderId ? { localFolderId: draft.rest.localFolderId } : {}),
+            ...(draft.rest.localFolderName ? { localFolderName: draft.rest.localFolderName } : {}),
             httpsUrl: draft.rest.httpsUrl ?? draft.rest.baseUrl,
             httpUrl: draft.rest.httpUrl ?? draft.rest.baseUrl,
             apiKey: draft.rest.apiKey,
@@ -804,6 +827,8 @@ export function mountProductionStitchShell({
     draft.rest.httpsUrl = vault.httpsUrl;
     draft.rest.httpUrl = vault.httpUrl;
     draft.rest.apiKey = vault.apiKey;
+    draft.rest.localFolderId = vault.localFolderId;
+    draft.rest.localFolderName = vault.localFolderName;
   }
 
   function syncDefaultVaultFromRest(): void {
@@ -818,8 +843,80 @@ export function mountProductionStitchShell({
     defaultVault.httpsUrl = draft.rest.httpsUrl ?? draft.rest.baseUrl;
     defaultVault.httpUrl = draft.rest.httpUrl ?? draft.rest.baseUrl;
     defaultVault.apiKey = draft.rest.apiKey;
+    defaultVault.localFolderId = draft.rest.localFolderId;
+    defaultVault.localFolderName = draft.rest.localFolderName;
     defaultVault.enabled = true;
     defaultVault.isDefault = true;
+  }
+
+  function getFileSystemAccessService(): PlatformServices['fileSystemAccess'] {
+    return getService<PlatformServices>(TOKENS.platformServices).fileSystemAccess;
+  }
+
+  async function chooseVaultLocalFolder(index: number): Promise<void> {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    const result = await chooseLocalVaultFolderAction(getFileSystemAccessService(), vault);
+    state.activeLocalFolderVaultIndex = null;
+    if (!result.ok) {
+      connectionNotice = result.notice;
+      refreshAppData();
+      render();
+      return;
+    }
+    if (vault.isDefault || vault.id === router.defaultVaultId || index === 0) {
+      syncDefaultRestFromVault(vault);
+    }
+    draft.vaultRouter = router;
+    scheduleDraftSave();
+    render();
+    if (result.previousFolderId !== vault.localFolderId) {
+      void removeStoredLocalFolder(getFileSystemAccessService(), result.previousFolderId);
+    }
+  }
+
+  function clearVaultLocalFolder(index: number): void {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    const result = clearLocalVaultFolderAction(vault);
+    state.activeLocalFolderVaultIndex = null;
+    if (vault.isDefault || vault.id === router.defaultVaultId || index === 0) {
+      syncDefaultRestFromVault(vault);
+    }
+    draft.vaultRouter = router;
+    scheduleDraftSave();
+    render();
+    void removeStoredLocalFolder(getFileSystemAccessService(), result.previousFolderId);
+  }
+
+  async function activateVaultLocalFolder(index: number): Promise<void> {
+    const router = ensureVaultRouter();
+    const vault = router.vaults[index];
+    if (!vault) {
+      return;
+    }
+    const result = await activateLocalVaultFolderAction(getFileSystemAccessService(), vault);
+    if (result.action === 'choose') {
+      void chooseVaultLocalFolder(index);
+      return;
+    }
+    connectionNotice = result.notice;
+    if (result.action === 'notice') {
+      state.activeLocalFolderVaultIndex = null;
+      refreshAppData();
+      render();
+      return;
+    }
+
+    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
+    refreshAppData();
+    render();
   }
 
   function toStoredRuleType(type: string): RoutingRuleType {
@@ -1421,6 +1518,19 @@ export function mountProductionStitchShell({
       'storage:updateVaultField': ({ args, value }) => {
         updateVaultField(Number(args[0] ?? -1), String(args[1] ?? ''), value);
       },
+      'storage:activateLocalFolder': ({ args }) => {
+        void activateVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:chooseLocalFolder': ({ args }) => {
+        void chooseVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:deleteLocalFolder': ({ args }) => {
+        clearVaultLocalFolder(Number(args[0] ?? -1));
+      },
+      'storage:cancelLocalFolderDelete': () => {
+        state.activeLocalFolderVaultIndex = null;
+        render();
+      },
       'storage:updateRootDir': ({ value }) => {
         draft.rest.rootDir = String(value ?? '');
         scheduleDraftSave();
@@ -1429,7 +1539,7 @@ export function mountProductionStitchShell({
         void (async () => {
           try {
             applyConnectionNotice(
-              await requestConnectionTest(draft.rest, resolvedMessagingRepository)
+              await runVaultListConnectionTest(ensureVaultRouter(), resolvedMessagingRepository)
             );
           } catch (error) {
             connectionNotice = {
@@ -1628,8 +1738,14 @@ export function mountProductionStitchShell({
   });
 
   function dispatch(actionId: string, args: unknown[] = [], value?: unknown, event?: Event): void {
+    const scrollSnapshot = shouldPreserveButtonActionScroll(actionId)
+      ? (buttonPressScrollGuard.getSnapshot() ?? captureOptionsScroll(mountRoot))
+      : null;
     flushDirtyWidgets();
     actionRuntime.dispatch({ id: actionId, args }, value === undefined ? event : value);
+    if (scrollSnapshot) {
+      restoreOptionsScrollSoon(mountRoot, scrollSnapshot);
+    }
   }
 
   function createRenderContext() {
@@ -1759,7 +1875,7 @@ export function mountProductionStitchShell({
     const restoreScroll = () => {
       const currentMain = mountRoot.querySelector('.main');
       if (currentMain instanceof HTMLElement) {
-        currentMain.scrollTop = previousScrollTop;
+        setScrollTopImmediately(currentMain, previousScrollTop);
       }
       if (window.scrollX !== previousWindowScroll.x || window.scrollY !== previousWindowScroll.y) {
         window.scrollTo(previousWindowScroll.x, previousWindowScroll.y);
@@ -2015,6 +2131,7 @@ export function mountProductionStitchShell({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      buttonPressScrollGuard.cleanup();
       themeMediaQuery.removeEventListener?.('change', applySystemThemePreferenceChange);
       schemaRenderer.dispose();
       destroyWidgets();
