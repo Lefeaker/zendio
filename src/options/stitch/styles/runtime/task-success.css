@@ -1,0 +1,133 @@
+
+.task-success-body {
+  gap: 0;
+  padding: 0 var(--space-7) 0;
+}
+
+.task-success-header {
+  align-items: center;
+}
+
+.task-header-status {
+  color: var(--runtime-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.task-progress-shell {
+  margin-inline: calc(var(--space-7) * -1);
+  padding: 0 var(--space-7);
+  background: var(--runtime-panel);
+}
+
+.task-progress-track {
+  overflow: hidden;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.task-progress-fill {
+  width: var(--task-progress-value, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 180ms ease, background 160ms ease;
+}
+
+.task-progress-track.is-failure .task-progress-fill {
+  background: var(--danger);
+}
+
+.task-progress-track.is-warning .task-progress-fill {
+  background: var(--warning);
+}
+
+.task-support-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin-inline: calc(var(--space-7) * -1);
+  border-block: 1px solid var(--runtime-line);
+  background: var(--runtime-linked);
+}
+
+.task-support-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5) var(--space-7);
+  color: var(--text);
+}
+
+.task-support-link + .task-support-link {
+  border-left: 1px solid var(--runtime-line);
+}
+
+.task-support-link:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.task-support-logo {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  object-fit: contain;
+  filter: invert(1) brightness(1.8) saturate(0.8);
+  opacity: 0.92;
+}
+
+.task-support-copy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.task-support-copy strong {
+  font-size: var(--font-size-md);
+}
+
+.task-support-copy span {
+  color: var(--runtime-subtle);
+  font-size: var(--font-size-xs);
+}
+
+.task-feedback-card {
+  display: grid;
+  gap: var(--space-4);
+  margin-inline: calc(var(--space-7) * -1);
+  padding: var(--space-5) var(--space-7);
+  border-block: 1px solid var(--runtime-line);
+  background: var(--runtime-panel);
+}
+
+.task-feedback-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.task-feedback-row .surface-action-row {
+  flex: 0 1 auto;
+}
+
+.task-feedback-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.task-feedback-label {
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.task-feedback-dismiss {
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+}

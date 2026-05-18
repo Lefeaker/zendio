@@ -1,0 +1,43 @@
+/* Base */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, var(--page-gradient-a), transparent 22%),
+    radial-gradient(circle at right 16%, var(--page-gradient-b), transparent 18%),
+    radial-gradient(circle at bottom right, var(--page-gradient-c), transparent 20%),
+    linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: var(--line-height-body);
+  overflow: hidden;
+}
+
+.stitch-runtime-surface {
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: var(--line-height-body);
+}
+
+.preview-icon {
+  display: block;
+  flex: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}

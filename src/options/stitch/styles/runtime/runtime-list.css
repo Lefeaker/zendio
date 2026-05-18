@@ -1,0 +1,77 @@
+
+.runtime-item:first-child {
+  border-top: 0;
+}
+
+.runtime-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.runtime-index-button,
+.runtime-delete-button,
+.toast-link-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.runtime-index-button {
+  width: var(--control-height-sm);
+  height: var(--switch-height);
+  border-radius: var(--radius-full);
+  border: var(--border-accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  flex: none;
+}
+
+.runtime-delete-button {
+  width: var(--control-height-xs);
+  height: var(--control-height-xs);
+  margin-left: auto;
+  border-radius: var(--radius-full);
+  color: var(--text-faint);
+  font-size: var(--font-size-base);
+}
+
+.runtime-summary {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-list);
+  flex: 1;
+}
+
+.runtime-comment-box {
+  padding: var(--space-5) var(--space-5-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-copy);
+}
+
+.runtime-editor {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.runtime-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-faint);
+  font-size: var(--font-size-xs);
+}
+
+.runtime-meta-link {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}

@@ -1,11 +1,43 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, normalize, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const stitchCss = readFileSync(
-  resolve(process.cwd(), 'src/options/stitch/styles/stitch.css'),
-  'utf8'
+const CSS_IMPORT_PATTERN =
+  /^\s*@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^"')\s]+))\s*\)?\s*;/;
+
+const stitchCss = readCssWithImports(
+  resolve(process.cwd(), 'src/options/stitch/styles/stitch.css')
 );
+
+function readCssWithImports(path: string, importStack = new Set<string>()): string {
+  if (importStack.has(path)) {
+    throw new Error(`Circular CSS import detected for "${path}"`);
+  }
+
+  importStack.add(path);
+  try {
+    let remainingCss = readFileSync(path, 'utf8');
+    let resolvedCss = '';
+
+    while (remainingCss.length > 0) {
+      const match = CSS_IMPORT_PATTERN.exec(remainingCss);
+      if (!match) {
+        break;
+      }
+
+      const importPath = match[1] ?? match[2] ?? match[3];
+      if (!importPath) {
+        throw new Error(`Invalid CSS import in "${path}"`);
+      }
+      resolvedCss += readCssWithImports(normalize(resolve(dirname(path), importPath)), importStack);
+      remainingCss = remainingCss.slice(match[0].length);
+    }
+
+    return resolvedCss + remainingCss;
+  } finally {
+    importStack.delete(path);
+  }
+}
 
 describe('Stitch runtime polish CSS contracts', () => {
   it('sizes the three-option interface theme segmented control evenly', () => {
