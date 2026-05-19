@@ -1,6 +1,6 @@
 # 长期维护 Backlog
 
-日期：2026-05-18
+日期：2026-05-19
 
 ## P1
 
@@ -36,8 +36,10 @@
 
 6. 维持 Local Vault / offscreen / release 风险证据
    - 当前真值：Chrome manifest 包含 `offscreen` permission，Firefox manifest 不包含 `offscreen`；两者 web accessible resources 不再使用 `<all_urls>` matches
-   - 当前真值：Local Vault browser harness `7` 项通过；publish script unit 与 dry-run 已验证；`package:ci` 产物检查已验证
-   - 剩余风险：Chrome Web Store 实际发布仍依赖真实 CWS 环境变量和人工商店审核，不能把 dry-run 视为已发布
+   - 当前真值：Local Vault browser harness `7` 项通过，但该 harness 使用 fake File System Access / fake IndexedDB；完整真实系统文件选择器仍需人工 checklist
+   - 当前真值：`audit:local-vault-release:report` 验证 build/dist 中 Local Vault permission/offscreen 文件、Chrome/Firefox manifest 差异、WAR 边界和 content/runtime lazy prompt chunk 可达
+   - 当前真值：`release:chrome` 默认 dry-run，`release:chrome:publish` 必须显式传 `--zip <path>`；publish script unit 覆盖 dry-run、缺 env、显式 zip 和真实 publish 请求路径
+   - 剩余风险：Chrome Web Store 实际发布仍依赖真实 CWS 环境变量、owner 手动确认和人工商店审核，不能把 dry-run 视为已发布
 
 7. 继续治理旧版 M4 的规模纪律
    - 当前真值：重定义后的 `M4` 已通过，但 retained set 仍为 `295 files changed`
@@ -50,3 +52,9 @@
    - `npm run build:firefox` 已在 2026-05-18 stabilization 中通过
    - Firefox browser smoke 本轮不作为强制收口项
    - 后续在 Chromium 稳态保持前提下补充最小 smoke
+
+9. 单独规划 dev/release toolchain dependency upgrade
+   - 当前真值：`npm audit --omit=dev` 为 `0` vulnerabilities，runtime dependency release gate 不受阻塞
+   - 当前真值：`npm audit --audit-level=low` 仍失败，当前报告为 `26` vulnerabilities（`10` moderate / `16` high）
+   - 风险范围：dev/release toolchain，包含 Playwright、Rollup、glob/minimatch/brace-expansion、lodash、node-forge、esbuild/vite、web-ext/addons-linter/ajv、postcss、ws、yaml 等
+   - 后续处理：不要在 release handoff 中盲目 `npm audit fix --force`；需要单独 dependency upgrade plan，评估 Playwright/browser baseline、Rollup/esbuild build output、web-ext signing/package flow 和 lint/test fixtures

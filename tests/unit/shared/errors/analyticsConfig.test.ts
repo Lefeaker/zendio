@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StorageAreaService, StorageService } from '../../../../src/platform/interfaces/storage';
+import type {
+  StorageAreaService,
+  StorageService
+} from '../../../../src/platform/interfaces/storage';
 
 function createStorageService(): StorageService {
   const localStore = new Map<string, unknown>();
   const local: StorageAreaService = {
-    get: vi.fn(async <T,>(key: string) => localStore.get(key) as T | undefined) as StorageAreaService['get'],
-    set: vi.fn(async <T,>(key: string, value: T) => {
+    get: vi.fn(
+      async <T>(key: string) => localStore.get(key) as T | undefined
+    ) as StorageAreaService['get'],
+    set: vi.fn(async <T>(key: string, value: T) => {
       localStore.set(key, value);
     }) as StorageAreaService['set'],
-    getMany: vi.fn(async <T,>() => ({} as Record<string, T | undefined>)) as StorageAreaService['getMany'],
-    setMany: vi.fn(async <T,>(_entries: Record<string, T>) => undefined) as StorageAreaService['setMany'],
+    getMany: vi.fn(
+      async <T>() => ({}) as Record<string, T | undefined>
+    ) as StorageAreaService['getMany'],
+    setMany: vi.fn(
+      async <T>(_entries: Record<string, T>) => undefined
+    ) as StorageAreaService['setMany'],
     remove: vi.fn(async (key: string | string[]) => {
       const keys = Array.isArray(key) ? key : [key];
       keys.forEach((entry) => localStore.delete(entry));
@@ -22,10 +31,14 @@ function createStorageService(): StorageService {
   };
 
   const sync: StorageAreaService = {
-    get: vi.fn(async <T,>() => undefined as T | undefined) as StorageAreaService['get'],
-    set: vi.fn(async <T,>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
-    getMany: vi.fn(async <T,>() => ({} as Record<string, T | undefined>)) as StorageAreaService['getMany'],
-    setMany: vi.fn(async <T,>(_entries: Record<string, T>) => undefined) as StorageAreaService['setMany'],
+    get: vi.fn(async <T>() => undefined as T | undefined) as StorageAreaService['get'],
+    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
+    getMany: vi.fn(
+      async <T>() => ({}) as Record<string, T | undefined>
+    ) as StorageAreaService['getMany'],
+    setMany: vi.fn(
+      async <T>(_entries: Record<string, T>) => undefined
+    ) as StorageAreaService['setMany'],
     remove: vi.fn(async () => undefined) as StorageAreaService['remove'],
     clear: vi.fn(async () => undefined) as StorageAreaService['clear'],
     watchKey: vi.fn(() => () => undefined) as StorageAreaService['watchKey'],
@@ -70,6 +83,7 @@ describe('analyticsConfig', () => {
     const config = manager.getConfig();
     expect(config.debugMode).toBe(true);
     expect(config.enabled).toBe(true);
+    expect(module.DEFAULT_ANALYTICS_CONFIG.measurementId).toBe('G-XXXXXXXXXX');
     expect(config.clientId).toMatch(/^ext-/);
     expect(config.sessionId).toBeTruthy();
     expect(storage.local.set).toHaveBeenCalledWith('analytics_client_id', expect.any(String));

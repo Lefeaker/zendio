@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-18
+最后更新：2026-05-19
 
 ## 正式入口
 
@@ -20,7 +20,9 @@
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
-- Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger 与集成提交，不要使用早于本日期的发布说明覆盖它
+- 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
+- Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
+- Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
 
 ## 历史与归档
 

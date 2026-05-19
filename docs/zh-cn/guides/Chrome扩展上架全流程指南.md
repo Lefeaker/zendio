@@ -25,6 +25,7 @@
 
 - [ ] 确定发布版本号，更新 `src/manifest.json:3` 与 `package.json` 的 `version` 字段保持一致；在 commit 信息中记录发布说明。
 - [ ] 执行 fresh build 验证：`npm run clean`、`npm run build:dev`、`npm run audit:build:report`、`npm run build`；如发布 Firefox 包，再执行 `npm run build:firefox`。
+- [ ] 执行 Local Vault release-readiness 审计：Chrome build 后运行 `npm run audit:local-vault-release:report -- --browser chrome`；Firefox build 后运行 `npm run audit:local-vault-release:report -- --browser firefox`。
 - [ ] 清理 `dist/`：仅保留运行期必须文件（`manifest.json`、构建后的 JS/CSS、必要资源）；剔除 `*.map`、测试文件、`node_modules/`、脚本和文档等。
 - [ ] 运行最低限度的自动化测试（如 `npm run test` 或 `npm run lint`）；若测试覆盖不足，补充纸面检查说明并记录测试结果链接。
 - [ ] 更新变更日志：在 `docs/zh-cn/release-notes/` 或 `README.md` 中增加本次版本亮点，便于商店描述引用。
@@ -44,14 +45,16 @@
 - [ ] 在 Chrome 稳定版、Chrome Beta（可选）上加载构建版进行回归；重点覆盖剪藏、注释、AI 解析、Obsidian 写入等核心流程。
 - [ ] 验证权限触发：确保只有在触发剪藏和写入时才访问 `<all_urls>` 与本地 REST 接口；检查 console 中无未捕获异常或 `console.log` 噪音。
 - [ ] 访问控制：测试无 Obsidian REST API 或 API Key 错误时的提示是否清晰。
-- [ ] 本地 Vault：运行 `npm run test:e2e:browser:local-vault`，确认本地目录写入、目录穿越拒绝、权限拒绝、重新授权和 REST fallback 均符合预期。
-- [ ] 发布脚本：运行 publish script unit 与 dry-run；没有 Chrome Web Store 环境变量时，dry-run 应在发布前安全失败。
+- [ ] 本地 Vault 自动化：运行 `npm run test:e2e:browser:local-vault`，确认 fake File System Access / fake IndexedDB harness 中的本地目录写入、目录穿越拒绝、权限拒绝、重新授权和 REST fallback 均符合预期；不要把该 harness 描述为完整真实 Chrome extension 加载验真。
+- [ ] 本地 Vault extension-loaded handoff：加载 fresh `build/dist`，确认 `local-vault-permission.html/js`、`offscreen/local-vault.html/js` 存在，Chrome manifest 包含 `offscreen`，Firefox manifest 不包含 `offscreen`，WAR 不含 `<all_urls>`，content/runtime lazy prompt chunk 可达；机器证据来自 `audit:local-vault-release:report`。
+- [ ] 发布脚本：运行 publish script unit 与 dry-run；`release:chrome` 默认 dry-run，必须传入显式 `--zip <path>`；没有 Chrome Web Store 环境变量时，dry-run 应在发布前安全失败。
 - [ ] 性能与可用性：确认拖拽、键盘导航、无障碍标签等功能符合之前的改进记录（参考 `docs/structure/clipper-dialog-a11y-update.md`）。
 - [ ] 记录测试结果：整理测试清单、环境和结论，归档到发布文档或 issue，供审核复盘使用。
 
 ## 阶段 5：提交审核
 
 - [ ] 使用 `zip -r all-in-ob-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
+- [ ] 真实发布前由 owner 手动确认 zip 路径、版本号、权限问卷和 CWS credentials。真实发布命令为 `npm run release:chrome:publish -- --zip <release.zip>`；禁止依赖当前目录唯一 zip 的自动选择。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
 - [ ] 完成 “用户数据隐私” 问卷：解释数据是否上传服务器、保留时长、用户删除机制。

@@ -1,5 +1,5 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { extname, resolve } from 'node:path';
+import { access, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -29,7 +29,7 @@ export function readChromeWebStoreConfig(env = process.env) {
   };
 }
 
-function createChromeWebStoreUrls(config) {
+export function createChromeWebStoreUrls(config) {
   const publisherId = encodeURIComponent(config.publisherId);
   const itemId = encodeURIComponent(config.itemId);
 
@@ -52,7 +52,8 @@ async function readJsonResponse(response, actionName) {
   }
 
   if (!response.ok) {
-    const details = typeof parsed === 'object' && parsed !== null ? JSON.stringify(parsed) : String(parsed);
+    const details =
+      typeof parsed === 'object' && parsed !== null ? JSON.stringify(parsed) : String(parsed);
     throw new Error(`${actionName} failed with HTTP ${response.status}: ${details}`);
   }
 
@@ -123,7 +124,9 @@ export async function publishChromeWebStorePackage(options) {
   } = options;
 
   if (!zipPath) {
-    throw new Error('A zip path is required. Pass --zip <path> or run after npm run package:ci in a clean checkout.');
+    throw new Error(
+      'Publish mode requires --zip <path>. Refusing to auto-select release artifacts.'
+    );
   }
 
   const config = readChromeWebStoreConfig(env);
@@ -139,28 +142,69 @@ export async function publishChromeWebStorePackage(options) {
   return { upload, publish };
 }
 
-async function resolveZipPathFromArgs(argv, cwd = process.cwd()) {
+export async function dryRunChromeWebStoreRelease(options) {
+  const { zipPath, env = process.env, accessImpl = access, logger = console } = options;
+
+  if (!zipPath) {
+    throw new Error('Dry-run requires --zip <path> so the release artifact is explicit.');
+  }
+
+  const config = readChromeWebStoreConfig(env);
+  const urls = createChromeWebStoreUrls(config);
+
+  await accessImpl(zipPath);
+
+  const result = {
+    mode: 'dry-run',
+    itemId: config.itemId,
+    publisherId: config.publisherId,
+    zipPath,
+    tokenUrl: TOKEN_URL,
+    uploadUrl: urls.upload,
+    publishUrl: urls.publish
+  };
+
+  logger.log(`Chrome Web Store dry-run passed for item ${config.itemId} from ${zipPath}`);
+  logger.log(`Upload URL: ${urls.upload}`);
+  logger.log(`Publish URL: ${urls.publish}`);
+
+  return result;
+}
+
+export async function resolveReleaseOptionsFromArgs(argv, cwd = process.cwd()) {
+  const publish = argv.includes('--publish');
+  const dryRun = argv.includes('--dry-run') || !publish;
   const zipFlagIndex = argv.indexOf('--zip');
+  let zipPath;
+
   if (zipFlagIndex >= 0) {
-    const zipPath = argv[zipFlagIndex + 1];
-    if (!zipPath) {
+    const rawZipPath = argv[zipFlagIndex + 1];
+    if (!rawZipPath) {
       throw new Error('Missing value for --zip');
     }
-    return resolve(cwd, zipPath);
+    zipPath = resolve(cwd, rawZipPath);
   }
 
-  const zipFiles = (await readdir(cwd)).filter((name) => extname(name) === '.zip');
-  if (zipFiles.length !== 1) {
-    throw new Error(`Expected exactly one zip file in ${cwd}; found ${zipFiles.length}. Pass --zip <path>.`);
+  if (!zipPath) {
+    const mode = publish ? 'Publish mode' : 'Dry-run';
+    throw new Error(`${mode} requires --zip <path>. Refusing to auto-select release artifacts.`);
   }
 
-  return resolve(cwd, zipFiles[0]);
+  return {
+    mode: dryRun ? 'dry-run' : 'publish',
+    zipPath
+  };
 }
 
 async function main() {
   try {
-    const zipPath = await resolveZipPathFromArgs(process.argv.slice(2));
-    await publishChromeWebStorePackage({ zipPath });
+    const options = await resolveReleaseOptionsFromArgs(process.argv.slice(2));
+    if (options.mode === 'dry-run') {
+      await dryRunChromeWebStoreRelease({ zipPath: options.zipPath });
+      return;
+    }
+
+    await publishChromeWebStorePackage({ zipPath: options.zipPath });
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

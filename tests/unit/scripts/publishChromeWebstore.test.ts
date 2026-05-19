@@ -1,8 +1,11 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createChromeWebStoreUrls,
+  dryRunChromeWebStoreRelease,
   publishChromeWebStorePackage,
-  readChromeWebStoreConfig
+  readChromeWebStoreConfig,
+  resolveReleaseOptionsFromArgs
 } from '../../../scripts/publish-chrome-webstore.mjs';
 
 const completeEnv = {
@@ -29,6 +32,92 @@ describe('Chrome Web Store publisher script', () => {
       itemId: 'extension-id',
       publisherId: 'publisher-id'
     });
+  });
+
+  it('constructs publisher-scoped upload and publish URLs', () => {
+    expect(
+      createChromeWebStoreUrls({
+        publisherId: 'publisher id',
+        itemId: 'item/id'
+      })
+    ).toEqual({
+      upload:
+        'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher%20id/items/item%2Fid:upload',
+      publish:
+        'https://chromewebstore.googleapis.com/v2/publishers/publisher%20id/items/item%2Fid:publish'
+    });
+  });
+
+  it('defaults the CLI to dry-run and requires an explicit zip path', async () => {
+    await expect(resolveReleaseOptionsFromArgs([], '/repo')).rejects.toThrow(
+      'Dry-run requires --zip <path>. Refusing to auto-select release artifacts.'
+    );
+
+    await expect(resolveReleaseOptionsFromArgs(['--publish'], '/repo')).rejects.toThrow(
+      'Publish mode requires --zip <path>. Refusing to auto-select release artifacts.'
+    );
+
+    await expect(resolveReleaseOptionsFromArgs(['--zip', 'release.zip'], '/repo')).resolves.toEqual(
+      {
+        mode: 'dry-run',
+        zipPath: '/repo/release.zip'
+      }
+    );
+
+    await expect(
+      resolveReleaseOptionsFromArgs(['--publish', '--zip', 'release.zip'], '/repo')
+    ).resolves.toEqual({
+      mode: 'publish',
+      zipPath: '/repo/release.zip'
+    });
+  });
+
+  it('dry-runs with credentials and an explicit existing zip without network requests', async () => {
+    const accessImpl = vi.fn().mockResolvedValue(undefined);
+    const logger = { log: vi.fn(), error: vi.fn() };
+    const fetchImpl = vi.fn();
+    vi.stubGlobal('fetch', fetchImpl);
+
+    await expect(
+      dryRunChromeWebStoreRelease({
+        zipPath: '/repo/release.zip',
+        env: completeEnv,
+        accessImpl,
+        logger
+      })
+    ).resolves.toEqual({
+      mode: 'dry-run',
+      itemId: 'extension-id',
+      publisherId: 'publisher-id',
+      zipPath: '/repo/release.zip',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+      uploadUrl:
+        'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher-id/items/extension-id:upload',
+      publishUrl:
+        'https://chromewebstore.googleapis.com/v2/publishers/publisher-id/items/extension-id:publish'
+    });
+
+    expect(accessImpl).toHaveBeenCalledWith('/repo/release.zip');
+    expect(fetchImpl).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('fails dry-run before network work when credentials are incomplete', async () => {
+    const accessImpl = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      dryRunChromeWebStoreRelease({
+        zipPath: '/repo/release.zip',
+        env: {
+          ...completeEnv,
+          CWS_REFRESH_TOKEN: ''
+        },
+        accessImpl,
+        logger: { log: vi.fn(), error: vi.fn() }
+      })
+    ).rejects.toThrow('Missing required environment variables: CWS_REFRESH_TOKEN');
+
+    expect(accessImpl).not.toHaveBeenCalled();
   });
 
   it('exchanges the refresh token, uploads the zip, and publishes the existing item', async () => {

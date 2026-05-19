@@ -38,24 +38,23 @@
 
 #### 1.2 设置配置文件
 
-1. **复制模板文件**：
-   ```bash
-   cp src/shared/errors/analytics/analyticsConfig.template.ts src/shared/errors/analytics/analyticsConfig.ts
-   ```
+1. **默认文件**：
+   `src/shared/errors/analytics/analyticsConfig.ts` 已提交为非敏感 disabled default，clean checkout 不需要复制本地 ignored 文件。
 
 2. **更新配置**：
    在 `src/shared/errors/analytics/analyticsConfig.ts` 中更新你的 Measurement ID：
+
    ```typescript
    export const GA4_CONFIG = {
-     MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID', // 替换为你的实际 Measurement ID
+     MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID' // 替换为你的实际 Measurement ID
      // ... 其他配置保持不变
    };
    ```
 
 3. **安全说明**：
-   - `analyticsConfig.ts` 文件已被添加到 `.gitignore` 中
-   - 不会被提交到版本控制，保护你的配置信息
-   - 每个开发者需要创建自己的配置文件
+   - 仓库内 `analyticsConfig.ts` 不得写入真实 GA4 Measurement ID
+   - 真实 Measurement ID 必须通过 owner 发布流程或本地未提交修改处理
+   - 每个开发者可以保留自己的本地配置，但不得提交
 
 ### 2. 初始化错误分析系统
 
@@ -70,7 +69,7 @@ async function initializeExtension() {
   try {
     // 初始化错误分析系统
     await initializeErrorAnalytics();
-    
+
     // 其他初始化代码...
   } catch (error) {
     console.error('Extension initialization failed:', error);
@@ -110,7 +109,7 @@ export const oldErrors = {
   extractionFailed(): AppError {
     return {
       code: 'EXTRACTION_FAILED', // 旧的错误码
-      domain: 'extraction',
+      domain: 'extraction'
       // ...
     };
   }
@@ -123,7 +122,7 @@ export const newErrors = {
   extractionFailed(): AppError {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN, // 标准化错误码
-      domain: 'extraction',
+      domain: 'extraction'
       // ...
     };
   }
@@ -144,19 +143,19 @@ export const newErrors = {
 
 ```typescript
 // 内容提取错误
-EXTRACTION_CONTENT_NO_MARKDOWN      // 内容提取未产生 Markdown
-EXTRACTION_SELECTION_NO_SELECTION   // 未找到有效选区
-EXTRACTION_CONTENT_UNSUPPORTED      // 不支持的内容类型
+EXTRACTION_CONTENT_NO_MARKDOWN; // 内容提取未产生 Markdown
+EXTRACTION_SELECTION_NO_SELECTION; // 未找到有效选区
+EXTRACTION_CONTENT_UNSUPPORTED; // 不支持的内容类型
 
 // 网络请求错误
-REST_NETWORK_REQUEST_FAILED         // 网络请求失败
-REST_NETWORK_TIMEOUT                // 请求超时
-REST_VALIDATION_UNEXPECTED_RESPONSE // 意外的响应格式
+REST_NETWORK_REQUEST_FAILED; // 网络请求失败
+REST_NETWORK_TIMEOUT; // 请求超时
+REST_VALIDATION_UNEXPECTED_RESPONSE; // 意外的响应格式
 
 // Chrome API 错误
-CHROME_API_PERMISSION_DENIED        // 权限被拒绝
-CHROME_API_RUNTIME_ERROR           // 运行时错误
-CHROME_API_STORAGE_ACCESS_DENIED   // 存储访问被拒绝
+CHROME_API_PERMISSION_DENIED; // 权限被拒绝
+CHROME_API_RUNTIME_ERROR; // 运行时错误
+CHROME_API_STORAGE_ACCESS_DENIED; // 存储访问被拒绝
 ```
 
 ### 创建新错误码
@@ -190,7 +189,9 @@ const newErrorCode = generateErrorCode('content', 'RENDERING', 'UI_FAILED');
 ```typescript
 import { validateSanitization, generateSanitizationReport } from '../analytics/dataSanitizer';
 
-const originalError = { /* 包含敏感信息的错误 */ };
+const originalError = {
+  /* 包含敏感信息的错误 */
+};
 const sanitizedError = sanitizeErrorForAnalytics(originalError);
 
 // 验证匿名化

@@ -1,6 +1,6 @@
 # 当前交付批次归属
 
-日期：2026-05-18
+日期：2026-05-19
 
 ## 目的
 
@@ -11,6 +11,8 @@
 
 - 2026-05-18 audit-time 工作树不是干净状态：`129` 个开放 status rows，其中 `104` 个 modified paths、`25` 个 untracked paths。
 - Phase 0 已逐路径归属全部 `129` 行：重复路径 `0`、缺失路径 `0`、`X-owner-stop` `0`。
+- 2026-05-19 复核发现：Phase 1/3/4/5 的历史 stage manifests 存在 post-fact overlap；这是已集成 commit 的历史事实，未通过改写历史拆 commit 处理。
+- release handoff 使用 amended ownership：重叠路径的最终 owner 以本页 “2026-05-19 Post-Fact Ownership Reconciliation” 为准，历史 stage manifests 只作为当时 commit 审查证据，不再声称每个 committed path 在历史 phase manifests 中 exactly once。
 - 唯一 defer 路径：`AGENTS.md`，归属 `D1-defer`，不在本轮 source/test/script/manifest/package/docs 提交范围内。
 - 2026-05-18 stabilization 使用新的批次口径：`B1-green-tree`、`B2-local-vault-risk`、`B3-options-shell-split`、`B4-lint-priority`、`B5-doc-truth`、`D1-defer`。
 - integration branch：`codex/aiiinob-stabilization-2026-05-18-integration`。
@@ -47,6 +49,31 @@
 - `npm run visual:test`：通过，`144` passed / `6` skipped。
 - `npm run verify:stitch-secondary`：通过。
 - Skipped commands：Phase 5 结束时没有跳过必需命令；Phase 6 初始 `typecheck` 曾因新 worktree 缺少依赖/ignored local analytics config 失败，安装依赖并复制 ignored local config 后通过。
+
+## 2026-05-19 Post-Fact Ownership Reconciliation
+
+重叠原因：Phase 1 先恢复 green tree，Phase 3 在高风险 Local Vault/offscreen 验证中继续触达同一 runtime/options 路径，Phase 4 又清理 touched-path lint warnings，Phase 5 为 Stitch owner split 做最后 runtime/CSS 调整。每个 commit 当时都使用 exact stage manifest 审查，但最终 manifests 没有在 Phase 6 后重新压平成唯一 owner。
+
+处理决定：不重写已验证 commit 历史；接受 amended ownership，并把最终 release handoff owner 固定如下。后续若必须恢复“历史 commit path exactly once”，需要单独拆 commit/重放分支，不在本次 gap closure 中进行。
+
+| Path                                                 | Historical overlap        | Final owner                      | Release handoff decision                                                                                 |
+| ---------------------------------------------------- | ------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `src/content/index.ts`                               | Phase 1, Phase 3, Phase 5 | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final budget/Stitch runtime adjustment happened in Phase 5.        |
+| `src/content/runtime/contentLazyRuntime.ts`          | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault runtime verification owns final lazy runtime boundary. |
+| `src/options/components/sections/RestSectionView.ts` | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault settings UI owns final Rest section state.             |
+| `src/options/stitch/types.ts`                        | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault schema/stitch surface owns final type expansion.       |
+| `src/options/stitch/styles/stitch.css`               | Phase 3, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final visual/Stitch contract was verified in Phase 5.              |
+| `src/background/services/notifications.ts`           | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `src/content/runtime/clipFlow.ts`                    | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `src/platform/preview/services.ts`                   | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `src/shared/di/testHelpers.ts`                       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `tests/unit/background/clipPipeline.test.ts`         | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `tests/unit/background/obsidianWriter.test.ts`       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `src/dev/localVaultWriteHarness.ts`                  | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
+| `src/content/video/videoPromptLayout.ts`             | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.  |
+| `src/content/video/videoPromptRenderer.ts`           | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.  |
+
+Release handoff status：可接受。治理边界已从“历史 phase manifests exactly once”修正为“Phase 0 audit-time classification exactly once + post-fact amended ownership for overlapped committed paths”。本页不再声称历史 committed path manifests exactly once。
 
 ## 归属优先级
 

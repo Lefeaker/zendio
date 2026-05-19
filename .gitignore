@@ -47,8 +47,8 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
-# Analytics Configuration (contains sensitive data)
-src/shared/errors/analytics/analyticsConfig.ts
+# Analytics overrides and credentials must stay in environment/local storage.
+# The tracked analyticsConfig.ts is a non-sensitive disabled default.
 
 # Temporary files
 *.tmp

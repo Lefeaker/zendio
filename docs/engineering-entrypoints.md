@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-18
+最后更新：2026-05-19
 
 ## 推荐运行环境
 
@@ -43,6 +43,21 @@ npm run verify:stitch-secondary
 npm run visual:test
 ```
 
+Local Vault / release handoff checks:
+
+```bash
+npm run clean
+npm run build:dev
+npm run audit:local-vault-release:report -- --browser chrome
+npm run build:firefox
+npm run audit:local-vault-release:report -- --browser firefox
+npm run release:chrome -- --zip <release.zip>
+```
+
+`release:chrome` is a dry-run alias. A real Chrome Web Store publish must use
+`npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
+credentials and manual confirmation.
+
 ## 当前构建预算真值
 
 `npm run audit:build:report` 当前执行以下预算：
@@ -65,6 +80,7 @@ npm run visual:test
 - `build/dist/onboarding/index.js`: `12.3 KB`
 - chunks: `98`
 - `npm run build` 与 `npm run build:firefox` 均通过
+- `src/shared/errors/analytics/analyticsConfig.ts` is tracked as a non-sensitive disabled default; clean checkout no longer needs a copied ignored local analytics file for typecheck/build.
 
 ## 核心命令
 
@@ -82,6 +98,7 @@ npm run visual:test
 - `npm run test:i18n`
 - `npm run visual:test`
 - `npm run report:release-summary`
+- `npm run audit:local-vault-release:report`
 
 ## 正式代码入口
 
