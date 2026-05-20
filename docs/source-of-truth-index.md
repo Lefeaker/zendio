@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-19
+最后更新：2026-05-20
 
 ## 正式入口
 
@@ -13,6 +13,7 @@
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
 - 长期维护 backlog：[`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
+- 2026-05-20 release readiness handoff：[`release-readiness-handoff-2026-05-20.md`](./release-readiness-handoff-2026-05-20.md)
 
 ## 当前执行主线
 
@@ -23,6 +24,7 @@
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
+- 2026-05-20 release readiness 真值：Node `20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`，`npm audit --audit-level=low` 仍作为 dev/release toolchain 后续计划记录
 
 ## 历史与归档
 
