@@ -6,7 +6,12 @@ import { auditLocalVaultReleaseReadiness } from '../../../scripts/audit-local-va
 
 const tempDirs: string[] = [];
 
-async function createDistFixture(manifest: Record<string, unknown>): Promise<string> {
+async function createDistFixture(
+  manifest: Record<string, unknown>,
+  options: {
+    runtimeSource?: string;
+  } = {}
+): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'aiiinob-local-vault-release-'));
   tempDirs.push(root);
   const dist = join(root, 'dist');
@@ -21,7 +26,7 @@ async function createDistFixture(manifest: Record<string, unknown>): Promise<str
   await writeFile(join(dist, 'offscreen/local-vault.js'), 'export {};');
   await writeFile(
     join(dist, 'content/runtime.js'),
-    'import("../chunks/localVaultPermissionPrompt-test.js");'
+    options.runtimeSource ?? 'import("../chunks/localVaultPermissionPrompt-test.js");'
   );
   await writeFile(
     join(dist, 'chunks/localVaultPermissionPrompt-test.js'),
@@ -88,6 +93,27 @@ describe('Local Vault release readiness audit', () => {
 
     await expect(auditLocalVaultReleaseReadiness({ distDir })).rejects.toThrow(
       'Built manifest web_accessible_resources must not include <all_urls>'
+    );
+  });
+
+  it('rejects prompt chunks that contain the local vault marker but are not reachable from runtime', async () => {
+    const distDir = await createDistFixture(
+      {
+        permissions: ['storage', 'offscreen'],
+        web_accessible_resources: [
+          {
+            resources: ['chunks/*', 'local-vault-permission.html'],
+            matches: ['http://*/*', 'https://*/*']
+          }
+        ]
+      },
+      {
+        runtimeSource: 'export const runtimeLoaded = true;'
+      }
+    );
+
+    await expect(auditLocalVaultReleaseReadiness({ distDir, browser: 'chrome' })).rejects.toThrow(
+      'Unable to find reachable content/runtime local-vault permission prompt chunk'
     );
   });
 });

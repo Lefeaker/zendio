@@ -41,15 +41,17 @@
 1. **默认文件**：
    `src/shared/errors/analytics/analyticsConfig.ts` 已提交为非敏感 disabled default，clean checkout 不需要复制本地 ignored 文件。
 
-2. **更新配置**：
-   在 `src/shared/errors/analytics/analyticsConfig.ts` 中更新你的 Measurement ID：
+2. **发布/本地配置注入**：
+   `src/shared/errors/analytics/analyticsConfig.ts` 是 tracked placeholder-only 文件，必须保持非敏感默认值：
 
    ```typescript
    export const GA4_CONFIG = {
-     MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID' // 替换为你的实际 Measurement ID
+     MEASUREMENT_ID: 'G-XXXXXXXXXX'
      // ... 其他配置保持不变
    };
    ```
+
+   不要在 tracked 文件里写入真实 GA4 Measurement ID。真实 ID 只能通过 owner 发布流程注入，或开发者本地未提交覆盖用于验证。
 
 3. **安全说明**：
    - 仓库内 `analyticsConfig.ts` 不得写入真实 GA4 Measurement ID
@@ -345,7 +347,7 @@ context: {
 ### 常见问题
 
 1. **错误未出现在 GA4 中**
-   - 检查 Measurement ID 和 API Secret
+   - 检查 owner release 注入或本地未提交覆盖中的 Measurement ID
    - 确认用户已同意错误报告
    - 查看浏览器控制台是否有网络错误
 
@@ -374,7 +376,7 @@ context: {
 
 ### 版本升级
 
-1. 更新 `analyticsConfig.ts` 中的配置
+1. 保持 tracked `analyticsConfig.ts` 为 placeholder-only，并通过 owner release 注入或本地未提交覆盖验证真实 Measurement ID
 2. 运行数据迁移脚本（如有）
 3. 测试新版本的错误报告功能
 4. 更新文档和用户指南

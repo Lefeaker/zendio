@@ -75,9 +75,7 @@ async function findLazyPromptChunk(distDir) {
     const chunkName = relative(distDir, chunkPath);
     const basename = chunkName.split('/').pop();
     const reachable =
-      runtimeSource.includes(chunkName) ||
-      (basename ? runtimeSource.includes(basename) : false) ||
-      source.includes('local-vault-permission.html');
+      runtimeSource.includes(chunkName) || (basename ? runtimeSource.includes(basename) : false);
 
     if (reachable) {
       return chunkName;
