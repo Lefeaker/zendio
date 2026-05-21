@@ -14,6 +14,7 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`

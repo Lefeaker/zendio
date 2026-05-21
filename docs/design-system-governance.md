@@ -146,7 +146,7 @@
 - 组件入口守门：`npm run audit:components:report`
 - 交互 contract 审计：`npm run audit:interaction-contract:report`
 - token / wrapper 审计：`npm run audit:design-tokens:report`
-- 设计系统文档真值审计：`npm run audit:design-system-doc:report`
+- 设计系统文档真值审计：`npm run audit:design-system-doc:report`。该审计只扫描 tracked / non-ignored 的 active guidance；`.gitignore` 中声明的本地过程 archive、POC 档案和临时迁移材料不应作为当前样式真值阻塞门禁。
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`

@@ -1,4 +1,5 @@
 import { access, readFile, readdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { constants } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 
@@ -143,7 +144,9 @@ async function collectActiveDocFiles(repoRoot) {
     }
   }
 
-  const unique = [...new Set(candidates.map((file) => normalizePath(file)))];
+  const unique = filterGitIgnored(repoRoot, [
+    ...new Set(candidates.map((file) => normalizePath(file)))
+  ]);
   const existing = [];
   for (const file of unique) {
     if (isHistoricalStyleDoc(file)) {
@@ -157,6 +160,30 @@ async function collectActiveDocFiles(repoRoot) {
     }
   }
   return existing;
+}
+
+function filterGitIgnored(repoRoot, files) {
+  if (!files.length) {
+    return files;
+  }
+
+  const result = spawnSync('git', ['-C', repoRoot, 'check-ignore', '--stdin'], {
+    input: `${files.join('\n')}\n`,
+    encoding: 'utf8'
+  });
+
+  if (result.error || (result.status !== 0 && result.status !== 1)) {
+    return files;
+  }
+
+  const ignored = new Set(
+    result.stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((file) => normalizePath(file))
+  );
+
+  return files.filter((file) => !ignored.has(file));
 }
 
 async function listFiles(dir) {
