@@ -1,11 +1,8 @@
 import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
-import type { ProductionStitchStorageControllerOptions } from './productionStitchStorageController';
-
-export interface ProductionStitchStorageLoad {
-  ensureVaultRouter(): VaultRouterConfig;
-  syncDefaultRestFromVault(vault: VaultConfig): void;
-  syncDefaultVaultFromRest(): void;
-}
+import type {
+  ProductionStitchStorageControllerOptions,
+  ProductionStitchStorageLoad
+} from './productionStitchStorageTypes';
 
 export function createProductionStitchStorageLoad(
   options: ProductionStitchStorageControllerOptions

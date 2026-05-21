@@ -4,8 +4,7 @@ import type { ContentSelectionTracker } from './contentSelectionTracker';
 import { isVideoSessionActive } from './contentSessionRegistry';
 import type { SupportProgressReporter } from './supportProgress';
 import { hasUsableSelection } from './selectionSnapshot';
-import type { ClipFlowResult } from './clipFlowDispatch';
-import type { VideoSelectionController } from './clipFlow';
+import type { ClipFlowResult, VideoSelectionController } from './clipFlowTypes';
 
 export async function prepareSelectionClip(
   document: Document,

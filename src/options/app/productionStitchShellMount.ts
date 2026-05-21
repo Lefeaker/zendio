@@ -51,7 +51,7 @@ import {
 import type {
   MountedProductionStitchShell,
   ProductionStitchShellDependencies
-} from './productionStitchShell';
+} from './productionStitchShellTypes';
 import { cleanupProductionStitchShell } from './productionStitchShellTeardown';
 
 export function mountProductionStitchShellFromDependencies({

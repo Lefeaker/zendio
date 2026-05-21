@@ -1,10 +1,5 @@
 import { normalizeToAppError } from '../../shared/errors';
-import type { ContentRuntimeState } from './contentRuntimeState';
-import type { ContentSelectionTracker } from './contentSelectionTracker';
-import type { MessagingService } from '../../platform/interfaces/messaging';
-import type { ExtractorRegistryApi } from '../extractors/registry';
-import type { SupportProgressReporter } from './supportProgress';
-import type { ClipFlowResult } from './clipFlowDispatch';
+import type { ClipFlowHandlers, ClipFlowResult, InitClipFlowOptions } from './clipFlowTypes';
 import {
   handleAutoSelectionClip,
   handleModifierKey,
@@ -12,34 +7,11 @@ import {
   handleWindowBlur
 } from './autoSelectionTrigger';
 
-export interface VideoSelectionController {
-  handleSelectionClip(
-    document: Document,
-    url: string,
-    selection: Selection
-  ): Promise<{ markdown?: string; type?: string } | null>;
-  handleVideoSelectionClip(document: Document, url: string, selection: Selection): Promise<void>;
-}
-
-export interface InitClipFlowOptions {
-  document: Document;
-  messaging: Pick<MessagingService, 'send'>;
-  runtimeState: ContentRuntimeState;
-  selectionTracker: ContentSelectionTracker;
-  selectionController: VideoSelectionController;
-  extractorRegistry: ExtractorRegistryApi;
-  showSupportProgress?: SupportProgressReporter;
-}
-
-export interface ClipFlowHandlers {
-  handleClip(): Promise<void>;
-  handleAutoSelectionClip(event: MouseEvent): void;
-  handleModifierKey(event: KeyboardEvent): void;
-  handleWindowBlur(): void;
-  handlePrimaryMouseDown(event: MouseEvent): void;
-  handleSelectionChange(): void;
-  handleSelectStart(event: Event): void;
-}
+export type {
+  ClipFlowHandlers,
+  InitClipFlowOptions,
+  VideoSelectionController
+} from './clipFlowTypes';
 
 export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   const {
