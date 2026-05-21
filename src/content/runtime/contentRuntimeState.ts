@@ -64,7 +64,7 @@ export function createContentRuntimeState(
     try {
       fragmentClipperConfig = await loadFragmentConfig(optionsRepository);
     } catch (error) {
-      console.warn('[content] Failed to refresh fragment clipper config:', error);
+      console.warn('[content] fragment config refresh failed:', error);
       fragmentClipperConfig = DEFAULT_FRAGMENT_CONFIG;
     }
     if (!fragmentClipperConfig.selectionModifierEnabled) {
@@ -88,7 +88,7 @@ export function createContentRuntimeState(
       .get()
       .then(() => refreshFragmentConfig())
       .catch((error) => {
-        console.warn('[content] Failed to preload fragment config from options store:', error);
+        console.warn('[content] fragment config preload failed:', error);
       });
 
     window.addEventListener('pageshow', resumeOptionsSubscription, { passive: true });
