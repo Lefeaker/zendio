@@ -7,6 +7,7 @@ import { registerService, TOKENS } from '@shared/di';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { createProductionStitchActions } from '@options/app/productionStitchActions';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
+import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import type { OptionsController } from '@options/app/optionsController';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageService } from '@platform/interfaces/storage';
@@ -266,6 +267,31 @@ describe('mountProductionStitchShell', () => {
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
 
     mounted.cleanup();
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+  });
+
+  it('cleanup detaches shell theme listeners and clears the mount root', () => {
+    const controller = createController();
+    const media = {
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    };
+    vi.spyOn(window, 'matchMedia').mockReturnValue(media as never);
+
+    const mounted = mountProductionStitchShell({
+      controller: controller as unknown as OptionsController,
+      initialOptions: { interfaceTheme: 'system' },
+      messages: null,
+      language: 'en'
+    });
+
+    expect(media.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).not.toBe('');
+
+    mounted.cleanup();
+
+    expect(media.removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
     expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
   });
 
@@ -584,6 +610,78 @@ describe('mountProductionStitchShell', () => {
       })
     );
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+  });
+
+  it('keeps storage controller draft sync delegated through the vault router helpers', () => {
+    const draft = mergeOptions({
+      rest: {
+        vault: 'Research Vault',
+        baseUrl: 'https://localhost:27124',
+        httpsUrl: 'https://localhost:27124',
+        httpUrl: 'http://localhost:27123',
+        apiKey: 'token'
+      },
+      vaultRouter: {
+        defaultVaultId: 'research',
+        vaults: [
+          {
+            id: 'research',
+            name: 'Research Vault',
+            vault: 'Research Vault',
+            httpsUrl: 'https://localhost:27124',
+            httpUrl: 'http://localhost:27123',
+            apiKey: 'token',
+            enabled: true,
+            isDefault: true
+          }
+        ],
+        rules: []
+      }
+    }) as CompleteOptions;
+    const state = {
+      activeLocalFolderVaultIndex: null,
+      routingRules: [
+        {
+          target: 'Renamed Vault',
+          type: 'Domain',
+          pattern: 'docs.example',
+          enabled: true,
+          priority: 25
+        }
+      ]
+    };
+    const scheduleDraftSave = vi.fn();
+    const storageController = createProductionStitchStorageController({
+      getConnectionNotice: () => undefined,
+      getDraft: () => draft,
+      getMessagingRepository: () => createMessaging({ success: true }) as never,
+      getState: () => state as never,
+      setConnectionNotice: vi.fn(),
+      refreshAppData: vi.fn(),
+      render: vi.fn(),
+      scheduleDraftSave
+    });
+
+    storageController.updateVaultField(0, 'name', 'Renamed Vault');
+    storageController.syncRoutingRulesToDraft();
+
+    expect(draft.rest.vault).toBe('Renamed Vault');
+    expect(draft.vaultRouter?.vaults[0]).toEqual(
+      expect.objectContaining({
+        name: 'Renamed Vault',
+        vault: 'Renamed Vault'
+      })
+    );
+    expect(draft.vaultRouter?.rules).toEqual([
+      expect.objectContaining({
+        vaultId: 'research',
+        type: 'domain',
+        pattern: 'docs.example',
+        enabled: true,
+        priority: 25
+      })
+    ]);
+    expect(scheduleDraftSave).toHaveBeenCalledTimes(1);
   });
 
   it('persists storage root and vault table edits through collectDraft', () => {
