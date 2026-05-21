@@ -1,9 +1,14 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { VaultRouterConfig } from '@shared/types';
 import type { RestOptions } from '@shared/types/options';
+import {
+  renderRestConnectionTestResult,
+  resetRestConnectionTestResult
+} from '@options/components/sections/restSectionConnectionResult';
+import { buildRestDefaultRow } from '@options/components/sections/restSectionDefaultRow';
 import {
   applyRestSectionSnapshot,
   collectAdditionalVaultConfigsForTest,
@@ -13,6 +18,10 @@ import {
   resolveRestDefaultVaultId,
   updateLocalFolderButton
 } from '@options/components/sections/restSectionState';
+import * as sectionConnectionResultExports from '@options/components/sections/restSectionConnectionResult';
+import * as sectionStateExports from '@options/components/sections/restSectionState';
+import * as widgetConnectionResultExports from '@options/widgets/shared/rest/restSectionConnectionResult';
+import * as widgetStateExports from '@options/widgets/shared/rest/restSectionState';
 
 const defaults = DEFAULT_OPTIONS.rest;
 
@@ -27,6 +36,102 @@ function createInputs() {
 }
 
 describe('restSectionState helpers', () => {
+  it('renders the default vault row with local-folder controls and REST inputs', () => {
+    const onChooseLocalFolder = vi.fn();
+    const onClearLocalFolder = vi.fn();
+    const bindings: Array<HTMLInputElement | HTMLButtonElement> = [];
+
+    const row = buildRestDefaultRow({
+      createElement: document.createElement.bind(document),
+      messages: null,
+      onNameInput: vi.fn(),
+      onChooseLocalFolder,
+      onClearLocalFolder,
+      onHttpsInput: vi.fn(),
+      onHttpInput: vi.fn(),
+      onApiKeyInput: vi.fn(),
+      bindDefaultNameInput: (input) => bindings.push(input),
+      bindDefaultLocalFolderButton: (button) => bindings.push(button),
+      bindDefaultHttpsInput: (input) => bindings.push(input),
+      bindDefaultHttpInput: (input) => bindings.push(input),
+      bindDefaultApiKeyInput: (input) => bindings.push(input)
+    });
+
+    expect(row.querySelector<HTMLInputElement>('#restVault')).toBe(bindings[0]);
+    expect(row.querySelector<HTMLButtonElement>('#restLocalFolderButton')).toBe(bindings[1]);
+    expect(row.querySelector<HTMLInputElement>('#restHttpsUrl')).toBe(bindings[2]);
+    expect(row.querySelector<HTMLInputElement>('#restHttpUrl')).toBe(bindings[3]);
+    expect(row.querySelector<HTMLInputElement>('#restKey')).toBe(bindings[4]);
+
+    const chooseButton = row.querySelector<HTMLButtonElement>('.rest-vault-local-folder');
+    const clearButton = row.querySelector<HTMLButtonElement>('.rest-vault-local-folder-clear');
+    expect(chooseButton?.dataset.localFolderId).toBe('');
+    expect(chooseButton?.dataset.localFolderName).toBe('');
+    expect(clearButton?.hidden).toBe(true);
+
+    chooseButton?.click();
+    clearButton?.click();
+    expect(onChooseLocalFolder).toHaveBeenCalledTimes(1);
+    expect(onClearLocalFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders connection result severity and can reset the result host', () => {
+    const host = document.createElement('div');
+    host.hidden = true;
+
+    renderRestConnectionTestResult({
+      connectionResultHost: host,
+      type: 'success',
+      text: 'Connected\nVault is reachable'
+    });
+
+    const successAlert = host.querySelector('.alert');
+    expect(host.hidden).toBe(false);
+    expect(successAlert?.classList.contains('alert-success')).toBe(true);
+    expect(host.textContent).toContain('Connected');
+    expect(host.textContent).toContain('Vault is reachable');
+
+    renderRestConnectionTestResult({
+      connectionResultHost: host,
+      type: 'error',
+      text: 'Failed'
+    });
+    expect(host.querySelector('.alert')?.classList.contains('alert-error')).toBe(true);
+    expect(host.querySelector('button')).toBeTruthy();
+
+    resetRestConnectionTestResult(host);
+    expect(host.hidden).toBe(true);
+    expect(host.childElementCount).toBe(0);
+  });
+
+  it('keeps section and widget REST helper runtime export contracts distinct', () => {
+    expect(Object.keys(sectionConnectionResultExports).sort()).toEqual([
+      'buildRestConnectionResult',
+      'renderRestConnectionTestResult',
+      'resetRestConnectionTestResult'
+    ]);
+    expect(Object.keys(widgetConnectionResultExports).sort()).toEqual(
+      Object.keys(sectionConnectionResultExports).sort()
+    );
+
+    expect(Object.keys(sectionStateExports).sort()).toEqual([
+      'applyRestSectionSnapshot',
+      'collectAdditionalVaultConfigsForTest',
+      'collectRestDraftForTest',
+      'collectRestSectionChanges',
+      'readRestRowValue',
+      'resolveRestDefaultVaultId',
+      'updateLocalFolderButton'
+    ]);
+    expect(Object.keys(widgetStateExports).sort()).toEqual([
+      'applyRestSectionSnapshot',
+      'collectAdditionalVaultConfigsForTest',
+      'collectRestDraftForTest',
+      'collectRestSectionChanges',
+      'readRestRowValue'
+    ]);
+  });
+
   it('resolves the default vault id from explicit, default, first, and empty inputs', () => {
     const vaults = [
       { id: 'one', vault: 'One', name: 'One', httpsUrl: '', httpUrl: '', apiKey: '', rules: [] },
