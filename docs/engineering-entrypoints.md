@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-19
+最后更新：2026-05-21
 
 ## 推荐运行环境
 
@@ -57,6 +57,16 @@ npm run release:chrome -- --zip <release.zip>
 `release:chrome` is a dry-run alias. A real Chrome Web Store publish must use
 `npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
 credentials and manual confirmation.
+
+## 当前 Lint / Type 债务真值
+
+2026-05-21 M1.2 audit truth:
+
+- `npm run lint -- --quiet`：通过，当前没有 ESLint error。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `322`，fresh warning count 为 `274`。
+- `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；baseline 下调留到 M7 final baseline sync。
+- 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
+- `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
 
 ## 当前构建预算真值
 

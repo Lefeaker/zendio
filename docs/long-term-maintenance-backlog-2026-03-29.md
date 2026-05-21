@@ -25,9 +25,11 @@
 ## P2
 
 4. 继续清理 lint warning 基线债务
-   - 当前真值：`lint:warnings-guard` 当前 baseline 为 `322`
+   - 当前真值：`lint:warnings-guard` checked-in baseline 为 `322`；2026-05-21 fresh warning count 为 `274`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
-   - 后续处理：继续清理 broad historical `require-await`、测试 fixture typing、type assertion / unsafe assignment 债务；不要通过降低 ESLint 规则或无解释 disable 来“归零”
+   - 当前类型审计：`lint:type-any` 扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`
+   - 后续处理：继续清理 broad historical `require-await`、`no-unused-vars`、`unbound-method`、测试 fixture typing、type assertion / unsafe assignment 债务；不要通过降低 ESLint 规则或无解释 disable 来“归零”
+   - Baseline 规则：`lint:warnings-report` 会重写 `tools/baselines/lint-warnings.json`；M1.2 不提交该 baseline，下调留到 M7 final baseline sync
 
 5. 继续治理浏览器验真稳定性
    - 当前真值：2026-05-18 stabilization 中 `test:e2e:browser:local-vault`、`test:e2e:browser:smoke`、`verify:stitch-secondary`、`visual:test` 已通过
