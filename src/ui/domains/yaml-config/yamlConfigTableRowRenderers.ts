@@ -13,6 +13,12 @@ import {
 import { buildYamlErrorList } from './yamlConfigTableMessageBuilders';
 import { buildYamlAdvancedPanel, buildYamlDefaultValueEditor } from './yamlConfigTableRowEditors';
 import { buildYamlRowActionContainer } from './yamlConfigTableRowActions';
+import {
+  bindYamlCheckboxValue,
+  bindYamlInputBlur,
+  bindYamlInputValue,
+  bindYamlSelectValue
+} from './yamlConfigTableRendererEvents';
 
 export type { RowActions } from './yamlConfigTableTypes';
 
@@ -44,10 +50,8 @@ export function buildYamlTableRow(args: {
     disabled: row.builtIn,
     className: 'w-full h-8 text-sm disabled:opacity-50'
   });
-  nameInput.addEventListener('input', (event) =>
-    actions.onNameInput(row, (event.target as HTMLInputElement).value)
-  );
-  nameInput.addEventListener('blur', () => actions.onNameBlur(row));
+  bindYamlInputValue(nameInput, (value) => actions.onNameInput(row, value));
+  bindYamlInputBlur(nameInput, () => actions.onNameBlur(row));
   appendCell(nameInput);
 
   const typeSelect = createSelectElement({
@@ -56,9 +60,7 @@ export function buildYamlTableRow(args: {
     className: 'w-full h-8 text-sm disabled:opacity-50',
     options: TYPE_OPTIONS.map((option) => ({ value: option, label: option }))
   });
-  typeSelect.addEventListener('change', (event) => {
-    actions.onTypeChange(row, (event.target as HTMLSelectElement).value as YamlFieldType);
-  });
+  bindYamlSelectValue<YamlFieldType>(typeSelect, (type) => actions.onTypeChange(row, type));
   appendCell(typeSelect);
 
   for (const contentType of CONTENT_TYPES) {
@@ -80,9 +82,9 @@ export function buildYamlTableRow(args: {
       labelClassName: 'justify-center',
       inputClassName: 'cursor-pointer'
     });
-    checkbox.addEventListener('change', (event) => {
-      actions.onToggleContentType(row, contentType, (event.target as HTMLInputElement).checked);
-    });
+    bindYamlCheckboxValue(checkbox, (checked) =>
+      actions.onToggleContentType(row, contentType, checked)
+    );
     checkboxWrapper.append(root);
     appendCell(checkboxWrapper);
   }

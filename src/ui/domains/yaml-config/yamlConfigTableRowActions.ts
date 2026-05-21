@@ -1,6 +1,7 @@
 import { createOptionsButtonElement } from '../../primitives/button';
 import { createOptionsActionRow } from '../../primitives/layout';
 import type { FieldRow, RowActions, YamlConfigTableLabels } from './yamlConfigTableTypes';
+import { bindYamlClick } from './yamlConfigTableRendererEvents';
 
 export function buildYamlRowActionContainer(args: {
   row: FieldRow;
@@ -23,7 +24,7 @@ export function buildYamlRowActionContainer(args: {
   if (row.valuePath && row.valuePath.trim()) {
     advancedButton.classList.add('text-accent');
   }
-  advancedButton.addEventListener('click', () => actions.onAdvancedToggle(row));
+  bindYamlClick(advancedButton, () => actions.onAdvancedToggle(row));
   actionContainer.append(advancedButton);
 
   if (row.builtIn) {
@@ -43,7 +44,7 @@ export function buildYamlRowActionContainer(args: {
     className:
       'w-6 h-6 rounded text-base-content/60 hover:text-base-content hover:bg-base-200 disabled:opacity-30 disabled:hover:bg-transparent'
   });
-  moveUp.addEventListener('click', () => actions.onMoveRow(row.id, -1));
+  bindYamlClick(moveUp, () => actions.onMoveRow(row.id, -1));
   actionContainer.append(moveUp);
 
   const moveDown = createOptionsButtonElement({
@@ -54,7 +55,7 @@ export function buildYamlRowActionContainer(args: {
     className:
       'w-6 h-6 rounded text-base-content/60 hover:text-base-content hover:bg-base-200 disabled:opacity-30 disabled:hover:bg-transparent'
   });
-  moveDown.addEventListener('click', () => actions.onMoveRow(row.id, 1));
+  bindYamlClick(moveDown, () => actions.onMoveRow(row.id, 1));
   actionContainer.append(moveDown);
 
   const deleteButton = createOptionsButtonElement({
@@ -64,7 +65,7 @@ export function buildYamlRowActionContainer(args: {
     title: labels.deleteButton,
     className: 'w-6 h-6 rounded text-destructive hover:bg-destructive/10'
   });
-  deleteButton.addEventListener('click', () => actions.onDeleteRow(row));
+  bindYamlClick(deleteButton, () => actions.onDeleteRow(row));
   actionContainer.append(deleteButton);
 
   return actionContainer;

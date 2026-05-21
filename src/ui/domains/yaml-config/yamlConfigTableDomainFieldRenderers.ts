@@ -16,6 +16,13 @@ import {
   type YamlConfigDomainLabels
 } from './yamlConfigTableTypes';
 import { buildDomainFieldValueEditor } from './yamlConfigTableDomainFieldValueEditor';
+import {
+  bindYamlCheckboxValue,
+  bindYamlClick,
+  bindYamlInputBlur,
+  bindYamlInputValue,
+  bindYamlSelectValue
+} from './yamlConfigTableRendererEvents';
 
 export type { DomainFieldRendererActions } from './yamlConfigTableTypes';
 
@@ -48,10 +55,8 @@ export function buildDomainCard(args: {
     placeholder: labels.placeholder,
     className: 'w-full min-h-[36px] aobx-domain__domain-input'
   });
-  domainInput.addEventListener('input', (event) =>
-    actions.onDomainInput(entry, (event.target as HTMLInputElement).value)
-  );
-  domainInput.addEventListener('blur', () => actions.onDomainBlur());
+  bindYamlInputValue(domainInput, (value) => actions.onDomainInput(entry, value));
+  bindYamlInputBlur(domainInput, () => actions.onDomainBlur());
   header.append(domainInput);
 
   const typeSelect = createSelectElement({
@@ -62,12 +67,9 @@ export function buildDomainCard(args: {
       label
     }))
   });
-  typeSelect.addEventListener('change', (event) => {
-    actions.onContentTypeChange(
-      entry,
-      (event.target as HTMLSelectElement).value as YamlContentType
-    );
-  });
+  bindYamlSelectValue<YamlContentType>(typeSelect, (contentType) =>
+    actions.onContentTypeChange(entry, contentType)
+  );
   header.append(typeSelect);
 
   const removeButton = createOptionsButtonElement({
@@ -76,7 +78,7 @@ export function buildDomainCard(args: {
     size: 'sm',
     className: 'aobx-btn aobx-domain__remove-btn'
   });
-  removeButton.addEventListener('click', () => actions.onRemoveDomainEntry(entry.id));
+  bindYamlClick(removeButton, () => actions.onRemoveDomainEntry(entry.id));
   header.append(removeButton);
   card.append(header);
 
@@ -109,7 +111,7 @@ export function buildDomainCard(args: {
     disabled: getFieldOptionsForEntry(entry).length === 0,
     className: 'aobx-domain__add-field-btn'
   });
-  addFieldButton.addEventListener('click', () => actions.onAddDomainField(entry));
+  bindYamlClick(addFieldButton, () => actions.onAddDomainField(entry));
   card.append(addFieldButton);
 
   if (errors.length) {
@@ -139,9 +141,7 @@ function buildDomainField(args: {
       label: `${option.name} (${option.type})`
     }))
   });
-  nameSelect.addEventListener('change', (event) => {
-    actions.onDomainFieldNameChange(entry, field, (event.target as HTMLSelectElement).value);
-  });
+  bindYamlSelectValue(nameSelect, (name) => actions.onDomainFieldNameChange(entry, field, name));
   header.append(nameSelect);
 
   const { root: enabledLabel, input: checkbox } = createCheckboxElement({
@@ -149,9 +149,7 @@ function buildDomainField(args: {
     label: labels.fieldEnabled,
     labelClassName: 'aobx-domain__field-enabled'
   });
-  checkbox.addEventListener('change', (event) => {
-    actions.onDomainFieldEnabledChange(field, (event.target as HTMLInputElement).checked);
-  });
+  bindYamlCheckboxValue(checkbox, (checked) => actions.onDomainFieldEnabledChange(field, checked));
   header.append(enabledLabel);
 
   const removeButton = createOptionsButtonElement({
@@ -160,7 +158,7 @@ function buildDomainField(args: {
     size: 'sm',
     className: 'aobx-btn aobx-domain__field-remove'
   });
-  removeButton.addEventListener('click', () => actions.onRemoveDomainField(entry.id, field.id));
+  bindYamlClick(removeButton, () => actions.onRemoveDomainField(entry.id, field.id));
   header.append(removeButton);
   container.append(header, buildDomainFieldValueEditor(field, labels, actions));
   return container;
