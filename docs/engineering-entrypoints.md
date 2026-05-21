@@ -60,11 +60,11 @@ credentials and manual confirmation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-21 M1.2 audit truth:
+2026-05-21 M7 final baseline truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `322`，fresh warning count 为 `274`。
-- `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；baseline 下调留到 M7 final baseline sync。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已下调为 `266`，fresh warning count 为 `266`。
+- `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
 - `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
 
@@ -82,14 +82,14 @@ credentials and manual confirmation.
 - `chunk count <= 132`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
-2026-05-18 fresh build truth:
+2026-05-21 M7 fresh build truth:
 
 - `npm run clean && npm run build:dev && npm run audit:build:report` 通过
-- `build/dist/content/runtime.js`: `56.0 KB`
+- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；raw stop gate `57,600`）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
-- chunks: `98`
-- `npm run build` 与 `npm run build:firefox` 均通过
+- chunks: `102`
+- `npm run build` 与 `npm run build:firefox` 的通过记录仍来自 2026-05-18/2026-05-20 release readiness；M7 baseline sync 未重新运行这两个命令
 - `src/shared/errors/analytics/analyticsConfig.ts` is tracked as a non-sensitive disabled default; clean checkout no longer needs a copied ignored local analytics file for typecheck/build.
 
 ## 核心命令

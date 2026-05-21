@@ -4,7 +4,7 @@ interface ProductionStitchShellTeardownOptions {
   mountRoot: HTMLElement;
   buttonPressScrollGuard: { cleanup(): void };
   themeMediaQuery: Pick<MediaQueryList, 'removeEventListener'>;
-  applySystemThemePreferenceChange(): void;
+  applySystemThemePreferenceChange: EventListener;
   schemaRenderer: { dispose(): void };
   widgetHost: { destroyWidgets(): void };
 }

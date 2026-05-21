@@ -3,8 +3,10 @@ import type {
   RoutingRuleType,
   VaultRouterConfig
 } from '@shared/types/vault';
-import type { ProductionStitchStorageControllerOptions } from './productionStitchStorageController';
-import type { ProductionStitchStorageLoad } from './productionStitchStorageLoad';
+import type {
+  ProductionStitchStorageControllerOptions,
+  ProductionStitchStorageLoad
+} from './productionStitchStorageTypes';
 
 export interface ProductionStitchStorageSave {
   syncRoutingRulesToDraft(): void;

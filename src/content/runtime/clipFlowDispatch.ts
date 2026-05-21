@@ -1,7 +1,6 @@
 import { getErrorHandler, extractionErrors, type AppError } from '../../shared/errors';
 import type { MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
-
-export type ClipFlowResult = { markdown?: string; type?: string };
+import type { ClipFlowResult } from './clipFlowTypes';
 
 export async function emitClipError(
   messaging: Pick<MessagingService, 'send'>,

@@ -43,14 +43,14 @@ interface ProductionStitchRenderLifecycleOptions {
 }
 
 export interface ProductionStitchRenderLifecycle {
-  applySystemThemePreferenceChange(): void;
-  openResource(resourceId: string): void;
-  render(): void;
-  renderActiveResourceModal(): void;
-  scrollToPanel(panelId: string): void;
-  syncHighlightThemeControls(): void;
-  syncModifierControls(): void;
-  syncPreviewThemeControls(): void;
+  applySystemThemePreferenceChange: () => void;
+  openResource: (resourceId: string) => void;
+  render: () => void;
+  renderActiveResourceModal: () => void;
+  scrollToPanel: (panelId: string) => void;
+  syncHighlightThemeControls: () => void;
+  syncModifierControls: () => void;
+  syncPreviewThemeControls: () => void;
 }
 
 export function createProductionStitchRenderLifecycle(
@@ -238,13 +238,13 @@ export function createProductionStitchRenderLifecycle(
   }
 
   return {
-    applySystemThemePreferenceChange: controls.applySystemThemePreferenceChange,
+    applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
     openResource,
     render,
     renderActiveResourceModal,
     scrollToPanel,
-    syncHighlightThemeControls: controls.syncHighlightThemeControls,
-    syncModifierControls: controls.syncModifierControls,
-    syncPreviewThemeControls: controls.syncPreviewThemeControls
+    syncHighlightThemeControls: () => controls.syncHighlightThemeControls(),
+    syncModifierControls: () => controls.syncModifierControls(),
+    syncPreviewThemeControls: () => controls.syncPreviewThemeControls()
   };
 }

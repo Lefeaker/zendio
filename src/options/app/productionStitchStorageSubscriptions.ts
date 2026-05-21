@@ -1,8 +1,10 @@
 import { getService } from '@shared/di';
 import { TOKENS } from '@shared/di/tokens';
 import type { PlatformServices } from '@platform/types';
-import type { ProductionStitchStorageControllerOptions } from './productionStitchStorageController';
-import type { ProductionStitchStorageLoad } from './productionStitchStorageLoad';
+import type {
+  ProductionStitchStorageControllerOptions,
+  ProductionStitchStorageLoad
+} from './productionStitchStorageTypes';
 
 export interface ProductionStitchStorageSubscriptions {
   activateVaultLocalFolder(index: number): Promise<void>;

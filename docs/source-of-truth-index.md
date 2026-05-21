@@ -26,6 +26,7 @@
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
 - 2026-05-20 release readiness 真值：Node `20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`，`npm audit --audit-level=low` 仍作为 dev/release toolchain 后续计划记录
 - 2026-05-21 owner-proof 真值：低复用/retained source 删除只接受 M6.1 六项 owner proof 表中 `delete-approved` 的 exact path；当前 `changelogContent`、`trial-notice`、reader `highlightController` 与 `contentClipOrchestrator` 均未获删除批准
+- 2026-05-21 M7 baseline sync 真值：lint warning baseline 已下调到 `266`；`content/runtime.js` fresh build 为 raw `54,554` bytes，低于 `57,600` stop gate；本地 M7 证据仍是 Node `v23.9.0`，最终退出门禁必须在 Node `20.x` 重跑
 
 ## 历史与归档
 

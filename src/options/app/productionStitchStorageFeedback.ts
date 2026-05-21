@@ -1,7 +1,9 @@
 import { requestVaultConnectionTest } from '@options/services/connectionTester';
 import type { ConnectionTestResult } from '@shared/types/connection';
-import type { ProductionStitchStorageControllerOptions } from './productionStitchStorageController';
-import type { ProductionStitchStorageLoad } from './productionStitchStorageLoad';
+import type {
+  ProductionStitchStorageControllerOptions,
+  ProductionStitchStorageLoad
+} from './productionStitchStorageTypes';
 
 export interface ProductionStitchStorageFeedback {
   applyConnectionNotice(result: ConnectionTestResult): void;
