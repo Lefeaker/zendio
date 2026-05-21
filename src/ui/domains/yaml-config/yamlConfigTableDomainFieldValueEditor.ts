@@ -7,6 +7,7 @@ import {
 import { createInputElement } from '../../primitives/input';
 import { createLayoutElement } from '../../primitives/layout';
 import { formatArrayValue } from './yamlConfigTableStateModel';
+import { bindYamlInputBlur, bindYamlInputValue } from './yamlConfigTableRendererEvents';
 
 export function buildDomainFieldValueEditor(
   field: DomainFieldRow,
@@ -27,12 +28,9 @@ export function buildDomainFieldValueEditor(
     value: field.valuePath ?? '',
     className: 'w-full min-h-[36px] aobx-domain__value-path-input'
   });
-  valuePathInput.addEventListener('input', (event) =>
-    actions.onDomainFieldValuePathInput(field, (event.target as HTMLInputElement).value)
-  );
-  valuePathInput.addEventListener('blur', (event) => {
-    const target = event.target as HTMLInputElement;
-    actions.onDomainFieldValuePathBlur(field, target.value);
+  bindYamlInputValue(valuePathInput, (value) => actions.onDomainFieldValuePathInput(field, value));
+  bindYamlInputBlur(valuePathInput, (value, target) => {
+    actions.onDomainFieldValuePathBlur(field, value);
     target.value = field.valuePath ?? '';
   });
   container.append(valuePathLabel, valuePathInput);
@@ -60,12 +58,9 @@ function buildDefaultValueInput(
       : 'w-full min-h-[36px] aobx-input'
   });
 
-  input.addEventListener('input', (event) =>
-    actions.onDomainFieldDefaultInput(field, (event.target as HTMLInputElement).value)
-  );
-  input.addEventListener('blur', (event) => {
-    const target = event.target as HTMLInputElement;
-    actions.onDomainFieldDefaultBlur(field, target.value);
+  bindYamlInputValue(input, (value) => actions.onDomainFieldDefaultInput(field, value));
+  bindYamlInputBlur(input, (value, target) => {
+    actions.onDomainFieldDefaultBlur(field, value);
     target.value = field.defaultValue ?? '';
   });
   valueContainer.append(input);
