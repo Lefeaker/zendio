@@ -93,6 +93,11 @@ Testvault/
 testvault/
 
 # Temporary working notes and one-off summaries
+/lint-report.json
+/lint-warnings.json
+/poc-final-report.txt
+/test-highlight.html
+/test-highlight-colors.html
 HIGHLIGHT_FIX_SUMMARY.md
 HIGHLIGHT_THEME_FIX_SUMMARY.md
 LINT_FIX_SUMMARY.md

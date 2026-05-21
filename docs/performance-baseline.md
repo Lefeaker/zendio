@@ -108,6 +108,6 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `lint-warnings.json` 基线仍记录历史 warning 债务；当前 warning guard 基线为 `322` 条，不代表 lint 债务已经清零。
+- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；当前 warning guard 基线为 `322` 条，不代表 lint 债务已经清零。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
 - 当前本地执行环境 Node.js 为 `v23.9.0`，高于 `package.json` 声明的 `>=20 <21`，验证命令通过但仍应回到 Node `20.x` 作为发布环境。

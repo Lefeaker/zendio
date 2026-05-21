@@ -3,8 +3,8 @@ import path from 'node:path';
 import { runLint, buildWarningSummary, formatRuleDelta } from './utils/lintWarnings.mjs';
 
 const ROOT_DIR = path.resolve(new URL('..', import.meta.url).pathname);
-const BASELINE_PATH = path.join(ROOT_DIR, 'lint-warnings.json');
-const TMP_DIR = path.join(ROOT_DIR, 'tmp');
+const BASELINE_PATH = path.join(ROOT_DIR, 'tools', 'baselines', 'lint-warnings.json');
+const TMP_DIR = path.join(ROOT_DIR, 'tmp', 'quality');
 const TMP_REPORT_PATH = path.join(TMP_DIR, 'lint-report.latest.json');
 const TMP_SUMMARY_PATH = path.join(TMP_DIR, 'lint-warnings.latest.json');
 
@@ -38,12 +38,16 @@ async function guardWarnings() {
   if (totalDelta > 0 || ruleDeltas.length > 0) {
     console.error('❌ Lint warning 数量超过基线限制，阻断本次提交。');
     if (totalDelta > 0) {
-      console.error(`   • 警告总数增加 ${totalDelta} 条（基线 ${baseline.totalWarnings}, 当前 ${summary.totalWarnings}）`);
+      console.error(
+        `   • 警告总数增加 ${totalDelta} 条（基线 ${baseline.totalWarnings}, 当前 ${summary.totalWarnings}）`
+      );
     }
     if (ruleDeltas.length > 0) {
       console.error('   • 以下规则出现新增：');
       for (const delta of ruleDeltas) {
-        console.error(`     - ${delta.ruleId}: +${delta.delta}（基线 ${delta.baseline} → 当前 ${delta.current}）`);
+        console.error(
+          `     - ${delta.ruleId}: +${delta.delta}（基线 ${delta.baseline} → 当前 ${delta.current}）`
+        );
       }
     }
     console.error(`   • 最新报告已写入 ${path.relative(process.cwd(), TMP_SUMMARY_PATH)}`);

@@ -205,7 +205,7 @@ try {
   - 新增 Options UI 行为应覆盖 Stitch schema/render/domain 或 production shell contract；不要为旧 Section class 新增生产导向测试。
 
 - **提交前检查清单**
-  - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/lint-warnings.latest.json` 或命令输出佐证）。
+  - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/quality/lint-warnings.latest.json` 或命令输出佐证）。
   - 新增 Section 或 Helper 后更新 `src/options/README.md`，保持文档与实现一致。
 
 ---
