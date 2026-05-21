@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-21
+最后更新：2026-05-22
 
 ## 推荐运行环境
 
@@ -22,6 +22,7 @@
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
+- 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
 
 ## 当前推荐执行顺序
 

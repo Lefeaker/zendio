@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-05-21
+日期：2026-05-22
 
 ## 1. 构建真值
 
@@ -18,6 +18,8 @@ npm run clean
 npm run build:dev
 npm run audit:build:report
 ```
+
+2026-05-22 final exit gate 已在 Node `v20.20.2` / npm `10.8.2` 下复跑同一构建/性能门禁，并保留当前 raw-byte 真值。
 
 当前真值：
 
@@ -115,4 +117,4 @@ npm run audit:performance:report
 
 - `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-05-21 M7 已将 checked-in warning guard baseline 从 `322` 下调到 `266` 条。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
-- 当前本地执行环境 Node.js 为 `v23.9.0`，高于 `package.json` 声明的 `>=20 <21`；M7 本地验证通过但最终发布证据仍必须回到 Node `20.x`。
+- 历史 M7 分支本地验证曾使用 Node.js `v23.9.0`；2026-05-22 final exit gate 已回到 Node `v20.20.2` / npm `10.8.2` 并通过构建、性能、Stitch、视觉与浏览器 smoke/reader-panel/local-vault 验证。
