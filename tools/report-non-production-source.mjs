@@ -159,6 +159,13 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete only after production Stitch action dispatch moves to focused action owners'
   },
   {
+    pattern: 'src/options/app/buttonPressScrollGuard.ts',
+    decision: 'retain-production-facade',
+    owner: 'Options button action scroll guard owner',
+    deletionCondition:
+      'delete only after production Stitch shell no longer needs button action scroll preservation'
+  },
+  {
     pattern: 'src/options/app/changelogContent.ts',
     decision: 'retain-production-facade',
     owner: 'Options changelog content compatibility module',

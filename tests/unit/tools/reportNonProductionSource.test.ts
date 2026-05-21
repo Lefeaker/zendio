@@ -137,6 +137,11 @@ describe('report-non-production-source', () => {
         scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
       },
       {
+        pattern: 'src/options/app/buttonPressScrollGuard.ts',
+        owner: 'Options button action scroll guard owner',
+        testOwners: ['tests/unit/options/productionStitchShell.test.ts']
+      },
+      {
         pattern: 'src/options/stitch/runtime/actions.ts',
         owner: 'Stitch runtime action id contract',
         testOwners: ['tests/unit/options/stitchSharedRegistry.test.ts']
