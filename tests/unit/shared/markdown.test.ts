@@ -154,7 +154,6 @@ describe('chatHtmlToMarkdown - mixed structures', () => {
   });
 });
 
-
 it('keeps footnote indices and language labels when they are rendered as visible chips', () => {
   const html = `
     <div>
@@ -186,7 +185,7 @@ it('keeps nested quotes and fenced code blocks readable inside list items', () =
 
   expect(markdown).toContain('- outer item');
   expect(markdown).toContain('> quoted context');
-  expect(markdown).toContain("```\necho nested\n```");
+  expect(markdown).toContain('```\necho nested\n```');
 });
 
 it('keeps escaped pipes and unlabeled code fences readable inside blockquotes', () => {
@@ -205,13 +204,10 @@ line 2</code></pre>
   expect(markdown).toContain('line 1');
 });
 
-
-
 it('returns empty markdown for empty html input', () => {
   expect(chatHtmlToMarkdown('')).toBe('');
   expect(chatHtmlToMarkdown('   ')).toBe('');
 });
-
 
 it('keeps unmatched language labels as plain text when no following code block exists', () => {
   const html = `
@@ -253,7 +249,6 @@ it('treats uppercase chips without an associated code block as plain text', () =
   expect(markdown).not.toContain('```sql');
 });
 
-
 it('normalizes language aliases like Objective C and TS when fences are inferred', () => {
   const html = `
     <div>
@@ -268,7 +263,6 @@ it('normalizes language aliases like Objective C and TS when fences are inferred
   expect(markdown).toContain('```objective-c');
   expect(markdown).toContain('```typescript');
 });
-
 
 it('skips copy-toolbar siblings when inferring language labels for nested pre blocks', () => {
   const html = `
@@ -297,7 +291,6 @@ it('keeps label text plain when a following pre block has no code child', () => 
   expect(markdown).toContain('select * from demo;');
   expect(markdown).not.toContain('```sql');
 });
-
 
 it('infers language labels from standalone text nodes before nested pre blocks', () => {
   const html = `
@@ -359,8 +352,6 @@ it('normalizes escaped html entities and keeps plain language labels outside cod
   expect(markdown).toContain('>  spaced   quote ');
 });
 
-
-
 it('normalizes trailing-colon language labels from data-code-language and ignores empty wrappers', () => {
   const html = `
     <div>
@@ -399,7 +390,6 @@ it('keeps mixed table and fenced code content readable inside blockquotes with b
   expect(markdown).toContain('```bash');
   expect(markdown).toContain('echo nested');
 });
-
 
 it('converts tables nested inside pre blocks and keeps inline formatting', () => {
   const html = `

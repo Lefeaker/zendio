@@ -11,11 +11,13 @@ const writeAttachmentMock = vi.fn();
 const createWriteSessionMock = vi.fn();
 const recordUsageMock = vi.fn();
 const downloadMock = vi.fn();
-const getServiceMock = vi.fn(() => ({
-  downloads: {
-    download: downloadMock
-  }
-}));
+const getServiceMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    downloads: {
+      download: downloadMock
+    }
+  }))
+);
 
 const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
 

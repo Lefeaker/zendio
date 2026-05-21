@@ -7,7 +7,11 @@ interface NotificationContext extends Record<string, unknown> {
 }
 
 export const notificationErrors = {
-  dispatchFailed(message: string, context: NotificationContext = {}, options: { cause?: unknown } = {}): AppError {
+  dispatchFailed(
+    message: string,
+    context: NotificationContext = {},
+    options: { cause?: unknown } = {}
+  ): AppError {
     return {
       code: 'NOTIFICATION_DISPATCH_FAILED',
       domain: 'notifications',
@@ -21,4 +25,6 @@ export const notificationErrors = {
   }
 } as const;
 
-export type NotificationErrorCode = ReturnType<typeof notificationErrors[keyof typeof notificationErrors]>['code'];
+export type NotificationErrorCode = ReturnType<
+  (typeof notificationErrors)[keyof typeof notificationErrors]
+>['code'];

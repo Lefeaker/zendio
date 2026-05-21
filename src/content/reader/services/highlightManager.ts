@@ -405,10 +405,7 @@ export class ReaderHighlightManager {
     return !this.hasMeaningfulNonHighlightContent(fragment);
   }
 
-  private hasMeaningfulNonHighlightContent(
-    node: Node,
-    insideHighlight = false
-  ): boolean {
+  private hasMeaningfulNonHighlightContent(node: Node, insideHighlight = false): boolean {
     if (node.nodeType === Node.TEXT_NODE) {
       return !insideHighlight && Boolean(node.textContent?.trim());
     }

@@ -10,21 +10,21 @@ export const GA4_CONFIG = {
   CUSTOM_PARAMS: {
     ERROR_CODE: 'error_code',
     ERROR_DOMAIN: 'error_domain',
-    ERROR_CATEGORY: 'error_category',
     ERROR_SEVERITY: 'error_severity',
-    ERROR_SEVERITY_LEVEL: 'error_severity_level',
-    ERROR_RECOVERABLE: 'error_recoverable',
-    ERROR_DESCRIPTION: 'error_description',
     EXTENSION_VERSION: 'extension_version',
-    BROWSER_NAME: 'browser_name',
     BROWSER_VERSION: 'browser_version',
-    SESSION_ID: 'session_id'
+    ERROR_CONTEXT: 'error_context',
+    USER_AGENT_HASH: 'user_agent_hash',
+    SESSION_DURATION: 'session_duration',
+    FEATURE_USED: 'feature_used',
+    PERFORMANCE_METRIC: 'performance_metric'
   },
   STORAGE_KEYS: {
     USER_CONSENT: 'analytics_user_consent',
+    CONFIG: 'analytics_config',
     CLIENT_ID: 'analytics_client_id',
     SESSION_ID: 'analytics_session_id',
-    CONFIG: 'analytics_config',
+    ERROR_QUEUE: 'analytics_error_queue',
     LAST_REPORT_TIME: 'analytics_last_report_time'
   }
 } as const;
@@ -48,17 +48,6 @@ export interface AnalyticsConfig {
   batchSize: number;
 }
 
-export interface AnalyticsDebugInfo {
-  enabled: boolean;
-  hasConsent: boolean;
-  clientId?: string;
-  sessionId?: string;
-  measurementId: string;
-  debugMode: boolean;
-  consentTimestamp?: number;
-  consentVersion?: string;
-}
-
 export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
   enabled: false,
   debugMode: false,
@@ -69,173 +58,173 @@ export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
 };
 
 export class AnalyticsConfigManager {
-  private config: AnalyticsConfig;
+  private config: AnalyticsConfig = { ...DEFAULT_ANALYTICS_CONFIG };
 
-  constructor(
-    private readonly storage: StorageService,
-    initialConfig?: Partial<AnalyticsConfig>
-  ) {
-    this.config = { ...DEFAULT_ANALYTICS_CONFIG, ...initialConfig };
-  }
+  constructor(private readonly storage: StorageService) {}
 
   async initialize(): Promise<void> {
-    try {
-      const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
-        GA4_CONFIG.STORAGE_KEYS.CONFIG
-      );
+    await this.refreshFromStorage();
+    await this.ensureClientId();
+    await this.renewSession();
+  }
 
-      if (storedConfig) {
-        this.config = { ...this.config, ...storedConfig };
-      }
+  async refreshFromStorage(): Promise<void> {
+    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
+      GA4_CONFIG.STORAGE_KEYS.CONFIG
+    );
+    const storedConsent = await this.storage.local.get<UserConsent>(
+      GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
+    );
+    const storedClientId = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
+    const storedSessionId = await this.storage.local.get<string>(
+      GA4_CONFIG.STORAGE_KEYS.SESSION_ID
+    );
 
-      const userConsent = await this.getUserConsent();
-      if (userConsent) {
-        this.config.userConsent = userConsent;
-        this.config.enabled = userConsent.analytics && userConsent.errorReporting;
-      }
+    this.config = {
+      ...DEFAULT_ANALYTICS_CONFIG,
+      ...(storedConfig ?? {})
+    };
 
-      let clientId = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
-      if (!clientId) {
-        clientId = this.generateClientId();
-        await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
-      }
-      this.config.clientId = clientId;
-
-      this.config.sessionId = this.generateSessionId();
-      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, this.config.sessionId);
-    } catch (error) {
-      console.warn('[Analytics Config] Failed to initialize:', error);
-      this.config = { ...DEFAULT_ANALYTICS_CONFIG };
+    if (storedClientId) {
+      this.config.clientId = storedClientId;
     }
+    if (storedSessionId) {
+      this.config.sessionId = storedSessionId;
+    }
+    if (storedConsent) {
+      this.config.userConsent = storedConsent;
+    }
+
+    this.config.enabled = Boolean(storedConsent?.analytics || storedConsent?.errorReporting);
   }
 
   getConfig(): AnalyticsConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      ...(this.config.userConsent ? { userConsent: { ...this.config.userConsent } } : {})
+    };
   }
 
   async updateConfig(updates: Partial<AnalyticsConfig>): Promise<void> {
-    this.config = { ...this.config, ...updates };
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, this.config);
+    this.config = {
+      ...this.config,
+      ...updates
+    };
+    await this.saveConfig();
   }
 
   async setUserConsent(consent: Omit<UserConsent, 'timestamp' | 'version'>): Promise<void> {
-    const userConsent: UserConsent = {
-      ...consent,
+    const nextConsent: UserConsent = {
+      analytics: consent.analytics,
+      errorReporting: consent.errorReporting,
       timestamp: Date.now(),
       version: '1.0'
     };
 
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT, userConsent);
+    this.config.userConsent = nextConsent;
+    this.config.enabled = nextConsent.analytics || nextConsent.errorReporting;
 
-    this.config.userConsent = userConsent;
-    this.config.enabled = userConsent.analytics && userConsent.errorReporting;
-
-    await this.updateConfig({ enabled: this.config.enabled });
+    await Promise.all([
+      this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT, nextConsent),
+      this.saveConfig()
+    ]);
   }
 
-  async getUserConsent(): Promise<UserConsent | null> {
-    try {
-      return (
-        (await this.storage.local.get<UserConsent>(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT)) ?? null
-      );
-    } catch {
-      return null;
-    }
-  }
-
-  hasUserConsent(): boolean {
-    return (
-      this.config.userConsent?.analytics === true &&
-      this.config.userConsent?.errorReporting === true
-    );
-  }
-
-  isErrorReportingEnabled(): boolean {
-    return this.config.enabled && this.hasUserConsent();
+  async getUserConsent(): Promise<UserConsent | undefined> {
+    const consent = this.config.userConsent;
+    return consent ? { ...consent } : undefined;
   }
 
   async renewSession(): Promise<void> {
-    this.config.sessionId = this.generateSessionId();
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, this.config.sessionId);
+    const sessionId = this.generateSessionId();
+    this.config.sessionId = sessionId;
+    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
   }
 
-  async refreshFromStorage(): Promise<void> {
-    try {
-      const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
-        GA4_CONFIG.STORAGE_KEYS.CONFIG
-      );
-      if (storedConfig) {
-        this.config = { ...this.config, ...storedConfig };
-      }
-    } catch (error) {
-      console.warn('[Analytics Config] Failed to refresh config:', error);
-    }
+  hasUserConsent(): boolean {
+    return Boolean(this.config.userConsent?.analytics || this.config.userConsent?.errorReporting);
+  }
+
+  hasAnalyticsConsent(): boolean {
+    return Boolean(this.config.userConsent?.analytics);
+  }
+
+  hasErrorReportingConsent(): boolean {
+    return Boolean(this.config.userConsent?.errorReporting);
+  }
+
+  getStatus(): {
+    enabled: boolean;
+    hasConsent: boolean;
+    clientId?: string;
+    sessionId?: string;
+    measurementId: string;
+    debugMode: boolean;
+    reportingInterval: number;
+    maxErrorsPerSession: number;
+  } {
+    return {
+      enabled: this.config.enabled,
+      hasConsent: this.hasUserConsent(),
+      ...(this.config.clientId ? { clientId: `${this.config.clientId.slice(0, 10)}...` } : {}),
+      ...(this.config.sessionId ? { sessionId: `${this.config.sessionId.slice(0, 10)}...` } : {}),
+      measurementId: this.config.measurementId,
+      debugMode: this.config.debugMode,
+      reportingInterval: this.config.reportingInterval,
+      maxErrorsPerSession: this.config.maxErrorsPerSession
+    };
   }
 
   async clearAllData(): Promise<void> {
     const keys = Object.values(GA4_CONFIG.STORAGE_KEYS);
     await Promise.all(keys.map((key) => this.storage.local.remove(key)));
-
     this.config = { ...DEFAULT_ANALYTICS_CONFIG };
   }
 
-  getDebugInfo(): AnalyticsDebugInfo {
-    const clientIdPreview = this.config.clientId
-      ? `${this.config.clientId.substring(0, 10)}...`
-      : undefined;
-    const sessionIdPreview = this.config.sessionId
-      ? `${this.config.sessionId.substring(0, 10)}...`
-      : undefined;
+  private async ensureClientId(): Promise<void> {
+    const existingClientId =
+      this.config.clientId ??
+      (await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
+    const clientId = existingClientId ?? this.generateClientId();
 
-    return {
-      enabled: this.config.enabled,
-      hasConsent: this.hasUserConsent(),
-      measurementId: this.config.measurementId,
-      debugMode: this.config.debugMode,
-      ...(clientIdPreview !== undefined && { clientId: clientIdPreview }),
-      ...(sessionIdPreview !== undefined && { sessionId: sessionIdPreview }),
-      ...(this.config.userConsent?.timestamp !== undefined && {
-        consentTimestamp: this.config.userConsent.timestamp
-      }),
-      ...(this.config.userConsent?.version !== undefined && {
-        consentVersion: this.config.userConsent.version
-      })
-    };
+    this.config.clientId = clientId;
+    if (!existingClientId) {
+      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
+    }
+  }
+
+  private async saveConfig(): Promise<void> {
+    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, this.config);
   }
 
   private generateClientId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 11);
-    return `ext-${timestamp}-${random}`;
+    return `ext-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
   }
 
   private generateSessionId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 7);
-    return `${timestamp}-${random}`;
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 }
 
-let configManagerInstance: AnalyticsConfigManager | null = null;
+let configManager: AnalyticsConfigManager | null = null;
 let analyticsStorage: StorageService | null = null;
 
 export function configureAnalyticsConfigManager(storage: StorageService): AnalyticsConfigManager {
   analyticsStorage = storage;
-  if (!configManagerInstance) {
-    configManagerInstance = new AnalyticsConfigManager(storage);
+  if (!configManager) {
+    configManager = new AnalyticsConfigManager(storage);
   }
-
-  return configManagerInstance;
+  return configManager;
 }
 
 export function getAnalyticsConfigManager(): AnalyticsConfigManager {
-  if (!configManagerInstance) {
+  if (!configManager) {
     if (!analyticsStorage) {
       throw new Error('[Analytics Config] StorageService is not configured.');
     }
-    configManagerInstance = new AnalyticsConfigManager(analyticsStorage);
+    configManager = new AnalyticsConfigManager(analyticsStorage);
   }
-  return configManagerInstance;
+  return configManager;
 }
 
 export async function initializeAnalyticsConfig(): Promise<AnalyticsConfig> {
@@ -245,8 +234,8 @@ export async function initializeAnalyticsConfig(): Promise<AnalyticsConfig> {
 }
 
 export function shouldReportErrors(): boolean {
-  const manager = getAnalyticsConfigManager();
-  return manager.isErrorReportingEnabled();
+  const config = getAnalyticsConfigManager().getConfig();
+  return Boolean(config.enabled && config.userConsent?.errorReporting);
 }
 
 export async function setAnalyticsConsent(
@@ -255,4 +244,8 @@ export async function setAnalyticsConsent(
 ): Promise<void> {
   const manager = getAnalyticsConfigManager();
   await manager.setUserConsent({ analytics, errorReporting });
+}
+
+export function getAnalyticsConfig(): AnalyticsConfig {
+  return getAnalyticsConfigManager().getConfig();
 }

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 const root = process.cwd();
 
 const filesToCheck = {
-  'src/options/index.ts': ['registerRepositories({'],
+  'src/options/index.ts': ['bootstrapOptionsRuntime('],
+  'src/options/runtimeEntry.ts': ['registerRepositories({', 'registerFallbackRepositories()'],
   'src/content/index.ts': ['registerRepositories({'],
   'src/background/index.ts': ['registerRepositories({'],
   'src/onboarding/index.ts': ['registerRepositories({', 'registerFallbackRepositories()'],

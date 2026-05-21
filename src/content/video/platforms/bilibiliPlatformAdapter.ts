@@ -11,7 +11,7 @@ import {
   buildBilibiliSearchCandidates,
   extractBilibiliSelection,
   extractBilibiliSelectionFromEvent,
-  findBilibiliTextRangeInShadowDOM,
+  findBilibiliTextRangeInShadowDOM
 } from './bilibiliPlatformSelection';
 import { BilibiliShadowObserver } from './bilibiliPlatformObserver';
 

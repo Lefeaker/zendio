@@ -41,7 +41,10 @@ describe('configTransfer service', () => {
   });
 
   afterEach(() => {
-    Reflect.deleteProperty(globalThis as typeof globalThis & { navigator?: Navigator }, 'navigator');
+    Reflect.deleteProperty(
+      globalThis as typeof globalThis & { navigator?: Navigator },
+      'navigator'
+    );
     clipboardMocks = null;
   });
 
@@ -81,7 +84,8 @@ describe('configTransfer service', () => {
   });
 
   it('解析新版传输格式', () => {
-    const text = '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
+    const text =
+      '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(2);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
@@ -119,7 +123,6 @@ describe('configTransfer service', () => {
     }
   });
 
-
   it('falls back to document.execCommand when clipboard api is unavailable', async () => {
     Object.defineProperty(globalThis, 'navigator', {
       configurable: true,
@@ -142,14 +145,19 @@ describe('configTransfer service', () => {
     });
     document.execCommand = vi.fn(() => false);
 
-    await expect(writeToClipboard('hello')).rejects.toMatchObject({ code: 'CLIPBOARD_UNAVAILABLE' });
-    await expect(readConfigTextFromClipboard()).rejects.toMatchObject({ code: 'CLIPBOARD_READ_UNAVAILABLE' });
+    await expect(writeToClipboard('hello')).rejects.toMatchObject({
+      code: 'CLIPBOARD_UNAVAILABLE'
+    });
+    await expect(readConfigTextFromClipboard()).rejects.toMatchObject({
+      code: 'CLIPBOARD_READ_UNAVAILABLE'
+    });
   });
 
   it('defaults version to 1 and drops invalid analytics payloads', () => {
-    const parsed = parseConfigInput('{"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"debugMode":"nope","consent":"invalid"}}');
+    const parsed = parseConfigInput(
+      '{"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"debugMode":"nope","consent":"invalid"}}'
+    );
     expect(parsed.version).toBe(1);
     expect(parsed.analytics).toBeUndefined();
   });
-
 });

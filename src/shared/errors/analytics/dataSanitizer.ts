@@ -1,6 +1,6 @@
 /**
  * 错误数据匿名化处理工具
- * 
+ *
  * 确保发送到 Google Analytics 的错误信息不包含用户隐私数据
  * 符合 GDPR、CCPA 等隐私保护法规要求
  */
@@ -11,33 +11,33 @@ import { AppError } from '../types';
 const SENSITIVE_PATTERNS = {
   // 邮箱地址
   EMAIL: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-  
+
   // IP 地址
   IPV4: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
   IPV6: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b/g,
-  
+
   // 用户名模式（常见格式）
   USERNAME: /\b(?:user|username|login|account)[:\s=]+[^\s,;]+/gi,
-  
+
   // 路径中的用户信息
   USER_PATH: /\/(?:users?|accounts?|profiles?)\/[^/\s]+/gi,
-  
+
   // 查询参数中的敏感信息
   SENSITIVE_PARAMS: /[?&](?:user|username|email|token|key|password|auth|session)[=][^&\s]+/gi,
-  
+
   // 文件路径（可能包含用户名）
   FILE_PATH: /[C-Z]:\\(?:Users\\[^\\]+|Documents|Desktop)[^\s]*/gi,
   UNIX_PATH: /\/(?:home|Users)\/[^/\s]+[^\s]*/gi,
-  
+
   // 可能的个人标识符
   PERSONAL_ID: /\b(?:id|uid|userid)[:\s=]+[^\s,;]+/gi,
-  
+
   // 电话号码
   PHONE: /\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b/g,
-  
+
   // 信用卡号（基本模式）
   CREDIT_CARD: /\b(?:\d{4}[-\s]?){3}\d{4}\b/g,
-  
+
   // 社会安全号码（美国）
   SSN: /\b\d{3}-\d{2}-\d{4}\b/g
 };
@@ -46,10 +46,10 @@ const SENSITIVE_PATTERNS = {
 const URL_SENSITIVE_PATTERNS = {
   // 查询参数
   QUERY_PARAMS: /[?&](?:user|username|email|token|key|password|auth|session|api_key)[=][^&]*/gi,
-  
+
   // 用户相关路径段
   USER_SEGMENTS: /\/(?:users?|accounts?|profiles?)\/[^/]+/gi,
-  
+
   // 可能的 ID 参数
   ID_PARAMS: /[?&](?:id|uid|user_id|account_id)[=][^&]*/gi
 };
@@ -169,21 +169,41 @@ export function sanitizeContext(context: Record<string, unknown>): Record<string
  */
 function isSensitiveKey(key: string): boolean {
   const sensitiveKeys = [
-    'password', 'passwd', 'pwd',
-    'token', 'auth', 'authorization', 'bearer',
-    'key', 'apikey', 'api_key', 'secret',
-    'session', 'sessionid', 'session_id',
-    'cookie', 'cookies',
-    'email', 'mail',
-    'username', 'user', 'login',
-    'phone', 'mobile', 'tel',
-    'address', 'location',
-    'credit', 'card', 'payment',
-    'ssn', 'social'
+    'password',
+    'passwd',
+    'pwd',
+    'token',
+    'auth',
+    'authorization',
+    'bearer',
+    'key',
+    'apikey',
+    'api_key',
+    'secret',
+    'session',
+    'sessionid',
+    'session_id',
+    'cookie',
+    'cookies',
+    'email',
+    'mail',
+    'username',
+    'user',
+    'login',
+    'phone',
+    'mobile',
+    'tel',
+    'address',
+    'location',
+    'credit',
+    'card',
+    'payment',
+    'ssn',
+    'social'
   ];
 
   const lowerKey = key.toLowerCase();
-  return sensitiveKeys.some(sensitive => lowerKey.includes(sensitive));
+  return sensitiveKeys.some((sensitive) => lowerKey.includes(sensitive));
 }
 
 /**
@@ -218,7 +238,7 @@ export function sanitizeErrorForAnalytics(error: AppError): AppError {
     if (error.cause instanceof Error) {
       sanitized.cause = {
         name: error.cause.name,
-        message: sanitizeString(error.cause.message),
+        message: sanitizeString(error.cause.message)
         // 不包含堆栈跟踪以保护隐私
       };
     } else if (typeof error.cause === 'string') {
@@ -264,13 +284,17 @@ export interface SanitizationReport {
   isCompliant: boolean;
 }
 
-export function generateSanitizationReport(original: unknown, sanitized: unknown): SanitizationReport {
+export function generateSanitizationReport(
+  original: unknown,
+  sanitized: unknown
+): SanitizationReport {
   const originalStr = JSON.stringify(original) ?? '';
   const sanitizedStr = JSON.stringify(sanitized) ?? '';
-  
+
   const originalSize = originalStr.length;
   const sanitizedSize = sanitizedStr.length;
-  const reductionPercentage = originalSize > 0 ? ((originalSize - sanitizedSize) / originalSize) * 100 : 0;
+  const reductionPercentage =
+    originalSize > 0 ? ((originalSize - sanitizedSize) / originalSize) * 100 : 0;
 
   const patternsFound: string[] = [];
   Object.entries(SENSITIVE_PATTERNS).forEach(([pattern, regex]) => {

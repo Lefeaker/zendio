@@ -1,0 +1,120 @@
+
+.session-panel-rail {
+  position: relative;
+  height: auto;
+  min-height: 0;
+}
+
+.session-panel-resize-handle {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  transform: translateX(-50%);
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.session-panel-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: var(--space-8);
+  bottom: var(--space-8);
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: var(--radius-full);
+  background: transparent;
+  transition: background var(--transition-base);
+}
+
+.session-panel-resize-handle:hover::after,
+.session-panel-resize-handle:focus-visible::after {
+  background: var(--runtime-line-strong);
+}
+
+.session-panel-height-resize-handle {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: var(--space-4);
+  right: var(--space-4);
+  height: 12px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  cursor: ns-resize;
+  pointer-events: auto;
+}
+
+.session-panel-height-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: var(--space-8);
+  right: var(--space-8);
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: var(--radius-full);
+  background: transparent;
+  transition: background var(--transition-base);
+}
+
+.session-panel-height-resize-handle:hover::after,
+.session-panel-height-resize-handle:focus-visible::after {
+  background: var(--runtime-line-strong);
+}
+
+.resource-modal--session.is-collapsed,
+.resource-modal--session.floating-bottom-right.is-collapsed {
+  height: auto;
+  width: fit-content;
+  min-width: 0;
+  min-height: 0;
+  max-width: min(100vw - var(--surface-side-gap), var(--session-panel-max-width));
+  max-height: none;
+  pointer-events: none;
+}
+
+.resource-modal--session.is-collapsed .resource-modal-stack,
+.resource-modal--session.is-collapsed .surface-stage,
+.resource-modal--session.is-collapsed .session-panel-rail,
+.resource-modal--session.is-collapsed .surface-window {
+  height: auto;
+  min-height: 0;
+  width: max-content;
+  max-width: calc(100vw - var(--surface-side-gap));
+}
+
+.resource-modal--session.is-collapsed .surface-window {
+  pointer-events: auto;
+}
+
+.resource-modal--session.is-collapsed .surface-window-header {
+  grid-template-columns: auto minmax(0, auto);
+  justify-content: center;
+  align-items: center;
+}
+
+.resource-modal--session.is-collapsed .surface-window-brand {
+  display: flex;
+  justify-content: center;
+}
+
+.resource-modal--session.is-collapsed .surface-window-subtitle,
+.resource-modal--session.is-collapsed .session-panel-collapse-trigger {
+  display: none;
+}
+
+.resource-modal--session.is-collapsed .surface-window-body,
+.resource-modal--session.is-collapsed .surface-window-footer,
+.resource-modal--session.is-collapsed .session-footer-bar,
+.resource-modal--session.is-collapsed .export-destination-row,
+.resource-modal--session.is-collapsed .session-panel-resize-handle,
+.resource-modal--session.is-collapsed .session-panel-height-resize-handle {
+  display: none;
+}

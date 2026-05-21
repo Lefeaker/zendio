@@ -4,6 +4,7 @@ import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
+  isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
 } from './runtime/contentSessionRegistry';
@@ -58,12 +59,13 @@ function initializeClipperRuntime(): void {
     runtime: platform.runtime
   });
   const showSupportProgress = (progress: SupportProgressUpdate): void => {
-    const status = progress.variant ?? 'progress';
+    const variant = progress.variant ?? 'progress';
+    const status = variant === 'progress' ? 'progress' : variant;
     void supportPrompt.show({
       status,
       progress: {
         ...progress,
-        variant: status
+        variant
       }
     });
   };

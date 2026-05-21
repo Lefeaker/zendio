@@ -4,4 +4,4 @@ export const STATE_KEYS = {
   aiChatOptions: 'content.aiChat.options'
 } as const;
 
-export type StateKey = typeof STATE_KEYS[keyof typeof STATE_KEYS];
+export type StateKey = (typeof STATE_KEYS)[keyof typeof STATE_KEYS];

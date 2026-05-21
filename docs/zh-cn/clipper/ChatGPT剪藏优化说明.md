@@ -5,10 +5,12 @@
 ### 1. ✅ 显示模型名称而不是 "ASSISTANT"
 
 **问题**：
+
 - 之前 ChatGPT 对话剪藏时，AI 回复显示为 "ASSISTANT"
 - 没有提取实际的模型名称（如 GPT-4、GPT-4o、o1 等）
 
 **解决方案**：
+
 - 从页面中提取模型名称
 - 支持的模型格式：
   - `GPT-4`
@@ -20,11 +22,14 @@
   - 等等
 
 **效果**：
+
 ```markdown
 # 1 USER
+
 > 你好
 
 # 2 GPT-4
+
 你好！有什么我可以帮助你的吗？
 ```
 
@@ -33,32 +38,40 @@
 ### 2. ✅ 删除 "您说："、"ChatGPT 说：" 等前缀
 
 **问题**：
+
 - 消息内容开头有 "您说："、"ChatGPT 说："
 - 英文版本有 "You said:"、"ChatGPT said:"
 - 这些前缀是冗余的，因为已经有标题了
 
 **解决方案**：
+
 - 自动删除这些前缀
 - 支持中英文版本
 - 使用正则表达式匹配和清理
 
 **优化前**：
+
 ```markdown
 # 1 USER
+
 > 您说：
 > 你好
 
 # 2 GPT-4
+
 ChatGPT 说：
 你好！有什么我可以帮助你的吗？
 ```
 
 **优化后**：
+
 ```markdown
 # 1 USER
+
 > 你好
 
 # 2 GPT-4
+
 你好！有什么我可以帮助你的吗？
 ```
 
@@ -67,15 +80,18 @@ ChatGPT 说：
 ### 3. ✅ 用户输入正确显示为 USER
 
 **问题**：
+
 - 用户输入有时也显示为 ASSISTANT
 - 角色识别不准确
 
 **解决方案**：
+
 - 改进角色识别逻辑
 - 通过 header 文本判断是否为用户消息
 - 匹配 "you said" 关键词（不区分大小写）
 
 **效果**：
+
 - 用户消息：`# 1 USER`
 - AI 回复：`# 2 GPT-4`
 
@@ -84,14 +100,17 @@ ChatGPT 说：
 ### 4. ✅ 序号放在最前面
 
 **问题**：
+
 - 之前格式：`# USER 1`、`# GPT-4 2`
 - 当模型名称以数字结尾时（如 GPT-5），会造成混淆：`# GPT-5 2`
 
 **解决方案**：
+
 - 将序号放在最前面
 - 新格式：`# 1 USER`、`# 2 GPT-4`
 
 **优势**：
+
 - ✅ 避免与模型名称中的数字混淆
 - ✅ 更清晰的层次结构
 - ✅ 易于快速定位消息序号
@@ -99,11 +118,11 @@ ChatGPT 说：
 
 **对比**：
 
-| 旧格式 | 新格式 | 说明 |
-|--------|--------|------|
-| `# USER 1` | `# 1 USER` | 用户消息 |
-| `# GPT-4 2` | `# 2 GPT-4` | AI 回复 |
-| `# GPT-5 3` | `# 3 GPT-5` | 避免混淆 |
+| 旧格式                 | 新格式                 | 说明     |
+| ---------------------- | ---------------------- | -------- |
+| `# USER 1`             | `# 1 USER`             | 用户消息 |
+| `# GPT-4 2`            | `# 2 GPT-4`            | AI 回复  |
+| `# GPT-5 3`            | `# 3 GPT-5`            | 避免混淆 |
 | `# Gemini 2.0 Flash 4` | `# 4 Gemini 2.0 Flash` | 清晰明了 |
 
 ---
@@ -113,19 +132,21 @@ ChatGPT 说：
 ### ChatGPT 对话剪藏
 
 **文件名**：
+
 ```
 2025-10-02_如何学习 React.md
 ```
 
 **文件内容**：
+
 ```markdown
 ---
 type: ai_chat
 platform: chatgpt
 model: GPT-4
-url: "https://chat.openai.com/c/..."
+url: 'https://chat.openai.com/c/...'
 message_count: 4
-clipped_at: "2025-10-02T14:23:45"
+clipped_at: '2025-10-02T14:23:45'
 tags: [ai, chat, chatgpt]
 ---
 
@@ -194,7 +215,9 @@ for (const btn of modelButtons) {
 // If no model found in buttons, try to find it in the page
 if (!model) {
   const bodyText = doc.body.textContent || '';
-  const modelMatch = bodyText.match(/(?:Model|模型)[:\s]*(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?)/i);
+  const modelMatch = bodyText.match(
+    /(?:Model|模型)[:\s]*(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?)/i
+  );
   if (modelMatch) {
     model = modelMatch[1];
   }
@@ -208,8 +231,8 @@ if (!model) {
 markdown = markdown
   .replace(/^您说[：:]\s*/m, '')
   .replace(/^ChatGPT\s*说[：:]\s*/m, '')
-  .replace(/^You\s+said[：:]\s*/mi, '')
-  .replace(/^ChatGPT\s+said[：:]\s*/mi, '')
+  .replace(/^You\s+said[：:]\s*/im, '')
+  .replace(/^ChatGPT\s+said[：:]\s*/im, '')
   .trim();
 ```
 
@@ -217,27 +240,33 @@ markdown = markdown
 
 ```typescript
 const isUser = header.toLowerCase().includes(CHATGPT_USER_MESSAGE_INDICATOR);
-const role = isUser ? "user" : "assistant";
+const role = isUser ? 'user' : 'assistant';
 ```
 
 ### 4. 序号在前的标题格式
 
 ```typescript
-const body = messages.map((m, i) => {
-  // Put number first to avoid confusion with model names ending in numbers (e.g., GPT-5)
-  let heading = '';
-  if (m.role === 'user') {
-    heading = `# ${i+1} USER`;
-  } else {
-    const modelName = model || 'ASSISTANT';
-    heading = `# ${i+1} ${modelName}`;
-  }
+const body = messages
+  .map((m, i) => {
+    // Put number first to avoid confusion with model names ending in numbers (e.g., GPT-5)
+    let heading = '';
+    if (m.role === 'user') {
+      heading = `# ${i + 1} USER`;
+    } else {
+      const modelName = model || 'ASSISTANT';
+      heading = `# ${i + 1} ${modelName}`;
+    }
 
-  const content = m.role === 'user'
-    ? m.text.split('\n').map(l => `> ${l}`).join('\n')
-    : m.text;
-  return `${heading}\n\n${content}\n`;
-}).join('\n');
+    const content =
+      m.role === 'user'
+        ? m.text
+            .split('\n')
+            .map((l) => `> ${l}`)
+            .join('\n')
+        : m.text;
+    return `${heading}\n\n${content}\n`;
+  })
+  .join('\n');
 ```
 
 ---
@@ -245,38 +274,50 @@ const body = messages.map((m, i) => {
 ## 🎨 所有平台的统一格式
 
 ### ChatGPT
+
 ```markdown
 # 1 USER
+
 > 问题
 
 # 2 GPT-4
+
 回答
 ```
 
 ### Claude
+
 ```markdown
 # 1 USER
+
 > 问题
 
 # 2 Claude Sonnet 4.5
+
 回答
 ```
 
 ### Gemini
+
 ```markdown
 # 1 USER
+
 > 问题
 
 # 2 Gemini 2.0 Flash
+
 回答
 ```
 
 ### Copilot
+
 ```markdown
 # 1 USER
+
 > 问题
 
 # 2 Copilot
+
 回答
 ```
 
@@ -284,29 +325,32 @@ const body = messages.map((m, i) => {
 
 ## 📊 优化对比
 
-| 项目 | 优化前 | 优化后 | 改进 |
-|------|--------|--------|------|
-| **模型名称** | ASSISTANT | GPT-4 | ✅ 显示实际模型 |
-| **前缀清理** | 有冗余前缀 | 无前缀 | ✅ 更简洁 |
-| **角色识别** | 有时错误 | 准确 | ✅ 更可靠 |
-| **序号位置** | 在后面 | 在前面 | ✅ 避免混淆 |
-| **格式统一** | 不一致 | 统一 | ✅ 更规范 |
+| 项目         | 优化前     | 优化后 | 改进            |
+| ------------ | ---------- | ------ | --------------- |
+| **模型名称** | ASSISTANT  | GPT-4  | ✅ 显示实际模型 |
+| **前缀清理** | 有冗余前缀 | 无前缀 | ✅ 更简洁       |
+| **角色识别** | 有时错误   | 准确   | ✅ 更可靠       |
+| **序号位置** | 在后面     | 在前面 | ✅ 避免混淆     |
+| **格式统一** | 不一致     | 统一   | ✅ 更规范       |
 
 ---
 
 ## 🚀 使用方法
 
 1. **重新加载扩展**
+
    ```
    chrome://extensions/ → 刷新按钮
    ```
 
 2. **打开 ChatGPT 对话**
+
    ```
    https://chat.openai.com/
    ```
 
 3. **剪藏对话**
+
    ```
    右键 → "剪藏到 Obsidian"
    ```
@@ -347,19 +391,23 @@ const body = messages.map((m, i) => {
 ### 1. 模型名称提取
 
 **限制**：
+
 - 依赖页面 DOM 结构
 - 如果 ChatGPT 更新 UI，可能需要调整选择器
 
 **回退方案**：
+
 - 如果无法提取模型名称，显示 "ASSISTANT"
 
 ### 2. 前缀清理
 
 **限制**：
+
 - 只支持常见的前缀格式
 - 如果 ChatGPT 使用新的前缀格式，可能需要更新正则表达式
 
 **支持的前缀**：
+
 - 中文：`您说：`、`ChatGPT 说：`
 - 英文：`You said:`、`ChatGPT said:`
 
@@ -383,4 +431,3 @@ const body = messages.map((m, i) => {
 **状态**：✅ 已完成
 
 🎉 享受更好的 ChatGPT 剪藏体验！
-

@@ -34,11 +34,11 @@ All in Ob 现在支持 **简体中文**、**English** 和 **日本語**！
 
 ## 📝 支持的语言
 
-| 语言 | 代码 | 状态 |
-|------|------|------|
+| 语言     | 代码  | 状态        |
+| -------- | ----- | ----------- |
 | 简体中文 | zh-CN | ✅ 完整支持 |
-| English | en | ✅ 完整支持 |
-| 日本語 | ja | ✅ 完整支持 |
+| English  | en    | ✅ 完整支持 |
+| 日本語   | ja    | ✅ 完整支持 |
 
 ## 🔧 技术细节
 
@@ -80,4 +80,3 @@ console.log(msgs.saveSuccess);
 ---
 
 **Enjoy your multilingual experience! 🌍**
-

@@ -75,10 +75,12 @@ export async function setTrialConfig(config: TrialConfig): Promise<void> {
  * 初始化试用版本
  * 在扩展首次安装时调用
  */
-export async function initializeTrial(trialDays: number = DEFAULT_TRIAL_DAYS): Promise<TrialConfig> {
+export async function initializeTrial(
+  trialDays: number = DEFAULT_TRIAL_DAYS
+): Promise<TrialConfig> {
   const now = Date.now();
-  const expirationTime = now + (trialDays * 24 * 60 * 60 * 1000);
-  
+  const expirationTime = now + trialDays * 24 * 60 * 60 * 1000;
+
   const config: TrialConfig = {
     isTrial: true,
     expirationTime,
@@ -88,7 +90,7 @@ export async function initializeTrial(trialDays: number = DEFAULT_TRIAL_DAYS): P
 
   await setTrialConfig(config);
   console.log(`试用版本已初始化，将在 ${trialDays} 天后过期`);
-  
+
   return config;
 }
 
@@ -97,7 +99,7 @@ export async function initializeTrial(trialDays: number = DEFAULT_TRIAL_DAYS): P
  */
 export async function checkTrialStatus(): Promise<TrialStatus> {
   const config = await getTrialConfig();
-  
+
   if (!config || !config.isTrial) {
     return {
       isTrial: false,
@@ -114,7 +116,7 @@ export async function checkTrialStatus(): Promise<TrialStatus> {
   const isExpired = timeRemaining <= 0;
   const remainingDays = Math.max(0, Math.ceil(timeRemaining / (24 * 60 * 60 * 1000)));
   const remainingHours = Math.max(0, Math.ceil(timeRemaining / (60 * 60 * 1000)));
-  const isExpiringSoon = timeRemaining > 0 && timeRemaining <= (24 * 60 * 60 * 1000);
+  const isExpiringSoon = timeRemaining > 0 && timeRemaining <= 24 * 60 * 60 * 1000;
 
   return {
     isTrial: true,
@@ -161,7 +163,7 @@ export async function isFeatureAvailable(): Promise<boolean> {
  */
 export async function showExpirationNotice(): Promise<void> {
   const status = await checkTrialStatus();
-  
+
   if (!status.isTrial) {
     return;
   }
@@ -206,13 +208,13 @@ export async function clearTrialConfig(): Promise<void> {
  */
 export async function getTrialSummary(): Promise<string> {
   const status = await checkTrialStatus();
-  
+
   if (!status.isTrial) {
     return '正式版本';
   }
 
   const timeStr = formatRemainingTime(status);
-  const expirationStr = status.expirationDate 
+  const expirationStr = status.expirationDate
     ? status.expirationDate.toLocaleDateString('zh-CN')
     : '未知';
 

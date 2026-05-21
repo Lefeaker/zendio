@@ -36,10 +36,7 @@ function createWatcher(
   if (!firefoxApi.storage.onChanged) {
     return () => {};
   }
-  const wrapped = (
-    changes: Record<string, browser.storage.StorageChange>,
-    changedArea: string
-  ) => {
+  const wrapped = (changes: Record<string, browser.storage.StorageChange>, changedArea: string) => {
     if (changedArea !== areaName) {
       return;
     }

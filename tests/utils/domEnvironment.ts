@@ -68,12 +68,15 @@ export interface DomEnvironmentHandle {
 
 function bindIfFunction<T>(target: Window & typeof globalThis, value: T): T {
   if (typeof value === 'function') {
-    return ((value as unknown) as (...args: unknown[]) => unknown).bind(target) as T;
+    return (value as unknown as (...args: unknown[]) => unknown).bind(target) as T;
   }
   return value;
 }
 
-export function createDomEnvironment(markup: string, options: DomEnvironmentOptions = {}): DomEnvironmentHandle {
+export function createDomEnvironment(
+  markup: string,
+  options: DomEnvironmentOptions = {}
+): DomEnvironmentHandle {
   const dom = new JSDOM(markup, { url: options.url ?? 'https://tests.local/' });
   const windowShim = dom.window as unknown as Window & typeof globalThis;
   const overrides: Array<{ key: string; descriptor: PropertyDescriptor | undefined }> = [];

@@ -16,15 +16,11 @@ import {
   shouldShowPrivacyReminder as shouldShowPrivacyReminderFromStorage,
   togglePrivacyDebugMode
 } from './privacySettingsAsyncActions';
+import type { PrivacyConsentSnapshot } from './privacySettingsTypes';
 
 declare const __DEV__: boolean;
 
 const SHOW_DEBUG_TOGGLE = typeof __DEV__ === 'boolean' ? __DEV__ : true;
-export interface PrivacyConsentSnapshot {
-  analytics: boolean;
-  errorReporting: boolean;
-  debugMode: boolean;
-}
 
 interface PrivacySettingsOptions {
   initialConsent?: PrivacyConsentSnapshot | null;
@@ -123,13 +119,15 @@ export class PrivacySettings extends BaseComponent<void> {
       void this.clearAllData();
     });
 
-    for (const id of ['privacyPolicyLink', 'dataUsageLink']) {
-      this.container
-        .querySelector<HTMLAnchorElement>(`#${id}`)
-        ?.addEventListener('click', (event) => {
-          event.preventDefault();
-        });
-    }
+    const privacyPolicyLink = this.container.querySelector<HTMLAnchorElement>('#privacyPolicyLink');
+    privacyPolicyLink?.addEventListener('click', (event) => {
+      event.preventDefault();
+    });
+
+    const dataUsageLink = this.container.querySelector<HTMLAnchorElement>('#dataUsageLink');
+    dataUsageLink?.addEventListener('click', (event) => {
+      event.preventDefault();
+    });
 
     this.analyticsCheckbox?.addEventListener('change', () => this.handleConsentChange());
     this.errorReportingCheckbox?.addEventListener('change', () => this.handleConsentChange());
@@ -142,7 +140,9 @@ export class PrivacySettings extends BaseComponent<void> {
   }
 
   private handleConsentChange(): void {
-    if (this.hydrating) return;
+    if (this.hydrating) {
+      return;
+    }
     this.updateStatus();
     this.scheduleConsentAutoSave();
   }

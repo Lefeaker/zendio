@@ -62,11 +62,16 @@ describe('deepseek ai chat integration', () => {
   });
 
   it('parses DeepSeek chat and builds markdown plus routing metadata', async () => {
-    const html = readFileSync(join(process.cwd(), 'tests/fixtures/ai-chat/deepseek-code.html'), 'utf8');
+    const html = readFileSync(
+      join(process.cwd(), 'tests/fixtures/ai-chat/deepseek-code.html'),
+      'utf8'
+    );
     const dom = new JSDOM(html, { url: deepseekUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import('../../src/content/extractors/registry');
+    const { createDefaultExtractorRegistry } = await import(
+      '../../src/content/extractors/registry'
+    );
     const registry = createDefaultExtractorRegistry();
     const clip = await registry.extract({ document: dom.window.document, url: deepseekUrl });
 
@@ -145,7 +150,12 @@ describe('deepseek ai chat integration', () => {
       tags: [],
       status: 'success'
     };
-    const filePath = resolvePath(options.templates, clipPayload, classification, options.domainMappings);
+    const filePath = resolvePath(
+      options.templates,
+      clipPayload,
+      classification,
+      options.domainMappings
+    );
     expect(filePath).toBe('AI/deepseek/2025/03/04/代码片段.md');
   });
 });

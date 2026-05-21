@@ -25,7 +25,9 @@ describe('i18n storage fallbacks', () => {
   });
 
   it('reads and writes configured language through injected storage', async () => {
-    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } = await import(
+      '../../../src/i18n'
+    );
     configureI18nStorage(harness.storage.sync);
 
     await harness.storage.sync.set('language', 'fr');
@@ -36,9 +38,13 @@ describe('i18n storage fallbacks', () => {
   });
 
   it('returns default language when storage read fails', async () => {
-    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } = await import(
+      '../../../src/i18n'
+    );
     configureI18nStorage(harness.storage.sync);
-    const getSpy = vi.spyOn(harness.storage.sync, 'get').mockRejectedValueOnce(new Error('sync failure'));
+    const getSpy = vi
+      .spyOn(harness.storage.sync, 'get')
+      .mockRejectedValueOnce(new Error('sync failure'));
     const handleSpy = vi.spyOn(errorHandler, 'handle');
 
     const result = await getCurrentLanguage();
@@ -53,7 +59,9 @@ describe('i18n storage fallbacks', () => {
   it('handles storage write errors without throwing', async () => {
     const { configureI18nStorage, setCurrentLanguage } = await import('../../../src/i18n');
     configureI18nStorage(harness.storage.sync);
-    const setSpy = vi.spyOn(harness.storage.sync, 'set').mockRejectedValueOnce(new Error('write failure'));
+    const setSpy = vi
+      .spyOn(harness.storage.sync, 'set')
+      .mockRejectedValueOnce(new Error('write failure'));
     const handleSpy = vi.spyOn(errorHandler, 'handle');
 
     await expect(setCurrentLanguage('en')).resolves.toBeUndefined();

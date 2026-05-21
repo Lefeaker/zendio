@@ -30,7 +30,7 @@ export class MockOptionsRepository implements IOptionsRepository {
       ...options
     } as CompleteOptions;
 
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(this.data);
       } catch (error) {

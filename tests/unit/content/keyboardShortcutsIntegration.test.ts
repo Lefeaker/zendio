@@ -97,8 +97,10 @@ describe('Keyboard Shortcuts Integration', () => {
   });
 
   it('loads keyboard shortcuts configuration correctly', async () => {
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
-    
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
+
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
   });
@@ -107,7 +109,9 @@ describe('Keyboard Shortcuts Integration', () => {
     mockOptions.fragmentClipper.keyboardShortcutsEnabled = false;
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(false);
@@ -118,7 +122,9 @@ describe('Keyboard Shortcuts Integration', () => {
     mockOptions.fragmentClipper.selectionModifierKeys = ['alt', 'meta'];
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -128,7 +134,9 @@ describe('Keyboard Shortcuts Integration', () => {
 
   it('configuration changes are reflected in loaded config', async () => {
     // Initial state
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
 
     let config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -148,7 +156,9 @@ describe('Keyboard Shortcuts Integration', () => {
     delete configWithoutShortcuts.keyboardShortcutsEnabled;
     mockLoadFragmentConfig.mockResolvedValue(configWithoutShortcuts as FragmentClipperOptions);
 
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
 
     const config = await loadFragmentConfig();
     // Should return undefined for missing property (handled by defaults elsewhere)
@@ -164,16 +174,16 @@ describe('Configuration Provider Integration', () => {
 
   it('provides keyboard shortcuts configuration through config provider', async () => {
     const { configProvider } = await import('../../../src/shared/config');
-    
+
     const config = configProvider.getDefaults();
     expect(config.fragmentClipper.keyboardShortcutsEnabled).toBe(true);
   });
 
   it('config provider respects keyboard shortcuts setting', async () => {
     mockOptions.fragmentClipper.keyboardShortcutsEnabled = false;
-    
+
     const { configProvider } = await import('../../../src/shared/config');
-    
+
     const config = configProvider.getDefaults();
     expect(config.fragmentClipper.keyboardShortcutsEnabled).toBe(false);
   });
@@ -188,9 +198,9 @@ describe('Configuration Provider Integration', () => {
       selectionModifierKeys: ['ctrl'],
       keyboardShortcutsEnabled: true
     };
-    
+
     const { configProvider } = await import('../../../src/shared/config');
-    
+
     const config = configProvider.getDefaults();
     expect(config.fragmentClipper).toMatchObject({
       keyboardShortcutsEnabled: true,
@@ -206,7 +216,7 @@ describe('End-to-End Configuration Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = '';
-    
+
     // Create options page elements
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -216,7 +226,9 @@ describe('End-to-End Configuration Flow', () => {
   });
 
   it('simulates user enabling keyboard shortcuts in options', async () => {
-    const checkbox = document.getElementById('fragmentKeyboardShortcutsEnabled') as HTMLInputElement;
+    const checkbox = document.getElementById(
+      'fragmentKeyboardShortcutsEnabled'
+    ) as HTMLInputElement;
 
     // User checks the checkbox
     checkbox.checked = true;
@@ -226,14 +238,18 @@ describe('End-to-End Configuration Flow', () => {
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify configuration is updated
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(true);
   });
 
   it('simulates user disabling keyboard shortcuts in options', async () => {
-    const checkbox = document.getElementById('fragmentKeyboardShortcutsEnabled') as HTMLInputElement;
+    const checkbox = document.getElementById(
+      'fragmentKeyboardShortcutsEnabled'
+    ) as HTMLInputElement;
 
     // User unchecks the checkbox
     checkbox.checked = false;
@@ -243,15 +259,19 @@ describe('End-to-End Configuration Flow', () => {
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify configuration is updated
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(false);
   });
 
   it('preserves other settings when keyboard shortcuts are toggled', async () => {
-    const checkbox = document.getElementById('fragmentKeyboardShortcutsEnabled') as HTMLInputElement;
-    
+    const checkbox = document.getElementById(
+      'fragmentKeyboardShortcutsEnabled'
+    ) as HTMLInputElement;
+
     // Set up initial state with other options
     mockOptions.fragmentClipper = {
       useFootnoteFormat: true,
@@ -262,16 +282,18 @@ describe('End-to-End Configuration Flow', () => {
       selectionModifierKeys: ['alt'],
       keyboardShortcutsEnabled: true
     };
-    
+
     // User toggles keyboard shortcuts
     checkbox.checked = false;
     mockOptions.fragmentClipper.keyboardShortcutsEnabled = false;
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify only keyboard shortcuts changed
-    const { loadFragmentConfig } = await import('../../../src/content/clipper/services/fragmentConfig');
+    const { loadFragmentConfig } = await import(
+      '../../../src/content/clipper/services/fragmentConfig'
+    );
     const config = await loadFragmentConfig();
-    
+
     expect(config.keyboardShortcutsEnabled).toBe(false);
     expect(config.selectionModifierEnabled).toBe(true);
     expect(config.selectionModifierKeys).toEqual(['alt']);

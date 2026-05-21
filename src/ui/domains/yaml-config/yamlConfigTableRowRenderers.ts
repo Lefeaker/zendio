@@ -7,28 +7,14 @@ import {
   CONTENT_TYPES,
   TYPE_OPTIONS,
   type FieldRow,
+  type RowActions,
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
 import { buildYamlErrorList } from './yamlConfigTableMessageBuilders';
-import {
-  buildYamlAdvancedPanel,
-  buildYamlDefaultValueEditor
-} from './yamlConfigTableRowEditors';
+import { buildYamlAdvancedPanel, buildYamlDefaultValueEditor } from './yamlConfigTableRowEditors';
 import { buildYamlRowActionContainer } from './yamlConfigTableRowActions';
 
-export interface RowActions {
-  onNameInput: (row: FieldRow, value: string) => void;
-  onNameBlur: (row: FieldRow) => void;
-  onTypeChange: (row: FieldRow, type: YamlFieldType) => void;
-  onToggleContentType: (row: FieldRow, contentType: YamlContentType, checked: boolean) => void;
-  onAdvancedToggle: (row: FieldRow) => void;
-  onMoveRow: (rowId: string, offset: number) => void;
-  onDeleteRow: (row: FieldRow) => void;
-  onDefaultValueInput: (row: FieldRow, value: string) => void;
-  onDefaultValueBlur: (row: FieldRow, value: string) => void;
-  onAdvancedValuePathInput: (row: FieldRow, value: string) => void;
-  onAdvancedValuePathBlur: (row: FieldRow, value: string) => void;
-}
+export type { RowActions } from './yamlConfigTableTypes';
 
 export function buildYamlTableRow(args: {
   row: FieldRow;

@@ -82,6 +82,7 @@ npm run package:trial -- --days=14
 ### 2. 获取打包文件
 
 打包完成后，会在项目根目录生成类似以下文件：
+
 ```
 allinob-trial-14days-v0.2.0.zip
 ```

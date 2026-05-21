@@ -73,12 +73,18 @@ export class VideoSessionPlatformController {
   }
 
   syncPlatformAdapter(): void {
-    if (this.deps.state.platformAdapter && this.deps.state.platformAdapter.platform === this.deps.state.platform) {
+    if (
+      this.deps.state.platformAdapter &&
+      this.deps.state.platformAdapter.platform === this.deps.state.platform
+    ) {
       return;
     }
 
     this.deps.state.platformAdapter?.dispose();
-    this.deps.state.platformAdapter = this.createAdapter(this.deps.state.platform, this.deps.createPlatformContext());
+    this.deps.state.platformAdapter = this.createAdapter(
+      this.deps.state.platform,
+      this.deps.createPlatformContext()
+    );
     this.deps.onAdapterChange(this.deps.state.platformAdapter);
   }
 
@@ -138,7 +144,11 @@ export class VideoSessionPlatformController {
     try {
       const raw = await this.loadCaptureData(this.deps.storage, currentKey);
       if (raw?.entries?.length) {
-        const fallbackUrl = raw.url || this.deps.state.canonicalUrl || this.deps.state.videoUrl || this.deps.doc.location.href;
+        const fallbackUrl =
+          raw.url ||
+          this.deps.state.canonicalUrl ||
+          this.deps.state.videoUrl ||
+          this.deps.doc.location.href;
         this.deps.state.captures = this.deserializeCaptures(raw.entries, { fallbackUrl });
 
         for (const capture of this.deps.state.captures) {
@@ -166,7 +176,9 @@ export class VideoSessionPlatformController {
 
       return {
         hintState: this.deps.state.captures.length ? 'ready' : 'noCaptures',
-        shouldScheduleFragmentRestore: this.deps.state.captures.some((capture) => capture.kind === 'fragment')
+        shouldScheduleFragmentRestore: this.deps.state.captures.some(
+          (capture) => capture.kind === 'fragment'
+        )
       };
     } catch (error) {
       console.warn('[VideoSession] Failed to load stored captures:', error);

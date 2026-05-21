@@ -16,7 +16,11 @@ export interface TabsService {
   getCurrent(): Promise<chrome.tabs.Tab | undefined>;
   get(tabId: number): Promise<chrome.tabs.Tab | undefined>;
   query(queryInfo?: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>;
-  sendMessage<TResult = unknown>(tabId: number, message: unknown, options?: TabsSendOptions): Promise<TResult>;
+  sendMessage<TResult = unknown>(
+    tabId: number,
+    message: unknown,
+    options?: TabsSendOptions
+  ): Promise<TResult>;
   onActivated(listener: TabActivatedListener): () => void;
   onUpdated(listener: TabUpdatedListener): () => void;
   onRemoved(listener: TabRemovedListener): () => void;

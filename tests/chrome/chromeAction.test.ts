@@ -37,7 +37,8 @@ describe('chromeActionService', () => {
   });
 
   it('onClicked 应该注册监听并在销毁时移除监听', async () => {
-    const { onClickedAddListener: addListener, onClickedRemoveListener: removeListener } = chromeHandle.actionMocks;
+    const { onClickedAddListener: addListener, onClickedRemoveListener: removeListener } =
+      chromeHandle.actionMocks;
     const { chromeActionService } = await import('../../src/platform/chrome/action');
     const handler = vi.fn();
 

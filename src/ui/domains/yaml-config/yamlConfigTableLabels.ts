@@ -59,17 +59,14 @@ export function collectYamlTableLabels(tableHost: HTMLElement | null): YamlConfi
         ? dataset.placeholderArray
         : fallback.arrayPlaceholder,
     arrayHint:
-      dataset.hintArray && dataset.hintArray.includes(';')
-        ? dataset.hintArray
-        : fallback.arrayHint,
+      dataset.hintArray && dataset.hintArray.includes(';') ? dataset.hintArray : fallback.arrayHint,
     arrayPreviewEmpty: dataset.hintArrayPreviewEmpty ?? fallback.arrayPreviewEmpty,
     advancedShow: dataset.labelValuePathShow ?? fallback.advancedShow,
     advancedHide: dataset.labelValuePathHide ?? fallback.advancedHide,
     valuePathLabel: dataset.labelValuePath ?? fallback.valuePathLabel,
     valuePathPlaceholder: dataset.placeholderValuePath ?? fallback.valuePathPlaceholder,
     valuePathHint: dataset.hintValuePath ?? fallback.valuePathHint,
-    valuePathExamplesTitle:
-      dataset.labelValuePathExamplesTitle ?? fallback.valuePathExamplesTitle,
+    valuePathExamplesTitle: dataset.labelValuePathExamplesTitle ?? fallback.valuePathExamplesTitle,
     valuePathExamples: dataset.hintValuePathExamples ?? fallback.valuePathExamples,
     typeLabels: {
       article: dataset.labelArticle ?? fallback.article,

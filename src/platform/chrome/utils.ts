@@ -26,7 +26,9 @@ export function getChromeLastError(): Error | null {
   return createChromeRuntimeError(lastError.message);
 }
 
-export function normalizePromise<T>(executor: (resolve: (value: T) => void, reject: (error: Error) => void) => void): Promise<T> {
+export function normalizePromise<T>(
+  executor: (resolve: (value: T) => void, reject: (error: Error) => void) => void
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     try {
       executor(

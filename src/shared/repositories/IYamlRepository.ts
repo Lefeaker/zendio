@@ -26,7 +26,5 @@ export interface IYamlRepository {
    * @param callback 配置变更时的回调函数
    * @returns 取消订阅函数
    */
-  onChange(
-    callback: (overrides: YamlConfigOverrides | null) => void
-  ): () => void;
+  onChange(callback: (overrides: YamlConfigOverrides | null) => void): () => void;
 }

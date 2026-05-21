@@ -12,7 +12,9 @@ describe('getSentryBuildConfig', () => {
     vi.stubGlobal('__AIIINOB_SENTRY_ENVIRONMENT__', 'staging');
     vi.stubGlobal('__AIIINOB_SENTRY_RELEASE__', '2.0.0');
 
-    const { getSentryBuildConfig } = await import('../../../../../src/shared/errors/analytics/sentryConfig');
+    const { getSentryBuildConfig } = await import(
+      '../../../../../src/shared/errors/analytics/sentryConfig'
+    );
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: true,
@@ -26,7 +28,9 @@ describe('getSentryBuildConfig', () => {
     vi.stubGlobal('__AIIINOB_SENTRY_DSN__', '');
     vi.stubGlobal('__AIIINOB_SENTRY_ENABLED__', true);
 
-    const { getSentryBuildConfig } = await import('../../../../../src/shared/errors/analytics/sentryConfig');
+    const { getSentryBuildConfig } = await import(
+      '../../../../../src/shared/errors/analytics/sentryConfig'
+    );
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: false,
@@ -37,7 +41,9 @@ describe('getSentryBuildConfig', () => {
   it('infers enabled state from dsn when flag is not injected', async () => {
     vi.stubGlobal('__AIIINOB_SENTRY_DSN__', 'https://public@example.ingest.sentry.io/654321');
 
-    const { getSentryBuildConfig } = await import('../../../../../src/shared/errors/analytics/sentryConfig');
+    const { getSentryBuildConfig } = await import(
+      '../../../../../src/shared/errors/analytics/sentryConfig'
+    );
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: true,

@@ -4,6 +4,8 @@ import {
   createPreviewUrl,
   createProductionUrl,
   expectNoLegacyOptionsShell,
+  getPreviewSourceKind,
+  type PreviewSourceKind,
   type StitchElementSample
 } from './utils/stitchParityHarness';
 
@@ -32,6 +34,26 @@ const DYNAMIC_WIDTH_SELECTORS = new Set([
 ]);
 
 const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar']);
+
+const EXPECTED_PREVIEW_SURFACE_LABELS: Record<PreviewSourceKind, string[]> = {
+  'external-reference': ['Clipper Dialog', 'Reader Mode', 'Video Mode', 'Task Success'],
+  'generated-preview': [
+    'Clipper Dialog',
+    'Reader Mode',
+    'Video Mode',
+    'Video Floating Prompt',
+    'Task Success'
+  ]
+};
+
+const EXPECTED_PREVIEW_SWITCH_LABELS: Record<PreviewSourceKind, string[]> = {
+  'external-reference': [
+    '保存页面时生成 AI 总结',
+    '在阅读模式顶部显示页面总结',
+    '启用视频字幕翻译'
+  ],
+  'generated-preview': []
+};
 
 function normalizeElementSamplesForParity(
   samples: Record<string, StitchElementSample>
@@ -215,7 +237,8 @@ async function prepareOptionsPage(
 function expectSharedOptionsParity(
   production: Awaited<ReturnType<typeof collectStitchContract>>,
   preview: Awaited<ReturnType<typeof collectStitchContract>>,
-  theme: 'dark' | 'light'
+  theme: 'dark' | 'light',
+  previewSourceKind: PreviewSourceKind
 ): void {
   const previewReleaseNavLabels = preview.navLabels.filter((label) => label !== 'Experimental');
   expect(production.skin.previewSkin).toBe('stitch-secondary');
@@ -231,12 +254,7 @@ function expectSharedOptionsParity(
   expect(production.navLabels).toEqual(previewReleaseNavLabels);
   expect(production.resourceLabels).toEqual(preview.resourceLabels);
   expect(production.surfaceLabels).toEqual([]);
-  expect(preview.surfaceLabels).toEqual([
-    'Clipper Dialog',
-    'Reader Mode',
-    'Video Mode',
-    'Task Success'
-  ]);
+  expect(preview.surfaceLabels).toEqual(EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]);
   expect(production.activePanel).toBeTruthy();
   expect(preview.activePanel).toBeTruthy();
   expect(production.hasInlineThemeSegmentedControl).toBe(true);
@@ -247,9 +265,21 @@ function expectSharedOptionsParity(
     expect(production.deepResearchNoticeText).toBe(preview.deepResearchNoticeText);
   }
   expect(production.panelSectionCount).toBeGreaterThanOrEqual(preview.panelSectionCount - 1);
-  expect(preview.yamlWidget.hasNativeTable).toBe(false);
   expect(preview.yamlWidget.hasLegacyView).toBe(false);
   expect(preview.yamlWidget.hasMissingWidget).toBe(false);
+  if (previewSourceKind === 'external-reference') {
+    expect(preview.yamlWidget.hasNativeTable).toBe(false);
+  } else {
+    expect(preview.yamlWidget).toMatchObject({
+      hasNativeTable: true,
+      disabledActionCount: 0,
+      actionLabels: expect.arrayContaining(['+ Add field', '+ Add domain rule'])
+    });
+    expect(preview.yamlWidget.defaultValueInputCount).toBeGreaterThan(0);
+    expect(preview.yamlWidget.valuePathInputCount).toBeGreaterThan(0);
+    expect(preview.yamlWidget.domainDefaultValueInputCount).toBeGreaterThan(0);
+    expect(preview.yamlWidget.domainValuePathInputCount).toBeGreaterThan(0);
+  }
   expect(production.yamlWidget).toMatchObject({
     hasNativeTable: true,
     hasLegacyView: false,
@@ -290,14 +320,16 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
         await expect(page.locator('[data-footer-panel="clipper"]')).toHaveCount(0);
         await expect(page.locator('[data-footer-panel="reader"]')).toHaveCount(0);
         await expect(page.locator('[data-footer-panel="video"]')).toHaveCount(0);
+        await expect(page.locator('[data-footer-panel="video-floating-prompt"]')).toHaveCount(0);
         await expect(page.locator('[data-footer-panel="task-success"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="clipper"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="reader"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(0);
+        await expect(page.locator('[data-stitch-surface="video-floating-prompt"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="task-success"]')).toHaveCount(0);
         const production = await collectStitchContract(page);
 
-        expectSharedOptionsParity(production, preview, theme);
+        expectSharedOptionsParity(production, preview, theme, getPreviewSourceKind());
       });
     }
   }
@@ -317,7 +349,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     await prepareOptionsPage(page, productionUrl, 'dark');
     await expectNoLegacyOptionsShell(page);
     const production = await collectStitchContract(page);
-    expectSharedOptionsParity(production, preview, 'dark');
+    expectSharedOptionsParity(production, preview, 'dark', getPreviewSourceKind());
 
     await page.screenshot({
       path: testInfo.outputPath('options-stitch-secondary-production-desktop.png'),
@@ -395,11 +427,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
       ])
     );
     const previewSwitchLabels = preview.interactionInventory.switchLabels.map((item) => item.label);
-    for (const label of [
-      '保存页面时生成 AI 总结',
-      '在阅读模式顶部显示页面总结',
-      '启用视频字幕翻译'
-    ]) {
+    for (const label of EXPECTED_PREVIEW_SWITCH_LABELS[getPreviewSourceKind()]) {
       expect(previewSwitchLabels.some((entry) => entry.includes(label))).toBe(true);
     }
   });

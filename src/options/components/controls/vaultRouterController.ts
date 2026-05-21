@@ -1,5 +1,5 @@
 import { markPendingAutoSave, getOptionsController } from '../../app/optionsControllerContext';
-import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import { BaseComponent } from '@ui/foundation/lifecycle/BaseComponent';
 import {
   addAdditionalVault,
   addRoutingRule,

@@ -70,29 +70,35 @@ export function buildChatMarkdown({
     }
   );
 
-  const body = messages.map((m, i) => {
-    // Use h1 for USER/ASSISTANT headings
-    // Put number first to avoid confusion with model names ending in numbers (e.g., GPT-5)
-    let heading = '';
-    if (m.role === 'user') {
-      heading = `# ${i+1} ${userName}`;
-    } else {
-      const modelName = model || 'ASSISTANT';
-      heading = `# ${i+1} ${modelName}`;
-    }
+  const body = messages
+    .map((m, i) => {
+      // Use h1 for USER/ASSISTANT headings
+      // Put number first to avoid confusion with model names ending in numbers (e.g., GPT-5)
+      let heading = '';
+      if (m.role === 'user') {
+        heading = `# ${i + 1} ${userName}`;
+      } else {
+        const modelName = model || 'ASSISTANT';
+        heading = `# ${i + 1} ${modelName}`;
+      }
 
-    // Add timestamp if available and enabled
-    if (includeTimestamps && m.timestamp) {
-      const date = new Date(m.timestamp);
-      const timeStr = formatLocalDateTime(date);
-      heading += ` _[${timeStr}]_`;
-    }
+      // Add timestamp if available and enabled
+      if (includeTimestamps && m.timestamp) {
+        const date = new Date(m.timestamp);
+        const timeStr = formatLocalDateTime(date);
+        heading += ` _[${timeStr}]_`;
+      }
 
-    const content = m.role === 'user'
-      ? m.text.split('\n').map(l => `> ${l}`).join('\n')
-      : m.text;
-    return `${heading}\n\n${content}\n`;
-  }).join('\n');
+      const content =
+        m.role === 'user'
+          ? m.text
+              .split('\n')
+              .map((l) => `> ${l}`)
+              .join('\n')
+          : m.text;
+      return `${heading}\n\n${content}\n`;
+    })
+    .join('\n');
 
   return `${frontMatter}\n\n${body}\n`;
 }

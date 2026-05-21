@@ -112,15 +112,17 @@ export function getAvailableLanguages(): Array<{
   dir: 'ltr' | 'rtl';
   textExpansion: number;
 }> {
-  return AVAILABLE_LANGUAGES.map(({ code, name, nativeName, englishName, region, dir, textExpansion }) => ({
-    code,
-    name,
-    nativeName,
-    englishName,
-    region,
-    dir,
-    textExpansion
-  }));
+  return AVAILABLE_LANGUAGES.map(
+    ({ code, name, nativeName, englishName, region, dir, textExpansion }) => ({
+      code,
+      name,
+      nativeName,
+      englishName,
+      region,
+      dir,
+      textExpansion
+    })
+  );
 }
 
 /**
@@ -160,7 +162,9 @@ export interface PageI18nControllerOptions {
   bindingAdapter?: I18nBindingAdapter;
 }
 
-export function createDefaultPageI18nController(options: PageI18nControllerOptions = {}): PageI18nController {
+export function createDefaultPageI18nController(
+  options: PageI18nControllerOptions = {}
+): PageI18nController {
   const bindingAdapter = options.bindingAdapter ?? createDomBindingAdapter();
   return createPageI18nController({
     bindingAdapter,

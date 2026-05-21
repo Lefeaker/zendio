@@ -21,7 +21,9 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
   const modelButtons = Array.from(doc.querySelectorAll('button, [role="button"]'));
   for (const btn of modelButtons) {
     const text = btn.textContent?.trim() || '';
-    const match = text.match(/^(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)$/i);
+    const match = text.match(
+      /^(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)$/i
+    );
     if (match) {
       model = match[1];
       break;
@@ -41,7 +43,9 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
       const elements = Array.from(doc.querySelectorAll(selector));
       for (const el of elements) {
         const text = el.textContent?.trim() || '';
-        const match = text.match(/(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)/i);
+        const match = text.match(
+          /(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)/i
+        );
         if (match) {
           model = match[1];
           break;
@@ -53,7 +57,9 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
 
   if (!model) {
     const bodyText = doc.body.textContent || '';
-    const modelMatch = bodyText.match(/(?:Model|模型)[:\s]*(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)/i);
+    const modelMatch = bodyText.match(
+      /(?:Model|模型)[:\s]*(GPT-[0-9.]+[a-z]*|o1(?:-mini|-preview)?|ChatGPT\s*[0-9.]*[a-z]*)/i
+    );
     if (modelMatch) {
       model = modelMatch[1];
     }
@@ -85,8 +91,8 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
     markdown = markdown
       .replace(/^您说[：:]\s*/gm, '')
       .replace(/^ChatGPT\s*说[：:]\s*/gm, '')
-      .replace(/^You\s+said[：:]\s*/gmi, '')
-      .replace(/^ChatGPT\s+said[：:]\s*/gmi, '')
+      .replace(/^You\s+said[：:]\s*/gim, '')
+      .replace(/^ChatGPT\s+said[：:]\s*/gim, '')
       .replace(/您说[：:]\s*/g, '')
       .replace(/ChatGPT\s*说[：:]\s*/g, '')
       .replace(/You\s+said[：:]\s*/gi, '')

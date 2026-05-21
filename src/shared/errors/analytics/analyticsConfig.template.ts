@@ -2,11 +2,11 @@
  * Analytics 配置模板文件
  *
  * 使用说明：
- * 1. analyticsConfig.ts is tracked as a non-sensitive disabled default.
- * 2. Use this template only for local owner experiments.
- * 3. Do not commit a real Measurement ID.
+ * 1. 复制此文件为 analyticsConfig.ts
+ * 2. 替换 MEASUREMENT_ID 为你的 Google Analytics 4 Measurement ID
+ * 3. 根据需要调整其他配置项
  *
- * Note: release builds must not depend on an ignored local analyticsConfig.ts.
+ * 注意：analyticsConfig.ts 文件已被添加到 .gitignore 中，不会被提交到版本控制
  */
 import type { StorageService } from '@platform/interfaces/storage';
 

@@ -45,7 +45,9 @@ describe('showConfirmDialog i18n handling', () => {
       }
     });
 
-    const { showConfirmDialog } = await import('../../../src/options/components/controls/confirmDialog');
+    const { showConfirmDialog } = await import(
+      '../../../src/options/components/controls/confirmDialog'
+    );
     const promise = showConfirmDialog({
       title: { key: 'deleteVaultDialogTitle', text: 'Delete vault' },
       message: { key: 'deleteVaultConfirm', text: 'Delete this vault?' },
@@ -64,7 +66,7 @@ describe('showConfirmDialog i18n handling', () => {
     expect(result).toBe(true);
     expect(binderMock.bindText).toHaveBeenCalledTimes(4);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    binderHandles.forEach(handle => {
+    binderHandles.forEach((handle) => {
       expect(handle.dispose).toHaveBeenCalled();
     });
   });
@@ -80,7 +82,9 @@ describe('showConfirmDialog i18n handling', () => {
       }
     });
 
-    const { showConfirmDialog } = await import('../../../src/options/components/controls/confirmDialog');
+    const { showConfirmDialog } = await import(
+      '../../../src/options/components/controls/confirmDialog'
+    );
     const promise = showConfirmDialog({
       title: { key: 'deleteRuleDialogTitle' },
       message: { key: 'ruleDeleteConfirm' },

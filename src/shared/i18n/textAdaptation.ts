@@ -1,24 +1,15 @@
 import type { Messages } from '../../i18n/messages';
 import type { I18nResource } from '../../i18n/types';
-import type { Language } from '../../i18n/locales';
 import { getTextBudget, type TextBudget } from './budgets';
 import { logTextOverflowEvent } from './overflowLogger';
+import type { AdaptiveTextResult } from './textAdaptationTypes';
+
+export type { AdaptiveTextResult } from './textAdaptationTypes';
 
 const PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
 
 interface AdaptationOptions {
   viewportWidth?: number;
-}
-
-export interface AdaptiveTextResult {
-  value: string;
-  usedShort: boolean;
-  original?: string;
-  budget?: TextBudget;
-  overLimit?: boolean;
-  language: Language;
-  length: number;
-  limit?: number;
 }
 
 function stripPlaceholders(value: string): string {
@@ -120,10 +111,7 @@ export function annotateBudgetMetadata(
   }
 }
 
-export function applyAdaptiveState(
-  element: HTMLElement,
-  result: AdaptiveTextResult
-): void {
+export function applyAdaptiveState(element: HTMLElement, result: AdaptiveTextResult): void {
   if (!result.budget) {
     delete element.dataset.adapted;
     delete element.dataset.originalText;

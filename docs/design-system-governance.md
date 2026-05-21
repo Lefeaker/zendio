@@ -1,6 +1,6 @@
 # 设计系统治理基线
 
-日期：2026-03-30
+日期：2026-05-11
 
 适用范围：`Options`、`content`、`onboarding` 的共享 UI、样式宿主、领域控件与长期守门规则。
 
@@ -99,6 +99,8 @@
 
 ## 4. 样式与 Token 真值
 
+当前生产 UI 样式路径以 Stitch runtime CSS 为准，覆盖 Options、content runtime panels 与 onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁移追溯，除非 `docs/source-of-truth-index.md` 与本文同步恢复，否则不得作为新生产样式入口或构建链。
+
 ### 唯一 token 真值源
 
 - 正式 token 文件：`src/styles/design-tokens.css`
@@ -131,8 +133,12 @@
 ### 禁止规则
 
 - 生产代码、正式 harness、构建脚本不得重新引用上述 archive 资产
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
+- 非 YAML `src/options/widgets/**` 不得重新获得 production UI ownership；真实 Options UI behavior 必须落在 Stitch schema/render/domain code 或 `src/ui/domains/*`
+- compatibility shells、barrel/type-only files、source aliases 与 public UI boundary files 必须有明确 owner 与删除条件；它们不是 source-of-truth docs，也不能绕过 Non-Production Code 3.0 owner scan
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间
 - 已退役 wrapper / alias 不得再恢复为 compatibility wrapper
+- retired Options compatibility classes 与 preview runtime 不得重新作为生产 UI、正式验证或 fallback shell 引入。
 
 ## 6. 持续守门
 
@@ -140,9 +146,12 @@
 - 组件入口守门：`npm run audit:components:report`
 - 交互 contract 审计：`npm run audit:interaction-contract:report`
 - token / wrapper 审计：`npm run audit:design-tokens:report`
+- 设计系统文档真值审计：`npm run audit:design-system-doc:report`
 - 平台 allowlist 审计：`npm run audit:platform-services:report`
 - 依赖与深层导入审计：`npm run audit:deps:report`、`npm run audit:imports:report`
 - 构建 / 性能审计：`npm run audit:build:report`、`npm run audit:performance:report`
+- Non-production source ownership：`npm run audit:non-production-source:report` 产出完整 inventory，完成态必须退出 0；`npm run audit:non-production-source:check` 是 hard gate，必须通过
+- `npm run quality` 已强制包含 design-system-doc、retired-code、production-shape、build-graph、non-production-source check 与 dependency-cruiser 报告；新增或恢复 UI 路径必须同时满足这些 hard gates。
 
 ## 7. 开发要求
 

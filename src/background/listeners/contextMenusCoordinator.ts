@@ -20,9 +20,11 @@ export function isVideoUrl(url?: string | null): boolean {
       return true;
     }
     if (hostname.includes('youtube.com')) {
-      return parsed.pathname.startsWith('/watch')
-        || parsed.pathname.startsWith('/shorts')
-        || parsed.pathname.startsWith('/embed/');
+      return (
+        parsed.pathname.startsWith('/watch') ||
+        parsed.pathname.startsWith('/shorts') ||
+        parsed.pathname.startsWith('/embed/')
+      );
     }
   } catch {
     return false;
@@ -36,7 +38,9 @@ export function isInjectableUrl(url?: string | null): boolean {
   }
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:';
+    return (
+      parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:'
+    );
   } catch {
     return false;
   }
@@ -68,11 +72,14 @@ export function deriveVideoState(
     }
   }
   if (!effectiveUrl && typeof tabId === 'number') {
-    void dependencies.tabs.get(tabId).then((tab) => {
-      const resolved = tab?.url;
-      const result = isVideoUrl(resolved);
-      state.tabVideoState.set(tabId, result);
-    }).catch(() => {});
+    void dependencies.tabs
+      .get(tabId)
+      .then((tab) => {
+        const resolved = tab?.url;
+        const result = isVideoUrl(resolved);
+        state.tabVideoState.set(tabId, result);
+      })
+      .catch(() => {});
     return false;
   }
   const isVideo = isVideoUrl(effectiveUrl);
@@ -82,13 +89,17 @@ export function deriveVideoState(
   return isVideo;
 }
 
-export async function refreshSelectionModifierInjection(state: ContextMenuRuntimeState): Promise<void> {
+export async function refreshSelectionModifierInjection(
+  state: ContextMenuRuntimeState
+): Promise<void> {
   try {
     const options = await getOptions();
     const fragment = options.fragmentClipper;
     const rawKeys = fragment?.selectionModifierKeys;
     const modifierKeys = Array.isArray(rawKeys) ? rawKeys : [];
-    state.selectionModifierInjectionEnabled = Boolean(fragment?.selectionModifierEnabled && modifierKeys.length > 0);
+    state.selectionModifierInjectionEnabled = Boolean(
+      fragment?.selectionModifierEnabled && modifierKeys.length > 0
+    );
   } catch (error) {
     console.warn('[contextMenus] Failed to resolve selection modifier options:', error);
     state.selectionModifierInjectionEnabled = false;
@@ -99,7 +110,7 @@ export async function injectClipper(
   dependencies: ContextMenuListenerDependencies,
   state: ContextMenuRuntimeState,
   tabId: number,
-  options?: { silent?: boolean; targetFrameId?: number; allFrames?: boolean; }
+  options?: { silent?: boolean; targetFrameId?: number; allFrames?: boolean }
 ): Promise<void> {
   try {
     const target = options?.allFrames
@@ -238,7 +249,7 @@ export async function setupContextMenus(
 }
 
 export function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function isChromeUnavailable(error: unknown): boolean {

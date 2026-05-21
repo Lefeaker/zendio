@@ -3,7 +3,7 @@ import {
   resolveBilibiliRichTextContainer,
   serializeBilibiliRichTextFragment
 } from './bilibiliRichText';
-import type { BilibiliSelectionHelpers } from './bilibiliPlatformSelection';
+import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 export function resolveBilibiliRichTextHosts(range: Range): HTMLElement[] {
   const ordered: HTMLElement[] = [];

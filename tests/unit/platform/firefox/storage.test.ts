@@ -1,19 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let changeListener: ((changes: Record<string, browser.storage.StorageChange>, area: 'local' | 'sync' | 'session') => void) | undefined;
+let changeListener:
+  | ((
+      changes: Record<string, browser.storage.StorageChange>,
+      area: 'local' | 'sync' | 'session'
+    ) => void)
+  | undefined;
 const firefoxApi = vi.hoisted(() => ({
   storage: {
     local: { get: vi.fn(), set: vi.fn(), remove: vi.fn(), clear: vi.fn() },
     sync: { get: vi.fn(), set: vi.fn(), remove: vi.fn(), clear: vi.fn() },
     session: { get: vi.fn(), set: vi.fn(), remove: vi.fn(), clear: vi.fn() },
-    onChanged: { addListener: vi.fn((listener: typeof changeListener) => { changeListener = listener ?? undefined; }), removeListener: vi.fn() }
+    onChanged: {
+      addListener: vi.fn((listener: typeof changeListener) => {
+        changeListener = listener ?? undefined;
+      }),
+      removeListener: vi.fn()
+    }
   }
 }));
-vi.mock('../../../../src/platform/firefox/utils', () => ({ ensureFirefox: (): typeof firefoxApi => firefoxApi }));
+vi.mock('../../../../src/platform/firefox/utils', () => ({
+  ensureFirefox: (): typeof firefoxApi => firefoxApi
+}));
 
 describe('firefoxStorageService', () => {
   beforeEach(() => {
-    vi.resetModules(); vi.clearAllMocks(); changeListener = undefined;
+    vi.resetModules();
+    vi.clearAllMocks();
+    changeListener = undefined;
     firefoxApi.storage.local.get.mockResolvedValue({ key: 'value' });
     firefoxApi.storage.local.set.mockResolvedValue(undefined);
     firefoxApi.storage.local.remove.mockResolvedValue(undefined);

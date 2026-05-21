@@ -1,6 +1,11 @@
 import type { ReaderPanelTexts } from './application/readerPanelModel';
 
-export type ReaderHintState = 'panel' | 'noHighlights' | 'exporting' | 'failure' | 'selectionFailure';
+export type ReaderHintState =
+  | 'panel'
+  | 'noHighlights'
+  | 'exporting'
+  | 'failure'
+  | 'selectionFailure';
 
 export interface ReaderSessionMessages {
   panel: ReaderPanelTexts;

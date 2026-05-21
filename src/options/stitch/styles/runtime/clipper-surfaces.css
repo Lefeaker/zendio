@@ -1,0 +1,475 @@
+
+.clipper-preview-block {
+  display: grid;
+  gap: var(--space-2-5);
+}
+
+.resource-modal--clipper .field label,
+.clipper-preview-block .resource-modal-section-title {
+  color: var(--runtime-subtle);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.clipper-selection-preview {
+  position: relative;
+  padding: var(--space-5-5) var(--space-6-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--runtime-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.03));
+  box-shadow: var(--shadow-runtime-soft);
+  color: var(--text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-rich);
+  font-style: italic;
+}
+
+.clipper-comment-textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: calc(var(--control-height-md) + 2px);
+  max-height: calc((var(--font-size-sm) * var(--line-height-normal) * 2) + var(--space-4));
+  border-color: var(--runtime-line);
+  background: var(--runtime-panel-2);
+  resize: none;
+  overflow-y: auto;
+  line-height: var(--line-height-normal);
+}
+
+.clipper-source-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2-5);
+}
+
+.clipper-source-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  border-radius: var(--radius-md);
+  background: var(--runtime-panel-3);
+  border: 1px solid var(--runtime-line);
+  color: var(--runtime-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.clipper-source-meta {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.clipper-source-meta strong {
+  font-size: var(--font-size-xs);
+  color: var(--runtime-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clipper-source-status {
+  margin-left: auto;
+  color: var(--success);
+  font-size: var(--font-size-xs);
+}
+
+.export-destination-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.export-destination-menu {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.export-destination-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--runtime-line);
+  border-radius: var(--radius-md);
+  background: var(--runtime-panel-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.export-destination-summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-destination-copy,
+.export-destination-option {
+  min-width: 0;
+}
+
+.export-destination-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+.export-destination-eyebrow,
+.export-destination-path,
+.export-destination-option-path {
+  color: var(--runtime-subtle);
+  font-size: var(--font-size-2xs);
+}
+
+.export-destination-label,
+.export-destination-option-label {
+  color: var(--runtime-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+}
+
+.export-destination-path,
+.export-destination-option-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-destination-options {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 2;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--runtime-line);
+  border-radius: var(--radius-md);
+  background: var(--runtime-panel);
+  box-shadow: var(--shadow-runtime);
+}
+
+[data-stitch-surface='clipper'] .export-destination-copy {
+  flex-wrap: nowrap;
+}
+
+[data-stitch-surface='clipper'] .export-destination-path {
+  flex: 1 1 auto;
+}
+
+[data-stitch-surface='clipper'] .export-destination-row {
+  width: calc(100% + (var(--space-7) * 2));
+  margin-inline: calc(var(--space-7) * -1);
+  margin-bottom: calc(var(--space-5-5) * -1);
+}
+
+[data-stitch-surface='clipper'] .export-destination-menu {
+  width: 100%;
+}
+
+[data-stitch-surface='clipper'] .export-destination-summary {
+  border-inline: 0;
+  border-radius: 0;
+}
+
+[data-stitch-surface='clipper'] .export-destination-options {
+  top: calc(100% + var(--space-2));
+  bottom: auto;
+}
+
+[data-stitch-surface='clipper'] .export-destination-option {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+[data-stitch-surface='clipper'] .export-destination-option-path {
+  flex: 1 1 auto;
+}
+
+.resource-modal--session .export-destination-summary {
+  border-bottom: 0;
+  border-radius: 0;
+}
+
+.resource-modal--session .export-destination-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 1px var(--space-2);
+}
+
+.resource-modal--session .export-destination-option-path {
+  flex: 1 0 18ch;
+}
+
+.export-destination-option {
+  display: grid;
+  gap: 1px;
+  padding: var(--space-2-5) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.export-destination-option:hover,
+.export-destination-option.is-selected {
+  background: var(--runtime-chip);
+}
+
+.export-destination-setup-link {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.clipper-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: 0 calc(var(--space-7) * -1) calc(var(--space-6-5) * -1);
+  padding: var(--space-4-5) var(--space-7);
+  border-top: 1px solid var(--runtime-line);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  background: var(--runtime-actionbar);
+}
+
+.clipper-footer-secondary,
+.clipper-footer-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.clipper-footer-primary {
+  margin-left: auto;
+}
+
+.clipper-footer-primary .btn.primary {
+  min-width: 94px;
+}
+
+.clipper-footer-secondary .btn.ghost {
+  border: 1px solid var(--runtime-line);
+  background: transparent;
+}
+
+.clipper-footer-secondary .btn.ghost + .btn.ghost {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--runtime-subtle);
+  background: transparent;
+}
+
+.clipper-footer-secondary .btn.ghost + .btn.ghost:hover {
+  color: var(--text);
+  background: transparent;
+}
+
+.clipper-footer-primary .btn.secondary {
+  min-height: 38px;
+  padding: 0 var(--space-4-5);
+  border-color: var(--runtime-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.clipper-dialog-shell {
+  color: #f2f4ff;
+  font-family: var(--font-ui);
+}
+
+.clipper-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 24px 28px 18px;
+  border-radius: 14px 14px 0 0;
+  cursor: move;
+  user-select: none;
+  transition: background var(--motion-base) ease-out;
+}
+
+.clipper-dialog-header:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.clipper-dialog-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  color: #f2f4ff;
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-tight);
+}
+
+.clipper-dialog-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.clipper-sr-only,
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.clipper-dialog-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.clipper-comment-form {
+  max-height: calc(80vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-12) var(--space-7);
+}
+
+[data-stitch-surface='clipper'] .clipper-comment-form {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+
+.clipper-comment-label {
+  display: block;
+  margin-bottom: var(--space-4);
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.clipper-comment-completed-hint {
+  margin-top: var(--space-3);
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+  font-size: var(--font-size-xs);
+}
+
+.clipper-comment-completed-hint[hidden] {
+  display: none;
+}
+
+.clipper-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-5);
+  padding: 16px 24px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 0 14px 14px;
+  background: rgba(12, 15, 30, 0.94);
+}
+
+.clipper-btn {
+  min-width: 0;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 10px;
+  color: #f2f4ff;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition:
+    background var(--motion-base) ease-out,
+    border-color var(--motion-base) ease-out,
+    box-shadow var(--motion-base) ease-out,
+    color var(--motion-base) ease-out,
+    transform var(--motion-base) ease-out;
+}
+
+.clipper-btn--secondary {
+  flex: 1 1 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 15, 30, 0.94);
+}
+
+.clipper-btn--secondary:hover {
+  background: rgba(242, 244, 255, 0.1);
+}
+
+.clipper-btn--primary {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+}
+
+.clipper-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.45);
+}
+
+.clipper-btn--primary:focus-visible {
+  outline: 0;
+  box-shadow:
+    0 0 0 2px rgba(124, 92, 255, 0.35),
+    0 10px 25px rgba(99, 102, 241, 0.35);
+}
+
+.clipper-btn--ghost {
+  background: transparent;
+  color: rgba(242, 244, 255, 0.7);
+}
+
+.clipper-btn--ghost:hover {
+  background: rgba(12, 15, 30, 0.7);
+  color: #f2f4ff;
+}
+
+.clipper-btn-content,
+.clipper-btn-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.clipper-btn-content {
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.clipper-btn-wrapper {
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+
+.clipper-btn-icon {
+  color: currentColor;
+  flex: none;
+}
+
+.clipper-shortcut-hint {
+  color: var(--accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  line-height: var(--line-height-label);
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0.8;
+}

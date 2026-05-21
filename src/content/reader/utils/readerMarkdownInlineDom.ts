@@ -33,7 +33,9 @@ export function stripInlineFormattingBetweenTokens(startToken: Node, endToken: N
   }
 }
 
-export function inferReaderSegmentRole(element: HTMLElement): 'single' | 'start' | 'middle' | 'end' {
+export function inferReaderSegmentRole(
+  element: HTMLElement
+): 'single' | 'start' | 'middle' | 'end' {
   const explicitRole = element.dataset.readerSegmentRole;
   if (
     explicitRole === 'single' ||

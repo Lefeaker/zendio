@@ -20,7 +20,11 @@ export function handleReaderKeydown(event: KeyboardEvent, options: ReaderKeydown
   }
 }
 
-export function isNodeInsideReaderUi(node: Node | null, panelElement: HTMLElement | null, doc: Document): boolean {
+export function isNodeInsideReaderUi(
+  node: Node | null,
+  panelElement: HTMLElement | null,
+  doc: Document
+): boolean {
   if (!node) {
     return false;
   }

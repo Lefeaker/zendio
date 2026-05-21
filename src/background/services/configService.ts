@@ -1,6 +1,6 @@
 /**
  * Configuration service with Result-based error handling.
- * 
+ *
  * This service demonstrates the use of Result types for safe
  * configuration management operations.
  */
@@ -45,12 +45,11 @@ function isValidStoredOptions(value: unknown): value is StoredOptions {
 
 function validateConfigStructure(config: unknown): ServiceResult<StoredOptions> {
   if (!isValidStoredOptions(config)) {
-    return serviceFailure(createValidationError(
-      'Invalid configuration structure',
-      { received: typeof config }
-    ));
+    return serviceFailure(
+      createValidationError('Invalid configuration structure', { received: typeof config })
+    );
   }
-  
+
   // Additional validation can be added here
   return serviceSuccess(config);
 }
@@ -63,14 +62,17 @@ class ConfigServiceImpl implements ConfigService {
     return logServiceResult(
       await wrapServiceCall(async () => {
         const stored = await this.storage.local.get<StoredOptions>(CONFIG_STORAGE_KEY);
-        
+
         if (!stored) {
           return DEFAULT_OPTIONS;
         }
-        
+
         const validationResult = validateConfigStructure(stored);
         if (!validationResult.success) {
-          const errorMessage = 'error' in validationResult ? validationResult.error.message : 'Unknown validation error';
+          const errorMessage =
+            'error' in validationResult
+              ? validationResult.error.message
+              : 'Unknown validation error';
           throw new Error(`Configuration validation failed: ${errorMessage}`);
         }
 
@@ -79,40 +81,45 @@ class ConfigServiceImpl implements ConfigService {
       'ConfigService.getConfig'
     );
   }
-  
+
   async updateConfig(updates: Partial<StoredOptions>): Promise<ServiceResult<OptionsState>> {
     return logServiceResult(
       await wrapServiceCall(async () => {
         // Get current config
         const currentResult = await this.getConfig();
         if (!currentResult.success) {
-          const errorMessage = 'error' in currentResult ? currentResult.error.message : 'Unknown error';
+          const errorMessage =
+            'error' in currentResult ? currentResult.error.message : 'Unknown error';
           throw new Error(`Failed to get current config: ${errorMessage}`);
         }
 
         // Validate updates
         const validationResult = validateConfigStructure(updates);
         if (!validationResult.success) {
-          const errorMessage = 'error' in validationResult ? validationResult.error.message : 'Unknown validation error';
+          const errorMessage =
+            'error' in validationResult
+              ? validationResult.error.message
+              : 'Unknown validation error';
           throw new Error(`Update validation failed: ${errorMessage}`);
         }
 
         // Get current stored options
-        const currentStored = await this.storage.local.get<StoredOptions>(CONFIG_STORAGE_KEY) || {};
-        
+        const currentStored =
+          (await this.storage.local.get<StoredOptions>(CONFIG_STORAGE_KEY)) || {};
+
         // Merge updates
         const mergedStored = { ...currentStored, ...updates };
-        
+
         // Save merged config
         await this.storage.local.set(CONFIG_STORAGE_KEY, mergedStored);
-        
+
         // Return merged options
         return mergeOptions(mergedStored);
       }, mapStorageError),
       'ConfigService.updateConfig'
     );
   }
-  
+
   async resetConfig(): Promise<ServiceResult<OptionsState>> {
     return logServiceResult(
       await wrapServiceCall(async () => {
@@ -122,21 +129,22 @@ class ConfigServiceImpl implements ConfigService {
       'ConfigService.resetConfig'
     );
   }
-  
+
   validateConfig(config: unknown): ServiceResult<OptionsState> {
     const validationResult = validateConfigStructure(config);
     if (!validationResult.success) {
       return validationResult as ServiceResult<OptionsState>;
     }
-    
+
     try {
       const merged = mergeOptions(validationResult.data);
       return serviceSuccess(merged);
     } catch (error) {
-      return serviceFailure(createConfigurationError(
-        'Failed to merge configuration',
-        { error: error instanceof Error ? error.message : String(error) }
-      ));
+      return serviceFailure(
+        createConfigurationError('Failed to merge configuration', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      );
     }
   }
 }
@@ -161,7 +169,9 @@ export async function getCurrentConfig(): Promise<ServiceResult<OptionsState>> {
   return getConfigService().getConfig();
 }
 
-export async function updateConfiguration(updates: Partial<StoredOptions>): Promise<ServiceResult<OptionsState>> {
+export async function updateConfiguration(
+  updates: Partial<StoredOptions>
+): Promise<ServiceResult<OptionsState>> {
   return getConfigService().updateConfig(updates);
 }
 
@@ -193,7 +203,7 @@ export function addConfigChangeListener(listener: ConfigChangeListener): () => v
 }
 
 function notifyConfigChange(event: ConfigChangeEvent): void {
-  configChangeListeners.forEach(listener => {
+  configChangeListeners.forEach((listener) => {
     try {
       listener(event);
     } catch (error) {
@@ -210,12 +220,12 @@ export async function updateConfigurationWithNotification(
   if (!previousResult.success) {
     return previousResult;
   }
-  
+
   const updateResult = await updateConfiguration(updates);
   if (!updateResult.success) {
     return updateResult;
   }
-  
+
   // Notify listeners of the change
   notifyConfigChange({
     type: 'config_changed',
@@ -224,6 +234,6 @@ export async function updateConfigurationWithNotification(
     changes: updates,
     timestamp: Date.now()
   });
-  
+
   return updateResult;
 }

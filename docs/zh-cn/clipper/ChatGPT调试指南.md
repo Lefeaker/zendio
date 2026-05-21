@@ -48,8 +48,8 @@ console.log('找到的文章数量:', articles.length);
 // 检查每个文章的 header
 articles.forEach((article, i) => {
   const header = article.querySelector('h5');
-  console.log(`文章 ${i+1} header:`, header?.textContent);
-  console.log(`文章 ${i+1} HTML:`, article.innerHTML.substring(0, 200));
+  console.log(`文章 ${i + 1} header:`, header?.textContent);
+  console.log(`文章 ${i + 1} HTML:`, article.innerHTML.substring(0, 200));
 });
 ```
 
@@ -58,7 +58,7 @@ articles.forEach((article, i) => {
 ```javascript
 // 检查按钮中的模型名称
 const buttons = document.querySelectorAll('button, [role="button"]');
-buttons.forEach(btn => {
+buttons.forEach((btn) => {
   const text = btn.textContent?.trim();
   if (text && text.match(/GPT|o1|ChatGPT/i)) {
     console.log('找到可能的模型按钮:', text);
@@ -83,10 +83,10 @@ const firstArticle = document.querySelector('article');
 if (firstArticle) {
   const header = firstArticle.querySelector('h5')?.textContent;
   const html = firstArticle.innerHTML;
-  
+
   console.log('Header:', header);
   console.log('HTML 前 500 字符:', html.substring(0, 500));
-  
+
   // 检查是否包含 "您说" 或 "You said"
   console.log('包含 "您说":', html.includes('您说'));
   console.log('包含 "You said":', html.toLowerCase().includes('you said'));
@@ -115,14 +115,16 @@ if (firstArticle) {
 ---
 type: ai_chat
 platform: chatgpt
-model: ???  # 这里应该是 GPT-4 等，而不是空的
+model: ??? # 这里应该是 GPT-4 等，而不是空的
 ---
 
-# 1 USER  # 应该是这个格式，不是 # USER 1
-> 你好  # 不应该有 "您说："
+# 1 USER # 应该是这个格式，不是 # USER 1
 
-# 2 GPT-4  # 应该是模型名称，不是 ASSISTANT
-你好！  # 不应该有 "ChatGPT 说："
+> 你好 # 不应该有 "您说："
+
+# 2 GPT-4 # 应该是模型名称，不是 ASSISTANT
+
+你好！ # 不应该有 "ChatGPT 说："
 ```
 
 ---
@@ -132,16 +134,18 @@ model: ???  # 这里应该是 GPT-4 等，而不是空的
 ### 问题 1：仍然显示 "ASSISTANT"
 
 **可能原因**：
+
 - 模型名称提取失败
 - ChatGPT 页面结构变化
 
 **解决方案**：
 
 1. 在 Console 中运行：
+
 ```javascript
 // 查找所有可能包含模型名称的元素
 const allText = [];
-document.querySelectorAll('*').forEach(el => {
+document.querySelectorAll('*').forEach((el) => {
   const text = el.textContent?.trim();
   if (text && text.length < 50 && text.match(/GPT|o1/i)) {
     allText.push({
@@ -162,12 +166,14 @@ console.table(allText);
 ### 问题 2：仍然有 "您说："、"ChatGPT 说："
 
 **可能原因**：
+
 - 这些文本在 HTML 结构中的位置不同
 - 正则表达式没有匹配到
 
 **解决方案**：
 
 1. 在 Console 中运行：
+
 ```javascript
 const firstArticle = document.querySelector('article');
 const html = firstArticle.innerHTML;
@@ -178,10 +184,22 @@ const index2 = html.indexOf('You said');
 const index3 = html.indexOf('ChatGPT 说');
 const index4 = html.indexOf('ChatGPT said');
 
-console.log('您说 位置:', index1, index1 > 0 ? html.substring(index1-50, index1+50) : '未找到');
-console.log('You said 位置:', index2, index2 > 0 ? html.substring(index2-50, index2+50) : '未找到');
-console.log('ChatGPT 说 位置:', index3, index3 > 0 ? html.substring(index3-50, index3+50) : '未找到');
-console.log('ChatGPT said 位置:', index4, index4 > 0 ? html.substring(index4-50, index4+50) : '未找到');
+console.log('您说 位置:', index1, index1 > 0 ? html.substring(index1 - 50, index1 + 50) : '未找到');
+console.log(
+  'You said 位置:',
+  index2,
+  index2 > 0 ? html.substring(index2 - 50, index2 + 50) : '未找到'
+);
+console.log(
+  'ChatGPT 说 位置:',
+  index3,
+  index3 > 0 ? html.substring(index3 - 50, index3 + 50) : '未找到'
+);
+console.log(
+  'ChatGPT said 位置:',
+  index4,
+  index4 > 0 ? html.substring(index4 - 50, index4 + 50) : '未找到'
+);
 ```
 
 2. 将输出结果告诉我，我可以调整正则表达式
@@ -189,18 +207,20 @@ console.log('ChatGPT said 位置:', index4, index4 > 0 ? html.substring(index4-5
 ### 问题 3：用户消息显示为 ASSISTANT
 
 **可能原因**：
+
 - header 文本不包含 "you said"
 - ChatGPT 更新了 UI
 
 **解决方案**：
 
 1. 在 Console 中运行：
+
 ```javascript
 const articles = document.querySelectorAll('article');
 articles.forEach((article, i) => {
   const header = article.querySelector('h5');
   const headerText = header?.textContent?.toLowerCase() || '';
-  console.log(`消息 ${i+1}:`, {
+  console.log(`消息 ${i + 1}:`, {
     header: headerText,
     isUser: headerText.includes('you said') || headerText.includes('您说')
   });
@@ -234,6 +254,7 @@ if (first) {
 ### 6.2 剪藏结果
 
 将生成的 Markdown 文件内容复制给我，特别是：
+
 - frontmatter 中的 `model` 字段
 - 消息标题（`# 1 USER` 还是 `# USER 1`）
 - 是否有 "您说："、"ChatGPT 说："
@@ -317,4 +338,3 @@ if (first) {
 ---
 
 **需要帮助？** 请提供上面的调试信息！
-

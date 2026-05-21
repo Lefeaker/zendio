@@ -4,7 +4,8 @@ import { chatHtmlToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult, ParseConfig } from '../types';
 
 const GEMINI_MESSAGE_ITEM_SELECTOR = 'user-query, model-response';
-const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR = 'div[data-test-id="conversation"].selected .conversation-title';
+const GEMINI_SIDEBAR_ACTIVE_CHAT_SELECTOR =
+  'div[data-test-id="conversation"].selected .conversation-title';
 const GEMINI_TITLE_REPLACE_TEXT = 'Gemini - ';
 
 type DeepResearchSource = {
@@ -170,7 +171,9 @@ function extractSummaryStructure(root: Element, sources: DeepResearchSource[]): 
     return { paragraphs: [], bulletGroups: [] };
   }
 
-  const sourceComparisons = new Set(sources.map((source) => normalizeTextForComparison(source.text)));
+  const sourceComparisons = new Set(
+    sources.map((source) => normalizeTextForComparison(source.text))
+  );
 
   const lines = rawContent
     .split(/\n+/)
@@ -361,12 +364,16 @@ const GeminiDeepResearchHelper = {
 };
 
 function extractCanvasContent(doc: Document): string | null {
-  const immersivePanel = doc.querySelector('immersive-container, immersive-panel, canvas-immersive-panel');
+  const immersivePanel = doc.querySelector(
+    'immersive-container, immersive-panel, canvas-immersive-panel'
+  );
   if (!immersivePanel) {
     return null;
   }
 
-  const canvasContent = immersivePanel.querySelector('canvas-content, immersive-canvas, immersive-page');
+  const canvasContent = immersivePanel.querySelector(
+    'canvas-content, immersive-canvas, immersive-page'
+  );
   if (!canvasContent) {
     return null;
   }
@@ -381,7 +388,9 @@ function extractCanvasContent(doc: Document): string | null {
     }
   }
 
-  const textContent = canvasContent.querySelector('[data-test-id="canvas-body"], [class*="content"], section');
+  const textContent = canvasContent.querySelector(
+    '[data-test-id="canvas-body"], [class*="content"], section'
+  );
   if (textContent) {
     const canvasHtml = textContent.innerHTML;
     const canvasMarkdown = chatHtmlToMarkdown(canvasHtml);
@@ -394,9 +403,11 @@ function extractCanvasContent(doc: Document): string | null {
   if (images.length > 0) {
     markdown += '#### Attached Images\n\n';
     images.forEach((img, index) => {
-      const src = img.getAttribute('src') ||
+      const src =
+        img.getAttribute('src') ||
         img.getAttribute('data-src') ||
-        img.getAttribute('data-original-src') || '';
+        img.getAttribute('data-original-src') ||
+        '';
       if (src && !src.startsWith('blob:')) {
         const alt = img.getAttribute('alt') || `Canvas Image ${index + 1}`;
         markdown += `![${alt}](${src})\n\n`;
@@ -422,12 +433,14 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
       if (report) {
         return {
           title: 'Deep Research Report',
-          messages: [{
-            id: 'deep-research-report',
-            role: 'assistant',
-            md: report,
-            text: report
-          }],
+          messages: [
+            {
+              id: 'deep-research-report',
+              role: 'assistant',
+              md: report,
+              text: report
+            }
+          ],
           assets: []
         };
       }
@@ -460,8 +473,8 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
     model = modeSwitcher.textContent?.trim() || '';
   }
   if (!model) {
-  const buttons = Array.from(doc.querySelectorAll('button'));
-  for (const btn of buttons) {
+    const buttons = Array.from(doc.querySelectorAll('button'));
+    for (const btn of buttons) {
       const text = btn.textContent?.trim() || '';
       if (text.match(/^(Gemini )?(2\.5|2\.0|1\.5)\s*(Pro|Flash|Advanced)/i)) {
         model = text;
@@ -484,13 +497,17 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
 
     if (tagName === 'user-query') {
       role = 'user';
-      messageContentElem = (item as HTMLElement).querySelector('[role="presentation"], [class*="query"]');
+      messageContentElem = (item as HTMLElement).querySelector(
+        '[role="presentation"], [class*="query"]'
+      );
       if (!messageContentElem) {
         messageContentElem = (item as HTMLElement).querySelector('rich-text, div, p');
       }
     } else {
       role = 'assistant';
-      messageContentElem = (item as HTMLElement).querySelector('cib-shared-markdown, message-content, response-content, rich-text, model-output, article');
+      messageContentElem = (item as HTMLElement).querySelector(
+        'cib-shared-markdown, message-content, response-content, rich-text, model-output, article'
+      );
     }
 
     if (!messageContentElem) {
@@ -505,7 +522,9 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
           const imgElement = img as HTMLImageElement;
           const base64 = convertBlobImageToBase64(imgElement);
           if (base64) {
-            console.log(`[Gemini] Converted blob image ${index + 1} to base64 (${Math.round(base64.length * 0.75 / 1024)} KB)`);
+            console.log(
+              `[Gemini] Converted blob image ${index + 1} to base64 (${Math.round((base64.length * 0.75) / 1024)} KB)`
+            );
             imgElement.src = base64;
             if (imgElement.hasAttribute('srcset')) {
               imgElement.removeAttribute('srcset');

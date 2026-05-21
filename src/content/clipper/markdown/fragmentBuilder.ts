@@ -50,10 +50,14 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
   if (config.useFootnoteFormat) {
     if (context && config.captureContext) {
       const beforeContextMarkdown = context.beforeHtml
-        ? normalizeListBullets(formatContextSnippet(turndown.turndown(ensureListWrapped(context.beforeHtml))))
+        ? normalizeListBullets(
+            formatContextSnippet(turndown.turndown(ensureListWrapped(context.beforeHtml)))
+          )
         : '';
       let afterMarkdown = context.afterHtml
-        ? normalizeListBullets(formatContextSnippet(turndown.turndown(ensureListWrapped(context.afterHtml))))
+        ? normalizeListBullets(
+            formatContextSnippet(turndown.turndown(ensureListWrapped(context.afterHtml)))
+          )
         : '';
 
       const beforeSegments: string[] = [];
@@ -63,7 +67,9 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
       if (beforeContextMarkdown) {
         beforeSegments.push(beforeContextMarkdown);
       }
-      const beforeCombined = cleanBulletArtifacts(dedupeListLines(beforeSegments.join('\n\n').trim()));
+      const beforeCombined = cleanBulletArtifacts(
+        dedupeListLines(beforeSegments.join('\n\n').trim())
+      );
       const beforeText = formatBeforeHierarchy(beforeCombined);
 
       const selectedMarkdown = turndown.turndown(ensureListWrapped(selectedHtml));
@@ -73,7 +79,10 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
         trailingFootnotes.push(definition);
       }
 
-      highlightedBlock = ensureLeadingBullet(cleanBulletArtifacts(normalizeListBullets(highlightedBlock)), ancestorDepth);
+      highlightedBlock = ensureLeadingBullet(
+        cleanBulletArtifacts(normalizeListBullets(highlightedBlock)),
+        ancestorDepth
+      );
       if (afterMarkdown) {
         afterMarkdown = cleanBulletArtifacts(normalizeListBullets(afterMarkdown));
       }
@@ -92,7 +101,9 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
         }
       }
     } else {
-      let highlightBlock = highlightMarkdownBlock(turndown.turndown(ensureListWrapped(selectedHtml)));
+      let highlightBlock = highlightMarkdownBlock(
+        turndown.turndown(ensureListWrapped(selectedHtml))
+      );
       if (footnote.ref) {
         highlightBlock = appendFootnoteRef(highlightBlock, footnote.ref);
       }

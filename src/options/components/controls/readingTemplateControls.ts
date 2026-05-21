@@ -112,7 +112,11 @@ export function createReadingTemplateController(
     notifyChange();
   };
 
-  const bind = (target: EventTarget, type: string, handler: EventListenerOrEventListenerObject): void => {
+  const bind = (
+    target: EventTarget,
+    type: string,
+    handler: EventListenerOrEventListenerObject
+  ): void => {
     target.addEventListener(type, handler);
     bindings.push({ target, type, handler });
   };

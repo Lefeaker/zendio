@@ -47,7 +47,8 @@ function normalizeHistoryEntry(entry: unknown): UsageStatsHistoryEntry | null {
     return null;
   }
 
-  const { date, aiChat, fragment, article } = entry as Partial<UsageStatsHistoryEntry> & Record<string, unknown>;
+  const { date, aiChat, fragment, article } = entry as Partial<UsageStatsHistoryEntry> &
+    Record<string, unknown>;
 
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return null;

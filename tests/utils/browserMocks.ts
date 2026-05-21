@@ -87,15 +87,21 @@ export interface FirefoxMockHandle {
   restore(): void;
 }
 
-function createChromeActionStub(): { stub: typeof chrome.action; mocks: ChromeActionMocks; reset(): void } {
+function createChromeActionStub(): {
+  stub: typeof chrome.action;
+  mocks: ChromeActionMocks;
+  reset(): void;
+} {
   const setBadgeText = vi.fn((_details: chrome.action.BadgeTextDetails, callback?: () => void) => {
     callback?.();
     return Promise.resolve(undefined);
   });
-  const setBadgeBackgroundColor = vi.fn((_details: chrome.action.BadgeColorDetails, callback?: () => void) => {
-    callback?.();
-    return Promise.resolve(undefined);
-  });
+  const setBadgeBackgroundColor = vi.fn(
+    (_details: chrome.action.BadgeColorDetails, callback?: () => void) => {
+      callback?.();
+      return Promise.resolve(undefined);
+    }
+  );
   const addListener = vi.fn((listener: (tab: chrome.tabs.Tab) => void) => listener);
   const removeListener = vi.fn((listener: (tab: chrome.tabs.Tab) => void) => listener);
   const hasListener = vi.fn((_listener: (tab: chrome.tabs.Tab) => void) => false);
@@ -176,13 +182,18 @@ function createChromeStorageArea(): {
   mocks: ChromeStorageAreaMocks;
   reset(): void;
 } {
-  const get = vi.fn((_keys?: string | string[] | Record<string, unknown> | null) => Promise.resolve({}));
+  const get = vi.fn((_keys?: string | string[] | Record<string, unknown> | null) =>
+    Promise.resolve({})
+  );
   const set = vi.fn((_items: Record<string, unknown>) => Promise.resolve(undefined));
   const remove = vi.fn((_keys: string | string[]) => Promise.resolve(undefined));
   const clear = vi.fn(() => Promise.resolve(undefined));
 
   const area = {
-    get(keys?: string | string[] | Record<string, unknown> | null, callback?: (items: Record<string, unknown>) => void) {
+    get(
+      keys?: string | string[] | Record<string, unknown> | null,
+      callback?: (items: Record<string, unknown>) => void
+    ) {
       const promise = get(keys);
       if (typeof callback === 'function') {
         void promise.then((items) => callback(items));
@@ -230,7 +241,11 @@ function createChromeStorageArea(): {
   };
 }
 
-function createChromeStorageStub(): { stub: typeof chrome.storage; mocks: ChromeStorageMocks; reset(): void } {
+function createChromeStorageStub(): {
+  stub: typeof chrome.storage;
+  mocks: ChromeStorageMocks;
+  reset(): void;
+} {
   const sync = createChromeStorageArea();
   const local = createChromeStorageArea();
   const managed = createChromeStorageArea();
@@ -276,7 +291,11 @@ function createChromeStorageStub(): { stub: typeof chrome.storage; mocks: Chrome
   };
 }
 
-function createChromeRuntimeStub(): { stub: typeof chrome.runtime; mocks: ChromeRuntimeMocks; reset(): void } {
+function createChromeRuntimeStub(): {
+  stub: typeof chrome.runtime;
+  mocks: ChromeRuntimeMocks;
+  reset(): void;
+} {
   const sendMessageMock = vi.fn((..._args: unknown[]) => Promise.resolve(undefined));
   const sendMessage: typeof chrome.runtime.sendMessage = ((...args: unknown[]) => {
     const maybeCallback = args.at(-1);
@@ -452,11 +471,12 @@ function createFirefoxActionStub(): {
   mocks: FirefoxActionMocks;
   reset(): void;
 } {
-  const primarySetBadgeText = vi.fn((_details: Parameters<typeof browser.browserAction.setBadgeText>[0]) =>
-    Promise.resolve(undefined)
+  const primarySetBadgeText = vi.fn(
+    (_details: Parameters<typeof browser.browserAction.setBadgeText>[0]) =>
+      Promise.resolve(undefined)
   );
-  const fallbackSetBadgeText = vi.fn((_details: Parameters<typeof browser.action.setBadgeText>[0]) =>
-    Promise.resolve(undefined)
+  const fallbackSetBadgeText = vi.fn(
+    (_details: Parameters<typeof browser.action.setBadgeText>[0]) => Promise.resolve(undefined)
   );
   const addListener = vi.fn((listener: (tab: browser.tabs.Tab) => void) => listener);
   const removeListener = vi.fn((listener: (tab: browser.tabs.Tab) => void) => listener);
@@ -543,7 +563,11 @@ function createFirefoxStorageArea(): {
   };
 }
 
-function createFirefoxStorageStub(): { stub: typeof browser.storage; mocks: FirefoxStorageMocks; reset(): void } {
+function createFirefoxStorageStub(): {
+  stub: typeof browser.storage;
+  mocks: FirefoxStorageMocks;
+  reset(): void;
+} {
   const sync = createFirefoxStorageArea();
   const local = createFirefoxStorageArea();
   const managed = createFirefoxStorageArea();
@@ -589,7 +613,11 @@ function createFirefoxStorageStub(): { stub: typeof browser.storage; mocks: Fire
   };
 }
 
-function createFirefoxRuntimeStub(): { stub: typeof browser.runtime; mocks: FirefoxRuntimeMocks; reset(): void } {
+function createFirefoxRuntimeStub(): {
+  stub: typeof browser.runtime;
+  mocks: FirefoxRuntimeMocks;
+  reset(): void;
+} {
   const sendMessage = vi.fn(() => Promise.resolve(undefined));
   const getURL = vi.fn((path: string) => path);
   const addListener = vi.fn<Parameters<typeof browser.runtime.onMessage.addListener>, void>();

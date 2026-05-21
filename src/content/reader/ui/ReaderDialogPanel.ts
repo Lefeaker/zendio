@@ -172,7 +172,11 @@ export class ReaderDialogPanel
   }
 
   isEditing(): boolean {
-    return this.editingHighlightId !== null;
+    const activeElement = this.renderRoot.shadowRoot?.activeElement;
+    return (
+      activeElement instanceof HTMLInputElement &&
+      activeElement.dataset.highlightInput === this.editingHighlightId
+    );
   }
 
   destroy(): void {

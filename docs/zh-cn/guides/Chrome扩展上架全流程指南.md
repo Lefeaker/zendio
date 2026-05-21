@@ -62,6 +62,25 @@
 - [ ] 如需受限权限（例如 `scripting`），按照 Google 最新政策提交额外证明材料。
 - [ ] 提交审核后记录时间，关注控制台通知与邮件；通常 3–7 个工作日内反馈。
 
+### GitHub Actions 自动提交审核
+
+已有 Chrome Web Store 条目后，可以使用 `.github/workflows/release-chrome-webstore.yml` 自动构建、打包并提交新版审核。该 workflow 仅在手动触发或推送 `v*` tag 时运行，不随普通 `main` push 自动发布。
+
+发布前确认仓库 Secrets 已配置：
+
+- `CWS_CLIENT_ID`
+- `CWS_CLIENT_SECRET`
+- `CWS_REFRESH_TOKEN`
+- `CWS_EXTENSION_ID`
+- `CWS_PUBLISHER_ID`
+
+触发方式：
+
+- 手动：GitHub Actions → `Release Chrome Web Store` → Run workflow
+- 标签：推送形如 `v0.2.1` 的 tag
+
+本流程会执行 `npm run build`、`npm run package:ci`，再调用 `npm run release:chrome` 将根目录生成的 zip 上传到 Chrome Web Store 并提交发布请求。首次上架的商店资料、隐私问卷、权限说明仍需先在 Chrome Web Store Developer Dashboard 中完成。
+
 ## 阶段 6：发布与上线后维护
 
 - [ ] 审核通过后，确认是否立即公开，或设置受限测试/逐步推广；如需要推送给特定用户，可配置测试用户名单。

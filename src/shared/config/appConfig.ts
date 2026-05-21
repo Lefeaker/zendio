@@ -1,7 +1,4 @@
-import type {
-  FragmentClipperOptions,
-  TemplateOptions
-} from '../types';
+import type { FragmentClipperOptions, TemplateOptions } from '../types';
 
 export type TemplateKey = keyof TemplateOptions;
 
@@ -80,7 +77,12 @@ interface BuiltUrls {
   baseUrl: string;
 }
 
-function buildUrl(protocol: 'https' | 'http', host: string, port?: number, basePath?: string): string {
+function buildUrl(
+  protocol: 'https' | 'http',
+  host: string,
+  port?: number,
+  basePath?: string
+): string {
   const safeHost = host.replace(/\/+$/, '');
   const hostWithPort = typeof port === 'number' ? `${safeHost}:${port}` : safeHost;
   const safePath = basePath ? `/${basePath.replace(/^\/+/, '')}` : '';

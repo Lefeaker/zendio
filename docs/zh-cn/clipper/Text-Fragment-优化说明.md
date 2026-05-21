@@ -11,6 +11,7 @@ https://example.com#:~:text=这是一段连续的文本内容
 ```
 
 **特点**：
+
 - 文本是连续的
 - 没有复杂的换行和格式
 - 浏览器可以直接匹配
@@ -22,6 +23,7 @@ https://example.com#:~:text=标题%0A%0A正文内容...
 ```
 
 **特点**：
+
 - 包含标题和正文
 - 有多个段落
 - 有复杂的空白字符和换行
@@ -34,6 +36,7 @@ https://example.com#:~:text=标题%0A%0A正文内容...
 **使用第一个实质性段落作为 Text Fragment**
 
 原因：
+
 1. 第一个段落通常是连续的文本
 2. 避免了跨段落匹配的问题
 3. 提高了匹配成功率
@@ -45,9 +48,9 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
   // 1. 按双换行分割段落
   const paragraphs = selectedText
     .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
-  
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
   // 2. 找到第一个实质性段落（至少20字符）
   let textToUse = '';
   for (const para of paragraphs) {
@@ -57,20 +60,20 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
       break;
     }
   }
-  
+
   // 3. 如果没有找到，使用整个文本（清理后）
   if (!textToUse) {
     textToUse = selectedText.replace(/\s+/g, ' ').trim();
   }
-  
+
   // 4. 限制长度（300字符）
   if (textToUse.length > 300) {
     textToUse = textToUse.substring(0, 300);
   }
-  
+
   // 5. URL 编码
   const encodedText = encodeURIComponent(textToUse);
-  
+
   return `${baseUrl}#:~:text=${encodedText}`;
 }
 ```
@@ -80,6 +83,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ### 示例 1：包含标题和正文的选中内容
 
 **原始选中内容**：
+
 ```
 路径二：让 Agent 自主规划，和它一起成长
 
@@ -91,6 +95,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 **处理步骤**：
 
 1. **分割段落**：
+
    ```
    段落1: "路径二：让 Agent 自主规划，和它一起成长"
    段落2: "另一种就是让 Agent 在自己规定的范围内，尽可能的去自主规划。"
@@ -102,6 +107,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
    - 段落2 长度：30+ 字符（✅ 使用这个）
 
 3. **清理空白字符**：
+
    ```
    "另一种就是让 Agent 在自己规定的范围内，尽可能的去自主规划。"
    ```
@@ -114,6 +120,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ### 示例 2：连续的长段落
 
 **原始选中内容**：
+
 ```
 每个领域都有大量的知识，但最宝贵的是什么？是那些领域内的人自己都不知道，都是隐藏知识。这些才是领域的 Memory。一个通用的 Agent，就算能做 Deep Research，它也拿不到这些知识。而一个好的领域 Agent，就是要想办法把这些散落在各处的隐藏知识、暗知识，缓慢地收集起来，变成自己的外脑。
 ```
@@ -121,6 +128,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 **处理步骤**：
 
 1. **分割段落**：
+
    ```
    段落1: "每个领域都有大量的知识..."（整段）
    ```
@@ -129,11 +137,13 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
    - 段落1 长度：100+ 字符（✅ 使用这个）
 
 3. **清理空白字符**：
+
    ```
    "每个领域都有大量的知识，但最宝贵的是什么？是那些领域内的人自己都不知道..."
    ```
 
 4. **限制长度**（如果超过300字符）：
+
    ```
    "每个领域都有大量的知识，但最宝贵的是什么？是那些领域内的人自己都不知道，都是隐藏知识。这些才是领域的 Memory。一个通用的 Agent，就算能做 Deep Research，它也拿不到这些知识。而一个好的领域 Agent，就是要想办法把这些散落在各处的隐藏知识、暗知识，缓慢地收集起来，变成自己的外脑。"
    ```
@@ -150,18 +160,18 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 #### 优化前
 
 | 选中内容类型 | 成功率 |
-|------------|-------|
-| 单段落 | ✅ 90% |
-| 多段落 | ❌ 20% |
-| 包含标题 | ❌ 10% |
+| ------------ | ------ |
+| 单段落       | ✅ 90% |
+| 多段落       | ❌ 20% |
+| 包含标题     | ❌ 10% |
 
 #### 优化后
 
 | 选中内容类型 | 成功率 |
-|------------|-------|
-| 单段落 | ✅ 95% |
-| 多段落 | ✅ 80% |
-| 包含标题 | ✅ 75% |
+| ------------ | ------ |
+| 单段落       | ✅ 95% |
+| 多段落       | ✅ 80% |
+| 包含标题     | ✅ 75% |
 
 ## 技术细节
 
@@ -175,9 +185,9 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 // - 可选的空白字符
 // - 再一个换行符
 
-"段落1\n\n段落2"  // ✅ 分割
-"段落1\n段落2"    // ❌ 不分割（单换行）
-"段落1\n  \n段落2" // ✅ 分割（中间有空格）
+'段落1\n\n段落2'; // ✅ 分割
+'段落1\n段落2'; // ❌ 不分割（单换行）
+'段落1\n  \n段落2'; // ✅ 分割（中间有空格）
 ```
 
 ### 空白字符清理
@@ -187,8 +197,8 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ```javascript
 // 将所有连续的空白字符替换为单个空格
 
-"文本  内容\n换行"  // → "文本 内容 换行"
-"多个    空格"      // → "多个 空格"
+'文本  内容\n换行'; // → "文本 内容 换行"
+'多个    空格'; // → "多个 空格"
 ```
 
 ### 最小长度阈值
@@ -196,6 +206,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 设置为 **20 个字符**：
 
 **原因**：
+
 - 太短的文本（如标题）可能在页面中重复出现
 - 20 字符是一个合理的平衡点
 - 确保有足够的上下文进行匹配
@@ -205,6 +216,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 设置为 **300 个字符**：
 
 **原因**：
+
 - URL 长度限制（大多数浏览器支持 2000+ 字符）
 - 太长的文本可能因为微小差异而匹配失败
 - 300 字符足够唯一标识一段文本
@@ -218,6 +230,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 **影响**：Text Fragment 可能无法匹配
 
 **解决方案**：
+
 - 使用 frontmatter 中的 `url` 字段访问原页面
 - 手动搜索内容
 
@@ -228,12 +241,14 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 **影响**：Text Fragment 功能被禁用
 
 **示例**：
+
 - 某些新闻网站
 - 企业内部网站
 
 ### 3. 浏览器兼容性
 
 **支持情况**：
+
 - ✅ Chrome/Edge 80+
 - ✅ Safari 16.1+
 - ⚠️ Firefox（需要扩展）
@@ -245,6 +260,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 **影响**：原始文本不存在，无法匹配
 
 **解决方案**：
+
 - 剪藏的内容仍然保存在 Obsidian 中
 - 可以通过原文链接访问页面
 
@@ -253,11 +269,13 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ### 1. 选择合适的内容
 
 **推荐**：
+
 - ✅ 连续的段落
 - ✅ 完整的句子
 - ✅ 有一定长度的文本（20+ 字符）
 
 **不推荐**：
+
 - ❌ 只选标题
 - ❌ 跨越多个不相关段落
 - ❌ 包含大量格式的内容
@@ -265,17 +283,20 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ### 2. 测试精确定位
 
 剪藏后：
+
 1. 在 Obsidian 中打开文件
 2. 点击 frontmatter 中的 `fragment_url`
 3. 检查是否正确高亮
 
 如果不能高亮：
+
 - 使用 `url` 字段访问原页面
 - 手动搜索内容
 
 ### 3. 添加上下文
 
 在评论中添加：
+
 ```
 💡 这段话在文章的第三部分
 📍 位置：关于 Agent 规划的讨论
@@ -286,6 +307,7 @@ function generateTextFragmentUrl(baseUrl: string, selectedText: string): string 
 ### 查看生成的 Fragment URL
 
 在 Obsidian 中：
+
 1. 打开剪藏文件
 2. 查看 frontmatter 中的 `fragment_url`
 3. 复制 URL 到浏览器测试
@@ -299,6 +321,7 @@ https://example.com#:~:text=要匹配的文本
 ```
 
 **注意**：
+
 - 文本需要 URL 编码
 - 使用连续的文本
 - 避免特殊字符
@@ -346,7 +369,7 @@ https://example.com#:~:text=要匹配的文本
 ---
 
 **相关资源**：
+
 - [Text Fragments 规范](https://wicg.github.io/scroll-to-text-fragment/)
 - [Chrome 开发者文档](https://web.dev/text-fragments/)
 - [MDN 文档](https://developer.mozilla.org/en-US/docs/Web/Text_fragments)
-

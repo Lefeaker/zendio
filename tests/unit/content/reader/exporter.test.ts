@@ -22,20 +22,43 @@ function createHighlight(id: string, comment: string): ReaderHighlightRecord {
 describe('ReaderSessionExporter', () => {
   it('assigns sequential footnotes only to commented highlights', () => {
     const buildHighlightsMarkdown = vi.fn();
-    const exporter = new ReaderSessionExporter({ buildHighlightsMarkdown, buildFullMarkdown: vi.fn() });
+    const exporter = new ReaderSessionExporter({
+      buildHighlightsMarkdown,
+      buildFullMarkdown: vi.fn()
+    });
     const assignFootnote = vi.fn();
-    const reconstructText = vi.fn((highlight: ReaderHighlightRecord) => `${highlight.selectedText}-rebuilt`);
+    const reconstructText = vi.fn(
+      (highlight: ReaderHighlightRecord) => `${highlight.selectedText}-rebuilt`
+    );
     const manager = { assignFootnote, reconstructText } as never;
 
-    const prepared = exporter.prepareHighlights([
-      createHighlight('a', ' note one '),
-      createHighlight('b', '   '),
-      createHighlight('c', 'note three')
-    ], manager);
+    const prepared = exporter.prepareHighlights(
+      [
+        createHighlight('a', ' note one '),
+        createHighlight('b', '   '),
+        createHighlight('c', 'note three')
+      ],
+      manager
+    );
 
-    expect(assignFootnote).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: 'a' }), 'note one', 1);
-    expect(assignFootnote).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: 'b' }), '', undefined);
-    expect(assignFootnote).toHaveBeenNthCalledWith(3, expect.objectContaining({ id: 'c' }), 'note three', 2);
+    expect(assignFootnote).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ id: 'a' }),
+      'note one',
+      1
+    );
+    expect(assignFootnote).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ id: 'b' }),
+      '',
+      undefined
+    );
+    expect(assignFootnote).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ id: 'c' }),
+      'note three',
+      2
+    );
     expect(prepared).toEqual([
       expect.objectContaining({ id: 'a', selectedText: 'a-rebuilt', footnoteIndex: 1 }),
       expect.objectContaining({ id: 'b', selectedText: 'b-rebuilt' }),
@@ -57,7 +80,10 @@ describe('ReaderSessionExporter', () => {
       })
     ).rejects.toThrow(/documentClone is required/);
 
-    const clone = new DOMParser().parseFromString('<html><body><p>Hello</p></body></html>', 'text/html');
+    const clone = new DOMParser().parseFromString(
+      '<html><body><p>Hello</p></body></html>',
+      'text/html'
+    );
     const full = await exporter.buildMarkdown({
       mode: 'full',
       pageTitle: 'Page',
@@ -77,20 +103,25 @@ describe('ReaderSessionExporter', () => {
   });
 
   it('applies tokens by unwrapping highlight segments and adding comment metadata', () => {
-    const exporter = new ReaderSessionExporter({ buildHighlightsMarkdown: vi.fn(), buildFullMarkdown: vi.fn() });
+    const exporter = new ReaderSessionExporter({
+      buildHighlightsMarkdown: vi.fn(),
+      buildFullMarkdown: vi.fn()
+    });
     const clone = new DOMParser().parseFromString(
       '<html><body><p><mark class="aiob-reader-highlight" data-reader-highlight-id="hl-1">Alpha</mark><span><mark class="aiob-reader-highlight" data-reader-highlight-id="hl-1">Beta</mark></span></p></body></html>',
       'text/html'
     );
 
-    exporter.applyTokens(clone, [{
-      id: 'hl-1',
-      selectedHtml: '<p>Alpha Beta</p>',
-      selectedText: 'Alpha Beta',
-      comment: 'note',
-      fragmentUrl: 'https://example.com/#frag',
-      footnoteIndex: 3
-    }]);
+    exporter.applyTokens(clone, [
+      {
+        id: 'hl-1',
+        selectedHtml: '<p>Alpha Beta</p>',
+        selectedText: 'Alpha Beta',
+        comment: 'note',
+        fragmentUrl: 'https://example.com/#frag',
+        footnoteIndex: 3
+      }
+    ]);
 
     const bodyText = clone.body.textContent ?? '';
     expect(bodyText).toContain('[[AIIOB_HL:hl-1:S]]');

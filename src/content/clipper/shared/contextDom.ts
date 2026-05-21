@@ -62,6 +62,6 @@ export function findPreviousBlockElement(range: Range): Element | null {
 
 export function getCleanTextContent(element: Element): string {
   const clone = element.cloneNode(true) as Element;
-  clone.querySelectorAll('script, style, noscript, iframe').forEach(el => el.remove());
+  clone.querySelectorAll('script, style, noscript, iframe').forEach((el) => el.remove());
   return clone.textContent || '';
 }

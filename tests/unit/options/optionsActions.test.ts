@@ -7,7 +7,9 @@ describe('optionsActions', () => {
 
   it('throws when actions are used before configuration', async () => {
     const mod = await import('@options/app/optionsActions');
-    await expect(mod.copyConfig()).rejects.toThrow('[optionsActions] Actions have not been configured.');
+    await expect(mod.copyConfig()).rejects.toThrow(
+      '[optionsActions] Actions have not been configured.'
+    );
   });
 
   it('forwards actions and updates language through state manager', async () => {

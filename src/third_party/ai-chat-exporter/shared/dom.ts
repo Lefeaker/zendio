@@ -31,10 +31,10 @@ export function cleanupUIElements(container: HTMLElement): void {
     'url-source-card'
   ];
 
-  selectorsToRemove.forEach(selector => {
+  selectorsToRemove.forEach((selector) => {
     try {
       const elements = container.querySelectorAll(selector);
-      elements.forEach(el => el.remove());
+      elements.forEach((el) => el.remove());
     } catch (error: unknown) {
       console.debug('[cleanupUIElements] ignore invalid selector', { selector, error });
     }
@@ -61,13 +61,13 @@ export function cleanupUIElements(container: HTMLElement): void {
   ];
 
   const allElements = Array.from(container.querySelectorAll('*'));
-  allElements.forEach(el => {
+  allElements.forEach((el) => {
     if (el.tagName.toLowerCase() === 'table' || el.querySelector('table')) {
       return;
     }
 
     const text = el.textContent?.trim() || '';
-    if (textPatternsToRemove.some(pattern => pattern.test(text))) {
+    if (textPatternsToRemove.some((pattern) => pattern.test(text))) {
       if (el.children.length === 0 || text.length < 50) {
         el.remove();
       }
@@ -75,7 +75,7 @@ export function cleanupUIElements(container: HTMLElement): void {
   });
 
   const tables = container.querySelectorAll('table');
-  tables.forEach(table => {
+  tables.forEach((table) => {
     let nextSibling = table.nextElementSibling;
     while (nextSibling) {
       const text = nextSibling.textContent?.trim() || '';

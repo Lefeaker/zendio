@@ -33,7 +33,9 @@ export interface CreateContentRuntimeStateOptions {
   window: Window;
 }
 
-export function createContentRuntimeState(options: CreateContentRuntimeStateOptions): ContentRuntimeState {
+export function createContentRuntimeState(
+  options: CreateContentRuntimeStateOptions
+): ContentRuntimeState {
   const { window } = options;
   const optionsRepository = options.optionsRepository;
   let clipMode: ContentClipMode = 'full';
@@ -82,7 +84,8 @@ export function createContentRuntimeState(options: CreateContentRuntimeStateOpti
 
   function startOptionsLifecycle(): void {
     startOptionsSubscription();
-    void optionsRepository.get()
+    void optionsRepository
+      .get()
       .then(() => refreshFragmentConfig())
       .catch((error) => {
         console.warn('[content] Failed to preload fragment config from options store:', error);

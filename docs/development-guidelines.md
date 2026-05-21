@@ -1,7 +1,7 @@
 # AiiinOB 开发规范指南
 
-> **版本**: v1.0  
-> **更新日期**: 2025-10-16  
+> **版本**: v1.0
+> **更新日期**: 2025-10-16
 > **适用范围**: AiiinOB 浏览器扩展项目
 
 ## 📋 目录
@@ -71,37 +71,37 @@ AiiinOB/
 
 ```typescript
 // 新增剪藏功能相关文件
-src/background/services/clipperService.ts     // 业务服务
-src/background/application/clipProcessor.ts   // 应用逻辑
-src/content/clipper/selectionHandler.ts       // 内容脚本
-src/shared/types/clipper.ts                   // 共享类型
-tests/unit/clipperService.test.ts             // 单元测试
+src / background / services / clipperService.ts; // 业务服务
+src / background / application / clipProcessor.ts; // 应用逻辑
+src / content / clipper / selectionHandler.ts; // 内容脚本
+src / shared / types / clipper.ts; // 共享类型
+tests / unit / clipperService.test.ts; // 单元测试
 ```
 
 #### ❌ 错误示例
 
 ```typescript
 // 不要将业务逻辑放在平台层
-src/platform/clipperService.ts                // ❌ 违反分层原则
+src / platform / clipperService.ts; // ❌ 违反分层原则
 
 // 不要将特定功能的类型放在根类型目录
-src/types/clipperTypes.ts                     // ❌ 应放在 shared/types/
+src / types / clipperTypes.ts; // ❌ 应放在 shared/types/
 
 // 不要将测试文件与源码混放
-src/background/services/clipperService.test.ts // ❌ 应放在 tests/unit/
+src / background / services / clipperService.test.ts; // ❌ 应放在 tests/unit/
 ```
 
 ### 2.2 按功能模块组织
 
-| 功能类型 | 放置位置 | 示例 |
-|---------|---------|------|
-| Chrome API 抽象 | `src/platform/` | `platform/chrome/tabs.ts` |
-| 基础设施服务 | `src/infrastructure/` | `infrastructure/restClient.ts` |
-| 业务服务 | `src/background/services/` | `services/notificationService.ts` |
-| 应用逻辑 | `src/background/application/` | `application/clipProcessor.ts` |
-| 内容脚本 | `src/content/` | `content/clipper/` |
-| UI 组件 | `src/options/components/` | `components/VaultSelector.ts` |
-| 共享工具 | `src/shared/` | `shared/guards/`, `shared/errors/` |
+| 功能类型        | 放置位置                      | 示例                               |
+| --------------- | ----------------------------- | ---------------------------------- |
+| Chrome API 抽象 | `src/platform/`               | `platform/chrome/tabs.ts`          |
+| 基础设施服务    | `src/infrastructure/`         | `infrastructure/restClient.ts`     |
+| 业务服务        | `src/background/services/`    | `services/notificationService.ts`  |
+| 应用逻辑        | `src/background/application/` | `application/clipProcessor.ts`     |
+| 内容脚本        | `src/content/`                | `content/clipper/`                 |
+| UI 组件         | `src/options/components/`     | `components/VaultSelector.ts`      |
+| 共享工具        | `src/shared/`                 | `shared/guards/`, `shared/errors/` |
 
 ---
 
@@ -155,7 +155,7 @@ const clipperService = registry.get(TOKENS.ClipperService);
 
 ```typescript
 // ❌ 不要直接调用 Chrome API
-chrome.tabs.query({active: true}, (tabs) => {
+chrome.tabs.query({ active: true }, (tabs) => {
   // 业务逻辑
 });
 
@@ -187,25 +187,25 @@ try {
 
 ### 3.4 选项页架构准则
 
-- **核心组成**  
-  - `OptionsApp`（`src/options/app/OptionsApp.ts`）装配 Sidebar 与 MainContent，暴露 `mountSection`/`navigateTo` 等生命周期 API。  
-  - `MainContent`（`src/options/components/layout/MainContent.ts`）维护 Section 定义表，通过 `import()` 实现懒加载，首屏仅挂载 `usage`，其他 Section 在导航、哈希或 Shell 触发时动态加载。  
-  - Section 继承 `BaseSection`（`src/options/components/sections/BaseSection.ts`），在 `render()` 内只操作自身容器，通过 `FormSectionRegistry` 与 `OptionsController` 完成 `applySnapshot` / `collectChanges`。  
-  - `FormSectionRegistry`（`src/options/components/formSections/formSectionManager.ts`）是唯一的表单生命周期入口；新增 Section 必须注册处理器，严禁直接操作全局表单。  
+- **核心组成**
+  - 正式 Options UI 启动链为 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
+  - `src/options/stitch/*` 的 schema、renderer、content 与 CSS 是当前 Options UI behavior 真值；新增 UI behavior 优先落在 Stitch schema/render/domain code 或 `src/ui/domains/*`。
+  - `OptionsApp`、`MainContent`、旧 Section class 与 `FormSectionRegistry` 属于兼容/验证迁移资产；不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
+  - 删除旧 Options source 前必须运行 Non-Production Code 3.0 owner scan：记录 `audit:non-production-source:report` counts/exit status，并要求 `audit:non-production-source:check` 通过。
   - `OptionsController`（`src/options/app/optionsController.ts`）集中处理持久化、自动保存、导入导出，自动保存链路需调用 `markPendingAutoSave()` + `scheduleAutoSave()`。
 
-- **运行时约束**  
-  - 二次初始化依赖 `bootstrapOptionsApp()` 内的 `disposeCleanupHandlers()` 与 `teardownMountedShell()`，禁止独立实例化 Controller 或 Shell。  
-  - Section、Helper（如 `DomainMappingsController`、`YamlConfigTable`）必须实现 `destroy()`，清理事件与子组件。  
+- **运行时约束**
+  - 二次初始化依赖 `bootstrapOptionsApp()` 内的 `disposeCleanupHandlers()` 与 `teardownMountedShell()`，禁止独立实例化 Controller 或 Shell。
+  - Section、Helper（如 `DomainMappingsController`、`YamlConfigTable`）必须实现 `destroy()`，清理事件与子组件。
   - 所有文案通过 `setMessages()` 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
 
-- **测试要求**  
-  - 端到端/复杂单测使用 `tests/utils/domEnvironment.ts` 的 `withDomEnvironment()`，统一覆写并恢复全局。  
-  - 浏览器 API 测试使用 `tests/utils/browserMocks.ts` 的 `installChromeMock()` / `installFirefoxMock()`，禁止直接向 `globalThis` 写入裸 `vi.fn()`。  
-  - 新增 Section 测试需覆盖 `render → applySnapshot → collectChanges`，并验证懒加载、自动保存或导航行为。
+- **测试要求**
+  - 端到端/复杂单测使用 `tests/utils/domEnvironment.ts` 的 `withDomEnvironment()`，统一覆写并恢复全局。
+  - 浏览器 API 测试使用 `tests/utils/browserMocks.ts` 的 `installChromeMock()` / `installFirefoxMock()`，禁止直接向 `globalThis` 写入裸 `vi.fn()`。
+  - 新增 Options UI 行为应覆盖 Stitch schema/render/domain 或 production shell contract；不要为旧 Section class 新增生产导向测试。
 
-- **提交前检查清单**  
-  - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/lint-warnings.latest.json` 或命令输出佐证）。  
+- **提交前检查清单**
+  - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/lint-warnings.latest.json` 或命令输出佐证）。
   - 新增 Section 或 Helper 后更新 `src/options/README.md`，保持文档与实现一致。
 
 ---
@@ -245,12 +245,12 @@ public/_locales/
 
 ### 4.2 构建产物管理
 
-| 目录 | 用途 | 版本控制 |
-|------|------|----------|
-| `build/dist/` | 构建输出 | ❌ 忽略 |
-| `build/releases/` | 发布包 | ❌ 忽略 |
-| `build/temp/` | 临时文件 | ❌ 忽略 |
-| `public/` | 静态资源 | ✅ 跟踪 |
+| 目录              | 用途     | 版本控制 |
+| ----------------- | -------- | -------- |
+| `build/dist/`     | 构建输出 | ❌ 忽略  |
+| `build/releases/` | 发布包   | ❌ 忽略  |
+| `build/temp/`     | 临时文件 | ❌ 忽略  |
+| `public/`         | 静态资源 | ✅ 跟踪  |
 
 ---
 
@@ -276,7 +276,7 @@ import { AppError } from 'shared/errors';
 
 ```typescript
 // ✅ 静态资源路径
-const iconPath = 'icons/bannerlogo-128.png';  // 相对于 public/
+const iconPath = 'icons/bannerlogo-128.png'; // 相对于 public/
 const localePath = '_locales/zh_CN/messages.json';
 
 // ✅ 运行时资源解析
@@ -314,8 +314,8 @@ tests/
 
 ```typescript
 // ✅ 测试文件命名：与源文件对应
-src/background/services/clipperService.ts
-tests/unit/background/services/clipperService.test.ts
+src / background / services / clipperService.ts;
+tests / unit / background / services / clipperService.test.ts;
 
 // ✅ 测试用例命名：描述性
 describe('ClipperService', () => {
@@ -323,7 +323,7 @@ describe('ClipperService', () => {
     it('should successfully clip article content', async () => {
       // 测试实现
     });
-    
+
     it('should handle network errors gracefully', async () => {
       // 错误处理测试
     });
@@ -356,7 +356,7 @@ npm uninstall lodash
 // ❌ 不要直接编辑 package.json 添加依赖
 {
   "dependencies": {
-    "lodash": "^4.17.21"  // 手动添加
+    "lodash": "^4.17.21" // 手动添加
   }
 }
 ```
@@ -406,28 +406,30 @@ npm run release          # 创建发布版本
 ### 8.2 开发流程
 
 1. **功能开发**
+
    ```bash
    # 1. 创建功能分支
    git checkout -b feature/new-clipper-feature
-   
+
    # 2. 开发过程中持续运行
    npm run dev
-   
+
    # 3. 编写测试
    npm run test:unit
-   
+
    # 4. 代码质量检查
    npm run typecheck && npm run lint
    ```
 
 2. **提交前检查**
+
    ```bash
    # 完整质量检查
    npm run quality
-   
+
    # 完整测试套件
    npm run test:ci
-   
+
    # 构建验证
    npm run build
    ```
@@ -444,7 +446,8 @@ npm run release          # 创建发布版本
 // ❌ 业务逻辑直接调用 Chrome API
 export class ClipperService {
   async clipContent() {
-    chrome.tabs.query({active: true}, (tabs) => {  // 违反分层
+    chrome.tabs.query({ active: true }, (tabs) => {
+      // 违反分层
       // 业务逻辑
     });
   }
@@ -457,7 +460,7 @@ export class ClipperService {
 // ✅ 通过依赖注入使用平台服务
 export class ClipperService {
   constructor(private tabsService: TabsService) {}
-  
+
   async clipContent() {
     const currentTab = await this.tabsService.getCurrentTab();
     // 业务逻辑
@@ -524,41 +527,41 @@ npm update package-name
 
 ### 10.1 目录用途速查表
 
-| 目录 | 用途 | 示例文件 |
-|------|------|----------|
-| `src/platform/` | Chrome API 抽象 | `chrome/tabs.ts` |
-| `src/infrastructure/` | 基础设施服务 | `restClient.ts` |
-| `src/background/services/` | 业务服务 | `clipperService.ts` |
-| `src/background/application/` | 应用逻辑 | `clipProcessor.ts` |
-| `src/content/` | 内容脚本 | `clipper/index.ts` |
-| `src/options/` | 选项页面 | `components/VaultSelector.ts` |
-| `src/shared/` | 共享模块 | `types/`, `errors/`, `di/` |
-| `src/i18n/` | 国际化 | `messages.ts`, `locales/` |
-| `public/` | 静态资源 | `icons/`, `_locales/`, `manifest.json` |
-| `tests/unit/` | 单元测试 | `clipperService.test.ts` |
-| `tests/e2e/` | 端到端测试 | `clipperFlow.test.ts` |
+| 目录                          | 用途            | 示例文件                               |
+| ----------------------------- | --------------- | -------------------------------------- |
+| `src/platform/`               | Chrome API 抽象 | `chrome/tabs.ts`                       |
+| `src/infrastructure/`         | 基础设施服务    | `restClient.ts`                        |
+| `src/background/services/`    | 业务服务        | `clipperService.ts`                    |
+| `src/background/application/` | 应用逻辑        | `clipProcessor.ts`                     |
+| `src/content/`                | 内容脚本        | `clipper/index.ts`                     |
+| `src/options/`                | 选项页面        | `components/VaultSelector.ts`          |
+| `src/shared/`                 | 共享模块        | `types/`, `errors/`, `di/`             |
+| `src/i18n/`                   | 国际化          | `messages.ts`, `locales/`              |
+| `public/`                     | 静态资源        | `icons/`, `_locales/`, `manifest.json` |
+| `tests/unit/`                 | 单元测试        | `clipperService.test.ts`               |
+| `tests/e2e/`                  | 端到端测试      | `clipperFlow.test.ts`                  |
 
 ### 10.2 常用命令速查
 
-| 任务 | 命令 |
-|------|------|
-| 开发调试 | `npm run dev` |
+| 任务     | 命令                |
+| -------- | ------------------- |
+| 开发调试 | `npm run dev`       |
 | 类型检查 | `npm run typecheck` |
-| 代码规范 | `npm run lint` |
+| 代码规范 | `npm run lint`      |
 | 单元测试 | `npm run test:unit` |
-| 完整构建 | `npm run build` |
-| 打包发布 | `npm run package` |
+| 完整构建 | `npm run build`     |
+| 打包发布 | `npm run package`   |
 
 ### 10.3 路径引用速查
 
-| 引用类型 | 示例 |
-|----------|------|
-| 同层级模块 | `import { Service } from './service';` |
-| 跨层级模块 | `import { Utils } from '../../shared/utils';` |
-| 平台服务 | `import { getPlatformServices } from 'platform';` |
-| 共享类型 | `import { AppError } from 'shared/errors';` |
-| 静态资源 | `'icons/bannerlogo-128.png'` |
-| 本地化文件 | `'_locales/zh_CN/messages.json'` |
+| 引用类型   | 示例                                              |
+| ---------- | ------------------------------------------------- |
+| 同层级模块 | `import { Service } from './service';`            |
+| 跨层级模块 | `import { Utils } from '../../shared/utils';`     |
+| 平台服务   | `import { getPlatformServices } from 'platform';` |
+| 共享类型   | `import { AppError } from 'shared/errors';`       |
+| 静态资源   | `'icons/bannerlogo-128.png'`                      |
+| 本地化文件 | `'_locales/zh_CN/messages.json'`                  |
 
 ---
 
@@ -583,7 +586,9 @@ export interface BookmarksService {
 
 // 2. 在 src/platform/chrome/ 实现
 export class ChromeBookmarksService implements BookmarksService {
-  async create(bookmark: chrome.bookmarks.BookmarkTreeNode): Promise<chrome.bookmarks.BookmarkTreeNode> {
+  async create(
+    bookmark: chrome.bookmarks.BookmarkTreeNode
+  ): Promise<chrome.bookmarks.BookmarkTreeNode> {
     return new Promise((resolve, reject) => {
       chrome.bookmarks.create(bookmark, (result) => {
         if (chrome.runtime.lastError) {
@@ -630,11 +635,13 @@ export class BookmarkServiceImpl implements BookmarkService {
 }
 
 // 3. 注册服务 (src/background/bootstrap.ts)
-registry.register(SERVICE_TOKENS.Bookmark, () =>
-  new BookmarkServiceImpl(
-    getPlatformServices().bookmarks,
-    registry.get(SERVICE_TOKENS.Notification)
-  )
+registry.register(
+  SERVICE_TOKENS.Bookmark,
+  () =>
+    new BookmarkServiceImpl(
+      getPlatformServices().bookmarks,
+      registry.get(SERVICE_TOKENS.Notification)
+    )
 );
 ```
 
@@ -856,7 +863,7 @@ export class ClipperService {
   private async getAiExtractor(): Promise<AiChatExtractor> {
     if (!this.aiExtractor) {
       this.aiExtractor = import('../extractors/aiChatExtractor').then(
-        module => new module.AiChatExtractor()
+        (module) => new module.AiChatExtractor()
       );
     }
     return this.aiExtractor;
@@ -899,6 +906,7 @@ export class ConfigService {
 > 💡 **提示**: 遇到不确定的情况时，请参考现有代码中的最佳实践，或查阅项目的其他文档。保持代码的一致性是最重要的原则。
 
 > 📚 **相关文档**:
+>
 > - [Chrome API 解耦指南](./chrome-api-decoupling-guide.md)
 > - [目录重构计划](./directory-restructure-plan.md)
 > - [目录重构最佳实践](./directory-restructure-best-practices.md)

@@ -23,7 +23,7 @@ function findWorkspaceRoot(startDir) {
 }
 
 const workspaceRoot = findWorkspaceRoot(repoRoot);
-const sourceRoot = path.join(repoRoot, 'src/options/preview');
+const sourceRoot = path.join(repoRoot, 'tests/fixtures/options-preview');
 const defaultOutputRoot = path.join(workspaceRoot, 'future/options-component-preview');
 const previewEntryPoints = {
   index: path.join(sourceRoot, 'entries/index.ts'),
@@ -208,12 +208,14 @@ function patchStandaloneResourceOpen(scriptContent) {
 
 function normalizePreviewBundleSourceLabels(scriptContent) {
   const replacements = {
-    'src/options/stitch/ui/dom.ts': 'src/options/preview/ui/dom.ts',
-    'src/options/stitch/ui/components.ts': 'src/options/preview/ui/components.ts',
-    'src/options/stitch/content.ts': 'src/options/preview/content/previewContent.ts',
-    'src/options/stitch/render/shellBuilders.ts': 'src/options/preview/app/shellBuilders.ts',
-    'src/options/stitch/render/renderStitchView.ts': 'src/options/preview/app/renderPreviewView.ts',
-    'src/options/stitch/schema/': 'src/options/preview/schema/'
+    'src/options/stitch/ui/dom.ts': 'tests/fixtures/options-preview/ui/dom.ts',
+    'src/options/stitch/ui/components.ts': 'tests/fixtures/options-preview/ui/components.ts',
+    'src/options/stitch/content.ts': 'tests/fixtures/options-preview/content/previewContent.ts',
+    'src/options/stitch/render/shellBuilders.ts':
+      'tests/fixtures/options-preview/app/shellBuilders.ts',
+    'src/options/stitch/render/renderStitchView.ts':
+      'tests/fixtures/options-preview/app/renderPreviewView.ts',
+    'src/options/stitch/schema/': 'tests/fixtures/options-preview/schema/'
   };
 
   return Object.entries(replacements).reduce(

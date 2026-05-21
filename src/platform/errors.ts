@@ -21,7 +21,10 @@ export function createChromeRuntimeError(message?: string): PlatformError {
 }
 
 export function chromeUnavailableError(): PlatformError {
-  return new PlatformError('CHROME_UNAVAILABLE', 'Chrome runtime API is not available in this context');
+  return new PlatformError(
+    'CHROME_UNAVAILABLE',
+    'Chrome runtime API is not available in this context'
+  );
 }
 
 export function createFirefoxRuntimeError(message?: string): PlatformError {
@@ -29,5 +32,8 @@ export function createFirefoxRuntimeError(message?: string): PlatformError {
 }
 
 export function firefoxUnavailableError(): PlatformError {
-  return new PlatformError('FIREFOX_UNAVAILABLE', 'Firefox browser API is not available in this context');
+  return new PlatformError(
+    'FIREFOX_UNAVAILABLE',
+    'Firefox browser API is not available in this context'
+  );
 }

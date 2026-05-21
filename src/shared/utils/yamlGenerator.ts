@@ -9,10 +9,7 @@ export interface YamlGenerationOptions {
 }
 
 const escapeYamlString = (value: string): string =>
-  value
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\r?\n/g, '\\n');
+  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n');
 
 const toArray = (value: unknown): unknown[] => {
   if (Array.isArray(value)) {
@@ -42,7 +39,9 @@ const stringifyFieldValue = (field: YamlFieldConfig, value: unknown): string | n
     case 'number': {
       const asNumber = typeof value === 'number' ? value : Number(value);
       if (!Number.isFinite(asNumber)) {
-        throw new Error(`[yamlGenerator] 字段 ${field.name} 需要数字类型，当前值: ${String(value)}`);
+        throw new Error(
+          `[yamlGenerator] 字段 ${field.name} 需要数字类型，当前值: ${String(value)}`
+        );
       }
       return String(asNumber);
     }
@@ -104,9 +103,7 @@ const splitPath = (path: string): string[] => {
 };
 
 const normalizeKeyToken = (token: string): string =>
-  token
-    .replace(/[^A-Za-z0-9]/g, '')
-    .toLowerCase();
+  token.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
 
 const findAliasKey = (source: Record<string, unknown>, token: string): string | null => {
   const normalized = normalizeKeyToken(token);

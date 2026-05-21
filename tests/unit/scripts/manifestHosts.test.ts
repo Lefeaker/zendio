@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyRestHostPermissions, resolveRestHostPermissions } from '../../../scripts/utils/manifestHosts.mjs';
+import {
+  applyRestHostPermissions,
+  resolveRestHostPermissions
+} from '../../../scripts/utils/manifestHosts.mjs';
 
 const resolveHostPermissions = resolveRestHostPermissions as () => string[];
-const applyHostPermissions = applyRestHostPermissions as (manifest: { host_permissions?: string[] }) => {
+const applyHostPermissions = applyRestHostPermissions as (manifest: {
+  host_permissions?: string[];
+}) => {
   host_permissions?: string[];
 };
 

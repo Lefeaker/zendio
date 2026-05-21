@@ -17,7 +17,9 @@ type MessagingServiceMock = MessagingService & {
 const mockMessaging: MessagingServiceMock = {
   send: createMockFn<MessagingService['send']>() as MessagingServiceMock['send'],
   sendToTab: createMockFn<MessagingService['sendToTab']>() as MessagingServiceMock['sendToTab'],
-  addListener: createMockFn<MessagingService['addListener']>() as MessagingServiceMock['addListener']
+  addListener: createMockFn<
+    MessagingService['addListener']
+  >() as MessagingServiceMock['addListener']
 };
 
 let registeredListener: PlatformListener | null = null;
@@ -72,7 +74,9 @@ describe('ChromeMessagingRepository', () => {
         mockMessaging.send.mockReturnValue(new Promise(() => {}));
 
         const attempt = repo.send(message, 50);
-        const assertion = expect(attempt).rejects.toThrow('Message timeout after waiting for response');
+        const assertion = expect(attempt).rejects.toThrow(
+          'Message timeout after waiting for response'
+        );
 
         await vi.advanceTimersByTimeAsync(50);
         await assertion;

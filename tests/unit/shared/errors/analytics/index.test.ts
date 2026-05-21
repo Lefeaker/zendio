@@ -1,21 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const initializeAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => ({
-  enabled: true,
-  debugMode: false,
-  measurementId: 'G-123',
-  clientId: 'client-1',
-  sessionId: 'session-1'
-})));
+const initializeAnalyticsConfigMock = vi.hoisted(() =>
+  vi.fn(async () => ({
+    enabled: true,
+    debugMode: false,
+    measurementId: 'G-123',
+    clientId: 'client-1',
+    sessionId: 'session-1'
+  }))
+);
 const shouldReportErrorsMock = vi.hoisted(() => vi.fn(() => true));
 const createGoogleAnalyticsReporterMock = vi.hoisted(() => vi.fn(() => ({ id: 'ga' })));
 const createSentryErrorReporterMock = vi.hoisted(() => vi.fn(() => ({ id: 'sentry' })));
-const getSentryBuildConfigMock = vi.hoisted(() => vi.fn(() => ({
-  enabled: true,
-  dsn: 'https://public@example.ingest.sentry.io/123456',
-  environment: 'test',
-  release: '1.2.3'
-})));
+const getSentryBuildConfigMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    enabled: true,
+    dsn: 'https://public@example.ingest.sentry.io/123456',
+    environment: 'test',
+    release: '1.2.3'
+  }))
+);
 
 vi.mock('../../../../../src/shared/errors/analytics/analyticsConfig', () => ({
   getAnalyticsConfigManager: vi.fn(() => ({

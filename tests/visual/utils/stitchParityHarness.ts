@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -13,6 +14,8 @@ export interface StitchElementSample {
   };
   style?: Record<string, string>;
 }
+
+export type PreviewSourceKind = 'external-reference' | 'generated-preview';
 
 export interface StitchParityContract {
   skin: {
@@ -63,24 +66,63 @@ export interface StitchParityContract {
   elementSamples: Record<string, StitchElementSample>;
 }
 
-function findWorkspaceRoot(startDir: string): string {
+const EXTERNAL_PREVIEW_ENTRY = 'future/options-component-preview 2/index.html';
+const FORCE_GENERATED_PREVIEW = process.env.AIIINOB_FORCE_GENERATED_STITCH_PREVIEW === '1';
+const GENERATED_PREVIEW_ROOT = resolve(
+  process.cwd(),
+  '..',
+  '.tmp/stitch-parity-preview/options-component-preview'
+);
+let generatedPreviewBuilt = false;
+
+function findExternalPreviewEntry(startDir: string): string | null {
   let current = startDir;
   for (;;) {
-    if (existsSync(join(current, 'future/options-component-preview 2/index.html'))) {
-      return current;
+    const candidate = join(current, EXTERNAL_PREVIEW_ENTRY);
+    if (existsSync(candidate)) {
+      return candidate;
     }
     const parent = dirname(current);
     if (parent === current) {
-      return resolve(startDir, '..');
+      return null;
     }
     current = parent;
   }
 }
 
+function buildGeneratedPreviewEntry(): string {
+  if (!generatedPreviewBuilt) {
+    execFileSync(
+      process.execPath,
+      [resolve(process.cwd(), 'scripts/build-preview.mjs'), '--outdir', GENERATED_PREVIEW_ROOT],
+      {
+        cwd: process.cwd(),
+        stdio: 'inherit'
+      }
+    );
+    generatedPreviewBuilt = true;
+  }
+
+  return join(GENERATED_PREVIEW_ROOT, 'index.html');
+}
+
+function resolvePreviewEntry(): string {
+  if (FORCE_GENERATED_PREVIEW) {
+    return buildGeneratedPreviewEntry();
+  }
+  return findExternalPreviewEntry(process.cwd()) ?? buildGeneratedPreviewEntry();
+}
+
+export function getPreviewSourceKind(): PreviewSourceKind {
+  if (FORCE_GENERATED_PREVIEW) {
+    return 'generated-preview';
+  }
+
+  return findExternalPreviewEntry(process.cwd()) ? 'external-reference' : 'generated-preview';
+}
+
 export function createPreviewUrl(): string {
-  return pathToFileURL(
-    resolve(findWorkspaceRoot(process.cwd()), 'future/options-component-preview 2/index.html')
-  ).toString();
+  return pathToFileURL(resolvePreviewEntry()).toString();
 }
 
 export function createProductionUrl(): string {

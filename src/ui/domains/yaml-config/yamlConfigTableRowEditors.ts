@@ -7,10 +7,10 @@ import {
 import {
   ARRAY_INPUT_PLACEHOLDER,
   type FieldRow,
+  type RowActions,
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
 import { formatArrayValue } from './yamlConfigTableStateModel';
-import type { RowActions } from './yamlConfigTableRowRenderers';
 
 export function buildYamlDefaultValueEditor(
   row: FieldRow,

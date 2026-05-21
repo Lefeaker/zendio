@@ -1,12 +1,12 @@
 import {
   ARRAY_INPUT_PLACEHOLDER,
+  type DomainFieldRendererActions,
   type DomainFieldRow,
   type YamlConfigDomainLabels
 } from './yamlConfigTableTypes';
 import { createInputElement } from '../../primitives/input';
 import { createLayoutElement } from '../../primitives/layout';
 import { formatArrayValue } from './yamlConfigTableStateModel';
-import type { DomainFieldRendererActions } from './yamlConfigTableDomainFieldRenderers';
 
 export function buildDomainFieldValueEditor(
   field: DomainFieldRow,
@@ -54,8 +54,10 @@ function buildDefaultValueInput(
         ? placeholderRaw
         : ARRAY_INPUT_PLACEHOLDER
       : labels.valuePlaceholder,
-    value: isArray ? formatArrayValue(field.defaultValue ?? '') : field.defaultValue ?? '',
-    className: isArray ? 'w-full min-h-[36px] aobx-table__array-input' : 'w-full min-h-[36px] aobx-input'
+    value: isArray ? formatArrayValue(field.defaultValue ?? '') : (field.defaultValue ?? ''),
+    className: isArray
+      ? 'w-full min-h-[36px] aobx-table__array-input'
+      : 'w-full min-h-[36px] aobx-input'
   });
 
   input.addEventListener('input', (event) =>

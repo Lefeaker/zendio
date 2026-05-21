@@ -31,7 +31,9 @@ function createPreviewRuntimeService(): RuntimeService {
     getURL(path: string): string {
       return path;
     },
-    async openOptionsPage(): Promise<void> {},
+    openOptionsPage(): Promise<void> {
+      return Promise.resolve();
+    },
     getManifest() {
       return { version: 'preview' };
     },
@@ -49,7 +51,9 @@ function createPreviewTabsService(): TabsService {
     create() {
       return Promise.resolve(undefined);
     },
-    async remove() {},
+    remove() {
+      return Promise.resolve();
+    },
     getCurrent() {
       return Promise.resolve(undefined);
     },
@@ -79,8 +83,12 @@ function createPreviewContextMenusService(): ContextMenusService {
     create() {
       return Promise.resolve('preview');
     },
-    async update() {},
-    async removeAll() {},
+    update() {
+      return Promise.resolve();
+    },
+    removeAll() {
+      return Promise.resolve();
+    },
     onClicked() {
       return () => {};
     },
@@ -96,7 +104,9 @@ function createPreviewNotificationsService(): NotificationsService {
     create(id) {
       return Promise.resolve(id);
     },
-    async clear() {}
+    clear() {
+      return Promise.resolve();
+    }
   };
 }
 
@@ -105,8 +115,12 @@ function createPreviewActionService(): ActionService {
     onClicked() {
       return () => {};
     },
-    async setBadgeText() {},
-    async setBadgeBackgroundColor() {}
+    setBadgeText() {
+      return Promise.resolve();
+    },
+    setBadgeBackgroundColor() {
+      return Promise.resolve();
+    }
   };
 }
 
@@ -120,7 +134,9 @@ function createPreviewScriptingService(): ScriptingService {
 
 function createPreviewRestClient(): RestClient {
   return {
-    async writeFile() {}
+    writeFile() {
+      return Promise.resolve();
+    }
   };
 }
 
@@ -141,15 +157,17 @@ function createPreviewFileSystemAccessService(): FileSystemAccessService {
       return Promise.reject(new Error('File System Access API is unavailable in preview.'));
     },
     queryPermission() {
-      return Promise.resolve('unsupported');
+      return Promise.resolve('unsupported' as const);
     },
     ensurePermission() {
-      return Promise.resolve('unsupported');
+      return Promise.resolve('unsupported' as const);
     },
     writeFile() {
       return Promise.reject(new Error('File System Access API is unavailable in preview.'));
     },
-    async removeDirectory() {}
+    removeDirectory() {
+      return Promise.resolve();
+    }
   };
 }
 

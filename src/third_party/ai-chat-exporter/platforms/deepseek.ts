@@ -4,7 +4,8 @@ import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const DEEPSEEK_MESSAGE_CONTAINER_SELECTOR = '[class*="message"], [class*="Message"]';
 const DEEPSEEK_USER_MESSAGE_SELECTOR = '[class*="user"], [class*="User"]';
-const DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR = '[class*="assistant"], [class*="Assistant"], [class*="bot"]';
+const DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR =
+  '[class*="assistant"], [class*="Assistant"], [class*="bot"]';
 const DEEPSEEK_TITLE_REPLACE_TEXT = ' - DeepSeek';
 
 function extractDeepSeekChatData(doc: Document): ParsedResult {
@@ -44,7 +45,9 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
 
   if (!model) {
     const bodyText = doc.body.textContent || '';
-    const modelMatch = bodyText.match(/DeepSeek[\s-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Coder|Turbo|Pro)/i);
+    const modelMatch = bodyText.match(
+      /DeepSeek[\s-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Coder|Turbo|Pro)/i
+    );
     if (modelMatch) {
       model = modelMatch[0];
     }
@@ -67,7 +70,9 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
       contentElem = element.querySelector('[class*="content"], [class*="text"], article, div, p');
     } else if (element.matches(DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR)) {
       role = 'assistant';
-      contentElem = element.querySelector('[class*="content"], [class*="markdown"], article, div, p');
+      contentElem = element.querySelector(
+        '[class*="content"], [class*="markdown"], article, div, p'
+      );
     }
 
     if (!contentElem) {

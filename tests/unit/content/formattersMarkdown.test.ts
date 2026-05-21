@@ -24,7 +24,11 @@ describe('content/formatters/markdown', () => {
   });
 
   it('falls back safely when url is invalid', () => {
-    const markdown = buildChatMarkdown({ platform: 'web', url: 'not-a-url', messages: [{ id: '1', role: 'assistant', text: 'ok' }] });
+    const markdown = buildChatMarkdown({
+      platform: 'web',
+      url: 'not-a-url',
+      messages: [{ id: '1', role: 'assistant', text: 'ok' }]
+    });
     expect(markdown).toContain('# 1 ASSISTANT');
     expect(markdown).not.toContain('domain:');
   });

@@ -43,7 +43,10 @@ describe('FocusTrapController', () => {
     controller.activate();
 
     expect(createFocusTrapMock).toHaveBeenCalledTimes(1);
-    const [, options] = createFocusTrapMock.mock.calls[0] as [HTMLElement, { initialFocus?: HTMLElement; fallbackFocus?: HTMLElement }];
+    const [, options] = createFocusTrapMock.mock.calls[0] as [
+      HTMLElement,
+      { initialFocus?: HTMLElement; fallbackFocus?: HTMLElement }
+    ];
     expect(options.initialFocus?.id).toBe('first');
     expect(options.fallbackFocus?.id).toBe('fallback');
     expect(controller.isActive()).toBe(true);
@@ -54,7 +57,11 @@ describe('FocusTrapController', () => {
     const container = document.getElementById('container');
     const first = document.getElementById('first');
     const fallback = document.getElementById('fallback');
-    if (!(container instanceof HTMLElement) || !(first instanceof HTMLElement) || !(fallback instanceof HTMLElement)) {
+    if (
+      !(container instanceof HTMLElement) ||
+      !(first instanceof HTMLElement) ||
+      !(fallback instanceof HTMLElement)
+    ) {
       throw new Error('Focus trap fixtures missing');
     }
 
@@ -66,7 +73,10 @@ describe('FocusTrapController', () => {
     controller.activate();
 
     expect(createFocusTrapMock).toHaveBeenCalledTimes(1);
-    const [, options] = createFocusTrapMock.mock.calls[0] as [HTMLElement, { initialFocus?: HTMLElement; fallbackFocus?: HTMLElement }];
+    const [, options] = createFocusTrapMock.mock.calls[0] as [
+      HTMLElement,
+      { initialFocus?: HTMLElement; fallbackFocus?: HTMLElement }
+    ];
     expect(options.initialFocus).toBe(first);
     expect(options.fallbackFocus).toBe(fallback);
   });
@@ -88,7 +98,10 @@ describe('FocusTrapController', () => {
     expect(trapDeactivateMock).not.toHaveBeenCalled();
 
     controller.activate();
-    const [, options] = createFocusTrapMock.mock.calls[0] as [HTMLElement, { fallbackFocus?: HTMLElement }];
+    const [, options] = createFocusTrapMock.mock.calls[0] as [
+      HTMLElement,
+      { fallbackFocus?: HTMLElement }
+    ];
     expect(options.fallbackFocus).toBe(container);
 
     controller.pause();

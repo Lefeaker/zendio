@@ -35,30 +35,39 @@ export function parseTrialConfigPayload(value: unknown): TrialConfigPayload | nu
 }
 
 export async function initializeTrialSystem(
-  deps: Pick<TrialLifecycleDependencies, 'checkTrialStatus' | 'showExpirationNotice' | 'setInterval'>
+  deps: Pick<
+    TrialLifecycleDependencies,
+    'checkTrialStatus' | 'showExpirationNotice' | 'setInterval'
+  >
 ): Promise<void> {
   try {
     const status = await deps.checkTrialStatus();
 
     if (status.isTrial) {
-      console.log(`[trial] 试用版本状态: ${status.isExpired ? '已过期' : `剩余${status.remainingDays}天`}`);
+      console.log(
+        `[trial] 试用版本状态: ${status.isExpired ? '已过期' : `剩余${status.remainingDays}天`}`
+      );
 
       if (status.isExpiringSoon || status.isExpired) {
         await deps.showExpirationNotice();
       }
 
-      (deps.setInterval ?? globalThis.setInterval)(() => {
-        void deps.checkTrialStatus()
-          .then(currentStatus => {
-            if (currentStatus.isExpiringSoon || currentStatus.isExpired) {
-              return deps.showExpirationNotice();
-            }
-            return undefined;
-          })
-          .catch(error => {
-            console.error('[trial] Failed to perform scheduled status check:', error);
-          });
-      }, 60 * 60 * 1000);
+      (deps.setInterval ?? globalThis.setInterval)(
+        () => {
+          void deps
+            .checkTrialStatus()
+            .then((currentStatus) => {
+              if (currentStatus.isExpiringSoon || currentStatus.isExpired) {
+                return deps.showExpirationNotice();
+              }
+              return undefined;
+            })
+            .catch((error) => {
+              console.error('[trial] Failed to perform scheduled status check:', error);
+            });
+        },
+        60 * 60 * 1000
+      );
     }
   } catch (error) {
     console.error('[trial] 初始化试用系统失败:', error);
@@ -90,7 +99,10 @@ export async function initializeTrialOnInstall(
 
 export async function handleFirstInstall(
   details: RuntimeInstallDetails,
-  deps: Pick<TrialLifecycleDependencies, 'runtime' | 'storage' | 'tabs' | 'fetch' | 'initializeTrial'>
+  deps: Pick<
+    TrialLifecycleDependencies,
+    'runtime' | 'storage' | 'tabs' | 'fetch' | 'initializeTrial'
+  >
 ): Promise<void> {
   if (details.reason !== 'install') {
     return;
@@ -113,7 +125,7 @@ export async function handleFirstInstall(
 }
 
 export function registerTrialLifecycle(deps: TrialLifecycleDependencies): void {
-  void initializeTrialSystem(deps).catch(error => {
+  void initializeTrialSystem(deps).catch((error) => {
     console.error('[background] Failed to initialize trial system:', error);
   });
 

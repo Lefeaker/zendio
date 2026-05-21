@@ -23,7 +23,7 @@ export interface ClipperDialogDependencies {
 
 /**
  * 创建 ClipperDialog 实例
- * 
+ *
  * @param dependencies 可选的依赖注入
  * @returns ClipperDialog 实例
  */
@@ -32,7 +32,8 @@ export function createClipperDialog(dependencies?: ClipperDialogDependencies): C
   const storageService = dependencies?.storageService ?? platform.storage;
   const errorHandler = dependencies?.errorHandler ?? getErrorHandlerInstance();
   const runtimeService = dependencies?.runtimeService ?? platform.runtime;
-  const clipRepository = dependencies?.clipRepository ?? resolveRepository<IClipRepository>(DI_TOKENS.IClipRepository);
+  const clipRepository =
+    dependencies?.clipRepository ?? resolveRepository<IClipRepository>(DI_TOKENS.IClipRepository);
 
   return new ClipperDialog({
     storage: storageService,
@@ -44,13 +45,22 @@ export function createClipperDialog(dependencies?: ClipperDialogDependencies): C
 
 /**
  * 创建用于测试的 ClipperDialog 实例
- * 
+ *
  * @param mockDependencies 测试用的 mock 依赖
  * @returns ClipperDialog 实例
  */
-export function createTestClipperDialog(mockDependencies: ClipperDialogDependencies): ClipperDialog {
-  if (!mockDependencies.storageService || !mockDependencies.errorHandler || !mockDependencies.runtimeService || !mockDependencies.clipRepository) {
-    throw new Error('Test ClipperDialog requires storageService, runtimeService, clipRepository, and errorHandler mocks');
+export function createTestClipperDialog(
+  mockDependencies: ClipperDialogDependencies
+): ClipperDialog {
+  if (
+    !mockDependencies.storageService ||
+    !mockDependencies.errorHandler ||
+    !mockDependencies.runtimeService ||
+    !mockDependencies.clipRepository
+  ) {
+    throw new Error(
+      'Test ClipperDialog requires storageService, runtimeService, clipRepository, and errorHandler mocks'
+    );
   }
 
   return new ClipperDialog({

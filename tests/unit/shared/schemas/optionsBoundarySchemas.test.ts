@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { StoredOptionsSchema, VaultRouterConfigSchema, YamlConfigOverridesSchema } from '@shared/schemas';
+import {
+  StoredOptionsSchema,
+  VaultRouterConfigSchema,
+  YamlConfigOverridesSchema
+} from '@shared/schemas';
 
 describe('options boundary schemas', () => {
   it('accepts legacy-compatible vaultRouter config', () => {

@@ -18,7 +18,7 @@ export class MockYamlRepository implements IYamlRepository {
 
   setOverrides(overrides: YamlConfigOverrides): Promise<void> {
     this.overrides = clone(overrides);
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(this.overrides);
       } catch (error) {

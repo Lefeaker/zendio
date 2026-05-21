@@ -17,7 +17,7 @@ export function detectBrowser(): BrowserType {
     }
     return 'chrome';
   }
-  
+
   if (typeof browser !== 'undefined' && browser.runtime) {
     // Firefox 环境
     if (navigator.userAgent.includes('Mobile')) {
@@ -25,26 +25,26 @@ export function detectBrowser(): BrowserType {
     }
     return 'firefox';
   }
-  
+
   // 在网页环境中检测
   const userAgent = navigator.userAgent.toLowerCase();
-  
+
   if (userAgent.includes('firefox')) {
     return userAgent.includes('mobile') ? 'firefox-mobile' : 'firefox';
   }
-  
+
   if (userAgent.includes('edg/')) {
     return 'edge';
   }
-  
+
   if (userAgent.includes('chrome')) {
     return 'chrome';
   }
-  
+
   if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
     return 'safari';
   }
-  
+
   return 'unknown';
 }
 
@@ -68,8 +68,10 @@ export function isChrome(): boolean {
  */
 export function isMobile(): boolean {
   const browser = detectBrowser();
-  return browser === 'firefox-mobile' || 
-         /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  return (
+    browser === 'firefox-mobile' ||
+    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  );
 }
 
 /**
@@ -78,7 +80,7 @@ export function isMobile(): boolean {
 export function addBrowserClassToHtml(): void {
   const browser = detectBrowser();
   const htmlElement = document.documentElement;
-  
+
   // 移除所有浏览器类
   htmlElement.classList.remove(
     'is-chrome',
@@ -88,7 +90,7 @@ export function addBrowserClassToHtml(): void {
     'is-safari',
     'is-mobile'
   );
-  
+
   // 添加当前浏览器类
   switch (browser) {
     case 'chrome':
@@ -107,7 +109,7 @@ export function addBrowserClassToHtml(): void {
       htmlElement.classList.add('is-safari');
       break;
   }
-  
+
   // 添加移动设备类
   if (isMobile()) {
     htmlElement.classList.add('is-mobile');
@@ -120,9 +122,9 @@ export function addBrowserClassToHtml(): void {
 export function getBrowserVersion(): string {
   const userAgent = navigator.userAgent;
   const browser = detectBrowser();
-  
+
   let match: RegExpMatchArray | null = null;
-  
+
   switch (browser) {
     case 'firefox':
     case 'firefox-mobile':
@@ -138,7 +140,7 @@ export function getBrowserVersion(): string {
       match = userAgent.match(/Version\/(\d+\.\d+)/);
       break;
   }
-  
+
   return match ? match[1] : 'unknown';
 }
 
@@ -155,7 +157,7 @@ export interface BrowserCapabilities {
 
 export function getBrowserCapabilities(): BrowserCapabilities {
   const browser = detectBrowser();
-  
+
   return {
     webExtensions: browser !== 'unknown',
     serviceWorker: 'serviceWorker' in navigator,

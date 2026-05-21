@@ -38,7 +38,7 @@ describe('VaultRouter', () => {
   const createConfig = (rulesForTech: RoutingRule[]): VaultRouterConfig => ({
     vaults: [
       { ...baseVaults[0], rules: [] },
-      { ...baseVaults[1], rules: rulesForTech.map(rule => ({ ...rule, vaultId: 'tech' })) }
+      { ...baseVaults[1], rules: rulesForTech.map((rule) => ({ ...rule, vaultId: 'tech' })) }
     ],
     defaultVaultId: 'default'
   });
@@ -189,7 +189,9 @@ describe('VaultRouter', () => {
       }
     ]);
     const keywordRouter = new VaultRouter(keywordConfig);
-    expect(keywordRouter.selectVault({ ...context, title: 'Research Log', content: 'misc' })?.id).toBe('tech');
+    expect(
+      keywordRouter.selectVault({ ...context, title: 'Research Log', content: 'misc' })?.id
+    ).toBe('tech');
 
     const urlConfig = createConfig([
       {

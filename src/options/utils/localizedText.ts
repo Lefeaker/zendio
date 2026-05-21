@@ -33,36 +33,32 @@ export function bindLocalizedText<T extends HTMLElement>(
   const resolvedBinder = binder ?? getOptionsI18nBinder();
   let pending: { cancel(): void } | null = null;
 
-  const internals = applyLocalizedContent(
-    element,
-    content,
-    {
-      applyValue(value) {
-        element.textContent = value;
-      },
-      applyLocalizedValue(key) {
-        element.dataset.i18n = key;
-      },
-      clearLocalizationMetadata() {
-        if (hadDataset) {
-          if (previousDataset !== undefined) {
-            element.dataset.i18n = previousDataset;
-          } else {
-            delete element.dataset.i18n;
-          }
-        } else if (element.dataset.i18n) {
+  const internals = applyLocalizedContent(element, content, {
+    applyValue(value) {
+      element.textContent = value;
+    },
+    applyLocalizedValue(key) {
+      element.dataset.i18n = key;
+    },
+    clearLocalizationMetadata() {
+      if (hadDataset) {
+        if (previousDataset !== undefined) {
+          element.dataset.i18n = previousDataset;
+        } else {
           delete element.dataset.i18n;
         }
-      },
-      createBinding(key) {
-        return resolvedBinder ? resolvedBinder.bindText(element, key) : null;
-      },
-      onAsyncUpdate(handler) {
-        pending = handler;
-      },
-      logLabel: 'bindLocalizedText'
-    }
-  );
+      } else if (element.dataset.i18n) {
+        delete element.dataset.i18n;
+      }
+    },
+    createBinding(key) {
+      return resolvedBinder ? resolvedBinder.bindText(element, key) : null;
+    },
+    onAsyncUpdate(handler) {
+      pending = handler;
+    },
+    logLabel: 'bindLocalizedText'
+  });
 
   return {
     element,
@@ -90,28 +86,19 @@ export function bindLocalizedAttr<T extends HTMLElement>(
   const resolvedBinder = binder ?? getOptionsI18nBinder();
   let pending: { cancel(): void } | null = null;
 
-  const internals = applyLocalizedContent(
-    element,
-    content,
-    {
-      applyValue(value) {
-        element.setAttribute(attribute, value);
-        if (hasProperty) {
-          elementWithProp[attribute] = value;
-        }
-      },
-      clearLocalizationMetadata() {
-        if (hadAttribute) {
-          if (previousAttribute !== null) {
-            element.setAttribute(attribute, previousAttribute);
-            if (hasProperty) {
-              elementWithProp[attribute] = previousPropertyValue;
-            }
-          } else {
-            element.removeAttribute(attribute);
-            if (hasProperty) {
-              elementWithProp[attribute] = previousPropertyValue;
-            }
+  const internals = applyLocalizedContent(element, content, {
+    applyValue(value) {
+      element.setAttribute(attribute, value);
+      if (hasProperty) {
+        elementWithProp[attribute] = value;
+      }
+    },
+    clearLocalizationMetadata() {
+      if (hadAttribute) {
+        if (previousAttribute !== null) {
+          element.setAttribute(attribute, previousAttribute);
+          if (hasProperty) {
+            elementWithProp[attribute] = previousPropertyValue;
           }
         } else {
           element.removeAttribute(attribute);
@@ -119,16 +106,21 @@ export function bindLocalizedAttr<T extends HTMLElement>(
             elementWithProp[attribute] = previousPropertyValue;
           }
         }
-      },
-      createBinding(key) {
-        return resolvedBinder ? resolvedBinder.bindAttr(element, attribute, key) : null;
-      },
-      onAsyncUpdate(handler) {
-        pending = handler;
-      },
-      logLabel: `bindLocalizedAttr(${attribute})`
-    }
-  );
+      } else {
+        element.removeAttribute(attribute);
+        if (hasProperty) {
+          elementWithProp[attribute] = previousPropertyValue;
+        }
+      }
+    },
+    createBinding(key) {
+      return resolvedBinder ? resolvedBinder.bindAttr(element, attribute, key) : null;
+    },
+    onAsyncUpdate(handler) {
+      pending = handler;
+    },
+    logLabel: `bindLocalizedAttr(${attribute})`
+  });
 
   return {
     element,
@@ -142,7 +134,9 @@ export function bindLocalizedAttr<T extends HTMLElement>(
   };
 }
 
-export function unbindLocalizedContent(binding: BoundElement<HTMLElement> | null | undefined): void {
+export function unbindLocalizedContent(
+  binding: BoundElement<HTMLElement> | null | undefined
+): void {
   binding?.dispose();
 }
 
@@ -225,16 +219,15 @@ function applyLocalizedContent<T extends HTMLElement>(
     }
 
     if (!text) {
-      const update = getOptionsMessages()
-        .then((msgs) => {
-          if (disposed) {
-            return;
-          }
-          if (hooks.applyLocalizedValue && element.dataset.i18n !== key) {
-            return;
-          }
-          setValue(msgs[key] ?? initial);
-        });
+      const update = getOptionsMessages().then((msgs) => {
+        if (disposed) {
+          return;
+        }
+        if (hooks.applyLocalizedValue && element.dataset.i18n !== key) {
+          return;
+        }
+        setValue(msgs[key] ?? initial);
+      });
       if (cancelAsync) {
         cancelAsync(update);
       }

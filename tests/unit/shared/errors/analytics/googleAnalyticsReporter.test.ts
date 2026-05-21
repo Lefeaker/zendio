@@ -12,7 +12,9 @@ const manifest: chrome.runtime.Manifest = {
 };
 
 vi.mock('../../../../../src/shared/di', () => ({ getService: getServiceMock }));
-vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({ sanitizeErrorForAnalytics: sanitizeErrorForAnalyticsMock }));
+vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({
+  sanitizeErrorForAnalytics: sanitizeErrorForAnalyticsMock
+}));
 
 describe('GoogleAnalyticsReporter', () => {
   const fetchMock = vi.fn();
@@ -22,21 +24,41 @@ describe('GoogleAnalyticsReporter', () => {
     vi.clearAllMocks();
     vi.stubGlobal('fetch', fetchMock);
     getServiceMock.mockReturnValue({ runtime: { getManifest: () => manifest } });
-    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 Chrome/123.0 Safari/537.36' });
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 Chrome/123.0 Safari/537.36'
+    });
   });
 
   it('does nothing when disabled', async () => {
-    const { GoogleAnalyticsReporter } = await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const { GoogleAnalyticsReporter } = await import(
+      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
+    );
     const reporter = new GoogleAnalyticsReporter({ enabled: false, measurementId: 'G-123' });
-    await reporter.report({ code: 'NETWORK_TIMEOUT', domain: 'background', severity: ErrorSeverity.CRITICAL, recoverable: true, message: 'oops', timestamp: Date.now() });
+    await reporter.report({
+      code: 'NETWORK_TIMEOUT',
+      domain: 'background',
+      severity: ErrorSeverity.CRITICAL,
+      recoverable: true,
+      message: 'oops',
+      timestamp: Date.now()
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('sends sanitized error payloads and exposes config helpers', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     fetchMock.mockResolvedValue({ ok: true, text: () => Promise.resolve('{"ok":true}') });
-    const { GoogleAnalyticsReporter } = await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
-    const reporter = new GoogleAnalyticsReporter({ enabled: true, measurementId: 'G-123', debugMode: true, clientId: 'client', sessionId: 'session' });
+    const { GoogleAnalyticsReporter } = await import(
+      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
+    );
+    const reporter = new GoogleAnalyticsReporter({
+      enabled: true,
+      measurementId: 'G-123',
+      debugMode: true,
+      clientId: 'client',
+      sessionId: 'session'
+    });
 
     await reporter.report({
       code: 'NETWORK_TIMEOUT',
@@ -45,11 +67,18 @@ describe('GoogleAnalyticsReporter', () => {
       recoverable: true,
       message: 'oops',
       timestamp: Date.now(),
-      context: { extractor: 'reader', url: 'https://example.com/path?token=abc', stack: 'Error\n at fn (https://example.com/file.js:12:8)' }
+      context: {
+        extractor: 'reader',
+        url: 'https://example.com/path?token=abc',
+        stack: 'Error\n at fn (https://example.com/file.js:12:8)'
+      }
     });
 
     expect(sanitizeErrorForAnalyticsMock).toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('debug/mp/collect?measurement_id=G-123'), expect.objectContaining({ method: 'POST' }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('debug/mp/collect?measurement_id=G-123'),
+      expect.objectContaining({ method: 'POST' })
+    );
     expect(reporter.getConfig().measurementId).toBe('G-123');
     expect(reporter.isEnabled()).toBe(true);
     reporter.updateConfig({ enabled: false });
@@ -61,12 +90,28 @@ describe('GoogleAnalyticsReporter', () => {
 
   it('swallows reporting failures and falls back when manifest lookup fails', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    getServiceMock.mockImplementation(() => { throw new Error('missing service'); });
-    fetchMock.mockResolvedValue({ ok: false, status: 500, statusText: 'Broken', text: () => Promise.resolve('') });
-    const { GoogleAnalyticsReporter } = await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    getServiceMock.mockImplementation(() => {
+      throw new Error('missing service');
+    });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Broken',
+      text: () => Promise.resolve('')
+    });
+    const { GoogleAnalyticsReporter } = await import(
+      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
+    );
     const reporter = new GoogleAnalyticsReporter({ enabled: true, measurementId: 'G-123' });
 
-    await reporter.report({ code: 'UNKNOWN', domain: 'background', severity: ErrorSeverity.INFO, recoverable: false, message: 'bad', timestamp: Date.now() });
+    await reporter.report({
+      code: 'UNKNOWN',
+      domain: 'background',
+      severity: ErrorSeverity.INFO,
+      recoverable: false,
+      message: 'bad',
+      timestamp: Date.now()
+    });
     expect(consoleWarnSpy).toHaveBeenCalled();
     consoleWarnSpy.mockRestore();
   });

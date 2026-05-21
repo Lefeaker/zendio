@@ -39,4 +39,6 @@ export const chromeApiErrors = {
   }
 } as const;
 
-export type ChromeApiErrorCode = ReturnType<typeof chromeApiErrors[keyof typeof chromeApiErrors]>['code'];
+export type ChromeApiErrorCode = ReturnType<
+  (typeof chromeApiErrors)[keyof typeof chromeApiErrors]
+>['code'];

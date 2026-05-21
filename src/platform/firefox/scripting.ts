@@ -13,7 +13,9 @@ function buildFallbackCode(options: ScriptExecutionOptions): string | undefined 
 }
 
 export const firefoxScriptingService: ScriptingService = {
-  async executeScript(options: ScriptExecutionOptions): Promise<chrome.scripting.InjectionResult<unknown>[] | void> {
+  async executeScript(
+    options: ScriptExecutionOptions
+  ): Promise<chrome.scripting.InjectionResult<unknown>[] | void> {
     const firefoxApi = ensureFirefox();
 
     if (firefoxApi.scripting?.executeScript) {

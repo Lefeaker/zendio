@@ -1,4 +1,4 @@
-import { BaseComponent } from '../../../ui/foundation/lifecycle/BaseComponent';
+import { BaseComponent } from '@ui/foundation/lifecycle/BaseComponent';
 import { Sidebar, type SidebarConfig, type SidebarFooterLink } from './Sidebar';
 import { MainContent } from './MainContent';
 import type { NavigationItem } from './Navigation';
@@ -48,9 +48,7 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
       this.sidebar.setMessages(this.messages);
     }
     const sidebarElement = this.sidebar.render(this.buildSidebarConfig(config));
-    const sidebarNode = (sidebarElement ??
-      sidebarHost.firstElementChild ??
-      sidebarHost) as HTMLElement;
+    const sidebarNode = sidebarElement ?? sidebarHost.firstElementChild ?? sidebarHost;
     sidebarNode.classList.add(
       'aobx-shell__sidebar',
       'border-b',
@@ -84,9 +82,7 @@ export class OptionsApp extends BaseComponent<OptionsAppConfig> {
       ...(config.initialSection !== undefined && { initialSection: config.initialSection }),
       formRegistry: this.formRegistry
     });
-    const contentNode = (contentElement ??
-      contentHost.firstElementChild ??
-      contentHost) as HTMLElement;
+    const contentNode = contentElement ?? contentHost.firstElementChild ?? contentHost;
     contentNode.classList.add(
       'aobx-shell__content',
       'min-h-screen',

@@ -29,7 +29,9 @@ describe('SentryErrorReporter', () => {
   });
 
   it('does nothing when disabled', async () => {
-    const { SentryErrorReporter } = await import('../../../../../src/shared/errors/analytics/sentryReporter');
+    const { SentryErrorReporter } = await import(
+      '../../../../../src/shared/errors/analytics/sentryReporter'
+    );
     const reporter = new SentryErrorReporter({
       dsn: 'https://public@example.ingest.sentry.io/123456',
       enabled: false
@@ -50,7 +52,9 @@ describe('SentryErrorReporter', () => {
   it('sends sanitized envelope payloads to sentry', async () => {
     fetchMock.mockResolvedValue({ ok: true });
 
-    const { SentryErrorReporter } = await import('../../../../../src/shared/errors/analytics/sentryReporter');
+    const { SentryErrorReporter } = await import(
+      '../../../../../src/shared/errors/analytics/sentryReporter'
+    );
     const reporter = new SentryErrorReporter({
       dsn: 'https://public@example.ingest.sentry.io/123456',
       enabled: true,
@@ -87,7 +91,9 @@ describe('SentryErrorReporter', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     fetchMock.mockResolvedValue({ ok: false, status: 500, statusText: 'Broken' });
 
-    const { SentryErrorReporter } = await import('../../../../../src/shared/errors/analytics/sentryReporter');
+    const { SentryErrorReporter } = await import(
+      '../../../../../src/shared/errors/analytics/sentryReporter'
+    );
     const reporter = new SentryErrorReporter({
       dsn: 'https://public@example.ingest.sentry.io/123456',
       enabled: true
@@ -102,7 +108,10 @@ describe('SentryErrorReporter', () => {
       timestamp: Date.now()
     });
 
-    expect(warnSpy).toHaveBeenCalledWith('[Sentry Reporter] Failed to report error:', expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Sentry Reporter] Failed to report error:',
+      expect.any(Error)
+    );
     warnSpy.mockRestore();
   });
 });

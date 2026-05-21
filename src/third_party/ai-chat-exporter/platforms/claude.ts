@@ -2,7 +2,8 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
-const CLAUDE_MAIN_CONTAINER_SELECTOR = '.flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1';
+const CLAUDE_MAIN_CONTAINER_SELECTOR =
+  '.flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1';
 const CLAUDE_USER_MESSAGE_SELECTOR = '[data-testid="user-message"]';
 const CLAUDE_ASSISTANT_MESSAGE_SELECTOR = '.font-claude-response';
 
@@ -49,7 +50,9 @@ function extractClaudeChatData(doc: Document): ParsedResult {
 
     const assistantMessage = element.querySelector(CLAUDE_ASSISTANT_MESSAGE_SELECTOR);
     if (assistantMessage) {
-      const markdownContainer = assistantMessage.querySelector('.standard-markdown, .progressive-markdown');
+      const markdownContainer = assistantMessage.querySelector(
+        '.standard-markdown, .progressive-markdown'
+      );
       if (markdownContainer) {
         const html = markdownContainer.innerHTML;
         const markdown = chatHtmlToMarkdown(html);

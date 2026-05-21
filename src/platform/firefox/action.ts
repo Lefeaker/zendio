@@ -32,7 +32,7 @@ export const firefoxActionService: ActionService = {
 
   async setBadgeText(details: { text: string; tabId?: number }): Promise<void> {
     const firefoxApi = ensureFirefox();
-    
+
     // Firefox 使用 browserAction
     if (firefoxApi.browserAction?.setBadgeText) {
       try {
@@ -50,9 +50,12 @@ export const firefoxActionService: ActionService = {
     }
   },
 
-  async setBadgeBackgroundColor(details: { color: string | [number, number, number, number]; tabId?: number }): Promise<void> {
+  async setBadgeBackgroundColor(details: {
+    color: string | [number, number, number, number];
+    tabId?: number;
+  }): Promise<void> {
     const firefoxApi = ensureFirefox();
-    
+
     if (firefoxApi.browserAction?.setBadgeBackgroundColor) {
       try {
         await firefoxApi.browserAction.setBadgeBackgroundColor(details);

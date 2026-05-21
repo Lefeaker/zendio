@@ -63,7 +63,7 @@ describe('contextDom utilities', () => {
     range.setEnd(target, textContent.length);
 
     const path = collectListPath(range);
-    expect(path.map(el => el.id)).toEqual(['outer', 'inner']);
+    expect(path.map((el) => el.id)).toEqual(['outer', 'inner']);
   });
 
   it('finds previous block element in tree', () => {

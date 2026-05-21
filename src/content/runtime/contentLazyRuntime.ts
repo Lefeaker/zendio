@@ -2,6 +2,10 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
+import type {
+  LocalVaultPermissionPromptMessage,
+  LocalVaultPermissionPromptResponse
+} from '../../shared/types';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import type {
@@ -9,10 +13,6 @@ import type {
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from './supportProgress';
-import type {
-  LocalVaultPermissionPromptMessage,
-  LocalVaultPermissionPromptResponse
-} from '../../shared/types';
 
 interface SupportPromptLike {
   show(options?: unknown): Promise<void> | void;
@@ -34,6 +34,10 @@ interface LazyRuntimeDependencies {
 type VideoPromptRuntimeModule = typeof import('../video/videoLazyRuntime');
 type LoadVideoPromptRuntime = () => Promise<
   Pick<VideoPromptRuntimeModule, 'initializeVideoPromptRuntime'>
+>;
+type LocalVaultPermissionPromptModule = typeof import('./localVaultPermissionPrompt');
+type LoadLocalVaultPermissionPrompt = () => Promise<
+  Pick<LocalVaultPermissionPromptModule, 'createLocalVaultPermissionPrompt'>
 >;
 
 const VIDEO_PROMPT_HOST_PATTERNS = [
@@ -109,17 +113,18 @@ export function createLazySupportPrompt(document: Document): SupportPromptLike {
   };
 }
 
-export function createLazyLocalVaultPermissionPrompt(params: {
-  document: Document;
-  window: Window;
-  runtime: Pick<RuntimeService, 'getURL'>;
-}): LocalVaultPermissionPromptLike {
+export function createLazyLocalVaultPermissionPrompt(
+  dependencies: Pick<LazyRuntimeDependencies, 'document' | 'runtime'> & { window: Window },
+  loadPrompt: LoadLocalVaultPermissionPrompt = () => import('./localVaultPermissionPrompt')
+): LocalVaultPermissionPromptLike {
   let promptPromise: Promise<LocalVaultPermissionPromptLike> | null = null;
 
   return {
-    request(message) {
-      promptPromise ??= import('./localVaultPermissionPrompt').then(
-        ({ createLocalVaultPermissionPrompt }) => createLocalVaultPermissionPrompt(params)
+    request(
+      message: LocalVaultPermissionPromptMessage
+    ): Promise<LocalVaultPermissionPromptResponse> {
+      promptPromise ??= loadPrompt().then(({ createLocalVaultPermissionPrompt }) =>
+        createLocalVaultPermissionPrompt(dependencies)
       );
       return promptPromise.then((prompt) => prompt.request(message));
     }

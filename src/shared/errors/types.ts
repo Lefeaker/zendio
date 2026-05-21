@@ -46,8 +46,10 @@ export function isAppError(candidate: unknown): candidate is AppError {
     return false;
   }
   const value = candidate as Record<string, unknown>;
-  return typeof value.code === 'string'
-    && typeof value.domain === 'string'
-    && typeof value.severity === 'string'
-    && typeof value.recoverable === 'boolean';
+  return (
+    typeof value.code === 'string' &&
+    typeof value.domain === 'string' &&
+    typeof value.severity === 'string' &&
+    typeof value.recoverable === 'boolean'
+  );
 }

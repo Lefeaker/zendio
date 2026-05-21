@@ -149,7 +149,11 @@ describe('pageController', () => {
     controller.mount(root);
 
     expect(bindingAdapter.bindTextMock).toHaveBeenCalledWith(textNode, 'extensionName');
-    expect(bindingAdapter.bindAttrMock).toHaveBeenCalledWith(inputNode, 'placeholder', 'domainMappingDomainPlaceholder');
+    expect(bindingAdapter.bindAttrMock).toHaveBeenCalledWith(
+      inputNode,
+      'placeholder',
+      'domainMappingDomainPlaceholder'
+    );
     expect(bindingAdapter.refreshMock).toHaveBeenCalledTimes(2);
   });
 

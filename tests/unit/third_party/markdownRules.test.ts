@@ -13,7 +13,9 @@ describe('markdownRules', () => {
   };
 
   it('converts marks, strikethrough, task lists, and embeds', () => {
-    const markdown = convert('<mark>Hi</mark><del>Gone</del><ul><li class="task-list-item"><input type="checkbox" checked>Task</li></ul><iframe src="https://www.youtube.com/embed/abc123"></iframe>');
+    const markdown = convert(
+      '<mark>Hi</mark><del>Gone</del><ul><li class="task-list-item"><input type="checkbox" checked>Task</li></ul><iframe src="https://www.youtube.com/embed/abc123"></iframe>'
+    );
     expect(markdown).toContain('==Hi==');
     expect(markdown).toContain('~~Gone~~');
     expect(markdown).toContain('[x] Task');
@@ -21,7 +23,9 @@ describe('markdownRules', () => {
   });
 
   it('converts simple tables, math, and callouts', () => {
-    const markdown = convert('<table><tr><th>A</th></tr><tr><td>B</td></tr></table><div class="mwe-math-element"><annotation encoding="application/x-tex">x+y</annotation></div><div class="markdown-alert markdown-alert-note"><div class="markdown-alert-title">Note</div><p>Body</p></div>');
+    const markdown = convert(
+      '<table><tr><th>A</th></tr><tr><td>B</td></tr></table><div class="mwe-math-element"><annotation encoding="application/x-tex">x+y</annotation></div><div class="markdown-alert markdown-alert-note"><div class="markdown-alert-title">Note</div><p>Body</p></div>'
+    );
     expect(markdown).toContain('| A |');
     expect(markdown).toContain('| --- |');
     expect(markdown).toContain('$x+y$');
@@ -41,5 +45,4 @@ describe('markdownRules', () => {
     expect(markdown).toContain('Important reminder');
     expect(markdown).toContain('[YouTube Video](https://www.youtube.com/watch?v=abc123)');
   });
-
 });

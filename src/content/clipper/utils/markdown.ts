@@ -95,10 +95,7 @@ function highlightMarkdownLine(line: string): string {
 }
 
 export function highlightMarkdownBlock(markdown: string): string {
-  return markdown
-    .split('\n')
-    .map(highlightMarkdownLine)
-    .join('\n');
+  return markdown.split('\n').map(highlightMarkdownLine).join('\n');
 }
 
 export function normalizeListBullets(markdown: string): string {
@@ -108,7 +105,7 @@ export function normalizeListBullets(markdown: string): string {
 export function dedupeListLines(markdown: string): string {
   const seen = new Set<string>();
   const lines = markdown.split('\n');
-  const filtered = lines.filter(line => {
+  const filtered = lines.filter((line) => {
     const key = line.trim();
     if (!key) {
       return line.length === 0;
@@ -123,9 +120,7 @@ export function dedupeListLines(markdown: string): string {
 }
 
 export function cleanBulletArtifacts(markdown: string): string {
-  return markdown
-    .replace(/^(\s*-\s*)\* \* \*\s*/gm, '$1')
-    .replace(/^(\s*-\s*)\*\s+/gm, '$1');
+  return markdown.replace(/^(\s*-\s*)\* \* \*\s*/gm, '$1').replace(/^(\s*-\s*)\*\s+/gm, '$1');
 }
 
 export function ensureListWrapped(html: string): string {
@@ -188,13 +183,16 @@ export function formatBeforeHierarchy(markdown: string): string {
   }
 
   const body = rest
-    .map(line => (line.trim() ? (line.startsWith('- ') ? line : `- ${line.trim()}`) : line))
+    .map((line) => (line.trim() ? (line.startsWith('- ') ? line : `- ${line.trim()}`) : line))
     .join('\n');
 
   return `${normalizedFirst}\n\n${body}`;
 }
 
-export function buildHighlightSegment(selectedMarkdown: string, footnote: FootnoteInfo): { block: string; definition?: string } {
+export function buildHighlightSegment(
+  selectedMarkdown: string,
+  footnote: FootnoteInfo
+): { block: string; definition?: string } {
   let block = highlightMarkdownBlock(selectedMarkdown);
   if (footnote.ref) {
     block = appendFootnoteRef(block, footnote.ref);

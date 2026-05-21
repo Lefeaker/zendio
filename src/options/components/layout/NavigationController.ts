@@ -21,7 +21,8 @@ const ACTIVE_ITEM_CLASS = 'is-current';
 const LEGACY_ACTIVE_CLASS = 'aobx-navigation__item--active';
 const ACTIVE_LINK_ATTR = 'aria-current';
 const NAV_CONTAINER_SELECTOR = '.aobx-navigation, .aobx-nav';
-const NAV_LINK_SELECTOR = '.aobx-navigation .aobx-tree-item > a[href^="#"], .aobx-nav .aobx-tree-item > a[href^="#"]';
+const NAV_LINK_SELECTOR =
+  '.aobx-navigation .aobx-tree-item > a[href^="#"], .aobx-nav .aobx-tree-item > a[href^="#"]';
 const ITEM_SELECTOR = '.aobx-tree-item, .aobx-navigation__item';
 const SCROLL_BLOCK: ScrollLogicalPosition = 'start';
 const SCROLL_BEHAVIOR: ScrollBehavior = 'smooth';
@@ -53,14 +54,17 @@ export class NavigationController {
           : typeof document !== 'undefined'
             ? document
             : null);
-    this.window = options.window ?? this.document?.defaultView ?? (typeof window !== 'undefined' ? window : null);
-    const windowWithObserver = this.window as (Window & { IntersectionObserver?: typeof IntersectionObserver }) | null;
-    this.observerFactory = options.observerFactory ?? windowWithObserver?.IntersectionObserver ?? null;
+    this.window =
+      options.window ??
+      this.document?.defaultView ??
+      (typeof window !== 'undefined' ? window : null);
+    const windowWithObserver = this.window as
+      | (Window & { IntersectionObserver?: typeof IntersectionObserver })
+      | null;
+    this.observerFactory =
+      options.observerFactory ?? windowWithObserver?.IntersectionObserver ?? null;
 
-    const queryRoot =
-      (root as Document | Element | null) ??
-      this.document ??
-      null;
+    const queryRoot = (root as Document | Element | null) ?? this.document ?? null;
 
     const selector = options.navSelector ?? NAV_CONTAINER_SELECTOR;
     this.navContainer =
@@ -136,7 +140,9 @@ export class NavigationController {
         continue;
       }
       const item = link.closest<HTMLElement>(ITEM_SELECTOR);
-      const sectionId = targetId.startsWith('section-') ? targetId.slice('section-'.length) : targetId;
+      const sectionId = targetId.startsWith('section-')
+        ? targetId.slice('section-'.length)
+        : targetId;
       const entry: NavigationEntry = { link, item, target, sectionId, isObserved: false };
       entries.push(entry);
       targetMap.set(target, entry);
@@ -149,7 +155,8 @@ export class NavigationController {
 
     this.entries = entries;
     const prefersReducedMotion =
-      typeof windowRef.matchMedia === 'function' && windowRef.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      typeof windowRef.matchMedia === 'function' &&
+      windowRef.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const observer = new observerFactory(
       (observerEntries) => {
@@ -231,7 +238,8 @@ export class NavigationController {
     if (windowRef.location.hash) {
       syncWithHash();
     } else {
-      const presetEntry = entries.find((entry) => entry.item?.classList.contains(ACTIVE_ITEM_CLASS)) ?? entries[0];
+      const presetEntry =
+        entries.find((entry) => entry.item?.classList.contains(ACTIVE_ITEM_CLASS)) ?? entries[0];
       if (presetEntry) {
         observeIfMounted(presetEntry);
         this.setActiveEntry(presetEntry);

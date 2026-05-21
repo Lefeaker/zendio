@@ -43,6 +43,8 @@
         "chunks/*",
         "content/*",
         "icons/*",
+        "local-vault-permission.html",
+        "local-vault-permission.js",
         "styles/clipper/*",
         "options/stitch/styles/*",
         "onboarding/*"

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 const checks = [
   { name: 'UI 架构迁移守卫', cmd: ['npm', 'run', 'audit:ui-architecture:report'] },
   { name: '组件入口统一守卫', cmd: ['npm', 'run', 'audit:components:report'] },
+  { name: '设计系统文档真值守卫', cmd: ['npm', 'run', 'audit:design-system-doc:report'] },
   { name: '交互约定守卫', cmd: ['npm', 'run', 'audit:interaction-contract:report'] },
   { name: 'Options 主链守卫', cmd: ['npm', 'run', 'audit:options-mainline:report'] },
   { name: 'Options 旧前缀扫描', cmd: ['npm', 'run', 'report:options-legacy'] },
@@ -12,6 +13,11 @@ const checks = [
   { name: 'TypeScript 类型检查（strict 基线）', cmd: ['npm', 'run', 'typecheck:strict'] },
   { name: '平台调用 allowlist 审计', cmd: ['npm', 'run', 'audit:platform-services:report'] },
   { name: '深层导入边界审计', cmd: ['npm', 'run', 'audit:imports:report'] },
+  { name: 'Retired code 回归守卫', cmd: ['npm', 'run', 'audit:retired-code:report'] },
+  { name: 'Production shape 守卫', cmd: ['npm', 'run', 'audit:production-shape:report'] },
+  { name: 'Production build graph 守卫', cmd: ['npm', 'run', 'audit:build-graph:report'] },
+  { name: 'Non-production source 安全守卫', cmd: ['npm', 'run', 'audit:non-production-source:check'] },
+  { name: 'Dependency graph 覆盖守卫', cmd: ['npm', 'run', 'audit:deps:report'] },
   { name: 'Lint Warning 基线守卫', cmd: ['npm', 'run', 'lint:warnings-guard'] },
   { name: 'i18n 消息一致性校验', cmd: ['npm', 'run', 'i18n:lint'] },
   { name: '字符预算校验', cmd: ['npm', 'run', 'validate:i18n:budgets'] }

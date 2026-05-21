@@ -1,6 +1,6 @@
 /**
  * Google Analytics 错误报告器
- * 
+ *
  * 将错误信息以匿名化方式发送到 Google Analytics 4
  * 用于收集和分析扩展的错误趋势和稳定性指标
  */
@@ -96,8 +96,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   private createErrorEventParams(error: AppError): ErrorEventParams {
     const parsedCode = parseErrorCode(error.code);
-    const description = ERROR_CODE_DESCRIPTIONS[error.code as keyof typeof ERROR_CODE_DESCRIPTIONS]
-      || 'Unknown error';
+    const description =
+      ERROR_CODE_DESCRIPTIONS[error.code as keyof typeof ERROR_CODE_DESCRIPTIONS] ||
+      'Unknown error';
 
     // 提取安全的上下文信息用于错误定位
     const safeContext = this.extractSafeContext(error.context);
@@ -130,36 +131,36 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
     // 安全的技术信息（不包含用户隐私）
     const safeKeys = [
-      'extractor',           // 使用的提取器类型
-      'type',               // 内容类型
-      'method',             // HTTP 方法
-      'statusCode',         // HTTP 状态码
-      'feature',            // 使用的功能
-      'step',               // 执行步骤
-      'component',          // 组件名称
-      'action',             // 执行的动作
-      'retryCount',         // 重试次数
-      'timeout',            // 超时时间
-      'batchSize',          // 批处理大小
-      'itemCount',          // 项目数量
-      'duration',           // 执行时长
-      'memoryUsage',        // 内存使用情况
-      'cacheHit',           // 缓存命中
-      'apiVersion',         // API 版本
-      'userAgent',          // 用户代理（仅浏览器类型）
-      'platform',           // 平台信息
-      'locale',             // 语言设置
-      'theme',              // 主题设置
-      'screenResolution',   // 屏幕分辨率（用于UI错误定位）
-      'viewportSize',       // 视口大小
-      'connectionType',     // 连接类型
-      'isOnline',           // 在线状态
-      'tabCount',           // 标签页数量
-      'extensionContext'    // 扩展上下文（background/content/popup）
+      'extractor', // 使用的提取器类型
+      'type', // 内容类型
+      'method', // HTTP 方法
+      'statusCode', // HTTP 状态码
+      'feature', // 使用的功能
+      'step', // 执行步骤
+      'component', // 组件名称
+      'action', // 执行的动作
+      'retryCount', // 重试次数
+      'timeout', // 超时时间
+      'batchSize', // 批处理大小
+      'itemCount', // 项目数量
+      'duration', // 执行时长
+      'memoryUsage', // 内存使用情况
+      'cacheHit', // 缓存命中
+      'apiVersion', // API 版本
+      'userAgent', // 用户代理（仅浏览器类型）
+      'platform', // 平台信息
+      'locale', // 语言设置
+      'theme', // 主题设置
+      'screenResolution', // 屏幕分辨率（用于UI错误定位）
+      'viewportSize', // 视口大小
+      'connectionType', // 连接类型
+      'isOnline', // 在线状态
+      'tabCount', // 标签页数量
+      'extensionContext' // 扩展上下文（background/content/popup）
     ];
 
     // 只提取安全的键值对
-    safeKeys.forEach(key => {
+    safeKeys.forEach((key) => {
       if (key in context && context[key] !== undefined) {
         safeContext[key] = context[key];
       }
@@ -191,7 +192,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     return stack
       .split('\n')
       .slice(0, 5) // 只保留前5行
-      .map(line => {
+      .map((line) => {
         // 提取函数名和行号，移除文件路径
         const match = line.match(/at\s+([^(]+)\s*\(.*:(\d+):\d+\)/);
         if (match) {
@@ -216,7 +217,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(request)
     });
@@ -258,7 +259,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     try {
       if (typeof navigator !== 'undefined') {
         const userAgent = navigator.userAgent;
-        
+
         // 简单的浏览器检测（不包含详细版本信息以保护隐私）
         if (userAgent.includes('Chrome')) {
           this.browserInfo.name = 'chrome';
@@ -271,7 +272,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         } else {
           this.browserInfo.name = 'unknown';
         }
-        
+
         // 只记录主版本号
         const versionMatch = userAgent.match(/(?:Chrome|Firefox|Safari|Edge)\/(\d+)/);
         if (versionMatch) {
@@ -305,7 +306,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 }
 
 // 工厂函数
-export function createGoogleAnalyticsReporter(config: GoogleAnalyticsConfig): GoogleAnalyticsReporter {
+export function createGoogleAnalyticsReporter(
+  config: GoogleAnalyticsConfig
+): GoogleAnalyticsReporter {
   return new GoogleAnalyticsReporter(config);
 }
 

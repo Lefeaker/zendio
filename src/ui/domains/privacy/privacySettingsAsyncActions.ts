@@ -3,7 +3,7 @@ import {
   getAnalyticsConfigManager,
   setAnalyticsConsent
 } from '@shared/errors/analytics/analyticsConfig';
-import type { PrivacyConsentSnapshot } from './PrivacySettingsView';
+import type { PrivacyConsentSnapshot } from './privacySettingsTypes';
 
 interface PrivacyBindings {
   analyticsCheckbox: HTMLInputElement | null;

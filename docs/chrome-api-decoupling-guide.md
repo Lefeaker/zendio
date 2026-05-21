@@ -29,12 +29,12 @@
    - 公共模块：`src/shared/**`、`src/platform/**`（若已存在）
 3. 为每条调用补充元数据，可使用下列表格模板：
 
-   | 文件 | 行号 | API | 主要用途 | 返回值模式 | 错误处理 | 备注 |
-   |------|------|-----|----------|------------|----------|------|
-   | `src/content/extractors/aiChatExtractor.ts` | 42 | `chrome.storage.sync.get` | 读取 AI Chat 选项 | Promise 包装 | 无显式处理 | 可与缓存策略合并 |
-
+   | 文件                                        | 行号 | API                       | 主要用途          | 返回值模式   | 错误处理   | 备注             |
+   | ------------------------------------------- | ---- | ------------------------- | ----------------- | ------------ | ---------- | ---------------- |
+   | `src/content/extractors/aiChatExtractor.ts` | 42   | `chrome.storage.sync.get` | 读取 AI Chat 选项 | Promise 包装 | 无显式处理 | 可与缓存策略合并 |
    - “返回值模式”用于标注该调用当前是同步、回调还是通过自定义 Promise。
    - “错误处理”记录是否访问 `chrome.runtime.lastError` 或使用 `try/catch`。
+
 4. 统计高频 API：
    ```bash
    rg "chrome\." AiiinOB/src --type ts --no-heading -o | sort | uniq -c | sort -nr
@@ -54,8 +54,9 @@
    - `contextMenus`: 菜单注册、更新、移除。
    - `notifications`: 创建/清理通知。
    - `runtime`: 获取 manifest、管理安装事件等。
-   记录每组依赖的浏览器权限与可用上下文（background/content/options）。
+     记录每组依赖的浏览器权限与可用上下文（background/content/options）。
 2. **定义接口契约**：在 `src/platform`（可新建）下建立 `interfaces/` 目录，按服务拆分文件。示例：
+
    ```ts
    // src/platform/interfaces/storage.ts
    export interface StorageService {
@@ -65,13 +66,16 @@
      subscribe<T>(key: string, callback: (value: T | undefined) => void): () => void;
    }
    ```
+
    - 接口仅暴露 Promise/同步返回，禁止传出裸回调。
    - 对监听类函数约定返回解除订阅的函数，便于调用方释放资源。
+
 3. **约定错误模型与 logging**：
    - 统一封装 `chrome.runtime.lastError`，转化为 `Error` 并附带 `code` 字段。
    - 约定日志尺寸：接口层仅在抛出前记录 debug 级别日志，业务层再决定是否上报。
    - 将所有接口的错误类型集中定义在 `src/platform/errors.ts`。
 4. **定义平台服务聚合类型**：
+
    ```ts
    export interface PlatformServices {
      storage: StorageService;
@@ -81,6 +85,7 @@
    ```
 
    **P2-3 接口抽象整治后的扩展**：平台容器现已新增业务级接口，提供更高层次的抽象：
+
    ```ts
    export interface PlatformServices {
      // 基础平台服务
@@ -119,8 +124,11 @@
    - `contextMenus.ts`
    - `notifications.ts`
 2. 编写通用工具函数，复用回调转 Promise、错误转换逻辑：
+
    ```ts
-   function wrapChromeCall<T>(invoke: (resolve: (value: T) => void, reject: (error: Error) => void) => void): Promise<T> {
+   function wrapChromeCall<T>(
+     invoke: (resolve: (value: T) => void, reject: (error: Error) => void) => void
+   ): Promise<T> {
      return new Promise((resolve, reject) => {
        invoke(resolve, (error) => reject(error));
      });
@@ -136,7 +144,9 @@
      });
    }
    ```
+
    确保所有适配器都调用这些辅助方法，避免重复实现。
+
 3. 对监听类 API（如 `chrome.storage.onChanged`、`chrome.runtime.onMessage`）提供封装注册/注销逻辑：
    ```ts
     subscribe<T>(key, callback) {
@@ -162,6 +172,7 @@
 ## 4. 引入依赖注入容器（或服务管理器）
 
 1. 新建 `src/platform/services.ts`，集中暴露默认实现：
+
    ```ts
    import { chromeStorageService } from './chrome/storage';
    import { chromeMessagingService } from './chrome/messaging';
@@ -177,11 +188,12 @@
 
      // 业务级服务（P2-3 新增）
      optionsRepository: createCompatibilityOptionsRepository(chromeStorageService),
-     restClient: createFetchRestClient(),
+     restClient: createFetchRestClient()
    };
    ```
 
    **P2-3 整治后的依赖注入容器**：现在使用更完善的DI容器和配置机制：
+
    ```ts
    import { getPlatformServices, configurePlatformServices } from '../platform/services';
 
@@ -196,6 +208,7 @@
    ```
 
    若未来要支持测试专用实现，可以改写为工厂函数 `createServices(overrides?)`。
+
 2. 调整各入口文件（`content/index.ts`、`background/index.ts`、`options/index.ts`）：
    - 在顶层 import `services`，并在初始化阶段将其挂载到当前上下文（如 `window.__aiobServices`），便于调试。
    - 若已有全局单例，考虑统一迁移到 `services`。
@@ -246,10 +259,13 @@
 ## 6. 全局验证与清理
 
 1. **彻底扫描残留调用**：
+
    ```bash
    rg "chrome\." AiiinOB/src --type ts
    ```
+
    - 对于必须直接调用的场景（例如 content script 专属 API），在代码旁添加注释说明并在矩阵中标记“豁免”。
+
 2. **移除过渡逻辑**：
    - 删除 feature flag，或将默认值设置为新实现并记录在变更日志。
    - 移除不再使用的临时代理函数（例如 `getStorage()`），直接注入 `services`。
@@ -288,4 +304,4 @@
 
 ---
 
-执行以上流程，可最大限度降低 Chrome API 解耦对现有功能的影响，确保逐步迁移、随时回滚、可观测的重构节奏。祝顺利完成升级。  
+执行以上流程，可最大限度降低 Chrome API 解耦对现有功能的影响，确保逐步迁移、随时回滚、可观测的重构节奏。祝顺利完成升级。

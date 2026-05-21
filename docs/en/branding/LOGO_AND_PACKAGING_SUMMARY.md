@@ -5,16 +5,19 @@
 ### 1. Logo 更新
 
 #### 更新的文件
+
 - ✅ `assets/icons/icon16.png` - 16x16 工具栏图标
-- ✅ `assets/icons/icon48.png` - 48x48 扩展管理页面图标  
+- ✅ `assets/icons/icon48.png` - 48x48 扩展管理页面图标
 - ✅ `assets/icons/icon128.png` - 128x128 Chrome 应用商店图标
 - ✅ `assets/icons/bannerlogo-128.png` - 选项页 logo
 - ✅ `marketing/logo/options-logo.png` - 256x256 备用营销 logo
 
 #### 源文件
+
 使用了 `/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/marketing/icons/allinob_256x256.png` 作为源文件，通过 macOS 的 `sips` 工具生成了不同尺寸的图标。
 
 #### manifest.json 更新
+
 更新了 `src/manifest.json` 中的图标配置：
 
 ```json
@@ -38,12 +41,14 @@
 #### 新增脚本
 
 ##### `scripts/package.mjs`
+
 - 功能：快速打包扩展为 zip 文件
 - 命令：`npm run package`
 - 输出：`all-in-ob-v{version}.zip`
 - 特点：仅包含扩展文件，适合快速分发
 
 ##### `scripts/create-release.mjs`
+
 - 功能：创建完整的发布包
 - 命令：`npm run release`
 - 输出：`releases/all-in-ob-v{version}-release.zip`
@@ -52,7 +57,9 @@
 #### 新增文档
 
 ##### `INSTALL_GUIDE.md`
+
 详细的用户安装指南，包含：
+
 - 两种安装方法（加载文件夹 / 拖拽安装）
 - 配置说明
 - 更新方法
@@ -60,7 +67,9 @@
 - 使用说明
 
 ##### `DISTRIBUTION_GUIDE.md`
+
 开发者分发指南，包含：
+
 - 打包命令说明
 - 三种分发方式
 - 版本更新流程
@@ -69,6 +78,7 @@
 - 未来上架 Chrome 应用商店的指南
 
 ##### `LOGO_AND_PACKAGING_SUMMARY.md`
+
 本文档，总结所有完成的工作。
 
 #### package.json 更新
@@ -157,6 +167,7 @@ your-extension/
 ## 🎯 当前状态
 
 ### ✅ 已完成
+
 - [x] Logo 更新为新的设计
 - [x] 生成多种尺寸的图标
 - [x] 更新 manifest.json 配置
@@ -169,6 +180,7 @@ your-extension/
 ### 📦 可分发的文件
 
 当前已生成：
+
 - `releases/all-in-ob-v0.2.0-release.zip` (322KB)
 
 这个文件可以直接发送给朋友使用！
@@ -178,6 +190,7 @@ your-extension/
 ### 更新版本
 
 1. 修改 `src/manifest.json` 中的版本号：
+
    ```json
    {
      "version": "0.2.0"
@@ -185,6 +198,7 @@ your-extension/
    ```
 
 2. 运行打包命令：
+
    ```bash
    npm run release
    ```
@@ -194,18 +208,20 @@ your-extension/
 ### 更新 Logo
 
 1. 替换源文件：
+
    ```bash
    cp 新logo.png /path/to/allinob_256x256.png
    ```
 
 2. 重新生成图标：
+
    ```bash
    # 生成 16x16
    sips -z 16 16 源文件.png --out assets/icons/icon16.png
-   
+
    # 生成 48x48
    sips -z 48 48 源文件.png --out assets/icons/icon48.png
-   
+
    # 生成 128x128
    sips -z 128 128 源文件.png --out assets/icons/icon128.png
    ```
@@ -239,6 +255,7 @@ your-extension/
 4. 提交审核
 
 上架后的优点：
+
 - 用户可以直接从应用商店安装
 - 自动更新
 - 不会有开发者模式警告

@@ -19,6 +19,7 @@
 ### 📝 配置说明
 
 **新的配置方式**（推荐）:
+
 ```
 HTTPS URL: https://127.0.0.1:27124/
 HTTP URL:  http://127.0.0.1:27123/
@@ -27,6 +28,7 @@ API Key:   your-api-key
 ```
 
 **旧的配置方式**（仍然支持）:
+
 ```
 Base URL:  https://127.0.0.1:27124/
 Vault:     your-vault-name
@@ -56,4 +58,3 @@ API Key:   your-api-key
 - Obsidian Local REST API 集成
 - 模板系统
 - AI 分类器支持
-

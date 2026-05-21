@@ -8,8 +8,8 @@ export const chromeActionService: ActionService = {
     const wrapped = (tab: chrome.tabs.Tab) => {
       try {
         const result = listener(tab);
-        if (result && typeof (result).catch === 'function') {
-          void (result).catch((error) => {
+        if (result && typeof result.catch === 'function') {
+          void result.catch((error) => {
             const appError = chromeApiErrors.runtimeError(
               'action.onClicked handler rejected',
               {
@@ -59,7 +59,10 @@ export const chromeActionService: ActionService = {
     });
   },
 
-  async setBadgeBackgroundColor(details: { color: string | [number, number, number, number]; tabId?: number }): Promise<void> {
+  async setBadgeBackgroundColor(details: {
+    color: string | [number, number, number, number];
+    tabId?: number;
+  }): Promise<void> {
     const chromeApi = ensureChrome();
     if (!chromeApi.action?.setBadgeBackgroundColor) {
       return;

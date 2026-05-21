@@ -1,8 +1,8 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { join } from 'node:path';
+import { extname, join, relative } from 'node:path';
 
-const root = process.cwd();
+const root = process.env.AIIOB_DESIGN_SYSTEM_DOC_ROOT ?? process.cwd();
 const docPath = join(root, 'docs/design-system-governance.md');
 const docSource = await readFile(docPath, 'utf8');
 
@@ -37,6 +37,9 @@ const missingHeadings = requiredHeadings.filter((heading) => !docSource.includes
 const missingReferences = requiredReferences.filter((reference) => !docSource.includes(reference));
 const missingPhrases = requiredPhrases.filter((phrase) => !docSource.includes(phrase));
 
+const activeDocFiles = await collectActiveDocFiles(root);
+const staleGuidance = await findStaleStyleGuidance(root, activeDocFiles);
+
 const referencedPaths = [...docSource.matchAll(/`((?:src|docs)\/[^`]+)`/g)].map(
   (match) => match[1]
 );
@@ -62,12 +65,15 @@ console.log(
 );
 console.log(`Referenced paths checked: ${uniqueReferencedPaths.length}`);
 console.log(`Missing referenced files: ${missingFiles.length}`);
+console.log(`Active style guidance files checked: ${activeDocFiles.length}`);
+console.log(`Stale current-style guidance findings: ${staleGuidance.length}`);
 
 if (
   missingHeadings.length ||
   missingReferences.length ||
   missingPhrases.length ||
-  missingFiles.length
+  missingFiles.length ||
+  staleGuidance.length
 ) {
   console.log('');
 
@@ -100,7 +106,121 @@ if (
     for (const file of missingFiles) {
       console.log(`- ${file}`);
     }
+    console.log('');
+  }
+
+  if (staleGuidance.length) {
+    console.log('Stale current-style guidance:');
+    for (const finding of staleGuidance) {
+      console.log(`- ${finding.path}:${finding.line}: ${finding.text}`);
+    }
   }
 
   process.exitCode = 1;
+}
+
+async function collectActiveDocFiles(repoRoot) {
+  const candidates = [
+    '.github/PULL_REQUEST_TEMPLATE.md',
+    'AGENTS.md',
+    'README.md',
+    'src/options/README.md',
+    'src/options/components/README.md'
+  ];
+
+  const docs = await listFiles(join(repoRoot, 'docs'));
+  for (const file of docs) {
+    if (extname(file) === '.md') {
+      candidates.push(relative(repoRoot, file));
+    }
+  }
+
+  const scripts = await listFiles(join(repoRoot, 'scripts'));
+  for (const file of scripts) {
+    const extension = extname(file);
+    if (['.js', '.mjs', '.cjs', '.ts', '.mts', '.sh'].includes(extension)) {
+      candidates.push(relative(repoRoot, file));
+    }
+  }
+
+  const unique = [...new Set(candidates.map((file) => normalizePath(file)))];
+  const existing = [];
+  for (const file of unique) {
+    if (isHistoricalStyleDoc(file)) {
+      continue;
+    }
+    try {
+      await access(join(repoRoot, file), constants.F_OK);
+      existing.push(file);
+    } catch {
+      // Missing optional documentation files are covered by source-of-truth docs, not this scan.
+    }
+  }
+  return existing;
+}
+
+async function listFiles(dir) {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await listFiles(fullPath)));
+      } else if (entry.isFile()) {
+        files.push(fullPath);
+      }
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+async function findStaleStyleGuidance(repoRoot, files) {
+  const findings = [];
+  for (const file of files) {
+    const source = await readFile(join(repoRoot, file), 'utf8');
+    const lines = source.split(/\r?\n/);
+    lines.forEach((line, index) => {
+      if (!containsStyleKeyword(line)) {
+        return;
+      }
+      const context = lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 6)).join(' ');
+      if (hasHistoricalCaveat(context) && !/tailwind-baseline/i.test(line)) {
+        return;
+      }
+      findings.push({
+        path: file,
+        line: index + 1,
+        text: line.trim()
+      });
+    });
+  }
+  return findings;
+}
+
+function containsStyleKeyword(line) {
+  return /\b(?:Tailwind|tailwind-baseline|DaisyUI|Daisy)\b|Daisy[A-Z]|daisy\//i.test(line);
+}
+
+function hasHistoricalCaveat(text) {
+  return /historical|archive|archive-only|retired|legacy|compatibility|compat|not active|not current|not .*guidance|已退役|历史|归档|迁移追溯|不得|不要|不应|不存在|不包含|不执行|未恢复|禁止|退出|已删除|防止|不再|旧|仅作为|只作为/i.test(
+    text
+  );
+}
+
+function isHistoricalStyleDoc(file) {
+  return (
+    file.startsWith('docs/archive/') ||
+    file.startsWith('docs/screenshots/') ||
+    file === 'docs/options-doc-refresh-log.md' ||
+    file === 'docs/债务.md' ||
+    /^docs\/final-acceptance-report-.*\.md$/.test(file) ||
+    /^docs\/目标架构迁移.*\.md$/.test(file)
+  );
+}
+
+function normalizePath(path) {
+  return path.split('\\').join('/');
 }

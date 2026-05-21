@@ -91,7 +91,10 @@ export class ReaderSelectionController {
       this.selectionModifierActive = false;
       return;
     }
-    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(this.fragmentConfig, this.modifierState);
+    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(
+      this.fragmentConfig,
+      this.modifierState
+    );
   };
 
   private handleModifierKey = (event: KeyboardEvent): void => {
@@ -177,9 +180,7 @@ export class ReaderSelectionController {
 
   private getSelection(): Selection | null {
     return (
-      this.doc.defaultView?.getSelection() ??
-      this.doc.getSelection?.() ??
-      window.getSelection()
+      this.doc.defaultView?.getSelection() ?? this.doc.getSelection?.() ?? window.getSelection()
     );
   }
 

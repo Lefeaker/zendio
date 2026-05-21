@@ -1,15 +1,30 @@
-import { getOptionsI18nBinder } from '../../../options/app/i18nContext';
-import {
-  bindLocalizedText,
-  unbindLocalizedContent,
-  type BoundElement,
-  type LocalizedContent
-} from '../../../options/utils/localizedText';
+import type { I18nBinder, Messages } from '@i18n';
 import { createOptionsButtonElement } from '../../primitives/button';
 import { createOptionsActionRow, createOptionsPanel } from '../../primitives/layout';
 import { FocusTrapController } from '../../foundation/a11y';
 
+export interface LocalizedContent {
+  key: keyof Messages;
+  fallback?: string;
+  text?: string;
+}
+
 type DialogText = string | LocalizedContent;
+
+export interface BoundElement<T extends HTMLElement> {
+  element: T;
+  dispose(): void;
+}
+
+interface ConfirmFlowLocalization {
+  binder?: I18nBinder | null;
+  bindText<T extends HTMLElement>(
+    element: T,
+    content: DialogText,
+    binder?: I18nBinder | null
+  ): BoundElement<T>;
+  unbind(binding: BoundElement<HTMLElement> | null | undefined): void;
+}
 
 export interface ConfirmDialogOptions {
   title: DialogText;
@@ -18,12 +33,17 @@ export interface ConfirmDialogOptions {
   cancelLabel?: DialogText;
   tone?: 'primary' | 'danger';
   focusCancel?: boolean;
+  localization?: ConfirmFlowLocalization;
 }
 
 export function showOptionsConfirmFlow(options: ConfirmDialogOptions): Promise<boolean> {
   return new Promise((resolve) => {
     const boundElements: BoundElement<HTMLElement>[] = [];
-    const binder = getOptionsI18nBinder();
+    const localization = options.localization ?? {
+      binder: null,
+      bindText: bindPlainText,
+      unbind: unbindPlainText
+    };
 
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
@@ -73,11 +93,15 @@ export function showOptionsConfirmFlow(options: ConfirmDialogOptions): Promise<b
       });
     }
 
-    boundElements.push(bindLocalizedText(title, options.title, binder));
-    boundElements.push(bindLocalizedText(message, options.message, binder));
-    boundElements.push(bindLocalizedText(confirmButton, options.confirmLabel, binder));
+    boundElements.push(localization.bindText(title, options.title, localization.binder));
+    boundElements.push(localization.bindText(message, options.message, localization.binder));
+    boundElements.push(
+      localization.bindText(confirmButton, options.confirmLabel, localization.binder)
+    );
     if (cancelButton && options.cancelLabel) {
-      boundElements.push(bindLocalizedText(cancelButton, options.cancelLabel, binder));
+      boundElements.push(
+        localization.bindText(cancelButton, options.cancelLabel, localization.binder)
+      );
     }
 
     actions.append(confirmButton);
@@ -100,7 +124,7 @@ export function showOptionsConfirmFlow(options: ConfirmDialogOptions): Promise<b
     focusTrap.activate();
 
     const cleanup = () => {
-      boundElements.forEach(unbindLocalizedContent);
+      boundElements.forEach((binding) => localization.unbind(binding));
       backdrop.removeEventListener('click', handleBackdropClick);
       focusTrap.deactivate();
       backdrop.remove();
@@ -122,4 +146,25 @@ export function showOptionsConfirmFlow(options: ConfirmDialogOptions): Promise<b
     confirmButton.addEventListener('click', () => resolveAndCleanup(true));
     cancelButton?.addEventListener('click', () => resolveAndCleanup(false));
   });
+}
+
+function resolveDialogText(content: DialogText): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  return content.text ?? content.fallback ?? content.key;
+}
+
+function bindPlainText<T extends HTMLElement>(element: T, content: DialogText): BoundElement<T> {
+  element.textContent = resolveDialogText(content);
+  return {
+    element,
+    dispose() {
+      element.textContent = '';
+    }
+  };
+}
+
+function unbindPlainText(binding: BoundElement<HTMLElement> | null | undefined): void {
+  binding?.dispose();
 }

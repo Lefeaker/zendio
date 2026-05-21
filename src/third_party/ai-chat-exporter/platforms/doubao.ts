@@ -53,7 +53,9 @@ function pickContentElement(container: HTMLElement): HTMLElement | null {
 }
 
 function cleanupContent(fragment: HTMLElement) {
-  fragment.querySelectorAll('[class*="toolbar"], [class*="message-action"], button, svg').forEach((el) => el.remove());
+  fragment
+    .querySelectorAll('[class*="toolbar"], [class*="message-action"], button, svg')
+    .forEach((el) => el.remove());
 }
 
 function normaliseModelText(text: string | null | undefined): string | null {

@@ -6,10 +6,15 @@ import {
   SHOW_SUPPORT_PROMPT,
   type ClipResultMessage
 } from '@shared/types';
-import type {
-  ClipProcessingHooks,
-  ClipProcessingResult
-} from '../../../src/background/application/clipProcessor';
+import type { ClipProcessingHooks } from '../../../src/background/application/clipProcessor';
+
+type ClipProcessingHooksWithProgress = ClipProcessingHooks & {
+  onProgress: NonNullable<ClipProcessingHooks['onProgress']>;
+};
+
+type ClipProcessingHooksWithPermission = ClipProcessingHooks & {
+  requestLocalVaultPermission: NonNullable<ClipProcessingHooks['requestLocalVaultPermission']>;
+};
 
 const getOptionsMock = vi.fn();
 const notifySuccessMock = vi.fn();
@@ -127,12 +132,9 @@ describe('background clipPipeline', () => {
 
   it('emits progress updates while processing clip results', async () => {
     processClipPayloadMock.mockImplementation(
-      async (
-        _payload: ClipResultMessage['payload'],
-        hooks: ClipProcessingHooks
-      ): Promise<ClipProcessingResult> => {
-        hooks.onProgress?.({ value: 82, label: '正在写入笔记' });
-        return {
+      (_payload, hooks: ClipProcessingHooksWithProgress) => {
+        hooks.onProgress({ value: 82, label: '正在写入笔记' });
+        return Promise.resolve({
           filePath: 'Articles/foo.md',
           vaultName: 'Secondary Vault',
           restVault: 'Secondary',
@@ -145,7 +147,7 @@ describe('background clipPipeline', () => {
             topics: [],
             tags: []
           }
-        };
+        });
       }
     );
 
@@ -161,7 +163,7 @@ describe('background clipPipeline', () => {
         progress: expect.objectContaining({
           value: 40,
           label: '正在接收剪藏内容'
-        }) as unknown
+        })
       })
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
@@ -172,7 +174,7 @@ describe('background clipPipeline', () => {
         progress: expect.objectContaining({
           value: 82,
           label: '正在写入笔记'
-        }) as unknown
+        })
       })
     );
     expect(sendMessageMock).toHaveBeenLastCalledWith(
@@ -180,7 +182,7 @@ describe('background clipPipeline', () => {
       expect.objectContaining({
         type: SHOW_SUPPORT_PROMPT,
         status: 'success',
-        progress: expect.objectContaining({ value: 100, variant: 'success' }) as unknown
+        progress: expect.objectContaining({ value: 100, variant: 'success' })
       })
     );
   });
@@ -360,15 +362,8 @@ describe('background clipPipeline', () => {
       return undefined;
     });
     processClipPayloadMock.mockImplementation(
-      async (
-        _payload: ClipResultMessage['payload'],
-        hooks: ClipProcessingHooks
-      ): Promise<ClipProcessingResult> => {
-        const requestLocalVaultPermission = hooks.requestLocalVaultPermission;
-        if (!requestLocalVaultPermission) {
-          throw new Error('Expected local vault permission hook.');
-        }
-        const reauthResult = await requestLocalVaultPermission({
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
           folderId: 'folder-main',
           folderName: 'Blog',
           vaultName: 'blog'
@@ -423,15 +418,8 @@ describe('background clipPipeline', () => {
       return undefined;
     });
     processClipPayloadMock.mockImplementation(
-      async (
-        _payload: ClipResultMessage['payload'],
-        hooks: ClipProcessingHooks
-      ): Promise<ClipProcessingResult> => {
-        const requestLocalVaultPermission = hooks.requestLocalVaultPermission;
-        if (!requestLocalVaultPermission) {
-          throw new Error('Expected local vault permission hook.');
-        }
-        const reauthResult = await requestLocalVaultPermission({
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
           folderId: 'folder-main',
           folderName: 'Blog',
           vaultName: 'blog'
@@ -469,15 +457,8 @@ describe('background clipPipeline', () => {
   it('does not ask again when a local vault permission prompt is suppressed for the folder', async () => {
     isPromptSuppressedMock.mockResolvedValue(true);
     processClipPayloadMock.mockImplementation(
-      async (
-        _payload: ClipResultMessage['payload'],
-        hooks: ClipProcessingHooks
-      ): Promise<ClipProcessingResult> => {
-        const requestLocalVaultPermission = hooks.requestLocalVaultPermission;
-        if (!requestLocalVaultPermission) {
-          throw new Error('Expected local vault permission hook.');
-        }
-        const reauthResult = await requestLocalVaultPermission({
+      async (_payload, hooks: ClipProcessingHooksWithPermission) => {
+        const reauthResult = await hooks.requestLocalVaultPermission({
           folderId: 'folder-main',
           folderName: 'Blog',
           vaultName: 'blog'

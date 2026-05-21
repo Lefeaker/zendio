@@ -3,7 +3,9 @@ import { detectVideoIdentity, isSupportedVideoUrl } from '@content/video/utils';
 
 describe('video utils', () => {
   it('detects bilibili canonical identity with page parameter', () => {
-    const identity = detectVideoIdentity('https://www.bilibili.com/video/BV1xx411c7mD/?spm_id_from=333.337.search-card.all.click&p=2');
+    const identity = detectVideoIdentity(
+      'https://www.bilibili.com/video/BV1xx411c7mD/?spm_id_from=333.337.search-card.all.click&p=2'
+    );
     expect(identity).toEqual({
       platform: 'bilibili',
       videoId: 'BV1xx411c7mD',

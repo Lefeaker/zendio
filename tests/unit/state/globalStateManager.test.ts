@@ -1,5 +1,9 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { configureGlobalStateManagerStorage, getGlobalStateManager, resetGlobalState } from '@shared/state';
+import {
+  configureGlobalStateManagerStorage,
+  getGlobalStateManager,
+  resetGlobalState
+} from '@shared/state';
 import { STATE_KEYS } from '@shared/state/keys';
 import { testPlatformHarness } from '../../setup/globalSetup';
 import { setupDIForTest, teardownDIAfterTest } from '../setup/diTestSetup';

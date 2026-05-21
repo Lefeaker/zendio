@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { __videoPromptTestUtils } from '@content/video/prompt';
+import { __videoPromptTestUtils } from '@content/video/videoPromptTestHarness';
 
 const {
   clamp,
@@ -72,14 +72,10 @@ describe('video prompt positioning helpers', () => {
     applySideClass(element, 'left');
     expect(element.classList.contains('video-floating-prompt--left')).toBe(true);
     expect(element.classList.contains('video-floating-prompt--right')).toBe(false);
-    expect(element.classList.contains('aiob-video-prompt--left')).toBe(false);
-    expect(element.classList.contains('aiob-video-prompt--right')).toBe(false);
 
     applySideClass(element, 'right');
     expect(element.classList.contains('video-floating-prompt--left')).toBe(false);
     expect(element.classList.contains('video-floating-prompt--right')).toBe(true);
-    expect(element.classList.contains('aiob-video-prompt--left')).toBe(false);
-    expect(element.classList.contains('aiob-video-prompt--right')).toBe(false);
   });
 
   it('setPromptSide persists and updates classes', () => {

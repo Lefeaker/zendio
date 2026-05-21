@@ -769,6 +769,7 @@ test.describe('Stitch runtime surface alignment', () => {
     await expectBottomRightRuntimeSurface(page, surface);
 
     const article = page.locator('#reader-article p').first();
+    await article.evaluate((node) => node.scrollIntoView({ block: 'start', inline: 'nearest' }));
     const articleRect = await article.boundingBox();
     if (!articleRect) {
       throw new Error('missing article rect');
@@ -813,7 +814,7 @@ test.describe('Stitch runtime surface alignment', () => {
     await expect(fragmentText).toHaveCSS('-webkit-line-clamp', '2');
     await fragmentText.click();
     await expect(fragmentText).toHaveClass(/is-expanded/);
-    await page.locator('[data-stitch-surface="video"] .surface-window-footer').click();
+    await page.locator('[data-stitch-surface="video"] .surface-window-title').click();
     await expect(fragmentText).not.toHaveClass(/is-expanded/);
   });
 

@@ -58,9 +58,11 @@ describe('classifier', () => {
 
   it('returns structured error when provider responds with non-ok status', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
-    const fetchMock = vi.fn<FetchParams, Promise<Response>>().mockResolvedValue(
-      createTextResponse('invalid key', { status: 401, statusText: 'Unauthorized' })
-    );
+    const fetchMock = vi
+      .fn<FetchParams, Promise<Response>>()
+      .mockResolvedValue(
+        createTextResponse('invalid key', { status: 401, statusText: 'Unauthorized' })
+      );
     globalThis.fetch = asType<typeof fetch>(fetchMock);
 
     const result = await classify(
@@ -143,11 +145,13 @@ describe('classifier', () => {
   it('rejects invalid classification request input at the boundary', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
 
-    await expect(classify(
-      createConfig(),
-      { typeHint: '', platform: 'claude', url: 'https://example.com', title: 'Title' },
-      'preview'
-    )).rejects.toThrow();
+    await expect(
+      classify(
+        createConfig(),
+        { typeHint: '', platform: 'claude', url: 'https://example.com', title: 'Title' },
+        'preview'
+      )
+    ).rejects.toThrow();
   });
 });
 

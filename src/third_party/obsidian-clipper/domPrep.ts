@@ -8,14 +8,14 @@
  */
 export function preprocessDocument(doc: Document, baseUrl: string): Document {
   // Remove unwanted elements
-  doc.querySelectorAll('script, style, noscript').forEach(n => n.remove());
-  
+  doc.querySelectorAll('script, style, noscript').forEach((n) => n.remove());
+
   // Convert relative URLs to absolute URLs
   makeUrlsAbsolute(doc, baseUrl);
-  
+
   // Optional: Remove inline styles (uncomment if needed)
   // removeInlineStyles(doc);
-  
+
   return doc;
 }
 
@@ -24,7 +24,7 @@ export function preprocessDocument(doc: Document, baseUrl: string): Document {
  */
 function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
   const base = new URL(baseUrl);
-  
+
   // Handle elements with src attribute
   doc.querySelectorAll('[src]').forEach((el: Element) => {
     const element = el as HTMLElement;
@@ -39,7 +39,7 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
       }
     }
   });
-  
+
   // Handle elements with href attribute
   doc.querySelectorAll('[href]').forEach((el: Element) => {
     const element = el as HTMLElement;
@@ -54,7 +54,7 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
       }
     }
   });
-  
+
   // Handle srcset attributes for responsive images
   doc.querySelectorAll('[srcset]').forEach((el: Element) => {
     const element = el as HTMLElement;
@@ -63,7 +63,7 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
       try {
         const absoluteSrcset = srcset
           .split(',')
-          .map(src => {
+          .map((src) => {
             const parts = src.trim().split(/\s+/);
             if (parts.length >= 1) {
               const url = parts[0];
@@ -81,7 +81,7 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
       }
     }
   });
-  
+
   // Handle data-src attributes (lazy loading)
   doc.querySelectorAll('[data-src]').forEach((el: Element) => {
     const element = el as HTMLElement;
@@ -106,7 +106,7 @@ function makeUrlsAbsolute(doc: Document, baseUrl: string): void {
  * Remove elements by selector
  */
 export function removeElementsBySelector(doc: Document, selector: string): void {
-  doc.querySelectorAll(selector).forEach(el => el.remove());
+  doc.querySelectorAll(selector).forEach((el) => el.remove());
 }
 
 /**
@@ -114,17 +114,28 @@ export function removeElementsBySelector(doc: Document, selector: string): void 
  */
 export function removeAdsAndTracking(doc: Document): void {
   const adSelectors = [
-    '.ad', '.ads', '.advertisement', '.banner',
-    '.popup', '.modal', '.overlay',
-    '.social-share', '.share-buttons',
-    '.newsletter-signup', '.subscription',
-    '.cookie-notice', '.cookie-banner',
-    '.tracking', '.analytics',
-    '[class*="ad-"]', '[class*="ads-"]',
-    '[id*="ad-"]', '[id*="ads-"]'
+    '.ad',
+    '.ads',
+    '.advertisement',
+    '.banner',
+    '.popup',
+    '.modal',
+    '.overlay',
+    '.social-share',
+    '.share-buttons',
+    '.newsletter-signup',
+    '.subscription',
+    '.cookie-notice',
+    '.cookie-banner',
+    '.tracking',
+    '.analytics',
+    '[class*="ad-"]',
+    '[class*="ads-"]',
+    '[id*="ad-"]',
+    '[id*="ads-"]'
   ];
-  
-  adSelectors.forEach(selector => {
+
+  adSelectors.forEach((selector) => {
     try {
       removeElementsBySelector(doc, selector);
     } catch (error) {
@@ -139,13 +150,21 @@ export function removeAdsAndTracking(doc: Document): void {
  */
 export function cleanupAttributes(doc: Document): void {
   const unwantedAttributes = [
-    'onclick', 'onload', 'onerror', 'onmouseover', 'onmouseout',
-    'data-track', 'data-analytics', 'data-ga',
-    'data-facebook', 'data-twitter', 'data-pinterest'
+    'onclick',
+    'onload',
+    'onerror',
+    'onmouseover',
+    'onmouseout',
+    'data-track',
+    'data-analytics',
+    'data-ga',
+    'data-facebook',
+    'data-twitter',
+    'data-pinterest'
   ];
-  
-  unwantedAttributes.forEach(attr => {
-    doc.querySelectorAll(`[${attr}]`).forEach(el => {
+
+  unwantedAttributes.forEach((attr) => {
+    doc.querySelectorAll(`[${attr}]`).forEach((el) => {
       el.removeAttribute(attr);
     });
   });
@@ -157,10 +176,10 @@ export function cleanupAttributes(doc: Document): void {
 export function preprocessDocumentFull(doc: Document, baseUrl: string): Document {
   // Basic preprocessing
   preprocessDocument(doc, baseUrl);
-  
+
   // Additional cleanup
   removeAdsAndTracking(doc);
   cleanupAttributes(doc);
-  
+
   return doc;
 }

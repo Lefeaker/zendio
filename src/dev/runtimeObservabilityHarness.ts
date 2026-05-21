@@ -52,7 +52,7 @@ Object.assign(globalThis as Record<string, unknown>, {
   }
 });
 
-globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url =
     typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   const method = init?.method ?? 'GET';
@@ -68,12 +68,14 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise
   capturedRequests.unshift({ url, method, bodyText });
   renderRequests();
 
-  return new Response('{"ok":true}', {
-    status: 200,
-    headers: {
-      'content-type': 'application/json'
-    }
-  });
+  return Promise.resolve(
+    new Response('{"ok":true}', {
+      status: 200,
+      headers: {
+        'content-type': 'application/json'
+      }
+    })
+  );
 };
 
 const errorHandler = createErrorHandler();

@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resetYamlConfigOverridesStore, setYamlConfigOverrides } from '@shared/state/yamlConfigOverridesStore';
+import {
+  resetYamlConfigOverridesStore,
+  setYamlConfigOverrides
+} from '@shared/state/yamlConfigOverridesStore';
 import { generateYamlFrontMatter } from '@shared/utils/yamlGenerator';
 
 describe('generateYamlFrontMatter', () => {
@@ -92,9 +95,7 @@ describe('generateYamlFrontMatter', () => {
     setYamlConfigOverrides({
       contentTypes: {
         article: {
-          fields: [
-            { name: 'tags', type: 'array', enabled: false }
-          ],
+          fields: [{ name: 'tags', type: 'array', enabled: false }],
           customFields: [
             { name: 'project', type: 'text', enabled: true, defaultValue: 'demo' },
             { name: 'extra_tags', type: 'array', enabled: true, defaultValue: ['x', 'y'] }
@@ -129,9 +130,7 @@ describe('generateYamlFrontMatter', () => {
     setYamlConfigOverrides({
       contentTypes: {
         article: {
-          customFields: [
-            { name: 'source_url', type: 'text', enabled: true }
-          ]
+          customFields: [{ name: 'source_url', type: 'text', enabled: true }]
         }
       }
     });
@@ -147,7 +146,9 @@ describe('generateYamlFrontMatter', () => {
       domain: 'example.com'
     });
 
-    expect(yaml.split('\n').some((line) => line === 'source_url: "https://example.com/original"')).toBe(true);
+    expect(
+      yaml.split('\n').some((line) => line === 'source_url: "https://example.com/original"')
+    ).toBe(true);
   });
 
   it('当 valuePath 未命中时输出警告并跳过字段', () => {

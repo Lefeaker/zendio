@@ -110,12 +110,11 @@ export class PrivacySection extends BaseSection<SectionRenderContext> {
   private persistConsent(snapshot: PrivacyConsentSnapshot): void {
     void persistPrivacyConsentAction(snapshot, {
       optionsRepository: this.optionsRepo
-    })
-      .catch((error) => {
-        console.error(
-          '[PrivacySection] Failed to persist privacy preferences via repository:',
-          error
-        );
-      });
+    }).catch((error) => {
+      console.error(
+        '[PrivacySection] Failed to persist privacy preferences via repository:',
+        error
+      );
+    });
   }
 }

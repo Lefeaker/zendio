@@ -9,7 +9,10 @@ export interface ExtractionFailedError extends Error {
 }
 
 export const AppErrors = {
-  extractionFailed(context: ExtractionFailureContext, options?: { cause?: unknown }): ExtractionFailedError {
+  extractionFailed(
+    context: ExtractionFailureContext,
+    options?: { cause?: unknown }
+  ): ExtractionFailedError {
     const error = new Error(`Extraction failed for ${context.type}`) as ExtractionFailedError;
     error.name = 'ExtractionFailedError';
     error.code = 'EXTRACTION_FAILED';

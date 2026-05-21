@@ -4,7 +4,9 @@ import type { StorageService } from '../../../src/platform/interfaces/storage';
 const getMock = vi.hoisted(() => vi.fn());
 const setMock = vi.hoisted(() => vi.fn());
 const removeMock = vi.hoisted(() => vi.fn());
-const mergeOptionsMock = vi.hoisted(() => vi.fn((value: unknown) => ({ merged: true, ...(value as Record<string, unknown>) })));
+const mergeOptionsMock = vi.hoisted(() =>
+  vi.fn((value: unknown) => ({ merged: true, ...(value as Record<string, unknown>) }))
+);
 const getServiceMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@shared/di', () => ({
@@ -58,25 +60,40 @@ describe('configService', () => {
   it('loads defaults when storage is empty and validates direct config', async () => {
     getMock.mockResolvedValue(undefined);
     const mod = await import('../../../src/background/services/configService');
-    await expect(mod.getCurrentConfig()).resolves.toEqual({ success: true, data: { defaults: true } });
+    await expect(mod.getCurrentConfig()).resolves.toEqual({
+      success: true,
+      data: { defaults: true }
+    });
     expect(mod.validateConfiguration({ rest: {} }).success).toBe(true);
   });
 
   it('updates and resets configuration via storage', async () => {
-    getMock.mockResolvedValueOnce({ rest: { httpUrl: 'http://localhost:27123' } }).mockResolvedValueOnce({ rest: { httpUrl: 'http://localhost:27123' } });
+    getMock
+      .mockResolvedValueOnce({ rest: { httpUrl: 'http://localhost:27123' } })
+      .mockResolvedValueOnce({ rest: { httpUrl: 'http://localhost:27123' } });
     setMock.mockResolvedValue(undefined);
     removeMock.mockResolvedValue(undefined);
     const mod = await import('../../../src/background/services/configService');
-    const updateResult = await mod.updateConfiguration({ templates: { article: 'A/{title}.md' } } as never);
+    const updateResult = await mod.updateConfiguration({
+      templates: { article: 'A/{title}.md' }
+    } as never);
     expect(updateResult.success).toBe(true);
-    expect(setMock).toHaveBeenCalledWith('options', expect.objectContaining({ templates: { article: 'A/{title}.md' } }));
+    expect(setMock).toHaveBeenCalledWith(
+      'options',
+      expect.objectContaining({ templates: { article: 'A/{title}.md' } })
+    );
 
     const unsubscribe = mod.addConfigChangeListener(vi.fn());
-    const notifyResult = await mod.updateConfigurationWithNotification({ rest: { apiKey: 'key' } } as never);
+    const notifyResult = await mod.updateConfigurationWithNotification({
+      rest: { apiKey: 'key' }
+    } as never);
     expect(notifyResult.success).toBe(true);
     unsubscribe();
 
-    await expect(mod.resetConfiguration()).resolves.toEqual({ success: true, data: { defaults: true } });
+    await expect(mod.resetConfiguration()).resolves.toEqual({
+      success: true,
+      data: { defaults: true }
+    });
     expect(removeMock).toHaveBeenCalledWith('options');
   });
 
@@ -88,7 +105,9 @@ describe('configService', () => {
     expect(failure.success).toBe(false);
 
     getMock.mockResolvedValueOnce({ rest: {} });
-    mergeOptionsMock.mockImplementationOnce(() => { throw new Error('merge failed'); });
+    mergeOptionsMock.mockImplementationOnce(() => {
+      throw new Error('merge failed');
+    });
     const invalid = mod.validateConfiguration({ rest: {} });
     expect(invalid.success).toBe(false);
     consoleErrorSpy.mockRestore();

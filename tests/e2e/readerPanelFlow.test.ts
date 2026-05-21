@@ -169,6 +169,24 @@ async function waitForDialogClosed(page: Page, testInfo: TestInfo): Promise<void
   });
 }
 
+async function expectReaderPanelFocusedRole(page: Page, role: string): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          for (const host of Array.from(document.querySelectorAll<HTMLElement>('div'))) {
+            const activeRole = host.shadowRoot?.activeElement?.getAttribute('data-role');
+            if (activeRole) {
+              return activeRole;
+            }
+          }
+          return document.activeElement?.getAttribute('data-role') ?? null;
+        }),
+      { timeout: 5000, message: `Reader panel focus did not move to ${role}` }
+    )
+    .toBe(role);
+}
+
 testWithExtension.describe('Reader Panel E2E Flow', () => {
   let diagnostics: ReturnType<typeof attachBrowserDiagnostics> | null = null;
 
@@ -226,13 +244,12 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
       const exportBtn = page.locator('[data-role="export-btn"]');
       await runStage(testInfo, 'focus export button', async () => {
         await exportBtn.focus();
-        await expect(exportBtn).toBeFocused();
+        await expectReaderPanelFocusedRole(page, 'export-btn');
       });
 
       await runStage(testInfo, 'press Tab', () => page.keyboard.press('Tab'));
-      const closeBtn = page.locator('[data-role="close-btn"]');
       await runStage(testInfo, 'wait close button focused', async () => {
-        await expect(closeBtn).toBeFocused();
+        await expectReaderPanelFocusedRole(page, 'close-btn');
       });
 
       await runStage(testInfo, 'press Escape', () => page.keyboard.press('Escape'));

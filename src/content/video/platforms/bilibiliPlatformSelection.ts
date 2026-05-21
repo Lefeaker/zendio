@@ -5,15 +5,7 @@ import {
   findContainingBilibiliRichTextHost,
   resolveBilibiliRichTextHosts
 } from './bilibiliRichTextSelectionDom';
-
-export interface BilibiliSelectionHelpers {
-  document: Document;
-  normalizeWhitespace: (value: string) => string;
-  wrapPlainTextAsHtml: (value: string) => string;
-  escapeHtml: (value: string) => string;
-  shouldSkipTextNode: (node: Text) => boolean;
-  isWhitespace: (value: string) => boolean;
-}
+import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 const BILIBILI_SHADOW_HOST_SELECTOR = [
   'bili-comment-thread-renderer',

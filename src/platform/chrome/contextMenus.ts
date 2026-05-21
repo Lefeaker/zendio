@@ -30,7 +30,10 @@ function serializeUpdateProperties(properties: MenuUpdateProperties): Record<str
   };
 }
 
-function serializeClickContext(info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null): Record<string, unknown> {
+function serializeClickContext(
+  info: chrome.contextMenus.OnClickData,
+  tab?: chrome.tabs.Tab | null
+): Record<string, unknown> {
   return {
     menuItemId: info.menuItemId,
     parentMenuItemId: info.parentMenuItemId,
@@ -201,8 +204,12 @@ export const chromeContextMenusService: ContextMenusService = {
     const chromeApi = ensureChrome();
     const contextMenusApi = chromeApi.contextMenus as unknown as {
       onShown?: {
-        addListener: (callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void) => void;
-        removeListener?: (callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void) => void;
+        addListener: (
+          callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void
+        ) => void;
+        removeListener?: (
+          callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void
+        ) => void;
       };
     };
     const onShown = contextMenusApi.onShown;
@@ -250,7 +257,7 @@ export const chromeContextMenusService: ContextMenusService = {
   refresh() {
     const chromeApi = ensureChrome();
     const refreshFn = (chromeApi.contextMenus as unknown as { refresh?: () => void }).refresh;
-   if (typeof refreshFn === 'function') {
+    if (typeof refreshFn === 'function') {
       try {
         refreshFn.call(chromeApi.contextMenus);
       } catch (error) {

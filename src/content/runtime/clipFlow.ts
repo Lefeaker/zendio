@@ -9,7 +9,7 @@ import {
   syncModifierState
 } from '../clipper/services/fragmentConfig';
 import type { ContentRuntimeState } from './contentRuntimeState';
-import type { ContentSelectionTracker } from './contentSelectionTracker';
+import type { ContentSelectionTracker, SelectionSnapshot } from './contentSelectionTracker';
 import type { MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import { isReaderSessionActive, isVideoSessionActive } from './contentSessionRegistry';
@@ -48,6 +48,7 @@ export interface ClipFlowHandlers {
 export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   const {
     document,
+    window,
     messaging,
     runtimeState,
     selectionTracker,

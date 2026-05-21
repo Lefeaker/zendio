@@ -82,5 +82,4 @@ describe('ModalController', () => {
     controller.dispose();
     controller.dispose();
   });
-
 });

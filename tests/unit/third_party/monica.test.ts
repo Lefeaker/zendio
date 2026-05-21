@@ -8,17 +8,24 @@ describe('monica parser', () => {
   });
 
   it('returns empty result when no Monica messages exist', async () => {
-    const { monicaParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/monica');
-    const doc = new DOMParser().parseFromString('<html><head><title>Blank - Monica</title></head><body></body></html>', 'text/html');
+    const { monicaParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/monica'
+    );
+    const doc = new DOMParser().parseFromString(
+      '<html><head><title>Blank - Monica</title></head><body></body></html>',
+      'text/html'
+    );
     const result = monicaParser.parse(doc);
     expect(result.title).toBe('Conversation');
     expect(result.messages).toEqual([]);
   });
 
-
   it('filters invalid model candidates, falls back through content selectors, and keeps assistant defaults', async () => {
-    const { monicaParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/monica');
-    const doc = new DOMParser().parseFromString(`
+    const { monicaParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/monica'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
       <html>
         <head><title> - Monica</title></head>
         <body>
@@ -37,7 +44,9 @@ describe('monica parser', () => {
           <div class="chat-message-- chat-reply">   </div>
         </body>
       </html>
-    `, 'text/html');
+    `,
+      'text/html'
+    );
     const result = monicaParser.parse(doc);
 
     expect(result.title).toBe('Conversation');
@@ -51,8 +60,11 @@ describe('monica parser', () => {
   });
 
   it('keeps plain text messages even when cloned html is empty and skips non-assistant model containers', async () => {
-    const { monicaParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/monica');
-    const doc = new DOMParser().parseFromString(`
+    const { monicaParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/monica'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
       <html>
         <head><title>Topic - Monica</title></head>
         <body>
@@ -60,7 +72,9 @@ describe('monica parser', () => {
           <div class="chat-message-- chat-reply">Standalone assistant reply</div>
         </body>
       </html>
-    `, 'text/html');
+    `,
+      'text/html'
+    );
     const result = monicaParser.parse(doc);
 
     expect(result.model).toBe('Monica');
@@ -69,8 +83,11 @@ describe('monica parser', () => {
   });
 
   it('parses user and assistant Monica messages and extracts model', async () => {
-    const { monicaParser } = await import('../../../src/third_party/ai-chat-exporter/platforms/monica');
-    const doc = new DOMParser().parseFromString(`
+    const { monicaParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/monica'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
       <html>
         <head><title>Weekly Notes - Monica</title></head>
         <body>
@@ -79,7 +96,9 @@ describe('monica parser', () => {
           <div class="chat-message-- chat-reply"><div class="markdown"><p>Hi there</p></div><button>Copy</button></div>
         </body>
       </html>
-    `, 'text/html');
+    `,
+      'text/html'
+    );
     const result = monicaParser.parse(doc);
     expect(result.title).toBe('Weekly Notes');
     expect(result.model).toBe('Claude 3.5 Sonnet');

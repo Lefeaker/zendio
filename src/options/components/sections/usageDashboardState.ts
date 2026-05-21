@@ -63,7 +63,11 @@ export function reportUsageIncrementChanges(args: {
     total: number;
   }> = [
     { category: 'ai_chat', increment: current.aiChat - previous.aiChat, total: current.aiChat },
-    { category: 'fragment', increment: current.fragment - previous.fragment, total: current.fragment },
+    {
+      category: 'fragment',
+      increment: current.fragment - previous.fragment,
+      total: current.fragment
+    },
     { category: 'article', increment: current.article - previous.article, total: current.article }
   ];
 

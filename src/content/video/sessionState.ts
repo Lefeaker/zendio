@@ -35,14 +35,19 @@ export interface VideoPanelCaptureGroups {
   fragments: VideoFragmentCapture[];
 }
 
-export function buildVideoHintContext(state: Pick<VideoSessionState, 'videoElement' | 'captures'>): VideoHintContext {
+export function buildVideoHintContext(
+  state: Pick<VideoSessionState, 'videoElement' | 'captures'>
+): VideoHintContext {
   return {
     videoAvailable: Boolean(state.videoElement),
     hasCaptures: state.captures.length > 0
   };
 }
 
-export function replaceVideoCaptures(state: VideoSessionState, captures: VideoCapture[]): VideoCapture[] {
+export function replaceVideoCaptures(
+  state: VideoSessionState,
+  captures: VideoCapture[]
+): VideoCapture[] {
   state.captures = [...captures];
   return state.captures;
 }

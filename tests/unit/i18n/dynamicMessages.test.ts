@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { generateDynamicMessages, getDynamicMessage, updateDynamicMessages } from '../../../src/i18n/dynamicMessages';
+import {
+  generateDynamicMessages,
+  getDynamicMessage,
+  updateDynamicMessages
+} from '../../../src/i18n/dynamicMessages';
 import type { Language } from '../../../src/i18n/locales';
 
 // Mock the configProvider
-vi.mock('../../../src/shared/config', () => ({
+vi.mock('../../../src/shared/config/provider', () => ({
   configProvider: {
     getRestDefaults: () => ({
       httpsPort: 27124,
@@ -18,7 +22,7 @@ describe('dynamicMessages', () => {
   describe('generateDynamicMessages', () => {
     it('generates Chinese messages with correct port numbers', () => {
       const messages = generateDynamicMessages('zh-CN');
-      
+
       expect(messages.httpsUrlHint).toBe('通常端口为 27124，适用于安全连接');
       expect(messages.httpUrlHint).toBe('通常端口为 27123，作为备用连接');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
@@ -26,7 +30,7 @@ describe('dynamicMessages', () => {
 
     it('generates English messages with correct port numbers', () => {
       const messages = generateDynamicMessages('en');
-      
+
       expect(messages.httpsUrlHint).toBe('Usually port 27124, for secure connections');
       expect(messages.httpUrlHint).toBe('Usually port 27123, as fallback connection');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
@@ -34,7 +38,7 @@ describe('dynamicMessages', () => {
 
     it('generates Japanese messages with correct port numbers', () => {
       const messages = generateDynamicMessages('ja');
-      
+
       expect(messages.httpsUrlHint).toBe('通常はポート 27124、セキュア接続用');
       expect(messages.httpUrlHint).toBe('通常はポート 27123、フォールバック接続用');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
@@ -42,7 +46,7 @@ describe('dynamicMessages', () => {
 
     it('generates French messages with correct port numbers', () => {
       const messages = generateDynamicMessages('fr');
-      
+
       expect(messages.httpsUrlHint).toBe('Généralement port 27124, pour les connexions sécurisées');
       expect(messages.httpUrlHint).toBe('Généralement port 27123, comme connexion de secours');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
@@ -58,7 +62,7 @@ describe('dynamicMessages', () => {
 
     it('falls back to Chinese for unsupported languages', () => {
       const messages = generateDynamicMessages('xx' as Language);
-      
+
       expect(messages.httpsUrlHint).toBe('通常端口为 27124，适用于安全连接');
       expect(messages.httpUrlHint).toBe('通常端口为 27123，作为备用连接');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
@@ -106,15 +110,19 @@ describe('dynamicMessages', () => {
     beforeEach(() => {
       mockElements = [];
 
-      const querySelector: QuerySelectorMock = vi.fn<[selector: string], MockTextElement | null>((selector) => {
-        const element: MockTextElement = {
-          textContent: '',
-          selector
-        };
-        mockElements.push(element);
-        return element;
-      });
-      const querySelectorAll: QuerySelectorAllMock = vi.fn<[selector: string], MockInputElement[]>(() => []);
+      const querySelector: QuerySelectorMock = vi.fn<[selector: string], MockTextElement | null>(
+        (selector) => {
+          const element: MockTextElement = {
+            textContent: '',
+            selector
+          };
+          mockElements.push(element);
+          return element;
+        }
+      );
+      const querySelectorAll: QuerySelectorAllMock = vi.fn<[selector: string], MockInputElement[]>(
+        () => []
+      );
 
       mockDocument = {
         querySelector,
@@ -132,10 +140,10 @@ describe('dynamicMessages', () => {
 
       expect(mockDocument.querySelector).toHaveBeenCalledWith('[data-i18n="httpsUrlHint"]');
       expect(mockDocument.querySelector).toHaveBeenCalledWith('[data-i18n="httpUrlHint"]');
-      
-      const httpsElement = mockElements.find(el => el.selector === '[data-i18n="httpsUrlHint"]');
-      const httpElement = mockElements.find(el => el.selector === '[data-i18n="httpUrlHint"]');
-      
+
+      const httpsElement = mockElements.find((el) => el.selector === '[data-i18n="httpsUrlHint"]');
+      const httpElement = mockElements.find((el) => el.selector === '[data-i18n="httpUrlHint"]');
+
       expect(httpsElement?.textContent).toBe('Usually port 27124, for secure connections');
       expect(httpElement?.textContent).toBe('Usually port 27123, as fallback connection');
     });
@@ -143,7 +151,7 @@ describe('dynamicMessages', () => {
     it('handles missing DOM elements gracefully', () => {
       installDocumentStub(mockDocument);
       mockDocument.querySelector.mockReturnValue(null);
-      
+
       expect(() => updateDynamicMessages('en')).not.toThrow();
     });
 
@@ -169,7 +177,9 @@ describe('dynamicMessages', () => {
 
       updateDynamicMessages('en');
 
-      expect(mockDocument.querySelectorAll).toHaveBeenCalledWith('input[id*="vault"], input[placeholder*="Vault"]');
+      expect(mockDocument.querySelectorAll).toHaveBeenCalledWith(
+        'input[id*="vault"], input[placeholder*="Vault"]'
+      );
       expect(mockInput.placeholder).toBe('TestVault');
     });
   });

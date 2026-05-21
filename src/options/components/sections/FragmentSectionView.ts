@@ -185,14 +185,13 @@ export class FragmentSection extends BaseSection<SectionRenderContext> {
   }
 
   private collectChanges(previous: StoredOptions | null): Partial<CompleteOptions> {
-    const partial = collectFragmentSectionChanges({
+    return collectFragmentSectionChanges({
       bindings: createFragmentSectionBindings(this.refs),
       previous,
       defaults: FRAGMENT_DEFAULTS,
       contextModes: CONTEXT_MODES,
       modifierKeys: MODIFIER_KEYS
     });
-    return partial;
   }
 
   private subscribeToRepository(): void {

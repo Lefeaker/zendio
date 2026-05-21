@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { 
-  ErrorHandler, 
-  createErrorHandler, 
+import {
+  ErrorHandler,
+  createErrorHandler,
   getErrorHandler,
   handleError,
   registerErrorHandler
@@ -18,7 +18,7 @@ describe('ErrorHandler', () => {
 
   it('handles basic error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     const error = {
       code: 'TEST_ERROR',
       domain: 'content' as const,
@@ -29,7 +29,7 @@ describe('ErrorHandler', () => {
     };
 
     await errorHandler.handle(error);
-    
+
     expect(consoleSpy).toHaveBeenCalledWith(
       '[ErrorHandler]',
       '[content] TEST_ERROR',
@@ -38,7 +38,7 @@ describe('ErrorHandler', () => {
         recoverable: true
       })
     );
-    
+
     consoleSpy.mockRestore();
   });
 
@@ -46,9 +46,9 @@ describe('ErrorHandler', () => {
     const mockReporter = {
       report: vi.fn().mockResolvedValue(undefined)
     };
-    
+
     errorHandler.addReporter(mockReporter);
-    
+
     const error = {
       code: 'REPORTER_TEST',
       domain: 'content' as const,
@@ -59,15 +59,15 @@ describe('ErrorHandler', () => {
     };
 
     await errorHandler.handle(error);
-    
+
     expect(mockReporter.report).toHaveBeenCalledWith(error);
   });
 
   it('calls notification bridge', async () => {
     const mockBridge = vi.fn().mockResolvedValue(undefined);
-    
+
     errorHandler.setNotificationBridge(mockBridge);
-    
+
     const error = {
       code: 'BRIDGE_TEST',
       domain: 'content' as const,
@@ -78,7 +78,7 @@ describe('ErrorHandler', () => {
     };
 
     await errorHandler.handle(error);
-    
+
     expect(mockBridge).toHaveBeenCalledWith(error);
   });
 
@@ -86,10 +86,10 @@ describe('ErrorHandler', () => {
     const mockReporter = {
       report: vi.fn().mockResolvedValue(undefined)
     };
-    
+
     const removeReporter = errorHandler.addReporter(mockReporter);
     removeReporter();
-    
+
     const error = {
       code: 'REMOVE_TEST',
       domain: 'content' as const,
@@ -100,7 +100,7 @@ describe('ErrorHandler', () => {
     };
 
     await errorHandler.handle(error);
-    
+
     expect(mockReporter.report).not.toHaveBeenCalled();
   });
 
@@ -109,9 +109,9 @@ describe('ErrorHandler', () => {
     const failingReporter = {
       report: vi.fn().mockRejectedValue(new Error('Reporter failed'))
     };
-    
+
     errorHandler.addReporter(failingReporter);
-    
+
     const error = {
       code: 'FAILING_REPORTER',
       domain: 'content' as const,
@@ -123,18 +123,15 @@ describe('ErrorHandler', () => {
 
     // Should not throw
     await expect(errorHandler.handle(error)).resolves.toBeUndefined();
-    
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[ErrorHandler] Reporter failed',
-      expect.any(Error)
-    );
-    
+
+    expect(consoleSpy).toHaveBeenCalledWith('[ErrorHandler] Reporter failed', expect.any(Error));
+
     consoleSpy.mockRestore();
   });
 
   it('suppresses console output when requested', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     const error = {
       code: 'SUPPRESS_CONSOLE',
       domain: 'content' as const,
@@ -145,9 +142,9 @@ describe('ErrorHandler', () => {
     };
 
     await errorHandler.handle(error, { suppressConsole: true });
-    
+
     expect(consoleSpy).not.toHaveBeenCalled();
-    
+
     consoleSpy.mockRestore();
   });
 });

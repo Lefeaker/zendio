@@ -8,7 +8,10 @@ import { createErrorHandler } from '../shared/errors/errorHandler';
 import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
 import { initializeErrorAnalytics } from '../shared/errors/analytics';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
-import { configureGlobalStateManagerStorage, createGlobalStateManager } from '../shared/state/globalStateManager';
+import {
+  configureGlobalStateManagerStorage,
+  createGlobalStateManager
+} from '../shared/state/globalStateManager';
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
 import { configureI18nStorage } from '../i18n';
 import type { StorageService } from '../platform/interfaces/storage';
@@ -88,7 +91,7 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
  */
 export function cleanupBackgroundDependencies(): void {
   console.log('[Background] Cleaning up dependencies...');
-  
+
   try {
     // 释放使用统计存储
     if (registry.has(TOKENS.usageStatsStore)) {
@@ -120,11 +123,11 @@ export function cleanupBackgroundDependencies(): void {
  */
 export function resetBackgroundDependencies(storage?: StorageService): void {
   console.log('[Background] Resetting dependencies...');
-  
+
   cleanupBackgroundDependencies();
   registry.reset();
   bootstrapBackgroundDependencies(storage);
-  
+
   console.log('[Background] Dependencies reset successfully');
 }
 
@@ -132,9 +135,11 @@ export function resetBackgroundDependencies(storage?: StorageService): void {
  * 检查背景页依赖是否已初始化
  */
 export function isBackgroundDependenciesInitialized(): boolean {
-  return registry.has(TOKENS.errorHandler) &&
-         registry.has(TOKENS.globalStateManager) &&
-         registry.has(TOKENS.usageStatsStore);
+  return (
+    registry.has(TOKENS.errorHandler) &&
+    registry.has(TOKENS.globalStateManager) &&
+    registry.has(TOKENS.usageStatsStore)
+  );
 }
 
 /**

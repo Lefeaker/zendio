@@ -15,8 +15,10 @@ export type MessagePayload =
   | { [key: string]: MessagePayload };
 
 export type MessageListenerResult = void | MessagePayload;
-export type MessageListener =
-  (message: unknown, sender: MessageSenderInfo) => MessageListenerResult | Promise<MessageListenerResult>;
+export type MessageListener = (
+  message: unknown,
+  sender: MessageSenderInfo
+) => MessageListenerResult | Promise<MessageListenerResult>;
 
 export interface MessageSendOptions {
   frameId?: number;
@@ -25,6 +27,10 @@ export interface MessageSendOptions {
 
 export interface MessagingService {
   send<TResult = unknown>(message: unknown): Promise<TResult>;
-  sendToTab<TResult = unknown>(tabId: number, message: unknown, options?: MessageSendOptions): Promise<TResult>;
+  sendToTab<TResult = unknown>(
+    tabId: number,
+    message: unknown,
+    options?: MessageSendOptions
+  ): Promise<TResult>;
   addListener(listener: MessageListener): () => void;
 }

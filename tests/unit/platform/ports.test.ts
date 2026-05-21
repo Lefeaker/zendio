@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { collectPortEntriesFromConfig, extractPort, findDuplicatePorts } from '@options/utils/ports';
+import {
+  collectPortEntriesFromConfig,
+  extractPort,
+  findDuplicatePorts
+} from '@options/utils/ports';
 import type { VaultConfig } from '@shared/types';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -14,19 +18,16 @@ describe('ports utils', () => {
 
   it('findDuplicatePorts detects conflicts across different vaults', () => {
     const restDefaults = getRestDefaults();
-    const entries = collectPortEntriesFromConfig(
-      { httpsUrl: restDefaults.httpsUrl },
-      [
-        createVaultConfig({
-          id: 'vault-1',
-          httpsUrl: 'https://127.0.0.1:27125/'
-        }),
-        createVaultConfig({
-          id: 'vault-2',
-          httpsUrl: restDefaults.httpsUrl
-        })
-      ]
-    );
+    const entries = collectPortEntriesFromConfig({ httpsUrl: restDefaults.httpsUrl }, [
+      createVaultConfig({
+        id: 'vault-1',
+        httpsUrl: 'https://127.0.0.1:27125/'
+      }),
+      createVaultConfig({
+        id: 'vault-2',
+        httpsUrl: restDefaults.httpsUrl
+      })
+    ]);
 
     const duplicates = findDuplicatePorts(entries);
     expect(duplicates).toEqual(expectedPorts(restDefaults.httpsPort));

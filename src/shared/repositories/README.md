@@ -18,6 +18,7 @@ class UsageSection {
 ```
 
 **问题**:
+
 1. **UI 层直接依赖浏览器 API** → 无法脱离 chrome 环境单元测试
 2. **状态同步靠手动** → storage 变更后需手动调用 updateUI(), 易遗漏
 3. **错误处理散乱** → storage 失败时每个调用点都要写 try/catch
@@ -52,20 +53,24 @@ class UsageSection {
 ### 设计原则
 
 #### 1. 依赖倒置原则 (Dependency Inversion Principle)
+
 - **高层模块**(UI) 不依赖 **低层模块**(chrome API)
 - 两者都依赖 **抽象**(Repository 接口)
 
 #### 2. 单一真相源 (Single Source of Truth)
+
 - Repository 通过 onChange 机制实现状态同步
 - UI 层订阅 Repository,被动接收状态变更
 - 不再需要手动调用 updateUI()
 
 #### 3. 集中错误处理
+
 - 所有 storage/messaging 错误在 Repository 层统一处理
 - 抛出语义化异常: StorageError, MessagingError
 - UI 层只需处理业务逻辑错误
 
 #### 4. 测试友好
+
 - 提供 Mock 实现,UI 层单元测试无需真实 chrome 环境
 - Repository 层可独立测试,验证 storage 逻辑正确性
 
@@ -85,9 +90,7 @@ class MySection extends BaseSection {
   constructor() {
     super();
     // 通过 DI 容器获取 Repository 实例
-    this.optionsRepo = container.resolve<IOptionsRepository>(
-      DI_TOKENS.IOptionsRepository
-    );
+    this.optionsRepo = container.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   }
 
   // 读取配置
@@ -106,7 +109,7 @@ class MySection extends BaseSection {
 
   // 订阅配置变更
   override renderWithState(): HTMLElement {
-    this.unsubscribe = this.optionsRepo.onChange(options => {
+    this.unsubscribe = this.optionsRepo.onChange((options) => {
       // 被动更新 UI
       this.updateUI(options);
     });
@@ -171,6 +174,7 @@ describe('MySection', () => {
 ## 实现 Repository 的步骤
 
 ### Step 1: 定义接口
+
 ```typescript
 // src/shared/repositories/IMyRepository.ts
 export interface IMyRepository {
@@ -181,6 +185,7 @@ export interface IMyRepository {
 ```
 
 ### Step 2: 实现 Chrome 版本
+
 ```typescript
 // src/infrastructure/repositories/ChromeMyRepository.ts
 export class ChromeMyRepository implements IMyRepository {
@@ -207,8 +212,8 @@ export class ChromeMyRepository implements IMyRepository {
   }
 
   private notifyListeners(): void {
-    void this.get().then(data => {
-      this.listeners.forEach(cb => cb(data));
+    void this.get().then((data) => {
+      this.listeners.forEach((cb) => cb(data));
     });
   }
 }
@@ -216,16 +221,16 @@ export class ChromeMyRepository implements IMyRepository {
 
 ## 接口总览（2025-11-30）
 
-| 接口 | 职责 | 主要消费者 |
-|------|------|------------|
-| `IOptionsRepository` | 配置存储 | Options Shell |
-| `IYamlRepository` | YAML Overrides | YAML Section, Reader/Video |
-| `IMessagingRepository` | Background 通信 | Content Scripts |
-| `IVideoClipRepository` | 视频剪辑缓存/发送 | Video Session Exporter |
-| `IVideoPromptPositionRepository` | 浮窗位置 | Video Prompt |
-| `IUsageStatsRepository` | 使用统计 | Usage Dashboard |
-| `IVaultRouterRepository` | 多仓路由 | RoutingSection |
-| `IFragmentRepository` | Clipper 片段缓存 | Fragment 工具链 |
+| 接口                             | 职责              | 主要消费者                 |
+| -------------------------------- | ----------------- | -------------------------- |
+| `IOptionsRepository`             | 配置存储          | Options Shell              |
+| `IYamlRepository`                | YAML Overrides    | YAML Section, Reader/Video |
+| `IMessagingRepository`           | Background 通信   | Content Scripts            |
+| `IVideoClipRepository`           | 视频剪辑缓存/发送 | Video Session Exporter     |
+| `IVideoPromptPositionRepository` | 浮窗位置          | Video Prompt               |
+| `IUsageStatsRepository`          | 使用统计          | Usage Dashboard            |
+| `IVaultRouterRepository`         | 多仓路由          | RoutingSection             |
+| `IFragmentRepository`            | Clipper 片段缓存  | Fragment 工具链            |
 
 > 详细设计参见 `docs/REPOSITORY-PATTERN.md`，迁移步骤参见 `docs/MIGRATION-GUIDE.md`。
 
@@ -238,6 +243,7 @@ export class ChromeMyRepository implements IMyRepository {
 所有 Repository 变更必须同步更新上述文档，以便审核团队追踪。
 
 ### Step 3: 实现 Mock 版本
+
 ```typescript
 // tests/utils/repositories/MockMyRepository.ts
 export class MockMyRepository implements IMyRepository {
@@ -250,7 +256,7 @@ export class MockMyRepository implements IMyRepository {
 
   async set(data: MyData): Promise<void> {
     this.data = { ...this.data, ...data };
-    this.listeners.forEach(cb => cb(this.data));
+    this.listeners.forEach((cb) => cb(this.data));
   }
 
   onChange(callback: (data: MyData) => void): () => void {
@@ -272,31 +278,36 @@ export class MockMyRepository implements IMyRepository {
 ```
 
 ### Step 4: 注册到 DI 容器
+
 ```typescript
 // src/shared/di/serviceRegistry.ts
 import { ChromeMyRepository } from '@/infrastructure/repositories/ChromeMyRepository';
 
 export const registerRepositories = (): void => {
-  container.registerSingleton(
-    DI_TOKENS.IMyRepository,
-    ChromeMyRepository
-  );
+  container.registerSingleton(DI_TOKENS.IMyRepository, ChromeMyRepository);
 };
 ```
 
 ## 常见问题
 
 ### Q1: Repository 和 Service 有什么区别?
+
 **A**:
+
 - **Repository**: 专注于数据访问(CRUD),屏蔽底层 storage API
 - **Service**: 专注于业务逻辑,可能组合多个 Repository
 
 示例:
+
 ```typescript
 // Repository: 只负责存取
 class OptionsRepository {
-  get(): Promise<Options> { /* 读 storage */ }
-  set(opts: Options): Promise<void> { /* 写 storage */ }
+  get(): Promise<Options> {
+    /* 读 storage */
+  }
+  set(opts: Options): Promise<void> {
+    /* 写 storage */
+  }
 }
 
 // Service: 包含业务逻辑
@@ -316,6 +327,7 @@ class VaultRouterService {
 ```
 
 ### Q2: 为什么 onChange 要立即触发一次?
+
 **A**: 确保 UI 组件初始化时能同步最新状态,避免"闪烁"问题。
 
 ```typescript
@@ -335,6 +347,7 @@ onChange(callback) {
 ```
 
 ### Q3: 如何处理 Repository 方法调用失败?
+
 **A**: Repository 层抛出语义化异常,UI 层捕获并处理。
 
 ```typescript
@@ -361,6 +374,7 @@ async save(): Promise<void> {
 ```
 
 ### Q4: 测试时如何验证 onChange 被正确调用?
+
 **A**: 使用 vi.fn() 创建 spy,验证调用次数和参数。
 
 ```typescript
@@ -378,9 +392,7 @@ it('should notify subscribers when data changes', async () => {
 
   // 再次触发,总共 2 次
   expect(callback).toHaveBeenCalledTimes(2);
-  expect(callback).toHaveBeenCalledWith(
-    expect.objectContaining({ privacy: { analytics: false } })
-  );
+  expect(callback).toHaveBeenCalledWith(expect.objectContaining({ privacy: { analytics: false } }));
 
   unsubscribe();
 });

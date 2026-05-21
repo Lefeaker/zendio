@@ -69,7 +69,7 @@ export class MockClipRepository implements IClipRepository {
 
   private emitConfigChange(): void {
     const snapshot = clone(this.fragmentConfig);
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(snapshot);
       } catch (error) {

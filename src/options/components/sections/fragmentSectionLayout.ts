@@ -5,48 +5,18 @@ import {
   buildContextModeSetting,
   buildExamplesSetting,
   buildModifierKeysSetting,
-  buildModifierToggleSetting,
-  type FragmentLayoutBuilderParams
+  buildModifierToggleSetting
 } from './fragmentSectionLayoutBuilders';
+import type {
+  FragmentLayoutBuilderParams,
+  FragmentSectionLayoutRefs,
+  FragmentSectionMessagesLike
+} from './fragmentSectionLayoutTypes';
 
-export interface FragmentSectionMessagesLike {
-  fragmentConfigTitle?: string;
-  fragmentConfigHint?: string;
-  fragmentUseFootnoteLabel?: string;
-  fragmentUseFootnoteHint?: string;
-  captureContextLabel?: string;
-  fragmentCaptureContextHint?: string;
-  fragmentModifierToggleLabel?: string;
-  fragmentModifierToggleDescription?: string;
-  fragmentModifierKeysLabel?: string;
-  fragmentModifierKeysDescription?: string;
-  fragmentContextLengthLabel?: string;
-  fragmentContextLengthHint?: string;
-  fragmentContextModeLabel?: string;
-  fragmentContextModeHint?: string;
-  fragmentContextModeSentences?: string;
-  fragmentContextModeChars?: string;
-  fragmentKeyboardShortcutsLabel?: string;
-  fragmentKeyboardShortcutsHint?: string;
-  fragmentFootnoteExampleTitle?: string;
-  fragmentFootnoteExampleContent?: string;
-  fragmentFootnoteExampleComment?: string;
-  fragmentContextHighlightExampleTitle?: string;
-  fragmentContextHighlightExampleContent?: string;
-}
-
-export interface FragmentSectionLayoutRefs {
-  footnoteCheckbox: HTMLInputElement | null;
-  captureContextCheckbox: HTMLInputElement | null;
-  modifierToggle: HTMLInputElement | null;
-  modifierKeysGroup: HTMLElement | null;
-  modifierKeyCheckboxes: HTMLInputElement[];
-  keyboardShortcutsCheckbox: HTMLInputElement | null;
-  contextLengthGroup: HTMLElement | null;
-  contextModeGroup: HTMLElement | null;
-  contextLengthInput: HTMLInputElement | null;
-  contextModeSelect: HTMLSelectElement | null;
-}
+export type {
+  FragmentSectionLayoutRefs,
+  FragmentSectionMessagesLike
+} from './fragmentSectionLayoutTypes';
 
 export interface BuildBodyParams {
   createElement: (tag: keyof HTMLElementTagNameMap, className?: string) => HTMLElement;
@@ -56,14 +26,13 @@ export interface BuildBodyParams {
   defaults: FragmentClipperOptions;
   modifierKeys: Array<FragmentClipperOptions['selectionModifierKeys'][number]>;
   contextModes: Array<FragmentClipperOptions['contextMode']>;
-  resolveModifierLabel: (
-    key: FragmentClipperOptions['selectionModifierKeys'][number]
-  ) => string;
+  resolveModifierLabel: (key: FragmentClipperOptions['selectionModifierKeys'][number]) => string;
 }
 
-export function buildFragmentSectionBody(
-  params: BuildBodyParams
-): { body: HTMLElement; refs: FragmentSectionLayoutRefs } {
+export function buildFragmentSectionBody(params: BuildBodyParams): {
+  body: HTMLElement;
+  refs: FragmentSectionLayoutRefs;
+} {
   const { createSectionBody, createSectionSettings } = params;
   const refs: FragmentSectionLayoutRefs = {
     footnoteCheckbox: null,
@@ -149,7 +118,11 @@ export function highlightFragmentShortcutControl(
   setCleanup: (cleanup: (() => void) | null) => void
 ): boolean {
   const checkbox = refs.keyboardShortcutsCheckbox;
-  const target = checkbox?.closest<HTMLElement>('.grid') ?? checkbox?.closest<HTMLElement>('label') ?? checkbox ?? null;
+  const target =
+    checkbox?.closest<HTMLElement>('.grid') ??
+    checkbox?.closest<HTMLElement>('label') ??
+    checkbox ??
+    null;
   if (!target) {
     return false;
   }

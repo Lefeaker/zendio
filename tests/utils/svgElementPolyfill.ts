@@ -15,9 +15,7 @@ export function ensureSvgElementConstructors(): void {
   }
 
   const globalTarget = globalThis as Record<SvgConstructorName, unknown>;
-  const fallbackCtor =
-    (globalTarget.SVGElement as typeof Element | undefined) ??
-    window.Element;
+  const fallbackCtor = (globalTarget.SVGElement as typeof Element | undefined) ?? window.Element;
 
   const ctorNames: SvgConstructorName[] = [
     'SVGElement',

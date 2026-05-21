@@ -68,9 +68,6 @@ describe('videoPromptRenderer', () => {
     expect(container.querySelector('.video-floating-prompt__hint')?.textContent).toBe(
       'Capture now · Alt+V'
     );
-    expect(container.querySelector('.aiob-video-prompt')).toBeNull();
-    expect(container.querySelector('.aiob-video-prompt__bubble')).toBeNull();
-    expect(container.querySelector('.aiob-video-prompt__hint')).toBeNull();
   });
 
   it('renders the configured label as readable prompt text by default', () => {

@@ -51,7 +51,4 @@ export interface MessageSender {
   origin?: string;
 }
 
-export type MessageHandler = (
-  message: Message,
-  sender: MessageSender
-) => Promise<unknown> | void;
+export type MessageHandler = (message: Message, sender: MessageSender) => Promise<unknown> | void;

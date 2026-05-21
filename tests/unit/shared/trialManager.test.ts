@@ -35,7 +35,9 @@ describe('trial-manager', () => {
     remove: storageRemoveMock
   } as unknown as ChromeLike['chrome']['storage']['local'];
   const createNotificationMock = vi.fn();
-  const notifications = { create: createNotificationMock } as unknown as NonNullable<ChromeLike['chrome']['notifications']>;
+  const notifications = { create: createNotificationMock } as unknown as NonNullable<
+    ChromeLike['chrome']['notifications']
+  >;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,7 +53,12 @@ describe('trial-manager', () => {
   });
 
   it('reads and writes trial config', async () => {
-    const config: TrialConfig = { isTrial: true, expirationTime: Date.now() + 1000, trialDays: 7, version: '1.0.0' };
+    const config: TrialConfig = {
+      isTrial: true,
+      expirationTime: Date.now() + 1000,
+      trialDays: 7,
+      version: '1.0.0'
+    };
     storageGetMock.mockResolvedValue({ trial_config: config });
     await expect(getTrialConfig()).resolves.toEqual(config);
     await setTrialConfig(config);
@@ -72,14 +79,32 @@ describe('trial-manager', () => {
   });
 
   it('handles expired and expiring trial notices', async () => {
-    storageGetMock.mockResolvedValueOnce({ trial_config: { isTrial: true, expirationTime: Date.now() - 1, trialDays: 7, version: '1.0.0' } });
+    storageGetMock.mockResolvedValueOnce({
+      trial_config: {
+        isTrial: true,
+        expirationTime: Date.now() - 1,
+        trialDays: 7,
+        version: '1.0.0'
+      }
+    });
     await showExpirationNotice();
-    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'AiiinOB 试用版已过期' }));
+    expect(notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'AiiinOB 试用版已过期' })
+    );
 
     createNotificationMock.mockClear();
-    storageGetMock.mockResolvedValueOnce({ trial_config: { isTrial: true, expirationTime: Date.now() + 60 * 60 * 1000, trialDays: 7, version: '1.0.0' } });
+    storageGetMock.mockResolvedValueOnce({
+      trial_config: {
+        isTrial: true,
+        expirationTime: Date.now() + 60 * 60 * 1000,
+        trialDays: 7,
+        version: '1.0.0'
+      }
+    });
     await showExpirationNotice();
-    expect(notifications.create).toHaveBeenCalledWith(expect.objectContaining({ title: 'AiiinOB 试用版即将过期' }));
+    expect(notifications.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'AiiinOB 试用版即将过期' })
+    );
   });
 
   it('clears config and degrades gracefully on storage errors', async () => {

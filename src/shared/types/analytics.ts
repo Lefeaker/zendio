@@ -17,7 +17,11 @@ export function isTrackUsageEventMessage(message: unknown): message is TrackUsag
   const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
   const isSupportedMessageType =
     candidate.type === TRACK_USAGE_EVENT || candidate.type === LEGACY_TRACK_USAGE_EVENT;
-  if (!isSupportedMessageType || typeof candidate.event !== 'string' || candidate.event.trim().length === 0) {
+  if (
+    !isSupportedMessageType ||
+    typeof candidate.event !== 'string' ||
+    candidate.event.trim().length === 0
+  ) {
     return false;
   }
 
@@ -31,6 +35,11 @@ export function isTrackUsageEventMessage(message: unknown): message is TrackUsag
 
   return Object.values(candidate.params as Record<string, unknown>).every((value) => {
     const valueType = typeof value;
-    return value === undefined || valueType === 'string' || valueType === 'number' || valueType === 'boolean';
+    return (
+      value === undefined ||
+      valueType === 'string' ||
+      valueType === 'number' ||
+      valueType === 'boolean'
+    );
   });
 }

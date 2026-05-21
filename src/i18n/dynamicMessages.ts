@@ -1,4 +1,4 @@
-import { configProvider } from '../shared/config';
+import { configProvider } from '../shared/config/provider';
 import { pseudoLocalizeString } from './pseudoLocalization';
 import type { Language } from './locales';
 

@@ -30,11 +30,13 @@ interface TestEntry {
   entry: string;
 }
 
-let connectionRuntimeModulePromise:
-  | Promise<typeof import('../../services/connectionTestRuntime')>
-  | null = null;
+let connectionRuntimeModulePromise: Promise<
+  typeof import('../../services/connectionTestRuntime')
+> | null = null;
 
-function loadConnectionRuntimeModule(): Promise<typeof import('../../services/connectionTestRuntime')> {
+function loadConnectionRuntimeModule(): Promise<
+  typeof import('../../services/connectionTestRuntime')
+> {
   if (!connectionRuntimeModulePromise) {
     connectionRuntimeModulePromise = import('../../services/connectionTestRuntime');
   }
@@ -73,7 +75,9 @@ export function createConnectionTester(config: ConnectionTesterConfig): Connecti
   };
 }
 
-async function runCompositeConnectionTest(config: ConnectionTesterConfig): Promise<ConnectionTestResult> {
+async function runCompositeConnectionTest(
+  config: ConnectionTesterConfig
+): Promise<ConnectionTestResult> {
   const msgs = await config.getMessages();
   const entries: string[] = [];
 
@@ -179,6 +183,7 @@ function extractErrorMessage(error: unknown, msgs: Messages): string {
 }
 
 function formatEntry(label: string, success: boolean, detail: string, msgs: Messages): string {
-  const normalizedDetail = detail.trim() || (success ? msgs.connectionSuccessShort : msgs.connectionFailed);
+  const normalizedDetail =
+    detail.trim() || (success ? msgs.connectionSuccessShort : msgs.connectionFailed);
   return `${label}: ${normalizedDetail}`;
 }

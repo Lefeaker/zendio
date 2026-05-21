@@ -8,7 +8,11 @@ interface ClassifierContext extends Record<string, unknown> {
 }
 
 export const classifierErrors = {
-  transportFailure(message: string, context: ClassifierContext = {}, options: { cause?: unknown } = {}): AppError {
+  transportFailure(
+    message: string,
+    context: ClassifierContext = {},
+    options: { cause?: unknown } = {}
+  ): AppError {
     return {
       code: 'CLASSIFIER_TRANSPORT_FAILURE',
       domain: 'classifier',
@@ -21,7 +25,11 @@ export const classifierErrors = {
     };
   },
 
-  invalidPayload(message: string, context: ClassifierContext = {}, options: { cause?: unknown } = {}): AppError {
+  invalidPayload(
+    message: string,
+    context: ClassifierContext = {},
+    options: { cause?: unknown } = {}
+  ): AppError {
     return {
       code: 'CLASSIFIER_INVALID_PAYLOAD',
       domain: 'classifier',
@@ -48,4 +56,6 @@ export const classifierErrors = {
   }
 } as const;
 
-export type ClassifierErrorCode = ReturnType<typeof classifierErrors[keyof typeof classifierErrors]>['code'];
+export type ClassifierErrorCode = ReturnType<
+  (typeof classifierErrors)[keyof typeof classifierErrors]
+>['code'];

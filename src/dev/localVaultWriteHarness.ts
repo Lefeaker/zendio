@@ -41,7 +41,9 @@ class FakeWritableFileStream implements FileSystemWritableFileStreamLike {
     this.file.content = await stringifyContent(data);
   }
 
-  async close(): Promise<void> {}
+  close(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 class FakeFileHandle implements FileSystemFileHandleLike {
@@ -92,7 +94,7 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandleLike {
       return Promise.resolve(existing);
     }
     if (!options.create) {
-      return Promise.reject(new Error(`Directory not found: ${name}`));
+      throw new Error(`Directory not found: ${name}`);
     }
     const directory = new FakeDirectoryHandle(
       name,
@@ -113,7 +115,7 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandleLike {
       return Promise.resolve(existing);
     }
     if (!options.create) {
-      return Promise.reject(new Error(`File not found: ${name}`));
+      throw new Error(`File not found: ${name}`);
     }
     const file = new FakeFileHandle(name, this.root ?? this);
     this.files.set(name, file);

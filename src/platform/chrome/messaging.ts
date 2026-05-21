@@ -47,7 +47,11 @@ export const chromeMessagingService: MessagingService = {
     });
   },
 
-  async sendToTab<TResult = unknown>(tabId: number, message: unknown, options?: { frameId?: number }): Promise<TResult> {
+  async sendToTab<TResult = unknown>(
+    tabId: number,
+    message: unknown,
+    options?: { frameId?: number }
+  ): Promise<TResult> {
     const chromeApi = ensureChrome();
     return normalizePromise<TResult>((resolve, reject) => {
       try {
