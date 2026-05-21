@@ -102,7 +102,7 @@ export function resolvePath(
     }
 
     case 'video': {
-      const template = getTemplateValue(templates, 'article');
+      const template = getTemplateValue(templates, 'fragment');
       const domain = resolveDomain(payload, domainMappings);
       return populateTemplate(template, {
         domain: safe(domain),

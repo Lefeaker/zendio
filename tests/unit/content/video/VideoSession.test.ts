@@ -386,10 +386,10 @@ describe('VideoSession', () => {
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalledTimes(1);
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
       screenshot: {
-        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
         mimeType: 'image/jpeg',
         dataUrl: 'data:image/jpeg;base64,frame'
       }
@@ -455,9 +455,9 @@ describe('VideoSession', () => {
     expect(video.currentTime).toBe(8);
     expect(currentTimeSetSpy).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshot: {
-        fileName: expect.stringMatching(/^file-\d{17}\.jpg$/),
         dataUrl: 'data:image/jpeg;base64,toggled-frame'
       }
     });

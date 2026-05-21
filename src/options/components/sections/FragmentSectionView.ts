@@ -35,7 +35,6 @@ const MODIFIER_KEYS: Array<FragmentClipperOptions['selectionModifierKeys'][numbe
   'shift'
 ];
 const CONTEXT_MODES: Array<FragmentClipperOptions['contextMode']> = ['chars', 'sentences'];
-
 export class FragmentSection extends BaseSection<SectionRenderContext> {
   private readonly optionsRepo: IOptionsRepository;
   private refs: FragmentSectionLayoutRefs = createEmptyFragmentLayoutRefs();

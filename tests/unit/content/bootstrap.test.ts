@@ -138,7 +138,7 @@ describe('content/bootstrap', () => {
     context.dispose();
   });
 
-  it('exposes services, preserves popups during page visibility changes, and disposes on beforeunload', async () => {
+  it('exposes services, closes popups during page visibility changes, and disposes on beforeunload', async () => {
     const dialogRegistry = { closeAll: vi.fn() };
     const customToken = Symbol('custom');
     scopedRegistryMock.has.mockImplementation((token?: symbol) => token === TOKENS.dialogRegistry);
@@ -170,7 +170,8 @@ describe('content/bootstrap', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
     window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
-    expect(dialogRegistry.closeAll).not.toHaveBeenCalled();
+    expect(dialogRegistry.closeAll).toHaveBeenCalledTimes(2);
+    expect(context.disposed).toBe(false);
 
     window.dispatchEvent(new Event('beforeunload'));
     expect(context.disposed).toBe(true);

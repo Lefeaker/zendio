@@ -11,6 +11,8 @@ describe('manifestSources', () => {
     expect(manifest.incognito).toBe('spanning');
     expect(manifest.action?.default_popup).toBeUndefined();
     expect(manifest.browser_specific_settings).toBeUndefined();
+    const war = (manifest as { web_accessible_resources?: unknown }).web_accessible_resources;
+    expect(JSON.stringify(war)).not.toContain('<all_urls>');
   });
 
   it('builds a firefox manifest with firefox-only overrides', () => {

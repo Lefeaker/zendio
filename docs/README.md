@@ -1,6 +1,6 @@
 # 工程文档入口
 
-最后更新：2026-04-14
+最后更新：2026-05-20
 
 ## 当前真值入口
 
@@ -10,6 +10,7 @@
 - [`non-production-code-ownership.md`](./non-production-code-ownership.md)
 - [`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - [`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
+- [`release-readiness-handoff-2026-05-20.md`](./release-readiness-handoff-2026-05-20.md)
 - [`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
 - [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 

@@ -38,6 +38,7 @@
     "audit:retired-code:report": "node tools/report-retired-code-inventory.mjs",
     "audit:production-shape:report": "node tools/report-production-code-shape.mjs",
     "audit:build:report": "node tools/report-build-splitting.mjs",
+    "audit:local-vault-release:report": "node scripts/audit-local-vault-release-readiness.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
     "manifest:generate": "node scripts/generate-manifests.mjs",
     "i18n:generate": "node scripts/gen-locales.mjs",
@@ -91,7 +92,9 @@
     "package:trial": "node scripts/package-trial.mjs",
     "package:trial:quick": "node scripts/package-trial.mjs --skip-build",
     "release": "npm run build && node scripts/create-release.mjs",
-    "release:chrome": "node scripts/publish-chrome-webstore.mjs",
+    "release:chrome": "npm run release:chrome:dry-run --",
+    "release:chrome:dry-run": "node scripts/publish-chrome-webstore.mjs --dry-run",
+    "release:chrome:publish": "node scripts/publish-chrome-webstore.mjs --publish",
     "prepare": "husky",
     "test:coverage": "vitest run --config vitest.unit.config.ts --coverage",
     "audit:ui-architecture:report": "node tools/report-ui-architecture-alignment.mjs"

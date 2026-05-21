@@ -83,6 +83,7 @@ describe('analyticsConfig', () => {
     const config = manager.getConfig();
     expect(config.debugMode).toBe(true);
     expect(config.enabled).toBe(true);
+    expect(module.DEFAULT_ANALYTICS_CONFIG.measurementId).toBe('G-XXXXXXXXXX');
     expect(config.clientId).toMatch(/^ext-/);
     expect(config.sessionId).toBeTruthy();
     expect(storage.local.set).toHaveBeenCalledWith('analytics_client_id', expect.any(String));

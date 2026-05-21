@@ -105,7 +105,7 @@ export function createProductionStitchWidgetHost(
       return;
     }
     widgetInstances.add(widget);
-    widget.mount(
+    void widget.mount(
       host,
       { options: options.getDraft(), messages: options.getMessages() },
       {

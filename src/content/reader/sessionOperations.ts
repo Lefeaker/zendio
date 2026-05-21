@@ -24,10 +24,10 @@ interface ReaderSessionOperationContext {
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
 
-export async function handleReaderSessionSelection(
+export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
   payload: ReaderSelectionPayload
-): Promise<void> {
+): void {
   context.state.handlingSelection = true;
 
   try {
@@ -82,7 +82,7 @@ export async function handleReaderSessionMouseUp(
   const container = context.doc.createElement('div');
   container.appendChild(range.cloneContents());
 
-  await handleReaderSessionSelection(context, {
+  handleReaderSessionSelection(context, {
     range,
     selectedHtml: container.innerHTML,
     selectedText,

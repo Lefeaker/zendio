@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createReaderSessionDependencies } from '@content/reader/sessionDependencies';
 import { DI_TOKENS } from '@shared/di/tokens';
 
-const resolveRepository = vi.fn();
+const resolveRepository = vi.fn<unknown[], unknown>();
 
 vi.mock('@shared/di/serviceRegistry', () => ({
   resolveRepository: (...args: unknown[]) => resolveRepository(...args)

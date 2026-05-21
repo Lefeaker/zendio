@@ -7,7 +7,7 @@ describe('pathResolver', () => {
     vi.useRealTimers();
   });
 
-  it('uses the article template for video clips because options shares article and video paths', () => {
+  it('uses the fragment template for video clips so timestamp templates apply', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-09T20:24:13'));
 
@@ -39,7 +39,7 @@ describe('pathResolver', () => {
     );
 
     expect(path).toBe(
-      'Articles/www.bilibili.com/2026/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
+      'Clips/www.bilibili.com/2026/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
     );
   });
 });
