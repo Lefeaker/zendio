@@ -116,6 +116,19 @@ describe('design system documentation report', () => {
     }
   });
 
+  it('ignores git-ignored local process archives when scanning active guidance', () => {
+    const root = writeFixture({
+      '.gitignore': 'docs/local-process-archive/\n',
+      'docs/local-process-archive/current-style.md': 'Use DaisyUI for new Options components.\n'
+    });
+    try {
+      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+      expect(runReport(root)).toContain('Stale current-style guidance findings: 0');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('allows Stitch runtime CSS current-truth wording', () => {
     const root = writeFixture({
       'docs/current-style.md':
