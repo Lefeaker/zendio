@@ -149,7 +149,7 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 - `tests/**` 中支撑最终命令链的剩余对齐项
 - `docs/**` 正式 source-of-truth 文档
 - `tools/**`
-- `lint-report.json` / `lint-warnings.json`
+- 历史根目录 lint artifact 已归位到 `tmp/quality/lint-report.latest.json` 与 `tools/baselines/lint-warnings.json`
 
 状态：这是重定义后的扩展 B4，当前提交为 `ea6f3b6`。  
 它不再受旧版“单批 `<=45 files`”预算约束，而承担“把已经验真的最终真值正式落到当前交付分支”的职责。
