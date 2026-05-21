@@ -32,7 +32,6 @@ if (markContentRuntimeInitialized(document)) {
 }
 
 function initializeClipperRuntime(): void {
-  // 引导内容脚本的依赖注入系统
   const platform = getPlatformServices();
   registerRepositories({
     storage: platform.storage,
@@ -102,8 +101,6 @@ function initializeClipperRuntime(): void {
       runtimeState.setLastSelectionSnapshot(snapshot);
     }
   });
-  // composition below moved to runtime/bootstrapRuntime
-
   void runtimeState.refreshFragmentConfig();
   void initializeVideoPromptOnDemand(
     {
