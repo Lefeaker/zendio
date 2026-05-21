@@ -9,10 +9,10 @@ export {
   pickLabelIndices,
   prepareHistory,
   resolveUsageDateKey
-} from '@options/app/usage-dashboard';
+} from '@ui/domains/usage-chart';
 export type {
   ChartGeometry,
   ChartMeasurements,
   ChartPoint,
   TickInfo
-} from '@options/app/usage-dashboard';
+} from '@ui/domains/usage-chart';
