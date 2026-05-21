@@ -1,27 +1,15 @@
 import type { YamlConfigOverrides, YamlContentType } from '@shared/types/yamlConfig';
 import { buildGlobalWarnings, buildTable, renderDomainOverrides } from './yamlConfigTableDom';
 import {
-  buildInitialDomainOverrides,
-  buildInitialRows,
-  collectYamlConfigOverrides,
-  createToggleMap,
-  ensureDomainEntryFields,
   findFieldDefinition,
-  formatArrayValue,
   getAvailableFieldsForContentType,
-  getCustomRowsByOrder,
   getFieldOptionsForEntry,
   getFilteredRows,
-  nextBaseOrderValue,
   sortRowsByMode
 } from './yamlConfigTableModel';
-import { validateYamlConfig as validateYamlConfigState } from './yamlConfigTableValidation';
 import {
   ARRAY_INPUT_HINT,
   ARRAY_INPUT_PLACEHOLDER,
-  CONTENT_TYPES,
-  type DomainOverrideEntry,
-  type FieldRow,
   type YamlConfigDomainLabels,
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
@@ -30,30 +18,75 @@ import type {
   YamlConfigControllerOptions
 } from './yamlConfigTableControllerTypes';
 import { collectYamlDomainLabels, collectYamlTableLabels } from './yamlConfigTableLabels';
+import type { YamlConfigControllerInternalState } from './yamlConfigTableControllerStateTypes';
+import {
+  addYamlConfigCustomRow,
+  deleteYamlConfigRow,
+  getYamlConfigCustomMoveAvailability,
+  moveYamlConfigCustomRow,
+  normalizeYamlConfigRowDefaultValue,
+  normalizeYamlConfigRowValuePath,
+  toggleYamlConfigRowContentType,
+  updateYamlConfigRowDefaultValue,
+  updateYamlConfigRowName,
+  updateYamlConfigRowType,
+  updateYamlConfigRowValuePath
+} from './yamlConfigTableControllerRows';
+import {
+  resetYamlConfigSelectionState,
+  setYamlConfigDefaultGroupExpanded,
+  toggleYamlConfigAdvancedRow,
+  toggleYamlConfigFilterMode,
+  toggleYamlConfigSortMode
+} from './yamlConfigTableControllerSelection';
+import {
+  addYamlConfigDomainEntry,
+  addYamlConfigDomainField,
+  normalizeYamlConfigDomainFieldDefaultValue,
+  normalizeYamlConfigDomainFieldValuePath,
+  removeYamlConfigDomainEntry,
+  removeYamlConfigDomainField,
+  setYamlConfigDomainContentType,
+  setYamlConfigDomainFieldEnabled,
+  updateYamlConfigDomainFieldDefaultValue,
+  updateYamlConfigDomainFieldName,
+  updateYamlConfigDomainFieldValuePath,
+  updateYamlConfigDomainInput
+} from './yamlConfigTableControllerDomainOverrides';
+import {
+  applyYamlConfigControllerSnapshot,
+  collectYamlConfigControllerSnapshot
+} from './yamlConfigTableControllerPersistence';
+import {
+  clearYamlConfigControllerValidationTimer,
+  debounceYamlConfigControllerValidation,
+  syncYamlConfigControllerValidationState
+} from './yamlConfigTableControllerValidation';
 
 export function createYamlConfigControllerState(
   options: YamlConfigControllerOptions
 ): ControllerState {
-  let tableHost: HTMLElement | null = options.tableHost ?? null;
-  let domainHost: HTMLElement | null = options.domainHost ?? null;
-  let addButton: HTMLButtonElement | null = options.addFieldButton ?? null;
+  const state: YamlConfigControllerInternalState = {
+    tableHost: options.tableHost ?? null,
+    domainHost: options.domainHost ?? null,
+    addButton: options.addFieldButton ?? null,
+    addButtonHandler: null,
+    rows: [],
+    baseOrder: new Map<string, number>(),
+    currentSortMode: null,
+    currentFilterMode: null,
+    defaultGroupExpanded: true,
+    rowErrors: new Map<string, string[]>(),
+    globalErrors: [],
+    advancedOpenRows: new Set<string>(),
+    domainEntries: [],
+    domainErrors: new Map<string, string[]>(),
+    validationTimer: null
+  };
   const onDirty = options.onDirty ?? null;
 
-  let addButtonHandler: ((event: Event) => void) | null = null;
-  let rows: FieldRow[] = [];
-  let baseOrder = new Map<string, number>();
-  let currentSortMode: YamlContentType | null = null;
-  let currentFilterMode: YamlContentType | null = null;
-  let defaultGroupExpanded = true;
-  let rowErrors = new Map<string, string[]>();
-  let globalErrors: string[] = [];
-  const advancedOpenRows = new Set<string>();
-  let domainEntries: DomainOverrideEntry[] = [];
-  let domainErrors = new Map<string, string[]>();
-  let validationTimer: number | null = null;
-
   const markDirty = (): void => {
-    if (rowErrors.size || globalErrors.length) {
+    if (state.rowErrors.size || state.globalErrors.length) {
       return;
     }
     onDirty?.();
@@ -63,172 +96,105 @@ export function createYamlConfigControllerState(
     fieldName: string,
     contentType: YamlContentType
   ): boolean =>
-    getAvailableFieldsForContentType(rows, contentType).some((row) => row.name === fieldName);
+    getAvailableFieldsForContentType(state.rows, contentType).some((row) => row.name === fieldName);
 
   const collectLabels = (): YamlConfigTableLabels =>
-    collectYamlTableLabels(tableHost ?? document.getElementById('yamlConfigTable'));
+    collectYamlTableLabels(state.tableHost ?? document.getElementById('yamlConfigTable'));
 
   const collectDomainLabels = (): YamlConfigDomainLabels =>
-    collectYamlDomainLabels(domainHost ?? document.getElementById('yamlDomainOverrides'));
+    collectYamlDomainLabels(state.domainHost ?? document.getElementById('yamlDomainOverrides'));
 
   const syncValidationState = (): void => {
-    const validation = validateYamlConfigState({
-      rows,
-      domainEntries,
-      tableLabels: collectLabels(),
-      domainLabels: collectDomainLabels(),
+    syncYamlConfigControllerValidationState(
+      state,
+      {
+        tableLabels: collectLabels(),
+        domainLabels: collectDomainLabels()
+      },
       isFieldAvailableForContentType
-    });
-    rowErrors = validation.rowErrors;
-    domainErrors = validation.domainErrors;
-    globalErrors = validation.globalErrors;
-  };
-
-  const moveCustomRow = (rowId: string, offset: number): void => {
-    if (currentSortMode || currentFilterMode || offset === 0) {
-      return;
-    }
-    const ordered = getCustomRowsByOrder(rows, baseOrder);
-    const index = ordered.findIndex((item) => item.id === rowId);
-    if (index === -1) {
-      return;
-    }
-    const targetIndex = index + offset;
-    if (targetIndex < 0 || targetIndex >= ordered.length) {
-      return;
-    }
-    const sourceRow = ordered[index];
-    const targetRow = ordered[targetIndex];
-    const sourceOrder = baseOrder.get(sourceRow.id) ?? 0;
-    const targetOrder = baseOrder.get(targetRow.id) ?? 0;
-    baseOrder.set(sourceRow.id, targetOrder);
-    baseOrder.set(targetRow.id, sourceOrder);
-    rows = sortRowsByMode(rows, currentSortMode, baseOrder);
-    syncTable();
-    markDirty();
-  };
-
-  const getCustomMoveAvailability = (rowId: string) => {
-    const row = rows.find((item) => item.id === rowId);
-    if (!row || row.builtIn || currentSortMode || currentFilterMode) {
-      return { canMoveUp: false, canMoveDown: false };
-    }
-    const ordered = getCustomRowsByOrder(rows, baseOrder);
-    const index = ordered.findIndex((item) => item.id === rowId);
-    return {
-      canMoveUp: index > 0,
-      canMoveDown: index !== -1 && index < ordered.length - 1
-    };
+    );
   };
 
   const debounceValidation = (): void => {
-    if (validationTimer) {
-      window.clearTimeout(validationTimer);
-    }
-    validationTimer = window.setTimeout(() => {
-      validationTimer = null;
-      syncValidationState();
-      syncTable();
-    }, 250);
+    debounceYamlConfigControllerValidation(state, {
+      syncValidationState,
+      onValidated: syncTable
+    });
   };
 
   const renderDomainOverridesIfNeeded = (): void => {
-    if (!domainHost) {
+    if (!state.domainHost) {
       return;
     }
     renderDomainOverrides({
-      host: domainHost,
-      entries: domainEntries,
+      host: state.domainHost,
+      entries: state.domainEntries,
       labels: collectDomainLabels(),
       tableLabels: collectLabels(),
-      domainErrors,
+      domainErrors: state.domainErrors,
       getFieldOptionsForEntry: (entry, currentField) =>
-        getFieldOptionsForEntry(rows, entry, currentField),
+        getFieldOptionsForEntry(state.rows, entry, currentField),
       buildDomainFieldDefinition: (contentType, fieldName) =>
-        findFieldDefinition(rows, contentType, fieldName),
+        findFieldDefinition(state.rows, contentType, fieldName),
       actions: {
         onAddDomainEntry: () => {
-          domainEntries.push({
-            id: createRowId('domain'),
-            domain: '',
-            contentType: CONTENT_TYPES[0],
-            fields: []
-          });
+          addYamlConfigDomainEntry(state);
           syncTable();
           debounceValidation();
           markDirty();
         },
         onRemoveDomainEntry: (entryId) => {
-          domainEntries = domainEntries.filter((entry) => entry.id !== entryId);
+          removeYamlConfigDomainEntry(state, entryId);
           syncTable();
           debounceValidation();
           markDirty();
         },
         onDomainInput: (entry, value) => {
-          entry.domain = value;
+          updateYamlConfigDomainInput(entry, value);
           debounceValidation();
         },
         onDomainBlur: () => {
           markDirty();
         },
         onContentTypeChange: (entry, contentType) => {
-          entry.contentType = contentType;
-          ensureDomainEntryFields(entry, rows, isFieldAvailableForContentType);
+          setYamlConfigDomainContentType(state, entry, contentType, isFieldAvailableForContentType);
           syncTable();
           debounceValidation();
           markDirty();
         },
         onAddDomainField: (entry) => {
-          const candidates = getFieldOptionsForEntry(rows, entry);
-          if (!candidates.length) {
+          if (!addYamlConfigDomainField(state, entry)) {
             return;
           }
-          const definition = candidates[0];
-          entry.fields.push({
-            id: createRowId(`${entry.domain || 'domain'}-${definition.name}`),
-            name: definition.name,
-            type: definition.type,
-            enabled: definition.enabled[entry.contentType] ?? true,
-            defaultValue: '',
-            valuePath: definition.valuePath ?? ''
-          });
           syncTable();
           debounceValidation();
           markDirty();
         },
         onRemoveDomainField: (entryId, fieldId) => {
-          const entry = domainEntries.find((item) => item.id === entryId);
-          if (!entry) {
+          if (!removeYamlConfigDomainField(state, entryId, fieldId)) {
             return;
           }
-          entry.fields = entry.fields.filter((field) => field.id !== fieldId);
           syncTable();
           debounceValidation();
           markDirty();
         },
         onDomainFieldNameChange: (entry, field, name) => {
-          const definition = findFieldDefinition(rows, entry.contentType, name);
-          field.name = name;
-          field.type = definition?.type ?? 'text';
-          field.enabled = definition?.enabled[entry.contentType] ?? true;
-          field.defaultValue = '';
-          field.valuePath = definition?.valuePath ?? '';
+          updateYamlConfigDomainFieldName(state, entry, field, name);
           syncTable();
           debounceValidation();
           markDirty();
         },
         onDomainFieldEnabledChange: (field, checked) => {
-          field.enabled = checked;
+          setYamlConfigDomainFieldEnabled(field, checked);
           debounceValidation();
           markDirty();
         },
         onDomainFieldDefaultInput: (field, value) => {
-          field.defaultValue = value;
+          updateYamlConfigDomainFieldDefaultValue(field, value);
           debounceValidation();
         },
         onDomainFieldDefaultBlur: (field, value) => {
-          const normalized = field.type === 'array' ? formatArrayValue(value) : value;
-          field.defaultValue = normalized;
+          const normalized = normalizeYamlConfigDomainFieldDefaultValue(field, value);
           const active = document.activeElement;
           if (active instanceof HTMLInputElement) {
             active.value = normalized;
@@ -236,15 +202,14 @@ export function createYamlConfigControllerState(
           markDirty();
         },
         onDomainFieldValuePathInput: (field, value) => {
-          field.valuePath = value;
+          updateYamlConfigDomainFieldValuePath(field, value);
           debounceValidation();
         },
         onDomainFieldValuePathBlur: (field, value) => {
-          const trimmed = value.trim();
-          field.valuePath = trimmed ? trimmed : '';
+          const normalized = normalizeYamlConfigDomainFieldValuePath(field, value);
           const active = document.activeElement;
           if (active instanceof HTMLInputElement) {
-            active.value = field.valuePath ?? '';
+            active.value = normalized;
           }
           markDirty();
         }
@@ -253,82 +218,72 @@ export function createYamlConfigControllerState(
   };
 
   const syncTable = (): void => {
-    if (!tableHost) {
+    if (!state.tableHost) {
       return;
     }
     syncValidationState();
     const labels = collectLabels();
-    const filteredRows = getFilteredRows(rows, currentFilterMode);
+    const filteredRows = getFilteredRows(state.rows, state.currentFilterMode);
     const table = buildTable({
       labels,
       rows: filteredRows,
-      currentFilterMode,
-      currentSortMode,
-      defaultGroupExpanded,
-      advancedOpenRows,
-      rowErrors,
-      getMoveAvailability: getCustomMoveAvailability,
+      currentFilterMode: state.currentFilterMode,
+      currentSortMode: state.currentSortMode,
+      defaultGroupExpanded: state.defaultGroupExpanded,
+      advancedOpenRows: state.advancedOpenRows,
+      rowErrors: state.rowErrors,
+      getMoveAvailability: (rowId) => getYamlConfigCustomMoveAvailability(state, rowId),
       onDefaultGroupToggle: (open) => {
-        defaultGroupExpanded = open;
+        setYamlConfigDefaultGroupExpanded(state, open);
       },
       onToggleFilter: (mode) => {
-        currentFilterMode = currentFilterMode === mode ? null : mode;
-        rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+        toggleYamlConfigFilterMode(state, mode);
         syncTable();
       },
       onToggleSort: (mode) => {
-        currentSortMode = currentSortMode === mode ? null : mode;
-        rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+        toggleYamlConfigSortMode(state, mode);
         syncTable();
       },
       rowActions: {
         onNameInput: (row, value) => {
-          row.name = value;
+          updateYamlConfigRowName(row, value);
           debounceValidation();
         },
         onNameBlur: () => {
-          rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+          state.rows = sortRowsByMode(state.rows, state.currentSortMode, state.baseOrder);
           syncTable();
           markDirty();
         },
         onTypeChange: (row, type) => {
-          row.type = type;
-          row.defaultValue = '';
-          rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+          updateYamlConfigRowType(state, row, type);
           syncTable();
           markDirty();
         },
         onToggleContentType: (row, contentType, checked) => {
-          row.enabled[contentType] = checked;
-          rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+          toggleYamlConfigRowContentType(state, row, contentType, checked);
           syncTable();
           markDirty();
         },
         onAdvancedToggle: (row) => {
-          if (advancedOpenRows.has(row.id)) {
-            advancedOpenRows.delete(row.id);
-          } else {
-            advancedOpenRows.add(row.id);
-          }
+          toggleYamlConfigAdvancedRow(state, row);
           syncTable();
         },
         onMoveRow: (rowId, offset) => {
-          moveCustomRow(rowId, offset);
+          if (moveYamlConfigCustomRow(state, rowId, offset)) {
+            syncTable();
+            markDirty();
+          }
         },
         onDeleteRow: (row) => {
-          baseOrder.delete(row.id);
-          rows = rows.filter((item) => item.id !== row.id);
-          advancedOpenRows.delete(row.id);
-          rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+          deleteYamlConfigRow(state, row);
           syncTable();
         },
         onDefaultValueInput: (row, value) => {
-          row.defaultValue = value;
+          updateYamlConfigRowDefaultValue(row, value);
           debounceValidation();
         },
         onDefaultValueBlur: (row, value) => {
-          const normalized = row.type === 'array' ? formatArrayValue(value) : value;
-          row.defaultValue = normalized;
+          const normalized = normalizeYamlConfigRowDefaultValue(row, value);
           const active = document.activeElement;
           if (active instanceof HTMLInputElement) {
             active.value = normalized;
@@ -337,19 +292,14 @@ export function createYamlConfigControllerState(
           markDirty();
         },
         onAdvancedValuePathInput: (row, value) => {
-          row.valuePath = value;
+          updateYamlConfigRowValuePath(row, value);
           debounceValidation();
         },
         onAdvancedValuePathBlur: (row, value) => {
-          const trimmed = value.trim();
-          if (trimmed) {
-            row.valuePath = trimmed;
-          } else {
-            delete row.valuePath;
-          }
+          const normalized = normalizeYamlConfigRowValuePath(row, value);
           const active = document.activeElement;
           if (active instanceof HTMLInputElement) {
-            active.value = row.valuePath ?? '';
+            active.value = normalized;
           }
           syncTable();
           markDirty();
@@ -357,115 +307,74 @@ export function createYamlConfigControllerState(
       }
     });
 
-    const warningsHost = buildGlobalWarnings(globalErrors);
-    tableHost.replaceChildren(...(warningsHost ? [warningsHost, table] : [table]));
+    const warningsHost = buildGlobalWarnings(state.globalErrors);
+    state.tableHost.replaceChildren(...(warningsHost ? [warningsHost, table] : [table]));
     renderDomainOverridesIfNeeded();
   };
 
   const bindAddButton = (): void => {
     const nextButton =
-      addButton ??
+      state.addButton ??
       (typeof document !== 'undefined'
         ? (document.getElementById('yamlAddFieldBtn') as HTMLButtonElement | null)
         : null);
-    addButton?.removeEventListener('click', addButtonHandler as EventListener);
-    addButton = nextButton;
-    if (!addButton) {
-      addButtonHandler = null;
+    state.addButton?.removeEventListener('click', state.addButtonHandler as EventListener);
+    state.addButton = nextButton;
+    if (!state.addButton) {
+      state.addButtonHandler = null;
       return;
     }
-    addButtonHandler = () => {
-      const row: FieldRow = {
-        id: createRowId('custom'),
-        name: '',
-        type: 'text',
-        defaultValue: '',
-        enabled: createToggleMap(false),
-        supported: createToggleMap(true),
-        builtIn: false,
-        isCustom: true,
-        required: false,
-        originTypes: new Set()
-      };
-      baseOrder.set(row.id, nextBaseOrderValue(baseOrder));
-      rows = sortRowsByMode([...rows, row], currentSortMode, baseOrder);
+    state.addButtonHandler = () => {
+      addYamlConfigCustomRow(state);
       syncTable();
       markDirty();
     };
-    addButton.addEventListener('click', addButtonHandler);
+    state.addButton.addEventListener('click', state.addButtonHandler);
   };
 
   const render = (initial: YamlConfigOverrides | null): void => {
-    if (!tableHost && typeof document !== 'undefined') {
-      tableHost = document.getElementById('yamlConfigTable');
+    if (!state.tableHost && typeof document !== 'undefined') {
+      state.tableHost = document.getElementById('yamlConfigTable');
     }
-    if (!domainHost && typeof document !== 'undefined') {
-      domainHost = document.getElementById('yamlDomainOverrides');
+    if (!state.domainHost && typeof document !== 'undefined') {
+      state.domainHost = document.getElementById('yamlDomainOverrides');
     }
-    if (!addButton && typeof document !== 'undefined') {
-      addButton = document.getElementById('yamlAddFieldBtn') as HTMLButtonElement | null;
+    if (!state.addButton && typeof document !== 'undefined') {
+      state.addButton = document.getElementById('yamlAddFieldBtn') as HTMLButtonElement | null;
     }
-    if (!tableHost) {
+    if (!state.tableHost) {
       return;
     }
 
-    rows = buildInitialRows(initial ?? undefined);
-    advancedOpenRows.clear();
-    rows.forEach((row) => {
-      if (row.valuePath?.trim()) {
-        advancedOpenRows.add(row.id);
-      }
-    });
-    baseOrder = new Map(rows.map((row, index) => [row.id, index]));
-    currentSortMode = null;
-    currentFilterMode = null;
-    defaultGroupExpanded = true;
-    rowErrors = new Map();
-    globalErrors = [];
-    domainEntries = buildInitialDomainOverrides(initial ?? undefined, rows);
-    domainErrors = new Map();
-    rows = sortRowsByMode(rows, currentSortMode, baseOrder);
+    applyYamlConfigControllerSnapshot(state, initial);
     syncTable();
     bindAddButton();
   };
 
   const collect = (): YamlConfigOverrides | null => {
-    if (!rows.length) {
-      return null;
-    }
-    syncValidationState();
-    syncTable();
-    if (rowErrors.size || globalErrors.length) {
-      throw new Error(globalErrors[0] ?? collectLabels().warnings.unresolvedErrors);
-    }
-    return collectYamlConfigOverrides({ rows, domainEntries, baseOrder });
+    return collectYamlConfigControllerSnapshot(state, {
+      syncValidationState,
+      syncTable,
+      getUnresolvedErrorMessage: () => collectLabels().warnings.unresolvedErrors
+    });
   };
 
   const dispose = (): void => {
-    addButton?.removeEventListener('click', addButtonHandler as EventListener);
-    if (validationTimer) {
-      window.clearTimeout(validationTimer);
-    }
-    rows = [];
-    baseOrder = new Map();
-    currentSortMode = null;
-    currentFilterMode = null;
-    defaultGroupExpanded = true;
-    rowErrors = new Map();
-    globalErrors = [];
-    advancedOpenRows.clear();
-    domainEntries = [];
-    domainErrors = new Map();
-    tableHost = null;
-    domainHost = null;
-    addButton = null;
-    addButtonHandler = null;
-    validationTimer = null;
+    state.addButton?.removeEventListener('click', state.addButtonHandler as EventListener);
+    clearYamlConfigControllerValidationTimer(state);
+    state.rows = [];
+    state.baseOrder = new Map();
+    resetYamlConfigSelectionState(state);
+    state.rowErrors = new Map();
+    state.globalErrors = [];
+    state.domainEntries = [];
+    state.domainErrors = new Map();
+    state.tableHost = null;
+    state.domainHost = null;
+    state.addButton = null;
+    state.addButtonHandler = null;
+    state.validationTimer = null;
   };
 
   return { render, collect, dispose };
-}
-
-function createRowId(seed: string): string {
-  return `yaml-row-${seed}-${Math.random().toString(36).slice(2, 8)}`;
 }
