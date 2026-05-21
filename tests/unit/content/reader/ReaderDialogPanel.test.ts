@@ -125,4 +125,36 @@ describe('ReaderDialogPanel', () => {
 
     panel.destroy();
   });
+
+  it('focuses reader controls through the shared content dialog focus helper', async () => {
+    const { focusContentDialogElement } = await import(
+      '../../../../src/ui/hosts/content/contentDialogFocus'
+    );
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    panel.setHighlights([
+      {
+        id: 'h-1',
+        index: 1,
+        excerpt: 'Selected text',
+        fullText: 'Selected text',
+        comment: '',
+        commentPreview: '',
+        timestamp: Date.now()
+      }
+    ]);
+
+    panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.focus();
+    expect(
+      focusContentDialogElement(panel.element.shadowRoot, '[data-highlight-input="h-1"]')
+    ).toBe(true);
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]')
+    );
+
+    panel.destroy();
+  });
 });

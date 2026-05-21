@@ -202,6 +202,27 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('keeps cancel and capture editor focus behavior stable', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const capture = createCapture({ comment: 'draft', commentPreview: 'draft' });
+    panel.show();
+    panel.setCaptures([capture]);
+
+    panel.beginEditingCapture(capture.id, capture.comment);
+    await Promise.resolve();
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(panel.element.shadowRoot?.activeElement).toBe(input);
+
+    panel.element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-action-id="video:cancel"]')
+      ?.click();
+    expect(callbacks.onCancel).toHaveBeenCalledTimes(1);
+
+    panel.destroy();
+  });
+
   it('keeps empty capture notes empty instead of rendering fallback copy', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.setCaptures([createCapture({ comment: '', commentPreview: '' })]);

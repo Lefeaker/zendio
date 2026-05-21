@@ -13,6 +13,7 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
@@ -365,14 +366,9 @@ export class ReaderDialogPanel
     if (!highlightId) {
       return;
     }
-    const input = Array.from(
-      this.renderRoot.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-highlight-input]') ?? []
-    ).find((element) => element.dataset.highlightInput === highlightId);
-    if (!input) {
-      return;
-    }
-    input.focus();
-    if (this.renderRoot.shadowRoot?.activeElement === input) {
+    if (
+      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'highlightInput', highlightId)
+    ) {
       this.pendingNoteFocusHighlightId = null;
     }
   }

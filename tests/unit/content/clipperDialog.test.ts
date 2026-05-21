@@ -245,6 +245,69 @@ describe('ClipperDialog UI', () => {
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
   });
 
+  it('builds presenter command buttons and comment hooks from element helpers', async () => {
+    const { buildDialogPresenter } = await import(
+      '../../../src/content/clipper/components/dialogPresenterElements'
+    );
+    const handlers = {
+      reader: vi.fn(),
+      video: vi.fn(),
+      cancel: vi.fn(),
+      confirm: vi.fn()
+    };
+    const getFallback = <Key extends keyof Messages>(key: Key): string =>
+      (dialogMessages[key as keyof typeof dialogMessages] as string | undefined) ?? String(key);
+
+    const presenter = buildDialogPresenter({
+      selectedText: 'Selected text',
+      initialComment: 'Initial note',
+      allowReaderMode: true,
+      allowVideoMode: true,
+      readerModeBehavior: 'start',
+      binder: null,
+      getFallback,
+      resolveAssetUrl: (path) => `chrome-extension://test/${path}`,
+      bindings: {
+        applyText: (element, key, fallback) => {
+          element.dataset.i18n = key;
+          element.textContent = fallback;
+        },
+        applyAttr: (element, attribute, datasetKey, key, fallback) => {
+          element.setAttribute(attribute, fallback);
+          (element.dataset as Record<string, string>)[datasetKey] = key;
+        }
+      },
+      registerI18nHandles: vi.fn(),
+      onReader: handlers.reader,
+      onVideo: handlers.video,
+      onCancel: handlers.cancel,
+      onConfirm: handlers.confirm
+    });
+
+    document.body.append(presenter.content);
+
+    expect(presenter.header.querySelector('.clipper-dialog-title')).toBeTruthy();
+    expect(presenter.textarea.value).toBe('Initial note');
+    expect(presenter.textarea.getAttribute('aria-label')).toBe('Comment');
+    expect(presenter.hintElement).toBe(
+      presenter.content.querySelector('.clipper-comment-completed-hint')
+    );
+
+    const buttons = Array.from(presenter.content.querySelectorAll<HTMLButtonElement>('button'));
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual([
+      'Open reader',
+      '进入视频模式',
+      'Cancel',
+      'Save'
+    ]);
+
+    buttons.forEach((button) => button.click());
+    expect(handlers.reader).toHaveBeenCalledTimes(1);
+    expect(handlers.video).toHaveBeenCalledTimes(1);
+    expect(handlers.cancel).toHaveBeenCalledTimes(1);
+    expect(handlers.confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('resolves with cancelled status when overlay clicked', async () => {
     const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
     const dialog = new ClipperDialog(createDialogDeps());
