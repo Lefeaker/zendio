@@ -10,6 +10,7 @@ const watch = args.includes('--watch');
 const prod = args.includes('--mode=prod') || args.includes('--prod');
 const skipChecks = args.includes('--skip-checks');
 const firefox = args.includes('--firefox');
+const includeHarnesses = !prod || args.includes('--include-harnesses');
 
 function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
@@ -78,19 +79,29 @@ const backgroundBuildOptions = {
   format: 'iife'
 };
 
+const productionAppEntryPoints = {
+  'content/runtime': 'src/content/index.ts',
+  'local-vault-permission': 'src/content/runtime/localVaultPermissionFrame.ts',
+  'offscreen/local-vault': 'src/offscreen/localVault.ts',
+  'options/index': 'src/options/index.ts',
+  'onboarding/index': 'src/onboarding/index.ts'
+};
+
+const harnessEntryPoints = {
+  'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
+  'content-orchestrator-harness': 'src/dev/contentOrchestratorHarness.ts',
+  'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts',
+  'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
+};
+
 const appBuildOptions = {
   ...sharedBuildOptions,
-  entryPoints: {
-    'content/runtime': 'src/content/index.ts',
-    'local-vault-permission': 'src/content/runtime/localVaultPermissionFrame.ts',
-    'offscreen/local-vault': 'src/offscreen/localVault.ts',
-    'options/index': 'src/options/index.ts',
-    'onboarding/index': 'src/onboarding/index.ts',
-    'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
-    'content-orchestrator-harness': 'src/dev/contentOrchestratorHarness.ts',
-    'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts',
-    'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
-  },
+  entryPoints: includeHarnesses
+    ? {
+        ...productionAppEntryPoints,
+        ...harnessEntryPoints
+      }
+    : productionAppEntryPoints,
   format: 'esm',
   splitting: true,
   chunkNames: 'chunks/[name]-[hash]'
@@ -110,6 +121,17 @@ await mkdir('build/dist/content', { recursive: true });
 await writeFile('build/dist/content/index.js', CONTENT_LOADER_SOURCE);
 
 await cp('public', 'build/dist', { recursive: true });
+
+if (!includeHarnesses) {
+  await Promise.all(
+    [
+      'interaction-contract-harness.html',
+      'content-orchestrator-harness.html',
+      'runtime-observability-harness.html',
+      'local-vault-write-harness.html'
+    ].map((file) => rm(`build/dist/${file}`, { force: true }))
+  );
+}
 
 // Copy styles
 await mkdir('build/dist/styles', { recursive: true });

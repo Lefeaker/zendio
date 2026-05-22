@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 const scriptPath = resolve('tools/report-production-build-graph.mjs');
 
 interface ProductionBuildGraphFixtureReport {
+  configuredEntrypoints: Record<string, string>;
   reachableSources: Record<string, { entrypointOwners: string[] }>;
   requiredEntrypoints: { missing: string[] };
 }
@@ -24,10 +25,6 @@ describe('report-production-build-graph', () => {
         'src/background/index.ts': { bytes: 10 },
         'src/content/index.ts': { bytes: 10 },
         'src/content/runtime/localVaultPermissionFrame.ts': { bytes: 10 },
-        'src/dev/contentOrchestratorHarness.ts': { bytes: 10 },
-        'src/dev/interactionContractHarness.ts': { bytes: 10 },
-        'src/dev/localVaultWriteHarness.ts': { bytes: 10 },
-        'src/dev/runtimeObservabilityHarness.ts': { bytes: 10 },
         'src/offscreen/localVault.ts': { bytes: 10 },
         'src/options/index.ts': { bytes: 10 },
         'src/onboarding/index.ts': { bytes: 10 },
@@ -75,30 +72,6 @@ describe('report-production-build-graph', () => {
           inputs: {
             'src/offscreen/localVault.ts': { bytesInOutput: 10 }
           }
-        },
-        'build/audit/interaction-contract-harness.js': {
-          entryPoint: 'src/dev/interactionContractHarness.ts',
-          inputs: {
-            'src/dev/interactionContractHarness.ts': { bytesInOutput: 10 }
-          }
-        },
-        'build/audit/content-orchestrator-harness.js': {
-          entryPoint: 'src/dev/contentOrchestratorHarness.ts',
-          inputs: {
-            'src/dev/contentOrchestratorHarness.ts': { bytesInOutput: 10 }
-          }
-        },
-        'build/audit/runtime-observability-harness.js': {
-          entryPoint: 'src/dev/runtimeObservabilityHarness.ts',
-          inputs: {
-            'src/dev/runtimeObservabilityHarness.ts': { bytesInOutput: 10 }
-          }
-        },
-        'build/audit/local-vault-write-harness.js': {
-          entryPoint: 'src/dev/localVaultWriteHarness.ts',
-          inputs: {
-            'src/dev/localVaultWriteHarness.ts': { bytesInOutput: 10 }
-          }
         }
       }
     });
@@ -128,6 +101,20 @@ describe('report-production-build-graph', () => {
       expect(json.reachableSources['src/options/app/bootstrap.ts'].entrypointOwners).toContain(
         'src/options/index.ts'
       );
+      expect(Object.values(json.configuredEntrypoints)).toEqual(
+        expect.arrayContaining([
+          'src/background/index.ts',
+          'src/content/index.ts',
+          'src/options/index.ts',
+          'src/onboarding/index.ts'
+        ])
+      );
+      expect(Object.values(json.configuredEntrypoints)).not.toContain(
+        'src/dev/interactionContractHarness.ts'
+      );
+      expect(
+        Object.keys(json.reachableSources).filter((source) => source.startsWith('src/dev/'))
+      ).toEqual([]);
       expect(json.requiredEntrypoints.missing).toEqual([]);
     } finally {
       rmSync(fixture.dir, { recursive: true, force: true });
