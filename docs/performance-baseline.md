@@ -72,6 +72,8 @@ npm run audit:performance:report
 
 当前热点：
 
+- `src/options/app/productionStitchShellMount.ts`: `427` 行
+- `src/ui/domains/usage-chart/usageChartRenderers.ts`: `407` 行
 - `src/content/video/videoSessionRuntime.ts`: `395` 行
 - `src/options/components/sections/RestSectionView.ts`: `260` 行
 - `src/ui/domains/privacy/PrivacySettingsView.ts`: `255` 行
@@ -92,7 +94,7 @@ npm run audit:performance:report
 - `PrivacySettingsView`、`UsageDashboardSection` 已达到 stretch 目标
 - `RestSectionView` 已落到本轮最低目标内
 - YAML config table renderer/state/model 已拆分到当前热点口径内；`yamlConfigTableRenderer.ts` 当前为 `67` 行
-- 本轮新增子模块已按热点治理范围压到目标值，避免用拆分制造新的超限热点
+- 本轮新增子模块中，`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 仍是 400+ 行残留热点；2026-05-22 review gap patch 已把二者纳入 `audit:performance:report` 与 `audit:production-shape:report`，当前预算均为 `<= 450` 行，后续拆分仍按债务跟踪
 - Options 低频 diagnostics 已从主入口拆出
 - `YamlConfigView` 已改为 view/controller 双层 lazy；2026-05-18 build report 不再产出旧 `yaml-config-*` chunk 名称
 
@@ -118,3 +120,4 @@ npm run audit:performance:report
 - `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-05-21 M7 已将 checked-in warning guard baseline 从 `322` 下调到 `266` 条。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
 - 历史 M7 分支本地验证曾使用 Node.js `v23.9.0`；2026-05-22 final exit gate 已回到 Node `v20.20.2` / npm `10.8.2` 并通过构建、性能、Stitch、视觉与浏览器 smoke/reader-panel/local-vault 验证。
+- 2026-05-22 review gap patch 已确认 M6.2 retained low-reuse retirement 是安全 no-op：没有新增 delete-approved path，低复用 retained/source compatibility 仍是后续债务，不应表述为已完成退役。
