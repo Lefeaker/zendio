@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const HOTSPOT_PATH = 'docs/production-code-hotspots.md';
 const LOC_LIMITS = new Map([
   ['src/options/app/productionStitchShell.ts', 500],
+  ['src/options/app/productionStitchShellMount.ts', 450],
   ['src/options/app/productionStitchActions.ts', 300],
   ['src/options/app/productionStitchPersistence.ts', 300],
   ['src/options/app/productionStitchRenderLifecycle.ts', 300],
@@ -11,6 +12,7 @@ const LOC_LIMITS = new Map([
   ['src/content/video/prompt.ts', 300],
   ['src/content/clipper/components/dialog.ts', 450],
   ['src/options/stitch/render/renderStitchView.ts', 450],
+  ['src/ui/domains/usage-chart/usageChartRenderers.ts', 450],
   ['src/shared/services/yamlConfigService.ts', 250]
 ]);
 const TEXT_ASSIGNMENT_GATED_FILES = new Set([

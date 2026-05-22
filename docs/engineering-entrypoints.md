@@ -91,7 +91,7 @@ credentials and manual confirmation.
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
 - chunks: `102`
-- `npm run build` 与 `npm run build:firefox` 的通过记录仍来自 2026-05-18/2026-05-20 release readiness；M7 baseline sync 未重新运行这两个命令
+- 2026-05-22 review gap patch 在 Node `v20.20.2` / npm `10.8.2` 下补跑并通过 `npm run build`、`npm run build:firefox`、`npm run audit:local-vault-release:report -- --browser firefox`、`npm run build` 后的 `npm run audit:local-vault-release:report -- --browser chrome`
 - `src/shared/errors/analytics/analyticsConfig.ts` is tracked as a non-sensitive disabled default; clean checkout no longer needs a copied ignored local analytics file for typecheck/build.
 
 ## 核心命令
