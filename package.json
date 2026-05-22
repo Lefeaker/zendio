@@ -40,6 +40,8 @@
     "audit:build:report": "node tools/report-build-splitting.mjs",
     "audit:local-vault-release:report": "node scripts/audit-local-vault-release-readiness.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
+    "audit:release-surface:report": "node tools/report-release-surface.mjs",
+    "audit:release-surface:check": "node tools/report-release-surface.mjs --check",
     "manifest:generate": "node scripts/generate-manifests.mjs",
     "i18n:generate": "node scripts/gen-locales.mjs",
     "i18n:lint": "node scripts/lint-i18n.mjs",
