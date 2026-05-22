@@ -203,4 +203,25 @@ describe('contentMessageRouter', () => {
     expect(selection.removeAllRanges).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ success: true, forwarded: true });
   });
+
+  it('ignores unknown messages without route side effects', async () => {
+    const supportPrompt = { show: vi.fn() };
+    const localVaultPermissionPrompt = { request: vi.fn() };
+    const setClipMode = vi.fn();
+    const runClip = vi.fn();
+    const router = createRouter({
+      supportPrompt,
+      localVaultPermissionPrompt,
+      setClipMode,
+      runClip
+    });
+
+    const result = await router.handleMessage({ action: 'unknownAction' }, {});
+
+    expect(result).toBeUndefined();
+    expect(supportPrompt.show).not.toHaveBeenCalled();
+    expect(localVaultPermissionPrompt.request).not.toHaveBeenCalled();
+    expect(setClipMode).not.toHaveBeenCalled();
+    expect(runClip).not.toHaveBeenCalled();
+  });
 });

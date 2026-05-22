@@ -24,6 +24,7 @@ import {
   renderShortcutHint,
   updateDialogPosition
 } from './dialogPresenter';
+import { restoreContentDialogFocus } from '@ui/hosts/content/contentDialogFocus';
 import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import { DialogSessionState } from './dialogSessionState';
@@ -213,7 +214,7 @@ export class ClipperDialog {
     if (this.previousActiveElement) {
       const target = this.previousActiveElement;
       this.previousActiveElement = null;
-      queueMicrotask(() => target.focus());
+      restoreContentDialogFocus(target);
     }
   }
 

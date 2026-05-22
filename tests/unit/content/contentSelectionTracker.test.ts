@@ -165,4 +165,31 @@ describe('contentSelectionTracker', () => {
 
     expect(lastSelectionSnapshot).toBeNull();
   });
+
+  it('records snapshots only after a valid non-collapsed selection', () => {
+    document.body.innerHTML = '<p id="content">valid selection</p>';
+    const target = document.getElementById('content');
+    if (!target?.firstChild) {
+      throw new Error('Expected content selection target');
+    }
+
+    const tracker = createTracker();
+    tracker.handleSelectionChange();
+    expect(lastSelectionSnapshot).toBeNull();
+
+    const selection = window.getSelection();
+    if (!selection) {
+      throw new Error('Expected window selection');
+    }
+    const range = document.createRange();
+    range.setStart(target.firstChild, 0);
+    range.setEnd(target.firstChild, 'valid selection'.length);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    tracker.handleSelectionChange();
+
+    expect(lastSelectionSnapshot?.root).toBe(document);
+    expect(lastSelectionSnapshot?.range.toString()).toBe('valid selection');
+  });
 });

@@ -11,6 +11,7 @@ import {
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
 import { formatArrayValue } from './yamlConfigTableStateModel';
+import { bindYamlInputBlur, bindYamlInputValue } from './yamlConfigTableRendererEvents';
 
 export function buildYamlDefaultValueEditor(
   row: FieldRow,
@@ -29,12 +30,9 @@ export function buildYamlDefaultValueEditor(
       disabled: row.builtIn,
       className: 'w-full min-h-[36px] disabled:opacity-50 aobx-table__array-input'
     });
-    input.addEventListener('input', (event) =>
-      actions.onDefaultValueInput(row, (event.target as HTMLInputElement).value)
-    );
-    input.addEventListener('blur', (event) => {
-      const target = event.target as HTMLInputElement;
-      actions.onDefaultValueBlur(row, target.value);
+    bindYamlInputValue(input, (value) => actions.onDefaultValueInput(row, value));
+    bindYamlInputBlur(input, (value, target) => {
+      actions.onDefaultValueBlur(row, value);
       target.value = row.defaultValue ?? '';
     });
     container.append(input);
@@ -48,12 +46,9 @@ export function buildYamlDefaultValueEditor(
     disabled: row.builtIn,
     className: 'w-full min-h-[36px] disabled:opacity-50'
   });
-  input.addEventListener('input', (event) =>
-    actions.onDefaultValueInput(row, (event.target as HTMLInputElement).value)
-  );
-  input.addEventListener('blur', (event) => {
-    const target = event.target as HTMLInputElement;
-    actions.onDefaultValueBlur(row, target.value);
+  bindYamlInputValue(input, (value) => actions.onDefaultValueInput(row, value));
+  bindYamlInputBlur(input, (value, target) => {
+    actions.onDefaultValueBlur(row, value);
     target.value = row.defaultValue ?? '';
   });
   container.append(input);
@@ -86,12 +81,9 @@ export function buildYamlAdvancedPanel(
     value: row.valuePath ?? '',
     className: 'w-full min-h-[36px] aobx-table__advanced-input'
   });
-  input.addEventListener('input', (event) =>
-    actions.onAdvancedValuePathInput(row, (event.target as HTMLInputElement).value)
-  );
-  input.addEventListener('blur', (event) => {
-    const target = event.target as HTMLInputElement;
-    actions.onAdvancedValuePathBlur(row, target.value);
+  bindYamlInputValue(input, (value) => actions.onAdvancedValuePathInput(row, value));
+  bindYamlInputBlur(input, (value, target) => {
+    actions.onAdvancedValuePathBlur(row, value);
     target.value = row.valuePath ?? '';
   });
 

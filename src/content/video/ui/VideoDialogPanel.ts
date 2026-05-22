@@ -13,6 +13,7 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
@@ -161,12 +162,7 @@ export class VideoDialogPanel
     this.editingDraft = draft;
     this.rerender();
     queueMicrotask(() => {
-      const input =
-        Array.from(
-          this.renderRoot.shadowRoot?.querySelectorAll<HTMLInputElement>('[data-capture-input]') ??
-            []
-        ).find((candidate) => candidate.dataset.captureInput === id) ?? null;
-      input?.focus();
+      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id);
     });
   }
 

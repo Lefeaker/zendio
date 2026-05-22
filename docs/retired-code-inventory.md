@@ -1,6 +1,6 @@
 # Retired Code Inventory
 
-Last updated: 2026-05-11
+Last updated: 2026-05-22
 
 ## Decision Rules
 
@@ -13,6 +13,7 @@ Last updated: 2026-05-11
 - `npm run audit:non-production-source:check` is the hard gate; it must exit 0 and fail closed on unclassified stop rows or unsafe `delete-now` proof contradictions.
 - `npm run audit:retired-code:report` now fails when any `delete-now` path exists under `src` or is referenced by package scripts, build scripts, `src`, tests, public/manifest assets, or required visual/browser verification.
 - Retired Options compatibility classes and the retired preview runtime must not be reintroduced. Any retained `migrate-then-delete` family below must keep its owner/reason wording until production build graph, import graph, script/public ownership, and test/visual ownership all prove it can move to `delete-now`.
+- 2026-05-22 review gap truth: M6.2 low-reuse retained-code retirement was a safe no-op. The six-proof table found no additional `delete-approved` retained low-reuse source paths, and the M6.2 ledger records no source deletion. Treat the remaining retained and `migrate-then-delete` rows below as follow-up debt, not as completed retirement.
 
 | Path Family                                                               | Decision            | Runtime Owner                                            | Verification Owner                                          | Evidence Command                                                                                                                                      | Replacement Owner                                        | Required Action                                                                                                                                                     | Delete Gate                                                                                                                                                                     |
 | ------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

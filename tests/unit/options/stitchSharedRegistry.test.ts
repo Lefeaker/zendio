@@ -1,12 +1,23 @@
+/* @vitest-environment jsdom */
+
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { previewContent } from '@options/stitch/content';
+import { renderNode } from '@options/stitch/render/nodeRenderers';
+import type { RendererContext } from '@options/stitch/render/renderStitchView';
 import { STITCH_ACTIONS } from '@options/stitch/runtime/actions';
 import { resourceSchemas, settingsSchemas, surfaceSchemas } from '@options/stitch/schema/registry';
 import { aiPlatformLinks, themeSegmentedSwitch } from '@options/stitch/schema/builders/settings';
-import type { ElementNode, NodeChild, SchemaContext } from '@options/stitch/types';
+import { previewUi } from '@options/stitch/ui/components';
+import { el } from '@options/stitch/ui/dom';
+import type {
+  ElementNode,
+  NodeChild,
+  PreviewStoreState,
+  SchemaContext
+} from '@options/stitch/types';
 
 function resolveChildren(children: unknown, ctx: SchemaContext): NodeChild[] {
   return typeof children === 'function' ? children(ctx) : (children as NodeChild[]);
@@ -14,6 +25,39 @@ function resolveChildren(children: unknown, ctx: SchemaContext): NodeChild[] {
 
 function isElementNode(node: NodeChild): node is ElementNode {
   return Boolean(node && typeof node === 'object' && 'kind' in node && node.kind === 'element');
+}
+
+function createPreviewState(): PreviewStoreState {
+  return {
+    activePanel: 'overview',
+    activeResource: null,
+    previewTheme: 'dark',
+    previewLanguage: 'zh-CN',
+    yamlFilter: 'all',
+    readingPathMode: 'custom',
+    pageSummaryEnabled: false,
+    readingOverlaySummaryEnabled: false,
+    subtitleTranslationEnabled: false,
+    subtitleTargetLanguage: 'zh-CN',
+    experimentalAiConfig: { ...previewContent.experimental.aiDefaults },
+    highlightTheme: 'gradient',
+    readingExportMode: 'full',
+    aiUserName: 'USER',
+    videoFloatingPromptEnabled: true,
+    fragmentUseFootnoteFormat: true,
+    fragmentCaptureContext: true,
+    fragmentContextLength: 200,
+    fragmentContextMode: 'chars',
+    fragmentKeyboardShortcutsEnabled: true,
+    fragmentModifierEnabled: true,
+    modifierKeys: ['Alt'],
+    yamlFieldStates: {},
+    routingRules: [],
+    templateValues: { ...previewContent.output.templateDefaults },
+    activeTemplateField: 'articleVideo',
+    pendingTemplateFocus: null,
+    pendingTemplateSelection: null
+  };
 }
 
 describe('Stitch shared registry contracts', () => {
@@ -62,36 +106,7 @@ describe('Stitch shared registry contracts', () => {
   it('keeps AI platform links visible as chip anchors without disclosure wrappers', () => {
     const ctx: SchemaContext = {
       appData: previewContent,
-      state: {
-        activePanel: 'overview',
-        activeResource: null,
-        previewTheme: 'dark',
-        previewLanguage: 'zh-CN',
-        yamlFilter: 'all',
-        readingPathMode: 'custom',
-        pageSummaryEnabled: false,
-        readingOverlaySummaryEnabled: false,
-        subtitleTranslationEnabled: false,
-        subtitleTargetLanguage: 'zh-CN',
-        experimentalAiConfig: { ...previewContent.experimental.aiDefaults },
-        highlightTheme: 'gradient',
-        readingExportMode: 'full',
-        aiUserName: 'USER',
-        videoFloatingPromptEnabled: true,
-        fragmentUseFootnoteFormat: true,
-        fragmentCaptureContext: true,
-        fragmentContextLength: 200,
-        fragmentContextMode: 'chars',
-        fragmentKeyboardShortcutsEnabled: true,
-        fragmentModifierEnabled: true,
-        modifierKeys: ['Alt'],
-        yamlFieldStates: {},
-        routingRules: [],
-        templateValues: { ...previewContent.output.templateDefaults },
-        activeTemplateField: 'articleVideo',
-        pendingTemplateFocus: null,
-        pendingTemplateSelection: null
-      }
+      state: createPreviewState()
     };
     const node = aiPlatformLinks();
 
@@ -133,5 +148,22 @@ describe('Stitch shared registry contracts', () => {
     expect(sourceOfRuntimeSurfaceRenderer).toContain('@options/stitch/schema/surfaceRegistry');
     expect(sourceOfRuntimeSurfaceRenderer).not.toContain('@options/stitch/schema/registry');
     expect(sourceOfRuntimeSurfaceRenderer).not.toContain('@options/stitch/content');
+  });
+
+  it('routes usage chart nodes through the Stitch renderer content owner', () => {
+    const ctx: RendererContext = {
+      appData: previewContent,
+      state: createPreviewState(),
+      el,
+      ui: previewUi,
+      dispatch: vi.fn()
+    };
+
+    const rendered = renderNode({ kind: 'usageChart' }, ctx);
+
+    expect(rendered).toBeInstanceOf(HTMLDivElement);
+    expect((rendered as HTMLElement).className).toContain('usage-chart-shell');
+    expect((rendered as HTMLElement).dataset.role).toBe('usage-chart-shell');
+    expect((rendered as HTMLElement).querySelector('#usageWave')).toBeTruthy();
   });
 });

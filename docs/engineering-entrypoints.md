@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-19
+最后更新：2026-05-22
 
 ## 推荐运行环境
 
@@ -14,6 +14,7 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -21,6 +22,7 @@
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
+- 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
 
 ## 当前推荐执行顺序
 
@@ -58,6 +60,16 @@ npm run release:chrome -- --zip <release.zip>
 `npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
 credentials and manual confirmation.
 
+## 当前 Lint / Type 债务真值
+
+2026-05-21 M7 final baseline truth:
+
+- `npm run lint -- --quiet`：通过，当前没有 ESLint error。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已下调为 `266`，fresh warning count 为 `266`。
+- `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
+- 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
+- `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
+
 ## 当前构建预算真值
 
 `npm run audit:build:report` 当前执行以下预算：
@@ -72,14 +84,14 @@ credentials and manual confirmation.
 - `chunk count <= 132`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
-2026-05-18 fresh build truth:
+2026-05-21 M7 fresh build truth:
 
 - `npm run clean && npm run build:dev && npm run audit:build:report` 通过
-- `build/dist/content/runtime.js`: `56.0 KB`
+- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；raw stop gate `57,600`）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
-- chunks: `98`
-- `npm run build` 与 `npm run build:firefox` 均通过
+- chunks: `102`
+- 2026-05-22 review gap patch 在 Node `v20.20.2` / npm `10.8.2` 下补跑并通过 `npm run build`、`npm run build:firefox`、`npm run audit:local-vault-release:report -- --browser firefox`、`npm run build` 后的 `npm run audit:local-vault-release:report -- --browser chrome`
 - `src/shared/errors/analytics/analyticsConfig.ts` is tracked as a non-sensitive disabled default; clean checkout no longer needs a copied ignored local analytics file for typecheck/build.
 
 ## 核心命令

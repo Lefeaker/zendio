@@ -268,6 +268,68 @@ describe('report-non-production-source', () => {
     expect(result.requiredAction).toContain('six owner proofs');
   });
 
+  it('blocks delete-now when any deletion-proof owner surface is still referenced', () => {
+    const ownerSurfaces: Array<{
+      name: string;
+      overrides: Record<string, unknown>;
+      expectedDecision: string;
+    }> = [
+      {
+        name: 'production build graph',
+        overrides: { productionBuildGraphOwners: ['options/index'] },
+        expectedDecision: 'retain-production'
+      },
+      {
+        name: 'production import graph',
+        overrides: { productionImportOwners: ['src/options/app/bootstrap.ts'] },
+        expectedDecision: 'retain-production'
+      },
+      {
+        name: 'package script reference',
+        overrides: { scriptOwners: ['package.json#scripts.package'] },
+        expectedDecision: 'migrate-script-owner'
+      },
+      {
+        name: 'build script reference',
+        overrides: { scriptOwners: ['scripts/build.mjs'] },
+        expectedDecision: 'migrate-script-owner'
+      },
+      {
+        name: 'public or manifest asset reference',
+        overrides: { publicAssetOwners: ['public/manifest.json'] },
+        expectedDecision: 'migrate-script-owner'
+      },
+      {
+        name: 'unit test reference',
+        overrides: { testOwners: ['tests/unit/options/legacyWidget.test.ts'] },
+        expectedDecision: 'migrate-test-owner'
+      },
+      {
+        name: 'visual or browser check reference',
+        overrides: { testOwners: ['tests/visual/migration-harness.spec.ts'] },
+        expectedDecision: 'migrate-test-owner'
+      },
+      {
+        name: 'required verification command reference',
+        overrides: { requiredVerificationOwners: ['package.json#scripts.quality'] },
+        expectedDecision: 'migrate-test-owner'
+      }
+    ];
+
+    for (const { name, overrides, expectedDecision } of ownerSurfaces) {
+      expect(
+        classifySourceFile(
+          input({
+            file: approvedPostTestDeleteCandidate,
+            explicitDeleteNowPatterns: [approvedPostTestDeleteCandidate],
+            ...overrides
+          })
+        ).decision,
+        name
+      ).toBe(expectedDecision);
+    }
+  });
+
   it('marks explicit unowned source as delete-now only after all six proofs are empty', () => {
     const result = classifySourceFile(
       input({

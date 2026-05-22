@@ -3,18 +3,18 @@ import { normalizeUsageStats, USAGE_STATS_STORAGE_KEY } from '@shared/constants'
 import type { CompleteOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { StorageService } from '@platform/interfaces/storage';
+import { renderUsageChart, type ChartElements } from '@ui/domains/usage-chart';
 import { BaseSection, type SectionRenderContext } from './BaseSection';
-import { renderUsageChart } from './usageChart';
-import type { ChartElements } from './usageChartTypes';
 import {
+  buildUsageDashboardLayout,
   buildUsageSnapshot,
   cloneDefaultUsageStats,
   emitUsageStatsWindowEvent,
   reportUsageIncrementChanges,
+  type UsageDomRefs,
   type UsageSnapshot
-} from './usageDashboardState';
+} from '@options/app/usage-dashboard';
 import { resetUsageStatsAction } from '../../app/actions';
-import { buildUsageDashboardLayout, type UsageDomRefs } from './usageDashboardLayout';
 import { resolveUsageStatsSnapshot, subscribeToUsageStorage } from './usageDashboardData';
 
 export class UsageSection extends BaseSection<SectionRenderContext> {

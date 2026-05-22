@@ -1,6 +1,6 @@
 import { ContentDialogHost } from '../../hosts/content/ContentDialogHost';
+import { createContentDialogFooterControls } from '../../hosts/content/contentDialogControls';
 import { UiButton, createContentButtonElement } from '../../primitives/button';
-import { createBadgeElement } from '../../primitives/badge';
 import {
   createContentActionRow,
   createContentEmptyState,
@@ -139,34 +139,25 @@ export class ReaderDialog {
   }
 
   private buildFooter(): HTMLElement {
-    const footer = createContentActionRow({
-      className: 'flex items-center justify-between gap-4'
+    const controls = createContentDialogFooterControls({
+      counterText: this.counterText,
+      actions: [
+        {
+          label: this.config.texts.finish,
+          variant: 'primary',
+          dataRole: 'export-btn',
+          onClick: this.config.onFinish
+        },
+        {
+          label: this.config.texts.cancel,
+          variant: 'ghost',
+          dataRole: 'close-btn',
+          onClick: this.config.onCancel
+        }
+      ]
     });
-    const badgeHost = createContentLayoutElement();
-    const badge = createBadgeElement({
-      label: this.counterText,
-      variant: 'info',
-      dataRole: 'badge'
-    });
-    badgeHost.append(badge);
-
-    const actions = createContentActionRow();
-    new UiButton(actions).render({
-      label: this.config.texts.finish,
-      variant: 'primary',
-      dataRole: 'export-btn',
-      onClick: this.config.onFinish
-    });
-    new UiButton(actions).render({
-      label: this.config.texts.cancel,
-      variant: 'ghost',
-      dataRole: 'close-btn',
-      onClick: this.config.onCancel
-    });
-
-    footer.append(badgeHost, actions);
-    this.counterBadgeEl = badge;
-    return footer;
+    this.counterBadgeEl = controls.counterBadge;
+    return controls.footer;
   }
 
   private renderHighlights(): void {

@@ -2,7 +2,7 @@ import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
 import { normalizeUsageStats, USAGE_STATS_STORAGE_KEY } from '@shared/constants';
-import { resolveUsageStatsFromOptions } from './usageDashboardState';
+import { resolveUsageStatsFromOptions } from '@options/app/usage-dashboard';
 
 const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
 

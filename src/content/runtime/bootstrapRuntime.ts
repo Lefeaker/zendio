@@ -46,7 +46,6 @@ export function createContentRuntime(options: CreateContentRuntimeOptions): Cont
     start: () => {
       const clipFlow = initClipFlow({
         document,
-        window,
         messaging,
         runtimeState,
         selectionTracker,

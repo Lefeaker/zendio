@@ -12,5 +12,7 @@ describe('production code shape report', () => {
     );
     expect(output).toContain('Production code shape report');
     expect(output).toContain('src/options/app/productionStitchShell.ts');
+    expect(output).toContain('src/options/app/productionStitchShellMount.ts');
+    expect(output).toContain('src/ui/domains/usage-chart/usageChartRenderers.ts');
   });
 });

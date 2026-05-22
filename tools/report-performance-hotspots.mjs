@@ -6,6 +6,7 @@ const ROOT = process.cwd();
 const HOTSPOTS = [
   'src/options/state/StateManager.ts',
   'src/options/state/optionsStore.ts',
+  'src/options/app/productionStitchShellMount.ts',
   'src/content/index.ts',
   'src/content/runtime/bootstrapRuntime.ts',
   'src/content/reader/utils/markdownBuilder.ts',
@@ -17,17 +18,20 @@ const HOTSPOTS = [
   'src/options/components/sections/RestSectionView.ts',
   'src/options/components/sections/FragmentSectionView.ts',
   'src/options/components/sections/UsageDashboardSection.ts',
+  'src/ui/domains/usage-chart/usageChartRenderers.ts',
   'src/ui/domains/privacy/PrivacySettingsView.ts'
 ];
 
 const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/platforms/bilibiliPlatformAdapter.ts', 700],
   ['src/content/video/videoSessionRuntime.ts', 700],
+  ['src/options/app/productionStitchShellMount.ts', 450],
   ['src/ui/domains/yaml-config/yamlConfigTableRenderer.ts', 900],
   ['src/ui/domains/yaml-config/yamlConfigTableStateModel.ts', 700],
   ['src/options/components/sections/RestSectionView.ts', 720],
   ['src/options/components/sections/FragmentSectionView.ts', 620],
   ['src/options/components/sections/UsageDashboardSection.ts', 450],
+  ['src/ui/domains/usage-chart/usageChartRenderers.ts', 450],
   ['src/ui/domains/privacy/PrivacySettingsView.ts', 650]
 ]);
 

@@ -10,6 +10,7 @@ import {
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
 import type { ErrorHandler } from '@shared/errors';
+import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
 
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
@@ -83,11 +84,31 @@ const getTextarea = (): HTMLTextAreaElement => {
 
 async function createDialog() {
   const { ClipperDialog } = await import('@content/clipper/components/dialog');
+  const optionsRepository = {
+    get: vi.fn(() =>
+      Promise.resolve({
+        rest: {
+          rootDir: '',
+          vault: 'Test Vault',
+          baseUrl: '',
+          apiKey: ''
+        },
+        vaultRouter: {
+          defaultVaultId: 'default',
+          vaults: [],
+          rules: []
+        }
+      })
+    ),
+    set: vi.fn(() => Promise.resolve()),
+    onChange: vi.fn(() => () => undefined)
+  } as unknown as ClipperDialogDependencies['optionsRepository'];
   return new ClipperDialog({
     clipRepo,
     storage: storageService,
     runtime: runtimeService,
-    errorHandler
+    errorHandler,
+    optionsRepository
   });
 }
 
@@ -147,6 +168,29 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     if (existingPanel) {
       existingPanel.remove();
     }
+  });
+
+  it('renders shortcut hints with modifier labels from dialogShortcuts', async () => {
+    const { renderShortcutHint } = await import(
+      '../../../src/content/clipper/components/dialogPresenterEvents'
+    );
+    const hint = document.createElement('div');
+
+    renderShortcutHint(
+      hint,
+      {
+        header: '批注编辑已完成，可以使用快捷键来完成以下操作：',
+        doubleEnterLabel: '双击回车',
+        doubleEnterAction: '双击 ↵',
+        modifierAction: '直接剪藏',
+        escapeAction: '取消'
+      },
+      'MacIntel'
+    );
+
+    expect(hint.hidden).toBe(false);
+    expect(hint.innerHTML).toContain('Cmd+回车');
+    expect(hint.textContent).toContain('直接剪藏');
   });
 
   describe('when keyboard shortcuts are enabled', () => {

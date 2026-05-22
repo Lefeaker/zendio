@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
 import type { ViewSchema, WidgetMountContract } from '@options/schema-runtime/contracts';
 
@@ -277,6 +278,126 @@ describe('schema runtime renderer', () => {
     expect(element.querySelector<HTMLInputElement>('.schema-switch-input')?.checked).toBe(false);
     expect(element.querySelector('.schema-notice')?.className).toContain('info');
     expect(element.querySelector('p')?.textContent).toContain('123');
+  });
+
+  it('keeps primitive content, class slots, and binding contracts stable', () => {
+    const state = {
+      title: 'State title',
+      nested: { field: 'Nested value' },
+      token: 'state-slot',
+      missing: undefined
+    };
+    const appData = {
+      slotClass: 'app-slot',
+      selected: 'from-app'
+    };
+    const renderer = createSchemaRenderer<typeof state, typeof appData>({
+      getContext: () => ({ state, appData }),
+      dispatch: vi.fn(),
+      mutate: vi.fn(),
+      requestRerender: vi.fn(),
+      getWidgetFactory: () => null
+    });
+
+    const element = renderer.renderView({
+      id: 'slots-and-bindings',
+      kind: 'page',
+      children: [
+        'copy',
+        7,
+        {
+          kind: 'stack',
+          className: ({ appData }) => `stack ${appData.slotClass}`,
+          children: [
+            {
+              kind: 'element',
+              tag: 'span',
+              className: { source: 'appData', path: 'slotClass' },
+              attrs: { 'data-slot': { path: 'token' } },
+              text: { path: 'nested.field' }
+            },
+            {
+              kind: 'input',
+              bind: { path: 'missing', fallback: 'fallback value' }
+            },
+            {
+              kind: 'select',
+              bind: { source: 'appData', path: 'selected' },
+              options: [
+                { value: 'from-state', label: 'State' },
+                { value: 'from-app', label: 'App' }
+              ]
+            },
+            {
+              kind: 'switch',
+              bind: { path: 'missing', fallback: true }
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(element.textContent).toContain('copy');
+    expect(element.textContent).toContain('7');
+    expect(element.querySelector('.schema-stack')?.className).toContain('app-slot');
+    expect(element.querySelector('span.app-slot')?.getAttribute('data-slot')).toBe('state-slot');
+    expect(element.querySelector('span.app-slot')?.textContent).toBe('Nested value');
+    expect(element.querySelector<HTMLInputElement>('.schema-input')?.value).toBe('fallback value');
+    expect(element.querySelector<HTMLOptionElement>('option[value="from-app"]')?.selected).toBe(
+      true
+    );
+    expect(element.querySelector<HTMLInputElement>('.schema-switch-input')?.checked).toBe(true);
+  });
+
+  it('passes descriptor events through the shared action runtime adapter', () => {
+    const state = { title: 'Before' };
+    const handler = vi.fn();
+    const mutate = vi.fn();
+    const actionRuntime = createActionRuntime<typeof state, Record<string, never>>({
+      getContext: () => ({ state, appData: {} }),
+      mutate,
+      handlers: {
+        'field:update': handler
+      }
+    });
+    const renderer = createSchemaRenderer<typeof state, Record<string, never>>({
+      getContext: () => ({ state, appData: {} }),
+      dispatch: actionRuntime.dispatch,
+      mutate,
+      requestRerender: vi.fn(),
+      getWidgetFactory: () => null
+    });
+
+    const element = renderer.renderView({
+      id: 'action-runtime',
+      kind: 'page',
+      children: [
+        {
+          kind: 'input',
+          value: 'Before',
+          action: {
+            id: 'field:update',
+            args: ['title'],
+            valueFrom: 'target.value'
+          }
+        }
+      ]
+    });
+
+    const input = element.querySelector<HTMLInputElement>('.schema-input');
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('Expected schema input to render.');
+    }
+    input.value = 'After';
+    input.dispatchEvent(new Event('input'));
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: ['title'],
+        value: 'After'
+      })
+    );
   });
 
   it('renders modal views and honors custom render extensions', () => {

@@ -1,16 +1,11 @@
 import type { YamlContentType } from '@shared/types/yamlConfig';
 import { createOptionsButtonElement } from '../../primitives/button';
-import { createCheckboxElement } from '../../primitives/checkbox';
-import { createInputElement } from '../../primitives/input';
-import { createSelectElement } from '../../primitives/select';
 import {
   createOptionsActionRow,
   createOptionsHintText,
-  createLayoutElement,
-  createOptionsPanel
+  createLayoutElement
 } from '../../primitives/layout';
 import {
-  ARRAY_INPUT_PLACEHOLDER,
   CONTENT_TYPES,
   type DomainFieldRow,
   type DomainOverrideEntry,
@@ -24,6 +19,7 @@ import {
   buildDomainCard,
   type DomainFieldRendererActions
 } from './yamlConfigTableDomainFieldRenderers';
+import { bindYamlClick } from './yamlConfigTableRendererEvents';
 
 export interface DomainActions extends DomainFieldRendererActions {
   onAddDomainEntry: () => void;
@@ -66,7 +62,7 @@ export function renderDomainOverrides(args: {
     size: 'sm',
     className: 'aobx-btn aobx-domain__add-btn'
   });
-  addButton.addEventListener('click', actions.onAddDomainEntry);
+  bindYamlClick(addButton, actions.onAddDomainEntry);
   header.append(title, addButton);
 
   const list = createLayoutElement({ className: 'aobx-domain__list' });

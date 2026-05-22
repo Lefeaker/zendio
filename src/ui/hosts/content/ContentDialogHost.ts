@@ -1,10 +1,8 @@
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
-import {
-  createDialogFrame,
-  createDialogTitleId,
-  FocusTrapController
-} from '../../primitives/dialog';
+import { createDialogFrame, createDialogTitleId } from '../../primitives/dialog';
+import type { FocusTrapController } from '../../primitives/dialog';
 import type { UiMountable } from '../shared/contract';
+import { createContentDialogFocusTrap } from './contentDialogFocus';
 import { mountContentHost, unmountContentHost } from './contentHostMount';
 
 export type ContentDialogHostSize = 'md' | 'lg';
@@ -170,19 +168,12 @@ export class ContentDialogHost
 
   private setupFocusTrap(container: HTMLElement, closeButton: HTMLElement): void {
     this.focusTrap?.deactivate();
-    if (this.config.trapFocus === false) {
-      this.focusTrap = null;
-      return;
-    }
-    this.focusTrap = new FocusTrapController(container, {
+    this.focusTrap = createContentDialogFocusTrap(container, closeButton, {
       initialFocus: this.config.initialFocus ?? (() => closeButton),
-      escapeDeactivates: this.config.closeOnEscape ?? true,
-      clickOutsideDeactivates: false,
-      fallbackFocus: closeButton
+      closeOnEscape: this.config.closeOnEscape ?? true,
+      ...(typeof this.config.trapFocus === 'boolean' ? { trapFocus: this.config.trapFocus } : {}),
+      isVisible: this.isVisible
     });
-    if (this.isVisible) {
-      this.focusTrap.activate();
-    }
   }
 
   private invokeClose(): void {

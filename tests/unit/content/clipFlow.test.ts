@@ -68,7 +68,6 @@ describe('clipFlow support progress', () => {
     const showSupportProgress = vi.fn();
     const flow = initClipFlow({
       document,
-      window,
       messaging: { send: vi.fn() },
       runtimeState: createRuntimeState('selection'),
       selectionTracker: createSelectionTracker(createSelection()),
@@ -90,7 +89,6 @@ describe('clipFlow support progress', () => {
     const send = vi.fn(async () => undefined);
     const flow = initClipFlow({
       document,
-      window,
       messaging: { send: send as never },
       runtimeState: createRuntimeState('selection'),
       selectionTracker: createSelectionTracker(createSelection()),
@@ -114,6 +112,33 @@ describe('clipFlow support progress', () => {
     expect(send).toHaveBeenCalledWith({
       type: 'CLIP_RESULT',
       payload: { markdown: '# selected', type: 'clipper' }
+    });
+  });
+
+  it('dispatches full-page clips through the extractor registry and messaging service', async () => {
+    const send = vi.fn(async () => undefined);
+    const extract = vi.fn(async () => ({
+      markdown: '# article',
+      type: 'article'
+    }));
+    const flow = initClipFlow({
+      document,
+      messaging: { send: send as never },
+      runtimeState: createRuntimeState('full'),
+      selectionTracker: createSelectionTracker(createSelection()),
+      selectionController: {
+        handleSelectionClip: vi.fn(),
+        handleVideoSelectionClip: vi.fn()
+      },
+      extractorRegistry: { extract } as never
+    });
+
+    await flow.handleClip();
+
+    expect(extract).toHaveBeenCalledWith({ url: location.href, document });
+    expect(send).toHaveBeenCalledWith({
+      type: 'CLIP_RESULT',
+      payload: { markdown: '# article', type: 'article' }
     });
   });
 });

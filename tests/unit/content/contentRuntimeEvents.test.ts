@@ -117,4 +117,36 @@ describe('contentRuntimeEvents', () => {
 
     detach();
   });
+
+  it('removes registered runtime listeners on teardown', () => {
+    const runtimeState = createRuntimeState();
+    const addDocumentListener = vi.spyOn(document, 'addEventListener');
+    const removeDocumentListener = vi.spyOn(document, 'removeEventListener');
+    const addWindowListener = vi.spyOn(window, 'addEventListener');
+    const removeWindowListener = vi.spyOn(window, 'removeEventListener');
+
+    const detach = createContentRuntimeEvents({
+      document,
+      window,
+      runtimeState,
+      selectionTracker: {
+        resolveActiveSelection: vi.fn(),
+        isSelectionInsideUi: vi.fn(),
+        isSelectionEditable: vi.fn(),
+        handleSelectionChange: vi.fn(),
+        handleSelectStart: vi.fn()
+      } as never,
+      isReaderSessionActive: vi.fn(() => false),
+      runClip: vi.fn()
+    }).attach();
+
+    detach();
+
+    expect(addDocumentListener).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+    expect(addDocumentListener).toHaveBeenCalledWith('selectstart', expect.any(Function), true);
+    expect(addWindowListener).toHaveBeenCalledWith('blur', expect.any(Function), true);
+    expect(removeDocumentListener).toHaveBeenCalledWith('keydown', expect.any(Function), true);
+    expect(removeDocumentListener).toHaveBeenCalledWith('selectstart', expect.any(Function), true);
+    expect(removeWindowListener).toHaveBeenCalledWith('blur', expect.any(Function), true);
+  });
 });
