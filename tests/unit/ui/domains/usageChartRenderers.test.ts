@@ -26,8 +26,6 @@ function createUsageStats(overrides: Partial<UsageStats> = {}): UsageStats {
     aiChatSaves: 0,
     fragmentSaves: 0,
     articleSaves: 0,
-    videoSaves: 0,
-    totalSaves: 0,
     lastUpdatedISO: null,
     history: [],
     ...overrides
