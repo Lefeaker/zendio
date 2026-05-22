@@ -14,6 +14,7 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
@@ -22,6 +23,7 @@
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
+  - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
 
 ## 当前推荐执行顺序
@@ -49,6 +51,8 @@ Local Vault / release handoff checks:
 
 ```bash
 npm run clean
+npm run build:fast
+npm run audit:release-surface:report
 npm run build:dev
 npm run audit:local-vault-release:report -- --browser chrome
 npm run build:firefox
@@ -111,6 +115,7 @@ credentials and manual confirmation.
 - `npm run visual:test`
 - `npm run report:release-summary`
 - `npm run audit:local-vault-release:report`
+- `npm run audit:release-surface:report`
 
 ## 正式代码入口
 
@@ -134,6 +139,8 @@ credentials and manual confirmation.
 - `src/options/components/sections/UsageSection.ts`
 
 ## MCP / 本地浏览器调试入口
+
+生产构建与发布包默认不包含 harness 入口；`build:dev` / dev server 保留以下 harness 页面用于本地浏览器调试：
 
 - `http://localhost:4173/options/index.html`
 - `http://localhost:4173/onboarding/index.html`
