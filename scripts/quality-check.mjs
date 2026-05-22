@@ -16,6 +16,8 @@ const checks = [
   { name: 'Retired code 回归守卫', cmd: ['npm', 'run', 'audit:retired-code:report'] },
   { name: 'Production shape 守卫', cmd: ['npm', 'run', 'audit:production-shape:report'] },
   { name: 'Production build graph 守卫', cmd: ['npm', 'run', 'audit:build-graph:report'] },
+  { name: 'Release surface 生产构建', cmd: ['npm', 'run', 'build:fast'] },
+  { name: 'Release surface 守卫', cmd: ['npm', 'run', 'audit:release-surface:report'] },
   { name: 'Non-production source 安全守卫', cmd: ['npm', 'run', 'audit:non-production-source:check'] },
   { name: 'Dependency graph 覆盖守卫', cmd: ['npm', 'run', 'audit:deps:report'] },
   { name: 'Lint Warning 基线守卫', cmd: ['npm', 'run', 'lint:warnings-guard'] },
