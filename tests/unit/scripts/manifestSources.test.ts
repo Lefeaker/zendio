@@ -18,7 +18,7 @@ describe('manifestSources', () => {
   it('builds a firefox manifest with firefox-only overrides', () => {
     const manifest = createBrowserManifest('firefox');
 
-    expect(manifest.action?.default_popup).toBe('popup.html');
+    expect(manifest.action?.default_popup).toBeUndefined();
     expect(manifest.content_scripts).toEqual([
       {
         matches: ['<all_urls>'],
