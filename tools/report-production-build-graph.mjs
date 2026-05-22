@@ -21,7 +21,10 @@ const APP_ENTRYPOINTS = {
   'local-vault-permission': 'src/content/runtime/localVaultPermissionFrame.ts',
   'offscreen/local-vault': 'src/offscreen/localVault.ts',
   'options/index': 'src/options/index.ts',
-  'onboarding/index': 'src/onboarding/index.ts',
+  'onboarding/index': 'src/onboarding/index.ts'
+};
+
+const HARNESS_ENTRYPOINTS = {
   'interaction-contract-harness': 'src/dev/interactionContractHarness.ts',
   'content-orchestrator-harness': 'src/dev/contentOrchestratorHarness.ts',
   'runtime-observability-harness': 'src/dev/runtimeObservabilityHarness.ts',
@@ -219,6 +222,7 @@ function buildProductionGraphReport({ metafile }) {
     version: 1,
     generatedAt: new Date().toISOString(),
     configuredEntrypoints: ALL_ENTRYPOINTS,
+    excludedHarnessEntrypoints: HARNESS_ENTRYPOINTS,
     requiredEntrypoints: {
       expected: REQUIRED_ENTRYPOINTS,
       missing: Array.from(new Set([...missingRequiredEntrypoints, ...missingReachableRequiredSources]))
