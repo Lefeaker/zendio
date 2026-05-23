@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 const REPORT_PATH = 'build/reports/release-surface.json';
@@ -18,6 +11,9 @@ const FORBIDDEN_HARNESS_BASENAMES = [
 ];
 const FORBIDDEN_HARNESS_RE = new RegExp(
   `(^|/)(${FORBIDDEN_HARNESS_BASENAMES.join('|')})\\.(html|js)$`
+);
+const FORBIDDEN_PSEUDO_LOCALE_RE = new RegExp(
+  '(^|/)(?:_locales/qps-ploc/messages\\.json|chunks/qps-ploc-[^/]+\\.js)$'
 );
 
 function parseArgs(args) {
@@ -223,24 +219,39 @@ function buildReport({ distDir, archives }) {
   );
   const missingReferences = manifestReferences.filter((reference) => !reference.ok);
   const forbiddenDistFiles = files.filter((file) => FORBIDDEN_HARNESS_RE.test(file));
+  const forbiddenPseudoLocaleDistFiles = files.filter((file) =>
+    FORBIDDEN_PSEUDO_LOCALE_RE.test(file)
+  );
 
   failures.push(
     ...missingReferences.map(
       (reference) => `missing manifest reference: ${reference.source} -> ${reference.path}`
     ),
-    ...forbiddenDistFiles.map((file) => `forbidden harness member in build/dist: ${file}`)
+    ...forbiddenDistFiles.map((file) => `forbidden harness member in build/dist: ${file}`),
+    ...forbiddenPseudoLocaleDistFiles.map(
+      (file) => `forbidden dev-only pseudo-locale member in build/dist: ${file}`
+    )
   );
 
   const archiveReports = archives.map((archivePath) => {
     const entries = parseZipEntries(archivePath).map(normalizeManifestPath);
     const forbiddenEntries = entries.filter((entry) => FORBIDDEN_HARNESS_RE.test(entry));
+    const forbiddenPseudoLocaleEntries = entries.filter((entry) =>
+      FORBIDDEN_PSEUDO_LOCALE_RE.test(entry)
+    );
     failures.push(
-      ...forbiddenEntries.map((entry) => `forbidden harness member in archive ${archivePath}: ${entry}`)
+      ...forbiddenEntries.map(
+        (entry) => `forbidden harness member in archive ${archivePath}: ${entry}`
+      ),
+      ...forbiddenPseudoLocaleEntries.map(
+        (entry) => `forbidden dev-only pseudo-locale member in archive ${archivePath}: ${entry}`
+      )
     );
     return {
       path: archivePath,
       entryCount: entries.length,
-      forbiddenEntries
+      forbiddenEntries,
+      forbiddenPseudoLocaleEntries
     };
   });
 
@@ -250,6 +261,7 @@ function buildReport({ distDir, archives }) {
     distDir,
     fileCount: files.length,
     forbiddenDistFiles,
+    forbiddenPseudoLocaleDistFiles,
     manifestReferences,
     archives: archiveReports,
     failures
@@ -270,7 +282,9 @@ function formatReport(report) {
   ];
 
   for (const reference of report.manifestReferences ?? []) {
-    lines.push(`| ${reference.source} | \`${reference.path}\` | ${reference.ok ? 'ok' : 'missing'} |`);
+    lines.push(
+      `| ${reference.source} | \`${reference.path}\` | ${reference.ok ? 'ok' : 'missing'} |`
+    );
   }
 
   lines.push('', '## Forbidden Harness Members', '');
@@ -285,6 +299,25 @@ function formatReport(report) {
   for (const archive of report.archives ?? []) {
     if (archive.forbiddenEntries.length) {
       for (const entry of archive.forbiddenEntries) {
+        lines.push(`- ${archive.path}: \`${entry}\``);
+      }
+    } else {
+      lines.push(`- ${archive.path}: none`);
+    }
+  }
+
+  lines.push('', '## Forbidden Dev/Test Pseudo-Locale Members', '');
+  if (report.forbiddenPseudoLocaleDistFiles?.length) {
+    for (const file of report.forbiddenPseudoLocaleDistFiles) {
+      lines.push(`- build/dist: \`${file}\``);
+    }
+  } else {
+    lines.push('- build/dist: none');
+  }
+
+  for (const archive of report.archives ?? []) {
+    if (archive.forbiddenPseudoLocaleEntries.length) {
+      for (const entry of archive.forbiddenPseudoLocaleEntries) {
         lines.push(`- ${archive.path}: \`${entry}\``);
       }
     } else {

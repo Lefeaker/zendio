@@ -154,6 +154,23 @@ describe('report-release-surface', () => {
     }
   });
 
+  it('fails when production dist contains dev-only pseudo-locale artifacts', () => {
+    const dist = createDist({
+      manifest: baseManifest(),
+      files: ['_locales/qps-ploc/messages.json', 'chunks/qps-ploc-fixture.js']
+    });
+
+    try {
+      const result = runReport(['--dist', dist]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('_locales/qps-ploc/messages.json');
+      expect(result.stdout + result.stderr).toContain('chunks/qps-ploc-fixture.js');
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
+  });
+
   it('passes clean Chrome and Firefox fixture manifests', () => {
     const firefoxManifest = baseManifest({
       content_scripts: [
@@ -188,6 +205,24 @@ describe('report-release-surface', () => {
 
       expect(result.status).not.toBe(0);
       expect(result.stdout + result.stderr).toContain('content-orchestrator-harness.html');
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when an archive contains a dev-only pseudo-locale member', () => {
+    const dist = createDist({ manifest: baseManifest() });
+    const archivePath = writeZipArchive(dist, 'fixture.zip', [
+      '_locales/qps-ploc/messages.json',
+      'chunks/qps-ploc-fixture.js'
+    ]);
+
+    try {
+      const result = runReport(['--dist', dist, '--archive', archivePath]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('_locales/qps-ploc/messages.json');
+      expect(result.stdout + result.stderr).toContain('chunks/qps-ploc-fixture.js');
     } finally {
       rmSync(dist, { recursive: true, force: true });
     }

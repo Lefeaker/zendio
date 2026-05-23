@@ -31,10 +31,10 @@ describe('WebExtension locale folders', () => {
     expect(rootFolders).toEqual(publicFolders);
 
     for (const folder of publicFolders) {
-      const publicMessages = JSON.parse(
+      const publicMessages: unknown = JSON.parse(
         await readFile(join(publicLocalesDir, folder, 'messages.json'), 'utf8')
       );
-      const rootMessages = JSON.parse(
+      const rootMessages: unknown = JSON.parse(
         await readFile(join(rootLocalesDir, folder, 'messages.json'), 'utf8')
       );
 
