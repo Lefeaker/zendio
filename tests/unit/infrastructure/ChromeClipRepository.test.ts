@@ -5,7 +5,8 @@ import type { ClipData, ClipResult, FragmentConfig } from '@shared/repositories/
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { CompleteOptions } from '@shared/types/options';
 
-const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() =>
+  vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -214,8 +215,10 @@ describe('ChromeClipRepository', () => {
     it('uses global structuredClone when available for deep cloning', async () => {
       const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
       const originalStructuredClone = globalRef.structuredClone;
-      const structuredSpy = vi.fn(<T>(value: T) => JSON.parse(JSON.stringify(value)) as T);
-      globalRef.structuredClone = structuredSpy;
+      const structuredSpy = vi.fn<(value: unknown) => unknown>(
+        (value) => JSON.parse(JSON.stringify(value)) as unknown
+      );
+      globalRef.structuredClone = <T>(value: T) => structuredSpy(value) as T;
 
       try {
         await repo.getFragmentConfig();

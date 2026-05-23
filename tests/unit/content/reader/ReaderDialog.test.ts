@@ -114,8 +114,9 @@ describe('ReaderDialog', () => {
   it('enters edit mode and submits drafted comment', async () => {
     vi.useFakeTimers();
     const onSubmit = vi.fn<
-      Parameters<typeof baseConfig.onSubmitHighlightEdit>,
-      ReturnType<typeof baseConfig.onSubmitHighlightEdit>
+      (
+        ...args: Parameters<typeof baseConfig.onSubmitHighlightEdit>
+      ) => ReturnType<typeof baseConfig.onSubmitHighlightEdit>
     >(() => Promise.resolve());
     const dialog = createDialog({ onSubmitHighlightEdit: onSubmit });
     const host = appendDialog(dialog);

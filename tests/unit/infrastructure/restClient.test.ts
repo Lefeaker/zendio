@@ -7,10 +7,10 @@ const ENGINE_PROPERTY_ERROR = ['Cannot read properties', 'of undefined'].join(' 
 
 describe('RestClient Implementation', () => {
   let restClient: RestClient;
-  let mockFetch: ReturnType<typeof vi.fn<FetchParams, Promise<Response>>>;
+  let mockFetch: ReturnType<typeof vi.fn<(...args: FetchParams) => Promise<Response>>>;
 
   beforeEach(() => {
-    mockFetch = vi.fn<FetchParams, Promise<Response>>();
+    mockFetch = vi.fn<(...args: FetchParams) => Promise<Response>>();
     restClient = createFetchRestClient(mockFetch);
   });
 

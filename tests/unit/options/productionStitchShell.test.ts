@@ -202,6 +202,14 @@ describe('mountProductionStitchShell', () => {
     Object.values(analyticsMocks).forEach((mock) => mock.mockClear());
     analyticsMocks.getConfig.mockReturnValue({ debugMode: false });
     analyticsMocks.getUserConsent.mockResolvedValue({ analytics: false, errorReporting: false });
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn()
+      }))
+    });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 

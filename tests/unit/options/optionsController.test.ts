@@ -9,11 +9,11 @@ describe('OptionsController', () => {
   let persistence: OptionsPersistenceService;
   let formAdapter: OptionsFormAdapter;
   let savedOptions: Array<CompleteOptions | StoredOptions>;
-  let loadMock: Mock<[], Promise<StoredOptions>>;
-  let saveMock: Mock<[CompleteOptions | StoredOptions], Promise<void>>;
-  let getCachedMock: Mock<[], StoredOptions | null>;
-  let readMock: Mock<[StoredOptions | null], CompleteOptions>;
-  let applyMock: Mock<[StoredOptions], Promise<void>>;
+  let loadMock: Mock<(...args: []) => Promise<StoredOptions>>;
+  let saveMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
+  let getCachedMock: Mock<(...args: []) => StoredOptions | null>;
+  let readMock: Mock<(...args: [StoredOptions | null]) => CompleteOptions>;
+  let applyMock: Mock<(...args: [StoredOptions]) => Promise<void>>;
 
   beforeEach(() => {
     savedOptions = [];
@@ -21,12 +21,12 @@ describe('OptionsController', () => {
       rest: { baseUrl: 'https://example.com/' }
     };
 
-    loadMock = vi.fn<[], Promise<StoredOptions>>(() => Promise.resolve(snapshot));
-    saveMock = vi.fn<[CompleteOptions | StoredOptions], Promise<void>>((options) => {
+    loadMock = vi.fn<(...args: []) => Promise<StoredOptions>>(() => Promise.resolve(snapshot));
+    saveMock = vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>((options) => {
       savedOptions.push(options);
       return Promise.resolve();
     });
-    getCachedMock = vi.fn<[], StoredOptions | null>(() => snapshot);
+    getCachedMock = vi.fn<(...args: []) => StoredOptions | null>(() => snapshot);
 
     persistence = {
       load: loadMock,
@@ -34,13 +34,13 @@ describe('OptionsController', () => {
       getCached: getCachedMock
     };
 
-    readMock = vi.fn<[StoredOptions | null], CompleteOptions>(
+    readMock = vi.fn<(...args: [StoredOptions | null]) => CompleteOptions>(
       (_snapshot) =>
         ({
           rest: { baseUrl: 'https://changed.example.com/' }
         }) as CompleteOptions
     );
-    applyMock = vi.fn<[StoredOptions], Promise<void>>((_options) => Promise.resolve());
+    applyMock = vi.fn<(...args: [StoredOptions]) => Promise<void>>((_options) => Promise.resolve());
 
     formAdapter = {
       read: readMock,

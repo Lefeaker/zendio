@@ -37,7 +37,9 @@ const chromeApi = vi.hoisted(() => ({
     onRemoved: { addListener: vi.fn(), removeListener: vi.fn() }
   }
 }));
-const lastErrorMock = vi.hoisted(() => vi.fn<[], chrome.runtime.LastError | null>(() => null));
+const lastErrorMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => chrome.runtime.LastError | null>(() => null)
+);
 const suppressLastErrorMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../src/platform/chrome/utils', () => ({

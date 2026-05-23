@@ -32,7 +32,7 @@ describe('claude ai chat integration', () => {
     restoreDate = mockDate('2025-03-05T06:07:08Z');
     globalSnapshot = captureGlobalSnapshot();
 
-    const storageGetMock: ChromeStorageGet = vi.fn((_keys, callback) => {
+    const storageGetMock = vi.fn<ChromeStorageGet>((_keys, callback) => {
       callback({
         options: {
           aiChat: { includeTimestamps: false, userName: 'Reviewer' },
@@ -40,7 +40,7 @@ describe('claude ai chat integration', () => {
         }
       });
     });
-    const storageSetMock: ChromeStorageSet = vi.fn((_items, callback) => {
+    const storageSetMock = vi.fn<ChromeStorageSet>((_items, callback) => {
       callback?.();
     });
     const addListenerMock: (listener: ChromeChangeListener) => void = vi.fn();

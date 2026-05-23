@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-type ViMock = Mock<any[], any>;
+type ViMock = Mock<(...args: any[]) => any>;
 
 interface ChromeActionMocks {
   setBadgeText: ViMock;
@@ -250,8 +250,10 @@ function createChromeStorageStub(): {
   const local = createChromeStorageArea();
   const managed = createChromeStorageArea();
   const session = createChromeStorageArea();
-  const addListener = vi.fn<Parameters<typeof chrome.storage.onChanged.addListener>, void>();
-  const removeListener = vi.fn<Parameters<typeof chrome.storage.onChanged.removeListener>, void>();
+  const addListener =
+    vi.fn<(...args: Parameters<typeof chrome.storage.onChanged.addListener>) => void>();
+  const removeListener =
+    vi.fn<(...args: Parameters<typeof chrome.storage.onChanged.removeListener>) => void>();
 
   const stub = {
     sync: sync.area,
@@ -316,8 +318,10 @@ function createChromeRuntimeStub(): {
         version: '0.0.0'
       }) as chrome.runtime.Manifest
   );
-  const addListener = vi.fn<Parameters<typeof chrome.runtime.onMessage.addListener>, void>();
-  const removeListener = vi.fn<Parameters<typeof chrome.runtime.onMessage.removeListener>, void>();
+  const addListener =
+    vi.fn<(...args: Parameters<typeof chrome.runtime.onMessage.addListener>) => void>();
+  const removeListener =
+    vi.fn<(...args: Parameters<typeof chrome.runtime.onMessage.removeListener>) => void>();
   const hasListener = vi.fn((_listener?: unknown) => false);
   const hasListeners = vi.fn(() => false);
   const addRules = vi.fn((_rules?: unknown[]) => undefined);
@@ -572,8 +576,10 @@ function createFirefoxStorageStub(): {
   const local = createFirefoxStorageArea();
   const managed = createFirefoxStorageArea();
   const session = createFirefoxStorageArea();
-  const addListener = vi.fn<Parameters<typeof browser.storage.onChanged.addListener>, void>();
-  const removeListener = vi.fn<Parameters<typeof browser.storage.onChanged.removeListener>, void>();
+  const addListener =
+    vi.fn<(...args: Parameters<typeof browser.storage.onChanged.addListener>) => void>();
+  const removeListener =
+    vi.fn<(...args: Parameters<typeof browser.storage.onChanged.removeListener>) => void>();
 
   const stub = {
     sync: sync.area,
@@ -620,8 +626,10 @@ function createFirefoxRuntimeStub(): {
 } {
   const sendMessage = vi.fn(() => Promise.resolve(undefined));
   const getURL = vi.fn((path: string) => path);
-  const addListener = vi.fn<Parameters<typeof browser.runtime.onMessage.addListener>, void>();
-  const removeListener = vi.fn<Parameters<typeof browser.runtime.onMessage.removeListener>, void>();
+  const addListener =
+    vi.fn<(...args: Parameters<typeof browser.runtime.onMessage.addListener>) => void>();
+  const removeListener =
+    vi.fn<(...args: Parameters<typeof browser.runtime.onMessage.removeListener>) => void>();
 
   const stub = {
     getURL,

@@ -41,12 +41,14 @@ describe('runtimeTheme', () => {
     const matchMedia = vi.fn(() => media as never);
     const stop = startRuntimeThemeSync(
       {
-        onChange: vi.fn((callback) => {
-          listener = callback;
-          return () => {
-            listener = undefined;
-          };
-        })
+        onChange: vi.fn<(callback: (options: CompleteOptions) => void) => () => void>(
+          (callback) => {
+            listener = callback;
+            return () => {
+              listener = undefined;
+            };
+          }
+        )
       },
       window,
       { matchMedia: matchMedia as never }

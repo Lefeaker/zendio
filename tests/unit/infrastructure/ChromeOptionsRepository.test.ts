@@ -5,7 +5,8 @@ import { StorageError } from '@shared/errors';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 
-const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() =>
+  vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 
 type StorageAreaMock = StorageAreaService & {
   get: ReturnType<typeof createMockFn<StorageAreaService['get']>>;
@@ -463,8 +464,10 @@ describe('ChromeOptionsRepository', () => {
       const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
       const originalStructuredClone = globalRef.structuredClone;
 
-      const structuredCloneSpy = vi.fn(<T>(value: T) => JSON.parse(JSON.stringify(value)) as T);
-      globalRef.structuredClone = structuredCloneSpy;
+      const structuredCloneSpy = vi.fn<(value: unknown) => unknown>(
+        (value) => JSON.parse(JSON.stringify(value)) as unknown
+      );
+      globalRef.structuredClone = <T>(value: T) => structuredCloneSpy(value) as T;
 
       const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
       const updatedUrl = 'https://structured.example/';

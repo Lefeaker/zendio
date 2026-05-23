@@ -11,12 +11,11 @@ import type { VideoOptions } from '@shared/types/options';
 import { __videoPromptTestUtils } from '@content/video/videoPromptTestHarness';
 
 type VideoRepoMock<K extends keyof IVideoRepository> = Mock<
-  Parameters<IVideoRepository[K]>,
-  ReturnType<IVideoRepository[K]>
+  (...args: Parameters<IVideoRepository[K]>) => ReturnType<IVideoRepository[K]>
 >;
 
 const createVideoRepoMock = <K extends keyof IVideoRepository>() =>
-  vi.fn<Parameters<IVideoRepository[K]>, ReturnType<IVideoRepository[K]>>();
+  vi.fn<(...args: Parameters<IVideoRepository[K]>) => ReturnType<IVideoRepository[K]>>();
 
 const {
   setDependenciesForTests,

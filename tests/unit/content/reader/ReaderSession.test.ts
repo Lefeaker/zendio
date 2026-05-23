@@ -32,14 +32,14 @@ import {
 import { mergeOptions } from '@shared/config/optionsMerger';
 
 type TestView = ReaderSessionView & {
-  updateCount: Mock<[count: number], void>;
-  updateHint: Mock<[message: string], void>;
-  updateTexts: Mock<[texts: ReaderPanelTexts], void>;
-  updateDestination: Mock<[destination: unknown], void>;
-  setHighlights: Mock<[highlights: ReaderPanelHighlight[]], void>;
-  stopEditing: Mock<[], void>;
-  isEditing: Mock<[], boolean>;
-  destroy: Mock<[], void>;
+  updateCount: Mock<(...args: [count: number]) => void>;
+  updateHint: Mock<(...args: [message: string]) => void>;
+  updateTexts: Mock<(...args: [texts: ReaderPanelTexts]) => void>;
+  updateDestination: Mock<(...args: [destination: unknown]) => void>;
+  setHighlights: Mock<(...args: [highlights: ReaderPanelHighlight[]]) => void>;
+  stopEditing: Mock<(...args: []) => void>;
+  isEditing: Mock<(...args: []) => boolean>;
+  destroy: Mock<(...args: []) => void>;
 };
 
 function createView(): TestView {
@@ -168,7 +168,7 @@ function createSessionContext() {
 
   const dependencies: ReaderSessionDependencies = {
     viewFactory: {
-      createView: vi.fn((nextCallbacks) => {
+      createView: vi.fn<ReaderSessionDependencies['viewFactory']['createView']>((nextCallbacks) => {
         callbacks = nextCallbacks;
         return view;
       })
@@ -358,8 +358,9 @@ describe('ReaderSession', () => {
     const wrapper = document.createElement('mark');
     wrapper.dataset.readerHighlightId = 'h-1';
     wrapper.textContent = 'Hello';
-    (wrapper as HTMLElement & { scrollIntoView: ReturnType<typeof vi.fn> }).scrollIntoView =
-      vi.fn();
+    (
+      wrapper as HTMLElement & { scrollIntoView: Mock<HTMLElement['scrollIntoView']> }
+    ).scrollIntoView = vi.fn<HTMLElement['scrollIntoView']>();
     document.body.appendChild(wrapper);
     (
       context.session as {

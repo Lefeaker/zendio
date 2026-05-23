@@ -35,7 +35,7 @@ describe('ErrorHandler', () => {
   }
 
   it('notifies registered reporters', async () => {
-    const reporter = { report: vi.fn<[AppError], void>() };
+    const reporter = { report: vi.fn<(...args: [AppError]) => void>() };
     const remove = errorHandler.addReporter(reporter);
     const appError = createError();
 
@@ -62,7 +62,7 @@ describe('ErrorHandler', () => {
   });
 
   it('merges metadata into error context', async () => {
-    const reporter = { report: vi.fn<[AppError], void>() };
+    const reporter = { report: vi.fn<(...args: [AppError]) => void>() };
     errorHandler.addReporter(reporter);
     const appError = createError({ context: { existing: true } });
 

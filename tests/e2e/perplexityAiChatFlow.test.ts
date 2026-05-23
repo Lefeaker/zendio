@@ -34,7 +34,7 @@ describe('perplexity ai chat integration', () => {
     restoreDate = mockDate('2025-03-04T05:06:07Z');
     globalSnapshot = captureGlobalSnapshot();
 
-    const storageGetMock: ChromeStorageGet = vi.fn((_keys, callback) => {
+    const storageGetMock = vi.fn<ChromeStorageGet>((_keys, callback) => {
       callback({
         options: {
           aiChat: { includeTimestamps: true, userName: 'Analyst' },
@@ -42,7 +42,7 @@ describe('perplexity ai chat integration', () => {
         }
       });
     });
-    const storageSetMock: ChromeStorageSet = vi.fn((_items, callback) => {
+    const storageSetMock = vi.fn<ChromeStorageSet>((_items, callback) => {
       callback?.();
     });
     const addListenerMock: (listener: ChromeChangeListener) => void = vi.fn();

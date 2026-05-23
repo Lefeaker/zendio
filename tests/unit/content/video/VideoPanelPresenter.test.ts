@@ -1,25 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import type { VideoPanelCapture } from '@content/video/application/videoPanelModel';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 import { VideoPanelPresenter } from '@content/video/videoPanelPresenter';
 
 function createView(): VideoSessionView & {
-  updateCount: ReturnType<typeof vi.fn>;
-  setCaptures: ReturnType<typeof vi.fn>;
-  updateHint: ReturnType<typeof vi.fn>;
-  updateTexts: ReturnType<typeof vi.fn>;
-  beginEditingCapture: ReturnType<typeof vi.fn>;
-  stopEditing: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
+  updateCount: Mock<VideoSessionView['updateCount']>;
+  setCaptures: Mock<VideoSessionView['setCaptures']>;
+  updateHint: Mock<VideoSessionView['updateHint']>;
+  updateTexts: Mock<VideoSessionView['updateTexts']>;
+  beginEditingCapture: Mock<VideoSessionView['beginEditingCapture']>;
+  stopEditing: Mock<VideoSessionView['stopEditing']>;
+  destroy: Mock<VideoSessionView['destroy']>;
 } {
   return {
-    updateCount: vi.fn(),
-    setCaptures: vi.fn(),
-    updateHint: vi.fn(),
-    updateTexts: vi.fn(),
-    beginEditingCapture: vi.fn(),
-    stopEditing: vi.fn(),
-    destroy: vi.fn()
+    updateCount: vi.fn<VideoSessionView['updateCount']>(),
+    setCaptures: vi.fn<VideoSessionView['setCaptures']>(),
+    updateHint: vi.fn<VideoSessionView['updateHint']>(),
+    updateTexts: vi.fn<VideoSessionView['updateTexts']>(),
+    beginEditingCapture: vi.fn<VideoSessionView['beginEditingCapture']>(),
+    stopEditing: vi.fn<VideoSessionView['stopEditing']>(),
+    destroy: vi.fn<VideoSessionView['destroy']>()
   };
 }
 

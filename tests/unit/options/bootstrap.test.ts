@@ -9,7 +9,7 @@ import type { StorageService } from '../../../src/platform/interfaces/storage';
 
 const showStatusMessageMock = vi.hoisted(() => vi.fn());
 const getOptionsMessagesMock = vi.hoisted(() =>
-  vi.fn<[], Promise<Record<string, string>>>(() =>
+  vi.fn<(...args: []) => Promise<Record<string, string>>>(() =>
     Promise.resolve({
       yamlConfigAutoSaved: 'YAML saved',
       templatesAutoSaved: 'Templates saved',
@@ -18,9 +18,11 @@ const getOptionsMessagesMock = vi.hoisted(() =>
   )
 );
 const consumePendingAutoSaveSourceMock = vi.hoisted(() =>
-  vi.fn<[], string | null>(() => 'yamlConfig')
+  vi.fn<(...args: []) => string | null>(() => 'yamlConfig')
 );
-const consumeYamlMigrationNoticeMock = vi.hoisted(() => vi.fn<[], string | null>(() => null));
+const consumeYamlMigrationNoticeMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => string | null>(() => null)
+);
 const registerOptionsControllerMock = vi.hoisted(() => vi.fn());
 const mountProductionStitchShellMock = vi.hoisted(() => vi.fn());
 const shellCleanupMock = vi.hoisted(() => vi.fn());

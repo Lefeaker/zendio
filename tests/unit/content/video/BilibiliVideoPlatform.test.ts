@@ -16,14 +16,14 @@ import {
 import type { PlatformSelectionInput, VideoPlatformContext } from '@content/video/platforms';
 
 interface VideoPlatformContextMocks {
-  highlightSelection: Mock<[Range, string, string], string | undefined>;
-  decorateHighlight: Mock<[HTMLElement], void>;
-  scheduleFragmentHighlightRestore: Mock<[], void>;
-  getElementByIdDeep: Mock<[string], HTMLElement | null>;
-  querySelectorDeep: Mock<[string], Element | null>;
-  observeWithFragmentObserver: Mock<[Node, MutationObserverInit], void>;
-  registerShadowSelectionBridge: Mock<[ShadowRoot], void>;
-  ensureHighlightStyles: Mock<[ShadowRoot], void>;
+  highlightSelection: Mock<(...args: [Range, string, string]) => string | undefined>;
+  decorateHighlight: Mock<(...args: [HTMLElement]) => void>;
+  scheduleFragmentHighlightRestore: Mock<(...args: []) => void>;
+  getElementByIdDeep: Mock<(...args: [string]) => HTMLElement | null>;
+  querySelectorDeep: Mock<(...args: [string]) => Element | null>;
+  observeWithFragmentObserver: Mock<(...args: [Node, MutationObserverInit]) => void>;
+  registerShadowSelectionBridge: Mock<(...args: [ShadowRoot]) => void>;
+  ensureHighlightStyles: Mock<(...args: [ShadowRoot]) => void>;
 }
 
 type VideoPlatformContextWithMocks = VideoPlatformContext & {
@@ -32,14 +32,16 @@ type VideoPlatformContextWithMocks = VideoPlatformContext & {
 
 function createContext(doc: Document): VideoPlatformContextWithMocks {
   const mocks: VideoPlatformContextMocks = {
-    highlightSelection: vi.fn<[Range, string, string], string | undefined>(() => 'wrapper-1'),
-    decorateHighlight: vi.fn<[HTMLElement], void>(),
-    scheduleFragmentHighlightRestore: vi.fn<[], void>(),
-    getElementByIdDeep: vi.fn<[string], HTMLElement | null>(() => null),
-    querySelectorDeep: vi.fn<[string], Element | null>(() => null),
-    observeWithFragmentObserver: vi.fn<[Node, MutationObserverInit], void>(),
-    registerShadowSelectionBridge: vi.fn<[ShadowRoot], void>(),
-    ensureHighlightStyles: vi.fn<[ShadowRoot], void>()
+    highlightSelection: vi.fn<(...args: [Range, string, string]) => string | undefined>(
+      () => 'wrapper-1'
+    ),
+    decorateHighlight: vi.fn<(...args: [HTMLElement]) => void>(),
+    scheduleFragmentHighlightRestore: vi.fn<(...args: []) => void>(),
+    getElementByIdDeep: vi.fn<(...args: [string]) => HTMLElement | null>(() => null),
+    querySelectorDeep: vi.fn<(...args: [string]) => Element | null>(() => null),
+    observeWithFragmentObserver: vi.fn<(...args: [Node, MutationObserverInit]) => void>(),
+    registerShadowSelectionBridge: vi.fn<(...args: [ShadowRoot]) => void>(),
+    ensureHighlightStyles: vi.fn<(...args: [ShadowRoot]) => void>()
   };
 
   return {
