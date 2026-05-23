@@ -72,10 +72,10 @@ credentials and manual confirmation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-21 M7 final baseline truth:
+2026-05-24 gap-remediation baseline truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 已下调为 `266`，fresh warning count 为 `266`。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `254`，fresh warning count 为 `254`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
 - `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
