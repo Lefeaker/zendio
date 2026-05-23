@@ -102,10 +102,12 @@ vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
   loadExtensionStyle: loadExtensionStyleMock
 }));
 
-const ensureContentI18nMock = vi.hoisted(() => vi.fn<[], Promise<void>>(() => Promise.resolve()));
+const ensureContentI18nMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve())
+);
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
 const getContentMessagesMock = vi.hoisted(() =>
-  vi.fn<[], Promise<{ videoPromptTitle: string }>>(() =>
+  vi.fn<(...args: []) => Promise<{ videoPromptTitle: string }>>(() =>
     Promise.resolve({
       videoPromptTitle: 'Clip video'
     })
@@ -196,14 +198,14 @@ vi.mock('../../../src/content/video/videoControlBarButton', () => ({
 
 const dragHandlersRef = vi.hoisted(() => ({ current: null as TestDragHandlers | null }));
 const updatePromptLabelsMock = vi.hoisted(() =>
-  vi.fn<[HTMLDivElement, string, string], void>((element, label, shortcut) => {
+  vi.fn<(...args: [HTMLDivElement, string, string]) => void>((element, label, shortcut) => {
     element.dataset.label = label;
     element.dataset.shortcut = shortcut;
   })
 );
 const lastRendererConfig = vi.hoisted(() => ({ current: null as TestPromptElementOptions | null }));
 const createPromptElementMock = vi.hoisted(() =>
-  vi.fn<[config: TestPromptElementOptions], TestPromptElementResult>((config) => {
+  vi.fn<(...args: [config: TestPromptElementOptions]) => TestPromptElementResult>((config) => {
     lastRendererConfig.current = config;
     const container = document.createElement('div');
     container.id = config.id;
@@ -215,7 +217,7 @@ const createPromptElementMock = vi.hoisted(() =>
   })
 );
 const attachDragHandlersMock = vi.hoisted(() =>
-  vi.fn<[handlers: TestDragHandlers], void>((handlers) => {
+  vi.fn<(...args: [handlers: TestDragHandlers]) => void>((handlers) => {
     dragHandlersRef.current = handlers;
   })
 );
@@ -226,20 +228,21 @@ vi.mock('../../../src/content/video/videoPromptRenderer', () => ({
 }));
 
 const startVideoSessionMock = vi.hoisted(() =>
-  vi.fn<[{ initialCollapsed?: boolean }?], Promise<void>>(() => Promise.resolve())
+  vi.fn<(...args: [{ initialCollapsed?: boolean }?]) => Promise<void>>(() => Promise.resolve())
 );
 const addCurrentTimestampMock = vi.hoisted(() =>
   vi.fn<
-    [
-      'button' | 'note-input' | undefined,
-      {
-        captureScreenshot?: boolean;
-        pauseVideo?: boolean;
-        beginEditing?: boolean;
-        collapseAfterCapture?: boolean;
-      }
-    ],
-    Promise<void>
+    (
+      ...args: [
+        'button' | 'note-input' | undefined,
+        {
+          captureScreenshot?: boolean;
+          pauseVideo?: boolean;
+          beginEditing?: boolean;
+          collapseAfterCapture?: boolean;
+        }
+      ]
+    ) => Promise<void>
   >(() => Promise.resolve())
 );
 const videoSessionFactoryMock = vi.hoisted(() =>
@@ -311,7 +314,7 @@ type TestDeps = {
   runtime: RuntimeStub;
   videoRepo: VideoRepositoryStub;
   createVideoSession: typeof videoSessionFactoryMock;
-  getRuntimeTheme: ReturnType<typeof vi.fn<[], Promise<null>>>;
+  getRuntimeTheme: ReturnType<typeof vi.fn<(...args: []) => Promise<null>>>;
   emitConfigChange: (config: VideoOptionsStub) => void;
   triggerLanguageChange: () => void;
 };
@@ -350,15 +353,15 @@ function createTestDependencies(): TestDeps {
   );
 
   const runtime: RuntimeStub = {
-    getURL: vi.fn<[string], string>((path) => `chrome-extension://mock/${path}`),
-    openOptionsPage: vi.fn<[], Promise<void>>(() => Promise.resolve()),
-    onInstalled: vi.fn<[], () => void>(() => vi.fn()),
-    onStartup: vi.fn<[], () => void>(() => vi.fn()),
-    getManifest: vi.fn<[], { version: string }>(() => ({ version: 'test' }))
+    getURL: vi.fn<(...args: [string]) => string>((path) => `chrome-extension://mock/${path}`),
+    openOptionsPage: vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve()),
+    onInstalled: vi.fn<(...args: []) => () => void>(() => vi.fn()),
+    onStartup: vi.fn<(...args: []) => () => void>(() => vi.fn()),
+    getManifest: vi.fn<(...args: []) => { version: string }>(() => ({ version: 'test' }))
   };
 
   const videoRepo: VideoRepositoryStub = {
-    getVideoConfig: vi.fn<[], Promise<VideoOptionsStub>>().mockResolvedValue({
+    getVideoConfig: vi.fn<(...args: []) => Promise<VideoOptionsStub>>().mockResolvedValue({
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
       promptShortcut: 'Ctrl+Shift+V',
@@ -366,24 +369,29 @@ function createTestDependencies(): TestDeps {
       controlBarAutoPause: true,
       controlBarScreenshot: false
     }),
-    savePromptPosition: vi.fn<[PromptPosition], Promise<void>>(() => Promise.resolve()),
+    savePromptPosition: vi.fn<(...args: [PromptPosition]) => Promise<void>>(() =>
+      Promise.resolve()
+    ),
     saveControlBarPreferences: vi.fn<
-      [
-        {
-          autoPauseEnabled: boolean;
-          captureScreenshotEnabled: boolean;
-        }
-      ],
-      Promise<void>
+      (
+        ...args: [
+          {
+            autoPauseEnabled: boolean;
+            captureScreenshotEnabled: boolean;
+          }
+        ]
+      ) => Promise<void>
     >(() => Promise.resolve()),
     getPromptPosition: vi
-      .fn<[], Promise<PromptPosition | null>>()
+      .fn<(...args: []) => Promise<PromptPosition | null>>()
       .mockResolvedValue({ x: 120, y: 200 }),
     sendVideoClip: vi.fn(),
-    onConfigChange: vi.fn<[(config: VideoOptionsStub) => void], () => void>((callback) => {
-      configListener = callback;
-      return vi.fn();
-    })
+    onConfigChange: vi.fn<(...args: [(config: VideoOptionsStub) => void]) => () => void>(
+      (callback) => {
+        configListener = callback;
+        return vi.fn();
+      }
+    )
   };
 
   return {
@@ -391,7 +399,7 @@ function createTestDependencies(): TestDeps {
     runtime,
     videoRepo,
     createVideoSession: videoSessionFactoryMock,
-    getRuntimeTheme: vi.fn<[], Promise<null>>(() => Promise.resolve(null)),
+    getRuntimeTheme: vi.fn<(...args: []) => Promise<null>>(() => Promise.resolve(null)),
     emitConfigChange: (config) => configListener?.(config),
     triggerLanguageChange: () => languageWatcher?.()
   } as TestDeps & { createVideoSession: typeof videoSessionFactoryMock };

@@ -89,8 +89,8 @@ describe('dynamicMessages', () => {
 
     type MockInputElement = Pick<HTMLInputElement, 'value' | 'placeholder'>;
 
-    type QuerySelectorMock = Mock<[selector: string], MockTextElement | null>;
-    type QuerySelectorAllMock = Mock<[selector: string], MockInputElement[]>;
+    type QuerySelectorMock = Mock<(...args: [selector: string]) => MockTextElement | null>;
+    type QuerySelectorAllMock = Mock<(...args: [selector: string]) => MockInputElement[]>;
     type DocumentStub = {
       querySelector: QuerySelectorMock;
       querySelectorAll: QuerySelectorAllMock;
@@ -110,19 +110,19 @@ describe('dynamicMessages', () => {
     beforeEach(() => {
       mockElements = [];
 
-      const querySelector: QuerySelectorMock = vi.fn<[selector: string], MockTextElement | null>(
-        (selector) => {
-          const element: MockTextElement = {
-            textContent: '',
-            selector
-          };
-          mockElements.push(element);
-          return element;
-        }
-      );
-      const querySelectorAll: QuerySelectorAllMock = vi.fn<[selector: string], MockInputElement[]>(
-        () => []
-      );
+      const querySelector: QuerySelectorMock = vi.fn<
+        (...args: [selector: string]) => MockTextElement | null
+      >((selector) => {
+        const element: MockTextElement = {
+          textContent: '',
+          selector
+        };
+        mockElements.push(element);
+        return element;
+      });
+      const querySelectorAll: QuerySelectorAllMock = vi.fn<
+        (...args: [selector: string]) => MockInputElement[]
+      >(() => []);
 
       mockDocument = {
         querySelector,

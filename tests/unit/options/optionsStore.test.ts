@@ -5,9 +5,13 @@ import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 describe('optionsStore sanitization', () => {
-  const onChangeMock = vi.fn<[(_: CompleteOptions) => void], () => void>(() => () => {});
-  const setMock = vi.fn<[Partial<CompleteOptions>], Promise<void>>().mockResolvedValue(undefined);
-  const getMock = vi.fn<[], Promise<CompleteOptions>>();
+  const onChangeMock = vi.fn<(...args: [(_: CompleteOptions) => void]) => () => void>(
+    () => () => {}
+  );
+  const setMock = vi
+    .fn<(...args: [Partial<CompleteOptions>]) => Promise<void>>()
+    .mockResolvedValue(undefined);
+  const getMock = vi.fn<(...args: []) => Promise<CompleteOptions>>();
 
   beforeEach(() => {
     vi.resetModules();

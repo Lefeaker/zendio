@@ -36,7 +36,7 @@ describe('classifier', () => {
 
   it('parses JSON payload from provider', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
-    const fetchMock = vi.fn<FetchParams, Promise<Response>>().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: FetchParams) => Promise<Response>>().mockResolvedValue(
       createJsonResponse({
         message: { content: JSON.stringify({ type: 'article', topics: ['tech'] }) }
       })
@@ -59,7 +59,7 @@ describe('classifier', () => {
   it('returns structured error when provider responds with non-ok status', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
     const fetchMock = vi
-      .fn<FetchParams, Promise<Response>>()
+      .fn<(...args: FetchParams) => Promise<Response>>()
       .mockResolvedValue(
         createTextResponse('invalid key', { status: 401, statusText: 'Unauthorized' })
       );
@@ -89,16 +89,18 @@ describe('classifier', () => {
   it('returns timeout error when response takes too long', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
 
-    const mockFetch = vi.fn<FetchParams, Promise<Response>>().mockImplementation((_input, init) => {
-      return new Promise((_resolve, reject) => {
-        const signal = init?.signal ?? undefined;
-        signal?.addEventListener('abort', () => {
-          const error = new Error('aborted');
-          error.name = 'AbortError';
-          reject(error);
+    const mockFetch = vi
+      .fn<(...args: FetchParams) => Promise<Response>>()
+      .mockImplementation((_input, init) => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal ?? undefined;
+          signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
         });
       });
-    });
 
     globalThis.fetch = asType<typeof fetch>(mockFetch);
 
@@ -122,7 +124,7 @@ describe('classifier', () => {
 
   it('returns parse error when payload is not valid JSON', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
-    const fetchMock = vi.fn<FetchParams, Promise<Response>>().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: FetchParams) => Promise<Response>>().mockResolvedValue(
       createJsonResponse({
         choices: [{ message: { content: '{invalid json' } }]
       })

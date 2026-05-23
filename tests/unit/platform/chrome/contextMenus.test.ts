@@ -26,7 +26,9 @@ const chromeApi = vi.hoisted(() => ({
     }
   }
 }));
-const lastErrorMock = vi.hoisted(() => vi.fn<[], chrome.runtime.LastError | null>(() => null));
+const lastErrorMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => chrome.runtime.LastError | null>(() => null)
+);
 const suppressLastErrorMock = vi.hoisted(() => vi.fn());
 const handleMock = vi.hoisted(() => vi.fn());
 const runtimeErrorMock = vi.hoisted(() => vi.fn((message: string) => new Error(message)));

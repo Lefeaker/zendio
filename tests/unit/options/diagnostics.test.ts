@@ -8,29 +8,30 @@ import type { IOptionsRepository } from '../../../src/shared/repositories';
 type DiagnosticsController = Pick<OptionsController, 'getSnapshot' | 'loadRaw' | 'saveSnapshot'>;
 
 const getSnapshotMock = vi.hoisted(() =>
-  vi.fn<[], ReturnType<DiagnosticsController['getSnapshot']>>(() => null)
+  vi.fn<(...args: []) => ReturnType<DiagnosticsController['getSnapshot']>>(() => null)
 );
 const loadRawMock = vi.hoisted(() =>
-  vi.fn<[], ReturnType<DiagnosticsController['loadRaw']>>(() => Promise.resolve({}))
+  vi.fn<(...args: []) => ReturnType<DiagnosticsController['loadRaw']>>(() => Promise.resolve({}))
 );
 const saveSnapshotMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<DiagnosticsController['saveSnapshot']>,
-    ReturnType<DiagnosticsController['saveSnapshot']>
+    (
+      ...args: Parameters<DiagnosticsController['saveSnapshot']>
+    ) => ReturnType<DiagnosticsController['saveSnapshot']>
   >(() => Promise.resolve({} as StoredOptions))
 );
 const repoGetMock = vi.hoisted(() =>
-  vi.fn<Parameters<IOptionsRepository['get']>, ReturnType<IOptionsRepository['get']>>(() =>
-    Promise.resolve({} as CompleteOptions)
+  vi.fn<(...args: Parameters<IOptionsRepository['get']>) => ReturnType<IOptionsRepository['get']>>(
+    () => Promise.resolve({} as CompleteOptions)
   )
 );
 const repoSetMock = vi.hoisted(() =>
-  vi.fn<Parameters<IOptionsRepository['set']>, ReturnType<IOptionsRepository['set']>>(() =>
-    Promise.resolve(undefined)
+  vi.fn<(...args: Parameters<IOptionsRepository['set']>) => ReturnType<IOptionsRepository['set']>>(
+    () => Promise.resolve(undefined)
   )
 );
 const getOptionsControllerMock = vi.hoisted(() =>
-  vi.fn<[], DiagnosticsController | null>(() => ({
+  vi.fn<(...args: []) => DiagnosticsController | null>(() => ({
     getSnapshot: getSnapshotMock,
     loadRaw: loadRawMock,
     saveSnapshot: saveSnapshotMock

@@ -16,7 +16,9 @@ const chromeApi = vi.hoisted(() => ({
   },
   tabs: { create: vi.fn() }
 }));
-const lastErrorMock = vi.hoisted(() => vi.fn<[], chrome.runtime.LastError | null>(() => null));
+const lastErrorMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => chrome.runtime.LastError | null>(() => null)
+);
 
 vi.mock('../../../../src/platform/chrome/utils', () => ({
   ensureChrome: (): typeof chromeApi => chromeApi,

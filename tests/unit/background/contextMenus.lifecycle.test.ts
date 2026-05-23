@@ -51,6 +51,7 @@ describe('context menu listeners', () => {
 
   it('reacts to options and tab lifecycle listeners for modifier auto-injection', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let activeQueryCount = 0;
     const { rig, register } = await loadModule({
       getOptions: vi.fn(() =>
         Promise.resolve({
@@ -62,6 +63,10 @@ describe('context menu listeners', () => {
       ),
       query: vi.fn(({ active }: { active?: boolean }) => {
         if (active) {
+          activeQueryCount += 1;
+          if (activeQueryCount === 1) {
+            return Promise.resolve([]);
+          }
           return Promise.resolve([{ id: 71, url: 'https://example.com/active' }]);
         }
         return Promise.resolve([]);
@@ -290,8 +295,7 @@ describe('context menu listeners', () => {
   it('keeps non-video titles for invalid urls and swallows option refresh failures after subscription', async () => {
     const getOptionsMock = vi
       .fn<
-        [],
-        Promise<{
+        (...args: []) => Promise<{
           fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
         }>
       >()
@@ -392,8 +396,7 @@ describe('context menu listeners', () => {
   it('does not auto inject when modifier keys config is disabled or malformed after subscription refresh', async () => {
     const getOptions = vi
       .fn<
-        [],
-        Promise<{
+        (...args: []) => Promise<{
           fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: unknown };
         }>
       >()

@@ -24,9 +24,9 @@ describe('OptionsController baseline integration', () => {
   let persistence: OptionsPersistenceService;
   let fixtures: ReturnType<typeof createOptionsManagedFixtures>;
   let persistenceMocks: {
-    load: Mock<[], Promise<StoredOptions>>;
-    save: Mock<[CompleteOptions | StoredOptions], Promise<void>>;
-    getCached: Mock<[], StoredOptions | null>;
+    load: Mock<(...args: []) => Promise<StoredOptions>>;
+    save: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
+    getCached: Mock<(...args: []) => StoredOptions | null>;
   };
 
   beforeEach(() => {
@@ -38,12 +38,14 @@ describe('OptionsController baseline integration', () => {
     fixtures = fixturesRef.current!;
 
     persistenceMocks = {
-      load: vi.fn<[], Promise<StoredOptions>>(() => Promise.resolve({} as StoredOptions)),
-      save: vi.fn<[CompleteOptions | StoredOptions], Promise<void>>((options) => {
+      load: vi.fn<(...args: []) => Promise<StoredOptions>>(() =>
+        Promise.resolve({} as StoredOptions)
+      ),
+      save: vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>((options) => {
         fixtures.savedOptions.push(options);
         return Promise.resolve();
       }),
-      getCached: vi.fn<[], StoredOptions | null>(() => null)
+      getCached: vi.fn<(...args: []) => StoredOptions | null>(() => null)
     };
     persistence = persistenceMocks;
   });

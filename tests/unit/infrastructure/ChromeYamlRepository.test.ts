@@ -10,11 +10,11 @@ type OptionsListener = (options: CompleteOptions) => void;
 describe('ChromeYamlRepository', () => {
   let repo: ChromeYamlRepository;
   const subscribers = new Set<OptionsListener>();
-  let unsubscribeOptionsSpy: ReturnType<typeof vi.fn>;
+  let unsubscribeOptionsSpy: ReturnType<typeof vi.fn<(...args: []) => void>>;
 
-  const mockGet = vi.fn<[], Promise<CompleteOptions>>();
-  const mockSet = vi.fn<[Partial<CompleteOptions>], Promise<void>>();
-  const mockOnChange = vi.fn<[OptionsListener], () => void>();
+  const mockGet = vi.fn<(...args: []) => Promise<CompleteOptions>>();
+  const mockSet = vi.fn<(...args: [Partial<CompleteOptions>]) => Promise<void>>();
+  const mockOnChange = vi.fn<(...args: [OptionsListener]) => () => void>();
 
   const mockOptionsRepository = {
     get: mockGet,
@@ -34,7 +34,7 @@ describe('ChromeYamlRepository', () => {
     mockOnChange.mockReset();
     mockGet.mockResolvedValue({} as CompleteOptions);
     mockSet.mockResolvedValue();
-    unsubscribeOptionsSpy = vi.fn();
+    unsubscribeOptionsSpy = vi.fn<(...args: []) => void>();
     mockOnChange.mockImplementation((listener) => {
       subscribers.add(listener);
       return unsubscribeOptionsSpy;
@@ -126,7 +126,7 @@ describe('ChromeYamlRepository', () => {
       };
       mockOptionsRepository.get.mockResolvedValueOnce({ yamlConfig: overrides } as CompleteOptions);
 
-      const callback = vi.fn<[overrides: YamlConfigOverrides | null], void>();
+      const callback = vi.fn<(...args: [overrides: YamlConfigOverrides | null]) => void>();
       const unsubscribe = repo.onChange(callback);
 
       await vi.waitFor(() => {

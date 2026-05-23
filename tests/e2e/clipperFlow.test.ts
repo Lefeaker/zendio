@@ -29,10 +29,10 @@ describe('clipper end-to-end simulation', () => {
     vi.setSystemTime(new Date('2024-05-06T07:08:09Z'));
     globalSnapshot = captureGlobalSnapshot();
 
-    const storageGetMock: ChromeStorageGet = vi.fn((_keys, callback) => {
+    const storageGetMock = vi.fn<ChromeStorageGet>((_keys, callback) => {
       callback({ language: 'zh-CN' });
     });
-    const storageSetMock: ChromeStorageSet = vi.fn((_items, callback) => {
+    const storageSetMock = vi.fn<ChromeStorageSet>((_items, callback) => {
       callback?.();
     });
     const addListenerMock: (listener: ChromeChangeListener) => void = vi.fn();

@@ -17,14 +17,13 @@ const messages: Partial<Record<Language, Messages>> & Record<'en' | 'zh-CN', Mes
 
 function createMockBindingAdapter(): I18nBindingAdapter & {
   handles: I18nBindingHandle[];
-  bindTextMock: Mock<[element: HTMLElement, key: keyof Messages], I18nBindingHandle>;
+  bindTextMock: Mock<(...args: [element: HTMLElement, key: keyof Messages]) => I18nBindingHandle>;
   bindAttrMock: Mock<
-    [element: HTMLElement, attribute: string, key: keyof Messages],
-    I18nBindingHandle
+    (...args: [element: HTMLElement, attribute: string, key: keyof Messages]) => I18nBindingHandle
   >;
-  bindHtmlMock: Mock<[element: HTMLElement, key: keyof Messages], I18nBindingHandle>;
-  refreshMock: Mock<[resource: I18nResource], void>;
-  clearMock: Mock<[], void>;
+  bindHtmlMock: Mock<(...args: [element: HTMLElement, key: keyof Messages]) => I18nBindingHandle>;
+  refreshMock: Mock<(...args: [resource: I18nResource]) => void>;
+  clearMock: Mock<(...args: []) => void>;
 } {
   const handles: I18nBindingHandle[] = [];
 

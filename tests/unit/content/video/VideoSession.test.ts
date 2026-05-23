@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
@@ -125,21 +126,23 @@ vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
   >('../../../../src/content/video/videoSessionExporter');
   return {
     ...actual,
-    VideoSessionExporter: vi.fn().mockImplementation(() => ({
-      export: exportMock
-    }))
+    VideoSessionExporter: vi.fn().mockImplementation(function VideoSessionExporterMock() {
+      return {
+        export: exportMock
+      };
+    })
   };
 });
 
 type TestView = VideoSessionView & {
-  updateCount: ReturnType<typeof vi.fn>;
-  setCaptures: ReturnType<typeof vi.fn>;
-  updateHint: ReturnType<typeof vi.fn>;
-  updateTexts: ReturnType<typeof vi.fn>;
-  beginEditingCapture: ReturnType<typeof vi.fn>;
-  stopEditing: ReturnType<typeof vi.fn>;
-  collapse: ReturnType<typeof vi.fn>;
-  destroy: ReturnType<typeof vi.fn>;
+  updateCount: Mock<VideoSessionView['updateCount']>;
+  setCaptures: Mock<VideoSessionView['setCaptures']>;
+  updateHint: Mock<VideoSessionView['updateHint']>;
+  updateTexts: Mock<VideoSessionView['updateTexts']>;
+  beginEditingCapture: Mock<VideoSessionView['beginEditingCapture']>;
+  stopEditing: Mock<VideoSessionView['stopEditing']>;
+  collapse: Mock<NonNullable<VideoSessionView['collapse']>>;
+  destroy: Mock<VideoSessionView['destroy']>;
 };
 
 type SessionTestApi = {
@@ -178,14 +181,14 @@ type SessionTestApi = {
 
 function createView(): TestView {
   return {
-    updateCount: vi.fn(),
-    setCaptures: vi.fn(),
-    updateHint: vi.fn(),
-    updateTexts: vi.fn(),
-    beginEditingCapture: vi.fn(),
-    stopEditing: vi.fn(),
-    collapse: vi.fn(),
-    destroy: vi.fn()
+    updateCount: vi.fn<VideoSessionView['updateCount']>(),
+    setCaptures: vi.fn<VideoSessionView['setCaptures']>(),
+    updateHint: vi.fn<VideoSessionView['updateHint']>(),
+    updateTexts: vi.fn<VideoSessionView['updateTexts']>(),
+    beginEditingCapture: vi.fn<VideoSessionView['beginEditingCapture']>(),
+    stopEditing: vi.fn<VideoSessionView['stopEditing']>(),
+    collapse: vi.fn<NonNullable<VideoSessionView['collapse']>>(),
+    destroy: vi.fn<VideoSessionView['destroy']>()
   };
 }
 

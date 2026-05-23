@@ -20,7 +20,8 @@ import type {
   TabsService
 } from '../../../src/platform/interfaces/tabs';
 
-const createMockFn = <T extends (...args: any[]) => any>() => vi.fn<Parameters<T>, ReturnType<T>>();
+const createMockFn = <T extends (...args: any[]) => any>() =>
+  vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 type ContextMenusModule = typeof import('../../../src/background/listeners/contextMenus');
 type RegisterContextMenus = () => void;
 
@@ -28,7 +29,7 @@ export type ContextMenusTestRig = {
   create: ReturnType<typeof createMockFn<ContextMenusService['create']>>;
   update: ReturnType<typeof createMockFn<ContextMenusService['update']>>;
   removeAll: ReturnType<typeof createMockFn<ContextMenusService['removeAll']>>;
-  refresh: ReturnType<typeof vi.fn<[], void>>;
+  refresh: ReturnType<typeof vi.fn<(...args: []) => void>>;
   onClickedListeners: ContextMenuOnClickListener[];
   onShownListeners: ContextMenuOnShownListener[];
   onInstalledListeners: RuntimeInstallListener[];
@@ -39,10 +40,9 @@ export type ContextMenusTestRig = {
   get: ReturnType<typeof createMockFn<TabsService['get']>>;
   sendMessage: ReturnType<typeof createMockFn<TabsService['sendMessage']>>;
   executeScript: ReturnType<typeof createMockFn<ScriptingService['executeScript']>>;
-  notifyInjectionFailure: Mock<[], Promise<void>>;
+  notifyInjectionFailure: Mock<(...args: []) => Promise<void>>;
   getOptions: Mock<
-    [],
-    Promise<{
+    (...args: []) => Promise<{
       fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
     }>
   >;
@@ -69,7 +69,7 @@ export async function loadModule(
     ),
     update: createMockFn<ContextMenusService['update']>().mockResolvedValue(undefined),
     removeAll: createMockFn<ContextMenusService['removeAll']>().mockResolvedValue(undefined),
-    refresh: vi.fn<[], void>(),
+    refresh: vi.fn<(...args: []) => void>(),
     onClickedListeners: [],
     onShownListeners: [],
     onInstalledListeners: [],
@@ -82,10 +82,9 @@ export async function loadModule(
     ),
     sendMessage: createMockFn<TabsService['sendMessage']>().mockResolvedValue(undefined),
     executeScript: createMockFn<ScriptingService['executeScript']>().mockResolvedValue(undefined),
-    notifyInjectionFailure: vi.fn<[], Promise<void>>(() => Promise.resolve()),
+    notifyInjectionFailure: vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve()),
     getOptions: vi.fn<
-      [],
-      Promise<{
+      (...args: []) => Promise<{
         fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
       }>
     >(() =>

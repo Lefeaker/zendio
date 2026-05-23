@@ -15,14 +15,18 @@ import type { ClipperDialogDependencies } from '@content/clipper/components/dial
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
 
-const initializeStylesMock = vi.fn<
-  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>,
-  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
->();
-const applyStylesMock = vi.fn<
-  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>,
-  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
->();
+const initializeStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+  >();
+const applyStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+  >();
 const applyStitchRuntimeStylesMock = vi.fn();
 const ensureContentI18nMock = vi.fn();
 const getContentI18nBinderMock = vi.fn();

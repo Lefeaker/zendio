@@ -8,7 +8,7 @@ import { ClassificationResultSchema } from '@shared/schemas';
 
 type ClassifyFn = typeof import('../../../src/background/llm/classifier').classify;
 
-const classifyMock = vi.fn<Parameters<ClassifyFn>, ReturnType<ClassifyFn>>();
+const classifyMock = vi.fn<(...args: Parameters<ClassifyFn>) => ReturnType<ClassifyFn>>();
 
 vi.mock('../../../src/background/llm/classifier', () => ({
   classify: classifyMock
