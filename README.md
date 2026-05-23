@@ -16,7 +16,7 @@
 ## Latest Enhancements
 
 - ♿ Clipper dialog now ships with focus trap, screen reader labels, and Alt+Arrow keyboard nudging for precise placement.
-- 🌐 Options screen rebuilt with modular components, custom confirmation dialogs, and full i18n coverage across English, Simplified Chinese, and Japanese.
+- 🌐 Options screen rebuilt with modular components, custom confirmation dialogs, and full i18n coverage across 12 human UI languages.
 - 🤖 AI chat parser modularization adds first-class support for Tongyi, DeepSeek, and Kimi while keeping ChatGPT/Claude/Copilot/Gemini reliable.
 - 📌 Fragment context capture handles nested lists, Shadow DOM, and Text Fragments to keep surrounding insights intact.
 - 🔐 Obsidian REST writer hardens retries, masks API keys in logs, and auto-falls back between HTTPS/HTTP endpoints.
@@ -63,7 +63,7 @@
 
 ### 🌍 Localization & Customization
 
-- UI available in Simplified Chinese, English, and Japanese with instant switching
+- UI available in English, Simplified Chinese, Japanese, German, French, Spanish (Spain), Spanish (Latin America), Italian, Korean, Portuguese (Brazil), Russian, and Traditional Chinese with instant switching
 - Tailor path templates, content templates, and Markdown rules to fit any workflow
 
 ## Install & Setup
