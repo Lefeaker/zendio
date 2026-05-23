@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE, PSEUDO_LOCALE_ENABLED, getLanguageFallbackChain } from './config';
+import { DEFAULT_LANGUAGE, getLanguageFallbackChain } from './config';
 import type { LangCode } from './config';
 import type { LocaleDefinition, LocaleStaticMessages } from './localeDefinition';
 import en from './locales/en';
@@ -28,7 +28,7 @@ const localeLoaders: LocaleLoaderMap = {
   'zh-TW': async () => (await import('./locales/zh-TW')).default
 };
 
-if (PSEUDO_LOCALE_ENABLED) {
+if (process.env.NODE_ENV !== 'production') {
   localeLoaders['qps-ploc'] = async () => (await import('./locales/qps-ploc')).default;
 }
 
