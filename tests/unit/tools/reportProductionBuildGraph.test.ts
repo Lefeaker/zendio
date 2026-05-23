@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 const scriptPath = resolve('tools/report-production-build-graph.mjs');
 
@@ -19,6 +20,17 @@ function writeMetafile(payload: unknown): { dir: string; path: string } {
 }
 
 describe('report-production-build-graph', () => {
+  it('uses production build defines when creating the audit graph', async () => {
+    const module = (await import(pathToFileURL(scriptPath).href)) as {
+      createProductionBuildGraphDefine: () => Record<string, string>;
+    };
+
+    const define = module.createProductionBuildGraphDefine();
+
+    expect(define['process.env.NODE_ENV']).toBe(JSON.stringify('production'));
+    expect(define.__DEV__).toBe('false');
+  });
+
   it('reports structured entrypoint ownership from an esbuild metafile', () => {
     const fixture = writeMetafile({
       inputs: {
