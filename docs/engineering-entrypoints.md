@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-22
+最后更新：2026-05-23
 
 ## 推荐运行环境
 
@@ -15,6 +15,8 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
+  - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、locale files 三方一致
+  - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
@@ -24,6 +26,7 @@
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
   - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
+  - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
 
 ## 当前推荐执行顺序
@@ -112,6 +115,7 @@ credentials and manual confirmation.
 - `npm run test:e2e:browser:reader-panel`
 - `npm run test:coverage`
 - `npm run test:i18n`
+- `npm run audit:locales:report`
 - `npm run visual:test`
 - `npm run report:release-summary`
 - `npm run audit:local-vault-release:report`

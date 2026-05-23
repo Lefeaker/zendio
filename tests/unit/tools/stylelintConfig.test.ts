@@ -5,7 +5,8 @@ function printStylelintConfig(filePath: string): { rules?: Record<string, unknow
   const output = execFileSync('npx', ['stylelint', '--print-config', filePath], {
     encoding: 'utf8'
   });
-  return JSON.parse(output);
+  const config = JSON.parse(output) as { rules?: Record<string, unknown> };
+  return config;
 }
 
 describe('Options Stylelint config', () => {

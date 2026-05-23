@@ -22,7 +22,8 @@ const checks = [
   { name: 'Dependency graph 覆盖守卫', cmd: ['npm', 'run', 'audit:deps:report'] },
   { name: 'Lint Warning 基线守卫', cmd: ['npm', 'run', 'lint:warnings-guard'] },
   { name: 'i18n 消息一致性校验', cmd: ['npm', 'run', 'i18n:lint'] },
-  { name: '字符预算校验', cmd: ['npm', 'run', 'validate:i18n:budgets'] }
+  { name: '字符预算校验', cmd: ['npm', 'run', 'validate:i18n:budgets'] },
+  { name: 'Locale source alignment 守卫', cmd: ['npm', 'run', 'audit:locales:report'] }
 ];
 
 export async function runQualityChecks() {
