@@ -40,6 +40,21 @@ function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
 }
 
+function createProductionBuildGraphDefine() {
+  return {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    __DEV__: 'false',
+    __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
+    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
+      process.env.AIIINOB_SENTRY_ENVIRONMENT ?? 'production'
+    ),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
+    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
+      ? 'true'
+      : 'false'
+  };
+}
+
 function normalizePath(path) {
   return path.replace(/^\.\//, '');
 }
@@ -49,21 +64,10 @@ function sharedBuildOptions() {
     bundle: true,
     platform: 'browser',
     sourcemap: false,
-    minify: false,
+    minify: true,
     write: false,
     metafile: true,
-    define: {
-      'process.env.NODE_ENV': JSON.stringify('development'),
-      __DEV__: 'true',
-      __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
-      __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
-        process.env.AIIINOB_SENTRY_ENVIRONMENT ?? 'development'
-      ),
-      __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
-      __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
-        ? 'true'
-        : 'false'
-    },
+    define: createProductionBuildGraphDefine(),
     charset: 'utf8',
     loader: {
       '.css': 'text'
@@ -304,7 +308,11 @@ async function main() {
   }
 }
 
-export { buildProductionGraphReport, formatProductionBuildGraphReport };
+export {
+  buildProductionGraphReport,
+  createProductionBuildGraphDefine,
+  formatProductionBuildGraphReport
+};
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await main();
