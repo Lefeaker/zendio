@@ -181,6 +181,26 @@ export const DEFAULT_LANGUAGE: LangCode = 'en';
 
 export const CHROME_STATIC_KEYS = ['extName', 'extDescription'] as const;
 
+export const WEB_EXTENSION_LOCALE_FOLDERS: Record<LangCode, string> = {
+  en: 'en',
+  'zh-CN': 'zh_CN',
+  ja: 'ja',
+  de: 'de',
+  fr: 'fr',
+  'es-ES': 'es',
+  'es-419': 'es_419',
+  it: 'it',
+  ko: 'ko',
+  'pt-BR': 'pt_BR',
+  ru: 'ru',
+  'zh-TW': 'zh_TW',
+  'qps-ploc': 'qps-ploc'
+};
+
+export function getWebExtensionLocaleFolder(code: LangCode): string {
+  return WEB_EXTENSION_LOCALE_FOLDERS[code];
+}
+
 export interface AvailableLanguage {
   code: LangCode;
   name: string;
