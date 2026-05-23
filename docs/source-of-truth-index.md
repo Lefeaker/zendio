@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-22
+最后更新：2026-05-23
 
 ## 正式入口
 
@@ -24,6 +24,7 @@
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤
+- Quality gate 当前真值：`quality` 包含 locale source alignment；CI locale source alignment audit 是 hard gate；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
 - 2026-05-20 release readiness 真值：Node `20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`，`npm audit --audit-level=low` 仍作为 dev/release toolchain 后续计划记录
 - 2026-05-21 owner-proof 真值：低复用/retained source 删除只接受 M6.1 六项 owner proof 表中 `delete-approved` 的 exact path；当前 `changelogContent`、`trial-notice`、reader `highlightController` 与 `contentClipOrchestrator` 均未获删除批准
