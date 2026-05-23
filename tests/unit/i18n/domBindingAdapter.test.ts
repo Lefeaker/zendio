@@ -1,3 +1,5 @@
+/* @vitest-environment jsdom */
+
 import { describe, it, expect } from 'vitest';
 import { createDomBindingAdapter } from '../../../src/i18n/adapters/domBindingAdapter';
 import { createI18nResource } from '../../../src/i18n/resource';
