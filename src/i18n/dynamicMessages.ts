@@ -1,7 +1,6 @@
 import { configProvider } from '../shared/config/provider';
 import { pseudoLocalizeString } from './pseudoLocalization';
 import type { Language } from './locales';
-import { PSEUDO_LOCALE_ENABLED } from './config';
 
 type RestDefaults = ReturnType<typeof configProvider.getRestDefaults>;
 
@@ -84,7 +83,7 @@ const dynamicMessageFactories: Partial<Record<Language, DynamicMessageFactory>> 
   })
 };
 
-if (PSEUDO_LOCALE_ENABLED) {
+if (process.env.NODE_ENV !== 'production') {
   dynamicMessageFactories['qps-ploc'] = (defaults) => {
     const base = englishDynamicFactory(defaults);
     return {

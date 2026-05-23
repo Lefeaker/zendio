@@ -133,7 +133,7 @@ export function loadLocale(language?: string): Promise<Messages> {
   const resolved = chain[0] ?? DEFAULT_LANGUAGE;
 
   if (typeof document !== 'undefined') {
-    const { dir } = LANGUAGE_CONFIG[resolved] ?? LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
+    const dir = (LANGUAGE_CONFIG[resolved] ?? LANGUAGE_CONFIG[DEFAULT_LANGUAGE])?.dir ?? 'ltr';
     document.documentElement.setAttribute('lang', resolved);
     document.documentElement.setAttribute('dir', dir);
   }

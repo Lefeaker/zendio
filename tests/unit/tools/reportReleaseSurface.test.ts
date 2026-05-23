@@ -66,27 +66,70 @@ function writeFile(root: string, relativePath: string, contents: string): void {
 }
 
 function writeZipArchive(root: string, relativePath: string, entries: string[]): string {
-  const archivePath = join(root, relativePath);
-  const centralDirectory = Buffer.concat(
-    entries.map((entry) => createCentralDirectoryEntry(entry))
+  return writeZipArchiveWithContents(
+    root,
+    relativePath,
+    Object.fromEntries(entries.map((entry) => [entry, '']))
   );
+}
+
+function writeZipArchiveWithContents(
+  root: string,
+  relativePath: string,
+  entries: Record<string, string>
+): string {
+  const archivePath = join(root, relativePath);
+  const localEntries: Buffer[] = [];
+  const centralEntries: Buffer[] = [];
+  let offset = 0;
+  for (const [entry, contents] of Object.entries(entries)) {
+    const payload = Buffer.from(contents);
+    const localEntry = createLocalFileEntry(entry, payload);
+    localEntries.push(localEntry);
+    centralEntries.push(createCentralDirectoryEntry(entry, payload.length, offset));
+    offset += localEntry.length;
+  }
+  const centralDirectory = Buffer.concat(centralEntries);
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(entries.length, 8);
-  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt16LE(Object.keys(entries).length, 8);
+  end.writeUInt16LE(Object.keys(entries).length, 10);
   end.writeUInt32LE(centralDirectory.length, 12);
-  end.writeUInt32LE(0, 16);
-  writeFileSync(archivePath, Buffer.concat([centralDirectory, end]));
+  end.writeUInt32LE(offset, 16);
+  writeFileSync(archivePath, Buffer.concat([...localEntries, centralDirectory, end]));
   return archivePath;
 }
 
-function createCentralDirectoryEntry(entry: string): Buffer {
+function createLocalFileEntry(entry: string, payload: Buffer): Buffer {
+  const name = Buffer.from(entry);
+  const buffer = Buffer.alloc(30 + name.length + payload.length);
+  buffer.writeUInt32LE(0x04034b50, 0);
+  buffer.writeUInt16LE(20, 4);
+  buffer.writeUInt16LE(0, 6);
+  buffer.writeUInt16LE(0, 8);
+  buffer.writeUInt32LE(payload.length, 18);
+  buffer.writeUInt32LE(payload.length, 22);
+  buffer.writeUInt16LE(name.length, 26);
+  name.copy(buffer, 30);
+  payload.copy(buffer, 30 + name.length);
+  return buffer;
+}
+
+function createCentralDirectoryEntry(
+  entry: string,
+  size: number,
+  localHeaderOffset: number
+): Buffer {
   const name = Buffer.from(entry);
   const buffer = Buffer.alloc(46 + name.length);
   buffer.writeUInt32LE(0x02014b50, 0);
   buffer.writeUInt16LE(20, 4);
   buffer.writeUInt16LE(20, 6);
+  buffer.writeUInt16LE(0, 10);
+  buffer.writeUInt32LE(size, 20);
+  buffer.writeUInt32LE(size, 24);
   buffer.writeUInt16LE(name.length, 28);
+  buffer.writeUInt32LE(localHeaderOffset, 42);
   name.copy(buffer, 46);
   return buffer;
 }
@@ -171,6 +214,22 @@ describe('report-release-surface', () => {
     }
   });
 
+  it('fails when production JavaScript contains dev-only pseudo-locale content', () => {
+    const dist = createDist({ manifest: baseManifest() });
+    writeFile(dist, 'chunks/shared.js', 'const locale = "qps-ploc"; const marker = "Çòːñƒ";');
+
+    try {
+      const result = runReport(['--dist', dist]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('chunks/shared.js');
+      expect(result.stdout + result.stderr).toContain('qps-ploc');
+      expect(result.stdout + result.stderr).toContain('Çòːñƒ');
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
+  });
+
   it('passes clean Chrome and Firefox fixture manifests', () => {
     const firefoxManifest = baseManifest({
       content_scripts: [
@@ -223,6 +282,24 @@ describe('report-release-surface', () => {
       expect(result.status).not.toBe(0);
       expect(result.stdout + result.stderr).toContain('_locales/qps-ploc/messages.json');
       expect(result.stdout + result.stderr).toContain('chunks/qps-ploc-fixture.js');
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when an archive contains dev-only pseudo-locale content', () => {
+    const dist = createDist({ manifest: baseManifest() });
+    const archivePath = writeZipArchiveWithContents(dist, 'fixture.zip', {
+      'chunks/shared.js': 'const locale = "qps-ploc"; const marker = "Çòːñƒ";'
+    });
+
+    try {
+      const result = runReport(['--dist', dist, '--archive', archivePath]);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('chunks/shared.js');
+      expect(result.stdout + result.stderr).toContain('qps-ploc');
+      expect(result.stdout + result.stderr).toContain('Çòːñƒ');
     } finally {
       rmSync(dist, { recursive: true, force: true });
     }

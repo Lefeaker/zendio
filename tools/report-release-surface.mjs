@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
+import { inflateRawSync } from 'node:zlib';
 
 const REPORT_PATH = 'build/reports/release-surface.json';
 const DEFAULT_DIST_DIR = 'build/dist';
@@ -15,6 +16,11 @@ const FORBIDDEN_HARNESS_RE = new RegExp(
 const FORBIDDEN_PSEUDO_LOCALE_RE = new RegExp(
   '(^|/)(?:_locales/qps-ploc/messages\\.json|chunks/qps-ploc-[^/]+\\.js)$'
 );
+const FORBIDDEN_PSEUDO_LOCALE_CONTENT_PATTERNS = [
+  { name: 'qps-ploc', pattern: /qps-ploc/ },
+  { name: 'Çòːñƒ', pattern: /Çòːñƒ/ }
+];
+const SCANNED_CONTENT_EXTENSIONS = new Set(['.css', '.html', '.js', '.json']);
 
 function parseArgs(args) {
   const parsed = {
@@ -152,6 +158,19 @@ function resolveReference(reference, files, distDir) {
   };
 }
 
+function shouldScanContent(path) {
+  return !path.endsWith('.map') && SCANNED_CONTENT_EXTENSIONS.has(extname(path));
+}
+
+function scanForbiddenPseudoLocaleContent(path, content) {
+  if (!shouldScanContent(path)) {
+    return [];
+  }
+  return FORBIDDEN_PSEUDO_LOCALE_CONTENT_PATTERNS.filter(({ pattern }) =>
+    pattern.test(content)
+  ).map(({ name }) => ({ path, pattern: name }));
+}
+
 function parseZipEntries(archivePath) {
   const buffer = readFileSync(archivePath);
   let endOffset = -1;
@@ -175,16 +194,52 @@ function parseZipEntries(archivePath) {
     if (buffer.readUInt32LE(offset) !== 0x02014b50) {
       throw new Error(`Invalid ZIP central directory entry in ${archivePath}`);
     }
+    const compressionMethod = buffer.readUInt16LE(offset + 10);
+    const compressedSize = buffer.readUInt32LE(offset + 20);
     const fileNameLength = buffer.readUInt16LE(offset + 28);
     const extraLength = buffer.readUInt16LE(offset + 30);
     const commentLength = buffer.readUInt16LE(offset + 32);
+    const localHeaderOffset = buffer.readUInt32LE(offset + 42);
     const fileNameStart = offset + 46;
     const fileNameEnd = fileNameStart + fileNameLength;
-    entries.push(buffer.subarray(fileNameStart, fileNameEnd).toString('utf8'));
+    const path = buffer.subarray(fileNameStart, fileNameEnd).toString('utf8');
+    entries.push({
+      path,
+      content: readZipEntryContent(buffer, {
+        archivePath,
+        compressedSize,
+        compressionMethod,
+        localHeaderOffset,
+        path
+      })
+    });
     offset = fileNameEnd + extraLength + commentLength;
   }
 
   return entries;
+}
+
+function readZipEntryContent(
+  buffer,
+  { archivePath, compressedSize, compressionMethod, localHeaderOffset, path }
+) {
+  if (path.endsWith('/')) {
+    return null;
+  }
+  if (buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) {
+    throw new Error(`Invalid ZIP local file header for ${path} in ${archivePath}`);
+  }
+  const fileNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
+  const extraLength = buffer.readUInt16LE(localHeaderOffset + 28);
+  const contentStart = localHeaderOffset + 30 + fileNameLength + extraLength;
+  const compressed = buffer.subarray(contentStart, contentStart + compressedSize);
+  if (compressionMethod === 0) {
+    return compressed.toString('utf8');
+  }
+  if (compressionMethod === 8) {
+    return inflateRawSync(compressed).toString('utf8');
+  }
+  return null;
 }
 
 function buildReport({ distDir, archives }) {
@@ -222,6 +277,11 @@ function buildReport({ distDir, archives }) {
   const forbiddenPseudoLocaleDistFiles = files.filter((file) =>
     FORBIDDEN_PSEUDO_LOCALE_RE.test(file)
   );
+  const forbiddenPseudoLocaleDistContent = files.flatMap((file) =>
+    shouldScanContent(file)
+      ? scanForbiddenPseudoLocaleContent(file, readFileSync(join(distDir, file), 'utf8'))
+      : []
+  );
 
   failures.push(
     ...missingReferences.map(
@@ -230,14 +290,27 @@ function buildReport({ distDir, archives }) {
     ...forbiddenDistFiles.map((file) => `forbidden harness member in build/dist: ${file}`),
     ...forbiddenPseudoLocaleDistFiles.map(
       (file) => `forbidden dev-only pseudo-locale member in build/dist: ${file}`
+    ),
+    ...forbiddenPseudoLocaleDistContent.map(
+      ({ path, pattern }) =>
+        `forbidden dev-only pseudo-locale content in build/dist: ${path} (${pattern})`
     )
   );
 
   const archiveReports = archives.map((archivePath) => {
-    const entries = parseZipEntries(archivePath).map(normalizeManifestPath);
+    const archiveEntries = parseZipEntries(archivePath).map((entry) => ({
+      ...entry,
+      path: normalizeManifestPath(entry.path)
+    }));
+    const entries = archiveEntries.map((entry) => entry.path);
     const forbiddenEntries = entries.filter((entry) => FORBIDDEN_HARNESS_RE.test(entry));
     const forbiddenPseudoLocaleEntries = entries.filter((entry) =>
       FORBIDDEN_PSEUDO_LOCALE_RE.test(entry)
+    );
+    const forbiddenPseudoLocaleContent = archiveEntries.flatMap((entry) =>
+      typeof entry.content === 'string'
+        ? scanForbiddenPseudoLocaleContent(entry.path, entry.content)
+        : []
     );
     failures.push(
       ...forbiddenEntries.map(
@@ -245,13 +318,18 @@ function buildReport({ distDir, archives }) {
       ),
       ...forbiddenPseudoLocaleEntries.map(
         (entry) => `forbidden dev-only pseudo-locale member in archive ${archivePath}: ${entry}`
+      ),
+      ...forbiddenPseudoLocaleContent.map(
+        ({ path, pattern }) =>
+          `forbidden dev-only pseudo-locale content in archive ${archivePath}: ${path} (${pattern})`
       )
     );
     return {
       path: archivePath,
       entryCount: entries.length,
       forbiddenEntries,
-      forbiddenPseudoLocaleEntries
+      forbiddenPseudoLocaleEntries,
+      forbiddenPseudoLocaleContent
     };
   });
 
@@ -262,6 +340,7 @@ function buildReport({ distDir, archives }) {
     fileCount: files.length,
     forbiddenDistFiles,
     forbiddenPseudoLocaleDistFiles,
+    forbiddenPseudoLocaleDistContent,
     manifestReferences,
     archives: archiveReports,
     failures
@@ -314,6 +393,11 @@ function formatReport(report) {
   } else {
     lines.push('- build/dist: none');
   }
+  if (report.forbiddenPseudoLocaleDistContent?.length) {
+    for (const finding of report.forbiddenPseudoLocaleDistContent) {
+      lines.push(`- build/dist content: \`${finding.path}\` (${finding.pattern})`);
+    }
+  }
 
   for (const archive of report.archives ?? []) {
     if (archive.forbiddenPseudoLocaleEntries.length) {
@@ -322,6 +406,11 @@ function formatReport(report) {
       }
     } else {
       lines.push(`- ${archive.path}: none`);
+    }
+    if (archive.forbiddenPseudoLocaleContent.length) {
+      for (const finding of archive.forbiddenPseudoLocaleContent) {
+        lines.push(`- ${archive.path} content: \`${finding.path}\` (${finding.pattern})`);
+      }
     }
   }
 
