@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { build } from 'esbuild';
+import { join } from 'node:path';
 import {
   CHROME_STATIC_KEYS,
   DEFAULT_LANGUAGE,
@@ -8,6 +10,25 @@ import {
 } from '../../../src/i18n/config';
 import { getAvailableLanguages } from '../../../src/i18n';
 import { getLocaleCodes, loadLocaleDefinition } from '../../../src/i18n/locales';
+
+async function importProductionModule(entryPoint: string): Promise<Record<string, unknown>> {
+  const result = await build({
+    entryPoints: [join(process.cwd(), entryPoint)],
+    bundle: true,
+    write: false,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    logLevel: 'silent',
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production')
+    }
+  });
+
+  const { text } = result.outputFiles[0];
+  const dataUrl = `data:text/javascript;base64,${Buffer.from(text).toString('base64')}#${Date.now()}`;
+  return import(dataUrl) as Promise<Record<string, unknown>>;
+}
 
 describe('i18n config', () => {
   it('resolves pseudo locale aliases', () => {
@@ -57,5 +78,28 @@ describe('i18n config', () => {
         expect(definition.static?.[key]).toBeTruthy();
       }
     }
+  });
+
+  it('excludes pseudo locale from production language resolution', async () => {
+    const module = await importProductionModule('src/i18n/config.ts');
+    const getProductionCodes = module.getConfiguredLanguageCodes as () => string[];
+    const resolveProductionLanguage = module.resolveLanguage as (input?: string) => string;
+    const getProductionFallbackChain = module.getLanguageFallbackChain as (
+      input?: string
+    ) => string[];
+
+    expect(getProductionCodes()).not.toContain('qps-ploc');
+    expect(resolveProductionLanguage('pseudo')).toBe('en');
+    expect(resolveProductionLanguage('qps-ploc')).toBe('en');
+    expect(getProductionFallbackChain('qps-ploc')).toEqual(['en']);
+  });
+
+  it('excludes pseudo locale loader from production locale registry', async () => {
+    const module = await importProductionModule('src/i18n/locales.ts');
+    const getProductionLocaleCodes = module.getLocaleCodes as () => string[];
+    const hasProductionLocaleLoader = module.hasLocaleLoader as (language: string) => boolean;
+
+    expect(getProductionLocaleCodes()).not.toContain('qps-ploc');
+    expect(hasProductionLocaleLoader('qps-ploc')).toBe(false);
   });
 });

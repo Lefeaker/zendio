@@ -1,5 +1,5 @@
 import { build, context } from 'esbuild';
-import { mkdir, cp, rm, writeFile } from 'fs/promises';
+import { mkdir, cp, readdir, rm, writeFile } from 'fs/promises';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
@@ -121,6 +121,21 @@ await mkdir('build/dist/content', { recursive: true });
 await writeFile('build/dist/content/index.js', CONTENT_LOADER_SOURCE);
 
 await cp('public', 'build/dist', { recursive: true });
+if (prod) {
+  await rm('build/dist/_locales/qps-ploc', { recursive: true, force: true });
+  try {
+    const chunkFiles = await readdir('build/dist/chunks');
+    await Promise.all(
+      chunkFiles
+        .filter((file) => file.startsWith('qps-ploc-') && file.endsWith('.js'))
+        .map((file) => rm(`build/dist/chunks/${file}`, { force: true }))
+    );
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
 
 if (!includeHarnesses) {
   await Promise.all(

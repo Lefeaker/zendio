@@ -1,6 +1,7 @@
 import { configProvider } from '../shared/config/provider';
 import { pseudoLocalizeString } from './pseudoLocalization';
 import type { Language } from './locales';
+import { PSEUDO_LOCALE_ENABLED } from './config';
 
 type RestDefaults = ReturnType<typeof configProvider.getRestDefaults>;
 
@@ -80,16 +81,19 @@ const dynamicMessageFactories: Partial<Record<Language, DynamicMessageFactory>> 
     httpsUrlHint: `通常是埠 ${defaults.httpsPort}，用於安全連接`,
     httpUrlHint: `通常是埠 ${defaults.httpPort}，用於備用連接`,
     vaultNamePlaceholder: defaults.vault
-  }),
-  'qps-ploc': (defaults) => {
+  })
+};
+
+if (PSEUDO_LOCALE_ENABLED) {
+  dynamicMessageFactories['qps-ploc'] = (defaults) => {
     const base = englishDynamicFactory(defaults);
     return {
       httpsUrlHint: pseudoLocalizeString(base.httpsUrlHint),
       httpUrlHint: pseudoLocalizeString(base.httpUrlHint),
       vaultNamePlaceholder: pseudoLocalizeString(base.vaultNamePlaceholder)
     };
-  }
-};
+  };
+}
 
 const FALLBACK_LANGUAGE: Language = 'zh-CN';
 

@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE, getLanguageFallbackChain } from './config';
+import { DEFAULT_LANGUAGE, PSEUDO_LOCALE_ENABLED, getLanguageFallbackChain } from './config';
 import type { LangCode } from './config';
 import type { LocaleDefinition, LocaleStaticMessages } from './localeDefinition';
 import en from './locales/en';
@@ -11,8 +11,9 @@ export { DEFAULT_LANGUAGE, AVAILABLE_LANGUAGES } from './config';
 type LocaleModule = { default: LocaleDefinition };
 type LocaleLoader = () => Promise<LocaleDefinition>;
 type LocaleCache = Partial<Record<Language, LocaleDefinition>>;
+type LocaleLoaderMap = Partial<Record<Language, LocaleLoader>>;
 
-const localeLoaders: Record<Language, LocaleLoader> = {
+const localeLoaders: LocaleLoaderMap = {
   en: async () => en,
   'zh-CN': async () => (await import('./locales/zh-CN')).default,
   ja: async () => (await import('./locales/ja')).default,
@@ -24,9 +25,12 @@ const localeLoaders: Record<Language, LocaleLoader> = {
   ko: async () => (await import('./locales/ko')).default,
   'pt-BR': async () => (await import('./locales/pt-BR')).default,
   ru: async () => (await import('./locales/ru')).default,
-  'zh-TW': async () => (await import('./locales/zh-TW')).default,
-  'qps-ploc': async () => (await import('./locales/qps-ploc')).default
+  'zh-TW': async () => (await import('./locales/zh-TW')).default
 };
+
+if (PSEUDO_LOCALE_ENABLED) {
+  localeLoaders['qps-ploc'] = async () => (await import('./locales/qps-ploc')).default;
+}
 
 const localeCache: LocaleCache = {
   en
@@ -55,12 +59,17 @@ export async function loadLocaleDefinition(language: Language): Promise<LocaleDe
     return cached;
   }
 
+  const loader = localeLoaders[language];
+  if (!loader) {
+    throw new Error(`Locale loader not registered: ${language}`);
+  }
+
   const pending = pendingLocaleLoads.get(language);
   if (pending) {
     return pending;
   }
 
-  const loadPromise = localeLoaders[language]()
+  const loadPromise = loader()
     .then((definition) => {
       localeCache[language] = definition;
       pendingLocaleLoads.delete(language);

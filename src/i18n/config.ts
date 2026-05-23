@@ -25,6 +25,8 @@ export interface LanguageMetadata {
 }
 
 const BASE_LANGUAGE: LangCode = 'en';
+const PSEUDO_LOCALE: LangCode = 'qps-ploc';
+export const PSEUDO_LOCALE_ENABLED = process.env.NODE_ENV !== 'production';
 
 const LANGUAGE_ORDER: LangCode[] = [
   'en',
@@ -39,7 +41,7 @@ const LANGUAGE_ORDER: LangCode[] = [
   'pt-BR',
   'ru',
   'zh-TW',
-  'qps-ploc'
+  PSEUDO_LOCALE
 ];
 
 export const LANGUAGE_CONFIG: Record<LangCode, LanguageMetadata> = {
@@ -201,6 +203,12 @@ export function getWebExtensionLocaleFolder(code: LangCode): string {
   return WEB_EXTENSION_LOCALE_FOLDERS[code];
 }
 
+function getRuntimeLanguageOrder(): LangCode[] {
+  return PSEUDO_LOCALE_ENABLED
+    ? [...LANGUAGE_ORDER]
+    : LANGUAGE_ORDER.filter((code) => code !== PSEUDO_LOCALE);
+}
+
 export interface AvailableLanguage {
   code: LangCode;
   name: string;
@@ -211,23 +219,23 @@ export interface AvailableLanguage {
   textExpansion: number;
 }
 
-export const AVAILABLE_LANGUAGES: AvailableLanguage[] = LANGUAGE_ORDER.filter(
-  (code) => code !== 'qps-ploc' || isDevelopment
-).map((code) => {
-  const meta = LANGUAGE_CONFIG[code];
-  return {
-    code,
-    name: meta.label,
-    dir: meta.dir,
-    nativeName: meta.nativeName,
-    englishName: meta.englishName,
-    region: meta.region,
-    textExpansion: meta.textExpansion ?? 1
-  };
-});
+export const AVAILABLE_LANGUAGES: AvailableLanguage[] = getRuntimeLanguageOrder()
+  .filter((code) => code !== PSEUDO_LOCALE || isDevelopment)
+  .map((code) => {
+    const meta = LANGUAGE_CONFIG[code];
+    return {
+      code,
+      name: meta.label,
+      dir: meta.dir,
+      nativeName: meta.nativeName,
+      englishName: meta.englishName,
+      region: meta.region,
+      textExpansion: meta.textExpansion ?? 1
+    };
+  });
 
 export function getConfiguredLanguageCodes(): LangCode[] {
-  return [...LANGUAGE_ORDER];
+  return getRuntimeLanguageOrder();
 }
 
 function normalizeLanguageCandidate(value: string): string {
@@ -260,14 +268,14 @@ function resolveLanguageCandidates(input?: string): LangCode[] {
   if (input) {
     const normalized = normalizeLanguageCandidate(input);
 
-    for (const code of LANGUAGE_ORDER) {
+    for (const code of getRuntimeLanguageOrder()) {
       if (equalsIgnoreCase(code, normalized)) {
         addCandidate(code);
         break;
       }
     }
 
-    for (const code of LANGUAGE_ORDER) {
+    for (const code of getRuntimeLanguageOrder()) {
       const aliases = LANGUAGE_CONFIG[code].aliases ?? [];
       if (aliases.some((alias) => equalsIgnoreCase(alias, normalized))) {
         addCandidate(code);
@@ -275,7 +283,7 @@ function resolveLanguageCandidates(input?: string): LangCode[] {
     }
 
     const base = normalized.split('-')[0];
-    for (const code of LANGUAGE_ORDER) {
+    for (const code of getRuntimeLanguageOrder()) {
       if (equalsIgnoreCase(code.split('-')[0], base)) {
         addCandidate(code);
       }
