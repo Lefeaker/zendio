@@ -30,7 +30,8 @@
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
   - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
-- 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
+- 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
+- 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 
 ## 当前推荐执行顺序
 
@@ -84,20 +85,23 @@ credentials and manual confirmation.
 
 `npm run audit:build:report` 当前执行以下预算：
 
-- `content/runtime.js <= 56 KB`
-- `options/index.js <= 107 KB`
-- 最大 shared chunk `<= 196 KB`
-- 第二大 shared chunk `<= 145 KB`
-- 第三大 shared chunk `<= 130 KB`
+- `content/index.js <= 1 KB`
+- `content/runtime.js <= 55 KB`
+- `options/index.js <= 12 KB`
+- `onboarding/index.js <= 16 KB`
+- 任一 chunk `<= 320 KB`
+- 最大 shared chunk `<= 190 KB`
+- 第二大 shared chunk `<= 136 KB`
+- 第三大 shared chunk `<= 90 KB`
 - `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 132`
+- `chunk count <= 112`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
-2026-05-21 M7 fresh build truth:
+2026-05-24 M2.5 fresh build truth:
 
 - `npm run clean && npm run build:dev && npm run audit:build:report` 通过
-- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；raw stop gate `57,600`）
+- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；raw stop gate `56,320`）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
 - chunks: `102`
