@@ -1,15 +1,13 @@
 import type { UsageStats } from '@shared/types/usage';
 import {
-  buildSmoothPath,
-  computeChartGeometry,
   measureChartBounds,
-  prepareHistory,
   updateAxis,
   updateGridLines,
   updatePoints,
-  updateXAxis,
-  type ChartGeometry
-} from './usageChartRenderers';
+  updateXAxis
+} from './usageChartDomRenderers';
+import { buildSmoothPath, computeChartGeometry, type ChartGeometry } from './usageChartGeometry';
+import { prepareHistory } from './usageChartHistory';
 import type { ChartElements } from './usageChartTypes';
 
 export type { ChartElements } from './usageChartTypes';

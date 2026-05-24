@@ -1,20 +1,24 @@
 export { createUsageChartShell, renderUsageChart } from './usageChart';
 export {
+  formatUsageDate,
+  parseDateKey,
+  prepareHistory,
+  resolveUsageDateKey
+} from './usageChartHistory';
+export {
   DEFAULT_CHART_BOUNDS,
   buildSmoothPath,
   computeChartGeometry,
   formatDateLabel,
-  formatUsageDate,
   generateTicks,
+  pickLabelIndices
+} from './usageChartGeometry';
+export {
   measureChartBounds,
-  parseDateKey,
-  pickLabelIndices,
-  prepareHistory,
-  resolveUsageDateKey,
   updateAxis,
   updateGridLines,
   updatePoints,
   updateXAxis
-} from './usageChartRenderers';
+} from './usageChartDomRenderers';
 export type { ChartElements } from './usageChartTypes';
-export type { ChartGeometry, ChartMeasurements, ChartPoint, TickInfo } from './usageChartRenderers';
+export type { ChartGeometry, ChartMeasurements, ChartPoint, TickInfo } from './usageChartGeometry';
