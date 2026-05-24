@@ -19,7 +19,7 @@ import { buildRestSectionLayout } from './restSectionLayout';
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
-} from './restSectionConnectionResult';
+} from '@options/app/rest-settings/restSectionConnectionResult';
 import {
   createRestSectionConnectionTester,
   applyRestSectionRepositorySnapshot,
