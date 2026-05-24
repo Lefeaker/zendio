@@ -14,7 +14,7 @@ import {
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
-} from './restSectionConnectionResult';
+} from '@options/app/rest-settings/restSectionConnectionResult';
 import { getVaultRouterConfig, initializeVaultRouterStore } from '../../state/vaultRouterStore';
 import { getOptionsMessages } from '../../app/i18nContext';
 
