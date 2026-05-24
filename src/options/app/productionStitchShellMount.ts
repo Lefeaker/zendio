@@ -129,7 +129,6 @@ export function mountProductionStitchShellFromDependencies({
     }
   );
 
-  let mounted: MountedProductionStitchShell;
   const actionRuntime = createProductionStitchShellActionRuntime({
     mountRoot,
     buttonPressScrollGuard,
@@ -210,7 +209,7 @@ export function mountProductionStitchShellFromDependencies({
     controller.scheduleAutoSave(() => mounted.collectDraft());
   }
 
-  mounted = {
+  const mounted: MountedProductionStitchShell = {
     cleanup() {
       cleanupProductionStitchShell({
         mountRoot,

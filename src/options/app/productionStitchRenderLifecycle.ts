@@ -71,7 +71,8 @@ export function createProductionStitchRenderLifecycle(
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: options.dispatch,
+      dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
+        options.dispatch(actionId, args, value, event),
       mountWidget: (widgetType: string, host: HTMLElement) =>
         options.widgetHost.mountWidget(widgetType, host)
     };

@@ -34,48 +34,28 @@ interface ProductionStitchShellRuntimeServicesOptions {
 export function createProductionStitchShellRuntimeServices(
   options: ProductionStitchShellRuntimeServicesOptions
 ) {
-  const {
-    controller,
-    getAppData,
-    getConnectionNotice,
-    getCurrentMessages,
-    getDraft,
-    getState,
-    messagingRepository,
-    now,
-    optionsRepository,
-    refreshAppData,
-    render,
-    scheduleDraftSave,
-    setAppData,
-    setConnectionNotice,
-    setDomainMappingRows,
-    setDraft,
-    setMaintenanceLog,
-    setState,
-    storage
-  } = options;
+  const { controller, messagingRepository, now, optionsRepository, storage } = options;
   const storageController = createProductionStitchStorageController({
-    getConnectionNotice,
-    getDraft,
+    getConnectionNotice: () => options.getConnectionNotice(),
+    getDraft: () => options.getDraft(),
     getMessagingRepository: () => messagingRepository,
-    getState,
-    setConnectionNotice,
-    refreshAppData,
-    render,
-    scheduleDraftSave
+    getState: () => options.getState(),
+    setConnectionNotice: (notice) => options.setConnectionNotice(notice),
+    refreshAppData: () => options.refreshAppData(),
+    render: () => options.render(),
+    scheduleDraftSave: () => options.scheduleDraftSave()
   });
 
   const widgetHost = createProductionStitchWidgetHost({
-    getDraft,
-    getState,
-    getMessages: getCurrentMessages,
+    getDraft: () => options.getDraft(),
+    getState: () => options.getState(),
+    getMessages: () => options.getCurrentMessages(),
     ensureVaultRouter: () => storageController.ensureVaultRouter(),
     mergePartialIntoDraft: (partial) =>
-      mergePartialIntoDraft(getDraft(), setDomainMappingRows, partial),
+      mergePartialIntoDraft(options.getDraft(), options.setDomainMappingRows, partial),
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest(),
-    refreshAppData,
-    scheduleDraftSave
+    refreshAppData: () => options.refreshAppData(),
+    scheduleDraftSave: () => options.scheduleDraftSave()
   });
 
   const persistence = createProductionStitchPersistence({
@@ -84,17 +64,17 @@ export function createProductionStitchShellRuntimeServices(
     messagingRepository,
     ...(storage ? { storage } : {}),
     ...(now ? { now } : {}),
-    getAppData,
-    getCurrentMessages,
-    getDraft,
-    getState,
-    setAppData,
-    setDraft,
-    setMaintenanceLog,
-    setState,
+    getAppData: () => options.getAppData(),
+    getCurrentMessages: () => options.getCurrentMessages(),
+    getDraft: () => options.getDraft(),
+    getState: () => options.getState(),
+    setAppData: (appData) => options.setAppData(appData),
+    setDraft: (draft) => options.setDraft(draft),
+    setMaintenanceLog: (log) => options.setMaintenanceLog(log),
+    setState: (state) => options.setState(state),
     collectDraftWithWidgets: () => widgetHost.collectDraftWithWidgets(),
-    refreshAppData,
-    render,
+    refreshAppData: () => options.refreshAppData(),
+    render: () => options.render(),
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest()
   });
 

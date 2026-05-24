@@ -27,7 +27,8 @@ export function createProductionStitchShellSchemaRenderer(
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: options.dispatch,
+      dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
+        options.dispatch(actionId, args, value, event),
       mountWidget: (widgetType: string, host: HTMLElement) =>
         options.widgetHost.mountWidget(widgetType, host)
     };
@@ -35,7 +36,7 @@ export function createProductionStitchShellSchemaRenderer(
 
   return createSchemaRenderer<PreviewStoreState, PreviewContent>(
     {
-      getContext: options.createSchemaContext,
+      getContext: () => options.createSchemaContext(),
       dispatch: (action, payload) => {
         if (typeof action === 'string') {
           options.dispatch(action, [], payload);
@@ -43,8 +44,8 @@ export function createProductionStitchShellSchemaRenderer(
         }
         options.dispatch(action.id, action.args ?? [], payload);
       },
-      mutate: options.mutate,
-      requestRerender: options.render,
+      mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
+      requestRerender: () => options.render(),
       getWidgetFactory: (widgetType) => options.widgetHost.createWidgetFactory(widgetType)
     },
     {
