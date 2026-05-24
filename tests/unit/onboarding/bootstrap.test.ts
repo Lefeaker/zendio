@@ -75,6 +75,10 @@ describe('onboarding bootstrap', () => {
     vi.resetModules();
     vi.clearAllMocks();
     installLocalStorageMock();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn()
+    });
     vi.spyOn(window, 'matchMedia').mockReturnValue({
       matches: false,
       addEventListener: vi.fn(),

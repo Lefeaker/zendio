@@ -80,16 +80,19 @@ const dynamicMessageFactories: Partial<Record<Language, DynamicMessageFactory>> 
     httpsUrlHint: `通常是埠 ${defaults.httpsPort}，用於安全連接`,
     httpUrlHint: `通常是埠 ${defaults.httpPort}，用於備用連接`,
     vaultNamePlaceholder: defaults.vault
-  }),
-  'qps-ploc': (defaults) => {
+  })
+};
+
+if (process.env.NODE_ENV !== 'production') {
+  dynamicMessageFactories['qps-ploc'] = (defaults) => {
     const base = englishDynamicFactory(defaults);
     return {
       httpsUrlHint: pseudoLocalizeString(base.httpsUrlHint),
       httpUrlHint: pseudoLocalizeString(base.httpUrlHint),
       vaultNamePlaceholder: pseudoLocalizeString(base.vaultNamePlaceholder)
     };
-  }
-};
+  };
+}
 
 const FALLBACK_LANGUAGE: Language = 'zh-CN';
 

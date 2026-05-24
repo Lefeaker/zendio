@@ -40,6 +40,8 @@
     "audit:build:report": "node tools/report-build-splitting.mjs",
     "audit:local-vault-release:report": "node scripts/audit-local-vault-release-readiness.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
+    "audit:release-surface:report": "node tools/report-release-surface.mjs",
+    "audit:release-surface:check": "node tools/report-release-surface.mjs --check",
     "manifest:generate": "node scripts/generate-manifests.mjs",
     "i18n:generate": "node scripts/gen-locales.mjs",
     "i18n:lint": "node scripts/lint-i18n.mjs",
@@ -110,17 +112,17 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.1",
+    "@playwright/test": "^1.60.0",
     "@types/chrome": "^0.1.12",
     "@types/firefox-webext-browser": "^143.0.0",
     "@types/jsdom": "^21.1.5",
     "@types/node": "^22.5.4",
     "@types/turndown": "^5.0.5",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "@vitest/coverage-v8": "^1.6.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "@vitest/coverage-v8": "3.2.4",
     "archiver": "^6.0.2",
-    "esbuild": "^0.23.0",
+    "esbuild": "^0.28.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -132,8 +134,8 @@
     "stylelint": "^16.25.0",
     "tsx": "^4.20.6",
     "typescript": "^5.5.4",
-    "vitest": "^1.6.0",
-    "web-ext": "^8.3.0"
+    "vitest": "3.2.4",
+    "web-ext": "^10.2.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

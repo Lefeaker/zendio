@@ -9,9 +9,11 @@ import {
 const parseMock = vi.fn();
 
 vi.mock('@mozilla/readability', () => ({
-  Readability: vi.fn().mockImplementation((doc: Document) => ({
-    parse: () => parseMock(doc)
-  }))
+  Readability: vi.fn().mockImplementation(function ReadabilityMock(doc: Document) {
+    return {
+      parse: () => parseMock(doc)
+    };
+  })
 }));
 
 vi.mock('../../../src/third_party/obsidian-clipper/domPrep', () => ({

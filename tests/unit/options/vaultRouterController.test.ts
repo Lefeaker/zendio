@@ -3,12 +3,12 @@ import type { VaultConfig, RoutingRule } from '@shared/types/vault';
 import { VaultRouterController } from '@options/components/controls/vaultRouterController';
 
 const optionsContextMocks = vi.hoisted(() => ({
-  scheduleAutoSave: vi.fn<[], void>(),
-  markPendingAutoSave: vi.fn<[string], void>()
+  scheduleAutoSave: vi.fn<(...args: []) => void>(),
+  markPendingAutoSave: vi.fn<(...args: [string]) => void>()
 }));
 
 const vaultStoreMocks = vi.hoisted(() => ({
-  addAdditionalVault: vi.fn<[Partial<VaultConfig>?], VaultConfig>((initial) => ({
+  addAdditionalVault: vi.fn<(...args: [Partial<VaultConfig>?]) => VaultConfig>((initial) => ({
     id: 'vault-1',
     name: initial?.name ?? 'Vault',
     vault: initial?.vault ?? 'Vault',
@@ -18,9 +18,9 @@ const vaultStoreMocks = vi.hoisted(() => ({
     enabled: true,
     rules: []
   })),
-  updateAdditionalVault: vi.fn<[string, Partial<VaultConfig>], void>(),
-  removeAdditionalVault: vi.fn<[string], void>(),
-  addRoutingRule: vi.fn<[Partial<RoutingRule>?], RoutingRule>((initial) => ({
+  updateAdditionalVault: vi.fn<(...args: [string, Partial<VaultConfig>]) => void>(),
+  removeAdditionalVault: vi.fn<(...args: [string]) => void>(),
+  addRoutingRule: vi.fn<(...args: [Partial<RoutingRule>?]) => RoutingRule>((initial) => ({
     id: 'rule-1',
     type: initial?.type ?? 'domain',
     pattern: initial?.pattern ?? '',
@@ -28,8 +28,8 @@ const vaultStoreMocks = vi.hoisted(() => ({
     enabled: initial?.enabled ?? true,
     priority: initial?.priority ?? 10
   })),
-  updateRoutingRule: vi.fn<[string, Partial<RoutingRule>], void>(),
-  removeRoutingRule: vi.fn<[string], void>()
+  updateRoutingRule: vi.fn<(...args: [string, Partial<RoutingRule>]) => void>(),
+  removeRoutingRule: vi.fn<(...args: [string]) => void>()
 }));
 
 vi.mock('@options/app/optionsControllerContext', () => ({

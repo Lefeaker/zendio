@@ -30,7 +30,7 @@ vi.mock('../../../src/content/clipper/shared/styleManager', () => ({
 }));
 
 const loadExtensionStyleMock = vi.hoisted(() =>
-  vi.fn<[string], Promise<string>>(() => Promise.resolve('/* reader styles */'))
+  vi.fn<(...args: [string]) => Promise<string>>(() => Promise.resolve('/* reader styles */'))
 );
 
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({

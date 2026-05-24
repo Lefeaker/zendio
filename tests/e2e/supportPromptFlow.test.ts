@@ -14,7 +14,7 @@ vi.mock('focus-trap', () => ({
 }));
 
 const loadExtensionStyleMock = vi.hoisted(() =>
-  vi.fn<[string], Promise<string>>(() => Promise.resolve('.prompt{}'))
+  vi.fn<(...args: [string]) => Promise<string>>(() => Promise.resolve('.prompt{}'))
 );
 vi.mock('../../src/content/clipper/shared/styleRegistry', () => ({
   loadExtensionStyle: loadExtensionStyleMock

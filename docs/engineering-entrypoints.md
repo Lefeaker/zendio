@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-22
+最后更新：2026-05-24
 
 ## 推荐运行环境
 
@@ -14,6 +14,12 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
+  - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、locale files 三方一致
+  - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
+  - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
+  - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
+  - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `typecheck:app`
@@ -22,6 +28,8 @@
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
+  - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
+  - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于 `57,600` stop gate
 
 ## 当前推荐执行顺序
@@ -49,6 +57,8 @@ Local Vault / release handoff checks:
 
 ```bash
 npm run clean
+npm run build:fast
+npm run audit:release-surface:report
 npm run build:dev
 npm run audit:local-vault-release:report -- --browser chrome
 npm run build:firefox
@@ -62,10 +72,10 @@ credentials and manual confirmation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-21 M7 final baseline truth:
+2026-05-24 gap-remediation baseline truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 已下调为 `266`，fresh warning count 为 `266`。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `254`，fresh warning count 为 `254`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
 - `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
@@ -108,9 +118,11 @@ credentials and manual confirmation.
 - `npm run test:e2e:browser:reader-panel`
 - `npm run test:coverage`
 - `npm run test:i18n`
+- `npm run audit:locales:report`
 - `npm run visual:test`
 - `npm run report:release-summary`
 - `npm run audit:local-vault-release:report`
+- `npm run audit:release-surface:report`
 
 ## 正式代码入口
 
@@ -134,6 +146,8 @@ credentials and manual confirmation.
 - `src/options/components/sections/UsageSection.ts`
 
 ## MCP / 本地浏览器调试入口
+
+生产构建与发布包默认不包含 harness 入口；`build:dev` / dev server 保留以下 harness 页面用于本地浏览器调试：
 
 - `http://localhost:4173/options/index.html`
 - `http://localhost:4173/onboarding/index.html`

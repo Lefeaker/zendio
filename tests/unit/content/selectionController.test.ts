@@ -17,12 +17,14 @@ import {
 } from '@content/runtime/contentSessionRegistry';
 
 const extractSelectionClipMock = vi.spyOn(selectionExtractor, 'extractSelectionClip');
-let promptMock: ReturnType<typeof vi.fn<[ClipPromptRequest], Promise<ClipPromptResponse>>>;
+let promptMock: ReturnType<
+  typeof vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>
+>;
 const platformHarness: TestPlatformHarness = testPlatformHarness;
 
 describe('content selectionController service', () => {
   beforeEach(async () => {
-    promptMock = vi.fn<[ClipPromptRequest], Promise<ClipPromptResponse>>();
+    promptMock = vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>();
     extractSelectionClipMock.mockReset();
     await platformHarness.storage.sync.clear();
     await platformHarness.storage.sync.set('options', {});

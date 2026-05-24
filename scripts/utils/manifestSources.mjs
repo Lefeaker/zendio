@@ -81,10 +81,6 @@ function applyBrowserOverrides(manifest, browser) {
   if (browser === 'firefox') {
     return {
       ...manifest,
-      action: {
-        ...manifest.action,
-        default_popup: 'popup.html'
-      },
       content_scripts: [
         {
           matches: ['<all_urls>'],

@@ -67,7 +67,7 @@ function createHighlight(id: string, comment: string, text: string): ReaderHighl
 describe('ReaderPanelCoordinator', () => {
   let callbacks: ReaderPanelCallbacks;
   let viewFactory: ReaderSessionViewFactory;
-  let createViewSpy: Mock<[], FakeReaderView>;
+  let createViewSpy: Mock<(...args: []) => FakeReaderView>;
   let view: FakeReaderView;
 
   beforeEach(() => {

@@ -25,8 +25,10 @@ export interface LanguageMetadata {
 }
 
 const BASE_LANGUAGE: LangCode = 'en';
+export const PSEUDO_LOCALE_ENABLED = process.env.NODE_ENV !== 'production';
+type ReleaseLangCode = Exclude<LangCode, 'qps-ploc'>;
 
-const LANGUAGE_ORDER: LangCode[] = [
+const RELEASE_LANGUAGE_ORDER: ReleaseLangCode[] = [
   'en',
   'zh-CN',
   'ja',
@@ -38,11 +40,10 @@ const LANGUAGE_ORDER: LangCode[] = [
   'ko',
   'pt-BR',
   'ru',
-  'zh-TW',
-  'qps-ploc'
+  'zh-TW'
 ];
 
-export const LANGUAGE_CONFIG: Record<LangCode, LanguageMetadata> = {
+const RELEASE_LANGUAGE_CONFIG: Record<ReleaseLangCode, LanguageMetadata> = {
   en: {
     label: 'English',
     dir: 'ltr',
@@ -162,7 +163,10 @@ export const LANGUAGE_CONFIG: Record<LangCode, LanguageMetadata> = {
     aliases: ['zh-TW', 'zh_TW', 'zh-Hant', 'zh-hant', 'zh-HK', 'zh_HK'],
     fallbacks: ['zh-CN', BASE_LANGUAGE],
     textExpansion: 1.05
-  },
+  }
+};
+
+const PSEUDO_LANGUAGE_CONFIG: Record<'qps-ploc', LanguageMetadata> = {
   'qps-ploc': {
     label: '[Pseudo]',
     dir: 'ltr',
@@ -175,11 +179,54 @@ export const LANGUAGE_CONFIG: Record<LangCode, LanguageMetadata> = {
   }
 };
 
-const isDevelopment = process.env.NODE_ENV === 'development';
+export const LANGUAGE_CONFIG: Partial<Record<LangCode, LanguageMetadata>> =
+  process.env.NODE_ENV !== 'production'
+    ? { ...RELEASE_LANGUAGE_CONFIG, ...PSEUDO_LANGUAGE_CONFIG }
+    : RELEASE_LANGUAGE_CONFIG;
 
 export const DEFAULT_LANGUAGE: LangCode = 'en';
 
 export const CHROME_STATIC_KEYS = ['extName', 'extDescription'] as const;
+
+const RELEASE_WEB_EXTENSION_LOCALE_FOLDERS: Record<ReleaseLangCode, string> = {
+  en: 'en',
+  'zh-CN': 'zh_CN',
+  ja: 'ja',
+  de: 'de',
+  fr: 'fr',
+  'es-ES': 'es',
+  'es-419': 'es_419',
+  it: 'it',
+  ko: 'ko',
+  'pt-BR': 'pt_BR',
+  ru: 'ru',
+  'zh-TW': 'zh_TW'
+};
+
+export const WEB_EXTENSION_LOCALE_FOLDERS: Partial<Record<LangCode, string>> =
+  process.env.NODE_ENV !== 'production'
+    ? { ...RELEASE_WEB_EXTENSION_LOCALE_FOLDERS, 'qps-ploc': 'qps-ploc' }
+    : RELEASE_WEB_EXTENSION_LOCALE_FOLDERS;
+
+export function getWebExtensionLocaleFolder(code: LangCode): string {
+  const folder = WEB_EXTENSION_LOCALE_FOLDERS[code];
+  if (!folder) {
+    throw new Error(`WebExtension locale folder is not registered for ${code}`);
+  }
+  return folder;
+}
+
+function getRuntimeLanguageOrder(): LangCode[] {
+  return process.env.NODE_ENV !== 'production'
+    ? [...RELEASE_LANGUAGE_ORDER, 'qps-ploc']
+    : [...RELEASE_LANGUAGE_ORDER];
+}
+
+function getAvailableLanguageOrder(): LangCode[] {
+  return process.env.NODE_ENV === 'development'
+    ? getRuntimeLanguageOrder()
+    : [...RELEASE_LANGUAGE_ORDER];
+}
 
 export interface AvailableLanguage {
   code: LangCode;
@@ -191,10 +238,11 @@ export interface AvailableLanguage {
   textExpansion: number;
 }
 
-export const AVAILABLE_LANGUAGES: AvailableLanguage[] = LANGUAGE_ORDER.filter(
-  (code) => code !== 'qps-ploc' || isDevelopment
-).map((code) => {
+export const AVAILABLE_LANGUAGES: AvailableLanguage[] = getAvailableLanguageOrder().map((code) => {
   const meta = LANGUAGE_CONFIG[code];
+  if (!meta) {
+    throw new Error(`Language metadata is not registered for ${code}`);
+  }
   return {
     code,
     name: meta.label,
@@ -207,7 +255,7 @@ export const AVAILABLE_LANGUAGES: AvailableLanguage[] = LANGUAGE_ORDER.filter(
 });
 
 export function getConfiguredLanguageCodes(): LangCode[] {
-  return [...LANGUAGE_ORDER];
+  return getRuntimeLanguageOrder();
 }
 
 function normalizeLanguageCandidate(value: string): string {
@@ -240,22 +288,22 @@ function resolveLanguageCandidates(input?: string): LangCode[] {
   if (input) {
     const normalized = normalizeLanguageCandidate(input);
 
-    for (const code of LANGUAGE_ORDER) {
+    for (const code of getRuntimeLanguageOrder()) {
       if (equalsIgnoreCase(code, normalized)) {
         addCandidate(code);
         break;
       }
     }
 
-    for (const code of LANGUAGE_ORDER) {
-      const aliases = LANGUAGE_CONFIG[code].aliases ?? [];
+    for (const code of getRuntimeLanguageOrder()) {
+      const aliases = LANGUAGE_CONFIG[code]?.aliases ?? [];
       if (aliases.some((alias) => equalsIgnoreCase(alias, normalized))) {
         addCandidate(code);
       }
     }
 
     const base = normalized.split('-')[0];
-    for (const code of LANGUAGE_ORDER) {
+    for (const code of getRuntimeLanguageOrder()) {
       if (equalsIgnoreCase(code.split('-')[0], base)) {
         addCandidate(code);
       }

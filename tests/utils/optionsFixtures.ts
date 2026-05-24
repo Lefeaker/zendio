@@ -9,9 +9,9 @@ export interface OptionsManagedFixtures {
   managedChanges: ManagedChanges;
   vaultRouterSnapshot: VaultRouterSnapshot;
   savedOptions: Array<CompleteOptions | StoredOptions>;
-  collectManagedSectionChanges: Mock<[snapshot: StoredOptions | null], ManagedChanges>;
-  applyManagedSections: Mock<[options: CompleteOptions | StoredOptions], void>;
-  getVaultRouterConfig: Mock<[], VaultRouterSnapshot>;
+  collectManagedSectionChanges: Mock<(...args: [snapshot: StoredOptions | null]) => ManagedChanges>;
+  applyManagedSections: Mock<(...args: [options: CompleteOptions | StoredOptions]) => void>;
+  getVaultRouterConfig: Mock<(...args: []) => VaultRouterSnapshot>;
 }
 
 function attachDefaultImplementations(fixtures: OptionsManagedFixtures): void {
@@ -25,9 +25,9 @@ export function createOptionsManagedFixtures(): OptionsManagedFixtures {
     managedChanges: {},
     vaultRouterSnapshot: null,
     savedOptions: [],
-    collectManagedSectionChanges: vi.fn<[StoredOptions | null], ManagedChanges>(),
-    applyManagedSections: vi.fn<[CompleteOptions | StoredOptions], void>(),
-    getVaultRouterConfig: vi.fn<[], VaultRouterSnapshot>()
+    collectManagedSectionChanges: vi.fn<(...args: [StoredOptions | null]) => ManagedChanges>(),
+    applyManagedSections: vi.fn<(...args: [CompleteOptions | StoredOptions]) => void>(),
+    getVaultRouterConfig: vi.fn<(...args: []) => VaultRouterSnapshot>()
   };
 
   attachDefaultImplementations(fixtures);

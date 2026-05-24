@@ -10,12 +10,8 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
     setupFiles: ['tests/setup/globalSetup.ts'],
-    poolOptions: {
-      threads: {
-        maxThreads: 1,
-        minThreads: 1
-      }
-    },
+    pool: 'threads',
+    maxWorkers: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'json-summary', 'lcov'],
@@ -23,6 +19,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.d.ts',
+        'src/dev/**',
         'src/**/__tests__/**',
         'src/**/types.ts',
         'src/**/index.ts',

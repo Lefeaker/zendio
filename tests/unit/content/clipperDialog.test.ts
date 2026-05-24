@@ -12,27 +12,37 @@ type I18nContextModule = typeof import('../../../src/content/i18n/context');
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
 
-const initializeStylesMock = vi.fn<
-  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>,
-  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
->();
-const applyStylesMock = vi.fn<
-  Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>,
-  ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
->();
+const initializeStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+  >();
+const applyStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+  >();
 const applyStitchRuntimeStylesMock = vi.fn();
-const ensureContentI18nMock = vi.fn<
-  Parameters<I18nContextModule['ensureContentI18n']>,
-  ReturnType<I18nContextModule['ensureContentI18n']>
->();
-const getContentI18nBinderMock = vi.fn<
-  Parameters<I18nContextModule['getContentI18nBinder']>,
-  ReturnType<I18nContextModule['getContentI18nBinder']>
->();
-const getContentMessagesMock = vi.fn<
-  Parameters<I18nContextModule['getContentMessages']>,
-  ReturnType<I18nContextModule['getContentMessages']>
->();
+const ensureContentI18nMock =
+  vi.fn<
+    (
+      ...args: Parameters<I18nContextModule['ensureContentI18n']>
+    ) => ReturnType<I18nContextModule['ensureContentI18n']>
+  >();
+const getContentI18nBinderMock =
+  vi.fn<
+    (
+      ...args: Parameters<I18nContextModule['getContentI18nBinder']>
+    ) => ReturnType<I18nContextModule['getContentI18nBinder']>
+  >();
+const getContentMessagesMock =
+  vi.fn<
+    (
+      ...args: Parameters<I18nContextModule['getContentMessages']>
+    ) => ReturnType<I18nContextModule['getContentMessages']>
+  >();
 
 vi.mock('../../../src/content/i18n/context', () => ({
   ensureContentI18n: ensureContentI18nMock,

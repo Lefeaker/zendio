@@ -39,38 +39,46 @@ type StyleSheetManagerModule = typeof import('../../src/content/clipper/shared/s
 
 const ensureContentI18nMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<I18nContextModule['ensureContentI18n']>,
-    ReturnType<I18nContextModule['ensureContentI18n']>
+    (
+      ...args: Parameters<I18nContextModule['ensureContentI18n']>
+    ) => ReturnType<I18nContextModule['ensureContentI18n']>
   >()
 );
 const getContentI18nBinderMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<I18nContextModule['getContentI18nBinder']>,
-    ReturnType<I18nContextModule['getContentI18nBinder']>
+    (
+      ...args: Parameters<I18nContextModule['getContentI18nBinder']>
+    ) => ReturnType<I18nContextModule['getContentI18nBinder']>
   >()
 );
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<I18nContextModule['getContentMessages']>,
-    ReturnType<I18nContextModule['getContentMessages']>
+    (
+      ...args: Parameters<I18nContextModule['getContentMessages']>
+    ) => ReturnType<I18nContextModule['getContentMessages']>
   >()
 );
 const initializeStylesMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>,
-    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
   >()
 );
 const applyStylesMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>,
-    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+    (
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
   >()
 );
 const applyStitchRuntimeStylesMock = vi.hoisted(() =>
   vi.fn<
-    Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>,
-    ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+    (
+      ...args: Parameters<
+        StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']
+      >
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
   >()
 );
 
@@ -403,7 +411,9 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
   };
 
   const clipPrompt: ClipPromptGateway = {
-    requestSelectionAction: vi.fn(() => Promise.resolve({ action: 'clip', comment: '' }))
+    requestSelectionAction: vi.fn<ClipPromptGateway['requestSelectionAction']>(() =>
+      Promise.resolve({ action: 'clip', comment: '' })
+    )
   };
   const session = new ReaderSessionClass(
     document,

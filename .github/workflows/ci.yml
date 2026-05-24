@@ -40,6 +40,11 @@ jobs:
       - name: Verify preflight baseline
         run: npm run verify:preflight
 
+      - name: Audit release surface
+        run: |
+          npm run build:fast
+          npm run audit:release-surface:report
+
       - name: Dependency boundary audit report
         continue-on-error: true
         run: npm run audit:deps:report
@@ -53,7 +58,6 @@ jobs:
         run: npm run audit:design-tokens:report
 
       - name: Locale source alignment audit report
-        continue-on-error: true
         run: npm run audit:locales:report
 
       - name: Audit Options CSS naming

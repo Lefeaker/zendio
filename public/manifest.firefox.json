@@ -11,8 +11,7 @@
       "32": "icons/bannerlogo-32.png",
       "48": "icons/bannerlogo-48.png",
       "128": "icons/bannerlogo-128.png"
-    },
-    "default_popup": "popup.html"
+    }
   },
   "icons": {
     "16": "icons/bannerlogo-16.png",

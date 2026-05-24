@@ -79,7 +79,7 @@ describe('notifications service', () => {
     const { notifyClipSuccess, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000000000);
 
     setNotificationAdapter(createMock);
@@ -115,7 +115,7 @@ describe('notifications service', () => {
     const { notifyClipSuccess, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
     setNotificationAdapter(createMock);
     await notifyClipSuccess('Inbox/foo.md');
@@ -134,7 +134,7 @@ describe('notifications service', () => {
     const { notifyClipSuccess, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
     setNotificationAdapter(createMock);
     await notifyClipSuccess('Private/absolute/path/should/not/show.md', {
@@ -177,7 +177,7 @@ describe('notifications service', () => {
     const { notifyClipFailure, notifyExtractionError, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
     setNotificationAdapter(createMock);
     await notifyClipFailure('Request timed out');
@@ -205,7 +205,7 @@ describe('notifications service', () => {
     const { notifyClipWarning, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
     setNotificationAdapter(createMock);
     await notifyClipWarning('  model degraded  ');
@@ -230,7 +230,7 @@ describe('notifications service', () => {
     const { notifyInjectionFailure, setNotificationAdapter } = await import(
       '../../../src/background/services/notifications'
     );
-    const createMock = vi.fn<[string, NormalizedNotification], void>();
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
     const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000000000);
 
     setNotificationAdapter(createMock);
@@ -285,7 +285,7 @@ it('dispatches generic app notifications with custom adapter payload normalizati
   const { notifyAppEvent, setNotificationAdapter } = await import(
     '../../../src/background/services/notifications'
   );
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000001234);
 
   setNotificationAdapter(createMock);
@@ -322,7 +322,7 @@ it('preserves absolute icon urls for generic app notifications', async () => {
   const { notifyAppEvent, setNotificationAdapter } = await import(
     '../../../src/background/services/notifications'
   );
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await notifyAppEvent({
@@ -348,7 +348,7 @@ it('preserves absolute icon urls for generic app notifications', async () => {
 it('routes options-domain errors through the notification bridge as user-facing alerts', async () => {
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000005678);
 
   setNotificationAdapter(createMock);
@@ -406,7 +406,7 @@ it('falls back to app icon and about-page runtime url when generic notifications
   const { notifyAppEvent, setNotificationAdapter } = await import(
     '../../../src/background/services/notifications'
   );
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await notifyAppEvent({
@@ -441,7 +441,7 @@ it('falls back to app icon and about-page runtime url when generic notifications
 it('routes generic info errors through the notification bridge as non-blocking system notices', async () => {
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
 
@@ -528,7 +528,7 @@ it('routes extraction-domain failures through clip failure notifications with me
   });
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1700000009999);
 
   setNotificationAdapter(createMock);
@@ -588,7 +588,7 @@ it('routes content warning errors through classification fallback notifications'
   });
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await getErrorHandler().handle(
@@ -641,7 +641,7 @@ it('routes generic warning errors through system warning channel without context
   });
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await getErrorHandler().handle(
@@ -674,7 +674,7 @@ it('routes generic warning errors through system warning channel without context
 it('dispatches unknown-domain app errors through the generic system-error path', async () => {
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   setNotificationAdapter(createMock);
 
   await getErrorHandler().handle(
@@ -736,7 +736,7 @@ it('keeps data icon urls untouched for generic notifications', async () => {
   const { notifyAppEvent, setNotificationAdapter } = await import(
     '../../../src/background/services/notifications'
   );
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await notifyAppEvent({
@@ -758,7 +758,7 @@ it('keeps data icon urls untouched for generic notifications', async () => {
 it('keeps generic info notifications non-interactive and preserves distinct context messages', async () => {
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   setNotificationAdapter(createMock);
 
   await getErrorHandler().handle(
@@ -791,7 +791,7 @@ it('uses default app icon when generic notifications omit iconUrl', async () => 
   const { notifyAppEvent, setNotificationAdapter } = await import(
     '../../../src/background/services/notifications'
   );
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
 
   setNotificationAdapter(createMock);
   await notifyAppEvent({
@@ -812,7 +812,7 @@ it('uses default app icon when generic notifications omit iconUrl', async () => 
 it('routes i18n warning errors through the user-facing channel without context duplication', async () => {
   const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
   const { getErrorHandler } = await import('../../../src/shared/errors');
-  const createMock = vi.fn<[string, NormalizedNotification], void>();
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
   setNotificationAdapter(createMock);
 
   await getErrorHandler().handle(

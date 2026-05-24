@@ -9,7 +9,7 @@ import type {
 import { ReaderEnvironmentController } from '@content/reader/environmentController';
 import type { ReaderSessionMessages } from '@content/reader/sessionMessages';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
-import type { CompleteOptions } from '@shared/types/options';
+import type { CompleteOptions, FragmentClipperOptions } from '@shared/types/options';
 const subscriberCallbacks: Array<(value: CompleteOptions) => void> = [];
 
 vi.mock('@content/i18n/context', () => ({
@@ -83,8 +83,8 @@ describe('ReaderEnvironmentController', () => {
   let languageWatcher: StorageChangeCallback<string> | null;
   let optionsRepository: IOptionsRepository;
   let storageService: StorageService;
-  let messagesHandler: ReturnType<typeof vi.fn<[ReaderSessionMessages], void>>;
-  let fragmentHandler: ReturnType<typeof vi.fn>;
+  let messagesHandler: ReturnType<typeof vi.fn<(...args: [ReaderSessionMessages]) => void>>;
+  let fragmentHandler: ReturnType<typeof vi.fn<(...args: [FragmentClipperOptions]) => void>>;
 
   beforeEach(() => {
     languageWatcher = null;
@@ -132,10 +132,10 @@ describe('ReaderEnvironmentController', () => {
       })
     };
 
-    messagesHandler = vi.fn<[ReaderSessionMessages], void>((messages) => {
+    messagesHandler = vi.fn<(...args: [ReaderSessionMessages]) => void>((messages) => {
       expect(messages).toBeDefined();
     });
-    fragmentHandler = vi.fn();
+    fragmentHandler = vi.fn<(...args: [FragmentClipperOptions]) => void>();
   });
 
   it('emits initial environment state and responds to watchers', async () => {

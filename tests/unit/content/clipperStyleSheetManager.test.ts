@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const loadExtensionStyleMock = vi.fn<[string], Promise<string>>();
+const loadExtensionStyleMock = vi.fn<(...args: [string]) => Promise<string>>();
 
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
   loadExtensionStyle: loadExtensionStyleMock

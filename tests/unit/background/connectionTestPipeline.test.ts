@@ -449,7 +449,7 @@ function createOptions(
 type FetchParams = [input: RequestInfo | URL, init?: RequestInit];
 
 function setFetchMock() {
-  const fetchMock = vi.fn<FetchParams, Promise<Response>>();
+  const fetchMock = vi.fn<(...args: FetchParams) => Promise<Response>>();
   (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
 }
