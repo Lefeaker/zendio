@@ -150,9 +150,13 @@ describe('report-production-build-graph', () => {
 
     try {
       expect(() =>
-        execFileSync(process.execPath, [scriptPath, '--input-metafile', fixture.path], {
-          encoding: 'utf8'
-        })
+        execFileSync(
+          process.execPath,
+          [scriptPath, '--input-metafile', fixture.path, '--no-write-json'],
+          {
+            encoding: 'utf8'
+          }
+        )
       ).toThrow();
     } finally {
       rmSync(fixture.dir, { recursive: true, force: true });

@@ -1,9 +1,23 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const scriptPath = resolve('tools/report-production-build-graph.mjs');
+const canonicalReportPath = resolve('build/reports/production-build-graph.json');
+
+function readCanonicalReport(): string | null {
+  return existsSync(canonicalReportPath) ? readFileSync(canonicalReportPath, 'utf8') : null;
+}
+
+function restoreCanonicalReport(content: string | null): void {
+  if (content === null) {
+    rmSync(canonicalReportPath, { force: true });
+    return;
+  }
+
+  writeFileSync(canonicalReportPath, content, 'utf8');
+}
 
 function writeMetafile(payload: unknown): { dir: string; path: string } {
   const dir = mkdtempSync(join(tmpdir(), 'aiiinob-build-graph-'));
@@ -93,10 +107,12 @@ describe('production build graph report', () => {
       }
     });
 
+    const canonicalReportBefore = readCanonicalReport();
+
     try {
       const output = execFileSync(
         process.execPath,
-        [scriptPath, '--input-metafile', fixture.path],
+        [scriptPath, '--input-metafile', fixture.path, '--no-write-json'],
         {
           encoding: 'utf8'
         }
@@ -105,7 +121,9 @@ describe('production build graph report', () => {
       expect(output).toContain('Source count: 11');
       expect(output).toContain('src/options/widgets/fake.ts');
       expect(output).toContain('src/dev/contentOrchestratorHarness.ts');
+      expect(readCanonicalReport()).toBe(canonicalReportBefore);
     } finally {
+      restoreCanonicalReport(canonicalReportBefore);
       rmSync(fixture.dir, { recursive: true, force: true });
     }
   });
