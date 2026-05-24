@@ -2,27 +2,17 @@ import type { Messages } from '../../i18n';
 import type { VideoOptions } from '../../shared/types/options';
 import { detectVideoIdentity } from './utils';
 import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
-import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import type { VideoPromptDependencies, VideoPromptSessionLike } from './videoPromptDependencies';
 import {
-  findVideoControlTarget,
-  findVideoControlObserverRoot,
-  observeVideoControlTarget,
   matchesSupportedVideoHost,
   hasPlayableVideo,
   isValidVideoPlayPage
 } from './videoPromptObserver';
-import {
-  ensureVideoControlBarButton,
-  removeVideoControlBarButton,
-  type VideoControlBarNotePayload,
-  type VideoControlBarPreferences
+import type {
+  VideoControlBarNotePayload,
+  VideoControlBarPreferences
 } from './videoControlBarButton';
-import {
-  pauseActiveVideoForControlBar,
-  resumeActiveVideoForControlBar,
-  toControlBarCaptureOptions
-} from './videoPromptControlBarAdapter';
+import { toControlBarCaptureOptions } from './videoPromptControlBarAdapter';
 import {
   clamp,
   computeTentativePosition,
@@ -33,34 +23,17 @@ import {
   DRAG_ACTIVATE_DISTANCE,
   type PromptSide
 } from './videoPromptPosition';
-import { createPromptElement, attachDragHandlers, updatePromptLabels } from './videoPromptRenderer';
 import { watchVideoNavigation, type VideoNavigationWatcher } from './videoNavigationWatcher';
-import {
-  createPromptLayoutState,
-  setLayoutState,
-  getLayoutStateSnapshot,
-  applySideClass,
-  setPromptSide,
-  applyStoredPosition,
-  adjustLayoutForResize,
-  deriveSideFromPosition,
-  type PromptLayoutState
-} from './videoPromptLayout';
+import { applySideClass, deriveSideFromPosition } from './videoPromptLayout';
 import {
   clearVideoSession,
   getVideoSession,
   isVideoSessionActive
 } from '../runtime/contentSessionRegistry';
 import {
-  CONTROL_TARGET_RETRY_DELAYS_MS,
   VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES,
   VIDEO_PROMPT_DEFAULT_LABEL,
-  VIDEO_PROMPT_DEFAULT_SHORTCUT,
-  VIDEO_PROMPT_ID,
-  createVideoPromptDebugCounters,
-  resetVideoPromptDebugCounters,
-  type VideoPromptDebugCounters,
-  type VideoPromptDebugState
+  VIDEO_PROMPT_DEFAULT_SHORTCUT
 } from './videoPromptState';
 import {
   resolveControlBarPreferences,
@@ -69,6 +42,8 @@ import {
   startLanguageWatcher,
   startVideoConfigWatcher
 } from './videoPromptSettingsWatcher';
+import { createVideoPromptControlTargetLifecycle } from './videoPromptControlTargetLifecycle';
+import { createVideoPromptMountLifecycle } from './videoPromptMountLifecycle';
 
 declare const __DEV__: boolean;
 
@@ -103,54 +78,73 @@ function getStorageService() {
 
 let promptEnabled = true;
 let promptSuppressed = false;
-let promptHost: HTMLDivElement | null = null;
-let promptElement: HTMLElement | null = null;
 let lastEvaluatedUrl = '';
 let messagesCache: Messages | null = null;
 let sessionStarting = false;
-let promptMountTask: Promise<void> | null = null;
 let stopLanguageWatcher: (() => void) | null = null;
-const layoutState = createPromptLayoutState();
 let resizeListenerRegistered = false;
 let stopSettingsWatcher: (() => void) | null = null;
-let stopControlTargetObserver: (() => void) | null = null;
-let controlTargetRetryHandle: number | null = null;
-let controlTargetRetryIndex = 0;
 let navigationWatcher: VideoNavigationWatcher | null = null;
 let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
 let controlBarPreferences = { ...VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES };
 
-let promptDebugState: VideoPromptDebugState | null = null;
-const promptDebugCounters = createVideoPromptDebugCounters();
+const promptMountLifecycle = createVideoPromptMountLifecycle({
+  getDocument: () => document,
+  getWindow: () => window,
+  getMessages: () => getPromptMessages(),
+  getLabel: () => promptButtonLabel,
+  getShortcut: () => promptShortcut,
+  getIconUrl: () => {
+    try {
+      return getRuntimeService().getURL('icons/bannerlogo-48.png');
+    } catch {
+      return null;
+    }
+  },
+  getRuntimeTheme: () => getVideoPromptDependencies().getRuntimeTheme(),
+  isPromptEnabled: () => promptEnabled,
+  isPromptSuppressed: () => promptSuppressed,
+  isVideoSessionActive: () => isVideoSessionActive(document),
+  setPromptSuppressed: (value) => {
+    promptSuppressed = value;
+  },
+  startVideoSession: () => {
+    void startVideoSession();
+  },
+  getStoredPromptPosition: () => getVideoRepository().getPromptPosition(),
+  saveStoredPromptPosition: (position) => getVideoRepository().savePromptPosition(position)
+});
 
-function getPromptDebugCountersSnapshot(): VideoPromptDebugCounters {
-  return { ...promptDebugCounters };
-}
-
-function resetPromptDebugCounters(): void {
-  resetVideoPromptDebugCounters(promptDebugCounters);
-}
-
-function setPromptStateForTests(
-  state: Partial<{ left: number; top: number; side: PromptSide; hasCustomPosition: boolean }>
-): void {
-  setLayoutState(layoutState, state as Partial<PromptLayoutState>);
-  if (promptElement) {
-    applyStoredPosition(layoutState, promptElement);
-    updateDebugPosition();
+const controlTargetLifecycle = createVideoPromptControlTargetLifecycle({
+  getDocument: () => document,
+  getWindow: () => window,
+  getUrl: () => window.location.href,
+  getLabel: () => promptButtonLabel,
+  getShortcut: () => promptShortcut,
+  getPreferences: () => controlBarPreferences,
+  setPreferences: (preferences) => {
+    controlBarPreferences = preferences;
+    void getVideoRepository().saveControlBarPreferences(preferences);
+  },
+  getIconUrl: () => {
+    try {
+      return getRuntimeService().getURL('icons/bannerlogo-48.png');
+    } catch {
+      return null;
+    }
+  },
+  onPrimaryAction: (preferences, payload) => {
+    promptSuppressed = true;
+    promptMountLifecycle.removePrompt();
+    void captureFromControlBar(preferences, payload);
+  },
+  onTargetObserved: () => evaluatePrompt(true),
+  incrementSyncCount: () => {
+    promptMountLifecycle.incrementControlButtonSyncCount();
   }
-}
-
-function getPromptStateSnapshot(): {
-  left: number;
-  top: number;
-  side: PromptSide;
-  hasCustomPosition: boolean;
-} {
-  return getLayoutStateSnapshot(layoutState);
-}
+});
 
 async function getPromptMessages(): Promise<Messages> {
   if (!messagesCache) {
@@ -163,179 +157,6 @@ async function getPromptMessages(): Promise<Messages> {
 
 function invalidatePromptMessages(): void {
   messagesCache = null;
-}
-
-function handleWindowResize(): void {
-  if (!promptElement) {
-    return;
-  }
-  adjustLayoutForResize(layoutState, promptElement);
-  updateDebugPosition();
-}
-
-function updateDebugPosition(): void {
-  if (!promptDebugState) {
-    return;
-  }
-  promptDebugState.hasPromptElement = Boolean(promptElement);
-  promptDebugState.side = layoutState.side;
-  promptDebugState.hasCustomPosition = layoutState.hasCustomPosition;
-  promptDebugState.storedTop = layoutState.top;
-  promptDebugState.storedLeft = layoutState.left;
-  promptDebugState.elementTop = promptElement ? promptElement.getBoundingClientRect().top : null;
-  promptDebugState.elementLeft = promptElement ? promptElement.getBoundingClientRect().left : null;
-}
-
-async function savePromptPosition(): Promise<void> {
-  try {
-    await getVideoRepository().savePromptPosition({
-      x: layoutState.left,
-      y: layoutState.top
-    });
-  } catch (error) {
-    console.warn('[VideoPrompt] Failed to save prompt position:', error);
-  }
-}
-
-function applyPromptPositionFromConfig(
-  position: { x: number; y: number } | null | undefined
-): void {
-  if (!position) {
-    setLayoutState(layoutState, { hasCustomPosition: false });
-    return;
-  }
-
-  setLayoutState(layoutState, {
-    hasCustomPosition: true,
-    left: position.x,
-    top: position.y,
-    side: deriveSideFromPosition(position.x)
-  });
-
-  if (promptElement) {
-    applyStoredPosition(layoutState, promptElement);
-    updateDebugPosition();
-  }
-}
-
-async function loadPromptPosition(): Promise<void> {
-  try {
-    const position = await getVideoRepository().getPromptPosition();
-    applyPromptPositionFromConfig(position);
-  } catch (error) {
-    console.warn('[VideoPrompt] Failed to load prompt position:', error);
-  }
-}
-
-function removePrompt(): void {
-  promptHost?.remove();
-  promptHost = null;
-  promptElement = null;
-  if (promptDebugState) {
-    promptDebugState.hasPromptElement = false;
-    promptDebugState.elementTop = null;
-    promptDebugState.elementLeft = null;
-  }
-}
-
-function clearControlTargetObserver(): void {
-  stopControlTargetObserver?.();
-  stopControlTargetObserver = null;
-}
-
-function clearControlTargetRetry(): void {
-  if (controlTargetRetryHandle !== null) {
-    window.clearTimeout(controlTargetRetryHandle);
-    controlTargetRetryHandle = null;
-  }
-  controlTargetRetryIndex = 0;
-}
-
-function scheduleControlTargetRetry(): void {
-  if (controlTargetRetryHandle !== null) {
-    return;
-  }
-
-  const delay = CONTROL_TARGET_RETRY_DELAYS_MS[controlTargetRetryIndex];
-  if (delay === undefined) {
-    return;
-  }
-
-  controlTargetRetryIndex += 1;
-  controlTargetRetryHandle = window.setTimeout(() => {
-    controlTargetRetryHandle = null;
-    ensureControlTargetObserver();
-  }, delay);
-}
-
-function syncVideoControlBarButton(): void {
-  promptDebugCounters.controlButtonSyncCount += 1;
-  ensureVideoControlBarButton({
-    doc: document,
-    url: window.location.href,
-    label: promptButtonLabel,
-    shortcut: promptShortcut,
-    getIconUrl: () => {
-      try {
-        return getRuntimeService().getURL('icons/bannerlogo-48.png');
-      } catch {
-        return null;
-      }
-    },
-    preferences: controlBarPreferences,
-    onPreferencesChange: (preferences) => {
-      controlBarPreferences = preferences;
-      void getVideoRepository().saveControlBarPreferences(preferences);
-    },
-    onPopoverOpen: (preferences) => {
-      if (preferences.autoPauseEnabled) {
-        pauseActiveVideoForControlBar(document);
-      }
-    },
-    onPopoverDismiss: (preferences) => {
-      if (preferences.autoPauseEnabled) {
-        resumeActiveVideoForControlBar(document);
-      }
-    },
-    onPrimaryAction: (preferences, payload) => {
-      promptSuppressed = true;
-      removePrompt();
-      void captureFromControlBar(preferences, payload);
-    }
-  });
-}
-
-function ensureControlTargetObserver(): void {
-  if (findVideoControlTarget(document, window.location.href)) {
-    clearControlTargetObserver();
-    clearControlTargetRetry();
-    syncVideoControlBarButton();
-    return;
-  }
-  if (stopControlTargetObserver) {
-    return;
-  }
-
-  if (!findVideoControlObserverRoot(document, window.location.href)) {
-    scheduleControlTargetRetry();
-    return;
-  }
-
-  clearControlTargetRetry();
-  stopControlTargetObserver = observeVideoControlTarget({
-    doc: document,
-    url: window.location.href,
-    onTarget: (target) => {
-      const currentTarget = findVideoControlTarget(document, window.location.href);
-      if (!currentTarget || currentTarget !== target) {
-        return;
-      }
-      stopControlTargetObserver = null;
-      clearControlTargetRetry();
-      syncVideoControlBarButton();
-      evaluatePrompt(true);
-    }
-  });
 }
 
 function refreshForNavigationChange(): void {
@@ -357,7 +178,7 @@ async function refreshSettings(): Promise<void> {
     promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
     promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
     controlBarPreferences = { ...VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES };
-    updatePromptDomLabels();
+    promptMountLifecycle.updatePromptDomLabels();
   }
 }
 
@@ -366,7 +187,7 @@ function evaluatePrompt(force = false): void {
     return;
   }
 
-  promptDebugCounters.evaluateCount += 1;
+  promptMountLifecycle.incrementEvaluateCount();
 
   const currentUrl = window.location.href;
   if (force || currentUrl !== lastEvaluatedUrl) {
@@ -380,7 +201,7 @@ function evaluatePrompt(force = false): void {
 
   // 更严格的视频页面检测：只在特定的视频播放页面显示
   const isValidVideoPage = isValidVideoPlayPage(currentUrl, identity);
-  const controlTarget = isValidVideoPage ? findVideoControlTarget(document, currentUrl) : null;
+  const controlTarget = isValidVideoPage ? controlTargetLifecycle.hasTarget() : false;
 
   const shouldShow =
     promptEnabled &&
@@ -390,7 +211,7 @@ function evaluatePrompt(force = false): void {
     isValidVideoPage &&
     videoDetected;
 
-  promptDebugState = {
+  promptMountLifecycle.setDebugState({
     shouldShow,
     promptEnabled,
     promptSuppressed,
@@ -399,161 +220,35 @@ function evaluatePrompt(force = false): void {
     hostSupported,
     videoDetected,
     isValidVideoPage,
-    hasPromptElement: Boolean(promptElement),
     url: currentUrl,
-    side: layoutState.side,
-    hasCustomPosition: layoutState.hasCustomPosition,
-    storedTop: layoutState.top,
-    storedLeft: layoutState.left,
-    elementTop: promptElement ? promptElement.getBoundingClientRect().top : null,
-    elementLeft: promptElement ? promptElement.getBoundingClientRect().left : null
-  };
-  updateDebugPosition();
+    ...promptMountLifecycle.getDebugPositionFields()
+  });
 
   if (!isValidVideoPage) {
-    clearControlTargetObserver();
-    clearControlTargetRetry();
-    removeVideoControlBarButton(document);
+    controlTargetLifecycle.clearObserver();
+    controlTargetLifecycle.clearRetry();
+    controlTargetLifecycle.removeButton();
   } else if (controlTarget) {
-    clearControlTargetObserver();
-    clearControlTargetRetry();
-    syncVideoControlBarButton();
-    removePrompt();
+    controlTargetLifecycle.clearObserver();
+    controlTargetLifecycle.clearRetry();
+    controlTargetLifecycle.syncButton();
+    promptMountLifecycle.removePrompt();
     return;
   } else if (promptEnabled && !promptSuppressed) {
-    removeVideoControlBarButton(document);
-    ensureControlTargetObserver();
+    controlTargetLifecycle.removeButton();
+    controlTargetLifecycle.ensureObserver();
   } else {
-    clearControlTargetObserver();
-    clearControlTargetRetry();
+    controlTargetLifecycle.clearObserver();
+    controlTargetLifecycle.clearRetry();
   }
 
   if (!shouldShow) {
-    removePrompt();
+    promptMountLifecycle.removePrompt();
     return;
   }
 
-  if (!promptElement) {
-    void mountPrompt();
-  }
-}
-
-async function mountPrompt(): Promise<void> {
-  if (promptElement) {
-    return;
-  }
-  if (promptMountTask !== null) {
-    await promptMountTask;
-    return;
-  }
-
-  const shouldAbortMount = (): boolean =>
-    Boolean(
-      promptElement ||
-        promptSuppressed ||
-        !promptEnabled ||
-        isVideoSessionActive(document) ||
-        window !== window.top
-    );
-
-  promptMountTask = (async () => {
-    const messages = await getPromptMessages();
-
-    if (shouldAbortMount()) {
-      return;
-    }
-
-    if (!document.body) {
-      await new Promise<void>((resolve) => {
-        document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
-      });
-      if (shouldAbortMount()) {
-        return;
-      }
-    }
-
-    if (promptElement) {
-      return;
-    }
-
-    await panelStyleSheetManager.initialize();
-
-    const host = document.createElement('div');
-    const shadow = host.attachShadow({ mode: 'open' });
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
-    const previewTheme = await getVideoPromptDependencies().getRuntimeTheme();
-
-    const { container, bubble } = createPromptElement({
-      id: VIDEO_PROMPT_ID,
-      label: promptButtonLabel,
-      shortcut: promptShortcut,
-      messages,
-      ...(previewTheme ? { previewTheme } : {}),
-      getIconUrl: () => {
-        try {
-          return getRuntimeService().getURL('icons/bannerlogo-48.png');
-        } catch {
-          return null;
-        }
-      },
-      onPrimaryAction: () => {
-        promptSuppressed = true;
-        removePrompt();
-        void startVideoSession();
-      },
-      onDismiss: () => {
-        promptSuppressed = true;
-        removePrompt();
-      }
-    });
-
-    shadow.appendChild(container);
-    document.body.appendChild(host);
-    promptHost = host;
-    promptElement = container;
-    promptDebugCounters.floatingPromptMountCount += 1;
-    applyStoredPosition(layoutState, container);
-    updateDebugPosition();
-
-    attachDragHandlers({
-      container,
-      bubble,
-      applySideClass,
-      setPromptSide: (side, element) => setPromptSide(layoutState, side, element ?? null),
-      applyStoredPosition: (element) => applyStoredPosition(layoutState, element),
-      updateDebugValues: (values) => {
-        if (!promptDebugState) {
-          return;
-        }
-        if (typeof values.elementTop === 'number') {
-          promptDebugState.elementTop = values.elementTop;
-        }
-        if (typeof values.elementLeft === 'number') {
-          promptDebugState.elementLeft = values.elementLeft;
-        }
-        if (values.side) {
-          promptDebugState.side = values.side;
-        }
-      },
-      updateDebugPosition: () => updateDebugPosition(),
-      onPositionCommitted: (placement) => {
-        setLayoutState(layoutState, {
-          hasCustomPosition: true,
-          side: placement.side,
-          left: placement.left,
-          top: placement.top
-        });
-      },
-      savePromptPosition: () => {
-        void savePromptPosition();
-      }
-    });
-  })();
-
-  try {
-    await promptMountTask;
-  } finally {
-    promptMountTask = null;
+  if (!promptMountLifecycle.getDebugPositionFields().hasPromptElement) {
+    void promptMountLifecycle.mountPrompt();
   }
 }
 
@@ -646,7 +341,7 @@ function setupLanguageListener(): void {
 
 function handlePageHide(): void {
   teardownPromptWatchers();
-  removePrompt();
+  promptMountLifecycle.removePrompt();
 }
 
 function handlePageShow(): void {
@@ -657,7 +352,7 @@ function handlePageShow(): void {
   setupLanguageListener();
   setupNavigationWatcher();
   void refreshSettings();
-  void loadPromptPosition();
+  void promptMountLifecycle.loadPromptPosition();
   evaluatePrompt(true);
 }
 
@@ -678,9 +373,9 @@ function teardownPromptWatchers(): void {
   stopLanguageWatcher = null;
   navigationWatcher?.stop();
   navigationWatcher = null;
-  clearControlTargetObserver();
-  clearControlTargetRetry();
-  removeVideoControlBarButton(document);
+  controlTargetLifecycle.clearObserver();
+  controlTargetLifecycle.clearRetry();
+  controlTargetLifecycle.removeButton();
 }
 
 export async function initVideoPrompt(dependencies?: VideoPromptDependencies): Promise<void> {
@@ -698,13 +393,13 @@ export async function initVideoPrompt(dependencies?: VideoPromptDependencies): P
 
   await getPromptMessages();
   await refreshSettings();
-  await loadPromptPosition();
+  await promptMountLifecycle.loadPromptPosition();
   setupVideoConfigListener();
   setupLanguageListener();
   setupNavigationWatcher();
   ensureLifecycleListeners();
   if (!resizeListenerRegistered) {
-    window.addEventListener('resize', handleWindowResize, { passive: true });
+    window.addEventListener('resize', promptMountLifecycle.handleWindowResize, { passive: true });
     resizeListenerRegistered = true;
   }
 
@@ -716,15 +411,8 @@ function applyVideoSettings(video?: VideoOptions): void {
   promptButtonLabel = resolvePromptLabel(video?.promptButtonLabel);
   promptShortcut = resolvePromptShortcut(video?.promptShortcut);
   controlBarPreferences = resolveControlBarPreferences(video);
-  applyPromptPositionFromConfig(video?.promptPosition ?? null);
-  updatePromptDomLabels();
-}
-
-function updatePromptDomLabels(): void {
-  if (!promptElement) {
-    return;
-  }
-  updatePromptLabels(promptElement, promptButtonLabel, promptShortcut);
+  promptMountLifecycle.applyPromptPositionFromConfig(video?.promptPosition ?? null);
+  promptMountLifecycle.updatePromptDomLabels();
 }
 
 export const videoPromptLifecycleTestUtils = {
@@ -733,30 +421,28 @@ export const videoPromptLifecycleTestUtils = {
   computeSnapSide,
   applySideClass,
   setPromptSide: (side: PromptSide, element?: HTMLElement | null) =>
-    setPromptSide(layoutState, side, element ?? null),
+    promptMountLifecycle.setPromptSide(side, element ?? null),
   computeDockedPlacement,
   EDGE_MARGIN,
   DRAG_BOUNDARY_PADDING,
   DRAG_ACTIVATE_DISTANCE,
-  applyPromptPositionFromConfig,
+  applyPromptPositionFromConfig: promptMountLifecycle.applyPromptPositionFromConfig,
   deriveSideFromPosition,
-  setPromptStateForTests,
-  getPromptStateForTests: getPromptStateSnapshot,
+  setPromptStateForTests: promptMountLifecycle.setPromptState,
+  getPromptStateForTests: promptMountLifecycle.getStateSnapshot,
   setDependenciesForTests: __setVideoPromptDependenciesForTests,
   resetDependenciesForTests: __resetVideoPromptDependenciesForTests,
-  getDebugStateForTests: () => promptDebugState,
-  getDebugCountersForTests: getPromptDebugCountersSnapshot,
-  resetDebugStateForTests: () => {
-    promptDebugState = null;
-  },
-  resetDebugCountersForTests: resetPromptDebugCounters,
-  savePromptPositionForTests: savePromptPosition,
-  loadPromptPositionForTests: loadPromptPosition,
+  getDebugStateForTests: promptMountLifecycle.getDebugState,
+  getDebugCountersForTests: promptMountLifecycle.getDebugCountersSnapshot,
+  resetDebugStateForTests: promptMountLifecycle.resetDebugState,
+  resetDebugCountersForTests: promptMountLifecycle.resetDebugCounters,
+  savePromptPositionForTests: promptMountLifecycle.savePromptPosition,
+  loadPromptPositionForTests: promptMountLifecycle.loadPromptPosition,
   setupVideoConfigListenerForTests,
   cleanupPromptForTests: () => {
     teardownPromptWatchers();
-    removePrompt();
-    resetPromptDebugCounters();
+    promptMountLifecycle.removePrompt();
+    promptMountLifecycle.resetDebugCounters();
   }
 };
 
