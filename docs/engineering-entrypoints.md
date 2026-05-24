@@ -79,7 +79,8 @@ credentials and manual confirmation.
 - `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `254`，fresh warning count 为 `254`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
-- `npm run lint:type-any`：扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`。
+- `npm run lint:type-any`：扫描 `1066` files；`any: 12`、`unknown: 1091`、assertions `1849`、non-null assertions `129`、`ts-expect-error: 5`。
+- `scripts/audit-types.mjs` 支持 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error` 阈值参数；当前 M3.1 truth thresholds 为 `12/1091/1849/129/5`。
 
 ## 当前构建预算真值
 

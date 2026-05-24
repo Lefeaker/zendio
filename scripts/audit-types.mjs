@@ -21,6 +21,14 @@ const defaultJsonPath = resolve(repoRoot, 'tmp', 'types-report.json');
 const SOURCE_DIRS = ['src', 'tests'];
 const ALLOWED_FORMATS = new Set(['summary', 'json', 'md', 'table']);
 const DEFAULT_FORMAT = 'summary';
+const METRIC_KEYS = ['any', 'unknown', 'assertions', 'nonNullAssertions', 'tsExpectError'];
+const THRESHOLD_OPTIONS = new Map([
+  ['--max-any', 'any'],
+  ['--max-unknown', 'unknown'],
+  ['--max-assertions', 'assertions'],
+  ['--max-non-null', 'nonNullAssertions'],
+  ['--max-ts-expect-error', 'tsExpectError']
+]);
 const IGNORED_DIRECTORIES = new Set([
   'dist',
   'node_modules',
@@ -30,40 +38,55 @@ const IGNORED_DIRECTORIES = new Set([
   'trash'
 ]);
 
-const args = process.argv.slice(2);
-let format = DEFAULT_FORMAT;
-let outputPath;
-
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--format') {
-    const next = args[i + 1];
-    if (!next || !ALLOWED_FORMATS.has(next)) {
-      console.error(
-        `Unsupported or missing format. Allowed values: ${Array.from(ALLOWED_FORMATS).join(', ')}.`
-      );
-      process.exitCode = 1;
-      process.exit();
-    }
-    format = next;
-    i += 1;
-  } else if (arg === '--output') {
-    const next = args[i + 1];
-    if (!next) {
-      console.error('--output requires a path value.');
-      process.exitCode = 1;
-      process.exit();
-    }
-    outputPath = resolve(process.cwd(), next);
-    i += 1;
-  } else {
-    console.error(`Unknown argument: ${arg}`);
-    process.exitCode = 1;
-    process.exit();
+function parseIntegerOption(optionName, value) {
+  if (value === undefined) {
+    throw new Error(`${optionName} requires a value.`);
   }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${optionName} requires a non-negative integer value.`);
+  }
+
+  return parsed;
 }
 
-const METRIC_KEYS = ['any', 'unknown', 'assertions', 'nonNullAssertions', 'tsExpectError'];
+function parseArgs(args) {
+  const options = {
+    format: DEFAULT_FORMAT,
+    outputPath: undefined,
+    limits: {}
+  };
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--format') {
+      const next = args[i + 1];
+      if (!next || !ALLOWED_FORMATS.has(next)) {
+        throw new Error(
+          `Unsupported or missing format. Allowed values: ${Array.from(ALLOWED_FORMATS).join(', ')}.`
+        );
+      }
+      options.format = next;
+      i += 1;
+    } else if (arg === '--output') {
+      const next = args[i + 1];
+      if (!next) {
+        throw new Error('--output requires a path value.');
+      }
+      options.outputPath = resolve(process.cwd(), next);
+      i += 1;
+    } else if (THRESHOLD_OPTIONS.has(arg)) {
+      const metric = THRESHOLD_OPTIONS.get(arg);
+      options.limits[metric] = parseIntegerOption(arg, args[i + 1]);
+      i += 1;
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+
+  return options;
+}
 
 function emptyMetrics() {
   return {
@@ -150,6 +173,37 @@ function sumMetrics(target, addition) {
   for (const key of METRIC_KEYS) {
     target[key] += addition[key] ?? 0;
   }
+}
+
+export function checkThresholds(report, limits) {
+  const failures = [];
+
+  for (const [metric, max] of Object.entries(limits)) {
+    const actual = report.totals[metric] ?? 0;
+    if (actual > max) {
+      failures.push({
+        metric,
+        actual,
+        max,
+        delta: actual - max
+      });
+    }
+  }
+
+  return {
+    ok: failures.length === 0,
+    failures
+  };
+}
+
+function formatThresholdFailures(failures) {
+  return [
+    'Type safety threshold check failed:',
+    ...failures.map(
+      (failure) =>
+        `  - ${failure.metric}: ${failure.actual} > ${failure.max} (+${failure.delta})`
+    )
+  ].join('\n');
 }
 
 function buildFileRecord(relPath, metrics) {
@@ -246,7 +300,7 @@ async function ensureDirectory(filePath) {
   await mkdir(dir, { recursive: true });
 }
 
-async function main() {
+async function buildReport() {
   const totals = {
     files: 0,
     ...emptyMetrics()
@@ -278,23 +332,30 @@ async function main() {
     files: fileRecords
   };
 
+  return report;
+}
+
+async function main(args = process.argv.slice(2)) {
+  const options = parseArgs(args);
+  const report = await buildReport();
+
   await ensureDirectory(defaultJsonPath);
   await writeFile(defaultJsonPath, JSON.stringify(report, null, 2), 'utf8');
 
-  if (outputPath) {
-    await ensureDirectory(outputPath);
+  if (options.outputPath) {
+    await ensureDirectory(options.outputPath);
     const content =
-      format === 'md'
+      options.format === 'md'
         ? formatMarkdown(report)
-        : format === 'json'
+        : options.format === 'json'
         ? JSON.stringify(report, null, 2)
-        : format === 'table'
+        : options.format === 'table'
         ? formatTable(report)
         : formatSummary(report);
-    await writeFile(outputPath, content, 'utf8');
+    await writeFile(options.outputPath, content, 'utf8');
   }
 
-  switch (format) {
+  switch (options.format) {
     case 'json':
       console.log(JSON.stringify(report, null, 2));
       break;
@@ -307,9 +368,17 @@ async function main() {
     default:
       console.log(formatSummary(report));
   }
+
+  const thresholdResult = checkThresholds(report, options.limits);
+  if (!thresholdResult.ok) {
+    console.error(formatThresholdFailures(thresholdResult.failures));
+    process.exitCode = 1;
+  }
 }
 
-main().catch((error) => {
-  console.error('Failed to generate type safety audit:', error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && resolve(process.argv[1]) === __filename) {
+  main().catch((error) => {
+    console.error('Failed to generate type safety audit:', error.message ?? error);
+    process.exitCode = 1;
+  });
+}
