@@ -50,6 +50,12 @@ function createController() {
   };
 }
 
+type TestOptionsController = ReturnType<typeof createController>;
+
+function asOptionsController(controller: TestOptionsController): OptionsController {
+  return controller as unknown as OptionsController;
+}
+
 function findButton(label: string): HTMLButtonElement {
   const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
     (candidate) => candidate.textContent?.trim() === label
@@ -80,6 +86,17 @@ function findInputByValue(value: string): HTMLInputElement {
     throw new Error(`Missing input with value: ${value}`);
   }
   return input;
+}
+
+function requireElement<T extends Element>(element: T | null | undefined, description: string): T {
+  if (!element) {
+    throw new Error(`Missing element: ${description}`);
+  }
+  return element;
+}
+
+function queryRequired<T extends Element>(selector: string, root: ParentNode = document): T {
+  return requireElement(root.querySelector<T>(selector), selector);
 }
 
 function findYamlRowByField(value: string): HTMLElement | null {
@@ -216,7 +233,7 @@ describe('mountProductionStitchShell', () => {
   it('mounts the shared Stitch shell and exposes the required lifecycle API', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { rest: { vault: 'Research Vault' } },
       messages: null,
       language: 'en',
@@ -244,7 +261,7 @@ describe('mountProductionStitchShell', () => {
   it('collectDraft returns complete options and preserves refreshed fields', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { rest: { vault: 'Research Vault' } },
       messages: null,
       language: 'en'
@@ -264,7 +281,7 @@ describe('mountProductionStitchShell', () => {
   it('setMessages keeps the rendered version subtitle and cleanup clears the root', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'zh-CN'
@@ -288,7 +305,7 @@ describe('mountProductionStitchShell', () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue(media as never);
 
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { interfaceTheme: 'system' },
       messages: null,
       language: 'en'
@@ -306,7 +323,7 @@ describe('mountProductionStitchShell', () => {
   it('renders the default vault switch as enabled and immutable', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: { vault: 'Research Vault' },
         vaultRouter: {
@@ -351,7 +368,7 @@ describe('mountProductionStitchShell', () => {
     });
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
@@ -376,7 +393,7 @@ describe('mountProductionStitchShell', () => {
     const controller = createController();
     const repository = createRepository();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
@@ -422,7 +439,7 @@ describe('mountProductionStitchShell', () => {
     vi.spyOn(window, 'matchMedia').mockReturnValue(media as never);
 
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { interfaceTheme: 'system' },
       messages: null,
       language: 'en',
@@ -453,7 +470,7 @@ describe('mountProductionStitchShell', () => {
     } as never);
 
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       messages: null,
       language: 'en'
     });
@@ -520,7 +537,7 @@ describe('mountProductionStitchShell', () => {
   it('binds production option values and schedules autosave after edits', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         aiChat: { userName: 'Bob' },
         video: { promptButtonLabel: 'Clip this video', promptShortcut: 'Alt+Shift+V' }
@@ -530,13 +547,10 @@ describe('mountProductionStitchShell', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' })
     } as never);
 
-    const userNameInput = Array.from(document.querySelectorAll<HTMLInputElement>('input')).find(
-      (input) => input.value === 'Bob'
-    );
-    expect(userNameInput).toBeTruthy();
+    const userNameInput = findInputByValue('Bob');
 
-    userNameInput!.value = 'Alice';
-    userNameInput!.dispatchEvent(new Event('input', { bubbles: true }));
+    userNameInput.value = 'Alice';
+    userNameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(1);
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
@@ -545,20 +559,21 @@ describe('mountProductionStitchShell', () => {
   it('updates the reading highlight theme without remounting the options page', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { readingSession: { highlightTheme: 'gradient' } },
       messages: null,
       language: 'en'
     });
 
-    const main = document.querySelector<HTMLElement>('.main');
-    const purpleButton = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.chips button')
-    ).find((button) => button.textContent === 'Purple');
-    expect(main).toBeTruthy();
-    expect(purpleButton).toBeTruthy();
+    const main = queryRequired<HTMLElement>('.main');
+    const purpleButton = requireElement(
+      Array.from(document.querySelectorAll<HTMLButtonElement>('.chips button')).find(
+        (button) => button.textContent === 'Purple'
+      ),
+      'Purple highlight chip'
+    );
 
-    purpleButton!.click();
+    purpleButton.click();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(mounted.collectDraft().readingSession.highlightTheme).toBe('purple');
@@ -571,7 +586,7 @@ describe('mountProductionStitchShell', () => {
   it('writes routing table edits back into vaultRouter before autosave collection', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: { vault: 'Research Vault' },
         vaultRouter: {
@@ -695,7 +710,7 @@ describe('mountProductionStitchShell', () => {
   it('persists storage root and vault table edits through collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           baseUrl: 'https://localhost:27124',
@@ -743,7 +758,7 @@ describe('mountProductionStitchShell', () => {
     );
 
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           baseUrl: 'https://localhost:27124',
@@ -827,7 +842,7 @@ describe('mountProductionStitchShell', () => {
     );
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           baseUrl: 'https://localhost:27124',
@@ -877,16 +892,15 @@ describe('mountProductionStitchShell', () => {
   it('prevents mouse button presses from moving the production Options scroller', async () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en'
     });
     await flushPromises();
 
-    const main = document.querySelector<HTMLElement>('.main');
-    expect(main).toBeTruthy();
-    main!.scrollTop = 420;
+    const main = queryRequired<HTMLElement>('.main');
+    main.scrollTop = 420;
 
     const yamlAddButton = findButton('+ Add field');
     const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
@@ -899,7 +913,7 @@ describe('mountProductionStitchShell', () => {
   it('persists domain mapping edits and delete actions', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         domainMappings: {
           'old.example': 'old-folder'
@@ -923,7 +937,7 @@ describe('mountProductionStitchShell', () => {
   it('restores default Domain Mappings rows when mappings are empty', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         domainMappings: {}
       },
@@ -946,7 +960,7 @@ describe('mountProductionStitchShell', () => {
   it('keeps an editable Domain Mappings fallback row after deleting all mappings', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         domainMappings: {
           'single.example': 'Single'
@@ -975,7 +989,7 @@ describe('mountProductionStitchShell', () => {
   it('renders Video Prompt & Entry with the note-button switch in the card header', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         video: { floatingPromptEnabled: true }
       },
@@ -997,7 +1011,7 @@ describe('mountProductionStitchShell', () => {
     const controller = createController();
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en'
@@ -1018,7 +1032,7 @@ describe('mountProductionStitchShell', () => {
     const messagingRepository = createMessaging({ success: true, message: 'ok' });
     try {
       mountProductionStitchShell({
-        controller: controller as unknown as OptionsController,
+        controller: asOptionsController(controller),
         initialOptions: {
           rest: { vault: 'Research Vault' }
         },
@@ -1026,11 +1040,10 @@ describe('mountProductionStitchShell', () => {
         language: 'en',
         messagingRepository
       } as never);
-      const main = document.querySelector<HTMLElement>('.main');
-      expect(main).toBeTruthy();
-      main!.style.scrollBehavior = 'auto';
-      main!.scrollTop = 520;
-      main!.style.removeProperty('scroll-behavior');
+      const main = queryRequired<HTMLElement>('.main');
+      main.style.scrollBehavior = 'auto';
+      main.scrollTop = 520;
+      main.style.removeProperty('scroll-behavior');
 
       const addVaultButton = findButton('添加仓库');
       const pointerEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
@@ -1050,7 +1063,7 @@ describe('mountProductionStitchShell', () => {
       await flushPromises();
       expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
 
-      const currentMain = document.querySelector<HTMLElement>('.main')!;
+      const currentMain = queryRequired<HTMLElement>('.main');
       currentMain.style.scrollBehavior = 'auto';
       currentMain.scrollTop = 520;
       currentMain.style.removeProperty('scroll-behavior');
@@ -1058,7 +1071,7 @@ describe('mountProductionStitchShell', () => {
       await flushPromises();
       expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
 
-      const finalMain = document.querySelector<HTMLElement>('.main')!;
+      const finalMain = queryRequired<HTMLElement>('.main');
       finalMain.style.scrollBehavior = 'auto';
       finalMain.scrollTop = 520;
       finalMain.style.removeProperty('scroll-behavior');
@@ -1073,7 +1086,7 @@ describe('mountProductionStitchShell', () => {
   it('deduplicates routing rules that exist in both legacy and vault-scoped storage', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: { vault: 'Research Vault' },
         vaultRouter: {
@@ -1134,7 +1147,7 @@ describe('mountProductionStitchShell', () => {
   it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         pageSummary: { enabled: true },
         readingOverlaySummary: { enabled: true },
@@ -1160,7 +1173,7 @@ describe('mountProductionStitchShell', () => {
   it('uses schema controls as the single source for storage/domain and keeps only the structured YAML widget mounted', async () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: { vault: 'Widget Vault', rootDir: 'WidgetRoot/' },
         domainMappings: { 'widget.example': 'widget-folder' }
@@ -1179,7 +1192,7 @@ describe('mountProductionStitchShell', () => {
   it('flushes dirty widget edits before actions that rerender the shell', async () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         yamlConfig: {
           contentTypes: {
@@ -1196,12 +1209,13 @@ describe('mountProductionStitchShell', () => {
 
     await flushPromises();
 
-    const authorRow = findYamlRowByField('author');
-    const authorArticleToggle =
-      authorRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    expect(authorArticleToggle).toBeTruthy();
-    authorArticleToggle!.checked = true;
-    authorArticleToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+    const authorRow = requireElement(findYamlRowByField('author'), 'author YAML row');
+    const authorArticleToggle = queryRequired<HTMLInputElement>(
+      'input[type="checkbox"]',
+      authorRow
+    );
+    authorArticleToggle.checked = true;
+    authorArticleToggle.dispatchEvent(new Event('change', { bubbles: true }));
 
     findButton('测试连接').click();
     await flushPromises();
@@ -1214,7 +1228,7 @@ describe('mountProductionStitchShell', () => {
   it('does not render fake interactive YAML summary buttons outside the structured YAML widget', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         yamlConfig: {
           globalFields: [{ name: 'kept', type: 'text', enabled: true }]
@@ -1239,7 +1253,7 @@ describe('mountProductionStitchShell', () => {
   it('hides unreleased AI timestamp, Deep Research, and advanced video controls', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         aiChat: { includeTimestamps: true },
         deepResearch: { pureMode: true },
@@ -1263,12 +1277,12 @@ describe('mountProductionStitchShell', () => {
     expect(text).not.toContain('promptPosition');
     expect(text).toContain('在视频网站显示笔记按钮');
 
-    const videoSwitch = findCardByTitle('Video Prompt & Entry').querySelector<HTMLInputElement>(
-      '.card-header input[type="checkbox"]'
+    const videoSwitch = queryRequired<HTMLInputElement>(
+      '.card-header input[type="checkbox"]',
+      findCardByTitle('Video Prompt & Entry')
     );
-    expect(videoSwitch).toBeTruthy();
-    videoSwitch!.checked = false;
-    videoSwitch!.dispatchEvent(new Event('change', { bubbles: true }));
+    videoSwitch.checked = false;
+    videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
 
     const draft = mounted.collectDraft();
     expect(draft.video.floatingPromptEnabled).toBe(false);
@@ -1280,7 +1294,7 @@ describe('mountProductionStitchShell', () => {
   it('updates fragment modifier chips without remounting the options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         fragmentClipper: {
           selectionModifierEnabled: true,
@@ -1291,17 +1305,18 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const main = document.querySelector<HTMLElement>('.main');
-    const altChip = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
-    ).find((button) => button.textContent?.trim() === 'Alt');
-    expect(main).toBeTruthy();
-    expect(altChip).toBeTruthy();
+    const main = queryRequired<HTMLElement>('.main');
+    const altChip = requireElement(
+      Array.from(document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')).find(
+        (button) => button.textContent?.trim() === 'Alt'
+      ),
+      'Alt modifier chip'
+    );
 
-    altChip!.click();
+    altChip.click();
 
     expect(document.querySelector('.main')).toBe(main);
-    expect(altChip!.getAttribute('aria-pressed')).toBe('false');
+    expect(altChip.getAttribute('aria-pressed')).toBe('false');
     expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(false);
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual([]);
   });
@@ -1309,7 +1324,7 @@ describe('mountProductionStitchShell', () => {
   it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         yamlConfig: {
           contentTypes: {
@@ -1332,12 +1347,12 @@ describe('mountProductionStitchShell', () => {
       document.querySelectorAll<HTMLButtonElement>('.stitch-yaml-actions button')
     ).find((button) => button.textContent?.trim() === '+ Add field');
     expect(main).toBeTruthy();
-    expect(widgetHost).toBeTruthy();
-    expect(articleFilter).toBeTruthy();
-    expect(addField).toBeTruthy();
+    requireElement(widgetHost, 'YAML widget host');
+    const articleFilterButton = requireElement(articleFilter, 'article YAML filter');
+    const addFieldButton = requireElement(addField, 'add YAML field button');
 
-    articleFilter!.click();
-    addField!.click();
+    articleFilterButton.click();
+    addFieldButton.click();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
@@ -1349,7 +1364,7 @@ describe('mountProductionStitchShell', () => {
     const controller = {
       ...createController(),
       loadRaw
-    } as unknown as OptionsController;
+    };
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -1357,7 +1372,7 @@ describe('mountProductionStitchShell', () => {
     });
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: null,
       language: 'en'
@@ -1393,7 +1408,7 @@ describe('mountProductionStitchShell', () => {
     });
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: {
         copyConfigSuccess: 'Copied config',
@@ -1434,7 +1449,7 @@ describe('mountProductionStitchShell', () => {
     });
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: {
         importSuccess: 'Imported config'
@@ -1468,7 +1483,7 @@ describe('mountProductionStitchShell', () => {
     document.execCommand = execCommand;
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: {
         copyConfigSuccess: 'Copied config'
@@ -1493,7 +1508,7 @@ describe('mountProductionStitchShell', () => {
   it('does not let invalid YAML widget edits pollute production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         yamlConfig: {
           contentTypes: {
@@ -1507,13 +1522,13 @@ describe('mountProductionStitchShell', () => {
       language: 'en'
     });
 
-    const row = findYamlRowByField('score');
-    const defaultValue = row?.querySelector<HTMLInputElement>(
-      'input[data-yaml-field="defaultValue"]'
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const defaultValue = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      row
     );
-    expect(defaultValue).toBeTruthy();
-    defaultValue!.value = 'not-a-number';
-    defaultValue!.dispatchEvent(new Event('input', { bubbles: true }));
+    defaultValue.value = 'not-a-number';
+    defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields).toEqual([
       expect.objectContaining({ name: 'score', defaultValue: 42 })
@@ -1526,7 +1541,7 @@ describe('mountProductionStitchShell', () => {
   it('runs the full production diagnostics report instead of a simplified JSON dump', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           vault: 'Research Vault',
@@ -1563,7 +1578,7 @@ describe('mountProductionStitchShell', () => {
     const controller = createController();
     const optionsRepository = createRepository();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         privacyPreferences: {
           analytics: false,
@@ -1600,7 +1615,7 @@ describe('mountProductionStitchShell', () => {
     const controller = createController();
     const optionsRepository = createRepository();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         privacyPreferences: {
           analytics: false,
@@ -1645,7 +1660,7 @@ describe('mountProductionStitchShell', () => {
     const controller = createController();
     const optionsRepository = createRepository();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         privacyPreferences: {
           analytics: true,
@@ -1688,7 +1703,7 @@ describe('mountProductionStitchShell', () => {
     const optionsRepository = createRepository();
     const confirmSpy = vi.mocked(window.confirm);
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         privacyPreferences: {
           analytics: true,
@@ -1729,7 +1744,7 @@ describe('mountProductionStitchShell', () => {
     const storage = createStorage();
     const messagingRepository = createMessaging();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         usageStats: {
           aiChatSaves: 3,
@@ -1770,7 +1785,7 @@ describe('mountProductionStitchShell', () => {
   it('opens privacy policy and data usage resources from the privacy card', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en'
@@ -1794,7 +1809,7 @@ describe('mountProductionStitchShell', () => {
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {
     const controller = createController();
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en'
@@ -1814,7 +1829,7 @@ describe('mountProductionStitchShell', () => {
   it('applies output presets to templates, YAML configuration, and domain mappings', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         templates: {
           article: 'Old/{title}.md',
@@ -1860,7 +1875,7 @@ describe('mountProductionStitchShell', () => {
       error: '本地目录需要重新授权：LocalFolder'
     });
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           vault: 'Research Vault',
@@ -1930,7 +1945,7 @@ describe('mountProductionStitchShell', () => {
     });
 
     mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: null,
       language: 'en'
@@ -1949,7 +1964,7 @@ describe('mountProductionStitchShell', () => {
   it('repairs configuration using the existing production repair rules', async () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         rest: {
           vault: 'Research Vault',
@@ -1987,7 +2002,7 @@ describe('mountProductionStitchShell', () => {
   it('does not expose future classifier controls in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         classifier: {
           enabled: false,
@@ -2030,7 +2045,7 @@ describe('mountProductionStitchShell', () => {
       defaultCategory: 'research'
     };
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         classifier: {
           enabled: true,
@@ -2052,7 +2067,7 @@ describe('mountProductionStitchShell', () => {
   it('uses the structured YAML editor instead of the JSON textarea fallback', async () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
-      controller: controller as unknown as OptionsController,
+      controller: asOptionsController(controller),
       initialOptions: {
         yamlConfig: {
           contentTypes: {
@@ -2073,12 +2088,13 @@ describe('mountProductionStitchShell', () => {
     expect(document.querySelector('.stitch-yaml-config-table')).toBeTruthy();
     expect(document.querySelector('[data-role="yaml-config-view"]')).toBeFalsy();
 
-    const authorRow = findYamlRowByField('author');
-    const authorArticleToggle =
-      authorRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    expect(authorArticleToggle).toBeTruthy();
-    authorArticleToggle!.checked = true;
-    authorArticleToggle!.dispatchEvent(new Event('change', { bubbles: true }));
+    const authorRow = requireElement(findYamlRowByField('author'), 'author YAML row');
+    const authorArticleToggle = queryRequired<HTMLInputElement>(
+      'input[type="checkbox"]',
+      authorRow
+    );
+    authorArticleToggle.checked = true;
+    authorArticleToggle.dispatchEvent(new Event('change', { bubbles: true }));
 
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.fields?.[0]).toEqual(
       expect.objectContaining({

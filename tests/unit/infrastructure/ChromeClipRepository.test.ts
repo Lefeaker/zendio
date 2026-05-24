@@ -5,7 +5,9 @@ import type { ClipData, ClipResult, FragmentConfig } from '@shared/repositories/
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { CompleteOptions } from '@shared/types/options';
 
-const createMockFn = <T extends (...args: any[]) => any>() =>
+type MockableFunction = (...args: never[]) => void;
+
+const createMockFn = <T extends MockableFunction>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
