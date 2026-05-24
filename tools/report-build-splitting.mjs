@@ -11,16 +11,16 @@ const ENTRY_FILES = [
   join(DIST_DIR, 'onboarding', 'index.js')
 ];
 const ENTRY_BUDGETS = new Map([
-  [join(DIST_DIR, 'content', 'index.js'), 2 * 1024],
-  [join(DIST_DIR, 'content', 'runtime.js'), 57_600],
-  [join(DIST_DIR, 'options', 'index.js'), 107 * 1024],
-  [join(DIST_DIR, 'onboarding', 'index.js'), 20 * 1024]
+  [join(DIST_DIR, 'content', 'index.js'), 1 * 1024],
+  [join(DIST_DIR, 'content', 'runtime.js'), 55 * 1024],
+  [join(DIST_DIR, 'options', 'index.js'), 12 * 1024],
+  [join(DIST_DIR, 'onboarding', 'index.js'), 16 * 1024]
 ]);
-const MAX_CHUNK_COUNT = 132;
-const MAX_SINGLE_CHUNK_SIZE = 650 * 1024;
+const MAX_CHUNK_COUNT = 112;
+const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.
-const SHARED_CHUNK_BUDGETS = [196 * 1024, 145 * 1024, 130 * 1024];
+const SHARED_CHUNK_BUDGETS = [190 * 1024, 136 * 1024, 90 * 1024];
 const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
 const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
 const REST_SECTION_CHUNK_PATTERN = /^RestSection-/;

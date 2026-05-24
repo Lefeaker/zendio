@@ -23,16 +23,16 @@ const HOTSPOTS = [
 ];
 
 const MAX_LINE_BUDGETS = new Map([
-  ['src/content/video/platforms/bilibiliPlatformAdapter.ts', 700],
-  ['src/content/video/videoSessionRuntime.ts', 700],
-  ['src/options/app/productionStitchShellMount.ts', 450],
-  ['src/ui/domains/yaml-config/yamlConfigTableRenderer.ts', 900],
-  ['src/ui/domains/yaml-config/yamlConfigTableStateModel.ts', 700],
-  ['src/options/components/sections/RestSectionView.ts', 720],
-  ['src/options/components/sections/FragmentSectionView.ts', 620],
-  ['src/options/components/sections/UsageDashboardSection.ts', 450],
-  ['src/ui/domains/usage-chart/usageChartRenderers.ts', 450],
-  ['src/ui/domains/privacy/PrivacySettingsView.ts', 650]
+  ['src/content/video/platforms/bilibiliPlatformAdapter.ts', 220],
+  ['src/content/video/videoSessionRuntime.ts', 430],
+  ['src/options/app/productionStitchShellMount.ts', 280],
+  ['src/ui/domains/yaml-config/yamlConfigTableRenderer.ts', 100],
+  ['src/ui/domains/yaml-config/yamlConfigTableStateModel.ts', 220],
+  ['src/options/components/sections/RestSectionView.ts', 300],
+  ['src/options/components/sections/FragmentSectionView.ts', 240],
+  ['src/options/components/sections/UsageDashboardSection.ts', 210],
+  ['src/ui/domains/usage-chart/usageChartRenderers.ts', 60],
+  ['src/ui/domains/privacy/PrivacySettingsView.ts', 300]
 ]);
 
 const PATTERNS = [
