@@ -3,6 +3,9 @@
 // License: MIT
 
 import TurndownService from 'turndown';
+import { registerMarkdownCodeRules } from './markdownCodeRules';
+import { registerMarkdownListRules } from './markdownListRules';
+import { registerMarkdownTableRules } from './markdownTableRules';
 
 /**
  * Apply Obsidian-specific Turndown rules to a TurndownService instance
@@ -25,154 +28,9 @@ export function applyObsidianRules(turndownService: TurndownService): void {
     }
   });
 
-  // Task list items (checkbox -> - [ ] / - [x])
-  turndownService.addRule('taskListItem', {
-    filter: 'li',
-    replacement: function (content: string, node: Node, options: TurndownService.Options) {
-      if (!(node instanceof HTMLElement)) return content;
-
-      // Handle task list items
-      const isTaskListItem = node.classList.contains('task-list-item');
-      const checkbox = node.querySelector('input[type="checkbox"]');
-      let taskListMarker = '';
-
-      if (isTaskListItem && checkbox) {
-        // Remove the checkbox from content since we'll add markdown checkbox
-        content = content.replace(/<input[^>]*>/, '');
-        taskListMarker = (checkbox as HTMLInputElement).checked ? '[x] ' : '[ ] ';
-      }
-
-      content = content
-        // Remove trailing newlines
-        .replace(/\n+$/, '')
-        // Split into lines
-        .split('\n')
-        // Remove empty lines
-        .filter((line) => line.length > 0)
-        // Add indentation to continued lines
-        .join('\n\t');
-
-      let prefix = options.bulletListMarker + ' ';
-      const parent = node.parentNode;
-
-      // Calculate the nesting level
-      let level = 0;
-      let currentParent = node.parentNode;
-      while (
-        currentParent &&
-        (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL')
-      ) {
-        level++;
-        currentParent = currentParent.parentNode;
-      }
-
-      // Add tab indentation based on nesting level, ensuring it's never negative
-      const indentLevel = Math.max(0, level - 1);
-      prefix = '\t'.repeat(indentLevel) + prefix;
-
-      if (parent instanceof HTMLOListElement) {
-        const start = parent.getAttribute('start');
-        const index = Array.from(parent.children).indexOf(node) + 1;
-        prefix = '\t'.repeat(level - 1) + (start ? Number(start) + index - 1 : index) + '. ';
-      }
-
-      return (
-        prefix +
-        taskListMarker +
-        content.trim() +
-        (node.nextSibling && !/\n$/.test(content) ? '\n' : '')
-      );
-    }
-  });
-
-  // Enhanced table handling
-  turndownService.addRule('table', {
-    filter: 'table',
-    replacement: function (content: string, node: Node) {
-      if (!(node instanceof HTMLTableElement)) return content;
-
-      // Check if the table has colspan or rowspan
-      const hasComplexStructure = Array.from(node.querySelectorAll('td, th')).some(
-        (cell) => cell.hasAttribute('colspan') || cell.hasAttribute('rowspan')
-      );
-
-      if (hasComplexStructure) {
-        // For complex tables, return HTML
-        return '\n\n' + cleanupTableHTML(node) + '\n\n';
-      }
-
-      // Process simple tables as markdown
-      const rows = Array.from(node.rows).map((row) => {
-        const cells = Array.from(row.cells).map((cell) => {
-          // Remove newlines and trim the content
-          let cellContent = turndownService.turndown(cell.innerHTML).replace(/\n/g, ' ').trim();
-          // Escape pipe characters
-          cellContent = cellContent.replace(/\|/g, '\\|');
-          return cellContent;
-        });
-        return `| ${cells.join(' | ')} |`;
-      });
-
-      // Create the separator row
-      const separatorRow = `| ${Array(rows[0].split('|').length - 2)
-        .fill('---')
-        .join(' | ')} |`;
-
-      // Combine all rows
-      const tableContent = [rows[0], separatorRow, ...rows.slice(1)].join('\n');
-
-      return `\n\n${tableContent}\n\n`;
-    }
-  });
-
-  // Math support (inline and block)
-  turndownService.addRule('math', {
-    filter: (node: HTMLElement) => {
-      return (
-        node.nodeName.toLowerCase() === 'math' ||
-        (node instanceof Element &&
-          node.classList &&
-          (node.classList.contains('mwe-math-element') ||
-            node.classList.contains('mwe-math-fallback-image-inline') ||
-            node.classList.contains('mwe-math-fallback-image-display')))
-      );
-    },
-    replacement: (content: string, node: Node) => {
-      if (!(node instanceof Element)) return content;
-
-      let latex = extractLatex(node);
-      latex = latex.trim();
-
-      if (!latex) return content;
-
-      // Determine if it's display math or inline math
-      const isDisplayMath =
-        node.classList.contains('mwe-math-fallback-image-display') ||
-        (node instanceof HTMLElement && node.style.display === 'block');
-
-      if (isDisplayMath) {
-        return `\n\n$$\n${latex}\n$$\n\n`;
-      } else {
-        // For inline math, add spaces if needed
-        const prevNode = node.previousSibling;
-        const nextNode = node.nextSibling;
-        const prevChar = prevNode?.textContent?.slice(-1) || '';
-        const nextChar = nextNode?.textContent?.[0] || '';
-
-        const isStartOfLine =
-          !prevNode ||
-          (prevNode.nodeType === Node.TEXT_NODE && prevNode.textContent?.trim() === '');
-        const isEndOfLine =
-          !nextNode ||
-          (nextNode.nodeType === Node.TEXT_NODE && nextNode.textContent?.trim() === '');
-
-        const leftSpace = !isStartOfLine && prevChar && !/[\s$]/.test(prevChar) ? ' ' : '';
-        const rightSpace = !isEndOfLine && nextChar && !/[\s$]/.test(nextChar) ? ' ' : '';
-
-        return `${leftSpace}$${latex}$${rightSpace}`;
-      }
-    }
-  });
+  registerMarkdownListRules(turndownService);
+  registerMarkdownTableRules(turndownService);
+  registerMarkdownCodeRules(turndownService);
 
   // Callouts/Alerts (GitHub-style alerts -> Obsidian callouts)
   turndownService.addRule('callout', {
@@ -259,77 +117,4 @@ function isSvgElement(node: unknown): node is Element {
   const element = node as Element;
   const nodeName = typeof element.nodeName === 'string' ? element.nodeName : '';
   return nodeName.toLowerCase() === 'svg';
-}
-
-/**
- * Helper function to clean up table HTML for complex tables
- */
-function cleanupTableHTML(table: HTMLTableElement): string {
-  const allowedAttributes = [
-    'src',
-    'href',
-    'style',
-    'align',
-    'width',
-    'height',
-    'rowspan',
-    'colspan',
-    'bgcolor',
-    'scope',
-    'valign',
-    'headers'
-  ];
-
-  const cleanElement = (element: Element) => {
-    Array.from(element.attributes).forEach((attr) => {
-      if (!allowedAttributes.includes(attr.name)) {
-        element.removeAttribute(attr.name);
-      }
-    });
-
-    element.childNodes.forEach((child) => {
-      if (child instanceof Element) {
-        cleanElement(child);
-      }
-    });
-  };
-
-  // Create a clone of the table to avoid modifying the original DOM
-  const tableClone = table.cloneNode(true) as HTMLTableElement;
-  cleanElement(tableClone);
-
-  return tableClone.outerHTML;
-}
-
-/**
- * Helper function to extract LaTeX from math elements
- */
-function extractLatex(element: Element): string {
-  // Check if the element is a <math> element and has an alttext attribute
-  if (element.nodeName.toLowerCase() === 'math') {
-    const latex = element.getAttribute('data-latex');
-    const alttext = element.getAttribute('alttext');
-    if (latex) {
-      return latex.trim();
-    } else if (alttext) {
-      return alttext.trim();
-    }
-  }
-
-  // If not, look for a nested <math> element with alttext
-  const mathElement = element.querySelector('math[alttext]');
-  if (mathElement) {
-    const alttext = mathElement.getAttribute('alttext');
-    if (alttext) {
-      return alttext.trim();
-    }
-  }
-
-  const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
-  if (annotation?.textContent) {
-    return annotation.textContent.trim();
-  }
-
-  const imgNode = element.querySelector('img');
-  return imgNode?.getAttribute('alt') || '';
 }
