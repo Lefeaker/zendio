@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -883,6 +883,39 @@ function formatNonProductionSourceReport(rows) {
   return `${lines.join('\n')}\n`;
 }
 
+function createNonProductionSourceSummary(rows) {
+  const decisionCounts = rows.reduce((acc, row) => {
+    acc[row.decision] = (acc[row.decision] ?? 0) + 1;
+    return acc;
+  }, {});
+  const unsafeDeleteNow = rows
+    .filter((row) => row.decision === 'delete-now')
+    .flatMap((row) =>
+      validateNonProductionSourceCheck([row]).violations.map((violation) => ({
+        file: violation.file,
+        reason: violation.reason
+      }))
+    );
+  const migrateImportOwner = rows
+    .filter((row) => row.decision === 'migrate-import-owner')
+    .map((row) => ({
+      file: row.file,
+      productionBuildOwners: row.productionBuildGraphOwners ?? [],
+      importOwners: retainedImportGraphReferences(row),
+      requiredAction: row.requiredAction
+    }));
+
+  return {
+    decisionCounts,
+    unsafeDeleteNow,
+    migrateImportOwner
+  };
+}
+
+function formatNonProductionSourceJson(rows) {
+  return `${JSON.stringify(createNonProductionSourceSummary(rows), null, 2)}\n`;
+}
+
 function validateNonProductionSourceCheck(rows) {
   const violations = [];
 
@@ -923,6 +956,26 @@ function validateNonProductionSourceCheck(rows) {
         reason: 'delete-now row still has retained source import/re-export/dependency ownership'
       });
     }
+  }
+
+  return {
+    ok: violations.length === 0,
+    violations
+  };
+}
+
+function validateNonProductionSourceThresholds(rows, limits) {
+  const decisionCounts = createNonProductionSourceSummary(rows).decisionCounts;
+  const violations = [];
+  if (
+    typeof limits.maxMigrateImportOwner === 'number' &&
+    (decisionCounts['migrate-import-owner'] ?? 0) > limits.maxMigrateImportOwner
+  ) {
+    violations.push({
+      metric: 'migrate-import-owner',
+      actual: decisionCounts['migrate-import-owner'] ?? 0,
+      max: limits.maxMigrateImportOwner
+    });
   }
 
   return {
@@ -989,12 +1042,67 @@ async function buildNonProductionSourceRows() {
   });
 }
 
-async function main() {
-  const checkMode = process.argv.includes('--check');
-  const rows = await buildNonProductionSourceRows();
-  process.stdout.write(formatNonProductionSourceReport(rows));
+function parseArgs(argv) {
+  const options = {
+    checkMode: false,
+    format: 'markdown',
+    output: null,
+    maxMigrateImportOwner: undefined
+  };
 
-  if (checkMode) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--check') {
+      options.checkMode = true;
+      continue;
+    }
+    if (arg === '--format') {
+      options.format = argv[index + 1] ?? options.format;
+      index += 1;
+      continue;
+    }
+    if (arg === '--output') {
+      options.output = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (arg === '--max-migrate-import-owner') {
+      const value = Number(argv[index + 1]);
+      if (!Number.isInteger(value) || value < 0) {
+        throw new Error('--max-migrate-import-owner must be a non-negative integer');
+      }
+      options.maxMigrateImportOwner = value;
+      index += 1;
+    }
+  }
+
+  if (!['markdown', 'json'].includes(options.format)) {
+    throw new Error(`Unsupported --format ${options.format}; expected markdown or json`);
+  }
+
+  return options;
+}
+
+function writeOutput(output, outputPath) {
+  if (!outputPath) {
+    process.stdout.write(output);
+    return;
+  }
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, output);
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const rows = await buildNonProductionSourceRows();
+  writeOutput(
+    options.format === 'json'
+      ? formatNonProductionSourceJson(rows)
+      : formatNonProductionSourceReport(rows),
+    options.output
+  );
+
+  if (options.checkMode) {
     const result = validateNonProductionSourceCheck(rows);
     if (!result.ok) {
       console.error(
@@ -1006,6 +1114,27 @@ async function main() {
       process.exit(1);
     }
     console.error('non-production source check passed hard safety gates');
+    return;
+  }
+
+  if (typeof options.maxMigrateImportOwner === 'number') {
+    const result = validateNonProductionSourceThresholds(rows, {
+      maxMigrateImportOwner: options.maxMigrateImportOwner
+    });
+    if (!result.ok) {
+      console.error(
+        `non-production source threshold check failed with ${result.violations.length} violation(s)`
+      );
+      for (const violation of result.violations) {
+        console.error(`- ${violation.metric}: ${violation.actual} > ${violation.max}`);
+      }
+      process.exit(1);
+    }
+    console.error('non-production source threshold check passed');
+    return;
+  }
+
+  if (options.format === 'json') {
     return;
   }
 
@@ -1024,8 +1153,11 @@ async function main() {
 
 export {
   classifySourceFile,
+  createNonProductionSourceSummary,
+  formatNonProductionSourceJson,
   formatNonProductionSourceReport,
   validateNonProductionSourceCheck,
+  validateNonProductionSourceThresholds,
   buildNonProductionSourceRows
 };
 
