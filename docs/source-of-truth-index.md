@@ -33,6 +33,7 @@
 - 2026-05-21 M7 baseline sync 真值：`content/runtime.js` fresh build 为 raw `54,554` bytes，低于 `57,600` stop gate
 - 2026-05-24 gap-remediation baseline sync 真值：lint warning baseline 已同步为 `254`，不得通过禁用规则或修改 lint 配置制造下降
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，Node `v20.20.2` / npm `10.8.2` 下 fresh `build:fast`、`build:dev`、`audit:build:report`、`audit:performance:report` 已通过；`content/runtime.js` raw stop gate 收紧为 `56,320` bytes，chunk count 收紧为 `<= 112`，hotspot line budgets 以 [`performance-baseline.md`](./performance-baseline.md) 为准
+- 2026-05-24 M3.1 type audit truth：`lint:type-any` 扫描 `1066` files；`any: 12`、`unknown: 1091`、assertions `1849`、non-null assertions `129`、`ts-expect-error: 5`；`scripts/audit-types.mjs` 阈值门禁参数以该 truth 为当前上限
 - 2026-05-22 final exit gate 真值：Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；当前 release/交付证据以 Node `20.x` 为准
 - 2026-05-22 review gap patch 真值：`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 已纳入 hotspot/production shape 治理，预算均为 `<= 450` 行；`npm run build`、`npm run build:firefox`、Chrome/Firefox `audit:local-vault-release:report` 已在 Node `20.x` 下补跑通过
 - 2026-05-22 retained-code 真值：M6.2 低复用代码退役是安全 no-op，未删除源码；没有新增 `delete-approved` retained low-reuse path，剩余 retained/compatibility source 仍是后续债务
