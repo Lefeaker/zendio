@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 describe('report-performance-hotspots', () => {
-  it('tracks post-split production hotspots that remain over 400 LOC', () => {
+  it('tracks current src files that remain over 250 LOC', () => {
     const output = execFileSync(
       process.execPath,
       [resolve('tools/report-performance-hotspots.mjs')],
@@ -11,7 +11,9 @@ describe('report-performance-hotspots', () => {
       }
     );
 
+    expect(output).toContain('src/i18n/schemaShellMessages.ts');
+    expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
     expect(output).toContain('src/options/app/productionStitchShellMount.ts');
-    expect(output).toContain('src/ui/domains/usage-chart/usageChartRenderers.ts');
+    expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
   });
 });

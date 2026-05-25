@@ -11,6 +11,7 @@ const checks = [
   { name: 'TypeScript 类型检查（应用代码）', cmd: ['npm', 'run', 'typecheck:app'] },
   { name: 'TypeScript 类型检查（测试代码）', cmd: ['npm', 'run', 'typecheck:tests'] },
   { name: 'TypeScript 类型检查（strict 基线）', cmd: ['npm', 'run', 'typecheck:strict'] },
+  { name: 'TypeScript 类型债务预算守卫', cmd: ['npm', 'run', 'lint:type-any:ratchet'] },
   { name: '平台调用 allowlist 审计', cmd: ['npm', 'run', 'audit:platform-services:report'] },
   { name: '深层导入边界审计', cmd: ['npm', 'run', 'audit:imports:report'] },
   { name: 'Retired code 回归守卫', cmd: ['npm', 'run', 'audit:retired-code:report'] },
