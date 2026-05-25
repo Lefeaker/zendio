@@ -18,6 +18,8 @@ npm run audit:build:report
 
 2026-05-25 M4.3 dev build surface budget 复核在同一 Node/npm 版本下完成。Production fast build 继续排除 dev/test harness 与 `qps-ploc` pseudo-locale，并由 `audit:release-surface:report` 证明 forbidden harness members 与 forbidden dev/test pseudo-locale members 均为 `none`。Dev build 保留本地浏览器 harness 与 `qps-ploc`，但仍必须通过当前更严格的 `audit:build:report` 预算；该预算已经严于本轮 plan 的 `content/runtime.js <= 57,600 bytes`、`chunk count <= 132` 和 locale chunk `<= 60 KB` 约束。
 
+2026-05-25 M5.1 source-of-truth sync 复核重新采集 `quality`、`verify:preflight`、`audit:performance:report` 与 `audit:build:report`。以下 dev build 与热点数值以该次采集为当前真值。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -86,13 +88,13 @@ npm run audit:performance:report
 - `src/content/extractors/articleExtractor.ts`: `222` 行
 - `src/options/components/sections/FragmentSectionView.ts`: `204` 行
 - `src/options/state/optionsStore.ts`: `194` 行
-- `src/ui/domains/yaml-config/yamlConfigTableStateModel.ts`: `183` 行
+- `src/ui/domains/yaml-config/yamlConfigTableStateModel.ts`: `182` 行
 - `src/content/video/platforms/bilibiliPlatformAdapter.ts`: `178` 行
 - `src/options/components/sections/UsageDashboardSection.ts`: `173` 行
-- `src/content/index.ts`: `154` 行
+- `src/content/index.ts`: `153` 行
 - `src/options/state/StateManager.ts`: `128` 行；`deepClone=0`，`JSON.stringify=0`
 - `src/content/runtime/bootstrapRuntime.ts`: `77` 行
-- `src/ui/domains/yaml-config/yamlConfigTableRenderer.ts`: `67` 行
+- `src/ui/domains/yaml-config/yamlConfigTableRenderer.ts`: `66` 行
 - `src/ui/domains/usage-chart/usageChartRenderers.ts`: `23` 行
 
 当前 hotspot line budget 口径：
@@ -136,7 +138,7 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-05-24 gap-remediation baseline 已同步为 `254` 条。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
+- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-05-25 M5.1 当前 checked-in baseline 为 `165` 条。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
 - 2026-05-24 M2.5 budget ratchet 使用 Node.js `v20.20.2` / npm `10.8.2`，并先以 standalone `audit:build:report` / `audit:performance:report` 验证新预算，再接入 `quality` / `verify:preflight`。
 - 2026-05-22 review gap patch 已确认 M6.2 retained low-reuse retirement 是安全 no-op：没有新增 delete-approved path，低复用 retained/source compatibility 仍是后续债务，不应表述为已完成退役。
