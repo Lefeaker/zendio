@@ -1,109 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
-
-const HOTSPOTS = [
-  'src/i18n/schemaShellMessages.ts',
-  'src/options/stitch/content.ts',
-  'src/i18n/messages.ts',
-  'src/options/stitch/types.ts',
-  'src/i18n/locales/fr.ts',
-  'src/i18n/locales/de.ts',
-  'src/i18n/locales/es-419.ts',
-  'src/i18n/locales/es-ES.ts',
-  'src/i18n/locales/ru.ts',
-  'src/i18n/locales/it.ts',
-  'src/i18n/locales/pt-BR.ts',
-  'src/i18n/locales/en.ts',
-  'src/i18n/locales/ja.ts',
-  'src/i18n/locales/ko.ts',
-  'src/i18n/locales/zh-CN.ts',
-  'src/i18n/locales/qps-ploc.ts',
-  'src/i18n/locales/zh-TW.ts',
-  'src/options/stitch/ui/components.ts',
-  'src/third_party/ai-chat-exporter/platforms/gemini.ts',
-  'src/options/stitch/schema/builders/surfaces.ts',
-  'src/options/app/productionStitchStateMapper.ts',
-  'src/content/clipper/components/clipperDialogController.ts',
-  'src/content/reader/services/highlightManager.ts',
-  'src/shared/di/serviceRegistry.ts',
-  'src/content/video/sessionOperations.ts',
-  'src/ui/domains/video/VideoDialog.ts',
-  'src/content/video/videoPromptLifecycle.ts',
-  'src/background/pipelines/connectionTest.ts',
-  'src/options/components/layout/MainContent.ts',
-  'src/onboarding/bootstrap.ts',
-  'src/background/services/notifications.ts',
-  'src/options/components/sections/TemplatesSection.ts',
-  'src/shared/config/optionsMerger.ts',
-  'src/dev/localVaultWriteHarness.ts',
-  'src/options/widgets/yaml-config/model.ts',
-  'src/content/video/videoSessionRuntime.ts',
-  'src/content/reader/ui/ReaderDialogPanel.ts',
-  'src/content/reader/session.ts',
-  'src/content/video/videoControlBarButton.ts',
-  'src/content/stitch/runtimeSurfaceContent.ts',
-  'src/options/components/infrastructure/listBuilder.ts',
-  'src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts',
-  'src/shared/exportDestination.ts',
-  'src/ui/domains/reading/ReaderDialog.ts',
-  'src/options/components/sections/ClassifierSection.ts',
-  'src/content/video/ui/VideoDialogPanel.ts',
-  'src/options/components/sections/ReadingSection.ts',
-  'src/dev/contentOrchestratorHarness.ts',
-  'src/options/components/sections/VideoSection.ts',
-  'src/background/services/obsidianWriter.ts',
-  'src/background/vault-router.ts',
-  'src/shared/state/globalStateManager.ts',
-  'src/content/reader/sessionOperations.ts',
-  'src/i18n/config.ts',
-  'src/content/ui/supportPrompt.ts',
-  'src/shared/config/provider.ts',
-  'src/shared/errors/analytics/googleAnalyticsReporter.ts',
-  'src/content/video/platforms/baseVideoPlatform.ts',
-  'src/shared/errors/analytics/analyticsConfig.template.ts',
-  'src/shared/errors/analytics/dataSanitizer.ts',
-  'src/content/video/videoPromptMountLifecycle.ts',
-  'src/options/components/diagnostics.ts',
-  'src/options/components/layout/NavigationController.ts',
-  'src/options/state/vaultRouterStore.ts',
-  'src/components/trial-notice.ts',
-  'src/content/clipper/services/contextCapture.ts',
-  'src/options/components/sections/restSectionDefaultRow.ts',
-  'src/options/app/productionStitchPersistence.ts',
-  'src/content/video/videoPromptRenderer.ts',
-  'src/options/components/sections/restSectionVaultRow.ts',
-  'src/content/reader/utils/markdownBuilder.ts',
-  'src/options/app/productionStitchShellState.ts',
-  'src/content/bootstrap.ts',
-  'src/options/app/productionStitchActions.ts',
-  'src/platform/chrome/contextMenus.ts',
-  'src/content/shared/panels/sessionPanelResize.ts',
-  'src/background/application/clipProcessor.ts',
-  'src/infrastructure/restClient.ts',
-  'src/shared/services/yamlConfigSanitize.ts',
-  'src/ui/domains/vault-router/VaultRouterView.ts',
-  'src/options/stitch/render/nodeRenderers.ts',
-  'src/third_party/ai-chat-exporter/shared/markdownLanguage.ts',
-  'src/background/llm/classifier.ts',
-  'src/background/listeners/runtimeMessages.ts',
-  'src/background/services/usageStats.ts',
-  'src/third_party/ai-chat-exporter/platforms/tongyi.ts',
-  'src/options/utils/localizedText.ts',
-  'src/options/services/connectionTestRunner.ts',
-  'src/options/components/sections/RestSectionView.ts',
-  'src/background/listeners/contextMenusCoordinator.ts',
-  'src/content/runtime/contentLazyRuntime.ts',
-  'src/options/stitch/render/contentRenderers.ts',
-  'src/shared/guards/dom.ts',
-  'src/content/reader/services/exporter.ts',
-  'src/content/video/fragmentHighlighter.ts',
-  'src/ui/domains/privacy/PrivacySettingsView.ts',
-  'src/options/app/productionStitchShellMount.ts',
-  'src/shared/errors/analytics/analyticsConfig.ts',
-  'src/third_party/ai-chat-exporter/platforms/kimi.ts'
-];
 
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/schemaShellMessages.ts', 2133],
@@ -218,25 +118,194 @@ const PATTERNS = [
   ['ResizeObserver', /\bResizeObserver\b/g]
 ];
 
-let hasFailure = false;
-for (const relativePath of HOTSPOTS) {
-  const fullPath = join(ROOT, relativePath);
-  if (!existsSync(fullPath)) {
-    continue;
+function parseArgs(argv) {
+  const options = {
+    root: ROOT,
+    budgetJson: null
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--root') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--root requires a value');
+      }
+      options.root = value;
+      index += 1;
+      continue;
+    }
+    if (arg === '--budget-json') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--budget-json requires a value');
+      }
+      options.budgetJson = value;
+      index += 1;
+      continue;
+    }
+    if (arg === '--check') {
+      continue;
+    }
+    throw new Error(`Unknown argument: ${arg}`);
   }
-  const source = readFileSync(fullPath, 'utf8');
-  const lineCount = source.split('\n').length;
-  const counters = PATTERNS.map(
-    ([label, pattern]) => `${label}=${[...source.matchAll(pattern)].length}`
-  ).join(', ');
-  console.log(`${relativePath}: lines=${lineCount}, ${counters}`);
-  const lineBudget = MAX_LINE_BUDGETS.get(relativePath);
-  if (lineBudget !== undefined && lineCount > lineBudget) {
-    console.error(`${relativePath} exceeds hotspot line budget: ${lineCount} > ${lineBudget}`);
-    hasFailure = true;
+
+  return options;
+}
+
+function normalizeRelativePath(path) {
+  return path.replaceAll('\\', '/');
+}
+
+function readBudgetMap(budgetJson) {
+  if (!budgetJson) {
+    return new Map(MAX_LINE_BUDGETS);
+  }
+
+  const parsed = JSON.parse(readFileSync(budgetJson, 'utf8'));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('--budget-json must contain an object of relative path to line budget');
+  }
+
+  return new Map(
+    Object.entries(parsed).map(([relativePath, budget]) => {
+      if (!Number.isInteger(budget) || budget < 1) {
+        throw new Error(`Invalid line budget for ${relativePath}: ${budget}`);
+      }
+      return [normalizeRelativePath(relativePath), budget];
+    })
+  );
+}
+
+function listTrackedSourceFiles(root) {
+  const output = execFileSync(
+    'git',
+    ['-C', root, 'ls-files', '--', 'src/*.ts', 'src/*.tsx', 'src/**/*.ts', 'src/**/*.tsx'],
+    {
+      encoding: 'utf8'
+    }
+  );
+
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(normalizeRelativePath)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function countMatches(source) {
+  return Object.fromEntries(
+    PATTERNS.map(([label, pattern]) => [label, [...source.matchAll(pattern)].length])
+  );
+}
+
+function countLines(source) {
+  return source.split('\n').length;
+}
+
+export function collectPerformanceHotspots({
+  root = ROOT,
+  budgets = new Map(MAX_LINE_BUDGETS),
+  trackedSourceFiles = listTrackedSourceFiles(root)
+} = {}) {
+  const trackedSourceSet = new Set(trackedSourceFiles);
+  const staleBudgetPaths = [...budgets.keys()].filter(
+    (relativePath) => !trackedSourceSet.has(relativePath)
+  );
+
+  const rows = trackedSourceFiles
+    .map((relativePath) => {
+      const source = readFileSync(join(root, relativePath), 'utf8');
+      return {
+        relativePath,
+        lineCount: countLines(source),
+        counters: countMatches(source),
+        lineBudget: budgets.get(relativePath)
+      };
+    })
+    .filter((row) => row.lineCount > 250)
+    .sort(
+      (left, right) =>
+        right.lineCount - left.lineCount || left.relativePath.localeCompare(right.relativePath)
+    );
+
+  const missingBudgetPaths = rows
+    .filter((row) => row.lineBudget === undefined)
+    .map((row) => row.relativePath);
+  const exceededBudgetRows = rows.filter(
+    (row) => row.lineBudget !== undefined && row.lineCount > row.lineBudget
+  );
+
+  return {
+    rows,
+    trackedSourceCount: trackedSourceFiles.length,
+    dynamicHotspotCount: rows.length,
+    registeredBudgetCount: budgets.size,
+    missingBudgetPaths,
+    staleBudgetPaths,
+    exceededBudgetRows,
+    ok:
+      missingBudgetPaths.length === 0 &&
+      staleBudgetPaths.length === 0 &&
+      exceededBudgetRows.length === 0
+  };
+}
+
+export function formatPerformanceHotspots(report) {
+  const lines = report.rows.map((row) => {
+    const counters = PATTERNS.map(([label]) => `${label}=${row.counters[label]}`).join(', ');
+    return `${row.relativePath}: lines=${row.lineCount}, ${counters}`;
+  });
+
+  lines.push(
+    `dynamic hotspot coverage: trackedSourceFiles=${report.trackedSourceCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}`
+  );
+
+  return lines.join('\n');
+}
+
+function printFailures(report) {
+  if (report.missingBudgetPaths.length > 0) {
+    console.error(
+      `Missing line budgets for dynamically discovered hotspots:\n${report.missingBudgetPaths
+        .map((relativePath) => `- ${relativePath}`)
+        .join('\n')}`
+    );
+  }
+  if (report.staleBudgetPaths.length > 0) {
+    console.error(
+      `Stale line budgets reference non-tracked src files:\n${report.staleBudgetPaths
+        .map((relativePath) => `- ${relativePath}`)
+        .join('\n')}`
+    );
+  }
+  for (const row of report.exceededBudgetRows) {
+    console.error(
+      `${row.relativePath} exceeds hotspot line budget: ${row.lineCount} > ${row.lineBudget}`
+    );
   }
 }
 
-if (hasFailure) {
-  process.exit(1);
+export function runCli(argv = process.argv.slice(2)) {
+  const options = parseArgs(argv);
+  const report = collectPerformanceHotspots({
+    root: options.root,
+    budgets: readBudgetMap(options.budgetJson)
+  });
+
+  console.log(formatPerformanceHotspots(report));
+  if (!report.ok) {
+    printFailures(report);
+    process.exitCode = 1;
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    runCli();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  }
 }
