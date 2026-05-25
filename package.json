@@ -32,6 +32,8 @@
     "audit:imports:report": "node tools/report-deep-imports.mjs",
     "audit:imports:check": "node tools/report-deep-imports.mjs --check",
     "audit:components:report": "node tools/report-component-entry-alignment.mjs",
+    "audit:compatibility-duplicates:report": "node tools/report-compatibility-duplicates.mjs",
+    "audit:compatibility-duplicates:check": "node tools/report-compatibility-duplicates.mjs --check",
     "audit:build-graph:report": "node tools/report-production-build-graph.mjs",
     "audit:production-build-graph:report": "node tools/report-production-build-graph.mjs",
     "audit:non-production-source:report": "node tools/report-non-production-source.mjs",

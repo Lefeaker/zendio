@@ -37,6 +37,7 @@
 - 2026-05-25 M5.1 non-production source truth：`audit:non-production-source:report` 当前 decision counts 为 `migrate-import-owner: 197`、`retain-production: 524`、`retain-production-facade: 17`；任何 `src` 删除仍必须满足六项 exact-path owner proof
 - 2026-05-25 M5.1 build/performance truth：`quality` 与 `verify:preflight` 重新通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,337` bytes），chunk count `102`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-25 M5.3 budget ratchet truth：`lint:type-any:ratchet` 以 `0/971/1667/108/5` 接入 `quality`；`audit:performance:report` 以当前全部 `99` 个 `src` >250 LOC 文件为 line-budget 覆盖集，预算等于本次实测行数
+- 2026-05-25 M5.4 compatibility duplicate truth：usage/rest compatibility duplicate audit 已接入 `quality`；当前 `candidate files: 16`、`duplicate groups: 0`，没有 owner-approved production allowlist 条目
 - 2026-05-22 final exit gate 真值：Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；当前 release/交付证据以 Node `20.x` 为准
 - 2026-05-22 review gap patch 真值：`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 已纳入 hotspot/production shape 治理，预算均为 `<= 450` 行；`npm run build`、`npm run build:firefox`、Chrome/Firefox `audit:local-vault-release:report` 已在 Node `20.x` 下补跑通过
 - 2026-05-22 retained-code 真值：M6.2 低复用代码退役是安全 no-op，未删除源码；没有新增 `delete-approved` retained low-reuse path，剩余 retained/compatibility source 仍是后续债务
