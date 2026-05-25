@@ -150,7 +150,6 @@ describe('yamlConfigTable renderer characterization', () => {
       getFieldOptionsForEntry: () => [
         makeRow({ id: 'row-tags', name: 'tags', type: 'array', builtIn: true, isCustom: false })
       ],
-      buildDomainFieldDefinition: () => makeRow({ name: 'tags', type: 'array' }),
       actions
     });
 

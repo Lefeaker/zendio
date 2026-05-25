@@ -1,4 +1,4 @@
-import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
+import type { YamlFieldType } from '@shared/types/yamlConfig';
 import { createCheckboxElement } from '../../primitives/checkbox';
 import { createInputElement } from '../../primitives/input';
 import { createSelectElement } from '../../primitives/select';

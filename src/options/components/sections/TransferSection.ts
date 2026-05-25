@@ -1,5 +1,3 @@
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import type { IOptionsRepository } from '@shared/repositories';
 import type { SectionRenderContext } from './BaseSection';
 import { BaseSection } from './BaseSection';

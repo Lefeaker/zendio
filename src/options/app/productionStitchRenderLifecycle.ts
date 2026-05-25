@@ -8,12 +8,7 @@ import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
-import type {
-  PreviewContent,
-  PreviewStoreState,
-  SchemaContext,
-  ViewSchema
-} from '@options/stitch/types';
+import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import type { Language } from '@i18n';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';

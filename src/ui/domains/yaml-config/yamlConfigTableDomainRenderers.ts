@@ -13,7 +13,6 @@ import {
   type YamlConfigDomainLabels,
   type YamlConfigTableLabels
 } from './yamlConfigTableTypes';
-import { formatArrayValue } from './yamlConfigTableStateModel';
 import { buildYamlErrorList } from './yamlConfigTableMessageBuilders';
 import {
   buildDomainCard,
@@ -35,22 +34,10 @@ export function renderDomainOverrides(args: {
     entry: DomainOverrideEntry,
     currentField?: DomainFieldRow
   ) => FieldRow[];
-  buildDomainFieldDefinition: (
-    contentType: YamlContentType,
-    fieldName: string
-  ) => FieldRow | undefined;
   actions: DomainActions;
 }): void {
-  const {
-    host,
-    entries,
-    labels,
-    tableLabels,
-    domainErrors,
-    getFieldOptionsForEntry,
-    buildDomainFieldDefinition,
-    actions
-  } = args;
+  const { host, entries, labels, tableLabels, domainErrors, getFieldOptionsForEntry, actions } =
+    args;
   const wrapper = createLayoutElement({ className: 'aobx-domain' });
 
   const header = createOptionsActionRow({ className: 'aobx-domain__header pt-0' });

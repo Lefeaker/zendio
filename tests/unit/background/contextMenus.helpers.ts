@@ -9,8 +9,7 @@ import type {
 import type { MessageListener } from '../../../src/platform/interfaces/messaging';
 import type {
   RuntimeInstallListener,
-  RuntimeStartupListener,
-  RuntimeService
+  RuntimeStartupListener
 } from '../../../src/platform/interfaces/runtime';
 import type { ScriptingService } from '../../../src/platform/interfaces/scripting';
 import type {

@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Messages } from '@i18n/messages';
 import {
   schemaShellMessagesDe,
   schemaShellMessagesEn,

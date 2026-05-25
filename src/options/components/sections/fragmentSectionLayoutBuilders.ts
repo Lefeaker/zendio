@@ -1,4 +1,3 @@
-import type { FragmentClipperOptions } from '@shared/types/options';
 import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
 import { UiSelect as DaisySelect } from '@ui/primitives/select';

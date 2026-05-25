@@ -3,7 +3,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { VaultRouterConfig } from '@shared/types';
-import type { RestOptions } from '@shared/types/options';
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
