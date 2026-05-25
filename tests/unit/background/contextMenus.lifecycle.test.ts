@@ -100,11 +100,11 @@ describe('context menu listeners', () => {
     );
 
     rig.executeScript.mockClear();
-    await rig.onUpdatedListeners[0]?.(72, { status: 'loading' }, {
+    rig.onUpdatedListeners[0]?.(72, { status: 'loading' }, {
       id: 72,
       url: 'https://example.com/updated'
     } as chrome.tabs.Tab);
-    await rig.onUpdatedListeners[0]?.(72, { status: 'complete' }, {
+    rig.onUpdatedListeners[0]?.(72, { status: 'complete' }, {
       id: 72,
       url: 'https://example.com/updated'
     } as chrome.tabs.Tab);
@@ -113,21 +113,21 @@ describe('context menu listeners', () => {
       expect.objectContaining({ target: { tabId: 72, allFrames: true } })
     );
 
-    await rig.onUpdatedListeners[0]?.(72, { url: 'https://www.bilibili.com/video/BV1xx411c7mD' }, {
+    rig.onUpdatedListeners[0]?.(72, { url: 'https://www.bilibili.com/video/BV1xx411c7mD' }, {
       id: 72,
       url: 'https://www.bilibili.com/video/BV1xx411c7mD'
     } as chrome.tabs.Tab);
     await flush();
     expect(rig.executeScript).toHaveBeenCalled();
 
-    await rig.onActivatedListeners[0]?.({ tabId: 73, windowId: 1 });
+    rig.onActivatedListeners[0]?.({ tabId: 73, windowId: 1 });
     await flush();
     expect(consoleWarnSpy).not.toHaveBeenCalledWith(
       '[contextMenus] Failed to ensure modifier injection for active tab:',
       expect.anything()
     );
 
-    await rig.onRemovedListeners[0]?.(72, { isWindowClosing: false, windowId: 1 });
+    rig.onRemovedListeners[0]?.(72, { isWindowClosing: false, windowId: 1 });
     consoleWarnSpy.mockRestore();
   });
 

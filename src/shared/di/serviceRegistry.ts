@@ -76,6 +76,10 @@ const isDisposable = (value: unknown): value is Disposable =>
   value !== null &&
   typeof (value as Disposable).dispose === 'function';
 
+function formatResolveError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function disposeServiceInstance(instance: unknown, token: symbol, scope: string): void {
   if (!isDisposable(instance)) {
     return;
@@ -113,7 +117,7 @@ export class DefaultServiceRegistry implements ServiceRegistry {
         entry.resolved = true;
       } catch (error) {
         throw new Error(
-          `[ServiceRegistry] Failed to resolve service ${token.toString()}: ${error}`
+          `[ServiceRegistry] Failed to resolve service ${token.toString()}: ${formatResolveError(error)}`
         );
       }
     }
@@ -177,7 +181,7 @@ export class ScopedServiceRegistry implements ServiceRegistry {
           localEntry.resolved = true;
         } catch (error) {
           throw new Error(
-            `[ScopedServiceRegistry] Failed to resolve local service ${token.toString()}: ${error}`
+            `[ScopedServiceRegistry] Failed to resolve local service ${token.toString()}: ${formatResolveError(error)}`
           );
         }
       }

@@ -20,7 +20,7 @@ import type {
 } from '../../../src/platform/interfaces/tabs';
 import type { CompleteOptions } from '../../../src/shared/types/options';
 
-const createMockFn = <T extends (...args: any[]) => any>() =>
+const createMockFn = <T extends (...args: never[]) => unknown>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 type ContextMenusModule = typeof import('../../../src/background/listeners/contextMenus');
 type RegisterContextMenus = () => void;

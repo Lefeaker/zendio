@@ -1,6 +1,6 @@
 type ContentSessionRegistryState = {
-  readerSession: unknown | null;
-  videoSession: unknown | null;
+  readerSession: object | null;
+  videoSession: object | null;
 };
 
 const states = new WeakMap<Document, ContentSessionRegistryState>();
@@ -38,13 +38,13 @@ export function markContentRuntimeInitialized(doc: Document = document): boolean
   return true;
 }
 
-export function registerReaderSession(session: unknown, doc: Document = document): void {
+export function registerReaderSession(session: object, doc: Document = document): void {
   const state = getState(doc);
   state.readerSession = session;
   setDatasetFlag(getRoot(doc), 'aiobReaderActive', true);
 }
 
-export function clearReaderSession(session?: unknown, doc: Document = document): void {
+export function clearReaderSession(session?: object, doc: Document = document): void {
   const state = getState(doc);
   if (session !== undefined && state.readerSession !== session) {
     return;
@@ -63,13 +63,13 @@ export function isReaderSessionActive(doc: Document = document): boolean {
   return state.readerSession !== null || getRoot(doc).dataset.aiobReaderActive === 'true';
 }
 
-export function registerVideoSession(session: unknown, doc: Document = document): void {
+export function registerVideoSession(session: object, doc: Document = document): void {
   const state = getState(doc);
   state.videoSession = session;
   setDatasetFlag(getRoot(doc), 'aiobVideoActive', true);
 }
 
-export function clearVideoSession(session?: unknown, doc: Document = document): void {
+export function clearVideoSession(session?: object, doc: Document = document): void {
   const state = getState(doc);
   if (session !== undefined && state.videoSession !== session) {
     return;
