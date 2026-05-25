@@ -1,6 +1,7 @@
 export type TypeAuditTotals = Record<string, number>;
 
 export type ThresholdFailure = {
+  scope?: 'src' | 'tests';
   metric: string;
   actual: number;
   max: number;
@@ -8,8 +9,8 @@ export type ThresholdFailure = {
 };
 
 export function checkThresholds(
-  report: { totals: TypeAuditTotals },
-  limits: TypeAuditTotals
+  report: { totals: TypeAuditTotals; scopes?: Record<string, TypeAuditTotals> },
+  limits: TypeAuditTotals | Record<string, TypeAuditTotals>
 ): {
   ok: boolean;
   failures: ThresholdFailure[];
