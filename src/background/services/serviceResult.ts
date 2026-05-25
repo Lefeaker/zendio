@@ -7,12 +7,16 @@
 
 import type { Result, Success, Failure } from '../../shared/types';
 import { success, failure } from '../../shared/types';
+import { isObjectRecord, type ObjectRecord } from '../../shared/guards';
+
+type ServiceArgs = unknown[];
+type ServiceErrorDetails = ObjectRecord;
 
 // Common service error types
 export interface ServiceError {
   readonly code: string;
   readonly message: string;
-  readonly details?: Record<string, unknown>;
+  readonly details?: ServiceErrorDetails;
   readonly cause?: Error;
 }
 
@@ -34,7 +38,7 @@ export type ServiceResult<T> = Result<T, ServiceError>;
 export function createServiceError(
   code: ServiceErrorCode,
   message: string,
-  details?: Record<string, unknown>,
+  details?: ServiceErrorDetails,
   cause?: Error
 ): ServiceError {
   return {
@@ -55,7 +59,7 @@ export function createNetworkError(message: string, cause?: Error): ServiceError
 
 export function createValidationError(
   message: string,
-  details?: Record<string, unknown>
+  details?: ServiceErrorDetails
 ): ServiceError {
   return createServiceError('VALIDATION_ERROR', message, details);
 }
@@ -66,14 +70,14 @@ export function createPermissionError(message: string): ServiceError {
 
 export function createConfigurationError(
   message: string,
-  details?: Record<string, unknown>
+  details?: ServiceErrorDetails
 ): ServiceError {
   return createServiceError('CONFIGURATION_ERROR', message, details);
 }
 
 export function createExternalApiError(
   message: string,
-  details?: Record<string, unknown>,
+  details?: ServiceErrorDetails,
   cause?: Error
 ): ServiceError {
   return createServiceError('EXTERNAL_API_ERROR', message, details, cause);
@@ -138,7 +142,7 @@ export function mapValidationError(error: unknown): ServiceError {
 }
 
 // Service operation decorators
-export function withStorageErrorHandling<T extends unknown[], R>(
+export function withStorageErrorHandling<T extends ServiceArgs, R>(
   fn: (...args: T) => Promise<R>
 ): (...args: T) => Promise<ServiceResult<R>> {
   return async (...args: T) => {
@@ -146,7 +150,7 @@ export function withStorageErrorHandling<T extends unknown[], R>(
   };
 }
 
-export function withNetworkErrorHandling<T extends unknown[], R>(
+export function withNetworkErrorHandling<T extends ServiceArgs, R>(
   fn: (...args: T) => Promise<R>
 ): (...args: T) => Promise<ServiceResult<R>> {
   return async (...args: T) => {
@@ -154,7 +158,7 @@ export function withNetworkErrorHandling<T extends unknown[], R>(
   };
 }
 
-export function withValidationErrorHandling<T extends unknown[], R>(
+export function withValidationErrorHandling<T extends ServiceArgs, R>(
   fn: (...args: T) => Promise<R>
 ): (...args: T) => Promise<ServiceResult<R>> {
   return async (...args: T) => {
@@ -170,7 +174,7 @@ export function mapServiceResult<T, U>(
   if (result.success) {
     return serviceSuccess(mapper(result.data));
   }
-  return result as ServiceResult<U>;
+  return serviceFailure(result.error);
 }
 
 export function flatMapServiceResult<T, U>(
@@ -180,7 +184,7 @@ export function flatMapServiceResult<T, U>(
   if (result.success) {
     return mapper(result.data);
   }
-  return result as ServiceResult<U>;
+  return serviceFailure(result.error);
 }
 
 // Service result validation
@@ -196,14 +200,14 @@ export function validateServiceResult<T>(
 }
 
 // Combine multiple service results
-export function combineServiceResults<T extends readonly unknown[]>(
+export function combineServiceResults<T extends readonly [...ServiceArgs]>(
   ...results: { [K in keyof T]: ServiceResult<T[K]> }
 ): ServiceResult<T> {
-  const data: unknown[] = [];
+  const data: ServiceArgs = [];
 
   for (const result of results) {
     if (!result.success) {
-      return result as ServiceResult<T>;
+      return serviceFailure(result.error);
     }
     data.push(result.data);
   }
@@ -230,20 +234,10 @@ export function logServiceResult<T>(result: ServiceResult<T>, context?: string):
 // Type guards
 export function isServiceError(error: unknown): error is ServiceError {
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    'message' in error &&
-    typeof (error as Record<string, unknown>).code === 'string' &&
-    typeof (error as Record<string, unknown>).message === 'string'
+    isObjectRecord(error) && typeof error.code === 'string' && typeof error.message === 'string'
   );
 }
 
 export function isServiceResult<T>(value: unknown): value is ServiceResult<T> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'success' in value &&
-    typeof (value as Record<string, unknown>).success === 'boolean'
-  );
+  return isObjectRecord(value) && typeof value.success === 'boolean';
 }

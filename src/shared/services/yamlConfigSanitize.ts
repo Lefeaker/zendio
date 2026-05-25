@@ -1,4 +1,5 @@
 import { DEFAULT_YAML_CONFIG } from '../config/yamlDefaults';
+import { isObjectRecord } from '../guards';
 import { normalizeDomainKey } from './yamlConfigDomain';
 import type {
   PartialContentTypeYamlConfig,
@@ -8,28 +9,17 @@ import type {
   YamlFieldType
 } from '../types/yamlConfig';
 
-const FIELD_TYPES: ReadonlySet<YamlFieldType> = new Set([
-  'text',
-  'number',
-  'boolean',
-  'date',
-  'array'
-]);
-const CONTENT_TYPE_KEYS: ReadonlySet<YamlContentType> = new Set([
-  'ai_chat',
-  'article',
-  'clipper',
-  'video'
-]);
 const FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 export const isYamlContentType = (value: string): value is YamlContentType =>
-  CONTENT_TYPE_KEYS.has(value as YamlContentType);
+  value === 'ai_chat' || value === 'article' || value === 'clipper' || value === 'video';
 
-export const toFieldType = (value: unknown): YamlFieldType =>
-  typeof value === 'string' && FIELD_TYPES.has(value as YamlFieldType)
-    ? (value as YamlFieldType)
-    : 'text';
+export const toFieldType = (value: unknown): YamlFieldType => {
+  if (value === 'number' || value === 'boolean' || value === 'date' || value === 'array') {
+    return value;
+  }
+  return 'text';
+};
 
 export const toBoolean = (value: unknown, fallback?: boolean): boolean | undefined => {
   if (typeof value === 'boolean') {
@@ -94,42 +84,41 @@ export const sanitizeField = (
   field: unknown,
   fallbackType: YamlFieldType = 'text'
 ): YamlFieldConfig | null => {
-  if (!field || typeof field !== 'object') {
+  if (!isObjectRecord(field)) {
     return null;
   }
-  const draft = field as Partial<YamlFieldConfig> & Record<string, unknown>;
-  const name = sanitizeFieldName(draft.name);
+  const name = sanitizeFieldName(field.name);
   if (!name) {
     return null;
   }
 
-  const type = toFieldType(draft.type ?? fallbackType);
+  const type = toFieldType(field.type ?? fallbackType);
   const normalized: YamlFieldConfig = {
     name,
     type,
-    enabled: toBoolean(draft.enabled, true) ?? true
+    enabled: toBoolean(field.enabled, true) ?? true
   };
 
-  if (draft.required !== undefined) {
-    normalized.required = toBoolean(draft.required, false) ?? false;
+  if (field.required !== undefined) {
+    normalized.required = toBoolean(field.required, false) ?? false;
   }
 
-  if (draft.description !== undefined) {
-    normalized.description = String(draft.description);
+  if (field.description !== undefined) {
+    normalized.description = String(field.description);
   }
 
-  if (draft.isCustom) {
+  if (field.isCustom) {
     normalized.isCustom = true;
   }
 
-  if (draft.valuePath && typeof draft.valuePath === 'string') {
-    const trimmedPath = draft.valuePath.trim();
+  if (field.valuePath && typeof field.valuePath === 'string') {
+    const trimmedPath = field.valuePath.trim();
     if (trimmedPath) {
       normalized.valuePath = trimmedPath;
     }
   }
 
-  const defaultValue = sanitizeDefaultValue(type, draft.defaultValue);
+  const defaultValue = sanitizeDefaultValue(type, field.defaultValue);
   if (defaultValue !== undefined) {
     normalized.defaultValue = defaultValue;
   }
@@ -164,22 +153,21 @@ export const sanitizeFieldList = (
 export const sanitizeDomainOverrideMap = (
   raw: unknown
 ): Record<string, YamlFieldConfig[]> | undefined => {
-  if (!raw || typeof raw !== 'object') {
+  if (!isObjectRecord(raw)) {
     return undefined;
   }
-  const entries = Object.entries(raw as Record<string, unknown>)
-    .map(([key, value]) => {
-      const normalizedKey = normalizeDomainKey(key);
-      if (!normalizedKey) {
-        return null;
-      }
-      const sanitizedFields = sanitizeFieldList(value);
-      if (!sanitizedFields.length) {
-        return null;
-      }
-      return [normalizedKey, sanitizedFields] as const;
-    })
-    .filter((entry): entry is readonly [string, YamlFieldConfig[]] => Boolean(entry));
+  const entries: Array<[string, YamlFieldConfig[]]> = [];
+  Object.entries(raw).forEach(([key, value]) => {
+    const normalizedKey = normalizeDomainKey(key);
+    if (!normalizedKey) {
+      return;
+    }
+    const sanitizedFields = sanitizeFieldList(value);
+    if (!sanitizedFields.length) {
+      return;
+    }
+    entries.push([normalizedKey, sanitizedFields]);
+  });
 
   return entries.length ? Object.fromEntries(entries) : undefined;
 };
@@ -188,17 +176,15 @@ export const sanitizeContentTypeOverrides = (
   contentType: YamlContentType,
   raw: unknown
 ): PartialContentTypeYamlConfig | undefined => {
-  if (!raw || typeof raw !== 'object') {
+  if (!isObjectRecord(raw)) {
     return undefined;
   }
 
-  const fields = sanitizeFieldList((raw as PartialContentTypeYamlConfig).fields);
-  const customFields = sanitizeFieldList((raw as PartialContentTypeYamlConfig).customFields, {
+  const fields = sanitizeFieldList(raw.fields);
+  const customFields = sanitizeFieldList(raw.customFields, {
     markCustom: true
   });
-  const domainOverrides = sanitizeDomainOverrideMap(
-    (raw as PartialContentTypeYamlConfig).domainOverrides
-  );
+  const domainOverrides = sanitizeDomainOverrideMap(raw.domainOverrides);
 
   const result: PartialContentTypeYamlConfig = {};
   if (fields.length) {
@@ -221,30 +207,29 @@ export const sanitizeContentTypeOverrides = (
 };
 
 export const normalizeYamlConfigOverrides = (input: unknown): YamlConfigOverrides | null => {
-  if (!input || typeof input !== 'object') {
+  if (!Array.isArray(input) && !isObjectRecord(input)) {
     return null;
   }
 
-  let rawContentTypes: unknown = (input as Record<string, unknown>).contentTypes;
-  let rawGlobalFields: unknown = (input as Record<string, unknown>).globalFields;
+  let rawContentTypes: unknown;
+  let rawGlobalFields: unknown;
 
   if (Array.isArray(input)) {
     rawContentTypes = input;
     rawGlobalFields = undefined;
-  }
-
-  if (!rawContentTypes && Array.isArray((input as Record<string, unknown>).contentTypes)) {
-    rawContentTypes = (input as Record<string, unknown>).contentTypes;
+  } else {
+    rawContentTypes = input.contentTypes;
+    rawGlobalFields = input.globalFields;
   }
 
   const contentTypeMap: Partial<Record<YamlContentType, PartialContentTypeYamlConfig>> = {};
 
   if (Array.isArray(rawContentTypes)) {
-    (rawContentTypes as unknown[]).forEach((entry) => {
-      if (!entry || typeof entry !== 'object') {
+    rawContentTypes.forEach((entry) => {
+      if (!isObjectRecord(entry)) {
         return;
       }
-      const contentType = (entry as Record<string, unknown>).contentType;
+      const contentType = entry.contentType;
       if (typeof contentType !== 'string' || !isYamlContentType(contentType)) {
         return;
       }
@@ -256,8 +241,8 @@ export const normalizeYamlConfigOverrides = (input: unknown): YamlConfigOverride
         contentTypeMap[contentType] = sanitized;
       }
     });
-  } else if (rawContentTypes && typeof rawContentTypes === 'object') {
-    Object.entries(rawContentTypes as Record<string, unknown>).forEach(([key, value]) => {
+  } else if (isObjectRecord(rawContentTypes)) {
+    Object.entries(rawContentTypes).forEach(([key, value]) => {
       if (!isYamlContentType(key)) {
         return;
       }

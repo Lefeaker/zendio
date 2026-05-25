@@ -8,15 +8,17 @@ import type {
 } from '../interfaces/contextMenus';
 import { ensureChrome, getChromeLastError, normalizePromise, suppressLastError } from './utils';
 import { chromeApiErrors, errorHandler } from '../../shared/errors';
+import type { AppError } from '../../shared/errors';
+import { isObjectRecord } from '../../shared/guards';
 
 function isPromiseLike<T>(value: unknown): value is Promise<T> {
-  return Boolean(value && typeof (value as Promise<T>).then === 'function');
+  return isObjectRecord(value) && typeof value.then === 'function';
 }
 
 function serializeCreateProperties(properties: MenuCreateProperties): Record<string, unknown> {
   return {
     id: properties.id,
-    title: (properties as { title?: string }).title,
+    title: properties.title,
     contexts: properties.contexts,
     type: properties.type
   };
@@ -24,8 +26,8 @@ function serializeCreateProperties(properties: MenuCreateProperties): Record<str
 
 function serializeUpdateProperties(properties: MenuUpdateProperties): Record<string, unknown> {
   return {
-    title: (properties as { title?: string }).title,
-    enabled: (properties as { enabled?: boolean }).enabled,
+    title: properties.title,
+    enabled: properties.enabled,
     contexts: properties.contexts
   };
 }
@@ -40,6 +42,10 @@ function serializeClickContext(
     pageUrl: info.pageUrl,
     tabId: tab?.id
   };
+}
+
+function rejectAppError(reject: (error: Error) => void, appError: AppError): void {
+  reject(appError as unknown as Error);
 }
 
 export const chromeContextMenusService: ContextMenusService = {
@@ -60,10 +66,10 @@ export const chromeContextMenusService: ContextMenusService = {
             lastError
           );
           void errorHandler.handle(appError, { suppressNotifications: true });
-          reject(appError as unknown as Error);
+          rejectAppError(reject, appError);
           return;
         }
-        resolve((createdId ?? properties.id) as MenuID);
+        resolve(createdId ?? properties.id);
       } catch (error) {
         const appError = chromeApiErrors.runtimeError(
           'contextMenus.create threw an exception',
@@ -75,7 +81,7 @@ export const chromeContextMenusService: ContextMenusService = {
           error
         );
         void errorHandler.handle(appError, { suppressNotifications: true });
-        reject(appError as unknown as Error);
+        rejectAppError(reject, appError);
       }
     });
   },
@@ -100,7 +106,7 @@ export const chromeContextMenusService: ContextMenusService = {
               lastError
             );
             void errorHandler.handle(appError, { suppressNotifications: true });
-            reject(appError as unknown as Error);
+            rejectAppError(reject, appError);
             return;
           }
           resolve();
@@ -119,7 +125,7 @@ export const chromeContextMenusService: ContextMenusService = {
           error
         );
         void errorHandler.handle(appError, { suppressNotifications: true });
-        reject(appError as unknown as Error);
+        rejectAppError(reject, appError);
       }
     });
   },
@@ -140,7 +146,7 @@ export const chromeContextMenusService: ContextMenusService = {
               lastError
             );
             void errorHandler.handle(appError, { suppressNotifications: true });
-            reject(appError as unknown as Error);
+            rejectAppError(reject, appError);
             return;
           }
           resolve();
@@ -155,7 +161,7 @@ export const chromeContextMenusService: ContextMenusService = {
           error
         );
         void errorHandler.handle(appError, { suppressNotifications: true });
-        reject(appError as unknown as Error);
+        rejectAppError(reject, appError);
       }
     });
   },
@@ -202,7 +208,7 @@ export const chromeContextMenusService: ContextMenusService = {
 
   onShown(listener: ContextMenuOnShownListener): () => void {
     const chromeApi = ensureChrome();
-    const contextMenusApi = chromeApi.contextMenus as unknown as {
+    const contextMenusApi: typeof chrome.contextMenus & {
       onShown?: {
         addListener: (
           callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void
@@ -211,7 +217,7 @@ export const chromeContextMenusService: ContextMenusService = {
           callback: (info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab | null) => void
         ) => void;
       };
-    };
+    } = chromeApi.contextMenus;
     const onShown = contextMenusApi.onShown;
     if (!onShown?.addListener) {
       return () => undefined;
@@ -256,7 +262,9 @@ export const chromeContextMenusService: ContextMenusService = {
 
   refresh() {
     const chromeApi = ensureChrome();
-    const refreshFn = (chromeApi.contextMenus as unknown as { refresh?: () => void }).refresh;
+    const contextMenusApi: typeof chrome.contextMenus & { refresh?: () => void } =
+      chromeApi.contextMenus;
+    const refreshFn = contextMenusApi.refresh;
     if (typeof refreshFn === 'function') {
       try {
         refreshFn.call(chromeApi.contextMenus);
