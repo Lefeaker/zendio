@@ -5,7 +5,6 @@ import type {
   ClipPromptRequest,
   ClipPromptResponse
 } from '../application/clipPromptGateway';
-import type { PopupCoordinator } from '../../runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '../../runtime/popupCoordinatorAccess';
 
 class ClipperDialogPromptGateway implements ClipPromptGateway {

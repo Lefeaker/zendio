@@ -14,8 +14,7 @@ import {
   buildDomainFieldConfig,
   buildFieldConfig,
   getDefaultFieldMap,
-  shouldIncludeField,
-  stringifyDefaultValue
+  shouldIncludeField
 } from './yamlConfigTableValueCodecs';
 import {
   buildInitialDomainOverrides,

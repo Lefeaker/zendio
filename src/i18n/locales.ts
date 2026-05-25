@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE, getLanguageFallbackChain } from './config';
+import { getLanguageFallbackChain } from './config';
 import type { LangCode } from './config';
 import type { LocaleDefinition, LocaleStaticMessages } from './localeDefinition';
 import en from './locales/en';
@@ -8,7 +8,6 @@ export type Language = LangCode;
 export type { Messages } from './messages';
 export { DEFAULT_LANGUAGE, AVAILABLE_LANGUAGES } from './config';
 
-type LocaleModule = { default: LocaleDefinition };
 type LocaleLoader = () => Promise<LocaleDefinition>;
 type LocaleCache = Partial<Record<Language, LocaleDefinition>>;
 type LocaleLoaderMap = Partial<Record<Language, LocaleLoader>>;

@@ -13,31 +13,31 @@ export interface OptionsRepository {
    * 异步加载选项，确保从存储同步
    * @returns Promise<StoredOptions> 深拷贝的选项对象
    */
-  load(): Promise<StoredOptions>;
+  load: () => Promise<StoredOptions>;
 
   /**
    * 保存选项到存储并更新缓存
    * @param options 要保存的选项对象
    */
-  save(options: StoredOptions | CompleteOptions): Promise<void>;
+  save: (options: StoredOptions | CompleteOptions) => Promise<void>;
 
   /**
    * 获取当前缓存的选项快照（同步操作）
    * @returns StoredOptions | null 深拷贝的选项对象，如果未初始化则返回null
    */
-  snapshot(): StoredOptions | null;
+  snapshot: () => StoredOptions | null;
 
   /**
    * 订阅选项变更
    * @param listener 变更监听器，接收深拷贝的选项对象
    * @returns 取消订阅的函数
    */
-  subscribe(listener: (options: StoredOptions | undefined) => void): () => void;
+  subscribe: (listener: (options: StoredOptions | undefined) => void) => () => void;
 
   /**
    * 重置仓库状态（主要用于测试）
    */
-  reset(): void;
+  reset: () => void;
 }
 
 /**
@@ -45,9 +45,9 @@ export interface OptionsRepository {
  * 适用于只需要读取选项的场景，遵循接口隔离原则
  */
 export interface OptionsReader {
-  load(): Promise<StoredOptions>;
-  snapshot(): StoredOptions | null;
-  subscribe(listener: (options: StoredOptions | undefined) => void): () => void;
+  load: () => Promise<StoredOptions>;
+  snapshot: () => StoredOptions | null;
+  subscribe: (listener: (options: StoredOptions | undefined) => void) => () => void;
 }
 
 /**
@@ -55,5 +55,5 @@ export interface OptionsReader {
  * 适用于只需要写入选项的场景，遵循接口隔离原则
  */
 export interface OptionsWriter {
-  save(options: StoredOptions | CompleteOptions): Promise<void>;
+  save: (options: StoredOptions | CompleteOptions) => Promise<void>;
 }

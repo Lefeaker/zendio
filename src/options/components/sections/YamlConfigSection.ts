@@ -2,8 +2,6 @@ import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { YamlConfigOverrides, YamlContentType } from '@shared/types/yamlConfig';
 import type { IYamlRepository } from '@shared/repositories/IYamlRepository';
 import { YamlConfigService } from '@shared/services/yamlConfigService';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';
 import { type FormSectionHandlers } from '../formSections/formSectionManager';
 import type { YamlConfigView } from '@ui/domains/yaml-config';

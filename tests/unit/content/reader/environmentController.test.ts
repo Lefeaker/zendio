@@ -102,7 +102,7 @@ describe('ReaderEnvironmentController', () => {
         return () => {
           languageWatcher = null;
         };
-      }),
+      }) as StorageAreaService['watchKey'],
       watchAll: vi.fn(() => () => {})
     };
 

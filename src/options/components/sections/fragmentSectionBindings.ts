@@ -1,4 +1,3 @@
-import type { FragmentClipperOptions } from '@shared/types/options';
 import type { FragmentSectionLayoutRefs } from './fragmentSectionLayout';
 
 export interface EventBinding {

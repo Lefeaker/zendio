@@ -9,8 +9,7 @@ import type {
 import type { MessageListener } from '../../../src/platform/interfaces/messaging';
 import type {
   RuntimeInstallListener,
-  RuntimeStartupListener,
-  RuntimeService
+  RuntimeStartupListener
 } from '../../../src/platform/interfaces/runtime';
 import type { ScriptingService } from '../../../src/platform/interfaces/scripting';
 import type {
@@ -19,8 +18,9 @@ import type {
   TabUpdatedListener,
   TabsService
 } from '../../../src/platform/interfaces/tabs';
+import type { CompleteOptions } from '../../../src/shared/types/options';
 
-const createMockFn = <T extends (...args: any[]) => any>() =>
+const createMockFn = <T extends (...args: never[]) => unknown>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 type ContextMenusModule = typeof import('../../../src/background/listeners/contextMenus');
 type RegisterContextMenus = () => void;
@@ -181,8 +181,8 @@ export async function loadModule(
         }
       },
       optionsRepository: {
-        onChange: vi.fn((listener: () => void) => {
-          rig.optionSubscribers.push(listener);
+        onChange: vi.fn((listener: (options: CompleteOptions) => void) => {
+          rig.optionSubscribers.push(() => listener({} as CompleteOptions));
           return () => undefined;
         })
       }

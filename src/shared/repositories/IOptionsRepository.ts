@@ -14,14 +14,14 @@ export interface IOptionsRepository {
    * @returns Promise<CompleteOptions> 合并默认值后的完整配置
    * @throws StorageError 当 storage 读取失败时
    */
-  get(): Promise<CompleteOptions>;
+  get: () => Promise<CompleteOptions>;
 
   /**
    * 更新部分配置
    * @param options 要更新的配置字段(部分)
    * @throws StorageError 当 storage 写入失败时
    */
-  set(options: Partial<CompleteOptions>): Promise<void>;
+  set: (options: Partial<CompleteOptions>) => Promise<void>;
 
   /**
    * 订阅配置变更
@@ -32,5 +32,5 @@ export interface IOptionsRepository {
    * - 订阅时会立即触发一次 callback,确保 UI 同步最新状态
    * - 必须在组件 destroy 时调用返回的 unsubscribe 函数
    */
-  onChange(callback: (options: CompleteOptions) => void): () => void;
+  onChange: (callback: (options: CompleteOptions) => void) => () => void;
 }

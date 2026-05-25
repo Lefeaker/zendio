@@ -1,6 +1,5 @@
 import type { CompleteOptions, RestOptions, StoredOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
-import type { VaultConfig } from '@shared/types/vault';
 import type { FormSectionHandlers } from '../formSections/formSectionManager';
 import { createConnectionTester, type ConnectionTester } from '../controls/connectionTest';
 import type { ConnectionResultType } from '../../services/connectionTestRunner';

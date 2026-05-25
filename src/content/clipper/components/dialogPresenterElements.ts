@@ -9,20 +9,20 @@ import { createCommentForm } from './commentForm';
 import type { ReaderModeBehavior } from './dialogTypes';
 
 export interface DialogPresenterBindings {
-  applyText(
+  applyText: (
     element: HTMLElement,
     key: keyof Messages,
     fallback: string,
     binder: I18nBinder | null
-  ): void;
-  applyAttr(
+  ) => void;
+  applyAttr: (
     element: HTMLElement,
     attribute: string,
     datasetKey: string,
     key: keyof Messages,
     fallback: string,
     binder: I18nBinder | null
-  ): void;
+  ) => void;
 }
 
 export interface DialogPresenterOptions {
@@ -32,14 +32,14 @@ export interface DialogPresenterOptions {
   allowVideoMode: boolean;
   readerModeBehavior: ReaderModeBehavior;
   binder: I18nBinder | null;
-  getFallback<Key extends keyof Messages>(key: Key): string;
-  resolveAssetUrl(path: string): string;
+  getFallback: <Key extends keyof Messages>(key: Key) => string;
+  resolveAssetUrl: (path: string) => string;
   bindings: DialogPresenterBindings;
-  registerI18nHandles(handles: I18nBindingHandle[]): void;
-  onReader(): void;
-  onVideo(): void;
-  onCancel(): void;
-  onConfirm(): void;
+  registerI18nHandles: (handles: I18nBindingHandle[]) => void;
+  onReader: () => void;
+  onVideo: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
 }
 
 export interface DialogPresenterElements {

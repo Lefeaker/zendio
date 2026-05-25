@@ -229,7 +229,9 @@ export class ReaderDialogPanel
       surfaceId: 'reader',
       appData: content,
       actions: {
-        'reader:finish': () => this.options.callbacks.onFinish(),
+        'reader:finish': () => {
+          void this.options.callbacks.onFinish();
+        },
         'reader:cancel': () => this.options.callbacks.onCancel(),
         'export-destination:select': (event) => {
           const id = this.resolveActionId(event, 'destinationId');

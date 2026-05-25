@@ -545,7 +545,7 @@ describe('ReaderSession', () => {
       throw new Error('panel callbacks missing');
     }
 
-    callbacks.onFinish();
+    void callbacks.onFinish();
     await vi.waitFor(() => {
       expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
     });

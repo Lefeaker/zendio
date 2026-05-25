@@ -1,7 +1,5 @@
 import type { CompleteOptions, StoredOptions, TemplateOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories';
-import { resolveRepository } from '@shared/di/serviceRegistry';
-import { DI_TOKENS } from '@shared/di/tokens';
 import { configProvider } from '@shared/config';
 import { DEFAULT_DOMAIN_MAPPINGS } from '../../utils/defaults';
 import { getOptionsController, markPendingAutoSave } from '../../app/optionsControllerContext';

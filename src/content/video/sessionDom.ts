@@ -12,10 +12,10 @@ import type { VideoFragmentCapture } from './types';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 export interface VideoSessionDomListenerHandlers {
-  onMouseDown(event: MouseEvent): void;
-  onKeyDown(event: KeyboardEvent): void;
-  onKeyUp(event: KeyboardEvent): void;
-  onWindowBlur(): void;
+  onMouseDown: (event: MouseEvent) => void;
+  onKeyDown: (event: KeyboardEvent) => void;
+  onKeyUp: (event: KeyboardEvent) => void;
+  onWindowBlur: () => void;
 }
 
 export class VideoSessionDomController {

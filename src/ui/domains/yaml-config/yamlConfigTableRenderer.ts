@@ -3,7 +3,6 @@ import { type FieldRow, type YamlConfigTableLabels } from './yamlConfigTableType
 import type { RowActions } from './yamlConfigTableSharedRenderers';
 import { appendYamlConfigTableSections } from './yamlConfigTableRendererSections';
 import {
-  buildGlobalWarnings,
   buildHeader,
   createYamlConfigTableShell,
   renderFilters
