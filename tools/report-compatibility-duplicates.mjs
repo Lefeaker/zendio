@@ -141,11 +141,13 @@ export function loadAllowlist(root = process.cwd(), allowlistPath = DEFAULT_ALLO
 export function evaluateDuplicateGroups(duplicateGroups, allowlist) {
   const allowedKeys = new Map(allowlist.map((entry) => [groupKey(entry.files), entry]));
   const unexpected = duplicateGroups.filter((files) => !allowedKeys.has(groupKey(files)));
+  const allowed = duplicateGroups.filter((files) => allowedKeys.has(groupKey(files)));
   const presentKeys = new Set(duplicateGroups.map(groupKey));
   const staleAllowlist = allowlist.filter((entry) => !presentKeys.has(groupKey(entry.files)));
 
   return {
-    ok: unexpected.length === 0,
+    ok: unexpected.length === 0 && staleAllowlist.length === 0,
+    allowed,
     unexpected,
     staleAllowlist
   };
@@ -156,6 +158,9 @@ function printReport({ candidateFiles, duplicateGroups, allowlist, evaluation })
   console.log(`candidate files: ${candidateFiles.length}`);
   console.log(`duplicate groups: ${duplicateGroups.length}`);
   console.log(`allowlist entries: ${allowlist.length}`);
+  console.log(`unexpected duplicate groups: ${evaluation.unexpected.length}`);
+  console.log(`allowed duplicate groups: ${evaluation.allowed.length}`);
+  console.log(`stale allowlist entries: ${evaluation.staleAllowlist.length}`);
 
   if (duplicateGroups.length === 0) {
     console.log('No exact duplicate compatibility groups found.');
@@ -191,9 +196,16 @@ export async function runCompatibilityDuplicateAudit(argv = process.argv.slice(2
   });
 
   if (options.check && !evaluation.ok) {
-    console.error(
-      `Unexpected compatibility duplicate groups found: ${evaluation.unexpected.length}. Add an allowlist entry only with owner-approved deleteGate evidence.`
-    );
+    if (evaluation.unexpected.length > 0) {
+      console.error(
+        `Unexpected compatibility duplicate groups found: ${evaluation.unexpected.length}. Add an allowlist entry only with owner-approved deleteGate evidence.`
+      );
+    }
+    if (evaluation.staleAllowlist.length > 0) {
+      console.error(
+        `Stale compatibility duplicate allowlist entries found: ${evaluation.staleAllowlist.length}. Remove entries after duplicate groups disappear.`
+      );
+    }
     process.exitCode = 1;
   }
 }
