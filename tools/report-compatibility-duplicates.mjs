@@ -34,22 +34,23 @@ function parseArgs(argv) {
     allowlistPath: DEFAULT_ALLOWLIST_PATH
   };
 
+  const requirePathValue = (value, flag) => {
+    if (!value || value.startsWith('--')) {
+      throw new Error(`${flag} requires a path.`);
+    }
+    return value;
+  };
+
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--check') {
       options.check = true;
     } else if (arg === '--root') {
-      const next = argv[index + 1];
-      if (!next) {
-        throw new Error('--root requires a path.');
-      }
+      const next = requirePathValue(argv[index + 1], '--root');
       options.root = resolve(next);
       index += 1;
     } else if (arg === '--allowlist') {
-      const next = argv[index + 1];
-      if (!next) {
-        throw new Error('--allowlist requires a path.');
-      }
+      const next = requirePathValue(argv[index + 1], '--allowlist');
       options.allowlistPath = next;
       index += 1;
     } else {
