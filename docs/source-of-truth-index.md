@@ -28,7 +28,7 @@
 - i18n 语言范围当前真值：产品决策标签为 `release-13-languages`；release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；README、runtime config、locale loaders、`src/i18n/locales/*.ts` 与 WebExtension `_locales` 必须与该范围一致
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
-- 2026-05-20 release readiness 真值：Node `20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`，`npm audit --audit-level=low` 仍作为 dev/release toolchain 后续计划记录
+- 2026-05-20 release readiness 真值：Node `v20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`，`npm audit --audit-level=low` 仍作为 dev/release toolchain 后续计划记录
 - 2026-05-21 owner-proof 真值：低复用/retained source 删除只接受 M6.1 六项 owner proof 表中 `delete-approved` 的 exact path；当前 `changelogContent`、`trial-notice`、reader `highlightController` 与 `contentClipOrchestrator` 均未获删除批准
 - 2026-05-21 M7 baseline sync 真值：`content/runtime.js` fresh build 为 raw `54,554` bytes，低于 `57,600` stop gate
 - 2026-05-24 gap-remediation baseline sync 真值：lint warning baseline 曾同步为 `254`；M3.4 后当前 baseline 已继续收紧为 `165`，不得通过禁用规则或修改 lint 配置制造下降
@@ -38,8 +38,9 @@
 - 2026-05-25 M5.1 build/performance truth：`quality` 与 `verify:preflight` 重新通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,337` bytes），chunk count `102`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-25 M5.3/M6.2 budget ratchet truth：`lint:type-any:ratchet` 以 overall `0/971/1667/108/5`、src `0/540/626/5/0`、tests `0/431/1041/103/5` 接入 `quality`；`audit:performance:report` 动态发现当前全部 `99` 个 `src` >250 LOC 文件并要求每个文件存在 line budget
 - 2026-05-25 M5.4 compatibility duplicate truth：usage/rest compatibility duplicate audit 已接入 `quality`；当前 `candidate files: 16`、`duplicate groups: 0`，没有 owner-approved production allowlist 条目
-- 2026-05-22 final exit gate 真值：Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；当前 release/交付证据以 Node `20.x` 为准
-- 2026-05-22 review gap patch 真值：`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 已纳入 hotspot/production shape 治理，预算均为 `<= 450` 行；`npm run build`、`npm run build:firefox`、Chrome/Firefox `audit:local-vault-release:report` 已在 Node `20.x` 下补跑通过
+- 2026-05-25 M6.5 runtime truth：`.nvmrc` pins Node `20.20.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21` / npm `>=10 <11`，与 lockfile transitive `>=20.19.0` engine 要求一致；本轮验证使用 Node `v20.20.2` / npm `10.8.2`
+- 2026-05-22 final exit gate 真值：Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；当前 release/交付证据必须使用 Node `>=20.19 <21`
+- 2026-05-22 review gap patch 真值：`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 已纳入 hotspot/production shape 治理，预算均为 `<= 450` 行；`npm run build`、`npm run build:firefox`、Chrome/Firefox `audit:local-vault-release:report` 已在 Node `v20.20.2` / npm `10.8.2` 下补跑通过
 - 2026-05-22 retained-code 真值：M6.2 低复用代码退役是安全 no-op，未删除源码；没有新增 `delete-approved` retained low-reuse path，剩余 retained/compatibility source 仍是后续债务
 
 ## 历史与归档

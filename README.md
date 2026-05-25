@@ -81,8 +81,8 @@
 
 ## Development Baseline
 
-- Recommended Node.js: `20.x` (`.nvmrc`)
-- Recommended npm: `10.x`
+- Recommended Node.js: `20.20.2` (`.nvmrc`); package engines allow `>=20.19 <21`
+- Recommended npm: `10.8.2`; package engines allow `>=10 <11`
 - Minimum preflight gate before large refactors:
   - `npm run verify:preflight`
   - `npm run test:e2e:browser`
