@@ -1,108 +1,15 @@
 {
-  "totalWarnings": 254,
+  "totalWarnings": 165,
   "ruleCounts": {
-    "@typescript-eslint/no-unused-vars": 33,
-    "@typescript-eslint/unbound-method": 33,
     "@typescript-eslint/require-await": 126,
-    "@typescript-eslint/no-misused-promises": 2,
-    "@typescript-eslint/no-redundant-type-constituents": 2,
     "no-restricted-syntax": 3,
-    "@typescript-eslint/restrict-template-expressions": 2,
     "@typescript-eslint/no-unsafe-assignment": 26,
     "@typescript-eslint/no-unsafe-return": 4,
-    "@typescript-eslint/no-explicit-any": 12,
-    "@typescript-eslint/await-thenable": 5,
     "@typescript-eslint/no-unsafe-argument": 2,
     "@typescript-eslint/no-unsafe-member-access": 3,
     "@typescript-eslint/no-unsafe-call": 1
   },
   "files": [
-    {
-      "file": "src/background/listeners/contextMenus.ts",
-      "warnings": [
-        {
-          "line": 25,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'getDependencies' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/background/services/classificationService.ts",
-      "warnings": [
-        {
-          "line": 4,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'ClassifierFailure' is defined but never used."
-        },
-        {
-          "line": 5,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'AppError' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/content/clipper/components/dialogPresenterElements.ts",
-      "warnings": [
-        {
-          "line": 60,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 61,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 63,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 64,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 65,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 66,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 67,
-          "column": 5,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
-      "file": "src/content/clipper/presentation/clipperDialogPrompt.ts",
-      "warnings": [
-        {
-          "line": 8,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'PopupCoordinator' is defined but never used."
-        }
-      ]
-    },
     {
       "file": "src/content/extractors/aiChatExtractor.ts",
       "warnings": [
@@ -115,28 +22,6 @@
       ]
     },
     {
-      "file": "src/content/index.ts",
-      "warnings": [
-        {
-          "line": 7,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'isReaderSessionActive' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/content/reader/session.ts",
-      "warnings": [
-        {
-          "line": 74,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-misused-promises",
-          "message": "Promise-returning function provided to property where a void return was expected."
-        }
-      ]
-    },
-    {
       "file": "src/content/reader/sessionOperations.ts",
       "warnings": [
         {
@@ -144,76 +29,6 @@
           "column": 8,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async function 'handleReaderSessionMouseUp' has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "src/content/runtime/contentSessionRegistry.ts",
-      "warnings": [
-        {
-          "line": 2,
-          "column": 18,
-          "ruleId": "@typescript-eslint/no-redundant-type-constituents",
-          "message": "'unknown' overrides all other types in this union type."
-        },
-        {
-          "line": 3,
-          "column": 17,
-          "ruleId": "@typescript-eslint/no-redundant-type-constituents",
-          "message": "'unknown' overrides all other types in this union type."
-        }
-      ]
-    },
-    {
-      "file": "src/content/video/sessionDom.ts",
-      "warnings": [
-        {
-          "line": 144,
-          "column": 44,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 145,
-          "column": 42,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 146,
-          "column": 40,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 147,
-          "column": 52,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 154,
-          "column": 47,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 155,
-          "column": 45,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 156,
-          "column": 43,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 157,
-          "column": 55,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
         }
       ]
     },
@@ -334,33 +149,10 @@
       "file": "src/i18n/locales.ts",
       "warnings": [
         {
-          "line": 1,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DEFAULT_LANGUAGE' is defined but never used."
-        },
-        {
-          "line": 11,
-          "column": 6,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'LocaleModule' is defined but never used."
-        },
-        {
-          "line": 17,
+          "line": 16,
           "column": 3,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'en' has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "src/i18n/pageController.ts",
-      "warnings": [
-        {
-          "line": 2,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DEFAULT_LANGUAGE' is defined but never used."
         }
       ]
     },
@@ -436,50 +228,16 @@
       ]
     },
     {
-      "file": "src/options/app/productionStitchRenderLifecycle.ts",
-      "warnings": [
-        {
-          "line": 15,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'ViewSchema' is defined but never used."
-        },
-        {
-          "line": 74,
-          "column": 17,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/fragmentSectionBindings.ts",
-      "warnings": [
-        {
-          "line": 1,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'FragmentClipperOptions' is defined but never used."
-        }
-      ]
-    },
-    {
       "file": "src/options/components/sections/fragmentSectionLayoutBuilders.ts",
       "warnings": [
         {
-          "line": 1,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'FragmentClipperOptions' is defined but never used."
-        },
-        {
-          "line": 203,
+          "line": 202,
           "column": 5,
           "ruleId": "no-restricted-syntax",
           "message": "Consider replacing long Tailwind class lists with DaisyUI components"
         },
         {
-          "line": 208,
+          "line": 207,
           "column": 20,
           "ruleId": "no-restricted-syntax",
           "message": "Consider replacing long Tailwind class lists with DaisyUI components"
@@ -509,171 +267,52 @@
       ]
     },
     {
-      "file": "src/options/components/sections/restSectionRuntime.ts",
-      "warnings": [
-        {
-          "line": 3,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'VaultConfig' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/TemplatesSection.ts",
-      "warnings": [
-        {
-          "line": 3,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'resolveRepository' is defined but never used."
-        },
-        {
-          "line": 4,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DI_TOKENS' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/TransferSection.ts",
-      "warnings": [
-        {
-          "line": 1,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'resolveRepository' is defined but never used."
-        },
-        {
-          "line": 2,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DI_TOKENS' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/VideoSection.ts",
-      "warnings": [
-        {
-          "line": 3,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'resolveRepository' is defined but never used."
-        },
-        {
-          "line": 4,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DI_TOKENS' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/YamlConfigSection.ts",
-      "warnings": [
-        {
-          "line": 5,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'resolveRepository' is defined but never used."
-        },
-        {
-          "line": 6,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'DI_TOKENS' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/schema-runtime/actionRuntime.ts",
-      "warnings": [
-        {
-          "line": 57,
-          "column": 32,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'State' is defined but never used."
-        },
-        {
-          "line": 57,
-          "column": 39,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'AppData' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/options/stitch/schema/registry.ts",
-      "warnings": [
-        {
-          "line": 62,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'resolveFooterSchema' is defined but never used."
-        }
-      ]
-    },
-    {
       "file": "src/shared/di/serviceRegistry.ts",
       "warnings": [
         {
-          "line": 116,
-          "column": 79,
-          "ruleId": "@typescript-eslint/restrict-template-expressions",
-          "message": "Invalid type \"unknown\" of template literal expression."
-        },
-        {
-          "line": 180,
-          "column": 93,
-          "ruleId": "@typescript-eslint/restrict-template-expressions",
-          "message": "Invalid type \"unknown\" of template literal expression."
-        },
-        {
-          "line": 280,
+          "line": 284,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'get' has no 'await' expression."
         },
         {
-          "line": 283,
+          "line": 287,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'set' has no 'await' expression."
         },
         {
-          "line": 299,
+          "line": 303,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'send' has no 'await' expression."
         },
         {
-          "line": 318,
+          "line": 322,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'getOverrides' has no 'await' expression."
         },
         {
-          "line": 321,
+          "line": 325,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'setOverrides' has no 'await' expression."
         },
         {
-          "line": 345,
+          "line": 349,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'getVideoConfig' has no 'await' expression."
         },
         {
-          "line": 356,
+          "line": 360,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'getPromptPosition' has no 'await' expression."
         },
         {
-          "line": 359,
+          "line": 363,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'sendVideoClip' has no 'await' expression."
@@ -695,107 +334,40 @@
       "file": "src/shared/state/globalStateManager.ts",
       "warnings": [
         {
-          "line": 195,
+          "line": 215,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'get' has no 'await' expression."
         },
         {
-          "line": 198,
+          "line": 218,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'set' has no 'await' expression."
         },
         {
-          "line": 203,
+          "line": 223,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'getMany' has no 'await' expression."
         },
         {
-          "line": 206,
+          "line": 226,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'setMany' has no 'await' expression."
         },
         {
-          "line": 213,
+          "line": 233,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'remove' has no 'await' expression."
         },
         {
-          "line": 220,
+          "line": 240,
           "column": 5,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'clear' has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts",
-      "warnings": [
-        {
-          "line": 11,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'ARRAY_INPUT_HINT' is defined but never used."
-        },
-        {
-          "line": 12,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'ARRAY_INPUT_PLACEHOLDER' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/ui/domains/yaml-config/yamlConfigTableDomainRenderers.ts",
-      "warnings": [
-        {
-          "line": 16,
-          "column": 10,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'formatArrayValue' is defined but never used."
-        },
-        {
-          "line": 51,
-          "column": 5,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'buildDomainFieldDefinition' is assigned a value but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/ui/domains/yaml-config/yamlConfigTableRenderer.ts",
-      "warnings": [
-        {
-          "line": 6,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'buildGlobalWarnings' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/ui/domains/yaml-config/yamlConfigTableRowRenderers.ts",
-      "warnings": [
-        {
-          "line": 1,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'YamlContentType' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "src/ui/domains/yaml-config/yamlConfigTableStateModel.ts",
-      "warnings": [
-        {
-          "line": 18,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'stringifyDefaultValue' is defined but never used."
         }
       ]
     },
@@ -995,24 +567,6 @@
       "file": "tests/unit/background/contextMenus.helpers.ts",
       "warnings": [
         {
-          "line": 13,
-          "column": 3,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'RuntimeService' is defined but never used."
-        },
-        {
-          "line": 23,
-          "column": 43,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 23,
-          "column": 53,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
           "line": 68,
           "column": 22,
           "ruleId": "@typescript-eslint/require-await",
@@ -1023,58 +577,6 @@
           "column": 29,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/background/contextMenus.lifecycle.test.ts",
-      "warnings": [
-        {
-          "line": 102,
-          "column": 5,
-          "ruleId": "@typescript-eslint/await-thenable",
-          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-        },
-        {
-          "line": 106,
-          "column": 5,
-          "ruleId": "@typescript-eslint/await-thenable",
-          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-        },
-        {
-          "line": 115,
-          "column": 5,
-          "ruleId": "@typescript-eslint/await-thenable",
-          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-        },
-        {
-          "line": 122,
-          "column": 5,
-          "ruleId": "@typescript-eslint/await-thenable",
-          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-        },
-        {
-          "line": 129,
-          "column": 5,
-          "ruleId": "@typescript-eslint/await-thenable",
-          "message": "Unexpected `await` of a non-Promise (non-\"Thenable\") value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/background/notifications.test.ts",
-      "warnings": [
-        {
-          "line": 273,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 503,
-          "column": 10,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
         }
       ]
     },
@@ -1281,17 +783,6 @@
       ]
     },
     {
-      "file": "tests/unit/content/clipperDialog.test.ts",
-      "warnings": [
-        {
-          "line": 448,
-          "column": 15,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/content/clipperDialogKeyboardShortcuts.test.ts",
       "warnings": [
         {
@@ -1350,17 +841,6 @@
       ]
     },
     {
-      "file": "tests/unit/content/contentMessageRouter.test.ts",
-      "warnings": [
-        {
-          "line": 203,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/content/contentRuntimeEvents.test.ts",
       "warnings": [
         {
@@ -1368,23 +848,6 @@
           "column": 43,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/content/contentSelectionTracker.test.ts",
-      "warnings": [
-        {
-          "line": 67,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 68,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
         }
       ]
     },
@@ -1441,17 +904,6 @@
       ]
     },
     {
-      "file": "tests/unit/content/fragmentConfig.test.ts",
-      "warnings": [
-        {
-          "line": 89,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/content/panelStyleSheetManager.test.ts",
       "warnings": [
         {
@@ -1459,17 +911,6 @@
           "column": 76,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/content/popupCoordinatorLifecycle.test.ts",
-      "warnings": [
-        {
-          "line": 215,
-          "column": 49,
-          "ruleId": "@typescript-eslint/no-misused-promises",
-          "message": "Promise-returning function provided to property where a void return was expected."
         }
       ]
     },
@@ -1558,57 +999,6 @@
       ]
     },
     {
-      "file": "tests/unit/infrastructure/ChromeClipRepository.test.ts",
-      "warnings": [
-        {
-          "line": 8,
-          "column": 43,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 8,
-          "column": 53,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/infrastructure/ChromeMessagingRepository.test.ts",
-      "warnings": [
-        {
-          "line": 8,
-          "column": 43,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 8,
-          "column": 53,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/infrastructure/ChromeOptionsRepository.test.ts",
-      "warnings": [
-        {
-          "line": 8,
-          "column": 43,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 8,
-          "column": 53,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/options/actions.test.ts",
       "warnings": [
         {
@@ -1682,28 +1072,6 @@
       ]
     },
     {
-      "file": "tests/unit/options/schemaI18nParity.test.ts",
-      "warnings": [
-        {
-          "line": 4,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'Messages' is defined but never used."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/options/sections/restSectionState.test.ts",
-      "warnings": [
-        {
-          "line": 6,
-          "column": 15,
-          "ruleId": "@typescript-eslint/no-unused-vars",
-          "message": "'RestOptions' is defined but never used."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/options/stitchSharedRegistry.test.ts",
       "warnings": [
         {
@@ -1715,68 +1083,6 @@
       ]
     },
     {
-      "file": "tests/unit/options/yamlConfigView.test.ts",
-      "warnings": [
-        {
-          "line": 8,
-          "column": 43,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 8,
-          "column": 53,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/platform/chrome/action.test.ts",
-      "warnings": [
-        {
-          "line": 62,
-          "column": 26,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 63,
-          "column": 37,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/platform/chrome/contextMenus.test.ts",
-      "warnings": [
-        {
-          "line": 71,
-          "column": 21,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/platform/chrome/runtime.test.ts",
-      "warnings": [
-        {
-          "line": 44,
-          "column": 20,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 45,
-          "column": 25,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/platform/chrome/utils.test.ts",
       "warnings": [
         {
@@ -1784,34 +1090,6 @@
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/platform/firefox/action.test.ts",
-      "warnings": [
-        {
-          "line": 38,
-          "column": 26,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 39,
-          "column": 37,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/platform/firefox/contextMenus.test.ts",
-      "warnings": [
-        {
-          "line": 35,
-          "column": 21,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
         }
       ]
     },
@@ -1957,18 +1235,6 @@
           "column": 27,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 89,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
-        },
-        {
-          "line": 90,
-          "column": 12,
-          "ruleId": "@typescript-eslint/unbound-method",
-          "message": "A method that is not declared with `this: void` may cause unintentional scoping of `this` when separated from its object.\nConsider using an arrow function or explicitly `.bind()`ing the method to avoid calling the method with an unintended `this` value. \nIf a function does not access `this`, it can be annotated with `this: void`."
         }
       ]
     },
@@ -1986,23 +1252,6 @@
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/utils/browserMocks.ts",
-      "warnings": [
-        {
-          "line": 4,
-          "column": 30,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
-        },
-        {
-          "line": 4,
-          "column": 40,
-          "ruleId": "@typescript-eslint/no-explicit-any",
-          "message": "Unexpected any. Specify a different type."
         }
       ]
     }
