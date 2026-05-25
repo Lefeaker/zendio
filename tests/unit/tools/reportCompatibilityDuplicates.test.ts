@@ -27,6 +27,42 @@ describe('report-compatibility-duplicates', () => {
     expect(result.stderr).toContain('Unexpected compatibility duplicate groups found: 1');
   });
 
+  it('fails when --root is missing a path', () => {
+    const result = spawnSync(process.execPath, [toolPath, '--root'], {
+      encoding: 'utf8'
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--root requires a path.');
+  });
+
+  it('fails when --root is followed by another flag', () => {
+    const result = spawnSync(process.execPath, [toolPath, '--root', '--check'], {
+      encoding: 'utf8'
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--root requires a path.');
+  });
+
+  it('fails when --allowlist is missing a path', () => {
+    const result = spawnSync(process.execPath, [toolPath, '--allowlist'], {
+      encoding: 'utf8'
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--allowlist requires a path.');
+  });
+
+  it('fails when --allowlist is followed by another flag', () => {
+    const result = spawnSync(process.execPath, [toolPath, '--allowlist', '--check'], {
+      encoding: 'utf8'
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--allowlist requires a path.');
+  });
+
   it('passes check mode for owner-approved allowlisted duplicate groups', () => {
     const result = spawnSync(
       process.execPath,
