@@ -4,8 +4,8 @@
 
 ## 推荐运行环境
 
-- Node.js：`20.x`
-- npm：`10.x`
+- Node.js：`.nvmrc` pins `20.20.2`；package engines allow `>=20.19 <21`
+- npm：validated `10.8.2`；package engines allow `>=10 <11`
 - Playwright：`npx playwright install --with-deps chromium`
 
 ## 本轮统一门禁真值
@@ -35,6 +35,7 @@
 - 2026-05-25 M5.1 source-of-truth sync 真值：Plans 1-4 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-25 M5.3 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 已扩展到当前全部 `src` >250 LOC 文件
 - 2026-05-25 M5.4 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
+- 2026-05-25 M6.5 runtime 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 收紧为 Node `>=20.19 <21`，与 lockfile 中 `jsdom` / `vite` / CSS tooling 等 transitive `>=20.19.0` 要求一致
 
 ## 当前推荐执行顺序
 
