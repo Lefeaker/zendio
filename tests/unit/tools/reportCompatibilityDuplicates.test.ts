@@ -39,4 +39,18 @@ describe('report-compatibility-duplicates', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('allowed duplicate group');
   });
+
+  it('fails check mode when an allowlist entry no longer matches a duplicate group', () => {
+    const result = spawnSync(
+      process.execPath,
+      [toolPath, '--root', fixtureRoot, '--allowlist', 'allowlist-stale.json', '--check'],
+      {
+        encoding: 'utf8'
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('stale allowlist entries: 1');
+    expect(result.stderr).toContain('Stale compatibility duplicate allowlist entries found: 1');
+  });
 });
