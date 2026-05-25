@@ -18,6 +18,7 @@ import type {
   TabUpdatedListener,
   TabsService
 } from '../../../src/platform/interfaces/tabs';
+import type { CompleteOptions } from '../../../src/shared/types/options';
 
 const createMockFn = <T extends (...args: any[]) => any>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
@@ -180,8 +181,8 @@ export async function loadModule(
         }
       },
       optionsRepository: {
-        onChange: vi.fn((listener: () => void) => {
-          rig.optionSubscribers.push(listener);
+        onChange: vi.fn((listener: (options: CompleteOptions) => void) => {
+          rig.optionSubscribers.push(() => listener({} as CompleteOptions));
           return () => undefined;
         })
       }

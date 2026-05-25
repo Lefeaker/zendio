@@ -40,14 +40,16 @@ describe('contentSelectionTracker', () => {
     const range = document.createRange();
     range.setStart(target.firstChild, 0);
     range.setEnd(target.firstChild, 'tracked selection'.length);
+    const removeAllRanges = vi.fn();
+    const addRange = vi.fn();
     const selection = {
       rangeCount: 1,
       isCollapsed: false,
       anchorNode: target.firstChild,
       focusNode: target.firstChild,
       getRangeAt: vi.fn(() => range),
-      removeAllRanges: vi.fn(),
-      addRange: vi.fn(),
+      removeAllRanges,
+      addRange,
       toString: vi.fn(() => 'tracked selection')
     } as unknown as Selection;
     Object.assign(shadow, {
@@ -64,8 +66,8 @@ describe('contentSelectionTracker', () => {
 
     const restored = tracker.restoreSelectionFromSnapshot(snapshot);
 
-    expect(selection.removeAllRanges).toHaveBeenCalledTimes(1);
-    expect(selection.addRange).toHaveBeenCalledTimes(1);
+    expect(removeAllRanges).toHaveBeenCalledTimes(1);
+    expect(addRange).toHaveBeenCalledTimes(1);
     expect(restored).toEqual({ selection, root: shadow });
   });
 

@@ -16,6 +16,7 @@ import type {
   TabUpdatedListener,
   TabsService
 } from '../../../src/platform/interfaces/tabs';
+import type { CompleteOptions } from '../../../src/shared/types/options';
 import { flush, loadModule } from './contextMenus.helpers';
 
 describe('context menu listeners', () => {
@@ -218,8 +219,8 @@ describe('context menu listeners', () => {
         }
       },
       optionsRepository: {
-        onChange: vi.fn((listener: () => void) => {
-          rig.optionSubscribers.push(listener);
+        onChange: vi.fn((listener: (options: CompleteOptions) => void) => {
+          rig.optionSubscribers.push(() => listener({} as CompleteOptions));
           return () => undefined;
         })
       }

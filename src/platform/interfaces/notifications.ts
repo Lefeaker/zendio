@@ -8,6 +8,6 @@ export interface NotificationOptions {
 }
 
 export interface NotificationsService {
-  create(id: string, options: NotificationOptions): Promise<string | void>;
-  clear(id: string): Promise<void>;
+  create: (id: string, options: NotificationOptions) => Promise<string | void>;
+  clear: (id: string) => Promise<void>;
 }

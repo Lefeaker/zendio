@@ -15,20 +15,20 @@ interface ProductionStitchShellRuntimeServicesOptions {
   messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'>;
   storage?: StorageService;
   now?: () => number;
-  getAppData(): PreviewContent;
-  getCurrentMessages(): Messages | null;
-  getDraft(): CompleteOptions;
-  getState(): PreviewStoreState;
-  setAppData(appData: PreviewContent): void;
-  setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
-  setDraft(draft: CompleteOptions): void;
-  setDomainMappingRows(entries: Array<[string, string]>): void;
-  setMaintenanceLog(log: PreviewContent['maintenanceLog']): void;
-  setState(state: PreviewStoreState): void;
-  getConnectionNotice(): PreviewContent['storage']['connectionNotice'] | undefined;
-  refreshAppData(): void;
-  render(): void;
-  scheduleDraftSave(): void;
+  getAppData: () => PreviewContent;
+  getCurrentMessages: () => Messages | null;
+  getDraft: () => CompleteOptions;
+  getState: () => PreviewStoreState;
+  setAppData: (appData: PreviewContent) => void;
+  setConnectionNotice: (notice: PreviewContent['storage']['connectionNotice']) => void;
+  setDraft: (draft: CompleteOptions) => void;
+  setDomainMappingRows: (entries: Array<[string, string]>) => void;
+  setMaintenanceLog: (log: PreviewContent['maintenanceLog']) => void;
+  setState: (state: PreviewStoreState) => void;
+  getConnectionNotice: () => PreviewContent['storage']['connectionNotice'] | undefined;
+  refreshAppData: () => void;
+  render: () => void;
+  scheduleDraftSave: () => void;
 }
 
 export function createProductionStitchShellRuntimeServices(
