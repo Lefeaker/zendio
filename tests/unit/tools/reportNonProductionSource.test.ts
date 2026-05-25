@@ -20,12 +20,27 @@ type NonProductionSourceModule = {
     ok: boolean;
     violations: Array<{ metric: string; actual: number; max: number }>;
   };
+  parseArgs: (argv: string[]) => {
+    checkMode: boolean;
+    format: string;
+    output: string | null;
+    maxMigrateImportOwner?: number;
+  };
+  evaluateNonProductionSourceGates: (
+    rows: object[],
+    options: { checkMode?: boolean; maxMigrateImportOwner?: number }
+  ) => {
+    ok: boolean;
+    violations: object[];
+  };
 };
 
 const {
   classifySourceFile,
+  evaluateNonProductionSourceGates,
   formatNonProductionSourceJson,
   formatNonProductionSourceReport,
+  parseArgs,
   validateNonProductionSourceCheck,
   validateNonProductionSourceThresholds
 } = (await import(
@@ -690,6 +705,54 @@ describe('report-non-production-source', () => {
       actual: 1,
       max: 0
     });
+  });
+
+  it('fails CLI parsing for unknown flags', () => {
+    expect(() => parseArgs(['--typo'])).toThrow('Unknown argument: --typo');
+  });
+
+  it('fails CLI parsing when --format is missing a value', () => {
+    expect(() => parseArgs(['--format'])).toThrow('--format requires a value');
+  });
+
+  it('fails CLI parsing when --output is missing a value', () => {
+    expect(() => parseArgs(['--output'])).toThrow('--output requires a value');
+  });
+
+  it('fails CLI parsing for unsupported formats', () => {
+    expect(() => parseArgs(['--format', 'table'])).toThrow(
+      'Unsupported --format table; expected markdown or json'
+    );
+  });
+
+  it('applies check mode and threshold gates together', () => {
+    const rows = [
+      classifySourceFile(input({ file: 'src/unknown/unused.ts' })),
+      classifySourceFile(
+        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+      )
+    ];
+
+    const result = evaluateNonProductionSourceGates(rows, {
+      checkMode: true,
+      maxMigrateImportOwner: 0
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'check',
+          file: 'src/unknown/unused.ts'
+        }),
+        expect.objectContaining({
+          kind: 'threshold',
+          metric: 'migrate-import-owner',
+          actual: 1,
+          max: 0
+        })
+      ])
+    );
   });
 
   it('passes check mode for migrate and retain inventory without stop-unknown or delete-now', () => {
