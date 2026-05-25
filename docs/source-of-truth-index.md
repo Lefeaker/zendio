@@ -18,6 +18,7 @@
 ## 当前执行主线
 
 - 当前统一门禁以 `quality` / `verify:preflight` / CI 三者一致为准
+- 当前本地 runtime hard gate 以 `verify:runtime` 为准；该命令读取 `package.json` 的 `engines.node`，并已接入 `quality` 与 `verify:preflight`
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
@@ -33,12 +34,12 @@
 - 2026-05-21 M7 baseline sync 真值：`content/runtime.js` fresh build 为 raw `54,554` bytes，低于 `57,600` stop gate
 - 2026-05-24 gap-remediation baseline sync 真值：lint warning baseline 曾同步为 `254`；M3.4 后当前 baseline 已继续收紧为 `165`，不得通过禁用规则或修改 lint 配置制造下降
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，Node `v20.20.2` / npm `10.8.2` 下 fresh `build:fast`、`build:dev`、`audit:build:report`、`audit:performance:report` 已通过；`content/runtime.js` raw stop gate 收紧为 `56,320` bytes，chunk count 收紧为 `<= 112`，hotspot line budgets 以 [`performance-baseline.md`](./performance-baseline.md) 为准
-- 2026-05-25 M6.2 scoped type audit truth：`lint:type-any` 扫描 `1081` files；overall `0/971/1667/108/5`；src `0/540/626/5/0`；tests `0/431/1041/103/5`；`lint:type-any:ratchet` 必须同时守住 overall、src 与 tests，tests 下降不得抵消 src 增长
+- 2026-05-25 post-gap scoped type audit truth：`lint:type-any` 扫描 `1082` files；overall `0/971/1667/108/5`；src `0/540/626/5/0`；tests `0/431/1041/103/5`；`lint:type-any:ratchet` 必须同时守住 overall、src 与 tests，tests 下降不得抵消 src 增长
 - 2026-05-25 M5.1 non-production source truth：`audit:non-production-source:report` 当前 decision counts 为 `migrate-import-owner: 197`、`retain-production: 524`、`retain-production-facade: 17`；任何 `src` 删除仍必须满足六项 exact-path owner proof
 - 2026-05-25 M5.1 build/performance truth：`quality` 与 `verify:preflight` 重新通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,337` bytes），chunk count `102`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-25 M5.3/M6.2 budget ratchet truth：`lint:type-any:ratchet` 以 overall `0/971/1667/108/5`、src `0/540/626/5/0`、tests `0/431/1041/103/5` 接入 `quality`；`audit:performance:report` 动态发现当前全部 `99` 个 `src` >250 LOC 文件并要求每个文件存在 line budget
 - 2026-05-25 M5.4 compatibility duplicate truth：usage/rest compatibility duplicate audit 已接入 `quality`；当前 `candidate files: 16`、`duplicate groups: 0`，没有 owner-approved production allowlist 条目
-- 2026-05-25 M6.5 runtime truth：`.nvmrc` pins Node `20.20.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21` / npm `>=10 <11`，与 lockfile transitive `>=20.19.0` engine 要求一致；本轮验证使用 Node `v20.20.2` / npm `10.8.2`
+- 2026-05-25 post-gap runtime guard truth：`.nvmrc` pins Node `20.20.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21` / npm `>=10 <11`，与 lockfile transitive `>=20.19.0` engine 要求一致；`verify:runtime` 会读取 `package.json` 的 `engines.node` 并拒绝不满足范围的 Node runtime；本轮验证使用 Node `v20.20.2` / npm `10.8.2`
 - 2026-05-22 final exit gate 真值：Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；当前 release/交付证据必须使用 Node `>=20.19 <21`
 - 2026-05-22 review gap patch 真值：`productionStitchShellMount.ts` 与 `usageChartRenderers.ts` 已纳入 hotspot/production shape 治理，预算均为 `<= 450` 行；Chrome `npm run build` -> `audit:local-vault-release:report -- --browser chrome`、Firefox `npm run build:firefox` -> `audit:local-vault-release:report -- --browser firefox` 已在 Node `v20.20.2` / npm `10.8.2` 下补跑通过；`build/dist` 不得跨 browser target 复用
 - 2026-05-22 retained-code 真值：M6.2 低复用代码退役是安全 no-op，未删除源码；没有新增 `delete-approved` retained low-reuse path，剩余 retained/compatibility source 仍是后续债务
