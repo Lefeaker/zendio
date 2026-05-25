@@ -8,6 +8,7 @@ import type {
 import { ReactiveStore, type StateStore } from './ReactiveStore';
 
 type StorageAreaName = 'sync' | 'local' | 'session';
+type StoredValue = unknown;
 
 // 模块级别的单例实例
 let globalStateManagerInstance: GlobalStateManager | null = null;
@@ -23,13 +24,31 @@ export interface SyncOptions<TStored, TMapped = TStored> {
 type CleanupFn = () => void;
 
 interface GlobalStateEntry {
-  store: ReactiveStore<unknown>;
+  store: ReactiveStore<StoredValue>;
   cleanups: Set<CleanupFn>;
 }
 
 interface SyncDescriptor {
   storageKey: string;
   cleanup: CleanupFn;
+}
+
+function toStateStore<T>(store: ReactiveStore<StoredValue>): StateStore<T> {
+  return store as StateStore<T>;
+}
+
+function toReactiveStore<T>(store: ReactiveStore<StoredValue>): ReactiveStore<T> {
+  return store as ReactiveStore<T>;
+}
+
+function toMappedValue<T>(value: StoredValue): T | undefined {
+  return value as T | undefined;
+}
+
+function toStorageChangeCallback<T>(
+  callback: StorageChangeCallback<T>
+): (value: StoredValue, change: StorageChange) => void {
+  return callback as (value: StoredValue, change: StorageChange) => void;
 }
 
 export class GlobalStateManager {
@@ -41,15 +60,15 @@ export class GlobalStateManager {
   getStore<T>(key: string): StateStore<T> {
     const entry = this.entries.get(key);
     if (entry) {
-      return entry.store as StateStore<T>;
+      return toStateStore<T>(entry.store);
     }
 
-    const store = new ReactiveStore<T>(key);
+    const store = new ReactiveStore<StoredValue>(key);
     this.entries.set(key, {
-      store: store as ReactiveStore<unknown>,
+      store,
       cleanups: new Set()
     });
-    return store;
+    return toStateStore<T>(store);
   }
 
   hasStore(key: string): boolean {
@@ -94,7 +113,7 @@ export class GlobalStateManager {
     options?: SyncOptions<TStored, TMapped>
   ): Promise<boolean> {
     const entry = this.ensureEntry(key);
-    const store = entry.store as ReactiveStore<TMapped>;
+    const store = toReactiveStore<TMapped>(entry.store);
     const areaName: StorageAreaName = options?.area ?? 'sync';
     const area = this.resolveStorageArea(this.storage, areaName);
     if (!area) {
@@ -108,7 +127,7 @@ export class GlobalStateManager {
       const storedValue = await area.get<TStored>(storageKey);
       const mapped = options?.deserialize
         ? options.deserialize(storedValue)
-        : (storedValue as unknown as TMapped | undefined);
+        : toMappedValue<TMapped>(storedValue);
       store.set(mapped);
     } catch (error) {
       options?.onError?.(error);
@@ -117,7 +136,7 @@ export class GlobalStateManager {
     const watcher = area.watchKey<TStored>(storageKey, (value) => {
       const mapped = options?.deserialize
         ? options.deserialize(value)
-        : (value as unknown as TMapped | undefined);
+        : toMappedValue<TMapped>(value);
       store.set(mapped);
     });
 
@@ -151,7 +170,7 @@ export class GlobalStateManager {
     if (existing) {
       return existing;
     }
-    const store = new ReactiveStore<unknown>(key);
+    const store = new ReactiveStore<StoredValue>(key);
     const entry: GlobalStateEntry = {
       store,
       cleanups: new Set()
@@ -167,7 +186,8 @@ export class GlobalStateManager {
     if (area === 'session') {
       return storage.session ?? null;
     }
-    return (storage as Record<'sync' | 'local', StorageAreaService | undefined>)[area] ?? null;
+    const storageAreas: Pick<StorageService, 'sync' | 'local'> = storage;
+    return storageAreas[area] ?? null;
   }
 }
 
@@ -182,8 +202,8 @@ export function configureGlobalStateManagerStorage(storage: StorageService): voi
 }
 
 function createMemoryStorageArea(): StorageAreaService {
-  const values = new Map<string, unknown>();
-  const keyWatchers = new Map<string, Set<(value: unknown, change: StorageChange) => void>>();
+  const values = new Map<string, StoredValue>();
+  const keyWatchers = new Map<string, Set<(value: StoredValue, change: StorageChange) => void>>();
   const allWatchers = new Set<StorageAreaChangeCallback>();
 
   const notify = (key: string, change: StorageChange): void => {
@@ -192,18 +212,18 @@ function createMemoryStorageArea(): StorageAreaService {
   };
 
   const area: StorageAreaService = {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      return values.get(key) as T | undefined;
+    async get<T = StoredValue>(key: string): Promise<T | undefined> {
+      return toMappedValue<T>(values.get(key));
     },
-    async set<T = unknown>(key: string, value: T): Promise<void> {
+    async set<T = StoredValue>(key: string, value: T): Promise<void> {
       const oldValue = values.get(key);
       values.set(key, value);
       notify(key, { oldValue, newValue: value });
     },
-    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
+    async getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
+      return Object.fromEntries(keys.map((key) => [key, toMappedValue<T>(values.get(key))]));
     },
-    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
+    async setMany<T = StoredValue>(entries: Record<string, T>): Promise<void> {
       for (const [key, value] of Object.entries(entries)) {
         const oldValue = values.get(key);
         values.set(key, value);
@@ -224,10 +244,10 @@ function createMemoryStorageArea(): StorageAreaService {
         notify(key, { oldValue, newValue: undefined });
       }
     },
-    watchKey<T = unknown>(key: string, callback: StorageChangeCallback<T>): () => void {
+    watchKey<T = StoredValue>(key: string, callback: StorageChangeCallback<T>): () => void {
       const watchers = keyWatchers.get(key) ?? new Set();
       keyWatchers.set(key, watchers);
-      const wrapped = callback as (value: unknown, change: StorageChange) => void;
+      const wrapped = toStorageChangeCallback(callback);
       watchers.add(wrapped);
       return () => {
         watchers.delete(wrapped);

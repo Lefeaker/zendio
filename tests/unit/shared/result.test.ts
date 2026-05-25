@@ -5,7 +5,7 @@
  * and provide proper type safety.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import {
   type Result,
   success,
@@ -28,7 +28,7 @@ type ChromeMock = Partial<Omit<typeof chrome, 'runtime'>> & {
   runtime?: Partial<typeof chrome.runtime>;
 };
 
-const chromeGlobal = globalThis as typeof globalThis & { chrome?: ChromeMock };
+const chromeGlobal = globalThis as Omit<typeof globalThis, 'chrome'> & { chrome?: ChromeMock };
 
 describe('Result Types', () => {
   describe('Basic Result Operations', () => {
@@ -156,6 +156,14 @@ describe('Result Types', () => {
   });
 
   describe('Chrome API Integration', () => {
+    beforeEach(() => {
+      chromeGlobal.chrome = { runtime: {} };
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(chromeGlobal, 'chrome');
+    });
+
     it('should create Chrome API errors', () => {
       const error = createChromeApiError('Test error');
 
@@ -202,9 +210,6 @@ describe('Result Types', () => {
         expect(result.error.code).toBe('CHROME_API_ERROR');
         expect(result.error.message).toBe('API call failed');
       }
-
-      // Clean up
-      Reflect.deleteProperty(chromeGlobal, 'chrome');
     });
 
     it('should wrap Chrome callback APIs', async () => {
@@ -240,9 +245,6 @@ describe('Result Types', () => {
         expect(result.error.code).toBe('CHROME_API_ERROR');
         expect(result.error.message).toBe('Callback error');
       }
-
-      // Clean up
-      Reflect.deleteProperty(chromeGlobal, 'chrome');
     });
   });
 
