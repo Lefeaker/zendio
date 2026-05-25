@@ -11,6 +11,7 @@
 ## 本轮统一门禁真值
 
 - `npm run quality`
+  - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
@@ -22,6 +23,7 @@
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
+  - 显式包含 `verify:runtime`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
@@ -35,7 +37,7 @@
 - 2026-05-25 M5.1 source-of-truth sync 真值：Plans 1-4 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-25 M5.3 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 已扩展到当前全部 `src` >250 LOC 文件
 - 2026-05-25 M5.4 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
-- 2026-05-25 M6.5 runtime 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 收紧为 Node `>=20.19 <21`，与 lockfile 中 `jsdom` / `vite` / CSS tooling 等 transitive `>=20.19.0` 要求一致
+- 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 
 ## 当前推荐执行顺序
 
@@ -88,7 +90,7 @@ credentials and manual confirmation.
 - `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `165`，fresh warning count 为 `165`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
-- `npm run lint:type-any`：扫描 `1081` files；overall 为 `any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
+- `npm run lint:type-any`：扫描 `1082` files；overall 为 `any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
 - `npm run lint:type-any:ratchet`：同时守住 overall `0/971/1667/108/5`、src `0/540/626/5/0`、tests `0/431/1041/103/5`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
@@ -135,6 +137,7 @@ credentials and manual confirmation.
 - `npm run test:i18n`
 - `npm run audit:locales:report`
 - `npm run visual:test`
+- `npm run verify:runtime`
 - `npm run report:release-summary`
 - `npm run audit:local-vault-release:report`
 - `npm run audit:release-surface:report`
