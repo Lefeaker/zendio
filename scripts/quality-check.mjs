@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 const checks = [
   { name: 'UI 架构迁移守卫', cmd: ['npm', 'run', 'audit:ui-architecture:report'] },
   { name: '组件入口统一守卫', cmd: ['npm', 'run', 'audit:components:report'] },
+  { name: '兼容壳重复审计', cmd: ['npm', 'run', 'audit:compatibility-duplicates:check'] },
   { name: '设计系统文档真值守卫', cmd: ['npm', 'run', 'audit:design-system-doc:report'] },
   { name: '交互约定守卫', cmd: ['npm', 'run', 'audit:interaction-contract:report'] },
   { name: 'Options 主链守卫', cmd: ['npm', 'run', 'audit:options-mainline:report'] },

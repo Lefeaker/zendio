@@ -1,0 +1,10 @@
+[
+  {
+    "files": [
+      "src/options/components/sections/usageClone.ts",
+      "src/options/widgets/shared/usage/usageClone.ts"
+    ],
+    "reason": "temporary compatibility shell retained until import owners migrate",
+    "deleteGate": "six-proof deletion plus usage owner compatibility test migration"
+  }
+]
