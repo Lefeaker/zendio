@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-05-24
+日期：2026-05-25
 
 ## 1. 构建真值
 
@@ -16,10 +16,12 @@ npm run audit:build:report
 
 2026-05-24 M2.5 budget ratchet 复核在 Node `v20.20.2` / npm `10.8.2` 下完成，输入为 M2.1-M2.4 全部合入后的 integration baseline。
 
+2026-05-25 M4.3 dev build surface budget 复核在同一 Node/npm 版本下完成。Production fast build 继续排除 dev/test harness 与 `qps-ploc` pseudo-locale，并由 `audit:release-surface:report` 证明 forbidden harness members 与 forbidden dev/test pseudo-locale members 均为 `none`。Dev build 保留本地浏览器 harness 与 `qps-ploc`，但仍必须通过当前更严格的 `audit:build:report` 预算；该预算已经严于本轮 plan 的 `content/runtime.js <= 57,600 bytes`、`chunk count <= 132` 和 locale chunk `<= 60 KB` 约束。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `47.1 KB`
+- `build/dist/content/runtime.js`: `46.8 KB`
 - `build/dist/options/index.js`: `672 B`
 - `build/dist/onboarding/index.js`: `7.1 KB`
 - 总 chunk 数：`86`
@@ -30,13 +32,13 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；距离 `56,320` raw-byte stop gate 还有 `1,766` bytes）
+- `build/dist/content/runtime.js`: `53.1 KB`（raw `54,337` bytes；距离 `56,320` raw-byte stop gate 还有 `1,983` bytes）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
 - 总 chunk 数：`102`
 - `chunks/runtimeEntry-*.js`: `282.5 KB`
 - `chunks/videoSessionControllers-*.js`: `70.9 KB`
-- `chunks/qps-ploc-*.js`: `57.1 KB`
+- `chunks/qps-ploc-*.js`: `57.1 KB`（raw `58,486` bytes）
 - `chunks/videoLazyRuntime-*.js`: `41.1 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
