@@ -1,6 +1,6 @@
 # Non-Production Code Ownership
 
-Last updated: 2026-05-18
+Last updated: 2026-05-25
 
 ## 3.0 Definition
 
@@ -28,6 +28,19 @@ Do not classify UI domains, primitives, patterns, hosts, shared schemas, shared 
 Retired verification fixtures belong under `tests/fixtures/**`, not `src/**`. The retired Options preview runtime has already moved to `tests/fixtures/options-preview/**`; future verification fixtures must not reintroduce preview-backed source ownership under `src/options/preview/**`.
 
 Old Options layout, form section, section class, and non-YAML widget paths are not current implementation guidance. They may remain only while a documented production, import, test, script, public, manifest, or verification owner exists.
+
+## Fixture And Archive Ownership
+
+The 2026-05-25 M4.2 fixture/archive proof classified the tracked archive and fixture directories without deleting or moving long-lived docs. Sizes were measured from a clean worktree with `du -sh`; references were captured with `rg -n "251126-design-system-poc|reference-fixtures|legacy-options-assets|options-preview" docs tests tools scripts src package.json`.
+
+| Path                             |       Size | Runtime owner              | Test or tool owner                                                                                           | Doc owner                                                                                                         | Decision                                                                                                                |
+| -------------------------------- | ---------: | -------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `docs/251126-design-system-poc/` | local-only | none in clean tracked tree | none in clean tracked tree                                                                                   | ignored local POC archive; historical references remain in tracked archive/status docs                            | retain as ignored local archive only; do not stage, move, or delete in repo milestones without explicit owner approval. |
+| `docs/archive/`                  |       304K | none                       | design-system and UI architecture audit scripts reference `legacy-options-assets` archive entries            | `docs/archive/README.md`, `docs/design-system-governance.md`, `docs/DESIGN-SYSTEM-INDEX.md`, source-of-truth docs | retain archive; not delete-now.                                                                                         |
+| `docs/reference-fixtures/`       |       112K | none                       | `tools/report-ui-architecture-alignment.mjs` and design-system doc audit cover legacy reference fixtures     | `docs/reference-fixtures/README.md`, Bilibili remediation docs, source-of-truth docs                              | retain reference fixtures; not delete-now.                                                                              |
+| `tests/fixtures/`                |       340K | none                       | AI chat e2e tests, Options preview runtime tests, `scripts/build-preview.mjs`, schema runtime renderer tests | `docs/non-production-code-ownership.md`, `docs/architecture-boundaries.md`, `src/options/README.md`               | retain test fixtures; not delete-now.                                                                                   |
+
+`docs/reference-fixtures/**` and `tests/fixtures/**` must not be deleted while tests, visual specs, build-preview scripts, or source-of-truth docs reference them. Any future archival movement must first update these owners and rerun `npm run audit:design-system-doc:report`, `npm run verify:stitch-secondary`, `npm run visual:test`, `npm run typecheck:tests`, and `npm run test:unit`.
 
 ## Delete-Now Procedure
 
