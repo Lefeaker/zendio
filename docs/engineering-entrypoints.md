@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 ## 推荐运行环境
 
@@ -32,6 +32,7 @@
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
+- 2026-05-25 M5.1 source-of-truth sync 真值：Plans 1-4 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 
 ## 当前推荐执行顺序
 
@@ -73,14 +74,14 @@ credentials and manual confirmation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-24 gap-remediation baseline truth:
+2026-05-25 deep-debt integration truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `254`，fresh warning count 为 `254`。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `165`，fresh warning count 为 `165`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
-- `npm run lint:type-any`：扫描 `1066` files；`any: 12`、`unknown: 1091`、assertions `1849`、non-null assertions `129`、`ts-expect-error: 5`。
-- `scripts/audit-types.mjs` 支持 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error` 阈值参数；当前 M3.1 truth thresholds 为 `12/1091/1849/129/5`。
+- `npm run lint:type-any`：扫描 `1076` files；`any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
+- `scripts/audit-types.mjs` 支持 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error` 阈值参数；当前 M5.1 measured thresholds 为 `0/971/1667/108/5`。
 
 ## 当前构建预算真值
 
@@ -99,10 +100,10 @@ credentials and manual confirmation.
 - `chunk count <= 112`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
-2026-05-24 M2.5 fresh build truth:
+2026-05-25 M5.1 dev build truth:
 
-- `npm run clean && npm run build:dev && npm run audit:build:report` 通过
-- `build/dist/content/runtime.js`: `53.3 KB`（raw `54,554` bytes；raw stop gate `56,320`）
+- `npm run verify:preflight` 后的 `npm run audit:build:report` 通过
+- `build/dist/content/runtime.js`: `53.1 KB`（raw `54,337` bytes；raw stop gate `56,320`）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `12.3 KB`
 - chunks: `102`
