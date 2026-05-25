@@ -65,4 +65,111 @@ describe('audit-types threshold checks', () => {
       }
     ]);
   });
+
+  it('fails src thresholds even when overall thresholds still pass', () => {
+    const result = checkThresholds(
+      {
+        totals: {
+          any: 0,
+          unknown: 10,
+          assertions: 10,
+          nonNullAssertions: 0,
+          tsExpectError: 0
+        },
+        scopes: {
+          src: {
+            any: 0,
+            unknown: 7,
+            assertions: 8,
+            nonNullAssertions: 0,
+            tsExpectError: 0
+          },
+          tests: {
+            any: 0,
+            unknown: 3,
+            assertions: 2,
+            nonNullAssertions: 0,
+            tsExpectError: 0
+          }
+        }
+      },
+      {
+        overall: {
+          unknown: 10,
+          assertions: 10
+        },
+        src: {
+          unknown: 6,
+          assertions: 8
+        },
+        tests: {
+          unknown: 3,
+          assertions: 2
+        }
+      }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toEqual([
+      {
+        scope: 'src',
+        metric: 'unknown',
+        actual: 7,
+        max: 6,
+        delta: 1
+      }
+    ]);
+  });
+
+  it('fails tests thresholds without changing src threshold semantics', () => {
+    const result = checkThresholds(
+      {
+        totals: {
+          any: 0,
+          unknown: 6,
+          assertions: 0,
+          nonNullAssertions: 0,
+          tsExpectError: 0
+        },
+        scopes: {
+          src: {
+            any: 0,
+            unknown: 1,
+            assertions: 0,
+            nonNullAssertions: 0,
+            tsExpectError: 0
+          },
+          tests: {
+            any: 0,
+            unknown: 5,
+            assertions: 0,
+            nonNullAssertions: 0,
+            tsExpectError: 0
+          }
+        }
+      },
+      {
+        overall: {
+          unknown: 6
+        },
+        src: {
+          unknown: 1
+        },
+        tests: {
+          unknown: 4
+        }
+      }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failures).toEqual([
+      {
+        scope: 'tests',
+        metric: 'unknown',
+        actual: 5,
+        max: 4,
+        delta: 1
+      }
+    ]);
+  });
 });

@@ -22,6 +22,7 @@ const SOURCE_DIRS = ['src', 'tests'];
 const ALLOWED_FORMATS = new Set(['summary', 'json', 'md', 'table']);
 const DEFAULT_FORMAT = 'summary';
 const METRIC_KEYS = ['any', 'unknown', 'assertions', 'nonNullAssertions', 'tsExpectError'];
+const SCOPE_KEYS = ['src', 'tests'];
 const THRESHOLD_OPTIONS = new Map([
   ['--max-any', 'any'],
   ['--max-unknown', 'unknown'],
@@ -29,6 +30,14 @@ const THRESHOLD_OPTIONS = new Map([
   ['--max-non-null', 'nonNullAssertions'],
   ['--max-ts-expect-error', 'tsExpectError']
 ]);
+const SCOPED_THRESHOLD_OPTIONS = new Map(
+  SCOPE_KEYS.flatMap((scope) =>
+    [...THRESHOLD_OPTIONS.entries()].map(([option, metric]) => [
+      option.replace('--max-', `--max-${scope}-`),
+      { scope, metric }
+    ])
+  )
+);
 const IGNORED_DIRECTORIES = new Set([
   'dist',
   'node_modules',
@@ -79,6 +88,11 @@ function parseArgs(args) {
     } else if (THRESHOLD_OPTIONS.has(arg)) {
       const metric = THRESHOLD_OPTIONS.get(arg);
       options.limits[metric] = parseIntegerOption(arg, args[i + 1]);
+      i += 1;
+    } else if (SCOPED_THRESHOLD_OPTIONS.has(arg)) {
+      const { scope, metric } = SCOPED_THRESHOLD_OPTIONS.get(arg);
+      options.limits[scope] ??= {};
+      options.limits[scope][metric] = parseIntegerOption(arg, args[i + 1]);
       i += 1;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
@@ -178,7 +192,9 @@ function sumMetrics(target, addition) {
 export function checkThresholds(report, limits) {
   const failures = [];
 
-  for (const [metric, max] of Object.entries(limits)) {
+  for (const [metric, max] of Object.entries(limits).filter(([metric]) =>
+    METRIC_KEYS.includes(metric)
+  )) {
     const actual = report.totals[metric] ?? 0;
     if (actual > max) {
       failures.push({
@@ -187,6 +203,27 @@ export function checkThresholds(report, limits) {
         max,
         delta: actual - max
       });
+    }
+  }
+
+  for (const scope of SCOPE_KEYS) {
+    const scopeLimits = limits[scope];
+    if (!scopeLimits) {
+      continue;
+    }
+
+    const scopeTotals = report.scopes?.[scope] ?? emptyMetrics();
+    for (const [metric, max] of Object.entries(scopeLimits)) {
+      const actual = scopeTotals[metric] ?? 0;
+      if (actual > max) {
+        failures.push({
+          scope,
+          metric,
+          actual,
+          max,
+          delta: actual - max
+        });
+      }
     }
   }
 
@@ -200,8 +237,10 @@ function formatThresholdFailures(failures) {
   return [
     'Type safety threshold check failed:',
     ...failures.map(
-      (failure) =>
-        `  - ${failure.metric}: ${failure.actual} > ${failure.max} (+${failure.delta})`
+      (failure) => {
+        const label = failure.scope ? `${failure.scope}.${failure.metric}` : failure.metric;
+        return `  - ${label}: ${failure.actual} > ${failure.max} (+${failure.delta})`;
+      }
     )
   ].join('\n');
 }
@@ -228,6 +267,12 @@ function formatSummary(report) {
   lines.push(
     `Totals → any: ${report.totals.any}, unknown: ${report.totals.unknown}, assertions: ${report.totals.assertions}, non-null: ${report.totals.nonNullAssertions}, ts-expect-error: ${report.totals.tsExpectError}`
   );
+  for (const scope of SCOPE_KEYS) {
+    const totals = report.scopes[scope];
+    lines.push(
+      `${scope} → files: ${totals.files}, any: ${totals.any}, unknown: ${totals.unknown}, assertions: ${totals.assertions}, non-null: ${totals.nonNullAssertions}, ts-expect-error: ${totals.tsExpectError}`
+    );
+  }
 
   const offenders = report.files.filter((file) => file.score > 0).slice(0, 10);
   if (offenders.length > 0) {
@@ -245,7 +290,12 @@ function formatSummary(report) {
 }
 
 function formatMarkdown(report) {
-  const header = `# Type Safety Audit\n\n- Generated: ${report.generatedAt}\n- Files scanned: ${report.totals.files}\n- any: ${report.totals.any}\n- unknown: ${report.totals.unknown}\n- assertions: ${report.totals.assertions}\n- non-null assertions: ${report.totals.nonNullAssertions}\n- @ts-expect-error: ${report.totals.tsExpectError}\n\n## Top Files\n\n`;
+  const scopeLines = SCOPE_KEYS.map((scope) => {
+    const totals = report.scopes[scope];
+    return `- ${scope}: files ${totals.files}; any ${totals.any}; unknown ${totals.unknown}; assertions ${totals.assertions}; non-null ${totals.nonNullAssertions}; @ts-expect-error ${totals.tsExpectError}`;
+  }).join('\n');
+
+  const header = `# Type Safety Audit\n\n- Generated: ${report.generatedAt}\n- Files scanned: ${report.totals.files}\n- any: ${report.totals.any}\n- unknown: ${report.totals.unknown}\n- assertions: ${report.totals.assertions}\n- non-null assertions: ${report.totals.nonNullAssertions}\n- @ts-expect-error: ${report.totals.tsExpectError}\n\n## Scope Totals\n\n${scopeLines}\n\n## Top Files\n\n`;
 
   const tableHeader =
     '| File | any | unknown | assertions | non-null | @ts-expect-error | Score |\n| --- | --- | --- | --- | --- | --- | --- |\n';
@@ -265,6 +315,12 @@ function formatTable(report) {
   const lines = [];
   lines.push(`Type Safety Audit @ ${report.generatedAt}`);
   lines.push(`Files: ${report.totals.files} | any: ${report.totals.any} | unknown: ${report.totals.unknown} | assertions: ${report.totals.assertions} | non-null: ${report.totals.nonNullAssertions} | ts-expect-error: ${report.totals.tsExpectError}`);
+  for (const scope of SCOPE_KEYS) {
+    const totals = report.scopes[scope];
+    lines.push(
+      `${scope}: files ${totals.files} | any: ${totals.any} | unknown: ${totals.unknown} | assertions: ${totals.assertions} | non-null: ${totals.nonNullAssertions} | ts-expect-error: ${totals.tsExpectError}`
+    );
+  }
   lines.push('');
 
   const offenders = report.files.filter((file) => file.score > 0).slice(0, 20);
@@ -305,12 +361,22 @@ async function buildReport() {
     files: 0,
     ...emptyMetrics()
   };
+  const scopes = Object.fromEntries(
+    SCOPE_KEYS.map((scope) => [
+      scope,
+      {
+        files: 0,
+        ...emptyMetrics()
+      }
+    ])
+  );
   const fileRecords = [];
 
   for (const sourceDir of SOURCE_DIRS) {
     const absoluteDir = join(projectRoot, sourceDir);
     const files = await collectSourceFiles(absoluteDir);
     totals.files += files.length;
+    scopes[sourceDir].files += files.length;
 
     for (const filePath of files) {
       const contents = await readFile(filePath, 'utf8');
@@ -320,6 +386,7 @@ async function buildReport() {
         fileRecords.push(buildFileRecord(relPath, metrics));
       }
       sumMetrics(totals, metrics);
+      sumMetrics(scopes[sourceDir], metrics);
     }
   }
 
@@ -329,6 +396,10 @@ async function buildReport() {
     project: 'AiiinOB',
     generatedAt: new Date().toISOString(),
     totals,
+    scopes: {
+      overall: totals,
+      ...scopes
+    },
     files: fileRecords
   };
 

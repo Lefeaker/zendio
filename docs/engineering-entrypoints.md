@@ -82,9 +82,9 @@ credentials and manual confirmation.
 - `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `165`，fresh warning count 为 `165`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
-- `npm run lint:type-any`：扫描 `1076` files；`any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
-- `scripts/audit-types.mjs` 支持 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error` 阈值参数；当前 M5.1 measured thresholds 为 `0/971/1667/108/5`。
-- `npm run lint:type-any:ratchet`：使用同一组 M5.1 measured thresholds，并已接入 `quality` 作为 type-debt hard gate。
+- `npm run lint:type-any`：扫描 `1081` files；overall 为 `any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
+- `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/971/1667/108/5`、src `0/540/626/5/0`、tests `0/431/1041/103/5`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 
