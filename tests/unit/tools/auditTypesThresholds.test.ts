@@ -6,18 +6,18 @@ describe('audit-types threshold checks', () => {
     const result = checkThresholds(
       {
         totals: {
-          any: 12,
-          unknown: 1091,
-          assertions: 1849,
-          nonNullAssertions: 129,
+          any: 0,
+          unknown: 971,
+          assertions: 1667,
+          nonNullAssertions: 108,
           tsExpectError: 5
         }
       },
       {
-        any: 12,
-        unknown: 1091,
-        assertions: 1849,
-        nonNullAssertions: 129,
+        any: 0,
+        unknown: 971,
+        assertions: 1667,
+        nonNullAssertions: 108,
         tsExpectError: 5
       }
     );
@@ -32,18 +32,18 @@ describe('audit-types threshold checks', () => {
     const result = checkThresholds(
       {
         totals: {
-          any: 13,
-          unknown: 1091,
-          assertions: 1852,
-          nonNullAssertions: 129,
+          any: 1,
+          unknown: 971,
+          assertions: 1670,
+          nonNullAssertions: 108,
           tsExpectError: 5
         }
       },
       {
-        any: 12,
-        unknown: 1091,
-        assertions: 1849,
-        nonNullAssertions: 129,
+        any: 0,
+        unknown: 971,
+        assertions: 1667,
+        nonNullAssertions: 108,
         tsExpectError: 5
       }
     );
@@ -53,14 +53,14 @@ describe('audit-types threshold checks', () => {
     expect(result.failures).toEqual([
       {
         metric: 'any',
-        actual: 13,
-        max: 12,
+        actual: 1,
+        max: 0,
         delta: 1
       },
       {
         metric: 'assertions',
-        actual: 1852,
-        max: 1849,
+        actual: 1670,
+        max: 1667,
         delta: 3
       }
     ]);

@@ -33,6 +33,7 @@
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-05-25 M5.1 source-of-truth sync 真值：Plans 1-4 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
+- 2026-05-25 M5.3 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 已扩展到当前全部 `src` >250 LOC 文件
 
 ## 当前推荐执行顺序
 
@@ -82,6 +83,7 @@ credentials and manual confirmation.
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
 - `npm run lint:type-any`：扫描 `1076` files；`any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
 - `scripts/audit-types.mjs` 支持 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error` 阈值参数；当前 M5.1 measured thresholds 为 `0/971/1667/108/5`。
+- `npm run lint:type-any:ratchet`：使用同一组 M5.1 measured thresholds，并已接入 `quality` 作为 type-debt hard gate。
 
 ## 当前构建预算真值
 

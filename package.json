@@ -16,6 +16,7 @@
     "lint": "eslint src tests --ext .ts,.tsx,.js",
     "lint:fix": "npm run lint -- --fix",
     "lint:type-any": "node scripts/audit-types.mjs --format summary",
+    "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 971 --max-assertions 1667 --max-non-null 108 --max-ts-expect-error 5",
     "lint:hardcoded": "node scripts/lint-hardcoded-values.mjs",
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",

@@ -20,6 +20,8 @@ npm run audit:build:report
 
 2026-05-25 M5.1 source-of-truth sync 复核重新采集 `quality`、`verify:preflight`、`audit:performance:report` 与 `audit:build:report`。以下 dev build 与热点数值以该次采集为当前真值。
 
+2026-05-25 M5.3 budget ratchet 将 `audit:performance:report` 的 line-budget 覆盖扩展为当前全部 `src` >250 LOC 文件，共 `99` 个路径；每个路径的预算等于本次实测行数。下方“当前热点”仍保留高信号业务/运行时热点摘要，完整预算集以 `tools/report-performance-hotspots.mjs` 为准。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -99,21 +101,14 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- `src/content/video/platforms/bilibiliPlatformAdapter.ts <= 220`
-- `src/content/video/videoSessionRuntime.ts <= 430`
-- `src/options/app/productionStitchShellMount.ts <= 280`
-- `src/ui/domains/yaml-config/yamlConfigTableRenderer.ts <= 100`
-- `src/ui/domains/yaml-config/yamlConfigTableStateModel.ts <= 220`
-- `src/options/components/sections/RestSectionView.ts <= 300`
-- `src/options/components/sections/FragmentSectionView.ts <= 240`
-- `src/options/components/sections/UsageDashboardSection.ts <= 210`
-- `src/ui/domains/usage-chart/usageChartRenderers.ts <= 60`
-- `src/ui/domains/privacy/PrivacySettingsView.ts <= 300`
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；完整列表见 `tools/report-performance-hotspots.mjs`。
+- 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`stitch/types.ts <= 743`。
+- 当前业务/运行时重点 budgets：`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`RestSectionView.ts <= 260`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`。
 
 本轮有效收口结果：
 
-- `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并将预算从 `<= 450` 收紧到 `<= 280`。
-- `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行，并将预算从 `<= 450` 收紧到 `<= 60`。
+- `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
+- `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
 - `videoSessionRuntime` 当前仍为 `395` 行，保留为 runtime hotspot 观察项。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
