@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { prepareUsageHistory } from '@options/stitch/usageHistory';
+import { prepareHistory } from '@ui/domains/usage-chart';
 import type { UsageStats } from '@shared/types/usage';
 
 describe('Stitch usage history', () => {
@@ -31,5 +32,16 @@ describe('Stitch usage history', () => {
     expect(prepareUsageHistory(legacyStats)).toEqual([
       { date: '2026-05-15', aiChat: 2, fragment: 1, article: 3 }
     ]);
+  });
+
+  it('keeps the options and usage chart fallback shapes compatible', () => {
+    const aggregateStats = {
+      aiChatSaves: 4,
+      fragmentSaves: 2,
+      articleSaves: 1,
+      lastUpdatedISO: '2026-05-21T10:00:00.000Z'
+    } as UsageStats;
+
+    expect(prepareHistory(aggregateStats)).toEqual(prepareUsageHistory(aggregateStats));
   });
 });
