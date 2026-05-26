@@ -312,6 +312,7 @@ describe('mountProductionStitchShell storage', () => {
     ).find((button) => button.textContent?.trim() === 'Local Vault');
     expect(selectedFolderButton).toBeTruthy();
     expect(selectedFolderButton?.getAttribute('title')).toContain('Local Vault');
+    expect(selectedFolderButton?.getAttribute('title')).not.toMatch(/(^\/|[A-Za-z]:\\)/);
     selectedFolderButton?.click();
     await flushPromises();
 
@@ -334,6 +335,7 @@ describe('mountProductionStitchShell storage', () => {
     expect(cleared.rest.localFolderId).toBeUndefined();
     expect(cleared.rest.localFolderName).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
   });
 
   it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {

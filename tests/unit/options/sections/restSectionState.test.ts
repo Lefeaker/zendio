@@ -8,6 +8,7 @@ import {
   resetRestConnectionTestResult
 } from '@options/app/rest-settings/restSectionConnectionResult';
 import { buildRestDefaultRow } from '@options/components/sections/restSectionDefaultRow';
+import { buildRestDefaultRow as buildWidgetRestDefaultRow } from '@options/widgets/shared/rest/restSectionDefaultRow';
 import {
   applyRestSectionSnapshot,
   collectAdditionalVaultConfigsForTest,
@@ -20,6 +21,10 @@ import {
 import * as connectionResultExports from '@options/app/rest-settings/restSectionConnectionResult';
 import * as sectionStateExports from '@options/components/sections/restSectionState';
 import * as widgetStateExports from '@options/widgets/shared/rest/restSectionState';
+import {
+  collectAdditionalVaultConfigsForTest as collectWidgetAdditionalVaultConfigsForTest,
+  collectRestSectionChanges as collectWidgetRestSectionChanges
+} from '@options/widgets/shared/rest/restSectionState';
 
 const defaults = DEFAULT_OPTIONS.rest;
 
@@ -71,6 +76,30 @@ describe('restSectionState helpers', () => {
     clearButton?.click();
     expect(onChooseLocalFolder).toHaveBeenCalledTimes(1);
     expect(onClearLocalFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the widget default vault row without local-folder controls', () => {
+    const bindings: HTMLInputElement[] = [];
+
+    const row = buildWidgetRestDefaultRow({
+      createElement: document.createElement.bind(document),
+      messages: null,
+      onNameInput: vi.fn(),
+      onHttpsInput: vi.fn(),
+      onHttpInput: vi.fn(),
+      onApiKeyInput: vi.fn(),
+      bindDefaultNameInput: (input) => bindings.push(input),
+      bindDefaultHttpsInput: (input) => bindings.push(input),
+      bindDefaultHttpInput: (input) => bindings.push(input),
+      bindDefaultApiKeyInput: (input) => bindings.push(input)
+    });
+
+    expect(row.querySelector<HTMLInputElement>('#restVault')).toBe(bindings[0]);
+    expect(row.querySelector<HTMLInputElement>('#restHttpsUrl')).toBe(bindings[1]);
+    expect(row.querySelector<HTMLInputElement>('#restHttpUrl')).toBe(bindings[2]);
+    expect(row.querySelector<HTMLInputElement>('#restKey')).toBe(bindings[3]);
+    expect(row.querySelector<HTMLButtonElement>('.rest-vault-local-folder')).toBeNull();
+    expect(row.querySelector<HTMLButtonElement>('.rest-vault-local-folder-clear')).toBeNull();
   });
 
   it('renders connection result severity and can reset the result host', () => {
@@ -266,6 +295,43 @@ describe('restSectionState helpers', () => {
     expect(collectRestDraftForTest(blankInputs)).toEqual({});
   });
 
+  it('keeps widget REST changes free of local-folder fields', () => {
+    const inputs = {
+      nameInput: document.createElement('input'),
+      httpsInput: document.createElement('input'),
+      httpInput: document.createElement('input'),
+      apiKeyInput: document.createElement('input')
+    };
+    inputs.nameInput.value = '  Widget Vault  ';
+    inputs.httpsInput.value = '  https://widget.example/ ';
+    inputs.httpInput.value = '';
+    inputs.apiKeyInput.value = ' widget-key ';
+
+    const changes = collectWidgetRestSectionChanges({
+      previous: {
+        rest: {
+          rootDir: 'LegacyRoot',
+          localFolderId: 'old-folder',
+          localFolderName: 'Old Folder'
+        }
+      },
+      defaultInputs: inputs,
+      defaults
+    });
+
+    expect(changes).toEqual({
+      rest: {
+        baseUrl: 'https://widget.example/',
+        vault: 'Widget Vault',
+        apiKey: ' widget-key ',
+        httpsUrl: 'https://widget.example/',
+        rootDir: 'LegacyRoot'
+      }
+    });
+    expect(changes.rest).not.toHaveProperty('localFolderId');
+    expect(changes.rest).not.toHaveProperty('localFolderName');
+  });
+
   it('updates local folder button metadata and reads row values safely', () => {
     const wrap = document.createElement('div');
     wrap.className = 'flex';
@@ -391,5 +457,67 @@ describe('restSectionState helpers', () => {
         defaultVaultId: null
       })
     ).toEqual([]);
+  });
+
+  it('keeps additional vault local-folder row metadata component-only', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <div data-vault-id="edited">
+        <input class="rest-vault-enabled" type="checkbox" checked>
+        <input class="rest-vault-name" value="Edited Vault">
+        <input class="rest-vault-https" value="https://edited.example/">
+        <input class="rest-vault-http" value="">
+        <input class="rest-vault-api" value=" edited-key ">
+        <button
+          class="rest-vault-local-folder"
+          data-local-folder-id="row-folder"
+          data-local-folder-name="Row Folder"
+        ></button>
+      </div>
+    `;
+    const snapshot: VaultRouterConfig = {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          vault: 'Default',
+          name: 'Default',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: '',
+          rules: []
+        },
+        {
+          id: 'edited',
+          vault: 'Original',
+          name: 'Original',
+          httpsUrl: 'https://original.example/',
+          httpUrl: 'http://original.example/',
+          apiKey: 'original-key',
+          rules: []
+        }
+      ]
+    };
+
+    expect(
+      collectAdditionalVaultConfigsForTest({
+        additionalRowsHost: host,
+        vaultRouterSnapshot: snapshot,
+        defaultVaultId: null
+      })[0]
+    ).toEqual(
+      expect.objectContaining({
+        localFolderId: 'row-folder',
+        localFolderName: 'Row Folder'
+      })
+    );
+
+    const widgetVault = collectWidgetAdditionalVaultConfigsForTest({
+      additionalRowsHost: host,
+      vaultRouterSnapshot: snapshot,
+      defaultVaultId: null
+    })[0];
+    expect(widgetVault).not.toHaveProperty('localFolderId');
+    expect(widgetVault).not.toHaveProperty('localFolderName');
   });
 });
