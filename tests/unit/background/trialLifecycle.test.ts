@@ -16,6 +16,10 @@ function createStorageArea() {
 }
 
 describe('trialLifecycle', () => {
+  const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -57,6 +61,72 @@ describe('trialLifecycle', () => {
     });
   });
 
+  it('skips trial initialization when trial-config fetch returns a non-ok response', async () => {
+    const { initializeTrialOnInstall } = await import('../../../src/background/trialLifecycle');
+    const initializeTrial = vi.fn(() => Promise.resolve(undefined));
+
+    await initializeTrialOnInstall({
+      runtime: {
+        getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+      },
+      fetch: asType<typeof fetch>(
+        vi.fn(() =>
+          Promise.resolve({
+            ok: false,
+            status: 404
+          })
+        )
+      ),
+      initializeTrial
+    });
+
+    expect(initializeTrial).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[trial] trial-config.json request failed (404), skipping trial initialization'
+    );
+  });
+
+  it('skips invalid trial-config payloads and logs a warning', async () => {
+    const { initializeTrialOnInstall } = await import('../../../src/background/trialLifecycle');
+    const initializeTrial = vi.fn(() => Promise.resolve(undefined));
+
+    await initializeTrialOnInstall({
+      runtime: {
+        getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+      },
+      fetch: asType<typeof fetch>(
+        vi.fn(() =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ trialDays: 0 })
+          })
+        )
+      ),
+      initializeTrial
+    });
+
+    expect(initializeTrial).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[trial] trial-config.json is invalid, skipping trial initialization'
+    );
+  });
+
+  it('treats thrown trial-config fetches as formal-version installs', async () => {
+    const { initializeTrialOnInstall } = await import('../../../src/background/trialLifecycle');
+    const initializeTrial = vi.fn(() => Promise.resolve(undefined));
+
+    await initializeTrialOnInstall({
+      runtime: {
+        getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+      },
+      fetch: asType<typeof fetch>(vi.fn(() => Promise.reject(new Error('missing config')))),
+      initializeTrial
+    });
+
+    expect(initializeTrial).not.toHaveBeenCalled();
+    expect(consoleLogSpy).toHaveBeenCalledWith('[trial] 未检测到试用配置，使用正式版本');
+  });
+
   it('registers installed and suspend lifecycle handlers', async () => {
     const { registerTrialLifecycle } = await import('../../../src/background/trialLifecycle');
     const onInstalled = vi.fn();
@@ -70,16 +140,18 @@ describe('trialLifecycle', () => {
       storage: asType({ local: { get: vi.fn() } }),
       tabs: asType({ create: vi.fn() }),
       fetch: asType<typeof fetch>(vi.fn()),
-      initializeTrial: vi.fn(async () => undefined),
-      checkTrialStatus: vi.fn(async () => ({
-        isTrial: false,
-        isExpired: false,
-        remainingDays: Infinity,
-        remainingHours: Infinity,
-        expirationDate: null,
-        isExpiringSoon: false
-      })),
-      showExpirationNotice: vi.fn(async () => undefined),
+      initializeTrial: vi.fn(() => Promise.resolve(undefined)),
+      checkTrialStatus: vi.fn(() =>
+        Promise.resolve({
+          isTrial: false,
+          isExpired: false,
+          remainingDays: Infinity,
+          remainingHours: Infinity,
+          expirationDate: null,
+          isExpiringSoon: false
+        })
+      ),
+      showExpirationNotice: vi.fn(() => Promise.resolve(undefined)),
       cleanupBackgroundDependencies: vi.fn(),
       registerOnSuspend,
       setInterval: asType<typeof setInterval>(vi.fn())
@@ -91,17 +163,19 @@ describe('trialLifecycle', () => {
 
   it('initializeTrialSystem notifies only for expiring/expired', async () => {
     const { initializeTrialSystem } = await import('../../../src/background/trialLifecycle');
-    const showExpirationNotice = vi.fn(async () => undefined);
+    const showExpirationNotice = vi.fn(() => Promise.resolve(undefined));
 
     // Case 1: trial and expiring soon → notify once and schedule timer
-    const checkTrialStatusExpiring = vi.fn(async () => ({
-      isTrial: true,
-      isExpired: false,
-      remainingDays: 1,
-      remainingHours: 12,
-      expirationDate: null,
-      isExpiringSoon: true
-    }));
+    const checkTrialStatusExpiring = vi.fn(() =>
+      Promise.resolve({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 1,
+        remainingHours: 12,
+        expirationDate: null,
+        isExpiringSoon: true
+      })
+    );
     const scheduled: Array<() => void> = [];
     const setIntervalStub = (cb: () => void) => {
       scheduled.push(cb);
@@ -125,14 +199,16 @@ describe('trialLifecycle', () => {
     expect(showExpirationNotice).toHaveBeenCalledTimes(2);
 
     // Case 2: trial but not expiring → no notify
-    const checkTrialStatusOk = vi.fn(async () => ({
-      isTrial: true,
-      isExpired: false,
-      remainingDays: 10,
-      remainingHours: 240,
-      expirationDate: null,
-      isExpiringSoon: false
-    }));
+    const checkTrialStatusOk = vi.fn(() =>
+      Promise.resolve({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 10,
+        remainingHours: 240,
+        expirationDate: null,
+        isExpiringSoon: false
+      })
+    );
     showExpirationNotice.mockClear();
     await initializeTrialSystem({
       checkTrialStatus: checkTrialStatusOk,
@@ -140,5 +216,81 @@ describe('trialLifecycle', () => {
       setInterval: asType<typeof setInterval>(setIntervalStub)
     });
     expect(showExpirationNotice).not.toHaveBeenCalled();
+  });
+
+  it('logs scheduled trial status check failures without throwing', async () => {
+    const { initializeTrialSystem } = await import('../../../src/background/trialLifecycle');
+    const checkError = new Error('status failed');
+    const checkTrialStatus = vi
+      .fn()
+      .mockResolvedValueOnce({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 10,
+        remainingHours: 240,
+        expirationDate: null,
+        isExpiringSoon: false
+      })
+      .mockRejectedValueOnce(checkError);
+    const scheduled: Array<() => void> = [];
+
+    await initializeTrialSystem({
+      checkTrialStatus,
+      showExpirationNotice: vi.fn(() => Promise.resolve(undefined)),
+      setInterval: asType<typeof setInterval>((cb: () => void) => {
+        scheduled.push(cb);
+        return intervalId(1);
+      })
+    });
+    scheduled[0]();
+
+    await vi.waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[trial] Failed to perform scheduled status check:',
+        checkError
+      );
+    });
+  });
+
+  it('logs scheduled trial notice failures without throwing', async () => {
+    const { initializeTrialSystem } = await import('../../../src/background/trialLifecycle');
+    const noticeError = new Error('notice failed');
+    const checkTrialStatus = vi
+      .fn()
+      .mockResolvedValueOnce({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 10,
+        remainingHours: 240,
+        expirationDate: null,
+        isExpiringSoon: false
+      })
+      .mockResolvedValueOnce({
+        isTrial: true,
+        isExpired: true,
+        remainingDays: 0,
+        remainingHours: 0,
+        expirationDate: null,
+        isExpiringSoon: false
+      });
+    const showExpirationNotice = vi.fn(() => Promise.reject(noticeError));
+    const scheduled: Array<() => void> = [];
+
+    await initializeTrialSystem({
+      checkTrialStatus,
+      showExpirationNotice,
+      setInterval: asType<typeof setInterval>((cb: () => void) => {
+        scheduled.push(cb);
+        return intervalId(1);
+      })
+    });
+    scheduled[0]();
+
+    await vi.waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[trial] Failed to perform scheduled status check:',
+        noticeError
+      );
+    });
   });
 });

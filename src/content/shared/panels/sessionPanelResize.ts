@@ -78,31 +78,27 @@ function loadPersistedPanelWidth(): Promise<void> {
   return storageLoad;
 }
 
-function savePersistedPanelWidth(width: number, maxWidth = persistedPanelMaxWidth): void {
+function saveSessionPanelStorage(items: Record<string, unknown>): void {
   const storage = resolveStorageArea();
   if (!storage) {
     return;
   }
   try {
-    storage.set({
-      [WIDTH_STORAGE_KEY]: Math.round(width),
-      [WIDTH_MAX_STORAGE_KEY]: Math.round(maxWidth)
-    });
+    storage.set(items);
   } catch {
-    // Runtime storage is best-effort; module memory still preserves width in this page.
+    return;
   }
 }
 
+function savePersistedPanelWidth(width: number, maxWidth = persistedPanelMaxWidth): void {
+  saveSessionPanelStorage({
+    [WIDTH_STORAGE_KEY]: Math.round(width),
+    [WIDTH_MAX_STORAGE_KEY]: Math.round(maxWidth)
+  });
+}
+
 function savePersistedPanelHeight(height: number): void {
-  const storage = resolveStorageArea();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.set({ [HEIGHT_STORAGE_KEY]: Math.round(height) });
-  } catch {
-    // Runtime storage is best-effort; module memory still preserves height in this page.
-  }
+  saveSessionPanelStorage({ [HEIGHT_STORAGE_KEY]: Math.round(height) });
 }
 
 function minPanelHeight(maxHeight: number): number {
@@ -189,10 +185,16 @@ export function bindSessionPanelResize(surface: HTMLElement): () => void {
   let state: ResizeState | null = null;
 
   const stopResize = (): void => {
+    const completedState = state;
     state = null;
     document.removeEventListener('pointermove', resize);
     document.removeEventListener('pointerup', stopResize);
     document.removeEventListener('pointercancel', stopResize);
+    if (completedState?.axis === 'width' && persistedPanelWidth > 0) {
+      savePersistedPanelWidth(persistedPanelWidth, completedState.maxWidth);
+    } else if (completedState?.axis === 'height' && persistedPanelHeight > 0) {
+      savePersistedPanelHeight(persistedPanelHeight);
+    }
   };
 
   const resize = (event: Event): void => {
@@ -206,7 +208,6 @@ export function bindSessionPanelResize(surface: HTMLElement): () => void {
         state.maxWidth
       );
       persistedPanelWidth = Math.round(width);
-      savePersistedPanelWidth(persistedPanelWidth, state.maxWidth);
       panel.style.width = `${Math.round(width)}px`;
       return;
     }
@@ -217,7 +218,6 @@ export function bindSessionPanelResize(surface: HTMLElement): () => void {
         state.maxHeight
       );
       persistedPanelHeight = Math.round(height);
-      savePersistedPanelHeight(persistedPanelHeight);
       applyPanelHeight(panel, persistedPanelHeight);
     }
   };

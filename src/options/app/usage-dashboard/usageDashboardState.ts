@@ -1,4 +1,4 @@
-import type { UsageStats } from '@shared/types/usage';
+import type { UsageStats, UsageStatsHistoryEntry } from '@shared/types/usage';
 import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '@shared/constants';
 import type { CompleteOptions } from '@shared/types/options';
 import type { IMessagingRepository } from '@shared/repositories';
@@ -9,11 +9,12 @@ export interface UsageSnapshot {
   article: number;
 }
 
-declare global {
-  interface Window {
-    aiobUsageStats?: UsageStats & { total?: number };
+export type UsageStatsEventDetail = Readonly<
+  Omit<UsageStats, 'history'> & {
+    readonly history: readonly Readonly<UsageStatsHistoryEntry>[];
+    readonly total: number;
   }
-}
+>;
 
 export function cloneDefaultUsageStats(): UsageStats {
   return {
@@ -33,9 +34,25 @@ export function resolveUsageStatsFromOptions(options: CompleteOptions | null): U
   return normalizeUsageStats(snapshot);
 }
 
+export function createUsageStatsEventDetail(
+  stats: UsageStats,
+  total: number
+): UsageStatsEventDetail {
+  const normalized = normalizeUsageStats(stats);
+  const history = Object.freeze(
+    normalized.history.map((entry): Readonly<UsageStatsHistoryEntry> => Object.freeze({ ...entry }))
+  );
+  return Object.freeze({
+    ...normalized,
+    history,
+    total
+  });
+}
+
 export function emitUsageStatsWindowEvent(stats: UsageStats, total: number): void {
-  window.aiobUsageStats = { ...stats, total };
-  window.dispatchEvent(new CustomEvent('aiob-usage-stats', { detail: window.aiobUsageStats }));
+  window.dispatchEvent(
+    new CustomEvent('aiob-usage-stats', { detail: createUsageStatsEventDetail(stats, total) })
+  );
 }
 
 export function buildUsageSnapshot(stats: UsageStats): UsageSnapshot {

@@ -80,6 +80,7 @@ const approvedOptionsAppDeleteCandidate = [
   'layout',
   'OptionsApp.ts'
 ].join('/');
+const approvedZagComboboxDeleteCandidate = ['src', 'ui', 'ZagCombobox.js'].join('/');
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -429,6 +430,25 @@ describe('report-non-production-source', () => {
           requiredVerification: 'empty'
         },
         explicitDeleteNowPatterns: [approvedFamilyWidgetDeleteCandidate]
+      })
+    );
+
+    expect(result.decision).toBe('delete-now');
+  });
+
+  it('marks the retired ZagCombobox source as delete-now after all six proofs are empty', () => {
+    const result = classifySourceFile(
+      input({
+        file: approvedZagComboboxDeleteCandidate,
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'empty',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        explicitDeleteNowPatterns: [approvedZagComboboxDeleteCandidate]
       })
     );
 

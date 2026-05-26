@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 ## 推荐运行环境
 
@@ -34,9 +34,9 @@
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
-- 2026-05-25 M5.1 source-of-truth sync 真值：Plans 1-4 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
-- 2026-05-25 M5.3 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 已扩展到当前全部 `src` >250 LOC 文件
-- 2026-05-25 M5.4 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
+- 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
+- 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
+- 2026-05-26 M10 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 
 ## 当前推荐执行顺序
@@ -84,15 +84,15 @@ credentials and manual confirmation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-25 deep-debt integration truth:
+2026-05-26 maintainability-debt integration truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `165`，fresh warning count 为 `165`。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `159`，fresh warning count 为 `159`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`、`no-unused-vars`、`unbound-method`、unsafe type warnings、`no-explicit-any`。
-- `npm run lint:type-any`：扫描 `1082` files；overall 为 `any: 0`、`unknown: 971`、assertions `1667`、non-null assertions `108`、`ts-expect-error: 5`。
+- `npm run lint:type-any`：扫描 `1091` files；overall 为 `any: 0`、`unknown: 971`、assertions `1661`、non-null assertions `108`、`ts-expect-error: 5`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/971/1667/108/5`、src `0/540/626/5/0`、tests `0/431/1041/103/5`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/971/1661/108/5`、src `0/540/623/5/0`、tests `0/431/1038/103/5`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 
@@ -111,7 +111,7 @@ credentials and manual confirmation.
 - `chunk count <= 112`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
-2026-05-25 M5.1 dev build truth:
+2026-05-26 M10 dev build truth:
 
 - `npm run verify:preflight` 后的 `npm run audit:build:report` 通过
 - `build/dist/content/runtime.js`: `53.1 KB`（raw `54,337` bytes；raw stop gate `56,320`）

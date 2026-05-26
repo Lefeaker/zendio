@@ -49,7 +49,11 @@ export async function initializeTrialSystem(
       );
 
       if (status.isExpiringSoon || status.isExpired) {
-        await deps.showExpirationNotice();
+        try {
+          await deps.showExpirationNotice();
+        } catch (error) {
+          console.error('[trial] Failed to show expiration notice:', error);
+        }
       }
 
       (deps.setInterval ?? globalThis.setInterval)(
@@ -74,24 +78,32 @@ export async function initializeTrialSystem(
   }
 }
 
-export async function initializeTrialOnInstall(
-  deps: Pick<TrialLifecycleDependencies, 'runtime' | 'fetch' | 'initializeTrial'>
-): Promise<void> {
+export async function initializeTrialOnInstall(deps: {
+  runtime: Pick<RuntimeService, 'getURL'>;
+  fetch: typeof fetch;
+  initializeTrial: TrialLifecycleDependencies['initializeTrial'];
+}): Promise<void> {
   try {
     const trialConfigUrl = deps.runtime.getURL('trial-config.json');
     const response = await deps.fetch(trialConfigUrl);
 
-    if (response.ok) {
-      const payload: unknown = await response.json();
-      const trialConfig = parseTrialConfigPayload(payload);
-      if (!trialConfig) {
-        console.warn('[trial] trial-config.json is invalid, skipping trial initialization');
-        return;
-      }
-      console.log('[trial] 检测到试用版本配置，正在初始化...');
-      await deps.initializeTrial(trialConfig.trialDays);
-      console.log(`[trial] 试用版本已激活，试用期 ${trialConfig.trialDays} 天`);
+    if (!response.ok) {
+      const status = Number.isFinite(response.status) ? response.status : 'unknown';
+      console.warn(
+        `[trial] trial-config.json request failed (${status}), skipping trial initialization`
+      );
+      return;
     }
+
+    const payload: unknown = await response.json();
+    const trialConfig = parseTrialConfigPayload(payload);
+    if (!trialConfig) {
+      console.warn('[trial] trial-config.json is invalid, skipping trial initialization');
+      return;
+    }
+    console.log('[trial] 检测到试用版本配置，正在初始化...');
+    await deps.initializeTrial(trialConfig.trialDays);
+    console.log(`[trial] 试用版本已激活，试用期 ${trialConfig.trialDays} 天`);
   } catch {
     console.log('[trial] 未检测到试用配置，使用正式版本');
   }
