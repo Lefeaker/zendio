@@ -56,13 +56,14 @@ export function resolveTrialManagerPorts(
 
   return {
     storage: override.storage !== undefined ? override.storage : defaults.storage,
-    getManifestVersion: override.getManifestVersion ?? defaults.getManifestVersion,
+    getManifestVersion: () =>
+      override.getManifestVersion ? override.getManifestVersion() : defaults.getManifestVersion(),
     ...(Object.prototype.hasOwnProperty.call(override, 'createNotification')
       ? { createNotification: override.createNotification }
       : defaults.createNotification
         ? { createNotification: defaults.createNotification }
         : {}),
-    now: override.now ?? defaults.now,
+    now: () => (override.now ? override.now() : defaults.now()),
     logger: override.logger ?? defaults.logger
   };
 }

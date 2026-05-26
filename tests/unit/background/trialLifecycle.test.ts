@@ -140,16 +140,18 @@ describe('trialLifecycle', () => {
       storage: asType({ local: { get: vi.fn() } }),
       tabs: asType({ create: vi.fn() }),
       fetch: asType<typeof fetch>(vi.fn()),
-      initializeTrial: vi.fn(async () => undefined),
-      checkTrialStatus: vi.fn(async () => ({
-        isTrial: false,
-        isExpired: false,
-        remainingDays: Infinity,
-        remainingHours: Infinity,
-        expirationDate: null,
-        isExpiringSoon: false
-      })),
-      showExpirationNotice: vi.fn(async () => undefined),
+      initializeTrial: vi.fn(() => Promise.resolve(undefined)),
+      checkTrialStatus: vi.fn(() =>
+        Promise.resolve({
+          isTrial: false,
+          isExpired: false,
+          remainingDays: Infinity,
+          remainingHours: Infinity,
+          expirationDate: null,
+          isExpiringSoon: false
+        })
+      ),
+      showExpirationNotice: vi.fn(() => Promise.resolve(undefined)),
       cleanupBackgroundDependencies: vi.fn(),
       registerOnSuspend,
       setInterval: asType<typeof setInterval>(vi.fn())
@@ -161,17 +163,19 @@ describe('trialLifecycle', () => {
 
   it('initializeTrialSystem notifies only for expiring/expired', async () => {
     const { initializeTrialSystem } = await import('../../../src/background/trialLifecycle');
-    const showExpirationNotice = vi.fn(async () => undefined);
+    const showExpirationNotice = vi.fn(() => Promise.resolve(undefined));
 
     // Case 1: trial and expiring soon → notify once and schedule timer
-    const checkTrialStatusExpiring = vi.fn(async () => ({
-      isTrial: true,
-      isExpired: false,
-      remainingDays: 1,
-      remainingHours: 12,
-      expirationDate: null,
-      isExpiringSoon: true
-    }));
+    const checkTrialStatusExpiring = vi.fn(() =>
+      Promise.resolve({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 1,
+        remainingHours: 12,
+        expirationDate: null,
+        isExpiringSoon: true
+      })
+    );
     const scheduled: Array<() => void> = [];
     const setIntervalStub = (cb: () => void) => {
       scheduled.push(cb);
@@ -195,14 +199,16 @@ describe('trialLifecycle', () => {
     expect(showExpirationNotice).toHaveBeenCalledTimes(2);
 
     // Case 2: trial but not expiring → no notify
-    const checkTrialStatusOk = vi.fn(async () => ({
-      isTrial: true,
-      isExpired: false,
-      remainingDays: 10,
-      remainingHours: 240,
-      expirationDate: null,
-      isExpiringSoon: false
-    }));
+    const checkTrialStatusOk = vi.fn(() =>
+      Promise.resolve({
+        isTrial: true,
+        isExpired: false,
+        remainingDays: 10,
+        remainingHours: 240,
+        expirationDate: null,
+        isExpiringSoon: false
+      })
+    );
     showExpirationNotice.mockClear();
     await initializeTrialSystem({
       checkTrialStatus: checkTrialStatusOk,
@@ -230,7 +236,7 @@ describe('trialLifecycle', () => {
 
     await initializeTrialSystem({
       checkTrialStatus,
-      showExpirationNotice: vi.fn(async () => undefined),
+      showExpirationNotice: vi.fn(() => Promise.resolve(undefined)),
       setInterval: asType<typeof setInterval>((cb: () => void) => {
         scheduled.push(cb);
         return intervalId(1);
