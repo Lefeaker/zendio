@@ -9,10 +9,8 @@ export interface UsageSnapshot {
   article: number;
 }
 
-declare global {
-  interface Window {
-    aiobUsageStats?: UsageStats & { total?: number };
-  }
+export interface UsageStatsEventDetail extends UsageStats {
+  total: number;
 }
 
 export function cloneDefaultUsageStats(): UsageStats {
@@ -33,9 +31,22 @@ export function resolveUsageStatsFromOptions(options: CompleteOptions | null): U
   return normalizeUsageStats(snapshot);
 }
 
+export function createUsageStatsEventDetail(
+  stats: UsageStats,
+  total: number
+): UsageStatsEventDetail {
+  const normalized = normalizeUsageStats(stats);
+  return Object.freeze({
+    ...normalized,
+    history: [...normalized.history],
+    total
+  });
+}
+
 export function emitUsageStatsWindowEvent(stats: UsageStats, total: number): void {
-  window.aiobUsageStats = { ...stats, total };
-  window.dispatchEvent(new CustomEvent('aiob-usage-stats', { detail: window.aiobUsageStats }));
+  window.dispatchEvent(
+    new CustomEvent('aiob-usage-stats', { detail: createUsageStatsEventDetail(stats, total) })
+  );
 }
 
 export function buildUsageSnapshot(stats: UsageStats): UsageSnapshot {
