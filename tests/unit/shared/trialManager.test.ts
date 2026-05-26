@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { partialOf } from '../../utils/typeHelpers';
 
 import {
   getTrialConfig,
@@ -19,11 +20,23 @@ const manifest: chrome.runtime.Manifest = {
   version: '1.2.3'
 };
 
-type ChromeLike = typeof globalThis & {
-  chrome: typeof chrome;
-};
+function chromeStorage(
+  local: Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>
+): typeof chrome.storage {
+  return partialOf<typeof chrome.storage>({
+    local: partialOf<chrome.storage.LocalStorageArea>(local)
+  });
+}
 
-const runtime = globalThis as ChromeLike;
+function chromeRuntime(): typeof chrome.runtime {
+  return partialOf<typeof chrome.runtime>({
+    getManifest: vi.fn(() => manifest)
+  });
+}
+
+function installChrome(chromeApi: Partial<typeof chrome>): void {
+  globalThis.chrome = partialOf<typeof chrome>(chromeApi);
+}
 
 describe('trial-manager', () => {
   const storageGetMock = vi.fn();
@@ -36,23 +49,59 @@ describe('trial-manager', () => {
     get: storageGetMock,
     set: storageSetMock,
     remove: storageRemoveMock
-  } as unknown as ChromeLike['chrome']['storage']['local'];
-  const createNotificationMock = vi.fn();
-  const notifications = { create: createNotificationMock } as unknown as NonNullable<
-    ChromeLike['chrome']['notifications']
-  >;
+  } satisfies Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
+  const createNotificationMock = vi.fn((_options: chrome.notifications.NotificationCreateOptions) =>
+    Promise.resolve('notice-id')
+  );
+  function createNotification(
+    options: chrome.notifications.NotificationCreateOptions
+  ): Promise<string>;
+  function createNotification(
+    notificationId: string,
+    options: chrome.notifications.NotificationCreateOptions
+  ): Promise<string>;
+  function createNotification(
+    options: chrome.notifications.NotificationCreateOptions,
+    callback: (notificationId: string) => void
+  ): void;
+  function createNotification(
+    notificationId: string,
+    options: chrome.notifications.NotificationCreateOptions,
+    callback: (notificationId: string) => void
+  ): void;
+  function createNotification(
+    notificationIdOrOptions: string | chrome.notifications.NotificationCreateOptions,
+    optionsOrCallback?:
+      | chrome.notifications.NotificationCreateOptions
+      | ((notificationId: string) => void),
+    callback?: (notificationId: string) => void
+  ): Promise<string> | void {
+    const options =
+      typeof notificationIdOrOptions === 'string' ? optionsOrCallback : notificationIdOrOptions;
+    const result =
+      options && typeof options !== 'function'
+        ? createNotificationMock(options)
+        : Promise.resolve('notice-id');
+    const resolvedCallback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+    if (resolvedCallback) {
+      resolvedCallback('notice-id');
+      return undefined;
+    }
+    return result;
+  }
+  const notifications = partialOf<NonNullable<typeof chrome.notifications>>({
+    create: createNotification
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-09T00:00:00Z'));
-    runtime.chrome = {
-      storage: { local: storage },
-      runtime: {
-        getManifest: vi.fn(() => manifest)
-      },
+    installChrome({
+      storage: chromeStorage(storage),
+      runtime: chromeRuntime(),
       notifications
-    } as unknown as typeof chrome;
+    });
   });
 
   it('reads and writes trial config', async () => {
@@ -97,11 +146,7 @@ describe('trial-manager', () => {
   });
 
   it('rejects setTrialConfig with a clear error when storage is missing', async () => {
-    runtime.chrome = {
-      runtime: {
-        getManifest: vi.fn(() => manifest)
-      }
-    } as unknown as typeof chrome;
+    installChrome({ runtime: chromeRuntime() });
 
     await expect(
       setTrialConfig({
@@ -137,7 +182,7 @@ describe('trial-manager', () => {
       }
     });
     await showExpirationNotice();
-    expect(notifications.create).toHaveBeenCalledWith(
+    expect(createNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'AiiinOB 试用版已过期' })
     );
 
@@ -151,7 +196,7 @@ describe('trial-manager', () => {
       }
     });
     await showExpirationNotice();
-    expect(notifications.create).toHaveBeenCalledWith(
+    expect(createNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'AiiinOB 试用版即将过期' })
     );
   });
@@ -173,12 +218,10 @@ describe('trial-manager', () => {
   });
 
   it('skips expiration notices when notifications are unavailable', async () => {
-    runtime.chrome = {
-      storage: { local: storage },
-      runtime: {
-        getManifest: vi.fn(() => manifest)
-      }
-    } as unknown as typeof chrome;
+    installChrome({
+      storage: chromeStorage(storage),
+      runtime: chromeRuntime()
+    });
     storageGetMock.mockResolvedValueOnce({
       trial_config: {
         isTrial: true,
@@ -212,11 +255,7 @@ describe('trial-manager', () => {
   });
 
   it('logs and returns when clearTrialConfig has no storage port', async () => {
-    runtime.chrome = {
-      runtime: {
-        getManifest: vi.fn(() => manifest)
-      }
-    } as unknown as typeof chrome;
+    installChrome({ runtime: chromeRuntime() });
 
     await expect(clearTrialConfig()).resolves.toBeUndefined();
     expect(consoleWarnSpy).toHaveBeenCalledWith(

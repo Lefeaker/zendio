@@ -39,12 +39,15 @@ async function getTrialConfigWithPorts(ports: TrialManagerPorts): Promise<TrialC
   }
 
   try {
-    const rawResult: unknown = await ports.storage.get(TRIAL_CONFIG_KEY);
+    const rawResult = await ports.storage.get(TRIAL_CONFIG_KEY);
     const record = isRecord(rawResult) ? rawResult : undefined;
     const storedConfig = record?.[TRIAL_CONFIG_KEY];
     return isTrialConfig(storedConfig) ? storedConfig : null;
   } catch (error) {
-    ports.logger.warn('[trial-manager] 获取试用配置失败:', error);
+    ports.logger.warn(
+      '[trial-manager] 获取试用配置失败:',
+      error instanceof Error ? error : String(error)
+    );
     return null;
   }
 }
@@ -62,7 +65,10 @@ async function setTrialConfigWithPorts(
   try {
     await ports.storage.set({ [TRIAL_CONFIG_KEY]: config });
   } catch (error) {
-    ports.logger.error('[trial-manager] 设置试用配置失败:', error);
+    ports.logger.error(
+      '[trial-manager] 设置试用配置失败:',
+      error instanceof Error ? error : String(error)
+    );
     throw error;
   }
 }
@@ -109,7 +115,10 @@ async function maybeCreateNotification(
   try {
     await ports.createNotification(options);
   } catch (error) {
-    ports.logger.warn('[trial-manager] 试用通知创建失败:', error);
+    ports.logger.warn(
+      '[trial-manager] 试用通知创建失败:',
+      error instanceof Error ? error : String(error)
+    );
   }
 }
 
@@ -204,7 +213,10 @@ export async function clearTrialConfig(): Promise<void> {
     await ports.storage.remove([TRIAL_CONFIG_KEY, TRIAL_STATUS_KEY]);
     ports.logger.log('试用配置已清除');
   } catch (error) {
-    ports.logger.warn('[trial-manager] 清除试用配置失败:', error);
+    ports.logger.warn(
+      '[trial-manager] 清除试用配置失败:',
+      error instanceof Error ? error : String(error)
+    );
   }
 }
 

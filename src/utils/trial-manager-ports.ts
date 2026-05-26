@@ -1,7 +1,9 @@
+type TrialManagerLogValue = string | number | boolean | Error | null | undefined;
+
 export interface TrialManagerLogger {
-  log(message?: unknown, ...optionalParams: unknown[]): void;
-  warn(message?: unknown, ...optionalParams: unknown[]): void;
-  error(message?: unknown, ...optionalParams: unknown[]): void;
+  log(message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]): void;
+  warn(message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]): void;
+  error(message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]): void;
 }
 
 export interface TrialManagerPorts {
@@ -20,11 +22,11 @@ function getChromeApi(): typeof chrome | undefined {
 
 function createConsoleLogger(): TrialManagerLogger {
   return {
-    log: (message?: unknown, ...optionalParams: unknown[]) =>
+    log: (message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]) =>
       console.log(message, ...optionalParams),
-    warn: (message?: unknown, ...optionalParams: unknown[]) =>
+    warn: (message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]) =>
       console.warn(message, ...optionalParams),
-    error: (message?: unknown, ...optionalParams: unknown[]) =>
+    error: (message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]) =>
       console.error(message, ...optionalParams)
   };
 }
