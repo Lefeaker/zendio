@@ -107,8 +107,6 @@
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
-    "@zag-js/combobox": "^1.29.1",
-    "@zag-js/core": "^1.29.1",
     "focus-trap": "^7.6.6",
     "intl-messageformat": "^10.7.18",
     "lucide": "^0.554.0",
