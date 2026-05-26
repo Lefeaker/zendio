@@ -1,6 +1,14 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asType, partialOf } from '../../utils/typeHelpers';
+
+type SessionPanelStorageItems = Partial<
+  Record<
+    'aiob.sessionPanel.width' | 'aiob.sessionPanel.maxWidth' | 'aiob.sessionPanel.height',
+    number
+  >
+>;
 
 interface MockStorage {
   get: ReturnType<typeof vi.fn>;
@@ -17,19 +25,58 @@ interface SurfaceFixture {
 function installChromeStorage(
   getImplementation: (
     keys: string[],
-    callback: (items: Record<string, unknown>) => void
+    callback: (items: SessionPanelStorageItems) => void
   ) => void = (_keys, callback) => callback({})
 ): MockStorage {
   const get = vi.fn(getImplementation);
-  const set = vi.fn((_items: Record<string, unknown>, callback?: () => void) => {
+  const set = vi.fn((_items: SessionPanelStorageItems, callback?: () => void) => {
     callback?.();
   });
-  (globalThis as { chrome?: unknown }).chrome = {
-    storage: {
-      local: { get, set }
+  function chromeGet<T = Record<string, never>>(
+    keys?: keyof T | Array<keyof T> | Partial<T> | null
+  ): Promise<T>;
+  function chromeGet<T = Record<string, never>>(callback: (items: T) => void): void;
+  function chromeGet<T = Record<string, never>>(
+    keys: keyof T | Array<keyof T> | Partial<T> | null,
+    callback: (items: T) => void
+  ): void;
+  function chromeGet<T = Record<string, never>>(
+    keysOrCallback?: keyof T | Array<keyof T> | Partial<T> | null | ((items: T) => void),
+    callback?: (items: T) => void
+  ): Promise<T> | void {
+    const resolvedCallback = typeof keysOrCallback === 'function' ? keysOrCallback : callback;
+    if (resolvedCallback) {
+      get([], (items) => resolvedCallback(asType<T>(items)));
+      return undefined;
     }
-  };
+    return Promise.resolve(asType<T>({}));
+  }
+  function chromeSet<T = Record<string, never>>(items: Partial<T>): Promise<void>;
+  function chromeSet<T = Record<string, never>>(items: Partial<T>, callback: () => void): void;
+  function chromeSet<T = Record<string, never>>(
+    items: Partial<T>,
+    callback?: () => void
+  ): Promise<void> | void {
+    if (callback) {
+      set(asType<SessionPanelStorageItems>(items), callback);
+    } else {
+      set(asType<SessionPanelStorageItems>(items));
+    }
+    return callback ? undefined : Promise.resolve();
+  }
+  globalThis.chrome = partialOf<typeof chrome>({
+    storage: partialOf<typeof chrome.storage>({
+      local: partialOf<chrome.storage.LocalStorageArea>({
+        get: chromeGet,
+        set: chromeSet
+      })
+    })
+  });
   return { get, set };
+}
+
+function removeChromeApi(): void {
+  delete asType<{ chrome?: typeof chrome }>(globalThis).chrome;
 }
 
 function createSurfaceFixture(
@@ -96,12 +143,12 @@ describe('session panel resize persistence', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
-    delete (globalThis as { chrome?: unknown }).chrome;
+    removeChromeApi();
     vi.restoreAllMocks();
   });
 
   it('applies in-memory width immediately and storage width after async load', async () => {
-    const loadStorage: { current?: (items: Record<string, unknown>) => void } = {};
+    const loadStorage: { current?: (items: SessionPanelStorageItems) => void } = {};
     const storage = installChromeStorage((_keys, callback) => {
       loadStorage.current = callback;
     });
