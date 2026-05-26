@@ -32,16 +32,6 @@ describe('Stitch usage history', () => {
     expect(prepareUsageHistory(legacyStats)).toEqual([
       { date: '2026-05-15', aiChat: 2, fragment: 1, article: 3 }
     ]);
-  });
-
-  it('keeps the options and usage chart fallback shapes compatible', () => {
-    const aggregateStats = {
-      aiChatSaves: 4,
-      fragmentSaves: 2,
-      articleSaves: 1,
-      lastUpdatedISO: '2026-05-21T10:00:00.000Z'
-    } satisfies UsageStats;
-
-    expect(prepareHistory(aggregateStats)).toEqual(prepareUsageHistory(aggregateStats));
+    expect(prepareHistory(legacyStats)).toEqual(prepareUsageHistory(legacyStats));
   });
 });
