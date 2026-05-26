@@ -1,7 +1,7 @@
 {
-  "totalWarnings": 165,
+  "totalWarnings": 159,
   "ruleCounts": {
-    "@typescript-eslint/require-await": 126,
+    "@typescript-eslint/require-await": 120,
     "no-restricted-syntax": 3,
     "@typescript-eslint/no-unsafe-assignment": 26,
     "@typescript-eslint/no-unsafe-return": 4,
@@ -650,47 +650,6 @@
         {
           "line": 53,
           "column": 27,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/background/trialLifecycle.test.ts",
-      "warnings": [
-        {
-          "line": 73,
-          "column": 39,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 74,
-          "column": 40,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 82,
-          "column": 44,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 94,
-          "column": 49,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 97,
-          "column": 53,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 128,
-          "column": 47,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         }
