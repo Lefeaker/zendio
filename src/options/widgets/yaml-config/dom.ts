@@ -27,7 +27,7 @@ export function button(options: {
   className: string;
   text: string;
   disabled?: boolean;
-  onClick(event: MouseEvent): void;
+  onClick: (event: MouseEvent) => void;
 }): HTMLButtonElement {
   const element = el('button', { className: options.className, text: options.text });
   element.type = 'button';
@@ -41,7 +41,7 @@ export function textInput(options: {
   value: string;
   dataset: Record<string, string | undefined>;
   placeholder?: string;
-  onInput(value: string): void;
+  onInput: (value: string) => void;
 }): HTMLInputElement {
   const input = el('input', { className: options.className, dataset: options.dataset });
   input.value = options.value;
@@ -60,7 +60,7 @@ export function selectInput<T extends string>(options: {
   disabled?: boolean;
   options: Array<{ value: T; label: string }>;
   dataset?: Record<string, string | undefined>;
-  onChange(value: T): void;
+  onChange: (value: T) => void;
 }): HTMLSelectElement {
   const select =
     options.dataset === undefined
