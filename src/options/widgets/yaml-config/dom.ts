@@ -3,7 +3,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   options: {
     className?: string;
     text?: string;
-    dataset?: Record<string, string | undefined>;
+    dataset?: Record<string, string | undefined> | undefined;
   } = {}
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tagName);
@@ -62,10 +62,7 @@ export function selectInput<T extends string>(options: {
   dataset?: Record<string, string | undefined>;
   onChange: (value: T) => void;
 }): HTMLSelectElement {
-  const select =
-    options.dataset === undefined
-      ? el('select', { className: options.className })
-      : el('select', { className: options.className, dataset: options.dataset });
+  const select = el('select', { className: options.className, dataset: options.dataset });
   select.disabled = options.disabled ?? false;
   options.options.forEach((item) => {
     const option = el('option', { text: item.label });
