@@ -13,10 +13,10 @@ import {
 } from './model';
 
 export interface FieldTableCallbacks {
-  markDirty(): void;
-  removeRow(row: YamlFieldRow): void;
-  render(): void;
-  setFilter(filter: YamlFilter): void;
+  markDirty: () => void;
+  removeRow: (row: YamlFieldRow) => void;
+  render: () => void;
+  setFilter: (filter: YamlFilter) => void;
 }
 
 function cell(child: Node): HTMLTableCellElement {
