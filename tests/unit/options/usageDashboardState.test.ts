@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildUsageSnapshot,
   emitUsageStatsWindowEvent,
-  reportUsageIncrementChanges
+  reportUsageIncrementChanges,
+  type UsageStatsEventDetail
 } from '@options/app/usage-dashboard';
 import { getInitialShellUsageStats } from '@options/app/optionsShellState';
 import { DEFAULT_USAGE_STATS } from '@shared/constants';
@@ -44,7 +45,7 @@ describe('usage dashboard state bridge', () => {
     stats.history.push({ date: '2026-05-27', aiChat: 99, fragment: 99, article: 99 });
 
     expect(listener).toHaveBeenCalledTimes(1);
-    const event = listener.mock.calls[0]?.[0] as CustomEvent<UsageStats & { total: number }>;
+    const event = listener.mock.calls[0]?.[0] as CustomEvent<UsageStatsEventDetail>;
     expect(event.detail).toEqual({
       aiChatSaves: 1,
       fragmentSaves: 3,
@@ -54,6 +55,16 @@ describe('usage dashboard state bridge', () => {
       total: 9
     });
     expect(Object.isFrozen(event.detail)).toBe(true);
+    expect(Object.isFrozen(event.detail.history)).toBe(true);
+    expect(Object.isFrozen(event.detail.history[0])).toBe(true);
+    expect(() => {
+      (event.detail.history as UsageStats['history']).push({
+        date: '2026-05-28',
+        aiChat: 1,
+        fragment: 1,
+        article: 1
+      });
+    }).toThrow(TypeError);
   });
 
   it('does not create or mutate window.aiobUsageStats', () => {
