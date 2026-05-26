@@ -6,6 +6,7 @@ import {
   buildUsageSnapshot,
   cloneDefaultUsageStats,
   computeChartGeometry,
+  createUsageStatsEventDetail,
   emitUsageStatsWindowEvent,
   formatDateLabel,
   formatUsageDate,
@@ -55,6 +56,7 @@ describe('usage dashboard owner compatibility', () => {
     expect(buildUsageDashboardLayout).toBeTypeOf('function');
     expect(cloneDefaultUsageStats).toBeTypeOf('function');
     expect(resolveUsageStatsFromOptions).toBeTypeOf('function');
+    expect(createUsageStatsEventDetail).toBeTypeOf('function');
     expect(emitUsageStatsWindowEvent).toBeTypeOf('function');
     expect(buildUsageSnapshot).toBeTypeOf('function');
     expect(reportUsageIncrementChanges).toBeTypeOf('function');

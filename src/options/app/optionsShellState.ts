@@ -1,10 +1,6 @@
 import { defaultOptionsState, type OptionsState } from '../state/types';
-import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '../../shared/constants';
+import { DEFAULT_USAGE_STATS } from '../../shared/constants';
 import type { UsageStats } from '../../shared/types/usage';
-
-interface ShellWindow extends Window {
-  aiobUsageStats?: UsageStats & { total?: number };
-}
 
 export function buildInitialShellState(language: string, usage: UsageStats): OptionsState {
   return {
@@ -16,11 +12,7 @@ export function buildInitialShellState(language: string, usage: UsageStats): Opt
 }
 
 export function getInitialShellUsageStats(): UsageStats {
-  const globalUsage = (window as ShellWindow).aiobUsageStats;
-  if (globalUsage) {
-    return normalizeUsageStats(globalUsage);
-  }
-  return { ...DEFAULT_USAGE_STATS };
+  return { ...DEFAULT_USAGE_STATS, history: [...DEFAULT_USAGE_STATS.history] };
 }
 
 export function resolveInitialShellSection(): string {
