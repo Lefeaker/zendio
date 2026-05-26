@@ -5,6 +5,35 @@
 
 import { checkTrialStatus, formatRemainingTime, type TrialStatus } from '../utils/trial-manager.js';
 
+const STYLE_ID = 'trial-notice-style';
+const STYLE_SELECTOR = 'style[data-trial-notice-style]';
+const NOTICE_STATE_CLASSES = [
+  'trial-notice--active',
+  'trial-notice--expiring',
+  'trial-notice--expired'
+];
+
+function ensureStyles(): void {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.dataset.trialNoticeStyle = 'base';
+  style.textContent =
+    '.trial-notice{position:fixed;top:10px;right:10px;color:white;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:10000;max-width:300px;cursor:pointer;transition:all .3s ease}.trial-notice:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.2)}.trial-notice--active{background:#3742fa}.trial-notice--expiring{background:#ffa502}.trial-notice--expired{background:#ff4757;animation:trial-blink 2s infinite}.trial-notice__row{display:flex;align-items:center;gap:8px}.trial-notice__title{font-weight:bold}.trial-notice__detail{font-size:12px;opacity:.9}.trial-notice-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10001}.trial-notice-modal__content{background:white;padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}.trial-notice-modal__summary{text-align:center;margin-bottom:20px}.trial-notice-modal__title{margin:0 0 16px 0;color:#333}.trial-notice-modal__body{color:#666;line-height:1.6}.trial-notice-modal__restricted{color:#ff4757}.trial-notice-modal__available{color:#2ed573}.trial-notice-modal__actions{text-align:center}.trial-notice-modal__close{background:#3742fa;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px}@keyframes trial-blink{0%,50%{opacity:1}25%,75%{opacity:.7}}';
+  document.head.appendChild(style);
+}
+
+function createTextElement<K extends keyof HTMLElementTagNameMap>(
+  tagName: K,
+  text: string,
+  className?: string
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = text;
+  return element;
+}
+
 export class TrialNotice {
   private container: HTMLElement | null = null;
   private status: TrialStatus | null = null;
@@ -14,12 +43,7 @@ export class TrialNotice {
    * 初始化试用提醒组件
    */
   async initialize(): Promise<void> {
-    this.status = await checkTrialStatus();
-
-    if (this.status.isTrial) {
-      this.createNoticeElement();
-      this.startPeriodicCheck();
-    }
+    this.applyStatus(await checkTrialStatus());
   }
 
   /**
@@ -31,42 +55,9 @@ export class TrialNotice {
     }
 
     // 创建容器
+    ensureStyles();
     this.container = document.createElement('div');
     this.container.className = 'trial-notice';
-    this.container.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: ${this.status.isExpired ? '#ff4757' : this.status.isExpiringSoon ? '#ffa502' : '#3742fa'};
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10000;
-      max-width: 300px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    `;
-
-    // 添加悬停效果
-    this.container.addEventListener('mouseenter', () => {
-      if (this.container) {
-        this.container.style.transform = 'translateY(-2px)';
-        this.container.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
-      }
-    });
-
-    this.container.addEventListener('mouseleave', () => {
-      if (this.container) {
-        this.container.style.transform = 'translateY(0)';
-        this.container.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-      }
-    });
-
-    // 设置内容
-    this.updateNoticeContent();
 
     // 添加点击事件
     this.container.addEventListener('click', () => {
@@ -75,11 +66,6 @@ export class TrialNotice {
 
     // 添加到页面
     document.body.appendChild(this.container);
-
-    // 如果已过期，添加闪烁效果
-    if (this.status.isExpired) {
-      this.addBlinkEffect();
-    }
   }
 
   /**
@@ -91,61 +77,38 @@ export class TrialNotice {
     }
 
     const timeStr = formatRemainingTime(this.status);
+    this.container.classList.remove(...NOTICE_STATE_CLASSES);
 
     if (this.status.isExpired) {
-      this.container.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span>⚠️</span>
-          <div>
-            <div style="font-weight: bold;">试用版已过期</div>
-            <div style="font-size: 12px; opacity: 0.9;">点击查看详情</div>
-          </div>
-        </div>
-      `;
+      this.container.classList.add('trial-notice--expired');
+      this.container.replaceChildren(
+        this.createNoticeContent('⚠️', '试用版已过期', '点击查看详情')
+      );
     } else if (this.status.isExpiringSoon) {
-      this.container.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span>⏰</span>
-          <div>
-            <div style="font-weight: bold;">试用版即将过期</div>
-            <div style="font-size: 12px; opacity: 0.9;">${timeStr}</div>
-          </div>
-        </div>
-      `;
+      this.container.classList.add('trial-notice--expiring');
+      this.container.replaceChildren(this.createNoticeContent('⏰', '试用版即将过期', timeStr));
     } else {
-      this.container.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span>🔄</span>
-          <div>
-            <div style="font-weight: bold;">试用版</div>
-            <div style="font-size: 12px; opacity: 0.9;">${timeStr}</div>
-          </div>
-        </div>
-      `;
+      this.container.classList.add('trial-notice--active');
+      this.container.replaceChildren(this.createNoticeContent('🔄', '试用版', timeStr));
     }
   }
 
-  /**
-   * 添加闪烁效果
-   */
-  private addBlinkEffect(): void {
-    if (!this.container) {
-      return;
-    }
+  private createNoticeContent(icon: string, titleText: string, detailText: string): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'trial-notice__row';
 
-    const keyframes = `
-      @keyframes trial-blink {
-        0%, 50% { opacity: 1; }
-        25%, 75% { opacity: 0.7; }
-      }
-    `;
+    const iconElement = createTextElement('span', icon);
+    const text = document.createElement('div');
+    text.append(
+      createTextElement('div', titleText, 'trial-notice__title'),
+      createTextElement('div', detailText, 'trial-notice__detail')
+    );
+    row.append(iconElement, text);
+    return row;
+  }
 
-    // 添加样式
-    const style = document.createElement('style');
-    style.textContent = keyframes;
-    document.head.appendChild(style);
-
-    this.container.style.animation = 'trial-blink 2s infinite';
+  private removeOwnedStyles(): void {
+    document.querySelectorAll(STYLE_SELECTOR).forEach((style) => style.remove());
   }
 
   /**
@@ -157,72 +120,44 @@ export class TrialNotice {
     }
 
     const modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10001;
-    `;
+    modal.className = 'trial-notice-modal';
 
     const content = document.createElement('div');
-    content.style.cssText = `
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    `;
+    content.className = 'trial-notice-modal__content';
 
     const timeStr = formatRemainingTime(this.status);
     const expirationStr = this.status.expirationDate
       ? this.status.expirationDate.toLocaleString('zh-CN')
       : '未知';
+    const summary = document.createElement('div');
+    summary.className = 'trial-notice-modal__summary';
 
-    content.innerHTML = `
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h3 style="margin: 0 0 16px 0; color: #333;">
-          ${this.status.isExpired ? '⚠️ 试用版已过期' : '🔄 试用版信息'}
-        </h3>
-        <div style="color: #666; line-height: 1.6;">
-          <p><strong>状态:</strong> ${timeStr}</p>
-          <p><strong>过期时间:</strong> ${expirationStr}</p>
-          ${
-            this.status.isExpired
-              ? '<p style="color: #ff4757;"><strong>功能已被限制，请联系开发者获取正式版本。</strong></p>'
-              : '<p style="color: #2ed573;">扩展功能正常可用。</p>'
-          }
-        </div>
-      </div>
-      <div style="text-align: center;">
-        <button id="trial-close-btn" style="
-          background: #3742fa;
-          color: white;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-        ">确定</button>
-      </div>
-    `;
+    summary.append(
+      createTextElement(
+        'h3',
+        this.status.isExpired ? '⚠️ 试用版已过期' : '🔄 试用版信息',
+        'trial-notice-modal__title'
+      ),
+      this.createModalBody(timeStr, expirationStr)
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'trial-notice-modal__actions';
+    const closeButton = createTextElement('button', '确定', 'trial-notice-modal__close');
+    closeButton.id = 'trial-close-btn';
+    closeButton.type = 'button';
+    actions.append(closeButton);
+    content.append(summary, actions);
 
     modal.appendChild(content);
     document.body.appendChild(modal);
 
     // 关闭按钮事件
-    const closeBtn = content.querySelector('#trial-close-btn');
     const closeModal = () => {
-      document.body.removeChild(modal);
+      modal.remove();
     };
 
-    closeBtn?.addEventListener('click', closeModal);
+    closeButton.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         closeModal();
@@ -230,10 +165,43 @@ export class TrialNotice {
     });
   }
 
+  private createModalBody(timeStr: string, expirationStr: string): HTMLElement {
+    const body = document.createElement('div');
+    body.className = 'trial-notice-modal__body';
+    body.append(
+      this.createLabelParagraph('状态', timeStr),
+      this.createLabelParagraph('过期时间', expirationStr)
+    );
+
+    if (this.status?.isExpired) {
+      const restricted = document.createElement('p');
+      restricted.className = 'trial-notice-modal__restricted';
+      restricted.append(createTextElement('strong', '功能已被限制，请联系开发者获取正式版本。'));
+      body.append(restricted);
+    } else {
+      body.append(createTextElement('p', '扩展功能正常可用。', 'trial-notice-modal__available'));
+    }
+
+    return body;
+  }
+
+  private createLabelParagraph(label: string, value: string): HTMLParagraphElement {
+    const paragraph = document.createElement('p');
+    paragraph.append(
+      createTextElement('strong', `${label}:`),
+      document.createTextNode(` ${value}`)
+    );
+    return paragraph;
+  }
+
   /**
    * 开始定期检查
    */
   private startPeriodicCheck(): void {
+    if (this.checkInterval !== null) {
+      return;
+    }
+
     const runCheck = (): void => {
       void this.refreshTrialStatus();
     };
@@ -241,21 +209,35 @@ export class TrialNotice {
   }
 
   private async refreshTrialStatus(): Promise<void> {
-    const newStatus = await checkTrialStatus();
-    const previousStatus = this.status;
+    this.applyStatus(await checkTrialStatus());
+  }
 
-    if (
-      previousStatus &&
-      (newStatus.isExpired !== previousStatus.isExpired ||
-        newStatus.remainingHours !== previousStatus.remainingHours)
-    ) {
-      this.status = newStatus;
-      this.updateNoticeContent();
+  private applyStatus(status: TrialStatus): void {
+    this.status = status;
 
-      // 如果刚刚过期，添加闪烁效果
-      if (!previousStatus.isExpired && newStatus.isExpired) {
-        this.addBlinkEffect();
-      }
+    if (!status.isTrial) {
+      this.removeNoticeElement();
+      this.removeOwnedStyles();
+      this.stopPeriodicCheck();
+      return;
+    }
+
+    if (!this.container) {
+      this.createNoticeElement();
+    }
+    this.updateNoticeContent();
+    this.startPeriodicCheck();
+  }
+
+  private removeNoticeElement(): void {
+    this.container?.remove();
+    this.container = null;
+  }
+
+  private stopPeriodicCheck(): void {
+    if (this.checkInterval !== null) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
     }
   }
 
@@ -263,21 +245,16 @@ export class TrialNotice {
    * 销毁组件
    */
   destroy(): void {
-    if (this.container && this.container.parentNode) {
-      this.container.parentNode.removeChild(this.container);
-    }
-
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-    }
+    this.removeNoticeElement();
+    this.stopPeriodicCheck();
+    this.removeOwnedStyles();
   }
 
   /**
    * 手动更新状态
    */
   async refresh(): Promise<void> {
-    this.status = await checkTrialStatus();
-    this.updateNoticeContent();
+    this.applyStatus(await checkTrialStatus());
   }
 }
 
