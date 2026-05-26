@@ -58,13 +58,28 @@ describe('usage dashboard state bridge', () => {
     expect(Object.isFrozen(event.detail.history)).toBe(true);
     expect(Object.isFrozen(event.detail.history[0])).toBe(true);
     expect(() => {
-      (event.detail.history as UsageStats['history']).push({
+      Object.defineProperty(event.detail.history, '1', {
+        value: {
+          date: '2026-05-28',
+          aiChat: 1,
+          fragment: 1,
+          article: 1
+        }
+      });
+    }).toThrow(TypeError);
+    expect(() => {
+      Object.defineProperty(event.detail.history[0], 'aiChat', {
+        value: 99
+      });
+    }).toThrow(TypeError);
+    expect(() => {
+      stats.history.push({
         date: '2026-05-28',
         aiChat: 1,
         fragment: 1,
         article: 1
       });
-    }).toThrow(TypeError);
+    }).not.toThrow();
   });
 
   it('does not create or mutate window.aiobUsageStats', () => {
