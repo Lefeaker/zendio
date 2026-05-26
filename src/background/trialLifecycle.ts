@@ -81,7 +81,7 @@ export async function initializeTrialSystem(
 export async function initializeTrialOnInstall(deps: {
   runtime: Pick<RuntimeService, 'getURL'>;
   fetch: typeof fetch;
-  initializeTrial: (trialDays: number) => Promise<unknown>;
+  initializeTrial: TrialLifecycleDependencies['initializeTrial'];
 }): Promise<void> {
   try {
     const trialConfigUrl = deps.runtime.getURL('trial-config.json');
