@@ -40,7 +40,7 @@ describe('Stitch usage history', () => {
       fragmentSaves: 2,
       articleSaves: 1,
       lastUpdatedISO: '2026-05-21T10:00:00.000Z'
-    } as UsageStats;
+    } satisfies UsageStats;
 
     expect(prepareHistory(aggregateStats)).toEqual(prepareUsageHistory(aggregateStats));
   });
