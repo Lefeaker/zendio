@@ -355,13 +355,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'Retain the exact design token CSS source until design system owners record a replacement or six-proof deletion.'
   },
   {
-    pattern: 'src/ui/ZagCombobox.js',
-    decision: 'retain-production-facade',
-    owner: 'Zag combobox UI compatibility module',
-    deletionCondition:
-      'delete only after combobox consumers move to current UI primitive/domain owner'
-  },
-  {
     pattern: 'src/ui/foundation/tokens/index.ts',
     decision: 'retain-production-facade',
     owner: 'design token metadata source contract',
