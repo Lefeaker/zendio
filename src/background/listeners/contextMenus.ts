@@ -14,7 +14,6 @@ import {
 } from './contextMenusTypes';
 
 const runtimeState = createContextMenuRuntimeState();
-let listenerDependencies: ContextMenuListenerDependencies | null = null;
 
 export function createContextMenuListenerDependencies(
   dependencies: ContextMenuListenerDependencies
@@ -22,16 +21,7 @@ export function createContextMenuListenerDependencies(
   return dependencies;
 }
 
-function getDependencies(): ContextMenuListenerDependencies {
-  if (!listenerDependencies) {
-    throw new Error('[contextMenus] Dependencies have not been configured.');
-  }
-  return listenerDependencies;
-}
-
 export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
-  listenerDependencies = dependencies;
-
   const { action, contextMenus, runtime, tabs, messaging, optionsRepository } = dependencies;
 
   runtime.onInstalled(() => {

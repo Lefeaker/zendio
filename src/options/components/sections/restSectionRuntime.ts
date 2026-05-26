@@ -1,6 +1,5 @@
 import type { CompleteOptions, RestOptions, StoredOptions } from '@shared/types/options';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
-import type { VaultConfig } from '@shared/types/vault';
 import type { FormSectionHandlers } from '../formSections/formSectionManager';
 import { createConnectionTester, type ConnectionTester } from '../controls/connectionTest';
 import type { ConnectionResultType } from '../../services/connectionTestRunner';
@@ -14,7 +13,7 @@ import {
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
-} from './restSectionConnectionResult';
+} from '@options/app/rest-settings/restSectionConnectionResult';
 import { getVaultRouterConfig, initializeVaultRouterStore } from '../../state/vaultRouterStore';
 import { getOptionsMessages } from '../../app/i18nContext';
 

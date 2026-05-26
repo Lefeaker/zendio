@@ -8,17 +8,45 @@ type NonProductionSourceModule = {
     deletionCondition?: string;
   };
   formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
+  formatNonProductionSourceJson: (rows: Array<Record<string, unknown>>) => string;
   validateNonProductionSourceCheck: (rows: Array<Record<string, unknown>>) => {
     ok: boolean;
     violations: Array<{ file: string; reason: string }>;
   };
+  validateNonProductionSourceThresholds: (
+    rows: Array<Record<string, unknown>>,
+    limits: { maxMigrateImportOwner?: number }
+  ) => {
+    ok: boolean;
+    violations: Array<{ metric: string; actual: number; max: number }>;
+  };
+  parseArgs: (argv: string[]) => {
+    checkMode: boolean;
+    format: string;
+    output: string | null;
+    maxMigrateImportOwner?: number;
+  };
+  evaluateNonProductionSourceGates: (
+    rows: object[],
+    options: { checkMode?: boolean; maxMigrateImportOwner?: number }
+  ) => {
+    ok: boolean;
+    violations: object[];
+  };
 };
 
-const { classifySourceFile, formatNonProductionSourceReport, validateNonProductionSourceCheck } =
-  (await import(
-    // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
-    '../../../tools/report-non-production-source.mjs'
-  )) as NonProductionSourceModule;
+const {
+  classifySourceFile,
+  evaluateNonProductionSourceGates,
+  formatNonProductionSourceJson,
+  formatNonProductionSourceReport,
+  parseArgs,
+  validateNonProductionSourceCheck,
+  validateNonProductionSourceThresholds
+} = (await import(
+  // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
+  '../../../tools/report-non-production-source.mjs'
+)) as NonProductionSourceModule;
 
 const approvedPostTestDeleteCandidate = [
   'src',
@@ -607,6 +635,124 @@ describe('report-non-production-source', () => {
     expect(report).toContain('migrate-import-owner');
     expect(report).toContain('migrate-script-owner');
     expect(report).toContain('migrate-test-owner');
+  });
+
+  it('formats JSON with decision counts, unsafe delete-now rows, and migrate import owners', () => {
+    const json = formatNonProductionSourceJson([
+      classifySourceFile(
+        input({
+          retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts']
+        })
+      ),
+      {
+        file: approvedPostTestDeleteCandidate,
+        decision: 'delete-now',
+        ownerProofs: {
+          productionBuildGraph: 'empty',
+          importGraph: 'empty',
+          packageBuildScripts: 'owned',
+          publicManifestAssets: 'empty',
+          testsVisualBrowser: 'empty',
+          requiredVerification: 'empty'
+        },
+        productionBuildGraphOwners: [],
+        retainedSourceImportOwners: [],
+        retainedSourceImportTargets: [],
+        testOwners: [],
+        scriptOwners: ['tools/report-ui-architecture-alignment.mjs'],
+        publicAssetOwners: [],
+        requiredVerificationOwners: []
+      }
+    ]);
+    const summary = JSON.parse(json) as {
+      decisionCounts: Record<string, number>;
+      unsafeDeleteNow: Array<{ file: string; reason: string }>;
+      migrateImportOwner: Array<{
+        file: string;
+        productionBuildOwners: string[];
+        importOwners: string[];
+        requiredAction: string;
+      }>;
+    };
+
+    expect(summary.decisionCounts['migrate-import-owner']).toBe(1);
+    expect(summary.decisionCounts['delete-now']).toBe(1);
+    expect(summary.unsafeDeleteNow[0]?.file).toBe(approvedPostTestDeleteCandidate);
+    expect(summary.unsafeDeleteNow[0]?.reason).toContain('packageBuildScripts');
+    expect(summary.migrateImportOwner[0]).toMatchObject({
+      file: 'src/options/widgets/ExampleWidget.ts',
+      productionBuildOwners: [],
+      importOwners: ['src/options/components/layout/MainContent.ts'],
+      requiredAction:
+        'Remove retained source import/re-export/dependency ownership before deletion.'
+    });
+  });
+
+  it('validates migrate-import-owner thresholds at exact count and fails when exceeded', () => {
+    const rows = [
+      classifySourceFile(
+        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+      )
+    ];
+
+    expect(validateNonProductionSourceThresholds(rows, { maxMigrateImportOwner: 1 }).ok).toBe(true);
+
+    const result = validateNonProductionSourceThresholds(rows, { maxMigrateImportOwner: 0 });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations[0]).toEqual({
+      metric: 'migrate-import-owner',
+      actual: 1,
+      max: 0
+    });
+  });
+
+  it('fails CLI parsing for unknown flags', () => {
+    expect(() => parseArgs(['--typo'])).toThrow('Unknown argument: --typo');
+  });
+
+  it('fails CLI parsing when --format is missing a value', () => {
+    expect(() => parseArgs(['--format'])).toThrow('--format requires a value');
+  });
+
+  it('fails CLI parsing when --output is missing a value', () => {
+    expect(() => parseArgs(['--output'])).toThrow('--output requires a value');
+  });
+
+  it('fails CLI parsing for unsupported formats', () => {
+    expect(() => parseArgs(['--format', 'table'])).toThrow(
+      'Unsupported --format table; expected markdown or json'
+    );
+  });
+
+  it('applies check mode and threshold gates together', () => {
+    const rows = [
+      classifySourceFile(input({ file: 'src/unknown/unused.ts' })),
+      classifySourceFile(
+        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+      )
+    ];
+
+    const result = evaluateNonProductionSourceGates(rows, {
+      checkMode: true,
+      maxMigrateImportOwner: 0
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'check',
+          file: 'src/unknown/unused.ts'
+        }),
+        expect.objectContaining({
+          kind: 'threshold',
+          metric: 'migrate-import-owner',
+          actual: 1,
+          max: 0
+        })
+      ])
+    );
   });
 
   it('passes check mode for migrate and retain inventory without stop-unknown or delete-now', () => {

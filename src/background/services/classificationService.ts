@@ -1,8 +1,8 @@
 import type { Options } from '../store';
 import type { ClipPayload } from '../../shared/types';
 import { classify } from '../llm/classifier';
-import type { ClassifierFailure, ClassifierResponse } from '../llm/classifier';
-import { AppError, classifierErrors, errorHandler } from '../../shared/errors';
+import type { ClassifierResponse } from '../llm/classifier';
+import { classifierErrors, errorHandler } from '../../shared/errors';
 import { ClassificationResultSchema } from '../../shared/schemas';
 import type { ClassificationResult as ClassificationResultT } from '../../shared/schemas';
 

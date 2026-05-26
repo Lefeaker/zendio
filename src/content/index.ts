@@ -4,7 +4,6 @@ import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
-  isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
 } from './runtime/contentSessionRegistry';

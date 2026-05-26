@@ -1,4 +1,4 @@
-import { buildRestConnectionResult } from './restSectionConnectionResult';
+import { buildRestConnectionResult } from '@options/app/rest-settings/restSectionConnectionResult';
 import { buildRestVaultControls, buildRestVaultTable } from './restSectionDefaultLayout';
 import type { RestSectionLayoutRefs, RestSectionMessagesLike } from './restSectionLayoutTypes';
 

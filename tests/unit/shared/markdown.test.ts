@@ -408,3 +408,61 @@ it('converts tables nested inside pre blocks and keeps inline formatting', () =>
   expect(markdown).toContain('| **Alpha** | `1` |');
   expect(markdown).not.toContain('```');
 });
+
+it('characterizes ordered list items that contain nested lists and tables', () => {
+  const html = `
+    <ol start="4">
+      <li>
+        <p>Parent step</p>
+        <ul>
+          <li>Nested <strong>bold</strong></li>
+          <li><code>child()</code></li>
+        </ul>
+        <table>
+          <thead><tr><th>Key</th><th>Value</th></tr></thead>
+          <tbody><tr><td><em>A</em></td><td>1</td></tr></tbody>
+        </table>
+      </li>
+      <li>Second step</li>
+    </ol>
+  `;
+
+  const markdown = chatHtmlToMarkdown(html);
+
+  expect(markdown).toBe(
+    [
+      '4. Parent step',
+      '',
+      '  - Nested **bold**',
+      '  - `child()`',
+      '',
+      '| Key | Value |',
+      '| --- | --- |',
+      '| *A* | 1 |',
+      '',
+      '5. Second step'
+    ].join('\n')
+  );
+});
+
+it('characterizes normalized code labels from data attributes and trailing colons', () => {
+  const html = `
+    <section>
+      <div class="toolbar">
+        <span data-code-language="Plain Text:">Plain Text:</span>
+        <button>Copy</button>
+      </div>
+      <pre><code>alpha
+beta</code></pre>
+      <div class="code-label">C++：</div>
+      <div class="toolbar-actions">Copy</div>
+      <pre><code>std::cout &lt;&lt; value;</code></pre>
+    </section>
+  `;
+
+  const markdown = chatHtmlToMarkdown(html);
+
+  expect(markdown).toBe(
+    ['```text', 'alpha', 'beta', '```', '', '```cpp', 'std::cout << value;', '```'].join('\n')
+  );
+});

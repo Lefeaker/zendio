@@ -3,11 +3,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { VaultRouterConfig } from '@shared/types';
-import type { RestOptions } from '@shared/types/options';
 import {
   renderRestConnectionTestResult,
   resetRestConnectionTestResult
-} from '@options/components/sections/restSectionConnectionResult';
+} from '@options/app/rest-settings/restSectionConnectionResult';
 import { buildRestDefaultRow } from '@options/components/sections/restSectionDefaultRow';
 import {
   applyRestSectionSnapshot,
@@ -18,9 +17,8 @@ import {
   resolveRestDefaultVaultId,
   updateLocalFolderButton
 } from '@options/components/sections/restSectionState';
-import * as sectionConnectionResultExports from '@options/components/sections/restSectionConnectionResult';
+import * as connectionResultExports from '@options/app/rest-settings/restSectionConnectionResult';
 import * as sectionStateExports from '@options/components/sections/restSectionState';
-import * as widgetConnectionResultExports from '@options/widgets/shared/rest/restSectionConnectionResult';
 import * as widgetStateExports from '@options/widgets/shared/rest/restSectionState';
 
 const defaults = DEFAULT_OPTIONS.rest;
@@ -104,15 +102,12 @@ describe('restSectionState helpers', () => {
     expect(host.childElementCount).toBe(0);
   });
 
-  it('keeps section and widget REST helper runtime export contracts distinct', () => {
-    expect(Object.keys(sectionConnectionResultExports).sort()).toEqual([
+  it('keeps current connection result and diverged REST helper contracts explicit', () => {
+    expect(Object.keys(connectionResultExports).sort()).toEqual([
       'buildRestConnectionResult',
       'renderRestConnectionTestResult',
       'resetRestConnectionTestResult'
     ]);
-    expect(Object.keys(widgetConnectionResultExports).sort()).toEqual(
-      Object.keys(sectionConnectionResultExports).sort()
-    );
 
     expect(Object.keys(sectionStateExports).sort()).toEqual([
       'applyRestSectionSnapshot',

@@ -15,7 +15,7 @@ import contact from './resources/contact';
 import changelog from './resources/changelog';
 import privacyPolicy from './resources/privacy-policy';
 import dataUsage from './resources/data-usage';
-import { getSurfaceMeta, getSurfaceView, surfaceSchemas } from './surfaceRegistry';
+import { getSurfaceMeta, getSurfaceView } from './surfaceRegistry';
 
 export { surfaceSchemas } from './surfaceRegistry';
 
@@ -57,10 +57,6 @@ export function getResourceMeta(id: string): Pick<ResourceSchema, 'openMode' | '
     openMode: schema.openMode,
     ...(schema.href ? { href: schema.href } : {})
   };
-}
-
-function resolveFooterSchema(id: string): ResourceSchema | null {
-  return resourceSchemas[id] ?? surfaceSchemas[id] ?? null;
 }
 
 export function getFooterView(id: string, ctx: SchemaContext): ViewSchema | null {

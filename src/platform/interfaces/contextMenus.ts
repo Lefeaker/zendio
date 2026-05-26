@@ -14,10 +14,10 @@ export type ContextMenuOnShownListener = (
 ) => void | Promise<void>;
 
 export interface ContextMenusService {
-  create(properties: MenuCreateProperties): Promise<MenuID>;
-  update(id: MenuID, properties: MenuUpdateProperties): Promise<void>;
-  removeAll(): Promise<void>;
-  onClicked(listener: ContextMenuOnClickListener): () => void;
-  onShown(listener: ContextMenuOnShownListener): () => void;
-  refresh?(): void;
+  create: (properties: MenuCreateProperties) => Promise<MenuID>;
+  update: (id: MenuID, properties: MenuUpdateProperties) => Promise<void>;
+  removeAll: () => Promise<void>;
+  onClicked: (listener: ContextMenuOnClickListener) => () => void;
+  onShown: (listener: ContextMenuOnShownListener) => () => void;
+  refresh?: () => void;
 }

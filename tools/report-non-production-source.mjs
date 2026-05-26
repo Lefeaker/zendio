@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -883,6 +883,39 @@ function formatNonProductionSourceReport(rows) {
   return `${lines.join('\n')}\n`;
 }
 
+function createNonProductionSourceSummary(rows) {
+  const decisionCounts = rows.reduce((acc, row) => {
+    acc[row.decision] = (acc[row.decision] ?? 0) + 1;
+    return acc;
+  }, {});
+  const unsafeDeleteNow = rows
+    .filter((row) => row.decision === 'delete-now')
+    .flatMap((row) =>
+      validateNonProductionSourceCheck([row]).violations.map((violation) => ({
+        file: violation.file,
+        reason: violation.reason
+      }))
+    );
+  const migrateImportOwner = rows
+    .filter((row) => row.decision === 'migrate-import-owner')
+    .map((row) => ({
+      file: row.file,
+      productionBuildOwners: row.productionBuildGraphOwners ?? [],
+      importOwners: retainedImportGraphReferences(row),
+      requiredAction: row.requiredAction
+    }));
+
+  return {
+    decisionCounts,
+    unsafeDeleteNow,
+    migrateImportOwner
+  };
+}
+
+function formatNonProductionSourceJson(rows) {
+  return `${JSON.stringify(createNonProductionSourceSummary(rows), null, 2)}\n`;
+}
+
 function validateNonProductionSourceCheck(rows) {
   const violations = [];
 
@@ -923,6 +956,26 @@ function validateNonProductionSourceCheck(rows) {
         reason: 'delete-now row still has retained source import/re-export/dependency ownership'
       });
     }
+  }
+
+  return {
+    ok: violations.length === 0,
+    violations
+  };
+}
+
+function validateNonProductionSourceThresholds(rows, limits) {
+  const decisionCounts = createNonProductionSourceSummary(rows).decisionCounts;
+  const violations = [];
+  if (
+    typeof limits.maxMigrateImportOwner === 'number' &&
+    (decisionCounts['migrate-import-owner'] ?? 0) > limits.maxMigrateImportOwner
+  ) {
+    violations.push({
+      metric: 'migrate-import-owner',
+      actual: decisionCounts['migrate-import-owner'] ?? 0,
+      max: limits.maxMigrateImportOwner
+    });
   }
 
   return {
@@ -989,23 +1042,147 @@ async function buildNonProductionSourceRows() {
   });
 }
 
-async function main() {
-  const checkMode = process.argv.includes('--check');
-  const rows = await buildNonProductionSourceRows();
-  process.stdout.write(formatNonProductionSourceReport(rows));
+function parseArgs(argv) {
+  const options = {
+    checkMode: false,
+    format: 'markdown',
+    output: null,
+    maxMigrateImportOwner: undefined
+  };
 
-  if (checkMode) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--check') {
+      options.checkMode = true;
+      continue;
+    }
+    if (arg === '--format') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--format requires a value');
+      }
+      options.format = value;
+      index += 1;
+      continue;
+    }
+    if (arg === '--output') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--output requires a value');
+      }
+      options.output = value;
+      index += 1;
+      continue;
+    }
+    if (arg === '--max-migrate-import-owner') {
+      const rawValue = argv[index + 1];
+      if (!rawValue || rawValue.startsWith('--')) {
+        throw new Error('--max-migrate-import-owner requires a value');
+      }
+      const value = Number(rawValue);
+      if (!Number.isInteger(value) || value < 0) {
+        throw new Error('--max-migrate-import-owner must be a non-negative integer');
+      }
+      options.maxMigrateImportOwner = value;
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (!['markdown', 'json'].includes(options.format)) {
+    throw new Error(`Unsupported --format ${options.format}; expected markdown or json`);
+  }
+
+  return options;
+}
+
+function evaluateNonProductionSourceGates(rows, options) {
+  const violations = [];
+
+  if (options.checkMode) {
     const result = validateNonProductionSourceCheck(rows);
+    violations.push(
+      ...result.violations.map((violation) => ({
+        kind: 'check',
+        ...violation
+      }))
+    );
+  }
+
+  if (typeof options.maxMigrateImportOwner === 'number') {
+    const result = validateNonProductionSourceThresholds(rows, {
+      maxMigrateImportOwner: options.maxMigrateImportOwner
+    });
+    violations.push(
+      ...result.violations.map((violation) => ({
+        kind: 'threshold',
+        ...violation
+      }))
+    );
+  }
+
+  return {
+    ok: violations.length === 0,
+    violations
+  };
+}
+
+function writeOutput(output, outputPath) {
+  if (!outputPath) {
+    process.stdout.write(output);
+    return;
+  }
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, output);
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const rows = await buildNonProductionSourceRows();
+  writeOutput(
+    options.format === 'json'
+      ? formatNonProductionSourceJson(rows)
+      : formatNonProductionSourceReport(rows),
+    options.output
+  );
+
+  if (options.checkMode || typeof options.maxMigrateImportOwner === 'number') {
+    const result = evaluateNonProductionSourceGates(rows, options);
     if (!result.ok) {
-      console.error(
-        `non-production source check failed with ${result.violations.length} hard safety violation(s)`
+      const checkViolations = result.violations.filter((violation) => violation.kind === 'check');
+      const thresholdViolations = result.violations.filter(
+        (violation) => violation.kind === 'threshold'
       );
-      for (const violation of result.violations) {
+      if (checkViolations.length > 0) {
+        console.error(
+          `non-production source check failed with ${checkViolations.length} hard safety violation(s)`
+        );
+      }
+      for (const violation of checkViolations) {
         console.error(`- ${violation.file}: ${violation.reason}`);
+      }
+      if (thresholdViolations.length > 0) {
+        console.error(
+          `non-production source threshold check failed with ${thresholdViolations.length} violation(s)`
+        );
+      }
+      for (const violation of thresholdViolations) {
+        console.error(`- ${violation.metric}: ${violation.actual} > ${violation.max}`);
       }
       process.exit(1);
     }
-    console.error('non-production source check passed hard safety gates');
+
+    if (options.checkMode) {
+      console.error('non-production source check passed hard safety gates');
+    }
+    if (typeof options.maxMigrateImportOwner === 'number') {
+      console.error('non-production source threshold check passed');
+    }
+    return;
+  }
+
+  if (options.format === 'json') {
     return;
   }
 
@@ -1024,9 +1201,14 @@ async function main() {
 
 export {
   classifySourceFile,
+  createNonProductionSourceSummary,
+  formatNonProductionSourceJson,
   formatNonProductionSourceReport,
   validateNonProductionSourceCheck,
-  buildNonProductionSourceRows
+  validateNonProductionSourceThresholds,
+  evaluateNonProductionSourceGates,
+  buildNonProductionSourceRows,
+  parseArgs
 };
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

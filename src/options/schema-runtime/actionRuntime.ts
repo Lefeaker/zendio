@@ -54,14 +54,14 @@ function extractActionValue(descriptor: ActionDescriptor, payload?: unknown): un
   }
 }
 
-export interface ActionRuntime<State, AppData> {
+export interface ActionRuntime {
   dispatch: (action: ActionDescriptor | string, payload?: unknown) => void;
   has: (actionId: string) => boolean;
 }
 
 export function createActionRuntime<State, AppData>(
   options: ActionRuntimeOptions<State, AppData>
-): ActionRuntime<State, AppData> {
+): ActionRuntime {
   const { handlers } = options;
 
   function dispatch(action: ActionDescriptor | string, payload?: unknown): void {

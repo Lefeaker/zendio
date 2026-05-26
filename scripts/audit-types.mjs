@@ -21,6 +21,23 @@ const defaultJsonPath = resolve(repoRoot, 'tmp', 'types-report.json');
 const SOURCE_DIRS = ['src', 'tests'];
 const ALLOWED_FORMATS = new Set(['summary', 'json', 'md', 'table']);
 const DEFAULT_FORMAT = 'summary';
+const METRIC_KEYS = ['any', 'unknown', 'assertions', 'nonNullAssertions', 'tsExpectError'];
+const SCOPE_KEYS = ['src', 'tests'];
+const THRESHOLD_OPTIONS = new Map([
+  ['--max-any', 'any'],
+  ['--max-unknown', 'unknown'],
+  ['--max-assertions', 'assertions'],
+  ['--max-non-null', 'nonNullAssertions'],
+  ['--max-ts-expect-error', 'tsExpectError']
+]);
+const SCOPED_THRESHOLD_OPTIONS = new Map(
+  SCOPE_KEYS.flatMap((scope) =>
+    [...THRESHOLD_OPTIONS.entries()].map(([option, metric]) => [
+      option.replace('--max-', `--max-${scope}-`),
+      { scope, metric }
+    ])
+  )
+);
 const IGNORED_DIRECTORIES = new Set([
   'dist',
   'node_modules',
@@ -30,40 +47,60 @@ const IGNORED_DIRECTORIES = new Set([
   'trash'
 ]);
 
-const args = process.argv.slice(2);
-let format = DEFAULT_FORMAT;
-let outputPath;
-
-for (let i = 0; i < args.length; i += 1) {
-  const arg = args[i];
-  if (arg === '--format') {
-    const next = args[i + 1];
-    if (!next || !ALLOWED_FORMATS.has(next)) {
-      console.error(
-        `Unsupported or missing format. Allowed values: ${Array.from(ALLOWED_FORMATS).join(', ')}.`
-      );
-      process.exitCode = 1;
-      process.exit();
-    }
-    format = next;
-    i += 1;
-  } else if (arg === '--output') {
-    const next = args[i + 1];
-    if (!next) {
-      console.error('--output requires a path value.');
-      process.exitCode = 1;
-      process.exit();
-    }
-    outputPath = resolve(process.cwd(), next);
-    i += 1;
-  } else {
-    console.error(`Unknown argument: ${arg}`);
-    process.exitCode = 1;
-    process.exit();
+function parseIntegerOption(optionName, value) {
+  if (value === undefined) {
+    throw new Error(`${optionName} requires a value.`);
   }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${optionName} requires a non-negative integer value.`);
+  }
+
+  return parsed;
 }
 
-const METRIC_KEYS = ['any', 'unknown', 'assertions', 'nonNullAssertions', 'tsExpectError'];
+function parseArgs(args) {
+  const options = {
+    format: DEFAULT_FORMAT,
+    outputPath: undefined,
+    limits: {}
+  };
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--format') {
+      const next = args[i + 1];
+      if (!next || !ALLOWED_FORMATS.has(next)) {
+        throw new Error(
+          `Unsupported or missing format. Allowed values: ${Array.from(ALLOWED_FORMATS).join(', ')}.`
+        );
+      }
+      options.format = next;
+      i += 1;
+    } else if (arg === '--output') {
+      const next = args[i + 1];
+      if (!next) {
+        throw new Error('--output requires a path value.');
+      }
+      options.outputPath = resolve(process.cwd(), next);
+      i += 1;
+    } else if (THRESHOLD_OPTIONS.has(arg)) {
+      const metric = THRESHOLD_OPTIONS.get(arg);
+      options.limits[metric] = parseIntegerOption(arg, args[i + 1]);
+      i += 1;
+    } else if (SCOPED_THRESHOLD_OPTIONS.has(arg)) {
+      const { scope, metric } = SCOPED_THRESHOLD_OPTIONS.get(arg);
+      options.limits[scope] ??= {};
+      options.limits[scope][metric] = parseIntegerOption(arg, args[i + 1]);
+      i += 1;
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+
+  return options;
+}
 
 function emptyMetrics() {
   return {
@@ -152,6 +189,62 @@ function sumMetrics(target, addition) {
   }
 }
 
+export function checkThresholds(report, limits) {
+  const failures = [];
+
+  for (const [metric, max] of Object.entries(limits).filter(([metric]) =>
+    METRIC_KEYS.includes(metric)
+  )) {
+    const actual = report.totals[metric] ?? 0;
+    if (actual > max) {
+      failures.push({
+        metric,
+        actual,
+        max,
+        delta: actual - max
+      });
+    }
+  }
+
+  for (const scope of SCOPE_KEYS) {
+    const scopeLimits = limits[scope];
+    if (!scopeLimits) {
+      continue;
+    }
+
+    const scopeTotals = report.scopes?.[scope] ?? emptyMetrics();
+    for (const [metric, max] of Object.entries(scopeLimits)) {
+      const actual = scopeTotals[metric] ?? 0;
+      if (actual > max) {
+        failures.push({
+          scope,
+          metric,
+          actual,
+          max,
+          delta: actual - max
+        });
+      }
+    }
+  }
+
+  return {
+    ok: failures.length === 0,
+    failures
+  };
+}
+
+function formatThresholdFailures(failures) {
+  return [
+    'Type safety threshold check failed:',
+    ...failures.map(
+      (failure) => {
+        const label = failure.scope ? `${failure.scope}.${failure.metric}` : failure.metric;
+        return `  - ${label}: ${failure.actual} > ${failure.max} (+${failure.delta})`;
+      }
+    )
+  ].join('\n');
+}
+
 function buildFileRecord(relPath, metrics) {
   const score =
     metrics.any * 5 +
@@ -174,6 +267,12 @@ function formatSummary(report) {
   lines.push(
     `Totals → any: ${report.totals.any}, unknown: ${report.totals.unknown}, assertions: ${report.totals.assertions}, non-null: ${report.totals.nonNullAssertions}, ts-expect-error: ${report.totals.tsExpectError}`
   );
+  for (const scope of SCOPE_KEYS) {
+    const totals = report.scopes[scope];
+    lines.push(
+      `${scope} → files: ${totals.files}, any: ${totals.any}, unknown: ${totals.unknown}, assertions: ${totals.assertions}, non-null: ${totals.nonNullAssertions}, ts-expect-error: ${totals.tsExpectError}`
+    );
+  }
 
   const offenders = report.files.filter((file) => file.score > 0).slice(0, 10);
   if (offenders.length > 0) {
@@ -191,7 +290,12 @@ function formatSummary(report) {
 }
 
 function formatMarkdown(report) {
-  const header = `# Type Safety Audit\n\n- Generated: ${report.generatedAt}\n- Files scanned: ${report.totals.files}\n- any: ${report.totals.any}\n- unknown: ${report.totals.unknown}\n- assertions: ${report.totals.assertions}\n- non-null assertions: ${report.totals.nonNullAssertions}\n- @ts-expect-error: ${report.totals.tsExpectError}\n\n## Top Files\n\n`;
+  const scopeLines = SCOPE_KEYS.map((scope) => {
+    const totals = report.scopes[scope];
+    return `- ${scope}: files ${totals.files}; any ${totals.any}; unknown ${totals.unknown}; assertions ${totals.assertions}; non-null ${totals.nonNullAssertions}; @ts-expect-error ${totals.tsExpectError}`;
+  }).join('\n');
+
+  const header = `# Type Safety Audit\n\n- Generated: ${report.generatedAt}\n- Files scanned: ${report.totals.files}\n- any: ${report.totals.any}\n- unknown: ${report.totals.unknown}\n- assertions: ${report.totals.assertions}\n- non-null assertions: ${report.totals.nonNullAssertions}\n- @ts-expect-error: ${report.totals.tsExpectError}\n\n## Scope Totals\n\n${scopeLines}\n\n## Top Files\n\n`;
 
   const tableHeader =
     '| File | any | unknown | assertions | non-null | @ts-expect-error | Score |\n| --- | --- | --- | --- | --- | --- | --- |\n';
@@ -211,6 +315,12 @@ function formatTable(report) {
   const lines = [];
   lines.push(`Type Safety Audit @ ${report.generatedAt}`);
   lines.push(`Files: ${report.totals.files} | any: ${report.totals.any} | unknown: ${report.totals.unknown} | assertions: ${report.totals.assertions} | non-null: ${report.totals.nonNullAssertions} | ts-expect-error: ${report.totals.tsExpectError}`);
+  for (const scope of SCOPE_KEYS) {
+    const totals = report.scopes[scope];
+    lines.push(
+      `${scope}: files ${totals.files} | any: ${totals.any} | unknown: ${totals.unknown} | assertions: ${totals.assertions} | non-null: ${totals.nonNullAssertions} | ts-expect-error: ${totals.tsExpectError}`
+    );
+  }
   lines.push('');
 
   const offenders = report.files.filter((file) => file.score > 0).slice(0, 20);
@@ -246,17 +356,27 @@ async function ensureDirectory(filePath) {
   await mkdir(dir, { recursive: true });
 }
 
-async function main() {
+async function buildReport() {
   const totals = {
     files: 0,
     ...emptyMetrics()
   };
+  const scopes = Object.fromEntries(
+    SCOPE_KEYS.map((scope) => [
+      scope,
+      {
+        files: 0,
+        ...emptyMetrics()
+      }
+    ])
+  );
   const fileRecords = [];
 
   for (const sourceDir of SOURCE_DIRS) {
     const absoluteDir = join(projectRoot, sourceDir);
     const files = await collectSourceFiles(absoluteDir);
     totals.files += files.length;
+    scopes[sourceDir].files += files.length;
 
     for (const filePath of files) {
       const contents = await readFile(filePath, 'utf8');
@@ -266,6 +386,7 @@ async function main() {
         fileRecords.push(buildFileRecord(relPath, metrics));
       }
       sumMetrics(totals, metrics);
+      sumMetrics(scopes[sourceDir], metrics);
     }
   }
 
@@ -275,26 +396,37 @@ async function main() {
     project: 'AiiinOB',
     generatedAt: new Date().toISOString(),
     totals,
+    scopes: {
+      overall: totals,
+      ...scopes
+    },
     files: fileRecords
   };
+
+  return report;
+}
+
+async function main(args = process.argv.slice(2)) {
+  const options = parseArgs(args);
+  const report = await buildReport();
 
   await ensureDirectory(defaultJsonPath);
   await writeFile(defaultJsonPath, JSON.stringify(report, null, 2), 'utf8');
 
-  if (outputPath) {
-    await ensureDirectory(outputPath);
+  if (options.outputPath) {
+    await ensureDirectory(options.outputPath);
     const content =
-      format === 'md'
+      options.format === 'md'
         ? formatMarkdown(report)
-        : format === 'json'
+        : options.format === 'json'
         ? JSON.stringify(report, null, 2)
-        : format === 'table'
+        : options.format === 'table'
         ? formatTable(report)
         : formatSummary(report);
-    await writeFile(outputPath, content, 'utf8');
+    await writeFile(options.outputPath, content, 'utf8');
   }
 
-  switch (format) {
+  switch (options.format) {
     case 'json':
       console.log(JSON.stringify(report, null, 2));
       break;
@@ -307,9 +439,17 @@ async function main() {
     default:
       console.log(formatSummary(report));
   }
+
+  const thresholdResult = checkThresholds(report, options.limits);
+  if (!thresholdResult.ok) {
+    console.error(formatThresholdFailures(thresholdResult.failures));
+    process.exitCode = 1;
+  }
 }
 
-main().catch((error) => {
-  console.error('Failed to generate type safety audit:', error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && resolve(process.argv[1]) === __filename) {
+  main().catch((error) => {
+    console.error('Failed to generate type safety audit:', error.message ?? error);
+    process.exitCode = 1;
+  });
+}

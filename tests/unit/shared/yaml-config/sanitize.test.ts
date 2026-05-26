@@ -67,4 +67,56 @@ describe('yamlConfigSanitize', () => {
     expect(sanitizeField(null)).toBeNull();
     expect(sanitizeField({ name: 'bad field', type: 'text' })).toBeNull();
   });
+
+  it.each([
+    [
+      'normalizes optional field attributes',
+      {
+        name: ' status ',
+        type: 'boolean',
+        enabled: 'true',
+        required: 'false',
+        description: 42,
+        valuePath: ' meta.status ',
+        defaultValue: 'false'
+      },
+      {
+        name: 'status',
+        type: 'boolean',
+        enabled: true,
+        required: false,
+        description: '42',
+        valuePath: 'meta.status',
+        defaultValue: false
+      }
+    ],
+    [
+      'drops blank value paths',
+      {
+        name: 'summary',
+        type: 'text',
+        valuePath: '   '
+      },
+      {
+        name: 'summary',
+        type: 'text',
+        enabled: true
+      }
+    ],
+    [
+      'falls back unsupported field types to text',
+      {
+        name: 'category',
+        type: 'object',
+        enabled: 0
+      },
+      {
+        name: 'category',
+        type: 'text',
+        enabled: false
+      }
+    ]
+  ])('%s', (_caseName, input, expected) => {
+    expect(sanitizeField(input)).toEqual(expected);
+  });
 });

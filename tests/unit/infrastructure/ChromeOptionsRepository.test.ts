@@ -5,8 +5,12 @@ import { StorageError } from '@shared/errors';
 import type { CompleteOptions } from '@shared/types/options';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 
-const createMockFn = <T extends (...args: any[]) => any>() =>
+type MockableFunction = (...args: never[]) => void;
+
+const createMockFn = <T extends MockableFunction>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
+
+const DEFAULT_COMPLETE_OPTIONS = DEFAULT_OPTIONS as CompleteOptions;
 
 type StorageAreaMock = StorageAreaService & {
   get: ReturnType<typeof createMockFn<StorageAreaService['get']>>;
@@ -77,10 +81,10 @@ describe('ChromeOptionsRepository', () => {
   // ===========================
   describe('onChange triggering', () => {
     it('should trigger onChange callback exactly ONCE when set() is called', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.baseUrl = 'https://initial.example/';
 
-      const updatedOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://updated.example/';
 
       // Setup: Initial get returns initial state
@@ -128,8 +132,8 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should notify subscribers when options are changed from another extension context', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
-      const externalOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
+      const externalOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       externalOptions.interfaceTheme = 'light';
       mockStorage.sync.get.mockResolvedValue(initialOptions);
       let externalChange: ((value: CompleteOptions | undefined) => void) | undefined;
@@ -156,7 +160,7 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should emit initial state immediately when onChange is called', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.vault = 'InitialVault';
       mockStorage.sync.get.mockResolvedValue(initialOptions);
 
@@ -173,7 +177,7 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should unsubscribe correctly and detach the storage watcher for the last listener', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.vault = 'InitialVault';
       mockStorage.sync.get.mockResolvedValue(initialOptions);
       const stopWatching = vi.fn();
@@ -192,7 +196,7 @@ describe('ChromeOptionsRepository', () => {
 
       // Clear and verify no more triggers
       callback.mockClear();
-      const newOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const newOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       newOptions.rest.baseUrl = 'https://unsubscribed.example/';
       mockStorage.sync.get.mockResolvedValue(newOptions);
       await repo.set({
@@ -211,9 +215,9 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should notify multiple subscribers when options change', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.vault = 'MultiVault';
-      const updatedOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://multi.example/';
 
       mockStorage.sync.get
@@ -261,7 +265,7 @@ describe('ChromeOptionsRepository', () => {
   // ===========================
   describe('get()', () => {
     it('should return merged options from storage', async () => {
-      const storedOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const storedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       storedOptions.rest.baseUrl = 'https://stored.example/';
       mockStorage.sync.get.mockResolvedValue(storedOptions);
 
@@ -269,10 +273,8 @@ describe('ChromeOptionsRepository', () => {
 
       expect(mockStorage.sync.get).toHaveBeenCalledWith('options');
       expect(result.rest.baseUrl).toBe('https://stored.example/');
-      expect(result.templates.fragment).toBe(
-        (DEFAULT_OPTIONS as CompleteOptions).templates.fragment
-      );
-      expect(result.domainMappings).toEqual((DEFAULT_OPTIONS as CompleteOptions).domainMappings);
+      expect(result.templates.fragment).toBe(DEFAULT_COMPLETE_OPTIONS.templates.fragment);
+      expect(result.domainMappings).toEqual(DEFAULT_COMPLETE_OPTIONS.domainMappings);
     });
 
     it('should return default options when storage is empty', async () => {
@@ -280,7 +282,7 @@ describe('ChromeOptionsRepository', () => {
 
       const result = await repo.get();
 
-      expect(result).toEqual(DEFAULT_OPTIONS as CompleteOptions);
+      expect(result).toEqual(DEFAULT_COMPLETE_OPTIONS);
     });
     it('should merge partial options with defaults when storage has sparse data', async () => {
       mockStorage.sync.get.mockResolvedValue({
@@ -292,10 +294,8 @@ describe('ChromeOptionsRepository', () => {
       const result = await repo.get();
 
       expect(result.rest.baseUrl).toBe('https://partial.example/');
-      expect(result.templates.fragment).toBe(
-        (DEFAULT_OPTIONS as CompleteOptions).templates.fragment
-      );
-      expect(result.domainMappings).toEqual((DEFAULT_OPTIONS as CompleteOptions).domainMappings);
+      expect(result.templates.fragment).toBe(DEFAULT_COMPLETE_OPTIONS.templates.fragment);
+      expect(result.domainMappings).toEqual(DEFAULT_COMPLETE_OPTIONS.domainMappings);
     });
 
     it('should throw StorageError when storage.get fails', async () => {
@@ -314,7 +314,7 @@ describe('ChromeOptionsRepository', () => {
   // ===========================
   describe('set()', () => {
     it('should merge partial options and save to storage', async () => {
-      const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       currentOptions.rest.baseUrl = 'https://current.example/';
       const partialUpdate = {
         rest: {
@@ -334,7 +334,7 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should throw StorageError when storage.set fails', async () => {
-      const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const partialUpdate = {
         rest: {
           ...currentOptions.rest,
@@ -356,7 +356,7 @@ describe('ChromeOptionsRepository', () => {
 
       const attempt = repo.set({
         rest: {
-          ...(DEFAULT_OPTIONS as CompleteOptions).rest,
+          ...DEFAULT_COMPLETE_OPTIONS.rest,
           baseUrl: 'https://should-not-write.example/'
         }
       });
@@ -370,8 +370,8 @@ describe('ChromeOptionsRepository', () => {
 
   describe('immutability & listener safety', () => {
     it('should deliver deep-cloned snapshots to listeners', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
-      const updatedOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
+      const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.vault = 'ImmutableVault';
 
       mockStorage.sync.get
@@ -413,8 +413,8 @@ describe('ChromeOptionsRepository', () => {
     });
 
     it('should continue notifying other listeners when one throws', async () => {
-      const initialOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
-      const updatedOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
+      const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://listener.example/';
 
       mockStorage.sync.get
@@ -469,7 +469,7 @@ describe('ChromeOptionsRepository', () => {
       );
       globalRef.structuredClone = <T>(value: T) => structuredCloneSpy(value) as T;
 
-      const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const updatedUrl = 'https://structured.example/';
 
       mockStorage.sync.get
@@ -509,7 +509,7 @@ describe('ChromeOptionsRepository', () => {
       const originalStructuredClone = globalRef.structuredClone;
       Reflect.deleteProperty(globalRef, 'structuredClone');
 
-      const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const updatedUrl = 'https://json-clone.example/';
 
       mockStorage.sync.get
@@ -544,7 +544,7 @@ describe('ChromeOptionsRepository', () => {
 
   describe('error handling around notifications', () => {
     it('should log errors when notifyListeners fails to fetch options', async () => {
-      const currentOptions = cloneOptions(DEFAULT_OPTIONS as CompleteOptions);
+      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const getSpy = vi
         .spyOn(repo, 'get')
         .mockResolvedValueOnce(currentOptions)

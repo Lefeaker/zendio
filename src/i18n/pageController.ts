@@ -1,5 +1,5 @@
 import type { Language, Messages } from './locales';
-import { DEFAULT_LANGUAGE, DEFAULT_RUNTIME_MESSAGES } from './locales';
+import { DEFAULT_RUNTIME_MESSAGES } from './locales';
 import { getLanguageFallbackChain } from './config';
 import { createI18nResource } from './resource';
 import type { I18nBinder, I18nBindingAdapter, I18nBindingHandle, I18nResource } from './types';

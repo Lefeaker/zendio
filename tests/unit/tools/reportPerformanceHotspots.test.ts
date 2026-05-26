@@ -1,17 +1,83 @@
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 describe('report-performance-hotspots', () => {
-  it('tracks post-split production hotspots that remain over 400 LOC', () => {
-    const output = execFileSync(
-      process.execPath,
-      [resolve('tools/report-performance-hotspots.mjs')],
-      {
-        encoding: 'utf8'
-      }
+  const toolPath = resolve('tools/report-performance-hotspots.mjs');
+
+  function createFixtureRepo(files: Record<string, string>) {
+    const root = mkdtempSync(join(tmpdir(), 'aiiinob-hotspots-'));
+
+    execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
+    for (const [relativePath, source] of Object.entries(files)) {
+      const fullPath = join(root, relativePath);
+      mkdirSync(dirname(fullPath), { recursive: true });
+      writeFileSync(fullPath, source);
+    }
+    execFileSync('git', ['add', 'src'], { cwd: root, stdio: 'ignore' });
+
+    return root;
+  }
+
+  function createSourceWithLines(lineCount: number) {
+    return Array.from(
+      { length: lineCount },
+      (_, index) => `export const line${index} = ${index};`
+    ).join('\n');
+  }
+
+  it('tracks current src files that remain over 250 LOC', () => {
+    const output = execFileSync(process.execPath, [toolPath], {
+      encoding: 'utf8'
+    });
+
+    expect(output).toContain('src/i18n/schemaShellMessages.ts');
+    expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
+    expect(output).toContain('src/options/app/productionStitchShellMount.ts');
+    expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
+  });
+
+  it('fails when a newly discovered >250 LOC src file has no registered budget', () => {
+    const root = createFixtureRepo({
+      'src/newLargeFile.ts': createSourceWithLines(251)
+    });
+    const budgetPath = join(root, 'budgets.json');
+    writeFileSync(budgetPath, '{}');
+
+    try {
+      expect(() =>
+        execFileSync(process.execPath, [toolPath, '--root', root, '--budget-json', budgetPath], {
+          encoding: 'utf8',
+          stdio: 'pipe'
+        })
+      ).toThrow(/Missing line budgets.*src\/newLargeFile\.ts/s);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when a registered budget points to a file that no longer exists', () => {
+    const root = createFixtureRepo({
+      'src/currentSmallFile.ts': createSourceWithLines(20)
+    });
+    const budgetPath = join(root, 'budgets.json');
+    writeFileSync(
+      budgetPath,
+      JSON.stringify({
+        'src/deletedLargeFile.ts': 300
+      })
     );
 
-    expect(output).toContain('src/options/app/productionStitchShellMount.ts');
-    expect(output).toContain('src/ui/domains/usage-chart/usageChartRenderers.ts');
+    try {
+      expect(() =>
+        execFileSync(process.execPath, [toolPath, '--root', root, '--budget-json', budgetPath], {
+          encoding: 'utf8',
+          stdio: 'pipe'
+        })
+      ).toThrow(/Stale line budgets.*src\/deletedLargeFile\.ts/s);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

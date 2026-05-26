@@ -1,18 +1,12 @@
 import type { YamlConfigOverrides, YamlContentType } from '@shared/types/yamlConfig';
 import { buildGlobalWarnings, buildTable, renderDomainOverrides } from './yamlConfigTableDom';
 import {
-  findFieldDefinition,
   getAvailableFieldsForContentType,
   getFieldOptionsForEntry,
   getFilteredRows,
   sortRowsByMode
 } from './yamlConfigTableModel';
-import {
-  ARRAY_INPUT_HINT,
-  ARRAY_INPUT_PLACEHOLDER,
-  type YamlConfigDomainLabels,
-  type YamlConfigTableLabels
-} from './yamlConfigTableTypes';
+import { type YamlConfigDomainLabels, type YamlConfigTableLabels } from './yamlConfigTableTypes';
 import type {
   ControllerState,
   YamlConfigControllerOptions
@@ -134,8 +128,6 @@ export function createYamlConfigControllerState(
       domainErrors: state.domainErrors,
       getFieldOptionsForEntry: (entry, currentField) =>
         getFieldOptionsForEntry(state.rows, entry, currentField),
-      buildDomainFieldDefinition: (contentType, fieldName) =>
-        findFieldDefinition(state.rows, contentType, fieldName),
       actions: {
         onAddDomainEntry: () => {
           addYamlConfigDomainEntry(state);

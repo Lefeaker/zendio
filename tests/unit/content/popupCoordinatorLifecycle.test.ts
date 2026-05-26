@@ -212,7 +212,11 @@ describe('content popup coordinator lifecycle', () => {
         getPlatformServices: () => platformServices
       }),
       loadStyleManagers: () => ({
-        clipperStyleSheetManager: { initialize: initializeClipperStylesMock },
+        clipperStyleSheetManager: {
+          initialize: () => {
+            void initializeClipperStylesMock();
+          }
+        },
         panelStyleSheetManager: { initialize: initializePanelStylesMock }
       })
     });

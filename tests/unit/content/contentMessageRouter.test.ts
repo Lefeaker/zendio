@@ -167,12 +167,13 @@ describe('contentMessageRouter', () => {
     range.setStart(textNode, 0);
     range.setEnd(textNode, textNode.textContent?.length ?? 0);
 
+    const removeAllRanges = vi.fn();
     const selection = {
       rangeCount: 1,
       isCollapsed: false,
       getRangeAt: vi.fn(() => range),
       toString: vi.fn(() => 'frame selection'),
-      removeAllRanges: vi.fn()
+      removeAllRanges
     } as unknown as Selection;
     const send = vi.fn().mockResolvedValue(undefined);
     const frameWindow = {
@@ -200,7 +201,7 @@ describe('contentMessageRouter', () => {
         sourceUrl: location.href
       }
     });
-    expect(selection.removeAllRanges).toHaveBeenCalledTimes(1);
+    expect(removeAllRanges).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ success: true, forwarded: true });
   });
 
