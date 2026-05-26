@@ -62,7 +62,10 @@ export function selectInput<T extends string>(options: {
   dataset?: Record<string, string | undefined>;
   onChange(value: T): void;
 }): HTMLSelectElement {
-  const select = el('select', { className: options.className, dataset: options.dataset });
+  const select =
+    options.dataset === undefined
+      ? el('select', { className: options.className })
+      : el('select', { className: options.className, dataset: options.dataset });
   select.disabled = options.disabled ?? false;
   options.options.forEach((item) => {
     const option = el('option', { text: item.label });
