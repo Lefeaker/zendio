@@ -102,4 +102,23 @@ describe('options boundary schemas', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('documents StoredOptions root unknown-field policy as strip while preserving known settings', () => {
+    const result = StoredOptionsSchema.parse({
+      rest: {
+        baseUrl: 'https://example.com',
+        apiKey: 'REST_SECRET_TOKEN'
+      },
+      aiChat: {
+        userName: 'Researcher'
+      },
+      customKey: {
+        hello: 'world'
+      }
+    });
+
+    expect(result.rest?.apiKey).toBe('REST_SECRET_TOKEN');
+    expect(result.aiChat?.userName).toBe('Researcher');
+    expect((result as Record<string, unknown>).customKey).toBeUndefined();
+  });
 });

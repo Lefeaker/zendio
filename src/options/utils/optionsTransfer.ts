@@ -3,20 +3,36 @@ import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { deepClone } from './clone';
 
-const PRESERVED_KEYS = new Set([
-  'rest',
-  'templates',
-  'domainMappings',
-  'aiChat',
-  'fragmentClipper',
-  'readingSession',
-  'video',
-  'vaultRouter'
-]);
+export type ConfigTransferMode = 'portable' | 'fullBackup';
+
+export interface ConfigTransferOptions {
+  mode?: ConfigTransferMode;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function redactSensitiveValues(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactSensitiveValues(entry));
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      key === 'apiKey' ? '' : redactSensitiveValues(entry)
+    ])
+  );
+}
 
 export function normalizeOptionsForTransfer(
-  options: StoredOptions | CompleteOptions | null | undefined
+  options: StoredOptions | CompleteOptions | null | undefined,
+  transferOptions: ConfigTransferOptions = {}
 ): StoredOptions {
+  const mode = transferOptions.mode ?? 'fullBackup';
   const base = deepClone(options ?? {});
   const merged = mergeOptions(base);
 
@@ -26,9 +42,14 @@ export function normalizeOptionsForTransfer(
     domainMappings: deepClone(merged.domainMappings)
   };
 
-  // Fix exactOptionalPropertyTypes error by conditionally assigning optional properties
+  if (merged.interfaceTheme) {
+    normalized.interfaceTheme = merged.interfaceTheme;
+  }
   if (merged.aiChat) {
     normalized.aiChat = deepClone(merged.aiChat);
+  }
+  if (merged.deepResearch) {
+    normalized.deepResearch = deepClone(merged.deepResearch);
   }
   if (merged.fragmentClipper) {
     normalized.fragmentClipper = deepClone(merged.fragmentClipper);
@@ -46,22 +67,25 @@ export function normalizeOptionsForTransfer(
   if (merged.vaultRouter) {
     normalized.vaultRouter = deepClone(merged.vaultRouter);
   }
+  if (merged.classifier) {
+    normalized.classifier = deepClone(merged.classifier);
+  }
+  if (merged.experimentalAi) {
+    normalized.experimentalAi = deepClone(merged.experimentalAi);
+  }
+  if (merged.pageSummary) {
+    normalized.pageSummary = deepClone(merged.pageSummary);
+  }
+  if (merged.readingOverlaySummary) {
+    normalized.readingOverlaySummary = deepClone(merged.readingOverlaySummary);
+  }
+  if (merged.subtitleTranslation) {
+    normalized.subtitleTranslation = deepClone(merged.subtitleTranslation);
+  }
+  if ('yamlConfig' in base) {
+    const sanitized = sanitizeYamlConfigValue(base.yamlConfig ?? null);
+    normalized.yamlConfig = sanitized ? deepClone(sanitized) : null;
+  }
 
-  Object.entries(base).forEach(([key, value]) => {
-    if (key === 'yamlConfig') {
-      const sanitized = sanitizeYamlConfigValue((value ?? null) as StoredOptions['yamlConfig']);
-      if (sanitized) {
-        normalized.yamlConfig = deepClone(sanitized);
-      } else {
-        normalized.yamlConfig = null;
-      }
-      return;
-    }
-    if (PRESERVED_KEYS.has(key)) {
-      return;
-    }
-    (normalized as Record<string, unknown>)[key] = deepClone(value);
-  });
-
-  return normalized;
+  return mode === 'portable' ? (redactSensitiveValues(normalized) as StoredOptions) : normalized;
 }

@@ -1,4 +1,6 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
+import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
+import { StoredOptionsSchema } from '../../shared/schemas';
 import type { AnalyticsTransferPayload } from './analyticsTransfer';
 
 export interface ConfigTransferPayload {
@@ -67,6 +69,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function sanitizeImportedOptions(candidate: unknown): StoredOptions {
+  if (!isPlainObject(candidate)) {
+    throw new ConfigTransferError('PARSE_FAILED');
+  }
+
+  const parsed = StoredOptionsSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new ConfigTransferError('PARSE_FAILED');
+  }
+
+  const options = parsed.data as StoredOptions;
+  if ('yamlConfig' in candidate) {
+    options.yamlConfig = sanitizeYamlConfigValue(candidate.yamlConfig) ?? null;
+  }
+  return options;
+}
+
 function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | undefined {
   if (!isPlainObject(candidate)) {
     return undefined;
@@ -108,7 +127,7 @@ export function parseConfigInput(raw: string): ConfigTransferPayload {
 
     if ('options' in parsed && isPlainObject(parsed.options)) {
       const version = typeof parsed.version === 'number' ? parsed.version : 1;
-      const options = parsed.options as StoredOptions;
+      const options = sanitizeImportedOptions(parsed.options);
       const analytics = parseAnalyticsPayload(parsed.analytics);
       return {
         version,
@@ -119,7 +138,7 @@ export function parseConfigInput(raw: string): ConfigTransferPayload {
 
     return {
       version: 0,
-      options: parsed as StoredOptions
+      options: sanitizeImportedOptions(parsed)
     };
   } catch (error) {
     if (error instanceof ConfigTransferError) {

@@ -298,6 +298,27 @@ describe('ChromeOptionsRepository', () => {
       expect(result.domainMappings).toEqual(DEFAULT_COMPLETE_OPTIONS.domainMappings);
     });
 
+    it('should strip unknown root fields while preserving named persisted settings', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        rest: {
+          baseUrl: 'https://stored.example/',
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        aiChat: {
+          userName: 'Stored User'
+        },
+        customKey: {
+          hello: 'world'
+        }
+      } as unknown as Partial<CompleteOptions> & Record<string, unknown>);
+
+      const result = await repo.get();
+
+      expect(result.rest.apiKey).toBe('REST_SECRET_TOKEN');
+      expect(result.aiChat?.userName).toBe('Stored User');
+      expect((result as Record<string, unknown>).customKey).toBeUndefined();
+    });
+
     it('should throw StorageError when storage.get fails', async () => {
       const failure = new Error('storage unavailable');
       mockStorage.sync.get.mockRejectedValue(failure);
