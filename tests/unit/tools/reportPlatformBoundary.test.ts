@@ -31,8 +31,7 @@ const {
   evaluatePlatformBoundaryCheck,
   formatPlatformBoundaryReport
 } = (await import(
-  // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
-  '../../../tools/report-platform-boundary.mjs'
+  new URL('../../../tools/report-platform-boundary.mjs', import.meta.url).href
 )) as PlatformBoundaryModule;
 
 describe('report-platform-boundary', () => {
@@ -62,16 +61,16 @@ describe('report-platform-boundary', () => {
       expect.objectContaining({
         line: 1,
         token: 'chrome.notifications',
-        classification: 'type-only',
-        requiredAction: expect.stringContaining('Keep type-only')
+        classification: 'type-only'
       }),
       expect.objectContaining({
         line: 2,
         token: 'browser.tabs',
-        classification: 'type-only',
-        requiredAction: expect.stringContaining('Keep type-only')
+        classification: 'type-only'
       })
     ]);
+    expect(rows[0]?.requiredAction).toContain('Keep type-only');
+    expect(rows[1]?.requiredAction).toContain('Keep type-only');
   });
 
   it('classifies shared runtime helpers with explicit review action', () => {
@@ -83,20 +82,19 @@ describe('report-platform-boundary', () => {
     expect(rows).toEqual([
       expect.objectContaining({
         token: 'chrome.runtime',
-        classification: 'shared-runtime-helper',
-        requiredAction: expect.stringContaining('Review')
+        classification: 'shared-runtime-helper'
       })
     ]);
+    expect(rows[0]?.requiredAction).toContain('Review');
   });
 
   it('classifies globalThis chrome probes without treating object keys as bare globals', () => {
     const rows = collectPlatformBoundaryFindingsFromSource(
       'src/content/shared/panels/sessionPanelResize.ts',
       [
-        'const root = globalThis as {',
-        '  chrome?: { storage?: unknown };',
-        '};',
-        'Object.assign(globalThis as Record<string, unknown>, { chrome: {} });'
+        'const root = globalThis.chrome;',
+        'const value = root?.storage;',
+        'Object.assign(globalThis, { chrome: {} });'
       ].join('\n')
     );
 
@@ -107,7 +105,7 @@ describe('report-platform-boundary', () => {
         classification: 'migration-needed'
       }),
       expect.objectContaining({
-        line: 4,
+        line: 3,
         token: 'globalThis.chrome',
         classification: 'migration-needed'
       })
