@@ -1,9 +1,6 @@
-// Import configuration defaults from the main config
-// Note: This is a build-time script, so we need to use the same values as in appConfig.ts
-const DEFAULT_REST_HTTPS_HOST = '127.0.0.1';
-const DEFAULT_REST_HTTPS_PORT = 27124;
-const DEFAULT_REST_HTTP_HOST = '127.0.0.1';
-const DEFAULT_REST_HTTP_PORT = 27123;
+import { resolveManifestRestDefaults } from './restDefaults.mjs';
+
+export { resolveManifestRestDefaults } from './restDefaults.mjs';
 
 function parsePort(value, fallback) {
   if (!value) {
@@ -31,13 +28,14 @@ function buildHostPermission(protocol, host, port) {
 }
 
 export function resolveRestHostPermissions() {
-  const httpsHost = normalizeHost(process.env.AIIINOB_REST_HTTPS_HOST) || DEFAULT_REST_HTTPS_HOST;
+  const defaults = resolveManifestRestDefaults();
+  const httpsHost = normalizeHost(process.env.AIIINOB_REST_HTTPS_HOST) || defaults.httpsHost;
   const httpHost = normalizeHost(process.env.AIIINOB_REST_HTTP_HOST)
     || normalizeHost(process.env.AIIINOB_REST_HTTPS_HOST)
-    || DEFAULT_REST_HTTP_HOST;
+    || defaults.httpHost;
 
-  const httpsPort = parsePort(process.env.AIIINOB_REST_HTTPS_PORT, DEFAULT_REST_HTTPS_PORT);
-  const httpPort = parsePort(process.env.AIIINOB_REST_HTTP_PORT, DEFAULT_REST_HTTP_PORT);
+  const httpsPort = parsePort(process.env.AIIINOB_REST_HTTPS_PORT, defaults.httpsPort);
+  const httpPort = parsePort(process.env.AIIINOB_REST_HTTP_PORT, defaults.httpPort);
 
   const permissions = [];
   const httpsEntry = buildHostPermission('https', httpsHost, httpsPort);
