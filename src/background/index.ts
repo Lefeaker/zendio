@@ -24,8 +24,14 @@ startBackgroundRuntime({
 
 registerTrialLifecycle(
   createDefaultTrialLifecycleDependencies(
-    platformServices.runtime,
+    {
+      ...platformServices.runtime,
+      registerOnSuspend: (listener) => {
+        chrome.runtime.onSuspend.addListener(listener);
+      }
+    },
     platformServices.storage,
-    platformServices.tabs
+    platformServices.tabs,
+    platformServices.notifications
   )
 );

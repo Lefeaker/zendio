@@ -6,19 +6,42 @@ export interface TrialManagerLogger {
   error(message?: TrialManagerLogValue, ...optionalParams: TrialManagerLogValue[]): void;
 }
 
+export type TrialManagerStorageValue = object | string | number | boolean | null | undefined;
+export type TrialManagerNotificationOptions = chrome.notifications.NotificationCreateOptions;
+
+export interface TrialManagerStoragePort {
+  get(key: string): Promise<Record<string, TrialManagerStorageValue>>;
+  set(items: Record<string, TrialManagerStorageValue>): Promise<void>;
+  remove(keys: string | string[]): Promise<void>;
+}
+
 export interface TrialManagerPorts {
-  storage: Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'> | null;
+  storage: TrialManagerStoragePort | null;
   getManifestVersion(): string;
   createNotification?: (
-    options: chrome.notifications.NotificationCreateOptions
+    options: TrialManagerNotificationOptions
   ) => Promise<string | void> | string | void;
   now(): number;
   logger: TrialManagerLogger;
 }
 
-function getChromeApi(): typeof chrome | undefined {
-  return typeof chrome === 'undefined' ? undefined : chrome;
+export interface TrialManagerPortDependencies {
+  storage?: TrialManagerPorts['storage'];
+  runtime?: { getManifest?: () => { version?: string } | undefined } | null;
+  notifications?: {
+    create: (
+      notificationId: string,
+      options: TrialManagerNotificationOptions
+    ) => Promise<string | void> | string | void;
+  } | null;
+  createNotification?: TrialManagerPorts['createNotification'];
+  now?: () => number;
+  logger?: TrialManagerLogger;
 }
+
+const TRIAL_EXPIRATION_NOTIFICATION_ID = 'trial-expiration-notice';
+
+let defaultPortDependencies: TrialManagerPortDependencies = {};
 
 function createConsoleLogger(): TrialManagerLogger {
   return {
@@ -31,21 +54,42 @@ function createConsoleLogger(): TrialManagerLogger {
   };
 }
 
-export function createDefaultTrialManagerPorts(): TrialManagerPorts {
-  const chromeApi = getChromeApi();
-  const notifications = chromeApi?.notifications;
+export function configureDefaultTrialManagerPortDependencies(
+  dependencies: TrialManagerPortDependencies
+): () => void {
+  const previous = defaultPortDependencies;
+  defaultPortDependencies = { ...dependencies };
+  return () => {
+    defaultPortDependencies = previous;
+  };
+}
+
+function createNotificationPort(
+  dependencies: TrialManagerPortDependencies
+): TrialManagerPorts['createNotification'] {
+  if (Object.prototype.hasOwnProperty.call(dependencies, 'createNotification')) {
+    return dependencies.createNotification;
+  }
+
+  if (!dependencies.notifications) {
+    return undefined;
+  }
+
+  return (options: TrialManagerNotificationOptions) =>
+    dependencies.notifications?.create(TRIAL_EXPIRATION_NOTIFICATION_ID, options);
+}
+
+export function createDefaultTrialManagerPorts(
+  dependencies: TrialManagerPortDependencies = defaultPortDependencies
+): TrialManagerPorts {
+  const createNotification = createNotificationPort(dependencies);
 
   return {
-    storage: chromeApi?.storage?.local ?? null,
-    getManifestVersion: () => chromeApi?.runtime?.getManifest?.().version ?? 'unknown',
-    ...(notifications?.create
-      ? {
-          createNotification: (options: chrome.notifications.NotificationCreateOptions) =>
-            notifications.create(options)
-        }
-      : {}),
-    now: () => Date.now(),
-    logger: createConsoleLogger()
+    storage: dependencies.storage ?? null,
+    getManifestVersion: () => dependencies.runtime?.getManifest?.()?.version ?? 'unknown',
+    ...(createNotification ? { createNotification } : {}),
+    now: dependencies.now ?? (() => Date.now()),
+    logger: dependencies.logger ?? createConsoleLogger()
   };
 }
 
