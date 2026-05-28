@@ -13,6 +13,10 @@ import {
   getTrialSummary,
   type TrialConfig
 } from '../../../src/utils/trial-manager';
+import {
+  configureDefaultTrialManagerPortDependencies,
+  createDefaultTrialManagerPorts
+} from '../../../src/utils/trial-manager-ports';
 
 const manifest: chrome.runtime.Manifest = {
   manifest_version: 3,
@@ -36,6 +40,17 @@ function chromeRuntime(): typeof chrome.runtime {
 
 function installChrome(chromeApi: Partial<typeof chrome>): void {
   globalThis.chrome = partialOf<typeof chrome>(chromeApi);
+  configureDefaultTrialManagerPortDependencies({
+    storage: chromeApi.storage?.local ?? null,
+    runtime: chromeApi.runtime
+      ? {
+          getManifest: chromeApi.runtime.getManifest
+        }
+      : undefined,
+    createNotification: chromeApi.notifications?.create
+      ? (options) => chromeApi.notifications?.create(options)
+      : undefined
+  });
 }
 
 describe('trial-manager', () => {
@@ -115,6 +130,36 @@ describe('trial-manager', () => {
     await expect(getTrialConfig()).resolves.toEqual(config);
     await setTrialConfig(config);
     expect(storageSetMock).toHaveBeenCalledWith({ trial_config: config });
+  });
+
+  it('creates default ports from injected dependencies without global chrome access', async () => {
+    const storagePort = {
+      get: vi.fn(() => Promise.resolve({})),
+      set: vi.fn(() => Promise.resolve(undefined)),
+      remove: vi.fn(() => Promise.resolve(undefined))
+    } satisfies Pick<chrome.storage.StorageArea, 'get' | 'set' | 'remove'>;
+    const notificationCreate = vi.fn(() => Promise.resolve('trial-notice'));
+    const ports = createDefaultTrialManagerPorts({
+      storage: storagePort,
+      runtime: {
+        getManifest: () => ({ version: '9.9.9' })
+      },
+      notifications: {
+        create: notificationCreate
+      }
+    });
+    const options = {
+      type: 'basic',
+      iconUrl: 'icons/icon-48.png',
+      title: 'Trial',
+      message: 'Trial expiring'
+    } satisfies chrome.notifications.NotificationCreateOptions;
+
+    await ports.createNotification?.(options);
+
+    expect(ports.storage).toBe(storagePort);
+    expect(ports.getManifestVersion()).toBe('9.9.9');
+    expect(notificationCreate).toHaveBeenCalledWith('trial-expiration-notice', options);
   });
 
   it('returns null for invalid stored trial config', async () => {

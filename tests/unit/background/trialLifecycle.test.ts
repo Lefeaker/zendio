@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { asType, intervalId } from '../../utils/typeHelpers';
+import { asType, intervalId, partialOf, setGlobal } from '../../utils/typeHelpers';
 import type { StorageAreaService } from '../../../src/platform/interfaces/storage';
 
 function createStorageArea() {
@@ -159,6 +159,39 @@ describe('trialLifecycle', () => {
 
     expect(onInstalled).toHaveBeenCalledTimes(1);
     expect(registerOnSuspend).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates default suspend registration from the runtime service instead of global chrome', async () => {
+    const restoreChrome = setGlobal(
+      'chrome',
+      partialOf<typeof chrome>({
+        runtime: partialOf<typeof chrome.runtime>({
+          onSuspend: partialOf<typeof chrome.runtime.onSuspend>({
+            addListener: vi.fn(() => {
+              throw new Error('global chrome onSuspend should not be used');
+            })
+          })
+        })
+      })
+    );
+    const { createDefaultTrialLifecycleDependencies } =
+      await import('../../../src/background/trialLifecycle');
+    const cleanup = vi.fn();
+    const runtimeRegisterOnSuspend = vi.fn();
+    const deps = createDefaultTrialLifecycleDependencies(
+      partialOf({
+        getURL: vi.fn(),
+        onInstalled: vi.fn(),
+        registerOnSuspend: runtimeRegisterOnSuspend
+      }),
+      { local: createStorageArea() },
+      { create: vi.fn() }
+    );
+
+    deps.registerOnSuspend?.(cleanup);
+
+    expect(runtimeRegisterOnSuspend).toHaveBeenCalledWith(cleanup);
+    restoreChrome();
   });
 
   it('initializeTrialSystem notifies only for expiring/expired', async () => {
