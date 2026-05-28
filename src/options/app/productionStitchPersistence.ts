@@ -215,7 +215,11 @@ export function createProductionStitchPersistence(
     setButtonBusy(button, true);
     try {
       await writeToClipboard(
-        JSON.stringify(normalizeOptionsForTransfer(options.collectDraftWithWidgets()), null, 2)
+        JSON.stringify(
+          normalizeOptionsForTransfer(options.collectDraftWithWidgets(), { mode: 'fullBackup' }),
+          null,
+          2
+        )
       );
       options.setMaintenanceLog(
         getMessage(options.getCurrentMessages(), 'copyConfigSuccess', '配置已复制到剪贴板！')
