@@ -1,26 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CLIPPER_DEFAULTS } from '@shared/config/appConfig';
-import * as manifestHostUtilsRaw from '../../../scripts/utils/manifestHosts.mjs';
-
-const { applyRestHostPermissions, resolveRestHostPermissions } = manifestHostUtilsRaw;
+import {
+  applyRestHostPermissions,
+  resolveManifestRestDefaults,
+  resolveRestHostPermissions
+} from '../../../scripts/utils/manifestHosts.mjs';
 
 const resolveHostPermissions = resolveRestHostPermissions as () => string[];
 const applyHostPermissions = applyRestHostPermissions as (manifest: {
   host_permissions?: string[];
 }) => {
   host_permissions?: string[];
-};
-const manifestHostUtils = {
-  ...manifestHostUtilsRaw
-} as typeof manifestHostUtilsRaw & {
-  applyRestHostPermissions: typeof applyRestHostPermissions;
-  resolveManifestRestDefaults: () => {
-    httpsHost: string;
-    httpsPort?: number;
-    httpHost: string;
-    httpPort?: number;
-  };
-  resolveRestHostPermissions: typeof resolveRestHostPermissions;
 };
 
 const ENV_KEYS = [
@@ -68,8 +58,7 @@ describe('manifestHosts utilities', () => {
   });
 
   it('keeps build-time manifest defaults aligned with runtime REST defaults', () => {
-    expect(manifestHostUtils.resolveManifestRestDefaults).toBeTypeOf('function');
-    expect(manifestHostUtils.resolveManifestRestDefaults()).toEqual({
+    expect(resolveManifestRestDefaults()).toEqual({
       httpsHost: CLIPPER_DEFAULTS.rest.httpsHost,
       httpsPort: CLIPPER_DEFAULTS.rest.httpsPort,
       httpHost: CLIPPER_DEFAULTS.rest.httpHost,
