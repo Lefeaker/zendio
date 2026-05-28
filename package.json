@@ -138,7 +138,7 @@
     "tsx": "^4.22.3",
     "typescript": "^5.5.4",
     "vitest": "3.2.4",
-    "web-ext": "^10.2.0"
+    "web-ext": "^10.3.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
