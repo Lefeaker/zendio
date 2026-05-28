@@ -1,7 +1,11 @@
 import { resolveRepository } from '../di/serviceRegistry';
 import { DI_TOKENS } from '../di/tokens';
 import type { IMessagingRepository } from '../repositories';
-import { TRACK_USAGE_EVENT, type TrackUsageEventPayload } from '../types/analytics';
+import {
+  parseUsageEventParams,
+  TRACK_USAGE_EVENT,
+  type TrackUsageEventPayload
+} from '../types/analytics';
 import type { AdaptiveTextResult } from './textAdaptationTypes';
 
 const loggedOverflowTokens = new WeakMap<HTMLElement, Set<string>>();
@@ -48,18 +52,18 @@ export function logTextOverflowEvent(element: HTMLElement, result: AdaptiveTextR
     return;
   }
 
-  const paramsEntries = Object.entries({
+  const params = parseUsageEventParams('i18n_text_overflow', {
     key,
     language: result.language,
     component: element.dataset.component ?? result.budget?.component,
     priority: element.dataset.priority ?? result.budget?.priority,
     length: result.length,
     limit: result.limit,
-    used_short: result.usedShort,
-    page: window.location?.pathname ?? ''
-  }).filter(([, value]) => value !== undefined && value !== null);
-
-  const params = Object.fromEntries(paramsEntries) as Record<string, string | number | boolean>;
+    used_short: result.usedShort
+  });
+  if (!params) {
+    return;
+  }
 
   const payload: TrackUsageEventPayload = {
     type: TRACK_USAGE_EVENT,

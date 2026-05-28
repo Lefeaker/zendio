@@ -1,8 +1,7 @@
-import type { TrackUsageEventPayload } from '../../shared/types/analytics';
+import type * as Analytics from '../../shared/types/analytics';
 import type { UiMountable } from '../../ui/hosts/shared/contract';
 import type {
   ReviewPromptState,
-  SupportLink,
   SupportPromptMessages,
   SupportPromptOptions
 } from './supportPrompt/types';
@@ -27,6 +26,8 @@ import { getContentI18nResource } from '../i18n/context';
 
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
+const KO_FI_URL = 'https://ko-fi.com/xiannian';
+const AFDIAN_URL = 'https://afdian.com/a/LefShi';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 const TERMINAL_PROGRESS_DISMISS_MS = 2200;
 
@@ -80,18 +81,18 @@ export class SupportPrompt implements UiMountable<
     });
     const progress = resolveSupportPromptProgress(options, promptStatus);
 
-    const links: SupportLink[] = [
+    const links = [
       {
         icon: this.resolveAssetUrl('icons/ko-fi.svg'),
         title: messages.koFiTitle,
         description: messages.koFiDescription,
-        url: 'https://ko-fi.com/xiannian'
+        url: KO_FI_URL
       },
       {
         icon: this.resolveAssetUrl('icons/aifadian-line-copy.svg'),
         title: messages.afdianTitle,
         description: messages.afdianDescription,
-        url: 'https://afdian.com/a/LefShi'
+        url: AFDIAN_URL
       }
     ];
 
@@ -158,7 +159,7 @@ export class SupportPrompt implements UiMountable<
     }
     queueMicrotask(() => host.focus());
     this.scheduleAutoDismiss(options);
-    await this.preloadLowFrequencyPaths();
+    await this.toastLifecycle.preload();
   }
 
   mount(options?: SupportPromptOptions): Promise<void> {
@@ -234,7 +235,11 @@ export class SupportPrompt implements UiMountable<
     detail?.setAttribute('data-role', 'status-detail');
     surface.querySelectorAll<HTMLAnchorElement>('.task-support-link[href]').forEach((link) => {
       link.addEventListener('click', () => {
-        void this.trackUsageEvent('support_link_clicked', { url: link.href });
+        const target =
+          link.href === KO_FI_URL ? 'ko-fi' : link.href === AFDIAN_URL ? 'afdian' : null;
+        if (target) {
+          void this.trackUsageEvent('support_link_clicked', { target });
+        }
       });
     });
   }
@@ -242,10 +247,6 @@ export class SupportPrompt implements UiMountable<
   private async handleDislikeClick(): Promise<void> {
     this.hide();
     await this.toastLifecycle.handleDislikeClick();
-  }
-
-  private async preloadLowFrequencyPaths(): Promise<void> {
-    await this.toastLifecycle.preload();
   }
 
   private async resolveMessages(): Promise<SupportPromptMessages> {
@@ -310,16 +311,16 @@ export class SupportPrompt implements UiMountable<
     }
   }
 
-  private async trackUsageEvent(
-    name: string,
-    params?: TrackUsageEventPayload['params']
+  private async trackUsageEvent<EventName extends Analytics.UsageEventName>(
+    name: EventName,
+    params?: Analytics.UsageEventParamMap[EventName]
   ): Promise<void> {
     try {
       await this.deps.messaging.send({
         type: 'track',
         event: name,
         ...(params !== undefined && { params })
-      });
+      } as Analytics.TrackUsageEventPayload);
     } catch (error) {
       console.debug('[support-prompt] Failed to send analytics event:', error);
     }
