@@ -6,6 +6,12 @@ import { dirname, join, relative } from 'node:path';
 const ROOT = process.cwd();
 const INVENTORY_PATH = 'docs/retired-code-inventory.md';
 const SCAN_ROOTS = ['package.json', 'scripts', 'src', 'tests', 'public'];
+const SYNTHETIC_AUDIT_REFERENCE_FILES = new Set([
+  'tests/fixtures/tools/compatibility-duplicates/allowlist-stale.json',
+  'tests/fixtures/tools/compatibility-duplicates/allowlist.json',
+  'tests/unit/tools/reportCompatibilityDuplicates.test.ts',
+  'tests/unit/tools/reportNonProductionSource.test.ts'
+]);
 
 function parseArgs(args) {
   const parsed = { enforceDeleteNow: !args.includes('--no-enforce-delete-now') };
@@ -99,6 +105,7 @@ function findOwners(files, pathFamily) {
   const tokens = familyTokens(pathFamily);
   return files
     .filter((file) => file.path !== INVENTORY_PATH)
+    .filter((file) => !SYNTHETIC_AUDIT_REFERENCE_FILES.has(file.path))
     .filter((file) => tokens.some((token) => file.source.includes(token)))
     .map((file) => file.path);
 }

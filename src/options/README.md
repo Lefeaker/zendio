@@ -10,7 +10,7 @@
 
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
-- `src/options/components/layout/*`、`src/options/components/sections/*`、`src/options/components/formSections/*` 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
+- Legacy Options layout、section、form-section 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
 - 旧 sections/layout/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
@@ -22,7 +22,7 @@
 
 - `index.ts -> runtimeEntry.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 repository 注册、I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
-- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；保留原因为 legacy layout/e2e 测试 owner 尚未全部迁出。
+- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；剩余删除条件以 non-production source audit 的 exact-path owner proof 为准。
 - `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
 - `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
@@ -140,7 +140,7 @@ src/options/
 - 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
 - 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
 - 兼容职责：`ChromeSyncOptionsRepository` 仅保留 historical `load/save/snapshot/subscribe/reset` 语义，不再承担 normalize / merge 主链职责。
-- 当前 residual consumers：legacy `OptionsRepository` 兼容语义仍主要保留在 `src/infrastructure/optionsRepository.ts` 及少量测试 / e2e 夹具中；content/background 正式代码已切回 `IOptionsRepository` 主合同。
+- 当前 residual consumers：legacy `OptionsRepository` 兼容语义仍由 infrastructure barrel、options-mainline audit 与少量测试 / e2e 夹具跟踪；content/background 正式代码已切回 `IOptionsRepository` 主合同。
 - 退役路径：待 legacy `OptionsRepository` 测试 / 兼容夹具也完成收敛后，再评估删除 compatibility adapter 本体。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
