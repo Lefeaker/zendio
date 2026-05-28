@@ -84,8 +84,6 @@ function buildRestDefaultHeading(
     labelClassName: 'text-base-content/60',
     inputClassName: 'pointer-events-none'
   });
-  enabledCheckbox.checked = true;
-  enabledCheckbox.disabled = true;
   heading.append(enabledHost);
 
   return heading;

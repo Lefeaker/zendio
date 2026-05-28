@@ -28,7 +28,6 @@ export function buildRestVaultRow(params: {
     'grid grid-cols-[60px_140px_170px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors';
   row.dataset.vaultId = vault.id;
   const restDefaults = configProvider.getRestDefaults();
-
   const enabledCell = createElement('div');
   enabledCell.className = 'flex items-center justify-center';
   const enabledCheckboxHost = createElement('div');
@@ -95,7 +94,6 @@ export function buildRestVaultRow(params: {
       'password'
     )
   );
-
   const actions = createElement('div');
   actions.className = 'flex justify-end';
   const removeButtonHost = createElement('div');
