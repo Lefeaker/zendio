@@ -1,4 +1,4 @@
-import type { TrackUsageEventPayload } from '../../shared/types/analytics';
+import type { UsageEventName, UsageEventParamMap } from '../../shared/types/analytics';
 import type {
   LikeToastVariant,
   ReviewPromptState,
@@ -12,7 +12,10 @@ interface SupportPromptToastLifecycleOptions {
   resolveMessages(): Promise<SupportPromptMessages>;
   getReviewState(): Promise<ReviewPromptState>;
   updateReviewState(updates: Partial<ReviewPromptState>): Promise<void>;
-  trackUsageEvent(name: string, params?: TrackUsageEventPayload['params']): Promise<void>;
+  trackUsageEvent<EventName extends UsageEventName>(
+    name: EventName,
+    params?: UsageEventParamMap[EventName]
+  ): Promise<void>;
 }
 
 export function createSupportPromptToastLifecycle(options: SupportPromptToastLifecycleOptions) {
@@ -26,12 +29,18 @@ export function createSupportPromptToastLifecycle(options: SupportPromptToastLif
             doc: options.doc,
             resolveReviewUrl: () => options.resolveReviewUrl(),
             onReviewLinkClick: async (variant) => {
-              await options.trackUsageEvent('support_review_link_clicked', { variant });
+              await options.trackUsageEvent(
+                'support_review_link_clicked',
+                variant === undefined ? undefined : { variant }
+              );
               await options.updateReviewState({ hasClickedReview: true });
               window.open(options.resolveReviewUrl(), '_blank', 'noopener');
             },
             onReviewAcknowledgedClick: async (variant) => {
-              await options.trackUsageEvent('support_review_acknowledged_clicked', { variant });
+              await options.trackUsageEvent(
+                'support_review_acknowledged_clicked',
+                variant === undefined ? undefined : { variant }
+              );
               await options.updateReviewState({
                 hasClickedReview: true,
                 hasConfirmedReview: true

@@ -5,7 +5,13 @@ import {
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
-import type { AnalyticsEventParams } from '../../shared/types/analytics';
+import {
+  hasRequiredUsageEventParams,
+  isAllowedUsageEventName,
+  sanitizeUsageEventParams,
+  type UsageEventName,
+  type UsageEventParamMap
+} from '../../shared/types/analytics';
 
 let initializationPromise: Promise<void> | null = null;
 
@@ -62,10 +68,19 @@ function resolveExtensionVersion(): string {
   }
 }
 
-export async function trackUsageEvent(
-  eventName: string,
-  params?: AnalyticsEventParams
+export async function trackUsageEvent<EventName extends UsageEventName>(
+  eventName: EventName,
+  params?: UsageEventParamMap[EventName]
 ): Promise<void> {
+  if (!isAllowedUsageEventName(eventName)) {
+    return;
+  }
+
+  const sanitizedParams = sanitizeUsageEventParams(eventName, params);
+  if (!hasRequiredUsageEventParams(eventName, sanitizedParams)) {
+    return;
+  }
+
   try {
     await ensureAnalyticsReady();
   } catch {
@@ -110,11 +125,9 @@ export async function trackUsageEvent(
     payloadParams.debug_mode = true;
   }
 
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) {
-        payloadParams[key] = value;
-      }
+  for (const [key, value] of Object.entries(sanitizedParams)) {
+    if (value !== undefined) {
+      payloadParams[key] = value;
     }
   }
 

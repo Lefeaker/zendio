@@ -275,6 +275,24 @@ describe('SupportPrompt', () => {
     );
   });
 
+  it('tracks support links with stable target ids instead of hrefs', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    const link = getPromptHost().shadowRoot?.querySelector<HTMLAnchorElement>(
+      '.task-support-link[href*="ko-fi"]'
+    );
+    link?.click();
+    await flushMicrotasks();
+
+    expect(messagingSendMock).toHaveBeenCalledWith({
+      type: 'track',
+      event: 'support_link_clicked',
+      params: { target: 'ko-fi' }
+    });
+  });
+
   it('uses the content locale provider for review URLs when extension i18n is absent', async () => {
     getContentI18nResourceMock.mockReturnValue({
       language: 'ja',

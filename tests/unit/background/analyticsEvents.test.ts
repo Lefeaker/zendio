@@ -58,7 +58,7 @@ describe('analyticsEvents', () => {
   it('skips tracking without consent or measurement id', async () => {
     getConfigMock.mockReturnValue({ userConsent: { analytics: false } });
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('ignored');
+    await trackUsageEvent('support_dislike_clicked');
     expect(fetchMock).not.toHaveBeenCalled();
 
     getConfigMock.mockReturnValue({
@@ -66,7 +66,7 @@ describe('analyticsEvents', () => {
       measurementId: 'XXXX1234',
       clientId: 'cid'
     });
-    await trackUsageEvent('ignored-again');
+    await trackUsageEvent('support_dislike_clicked');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -87,7 +87,7 @@ describe('analyticsEvents', () => {
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('open_options', { source: 'toolbar' });
+    await trackUsageEvent('support_like_clicked', { variant: 'first' });
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('debug/mp/collect?measurement_id=G-1234'),
@@ -127,7 +127,7 @@ describe('analyticsEvents', () => {
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('open_options');
+    await trackUsageEvent('support_dislike_clicked');
 
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
     expect(String(requestInit?.body)).toContain('"extension_version":"2.3.4"');
@@ -142,7 +142,7 @@ describe('analyticsEvents', () => {
     initializeAnalyticsConfigMock.mockRejectedValueOnce(new Error('init failed'));
     getConfigMock.mockReturnValueOnce({ userConsent: { analytics: false } });
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('first');
+    await trackUsageEvent('support_dislike_clicked');
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       '[analytics-events] Failed to initialize analytics config:',
       expect.any(Error)
@@ -162,8 +162,38 @@ describe('analyticsEvents', () => {
       statusText: 'Fail',
       clone: () => ({ text: () => Promise.resolve('broken') })
     });
-    await trackUsageEvent('second');
+    await trackUsageEvent('support_dislike_clicked');
     expect(consoleWarnSpy).toHaveBeenCalledWith('[analytics-events] GA4 request failed: 500 Fail');
     consoleWarnSpy.mockRestore();
+  });
+
+  it('drops params outside the event allowlist before sending to GA4', async () => {
+    await configureRuntime('2.3.4');
+    getConfigMock.mockReturnValue({
+      userConsent: { analytics: true },
+      measurementId: 'G-1234',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      debugMode: false
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
+    await trackUsageEvent('support_link_clicked', {
+      target: 'ko-fi',
+      url: 'https://ko-fi.com/xiannian?user=reader'
+    } as never);
+
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const body = JSON.parse(String(requestInit?.body)) as {
+      events: Array<{ params: Record<string, unknown> }>;
+    };
+    expect(body.events[0]?.params).toMatchObject({ target: 'ko-fi' });
+    expect(body.events[0]?.params).not.toHaveProperty('url');
+
+    await resetRuntime();
   });
 });

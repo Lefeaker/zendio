@@ -4,6 +4,7 @@ import type { RestOptions } from '../types/options';
 import type { VaultConfig } from '../types/vault';
 import type { VideoClipData } from './IVideoRepository';
 import type { ReadingClipData } from './IReaderRepository';
+import type { TrackUsageEventPayload } from '../types/analytics';
 
 /**
  * 消息通信接口
@@ -37,8 +38,7 @@ export type Message =
   | { type: 'clip'; data: ClipData }
   | { type: 'videoClip'; data: VideoClipData }
   | { type: 'readingClip'; data: ReadingClipData }
-  | { type: 'TRACK_USAGE_EVENT'; event: string; params?: Record<string, unknown> }
-  | { type: 'track'; event: string; params?: Record<string, unknown> }
+  | TrackUsageEventPayload
   | { type: 'connection_test'; config: RestConfig }
   | { type: 'TEST_CONNECTION'; rest?: Partial<RestOptions> }
   | { type: 'TEST_VAULT_CONNECTION'; vaultId: string; vault: VaultConfig };
