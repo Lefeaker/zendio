@@ -35,7 +35,9 @@ const requestsHost: HTMLElement = requestsHostElement;
 
 const storage = createMemoryStorageService();
 configureAnalyticsConfigManager(storage);
-registerService(TOKENS.platformServices, () => createPreviewPlatformServices(storage));
+const platformServices = createPreviewPlatformServices(storage);
+platformServices.runtime.getManifest = () => ({ version: '0.2.0-harness' });
+registerService(TOKENS.platformServices, () => platformServices);
 
 const capturedRequests: CapturedRequest[] = [];
 const originalFetch = globalThis.fetch.bind(globalThis);
@@ -44,12 +46,7 @@ Object.assign(globalThis as Record<string, unknown>, {
   __AIIINOB_SENTRY_ENABLED__: true,
   __AIIINOB_SENTRY_DSN__: 'https://public@example.ingest.sentry.io/123456',
   __AIIINOB_SENTRY_ENVIRONMENT__: 'harness',
-  __AIIINOB_SENTRY_RELEASE__: 'runtime-observability-harness',
-  chrome: {
-    runtime: {
-      getManifest: () => ({ version: '0.2.0-harness' })
-    }
-  }
+  __AIIINOB_SENTRY_RELEASE__: 'runtime-observability-harness'
 });
 
 globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
