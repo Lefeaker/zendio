@@ -2,7 +2,7 @@ import { getService } from '../../../shared/di';
 import { TOKENS } from '../../../shared/di/tokens';
 import type { StorageAreaService } from '../../../platform/interfaces/storage';
 import type { PlatformServices } from '../../../platform/types';
-import type { SessionPanelResizeStorage } from './sessionPanelResize';
+import type { SessionPanelResizeStorage } from './sessionPanelResizeTypes';
 
 const WIDTH_STORAGE_KEY = 'aiob.sessionPanel.width';
 const WIDTH_MAX_STORAGE_KEY = 'aiob.sessionPanel.maxWidth';

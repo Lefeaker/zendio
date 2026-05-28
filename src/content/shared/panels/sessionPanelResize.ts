@@ -1,4 +1,8 @@
 import { resolveSessionPanelResizeStorage } from './sessionPanelResizeAdapter';
+import type {
+  SessionPanelResizeOptions,
+  SessionPanelResizeStorage
+} from './sessionPanelResizeTypes';
 
 const MIN_WIDTH_RATIO = 0.6;
 const WIDTH_STORAGE_KEY = 'aiob.sessionPanel.width';
@@ -24,15 +28,6 @@ interface ResizeState {
   maxWidth: number;
   minHeight: number;
   maxHeight: number;
-}
-
-export interface SessionPanelResizeStorage {
-  load(): Promise<Record<string, unknown>>;
-  save(items: Record<string, unknown>): void;
-}
-
-export interface SessionPanelResizeOptions {
-  storage: SessionPanelResizeStorage;
 }
 
 function clamp(value: number, min: number, max: number): number {

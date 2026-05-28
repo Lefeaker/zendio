@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { asType, partialOf } from '../../utils/typeHelpers';
+import { asType } from '../../utils/typeHelpers';
 
 type SessionPanelStorageItems = Partial<
   Record<
