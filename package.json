@@ -22,6 +22,7 @@
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
     "lint:warnings-guard": "node scripts/lint-warnings-guard.mjs",
     "audit:deps:report": "node tools/report-dependency-cruiser-coverage.mjs",
+    "audit:platform-boundary:report": "node tools/report-platform-boundary.mjs",
     "audit:platform-services:report": "node tools/report-platform-services-allowlist.mjs",
     "audit:design-tokens:report": "node tools/report-design-token-alignment.mjs",
     "audit:design-system-doc:report": "node tools/report-design-system-doc.mjs",
