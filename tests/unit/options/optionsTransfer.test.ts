@@ -45,8 +45,7 @@ describe('options transfer normalizer', () => {
         floatingPromptEnabled: false,
         promptButtonLabel: 'Start Video Notes',
         promptShortcut: 'cmd+shift+v'
-      },
-      customKey: { hello: 'world' }
+      }
     };
     const normalized = normalizeOptionsForTransfer(stored);
     expect(normalized.readingSession?.highlightTheme).toBe('neonOrange');
@@ -54,7 +53,138 @@ describe('options transfer normalizer', () => {
     expect(normalized.video?.promptButtonLabel).toBe('Start Video Notes');
     expect(normalized.video?.promptShortcut).toBe('CMD+SHIFT+V');
     expect(normalized.vaultRouter?.vaults[0].rules?.[0].pattern).toBe('example.com');
-    expect((normalized as Record<string, unknown>).customKey).toEqual({ hello: 'world' });
+  });
+
+  it('exports every known option key while dropping arbitrary top-level keys', () => {
+    const normalized = normalizeOptionsForTransfer(
+      {
+        interfaceTheme: 'dark',
+        aiChat: { userName: 'Researcher' },
+        deepResearch: { pureMode: true },
+        classifier: {
+          enabled: true,
+          provider: 'compatible',
+          endpoint: 'https://classifier.example/v1/chat',
+          apiKey: 'CLASSIFIER_SECRET',
+          model: 'classify-1'
+        },
+        experimentalAi: {
+          provider: 'compatible',
+          model: 'summary-1',
+          apiUrl: 'https://ai.example/v1/chat/completions',
+          apiKey: 'EXPERIMENTAL_SECRET'
+        },
+        pageSummary: { enabled: true },
+        readingOverlaySummary: { enabled: true },
+        subtitleTranslation: { enabled: true, targetLanguage: 'ja' },
+        customKey: { hello: 'world' },
+        cloudSyncToken: 'future-secret'
+      },
+      { mode: 'fullBackup' }
+    );
+
+    expect(normalized.interfaceTheme).toBe('dark');
+    expect(normalized.aiChat?.userName).toBe('Researcher');
+    expect(normalized.deepResearch?.pureMode).toBe(true);
+    expect(normalized.classifier?.model).toBe('classify-1');
+    expect(normalized.experimentalAi?.model).toBe('summary-1');
+    expect(normalized.pageSummary?.enabled).toBe(true);
+    expect(normalized.readingOverlaySummary?.enabled).toBe(true);
+    expect(normalized.subtitleTranslation?.targetLanguage).toBe('ja');
+    expect((normalized as Record<string, unknown>).customKey).toBeUndefined();
+    expect((normalized as Record<string, unknown>).cloudSyncToken).toBeUndefined();
+  });
+
+  it('redacts sensitive fields in portable mode', () => {
+    const normalized = normalizeOptionsForTransfer(
+      {
+        rest: {
+          baseUrl: 'https://127.0.0.1:27124/',
+          httpsUrl: 'https://127.0.0.1:27124/',
+          httpUrl: 'http://127.0.0.1:27123/',
+          vault: 'MainVault',
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        classifier: {
+          enabled: true,
+          provider: 'compatible',
+          endpoint: 'https://classifier.example/v1/chat',
+          apiKey: 'CLASSIFIER_SECRET_TOKEN',
+          model: 'classify-1'
+        },
+        experimentalAi: {
+          provider: 'compatible',
+          model: 'summary-1',
+          apiUrl: 'https://ai.example/v1/chat/completions',
+          apiKey: 'EXPERIMENTAL_SECRET_TOKEN'
+        },
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'main',
+              name: 'MainVault',
+              httpsUrl: 'https://127.0.0.1:27124/',
+              httpUrl: 'http://127.0.0.1:27123/',
+              vault: 'MainVault',
+              apiKey: 'VAULT_SECRET_TOKEN'
+            }
+          ],
+          defaultVaultId: 'main'
+        }
+      },
+      { mode: 'portable' }
+    );
+
+    expect(normalized.rest?.apiKey).toBe('');
+    expect(normalized.classifier?.apiKey).toBe('');
+    expect(normalized.experimentalAi?.apiKey).toBe('');
+    expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('');
+  });
+
+  it('preserves sensitive fields in explicit fullBackup mode without preserving unknown keys', () => {
+    const normalized = normalizeOptionsForTransfer(
+      {
+        rest: {
+          baseUrl: 'https://127.0.0.1:27124/',
+          vault: 'MainVault',
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        classifier: {
+          enabled: true,
+          provider: 'compatible',
+          endpoint: 'https://classifier.example/v1/chat',
+          apiKey: 'CLASSIFIER_SECRET_TOKEN',
+          model: 'classify-1'
+        },
+        experimentalAi: {
+          provider: 'compatible',
+          model: 'summary-1',
+          apiUrl: 'https://ai.example/v1/chat/completions',
+          apiKey: 'EXPERIMENTAL_SECRET_TOKEN'
+        },
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'main',
+              name: 'MainVault',
+              httpsUrl: 'https://127.0.0.1:27124/',
+              httpUrl: 'http://127.0.0.1:27123/',
+              vault: 'MainVault',
+              apiKey: 'VAULT_SECRET_TOKEN'
+            }
+          ],
+          defaultVaultId: 'main'
+        },
+        customKey: { hello: 'world' }
+      },
+      { mode: 'fullBackup' }
+    );
+
+    expect(normalized.rest?.apiKey).toBe('REST_SECRET_TOKEN');
+    expect(normalized.classifier?.apiKey).toBe('CLASSIFIER_SECRET_TOKEN');
+    expect(normalized.experimentalAi?.apiKey).toBe('EXPERIMENTAL_SECRET_TOKEN');
+    expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
+    expect((normalized as Record<string, unknown>).customKey).toBeUndefined();
   });
 
   it('includes sanitized yaml config overrides in transfer payload', () => {

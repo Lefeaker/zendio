@@ -35,7 +35,7 @@ describe('mountProductionStitchShell actions', () => {
       ...createController(),
       loadRaw
     };
-    const writeText = vi.fn(() => Promise.resolve());
+    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText }
@@ -43,7 +43,13 @@ describe('mountProductionStitchShell actions', () => {
 
     mountProductionStitchShell({
       controller: asOptionsController(controller),
-      initialOptions: { aiChat: { userName: 'Before' } },
+      initialOptions: {
+        aiChat: { userName: 'Before' },
+        rest: {
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        customKey: { hello: 'world' }
+      } as never,
       messages: null,
       language: 'en'
     });
@@ -51,6 +57,12 @@ describe('mountProductionStitchShell actions', () => {
     findButton('复制配置').click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
+    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
+      string,
+      unknown
+    >;
+    expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
+    expect(writtenConfig.customKey).toBeUndefined();
 
     findButton('诊断配置').click();
     expect(document.body.textContent).toContain('domainMappings');
