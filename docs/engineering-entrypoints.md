@@ -38,6 +38,7 @@
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-05-26 M10 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
+- 2026-05-28 Plan 10 D1 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 为 `0` vulnerabilities，production runtime release gate 仍为 green；`npm audit --audit-level=low` 仍为 dev/release toolchain 后续计划项，当前报告为 `10` vulnerabilities（`3` moderate / `7` high），涉及 `ajv`、`brace-expansion`、`fast-uri`、`lodash`、`minimatch`、`node-forge`、`picomatch`、`tmp`、`web-ext`、`ws`
 
 ## 当前推荐执行顺序
 

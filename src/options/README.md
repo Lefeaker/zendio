@@ -47,7 +47,7 @@ npm run test:unit            # Section/Controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
 ```
 
-如改动 I18n 或 CLI，请追加 `npm run validate:i18n:keys`、`npm run typecheck:tests`。
+如改动 I18n 或 CLI，请追加 `npm run test:i18n`、`npm run typecheck:tests`。
 
 > 提示：Options 主 UI 与 content runtime 的 Clipper / Reader / Video 面板都走 Stitch runtime CSS；`clipper.tailwind.css` / `video.tailwind.css` 样式桥已退役。
 
@@ -221,7 +221,7 @@ src/options/
   npm run test:unit
   npm run test:e2e
   ```
-- **多语言校验**：若改动文案或 locale，追加执行 `npm run validate:i18n:keys`（若尚未创建，请按照多语言指南补充脚本）。
+- **多语言校验**：若改动文案或 locale，追加执行 `npm run test:i18n`；仅需检查文本预算时可单独运行 `npm run validate:i18n:budgets`。
 
 ---
 

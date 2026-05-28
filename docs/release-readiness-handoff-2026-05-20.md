@@ -75,10 +75,12 @@ Expected non-blocking failure:
 npm audit --audit-level=low
 ```
 
-This still fails with `26` dev/release toolchain vulnerabilities (`10`
-moderate / `16` high). This is not treated as a runtime dependency release
-blocker because `npm audit --omit=dev` is clean. No dependency upgrade was made
-in this release-readiness pass.
+Historical 2026-05-20 result: this failed with `26` dev/release toolchain
+vulnerabilities (`10` moderate / `16` high). This was not treated as a runtime
+dependency release blocker because `npm audit --omit=dev` was clean. No
+dependency upgrade was made in this release-readiness pass. Current audit truth
+lives in `docs/source-of-truth-index.md` and
+`docs/long-term-maintenance-backlog-2026-03-29.md`.
 
 ## Package Artifacts
 
