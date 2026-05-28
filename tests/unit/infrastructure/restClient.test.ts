@@ -146,6 +146,25 @@ describe('RestClient Implementation', () => {
     );
   });
 
+  it.each(['../escape.md', 'folder/../escape.md'])(
+    'rejects unsafe traversal path %j before making network requests',
+    async (filePath) => {
+      await expect(restClient.writeFile(mockConnection, filePath, 'content')).rejects.toThrow(
+        'Vault-relative path must not contain traversal segments.'
+      );
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    }
+  );
+
+  it('preserves leading slash vault-prefix compatibility for safe paths', async () => {
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 200, statusText: 'OK' }));
+
+    await restClient.writeFile({ ...mockConnection, vault: 'Vault' }, '/Vault/safe.md', 'content');
+
+    expect(mockFetch).toHaveBeenCalledWith('https://test.com/vault/safe.md', expect.any(Object));
+  });
+
   it('should handle empty API key', async () => {
     const connectionWithoutKey: RestConnection = {
       ...mockConnection,

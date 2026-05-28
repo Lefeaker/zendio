@@ -2,6 +2,7 @@ import type {
   LocalVaultDirectorySelection,
   LocalVaultPermissionState
 } from '../interfaces/fileSystemAccess';
+import { normalizeVaultRelativePath } from '../../shared/paths/vaultRelativePath';
 
 export type PermissionMode = { mode: 'readwrite' };
 export type FileSystemPermissionState = 'granted' | 'prompt' | 'denied';
@@ -127,21 +128,7 @@ export async function ensureReadWritePermission(
 }
 
 function normalizeRelativePath(filePath: string): string[] {
-  const parts = filePath
-    .replace(/^[\\/]+/u, '')
-    .split(/[\\/]+/u)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    throw new Error('Local vault file path is empty.');
-  }
-
-  if (parts.some((part) => part === '.' || part === '..')) {
-    throw new Error('Local vault file path cannot contain traversal segments.');
-  }
-
-  return parts;
+  return normalizeVaultRelativePath(filePath).split('/');
 }
 
 export async function chooseLocalVaultDirectory(options: {
