@@ -139,6 +139,60 @@ describe('runtime message listener', () => {
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
   });
 
+  it('strips unknown clip result payload fields before forwarding to the clip pipeline', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            url: 'https://example.com',
+            attachments: [
+              {
+                id: 'shot-1',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                dataUrl: 'data:image/jpeg;base64,aaa',
+                unsafe: true
+              }
+            ],
+            exportDestination: { kind: 'downloads', unsafe: true },
+            unsafeMeta: true
+          },
+          unsafeRoot: true
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(handleClipResultMock).toHaveBeenCalledWith(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            url: 'https://example.com',
+            attachments: [
+              {
+                id: 'shot-1',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                dataUrl: 'data:image/jpeg;base64,aaa'
+              }
+            ],
+            exportDestination: { kind: 'downloads' }
+          }
+        }
+      },
+      12,
+      expect.objectContaining({ sendSupportPrompt: expect.any(Function) })
+    );
+  });
+
   it('rejects unknown and unsafe analytics usage events', async () => {
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
@@ -212,6 +266,91 @@ describe('runtime message listener', () => {
         ],
         exportDestination: { kind: 'downloads' }
       }
+    });
+  });
+
+  it('validates legacy repository clip and reading clip payloads before processing', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const clipResult = await listener?.(
+      {
+        type: 'clip',
+        data: {
+          markdown: '# clip',
+          title: 'Clip title',
+          meta: { url: 'https://example.com', unsafeMeta: true },
+          unsafeRoot: true
+        }
+      },
+      { tabId: 12 }
+    );
+    const readingResult = await listener?.(
+      {
+        type: 'readingClip',
+        data: {
+          content: '# reading',
+          title: 'Reading title',
+          url: 'https://reader.example.com',
+          highlights: [],
+          exportMode: 'highlights'
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(clipResult).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(readingResult).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(processClipPayloadMock).toHaveBeenNthCalledWith(1, {
+      markdown: '# clip',
+      title: 'Clip title',
+      meta: { url: 'https://example.com' }
+    });
+    expect(processClipPayloadMock).toHaveBeenNthCalledWith(2, {
+      markdown: '# reading',
+      title: 'Reading title',
+      type: 'clipper',
+      meta: {
+        url: 'https://reader.example.com',
+        readerMode: true,
+        exportMode: 'highlights'
+      }
+    });
+  });
+
+  it('rejects malformed clip payloads through existing error responses', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: { attachments: [{ id: 'missing-required-fields' }] }
+        }
+      },
+      { tabId: 12 }
+    );
+    const repositoryResult = await listener?.(
+      {
+        type: 'clip',
+        data: {
+          markdown: '# clip',
+          meta: { exportDestination: { kind: 'external' } }
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(handleClipResultMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
+    expect(notifyExtractionErrorMock).toHaveBeenCalledWith('Invalid clip payload received.');
+    expect(repositoryResult).toEqual({
+      success: false,
+      error: 'Invalid clip payload received.'
     });
   });
 

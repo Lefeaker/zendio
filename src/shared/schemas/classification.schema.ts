@@ -15,7 +15,7 @@ export const ClassificationResultSchema = z
     fallbackReason: z.enum(['disabled', 'error', 'timeout']).optional(),
     errorDetail: AppErrorSchema.optional()
   })
-  .passthrough(); // 允许额外字段（因为有 [key: string]: unknown）
+  .strip();
 
 export type ClassificationResult = z.infer<typeof ClassificationResultSchema>;
 
@@ -31,6 +31,6 @@ export const ClassificationRequestSchema = z
     title: z.string().min(1),
     preview: z.string().min(1)
   })
-  .passthrough();
+  .strip();
 
 export type ClassificationRequest = z.infer<typeof ClassificationRequestSchema>;

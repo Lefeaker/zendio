@@ -139,14 +139,6 @@ function normalizeClassificationPayload(
     normalized.tags = fallbackBase.tags ?? [];
   }
 
-  for (const [key, value] of Object.entries(payload)) {
-    if (key === 'type' || key === 'ai_platform' || key === 'topics' || key === 'tags') {
-      continue;
-    }
-    (normalized as Record<string, unknown>)[key] = value;
-  }
-
-  // Validate final shape but keep passthrough extras
   return ClassificationResultSchema.parse(normalized);
 }
 

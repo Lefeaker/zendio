@@ -144,6 +144,28 @@ describe('classifier', () => {
     }
   });
 
+  it('returns parse error when provider JSON payload is not an object', async () => {
+    const { classify } = await import('../../../src/background/llm/classifier');
+    const fetchMock = vi.fn<(...args: FetchParams) => Promise<Response>>().mockResolvedValue(
+      createJsonResponse({
+        message: { content: JSON.stringify(['not', 'an', 'object']) }
+      })
+    );
+    globalThis.fetch = asType<typeof fetch>(fetchMock);
+
+    const result = await classify(
+      createConfig(),
+      { typeHint: 'article', platform: 'claude', url: 'https://example.com', title: 'Title' },
+      'preview'
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok === false) {
+      expect(result.error.code).toBe('CLASSIFIER_INVALID_PAYLOAD');
+      expect(result.error.context).toMatchObject({ provider: 'ollama' });
+    }
+  });
+
   it('rejects invalid classification request input at the boundary', async () => {
     const { classify } = await import('../../../src/background/llm/classifier');
 
