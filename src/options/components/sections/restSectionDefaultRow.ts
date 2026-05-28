@@ -77,7 +77,7 @@ function buildRestDefaultHeading(
   heading.append(badge);
 
   const enabledHost = createElement('div');
-  const enabledCheckbox = new DaisyCheckbox(enabledHost).render({
+  new DaisyCheckbox(enabledHost).render({
     label: messages?.ruleEnabledLabel ?? '启用',
     checked: true,
     disabled: true,
