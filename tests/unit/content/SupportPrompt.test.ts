@@ -5,6 +5,11 @@ import { ErrorSeverity } from '@shared/errors/types';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+type MockContentI18nResource = {
+  language?: string;
+  messages: Record<string, string> | null;
+};
+
 type Deferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -38,7 +43,9 @@ vi.mock('@content/clipper/shared/styleRegistry', () => ({
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
+const getContentI18nResourceMock = vi.hoisted(() =>
+  vi.fn<() => MockContentI18nResource>(() => ({ messages: null }))
+);
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -119,6 +126,7 @@ describe('SupportPrompt', () => {
     document.body.innerHTML = '';
     vi.resetModules();
     vi.clearAllMocks();
+    Reflect.deleteProperty(globalThis, 'chrome');
     storageLocalGetMock.mockResolvedValue({});
     storageLocalSetMock.mockResolvedValue(undefined);
     messagingSendMock.mockResolvedValue(undefined);
@@ -265,6 +273,24 @@ describe('SupportPrompt', () => {
     expect(messagingSendMock).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'support_like_clicked' })
     );
+  });
+
+  it('uses the content locale provider for review URLs when extension i18n is absent', async () => {
+    getContentI18nResourceMock.mockReturnValue({
+      language: 'ja',
+      messages: null
+    });
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    await flushMicrotasks();
+    getToastShadow().querySelector<HTMLButtonElement>('[data-role="review-link-btn"]')?.click();
+    await flushMicrotasks();
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('hl=ja'), '_blank', 'noopener');
   });
 
   it('shows dislike toast with Reddit and GitHub feedback actions', async () => {
