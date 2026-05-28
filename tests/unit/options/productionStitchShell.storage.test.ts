@@ -20,6 +20,11 @@ import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import { getTestRestUrls } from '../../fixtures/configTestHelpers';
+
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
+const LOCAL_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
 
 describe('mountProductionStitchShell storage', () => {
   beforeEach(setupProductionStitchShellTest);
@@ -37,8 +42,8 @@ describe('mountProductionStitchShell storage', () => {
               id: 'research',
               name: 'Research Vault',
               vault: 'Research Vault',
-              httpsUrl: 'https://localhost:27124',
-              httpUrl: 'http://localhost:27123',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
               apiKey: 'token',
               enabled: false,
               isDefault: true
@@ -106,8 +111,8 @@ describe('mountProductionStitchShell storage', () => {
               id: 'research',
               name: 'Research Vault',
               vault: 'Research Vault',
-              httpsUrl: 'https://localhost:27124',
-              httpUrl: 'http://localhost:27123',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
               apiKey: 'token',
               enabled: true,
               isDefault: true
@@ -149,9 +154,9 @@ describe('mountProductionStitchShell storage', () => {
     const draft = mergeOptions({
       rest: {
         vault: 'Research Vault',
-        baseUrl: 'https://localhost:27124',
-        httpsUrl: 'https://localhost:27124',
-        httpUrl: 'http://localhost:27123',
+        baseUrl: LOCAL_HTTPS_URL,
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
         apiKey: 'token'
       },
       vaultRouter: {
@@ -161,8 +166,8 @@ describe('mountProductionStitchShell storage', () => {
             id: 'research',
             name: 'Research Vault',
             vault: 'Research Vault',
-            httpsUrl: 'https://localhost:27124',
-            httpUrl: 'http://localhost:27123',
+            httpsUrl: LOCAL_HTTPS_URL,
+            httpUrl: LOCAL_HTTP_URL,
             apiKey: 'token',
             enabled: true,
             isDefault: true
@@ -223,10 +228,10 @@ describe('mountProductionStitchShell storage', () => {
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
-          baseUrl: 'https://localhost:27124',
+          baseUrl: LOCAL_HTTPS_URL,
           vault: 'Research Vault',
-          httpsUrl: 'https://localhost:27124',
-          httpUrl: 'http://localhost:27123',
+          httpsUrl: LOCAL_HTTPS_URL,
+          httpUrl: LOCAL_HTTP_URL,
           apiKey: 'token',
           rootDir: 'Inbox/'
         }
@@ -271,10 +276,10 @@ describe('mountProductionStitchShell storage', () => {
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
-          baseUrl: 'https://localhost:27124',
+          baseUrl: LOCAL_HTTPS_URL,
           vault: 'Research Vault',
-          httpsUrl: 'https://localhost:27124',
-          httpUrl: 'http://localhost:27123',
+          httpsUrl: LOCAL_HTTPS_URL,
+          httpUrl: LOCAL_HTTP_URL,
           apiKey: 'token'
         }
       },
@@ -357,10 +362,10 @@ describe('mountProductionStitchShell storage', () => {
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
-          baseUrl: 'https://localhost:27124',
+          baseUrl: LOCAL_HTTPS_URL,
           vault: 'Research Vault',
-          httpsUrl: 'https://localhost:27124',
-          httpUrl: 'http://localhost:27123',
+          httpsUrl: LOCAL_HTTPS_URL,
+          httpUrl: LOCAL_HTTP_URL,
           apiKey: 'token',
           localFolderId: 'folder-main',
           localFolderName: 'Local Vault'
@@ -372,8 +377,8 @@ describe('mountProductionStitchShell storage', () => {
               id: 'vault-default',
               name: 'Research Vault',
               vault: 'Research Vault',
-              httpsUrl: 'https://localhost:27124',
-              httpUrl: 'http://localhost:27123',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
               apiKey: 'token',
               localFolderId: 'folder-main',
               localFolderName: 'Local Vault',
@@ -490,8 +495,8 @@ describe('mountProductionStitchShell storage', () => {
               id: 'research',
               name: 'Research Vault',
               vault: 'Research Vault',
-              httpsUrl: 'https://localhost:27124',
-              httpUrl: 'http://localhost:27123',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
               apiKey: 'token',
               enabled: true,
               isDefault: true,
@@ -591,7 +596,7 @@ describe('mountProductionStitchShell storage', () => {
       initialOptions: {
         rest: {
           vault: 'Research Vault',
-          httpsUrl: 'https://localhost:27124',
+          httpsUrl: LOCAL_HTTPS_URL,
           apiKey: 'bad-token'
         },
         vaultRouter: {
@@ -601,8 +606,8 @@ describe('mountProductionStitchShell storage', () => {
               id: 'research',
               name: 'Research Vault',
               vault: 'Research Vault',
-              httpsUrl: 'https://localhost:27124',
-              httpUrl: 'http://localhost:27123',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
               apiKey: 'bad-token',
               localFolderId: 'folder-local',
               localFolderName: 'LocalFolder',

@@ -7,10 +7,16 @@ import type { ClipperDialogDependencies } from '@content/clipper/components/dial
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { setWindowProp, asType } from '../../utils/typeHelpers';
 import { MockClipRepository } from '../../utils/repositories';
+import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 
 type I18nContextModule = typeof import('../../../src/content/i18n/context');
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
+
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_REST_BASE_URL = LOCAL_REST_URLS.baseUrl.replace(/\/$/, '');
+const LOCAL_REST_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
+const LOCAL_REST_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
 
 const initializeStylesMock =
   vi.fn<
@@ -162,7 +168,7 @@ function createVaultOptions() {
     rest: {
       rootDir: '',
       vault: 'Default Vault',
-      baseUrl: 'https://localhost:27124',
+      baseUrl: LOCAL_REST_BASE_URL,
       apiKey: 'token'
     },
     templates: {
@@ -179,8 +185,8 @@ function createVaultOptions() {
           id: 'default',
           name: 'Default Vault',
           vault: 'Default Vault',
-          httpsUrl: 'https://localhost:27124',
-          httpUrl: 'http://localhost:27123',
+          httpsUrl: LOCAL_REST_HTTPS_URL,
+          httpUrl: LOCAL_REST_HTTP_URL,
           apiKey: 'token',
           enabled: true,
           isDefault: true

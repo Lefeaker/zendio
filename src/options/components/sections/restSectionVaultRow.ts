@@ -2,6 +2,7 @@ import type { VaultConfig } from '@shared/types/vault';
 import { UiButton as DaisyButton } from '@ui/primitives/button';
 import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
+import { configProvider } from '@shared/config';
 import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestVaultRow(params: {
@@ -26,6 +27,7 @@ export function buildRestVaultRow(params: {
   row.className =
     'grid grid-cols-[60px_140px_170px_minmax(150px,1fr)_minmax(150px,1fr)_160px_80px] gap-2 p-3 items-center hover:bg-base-200 transition-colors';
   row.dataset.vaultId = vault.id;
+  const restDefaults = configProvider.getRestDefaults();
 
   const enabledCell = createElement('div');
   enabledCell.className = 'flex items-center justify-center';
@@ -68,7 +70,7 @@ export function buildRestVaultRow(params: {
       vault.id,
       'https',
       vault.httpsUrl ?? '',
-      'https://127.0.0.1:27124/',
+      restDefaults.httpsUrl,
       updateVault
     )
   );
@@ -78,7 +80,7 @@ export function buildRestVaultRow(params: {
       vault.id,
       'http',
       vault.httpUrl ?? '',
-      'http://127.0.0.1:27123/',
+      restDefaults.httpUrl,
       updateVault
     )
   );
