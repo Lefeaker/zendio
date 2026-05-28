@@ -2,19 +2,61 @@ import { z } from 'zod';
 import { ClassificationResultSchema } from './classification.schema';
 import { AppErrorSchema } from './error.schema';
 
-/**
- * Clip meta schema with common optional URL-related fields.
- * Keep permissive with passthrough to preserve behavior.
- */
+const MAX_META_STRING_LENGTH = 4096;
+const MAX_PREVIEW_LENGTH = 512;
+const MAX_ATTACHMENT_DATA_URL_LENGTH = 20 * 1024 * 1024;
+
+const BoundedMetaStringSchema = z.string().max(MAX_META_STRING_LENGTH);
+const NonNegativeIntegerSchema = z.number().int().nonnegative();
+
+const ClipAttachmentSchema = z
+  .object({
+    id: z.string().min(1).max(256),
+    fileName: z.string().min(1).max(512),
+    mimeType: z.string().min(1).max(128),
+    dataUrl: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH)
+  })
+  .strip();
+
+const ExportDestinationSchema = z
+  .discriminatedUnion('kind', [
+    z.object({ kind: z.literal('downloads') }).strip(),
+    z
+      .object({
+        kind: z.literal('vault'),
+        vaultId: z.string().min(1).max(256).optional()
+      })
+      .strip()
+  ])
+  .optional();
+
 export const ClipMetaSchema = z
   .object({
-    url: z.string().optional(),
-    domain: z.string().optional(),
-    platform: z.string().optional(),
-    sourceUrl: z.string().optional(),
-    resolvedUrl: z.string().optional()
+    url: BoundedMetaStringSchema.optional(),
+    domain: BoundedMetaStringSchema.optional(),
+    platform: BoundedMetaStringSchema.optional(),
+    sourceUrl: BoundedMetaStringSchema.optional(),
+    resolvedUrl: BoundedMetaStringSchema.optional(),
+    clippedAtISO: BoundedMetaStringSchema.optional(),
+    fragmentUrl: BoundedMetaStringSchema.optional(),
+    hasComment: z.boolean().optional(),
+    selectedTextPreview: z.string().max(MAX_PREVIEW_LENGTH).optional(),
+    model: BoundedMetaStringSchema.optional(),
+    messageCount: NonNegativeIntegerSchema.optional(),
+    createdAt: BoundedMetaStringSchema.optional(),
+    readerMode: z.boolean().optional(),
+    exportMode: z.enum(['highlights', 'full']).optional(),
+    highlightCount: NonNegativeIntegerSchema.optional(),
+    commentCount: NonNegativeIntegerSchema.optional(),
+    fragmentUrls: z.array(BoundedMetaStringSchema).max(200).optional(),
+    captureCount: NonNegativeIntegerSchema.optional(),
+    timestampCount: NonNegativeIntegerSchema.optional(),
+    fragmentCount: NonNegativeIntegerSchema.optional(),
+    storageKey: z.string().min(1).max(512).optional(),
+    attachments: z.array(ClipAttachmentSchema).max(50).optional(),
+    exportDestination: ExportDestinationSchema
   })
-  .passthrough();
+  .strip();
 
 /**
  * Clip payload schema used across the clip boundary.
@@ -27,7 +69,7 @@ export const ClipPayloadSchema = z
     type: z.string().optional(),
     meta: ClipMetaSchema.optional()
   })
-  .passthrough();
+  .strip();
 
 /**
  * ClipProcessingResult Schema

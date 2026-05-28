@@ -7,19 +7,24 @@ describe('ClassificationResultSchema', () => {
     expect(res.success).toBe(true);
   });
 
-  it('accepts success with extras passthrough', () => {
+  it('accepts success with known fields and strips unknown root fields', () => {
     const res = ClassificationResultSchema.safeParse({
       status: 'success',
       type: 'article',
       ai_platform: 'test',
       topics: ['a', 'b'],
       tags: ['x'],
-      vendor_meta: { score: 0.9 }
+      vendor_meta: { score: 0.9 },
+      providerDebug: { raw: true }
     });
     expect(res.success).toBe(true);
     if (res.success) {
-      // @ts-expect-error passthrough keeps extras at runtime
-      expect(res.data.vendor_meta.score).toBe(0.9);
+      expect(res.data.type).toBe('article');
+      expect(res.data.ai_platform).toBe('test');
+      expect(res.data.topics).toEqual(['a', 'b']);
+      expect(res.data.tags).toEqual(['x']);
+      expect('vendor_meta' in res.data).toBe(false);
+      expect('providerDebug' in res.data).toBe(false);
     }
   });
 });
