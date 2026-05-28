@@ -2,6 +2,9 @@ import {
   getAnalyticsConfigManager,
   initializeAnalyticsConfig
 } from '../../shared/errors/analytics/analyticsConfig';
+import { getService } from '../../shared/di';
+import { TOKENS } from '../../shared/di/tokens';
+import type { PlatformServices } from '../../platform/types';
 import type { AnalyticsEventParams } from '../../shared/types/analytics';
 
 let initializationPromise: Promise<void> | null = null;
@@ -48,6 +51,17 @@ async function ensureSessionId(): Promise<string | undefined> {
   }
 }
 
+function resolveExtensionVersion(): string {
+  try {
+    return (
+      getService<PlatformServices>(TOKENS.platformServices).runtime.getManifest?.()?.version ??
+      'unknown'
+    );
+  } catch {
+    return 'unknown';
+  }
+}
+
 export async function trackUsageEvent(
   eventName: string,
   params?: AnalyticsEventParams
@@ -81,13 +95,7 @@ export async function trackUsageEvent(
   }
 
   const sessionId = await ensureSessionId();
-  const extensionVersion = (() => {
-    try {
-      return chrome.runtime.getManifest().version ?? 'unknown';
-    } catch {
-      return 'unknown';
-    }
-  })();
+  const extensionVersion = resolveExtensionVersion();
 
   const payloadParams: Record<string, string | number | boolean> = {
     extension_version: extensionVersion,
