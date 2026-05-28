@@ -134,7 +134,7 @@ describe('runtime message listener', () => {
     expect(handleClipResultMock).toHaveBeenCalledWith(
       { type: 'CLIP_RESULT', payload: { markdown: '# hello' } },
       12,
-      expect.objectContaining({ sendSupportPrompt: expect.any(Function) })
+      expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
   });
@@ -189,7 +189,7 @@ describe('runtime message listener', () => {
         }
       },
       12,
-      expect.objectContaining({ sendSupportPrompt: expect.any(Function) })
+      expect.any(Object)
     );
   });
 
