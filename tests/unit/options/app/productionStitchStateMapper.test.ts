@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { previewContent } from '@options/stitch/content';
+import { testPlatformHarness } from '../../../setup/globalSetup';
+import { createChromeRuntimeMock } from '../../../utils/browserMocks';
 import {
   applyOptionsToState,
   createInitialStitchState,
   createProductionContent,
+  resolveExtensionVersionLabel,
   resolveReadingPathMode,
   toRoutingRules,
   toTemplateValues
@@ -98,5 +101,24 @@ describe('production Stitch state mapper', () => {
     expect(content.surfaceLinks).toEqual([]);
     expect(state.aiUserName).toBe('Tester');
     expect(state.templateValues.articleVideo).toBe(draft.templates.article);
+  });
+
+  it('resolves extension version from platform runtime instead of direct chrome globals', () => {
+    testPlatformHarness.runtime.getManifest = () => ({ version: '9.8.7' });
+    testPlatformHarness.configure();
+
+    const chromeMock = createChromeRuntimeMock();
+    chromeMock.runtimeMocks.getManifest.mockReturnValue({
+      manifest_version: 3,
+      name: 'direct-extension',
+      version: '0.0.0-direct'
+    });
+
+    try {
+      expect(resolveExtensionVersionLabel()).toBe('v9.8.7');
+    } finally {
+      chromeMock.restore();
+      delete testPlatformHarness.runtime.getManifest;
+    }
   });
 });

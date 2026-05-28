@@ -1,6 +1,8 @@
 import { normalizeUsageStats } from '@shared/constants';
 import { previewContent } from '@options/stitch/content';
 import { prepareUsageHistory } from '@options/stitch/usageHistory';
+import { getService, hasService, TOKENS } from '@shared/di';
+import type { PlatformServices } from '@platform/types';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
@@ -361,14 +363,25 @@ export function toTemplateValues(options: CompleteOptions): Record<string, strin
   };
 }
 
-export function resolveExtensionVersionLabel(): string {
+type ExtensionVersionReader = () => string | undefined;
+
+function readPlatformManifestVersion(): string | undefined {
+  if (!hasService(TOKENS.platformServices)) {
+    return undefined;
+  }
+  return getService<PlatformServices>(TOKENS.platformServices).runtime.getManifest?.()?.version;
+}
+
+export function resolveExtensionVersionLabel(
+  readVersion: ExtensionVersionReader = readPlatformManifestVersion
+): string {
   try {
-    const version = chrome?.runtime?.getManifest?.().version;
+    const version = readVersion();
     if (typeof version === 'string' && version.trim().length > 0) {
       return `v${version.trim()}`;
     }
   } catch {
-    // Browser extension APIs are unavailable in unit tests and some preview contexts.
+    // Platform services can be unavailable in isolated preview or unit-test contexts.
   }
   return `v${PACKAGE_VERSION}`;
 }
