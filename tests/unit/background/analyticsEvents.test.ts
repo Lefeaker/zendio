@@ -5,6 +5,14 @@ const initializeAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resol
 const renewSessionMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const getConfigMock = vi.hoisted(() => vi.fn());
 
+type AnalyticsFetchResponse = {
+  ok: boolean;
+  status?: number;
+  statusText?: string;
+  clone: () => { text: () => Promise<string> };
+};
+type AnalyticsFetch = (input: string, init?: RequestInit) => Promise<AnalyticsFetchResponse>;
+
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
   initializeAnalyticsConfig: initializeAnalyticsConfigMock,
   getAnalyticsConfigManager: () => ({
@@ -38,7 +46,7 @@ async function resetRuntime(): Promise<void> {
 }
 
 describe('analyticsEvents', () => {
-  const fetchMock = vi.fn();
+  const fetchMock = vi.fn<AnalyticsFetch>();
 
   beforeEach(() => {
     vi.resetModules();
@@ -122,10 +130,7 @@ describe('analyticsEvents', () => {
     await trackUsageEvent('open_options');
 
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
-    const body = JSON.parse(String((requestInit as RequestInit | undefined)?.body)) as {
-      events: Array<{ params: { extension_version?: string } }>;
-    };
-    expect(body.events[0].params.extension_version).toBe('2.3.4');
+    expect(String(requestInit?.body)).toContain('"extension_version":"2.3.4"');
     expect(globalGetManifestMock).not.toHaveBeenCalled();
 
     consoleInfoSpy.mockRestore();
