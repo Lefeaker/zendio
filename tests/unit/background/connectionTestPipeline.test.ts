@@ -3,11 +3,9 @@ import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const DEFAULT_ROOT_URL = withTrailingSlash(
-  REST_DEFAULTS.httpsUrl ??
-    REST_DEFAULTS.baseUrl ??
-    REST_DEFAULTS.httpUrl ??
-    'https://127.0.0.1:27124/'
+  REST_DEFAULTS.httpsUrl ?? REST_DEFAULTS.baseUrl ?? REST_DEFAULTS.httpUrl
 );
+const DRAFT_HTTPS_URL = `https://draft.example:${REST_DEFAULTS.httpsPort}/`;
 const BODY_STREAM_REUSE_ERROR = ['Body', 'is', 'unusable'].join(' ');
 
 const getOptionsMock = vi.fn();
@@ -108,14 +106,14 @@ describe('connectionTest pipeline', () => {
     fetchMock.mockResolvedValue(createResponse('OK', { status: 200 }));
 
     const result = await handleConnectionTest({
-      httpsUrl: 'https://draft.example:27124/',
+      httpsUrl: DRAFT_HTTPS_URL,
       vault: 'DraftVault',
       apiKey: 'draft-token'
     });
 
     expect(result.success).toBe(true);
     const [url, init] = expectFetchCall(fetchMock, 0);
-    expect(url).toBe(withTrailingSlash('https://draft.example:27124/'));
+    expect(url).toBe(withTrailingSlash(DRAFT_HTTPS_URL));
     expect(getAuthorizationHeader(init)).toBe('Bearer draft-token');
   });
 
