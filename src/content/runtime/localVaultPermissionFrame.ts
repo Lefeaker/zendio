@@ -1,12 +1,21 @@
-import { chromeFileSystemAccessService } from '../../platform/chrome/fileSystemAccess';
 import type { LocalVaultPermissionPromptResponse } from '../../shared/types';
+import {
+  resolveLocalVaultPermissionService,
+  type LocalVaultPermissionService
+} from './localVaultPermissionFrameAdapter';
 
-function getParam(name: string): string {
-  return new URL(location.href).searchParams.get(name)?.trim() ?? '';
+export interface LocalVaultPermissionFrameOptions {
+  document?: Document;
+  window?: Window;
+  permissionService?: LocalVaultPermissionService;
 }
 
-function postResult(response: LocalVaultPermissionPromptResponse): void {
-  window.parent.postMessage(
+function getParam(frameWindow: Window, name: string): string {
+  return new URL(frameWindow.location.href).searchParams.get(name)?.trim() ?? '';
+}
+
+function postResult(frameWindow: Window, response: LocalVaultPermissionPromptResponse): void {
+  frameWindow.parent.postMessage(
     {
       type: 'AIIOB_LOCAL_VAULT_PERMISSION_RESULT',
       response
@@ -15,11 +24,16 @@ function postResult(response: LocalVaultPermissionPromptResponse): void {
   );
 }
 
-function render(): void {
-  const folderId = getParam('folderId');
-  const folderName = getParam('folderName') || getParam('vaultName') || '本地仓库目录';
+function render(
+  doc: Document,
+  frameWindow: Window,
+  permissionService: LocalVaultPermissionService
+): void {
+  const folderId = getParam(frameWindow, 'folderId');
+  const folderName =
+    getParam(frameWindow, 'folderName') || getParam(frameWindow, 'vaultName') || '本地仓库目录';
 
-  document.body.innerHTML = `
+  doc.body.innerHTML = `
     <main class="permission-card">
       <div class="permission-heading">
         <span class="permission-kicker">All in Ob</span>
@@ -37,20 +51,20 @@ function render(): void {
     </main>
   `;
 
-  const strong = document.querySelector('strong');
+  const strong = doc.querySelector('strong');
   if (strong) {
     strong.textContent = folderName;
   }
 
-  const status = document.querySelector<HTMLElement>('[data-role="status"]');
-  const authorize = document.querySelector<HTMLButtonElement>('[data-action="authorize"]');
-  const restOnce = document.querySelector<HTMLButtonElement>('[data-action="rest-once"]');
-  const restAlways = document.querySelector<HTMLButtonElement>('[data-action="rest-always"]');
+  const status = doc.querySelector<HTMLElement>('[data-role="status"]');
+  const authorize = doc.querySelector<HTMLButtonElement>('[data-action="authorize"]');
+  const restOnce = doc.querySelector<HTMLButtonElement>('[data-action="rest-once"]');
+  const restAlways = doc.querySelector<HTMLButtonElement>('[data-action="rest-always"]');
 
   authorize?.addEventListener('click', () => {
     void (async () => {
       if (!folderId) {
-        postResult({
+        postResult(frameWindow, {
           action: 'use-rest',
           permissionState: 'missing',
           errorMessage: 'Local folder id is missing.'
@@ -64,18 +78,18 @@ function render(): void {
       restOnce?.setAttribute('disabled', 'true');
       restAlways?.setAttribute('disabled', 'true');
       try {
-        const permissionState = await chromeFileSystemAccessService.ensurePermission(folderId);
+        const permissionState = await permissionService.ensurePermission(folderId);
         if (permissionState === 'granted') {
-          postResult({ action: 'granted', permissionState });
+          postResult(frameWindow, { action: 'granted', permissionState });
           return;
         }
-        postResult({
+        postResult(frameWindow, {
           action: 'use-rest',
           permissionState,
           persistRest: permissionState === 'denied'
         });
       } catch (error) {
-        postResult({
+        postResult(frameWindow, {
           action: 'use-rest',
           permissionState: 'prompt',
           errorMessage: error instanceof Error ? error.message : String(error)
@@ -85,16 +99,25 @@ function render(): void {
   });
 
   restOnce?.addEventListener('click', () => {
-    postResult({ action: 'use-rest', permissionState: 'prompt' });
+    postResult(frameWindow, { action: 'use-rest', permissionState: 'prompt' });
   });
 
   restAlways?.addEventListener('click', () => {
-    postResult({ action: 'use-rest', permissionState: 'denied', persistRest: true });
+    postResult(frameWindow, {
+      action: 'use-rest',
+      permissionState: 'denied',
+      persistRest: true
+    });
   });
 }
 
-const style = document.createElement('style');
-style.textContent = `
+function ensureStyles(doc: Document): void {
+  if (doc.getElementById('aiob-local-vault-permission-frame-style')) {
+    return;
+  }
+  const style = doc.createElement('style');
+  style.id = 'aiob-local-vault-permission-frame-style';
+  style.textContent = `
   :root {
     color-scheme: light;
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -191,5 +214,17 @@ style.textContent = `
     color: #667085;
   }
 `;
-document.head.appendChild(style);
-render();
+  doc.head.appendChild(style);
+}
+
+export function mountLocalVaultPermissionFrame(
+  options: LocalVaultPermissionFrameOptions = {}
+): void {
+  const frameDocument = options.document ?? document;
+  const frameWindow = options.window ?? window;
+  const permissionService = options.permissionService ?? resolveLocalVaultPermissionService();
+  ensureStyles(frameDocument);
+  render(frameDocument, frameWindow, permissionService);
+}
+
+mountLocalVaultPermissionFrame();

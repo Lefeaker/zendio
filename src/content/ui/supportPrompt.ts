@@ -23,16 +23,18 @@ import {
   type SupportPromptDependencies
 } from './supportPromptServices';
 import { createSupportPromptToastLifecycle } from './supportPromptToastLifecycle';
+import { getContentI18nResource } from '../i18n/context';
 
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 const TERMINAL_PROGRESS_DISMISS_MS = 2200;
 
-export class SupportPrompt
-  implements
-    UiMountable<SupportPromptOptions | undefined, SupportPromptOptions | undefined, Promise<void>>
-{
+export class SupportPrompt implements UiMountable<
+  SupportPromptOptions | undefined,
+  SupportPromptOptions | undefined,
+  Promise<void>
+> {
   private host: HTMLElement | null = null;
   private readonly deps: SupportPromptDependencies;
   private readonly popupCoordinator: PopupCoordinator | null;
@@ -270,12 +272,9 @@ export class SupportPrompt
   }
 
   private resolveReviewLocale(): string {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage) {
-        return chrome.i18n.getUILanguage();
-      }
-    } catch {
-      // ignore
+    const resource = getContentI18nResource();
+    if (resource?.language) {
+      return resource.language;
     }
     if (typeof navigator !== 'undefined' && typeof navigator.language === 'string') {
       return navigator.language || 'en';
