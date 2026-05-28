@@ -1,3 +1,10 @@
+export function resolveManifestRestDefaults(): {
+  httpsHost: string;
+  httpsPort?: number;
+  httpHost: string;
+  httpPort?: number;
+};
+
 export function resolveRestHostPermissions(): string[];
 
 export function applyRestHostPermissions<T extends { host_permissions?: string[] }>(

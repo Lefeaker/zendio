@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { CLIPPER_DEFAULTS } from '@shared/config/appConfig';
 import {
   applyRestHostPermissions,
+  resolveManifestRestDefaults,
   resolveRestHostPermissions
 } from '../../../scripts/utils/manifestHosts.mjs';
 
@@ -53,6 +55,15 @@ describe('manifestHosts utilities', () => {
     const permissions = resolveHostPermissions();
     expect(permissions).toContain('https://127.0.0.1:27124/*');
     expect(permissions).toContain('http://127.0.0.1:27123/*');
+  });
+
+  it('keeps build-time manifest defaults aligned with runtime REST defaults', () => {
+    expect(resolveManifestRestDefaults()).toEqual({
+      httpsHost: CLIPPER_DEFAULTS.rest.httpsHost,
+      httpsPort: CLIPPER_DEFAULTS.rest.httpsPort,
+      httpHost: CLIPPER_DEFAULTS.rest.httpHost,
+      httpPort: CLIPPER_DEFAULTS.rest.httpPort
+    });
   });
 
   it('applies environment overrides and merges into manifest host permissions', () => {
