@@ -57,34 +57,25 @@
 
 9. 单独规划 dev/release toolchain dependency upgrade
    - 当前真值：`npm audit --omit=dev` 为 `0` vulnerabilities，runtime dependency release gate 不受阻塞
-   - 当前真值：`npm audit --audit-level=low` 仍失败，当前报告为 `26` vulnerabilities（`10` moderate / `16` high）
-   - 风险范围：dev/release toolchain，包含 Playwright、Rollup、glob/minimatch/brace-expansion、lodash、node-forge、esbuild/vite、web-ext/addons-linter/ajv、postcss、ws、yaml 等
-   - 后续处理：不要在 release handoff 中盲目 `npm audit fix --force`；需要单独 dependency upgrade plan，评估 Playwright/browser baseline、Rollup/esbuild build output、web-ext signing/package flow 和 lint/test fixtures
+   - 当前真值：`npm audit --audit-level=low` 仍失败，2026-05-28 当前报告为 `10` vulnerabilities（`3` moderate / `7` high）
+   - 历史口径：2026-05-20 release readiness handoff 中的 `26` vulnerabilities（`10` moderate / `16` high）仅保留为当时证据，不代表当前 audit truth
+   - 风险范围：dev/release toolchain，当前 vulnerable package names 为 `ajv`、`brace-expansion`、`fast-uri`、`lodash`、`minimatch`、`node-forge`、`picomatch`、`tmp`、`web-ext`、`ws`
+   - 后续处理：不要在 release handoff 中盲目 `npm audit fix --force`；需要单独 dependency upgrade plan，评估 package/signing surface、glob/build/test file matching、dev server/test behavior、browser baseline 和 release audits
 
    分批升级计划：
-   - Batch A: Playwright / browser baseline upgrade
-     - Scope: `@playwright/test`, `playwright`, browser install baseline, screenshots/snapshot tolerances.
-     - Verification: `npm run test:e2e:browser:local-vault`, `npm run test:e2e:browser:smoke`, `npm run verify:stitch-secondary`, `npm run visual:test`.
-     - Rollback: revert the dependency commit and restore the previous browser cache or reinstall from the previous lockfile.
+   - Batch A: `web-ext` / `tmp` / `node-forge` / `ajv` / `fast-uri`
+     - Scope: release packaging, Firefox package/signing command behavior, schema validation chain.
+     - Verification: `npm run package`, `npm run package:firefox`, Chrome/Firefox release-surface and local-vault release audits.
+     - Rollback: revert dependency lockfile changes if package contents, signing flags, Gecko metadata, manifest validation, or release audits regress.
 
-   - Batch B: Rollup / esbuild / Vite build-output risk
-     - Scope: `rollup`, `esbuild`, `vite` transitive chain and any build plugin compatibility.
-     - Verification: `npm run typecheck`, `npm run typecheck:strict`, `npm run clean`, `npm run build:dev`, `npm run audit:build:report`, `npm run build`, `npm run build:firefox`, `npm run audit:local-vault-release:report -- --browser chrome`, `npm run audit:local-vault-release:report -- --browser firefox`.
-     - Rollback: revert dependency lockfile changes if bundle names, chunk reachability, manifest output, or size budgets regress.
+   - Batch B: `minimatch` / `brace-expansion` / `picomatch`
+     - Scope: glob/build/test tooling and file matching semantics.
+     - Verification: `npm run quality`, `npm run visual:test`, `npm run build`, production build graph and release-surface audits.
+     - Rollback: revert if matched file sets, lint/test discovery, manifest/package contents, or build graph reachability change unexpectedly.
 
-   - Batch C: `web-ext` / `addons-linter` signing and package flow
-     - Scope: `web-ext`, `addons-linter`, `ajv` chain, Firefox package/signing command behavior.
-     - Verification: `npm run package:firefox`, unsigned XPI inspection, dry-run or documented non-publishing signing rehearsal with dummy credentials where supported, and manual review of generated manifest.
-     - Rollback: revert dependency changes if XPI generation/signing flags, Gecko metadata, or manifest validation semantics change unexpectedly.
-
-   - Batch D: ESLint / TypeScript ESLint / minimatch chain
-     - Scope: `eslint`, `@typescript-eslint/*`, `minimatch`, config compatibility and warning baseline behavior.
-     - Verification: `npm run lint -- --quiet`, `npm run lint:warnings-guard`, `npm run lint:options-css`, `npm run test:unit`.
-     - Rollback: revert if warning categories change without a documented baseline migration or if quiet lint starts flagging unrelated production paths.
-
-   - Batch E: archive/package tooling chain
-     - Scope: `glob`, `brace-expansion`, `@isaacs/brace-expansion`, `lodash`, `node-forge`, `yaml`, `ws`, `postcss`, and related package/archive tooling transitive dependencies.
-     - Verification: `npm run package`, `npm run package:firefox`, artifact inspection for manifest/offscreen/WAR/chunk reachability, `npm audit --omit=dev`, and targeted scripts that consume YAML/archive/glob behavior.
-     - Rollback: revert the batch if archive contents, package names, manifest mutation, YAML parsing, or release artifact integrity changes unexpectedly.
+   - Batch C: `lodash` / `ws`
+     - Scope: transitive dev server/test tooling and any archive/package helper behavior that consumes these packages.
+     - Verification: `npm run test:unit`, relevant E2E/browser smoke checks, package checks, `npm audit --omit=dev`, and `npm audit --audit-level=low`.
+     - Rollback: revert if dev server behavior, tests, archive contents, package names, or release artifact integrity changes unexpectedly.
 
    每个 batch 必须独立提交、独立验证，并在升级后重新记录 `npm audit --audit-level=low` 的变化；不得用单次 `npm audit fix --force` 覆盖所有依赖。
