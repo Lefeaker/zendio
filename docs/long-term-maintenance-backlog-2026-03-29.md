@@ -28,7 +28,7 @@
    - 当前真值：`lint:warnings-guard` checked-in baseline 为 `141`；2026-05-29 fresh warning count 为 `140`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
    - 当前 hardcoded config 守卫：`lint:hardcoded` 已接入 `quality` 与 CI；当前 `0` errors / `11` warning-only findings
-   - 当前类型审计：`lint:type-any` 扫描 `1107` files；overall `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`
+   - 当前类型审计：`lint:type-any` 扫描 `1108` files；overall `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`
    - 后续处理：继续清理 broad historical `require-await`、测试 fixture typing、type assertion / unsafe assignment、hardcoded warning-only fixtures/source defaults 债务；不要通过降低 ESLint 规则、hardcoded lint 规则或无解释 disable 来“归零”
    - Baseline 规则：`lint:warnings-report` 会重写 `tools/baselines/lint-warnings.json`；只有有意同步 warning truth 时才提交该 baseline
 
