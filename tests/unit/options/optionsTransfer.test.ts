@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeOptionsForTransfer } from '@options/utils/optionsTransfer';
 import type { StoredOptions } from '@shared/types';
+import { getRestDefaults } from '../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
 
 describe('options transfer normalizer', () => {
   it('fills newly added fields with defaults when missing', () => {
@@ -99,9 +102,9 @@ describe('options transfer normalizer', () => {
     const normalized = normalizeOptionsForTransfer(
       {
         rest: {
-          baseUrl: 'https://127.0.0.1:27124/',
-          httpsUrl: 'https://127.0.0.1:27124/',
-          httpUrl: 'http://127.0.0.1:27123/',
+          baseUrl: REST_DEFAULTS.baseUrl,
+          httpsUrl: REST_DEFAULTS.httpsUrl,
+          httpUrl: REST_DEFAULTS.httpUrl,
           vault: 'MainVault',
           apiKey: 'REST_SECRET_TOKEN'
         },
@@ -123,8 +126,8 @@ describe('options transfer normalizer', () => {
             {
               id: 'main',
               name: 'MainVault',
-              httpsUrl: 'https://127.0.0.1:27124/',
-              httpUrl: 'http://127.0.0.1:27123/',
+              httpsUrl: REST_DEFAULTS.httpsUrl,
+              httpUrl: REST_DEFAULTS.httpUrl,
               vault: 'MainVault',
               apiKey: 'VAULT_SECRET_TOKEN'
             }
@@ -145,7 +148,7 @@ describe('options transfer normalizer', () => {
     const normalized = normalizeOptionsForTransfer(
       {
         rest: {
-          baseUrl: 'https://127.0.0.1:27124/',
+          baseUrl: REST_DEFAULTS.baseUrl,
           vault: 'MainVault',
           apiKey: 'REST_SECRET_TOKEN'
         },
@@ -167,8 +170,8 @@ describe('options transfer normalizer', () => {
             {
               id: 'main',
               name: 'MainVault',
-              httpsUrl: 'https://127.0.0.1:27124/',
-              httpUrl: 'http://127.0.0.1:27123/',
+              httpsUrl: REST_DEFAULTS.httpsUrl,
+              httpUrl: REST_DEFAULTS.httpUrl,
               vault: 'MainVault',
               apiKey: 'VAULT_SECRET_TOKEN'
             }
