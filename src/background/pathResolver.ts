@@ -3,12 +3,11 @@ import type { ClipPayload } from '../shared/types';
 import type { ClassificationResult } from './services/classificationService';
 import { tryParseUrl } from '../shared/url';
 import { configProvider } from '../shared/config';
+import { resolveTemplateKeyForPayloadType, type TemplateKey } from '../shared/exportDestination';
 
 type TemplateConfig = Options['templates'];
 
 type DomainMappings = Record<string, string> | undefined;
-
-type TemplateKey = 'article' | 'fragment' | 'reading' | 'ai';
 
 type TemplateValueGetter = (templates: TemplateConfig, key: TemplateKey) => string;
 
@@ -45,8 +44,8 @@ export function resolvePath(
   const slug = (value: string): string => safe(value).toLowerCase().replace(/\s+/g, '-');
   const title = payload.title || 'Untitled';
 
-  switch (payload.type) {
-    case 'ai_chat': {
+  switch (resolveTemplateKeyForPayloadType(payload)) {
+    case 'ai': {
       const template = getTemplateValue(templates, 'ai');
       const platform = payload.meta?.platform || classification.ai_platform || 'chat';
       return populateTemplate(template, {
@@ -78,13 +77,15 @@ export function resolvePath(
         HHmmss: `${hourTwoDigit}${minuteTwoDigit}${secondTwoDigit}`,
         HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
         ss: secondTwoDigit,
-        platform: payload.meta?.platform ?? classification.ai_platform ?? 'clipper'
+        platform:
+          payload.meta?.platform ??
+          classification.ai_platform ??
+          (payload.type === 'video' ? 'video' : 'clipper')
       });
     }
 
-    case 'clipper': {
-      const templateKey: TemplateKey = payload.meta?.readerMode ? 'reading' : 'fragment';
-      const template = getTemplateValue(templates, templateKey);
+    case 'reading': {
+      const template = getTemplateValue(templates, 'reading');
       const domain = resolveDomain(payload, domainMappings);
       return populateTemplate(template, {
         domain: safe(domain),
@@ -101,25 +102,7 @@ export function resolvePath(
       });
     }
 
-    case 'video': {
-      const template = getTemplateValue(templates, 'fragment');
-      const domain = resolveDomain(payload, domainMappings);
-      return populateTemplate(template, {
-        domain: safe(domain),
-        yyyy: String(yyyy),
-        mm: monthTwoDigit,
-        dd,
-        HH: hourTwoDigit,
-        slug: slug(title),
-        title: safe(title),
-        HHmmss: `${hourTwoDigit}${minuteTwoDigit}${secondTwoDigit}`,
-        HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
-        ss: secondTwoDigit,
-        platform: payload.meta?.platform ?? classification.ai_platform ?? 'video'
-      });
-    }
-
-    default: {
+    case 'article': {
       const template = getTemplateValue(templates, 'article');
       const domain = resolveDomain(payload, domainMappings);
       return populateTemplate(template, {

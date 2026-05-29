@@ -95,6 +95,16 @@ describe('resolvePath', () => {
     expect(result).toBe(`Fragments/${expectedHour}${expectedMinute}${expectedSecond}.md`);
   });
 
+  it('uses fragment template for video payloads to match preview paths', () => {
+    const payload = createPayload({
+      type: 'video',
+      title: 'Video Note',
+      meta: { url: 'https://video.example.com/watch?v=1', domain: 'video.example.com' }
+    });
+    const result = resolvePath(templates, payload, { ...CLASSIFICATION, type: 'video' });
+    expect(result).toBe('Clippings/video.example.com/2024/2024-01-02/video-note.md');
+  });
+
   it('distinguishes month and minute placeholders when both are present', () => {
     const payload = createPayload();
     const customTemplates: TemplateOptions = {
