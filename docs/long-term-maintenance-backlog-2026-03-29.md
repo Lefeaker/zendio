@@ -57,10 +57,10 @@
 
 9. 单独规划 dev/release toolchain dependency upgrade
    - 当前真值：`npm audit --omit=dev` 为 `0` vulnerabilities，runtime dependency release gate 不受阻塞
-   - 当前真值：`npm audit --audit-level=low` 仍失败，2026-05-29 D3 schema/release batch 后当前报告为 `2` vulnerabilities（`1` moderate / `1` high）
+   - 当前真值：`npm audit --audit-level=low` 为 `0` vulnerabilities；2026-05-29 D3 Batch A/B/C 均已完成，dev/release toolchain audit 当前不再阻塞
    - 历史口径：2026-05-20 release readiness handoff 中的 `26` vulnerabilities（`10` moderate / `16` high）仅保留为当时证据，不代表当前 audit truth
-   - 风险范围：dev/release toolchain，当前 vulnerable package names 为 `lodash`、`ws`
-   - 后续处理：不要在 release handoff 中盲目 `npm audit fix --force`；需要单独 dependency upgrade plan，评估 package/signing surface、glob/build/test file matching、dev server/test behavior、browser baseline 和 release audits
+   - 风险范围：已通过 targeted overrides 降级出当前 audit list；新增依赖升级仍不得在 release handoff 中盲目 `npm audit fix --force`
+   - 后续处理：未来若 audit 回归，需重新单独规划 dependency upgrade，评估 package/signing surface、glob/build/test file matching、dev server/test behavior、browser baseline 和 release audits
 
    分批升级计划：
    - Batch A status: `web-ext` / `tmp` 已在 2026-05-29 D3 first batch 降级出当前 audit list；`node-forge` / `ajv` / `fast-uri` 已在 2026-05-29 D3 schema/release batch 降级出当前 audit list
@@ -73,9 +73,9 @@
      - Verification: `npm run quality`, `npm run visual:test`, `npm run build`, production build graph and release-surface audits.
      - Rollback: revert if matched file sets, lint/test discovery, manifest/package contents, or build graph reachability change unexpectedly.
 
-   - Batch C: `lodash` / `ws`
+   - Batch C status: `lodash` / `ws` 已在 2026-05-29 D3 remaining dependency audit batch 降级出当前 audit list
      - Scope: transitive dev server/test tooling and any archive/package helper behavior that consumes these packages.
      - Verification: `npm run test:unit`, relevant E2E/browser smoke checks, package checks, `npm audit --omit=dev`, and `npm audit --audit-level=low`.
      - Rollback: revert if dev server behavior, tests, archive contents, package names, or release artifact integrity changes unexpectedly.
 
-   每个 batch 必须独立提交、独立验证，并在升级后重新记录 `npm audit --audit-level=low` 的变化；不得用单次 `npm audit fix --force` 覆盖所有依赖。
+   每个 batch 均已独立提交并在升级后重新记录 `npm audit --audit-level=low` 的变化；未来新增依赖审计批次仍不得用单次 `npm audit fix --force` 覆盖所有依赖。
