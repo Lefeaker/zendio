@@ -57,13 +57,13 @@
 
 9. 单独规划 dev/release toolchain dependency upgrade
    - 当前真值：`npm audit --omit=dev` 为 `0` vulnerabilities，runtime dependency release gate 不受阻塞
-   - 当前真值：`npm audit --audit-level=low` 仍失败，2026-05-28 当前报告为 `10` vulnerabilities（`3` moderate / `7` high）
+   - 当前真值：`npm audit --audit-level=low` 仍失败，2026-05-29 D3 `web-ext` batch 后当前报告为 `8` vulnerabilities（`3` moderate / `5` high）
    - 历史口径：2026-05-20 release readiness handoff 中的 `26` vulnerabilities（`10` moderate / `16` high）仅保留为当时证据，不代表当前 audit truth
-   - 风险范围：dev/release toolchain，当前 vulnerable package names 为 `ajv`、`brace-expansion`、`fast-uri`、`lodash`、`minimatch`、`node-forge`、`picomatch`、`tmp`、`web-ext`、`ws`
+   - 风险范围：dev/release toolchain，当前 vulnerable package names 为 `ajv`、`brace-expansion`、`fast-uri`、`lodash`、`minimatch`、`node-forge`、`picomatch`、`ws`
    - 后续处理：不要在 release handoff 中盲目 `npm audit fix --force`；需要单独 dependency upgrade plan，评估 package/signing surface、glob/build/test file matching、dev server/test behavior、browser baseline 和 release audits
 
    分批升级计划：
-   - Batch A: `web-ext` / `tmp` / `node-forge` / `ajv` / `fast-uri`
+   - Batch A status: `web-ext` / `tmp` 已在 2026-05-29 D3 first batch 降级出当前 audit list；剩余 release/schema chain 为 `node-forge` / `ajv` / `fast-uri`
      - Scope: release packaging, Firefox package/signing command behavior, schema validation chain.
      - Verification: `npm run package`, `npm run package:firefox`, Chrome/Firefox release-surface and local-vault release audits.
      - Rollback: revert dependency lockfile changes if package contents, signing flags, Gecko metadata, manifest validation, or release audits regress.
