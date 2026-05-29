@@ -4,8 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompleteOptions, StoredOptions } from '../../../src/shared/types/options';
 import type { OptionsController } from '../../../src/options/app/optionsController';
 import type { IOptionsRepository } from '../../../src/shared/repositories';
+import { getRestDefaults } from '../../utils/restDefaults';
 
 type DiagnosticsController = Pick<OptionsController, 'getSnapshot' | 'loadRaw' | 'saveSnapshot'>;
+const REST_DEFAULTS = getRestDefaults();
+const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
+const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
+const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+const LOCAL_CONFLICT_PORT = String(REST_DEFAULTS.httpsPort);
 
 const getSnapshotMock = vi.hoisted(() =>
   vi.fn<(...args: []) => ReturnType<DiagnosticsController['getSnapshot']>>(() => null)
@@ -106,7 +112,7 @@ describe('diagnostics', () => {
 
   it('fixes configuration and persists via controller or repository', async () => {
     getSnapshotMock.mockReturnValue({
-      rest: { httpsUrl: '', httpUrl: '', baseUrl: 'http://localhost:27124', apiKey: 'key' },
+      rest: { httpsUrl: '', httpUrl: '', baseUrl: LOCAL_HTTP_CONFLICT_URL, apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
     } as unknown as StoredOptions);
     const { fixConfiguration } = await import('@options/components/diagnostics');
@@ -119,8 +125,8 @@ describe('diagnostics', () => {
     getSnapshotMock.mockReturnValue({} as StoredOptions);
     loadRawMock.mockResolvedValue({
       rest: {
-        httpsUrl: 'https://localhost:27124',
-        httpUrl: 'http://localhost:27123',
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
         apiKey: 'key'
       },
       templates: {
@@ -134,10 +140,10 @@ describe('diagnostics', () => {
             id: 'v1',
             name: 'One',
             enabled: true,
-            httpsUrl: 'https://localhost:27124',
+            httpsUrl: LOCAL_HTTPS_URL,
             apiKey: 'k1'
           },
-          { id: 'v2', name: 'Two', enabled: true, httpUrl: 'http://localhost:27124', apiKey: 'k2' }
+          { id: 'v2', name: 'Two', enabled: true, httpUrl: LOCAL_HTTP_CONFLICT_URL, apiKey: 'k2' }
         ],
         rules: []
       },
@@ -148,8 +154,10 @@ describe('diagnostics', () => {
 
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(loadRawMock).toHaveBeenCalled();
-    expect(formatMessageMock).toHaveBeenCalledWith('Port conflict: {ports}', { ports: '27124' });
-    expect(output).toContain('Port conflict: 27124');
+    expect(formatMessageMock).toHaveBeenCalledWith('Port conflict: {ports}', {
+      ports: LOCAL_CONFLICT_PORT
+    });
+    expect(output).toContain(`Port conflict: ${LOCAL_CONFLICT_PORT}`);
     expect(output).toContain('映射条目数量: 1');
   });
 
@@ -157,8 +165,8 @@ describe('diagnostics', () => {
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockResolvedValueOnce({
       rest: {
-        httpsUrl: 'https://localhost:27124',
-        httpUrl: 'http://localhost:27123',
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
         apiKey: 'key'
       },
       templates: {
@@ -238,8 +246,8 @@ describe('diagnostics', () => {
 
     getSnapshotMock.mockReturnValueOnce({
       rest: {
-        httpsUrl: 'https://localhost:27124',
-        httpUrl: 'http://localhost:27123',
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
         apiKey: 'key'
       },
       templates: { article: 'A', fragment: 'F', ai: 'I' },

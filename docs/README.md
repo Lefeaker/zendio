@@ -1,6 +1,6 @@
 # 工程文档入口
 
-最后更新：2026-05-24
+最后更新：2026-05-29
 
 ## 当前真值入口
 
@@ -27,6 +27,7 @@
 ## 当前口径
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
+- `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `11` warning-only findings
 - `audit:build:report` 使用 2026-05-24 M2.5 复核后的预算真值
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；`audit:non-production-source:check` 是 hard gate
 - `M4` 已按重定义口径通过：当前分支保留已验真的 retained set，原始规模预算已下沉到 backlog

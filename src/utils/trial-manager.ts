@@ -1,4 +1,8 @@
-import { resolveTrialManagerPorts, type TrialManagerPorts } from './trial-manager-ports';
+import {
+  resolveTrialManagerPorts,
+  type TrialManagerNotificationOptions,
+  type TrialManagerPorts
+} from './trial-manager-ports';
 
 export interface TrialConfig {
   isTrial: boolean;
@@ -106,7 +110,7 @@ async function checkTrialStatusWithPorts(ports: TrialManagerPorts): Promise<Tria
 
 async function maybeCreateNotification(
   ports: TrialManagerPorts,
-  options: chrome.notifications.NotificationCreateOptions
+  options: TrialManagerNotificationOptions
 ): Promise<void> {
   if (!ports.createNotification) {
     return;

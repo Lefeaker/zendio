@@ -80,8 +80,8 @@ export function createMockPlatformServices(): PlatformServices {
     tabs: {
       create: () => Promise.resolve(undefined),
       remove: () => Promise.resolve(undefined),
-      getCurrent: () => Promise.resolve(undefined as chrome.tabs.Tab | undefined),
-      get: () => Promise.resolve(undefined as chrome.tabs.Tab | undefined),
+      getCurrent: () => Promise.resolve(undefined),
+      get: () => Promise.resolve(undefined),
       query: () => Promise.resolve([]),
       sendMessage: <TResult = unknown>() => Promise.resolve(undefined as TResult),
       onActivated: () => () => undefined,

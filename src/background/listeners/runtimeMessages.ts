@@ -31,15 +31,14 @@ import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
 import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
 
-interface OpenOptionsPageMessage {
-  type: 'openOptionsPage';
-  section?: string;
-}
+const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
 
 const OpenOptionsPageMessageSchema = z.object({
   type: z.literal('openOptionsPage'),
   section: z.string().optional()
 });
+
+type OpenOptionsPageMessage = z.infer<typeof OpenOptionsPageMessageSchema>;
 
 function isOpenOptionsPageMessage(message: unknown): message is OpenOptionsPageMessage {
   return OpenOptionsPageMessageSchema.safeParse(message).success;
@@ -64,35 +63,14 @@ function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
   return payload;
 }
 
-function isRepositoryClipMessage(message: unknown): message is { type: 'clip'; data: ClipPayload } {
-  return (
-    typeof message === 'object' &&
-    message !== null &&
-    (message as { type?: unknown }).type === 'clip' &&
-    typeof (message as { data?: { markdown?: unknown } }).data?.markdown === 'string'
-  );
-}
-
-function isRepositoryReadingClipMessage(
-  message: unknown
-): message is { type: 'readingClip'; data: ReadingClipData } {
-  return (
-    typeof message === 'object' &&
-    message !== null &&
-    (message as { type?: unknown }).type === 'readingClip' &&
-    typeof (message as { data?: { content?: unknown } }).data?.content === 'string'
-  );
-}
-
-function isRepositoryVideoClipMessage(
-  message: unknown
-): message is { type: 'videoClip'; data: VideoClipData } {
-  return (
-    typeof message === 'object' &&
-    message !== null &&
-    (message as { type?: unknown }).type === 'videoClip' &&
-    typeof (message as { data?: { content?: unknown } }).data?.content === 'string'
-  );
+function isRepositoryContentMessage(
+  message: unknown,
+  type: 'clip' | 'readingClip' | 'videoClip',
+  contentField: 'markdown' | 'content'
+): message is { data: Record<string, unknown>; type: string } {
+  if (typeof message !== 'object' || message === null) return false;
+  const candidate = message as { data?: Record<string, unknown>; type?: unknown };
+  return candidate.type === type && typeof candidate.data?.[contentField] === 'string';
 }
 
 function toReadingClipPayload(data: ReadingClipData): ClipPayload {
@@ -123,9 +101,22 @@ function toVideoClipPayload(data: VideoClipData): ClipPayload {
   };
 }
 
-async function processRepositoryClipPayload(payload: ClipPayload): Promise<MessagePayload> {
+function parseClipPayloadForBoundary(payload: unknown): ClipPayload | null {
+  const parsed = ClipPayloadSchema.safeParse(payload);
+  return parsed.success ? (parsed.data as ClipPayload) : null;
+}
+
+async function processRepositoryClipPayload(payload: unknown): Promise<MessagePayload> {
+  const parsedPayload = parseClipPayloadForBoundary(payload);
+  if (!parsedPayload) {
+    return {
+      success: false,
+      error: INVALID_CLIP_PAYLOAD_ERROR
+    };
+  }
+
   try {
-    const result = await processClipPayload(payload);
+    const result = await processClipPayload(parsedPayload);
     return { success: true, filePath: result.filePath };
   } catch (error) {
     return {
@@ -182,16 +173,20 @@ export function registerRuntimeMessageListener(
       return;
     }
 
-    if (isRepositoryClipMessage(message)) {
+    if (isRepositoryContentMessage(message, 'clip', 'markdown')) {
       return processRepositoryClipPayload(message.data);
     }
 
-    if (isRepositoryReadingClipMessage(message)) {
-      return processRepositoryClipPayload(toReadingClipPayload(message.data));
+    if (isRepositoryContentMessage(message, 'readingClip', 'content')) {
+      return processRepositoryClipPayload(
+        toReadingClipPayload(message.data as unknown as ReadingClipData)
+      );
     }
 
-    if (isRepositoryVideoClipMessage(message)) {
-      return processRepositoryClipPayload(toVideoClipPayload(message.data));
+    if (isRepositoryContentMessage(message, 'videoClip', 'content')) {
+      return processRepositoryClipPayload(
+        toVideoClipPayload(message.data as unknown as VideoClipData)
+      );
     }
 
     if (isTestConnectionMessage(message)) {
@@ -234,15 +229,13 @@ export function registerRuntimeMessageListener(
     }
 
     if (isClipResultMessage(message)) {
-      // Boundary validation for clip payload; behavior-preserving with passthrough
-      const parsed = ClipPayloadSchema.safeParse(message.payload);
-      if (!parsed.success) {
-        // Keep existing failure path by notifying extraction error with normalized message
-        await safeNotifyExtraction('Invalid clip payload received.');
+      const parsedPayload = parseClipPayloadForBoundary(message.payload);
+      if (!parsedPayload) {
+        await safeNotifyExtraction(INVALID_CLIP_PAYLOAD_ERROR);
         return;
       }
       await handleClipResult(
-        { ...message, payload: parsed.data as ClipPayload },
+        { ...message, payload: parsedPayload },
         sender.tabId,
         dependencies.clipPipeline
       );

@@ -17,11 +17,11 @@ import {
   readConfigTextFromClipboard,
   writeToClipboard
 } from '@options/services/configTransfer';
-import { normalizeOptionsForTransfer } from '@options/utils/optionsTransfer';
 import {
   getAnalyticsConfigManager,
   setAnalyticsConsent
 } from '@shared/errors/analytics/analyticsConfig';
+import { serializeOptionsFullBackup } from './productionStitchConfigExport';
 import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
@@ -214,9 +214,7 @@ export function createProductionStitchPersistence(
   async function copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void> {
     setButtonBusy(button, true);
     try {
-      await writeToClipboard(
-        JSON.stringify(normalizeOptionsForTransfer(options.collectDraftWithWidgets()), null, 2)
-      );
+      await writeToClipboard(serializeOptionsFullBackup(options.collectDraftWithWidgets()));
       options.setMaintenanceLog(
         getMessage(options.getCurrentMessages(), 'copyConfigSuccess', '配置已复制到剪贴板！')
       );

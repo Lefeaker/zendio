@@ -37,6 +37,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/components/layout/MainContent.ts', 435],
   ['src/onboarding/bootstrap.ts', 429],
   ['src/background/services/notifications.ts', 424],
+  ['src/background/trialLifecycle.ts', 272],
   ['src/options/components/sections/TemplatesSection.ts', 421],
   ['src/shared/config/optionsMerger.ts', 417],
   ['src/dev/localVaultWriteHarness.ts', 411],

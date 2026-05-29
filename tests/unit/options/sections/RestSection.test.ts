@@ -9,6 +9,10 @@ import {
   expectSettingsSchemas
 } from '../../../utils/productionStitchAssertions';
 import { getSettingsView } from '@options/stitch/schema/registry';
+import { getRestDefaults } from '../../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
+const LOCALHOST_BASE_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 
 describe('storage settings', () => {
   it('is represented by production Stitch content and schemas', () => {
@@ -28,9 +32,9 @@ describe('storage settings', () => {
     const options = mergeOptions({
       rest: {
         vault: 'Research',
-        baseUrl: 'https://localhost:27124',
-        httpsUrl: 'https://127.0.0.1:27124/',
-        httpUrl: 'http://127.0.0.1:27123/',
+        baseUrl: LOCALHOST_BASE_URL,
+        httpsUrl: REST_DEFAULTS.httpsUrl,
+        httpUrl: REST_DEFAULTS.httpUrl,
         apiKey: 'secret',
         rootDir: 'Research/'
       }
@@ -43,8 +47,8 @@ describe('storage settings', () => {
       expect.objectContaining({
         id: 'default',
         name: 'Research',
-        https: 'https://127.0.0.1:27124/',
-        http: 'http://127.0.0.1:27123/',
+        https: REST_DEFAULTS.httpsUrl,
+        http: REST_DEFAULTS.httpUrl,
         key: 'secret',
         enabled: true,
         isDefault: true

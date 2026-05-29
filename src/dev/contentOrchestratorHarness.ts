@@ -18,16 +18,15 @@ import { panelStyleSheetManager } from '../content/shared/panels/styleSheetManag
 import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
 import { SupportPrompt } from '../content/ui/supportPrompt';
 import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
-import type {
-  StorageAreaChangeCallback,
-  StorageAreaService,
-  StorageChangeCallback,
-  StorageService
-} from '../platform/interfaces/storage';
+import type { ReaderMarkdownPayload } from '../content/reader/utils/markdownBuilder';
+import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
+import type { MessagingService } from '../platform/interfaces/messaging';
+import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorHandler';
 import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
 
+type HarnessStorageValue = Parameters<StorageAreaService['set']>[1];
 const status = document.getElementById('status');
 
 function setStatus(message: string): void {
@@ -37,34 +36,36 @@ function setStatus(message: string): void {
 }
 
 function createStorageArea(): StorageAreaService {
-  const values = new Map<string, unknown>();
+  const values = new Map<string, HarnessStorageValue>();
   return {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      return values.get(key) as T | undefined;
+    get<T>(key: string): Promise<T | undefined> {
+      return Promise.resolve(values.get(key) as T | undefined);
     },
-    async set<T = unknown>(key: string, value: T): Promise<void> {
+    set<T>(key: string, value: T): Promise<void> {
       values.set(key, value);
+      return Promise.resolve();
     },
-    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
+    getMany<T>(keys: string[]): Promise<Record<string, T | undefined>> {
+      return Promise.resolve(
+        Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
+      );
     },
-    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
-      for (const [key, value] of Object.entries(entries)) {
-        values.set(key, value);
-      }
+    setMany<T>(entries: Record<string, T>): Promise<void> {
+      for (const [key, value] of Object.entries(entries)) values.set(key, value);
+      return Promise.resolve();
     },
-    async remove(key: string | string[]): Promise<void> {
-      for (const currentKey of Array.isArray(key) ? key : [key]) {
-        values.delete(currentKey);
-      }
+    remove(key: string | string[]): Promise<void> {
+      for (const currentKey of Array.isArray(key) ? key : [key]) values.delete(currentKey);
+      return Promise.resolve();
     },
-    async clear(): Promise<void> {
+    clear(): Promise<void> {
       values.clear();
+      return Promise.resolve();
     },
-    watchKey<T = unknown>(_key: string, _callback: StorageChangeCallback<T>): () => void {
+    watchKey(): () => void {
       return () => undefined;
     },
-    watchAll(_callback: StorageAreaChangeCallback): () => void {
+    watchAll(): () => void {
       return () => undefined;
     }
   };
@@ -81,8 +82,8 @@ const configuredInterfaceTheme =
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
 
 const optionsRepository = {
-  async get() {
-    return {
+  get() {
+    return Promise.resolve({
       interfaceTheme: configuredInterfaceTheme,
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' },
       video: {
@@ -90,7 +91,7 @@ const optionsRepository = {
         promptButtonLabel: '开启视频笔记',
         promptShortcut: 'Alt+V'
       }
-    };
+    });
   },
   async set() {},
   onChange() {
@@ -99,8 +100,8 @@ const optionsRepository = {
 };
 
 const clipRepo = {
-  async getFragmentConfig() {
-    return {
+  getFragmentConfig() {
+    return Promise.resolve({
       useFootnoteFormat: true,
       captureContext: false,
       contextLength: 200,
@@ -108,7 +109,7 @@ const clipRepo = {
       selectionModifierEnabled: false,
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: true
-    };
+    });
   },
   onConfigChange() {
     return () => undefined;
@@ -126,8 +127,9 @@ const runtimeState = createContentRuntimeState({
 });
 
 const errorHandler = {
-  async handle(error: unknown) {
+  handle(error: Parameters<SharedErrorHandler['handle']>[0]): Promise<void> {
     console.warn('[harness:errorHandler]', error);
+    return Promise.resolve();
   }
 };
 
@@ -141,17 +143,17 @@ function buildReaderDependencies(): ReaderSessionDependencies {
     optionsRepository: optionsRepository as never,
     storage,
     messaging: {
-      async send<TResult = unknown>(message: unknown): Promise<TResult> {
+      send<TResult>(message: Parameters<MessagingService['send']>[0]): Promise<TResult> {
         console.info('[harness:reader:send]', message);
-        return undefined as TResult;
+        return Promise.resolve(undefined as TResult);
       }
     },
     readerRepository: {
-      async getReadingConfig() {
-        return { exportMode: 'highlights', highlightTheme: 'gradient' };
+      getReadingConfig() {
+        return Promise.resolve({ exportMode: 'highlights', highlightTheme: 'gradient' });
       },
-      async sendReadingClip() {
-        return { success: true };
+      sendReadingClip() {
+        return Promise.resolve({ success: true });
       },
       onConfigChange() {
         return () => undefined;
@@ -167,14 +169,15 @@ function buildReaderDependencies(): ReaderSessionDependencies {
       buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
       buildFullMarkdown: buildReaderFullMarkdown
     }),
-    async dispatchClipResult(payload: unknown) {
+    dispatchClipResult(payload: ReaderMarkdownPayload): Promise<void> {
       console.info('[harness:reader:clip]', payload);
       setStatus('ReaderSession exported once');
+      return Promise.resolve();
     }
   };
 }
 
-async function openClipperDialog(): Promise<void> {
+function openClipperDialog(): Promise<void> {
   const dialog = new ClipperDialog({
     storage,
     errorHandler: errorHandler as never,
@@ -191,6 +194,7 @@ async function openClipperDialog(): Promise<void> {
       setStatus(`ClipperDialog ${result.action}`);
     });
   setStatus('ClipperDialog opened');
+  return Promise.resolve();
 }
 
 async function startReaderSession(): Promise<void> {
@@ -206,8 +210,8 @@ async function startReaderSession(): Promise<void> {
     document,
     window.location.href,
     {
-      async requestSelectionAction() {
-        return { action: 'clip', comment: 'Reader harness comment' };
+      requestSelectionAction() {
+        return Promise.resolve({ action: 'clip', comment: 'Reader harness comment' });
       }
     },
     buildReaderDependencies()
@@ -222,39 +226,35 @@ async function startReaderSession(): Promise<void> {
 }
 
 async function startVideoSession(): Promise<void> {
-  (activeVideo as unknown as { cleanup?: () => void } | null)?.cleanup?.();
+  (activeVideo as { cleanup?: () => void } | null)?.cleanup?.();
   const video = document.querySelector('video');
   if (!(video instanceof HTMLVideoElement)) {
     throw new Error('Video element missing');
   }
-  Object.defineProperty(video, 'currentTime', {
-    configurable: true,
-    writable: true,
-    value: 42
-  });
+  Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 42 });
   activeVideo = new VideoSession(document, {
     viewFactory: (
       await import('../content/video/presentation/videoPanelView')
     ).createVideoPanelViewFactory(),
     optionsRepository: optionsRepository as never,
     videoRepository: {
-      async getVideoConfig() {
-        return {
+      getVideoConfig() {
+        return Promise.resolve({
           floatingPromptEnabled: true,
           promptButtonLabel: '开启视频笔记',
           promptShortcut: 'Alt+V',
           controlBarAutoPause: true,
           controlBarScreenshot: true
-        };
+        });
       },
       async savePromptPosition() {},
       async saveControlBarPreferences() {},
-      async getPromptPosition() {
-        return null;
+      getPromptPosition() {
+        return Promise.resolve(null);
       },
-      async sendVideoClip() {
+      sendVideoClip() {
         setStatus('VideoSession exported once');
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       onConfigChange() {
         return () => undefined;
@@ -263,7 +263,7 @@ async function startVideoSession(): Promise<void> {
     storage
   } as never);
   await activeVideo.start();
-  await (activeVideo as unknown as { handleAddCapture: () => Promise<void> }).handleAddCapture();
+  await activeVideo.addCurrentTimestamp();
   setStatus('VideoSession mounted and one capture added');
 }
 

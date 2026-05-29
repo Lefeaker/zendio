@@ -54,6 +54,75 @@ const HARDCODED_PATTERNS = [
   }
 ];
 
+const LOCALIZED_REST_EXAMPLE_KEYS = new Set(['step1Detail3', 'step1Detail4']);
+const LOCALIZED_REST_EXAMPLE_FILE_PATTERN = /^i18n\/locales\/[A-Za-z0-9-]+\.ts$/;
+const REST_VAULT_ROW_PLACEHOLDER_FILES = new Set([
+  'options/components/sections/restSectionVaultRow.ts',
+  'options/widgets/shared/rest/restSectionVaultRow.ts'
+]);
+const REST_VAULT_ROW_PLACEHOLDER_LINES = new Set([
+  "'https://127.0.0.1:27124/',",
+  "'http://127.0.0.1:27123/',"
+]);
+const CHANGELOG_REST_EXAMPLE_FILE = 'options/app/changelogContent.ts';
+const STITCH_PREVIEW_REST_EXAMPLE_FILE = 'options/stitch/content.ts';
+const PRODUCT_REST_EXAMPLE_URLS = [
+  'https://127.0.0.1:27124/',
+  'http://127.0.0.1:27123/',
+  'https://127.0.0.1:27130/',
+  'http://127.0.0.1:27129/',
+  'https://127.0.0.1:27136/',
+  'http://127.0.0.1:27135/'
+];
+
+function isProductRestExampleLine(relativePath, line) {
+  if (relativePath === CHANGELOG_REST_EXAMPLE_FILE) {
+    return (
+      PRODUCT_REST_EXAMPLE_URLS.some((url) => line.includes(url)) ||
+      /HTTPS.*27124.*HTTP.*27123|HTTP.*27123.*HTTPS.*27124/.test(line)
+    );
+  }
+
+  if (relativePath === STITCH_PREVIEW_REST_EXAMPLE_FILE) {
+    return PRODUCT_REST_EXAMPLE_URLS.some((url) => line.includes(url));
+  }
+
+  return false;
+}
+
+const ALLOWLIST_RULES = [
+  {
+    category: 'localized-rest-example-text',
+    isAllowed({ relativePath, line }) {
+      if (LOCALIZED_REST_EXAMPLE_FILE_PATTERN.test(relativePath)) {
+        const keyMatch = line.match(/^\s*([A-Za-z0-9_]+):\s*['"`]/);
+        return keyMatch ? LOCALIZED_REST_EXAMPLE_KEYS.has(keyMatch[1]) : false;
+      }
+
+      if (relativePath === 'onboarding/index.html') {
+        return /data-i18n="step1Detail[34]"/.test(line);
+      }
+
+      return false;
+    }
+  },
+  {
+    category: 'product-rest-example-text',
+    isAllowed({ relativePath, line }) {
+      return isProductRestExampleLine(relativePath, line);
+    }
+  },
+  {
+    category: 'rest-vault-row-placeholder-text',
+    isAllowed({ relativePath, line }) {
+      return (
+        REST_VAULT_ROW_PLACEHOLDER_FILES.has(relativePath) &&
+        REST_VAULT_ROW_PLACEHOLDER_LINES.has(line.trim())
+      );
+    }
+  }
+];
+
 // Files and directories to exclude from linting
 const EXCLUDED_PATHS = [
   'node_modules',
@@ -69,7 +138,7 @@ const EXCLUDED_PATHS = [
 // File extensions to check
 const CHECKED_EXTENSIONS = ['.ts', '.js', '.mjs', '.json', '.html'];
 
-class HardcodedValueLinter {
+export class HardcodedValueLinter {
   constructor() {
     this.errors = [];
     this.warnings = [];
@@ -114,6 +183,18 @@ class HardcodedValueLinter {
           
           const matches = line.matchAll(pattern);
           for (const match of matches) {
+            const allowlistCategory = this.findAllowlistCategory({
+              relativePath,
+              line,
+              lineNumber,
+              match: match[0],
+              message,
+              severity
+            });
+            if (allowlistCategory) {
+              continue;
+            }
+
             const issue = {
               file: relativePath,
               line: lineNumber,
@@ -134,6 +215,15 @@ class HardcodedValueLinter {
     } catch (error) {
       console.warn(`Warning: Could not read file ${relativePath}: ${error.message}`);
     }
+  }
+
+  findAllowlistCategory(context) {
+    for (const rule of ALLOWLIST_RULES) {
+      if (rule.isAllowed(context)) {
+        return rule.category;
+      }
+    }
+    return null;
   }
 
   printResults() {

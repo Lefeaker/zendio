@@ -1,15 +1,37 @@
 import type { RuntimeService, RuntimeInstallDetails } from '../platform/interfaces/runtime';
+import type {
+  NotificationOptions,
+  NotificationsService
+} from '../platform/interfaces/notifications';
+import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import { cleanupBackgroundDependencies } from './bootstrap';
 import { checkTrialStatus, initializeTrial, showExpirationNotice } from '../utils/trial-manager';
+import {
+  configureDefaultTrialManagerPortDependencies,
+  type TrialManagerNotificationOptions,
+  type TrialManagerPortDependencies,
+  type TrialManagerPorts,
+  type TrialManagerStorageValue
+} from '../utils/trial-manager-ports';
 
 export interface TrialConfigPayload {
   trialDays: number;
 }
 
+type RuntimeOnSuspendPort =
+  | ((listener: () => void) => void)
+  | { addListener: (listener: () => void) => void };
+
+type TrialLifecycleRuntime = Pick<RuntimeService, 'getURL' | 'onInstalled'> & {
+  registerOnSuspend?: (listener: () => void) => void;
+  onSuspend?: RuntimeOnSuspendPort;
+  getManifest?: RuntimeService['getManifest'];
+};
+
 export interface TrialLifecycleDependencies {
-  runtime: Pick<RuntimeService, 'getURL' | 'onInstalled'>;
+  runtime: TrialLifecycleRuntime;
   storage: Pick<StorageService, 'local'>;
   tabs: Pick<TabsService, 'create'>;
   fetch: typeof fetch;
@@ -19,6 +41,76 @@ export interface TrialLifecycleDependencies {
   cleanupBackgroundDependencies: () => void;
   registerOnSuspend?: (listener: () => void) => void;
   setInterval?: typeof globalThis.setInterval;
+}
+
+function createTrialManagerStoragePort(
+  storage: Pick<StorageAreaService, 'get' | 'set' | 'remove'>
+): NonNullable<TrialManagerPorts['storage']> {
+  return {
+    async get(key: string) {
+      return { [key]: await storage.get(key) };
+    },
+    async set(items: Record<string, TrialManagerStorageValue>) {
+      await Promise.all(Object.entries(items).map(([key, value]) => storage.set(key, value)));
+    },
+    async remove(keys: string | string[]) {
+      await storage.remove(keys);
+    }
+  };
+}
+
+function createTrialManagerNotificationPort(
+  notifications: Pick<NotificationsService, 'create'>
+): NonNullable<TrialManagerPortDependencies['notifications']> {
+  return {
+    create: (notificationId, options) =>
+      notifications.create(notificationId, toNotificationOptions(options))
+  };
+}
+
+function toNotificationOptions(options: TrialManagerNotificationOptions): NotificationOptions {
+  const result: NotificationOptions = {
+    type: 'basic',
+    iconUrl: options.iconUrl ?? '',
+    title: options.title ?? '',
+    message: options.message ?? ''
+  };
+
+  if (options.contextMessage !== undefined) {
+    result.contextMessage = options.contextMessage;
+  }
+
+  if (options.requireInteraction !== undefined) {
+    result.requireInteraction = options.requireInteraction;
+  }
+
+  return result;
+}
+
+function resolveRegisterOnSuspend(
+  runtime: TrialLifecycleRuntime
+): ((listener: () => void) => void) | undefined {
+  if (runtime.registerOnSuspend) {
+    return (listener) => {
+      void runtime.registerOnSuspend?.(listener);
+    };
+  }
+
+  if (typeof runtime.onSuspend === 'function') {
+    const onSuspend = runtime.onSuspend;
+    return (listener) => {
+      void onSuspend(listener);
+    };
+  }
+
+  const onSuspend = runtime.onSuspend;
+  if (typeof onSuspend === 'object' && onSuspend !== null) {
+    return (listener) => {
+      onSuspend.addListener(listener);
+    };
+  }
+
+  return undefined;
 }
 
 export function parseTrialConfigPayload(value: unknown): TrialConfigPayload | null {
@@ -152,16 +244,17 @@ export function registerTrialLifecycle(deps: TrialLifecycleDependencies): void {
 }
 
 export function createDefaultTrialLifecycleDependencies(
-  runtime: Pick<RuntimeService, 'getURL' | 'onInstalled'>,
+  runtime: TrialLifecycleRuntime,
   storage: Pick<StorageService, 'local'>,
-  tabs: Pick<TabsService, 'create'>
+  tabs: Pick<TabsService, 'create'>,
+  notifications?: Pick<NotificationsService, 'create'>
 ): TrialLifecycleDependencies {
-  const registerOnSuspend =
-    typeof chrome !== 'undefined' && chrome.runtime?.onSuspend
-      ? (listener: () => void) => {
-          chrome.runtime.onSuspend.addListener(listener);
-        }
-      : undefined;
+  configureDefaultTrialManagerPortDependencies({
+    storage: createTrialManagerStoragePort(storage.local),
+    ...(runtime.getManifest ? { runtime: { getManifest: runtime.getManifest } } : {}),
+    ...(notifications ? { notifications: createTrialManagerNotificationPort(notifications) } : {})
+  });
+  const registerOnSuspend = resolveRegisterOnSuspend(runtime);
 
   return {
     runtime,

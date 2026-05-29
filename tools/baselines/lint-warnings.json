@@ -1,7 +1,7 @@
 {
-  "totalWarnings": 159,
+  "totalWarnings": 141,
   "ruleCounts": {
-    "@typescript-eslint/require-await": 120,
+    "@typescript-eslint/require-await": 102,
     "no-restricted-syntax": 3,
     "@typescript-eslint/no-unsafe-assignment": 26,
     "@typescript-eslint/no-unsafe-return": 4,
@@ -29,119 +29,6 @@
           "column": 8,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async function 'handleReaderSessionMouseUp' has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "src/dev/contentOrchestratorHarness.ts",
-      "warnings": [
-        {
-          "line": 42,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'get' has no 'await' expression."
-        },
-        {
-          "line": 45,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'set' has no 'await' expression."
-        },
-        {
-          "line": 48,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'getMany' has no 'await' expression."
-        },
-        {
-          "line": 51,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'setMany' has no 'await' expression."
-        },
-        {
-          "line": 56,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'remove' has no 'await' expression."
-        },
-        {
-          "line": 61,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'clear' has no 'await' expression."
-        },
-        {
-          "line": 84,
-          "column": 3,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'get' has no 'await' expression."
-        },
-        {
-          "line": 102,
-          "column": 3,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'getFragmentConfig' has no 'await' expression."
-        },
-        {
-          "line": 129,
-          "column": 3,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'handle' has no 'await' expression."
-        },
-        {
-          "line": 144,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'send' has no 'await' expression."
-        },
-        {
-          "line": 150,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'getReadingConfig' has no 'await' expression."
-        },
-        {
-          "line": 153,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'sendReadingClip' has no 'await' expression."
-        },
-        {
-          "line": 170,
-          "column": 5,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'dispatchClipResult' has no 'await' expression."
-        },
-        {
-          "line": 177,
-          "column": 1,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async function 'openClipperDialog' has no 'await' expression."
-        },
-        {
-          "line": 209,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'requestSelectionAction' has no 'await' expression."
-        },
-        {
-          "line": 241,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'getVideoConfig' has no 'await' expression."
-        },
-        {
-          "line": 252,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'getPromptPosition' has no 'await' expression."
-        },
-        {
-          "line": 255,
-          "column": 7,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'sendVideoClip' has no 'await' expression."
         }
       ]
     },

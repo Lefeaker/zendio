@@ -3,6 +3,7 @@ import type { ClipPayload } from './types';
 import type { ClassificationResult } from './schemas/classification.schema';
 import type { OptionsState, TemplateOptions } from './types/options';
 import type { ClipContext, RoutingRule, VaultConfig, VaultRouterConfig } from './types/vault';
+import { toDownloadsFilename } from './downloadsFilename';
 import { tryParseUrl } from './url';
 
 export type ExportDestinationKind = 'vault' | 'downloads';
@@ -35,12 +36,14 @@ export interface ExportDestinationMetadata {
   vaultId?: string;
 }
 
-type TemplateKey = 'article' | 'fragment' | 'reading' | 'ai';
+export type TemplateKey = 'article' | 'fragment' | 'reading' | 'ai';
 
 const TEMPLATE_DEFAULTS = configProvider.getTemplates();
 
 export const DOWNLOADS_DESTINATION_ID = 'downloads';
 export const DEFAULT_SETUP_URL = 'options/index.html#storage';
+
+export { toDownloadsFilename };
 
 export function createExportDestinationMetadata(
   selection: ExportDestinationSelection
@@ -150,14 +153,6 @@ export function buildExportDestinationPreview(args: {
   };
 }
 
-export function toDownloadsFilename(resolvedPath: string): string {
-  const segments = resolvedPath
-    .split(/[\\/]+/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  return segments.at(-1) || 'note.md';
-}
-
 export function resolveExportPath(
   templates: TemplateOptions,
   payload: ClipPayload,
@@ -172,7 +167,7 @@ export function resolveExportPath(
   const minuteTwoDigit = String(createdAt.getMinutes()).padStart(2, '0');
   const secondTwoDigit = String(createdAt.getSeconds()).padStart(2, '0');
   const title = payload.title || 'Untitled';
-  const template = getTemplateValue(templates, resolveTemplateKey(payload));
+  const template = getTemplateValue(templates, resolveTemplateKeyForPayloadType(payload));
   return populateTemplate(template, {
     platform: String(payload.meta?.platform ?? classification.ai_platform ?? 'clipper'),
     domain: safe(resolveDomain(payload, domainMappings)),
@@ -225,17 +220,17 @@ function buildClipContext(payload: ClipPayload): ClipContext {
   };
 }
 
-function resolveTemplateKey(payload: ClipPayload): TemplateKey {
-  if (payload.type === 'ai_chat') {
-    return 'ai';
-  }
-  if (payload.type === 'video') {
-    return 'article';
-  }
+export function resolveTemplateKeyForPayloadType(
+  payload: Pick<ClipPayload, 'type' | 'meta'>
+): TemplateKey {
   if (payload.type === 'clipper') {
     return payload.meta?.readerMode ? 'reading' : 'fragment';
   }
-  return 'article';
+  return payload.type === 'ai_chat'
+    ? 'ai'
+    : payload.type === 'video' || payload.type === 'fragment'
+      ? 'fragment'
+      : 'article';
 }
 
 function getTemplateValue(templates: TemplateOptions, key: TemplateKey): string {

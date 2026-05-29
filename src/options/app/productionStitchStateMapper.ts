@@ -1,6 +1,7 @@
 import { normalizeUsageStats } from '@shared/constants';
 import { previewContent } from '@options/stitch/content';
 import { prepareUsageHistory } from '@options/stitch/usageHistory';
+import { resolveExtensionVersionLabel } from './productionStitchVersion';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
@@ -10,6 +11,8 @@ import type {
   RoutingRule,
   VaultRecord
 } from '@options/stitch/types';
+
+export { resolveExtensionVersionLabel } from './productionStitchVersion';
 
 const MODIFIER_LABEL_TO_OPTION = {
   Alt: 'alt',
@@ -27,7 +30,6 @@ const MODIFIER_OPTION_TO_LABEL = {
 
 export const RUNTIME_SURFACE_RESOURCE_IDS = new Set(['clipper', 'reader', 'video', 'task-success']);
 export const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
-const PACKAGE_VERSION = '0.2.0';
 export const HIGHLIGHT_THEME_CLASSES: Record<
   CompleteOptions['readingSession']['highlightTheme'],
   string
@@ -359,18 +361,6 @@ export function toTemplateValues(options: CompleteOptions): Record<string, strin
     readingCustom: options.templates.reading,
     aiChat: options.templates.ai
   };
-}
-
-export function resolveExtensionVersionLabel(): string {
-  try {
-    const version = chrome?.runtime?.getManifest?.().version;
-    if (typeof version === 'string' && version.trim().length > 0) {
-      return `v${version.trim()}`;
-    }
-  } catch {
-    // Browser extension APIs are unavailable in unit tests and some preview contexts.
-  }
-  return `v${PACKAGE_VERSION}`;
 }
 
 function resolveUsageStatsFromOptions(options: CompleteOptions): UsageStats {

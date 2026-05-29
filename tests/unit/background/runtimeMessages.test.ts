@@ -78,9 +78,8 @@ describe('runtime message listener', () => {
     handleConnectionTestMock.mockRejectedValueOnce(new Error('offline'));
     handleVaultConnectionTestMock.mockRejectedValueOnce('vault down');
 
-    const { registerRuntimeMessageListener } = await import(
-      '../../../src/background/listeners/runtimeMessages'
-    );
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
 
     expect(addListenerMock).toHaveBeenCalledTimes(1);
@@ -99,9 +98,8 @@ describe('runtime message listener', () => {
 
   it('normalizes clip errors and swallows extraction notification dispatch failures', async () => {
     notifyExtractionErrorMock.mockRejectedValueOnce(new Error('notify failed'));
-    const { registerRuntimeMessageListener } = await import(
-      '../../../src/background/listeners/runtimeMessages'
-    );
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
 
     await listener?.({ type: 'CLIP_ERROR', error: 'boom' }, { tabId: 7 });
@@ -122,30 +120,107 @@ describe('runtime message listener', () => {
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
   });
 
-  it('forwards clip results and analytics usage events', async () => {
-    const { registerRuntimeMessageListener } = await import(
-      '../../../src/background/listeners/runtimeMessages'
-    );
+  it('forwards clip results and allowlisted analytics usage events', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
 
     await listener?.({ type: 'CLIP_RESULT', payload: { markdown: '# hello' } }, { tabId: 12 });
     await listener?.(
-      { type: 'TRACK_USAGE_EVENT', event: 'video_started', params: { source: 'menu' } },
+      { type: 'TRACK_USAGE_EVENT', event: 'support_like_clicked', params: { variant: 'first' } },
       { tabId: 12 }
     );
 
     expect(handleClipResultMock).toHaveBeenCalledWith(
       { type: 'CLIP_RESULT', payload: { markdown: '# hello' } },
       12,
-      expect.objectContaining({ sendSupportPrompt: expect.any(Function) })
+      expect.any(Object)
     );
-    expect(trackUsageEventMock).toHaveBeenCalledWith('video_started', { source: 'menu' });
+    expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('strips unknown clip result payload fields before forwarding to the clip pipeline', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            url: 'https://example.com',
+            attachments: [
+              {
+                id: 'shot-1',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                dataUrl: 'data:image/jpeg;base64,aaa',
+                unsafe: true
+              }
+            ],
+            exportDestination: { kind: 'downloads', unsafe: true },
+            unsafeMeta: true
+          },
+          unsafeRoot: true
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(handleClipResultMock).toHaveBeenCalledWith(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            url: 'https://example.com',
+            attachments: [
+              {
+                id: 'shot-1',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                dataUrl: 'data:image/jpeg;base64,aaa'
+              }
+            ],
+            exportDestination: { kind: 'downloads' }
+          }
+        }
+      },
+      12,
+      expect.any(Object)
+    );
+  });
+
+  it('rejects unknown and unsafe analytics usage events', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      { type: 'TRACK_USAGE_EVENT', event: 'arbitrary_event', params: { source: 'toolbar' } },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'track',
+        event: 'support_link_clicked',
+        params: { url: 'https://ko-fi.com/xiannian?user=reader' }
+      },
+      { tabId: 12 }
+    );
+    await listener?.(
+      { type: 'TRACK_USAGE_EVENT', event: 'support_like_clicked', params: { variant: ['first'] } },
+      { tabId: 12 }
+    );
+
+    expect(trackUsageEventMock).not.toHaveBeenCalled();
   });
 
   it('returns clip results for repository video export messages', async () => {
-    const { registerRuntimeMessageListener } = await import(
-      '../../../src/background/listeners/runtimeMessages'
-    );
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
 
     const result = await listener?.(
@@ -194,11 +269,95 @@ describe('runtime message listener', () => {
     });
   });
 
+  it('validates legacy repository clip and reading clip payloads before processing', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const clipResult = await listener?.(
+      {
+        type: 'clip',
+        data: {
+          markdown: '# clip',
+          title: 'Clip title',
+          meta: { url: 'https://example.com', unsafeMeta: true },
+          unsafeRoot: true
+        }
+      },
+      { tabId: 12 }
+    );
+    const readingResult = await listener?.(
+      {
+        type: 'readingClip',
+        data: {
+          content: '# reading',
+          title: 'Reading title',
+          url: 'https://reader.example.com',
+          highlights: [],
+          exportMode: 'highlights'
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(clipResult).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(readingResult).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(processClipPayloadMock).toHaveBeenNthCalledWith(1, {
+      markdown: '# clip',
+      title: 'Clip title',
+      meta: { url: 'https://example.com' }
+    });
+    expect(processClipPayloadMock).toHaveBeenNthCalledWith(2, {
+      markdown: '# reading',
+      title: 'Reading title',
+      type: 'clipper',
+      meta: {
+        url: 'https://reader.example.com',
+        readerMode: true,
+        exportMode: 'highlights'
+      }
+    });
+  });
+
+  it('rejects malformed clip payloads through existing error responses', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: { attachments: [{ id: 'missing-required-fields' }] }
+        }
+      },
+      { tabId: 12 }
+    );
+    const repositoryResult = await listener?.(
+      {
+        type: 'clip',
+        data: {
+          markdown: '# clip',
+          meta: { exportDestination: { kind: 'external' } }
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(handleClipResultMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
+    expect(notifyExtractionErrorMock).toHaveBeenCalledWith('Invalid clip payload received.');
+    expect(repositoryResult).toEqual({
+      success: false,
+      error: 'Invalid clip payload received.'
+    });
+  });
+
   it('opens the options page and reports failures or unknown messages safely', async () => {
     const dependencies = createDependencies();
-    const { registerRuntimeMessageListener } = await import(
-      '../../../src/background/listeners/runtimeMessages'
-    );
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(dependencies);
 
     const success = await listener?.({ type: 'openOptionsPage', section: 'reader' }, {});

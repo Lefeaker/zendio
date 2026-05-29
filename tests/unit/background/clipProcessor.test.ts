@@ -105,16 +105,15 @@ describe('clipProcessor', () => {
       type: 'article',
       topics: [],
       tags: [],
-      status: 'success' as const
+      status: 'success'
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/foo.md');
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(createPayload());
 
     expect(createWriteSessionMock).toHaveBeenCalledWith(
@@ -160,9 +159,8 @@ describe('clipProcessor', () => {
     recordUsageMock.mockRejectedValue(new Error('usage failed'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     await expect(processClipPayload(createPayload())).resolves.toMatchObject({
       filePath: 'Articles/foo.md',
       destination: 'vault',
@@ -199,9 +197,8 @@ describe('clipProcessor', () => {
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(createPayload());
 
     // Verify result conforms to Schema
@@ -235,9 +232,8 @@ describe('clipProcessor', () => {
     downloadMock.mockResolvedValue(12);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(
       createPayload({
         meta: {
@@ -263,6 +259,49 @@ describe('clipProcessor', () => {
     });
   });
 
+  it.each([
+    ['../escape.md', 'escape.md'],
+    ['folder/../escape.md', 'escape.md'],
+    ['/absolute.md', 'absolute.md'],
+    ['.', 'note.md'],
+    ['..', 'note.md'],
+    ['folder/.hidden.md', '.hidden.md']
+  ])('normalizes unsafe download note path %s to %s', async (resolvedPath, expectedFilename) => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue(resolvedPath);
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    const result = await processClipPayload(
+      createPayload({
+        meta: {
+          url: 'https://example.com',
+          exportDestination: { kind: 'downloads' }
+        }
+      })
+    );
+
+    expect(downloadMock).toHaveBeenCalledWith({
+      filename: expectedFilename,
+      content: '# note',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+    expect(result.filePath).toBe(expectedFilename);
+  });
+
   it('downloads multiple video screenshots into a note-named folder and indexes them from markdown', async () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,
@@ -273,16 +312,15 @@ describe('clipProcessor', () => {
       type: 'video',
       topics: [],
       tags: [],
-      status: 'success' as const
+      status: 'success'
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Video/video-note.md');
     downloadMock.mockResolvedValue(12);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     await processClipPayload(
       createPayload({
         markdown:
@@ -326,6 +364,67 @@ describe('clipProcessor', () => {
     });
   });
 
+  it('normalizes attachment filenames under a safe note-folder stem for downloads', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    const classificationResult = {
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('folder/.hidden.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        markdown:
+          '# video\n![Screenshot](aiob-attachment:shot-1)\n![Screenshot](aiob-attachment:shot-2)',
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          exportDestination: { kind: 'downloads' },
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: '../escape.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            },
+            {
+              id: 'shot-2',
+              fileName: '..',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,bbb'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(downloadMock).toHaveBeenNthCalledWith(1, {
+      filename: '.hidden/escape.jpg',
+      url: 'data:image/jpeg;base64,aaa',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(2, {
+      filename: '.hidden/attachment.jpg',
+      url: 'data:image/jpeg;base64,bbb',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(3, {
+      filename: '.hidden.md',
+      content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+  });
+
   it('writes video screenshots to the Obsidian custom attachment location', async () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,
@@ -349,9 +448,8 @@ describe('clipProcessor', () => {
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     await processClipPayload(
       createPayload({
         markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
@@ -412,9 +510,8 @@ describe('clipProcessor', () => {
     resolvePathMock.mockReturnValue('Articles/local.md');
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(createPayload());
 
     expect(result).toMatchObject({
@@ -458,9 +555,8 @@ describe('clipProcessor', () => {
     writeMarkdownMock.mockResolvedValue(undefined);
     recordUsageMock.mockResolvedValue(undefined);
 
-    const { processClipPayload } = await import(
-      '../../../src/background/application/clipProcessor'
-    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
     const result = await processClipPayload(createPayload());
 
     // Verify result includes classificationWarning

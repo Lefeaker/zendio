@@ -39,10 +39,7 @@ type KnownNotificationChannel = (typeof NOTIFICATION_CHANNELS)[keyof typeof NOTI
 
 let customNotificationAdapter: NotificationAdapter | null = null;
 
-const TEMPLATE_BASIC: PlatformNotificationOptions['type'] =
-  typeof chrome !== 'undefined' && chrome.notifications?.TemplateType
-    ? chrome.notifications.TemplateType.BASIC
-    : 'basic';
+const TEMPLATE_BASIC: PlatformNotificationOptions['type'] = 'basic';
 
 const SEVERITY_TEMPLATE_MAP: Record<NotificationSeverity, PlatformNotificationOptions['type']> = {
   success: TEMPLATE_BASIC,

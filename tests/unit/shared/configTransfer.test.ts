@@ -8,6 +8,9 @@ import {
   writeToClipboard,
   ConfigTransferError
 } from '@options/services/configTransfer';
+import { getRestDefaults } from '../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
 
 declare global {
   // eslint-disable-next-line no-var
@@ -85,10 +88,12 @@ describe('configTransfer service', () => {
 
   it('解析新版传输格式', () => {
     const text =
-      '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
+      '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(2);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
+    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
+    expect((parsed.options as Record<string, unknown>).analytics).toBeUndefined();
     expect(parsed.analytics).toEqual({
       consent: { analytics: true, errorReporting: false },
       debugMode: false
@@ -96,11 +101,76 @@ describe('configTransfer service', () => {
   });
 
   it('兼容旧版仅包含选项的格式', () => {
-    const text = '{"rest":{"baseUrl":"https://example.com"}}';
+    const text =
+      '{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}}';
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(0);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
     expect(parsed.analytics).toBeUndefined();
+  });
+
+  it('imports known current settings and sensitive fields through the transfer sanitizer', () => {
+    const text = JSON.stringify({
+      version: 2,
+      options: {
+        interfaceTheme: 'light',
+        rest: {
+          baseUrl: REST_DEFAULTS.baseUrl,
+          vault: 'MainVault',
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        templates: { article: 'Articles/{{title}}.md' },
+        domainMappings: { 'example.com': 'Research' },
+        aiChat: { userName: 'Researcher' },
+        deepResearch: { pureMode: true },
+        classifier: {
+          enabled: true,
+          provider: 'compatible',
+          endpoint: 'https://classifier.example/v1/chat',
+          apiKey: 'CLASSIFIER_SECRET_TOKEN',
+          model: 'classify-1'
+        },
+        experimentalAi: {
+          provider: 'compatible',
+          model: 'summary-1',
+          apiUrl: 'https://ai.example/v1/chat/completions',
+          apiKey: 'EXPERIMENTAL_SECRET_TOKEN'
+        },
+        pageSummary: { enabled: true },
+        readingOverlaySummary: { enabled: true },
+        subtitleTranslation: { enabled: true, targetLanguage: 'ja' },
+        video: { promptShortcut: 'cmd+shift+v' },
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'main',
+              name: 'MainVault',
+              httpsUrl: REST_DEFAULTS.httpsUrl,
+              httpUrl: REST_DEFAULTS.httpUrl,
+              vault: 'MainVault',
+              apiKey: 'VAULT_SECRET_TOKEN'
+            }
+          ],
+          defaultVaultId: 'main'
+        }
+      }
+    });
+
+    const parsed = parseConfigInput(text);
+
+    expect(parsed.options.interfaceTheme).toBe('light');
+    expect(parsed.options.rest?.apiKey).toBe('REST_SECRET_TOKEN');
+    expect(parsed.options.templates?.article).toBe('Articles/{{title}}.md');
+    expect(parsed.options.domainMappings?.['example.com']).toBe('Research');
+    expect(parsed.options.aiChat?.userName).toBe('Researcher');
+    expect(parsed.options.deepResearch?.pureMode).toBe(true);
+    expect(parsed.options.classifier?.apiKey).toBe('CLASSIFIER_SECRET_TOKEN');
+    expect(parsed.options.experimentalAi?.apiKey).toBe('EXPERIMENTAL_SECRET_TOKEN');
+    expect(parsed.options.pageSummary?.enabled).toBe(true);
+    expect(parsed.options.readingOverlaySummary?.enabled).toBe(true);
+    expect(parsed.options.subtitleTranslation?.targetLanguage).toBe('ja');
+    expect(parsed.options.video?.promptShortcut).toBe('cmd+shift+v');
+    expect(parsed.options.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
   });
 
   it('throws EMPTY_IMPORT for empty input', () => {

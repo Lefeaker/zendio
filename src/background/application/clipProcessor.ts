@@ -16,6 +16,7 @@ import {
   parseExportDestinationMetadata,
   toDownloadsFilename
 } from '../../shared/exportDestination';
+import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
 import { isAppError, normalizeToAppError } from '../../shared/errors';
 import type { AppError } from '../../shared/errors';
 import { getService } from '../../shared/di';
@@ -255,13 +256,11 @@ function parseClipAttachments(value: unknown): ClipAttachment[] {
 function getFileStem(filePath: string): string {
   const fileName = filePath.split(/[\\/]/u).filter(Boolean).at(-1) ?? 'note.md';
   const withoutExtension = fileName.replace(/\.[^.]+$/u, '');
-  return sanitizePathSegment(withoutExtension || 'note');
+  return sanitizeDownloadsPathSegment(withoutExtension, 'note');
 }
 
 function getDirectoryName(filePath: string): string {
-  const segments = filePath.split(/[\\/]/u).filter(Boolean);
-  segments.pop();
-  return segments.join('/');
+  return filePath.split(/[\\/]/u).filter(Boolean).slice(0, -1).join('/');
 }
 
 function joinPath(...segments: string[]): string {
@@ -274,9 +273,5 @@ function joinPath(...segments: string[]): string {
 
 function sanitizeAttachmentFileName(fileName: string): string {
   const safeName = fileName.split(/[\\/]/u).filter(Boolean).at(-1);
-  return sanitizePathSegment(safeName || 'attachment.jpg');
-}
-
-function sanitizePathSegment(segment: string): string {
-  return segment.replace(/[\\/:*?"<>|]/g, '_').slice(0, 180) || 'note';
+  return sanitizeDownloadsPathSegment(safeName, 'attachment.jpg');
 }

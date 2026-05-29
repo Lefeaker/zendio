@@ -1,0 +1,1 @@
+export { resolveSessionPanelResizeStorage } from '../sessionPanelResizeStorage';

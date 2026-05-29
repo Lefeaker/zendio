@@ -6,6 +6,11 @@ import {
   validateRestOptions,
   validateTemplateOptions
 } from '@options/services/validation';
+import { getRestDefaults } from '../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
+const DEFAULT_BASE_URL = REST_DEFAULTS.httpsUrl.replace(/\/$/, '');
+const DEFAULT_HTTP_URL = REST_DEFAULTS.httpUrl.replace(/\/$/, '');
 
 const VALID_TAXONOMY = {
   version: '1.0.0',
@@ -86,7 +91,7 @@ describe('validation', () => {
     it('validates valid StoredOptions', () => {
       const options = {
         rest: {
-          baseUrl: 'https://127.0.0.1:27124',
+          baseUrl: DEFAULT_BASE_URL,
           vault: 'MyVault',
           apiKey: '1234567890'
         },
@@ -107,7 +112,7 @@ describe('validation', () => {
     it('allows extra fields in StoredOptions', () => {
       const options = {
         rest: {
-          baseUrl: 'https://127.0.0.1:27124',
+          baseUrl: DEFAULT_BASE_URL,
           vault: 'MyVault',
           apiKey: '1234567890'
         },
@@ -121,7 +126,7 @@ describe('validation', () => {
     it('validates options with optional fields', () => {
       const options = {
         rest: {
-          baseUrl: 'https://127.0.0.1:27124',
+          baseUrl: DEFAULT_BASE_URL,
           vault: 'MyVault',
           apiKey: '1234567890',
           rootDir: 'Notes'
@@ -145,7 +150,7 @@ describe('validation', () => {
   describe('validateRestOptions', () => {
     it('validates valid REST options', () => {
       const options = {
-        baseUrl: 'https://127.0.0.1:27124',
+        baseUrl: DEFAULT_BASE_URL,
         vault: 'MyVault',
         apiKey: '1234567890'
       };
@@ -159,9 +164,9 @@ describe('validation', () => {
 
     it('validates REST options with optional fields', () => {
       const options = {
-        baseUrl: 'https://127.0.0.1:27124',
-        httpsUrl: 'https://127.0.0.1:27124',
-        httpUrl: 'http://127.0.0.1:27123',
+        baseUrl: DEFAULT_BASE_URL,
+        httpsUrl: DEFAULT_BASE_URL,
+        httpUrl: DEFAULT_HTTP_URL,
         vault: 'MyVault',
         apiKey: '1234567890',
         rootDir: 'Notes'
@@ -187,7 +192,7 @@ describe('validation', () => {
 
     it('fails validation for empty vault name', () => {
       const options = {
-        baseUrl: 'https://127.0.0.1:27124',
+        baseUrl: DEFAULT_BASE_URL,
         vault: '',
         apiKey: '1234567890'
       };
@@ -201,7 +206,7 @@ describe('validation', () => {
 
     it('fails validation for short API key', () => {
       const options = {
-        baseUrl: 'https://127.0.0.1:27124',
+        baseUrl: DEFAULT_BASE_URL,
         vault: 'MyVault',
         apiKey: 'short'
       };
@@ -215,7 +220,7 @@ describe('validation', () => {
 
     it('fails validation for missing required fields', () => {
       const options = {
-        baseUrl: 'https://127.0.0.1:27124'
+        baseUrl: DEFAULT_BASE_URL
       };
 
       const result = validateRestOptions(options);

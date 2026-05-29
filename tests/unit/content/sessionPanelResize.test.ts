@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { asType, partialOf } from '../../utils/typeHelpers';
+import { asType } from '../../utils/typeHelpers';
 
 type SessionPanelStorageItems = Partial<
   Record<
@@ -11,8 +11,8 @@ type SessionPanelStorageItems = Partial<
 >;
 
 interface MockStorage {
-  get: ReturnType<typeof vi.fn>;
-  set: ReturnType<typeof vi.fn>;
+  load: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
 }
 
 interface SurfaceFixture {
@@ -22,57 +22,13 @@ interface SurfaceFixture {
   heightHandle: HTMLElement;
 }
 
-function installChromeStorage(
-  getImplementation: (
-    keys: string[],
-    callback: (items: SessionPanelStorageItems) => void
-  ) => void = (_keys, callback) => callback({})
+function createSessionPanelStorage(
+  loadImplementation: () => Promise<SessionPanelStorageItems> = () => Promise.resolve({})
 ): MockStorage {
-  const get = vi.fn(getImplementation);
-  const set = vi.fn((_items: SessionPanelStorageItems, callback?: () => void) => {
-    callback?.();
-  });
-  function chromeGet<T = Record<string, never>>(
-    keys?: keyof T | Array<keyof T> | Partial<T> | null
-  ): Promise<T>;
-  function chromeGet<T = Record<string, never>>(callback: (items: T) => void): void;
-  function chromeGet<T = Record<string, never>>(
-    keys: keyof T | Array<keyof T> | Partial<T> | null,
-    callback: (items: T) => void
-  ): void;
-  function chromeGet<T = Record<string, never>>(
-    keysOrCallback?: keyof T | Array<keyof T> | Partial<T> | null | ((items: T) => void),
-    callback?: (items: T) => void
-  ): Promise<T> | void {
-    const resolvedCallback = typeof keysOrCallback === 'function' ? keysOrCallback : callback;
-    if (resolvedCallback) {
-      get([], (items) => resolvedCallback(asType<T>(items)));
-      return undefined;
-    }
-    return Promise.resolve(asType<T>({}));
-  }
-  function chromeSet<T = Record<string, never>>(items: Partial<T>): Promise<void>;
-  function chromeSet<T = Record<string, never>>(items: Partial<T>, callback: () => void): void;
-  function chromeSet<T = Record<string, never>>(
-    items: Partial<T>,
-    callback?: () => void
-  ): Promise<void> | void {
-    if (callback) {
-      set(asType<SessionPanelStorageItems>(items), callback);
-    } else {
-      set(asType<SessionPanelStorageItems>(items));
-    }
-    return callback ? undefined : Promise.resolve();
-  }
-  globalThis.chrome = partialOf<typeof chrome>({
-    storage: partialOf<typeof chrome.storage>({
-      local: partialOf<chrome.storage.LocalStorageArea>({
-        get: chromeGet,
-        set: chromeSet
-      })
-    })
-  });
-  return { get, set };
+  return {
+    load: vi.fn(loadImplementation),
+    save: vi.fn()
+  };
 }
 
 function removeChromeApi(): void {
@@ -149,20 +105,22 @@ describe('session panel resize persistence', () => {
 
   it('applies in-memory width immediately and storage width after async load', async () => {
     const loadStorage: { current?: (items: SessionPanelStorageItems) => void } = {};
-    const storage = installChromeStorage((_keys, callback) => {
-      loadStorage.current = callback;
+    const storage = createSessionPanelStorage(() => {
+      return new Promise((resolve) => {
+        loadStorage.current = resolve;
+      });
     });
     const { bindSessionPanelResize, applyPersistedSessionPanelWidth } = await importResizeModule();
     const first = createSurfaceFixture();
 
-    bindSessionPanelResize(first.surface);
+    bindSessionPanelResize(first.surface, { storage });
     dispatchPointer(first.widthHandle, 'pointerdown', { clientX: 300 });
     dispatchPointer(document, 'pointermove', { clientX: 260 });
     dispatchPointer(document, 'pointerup');
-    expect(storage.set).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledTimes(1);
 
     const secondPanel = document.createElement('section');
-    const loadPromise = applyPersistedSessionPanelWidth(secondPanel);
+    const loadPromise = applyPersistedSessionPanelWidth(secondPanel, { storage });
 
     expect(secondPanel.style.width).toBe('440px');
     expect(loadStorage.current).toBeInstanceOf(Function);
@@ -172,78 +130,78 @@ describe('session panel resize persistence', () => {
   });
 
   it('returns cleanup functions for complete or missing resize surfaces', async () => {
-    installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
     const complete = createSurfaceFixture();
     const incomplete = document.createElement('div');
 
-    expect(bindSessionPanelResize(complete.surface)).toBeInstanceOf(Function);
-    expect(bindSessionPanelResize(incomplete)).toBeInstanceOf(Function);
-    expect(() => bindSessionPanelResize(incomplete)()).not.toThrow();
+    expect(bindSessionPanelResize(complete.surface, { storage })).toBeInstanceOf(Function);
+    expect(bindSessionPanelResize(incomplete, { storage })).toBeInstanceOf(Function);
+    expect(() => bindSessionPanelResize(incomplete, { storage })()).not.toThrow();
   });
 
   it('updates width during pointermove but persists once at pointerup', async () => {
-    const storage = installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
     const fixture = createSurfaceFixture();
 
-    bindSessionPanelResize(fixture.surface);
+    bindSessionPanelResize(fixture.surface, { storage });
     dispatchPointer(fixture.widthHandle, 'pointerdown', { clientX: 300 });
     dispatchPointer(document, 'pointermove', { clientX: 250 });
 
     expect(fixture.panel.style.width).toBe('450px');
-    expect(storage.set).not.toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
 
     dispatchPointer(document, 'pointerup');
 
-    expect(storage.set).toHaveBeenCalledTimes(1);
-    expect(storage.set).toHaveBeenCalledWith({
+    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledWith({
       'aiob.sessionPanel.width': 450,
       'aiob.sessionPanel.maxWidth': 500
     });
   });
 
   it('updates height during pointermove but persists once at pointerup', async () => {
-    const storage = installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
     const fixture = createSurfaceFixture();
 
-    bindSessionPanelResize(fixture.surface);
+    bindSessionPanelResize(fixture.surface, { storage });
     dispatchPointer(fixture.heightHandle, 'pointerdown', { clientY: 500 });
     dispatchPointer(document, 'pointermove', { clientY: 440 });
 
     expect(fixture.panel.style.getPropertyValue('--aiob-session-panel-max-height')).toBe('90vh');
     expect(fixture.panel.style.height).toBe('420px');
-    expect(storage.set).not.toHaveBeenCalled();
+    expect(storage.save).not.toHaveBeenCalled();
 
     dispatchPointer(document, 'pointerup');
 
-    expect(storage.set).toHaveBeenCalledTimes(1);
-    expect(storage.set).toHaveBeenCalledWith({ 'aiob.sessionPanel.height': 420 });
+    expect(storage.save).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledWith({ 'aiob.sessionPanel.height': 420 });
   });
 
   it('commits pointercancel once and removes active document listeners', async () => {
-    const storage = installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
     const fixture = createSurfaceFixture();
 
-    bindSessionPanelResize(fixture.surface);
+    bindSessionPanelResize(fixture.surface, { storage });
     dispatchPointer(fixture.widthHandle, 'pointerdown', { clientX: 300 });
     dispatchPointer(document, 'pointermove', { clientX: 250 });
     dispatchPointer(document, 'pointercancel');
     dispatchPointer(document, 'pointerup');
     dispatchPointer(document, 'pointermove', { clientX: 200 });
 
-    expect(storage.set).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledTimes(1);
     expect(fixture.panel.style.width).toBe('450px');
   });
 
   it('does not apply persisted dimensions to collapsed panels', async () => {
-    installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize, applyPersistedSessionPanelWidth } = await importResizeModule();
     const expanded = createSurfaceFixture();
 
-    bindSessionPanelResize(expanded.surface);
+    bindSessionPanelResize(expanded.surface, { storage });
     dispatchPointer(expanded.widthHandle, 'pointerdown', { clientX: 300 });
     dispatchPointer(document, 'pointermove', { clientX: 250 });
     dispatchPointer(document, 'pointerup');
@@ -252,8 +210,8 @@ describe('session panel resize persistence', () => {
     dispatchPointer(document, 'pointerup');
 
     const collapsed = createSurfaceFixture({ collapsed: true });
-    bindSessionPanelResize(collapsed.surface);
-    await applyPersistedSessionPanelWidth(collapsed.panel);
+    bindSessionPanelResize(collapsed.surface, { storage });
+    await applyPersistedSessionPanelWidth(collapsed.panel, { storage });
 
     expect(collapsed.panel.style.width).toBe('');
     expect(collapsed.panel.style.height).toBe('');
@@ -261,10 +219,10 @@ describe('session panel resize persistence', () => {
   });
 
   it('commits and detaches listeners when cleanup runs during an active drag', async () => {
-    const storage = installChromeStorage();
+    const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
     const fixture = createSurfaceFixture();
-    const cleanup = bindSessionPanelResize(fixture.surface);
+    const cleanup = bindSessionPanelResize(fixture.surface, { storage });
 
     dispatchPointer(fixture.widthHandle, 'pointerdown', { clientX: 300 });
     dispatchPointer(document, 'pointermove', { clientX: 250 });
@@ -273,7 +231,25 @@ describe('session panel resize persistence', () => {
     dispatchPointer(document, 'pointerup');
     dispatchPointer(document, 'pointermove', { clientX: 200 });
 
-    expect(storage.set).toHaveBeenCalledTimes(1);
+    expect(storage.save).toHaveBeenCalledTimes(1);
     expect(fixture.panel.style.width).toBe('450px');
+  });
+
+  it('persists through the injected storage dependency without extension globals', async () => {
+    removeChromeApi();
+    const storage = createSessionPanelStorage();
+    const { bindSessionPanelResize } = await importResizeModule();
+    const fixture = createSurfaceFixture();
+
+    bindSessionPanelResize(fixture.surface, { storage });
+    dispatchPointer(fixture.widthHandle, 'pointerdown', { clientX: 300 });
+    dispatchPointer(document, 'pointermove', { clientX: 250 });
+    dispatchPointer(document, 'pointerup');
+
+    expect(globalThis.chrome).toBeUndefined();
+    expect(storage.save).toHaveBeenCalledWith({
+      'aiob.sessionPanel.width': 450,
+      'aiob.sessionPanel.maxWidth': 500
+    });
   });
 });

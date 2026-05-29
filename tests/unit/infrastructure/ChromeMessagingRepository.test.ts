@@ -42,7 +42,7 @@ describe('ChromeMessagingRepository', () => {
 
   describe('send()', () => {
     it('should forward message to platform messaging service and resolve response', async () => {
-      const message: Message = { type: 'track', event: 'options_opened' };
+      const message: Message = { type: 'track', event: 'support_dislike_clicked' };
       const payload = { ok: true };
       mockMessaging.send.mockResolvedValue(payload);
 
@@ -53,7 +53,7 @@ describe('ChromeMessagingRepository', () => {
     });
 
     it('should rethrow MessagingError emitted by platform service', async () => {
-      const message: Message = { type: 'track', event: 'options_closed' };
+      const message: Message = { type: 'track', event: 'support_dislike_clicked' };
       const platformError = new MessagingError('platform failure');
       mockMessaging.send.mockRejectedValue(platformError);
 
@@ -73,7 +73,7 @@ describe('ChromeMessagingRepository', () => {
     it('should timeout when response exceeds limit', async () => {
       vi.useFakeTimers();
       try {
-        const message: Message = { type: 'track', event: 'slow_response' };
+        const message: Message = { type: 'track', event: 'support_dislike_clicked' };
         mockMessaging.send.mockReturnValue(new Promise(() => {}));
 
         const attempt = repo.send(message, 50);
@@ -102,7 +102,7 @@ describe('ChromeMessagingRepository', () => {
     it('should invoke handler when platform listener receives message', async () => {
       const handler = vi.fn().mockResolvedValue('ok');
       repo.onMessage(handler);
-      const incoming: Message = { type: 'track', event: 'button_click' };
+      const incoming: Message = { type: 'track', event: 'support_dislike_clicked' };
       const sender: MessageSender = { id: 'sender', tabId: 42 };
 
       const listener = registeredListener;

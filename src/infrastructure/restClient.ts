@@ -10,6 +10,7 @@ import {
   buildVaultUrl
 } from '../background/utils/restCandidates';
 import { errorHandler, restErrors } from '../shared/errors';
+import { normalizeVaultRelativePath } from '../shared/paths/vaultRelativePath';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 
@@ -247,25 +248,9 @@ export class FetchRestClient implements RestClient {
   }
 
   private buildCandidatePaths(filePath: string, vaultName: string): [string, string] {
-    const normalized = this.normalizeVaultRelativePath(filePath, vaultName);
+    const normalized = normalizeVaultRelativePath(filePath, { vaultName });
     const encoded = normalized.split('/').map(encodeURIComponent).join('/');
     return [encoded, encoded];
-  }
-
-  private normalizeVaultRelativePath(input: string, vaultName: string): string {
-    let path = input.replace(/^[\\/]+/, '');
-
-    if (!path) {
-      return '';
-    }
-
-    const escapedVault = vaultName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const prefixRegex = new RegExp(`^${escapedVault}[\\/]+`, 'i');
-    path = path.replace(prefixRegex, '');
-
-    path = path.replace(/[\\/]+/g, '/');
-
-    return path;
   }
 }
 

@@ -30,6 +30,12 @@ import {
   registerReaderSession
 } from '@content/runtime/contentSessionRegistry';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { getTestRestUrls } from '../../../fixtures/configTestHelpers';
+
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_REST_BASE_URL = LOCAL_REST_URLS.baseUrl.replace(/\/$/, '');
+const LOCAL_REST_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
+const LOCAL_REST_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
 
 type TestView = ReaderSessionView & {
   updateCount: Mock<(...args: [count: number]) => void>;
@@ -178,7 +184,7 @@ function createSessionContext() {
         mergeOptions({
           rest: {
             vault: 'Default Vault',
-            baseUrl: 'https://localhost:27124',
+            baseUrl: LOCAL_REST_BASE_URL,
             apiKey: 'token'
           },
           vaultRouter: {
@@ -188,8 +194,8 @@ function createSessionContext() {
                 id: 'default',
                 name: 'Default Vault',
                 vault: 'Default Vault',
-                httpsUrl: 'https://localhost:27124',
-                httpUrl: 'http://localhost:27123',
+                httpsUrl: LOCAL_REST_HTTPS_URL,
+                httpUrl: LOCAL_REST_HTTP_URL,
                 apiKey: 'token',
                 enabled: true,
                 isDefault: true

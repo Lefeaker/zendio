@@ -53,6 +53,35 @@ describe('classificationService', () => {
     expect(result.errorDetail).toBeUndefined();
   });
 
+  it('does not copy unknown classifier provider fields to the result root', async () => {
+    const { classifyClip } = await import('../../../src/background/services/classificationService');
+    const options = createOptions({ enabled: true });
+    const payload = createPayload();
+    classifyMock.mockResolvedValueOnce({
+      ok: true as const,
+      payload: {
+        type: 'custom',
+        topics: ['tech'],
+        tags: ['foo'],
+        ai_platform: 'provider',
+        confidence: 0.92,
+        raw_provider_payload: { tokenCount: 12 }
+      }
+    });
+
+    const result = await classifyClip(options, payload);
+
+    expect(result).toMatchObject({
+      status: 'success',
+      type: 'custom',
+      topics: ['tech'],
+      tags: ['foo'],
+      ai_platform: 'provider'
+    });
+    expect('confidence' in result).toBe(false);
+    expect('raw_provider_payload' in result).toBe(false);
+  });
+
   it('falls back when classifier throws', async () => {
     const { classifyClip } = await import('../../../src/background/services/classificationService');
     const options = createOptions({ enabled: true });
@@ -135,9 +164,8 @@ describe('classificationService', () => {
   });
 
   it('limits preview length to 4000 characters', async () => {
-    const { createClassificationPreview } = await import(
-      '../../../src/background/services/classificationService'
-    );
+    const { createClassificationPreview } =
+      await import('../../../src/background/services/classificationService');
     const longMarkdown = '#'.repeat(6000);
     const payload = createPayload({ markdown: longMarkdown });
 

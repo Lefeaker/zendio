@@ -1,14 +1,29 @@
 import {
   deserializeLocalVaultContent,
+  isTrustedLocalVaultOffscreenSender,
   isLocalVaultWriteRequest
 } from '../platform/chrome/localVaultOffscreenMessages';
 import { writeLocalVaultFile } from '../platform/chrome/localVaultCore';
 
 const runtime = (globalThis as unknown as { chrome?: typeof chrome }).chrome?.runtime;
+const UNTRUSTED_LOCAL_VAULT_SENDER_ERROR = 'Untrusted local vault write sender.';
 
-runtime?.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+function getExtensionOrigin(): string | undefined {
+  try {
+    return runtime?.getURL('');
+  } catch {
+    return undefined;
+  }
+}
+
+runtime?.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!isLocalVaultWriteRequest(message)) {
     return false;
+  }
+
+  if (!isTrustedLocalVaultOffscreenSender(sender, runtime?.id, getExtensionOrigin())) {
+    sendResponse({ ok: false, error: UNTRUSTED_LOCAL_VAULT_SENDER_ERROR });
+    return true;
   }
 
   void (async () => {

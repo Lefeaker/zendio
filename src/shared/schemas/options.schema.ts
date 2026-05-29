@@ -147,6 +147,10 @@ export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）
+ *
+ * Unknown root keys are stripped at the schema boundary. Config transfer has its
+ * own explicit portable/fullBackup policy; persisted settings must use named
+ * fields instead of accidental top-level extension keys.
  */
 export const StoredOptionsSchema = z
   .object({
@@ -172,7 +176,7 @@ export const StoredOptionsSchema = z
     vaultRouter: VaultRouterConfigSchema.optional(),
     yamlConfig: YamlConfigOverridesSchema.nullable().optional()
   })
-  .passthrough();
+  .strip();
 
 /**
  * CompleteOptions Schema（合并默认值后的完整配置）

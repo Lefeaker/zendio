@@ -1,6 +1,7 @@
 import { UiInput as DaisyInput } from '@ui/primitives/input';
 import { DaisyCard } from '@ui/primitives/card';
 import { UiCheckbox as DaisyCheckbox } from '@ui/primitives/checkbox';
+import { configProvider } from '@shared/config';
 import type { RestSectionMessagesLike } from './restSectionLayoutTypes';
 
 export function buildRestDefaultRow(params: {
@@ -106,6 +107,7 @@ function buildRestDefaultFields(args: {
   } = args;
   const fields = createElement('div');
   fields.className = 'grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4';
+  const restDefaults = configProvider.getRestDefaults();
 
   const nameCell = buildRestInputCell(
     createElement,
@@ -126,7 +128,7 @@ function buildRestDefaultFields(args: {
   const httpsCell = buildRestInputCell(
     createElement,
     'restHttpsUrl',
-    'https://127.0.0.1:27124/',
+    restDefaults.httpsUrl,
     'text',
     onHttpsInput
   );
@@ -141,7 +143,7 @@ function buildRestDefaultFields(args: {
   const httpCell = buildRestInputCell(
     createElement,
     'restHttpUrl',
-    'http://127.0.0.1:27123/',
+    restDefaults.httpUrl,
     'text',
     onHttpInput
   );

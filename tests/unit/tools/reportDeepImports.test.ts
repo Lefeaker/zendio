@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 type DeepImportFinding = {
@@ -157,5 +158,14 @@ describe('report-deep-imports', () => {
         }
       ])
     ).toBe(true);
+  });
+
+  it('keeps the session panel resize storage adapter behind a shallow boundary', async () => {
+    const file = 'src/content/shared/panels/sessionPanelResizeAdapter.ts';
+    const source = await readFile(file, 'utf8');
+
+    expect(formatDeepImportFindings(collectDeepImportFindings([{ file, source }]))).toBe(
+      'No deep relative imports found.'
+    );
   });
 });

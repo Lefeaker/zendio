@@ -2,7 +2,16 @@ import {
   getAnalyticsConfigManager,
   initializeAnalyticsConfig
 } from '../../shared/errors/analytics/analyticsConfig';
-import type { AnalyticsEventParams } from '../../shared/types/analytics';
+import { getService } from '../../shared/di';
+import { TOKENS } from '../../shared/di/tokens';
+import type { PlatformServices } from '../../platform/types';
+import {
+  hasRequiredUsageEventParams,
+  isAllowedUsageEventName,
+  sanitizeUsageEventParams,
+  type UsageEventName,
+  type UsageEventParamMap
+} from '../../shared/types/analytics';
 
 let initializationPromise: Promise<void> | null = null;
 
@@ -48,10 +57,30 @@ async function ensureSessionId(): Promise<string | undefined> {
   }
 }
 
-export async function trackUsageEvent(
-  eventName: string,
-  params?: AnalyticsEventParams
+function resolveExtensionVersion(): string {
+  try {
+    return (
+      getService<PlatformServices>(TOKENS.platformServices).runtime.getManifest?.()?.version ??
+      'unknown'
+    );
+  } catch {
+    return 'unknown';
+  }
+}
+
+export async function trackUsageEvent<EventName extends UsageEventName>(
+  eventName: EventName,
+  params?: UsageEventParamMap[EventName]
 ): Promise<void> {
+  if (!isAllowedUsageEventName(eventName)) {
+    return;
+  }
+
+  const sanitizedParams = sanitizeUsageEventParams(eventName, params);
+  if (!hasRequiredUsageEventParams(eventName, sanitizedParams)) {
+    return;
+  }
+
   try {
     await ensureAnalyticsReady();
   } catch {
@@ -81,13 +110,7 @@ export async function trackUsageEvent(
   }
 
   const sessionId = await ensureSessionId();
-  const extensionVersion = (() => {
-    try {
-      return chrome.runtime.getManifest().version ?? 'unknown';
-    } catch {
-      return 'unknown';
-    }
-  })();
+  const extensionVersion = resolveExtensionVersion();
 
   const payloadParams: Record<string, string | number | boolean> = {
     extension_version: extensionVersion,
@@ -102,11 +125,9 @@ export async function trackUsageEvent(
     payloadParams.debug_mode = true;
   }
 
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) {
-        payloadParams[key] = value;
-      }
+  for (const [key, value] of Object.entries(sanitizedParams)) {
+    if (value !== undefined) {
+      payloadParams[key] = value;
     }
   }
 

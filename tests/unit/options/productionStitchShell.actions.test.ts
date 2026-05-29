@@ -18,6 +18,12 @@ import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import { getRestDefaults } from '../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
+const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
+const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
+const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
 
 describe('mountProductionStitchShell actions', () => {
   beforeEach(setupProductionStitchShellTest);
@@ -29,7 +35,7 @@ describe('mountProductionStitchShell actions', () => {
       ...createController(),
       loadRaw
     };
-    const writeText = vi.fn(() => Promise.resolve());
+    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText }
@@ -37,7 +43,13 @@ describe('mountProductionStitchShell actions', () => {
 
     mountProductionStitchShell({
       controller: asOptionsController(controller),
-      initialOptions: { aiChat: { userName: 'Before' } },
+      initialOptions: {
+        aiChat: { userName: 'Before' },
+        rest: {
+          apiKey: 'REST_SECRET_TOKEN'
+        },
+        customKey: { hello: 'world' }
+      } as never,
       messages: null,
       language: 'en'
     });
@@ -45,6 +57,12 @@ describe('mountProductionStitchShell actions', () => {
     findButton('复制配置').click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
+    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
+      string,
+      unknown
+    >;
+    expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
+    expect(writtenConfig.customKey).toBeUndefined();
 
     findButton('诊断配置').click();
     expect(document.body.textContent).toContain('domainMappings');
@@ -448,9 +466,9 @@ describe('mountProductionStitchShell actions', () => {
       initialOptions: {
         rest: {
           vault: 'Research Vault',
-          baseUrl: 'http://localhost:27124',
+          baseUrl: LOCAL_HTTP_CONFLICT_URL,
           httpsUrl: '',
-          httpUrl: 'http://localhost:27123'
+          httpUrl: LOCAL_HTTP_URL
         },
         templates: {
           article: 'Clippings/{{title}}.md',
@@ -466,7 +484,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     const repaired = mounted.collectDraft();
-    expect(repaired.rest.baseUrl).toBe('https://localhost:27124');
+    expect(repaired.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(repaired.rest.httpsUrl).toBeTruthy();
     expect(repaired.templates.article).toContain('Articles/');
     expect(repaired.templates.fragment).toBeTruthy();
@@ -474,7 +492,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
       reason: 'manual',
       draft: expect.objectContaining({
-        rest: expect.objectContaining({ baseUrl: 'https://localhost:27124' }) as unknown
+        rest: expect.objectContaining({ baseUrl: LOCAL_HTTPS_URL }) as unknown
       }) as unknown
     });
   });
