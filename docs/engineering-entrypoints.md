@@ -42,6 +42,7 @@
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 - 2026-05-29 Plan 10 D3 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 与 `npm audit --audit-level=low` 均为 `0` vulnerabilities；production runtime release gate 与 dev/release toolchain audit 均为 green
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
+- 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 
 ## 当前推荐执行顺序
 
@@ -95,7 +96,7 @@ credentials and manual confirmation.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`102`）、unsafe type warnings、`no-restricted-syntax`。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `11` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前集成树；overall 为 `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`。
+- `npm run lint:type-any`：扫描当前集成树 `1108` files；overall 为 `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
 - `npm run lint:type-any:ratchet`：同时守住 overall `0/992/1673/108/4`、src `0/551/620/5/0`、tests `0/441/1053/103/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
