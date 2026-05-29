@@ -65,6 +65,9 @@ jobs:
           npm run report:options-legacy
           npm run lint:options-css
 
+      - name: Enforce hardcoded config guard
+        run: npm run lint:hardcoded
+
       - name: Enforce lint warning guard
         run: npm run lint:warnings-guard
 
