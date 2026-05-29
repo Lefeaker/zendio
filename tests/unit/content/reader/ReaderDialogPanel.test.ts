@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderDialogPanel } from '../../../../src/content/reader/ui/ReaderDialogPanel';
 import type {
   ReaderPanelCallbacks,
+  ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../../../../src/content/reader/application/readerPanelModel';
 
@@ -46,6 +47,19 @@ function createReaderPanelCallbacks(): ReaderPanelCallbacks {
     onDeleteHighlight: vi.fn(),
     onFocusHighlight: vi.fn(),
     onSubmitHighlightEdit: vi.fn()
+  };
+}
+
+function createHighlight(overrides: Partial<ReaderPanelHighlight> = {}): ReaderPanelHighlight {
+  return {
+    id: 'h-1',
+    index: 1,
+    excerpt: 'Selected text',
+    fullText: 'Selected text',
+    comment: '',
+    commentPreview: '',
+    timestamp: Date.now(),
+    ...overrides
   };
 }
 
@@ -126,10 +140,73 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
-  it('focuses reader controls through the shared content dialog focus helper', async () => {
-    const { focusContentDialogElement } = await import(
-      '../../../../src/ui/hosts/content/contentDialogFocus'
+  it('preserves unsaved highlight note drafts when additional highlights render', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    const first = createHighlight({ id: 'h-1', index: 1 });
+    const second = createHighlight({ id: 'h-2', index: 2 });
+    panel.setHighlights([first, second]);
+
+    const secondInput = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-highlight-input="h-2"]'
     );
+    expect(secondInput).toBeTruthy();
+    if (!secondInput) {
+      throw new Error('second highlight input missing');
+    }
+    secondInput.value = 'second draft';
+    secondInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.setHighlights([first, second, createHighlight({ id: 'h-3', index: 3 })]);
+
+    expect(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-highlight-input="h-2"]')
+        ?.value
+    ).toBe('second draft');
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector('[data-highlight-input="h-3"]')
+    );
+
+    panel.destroy();
+  });
+
+  it('flushes unsaved highlight note drafts before finishing', async () => {
+    const callbacks = createReaderPanelCallbacks();
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks
+    });
+    panel.mount(document.body);
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-highlight-input="h-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('highlight input missing');
+    }
+    input.value = 'finish draft';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callbacks.onSubmitHighlightEdit).toHaveBeenCalledWith('h-1', 'finish draft');
+    expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(callbacks.onSubmitHighlightEdit).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(callbacks.onFinish).mock.invocationCallOrder[0] ?? 0
+    );
+
+    panel.destroy();
+  });
+
+  it('focuses reader controls through the shared content dialog focus helper', async () => {
+    const { focusContentDialogElement } =
+      await import('../../../../src/ui/hosts/content/contentDialogFocus');
     const panel = new ReaderDialogPanel({
       texts: createReaderPanelTexts(),
       callbacks: createReaderPanelCallbacks()
