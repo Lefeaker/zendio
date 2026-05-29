@@ -18,11 +18,15 @@ import { panelStyleSheetManager } from '../content/shared/panels/styleSheetManag
 import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
 import { SupportPrompt } from '../content/ui/supportPrompt';
 import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
+import type { ReaderMarkdownPayload } from '../content/reader/utils/markdownBuilder';
 import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
+import type { MessagingService } from '../platform/interfaces/messaging';
+import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorHandler';
 import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
 
+type HarnessStorageValue = Parameters<StorageAreaService['set']>[1];
 const status = document.getElementById('status');
 
 function setStatus(message: string): void {
@@ -32,21 +36,21 @@ function setStatus(message: string): void {
 }
 
 function createStorageArea(): StorageAreaService {
-  const values = new Map<string, unknown>();
+  const values = new Map<string, HarnessStorageValue>();
   return {
-    get<T = unknown>(key: string): Promise<T | undefined> {
+    get<T>(key: string): Promise<T | undefined> {
       return Promise.resolve(values.get(key) as T | undefined);
     },
-    set<T = unknown>(key: string, value: T): Promise<void> {
+    set<T>(key: string, value: T): Promise<void> {
       values.set(key, value);
       return Promise.resolve();
     },
-    getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
+    getMany<T>(keys: string[]): Promise<Record<string, T | undefined>> {
       return Promise.resolve(
         Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
       );
     },
-    setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
+    setMany<T>(entries: Record<string, T>): Promise<void> {
       for (const [key, value] of Object.entries(entries)) values.set(key, value);
       return Promise.resolve();
     },
@@ -123,7 +127,7 @@ const runtimeState = createContentRuntimeState({
 });
 
 const errorHandler = {
-  handle(error: unknown): Promise<void> {
+  handle(error: Parameters<SharedErrorHandler['handle']>[0]): Promise<void> {
     console.warn('[harness:errorHandler]', error);
     return Promise.resolve();
   }
@@ -139,7 +143,7 @@ function buildReaderDependencies(): ReaderSessionDependencies {
     optionsRepository: optionsRepository as never,
     storage,
     messaging: {
-      send<TResult = unknown>(message: unknown): Promise<TResult> {
+      send<TResult>(message: Parameters<MessagingService['send']>[0]): Promise<TResult> {
         console.info('[harness:reader:send]', message);
         return Promise.resolve(undefined as TResult);
       }
@@ -165,7 +169,7 @@ function buildReaderDependencies(): ReaderSessionDependencies {
       buildHighlightsMarkdown: buildReaderHighlightsMarkdown,
       buildFullMarkdown: buildReaderFullMarkdown
     }),
-    dispatchClipResult(payload: unknown): Promise<void> {
+    dispatchClipResult(payload: ReaderMarkdownPayload): Promise<void> {
       console.info('[harness:reader:clip]', payload);
       setStatus('ReaderSession exported once');
       return Promise.resolve();
@@ -222,16 +226,12 @@ async function startReaderSession(): Promise<void> {
 }
 
 async function startVideoSession(): Promise<void> {
-  (activeVideo as unknown as { cleanup?: () => void } | null)?.cleanup?.();
+  (activeVideo as { cleanup?: () => void } | null)?.cleanup?.();
   const video = document.querySelector('video');
   if (!(video instanceof HTMLVideoElement)) {
     throw new Error('Video element missing');
   }
-  Object.defineProperty(video, 'currentTime', {
-    configurable: true,
-    writable: true,
-    value: 42
-  });
+  Object.defineProperty(video, 'currentTime', { configurable: true, writable: true, value: 42 });
   activeVideo = new VideoSession(document, {
     viewFactory: (
       await import('../content/video/presentation/videoPanelView')
@@ -263,7 +263,7 @@ async function startVideoSession(): Promise<void> {
     storage
   } as never);
   await activeVideo.start();
-  await (activeVideo as unknown as { handleAddCapture: () => Promise<void> }).handleAddCapture();
+  await activeVideo.addCurrentTimestamp();
   setStatus('VideoSession mounted and one capture added');
 }
 

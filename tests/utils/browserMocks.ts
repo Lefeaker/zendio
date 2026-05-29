@@ -2,6 +2,10 @@ import { vi } from 'vitest';
 
 type ViMock = ReturnType<typeof vi.fn>;
 
+function coerceMock<T>(value: object): T {
+  return value as T;
+}
+
 interface ChromeActionMocks {
   setBadgeText: ViMock;
   setBadgeBackgroundColor: ViMock;
@@ -116,7 +120,7 @@ function createChromeActionStub(): {
   const setTitle = vi.fn(() => Promise.resolve(undefined));
   const setIcon = vi.fn(() => Promise.resolve(undefined));
 
-  const stub = {
+  const stub = coerceMock<typeof chrome.action>({
     onClicked: {
       addListener: (listener: (tab: chrome.tabs.Tab) => void) => {
         addListener(listener);
@@ -143,7 +147,7 @@ function createChromeActionStub(): {
     setPopup,
     setTitle,
     setIcon
-  } as unknown as typeof chrome.action;
+  });
 
   const reset = () => {
     setBadgeText.mockReset();
@@ -188,7 +192,7 @@ function createChromeStorageArea(): {
   const remove = vi.fn((_keys: string | string[]) => Promise.resolve(undefined));
   const clear = vi.fn(() => Promise.resolve(undefined));
 
-  const area = {
+  const area = coerceMock<chrome.storage.StorageArea>({
     get(
       keys?: string | string[] | Record<string, unknown> | null,
       callback?: (items: Record<string, unknown>) => void
@@ -224,7 +228,7 @@ function createChromeStorageArea(): {
       }
       return promise;
     }
-  } as unknown as chrome.storage.StorageArea;
+  });
 
   const reset = () => {
     get.mockReset();
@@ -254,7 +258,7 @@ function createChromeStorageStub(): {
   const removeListener =
     vi.fn<(...args: Parameters<typeof chrome.storage.onChanged.removeListener>) => void>();
 
-  const stub = {
+  const stub = coerceMock<typeof chrome.storage>({
     sync: sync.area,
     local: local.area,
     managed: managed.area,
@@ -267,7 +271,7 @@ function createChromeStorageStub(): {
         removeListener(listener);
       }
     }
-  } as unknown as typeof chrome.storage;
+  });
 
   const reset = () => {
     sync.reset();
@@ -333,7 +337,7 @@ function createChromeRuntimeStub(): {
     sendMessage,
     connect,
     getManifest,
-    onMessage: {
+    onMessage: coerceMock<typeof chrome.runtime.onMessage>({
       addListener: (listener: Parameters<typeof addListener>[0]) => {
         addListener(listener);
       },
@@ -354,7 +358,7 @@ function createChromeRuntimeStub(): {
         getRules(ruleIdentifiers);
         callback?.([]);
       }
-    } as unknown as typeof chrome.runtime.onMessage
+    })
   };
 
   Object.defineProperty(runtimeTarget, 'lastError', {
@@ -364,7 +368,7 @@ function createChromeRuntimeStub(): {
     }
   });
 
-  const stub = runtimeTarget as typeof chrome.runtime;
+  const stub = coerceMock<typeof chrome.runtime>(runtimeTarget);
 
   const reset = () => {
     lastError = undefined;
@@ -403,11 +407,11 @@ function createChromeTabsStub(): { stub: typeof chrome.tabs; reset(): void } {
   const query = vi.fn(() => Promise.resolve([]));
   const get = vi.fn(() => Promise.resolve(undefined));
 
-  const stub = {
+  const stub = coerceMock<typeof chrome.tabs>({
     sendMessage,
     query,
     get
-  } as unknown as typeof chrome.tabs;
+  });
 
   const reset = () => {
     sendMessage.mockReset();
@@ -487,7 +491,7 @@ function createFirefoxActionStub(): {
   const hasListeners = vi.fn(() => false);
   const setBadgeBackgroundColor = vi.fn(() => Promise.resolve(undefined));
 
-  const browserAction = {
+  const browserAction = coerceMock<typeof browser.browserAction>({
     async setBadgeText(details: Parameters<typeof browser.browserAction.setBadgeText>[0]) {
       await primarySetBadgeText(details);
     },
@@ -502,15 +506,15 @@ function createFirefoxActionStub(): {
       hasListener: (listener: Parameters<typeof hasListener>[0]) => hasListener(listener),
       hasListeners: () => hasListeners()
     }
-  } as unknown as typeof browser.browserAction;
+  });
 
-  const action = {
+  const action = coerceMock<typeof browser.action>({
     async setBadgeText(details: Parameters<typeof browser.action.setBadgeText>[0]) {
       await fallbackSetBadgeText(details);
     },
     setBadgeBackgroundColor,
     onClicked: browserAction.onClicked
-  } as unknown as typeof browser.action;
+  });
 
   const reset = () => {
     primarySetBadgeText.mockReset();
@@ -545,12 +549,12 @@ function createFirefoxStorageArea(): {
   const remove = vi.fn(() => Promise.resolve(undefined));
   const clear = vi.fn(() => Promise.resolve(undefined));
 
-  const area = {
+  const area = coerceMock<browser.storage.StorageArea>({
     get,
     set,
     remove,
     clear
-  } as unknown as browser.storage.StorageArea;
+  });
 
   const reset = () => {
     get.mockReset();
@@ -580,7 +584,7 @@ function createFirefoxStorageStub(): {
   const removeListener =
     vi.fn<(...args: Parameters<typeof browser.storage.onChanged.removeListener>) => void>();
 
-  const stub = {
+  const stub = coerceMock<typeof browser.storage>({
     sync: sync.area,
     local: local.area,
     managed: managed.area,
@@ -593,7 +597,7 @@ function createFirefoxStorageStub(): {
         removeListener(listener);
       }
     }
-  } as unknown as typeof browser.storage;
+  });
 
   const reset = () => {
     sync.reset();
@@ -630,7 +634,7 @@ function createFirefoxRuntimeStub(): {
   const removeListener =
     vi.fn<(...args: Parameters<typeof browser.runtime.onMessage.removeListener>) => void>();
 
-  const stub = {
+  const stub = coerceMock<typeof browser.runtime>({
     getURL,
     sendMessage,
     onMessage: {
@@ -641,7 +645,7 @@ function createFirefoxRuntimeStub(): {
         removeListener(listener);
       }
     }
-  } as unknown as typeof browser.runtime;
+  });
 
   const reset = () => {
     sendMessage.mockReset();
@@ -665,9 +669,9 @@ function createFirefoxRuntimeStub(): {
 function createFirefoxTabsStub(): { stub: typeof browser.tabs; reset(): void } {
   const sendMessage = vi.fn(() => Promise.resolve(undefined));
 
-  const stub = {
+  const stub = coerceMock<typeof browser.tabs>({
     sendMessage
-  } as unknown as typeof browser.tabs;
+  });
 
   const reset = () => {
     sendMessage.mockReset();
