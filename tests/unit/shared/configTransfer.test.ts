@@ -8,6 +8,9 @@ import {
   writeToClipboard,
   ConfigTransferError
 } from '@options/services/configTransfer';
+import { getRestDefaults } from '../../utils/restDefaults';
+
+const REST_DEFAULTS = getRestDefaults();
 
 declare global {
   // eslint-disable-next-line no-var
@@ -112,7 +115,7 @@ describe('configTransfer service', () => {
       options: {
         interfaceTheme: 'light',
         rest: {
-          baseUrl: 'https://127.0.0.1:27124/',
+          baseUrl: REST_DEFAULTS.baseUrl,
           vault: 'MainVault',
           apiKey: 'REST_SECRET_TOKEN'
         },
@@ -142,8 +145,8 @@ describe('configTransfer service', () => {
             {
               id: 'main',
               name: 'MainVault',
-              httpsUrl: 'https://127.0.0.1:27124/',
-              httpUrl: 'http://127.0.0.1:27123/',
+              httpsUrl: REST_DEFAULTS.httpsUrl,
+              httpUrl: REST_DEFAULTS.httpUrl,
               vault: 'MainVault',
               apiKey: 'VAULT_SECRET_TOKEN'
             }
