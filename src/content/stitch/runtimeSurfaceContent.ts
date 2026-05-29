@@ -19,11 +19,7 @@ const CLIPPER_ICON_PATH = 'icons/60x60/allinob_icon_clipt.png';
 const READER_ICON_PATH = 'icons/60x60/allinob_icon_readingt.png';
 
 function hero(title: string): PreviewContent['overview']['hero'] {
-  return {
-    title,
-    description: '',
-    pills: []
-  };
+  return { title, description: '', pills: [] };
 }
 
 function createRuntimeContent(): PreviewContent {
@@ -258,7 +254,7 @@ export function createClipperSurfaceContent(input: {
 
 export function createReaderSurfaceContent(input: {
   texts: ReaderPanelTexts;
-  highlights: ReaderPanelHighlight[];
+  highlights: Array<ReaderPanelHighlight & { draft?: string }>;
   counter: string;
   actions: SurfaceAction[];
   destination?: ExportDestinationSurfacePreview;
@@ -294,6 +290,7 @@ export function createReaderSurfaceContent(input: {
           fullText: highlight.fullText,
           commentPreview: highlight.commentPreview || input.texts.highlightNoComment,
           comment: highlight.comment || '',
+          ...(highlight.draft !== undefined ? { draft: highlight.draft } : {}),
           timestamp: String(highlight.timestamp)
         }))
       }
@@ -303,7 +300,7 @@ export function createReaderSurfaceContent(input: {
 
 export function createVideoSurfaceContent(input: {
   texts: VideoPanelTexts;
-  captures: VideoPanelCapture[];
+  captures: Array<VideoPanelCapture & { draft?: string }>;
   counter: string;
   actions: SurfaceAction[];
   destination?: ExportDestinationSurfacePreview;
@@ -345,6 +342,7 @@ export function createVideoSurfaceContent(input: {
           fullText: capture.selectionPreview || '',
           commentPreview: capture.commentPreview ?? capture.comment ?? '',
           comment: capture.comment ?? '',
+          ...(capture.draft !== undefined ? { draft: capture.draft } : {}),
           hasScreenshot: capture.hasScreenshot ?? false,
           meta: capture.shareUrl || capture.fragmentUrl || ''
         }))

@@ -202,6 +202,66 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('preserves unsaved capture note drafts when additional captures render', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const first = createCapture({ id: 'capture-1', index: 1, timeLabel: '00:42' });
+    const second = createCapture({ id: 'capture-2', index: 2, timeLabel: '01:10' });
+    panel.show();
+    panel.setCaptures([first, second]);
+    panel.beginEditingCapture(second.id, second.comment);
+
+    const secondInput = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-2"]'
+    );
+    expect(secondInput).toBeTruthy();
+    if (!secondInput) {
+      throw new Error('second capture input missing');
+    }
+    secondInput.value = 'second capture draft';
+    secondInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.setCaptures([
+      first,
+      second,
+      createCapture({ id: 'capture-3', index: 3, timeLabel: '02:20' })
+    ]);
+
+    expect(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-capture-input="capture-2"]')
+        ?.value
+    ).toBe('second capture draft');
+
+    panel.destroy();
+  });
+
+  it('flushes unsaved capture note drafts before finishing', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.value = 'finish capture draft';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="finish-btn"]')?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('capture-1', 'finish capture draft');
+    expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(callbacks.onSubmitCaptureEdit).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(callbacks.onFinish).mock.invocationCallOrder[0] ?? 0
+    );
+
+    panel.destroy();
+  });
+
   it('keeps cancel and capture editor focus behavior stable', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     const capture = createCapture({ comment: 'draft', commentPreview: 'draft' });

@@ -11,6 +11,7 @@ import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRender
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
+import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
@@ -21,15 +22,12 @@ interface VideoDialogPanelOptions {
   initialCollapsed?: boolean;
 }
 
-export class VideoDialogPanel
-  implements
-    UiMountable<
-      HTMLElement | undefined,
-      | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
-      | undefined,
-      HTMLElement
-    >
-{
+export class VideoDialogPanel implements UiMountable<
+  HTMLElement | undefined,
+  | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
+  | undefined,
+  HTMLElement
+> {
   readonly popupLifecycle = { preserveOnTransientClose: true };
 
   private renderRoot: HTMLElement;
@@ -42,7 +40,13 @@ export class VideoDialogPanel
   private destination: ExportDestinationSurfacePreview | undefined;
   private captureCount = 0;
   private editingCaptureId: string | null = null;
-  private editingDraft = '';
+  private readonly commentDrafts = new SessionCommentDraftController<VideoPanelCapture>({
+    datasetKey: 'captureInput',
+    inputSelector: '[data-capture-input]',
+    getItems: () => this.captures,
+    getRoot: () => this.renderRoot.shadowRoot,
+    submitDraft: (id, draft) => this.options.callbacks.onSubmitCaptureEdit(id, draft)
+  });
   private collapsed = false;
   private keepCollapsedForNextCaptureUpdate = false;
 
@@ -105,16 +109,9 @@ export class VideoDialogPanel
       this.texts = { ...this.texts, hint: payload.hint };
     }
     if (payload.captures) {
-      if (
-        this.collapsed &&
-        payload.captures.length > this.captures.length &&
-        !this.keepCollapsedForNextCaptureUpdate
-      ) {
-        this.collapsed = false;
-      }
-      this.keepCollapsedForNextCaptureUpdate = false;
-      this.captures = [...payload.captures];
-      this.captureCount = payload.captures.length;
+      this.applyCaptures(payload.captures);
+      this.rerender({ captureDrafts: false });
+      return this.renderRoot;
     }
     this.rerender();
     return this.renderRoot;
@@ -144,32 +141,24 @@ export class VideoDialogPanel
   }
 
   setCaptures(captures: VideoPanelCapture[]): void {
-    if (
-      this.collapsed &&
-      captures.length > this.captures.length &&
-      !this.keepCollapsedForNextCaptureUpdate
-    ) {
-      this.collapsed = false;
-    }
-    this.keepCollapsedForNextCaptureUpdate = false;
-    this.captures = [...captures];
-    this.captureCount = captures.length;
-    this.rerender();
+    this.applyCaptures(captures);
+    this.rerender({ captureDrafts: false });
   }
 
   beginEditingCapture(id: string, draft: string): void {
+    this.commentDrafts.captureRenderedInputs();
     this.editingCaptureId = id;
-    this.editingDraft = draft;
-    this.rerender();
-    queueMicrotask(() => {
-      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id);
-    });
+    this.commentDrafts.remember(id, draft);
+    this.rerender({ captureDrafts: false });
+    queueMicrotask(() =>
+      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id)
+    );
   }
 
   stopEditing(): void {
+    this.commentDrafts.clear(this.editingCaptureId);
     this.editingCaptureId = null;
-    this.editingDraft = '';
-    this.rerender();
+    this.rerender({ captureDrafts: false });
   }
 
   collapse(): void {
@@ -188,10 +177,13 @@ export class VideoDialogPanel
     this.renderRoot.remove();
   }
 
-  private rerender(): void {
+  private rerender(options: { captureDrafts?: boolean } = {}): void {
     const shadow = this.renderRoot.shadowRoot;
     if (!shadow) {
       return;
+    }
+    if (options.captureDrafts !== false) {
+      this.commentDrafts.captureRenderedInputs();
     }
     this.resizeDisposer?.();
     this.resizeDisposer = null;
@@ -207,7 +199,7 @@ export class VideoDialogPanel
   private renderSurface(): HTMLElement {
     const content = createVideoSurfaceContent({
       texts: this.texts,
-      captures: this.captures,
+      captures: this.captures.map((capture) => this.commentDrafts.withDraft(capture)),
       counter: this.formatCounter(this.captureCount),
       ...(this.destination ? { destination: this.destination } : {}),
       actions: [
@@ -219,17 +211,18 @@ export class VideoDialogPanel
       content.surfaces.video.labels.subtitle = '';
     }
     content.surfaces.video.captures = content.surfaces.video.captures.map((capture) =>
-      capture.id === this.editingCaptureId
-        ? { ...capture, editing: true, draft: this.editingDraft }
-        : capture
+      capture.id === this.editingCaptureId ? { ...capture, editing: true } : capture
     );
     const surface = renderStitchRuntimeSurface({
       surfaceId: 'video',
       appData: content,
       actions: {
-        'video:add': () => this.options.callbacks.onAddCapture('button'),
-        'video:add-note': () => this.options.callbacks.onAddCapture('note-input'),
-        'video:finish': () => this.options.callbacks.onFinish(),
+        'video:add': () =>
+          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture('button')),
+        'video:add-note': () =>
+          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture('note-input')),
+        'video:finish': () =>
+          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish()),
         'video:cancel': () => this.options.callbacks.onCancel(),
         'export-destination:select': (event) => {
           const id = this.resolveActionId(event, 'destinationId');
@@ -245,6 +238,7 @@ export class VideoDialogPanel
         'video:delete': (event) => {
           const id = this.resolveActionId(event, 'captureId');
           if (id) {
+            this.commentDrafts.clear(id);
             this.options.callbacks.onDeleteCapture(id);
           }
         },
@@ -308,13 +302,6 @@ export class VideoDialogPanel
     });
   }
 
-  private currentSurface(): HTMLElement | null {
-    return (
-      this.renderRoot.shadowRoot?.querySelector<HTMLElement>('[data-stitch-surface="video"]') ??
-      null
-    );
-  }
-
   private resolveActionId(event: Event, datasetKey: 'captureId' | 'destinationId'): string | null {
     const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     if (datasetKey === 'destinationId') {
@@ -341,14 +328,23 @@ export class VideoDialogPanel
         this.options.callbacks.onFocusCapture(id);
       });
       const input = item.querySelector<HTMLInputElement>('[data-capture-input]');
-      input?.addEventListener('keydown', (event) => {
-        if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') {
-          return;
-        }
-        event.preventDefault();
-        void this.options.callbacks.onSubmitCaptureEdit(id, input.value);
-      });
+      this.commentDrafts.bindInput(input, id);
     });
+  }
+
+  private applyCaptures(captures: VideoPanelCapture[]): void {
+    this.commentDrafts.captureRenderedInputs();
+    if (
+      this.collapsed &&
+      captures.length > this.captures.length &&
+      !this.keepCollapsedForNextCaptureUpdate
+    ) {
+      this.collapsed = false;
+    }
+    this.keepCollapsedForNextCaptureUpdate = false;
+    this.captures = [...captures];
+    this.captureCount = captures.length;
+    this.commentDrafts.reconcile(this.captures);
   }
 
   private isInteractiveCaptureTarget(target: Element | null): boolean {
