@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-26
+最后更新：2026-05-29
 
 ## 正式入口
 
@@ -25,19 +25,20 @@
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤
-- Quality gate 当前真值：`quality` 包含 locale source alignment；CI locale source alignment audit 是 hard gate；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
+- Quality gate 当前真值：`quality` 包含 locale source alignment、hardcoded config 守卫、type/lint ratchet、release surface 与 non-production source hard gate；CI locale source alignment 与 hardcoded config guard 均为 hard gate；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
 - i18n 语言范围当前真值：产品决策标签为 `release-13-languages`；release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；README、runtime config、locale loaders、`src/i18n/locales/*.ts` 与 WebExtension `_locales` 必须与该范围一致
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
 - 2026-05-20 release readiness historical truth：Node `v20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`；当时 `npm audit --audit-level=low` 的 `26` vulnerabilities 仅作为历史 release handoff 证据保留
 - 2026-05-29 Plan 10 D3 dependency-audit current truth：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 与 `npm audit --audit-level=low` 均为 `0` vulnerabilities；production runtime release gate 与 dev/release toolchain audit 均为 green
+- 2026-05-29 Plan 11 governance current truth：`lint:hardcoded` standalone green with `0` errors / `11` warnings and is wired into both `quality` and CI; `audit:platform-boundary:report` is still report-only with `148` findings and unresolved `shared-runtime-helper` review items, so it is not a hard gate; `npm audit --audit-level=low` is green but not wired into `quality`
 - 2026-05-21 owner-proof 真值：低复用/retained source 删除只接受 M6.1 六项 owner proof 表中 `delete-approved` 的 exact path；当前 `changelogContent`、`trial-notice`、reader `highlightController` 与 `contentClipOrchestrator` 均未获删除批准
 - 2026-05-21 M7 baseline sync 真值：`content/runtime.js` fresh build 为 raw `54,554` bytes，低于 `57,600` stop gate
-- 2026-05-24 gap-remediation baseline sync 真值：lint warning baseline 曾同步为 `254`；2026-05-26 M10 后 baseline 收紧为 `159`；2026-05-28 Plan 09 后当前 baseline 已继续收紧为 `141`，不得通过禁用规则或修改 lint 配置制造下降
+- 2026-05-24 gap-remediation baseline sync 真值：lint warning baseline 曾同步为 `254`；2026-05-26 M10 后 baseline 收紧为 `159`；2026-05-28 Plan 09 后当前 checked-in baseline 已继续收紧为 `141`；2026-05-29 fresh warning count 为 `140`，不得通过禁用规则或修改 lint 配置制造下降
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，Node `v20.20.2` / npm `10.8.2` 下 fresh `build:fast`、`build:dev`、`audit:build:report`、`audit:performance:report` 已通过；`content/runtime.js` raw stop gate 收紧为 `56,320` bytes，chunk count 收紧为 `<= 112`，hotspot line budgets 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-26 M10 scoped type audit truth：2026-05-28 post-gap integration current overall `0/992/1673/108/4`；src `0/551/620/5/0`；tests `0/441/1053/103/4`；`lint:type-any:ratchet` 必须同时守住 overall、src 与 tests，tests 下降不得抵消 src 增长
-- 2026-05-26 M10 non-production source truth：`audit:non-production-source:report` 当前 decision counts 为 `migrate-import-owner: 200`、`retain-production: 534`、`retain-production-facade: 15`；任何 `src` 删除仍必须满足六项 exact-path owner proof
-- 2026-05-26 M10 build/performance truth：`quality` 与 `verify:preflight` 重新通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,337` bytes），chunk count `102`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
+- 2026-05-29 Plan 11 G3 non-production source truth：`audit:non-production-source:report` 当前 decision counts 为 `migrate-import-owner: 200`、`retain-production: 535`、`retain-production-facade: 15`；任何 `src` 删除仍必须满足六项 exact-path owner proof
+- 2026-05-29 Plan 11 G3 build/performance truth：fresh `build:fast` / `build:dev` / `audit:build:report` / `audit:performance:report` 已通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,375` bytes），chunk count `103`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-26 M10 budget ratchet truth：`lint:type-any:ratchet` 以 overall `0/992/1673/108/4`、src `0/551/620/5/0`、tests `0/441/1053/103/4` 接入 `quality`；`audit:performance:report` 动态发现当前全部 `100` 个 `src` >250 LOC 文件并要求每个文件存在 line budget
 - 2026-05-26 M10 compatibility duplicate truth：usage/rest compatibility duplicate audit 已接入 `quality`；当前 `candidate files: 16`、`duplicate groups: 0`，没有 owner-approved production allowlist 条目
 - 2026-05-25 post-gap runtime guard truth：`.nvmrc` pins Node `20.20.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21` / npm `>=10 <11`，与 lockfile transitive `>=20.19.0` engine 要求一致；`verify:runtime` 会读取 `package.json` 的 `engines.node` 并拒绝不满足范围的 Node runtime；本轮验证使用 Node `v20.20.2` / npm `10.8.2`

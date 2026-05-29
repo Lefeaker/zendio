@@ -1,6 +1,6 @@
 # 长期维护 Backlog
 
-日期：2026-05-19
+日期：2026-05-29
 
 ## P1
 
@@ -9,27 +9,28 @@
    - 剩余风险：后续脚本或 CI 变更再次把 `strict` 从主门禁里移出
 
 2. 维持本轮包体预算不回退
-   - 当前真值：`content/runtime 56.0 KB`、`options/index 997 B`、`onboarding/index 12.3 KB`、shared Top3 `181.8 / 128.3 / 82.8 KB`、`chunk count 98`
+   - 当前真值：dev build `content/runtime 53.1 KB`（raw `54,375` bytes）、`options/index 997 B`、`onboarding/index 12.3 KB`、shared Top3 `184.0 / 128.3 / 82.8 KB`、`chunk count 103`；production fast build `chunk count 86`
    - 守门：`npm run audit:build:report`
-   - 剩余风险：`content/runtime.js` 贴近 `56 KB` 预算，后续 runtime 入口改动必须 fresh `clean + build:dev + audit:build:report`
+   - 剩余风险：dev `content/runtime.js` raw stop gate 为 `56,320` bytes，后续 runtime 入口改动必须 fresh `clean + build:dev + audit:build:report`
 
 3. 维持热点模块行数不回弹
    - 当前真值：
-     - `videoSessionRuntime.ts = 314`
-     - `RestSectionView.ts = 300`
-     - `PrivacySettingsView.ts = 260`
-     - `UsageDashboardSection.ts = 231`
-     - `yamlConfigTableControllerState.impl.ts = 471`
+     - `videoSessionRuntime.ts = 395`
+     - `RestSectionView.ts = 260`
+     - `PrivacySettingsView.ts = 255`
+     - `productionStitchShellMount.ts = 254`
+     - `yamlConfigTableControllerState.impl.ts = 373`
    - 守门：`npm run audit:performance:report`
 
 ## P2
 
 4. 继续清理 lint warning 基线债务
-   - 当前真值：`lint:warnings-guard` checked-in baseline 为 `322`；2026-05-21 fresh warning count 为 `274`
+   - 当前真值：`lint:warnings-guard` checked-in baseline 为 `141`；2026-05-29 fresh warning count 为 `140`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
-   - 当前类型审计：`lint:type-any` 扫描 `997` files；`any: 12`、`unknown: 1059`、assertions `1832`、non-null assertions `129`、`ts-expect-error: 5`
-   - 后续处理：继续清理 broad historical `require-await`、`no-unused-vars`、`unbound-method`、测试 fixture typing、type assertion / unsafe assignment 债务；不要通过降低 ESLint 规则或无解释 disable 来“归零”
-   - Baseline 规则：`lint:warnings-report` 会重写 `tools/baselines/lint-warnings.json`；M1.2 不提交该 baseline，下调留到 M7 final baseline sync
+   - 当前 hardcoded config 守卫：`lint:hardcoded` 已接入 `quality` 与 CI；当前 `0` errors / `11` warning-only findings
+   - 当前类型审计：`lint:type-any` 扫描 `1107` files；overall `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`
+   - 后续处理：继续清理 broad historical `require-await`、测试 fixture typing、type assertion / unsafe assignment、hardcoded warning-only fixtures/source defaults 债务；不要通过降低 ESLint 规则、hardcoded lint 规则或无解释 disable 来“归零”
+   - Baseline 规则：`lint:warnings-report` 会重写 `tools/baselines/lint-warnings.json`；只有有意同步 warning truth 时才提交该 baseline
 
 5. 继续治理浏览器验真稳定性
    - 当前真值：2026-05-18 stabilization 中 `test:e2e:browser:local-vault`、`test:e2e:browser:smoke`、`verify:stitch-secondary`、`visual:test` 已通过
