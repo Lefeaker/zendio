@@ -1,10 +1,9 @@
 import { mergeOptions } from '@shared/config/optionsMerger';
-import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
+import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import type { Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { WidgetFactory } from '@options/schema-runtime/contracts';
-import type { WidgetMountContract as OptionsWidgetMountContract } from '@options/widgets/contracts';
 
 interface ProductionStitchWidgetHostOptions {
   getDraft(): CompleteOptions;
@@ -27,14 +26,13 @@ export interface ProductionStitchWidgetHost {
   resetDirty(): void;
 }
 
-function createWidget(
-  widgetType: string
-): OptionsWidgetMountContract<Record<string, unknown>, Partial<CompleteOptions>> | null {
+type ProductionYamlWidget = YamlConfigEditorWidgetAdapter & {
+  collect: () => Partial<CompleteOptions>;
+};
+
+function createWidget(widgetType: string): ProductionYamlWidget | null {
   return widgetType === 'yaml-config'
-    ? (new YamlConfigWidget() as OptionsWidgetMountContract<
-        Record<string, unknown>,
-        Partial<CompleteOptions>
-      >)
+    ? (new YamlConfigEditorWidgetAdapter() as ProductionYamlWidget)
     : null;
 }
 
@@ -52,9 +50,7 @@ function applyDisabledExperimentalState(
 export function createProductionStitchWidgetHost(
   options: ProductionStitchWidgetHostOptions
 ): ProductionStitchWidgetHost {
-  const widgetInstances = new Set<
-    OptionsWidgetMountContract<Record<string, unknown>, Partial<CompleteOptions>>
-  >();
+  const widgetInstances = new Set<ProductionYamlWidget>();
   const dirtyWidgetKeys = new Set<string>();
 
   function collectBaseDraft(): CompleteOptions {

@@ -522,6 +522,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     defaultValue.value = 'not-a-number';
     defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
 
+    expect(vi.mocked(controller.scheduleAutoSave)).not.toHaveBeenCalled();
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields).toEqual([
       expect.objectContaining({ name: 'score', defaultValue: 42 })
     ]);

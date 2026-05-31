@@ -1,0 +1,116 @@
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { Messages } from '@i18n';
+import type { WidgetMountContract, WidgetRuntime } from '@options/schema-runtime/contracts';
+import { createYamlEditorState } from './state';
+import { serializeYamlEditorState } from './serialize';
+import { validateYamlEditorState } from './validation';
+import type { YamlEditorState, YamlEditorValidation } from './types';
+import {
+  renderYamlConfigEditorView,
+  renderYamlEditorValidation,
+  type YamlEditorFilter
+} from './view';
+
+export interface YamlConfigEditorWidgetProps {
+  options?: StoredOptions | CompleteOptions | null;
+  messages?: Messages | null;
+}
+
+export interface YamlConfigEditorCollectResult extends Partial<CompleteOptions> {
+  yamlConfig: CompleteOptions['yamlConfig'];
+}
+
+type YamlEditorRuntime = Pick<
+  Partial<WidgetRuntime<unknown, unknown>>,
+  'notifyDirty' | 'reportError'
+>;
+
+export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
+  YamlConfigEditorWidgetProps,
+  unknown,
+  unknown
+> {
+  private container: HTMLElement | null = null;
+  private runtime: YamlEditorRuntime | undefined;
+  private state: YamlEditorState = createYamlEditorState(null);
+  private validation: YamlEditorValidation | null = null;
+  private filter: YamlEditorFilter = 'all';
+  private lastValidYamlConfig: CompleteOptions['yamlConfig'] = null;
+
+  mount(
+    container: HTMLElement,
+    props: YamlConfigEditorWidgetProps,
+    runtime?: YamlEditorRuntime
+  ): void {
+    this.container = container;
+    this.runtime = runtime;
+    this.applySnapshot(props.options ?? null);
+  }
+
+  update(props: YamlConfigEditorWidgetProps, runtime?: YamlEditorRuntime): void {
+    this.runtime = runtime ?? this.runtime;
+    this.applySnapshot(props.options ?? null);
+  }
+
+  destroy(): void {
+    this.container?.replaceChildren();
+    this.container = null;
+  }
+
+  collect(): YamlConfigEditorCollectResult {
+    const validation = validateYamlEditorState(this.state);
+    if (!validation.valid) {
+      this.validation = validation;
+      renderYamlEditorValidation(this.container, this.validation);
+      return { yamlConfig: this.lastValidYamlConfig };
+    }
+
+    this.validation = null;
+    this.lastValidYamlConfig = serializeYamlEditorState(this.state);
+    renderYamlEditorValidation(this.container, this.validation);
+    return { yamlConfig: this.lastValidYamlConfig };
+  }
+
+  applySnapshot(snapshot: unknown): void {
+    const source =
+      snapshot && typeof snapshot === 'object'
+        ? (snapshot as StoredOptions | CompleteOptions)
+        : null;
+    const merged = mergeOptions(source) as CompleteOptions;
+    this.state = createYamlEditorState(merged.yamlConfig ?? null);
+    this.validation = null;
+    this.lastValidYamlConfig = merged.yamlConfig ?? null;
+    this.render();
+  }
+
+  private render(): void {
+    if (!this.container) {
+      return;
+    }
+    this.container.replaceChildren(
+      renderYamlConfigEditorView({
+        state: this.state,
+        filter: this.filter,
+        validation: this.validation,
+        onChange: () => this.markDirty(),
+        onRender: () => this.render(),
+        onSetFilter: (filter) => {
+          this.filter = filter;
+          this.render();
+        }
+      })
+    );
+  }
+
+  private markDirty(): void {
+    const validation = validateYamlEditorState(this.state);
+    const invalid = !validation.valid;
+    this.validation = invalid ? validation : null;
+    if (!invalid) {
+      this.lastValidYamlConfig = serializeYamlEditorState(this.state);
+    }
+    renderYamlEditorValidation(this.container, this.validation);
+    this.runtime?.notifyDirty?.(['yamlConfig'], { invalid });
+  }
+}
