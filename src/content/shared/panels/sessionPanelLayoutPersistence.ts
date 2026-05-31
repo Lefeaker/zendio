@@ -2,7 +2,8 @@ import { resolveSessionPanelResizeStorage } from './sessionPanelResizeAdapter';
 import type {
   SessionPanelLayoutSnapshot,
   SessionPanelResizeOptions,
-  SessionPanelResizeStorage
+  SessionPanelResizeStorage,
+  SessionPanelStorageItems
 } from './sessionPanelResizeTypes';
 
 const WIDTH_STORAGE_KEY = 'aiob.sessionPanel.width';
@@ -52,7 +53,7 @@ function canApplyLoadedField(field: SessionPanelLayoutField): boolean {
 
 function saveSessionPanelStorage(
   storage: SessionPanelResizeStorage,
-  items: Record<string, unknown>,
+  items: SessionPanelStorageItems,
   fields: SessionPanelLayoutField[] = []
 ): void {
   const saveRevision = persistedPanelLayoutRevision;

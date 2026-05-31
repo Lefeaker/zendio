@@ -1,6 +1,8 @@
+export type SessionPanelStorageItems = Record<string, unknown>;
+
 export interface SessionPanelResizeStorage {
-  load(): Promise<Record<string, unknown>>;
-  save(items: Record<string, unknown>): void | Promise<void>;
+  load(): Promise<SessionPanelStorageItems>;
+  save(items: SessionPanelStorageItems): void | Promise<void>;
 }
 
 export interface SessionPanelResizeOptions {
