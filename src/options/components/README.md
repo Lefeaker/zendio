@@ -22,14 +22,13 @@ src/options/components/
 ├── controls/        # business controls reused by legacy/compat tests and migration work
 ├── formSections/    # legacy FormSection registry; migrate-then-delete until owners move
 ├── infrastructure/  # legacy options-only modal/list infrastructure
-├── layout/          # legacy Options shell/layout; not a production startup owner
 ├── sections/        # legacy class sections plus retained REST helper files
 └── services/        # options-only service helpers
 ```
 
 ## Compatibility Surfaces
 
-- `layout/` contains the old `OptionsApp`, `MainContent`, `Sidebar`, `Navigation`, and `NavigationController` path. These files are retained only while legacy layout/e2e owners still exist.
+- The old layout shell source has been retired. Do not restore it as a fallback shell, preview shortcut, or production startup owner.
 - `formSections/` contains the old `FormSectionRegistry` and snapshot infrastructure. Do not reconnect it to the production startup chain.
 - old class section files under `sections/*Section.ts` are `migrate-then-delete` until tests and fixtures move to Stitch production behavior.
 - REST helper files under `sections/restSection*.ts` remain production/verification-owned unless a fresh owner audit proves an exact file can move to `delete-now`.

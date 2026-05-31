@@ -49,7 +49,7 @@
 
 - `IOptionsRepository`、`IMessagingRepository`、`IYamlRepository` 仍是正式主合同
 - `productionStitchShell.ts` 是当前 Options 生产 UI 适配入口
-- `MainContent.ts`、`BaseSection`、`FormSectionRegistry` 属于旧 Options 兼容/验证路径；除兼容修复和验证迁移外，不得重新接入生产启动链
+- 旧 Options layout shell 源码已退役；`BaseSection`、`FormSectionRegistry` 属于剩余旧 Options 兼容/验证路径，除兼容修复和验证迁移外不得重新接入生产启动链
 - retired Options compatibility classes 与旧 preview runtime 不得作为 experimental shell、fallback shell 或 verification shortcut 恢复
 - session / UI state 禁止重新使用 `window.__aiob*` 全局变量传递
 

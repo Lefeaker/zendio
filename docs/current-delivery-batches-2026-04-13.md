@@ -110,7 +110,7 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 归属范围：
 
 - `src/options/app/optionsShell*`
-- `src/options/components/layout/MainContent.ts`
+- `src/options/app/productionStitchShell*`
 - `src/options/components/sections/RestSection*`
 - `src/options/components/sections/FragmentSection*`
 - `src/options/components/sections/Usage*`

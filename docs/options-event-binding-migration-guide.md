@@ -1,10 +1,12 @@
 # 选项页事件绑定迁移指引
 
 > **目标**：将目前仍由 `bootstrap.ts` 维护的 DOM 事件监听迁移到对应的 TypeScript 组件内部，实现真正的组件化与解耦，同时补齐缺失的 UI 按钮。
+>
+> **当前状态**：本指南记录旧 Options 组件化迁移背景，不再作为新增 Options UI 的实现入口。当前实现入口是 production Stitch shell、Stitch schema/render/domain code；不要恢复旧 layout shell。
 
 ## 1. 背景
 
-- 选项页已经引入 `OptionsApp` + Section 组件体系，但多个按钮仍通过 `document.getElementById` 在 `src/options/app/bootstrap.ts` 中集中绑定，违背组件自治原则。
+- 选项页已经切到 production Stitch shell；旧 Section 组件体系仍有兼容清退任务，但不再承接新增 UI 行为。
 - 迁移工作需要逐步将这些事件处理逻辑下沉到各自组件，或改为通过状态管理/服务层协调。
 - 在重构期间必须保证现有功能不回归：配置复制/导入、诊断流程、语言切换、域名映射、分类器提示等。
 
@@ -61,7 +63,7 @@
 
 5. **AI 时间戳与 Hash 高亮**
    - 将强制关闭时间戳改为渲染时设定默认值或通过 state 控制。
-   - Hash 高亮功能可重写为 `OptionsApp` 层的导航 hook，无需直接查找具体控件。
+   - Hash 高亮功能应接入 production Stitch shell 或 schema navigation state，无需直接查找具体控件。
 
 ## 5. 验收检查单
 
@@ -73,7 +75,7 @@
 
 ## 6. 后续维护建议
 
-- 新增 Section 时，统一在组件内部管理交互；仅当逻辑必须跨区时，才由 `OptionsApp` 调用共享服务。
+- 新增 Options UI 行为时，统一在 Stitch schema/render/domain owner 中管理交互；仅当逻辑必须跨区时，才由 production shell 或显式 service 协调。
 - 在迁移过程中，注意保留 `bootstrap.ts` 中与模态管理、导航锚点等无关事件的功能，避免误删。
 - 完成每个阶段的迁移后，立即运行相关单元/端到端测试，确保行为不回归。
 

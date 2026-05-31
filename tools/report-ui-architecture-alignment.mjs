@@ -89,9 +89,6 @@ const forbiddenFiles = [
 ];
 
 const requiredSnippets = {
-  'src/options/components/layout/MainContent.ts': [
-    ['../../../ui/hosts/options', '@ui/hosts/options']
-  ],
   'src/options/components/sections/BaseSection.ts': [
     ['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']
   ],

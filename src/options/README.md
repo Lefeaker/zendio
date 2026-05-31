@@ -10,9 +10,9 @@
 
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
-- Legacy Options layout、section、form-section 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
+- Legacy Options section、form-section 与旧 modal/controller 代码只保留为兼容测试资产；旧 layout 源码已退役，除兼容修复外，不要把剩余旧资产重新接入生产启动链。
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
-- 旧 sections/layout/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
+- 旧 sections/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
 - `src/options/app/changelogContent.ts` 当前仍按 Options changelog content compatibility module 保留；只有在 Options public behavior 移除 changelog content 且六项 owner proof 为空时，才能进入后续删除批次。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
@@ -22,7 +22,6 @@
 
 - `index.ts -> runtimeEntry.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 repository 注册、I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
-- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；剩余删除条件以 non-production source audit 的 exact-path owner proof 为准。
 - `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
 - `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
@@ -108,9 +107,6 @@ src/options/
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── layout/
-│   │   ├── OptionsApp.ts     # 装配 Shell、Sidebar、MainContent
-│   │   └── MainContent.ts    # Section 懒加载与挂载调度
 │   ├── sections/             # 各设置面板（BaseSection 子类）
 │   ├── formSections/         # FormSectionRegistry 及作用域绑定
 │   ├── infrastructure/       # ModalController 等基础控件
@@ -129,7 +125,7 @@ src/options/
 - `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
 - `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
-- `mountOptionsShell`、`OptionsApp`、`MainContent`、`Sidebar`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
+- 已退役的旧 layout shell、`mountOptionsShell`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
 - `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；repository 注册归属 `src/options/runtimeEntry.ts`；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
 2. **Options 主状态链（Phase 3 当前口径）**
@@ -227,7 +223,7 @@ src/options/
 
 ## 6. 常见问题
 
-- **懒加载不起作用**：确认 `MainContent.sectionDefinitions` 中的 `load` 使用动态导入，并检查 `NavigationController` 是否在 `aob:sectionmounted` 事件后绑定监听。
+- **导航/面板切换异常**：从 Stitch schema registry、`productionStitchShell.ts` 与 production render lifecycle 排查，不要恢复旧 layout shell。
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：运行 `ensureDeclarativeI18nController()` 后调用 `section.setMessages(messages)`；对于静态模板应检查 `data-i18n` 是否配置正确。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。

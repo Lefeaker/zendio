@@ -38,7 +38,7 @@ npm run build:dev
 
 - 页面：`http://localhost:4173/options/index.html`
 - 结果：
-  - `Options` shell 可加载，Sidebar 与 MainContent 现已同时包含 `deepResearch` / `classifier`
+  - `Options` production Stitch shell 可加载，导航与内容区已包含 `deepResearch` / `classifier`
   - 主题切换可把 `data-theme` 切到 `light`，提示文本同步变为 `Light Mode`
   - `Deep Research` 纯净模式 checkbox 可切换
   - `Classifier` 勾选后会展开 provider / endpoint / model / apiKey / taxonomy 配置区
