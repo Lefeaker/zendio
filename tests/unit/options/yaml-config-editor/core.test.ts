@@ -1,0 +1,292 @@
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_YAML_CONFIG } from '@shared/config';
+import type { YamlConfigOverrides, YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
+import {
+  applyYamlEditorAction,
+  createYamlEditorState,
+  serializeYamlEditorState,
+  validateYamlEditorState,
+  type YamlEditorState
+} from '@options/yaml-config-editor';
+
+const contentTypes: YamlContentType[] = ['article', 'clipper', 'video', 'ai_chat'];
+
+function fieldNames(state: YamlEditorState, contentType: YamlContentType): string[] {
+  return state.contentTypes[contentType].fields.map((field) => field.name);
+}
+
+function findFieldId(
+  state: YamlEditorState,
+  contentType: YamlContentType,
+  name: string,
+  bucket: 'fields' | 'customFields' = 'fields'
+): string {
+  const field = state.contentTypes[contentType][bucket].find(
+    (candidate) => candidate.name === name
+  );
+  if (!field) {
+    throw new Error(`Missing ${contentType} ${bucket} field ${name}`);
+  }
+  return field.id;
+}
+
+function addCustomField(
+  state: YamlEditorState,
+  contentType: YamlContentType,
+  name: string,
+  type: YamlFieldType,
+  defaultValue: string
+): YamlEditorState {
+  let next = applyYamlEditorAction(state, {
+    type: 'add-custom-field',
+    contentType,
+    field: { name, type, enabled: false }
+  });
+  const id = findFieldId(next, contentType, name, 'customFields');
+  next = applyYamlEditorAction(next, {
+    type: 'update-field',
+    contentType,
+    bucket: 'customFields',
+    fieldId: id,
+    patch: {
+      defaultValue,
+      valuePath: `metadata.${name}`
+    }
+  });
+  return applyYamlEditorAction(next, {
+    type: 'set-field-enabled',
+    contentType,
+    bucket: 'customFields',
+    fieldId: id,
+    enabled: true
+  });
+}
+
+describe('YAML editor core', () => {
+  it('creates immutable editor state with default rows for every content type', () => {
+    const overrides: YamlConfigOverrides = {
+      contentTypes: {
+        article: {
+          fields: [{ name: 'title', type: 'text', enabled: false }]
+        }
+      }
+    };
+    const original = JSON.parse(JSON.stringify(overrides)) as YamlConfigOverrides;
+    const state = createYamlEditorState(overrides);
+
+    for (const contentType of contentTypes) {
+      expect(fieldNames(state, contentType)).toEqual(
+        DEFAULT_YAML_CONFIG.contentTypes[contentType]?.fields.map((field) => field.name)
+      );
+    }
+    expect(overrides).toEqual(original);
+    expect(state.contentTypes.article.fields.find((field) => field.name === 'title')).toEqual(
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
+  it('serializes default custom fields and only changed built-in fields', () => {
+    let state = createYamlEditorState(null);
+
+    expect(validateYamlEditorState(state).valid).toBe(true);
+    expect(serializeYamlEditorState(state)).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'status',
+              type: 'array',
+              enabled: true,
+              defaultValue: ['unread'],
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
+
+    state = applyYamlEditorAction(state, {
+      type: 'set-field-enabled',
+      contentType: 'article',
+      bucket: 'fields',
+      fieldId: findFieldId(state, 'article', 'author'),
+      enabled: true
+    });
+
+    expect(serializeYamlEditorState(state)).toEqual({
+      contentTypes: {
+        article: {
+          fields: [{ name: 'author', type: 'text', enabled: true }],
+          customFields: [
+            {
+              name: 'status',
+              type: 'array',
+              enabled: true,
+              defaultValue: ['unread'],
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
+  });
+
+  it('adds, edits, toggles, and collects custom fields for each content type', () => {
+    for (const contentType of contentTypes) {
+      const state = addCustomField(
+        createYamlEditorState(null),
+        contentType,
+        `${contentType}_summary`,
+        'text',
+        `${contentType} default`
+      );
+
+      expect(serializeYamlEditorState(state)?.contentTypes?.[contentType]?.customFields).toEqual(
+        expect.arrayContaining([
+          {
+            name: `${contentType}_summary`,
+            type: 'text',
+            enabled: true,
+            defaultValue: `${contentType} default`,
+            valuePath: `metadata.${contentType}_summary`,
+            isCustom: true
+          }
+        ])
+      );
+
+      const customId = findFieldId(state, contentType, `${contentType}_summary`, 'customFields');
+      const toggledOff = applyYamlEditorAction(state, {
+        type: 'set-field-enabled',
+        contentType,
+        bucket: 'customFields',
+        fieldId: customId,
+        enabled: false
+      });
+      expect(
+        serializeYamlEditorState(toggledOff)?.contentTypes?.[contentType]?.customFields?.some(
+          (field) => field.name === `${contentType}_summary`
+        )
+      ).not.toBe(true);
+    }
+  });
+
+  it('preserves globalFields and serializes them only when present', () => {
+    const state = createYamlEditorState({
+      globalFields: [
+        {
+          name: 'source',
+          type: 'text',
+          enabled: true,
+          defaultValue: 'web',
+          valuePath: 'metadata.source'
+        }
+      ]
+    });
+
+    expect(serializeYamlEditorState(state)?.globalFields).toEqual([
+      {
+        name: 'source',
+        type: 'text',
+        enabled: true,
+        defaultValue: 'web',
+        valuePath: 'metadata.source',
+        isCustom: true
+      }
+    ]);
+    expect(serializeYamlEditorState(createYamlEditorState(null))?.globalFields).toBeUndefined();
+  });
+
+  it('normalizes exact and wildcard domain override keys and detects duplicates', () => {
+    const state = createYamlEditorState({
+      contentTypes: {
+        article: {
+          domainOverrides: {
+            ' HTTPS://Docs.Example.COM/path ': [{ name: 'title', type: 'text', enabled: true }],
+            ' *.Example.COM ': [
+              { name: 'tags', type: 'array', enabled: true, defaultValue: ['docs', 'example'] }
+            ]
+          }
+        }
+      }
+    });
+
+    expect(serializeYamlEditorState(state)?.contentTypes?.article?.domainOverrides).toEqual({
+      'docs.example.com': [{ name: 'title', type: 'text', enabled: true }],
+      '*.example.com': [
+        { name: 'tags', type: 'array', enabled: true, defaultValue: ['docs', 'example'] }
+      ]
+    });
+
+    const duplicate = createYamlEditorState({
+      contentTypes: {
+        article: {
+          domainOverrides: {
+            'docs.example.com': [{ name: 'title', type: 'text', enabled: true }],
+            'https://DOCS.example.com/path': [{ name: 'url', type: 'text', enabled: true }]
+          }
+        }
+      }
+    });
+    const validation = validateYamlEditorState(duplicate);
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'domain_duplicate', contentType: 'article' })
+      ])
+    );
+    expect(serializeYamlEditorState(duplicate)).toBeNull();
+  });
+
+  it('parses array, boolean, number, date, text, and empty default values', () => {
+    let state = createYamlEditorState(null);
+    state = addCustomField(state, 'article', 'array_field', 'array', 'one; two, three\nfour');
+    state = addCustomField(state, 'article', 'flag_field', 'boolean', 'true');
+    state = addCustomField(state, 'article', 'score_field', 'number', '42');
+    state = addCustomField(state, 'article', 'date_field', 'date', '2026-05-31');
+    state = addCustomField(state, 'article', 'text_field', 'text', 'hello');
+    state = addCustomField(state, 'article', 'empty_field', 'text', '');
+
+    expect(serializeYamlEditorState(state)?.contentTypes?.article?.customFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'array_field',
+          defaultValue: ['one', 'two', 'three', 'four']
+        }),
+        expect.objectContaining({ name: 'flag_field', defaultValue: true }),
+        expect.objectContaining({ name: 'score_field', defaultValue: 42 }),
+        expect.objectContaining({ name: 'date_field', defaultValue: '2026-05-31' }),
+        expect.objectContaining({ name: 'text_field', defaultValue: 'hello' })
+      ])
+    );
+    const emptyField = serializeYamlEditorState(state)?.contentTypes?.article?.customFields?.find(
+      (field) => field.name === 'empty_field'
+    );
+    expect(emptyField).toEqual(expect.objectContaining({ name: 'empty_field' }));
+    expect(emptyField).not.toHaveProperty('defaultValue');
+  });
+
+  it('returns structured validation errors and blocks serialization for editable invalid state', () => {
+    let state = createYamlEditorState(null);
+    state = addCustomField(state, 'article', 'bad_number', 'number', 'not-a-number');
+    state = applyYamlEditorAction(state, {
+      type: 'update-field',
+      contentType: 'article',
+      bucket: 'customFields',
+      fieldId: findFieldId(state, 'article', 'bad_number', 'customFields'),
+      patch: { valuePath: 'metadata bad' }
+    });
+
+    const validation = validateYamlEditorState(state);
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'default_invalid', fieldName: 'bad_number' }),
+        expect.objectContaining({ code: 'value_path_invalid', fieldName: 'bad_number' })
+      ])
+    );
+    expect(() => validateYamlEditorState(state)).not.toThrow();
+    expect(serializeYamlEditorState(state)).toBeNull();
+  });
+});
