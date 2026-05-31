@@ -7,6 +7,7 @@ import type {
   VideoPanelCapture
 } from '@content/video/application/videoPanelModel';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
+import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
   onAddCapture: vi.fn(),
@@ -49,6 +50,10 @@ function createCapture(overrides: Partial<VideoPanelCapture> = {}): VideoPanelCa
     shareUrl: 'https://example.com?t=42',
     ...overrides
   };
+}
+
+function flushPanelPersistence(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('VideoDialogPanel', () => {
@@ -333,6 +338,42 @@ describe('VideoDialogPanel', () => {
     );
 
     panel.destroy();
+  });
+
+  it('restores user-collapsed video floating panels from local storage', async () => {
+    await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+
+    await flushPanelPersistence();
+
+    expect(
+      panel.element.shadowRoot
+        ?.querySelector('.resource-modal--session')
+        ?.classList.contains('is-collapsed')
+    ).toBe(true);
+
+    panel.destroy();
+  });
+
+  it('persists user collapse without persisting programmatic video capture collapse', async () => {
+    const programmaticPanel = new VideoDialogPanel({ callbacks, texts });
+    programmaticPanel.show();
+    programmaticPanel.collapse();
+
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(
+      undefined
+    );
+    programmaticPanel.destroy();
+
+    const userPanel = new VideoDialogPanel({ callbacks, texts });
+    userPanel.show();
+    userPanel.element.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-action-id="session:toggleCollapse"]')
+      ?.click();
+
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(true);
+    userPanel.destroy();
   });
 
   it('renders text fragments below timestamps with reader-style numbering', () => {
