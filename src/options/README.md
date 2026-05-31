@@ -42,7 +42,7 @@
 npm run lint                 # Typescript + ESLint/Stylelint 基线
 npm run lint:options-css     # 限定 Options CSS 的 Stylelint
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
-npm run test:unit            # Section/Controller 的最小回归
+npm run test:unit            # Stitch shell / controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
 ```
 
@@ -101,15 +101,15 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 ```
 src/options/
 ├── app/
-│   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Shell
+│   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Stitch Shell
 │   ├── productionStitchShell.ts # 正式 Stitch Secondary production adapter
 │   ├── optionsController.ts  # 控制器：持久化、自动保存、导入导出
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── sections/             # 各设置面板（BaseSection 子类）
-│   ├── formSections/         # FormSectionRegistry 及作用域绑定
-│   ├── infrastructure/       # ModalController 等基础控件
+│   ├── sections/             # 旧 Section 兼容/迁移资产；不得作为新增生产 UI owner
+│   ├── formSections/         # 旧 FormSectionRegistry 兼容层；不得重新接入正式启动链
+│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/domain UI
 │   └── services/             # 配置传输等选项页专用服务
 └── utils/                     # 选项页工具（如 optionsTransfer.ts）
 ```
@@ -122,7 +122,7 @@ src/options/
 
 - `teardownMountedShell()` + `disposeCleanupHandlers()`：保证二次初始化时清理旧实例。
 - `applyI18n()`：创建并挂载 `PageI18nController`。
-- `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
+- `initializeOptionsController()`：实例化 `OptionsController`，通过 `createOptionsFormAdapter()` 读取当前生产表单状态并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
 - `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
 - 已退役的旧 layout shell、`mountOptionsShell`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
@@ -140,27 +140,32 @@ src/options/
 - 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
-3. **Section 生命周期**
+3. **旧 Section/FormSection 兼容边界**
 
-- `render()`：使用传入容器渲染 DOM，仅绑定自身事件。
-- `setMessages()`：接收最新文案，更新静态文本。
-- `applySnapshot()` / `collectChanges()`：由 `FormSectionRegistry` 驱动，与 `OptionsController` 结合支持自动保存。
-- `destroy()`：释放事件和子组件，放入 `registerCleanup()` 的回调会在页面卸载或热重启时执行。
+- `BaseSection` 子类、`registerFormIntegration()`、`FormSectionRegistry` 与旧 Section lifecycle 只作为兼容测试或迁移定位资产保留，不是新增生产 Options UI 的实现指南。
+- 不要新增旧 Section 子类，不要把旧 form-section 注册链重新接入 `src/options/app/bootstrap.ts`、`productionStitchShell.ts` 或正式页面启动链。
+- 如需删除旧资产，必须先满足 Non-Production Code 3.0 的 production build graph、import graph、test/script/public/verification owner 六项 proof，并让相关 audit 通过。
 
-4. **Helper/Controller**
+4. **Helper/Controller 迁移边界**
 
-- 诸如 `DomainMappingsController`、`YamlConfigTable` 必须实现 `render()` / `collect()` / `destroy()`，并在 Section 的 `destroy()` 中统一释放。
+- 旧 `DomainMappingsController`、`YamlConfigTable` 等 helper/controller 的 `render()` / `collect()` / `destroy()` 约定仅用于理解兼容残留，不作为新增生产功能模板。
+- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS，复杂领域控件落到当前 `src/ui/domains/*` owner。
+- 通用控件复用 `src/ui/primitives/*` 与 `src/ui/patterns/*`；shell 级状态、自动保存、资源弹层或语言切换才进入 `src/options/app/productionStitchShell.ts` 相关模块。
 
 ---
 
 ## 3. 开发规范速查
 
-- **新增 Section**
-  1. 继承 `BaseSection`，在构造函数中仅保存容器。
-  2. 在 `render()` 中渲染结构并调用 `registerFormIntegration()` 注册到 `FormSectionRegistry`。
-  3. 通过 `markPendingAutoSave(sectionId)` + `getOptionsController()?.scheduleAutoSave()` 触发自动保存。
-  4. 使用 `this.messages` 设置静态文案；新增键需写入 `src/options/components/messages.ts` 并更新 `_locales`。
-  5. 补充单测 `tests/unit/options/sections/<Section>.test.ts`，验证 `render/applySnapshot/collectChanges`。
+- **新增生产 Options UI 行为**
+  1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
+  2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
+  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 Section/FormSection owner。
+  4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能调用旧 `registerFormIntegration()` 或恢复 `FormSectionRegistry` 注册。
+  5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
+
+- **旧 Section/FormSection 兼容说明**
+  - `BaseSection`、`registerFormIntegration()`、`FormSectionRegistry` 与旧 Section 类只允许作为兼容测试、迁移定位或待删除 inventory 语境出现。
+  - 如果 audit 显示某个旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类；不得为了让生产功能工作而把它重新连回正式启动链。
 
 - **多语言适配**
   - 文案统一由 `setMessages()` 或 `data-i18n` 驱动，参照 `docs/options-multilingual-adaptation-guide.md` 进行整改。

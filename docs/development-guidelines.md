@@ -196,8 +196,8 @@ try {
 
 - **运行时约束**
   - 二次初始化依赖 `bootstrapOptionsApp()` 内的 `disposeCleanupHandlers()` 与 `teardownMountedShell()`，禁止独立实例化 Controller 或 Shell。
-  - Section、Helper（如 `DomainMappingsController`、`YamlConfigTable`）必须实现 `destroy()`，清理事件与子组件。
-  - 所有文案通过 `setMessages()` 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
+  - 新增生产 UI 生命周期应归属 Stitch renderer/runtime、production shell 或当前 `src/ui/domains/*` owner；旧 Section/Helper lifecycle 只作为兼容残留语境，不作为新增实现模板。
+  - 所有文案通过 Stitch content/schema、production shell messages 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
 
 - **测试要求**
   - 端到端/复杂单测使用 `tests/utils/domEnvironment.ts` 的 `withDomEnvironment()`，统一覆写并恢复全局。
@@ -206,7 +206,7 @@ try {
 
 - **提交前检查清单**
   - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/quality/lint-warnings.latest.json` 或命令输出佐证）。
-  - 新增 Section 或 Helper 后更新 `src/options/README.md`，保持文档与实现一致。
+  - 新增 Stitch/domain 生产 UI 行为后更新 `src/options/README.md`，保持文档与实现一致。
 
 ---
 
