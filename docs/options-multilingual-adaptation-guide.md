@@ -6,10 +6,7 @@
 ## 当前真值
 
 - `Options` 主路径的可见文案必须走 `Messages` -> `src/i18n/locales/*.ts` 链路。
-- 2026-03-21 已补齐此前仍残留的主路径硬编码：
-  - `DiagnosisSection.ts`
-  - `RoutingSection.ts`
-  - `VideoSection.ts`
+- 2026-06-01 旧 Options Section 类已清退；当前 Options 主路径文案由 production Stitch schema、`src/options/stitch/content.ts`、`src/options/app/**` 与 i18n locale 文件共同承载。
 - 本轮新增的 i18n key 已同步到 13 个 source locale：
   - `diagnosisDescription`
   - `diagnosisSummaryHint`
@@ -39,7 +36,7 @@
 - `npm run lint -- --quiet`
 - `npm run i18n:lint`
 - `npm run audit:locales:report`
-- `npx vitest run tests/unit/options/sections/DiagnosisSection.test.ts tests/unit/options/sections/RoutingSection.test.ts tests/unit/options/sections/VideoSection.test.ts`
+- `npx vitest run --config vitest.unit.config.ts tests/unit/options/productionStitchShell*.test.ts tests/unit/options/schemaI18nParity.test.ts`
 
 浏览器抽查：
 
@@ -58,8 +55,8 @@
 
 1. 在 `src/i18n/messages.ts` 添加 key。
 2. 在全部 `src/i18n/locales/*.ts` 添加同名 key。
-3. Section 不得直接写死用户可见字符串。
-4. 至少补一条对应 Section 单测，验证 `setMessages()` 后文本已进入渲染结果。
+3. Production Stitch schema、content、shell 或 domain owner 不得直接写死未登记的用户可见字符串。
+4. 至少补一条对应 production Stitch/schema/i18n 单测，验证 locale 文案进入渲染或 schema 结果。
 5. 运行 `npm run i18n:lint` 与 `npm run audit:locales:report`。
 
 ## 当前剩余风险

@@ -25,7 +25,7 @@
 - **废弃原因**：报告围绕 `usageDashboard.ts`、`vaultRouterSection.ts`、`optionsForm.ts` 等旧版巨石文件提出拆分建议，但这些文件已经在 2025 的组件化重构中完全移除，章节内容与现状不符。
 - **依据**：
   - `src/options/components/layout/MainContent.ts:35` 通过动态导入 `sections/*` 来管理每个功能区，取代了旧版单文件实现。
-  - `src/options/components/sections/UsageSection.ts:1` 展示了新的 `UsageSection` 结构（含 `usageDashboard.utils`），对应逻辑已拆分并模块化。
+  - 旧 usage section 文件展示了当时的 usage dashboard 结构，对应逻辑已拆分并模块化。
 - **替代方案**：现行架构、目录与职责划分详见 `docs/options-page-refactor-plan.md`（现已更新）与 `src/options/README.md`，不再需要旧的机会分析报告。
 
 ## 4. docs/options-refactor-followup-guide.md
@@ -33,7 +33,7 @@
 - **废弃原因**：文档列出的“待办”包括 Section 懒加载、Fragment 上下文控件回归、Helper 控制器组件化等，但这些项目已经完成，并配套单元 / E2E 覆盖。
 - **依据**：
   - `src/options/components/layout/MainContent.ts:35` 与 `tests/e2e/optionsNavigationLazyLoad.test.ts:1` 证明懒加载及导航联动已实现并有测试。
-  - `src/options/components/sections/FragmentSection.ts:259` 提供上下文长度/模式控件，`tests/e2e/optionsFragmentAutoSave.test.ts:1` 负责自动保存回归。
+  - 旧 fragment section 文件 提供上下文长度/模式控件，`tests/e2e/optionsFragmentAutoSave.test.ts:1` 负责自动保存回归。
   - `src/options/components/controls/vaultRouterController.ts:1` 与 `tests/e2e/optionsVaultRouterAutoSave.test.ts:1` 显示 helper 控制器已经组件化并受测试保护。
 - **替代方案**：最新状态请参考 `src/options/README.md`、`docs/development-guidelines.md` 以及相应的 E2E/单测，原 follow-up 指南应转入历史记录。
 

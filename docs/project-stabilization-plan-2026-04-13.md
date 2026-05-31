@@ -58,13 +58,13 @@ npx vitest run tests/unit/options/productionStitchShell.renderLifecycle.test.ts
 | `src/content/video/videoSessionRuntime.ts`                          | `<= 360` |     `<= 320` |    `314` |
 | `src/options/components/sections/RestSectionView.ts`                | `<= 300` |     `<= 260` |    `300` |
 | `src/ui/domains/privacy/PrivacySettingsView.ts`                     | `<= 300` |     `<= 260` |    `260` |
-| `src/options/components/sections/UsageDashboardSection.ts`          | `<= 280` |     `<= 260` |    `231` |
+| legacy usage dashboard section                                      | `<= 280` |     `<= 260` |    `231` |
 | `src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts` | `<= 500` |     `<= 420` |    `471` |
 
 当前结论：
 
 - 5 个热点全部达到最低目标
-- `videoSessionRuntime`、`PrivacySettingsView`、`UsageDashboardSection` 3 个热点达到 stretch
+- `videoSessionRuntime`、`PrivacySettingsView`、`legacy usage dashboard section` 3 个热点达到 stretch
 - `<=250` 仅适用于本轮新增/拆出的 support modules，不适用于上述 5 个主热点入口
 - 当前新增/AM 的 `src/` support modules 已重新核实，无 `>250` 残留
 

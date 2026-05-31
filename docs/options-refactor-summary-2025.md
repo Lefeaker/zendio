@@ -90,8 +90,8 @@
   - `src/options/components/layout/OptionsApp.ts`
   - `src/options/components/layout/MainContent.ts`
 - Section 示例
-  - `src/options/components/sections/FragmentSection.ts`
-  - `src/options/components/sections/TemplatesSection.ts`
+  - legacy fragment section file
+  - legacy templates section file
 - Helper 与服务
   - `src/options/components/controls/domainMappings.ts`
   - `src/options/components/controls/yamlConfigTable.ts`

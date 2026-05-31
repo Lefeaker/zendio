@@ -53,18 +53,6 @@ const EXPLICIT_RETAIN_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'REST section compatibility shell',
     deletionCondition: 'delete only after compatibility tests and public imports are migrated'
-  },
-  {
-    pattern: 'src/options/components/sections/FragmentSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'Fragment section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
-  },
-  {
-    pattern: 'src/options/components/sections/UsageSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'Usage section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
   }
 ];
 
@@ -193,23 +181,11 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete after production Stitch schema registry fully replaces legacy section lookup'
   },
   {
-    pattern: 'src/options/components/sections/fragmentSection*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Fragment section helper retained by old section coverage',
-    deletionCondition: 'delete after Fragment behavior is covered by production Stitch/schema tests'
-  },
-  {
     pattern: 'src/options/components/sections/restSection*.ts',
     decision: 'migrate-test-owner',
     owner: 'legacy REST section helper retained by old section coverage',
     deletionCondition:
       'delete after REST/storage behavior is covered by production Stitch/storage tests'
-  },
-  {
-    pattern: 'src/options/components/sections/usage*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Usage section helper retained by old usage coverage',
-    deletionCondition: 'delete after usage behavior is covered by production Stitch/domain tests'
   },
   {
     pattern: 'src/options/schema-runtime/index.ts',
@@ -399,15 +375,6 @@ const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/index.ts',
   'src/options/components/controls/domainMappings.ts',
   'src/options/components/formSections/formSectionManager.ts',
-  'src/options/components/sections/AiSection.ts',
-  'src/options/components/sections/ClassifierSection.ts',
-  'src/options/components/sections/DeepResearchSection.ts',
-  'src/options/components/sections/DiagnosisSection.ts',
-  'src/options/components/sections/LanguageSection.ts',
-  'src/options/components/sections/ReadingSection.ts',
-  'src/options/components/sections/TemplatesSection.ts',
-  'src/options/components/sections/TransferSection.ts',
-  'src/options/components/sections/VideoSection.ts',
   'src/options/utils/defaults.ts'
 ];
 

@@ -92,7 +92,7 @@ credentials and manual confirmation.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `141`，fresh warning count 为 `140`，当前低于 baseline。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `137`，fresh warning count 为 `136`，当前低于 baseline。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`102`）、unsafe type warnings、`no-restricted-syntax`。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `11` warning-only findings，且已接入 `quality` 与 CI。
@@ -167,8 +167,6 @@ credentials and manual confirmation.
 - `src/ui/domains/yaml-config/yamlConfigTableModel.ts`
 - `src/ui/domains/privacy/PrivacySettings.ts`
 - `src/options/components/sections/RestSection.ts`
-- `src/options/components/sections/FragmentSection.ts`
-- `src/options/components/sections/UsageSection.ts`
 
 ## MCP / 本地浏览器调试入口
 

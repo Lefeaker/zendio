@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -37,7 +37,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/onboarding/bootstrap.ts', 429],
   ['src/background/services/notifications.ts', 424],
   ['src/background/trialLifecycle.ts', 272],
-  ['src/options/components/sections/TemplatesSection.ts', 421],
   ['src/shared/config/optionsMerger.ts', 417],
   ['src/dev/localVaultWriteHarness.ts', 411],
   ['src/options/widgets/yaml-config/model.ts', 407],
@@ -50,11 +49,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts', 373],
   ['src/shared/exportDestination.ts', 372],
   ['src/ui/domains/reading/ReaderDialog.ts', 371],
-  ['src/options/components/sections/ClassifierSection.ts', 370],
   ['src/content/video/ui/VideoDialogPanel.ts', 369],
-  ['src/options/components/sections/ReadingSection.ts', 367],
   ['src/dev/contentOrchestratorHarness.ts', 358],
-  ['src/options/components/sections/VideoSection.ts', 355],
   ['src/background/services/obsidianWriter.ts', 352],
   ['src/background/vault-router.ts', 352],
   ['src/shared/state/globalStateManager.ts', 345],
@@ -87,6 +83,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
   ['src/options/stitch/render/nodeRenderers.ts', 274],
   ['src/third_party/ai-chat-exporter/shared/markdownLanguage.ts', 273],
+  ['src/options/yaml-config-editor/validation.ts', 270],
   ['src/background/llm/classifier.ts', 268],
   ['src/background/listeners/runtimeMessages.ts', 266],
   ['src/background/services/usageStats.ts', 266],
@@ -190,6 +187,7 @@ function listTrackedSourceFiles(root) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map(normalizeRelativePath)
+    .filter((relativePath) => existsSync(join(root, relativePath)))
     .sort((left, right) => left.localeCompare(right));
 }
 

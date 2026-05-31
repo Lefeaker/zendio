@@ -12,20 +12,20 @@
 
 ## 2. 当前全局绑定清单
 
-| 功能              | DOM ID                                  | 绑定位置                                            | 渲染来源                  | 备注                           |
-| ----------------- | --------------------------------------- | --------------------------------------------------- | ------------------------- | ------------------------------ |
-| 语言切换          | `languageSelect`                        | `bootstrap.ts:195`                                  | `LanguageSection.ts:41`   | 负责切换 i18n 资源并刷新界面。 |
-| 新增域名映射      | `addMappingBtn`                         | `bootstrap.ts:203`                                  | `TemplatesSection.ts:114` | 调用全局 `addMappingRow`。     |
-| 导出配置          | `copyConfigBtn`                         | `bootstrap.ts:206`                                  | `TransferSection.ts:33`   | 使用剪贴板 API。               |
-| 导入配置          | `importConfigBtn`                       | `bootstrap.ts:210`                                  | `TransferSection.ts:39`   | 读取剪贴板并保存。             |
-| 手动保存          | `saveBtn`                               | `bootstrap.ts:214`                                  | **实验 UI 未挂出**        | 需确认 UI 设计。               |
-| 诊断              | `diagBtn`                               | `bootstrap.ts:222`                                  | `DiagnosisSection.ts:45`  | 调用 `runDiagnostics`。        |
-| 修复              | `fixBtn`                                | `bootstrap.ts:224`                                  | `DiagnosisSection.ts:49`  | 调用 `fixConfiguration`。      |
-| 重新加载          | `reloadBtn`                             | `bootstrap.ts:226`                                  | `DiagnosisSection.ts:53`  | 刷新存储配置后诊断。           |
-| 分类器开关提示    | `clsEnable`                             | `bootstrap.ts:230` + `updateClassifierUnstableNote` | `ClassifierSection.ts:23` | 控制不稳定提示展示。           |
-| AI 时间戳强制关闭 | `aiIncludeTimestamps`                   | `bootstrap.ts:351`                                  | `AiSection.ts`            | 固定为 false。                 |
-| URL Hash 锚点     | `fragmentKeyboardShortcutsEnabled` (等) | `bootstrap.ts:408`                                  | `FragmentSection`         | 高亮指定控件。                 |
-| 模态框触发        | `supportLink` 等                        | `initModalManager`                                  | Sidebar footer            | 已模块化，可维持。             |
+| 功能              | DOM ID                                  | 绑定位置                                   | 渲染来源                  | 备注                              |
+| ----------------- | --------------------------------------- | ------------------------------------------ | ------------------------- | --------------------------------- |
+| 语言切换          | `languageSelect`                        | production Stitch action runtime           | Stitch overview schema    | 负责切换 i18n 资源并刷新界面。    |
+| 新增域名映射      | `addMappingBtn`                         | production Stitch storage controller       | Stitch storage schema     | 调用当前 routing/domain helpers。 |
+| 导出配置          | `copyConfigBtn`                         | production Stitch maintenance action       | Stitch maintenance schema | 使用剪贴板 API。                  |
+| 导入配置          | `importConfigBtn`                       | production Stitch maintenance action       | Stitch maintenance schema | 读取剪贴板并保存。                |
+| 手动保存          | `saveBtn`                               | `bootstrap.ts:214`                         | **实验 UI 未挂出**        | 需确认 UI 设计。                  |
+| 诊断              | `diagBtn`                               | production Stitch maintenance action       | Stitch maintenance schema | 调用 `runDiagnostics`。           |
+| 修复              | `fixBtn`                                | production Stitch maintenance action       | Stitch maintenance schema | 调用 `fixConfiguration`。         |
+| 重新加载          | `reloadBtn`                             | production Stitch maintenance action       | Stitch maintenance schema | 刷新存储配置后诊断。              |
+| 分类器开关提示    | `clsEnable`                             | release shell no longer exposes the editor | production Stitch state   | 当前仅保留配置值。                |
+| AI 时间戳强制关闭 | `aiIncludeTimestamps`                   | release shell no longer exposes the editor | production Stitch state   | 当前仅保留配置值。                |
+| URL Hash 锚点     | `fragmentKeyboardShortcutsEnabled` (等) | production Stitch navigation/state         | Stitch capture schema     | 高亮或定位由当前 shell 承担。     |
+| 模态框触发        | `supportLink` 等                        | `initModalManager`                         | Sidebar footer            | 已模块化，可维持。                |
 
 ## 3. 迁移策略
 
@@ -33,7 +33,7 @@
    分批处理，优先迁移易于封装的按钮：语言切换、域名映射、诊断三件套、分类器提示。
 
 2. **组件内绑定**
-   - 在 Section 内部的 `render` 方法完成元素渲染后，使用实例级别的事件绑定。
+   - 在 production Stitch schema/runtime 完成元素渲染后，使用 schema action 或 controller 级事件绑定。
    - 在 `destroy` 中注销监听，保持内存清理。
 
 3. **公共逻辑抽取**
@@ -49,17 +49,17 @@
 ## 4. 建议的执行顺序
 
 1. **诊断面板**
-   - 在 `DiagnosisSection` 中封装 `runDiagnostics`、`fixConfiguration`、`handleReload` 调用，提供加载中状态或禁用按钮的能力。
+   - 在 production Stitch maintenance action 中封装 `runDiagnostics`、`fixConfiguration`、`handleReload` 调用，提供加载中状态或禁用按钮的能力。
 
 2. **配置同步**
-   - 将 `copyConfig` / `importConfig` 操作迁入 `TransferSection`，并考虑提示统一显示位置（如 Section 内 status bar）。
+   - 将 `copyConfig` / `importConfig` 操作保留在 production Stitch maintenance action，并考虑提示统一显示位置。
 
 3. **语言与映射**
-   - 语言选择器在 Section 内部监听 `change`，通过 `ensureDeclarativeI18nController` 触发刷新；迁移完毕后 `bootstrap.ts` 删除对应逻辑。
-   - 域名映射新增按钮在模板 Section 内部直接调用 `addMappingRow` 或替换为新的接口。
+   - 语言选择器通过 production Stitch action 触发 `ensureDeclarativeI18nController` 刷新。
+   - 域名映射新增按钮通过 production Stitch storage/routing helpers 写入草稿。
 
 4. **分类器提示**
-   - 在 `ClassifierSection.render` 中监听 `clsEnable` 的 change 事件，实时控制提示显示。
+   - 分类器编辑器仍未在 release shell 暴露；若恢复，需要通过 production Stitch schema/action 接入。
 
 5. **AI 时间戳与 Hash 高亮**
    - 将强制关闭时间戳改为渲染时设定默认值或通过 state 控制。
