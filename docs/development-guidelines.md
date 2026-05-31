@@ -190,14 +190,14 @@ try {
 - **核心组成**
   - 正式 Options UI 启动链为 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
   - `src/options/stitch/*` 的 schema、renderer、content 与 CSS 是当前 Options UI behavior 真值；新增 UI behavior 优先落在 Stitch schema/render/domain code 或 `src/ui/domains/*`。
-  - `OptionsApp`、`MainContent`、旧 Section class 与 `FormSectionRegistry` 属于兼容/验证迁移资产；不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
+  - 旧 layout shell 源码已退役；旧 Section class 与 `FormSectionRegistry` 属于兼容/验证迁移资产，不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
   - 删除旧 Options source 前必须运行 Non-Production Code 3.0 owner scan：记录 `audit:non-production-source:report` counts/exit status，并要求 `audit:non-production-source:check` 通过。
   - `OptionsController`（`src/options/app/optionsController.ts`）集中处理持久化、自动保存、导入导出，自动保存链路需调用 `markPendingAutoSave()` + `scheduleAutoSave()`。
 
 - **运行时约束**
   - 二次初始化依赖 `bootstrapOptionsApp()` 内的 `disposeCleanupHandlers()` 与 `teardownMountedShell()`，禁止独立实例化 Controller 或 Shell。
-  - Section、Helper（如 `DomainMappingsController`、`YamlConfigTable`）必须实现 `destroy()`，清理事件与子组件。
-  - 所有文案通过 `setMessages()` 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
+  - 新增生产 UI 生命周期应归属 Stitch renderer/runtime、production shell 或当前 `src/ui/domains/*` owner；旧 Section/Helper lifecycle 只作为兼容残留语境，不作为新增实现模板。
+  - 所有文案通过 Stitch content/schema、production shell messages 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
 
 - **测试要求**
   - 端到端/复杂单测使用 `tests/utils/domEnvironment.ts` 的 `withDomEnvironment()`，统一覆写并恢复全局。
@@ -206,7 +206,7 @@ try {
 
 - **提交前检查清单**
   - `npm run typecheck:tests`、`npm run lint --max-warnings=0`、`npm run lint:warnings-guard`、`npm run test:unit`、`npm run test:e2e` 必须通过（lint 报告必须保持 0 warning，PR 需附 `tmp/quality/lint-warnings.latest.json` 或命令输出佐证）。
-  - 新增 Section 或 Helper 后更新 `src/options/README.md`，保持文档与实现一致。
+  - 新增 Stitch/domain 生产 UI 行为后更新 `src/options/README.md`，保持文档与实现一致。
 
 ---
 
@@ -710,21 +710,9 @@ export class BookmarkSettings {
   }
 }
 
-// 2. 在选项页面集成 (src/options/app/OptionsApp.ts)
-import { BookmarkSettings } from '../components/BookmarkSettings';
-
-export class OptionsApp {
-  private bookmarkSettings: BookmarkSettings;
-
-  constructor() {
-    const container = document.getElementById('bookmark-settings-container')!;
-    this.bookmarkSettings = new BookmarkSettings(container);
-  }
-
-  initialize(): void {
-    this.bookmarkSettings.render();
-  }
-}
+// 2. 在 Stitch schema/render/domain owner 中接入
+// 不创建或恢复旧 Options layout shell；新增 Options UI 行为应落在
+// src/options/stitch/*、productionStitchShell.ts 或 src/ui/domains/*。
 ```
 
 ## 12. 国际化开发指南

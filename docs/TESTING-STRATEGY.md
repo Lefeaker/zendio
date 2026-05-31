@@ -79,7 +79,6 @@ retained/deferred Options compatibility surfaces that are no longer production
 implementation targets:
 
 - `src/options/components/formSections/**`
-- `src/options/components/layout/**`
 - `src/options/components/sections/**`
 - `src/options/widgets/shared/**`
 

@@ -52,8 +52,8 @@ const approvedPostTestDeleteCandidate = [
   'src',
   'options',
   'components',
-  'layout',
-  'Navigation.ts'
+  'sections',
+  'AiSection.ts'
 ].join('/');
 const approvedPostWidgetDeleteCandidate = ['src', 'options', 'widgets', 'UsageWidget.ts'].join('/');
 const approvedReadingVideoDeleteCandidate = [
@@ -73,12 +73,12 @@ const approvedFormSectionDeleteCandidate = [
   'formSectionManager.ts'
 ].join('/');
 const approvedUtilsDefaultsDeleteCandidate = ['src', 'options', 'utils', 'defaults.ts'].join('/');
-const approvedOptionsAppDeleteCandidate = [
+const approvedSectionDependencyDeleteCandidate = [
   'src',
   'options',
   'components',
-  'layout',
-  'OptionsApp.ts'
+  'sections',
+  'ClassifierSection.ts'
 ].join('/');
 const approvedZagComboboxDeleteCandidate = ['src', 'ui', 'ZagCombobox.js'].join('/');
 
@@ -470,7 +470,7 @@ describe('report-non-production-source', () => {
   it('does not mark unapproved unowned source as delete-now', () => {
     const result = classifySourceFile(
       input({
-        file: 'src/options/components/layout/UnapprovedLegacyShell.ts',
+        file: 'src/options/components/sections/UnapprovedLegacySection.ts',
         ownerProofs: {
           productionBuildGraph: 'empty',
           importGraph: 'empty',
@@ -509,7 +509,7 @@ describe('report-non-production-source', () => {
     const result = classifySourceFile(
       input({
         file: approvedPostTestDeleteCandidate,
-        testOwners: ['tests/unit/options/layout/Navigation.retainedLegacyCoverage.test.ts'],
+        testOwners: ['tests/unit/options/sections/AiSection.retainedLegacyCoverage.test.ts'],
         explicitDeleteNowPatterns: [approvedPostTestDeleteCandidate]
       })
     );
@@ -522,7 +522,6 @@ describe('report-non-production-source', () => {
       input({
         file: approvedFormSectionDeleteCandidate,
         retainedSourceImportOwners: [
-          'src/options/components/layout/MainContent.ts',
           'src/options/components/sections/BaseSection.ts',
           'src/options/components/sections/FragmentSectionView.ts',
           'src/options/components/sections/restSectionRuntime.ts',
@@ -566,11 +565,11 @@ describe('report-non-production-source', () => {
     expect(result.deletionCondition).toContain('re-exports');
   });
 
-  it('does not classify layout and section files as delete-now while retained source imports remain', () => {
+  it('does not classify section files as delete-now while retained source imports remain', () => {
     const result = classifySourceFile(
       input({
         file: approvedPostTestDeleteCandidate,
-        retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'],
+        retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'],
         ownerProofs: {
           productionBuildGraph: 'empty',
           importGraph: 'empty',
@@ -586,15 +585,13 @@ describe('report-non-production-source', () => {
     expect(result.decision).toBe('migrate-import-owner');
   });
 
-  it('does not classify OptionsApp as delete-now while it imports retained source dependencies', () => {
+  it('does not classify an old section as delete-now while it imports retained source dependencies', () => {
     const result = classifySourceFile(
       input({
-        file: approvedOptionsAppDeleteCandidate,
+        file: approvedSectionDependencyDeleteCandidate,
         retainedSourceImportTargets: [
-          'src/options/components/layout/MainContent.ts',
-          'src/options/components/layout/Navigation.ts',
-          'src/options/components/layout/NavigationController.ts',
-          'src/options/components/layout/Sidebar.ts'
+          'src/options/components/sections/BaseSection.ts',
+          'src/options/components/formSections/formSectionManager.ts'
         ],
         ownerProofs: {
           productionBuildGraph: 'empty',
@@ -604,7 +601,7 @@ describe('report-non-production-source', () => {
           testsVisualBrowser: 'empty',
           requiredVerification: 'empty'
         },
-        explicitDeleteNowPatterns: [approvedOptionsAppDeleteCandidate]
+        explicitDeleteNowPatterns: [approvedSectionDependencyDeleteCandidate]
       })
     );
 
@@ -646,7 +643,7 @@ describe('report-non-production-source', () => {
   it('keeps report mode inventory visible for migration rows', () => {
     const report = formatNonProductionSourceReport([
       classifySourceFile(
-        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+        input({ retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'] })
       ),
       classifySourceFile(input({ scriptOwners: ['tools/report-ui-architecture-alignment.mjs'] })),
       classifySourceFile(input({ testOwners: ['tests/unit/options/example.test.ts'] }))
@@ -661,7 +658,7 @@ describe('report-non-production-source', () => {
     const json = formatNonProductionSourceJson([
       classifySourceFile(
         input({
-          retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts']
+          retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts']
         })
       ),
       {
@@ -702,7 +699,7 @@ describe('report-non-production-source', () => {
     expect(summary.migrateImportOwner[0]).toMatchObject({
       file: 'src/options/widgets/ExampleWidget.ts',
       productionBuildOwners: [],
-      importOwners: ['src/options/components/layout/MainContent.ts'],
+      importOwners: ['src/options/components/sections/BaseSection.ts'],
       requiredAction:
         'Remove retained source import/re-export/dependency ownership before deletion.'
     });
@@ -711,7 +708,7 @@ describe('report-non-production-source', () => {
   it('validates migrate-import-owner thresholds at exact count and fails when exceeded', () => {
     const rows = [
       classifySourceFile(
-        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+        input({ retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'] })
       )
     ];
 
@@ -749,7 +746,7 @@ describe('report-non-production-source', () => {
     const rows = [
       classifySourceFile(input({ file: 'src/unknown/unused.ts' })),
       classifySourceFile(
-        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+        input({ retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'] })
       )
     ];
 
@@ -778,7 +775,7 @@ describe('report-non-production-source', () => {
   it('passes check mode for migrate and retain inventory without stop-unknown or delete-now', () => {
     const rows = [
       classifySourceFile(
-        input({ retainedSourceImportOwners: ['src/options/components/layout/MainContent.ts'] })
+        input({ retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'] })
       ),
       classifySourceFile(input({ scriptOwners: ['tools/report-ui-architecture-alignment.mjs'] })),
       classifySourceFile(input({ testOwners: ['tests/unit/options/example.test.ts'] })),
@@ -818,7 +815,7 @@ describe('report-non-production-source', () => {
   it('fails check mode when delete-now coexists with retained import graph owners', () => {
     const result = validateNonProductionSourceCheck([
       {
-        file: approvedOptionsAppDeleteCandidate,
+        file: approvedSectionDependencyDeleteCandidate,
         decision: 'delete-now',
         ownerProofs: {
           productionBuildGraph: 'empty',
@@ -828,7 +825,7 @@ describe('report-non-production-source', () => {
           testsVisualBrowser: 'empty',
           requiredVerification: 'empty'
         },
-        retainedSourceImportTargets: ['src/options/components/layout/MainContent.ts']
+        retainedSourceImportTargets: ['src/options/components/sections/BaseSection.ts']
       }
     ]);
 
@@ -850,7 +847,7 @@ describe('report-non-production-source', () => {
           requiredVerification: 'owned'
         },
         scriptOwners: ['tools/report-ui-architecture-alignment.mjs'],
-        testOwners: ['tests/unit/options/layout/Navigation.test.ts'],
+        testOwners: ['tests/unit/options/sections/AiSection.test.ts'],
         requiredVerificationOwners: ['package.json#scripts.quality']
       }
     ]);

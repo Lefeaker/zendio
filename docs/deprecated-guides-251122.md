@@ -1,6 +1,8 @@
 # 废弃指南清单（2025-11-22）
 
 > 说明：根据《development-guidelines.md》“文档需与实现保持一致”的要求，对 `AiiinOB/docs/` 下的指引类文档进行了梳理。以下条目已与当前代码脱节，继续保留会误导开发者，现已统一搬迁到 `trash/docs/20251122-deprecated-guides/` 归档，便于历史查阅。
+>
+> 2026-05-31 补充：旧 Options layout shell 源码已退役；下方 `OptionsApp`、`MainContent`、`NavigationController` 等引用均为历史证据，不再作为替代实现入口。
 
 ## 1. docs/options-navigation-implementation.md
 
@@ -8,7 +10,7 @@
 - **依据**：
   - `src/options/index.html:1` 仅挂载 `#optionsShellRoot` 并无文档描述的静态导航容器。
   - `src/options/components/layout/Navigation.ts:27` 起的实现表明导航 DOM、状态切换与无障碍属性都在组件内部完成。
-- **替代方案**：导航与懒加载的使用方式已写入 `src/options/README.md` 以及 `OptionsApp` / `NavigationController`，应以实际组件代码作为准绳。
+- **替代方案**：导航与面板切换真值已写入 `src/options/README.md`，应以 production Stitch shell、schema/render/domain code 作为准绳。
 
 ## 2. docs/options-form-registry-scope-plan.md
 
@@ -82,7 +84,7 @@
 - **废弃原因**：仍以旧目录和大文件为基准（`src/options/components/usageDashboard.ts`、`vaultRouterSection.ts` 等），但这些文件只存在于 `trash/old-options-page/`。
 - **依据**：
   - `rg --files -g '*usageDashboard.ts'`、`rg --files -g '*vaultRouterSection.ts'` 仅命中旧版 trash 目录；现行 Sections 位于 `src/options/components/sections/*.ts`。
-- **替代方案**：若需最新分析，可基于 `UsageSection`、`NavigationController` 等真实文件重新撰写。
+- **替代方案**：若需最新分析，可基于 production Stitch shell、schema/render/domain code 与剩余兼容 Section 文件重新撰写。
 
 ## 11. docs/directory-restructure-plan.md
 
@@ -104,7 +106,7 @@
 ## 14. docs/options-ui-alignment-guide.md
 
 - **废弃原因**：指南引用 `layoutNavigation.ts` 等已删除脚本，导航/壳层现在由 `NavigationController`、`OptionsApp` 负责，而且 README 已覆盖一致性说明。
-- **替代方案**：以 `src/options/components/layout/NavigationController.ts`、`MainContent.ts` 等文件为准；如需说明文档，可在 README 中维护最新流程。
+- **替代方案**：以 `src/options/README.md`、production Stitch shell 与 schema/render/domain code 为准；如需说明文档，可在 README 中维护最新流程。
 
 ---
 
