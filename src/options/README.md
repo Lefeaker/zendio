@@ -139,9 +139,9 @@ src/options/
 - 兼容层：`chromeOptionsPersistence` 仅作为 `OptionsController` 仍在消费的适配器，不再被视为独立主链。
 - 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
 - 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
-- 兼容职责：`ChromeSyncOptionsRepository` 仅保留 historical `load/save/snapshot/subscribe/reset` 语义，不再承担 normalize / merge 主链职责。
-- 当前 residual consumers：legacy `OptionsRepository` 兼容语义仍由 infrastructure barrel、options-mainline audit 与少量测试 / e2e 夹具跟踪；content/background 正式代码已切回 `IOptionsRepository` 主合同。
-- 退役路径：待 legacy `OptionsRepository` 测试 / 兼容夹具也完成收敛后，再评估删除 compatibility adapter 本体。
+- 已清退项：legacy infrastructure compatibility adapter 与 infrastructure barrel export 已删除；不要恢复 `ChromeSyncOptionsRepository`、`LegacyOptionsRepositoryAdapter`、`adaptOptionsRepository` 或 `createCompatibilityOptionsRepository`。
+- 当前 residual consumers：`src/shared/interfaces/optionsRepository.ts` 仍保留 historical `load/save/snapshot/subscribe/reset` 类型合同，供尚未迁移的内容侧 helper 和测试夹具使用；它不是 Options UI 主状态链，也不再有 infrastructure adapter owner。
+- 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
 3. **Section 生命周期**

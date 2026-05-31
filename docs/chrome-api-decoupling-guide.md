@@ -84,7 +84,7 @@
    }
    ```
 
-   **P2-3 接口抽象整治后的扩展**：平台容器现已新增业务级接口，提供更高层次的抽象：
+   **P2-3 接口抽象整治后的扩展**：平台容器只保留仍属于平台边界的业务级服务；Options 配置读写已迁移到 repository composition root：
 
    ```ts
    export interface PlatformServices {
@@ -98,14 +98,13 @@
      action: ActionService;
      scripting: ScriptingService;
 
-     // 业务级服务（P2-3 新增）
-     optionsRepository: OptionsRepository;
+     // 业务级服务
      restClient: RestClient;
    }
    ```
 
    业务级接口的优势：
-   - `OptionsRepository`: 提供统一的选项存储抽象，支持深拷贝、缓存和订阅
+   - `IOptionsRepository`: 通过 `registerRepositories()` 在入口 composition root 注册，不再挂在 `PlatformServices`
    - `RestClient`: 抽象REST写入逻辑，支持HTTPS/HTTP fallback和错误处理
    - 通过工厂函数创建，便于测试时注入mock实现
    - 与底层Chrome API解耦，未来可扩展到其他平台
@@ -176,7 +175,6 @@
    ```ts
    import { chromeStorageService } from './chrome/storage';
    import { chromeMessagingService } from './chrome/messaging';
-   import { createCompatibilityOptionsRepository } from '../infrastructure/optionsRepository';
    import { createFetchRestClient } from '../infrastructure/restClient';
    // ...
 
@@ -186,26 +184,29 @@
      messaging: chromeMessagingService,
      // ...
 
-     // 业务级服务（P2-3 新增）
-     optionsRepository: createCompatibilityOptionsRepository(chromeStorageService),
+     // 业务级服务
      restClient: createFetchRestClient()
    };
    ```
 
-   **P2-3 整治后的依赖注入容器**：现在使用更完善的DI容器和配置机制：
+   **P2-3 整治后的依赖注入容器**：现在使用更完善的DI容器和配置机制；Options repository 由 `registerRepositories()` 注册：
 
    ```ts
    import { getPlatformServices, configurePlatformServices } from '../platform/services';
+   import { registerRepositories } from '../shared/di/serviceRegistry';
 
-   // 获取默认服务
-   const { optionsRepository, restClient } = getPlatformServices();
+   // 获取默认平台服务
+   const platformServices = getPlatformServices();
+
+   registerRepositories(platformServices);
 
    // 测试时配置覆盖
    configurePlatformServices({
-     storage: mockStorageService,
-     optionsRepository: mockOptionsRepository
+     storage: mockStorageService
    });
    ```
+
+   `createCompatibilityOptionsRepository`、`ChromeSyncOptionsRepository` 和 infrastructure-level legacy OptionsRepository adapter 已删除，不应作为新代码示例恢复。
 
    若未来要支持测试专用实现，可以改写为工厂函数 `createServices(overrides?)`。
 
