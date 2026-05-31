@@ -67,19 +67,19 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 #### 传统组件类 (逐步迁移中)
 
-| 名称                                                                 | 用途                           | 备注                                                                   |
-| -------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| `.aobx-card`                                                         | 卡片容器                       | 支持 light/dark，常用于 Section 外层                                   |
-| `.aobx-card--muted / --outline / --accent-border / --neutral-border` | 卡片修饰符                     | 组合背景、描边、强调边框，供隐私提示、Domain 控件等复用                |
-| `.aobx-alert`                                                        | 信息、成功、警告、错误提醒     | 通过修饰符控制语义                                                     |
-| `.aobx-field-group`                                                  | 表单字段组                     | 统一 label/控件间距                                                    |
-| `.aobx-table`                                                        | 数据表格                       | YAML/REST 等共享                                                       |
-| `.aobx-table__filters / __sort-btn / __advanced-*`                   | 表格筛选、排序与 Advanced 面板 | 复用 `.aobx-chip-btn` 与 `.aobx-table`                                 |
-| `.aobx-button-row`                                                   | 按钮行                         | 对齐间距、栅格                                                         |
-| `.aobx-chip` / `.aobx-chip-btn`                                      | Tag/Chip                       | 过滤器或标签选择                                                       |
-| `.aobx-domain__*`                                                    | YAML 域名覆盖编辑器            | 组合 `.aobx-card`、`.aobx-input`、`.aobx-btn`                          |
-| `.aobx-highlight-button + --{theme}`                                 | 阅读高亮主题按钮               | 色板基于 `--aobx-highlight-*` Token，`ReadingSection` 和预览可直接复用 |
-| `.aobx-hint-row` / `.aobx-hint-card` / `__code`                      | 示例提示块                     | 在 Fragment 等 Section 展示 markdown/code 提示                         |
+| 名称                                                                 | 用途                           | 备注                                                              |
+| -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------- |
+| `.aobx-card`                                                         | 卡片容器                       | 支持 light/dark，常用于 Section 外层                              |
+| `.aobx-card--muted / --outline / --accent-border / --neutral-border` | 卡片修饰符                     | 组合背景、描边、强调边框，供隐私提示、Domain 控件等复用           |
+| `.aobx-alert`                                                        | 信息、成功、警告、错误提醒     | 通过修饰符控制语义                                                |
+| `.aobx-field-group`                                                  | 表单字段组                     | 统一 label/控件间距                                               |
+| `.aobx-table`                                                        | 数据表格                       | YAML/REST 等共享                                                  |
+| `.aobx-table__filters / __sort-btn / __advanced-*`                   | 表格筛选、排序与 Advanced 面板 | 复用 `.aobx-chip-btn` 与 `.aobx-table`                            |
+| `.aobx-button-row`                                                   | 按钮行                         | 对齐间距、栅格                                                    |
+| `.aobx-chip` / `.aobx-chip-btn`                                      | Tag/Chip                       | 过滤器或标签选择                                                  |
+| `.aobx-domain__*`                                                    | YAML 域名覆盖编辑器            | 组合 `.aobx-card`、`.aobx-input`、`.aobx-btn`                     |
+| `.aobx-highlight-button + --{theme}`                                 | 阅读高亮主题按钮               | 色板基于 `--aobx-highlight-*` Token，生产 Stitch 与预览可直接复用 |
+| `.aobx-hint-row` / `.aobx-hint-card` / `__code`                      | 示例提示块                     | 在 Fragment 等 Stitch 面板展示 markdown/code 提示                 |
 
 更多组件抽象请参阅 `docs/options-style-refinement-plan.md`。
 

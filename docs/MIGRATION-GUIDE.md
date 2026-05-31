@@ -49,7 +49,7 @@ rg -n \"getPlatformServices()\" src/options src/content | rg -v \"Dependencies\"
 ### Before
 
 ```ts
-class UsageSection {
+class UsageDashboardView {
   async clearStats() {
     const { storage } = getPlatformServices();
     await storage.sync.set({ usageStats: {} });
@@ -61,7 +61,7 @@ class UsageSection {
 ### After
 
 ```ts
-class UsageSection {
+class UsageDashboardView {
   private readonly repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
   async clearStats(): Promise<void> {
@@ -225,7 +225,7 @@ pnpx hygen repo test --name Foo
 | 1   | 梳理 YAML Service chrome 依赖 | `YAML-CONFIG-SERVICE-REFACTOR-NOTES.md`                 |
 | 2   | 编写 `IYamlRepository` 接口   | `src/shared/repositories/IYamlRepository.ts`            |
 | 3   | Chrome 实现 + 测试            | `ChromeYamlRepository.ts` + 单测                        |
-| 4   | 替换 Options Section          | `YamlConfigSection.ts` 更新                             |
+| 4   | 替换 Options Section          | production Stitch YAML owner 更新                       |
 | 5   | 更新模板、文档、审计报告      | `REPOSITORY-PATTERN.md` / `REPO-MONTH3-SHARED-AUDIT.md` |
 
 ## 15. 实战 Tips

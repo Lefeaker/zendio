@@ -56,7 +56,7 @@
 
 1. 逐个排查测试中对 Section 私有方法的访问：
    - `RestSection`：使用 `formRegistry.apply()` 或公开的测试代理，而不是 `section.applySnapshot()`。
-   - `TemplatesSection`：调用 `controller.applyToForm()` 后，从 DOM 触发事件，再由 controller 负责自动保存。
+   - 旧模板设置区：调用 `controller.applyToForm()` 后，从 DOM 触发事件，再由 controller 负责自动保存。
 2. 修正 `formAdapter.read` Mock，确保返回的 `StoredOptions` 含必要的 `rest`、`templates` 等字段，避免 `Partial` 类型逃逸。
 3. 在测试 teardown 阶段，调用 `formRegistry.clear()`、`controller.dispose()`，保持生命周期一致。
 

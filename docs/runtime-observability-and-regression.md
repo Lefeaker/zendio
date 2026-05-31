@@ -12,7 +12,7 @@
 建议联调命令：
 
 ```bash
-npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/sections/PrivacySection.test.ts
+npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
 npm run build:dev
 ```
 
@@ -20,7 +20,7 @@ npm run build:dev
 
 建议至少覆盖：
 
-- Options shell 与 section lazy load
+- Options production Stitch shell 与导航面板
 - onboarding 页面与 chunk 加载
 - Support Prompt / Reader / Video 核心弹层
 - YAML 配置交互
@@ -84,7 +84,7 @@ npm run build:dev
 - `npm run audit:build:report`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/sections/PrivacySection.test.ts`
+- `npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
 
 ## 5. 已知非阻塞警告
 

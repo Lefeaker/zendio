@@ -69,7 +69,7 @@
 - [x] `M5.1` `Options` shared 基础件切到 `src/ui/primitives`
 - [x] `M5.2` `BaseSection` / `OptionsApp` / `MainContent` 切到 `patterns` 与 `hosts/options`
 - [x] `M5.3` `confirmDialog` / `ThemeSwitcher` / `OptionsLayout` 相关重复逻辑收口
-- [x] `M5.4` `RestSection` / `PrivacySection` / `TemplatesSection` / `YamlConfigSection` / `RoutingSection` 完成迁移
+- [x] `M5.4` REST 与旧 Options 非 REST section 完成迁移
 - [x] `M5.5` 收紧 `Options` 状态与组件边界
 
 ## M6

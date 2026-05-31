@@ -46,7 +46,7 @@
 | ---------- | -------------------------------- | --------------------------- |
 | Repository | 负责持久化或远程通信的抽象接口   | `IOptionsRepository`        |
 | Provider   | Repository 的具体实现            | `ChromeOptionsRepository`   |
-| Consumer   | 使用 Repository 的 UI 或 Service | `YamlConfigSection`         |
+| Consumer   | 使用 Repository 的 UI 或 Service | Production Stitch shell     |
 | DI Token   | 标识接口的 Symbol                | `DI_TOKENS.IYamlRepository` |
 | Adapter    | 将 Repository 数据映射为领域模型 | `YamlConfigService`         |
 
@@ -307,12 +307,12 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ## 附录 B: 代码示例索引
 
-| 场景                   | 文件                                                  |
-| ---------------------- | ----------------------------------------------------- |
-| Templates Section 注入 | `src/options/components/sections/TemplatesSection.ts` |
-| Video Session 导出     | `src/content/video/videoSessionExporter.ts`           |
-| Repository 注册        | `src/shared/di/serviceRegistry.ts`                    |
-| Mock Repository        | `tests/utils/repositories/mockOptionsRepository.ts`   |
+| 场景                   | 文件                                                |
+| ---------------------- | --------------------------------------------------- |
+| Templates schema state | `src/options/app/productionStitchStateMapper.ts`    |
+| Video Session 导出     | `src/content/video/videoSessionExporter.ts`         |
+| Repository 注册        | `src/shared/di/serviceRegistry.ts`                  |
+| Mock Repository        | `tests/utils/repositories/mockOptionsRepository.ts` |
 
 ## 附录 C: Review 模板
 

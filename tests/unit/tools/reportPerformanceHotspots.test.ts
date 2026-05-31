@@ -80,4 +80,29 @@ describe('report-performance-hotspots', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('skips tracked src files deleted in the working tree before reading source', () => {
+    const root = createFixtureRepo({
+      'src/currentSmallFile.ts': createSourceWithLines(20),
+      'src/pendingDelete.ts': createSourceWithLines(20)
+    });
+    const budgetPath = join(root, 'budgets.json');
+    writeFileSync(budgetPath, '{}');
+    rmSync(join(root, 'src/pendingDelete.ts'));
+
+    try {
+      const output = execFileSync(
+        process.execPath,
+        [toolPath, '--root', root, '--budget-json', budgetPath],
+        {
+          encoding: 'utf8',
+          stdio: 'pipe'
+        }
+      );
+
+      expect(output).toContain('dynamic hotspot coverage: trackedSourceFiles=1');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

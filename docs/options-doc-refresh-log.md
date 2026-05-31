@@ -235,22 +235,22 @@ Migrate Basic Sections to use Tailwind CSS utilities while **keeping structural 
 
 ### Modules Changed
 
-- `src/options/components/sections/ReadingSection.ts`
-- `src/options/components/sections/PrivacySection.ts`
-- `src/options/components/sections/UsageSection.ts`
-- `src/options/components/sections/RoutingSection.ts`
+- legacy reading section file
+- legacy privacy section file
+- legacy usage section file
+- legacy routing section file
 
 ### Changes Made
 
 All sections now follow the pattern: `aobx-section` + Tailwind utilities
 
-#### ReadingSection.ts
+#### legacy reading section file
 
 - **Added**: `.aobx-section` structural class
 - **Kept**: Tailwind utilities for styling (`bg-surface-0`, `border`, `rounded-lg`, `p-[clamp(22px,2.5vw,32px)]`, `shadow-card`)
 - **Example**: `class="aobx-section bg-surface-0 border border-border/80 rounded-lg..."`
 
-#### PrivacySection.ts, UsageSection.ts, RoutingSection.ts
+#### legacy privacy, usage, and routing section files
 
 - Same pattern applied to all sections
 
@@ -324,16 +324,16 @@ Add `.aobx-section` structural class to all remaining sections.
 
 ### Modules Changed
 
-- `src/options/components/sections/AiSection.ts`
-- `src/options/components/sections/ClassifierSection.ts`
-- `src/options/components/sections/DeepResearchSection.ts`
-- `src/options/components/sections/DiagnosisSection.ts`
-- `src/options/components/sections/FragmentSection.ts`
-- `src/options/components/sections/LanguageSection.ts`
-- `src/options/components/sections/TemplatesSection.ts`
-- `src/options/components/sections/TransferSection.ts`
-- `src/options/components/sections/VideoSection.ts`
-- `src/options/components/sections/YamlConfigSection.ts`
+- legacy AI section file
+- legacy classifier section file
+- legacy deep research section file
+- legacy diagnostics section file
+- legacy fragment section file
+- legacy language section file
+- legacy templates section file
+- legacy transfer section file
+- legacy video section file
+- legacy YAML section file
 
 ### Changes Made
 
@@ -764,7 +764,7 @@ Finalize Tailwind CSS migration by integrating builds, cleaning up legacy CSS, a
 
 3.  **Lint & Test Fixes**:
     - Removed unused `MODAL_SHOW_CLASS` in `ModalController.ts`.
-    - Fixed `async` return type in `PrivacySection.ts`.
+    - Fixed `async` return type in `legacy privacy section file`.
     - Fixed `any` casts and console logs in `optionsNavigationLazyLoad.test.ts`.
     - Fixed `void` return type issues in `ReaderPanel.ts` and `VideoPanel.ts`.
     - Updated `clipperDialog.test.ts` to use `data-i18n` selectors instead of removed classes.

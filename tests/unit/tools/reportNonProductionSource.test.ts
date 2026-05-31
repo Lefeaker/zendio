@@ -51,9 +51,8 @@ const {
 const approvedPostTestDeleteCandidate = [
   'src',
   'options',
-  'components',
-  'sections',
-  'AiSection.ts'
+  'widgets',
+  'FragmentSettingsWidget.ts'
 ].join('/');
 const approvedPostWidgetDeleteCandidate = ['src', 'options', 'widgets', 'UsageWidget.ts'].join('/');
 const approvedReadingVideoDeleteCandidate = [
@@ -76,9 +75,8 @@ const approvedUtilsDefaultsDeleteCandidate = ['src', 'options', 'utils', 'defaul
 const approvedSectionDependencyDeleteCandidate = [
   'src',
   'options',
-  'components',
-  'sections',
-  'ClassifierSection.ts'
+  'widgets',
+  'VideoSettingsWidget.ts'
 ].join('/');
 const approvedZagComboboxDeleteCandidate = ['src', 'ui', 'ZagCombobox.js'].join('/');
 
@@ -509,7 +507,7 @@ describe('report-non-production-source', () => {
     const result = classifySourceFile(
       input({
         file: approvedPostTestDeleteCandidate,
-        testOwners: ['tests/unit/options/sections/AiSection.retainedLegacyCoverage.test.ts'],
+        testOwners: ['tests/unit/options/widgets/FragmentSettingsWidget.retainedCoverage.test.ts'],
         explicitDeleteNowPatterns: [approvedPostTestDeleteCandidate]
       })
     );
@@ -523,10 +521,8 @@ describe('report-non-production-source', () => {
         file: approvedFormSectionDeleteCandidate,
         retainedSourceImportOwners: [
           'src/options/components/sections/BaseSection.ts',
-          'src/options/components/sections/FragmentSectionView.ts',
-          'src/options/components/sections/restSectionRuntime.ts',
-          'src/options/components/sections/RoutingSection.ts',
-          'src/options/components/sections/YamlConfigSection.ts'
+          'src/options/components/sections/RestSectionView.ts',
+          'src/options/components/sections/restSectionRuntime.ts'
         ],
         ownerProofs: {
           productionBuildGraph: 'empty',
@@ -565,7 +561,7 @@ describe('report-non-production-source', () => {
     expect(result.deletionCondition).toContain('re-exports');
   });
 
-  it('does not classify section files as delete-now while retained source imports remain', () => {
+  it('does not classify approved files as delete-now while retained source imports remain', () => {
     const result = classifySourceFile(
       input({
         file: approvedPostTestDeleteCandidate,
@@ -585,7 +581,7 @@ describe('report-non-production-source', () => {
     expect(result.decision).toBe('migrate-import-owner');
   });
 
-  it('does not classify an old section as delete-now while it imports retained source dependencies', () => {
+  it('does not classify an approved source as delete-now while it imports retained source dependencies', () => {
     const result = classifySourceFile(
       input({
         file: approvedSectionDependencyDeleteCandidate,
@@ -847,7 +843,7 @@ describe('report-non-production-source', () => {
           requiredVerification: 'owned'
         },
         scriptOwners: ['tools/report-ui-architecture-alignment.mjs'],
-        testOwners: ['tests/unit/options/sections/AiSection.test.ts'],
+        testOwners: ['tests/unit/options/widgets/FragmentSettingsWidget.test.ts'],
         requiredVerificationOwners: ['package.json#scripts.quality']
       }
     ]);

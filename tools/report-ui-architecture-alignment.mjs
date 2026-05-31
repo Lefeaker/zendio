@@ -92,15 +92,6 @@ const requiredSnippets = {
   'src/options/components/sections/BaseSection.ts': [
     ['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']
   ],
-  'src/options/components/sections/RoutingSection.ts': [
-    ['../../../ui/domains/vault-router', '@ui/domains/vault-router']
-  ],
-  'src/options/components/sections/YamlConfigSection.ts': [
-    ['../../../ui/domains/yaml-config', '@ui/domains/yaml-config']
-  ],
-  'src/options/components/sections/PrivacySection.ts': [
-    ['../../../ui/domains/privacy', '@ui/domains/privacy']
-  ],
   'src/content/reader/ui/ReaderDialogPanel.ts': [
     ['@content/stitch/runtimeSurfaceRenderer'],
     ['@content/stitch/runtimeSurfaceContent']

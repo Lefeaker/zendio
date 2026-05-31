@@ -101,7 +101,7 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 - `src/options/services/connectionTestRuntime.ts`
 - `tests/unit/background/connectionTestPipeline.test.ts`
 - `tests/unit/infrastructure/restClient.test.ts`
-- `tests/unit/options/sections/PrivacySection.test.ts`
+- retired non-REST section test
 
 状态：已固定为独立交付提交 `cf777fb`
 
@@ -112,13 +112,13 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 - `src/options/app/optionsShell*`
 - `src/options/app/productionStitchShell*`
 - `src/options/components/sections/RestSection*`
-- `src/options/components/sections/FragmentSection*`
+- retired fragment section files
 - `src/options/components/sections/Usage*`
 - `tests/unit/options/optionsShell.test.ts`
 - `tests/unit/options/bootstrap.test.ts`
 - `tests/unit/options/sections/RestSection.test.ts`
-- `tests/unit/options/sections/FragmentSection.test.ts`
-- `tests/unit/options/sections/UsageSection.test.ts`
+- retired fragment section test
+- retired usage section test
 
 状态：已固定为独立交付提交 `f4a2b87`
 

@@ -2,15 +2,15 @@
 
 > 来源：`src/options/schema.ts` (`OPTIONS_FORM_SCHEMA`)
 >
-> **最新状态（2025-11-02）**：`OPTIONS_FORM_SCHEMA` 已清空，所有选项字段由对应 Section 组件通过 `formSectionManager` 托管。下表保留历史映射，供追溯旧 DOM ID 与字段关系使用。
+> **最新状态（2026-06-01）**：`OPTIONS_FORM_SCHEMA` 与非 REST 旧 Section 类已清退；当前选项字段由 production Stitch schema/runtime、`src/options/app/**` controller 和 domain helpers 托管。下表仅保留历史 DOM ID 与字段关系。
 
 ## Component Ownership Map
 
-| Option Domain                                                                   | Section Component                                   | Snapshot Handler                                     |
-| ------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
-| aiChat                                                                          | `src/options/components/sections/AiSection.ts`      | `registerFormSection('aiChat', …)`                   |
-| readingSession                                                                  | `src/options/components/sections/ReadingSection.ts` | `registerFormSection('readingSession', …)`           |
-| rest/templates/deepResearch/video/fragment/classifier/yamlConfig/domainMappings | 对应 `sections/*.ts` 组件                           | 详见 `src/options/README.md` 的 Section 生命周期说明 |
+| Option Domain                                                                   | Section Component                                    | Snapshot Handler                                |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| aiChat                                                                          | production Stitch capture schema                     | production Stitch state mapper                  |
+| readingSession                                                                  | production Stitch capture schema                     | production Stitch state mapper                  |
+| rest/templates/deepResearch/video/fragment/classifier/yamlConfig/domainMappings | production Stitch schema/runtime 或当前 domain owner | 详见 `src/options/README.md` 的 Stitch 主链说明 |
 
 ## Legacy Schema Inventory（保留历史对照）
 
