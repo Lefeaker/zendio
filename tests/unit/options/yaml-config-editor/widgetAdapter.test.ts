@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProductionStitchWidgetHost } from '@options/app/productionStitchWidgetHost';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
@@ -95,20 +94,5 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     const widget = host.createWidgetFactory('yaml-config')?.();
 
     expect(widget).toBeInstanceOf(YamlConfigEditorWidgetAdapter);
-  });
-
-  it('keeps Plan 02 wiring free of the old YAML widget import paths', () => {
-    const files = [
-      'src/options/yaml-config-editor/widgetAdapter.ts',
-      'src/options/app/productionStitchWidgetHost.ts',
-      'tests/fixtures/options-preview/app/runtime.ts'
-    ];
-
-    files.forEach((file) => {
-      const source = readFileSync(file, 'utf8');
-      expect(source).not.toContain('@options/widgets/YamlConfigWidget');
-      expect(source).not.toContain('@options/widgets/yaml-config');
-      expect(source).not.toContain('src/options/widgets/yaml-config');
-    });
   });
 });
