@@ -205,7 +205,7 @@ export interface WidgetRuntime<State, AppData> {
   dispatch: (action: ActionDescriptor | string, payload?: unknown) => void;
   requestRerender: () => void;
   mutate: (mutator: (state: State) => void, options?: { silent?: boolean }) => void;
-  notifyDirty?: (keys?: string[]) => void;
+  notifyDirty?: (keys?: string[], meta?: { invalid?: boolean }) => void;
   reportError?: (scope: string, error: unknown) => void;
 }
 

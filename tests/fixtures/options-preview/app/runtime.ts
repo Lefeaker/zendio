@@ -16,8 +16,8 @@ import {
   getResourceView,
   getSettingsView
 } from '@options/stitch/schema/registry';
-import { YamlConfigWidget } from '@options/widgets/YamlConfigWidget';
-import type { WidgetMountContract } from '@options/widgets/contracts';
+import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
+import type { WidgetMountContract } from '@options/schema-runtime/contracts';
 import type { PreviewStoreState, SchemaContext, ViewSchema } from '@options/stitch/types';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 
@@ -337,7 +337,7 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
   }
 
   function mountWidget(widgetType: string, host: HTMLElement): void {
-    const widget = widgetType === 'yaml-config' ? new YamlConfigWidget() : null;
+    const widget = widgetType === 'yaml-config' ? new YamlConfigEditorWidgetAdapter() : null;
     if (!widget) {
       host.textContent = `[Missing widget] ${widgetType}`;
       return;
@@ -360,7 +360,7 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
       requestRerender: () => render(mountRoot, store, options),
       getWidgetFactory: (widgetType) => {
         if (widgetType === 'yaml-config') {
-          return () => new YamlConfigWidget() as never;
+          return () => new YamlConfigEditorWidgetAdapter() as never;
         }
         return null;
       }
