@@ -9,6 +9,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/schemaShellMessages.ts', 2133],
   ['src/options/stitch/content.ts', 906],
   ['src/i18n/messages.ts', 752],
+  ['src/options/yaml-config-editor/view.ts', 746],
   ['src/options/stitch/types.ts', 743],
   ['src/i18n/locales/fr.ts', 691],
   ['src/i18n/locales/de.ts', 686],
