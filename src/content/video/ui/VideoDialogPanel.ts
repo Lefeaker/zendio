@@ -337,9 +337,11 @@ export class VideoDialogPanel
 
   private applyCaptures(captures: VideoPanelCapture[]): void {
     this.commentDrafts.captureRenderedInputs();
+    const shouldExpandForNewCapture =
+      this.captures.length > 0 && captures.length > this.captures.length;
     if (
       this.collapsePersistence.value &&
-      captures.length > this.captures.length &&
+      shouldExpandForNewCapture &&
       !this.keepCollapsedForNextCaptureUpdate
     ) {
       this.collapsePersistence.set(false, { persist: true, rerender: false });
@@ -359,9 +361,8 @@ export class VideoDialogPanel
   }
 
   private formatCounter(count: number): string {
-    if (count <= 0) {
-      return this.texts.counterZero;
-    }
-    return this.texts.counter.replace('{count}', String(count));
+    return count <= 0
+      ? this.texts.counterZero
+      : this.texts.counter.replace('{count}', String(count));
   }
 }

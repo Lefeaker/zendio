@@ -340,7 +340,8 @@ export class ReaderDialogPanel
   private applyHighlights(highlights: ReaderPanelHighlight[]): ReaderPanelHighlight | undefined {
     this.commentDrafts.captureRenderedInputs();
     const previousCount = this.highlights.length;
-    if (this.collapsePersistence.value && highlights.length > previousCount) {
+    const shouldExpandForNewHighlight = previousCount > 0 && highlights.length > previousCount;
+    if (this.collapsePersistence.value && shouldExpandForNewHighlight) {
       this.collapsePersistence.set(false, { persist: true, rerender: false });
     }
     this.highlights = [...highlights];

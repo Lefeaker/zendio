@@ -17,10 +17,18 @@ const persistedPanelLayout: SessionPanelLayoutSnapshot = {
   collapsed: null
 };
 let persistedPanelLayoutRevision = 0;
+const localLayoutRevisions = {
+  width: 0,
+  maxWidth: 0,
+  height: 0,
+  collapsed: 0
+};
 const storageLoad: WeakMap<
   SessionPanelResizeStorage,
   Promise<SessionPanelLayoutSnapshot>
 > = new WeakMap();
+
+type SessionPanelLayoutField = keyof typeof localLayoutRevisions;
 
 function readPositiveInteger(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
@@ -30,12 +38,34 @@ function snapshot(): SessionPanelLayoutSnapshot {
   return { ...persistedPanelLayout };
 }
 
+function commitLocalLayout(fields: SessionPanelLayoutField[]): number {
+  persistedPanelLayoutRevision += 1;
+  for (const field of fields) {
+    localLayoutRevisions[field] = persistedPanelLayoutRevision;
+  }
+  return persistedPanelLayoutRevision;
+}
+
+function canApplyLoadedField(field: SessionPanelLayoutField): boolean {
+  return localLayoutRevisions[field] === 0;
+}
+
 function saveSessionPanelStorage(
   storage: SessionPanelResizeStorage,
-  items: Record<string, unknown>
+  items: Record<string, unknown>,
+  fields: SessionPanelLayoutField[] = []
 ): void {
+  const saveRevision = persistedPanelLayoutRevision;
   try {
-    void Promise.resolve(storage.save(items)).catch(() => undefined);
+    void Promise.resolve(storage.save(items))
+      .then(() => {
+        for (const field of fields) {
+          if (localLayoutRevisions[field] <= saveRevision) {
+            localLayoutRevisions[field] = 0;
+          }
+        }
+      })
+      .catch(() => undefined);
   } catch {
     return;
   }
@@ -55,11 +85,19 @@ function loadPersistedPanelLayout(
       if (persistedPanelLayoutRevision !== loadRevision) {
         return snapshot();
       }
-      persistedPanelLayout.width = readPositiveInteger(items[WIDTH_STORAGE_KEY]);
-      persistedPanelLayout.maxWidth = readPositiveInteger(items[WIDTH_MAX_STORAGE_KEY]);
-      persistedPanelLayout.height = readPositiveInteger(items[HEIGHT_STORAGE_KEY]);
-      const collapsed = items[COLLAPSED_STORAGE_KEY];
-      persistedPanelLayout.collapsed = typeof collapsed === 'boolean' ? collapsed : null;
+      if (canApplyLoadedField('width')) {
+        persistedPanelLayout.width = readPositiveInteger(items[WIDTH_STORAGE_KEY]);
+      }
+      if (canApplyLoadedField('maxWidth')) {
+        persistedPanelLayout.maxWidth = readPositiveInteger(items[WIDTH_MAX_STORAGE_KEY]);
+      }
+      if (canApplyLoadedField('height')) {
+        persistedPanelLayout.height = readPositiveInteger(items[HEIGHT_STORAGE_KEY]);
+      }
+      if (canApplyLoadedField('collapsed')) {
+        const collapsed = items[COLLAPSED_STORAGE_KEY];
+        persistedPanelLayout.collapsed = typeof collapsed === 'boolean' ? collapsed : null;
+      }
     } catch {
       return snapshot();
     }
@@ -74,13 +112,13 @@ export function getSessionPanelLayoutSnapshot(): SessionPanelLayoutSnapshot {
 }
 
 export function updateSessionPanelWidthDraft(width: number): SessionPanelLayoutSnapshot {
-  persistedPanelLayoutRevision += 1;
+  commitLocalLayout(['width']);
   persistedPanelLayout.width = Math.round(width);
   return snapshot();
 }
 
 export function updateSessionPanelHeightDraft(height: number): SessionPanelLayoutSnapshot {
-  persistedPanelLayoutRevision += 1;
+  commitLocalLayout(['height']);
   persistedPanelLayout.height = Math.round(height);
   return snapshot();
 }
@@ -96,29 +134,35 @@ export function savePersistedSessionPanelWidth(
   maxWidth: number,
   options: SessionPanelResizeOptions
 ): void {
-  persistedPanelLayoutRevision += 1;
+  commitLocalLayout(['width', 'maxWidth']);
   persistedPanelLayout.width = Math.round(width);
   persistedPanelLayout.maxWidth = Math.round(maxWidth);
-  saveSessionPanelStorage(options.storage, {
-    [WIDTH_STORAGE_KEY]: persistedPanelLayout.width,
-    [WIDTH_MAX_STORAGE_KEY]: persistedPanelLayout.maxWidth
-  });
+  saveSessionPanelStorage(
+    options.storage,
+    {
+      [WIDTH_STORAGE_KEY]: persistedPanelLayout.width,
+      [WIDTH_MAX_STORAGE_KEY]: persistedPanelLayout.maxWidth
+    },
+    ['width', 'maxWidth']
+  );
 }
 
 export function savePersistedSessionPanelHeight(
   height: number,
   options: SessionPanelResizeOptions
 ): void {
-  persistedPanelLayoutRevision += 1;
+  commitLocalLayout(['height']);
   persistedPanelLayout.height = Math.round(height);
-  saveSessionPanelStorage(options.storage, { [HEIGHT_STORAGE_KEY]: persistedPanelLayout.height });
+  saveSessionPanelStorage(options.storage, { [HEIGHT_STORAGE_KEY]: persistedPanelLayout.height }, [
+    'height'
+  ]);
 }
 
 export function saveSessionPanelCollapsed(
   collapsed: boolean,
   options: SessionPanelResizeOptions = { storage: resolveSessionPanelResizeStorage() }
 ): void {
-  persistedPanelLayoutRevision += 1;
+  commitLocalLayout(['collapsed']);
   persistedPanelLayout.collapsed = collapsed;
-  saveSessionPanelStorage(options.storage, { [COLLAPSED_STORAGE_KEY]: collapsed });
+  saveSessionPanelStorage(options.storage, { [COLLAPSED_STORAGE_KEY]: collapsed }, ['collapsed']);
 }

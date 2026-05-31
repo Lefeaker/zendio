@@ -356,6 +356,35 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('keeps restored collapse when the initial capture list hydrates', async () => {
+    await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const first = createCapture({ id: 'capture-1', index: 1 });
+    const second = createCapture({ id: 'capture-2', index: 2 });
+    panel.show();
+
+    await flushPanelPersistence();
+    panel.setCaptures([first]);
+
+    expect(
+      panel.element.shadowRoot
+        ?.querySelector('.resource-modal--session')
+        ?.classList.contains('is-collapsed')
+    ).toBe(true);
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(true);
+
+    panel.setCaptures([first, second]);
+
+    expect(
+      panel.element.shadowRoot
+        ?.querySelector('.resource-modal--session')
+        ?.classList.contains('is-collapsed')
+    ).toBe(false);
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(false);
+
+    panel.destroy();
+  });
+
   it('persists user collapse without persisting programmatic video capture collapse', async () => {
     const programmaticPanel = new VideoDialogPanel({ callbacks, texts });
     programmaticPanel.show();

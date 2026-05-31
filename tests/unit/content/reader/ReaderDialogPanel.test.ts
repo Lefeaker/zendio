@@ -239,6 +239,38 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('keeps restored collapse when the initial highlight list hydrates', async () => {
+    await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    const first = createHighlight({ id: 'h-1', index: 1 });
+    const second = createHighlight({ id: 'h-2', index: 2 });
+    panel.show();
+
+    await flushPanelPersistence();
+    panel.setHighlights([first]);
+
+    expect(
+      panel.element.shadowRoot
+        ?.querySelector('.resource-modal--session')
+        ?.classList.contains('is-collapsed')
+    ).toBe(true);
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(true);
+
+    panel.setHighlights([first, second]);
+
+    expect(
+      panel.element.shadowRoot
+        ?.querySelector('.resource-modal--session')
+        ?.classList.contains('is-collapsed')
+    ).toBe(false);
+    expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(false);
+
+    panel.destroy();
+  });
+
   it('focuses reader controls through the shared content dialog focus helper', async () => {
     const { focusContentDialogElement } = await import(
       '../../../../src/ui/hosts/content/contentDialogFocus'

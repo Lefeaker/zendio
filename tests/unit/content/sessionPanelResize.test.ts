@@ -244,6 +244,29 @@ describe('session panel resize persistence', () => {
     });
   });
 
+  it('keeps a locally committed collapsed state when a later storage load returns stale data', async () => {
+    let resolveSave = (): void => undefined;
+    const storage = createSessionPanelStorage(() =>
+      Promise.resolve({ 'aiob.sessionPanel.collapsed': false })
+    );
+    storage.save.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    const { loadPersistedSessionPanelLayout, saveSessionPanelCollapsed } =
+      await importResizeModule();
+
+    saveSessionPanelCollapsed(true, { storage });
+
+    expect(storage.save).toHaveBeenCalledWith({ 'aiob.sessionPanel.collapsed': true });
+    await expect(loadPersistedSessionPanelLayout({ storage })).resolves.toMatchObject({
+      collapsed: true
+    });
+    resolveSave();
+  });
+
   it('commits pointercancel once and removes active document listeners', async () => {
     const storage = createSessionPanelStorage();
     const { bindSessionPanelResize } = await importResizeModule();
