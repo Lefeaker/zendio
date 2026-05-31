@@ -1,22 +1,26 @@
 import { resolveSessionPanelResizeStorage } from './sessionPanelResizeAdapter';
+import {
+  getSessionPanelLayoutSnapshot,
+  loadPersistedSessionPanelLayout,
+  savePersistedSessionPanelHeight,
+  savePersistedSessionPanelWidth,
+  saveSessionPanelCollapsed,
+  updateSessionPanelHeightDraft,
+  updateSessionPanelWidthDraft
+} from './sessionPanelLayoutPersistence';
 import type {
-  SessionPanelResizeOptions,
-  SessionPanelResizeStorage
+  SessionPanelLayoutSnapshot,
+  SessionPanelResizeOptions
 } from './sessionPanelResizeTypes';
 
+export { loadPersistedSessionPanelLayout, saveSessionPanelCollapsed };
+
 const MIN_WIDTH_RATIO = 0.6;
-const WIDTH_STORAGE_KEY = 'aiob.sessionPanel.width';
-const WIDTH_MAX_STORAGE_KEY = 'aiob.sessionPanel.maxWidth';
-const HEIGHT_STORAGE_KEY = 'aiob.sessionPanel.height';
 const MIN_VISIBLE_ITEMS = 3;
 const MIN_ITEM_HEIGHT = 56;
 const PANEL_CHROME_HEIGHT = 152;
 const PANEL_DEFAULT_MAX_WIDTH = 576;
 const PANEL_SIDE_GAP = 24;
-let persistedPanelWidth = 0;
-let persistedPanelMaxWidth = 0;
-let persistedPanelHeight = 0;
-const storageLoad: WeakMap<SessionPanelResizeStorage, Promise<void>> = new WeakMap();
 
 interface ResizeState {
   axis: 'width' | 'height';
@@ -39,60 +43,6 @@ function parsePixelValue(value: string): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-function loadPersistedPanelWidth(storage: SessionPanelResizeStorage): Promise<void> {
-  const existingLoad = storageLoad.get(storage);
-  if (existingLoad) {
-    return existingLoad;
-  }
-  const nextLoad = (async () => {
-    try {
-      const items = await storage.load();
-      const width = items[WIDTH_STORAGE_KEY];
-      if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
-        persistedPanelWidth = Math.round(width);
-      }
-      const maxWidth = items[WIDTH_MAX_STORAGE_KEY];
-      if (typeof maxWidth === 'number' && Number.isFinite(maxWidth) && maxWidth > 0) {
-        persistedPanelMaxWidth = Math.round(maxWidth);
-      }
-      const height = items[HEIGHT_STORAGE_KEY];
-      if (typeof height === 'number' && Number.isFinite(height) && height > 0) {
-        persistedPanelHeight = Math.round(height);
-      }
-    } catch {
-      return;
-    }
-  })();
-  storageLoad.set(storage, nextLoad);
-  return nextLoad;
-}
-
-function saveSessionPanelStorage(
-  storage: SessionPanelResizeStorage,
-  items: Record<string, unknown>
-): void {
-  try {
-    storage.save(items);
-  } catch {
-    return;
-  }
-}
-
-function savePersistedPanelWidth(
-  storage: SessionPanelResizeStorage,
-  width: number,
-  maxWidth = persistedPanelMaxWidth
-): void {
-  saveSessionPanelStorage(storage, {
-    [WIDTH_STORAGE_KEY]: Math.round(width),
-    [WIDTH_MAX_STORAGE_KEY]: Math.round(maxWidth)
-  });
-}
-
-function savePersistedPanelHeight(storage: SessionPanelResizeStorage, height: number): void {
-  saveSessionPanelStorage(storage, { [HEIGHT_STORAGE_KEY]: Math.round(height) });
-}
-
 function minPanelHeight(maxHeight: number): number {
   return Math.min(maxHeight, MIN_VISIBLE_ITEMS * MIN_ITEM_HEIGHT + PANEL_CHROME_HEIGHT);
 }
@@ -112,6 +62,29 @@ function isCollapsedSessionPanel(panel: HTMLElement): boolean {
   return panel.classList.contains('is-collapsed');
 }
 
+function applyPersistedPanelDimensions(panel: HTMLElement): void {
+  const layout = getSessionPanelLayoutSnapshot();
+  if (isCollapsedSessionPanel(panel)) {
+    return;
+  }
+  if (layout.width > 0) {
+    panel.style.width = `${layout.width}px`;
+  }
+  if (layout.height > 0) {
+    applyPanelHeight(panel, layout.height);
+  }
+}
+
+export async function applyPersistedSessionPanelLayout(
+  panel: HTMLElement,
+  options: SessionPanelResizeOptions = { storage: resolveSessionPanelResizeStorage() }
+): Promise<SessionPanelLayoutSnapshot> {
+  applyPersistedPanelDimensions(panel);
+  const layout = await loadPersistedSessionPanelLayout(options);
+  applyPersistedPanelDimensions(panel);
+  return layout;
+}
+
 export async function applyPersistedSessionPanelWidth(
   panel: HTMLElement,
   options: SessionPanelResizeOptions = { storage: resolveSessionPanelResizeStorage() }
@@ -119,12 +92,13 @@ export async function applyPersistedSessionPanelWidth(
   if (isCollapsedSessionPanel(panel)) {
     return;
   }
-  if (persistedPanelWidth > 0) {
-    panel.style.width = `${Math.round(persistedPanelWidth)}px`;
+  const currentLayout = getSessionPanelLayoutSnapshot();
+  if (currentLayout.width > 0) {
+    panel.style.width = `${currentLayout.width}px`;
   }
-  await loadPersistedPanelWidth(options.storage);
-  if (!isCollapsedSessionPanel(panel) && persistedPanelWidth > 0) {
-    panel.style.width = `${Math.round(persistedPanelWidth)}px`;
+  const loadedLayout = await loadPersistedSessionPanelLayout(options);
+  if (!isCollapsedSessionPanel(panel) && loadedLayout.width > 0) {
+    panel.style.width = `${loadedLayout.width}px`;
   }
 }
 
@@ -137,19 +111,15 @@ function viewportPanelMaxWidth(): number {
 }
 
 function resolvePanelMaxWidth(panel: HTMLElement, currentWidth: number): number {
+  const layout = getSessionPanelLayoutSnapshot();
   const computed = window.getComputedStyle(panel);
   const computedMaxWidth = parsePixelValue(computed.maxWidth);
   const tokenMaxWidth = parsePixelValue(computed.getPropertyValue('--session-panel-max-width'));
-  const knownMaxWidth = Math.max(
-    currentWidth,
-    persistedPanelMaxWidth,
-    computedMaxWidth,
-    tokenMaxWidth
-  );
+  const knownMaxWidth = Math.max(currentWidth, layout.maxWidth, computedMaxWidth, tokenMaxWidth);
   if (knownMaxWidth > currentWidth) {
     return knownMaxWidth;
   }
-  if (persistedPanelWidth > 0 && currentWidth <= persistedPanelWidth) {
+  if (layout.width > 0 && currentWidth <= layout.width) {
     return Math.max(currentWidth, viewportPanelMaxWidth());
   }
   return currentWidth;
@@ -165,18 +135,10 @@ export function bindSessionPanelResize(
   if (!panel || !handle || !heightHandle) {
     return () => undefined;
   }
-  if (!isCollapsedSessionPanel(panel) && persistedPanelWidth > 0) {
-    panel.style.width = `${Math.round(persistedPanelWidth)}px`;
-  }
-  if (!isCollapsedSessionPanel(panel) && persistedPanelHeight > 0) {
-    applyPanelHeight(panel, persistedPanelHeight);
-  }
-  void loadPersistedPanelWidth(options.storage).then(() => {
-    if (!isCollapsedSessionPanel(panel) && persistedPanelWidth > 0 && panel.isConnected) {
-      panel.style.width = `${Math.round(persistedPanelWidth)}px`;
-    }
-    if (!isCollapsedSessionPanel(panel) && persistedPanelHeight > 0 && panel.isConnected) {
-      applyPanelHeight(panel, persistedPanelHeight);
+  applyPersistedPanelDimensions(panel);
+  void loadPersistedSessionPanelLayout(options).then(() => {
+    if (panel.isConnected) {
+      applyPersistedPanelDimensions(panel);
     }
   });
 
@@ -188,10 +150,11 @@ export function bindSessionPanelResize(
     document.removeEventListener('pointermove', resize);
     document.removeEventListener('pointerup', stopResize);
     document.removeEventListener('pointercancel', stopResize);
-    if (completedState?.axis === 'width' && persistedPanelWidth > 0) {
-      savePersistedPanelWidth(options.storage, persistedPanelWidth, completedState.maxWidth);
-    } else if (completedState?.axis === 'height' && persistedPanelHeight > 0) {
-      savePersistedPanelHeight(options.storage, persistedPanelHeight);
+    const layout = getSessionPanelLayoutSnapshot();
+    if (completedState?.axis === 'width' && layout.width > 0) {
+      savePersistedSessionPanelWidth(layout.width, completedState.maxWidth, options);
+    } else if (completedState?.axis === 'height' && layout.height > 0) {
+      savePersistedSessionPanelHeight(layout.height, options);
     }
   };
 
@@ -205,8 +168,8 @@ export function bindSessionPanelResize(
         state.minWidth,
         state.maxWidth
       );
-      persistedPanelWidth = Math.round(width);
-      panel.style.width = `${Math.round(width)}px`;
+      const layout = updateSessionPanelWidthDraft(width);
+      panel.style.width = `${layout.width}px`;
       return;
     }
     if (state.axis === 'height' && 'clientY' in event && typeof event.clientY === 'number') {
@@ -215,8 +178,8 @@ export function bindSessionPanelResize(
         state.minHeight,
         state.maxHeight
       );
-      persistedPanelHeight = Math.round(height);
-      applyPanelHeight(panel, persistedPanelHeight);
+      const layout = updateSessionPanelHeightDraft(height);
+      applyPanelHeight(panel, layout.height);
     }
   };
 
@@ -229,7 +192,6 @@ export function bindSessionPanelResize(
     const rect = panel.getBoundingClientRect();
     const currentWidth = Math.max(rect.width, parsePixelValue(panel.style.width), 1);
     const maxWidth = resolvePanelMaxWidth(panel, currentWidth);
-    persistedPanelMaxWidth = Math.max(persistedPanelMaxWidth, Math.round(maxWidth));
     state = {
       axis: 'width',
       startX: event.clientX,

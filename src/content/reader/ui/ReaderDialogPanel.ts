@@ -10,6 +10,8 @@ import { createReaderSurfaceContent } from '@content/stitch/runtimeSurfaceConten
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
+import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
+import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
@@ -22,21 +24,25 @@ interface ReaderDialogPanelOptions {
   resolveAssetUrl?: (path: string) => string;
 }
 
-export class ReaderDialogPanel implements UiMountable<
-  HTMLElement | undefined,
-  | {
-      texts?: ReaderPanelTexts;
-      count?: number;
-      hint?: string;
-      highlights?: ReaderPanelHighlight[];
-    }
-  | undefined,
-  HTMLElement
-> {
+export class ReaderDialogPanel
+  implements
+    UiMountable<
+      HTMLElement | undefined,
+      | {
+          texts?: ReaderPanelTexts;
+          count?: number;
+          hint?: string;
+          highlights?: ReaderPanelHighlight[];
+        }
+      | undefined,
+      HTMLElement
+    >
+{
   readonly popupLifecycle = { preserveOnTransientClose: true };
 
   private renderRoot: HTMLElement;
   private readonly popupCoordinator: PopupCoordinator | null;
+  private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
   private resizeDisposer: (() => void) | null = null;
   private previewExpansionDisposer: (() => void) | null = null;
@@ -53,20 +59,18 @@ export class ReaderDialogPanel implements UiMountable<
     submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft)
   });
   private pendingNoteFocusHighlightId: string | null = null;
-  private collapsed = false;
 
   constructor(private readonly options: ReaderDialogPanelOptions) {
     this.texts = options.texts;
     this.popupCoordinator = resolveContentPopupCoordinator();
-    this.renderRoot = document.createElement('div');
-    this.renderRoot.id = 'aiob-reader-panel';
-    this.renderRoot.style.position = 'fixed';
-    this.renderRoot.style.inset = '0';
-    this.renderRoot.style.zIndex = '2147483647';
-    this.renderRoot.style.pointerEvents = 'none';
+    this.collapsePersistence = new SessionPanelCollapsePersistence({
+      rerender: () => this.rerender()
+    });
+    this.renderRoot = createSessionPanelRenderRoot('aiob-reader-panel');
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.rerender();
+    void this.collapsePersistence.restore();
   }
 
   get element(): HTMLElement {
@@ -166,6 +170,7 @@ export class ReaderDialogPanel implements UiMountable<
   }
 
   destroy(): void {
+    this.collapsePersistence.destroy();
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.resizeDisposer?.();
@@ -207,7 +212,7 @@ export class ReaderDialogPanel implements UiMountable<
         { id: 'reader:cancel', label: this.texts.cancel, variant: 'ghost' }
       ]
     });
-    if (this.collapsed) {
+    if (this.collapsePersistence.value) {
       content.surfaces.reader.labels.subtitle = '';
     }
     const surface = renderStitchRuntimeSurface({
@@ -224,8 +229,7 @@ export class ReaderDialogPanel implements UiMountable<
           }
         },
         'session:toggleCollapse': () => {
-          this.collapsed = !this.collapsed;
-          this.rerender();
+          this.collapsePersistence.toggle({ persist: true });
         },
         'resource:close': () => this.options.callbacks.onCancel(),
         'reader:delete': (event) => {
@@ -260,21 +264,21 @@ export class ReaderDialogPanel implements UiMountable<
   }
 
   private applyCompatibilityAttributes(surface: HTMLElement): void {
+    const collapsed = this.collapsePersistence.value;
     surface.style.pointerEvents = 'none';
     const modal = surface.querySelector<HTMLElement>('.resource-modal--session');
-    modal?.classList.toggle('is-collapsed', this.collapsed);
+    modal?.classList.toggle('is-collapsed', collapsed);
     const surfaceWindow = surface.querySelector<HTMLElement>('.reader-surface-window');
-    surfaceWindow?.classList.toggle('is-collapsed', this.collapsed);
+    surfaceWindow?.classList.toggle('is-collapsed', collapsed);
     const dialog = surface.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) {
       dialog.dataset.role = 'dialog-title';
       dialog.style.pointerEvents = 'auto';
     }
     surfaceWindow?.style.setProperty('pointer-events', 'auto');
-    if (this.collapsed && surfaceWindow) {
+    if (collapsed && surfaceWindow) {
       surfaceWindow.addEventListener('click', () => {
-        this.collapsed = false;
-        this.rerender();
+        this.collapsePersistence.set(false, { persist: true });
       });
     }
     surface
@@ -287,13 +291,10 @@ export class ReaderDialogPanel implements UiMountable<
       '[data-action-id="session:toggleCollapse"]'
     );
     if (collapseTrigger) {
-      collapseTrigger.hidden = this.collapsed;
-      collapseTrigger.setAttribute('aria-expanded', this.collapsed ? 'false' : 'true');
-      collapseTrigger.setAttribute(
-        'aria-label',
-        this.collapsed ? 'Expand panel' : 'Collapse panel'
-      );
-      collapseTrigger.textContent = this.collapsed ? '⌃' : '⌄';
+      collapseTrigger.hidden = collapsed;
+      collapseTrigger.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      collapseTrigger.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
+      collapseTrigger.textContent = collapsed ? '⌃' : '⌄';
     }
     surface.querySelectorAll<HTMLElement>('article[data-highlight-id]').forEach((item) => {
       item.dataset.role = 'highlight-item';
@@ -339,8 +340,9 @@ export class ReaderDialogPanel implements UiMountable<
   private applyHighlights(highlights: ReaderPanelHighlight[]): ReaderPanelHighlight | undefined {
     this.commentDrafts.captureRenderedInputs();
     const previousCount = this.highlights.length;
-    if (this.collapsed && highlights.length > previousCount) {
-      this.collapsed = false;
+    const shouldExpandForNewHighlight = previousCount > 0 && highlights.length > previousCount;
+    if (this.collapsePersistence.value && shouldExpandForNewHighlight) {
+      this.collapsePersistence.set(false, { persist: true, rerender: false });
     }
     this.highlights = [...highlights];
     this.highlightCount = highlights.length;

@@ -7,14 +7,20 @@ import type { SessionPanelResizeStorage } from './panels/sessionPanelResizeTypes
 const WIDTH_STORAGE_KEY = 'aiob.sessionPanel.width';
 const WIDTH_MAX_STORAGE_KEY = 'aiob.sessionPanel.maxWidth';
 const HEIGHT_STORAGE_KEY = 'aiob.sessionPanel.height';
+const COLLAPSED_STORAGE_KEY = 'aiob.sessionPanel.collapsed';
 
 function createSessionPanelResizeStorage(area: StorageAreaService): SessionPanelResizeStorage {
   return {
     async load() {
-      return area.getMany([WIDTH_STORAGE_KEY, WIDTH_MAX_STORAGE_KEY, HEIGHT_STORAGE_KEY]);
+      return area.getMany([
+        WIDTH_STORAGE_KEY,
+        WIDTH_MAX_STORAGE_KEY,
+        HEIGHT_STORAGE_KEY,
+        COLLAPSED_STORAGE_KEY
+      ]);
     },
     save(items) {
-      void area.setMany(items);
+      return area.setMany(items);
     }
   };
 }

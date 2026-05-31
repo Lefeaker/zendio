@@ -10,6 +10,8 @@ import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
+import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
+import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
@@ -22,16 +24,20 @@ interface VideoDialogPanelOptions {
   initialCollapsed?: boolean;
 }
 
-export class VideoDialogPanel implements UiMountable<
-  HTMLElement | undefined,
-  | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
-  | undefined,
-  HTMLElement
-> {
+export class VideoDialogPanel
+  implements
+    UiMountable<
+      HTMLElement | undefined,
+      | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
+      | undefined,
+      HTMLElement
+    >
+{
   readonly popupLifecycle = { preserveOnTransientClose: true };
 
   private renderRoot: HTMLElement;
   private readonly popupCoordinator: PopupCoordinator | null;
+  private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
   private resizeDisposer: (() => void) | null = null;
   private previewExpansionDisposer: (() => void) | null = null;
@@ -47,22 +53,22 @@ export class VideoDialogPanel implements UiMountable<
     getRoot: () => this.renderRoot.shadowRoot,
     submitDraft: (id, draft) => this.options.callbacks.onSubmitCaptureEdit(id, draft)
   });
-  private collapsed = false;
   private keepCollapsedForNextCaptureUpdate = false;
 
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
-    this.collapsed = Boolean(options.initialCollapsed);
-    this.keepCollapsedForNextCaptureUpdate = this.collapsed;
+    this.keepCollapsedForNextCaptureUpdate = Boolean(options.initialCollapsed);
     this.popupCoordinator = resolveContentPopupCoordinator();
-    this.renderRoot = document.createElement('div');
-    this.renderRoot.style.position = 'fixed';
-    this.renderRoot.style.inset = '0';
-    this.renderRoot.style.zIndex = '2147483647';
-    this.renderRoot.style.pointerEvents = 'none';
+    this.collapsePersistence = new SessionPanelCollapsePersistence({
+      initialCollapsed: Boolean(options.initialCollapsed),
+      restoreFromStorage: !options.initialCollapsed,
+      rerender: () => this.rerender()
+    });
+    this.renderRoot = createSessionPanelRenderRoot();
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.rerender();
+    void this.collapsePersistence.restore();
   }
 
   get element(): HTMLElement {
@@ -162,12 +168,13 @@ export class VideoDialogPanel implements UiMountable<
   }
 
   collapse(): void {
-    this.collapsed = true;
+    this.collapsePersistence.set(true, { rerender: false });
     this.keepCollapsedForNextCaptureUpdate = true;
     this.rerender();
   }
 
   destroy(): void {
+    this.collapsePersistence.destroy();
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.resizeDisposer?.();
@@ -207,7 +214,7 @@ export class VideoDialogPanel implements UiMountable<
         { id: 'video:cancel', label: this.texts.cancel, variant: 'ghost' }
       ]
     });
-    if (this.collapsed) {
+    if (this.collapsePersistence.value) {
       content.surfaces.video.labels.subtitle = '';
     }
     content.surfaces.video.captures = content.surfaces.video.captures.map((capture) =>
@@ -231,8 +238,7 @@ export class VideoDialogPanel implements UiMountable<
           }
         },
         'session:toggleCollapse': () => {
-          this.collapsed = !this.collapsed;
-          this.rerender();
+          this.collapsePersistence.toggle({ persist: true });
         },
         'resource:close': () => this.options.callbacks.onCancel(),
         'video:delete': (event) => {
@@ -256,21 +262,21 @@ export class VideoDialogPanel implements UiMountable<
   }
 
   private applyCompatibilityAttributes(surface: HTMLElement): void {
+    const collapsed = this.collapsePersistence.value;
     surface.style.pointerEvents = 'none';
     const modal = surface.querySelector<HTMLElement>('.resource-modal--session');
-    modal?.classList.toggle('is-collapsed', this.collapsed);
+    modal?.classList.toggle('is-collapsed', collapsed);
     const surfaceWindow = surface.querySelector<HTMLElement>('.video-surface-window');
-    surfaceWindow?.classList.toggle('is-collapsed', this.collapsed);
+    surfaceWindow?.classList.toggle('is-collapsed', collapsed);
     const dialog = surface.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) {
       dialog.dataset.element = 'dialog';
       dialog.style.pointerEvents = 'auto';
     }
     surfaceWindow?.style.setProperty('pointer-events', 'auto');
-    if (this.collapsed && surfaceWindow) {
+    if (collapsed && surfaceWindow) {
       surfaceWindow.addEventListener('click', () => {
-        this.collapsed = false;
-        this.rerender();
+        this.collapsePersistence.set(false, { persist: true });
       });
     }
     surface
@@ -289,13 +295,10 @@ export class VideoDialogPanel implements UiMountable<
       '[data-action-id="session:toggleCollapse"]'
     );
     if (collapseTrigger) {
-      collapseTrigger.hidden = this.collapsed;
-      collapseTrigger.setAttribute('aria-expanded', this.collapsed ? 'false' : 'true');
-      collapseTrigger.setAttribute(
-        'aria-label',
-        this.collapsed ? 'Expand panel' : 'Collapse panel'
-      );
-      collapseTrigger.textContent = this.collapsed ? '⌃' : '⌄';
+      collapseTrigger.hidden = collapsed;
+      collapseTrigger.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      collapseTrigger.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
+      collapseTrigger.textContent = collapsed ? '⌃' : '⌄';
     }
     surface.querySelectorAll<HTMLElement>('article[data-capture-id]').forEach((item) => {
       item.dataset.role = 'capture-item';
@@ -334,12 +337,14 @@ export class VideoDialogPanel implements UiMountable<
 
   private applyCaptures(captures: VideoPanelCapture[]): void {
     this.commentDrafts.captureRenderedInputs();
+    const shouldExpandForNewCapture =
+      this.captures.length > 0 && captures.length > this.captures.length;
     if (
-      this.collapsed &&
-      captures.length > this.captures.length &&
+      this.collapsePersistence.value &&
+      shouldExpandForNewCapture &&
       !this.keepCollapsedForNextCaptureUpdate
     ) {
-      this.collapsed = false;
+      this.collapsePersistence.set(false, { persist: true, rerender: false });
     }
     this.keepCollapsedForNextCaptureUpdate = false;
     this.captures = [...captures];
@@ -356,9 +361,8 @@ export class VideoDialogPanel implements UiMountable<
   }
 
   private formatCounter(count: number): string {
-    if (count <= 0) {
-      return this.texts.counterZero;
-    }
-    return this.texts.counter.replace('{count}', String(count));
+    return count <= 0
+      ? this.texts.counterZero
+      : this.texts.counter.replace('{count}', String(count));
   }
 }

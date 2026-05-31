@@ -5,8 +5,11 @@ import { asType } from '../../utils/typeHelpers';
 
 type SessionPanelStorageItems = Partial<
   Record<
-    'aiob.sessionPanel.width' | 'aiob.sessionPanel.maxWidth' | 'aiob.sessionPanel.height',
-    number
+    | 'aiob.sessionPanel.width'
+    | 'aiob.sessionPanel.maxWidth'
+    | 'aiob.sessionPanel.height'
+    | 'aiob.sessionPanel.collapsed',
+    number | boolean
   >
 >;
 
@@ -103,7 +106,7 @@ describe('session panel resize persistence', () => {
     vi.restoreAllMocks();
   });
 
-  it('applies in-memory width immediately and storage width after async load', async () => {
+  it('keeps committed in-memory width when an older async storage load resolves later', async () => {
     const loadStorage: { current?: (items: SessionPanelStorageItems) => void } = {};
     const storage = createSessionPanelStorage(() => {
       return new Promise((resolve) => {
@@ -126,7 +129,25 @@ describe('session panel resize persistence', () => {
     expect(loadStorage.current).toBeInstanceOf(Function);
     loadStorage.current?.({ 'aiob.sessionPanel.width': 512, 'aiob.sessionPanel.maxWidth': 576 });
     await loadPromise;
-    expect(secondPanel.style.width).toBe('512px');
+    expect(secondPanel.style.width).toBe('440px');
+  });
+
+  it('applies stored width after async load when no local resize wins the race', async () => {
+    const loadStorage: { current?: (items: SessionPanelStorageItems) => void } = {};
+    const storage = createSessionPanelStorage(() => {
+      return new Promise((resolve) => {
+        loadStorage.current = resolve;
+      });
+    });
+    const { applyPersistedSessionPanelWidth } = await importResizeModule();
+    const panel = document.createElement('section');
+
+    const loadPromise = applyPersistedSessionPanelWidth(panel, { storage });
+
+    expect(loadStorage.current).toBeInstanceOf(Function);
+    loadStorage.current?.({ 'aiob.sessionPanel.width': 512, 'aiob.sessionPanel.maxWidth': 576 });
+    await loadPromise;
+    expect(panel.style.width).toBe('512px');
   });
 
   it('returns cleanup functions for complete or missing resize surfaces', async () => {
@@ -178,6 +199,72 @@ describe('session panel resize persistence', () => {
 
     expect(storage.save).toHaveBeenCalledTimes(1);
     expect(storage.save).toHaveBeenCalledWith({ 'aiob.sessionPanel.height': 420 });
+  });
+
+  it('loads persisted layout dimensions and collapsed state together', async () => {
+    const storage = createSessionPanelStorage(() =>
+      Promise.resolve({
+        'aiob.sessionPanel.width': 512,
+        'aiob.sessionPanel.maxWidth': 576,
+        'aiob.sessionPanel.height': 480,
+        'aiob.sessionPanel.collapsed': true
+      })
+    );
+    const { applyPersistedSessionPanelLayout } = await importResizeModule();
+    const fixture = createSurfaceFixture();
+
+    const layout = await applyPersistedSessionPanelLayout(fixture.panel, { storage });
+
+    expect(layout).toEqual({
+      width: 512,
+      maxWidth: 576,
+      height: 480,
+      collapsed: true
+    });
+    expect(fixture.panel.style.width).toBe('512px');
+    expect(fixture.panel.style.height).toBe('480px');
+    expect(fixture.panel.style.getPropertyValue('--aiob-session-panel-max-height')).toBe('90vh');
+  });
+
+  it('persists collapsed state and returns the current in-memory snapshot after an earlier load', async () => {
+    const storage = createSessionPanelStorage(() =>
+      Promise.resolve({ 'aiob.sessionPanel.collapsed': false })
+    );
+    const { loadPersistedSessionPanelLayout, saveSessionPanelCollapsed } =
+      await importResizeModule();
+
+    await expect(loadPersistedSessionPanelLayout({ storage })).resolves.toMatchObject({
+      collapsed: false
+    });
+    saveSessionPanelCollapsed(true, { storage });
+
+    expect(storage.save).toHaveBeenCalledWith({ 'aiob.sessionPanel.collapsed': true });
+    await expect(loadPersistedSessionPanelLayout({ storage })).resolves.toMatchObject({
+      collapsed: true
+    });
+  });
+
+  it('keeps a locally committed collapsed state when a later storage load returns stale data', async () => {
+    let resolveSave = (): void => undefined;
+    const storage = createSessionPanelStorage(() =>
+      Promise.resolve({ 'aiob.sessionPanel.collapsed': false })
+    );
+    storage.save.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    const { loadPersistedSessionPanelLayout, saveSessionPanelCollapsed } =
+      await importResizeModule();
+
+    saveSessionPanelCollapsed(true, { storage });
+
+    expect(storage.save).toHaveBeenCalledWith({ 'aiob.sessionPanel.collapsed': true });
+    await expect(loadPersistedSessionPanelLayout({ storage })).resolves.toMatchObject({
+      collapsed: true
+    });
+    resolveSave();
   });
 
   it('commits pointercancel once and removes active document listeners', async () => {
