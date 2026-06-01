@@ -1,6 +1,6 @@
 # 长期维护 Backlog
 
-日期：2026-05-29
+日期：2026-06-01
 
 ## P1
 
@@ -16,7 +16,9 @@
 3. 维持热点模块行数不回弹
    - 当前真值：
      - `videoSessionRuntime.ts = 395`
-     - `RestSectionView.ts = 260`
+     - `src/options/components/sections/RestSectionView.ts` 已在 2026-06-01 Plan 07 RST3 退役；不得再作为当前热点真值使用
+     - `src/options/app/rest-settings/**` 是当前 REST settings owner，后续只按当前 owner 的 build/performance/audit 报告治理
+     - `src/options/yaml-config-editor/view.ts = 746`，当前 YAML 配置 UI 唯一 owner
      - `PrivacySettingsView.ts = 255`
      - `productionStitchShellMount.ts = 254`
      - legacy YAML domain hotspot 已在 2026-06-01 Plan 03 R3 退役
@@ -27,7 +29,7 @@
 4. 继续清理 lint warning 基线债务
    - 当前真值：`lint:warnings-guard` checked-in baseline 为 `132`；2026-06-01 Plan 03 native YAML retirement 后 fresh warning count 为 `132`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
-   - 当前 hardcoded config 守卫：`lint:hardcoded` 已接入 `quality` 与 CI；当前 `0` errors / `11` warning-only findings
+   - 当前 hardcoded config 守卫：`lint:hardcoded` 已接入 `quality` 与 CI；当前 `0` errors / `8` warning-only findings
    - 当前类型审计：`lint:type-any` 扫描 `1108` files；overall `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`
    - 后续处理：继续清理 broad historical `require-await`、测试 fixture typing、type assertion / unsafe assignment、hardcoded warning-only fixtures/source defaults 债务；不要通过降低 ESLint 规则、hardcoded lint 规则或无解释 disable 来“归零”
    - Baseline 规则：`lint:warnings-report` 会重写 `tools/baselines/lint-warnings.json`；只有有意同步 warning truth 时才提交该 baseline

@@ -6,6 +6,7 @@ import type { WidgetMountContract, WidgetRuntime } from '@options/schema-runtime
 import { createYamlEditorState } from './state';
 import { serializeYamlEditorState } from './serialize';
 import { validateYamlEditorState } from './validation';
+import { createYamlEditorLabels, type YamlEditorLabels } from './labels';
 import type { YamlEditorState, YamlEditorValidation } from './types';
 import {
   renderYamlConfigEditorView,
@@ -36,6 +37,7 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
   private runtime: YamlEditorRuntime | undefined;
   private state: YamlEditorState = createYamlEditorState(null);
   private validation: YamlEditorValidation | null = null;
+  private labels: YamlEditorLabels = createYamlEditorLabels(null);
   private filter: YamlEditorFilter = 'all';
   private lastValidYamlConfig: YamlConfigOverrides | null = null;
 
@@ -46,11 +48,13 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
   ): void {
     this.container = container;
     this.runtime = runtime;
+    this.labels = createYamlEditorLabels(props.messages ?? null);
     this.applySnapshot(props.options ?? null);
   }
 
   update(props: YamlConfigEditorWidgetProps, runtime?: YamlEditorRuntime): void {
     this.runtime = runtime ?? this.runtime;
+    this.labels = createYamlEditorLabels(props.messages ?? null);
     this.applySnapshot(props.options ?? null);
   }
 
@@ -63,13 +67,13 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
     const validation = validateYamlEditorState(this.state);
     if (!validation.valid) {
       this.validation = validation;
-      renderYamlEditorValidation(this.container, this.validation);
+      renderYamlEditorValidation(this.container, this.validation, this.labels);
       return { yamlConfig: this.lastValidYamlConfig };
     }
 
     this.validation = null;
     this.lastValidYamlConfig = serializeYamlEditorState(this.state);
-    renderYamlEditorValidation(this.container, this.validation);
+    renderYamlEditorValidation(this.container, this.validation, this.labels);
     return { yamlConfig: this.lastValidYamlConfig };
   }
 
@@ -94,6 +98,7 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
         state: this.state,
         filter: this.filter,
         validation: this.validation,
+        labels: this.labels,
         onChange: () => this.markDirty(),
         onRender: () => this.render(),
         onSetFilter: (filter) => {
@@ -111,7 +116,7 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
     if (!invalid) {
       this.lastValidYamlConfig = serializeYamlEditorState(this.state);
     }
-    renderYamlEditorValidation(this.container, this.validation);
+    renderYamlEditorValidation(this.container, this.validation, this.labels);
     this.runtime?.notifyDirty?.(['yamlConfig'], { invalid });
   }
 }

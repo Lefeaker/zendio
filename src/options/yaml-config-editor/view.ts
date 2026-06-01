@@ -1,11 +1,7 @@
 import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import { button, el, selectInput, textInput } from './dom';
-import {
-  YAML_EDITOR_CONTENT_TYPE_LABELS,
-  YAML_EDITOR_ERROR_MESSAGES,
-  YAML_EDITOR_FIELD_TYPES,
-  YAML_EDITOR_TABLE_LABELS
-} from './labels';
+import { FALLBACK_YAML_EDITOR_LABELS, YAML_EDITOR_FIELD_TYPES } from './labels';
+import type { YamlEditorLabels } from './labels';
 import {
   YAML_EDITOR_CONTENT_TYPES,
   type YamlEditorDomainEntry,
@@ -30,6 +26,7 @@ interface YamlConfigEditorViewOptions {
   state: YamlEditorState;
   filter: YamlEditorFilter;
   validation: YamlEditorValidation | null;
+  labels: YamlEditorLabels;
   onChange: () => void;
   onRender: () => void;
   onSetFilter: (filter: YamlEditorFilter) => void;
@@ -293,11 +290,11 @@ function cell(child: Node): HTMLTableCellElement {
 function renderFilter(options: YamlConfigEditorViewOptions): HTMLElement {
   const row = el('div', { className: 'yaml-filter-row stitch-yaml-filter-row' });
   const items: Array<[YamlEditorFilter, string]> = [
-    ['all', YAML_EDITOR_TABLE_LABELS.filterAll],
-    ['article', YAML_EDITOR_CONTENT_TYPE_LABELS.article],
-    ['clipper', YAML_EDITOR_CONTENT_TYPE_LABELS.clipper],
-    ['video', YAML_EDITOR_CONTENT_TYPE_LABELS.video],
-    ['ai_chat', YAML_EDITOR_CONTENT_TYPE_LABELS.ai_chat]
+    ['all', options.labels.filters.all],
+    ['article', options.labels.filters.article],
+    ['clipper', options.labels.filters.clipper],
+    ['video', options.labels.filters.video],
+    ['ai_chat', options.labels.filters.ai_chat]
   ];
   items.forEach(([value, label]) => {
     const control = el('button', {
@@ -411,7 +408,7 @@ function renderFieldRow(
       textInput({
         className: 'input mono',
         value: getRowValuePath(row, options.filter),
-        placeholder: 'title',
+        placeholder: options.labels.table.valuePathPlaceholder,
         dataset: { yamlField: 'valuePath' },
         onInput: (value) => {
           updateFilteredField(row, options.filter, { valuePath: value });
@@ -421,7 +418,7 @@ function renderFieldRow(
     ),
     cell(
       renderDeleteButton(
-        YAML_EDITOR_TABLE_LABELS.deleteButton,
+        options.labels.table.deleteButton,
         () => removeRow(options.state, row),
         options,
         row.builtIn
@@ -439,15 +436,15 @@ function renderFieldTable(options: YamlConfigEditorViewOptions): HTMLElement {
   const thead = el('thead');
   const header = el('tr');
   [
-    YAML_EDITOR_TABLE_LABELS.field,
-    YAML_EDITOR_TABLE_LABELS.type,
-    YAML_EDITOR_TABLE_LABELS.article,
-    YAML_EDITOR_TABLE_LABELS.clipper,
-    YAML_EDITOR_TABLE_LABELS.video,
-    YAML_EDITOR_TABLE_LABELS.ai,
-    YAML_EDITOR_TABLE_LABELS.defaultValue,
-    YAML_EDITOR_TABLE_LABELS.valuePath,
-    YAML_EDITOR_TABLE_LABELS.actions
+    options.labels.table.field,
+    options.labels.table.type,
+    options.labels.table.article,
+    options.labels.table.clipper,
+    options.labels.table.video,
+    options.labels.table.ai,
+    options.labels.table.defaultValue,
+    options.labels.table.valuePath,
+    options.labels.table.actions
   ].forEach((label) => header.append(el('th', { text: label })));
   thead.append(header);
   const tbody = el('tbody');
@@ -470,7 +467,7 @@ function renderDomainMeta(
       value: entry.contentType,
       options: YAML_EDITOR_CONTENT_TYPES.map((contentType) => ({
         value: contentType,
-        label: YAML_EDITOR_CONTENT_TYPE_LABELS[contentType]
+        label: options.labels.contentTypes[contentType]
       })),
       onChange: (contentType) => {
         moveDomainEntry(options.state, entry, contentType);
@@ -481,7 +478,7 @@ function renderDomainMeta(
     textInput({
       className: 'input mono',
       value: entry.domain,
-      placeholder: YAML_EDITOR_TABLE_LABELS.domainPlaceholder,
+      placeholder: options.labels.table.domainPlaceholder,
       dataset: { yamlDomain: 'domain' },
       onInput: (value) => {
         entry.domain = value;
@@ -489,7 +486,7 @@ function renderDomainMeta(
       }
     }),
     renderDeleteButton(
-      YAML_EDITOR_TABLE_LABELS.deleteButton,
+      options.labels.table.domainRemoveRule,
       () => removeDomainEntry(options.state, entry),
       options
     )
@@ -554,7 +551,7 @@ function renderDomainField(
     textInput({
       className: 'input mono',
       value: field.defaultValue,
-      placeholder: YAML_EDITOR_TABLE_LABELS.defaultValue,
+      placeholder: options.labels.table.defaultValue,
       dataset: { yamlField: 'defaultValue', yamlDomainField: 'defaultValue' },
       onInput: (value) => {
         field.defaultValue = value;
@@ -564,7 +561,7 @@ function renderDomainField(
     textInput({
       className: 'input mono',
       value: field.valuePath,
-      placeholder: 'title',
+      placeholder: options.labels.table.valuePathPlaceholder,
       dataset: { yamlField: 'valuePath', yamlDomainField: 'valuePath' },
       onInput: (value) => {
         field.valuePath = value;
@@ -572,7 +569,7 @@ function renderDomainField(
       }
     }),
     renderDeleteButton(
-      YAML_EDITOR_TABLE_LABELS.deleteButton,
+      options.labels.table.domainRemoveField,
       () => {
         entry.fields = entry.fields.filter((candidate) => candidate.id !== field.id);
       },
@@ -601,7 +598,7 @@ function renderDomainRule(
   fields.append(
     button({
       className: 'schema-button yaml-action-button secondary',
-      text: YAML_EDITOR_TABLE_LABELS.addField,
+      text: options.labels.table.addDomainField,
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -619,9 +616,7 @@ function renderDomainRules(options: YamlConfigEditorViewOptions): HTMLElement {
   const grid = el('div', { className: 'yaml-domain-grid stitch-yaml-domain-grid' });
   const entries = getDomainEntries(options.state);
   if (!entries.length) {
-    grid.append(
-      el('p', { className: 'yaml-helper', text: YAML_EDITOR_TABLE_LABELS.emptyDomainRules })
-    );
+    grid.append(el('p', { className: 'yaml-helper', text: options.labels.table.emptyDomainRules }));
     return grid;
   }
   entries.forEach((entry) => grid.append(renderDomainRule(options, entry)));
@@ -633,7 +628,7 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
   actions.append(
     button({
       className: 'schema-button yaml-action-button primary',
-      text: YAML_EDITOR_TABLE_LABELS.addField,
+      text: options.labels.table.addField,
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -644,7 +639,7 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
     }),
     button({
       className: 'schema-button yaml-action-button secondary',
-      text: YAML_EDITOR_TABLE_LABELS.addDomainRule,
+      text: options.labels.table.addDomainRule,
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -657,16 +652,20 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
   return actions;
 }
 
-function formatError(error: YamlEditorValidationError): string {
-  if (error.code === 'default_invalid' && error.message in YAML_EDITOR_ERROR_MESSAGES) {
-    return YAML_EDITOR_ERROR_MESSAGES[error.message as keyof typeof YAML_EDITOR_ERROR_MESSAGES];
+function formatError(error: YamlEditorValidationError, labels: YamlEditorLabels): string {
+  if (error.code === 'default_invalid' && error.message in labels.errors) {
+    return labels.errors[error.message] ?? labels.errors.default_invalid ?? error.message;
   }
-  return YAML_EDITOR_ERROR_MESSAGES[error.code] ?? error.message;
+  return labels.errors[error.code] ?? error.message;
 }
 
-function renderErrorList(errors: YamlEditorValidationError[], className: string): HTMLElement {
+function renderErrorList(
+  errors: YamlEditorValidationError[],
+  className: string,
+  labels: YamlEditorLabels
+) {
   const list = el('ul', { className });
-  Array.from(new Set(errors.map(formatError))).forEach((message) => {
+  Array.from(new Set(errors.map((error) => formatError(error, labels)))).forEach((message) => {
     list.append(el('li', { text: message }));
   });
   return list;
@@ -674,7 +673,8 @@ function renderErrorList(errors: YamlEditorValidationError[], className: string)
 
 export function renderYamlEditorValidation(
   container: HTMLElement | null,
-  validation: YamlEditorValidation | null
+  validation: YamlEditorValidation | null,
+  labels: YamlEditorLabels = FALLBACK_YAML_EDITOR_LABELS
 ): void {
   if (!container) {
     return;
@@ -691,12 +691,12 @@ export function renderYamlEditorValidation(
       global.append(
         el('p', {
           className: 'yaml-global-error-list',
-          text: YAML_EDITOR_TABLE_LABELS.invalidWarning
+          text: labels.table.invalidWarning
         })
       );
     }
     if (validation?.globalErrors.length) {
-      global.append(renderErrorList(validation.globalErrors, 'yaml-global-error-list'));
+      global.append(renderErrorList(validation.globalErrors, 'yaml-global-error-list', labels));
     }
   }
 
@@ -710,7 +710,7 @@ export function renderYamlEditorValidation(
     row.classList.add('is-invalid');
     row
       .querySelector<HTMLTableCellElement>('td:last-child')
-      ?.append(renderErrorList(errors, 'yaml-row-errors'));
+      ?.append(renderErrorList(errors, 'yaml-row-errors', labels));
   });
 
   Object.entries(validation?.domainErrors ?? {}).forEach(([entryId, errors]) => {
@@ -720,7 +720,7 @@ export function renderYamlEditorValidation(
     card?.classList.add('is-invalid');
     card
       ?.querySelector<HTMLElement>('[data-yaml-domain-errors]')
-      ?.append(renderErrorList(errors, 'yaml-domain-error-list'));
+      ?.append(renderErrorList(errors, 'yaml-domain-error-list', labels));
   });
 }
 
@@ -738,8 +738,8 @@ export function renderYamlConfigEditorView(options: YamlConfigEditorViewOptions)
     renderFieldTable(options),
     renderDomainRules(options),
     renderActions(options),
-    el('p', { className: 'yaml-helper', text: YAML_EDITOR_TABLE_LABELS.helper })
+    el('p', { className: 'yaml-helper', text: options.labels.table.helper })
   );
-  renderYamlEditorValidation(host, options.validation);
+  renderYamlEditorValidation(host, options.validation, options.labels);
   return host;
 }

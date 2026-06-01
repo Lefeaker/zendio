@@ -445,6 +445,12 @@ const runtime: Messages = {
   yamlFieldValuePathLabel: '值路径',
   yamlFieldValuePathPlaceholder: '例如 meta.author 或 extra.notes[0]',
   yamlFieldValuePathHint: '可选：映射到上下文中的数据，留空将使用抓取或默认值。',
+  yamlFieldErrorNameRequired: '字段名称不能为空。',
+  yamlFieldErrorNamePattern:
+    '字段名称必须以字母或下划线开头，并且只能包含字母、数字、下划线或连字符。',
+  yamlFieldErrorNameDuplicate: '存在重复字段名称。',
+  yamlFieldErrorValueInvalid: '默认值与字段类型不匹配。',
+  yamlFieldSaveBlockedWarning: '保存前请先修复 YAML 配置错误。',
   yamlFieldAvailabilityNote: '关闭开关即可停用字段；新增字段会同步应用到所选内容类型。',
   yamlDefaultGroupLabel: '默认字段',
   yamlFilterAllLabel: '全部',

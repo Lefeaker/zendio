@@ -1,11 +1,5 @@
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n/locales';
 import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
-
-export const YAML_EDITOR_CONTENT_TYPE_LABELS: Record<YamlContentType, string> = {
-  article: 'Article',
-  clipper: 'Clipper',
-  video: 'Video',
-  ai_chat: 'AI Chat'
-};
 
 export const YAML_EDITOR_FIELD_TYPES: YamlFieldType[] = [
   'text',
@@ -15,40 +9,113 @@ export const YAML_EDITOR_FIELD_TYPES: YamlFieldType[] = [
   'array'
 ];
 
-export const YAML_EDITOR_TABLE_LABELS = {
-  field: 'Field',
-  type: 'Type',
-  article: YAML_EDITOR_CONTENT_TYPE_LABELS.article,
-  clipper: YAML_EDITOR_CONTENT_TYPE_LABELS.clipper,
-  video: YAML_EDITOR_CONTENT_TYPE_LABELS.video,
-  ai: YAML_EDITOR_CONTENT_TYPE_LABELS.ai_chat,
-  defaultValue: 'Default value',
-  valuePath: 'Value path',
-  actions: 'Actions',
-  deleteButton: 'Delete',
-  filterAll: 'All',
-  addField: '+ Add field',
-  addDomainRule: '+ Add domain rule',
-  emptyDomainRules: 'No domain overrides configured.',
-  domainPlaceholder: 'example.com',
-  helper:
-    'Disable a switch to hide a field. Custom fields apply to the selected export types. Domain overrides take precedence over the shared table.',
-  invalidWarning: 'Please fix YAML configuration errors before saving.'
-} as const;
+interface YamlEditorTableLabels {
+  field: string;
+  type: string;
+  article: string;
+  clipper: string;
+  video: string;
+  ai: string;
+  defaultValue: string;
+  valuePath: string;
+  actions: string;
+  deleteButton: string;
+  filterAll: string;
+  valuePathPlaceholder: string;
+  addField: string;
+  addDomainField: string;
+  addDomainRule: string;
+  emptyDomainRules: string;
+  domainPlaceholder: string;
+  domainRemoveRule: string;
+  domainRemoveField: string;
+  helper: string;
+  invalidWarning: string;
+}
 
-export const YAML_EDITOR_ERROR_MESSAGES = {
-  name_required: 'Field name is required.',
-  name_invalid:
-    'Field name must start with a letter or underscore and use letters, numbers, underscores, or hyphens.',
-  name_duplicate: 'Duplicate field name.',
-  default_invalid: 'Default value does not match the field type.',
-  value_path_invalid: 'Value path format is invalid.',
-  domain_required: 'Domain is required.',
-  domain_duplicate: 'Duplicate domain for this content type.',
-  domain_field_required: 'Add at least one field.',
-  domain_field_duplicate: 'Duplicate field in this domain rule.',
-  domain_field_unsupported: 'Current content type does not support this field.',
-  INVALID_ARRAY: 'Array default value must include at least one item.',
-  INVALID_BOOLEAN: 'Boolean default value must be true or false.',
-  INVALID_NUMBER: 'Default value must be a valid number.'
-} as const;
+export interface YamlEditorLabels {
+  contentTypes: Record<YamlContentType, string>;
+  filters: Record<YamlContentType | 'all', string>;
+  table: YamlEditorTableLabels;
+  errors: Record<string, string>;
+}
+
+function readMessage<K extends keyof Messages>(
+  messages: Messages | null | undefined,
+  key: K
+): string {
+  const value = messages?.[key];
+  if (typeof value === 'string' && value.length > 0) {
+    return value;
+  }
+
+  const fallback = DEFAULT_RUNTIME_MESSAGES[key];
+  return typeof fallback === 'string' ? fallback : '';
+}
+
+export function createYamlEditorLabels(messages?: Messages | null): YamlEditorLabels {
+  const article = readMessage(messages, 'yamlFieldArticleLabel');
+  const clipper = readMessage(messages, 'yamlFieldClipperLabel');
+  const video = readMessage(messages, 'yamlFieldVideoLabel');
+  const ai = readMessage(messages, 'yamlFieldAiLabel');
+  const valueInvalid =
+    readMessage(messages, 'yamlFieldErrorValueInvalid') ||
+    readMessage(messages, 'yamlDomainErrorValueInvalid');
+  const filterAll =
+    readMessage(messages, 'yamlFilterAllLabel') ||
+    readMessage(messages, 'schemaYamlFilterAllLabel');
+  const invalidWarning =
+    readMessage(messages, 'yamlFieldSaveBlockedWarning') ||
+    readMessage(messages, 'yamlDomainWarningUnresolved');
+
+  return {
+    contentTypes: { article, clipper, video, ai_chat: ai },
+    filters: {
+      all: filterAll,
+      article: readMessage(messages, 'schemaYamlFilterArticleLabel') || article,
+      clipper: readMessage(messages, 'schemaYamlFilterClipperLabel') || clipper,
+      video: readMessage(messages, 'schemaYamlFilterVideoLabel') || video,
+      ai_chat: readMessage(messages, 'schemaYamlFilterAiChatLabel') || ai
+    },
+    table: {
+      field: readMessage(messages, 'yamlFieldNameLabel'),
+      type: readMessage(messages, 'yamlFieldTypeLabel'),
+      article,
+      clipper,
+      video,
+      ai,
+      defaultValue: readMessage(messages, 'yamlFieldDefaultValueLabel'),
+      valuePath: readMessage(messages, 'yamlFieldValuePathLabel'),
+      actions: readMessage(messages, 'yamlFieldActionsLabel'),
+      deleteButton: readMessage(messages, 'yamlFieldDeleteButton'),
+      filterAll,
+      valuePathPlaceholder: readMessage(messages, 'yamlFieldValuePathPlaceholder'),
+      addField: readMessage(messages, 'yamlFieldAddButton'),
+      addDomainField: readMessage(messages, 'yamlDomainAddField'),
+      addDomainRule: readMessage(messages, 'yamlDomainAddRule'),
+      emptyDomainRules: readMessage(messages, 'yamlDomainEmpty'),
+      domainPlaceholder: readMessage(messages, 'yamlDomainPlaceholder'),
+      domainRemoveRule: readMessage(messages, 'yamlDomainRemoveRule'),
+      domainRemoveField: readMessage(messages, 'yamlDomainFieldRemove'),
+      helper: readMessage(messages, 'yamlFieldAvailabilityNote'),
+      invalidWarning
+    },
+    errors: {
+      name_required: readMessage(messages, 'yamlFieldErrorNameRequired'),
+      name_invalid: readMessage(messages, 'yamlFieldErrorNamePattern'),
+      name_duplicate: readMessage(messages, 'yamlFieldErrorNameDuplicate'),
+      default_invalid: valueInvalid,
+      value_path_invalid: readMessage(messages, 'yamlFieldErrorValuePathInvalid'),
+      domain_required: readMessage(messages, 'yamlDomainErrorDomainRequired'),
+      domain_duplicate: readMessage(messages, 'yamlDomainErrorDomainDuplicate'),
+      domain_field_required: readMessage(messages, 'yamlDomainErrorFieldRequired'),
+      domain_field_duplicate: readMessage(messages, 'yamlDomainErrorFieldDuplicate'),
+      domain_field_unsupported: readMessage(messages, 'yamlDomainErrorFieldUnsupported'),
+      INVALID_ARRAY: valueInvalid,
+      INVALID_BOOLEAN: valueInvalid,
+      INVALID_NUMBER: valueInvalid
+    }
+  };
+}
+
+export const FALLBACK_YAML_EDITOR_LABELS = createYamlEditorLabels(null);

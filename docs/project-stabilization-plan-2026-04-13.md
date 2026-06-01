@@ -53,16 +53,16 @@ npx vitest run tests/unit/options/productionStitchShell.renderLifecycle.test.ts
 
 当前目标：
 
-| 文件                                                                | 最低目标 | Stretch 目标 | 当前真值 |
-| ------------------------------------------------------------------- | -------: | -----------: | -------: |
-| `src/content/video/videoSessionRuntime.ts`                          | `<= 360` |     `<= 320` |    `314` |
-| `src/options/components/sections/RestSectionView.ts`                | `<= 300` |     `<= 260` |    `300` |
-| `src/ui/domains/privacy/PrivacySettingsView.ts`                     | `<= 300` |     `<= 260` |    `260` |
-| legacy usage dashboard section                                      | `<= 280` |     `<= 260` |    `231` |
+| 文件                                            |                                   最低目标 |             Stretch 目标 |                                  当前真值 |
+| ----------------------------------------------- | -----------------------------------------: | -----------------------: | ----------------------------------------: |
+| `src/content/video/videoSessionRuntime.ts`      |                                   `<= 360` |                 `<= 320` |                                     `314` |
+| `src/options/app/rest-settings/**`              | 见当前 production-shape / performance gate | 当前 REST settings owner | Plan 07 后替代已退役 `RestSectionView.ts` |
+| `src/ui/domains/privacy/PrivacySettingsView.ts` |                                   `<= 300` |                 `<= 260` |                                     `260` |
+| legacy usage dashboard section                  |                                   `<= 280` |                 `<= 260` |                                     `231` |
 
 当前结论：
 
-- 原 5 个热点已全部达到最低目标；legacy YAML domain 热点已在 2026-06-01 Plan 03 R3 退役
+- 原 5 个热点已全部达到最低目标；legacy YAML domain 热点已在 2026-06-01 Plan 03 R3 退役；`RestSectionView.ts` 已在 2026-06-01 Plan 07 RST3 退役，当前 REST 真值转为 `src/options/app/rest-settings/**`
 - `videoSessionRuntime`、`PrivacySettingsView`、`legacy usage dashboard section` 3 个热点达到 stretch
 - `<=250` 仅适用于本轮新增/拆出的 support modules，不适用于上述 5 个主热点入口
 - 当前新增/AM 的 `src/` support modules 已重新核实，无 `>250` 残留

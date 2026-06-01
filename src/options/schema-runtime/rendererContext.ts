@@ -12,7 +12,7 @@ export interface SchemaRendererRuntime<State, AppData> {
   mutate: (mutator: (state: State) => void, options?: { silent?: boolean }) => void;
   requestRerender: () => void;
   getWidgetFactory: (widgetType: string) => WidgetFactory<State, AppData> | null;
-  notifyDirty?: (keys?: string[]) => void;
+  notifyDirty?: (keys?: string[], meta?: { invalid?: boolean }) => void;
   reportError?: (scope: string, error: unknown) => void;
 }
 
