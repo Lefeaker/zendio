@@ -19,11 +19,16 @@ function getDefaultField(contentType: YamlContentType, name: string): YamlFieldC
   return DEFAULT_YAML_CONFIG.contentTypes[contentType]?.fields.find((field) => field.name === name);
 }
 
-function shouldIncludeBuiltInField(field: YamlEditorField, contentType: YamlContentType): boolean {
-  const baseline = getDefaultField(contentType, field.name.trim());
-  if (!baseline) {
-    return field.enabled;
-  }
+function getDefaultCustomField(
+  contentType: YamlContentType,
+  name: string
+): YamlFieldConfig | undefined {
+  return DEFAULT_YAML_CONFIG.contentTypes[contentType]?.customFields?.find(
+    (field) => field.name === name
+  );
+}
+
+function differsFromBaseline(field: YamlEditorField, baseline: YamlFieldConfig): boolean {
   if (baseline.type !== field.type) {
     return true;
   }
@@ -38,6 +43,26 @@ function shouldIncludeBuiltInField(field: YamlEditorField, contentType: YamlCont
   }
   const parsed = parseDefaultValue(field.type, field.defaultValue);
   return !isYamlValueEqual(baseline.defaultValue ?? undefined, parsed);
+}
+
+function shouldIncludeBuiltInField(field: YamlEditorField, contentType: YamlContentType): boolean {
+  const baseline = getDefaultField(contentType, field.name.trim());
+  if (!baseline) {
+    return field.enabled;
+  }
+  return differsFromBaseline(field, baseline);
+}
+
+function shouldIncludeCustomField(field: YamlEditorField, contentType: YamlContentType): boolean {
+  const name = field.name.trim();
+  if (!name) {
+    return false;
+  }
+  const baseline = getDefaultCustomField(contentType, name);
+  if (!baseline) {
+    return field.enabled;
+  }
+  return differsFromBaseline(field, baseline);
 }
 
 function collectDomainOverrides(
@@ -69,7 +94,7 @@ export function serializeYamlEditorState(state: YamlEditorState): YamlConfigOver
       .filter((field) => field.name.trim() && shouldIncludeBuiltInField(field, contentType))
       .map(buildFieldConfig);
     const customFields = state.contentTypes[contentType].customFields
-      .filter((field) => field.enabled && field.name.trim())
+      .filter((field) => shouldIncludeCustomField(field, contentType))
       .map((field) => buildFieldConfig({ ...field, isCustom: true }));
     const domainOverrides = collectDomainOverrides(state, contentType);
     if (!fieldOverrides.length && !customFields.length && !domainOverrides) {
