@@ -522,6 +522,34 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     ]);
   });
 
+  it('locks default YAML custom field delete and rename controls in production', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const nameInput = queryRequired<HTMLInputElement>('input[data-yaml-field="name"]', statusRow);
+    const deleteButton = queryRequired<HTMLButtonElement>('button.yaml-delete-button', statusRow);
+
+    expect(nameInput.disabled).toBe(true);
+    expect(deleteButton.disabled).toBe(true);
+
+    nameInput.value = 'state';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    deleteButton.click();
+
+    const draft = mounted.collectDraft();
+    expect(draft.yamlConfig ?? null).toBeNull();
+
+    mounted.refreshOptions(draft);
+    expect(findYamlRowByField('status')).toBeTruthy();
+    expect(findYamlRowByField('state')).toBeNull();
+  });
+
   it('does not let invalid YAML widget edits pollute production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

@@ -37,9 +37,14 @@ function createIdFactory(): IdFactory {
 function createField(
   field: YamlFieldConfig,
   idFactory: IdFactory,
-  options: { builtIn: boolean; isCustom: boolean }
+  options: {
+    builtIn: boolean;
+    isCustom: boolean;
+    baselineKind?: YamlEditorField['baselineKind'];
+    baselineName?: string;
+  }
 ): YamlEditorField {
-  return {
+  const editorField: YamlEditorField = {
     id: idFactory.createId(`yaml-${field.name || 'field'}`),
     name: field.name,
     type: field.type,
@@ -50,6 +55,11 @@ function createField(
     builtIn: options.builtIn,
     isCustom: options.isCustom
   };
+  if (options.baselineKind) {
+    editorField.baselineKind = options.baselineKind;
+    editorField.baselineName = options.baselineName ?? field.name;
+  }
+  return editorField;
 }
 
 function createDomainField(field: YamlFieldConfig, idFactory: IdFactory): YamlEditorDomainField {
@@ -64,7 +74,9 @@ function createDomainField(field: YamlFieldConfig, idFactory: IdFactory): YamlEd
 }
 
 function mergeIntoField(target: YamlEditorField, field: YamlFieldConfig): void {
-  target.name = field.name;
+  if (target.baselineKind !== 'defaultCustomField') {
+    target.name = field.name;
+  }
   target.type = field.type ?? target.type;
   target.enabled = field.enabled ?? target.enabled;
   target.required = Boolean(field.required ?? target.required);
@@ -131,7 +143,12 @@ function createContentTypeState(
             isCustom: true
           },
           idFactory,
-          { builtIn: false, isCustom: true }
+          {
+            builtIn: false,
+            isCustom: true,
+            baselineKind: 'defaultCustomField',
+            baselineName: field.name
+          }
         )
       ) ?? [],
     domainOverrides: []

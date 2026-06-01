@@ -109,7 +109,11 @@ function updateField(field: YamlEditorField | undefined, patch: Partial<YamlEdit
   if (!field) {
     return;
   }
-  Object.assign(field, patch);
+  const nextPatch = { ...patch };
+  if (field.baselineKind === 'defaultCustomField') {
+    delete nextPatch.name;
+  }
+  Object.assign(field, nextPatch);
 }
 
 function findDomainEntry(
@@ -145,6 +149,10 @@ export function applyYamlEditorAction(
     }
     case 'remove-field': {
       const fields = next.contentTypes[action.contentType][action.bucket];
+      const field = fields.find((candidate) => candidate.id === action.fieldId);
+      if (field?.builtIn || field?.baselineKind === 'defaultCustomField') {
+        return next;
+      }
       next.contentTypes[action.contentType][action.bucket] = fields.filter(
         (field) => field.id !== action.fieldId
       );
