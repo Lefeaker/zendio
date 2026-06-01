@@ -35,7 +35,10 @@ async function loadLinter(): Promise<HardcodedValueLinterConstructor> {
   return module.HardcodedValueLinter;
 }
 
-async function lintSource(relativePath: string, source: string): Promise<HardcodedValueLinterInstance> {
+async function lintSource(
+  relativePath: string,
+  source: string
+): Promise<HardcodedValueLinterInstance> {
   const Linter = await loadLinter();
   const tempDir = await mkdtemp(join(tmpdir(), 'aiiinob-hardcoded-lint-'));
   tempDirs.push(tempDir);
@@ -68,11 +71,7 @@ describe('lint-hardcoded-values allowlists', () => {
   it('rejects localized REST literals outside onboarding detail keys', async () => {
     const linter = await lintSource(
       'i18n/locales/en.ts',
-      [
-        'export const en = {',
-        `  runtimeDefaultUrl: '${HTTPS_REST_URL}',`,
-        '};'
-      ].join('\n')
+      ['export const en = {', `  runtimeDefaultUrl: '${HTTPS_REST_URL}',`, '};'].join('\n')
     );
 
     expect(linter.errors.length).toBeGreaterThan(0);
@@ -92,22 +91,13 @@ describe('lint-hardcoded-values allowlists', () => {
     expect(linter.errors).toEqual([]);
   });
 
-  it('continues to reject runtime default row REST placeholders', async () => {
+  it('continues to reject runtime REST placeholders outside product examples', async () => {
     const linter = await lintSource(
-      'options/components/sections/restSectionDefaultRow.ts',
+      'options/app/runtimeConfig.ts',
       `const placeholder = '${HTTPS_REST_URL}';`
     );
 
     expect(linter.errors.length).toBeGreaterThan(0);
-  });
-
-  it('allows exact additional vault row REST placeholder examples', async () => {
-    const linter = await lintSource(
-      'options/components/sections/restSectionVaultRow.ts',
-      [`      '${HTTPS_REST_URL}',`, `      '${HTTP_REST_URL}',`].join('\n')
-    );
-
-    expect(linter.errors).toEqual([]);
   });
 
   it('allows exact changelog REST examples but not runtime copies', async () => {

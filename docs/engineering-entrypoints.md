@@ -112,7 +112,6 @@ credentials and manual confirmation.
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 90 KB`
-- `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 112`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
@@ -164,7 +163,6 @@ credentials and manual confirmation.
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
 - `src/ui/domains/privacy/PrivacySettings.ts`
-- `src/options/components/sections/RestSection.ts`
 
 ## MCP / 本地浏览器调试入口
 
