@@ -233,12 +233,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     deletionCondition: 'delete only after public utility imports move to concrete modules'
   },
   {
-    pattern: 'src/options/widgets/shared/usage/**',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Usage widget helper retained for usage widget migration',
-    deletionCondition: 'delete after usage dashboard behavior is covered by Stitch/domain owners'
-  },
-  {
     pattern: 'src/shared/config/types.ts',
     decision: 'retain-production-facade',
     owner: 'shared configuration type contract',
