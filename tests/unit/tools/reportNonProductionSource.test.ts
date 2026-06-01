@@ -221,20 +221,20 @@ describe('report-non-production-source', () => {
   it('uses explicit migration rules without making unknown files pass by default', () => {
     const result = classifySourceFile(
       input({
-        file: 'src/options/components/sections/restSectionRuntime.ts',
+        file: 'src/options/widgets/shared/usage/usageDashboardState.ts',
         explicitClassificationPatterns: [
           {
-            pattern: 'src/options/components/sections/restSection*.ts',
+            pattern: 'src/options/widgets/shared/usage/**',
             decision: 'migrate-test-owner',
-            owner: 'legacy REST section helper retained by old section tests',
-            deletionCondition: 'delete after REST behavior is covered by production Stitch tests'
+            owner: 'legacy Usage widget helper retained by old widget tests',
+            deletionCondition: 'delete after usage behavior is covered by production Stitch tests'
           }
         ]
       })
     );
 
     expect(result.decision).toBe('migrate-test-owner');
-    expect(result.owner).toContain('legacy REST');
+    expect(result.owner).toContain('legacy Usage');
     expect(classifySourceFile(input({ file: 'src/unknown/unused.ts' })).decision).toBe(
       'stop-unknown'
     );
@@ -519,11 +519,7 @@ describe('report-non-production-source', () => {
     const result = classifySourceFile(
       input({
         file: approvedFormSectionDeleteCandidate,
-        retainedSourceImportOwners: [
-          'src/options/components/sections/BaseSection.ts',
-          'src/options/components/sections/RestSectionView.ts',
-          'src/options/components/sections/restSectionRuntime.ts'
-        ],
+        retainedSourceImportOwners: ['src/options/components/sections/BaseSection.ts'],
         ownerProofs: {
           productionBuildGraph: 'empty',
           importGraph: 'empty',

@@ -48,12 +48,6 @@ const EXPLICIT_RETAIN_PATTERNS = [
     owner: 'privacy domain compatibility shell',
     deletionCondition: 'delete only after imports use PrivacySettingsView directly'
   },
-  {
-    pattern: 'src/options/components/sections/RestSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'REST section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
-  }
 ];
 
 const EXPLICIT_CLASSIFICATION_PATTERNS = [
@@ -181,13 +175,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete after production Stitch schema registry fully replaces legacy section lookup'
   },
   {
-    pattern: 'src/options/components/sections/restSection*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy REST section helper retained by old section coverage',
-    deletionCondition:
-      'delete after REST/storage behavior is covered by production Stitch/storage tests'
-  },
-  {
     pattern: 'src/options/schema-runtime/index.ts',
     decision: 'retain-production-facade',
     owner: 'Options schema runtime public barrel',
@@ -244,13 +231,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'Options utilities public barrel',
     deletionCondition: 'delete only after public utility imports move to concrete modules'
-  },
-  {
-    pattern: 'src/options/widgets/shared/rest/**',
-    decision: 'migrate-test-owner',
-    owner: 'legacy REST widget helper retained for REST/widget migration',
-    deletionCondition:
-      'delete after REST storage widget behavior is covered by Stitch/domain owners'
   },
   {
     pattern: 'src/options/widgets/shared/usage/**',

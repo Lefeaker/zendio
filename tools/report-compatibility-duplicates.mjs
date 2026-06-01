@@ -13,14 +13,6 @@ const CANDIDATE_SCOPES = [
     directory: 'src/options/widgets/shared/usage',
     filenamePattern: /^.*\.ts$/
   },
-  {
-    directory: 'src/options/components/sections',
-    filenamePattern: /^restSection.*\.ts$/
-  },
-  {
-    directory: 'src/options/widgets/shared/rest',
-    filenamePattern: /^.*\.ts$/
-  }
 ];
 
 function normalizePath(path) {

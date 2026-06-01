@@ -57,7 +57,7 @@ npm run audit:build:report
 
 当前重点功能 chunk：
 
-- No `RestSection-*` chunk is emitted in the 2026-05-29 report.
+- No retired Options section chunk is emitted in the current report.
 - No `yaml-config-*` chunk is emitted in the 2026-05-29 report.
 - `chunks/registry-*.js`: `3.6 KB`
 
@@ -72,7 +72,6 @@ npm run audit:build:report
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 90 KB`
 - locale chunk `<= 60 KB`
-- `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 112`
 
@@ -90,7 +89,6 @@ npm run audit:performance:report
 - `src/content/video/videoSessionRuntime.ts`: `395` 行
 - `src/content/reader/utils/markdownBuilder.ts`: `288` 行
 - `src/options/yaml-config-editor/validation.ts`: `270` 行
-- `src/options/components/sections/RestSectionView.ts`: `260` 行
 - `src/ui/domains/privacy/PrivacySettingsView.ts`: `255` 行
 - `src/options/app/productionStitchShellMount.ts`: `254` 行
 - `src/content/extractors/articleExtractor.ts`: `222` 行
@@ -103,9 +101,9 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 Plan 03 R3 legacy YAML domain retirement 后当前动态发现 `93` 个热点路径，注册 `94` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 Plan 07 RST3 REST source deletion 后当前动态发现 `90` 个热点路径，注册 `91` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
-- 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 746`、`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`RestSectionView.ts <= 260`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`。
+- 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 746`、`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`。
 
 本轮有效收口结果：
 

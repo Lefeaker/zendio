@@ -23,9 +23,7 @@ const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 const SHARED_CHUNK_BUDGETS = [190 * 1024, 136 * 1024, 90 * 1024];
 const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
 const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
-const REST_SECTION_CHUNK_PATTERN = /^RestSection-/;
 const YAML_CONFIG_CHUNK_PATTERN = /^yaml-config-/;
-const REST_SECTION_CHUNK_BUDGET = 40 * 1024;
 const YAML_CONFIG_CHUNK_BUDGET = 70 * 1024;
 
 function formatSize(bytes) {
@@ -102,13 +100,6 @@ for (const chunk of chunkStats) {
     findings.push(
       `chunks/${chunk.file} exceeds locale chunk budget: ${formatSize(chunk.size)} > ${formatSize(
         MAX_LOCALE_CHUNK_SIZE
-      )}`
-    );
-  }
-  if (REST_SECTION_CHUNK_PATTERN.test(chunk.file) && chunk.size > REST_SECTION_CHUNK_BUDGET) {
-    findings.push(
-      `chunks/${chunk.file} exceeds RestSection budget: ${formatSize(chunk.size)} > ${formatSize(
-        REST_SECTION_CHUNK_BUDGET
       )}`
     );
   }
