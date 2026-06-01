@@ -314,6 +314,24 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'Retain the exact design token metadata contract until design system tooling owners record a replacement or six-proof deletion.'
   },
   {
+    pattern: 'src/ui/foundation/keyboard/index.ts',
+    decision: 'retain-production-facade',
+    owner: 'UI foundation keyboard source-of-truth boundary',
+    deletionCondition:
+      'delete only after design-system governance and UI architecture audit move to a replacement keyboard owner',
+    requiredAction:
+      'Retain the exact keyboard foundation boundary until design-system tooling owners record a replacement or six-proof deletion.'
+  },
+  {
+    pattern: 'src/ui/hosts/options/index.ts',
+    decision: 'retain-production-facade',
+    owner: 'Options UI host source-of-truth boundary',
+    deletionCondition:
+      'delete only after architecture-boundary docs and UI architecture audit move to a replacement Options host owner',
+    requiredAction:
+      'Retain the exact Options host boundary until architecture tooling owners record a replacement or six-proof deletion.'
+  },
+  {
     pattern: 'src/ui/domains/**',
     decision: 'retain-production-facade',
     owner: 'UI domain public boundary',

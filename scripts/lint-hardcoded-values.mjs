@@ -50,7 +50,7 @@ const HARDCODED_PATTERNS = [
     pattern: /Articles\/\{domain\}\/\{yyyy\}/g,
     message: 'Hardcoded template path found. Use configProvider.getTemplates() instead.',
     severity: 'warning',
-    allowedFiles: ['appConfig.ts', 'configProvider.test.ts', 'readingTemplateControls.test.ts', 'resolvePath.test.ts', 'index.html']
+    allowedFiles: ['appConfig.ts', 'configProvider.test.ts', 'resolvePath.test.ts', 'index.html']
   }
 ];
 
