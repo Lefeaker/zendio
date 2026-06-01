@@ -12,6 +12,7 @@ import {
   toRoutingRules,
   toTemplateValues
 } from '@options/app/productionStitchStateMapper';
+import { applyTemplateStateToDraft } from '@options/app/productionStitchShellState';
 import type { CompleteOptions } from '@shared/types/options';
 
 function options(overrides: Partial<CompleteOptions> = {}): CompleteOptions {
@@ -41,6 +42,36 @@ describe('production Stitch state mapper', () => {
     const articleModeOptions = options();
     articleModeOptions.templates.reading = articleModeOptions.templates.article;
     expect(resolveReadingPathMode(articleModeOptions)).toBe('article');
+  });
+
+  it('applies reading template mode through the production Stitch state owner', () => {
+    const draft = options({
+      templates: {
+        article: 'Articles/{slug}.md',
+        fragment: 'Fragments/{slug}.md',
+        reading: 'Reading/{slug}.md',
+        ai: 'AI/{title}.md'
+      }
+    } as Partial<CompleteOptions>);
+    const state = createInitialStitchState(previewContent);
+    state.templateValues = {
+      ...state.templateValues,
+      articleVideo: 'Articles/current.md',
+      fragment: 'Fragments/current.md',
+      readingCustom: 'Reading/custom.md'
+    };
+
+    state.readingPathMode = 'article';
+    applyTemplateStateToDraft(draft, state);
+    expect(draft.templates.reading).toBe('Articles/current.md');
+
+    state.readingPathMode = 'fragment';
+    applyTemplateStateToDraft(draft, state);
+    expect(draft.templates.reading).toBe('Fragments/current.md');
+
+    state.readingPathMode = 'custom';
+    applyTemplateStateToDraft(draft, state);
+    expect(draft.templates.reading).toBe('Reading/custom.md');
   });
 
   it('deduplicates vault routing rules for Stitch state', () => {

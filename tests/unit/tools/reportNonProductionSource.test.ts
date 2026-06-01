@@ -185,6 +185,16 @@ describe('report-non-production-source', () => {
         pattern: 'src/ui/foundation/tokens/index.ts',
         owner: 'design token metadata source contract',
         scriptOwners: ['tools/report-design-system-doc.mjs']
+      },
+      {
+        pattern: 'src/ui/foundation/keyboard/index.ts',
+        owner: 'UI foundation keyboard source-of-truth boundary',
+        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
+      },
+      {
+        pattern: 'src/ui/hosts/options/index.ts',
+        owner: 'Options UI host source-of-truth boundary',
+        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
       }
     ];
 
