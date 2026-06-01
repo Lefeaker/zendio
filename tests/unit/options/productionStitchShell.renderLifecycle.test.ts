@@ -497,6 +497,31 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
   });
 
+  it('keeps disabled default YAML custom fields in production collectDraft', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const statusToggle = queryRequired<HTMLInputElement>('input[type="checkbox"]', statusRow);
+
+    expect(statusToggle.checked).toBe(true);
+    statusToggle.checked = false;
+    statusToggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields).toEqual([
+      expect.objectContaining({
+        name: 'status',
+        enabled: false,
+        defaultValue: ['unread']
+      })
+    ]);
+  });
+
   it('does not let invalid YAML widget edits pollute production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

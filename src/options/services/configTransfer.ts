@@ -74,14 +74,19 @@ function sanitizeImportedOptions(candidate: unknown): StoredOptions {
     throw new ConfigTransferError('PARSE_FAILED');
   }
 
-  const parsed = StoredOptionsSchema.safeParse(candidate);
+  const hasYamlConfig = Object.prototype.hasOwnProperty.call(candidate, 'yamlConfig');
+  const yamlConfigCandidate = candidate.yamlConfig;
+  const schemaCandidate = { ...candidate };
+  delete schemaCandidate.yamlConfig;
+
+  const parsed = StoredOptionsSchema.safeParse(schemaCandidate);
   if (!parsed.success) {
     throw new ConfigTransferError('PARSE_FAILED');
   }
 
   const options = parsed.data as StoredOptions;
-  if ('yamlConfig' in candidate) {
-    options.yamlConfig = sanitizeYamlConfigValue(candidate.yamlConfig) ?? null;
+  if (hasYamlConfig) {
+    options.yamlConfig = sanitizeYamlConfigValue(yamlConfigCandidate) ?? null;
   }
   return options;
 }

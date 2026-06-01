@@ -8,6 +8,7 @@ import {
   validateYamlEditorState,
   type YamlEditorState
 } from '@options/yaml-config-editor';
+import { YamlConfigService } from '@shared/services/yamlConfigService';
 
 const contentTypes: YamlContentType[] = ['article', 'clipper', 'video', 'ai_chat'];
 
@@ -85,25 +86,11 @@ describe('YAML editor core', () => {
     );
   });
 
-  it('serializes default custom fields and only changed built-in fields', () => {
+  it('serializes only fields that differ from the default baseline', () => {
     let state = createYamlEditorState(null);
 
     expect(validateYamlEditorState(state).valid).toBe(true);
-    expect(serializeYamlEditorState(state)).toEqual({
-      contentTypes: {
-        article: {
-          customFields: [
-            {
-              name: 'status',
-              type: 'array',
-              enabled: true,
-              defaultValue: ['unread'],
-              isCustom: true
-            }
-          ]
-        }
-      }
-    });
+    expect(serializeYamlEditorState(state)).toBeNull();
 
     state = applyYamlEditorAction(state, {
       type: 'set-field-enabled',
@@ -116,19 +103,44 @@ describe('YAML editor core', () => {
     expect(serializeYamlEditorState(state)).toEqual({
       contentTypes: {
         article: {
-          fields: [{ name: 'author', type: 'text', enabled: true }],
-          customFields: [
-            {
-              name: 'status',
-              type: 'array',
-              enabled: true,
-              defaultValue: ['unread'],
-              isCustom: true
-            }
-          ]
+          fields: [{ name: 'author', type: 'text', enabled: true }]
         }
       }
     });
+  });
+
+  it('serializes disabled default custom fields so runtime merge does not restore them', () => {
+    const service = new YamlConfigService();
+    let state = createYamlEditorState(null);
+    const statusId = findFieldId(state, 'article', 'status', 'customFields');
+
+    state = applyYamlEditorAction(state, {
+      type: 'set-field-enabled',
+      contentType: 'article',
+      bucket: 'customFields',
+      fieldId: statusId,
+      enabled: false
+    });
+
+    const serialized = serializeYamlEditorState(state);
+
+    expect(serialized?.contentTypes?.article?.customFields).toEqual([
+      {
+        name: 'status',
+        type: 'array',
+        enabled: false,
+        defaultValue: ['unread'],
+        isCustom: true
+      }
+    ]);
+    expect(
+      service.resolveConfig('article', serialized).fields.find((field) => field.name === 'status')
+    ).toEqual(
+      expect.objectContaining({
+        name: 'status',
+        enabled: false
+      })
+    );
   });
 
   it('adds, edits, toggles, and collects custom fields for each content type', () => {
