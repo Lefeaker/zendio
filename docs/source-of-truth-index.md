@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-05-29
+最后更新：2026-06-01
 
 ## 正式入口
 
@@ -39,6 +39,7 @@
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，Node `v20.20.2` / npm `10.8.2` 下 fresh `build:fast`、`build:dev`、`audit:build:report`、`audit:performance:report` 已通过；`content/runtime.js` raw stop gate 收紧为 `56,320` bytes，chunk count 收紧为 `<= 112`，hotspot line budgets 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-26 M10 scoped type audit truth：2026-05-28 post-gap integration current overall `0/992/1673/108/4`；src `0/551/620/5/0`；tests `0/441/1053/103/4`；`lint:type-any:ratchet` 必须同时守住 overall、src 与 tests，tests 下降不得抵消 src 增长
 - 2026-06-01 Plan 09 finalization non-production source truth：先运行 `npm run audit:production-build-graph:report` 生成 `build/reports/production-build-graph.json`；随后 `audit:non-production-source:check` 当前 decision counts 为 `migrate-import-owner: 124`、`migrate-script-owner: 2`、`migrate-test-owner: 2`、`retain-production: 532`、`retain-production-facade: 15`。`audit:non-production-source:report` 仍因 4 个 completion-blocking rows 退出 1；这些剩余项不属于本轮 YAML/Options/REST 退役目标。任何 `src` 删除仍必须满足六项 exact-path owner proof
+- 2026-06-01 Plan 09 final verification truth：在 Node `v20.20.2` / npm `10.8.2` 下，`verify:runtime`、`typecheck:app`、`typecheck:tests`、`lint -- --quiet`、`lint:hardcoded`、`lint:options-css`、production/options/ui/shape/performance/build audits、`build:dev`、`verify:stitch-secondary`、`test:unit`、`test:e2e`、`visual:test` 均通过；`typecheck:strict` 失败于 `src/options/app/productionStitchWidgetHost.ts` 与 `src/options/yaml-config-editor/**` 的 `exactOptionalPropertyTypes` 问题，因此包含该 gate 的 `quality`、`verify:preflight`、`build` 同步失败。Plan 09 未削弱 gate，YAML editor / Stitch host 修复不属于本轮 final audit/documentation scope
 - 2026-06-01 Plan 03 R3 YAML legacy-domain truth：旧 UI-domain YAML 实现已退役；YAML 配置 UI 当前唯一 owner 为 `src/options/yaml-config-editor/**`，`widgetType: 'yaml-config'` contract 继续由 Stitch production/preview 适配器承载。
 - 2026-05-29 Plan 11 G3 build/performance truth：fresh `build:fast` / `build:dev` / `audit:build:report` / `audit:performance:report` 已通过；dev `content/runtime.js` 为 `53.1 KB`（raw `54,375` bytes），chunk count `103`，hotspot current truth 以 [`performance-baseline.md`](./performance-baseline.md) 为准
 - 2026-05-26 M10 budget ratchet truth：`lint:type-any:ratchet` 以 overall `0/992/1673/108/4`、src `0/551/620/5/0`、tests `0/441/1053/103/4` 接入 `quality`；`audit:performance:report` 动态发现当前全部 `100` 个 `src` >250 LOC 文件并要求每个文件存在 line budget

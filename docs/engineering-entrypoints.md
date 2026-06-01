@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-29
+最后更新：2026-06-01
 
 ## 推荐运行环境
 
@@ -43,6 +43,7 @@
 - 2026-05-29 Plan 10 D3 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 与 `npm audit --audit-level=low` 均为 `0` vulnerabilities；production runtime release gate 与 dev/release toolchain audit 均为 green
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
+- 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，`typecheck:strict` 当前失败于 `src/options/app/productionStitchWidgetHost.ts` 与 `src/options/yaml-config-editor/**` 的 `exactOptionalPropertyTypes` 问题；因此 `quality`、`verify:preflight`、`build` 当前也会在 strict gate 停止。该 gate 仍是正式门禁；本轮 Plan 09 只记录该事实，未放宽门禁或修改 YAML editor / Stitch host 行为
 
 ## 当前推荐执行顺序
 
