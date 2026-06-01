@@ -1,12 +1,12 @@
 {
-  "totalWarnings": 137,
+  "totalWarnings": 132,
   "ruleCounts": {
-    "@typescript-eslint/no-unsafe-argument": 2,
-    "@typescript-eslint/no-unsafe-assignment": 26,
-    "@typescript-eslint/no-unsafe-call": 1,
-    "@typescript-eslint/no-unsafe-member-access": 3,
+    "@typescript-eslint/require-await": 99,
+    "@typescript-eslint/no-unsafe-assignment": 23,
     "@typescript-eslint/no-unsafe-return": 4,
-    "@typescript-eslint/require-await": 101
+    "@typescript-eslint/no-unsafe-argument": 2,
+    "@typescript-eslint/no-unsafe-member-access": 3,
+    "@typescript-eslint/no-unsafe-call": 1
   },
   "files": [
     {
@@ -463,17 +463,6 @@
       ]
     },
     {
-      "file": "tests/unit/background/runtimeMessages.test.ts",
-      "warnings": [
-        {
-          "line": 140,
-          "column": 33,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/background/store.test.ts",
       "warnings": [
         {
@@ -741,13 +730,13 @@
       "file": "tests/unit/content/reader/ReaderSession.test.ts",
       "warnings": [
         {
-          "line": 99,
+          "line": 105,
           "column": 27,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 243,
+          "line": 249,
           "column": 49,
           "ruleId": "@typescript-eslint/no-unsafe-argument",
           "message": "Unsafe argument of type `any` assigned to a parameter of type `NormalizedProcedure<Procedure>`."
@@ -826,40 +815,6 @@
         },
         {
           "line": 160,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/options/nativeLeafWidgets.retainedLegacyCoverage.test.ts",
-      "warnings": [
-        {
-          "line": 78,
-          "column": 49,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 164,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/options/nativeLeafWidgets.test.ts",
-      "warnings": [
-        {
-          "line": 78,
-          "column": 49,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 164,
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."

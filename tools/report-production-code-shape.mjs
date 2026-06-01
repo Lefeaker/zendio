@@ -8,7 +8,6 @@ const LOC_LIMITS = new Map([
   ['src/options/app/productionStitchPersistence.ts', 300],
   ['src/options/app/productionStitchRenderLifecycle.ts', 300],
   ['src/options/app/productionStitchShellState.ts', 300],
-  ['src/options/widgets/YamlConfigWidget.ts', 450],
   ['src/content/video/prompt.ts', 300],
   ['src/content/clipper/components/dialog.ts', 450],
   ['src/options/stitch/render/renderStitchView.ts', 450],
@@ -16,7 +15,6 @@ const LOC_LIMITS = new Map([
   ['src/shared/services/yamlConfigService.ts', 250]
 ]);
 const TEXT_ASSIGNMENT_GATED_FILES = new Set([
-  'src/options/widgets/YamlConfigWidget.ts',
   'src/options/stitch/render/renderStitchView.ts'
 ]);
 

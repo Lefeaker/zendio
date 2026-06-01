@@ -25,7 +25,7 @@
 ## P2
 
 4. 继续清理 lint warning 基线债务
-   - 当前真值：`lint:warnings-guard` checked-in baseline 为 `141`；2026-05-29 fresh warning count 为 `140`
+   - 当前真值：`lint:warnings-guard` checked-in baseline 为 `132`；2026-06-01 Plan 03 native YAML retirement 后 fresh warning count 为 `132`
    - 当前结论：这是为了恢复主门禁可用性做的阶段性基线对齐，不代表 warning 已清零
    - 当前 hardcoded config 守卫：`lint:hardcoded` 已接入 `quality` 与 CI；当前 `0` errors / `11` warning-only findings
    - 当前类型审计：`lint:type-any` 扫描 `1108` files；overall `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`

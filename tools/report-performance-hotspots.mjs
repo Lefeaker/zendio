@@ -40,7 +40,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/trialLifecycle.ts', 272],
   ['src/shared/config/optionsMerger.ts', 417],
   ['src/dev/localVaultWriteHarness.ts', 411],
-  ['src/options/widgets/yaml-config/model.ts', 407],
   ['src/content/video/videoSessionRuntime.ts', 395],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 393],
   ['src/content/reader/session.ts', 390],

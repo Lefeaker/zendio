@@ -105,7 +105,7 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 performance budget repair 后当前动态发现 `95` 个热点路径，注册 `96` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 native YAML retirement 后当前动态发现 `94` 个热点路径，注册 `95` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
 - 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 746`、`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`RestSectionView.ts <= 260`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`。
 
@@ -137,7 +137,7 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-06-01 Plan 06 section retirement 后当前 checked-in baseline 为 `137` 条，fresh warning count 为 `136`。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
+- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-06-01 Plan 03 native YAML retirement 后当前 checked-in baseline 为 `132` 条，fresh warning count 为 `132`。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
 - 2026-05-24 M2.5 budget ratchet 使用 Node.js `v20.20.2` / npm `10.8.2`，并先以 standalone `audit:build:report` / `audit:performance:report` 验证新预算，再接入 `quality` / `verify:preflight`。
 - 2026-05-22 review gap patch 已确认 M6.2 retained low-reuse retirement 是安全 no-op：没有新增 delete-approved path，低复用 retained/source compatibility 仍是后续债务，不应表述为已完成退役。
