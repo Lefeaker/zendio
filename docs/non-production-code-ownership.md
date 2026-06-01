@@ -60,6 +60,7 @@ If any proof is non-empty, malformed, missing, or unknown, the row must remain a
 Use both commands together:
 
 ```bash
+npm run audit:production-build-graph:report
 npm run audit:non-production-source:report
 npm run audit:non-production-source:check
 ```
@@ -73,6 +74,13 @@ Require the check command to exit 0. It fails on:
 - internal classifier contradictions where retained source import, re-export, dependency, script, test, public, manifest, or required verification owners coexist with `delete-now`.
 
 It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains. The separate report command is stricter for completion audits: unresolved `migrate-test-owner` and `migrate-script-owner` rows must not remain in a completed orchestration.
+
+2026-06-01 Plan 09 current truth: after `audit:production-build-graph:report`, `audit:non-production-source:check` exits 0 with counts `migrate-import-owner: 124`, `migrate-script-owner: 2`, `migrate-test-owner: 2`, `retain-production: 532`, and `retain-production-facade: 15`. The stricter report command exits 1 because four completion-blocking rows remain outside the YAML/Options/REST retirement program:
+
+- `src/options/components/controls/readingTemplateControls.ts` remains owned by `tests/unit/content/readingTemplateControls.test.ts`.
+- `src/options/components/infrastructure/ModalController.ts` remains owned by `tests/unit/options/infrastructure/ModalController.test.ts`.
+- `src/ui/foundation/keyboard/index.ts` remains owned by `tools/report-ui-architecture-alignment.mjs`.
+- `src/ui/hosts/options/index.ts` remains owned by `tools/report-ui-architecture-alignment.mjs`.
 
 ## Current Retained Contracts
 

@@ -17,6 +17,7 @@ describe('retired code inventory document', () => {
 
     expect(output).not.toContain('tests/unit/tools/reportNonProductionSource.test.ts');
     expect(output).not.toContain('tests/unit/tools/reportCompatibilityDuplicates.test.ts');
+    expect(output).not.toContain('tests/unit/tools/productionBuildGraph.test.ts');
     expect(output).not.toContain('tests/fixtures/tools/compatibility-duplicates/allowlist.json');
     expect(output).not.toContain(
       'tests/fixtures/tools/compatibility-duplicates/allowlist-stale.json'

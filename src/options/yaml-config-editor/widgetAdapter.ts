@@ -1,5 +1,6 @@
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 import type { Messages } from '@i18n';
 import type { WidgetMountContract, WidgetRuntime } from '@options/schema-runtime/contracts';
 import { createYamlEditorState } from './state';
@@ -18,7 +19,7 @@ export interface YamlConfigEditorWidgetProps {
 }
 
 export interface YamlConfigEditorCollectResult extends Partial<CompleteOptions> {
-  yamlConfig: CompleteOptions['yamlConfig'];
+  yamlConfig: YamlConfigOverrides | null;
 }
 
 type YamlEditorRuntime = Pick<
@@ -36,7 +37,7 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
   private state: YamlEditorState = createYamlEditorState(null);
   private validation: YamlEditorValidation | null = null;
   private filter: YamlEditorFilter = 'all';
-  private lastValidYamlConfig: CompleteOptions['yamlConfig'] = null;
+  private lastValidYamlConfig: YamlConfigOverrides | null = null;
 
   mount(
     container: HTMLElement,

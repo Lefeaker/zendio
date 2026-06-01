@@ -64,12 +64,15 @@ export function button(options: {
   disabled?: boolean;
   onClick: (event: MouseEvent) => void;
 }): HTMLButtonElement {
-  const control = el('button', {
+  const controlOptions: ElementOptions = {
     className: options.className,
     text: options.text,
-    type: 'button',
-    disabled: options.disabled
-  });
+    type: 'button'
+  };
+  if (options.disabled !== undefined) {
+    controlOptions.disabled = options.disabled;
+  }
+  const control = el('button', controlOptions);
   control.addEventListener('click', options.onClick);
   return control;
 }
@@ -81,12 +84,17 @@ export function textInput(options: {
   dataset?: Record<string, DatasetValue>;
   onInput: (value: string) => void;
 }): HTMLInputElement {
-  const input = el('input', {
+  const inputOptions: ElementOptions = {
     className: options.className,
-    value: options.value,
-    placeholder: options.placeholder,
-    dataset: options.dataset
-  });
+    value: options.value
+  };
+  if (options.placeholder !== undefined) {
+    inputOptions.placeholder = options.placeholder;
+  }
+  if (options.dataset !== undefined) {
+    inputOptions.dataset = options.dataset;
+  }
+  const input = el('input', inputOptions);
   input.addEventListener('input', () => {
     options.onInput(input.value);
   });
@@ -101,11 +109,16 @@ export function selectInput<T extends string>(options: {
   options: Array<{ value: T; label: string }>;
   onChange: (value: T) => void;
 }): HTMLSelectElement {
-  const select = el('select', {
-    className: options.className,
-    disabled: options.disabled,
-    dataset: options.dataset
-  });
+  const selectOptions: ElementOptions = {
+    className: options.className
+  };
+  if (options.disabled !== undefined) {
+    selectOptions.disabled = options.disabled;
+  }
+  if (options.dataset !== undefined) {
+    selectOptions.dataset = options.dataset;
+  }
+  const select = el('select', selectOptions);
   options.options.forEach((item) => {
     const option = el('option', { value: item.value, text: item.label });
     option.value = item.value;

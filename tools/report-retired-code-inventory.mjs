@@ -10,6 +10,7 @@ const SYNTHETIC_AUDIT_REFERENCE_FILES = new Set([
   'tests/fixtures/tools/compatibility-duplicates/allowlist-stale.json',
   'tests/fixtures/tools/compatibility-duplicates/allowlist.json',
   'tests/unit/tools/reportCompatibilityDuplicates.test.ts',
+  'tests/unit/tools/productionBuildGraph.test.ts',
   'tests/unit/tools/reportNonProductionSource.test.ts'
 ]);
 

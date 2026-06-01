@@ -79,19 +79,22 @@ function createFallbackCustomField(
   idFactory: IdFactory
 ): YamlEditorField {
   const type: YamlFieldType = field.type ?? 'text';
-  return createField(
-    {
-      name: field.name ?? 'custom_field',
-      type,
-      enabled: field.enabled ?? true,
-      required: field.required,
-      defaultValue: field.defaultValue,
-      valuePath: field.valuePath,
-      isCustom: true
-    },
-    idFactory,
-    { builtIn: false, isCustom: true }
-  );
+  const fallbackField: YamlFieldConfig = {
+    name: field.name ?? 'custom_field',
+    type,
+    enabled: field.enabled ?? true,
+    isCustom: true
+  };
+  if (field.required !== undefined) {
+    fallbackField.required = field.required;
+  }
+  if (field.defaultValue !== undefined) {
+    fallbackField.defaultValue = field.defaultValue;
+  }
+  if (field.valuePath !== undefined) {
+    fallbackField.valuePath = field.valuePath;
+  }
+  return createField(fallbackField, idFactory, { builtIn: false, isCustom: true });
 }
 
 function createDomainEntry(
