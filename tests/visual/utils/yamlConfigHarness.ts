@@ -1,41 +1,16 @@
-import {
-  createYamlConfigController,
-  type YamlConfigController
-} from '../../../src/ui/domains/yaml-config/yamlConfigTable';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
+import { YamlConfigEditorWidgetAdapter } from '../../../src/options/yaml-config-editor/widgetAdapter';
 
 const autoSaveLog: string[] = [];
-let controller: YamlConfigController | null = null;
+let adapter: YamlConfigEditorWidgetAdapter | null = null;
 
 const HOST_TEMPLATE = `
   <section id="yamlHarnessRoot">
-    <div
-      id="yamlConfigTable"
-      data-label-field="Field"
-      data-label-type="Type"
-      data-label-article="Article"
-      data-label-clipper="Clipper"
-      data-label-video="Video"
-      data-label-ai="AI"
-      data-label-default="Value"
-      data-label-actions="Actions"
-      data-label-delete="Delete"
-      data-label-default-group="Default fields"
-      data-label-filter-all="All"
-      data-label-custom-group="Custom fields"
-      data-error-name-required="Field name is required"
-      data-error-name-pattern="Only letters, numbers, underscores, or dashes are allowed, and it cannot start with a number."
-      data-error-name-duplicate="Duplicate field name, please pick another."
-      data-error-mode-required="Enable at least one content type."
-      data-error-type-required="Select a field type."
-      data-error-value-invalid="Default value does not match the field type."
-      data-warning-unresolved="Fix the highlighted errors before saving."></div>
-    <div id="yamlDomainOverrides"></div>
-    <button id="yamlAddFieldBtn" type="button">+ Add field</button>
+    <div id="yamlEditorHost"></div>
   </section>
 `;
 
-function ensureHosts(): { table: HTMLElement; domain: HTMLElement; addButton: HTMLButtonElement } {
+function ensureHost(): HTMLElement {
   let root = document.getElementById('yamlHarnessRoot');
   if (!root) {
     const wrapper = document.createElement('div');
@@ -47,38 +22,33 @@ function ensureHosts(): { table: HTMLElement; domain: HTMLElement; addButton: HT
     document.body.append(section);
     root = document.getElementById('yamlHarnessRoot');
   }
-  const table = document.getElementById('yamlConfigTable');
-  const domain = document.getElementById('yamlDomainOverrides');
-  const addButton = document.getElementById('yamlAddFieldBtn');
-  if (
-    !(table instanceof HTMLElement) ||
-    !(domain instanceof HTMLElement) ||
-    !(addButton instanceof HTMLButtonElement)
-  ) {
-    throw new Error('yaml harness hosts missing');
+  const host = document.getElementById('yamlEditorHost');
+  if (!(host instanceof HTMLElement)) {
+    throw new Error('yaml editor harness host missing');
   }
-  return { table, domain, addButton };
+  return host;
 }
 
 function mount(initial?: YamlConfigOverrides | null): void {
-  controller?.dispose();
-  const hosts = ensureHosts();
-  controller = createYamlConfigController({
-    tableHost: hosts.table,
-    domainHost: hosts.domain,
-    addFieldButton: hosts.addButton,
-    onDirty: () => {
-      autoSaveLog.push('yamlConfig');
+  adapter?.destroy();
+  const host = ensureHost();
+  adapter = new YamlConfigEditorWidgetAdapter();
+  adapter.mount(
+    host,
+    { options: { yamlConfig: initial ?? null }, messages: null },
+    {
+      notifyDirty: (paths) => {
+        autoSaveLog.push(paths?.join('.') ?? 'yamlConfig');
+      }
     }
-  });
-  controller.render(initial ?? null);
+  );
 }
 
 function collect(): YamlConfigOverrides | null {
-  if (!controller) {
+  if (!adapter) {
     throw new Error('yaml harness not mounted');
   }
-  return controller.collect();
+  return adapter.collect().yamlConfig ?? null;
 }
 
 function autoSaveEvents(): string[] {

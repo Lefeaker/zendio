@@ -19,7 +19,7 @@
      - `RestSectionView.ts = 260`
      - `PrivacySettingsView.ts = 255`
      - `productionStitchShellMount.ts = 254`
-     - `yamlConfigTableControllerState.impl.ts = 373`
+     - legacy YAML domain hotspot 已在 2026-06-01 Plan 03 R3 退役
    - 守门：`npm run audit:performance:report`
 
 ## P2

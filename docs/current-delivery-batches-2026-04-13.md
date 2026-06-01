@@ -122,17 +122,15 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 
 状态：已固定为独立交付提交 `f4a2b87`
 
-## B3 content / video / yaml-config 热点
+## B3 content / video / YAML 历史热点
 
 归属范围：
 
 - `src/content/video/**` 热点主线
 - `src/content/reader/utils/readerMarkdown*`
-- `src/ui/domains/yaml-config/**`
 - `tests/unit/content/video/**`
 - `tests/unit/content/readerMarkdownBuilder.test.ts`
-- `tests/unit/options/yamlConfigTable.test.ts`
-- `tests/unit/options/yamlConfigView.test.ts`
+- YAML table/view 历史测试已随 Plan 03 YAML owner migration 退役。
 
 状态：已固定为独立交付提交 `1b45b4f`
 

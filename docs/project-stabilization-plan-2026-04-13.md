@@ -59,11 +59,10 @@ npx vitest run tests/unit/options/productionStitchShell.renderLifecycle.test.ts
 | `src/options/components/sections/RestSectionView.ts`                | `<= 300` |     `<= 260` |    `300` |
 | `src/ui/domains/privacy/PrivacySettingsView.ts`                     | `<= 300` |     `<= 260` |    `260` |
 | legacy usage dashboard section                                      | `<= 280` |     `<= 260` |    `231` |
-| `src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts` | `<= 500` |     `<= 420` |    `471` |
 
 当前结论：
 
-- 5 个热点全部达到最低目标
+- 原 5 个热点已全部达到最低目标；legacy YAML domain 热点已在 2026-06-01 Plan 03 R3 退役
 - `videoSessionRuntime`、`PrivacySettingsView`、`legacy usage dashboard section` 3 个热点达到 stretch
 - `<=250` 仅适用于本轮新增/拆出的 support modules，不适用于上述 5 个主热点入口
 - 当前新增/AM 的 `src/` support modules 已重新核实，无 `>250` 残留
