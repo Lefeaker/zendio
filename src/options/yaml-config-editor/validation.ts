@@ -56,11 +56,10 @@ function validateField(
   seenNames: Map<string, string>
 ): void {
   const name = field.name.trim();
-  const baseError = {
-    contentType,
-    fieldId: field.id,
-    fieldName: name || field.name
-  };
+  const baseError =
+    contentType === undefined
+      ? { fieldId: field.id, fieldName: name || field.name }
+      : { contentType, fieldId: field.id, fieldName: name || field.name };
   if (!name) {
     pushError(
       validation,
