@@ -81,6 +81,7 @@ export function textInput(options: {
   className: string;
   value: string;
   placeholder?: string;
+  disabled?: boolean;
   dataset?: Record<string, DatasetValue>;
   onInput: (value: string) => void;
 }): HTMLInputElement {
@@ -88,6 +89,9 @@ export function textInput(options: {
     className: options.className,
     value: options.value
   };
+  if (options.disabled !== undefined) {
+    inputOptions.disabled = options.disabled;
+  }
   if (options.placeholder !== undefined) {
     inputOptions.placeholder = options.placeholder;
   }
@@ -95,9 +99,11 @@ export function textInput(options: {
     inputOptions.dataset = options.dataset;
   }
   const input = el('input', inputOptions);
-  input.addEventListener('input', () => {
-    options.onInput(input.value);
-  });
+  if (!options.disabled) {
+    input.addEventListener('input', () => {
+      options.onInput(input.value);
+    });
+  }
   return input;
 }
 

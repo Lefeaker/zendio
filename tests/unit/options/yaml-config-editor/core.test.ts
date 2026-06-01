@@ -31,6 +31,15 @@ function findFieldId(
   return field.id;
 }
 
+function findField(
+  state: YamlEditorState,
+  contentType: YamlContentType,
+  name: string,
+  bucket: 'fields' | 'customFields' = 'fields'
+) {
+  return state.contentTypes[contentType][bucket].find((candidate) => candidate.name === name);
+}
+
 function addCustomField(
   state: YamlEditorState,
   contentType: YamlContentType,
@@ -83,6 +92,12 @@ describe('YAML editor core', () => {
     expect(overrides).toEqual(original);
     expect(state.contentTypes.article.fields.find((field) => field.name === 'title')).toEqual(
       expect.objectContaining({ enabled: false })
+    );
+    expect(findField(state, 'article', 'status', 'customFields')).toEqual(
+      expect.objectContaining({
+        baselineKind: 'defaultCustomField',
+        baselineName: 'status'
+      })
     );
   });
 
@@ -141,6 +156,79 @@ describe('YAML editor core', () => {
         enabled: false
       })
     );
+  });
+
+  it('serializes default custom field diffs by baseline identity if editable name state drifts', () => {
+    const service = new YamlConfigService();
+    const state = createYamlEditorState(null);
+    const statusField = findField(state, 'article', 'status', 'customFields');
+    if (!statusField) {
+      throw new Error('Missing article status custom field');
+    }
+
+    statusField.name = 'state';
+    statusField.enabled = false;
+
+    const serialized = serializeYamlEditorState(state);
+    const resolved = service.resolveConfig('article', serialized);
+
+    expect(serialized?.contentTypes?.article?.customFields).toEqual([
+      expect.objectContaining({
+        name: 'status',
+        enabled: false
+      })
+    ]);
+    expect(resolved.fields.filter((field) => field.name === 'status')).toEqual([
+      expect.objectContaining({ name: 'status', enabled: false })
+    ]);
+    expect(resolved.fields.some((field) => field.name === 'state')).toBe(false);
+  });
+
+  it('does not remove default custom fields through core actions', () => {
+    const service = new YamlConfigService();
+    const state = createYamlEditorState(null);
+    const statusId = findFieldId(state, 'article', 'status', 'customFields');
+
+    const next = applyYamlEditorAction(state, {
+      type: 'remove-field',
+      contentType: 'article',
+      bucket: 'customFields',
+      fieldId: statusId
+    });
+
+    expect(findField(next, 'article', 'status', 'customFields')).toEqual(
+      expect.objectContaining({ name: 'status', enabled: true })
+    );
+    expect(serializeYamlEditorState(next)).toBeNull();
+    expect(service.resolveConfig('article', serializeYamlEditorState(next))).toEqual(
+      expect.objectContaining({
+        fields: expect.arrayContaining([expect.objectContaining({ name: 'status', enabled: true })])
+      })
+    );
+  });
+
+  it('does not rename default custom fields through core actions', () => {
+    const service = new YamlConfigService();
+    const state = createYamlEditorState(null);
+    const statusId = findFieldId(state, 'article', 'status', 'customFields');
+
+    const next = applyYamlEditorAction(state, {
+      type: 'update-field',
+      contentType: 'article',
+      bucket: 'customFields',
+      fieldId: statusId,
+      patch: { name: 'state' }
+    });
+    const serialized = serializeYamlEditorState(next);
+    const resolved = service.resolveConfig('article', serialized);
+
+    expect(findField(next, 'article', 'status', 'customFields')).toEqual(
+      expect.objectContaining({ name: 'status' })
+    );
+    expect(findField(next, 'article', 'state', 'customFields')).toBeUndefined();
+    expect(serialized).toBeNull();
+    expect(resolved.fields.filter((field) => field.name === 'status')).toHaveLength(1);
+    expect(resolved.fields.some((field) => field.name === 'state')).toBe(false);
   });
 
   it('adds, edits, toggles, and collects custom fields for each content type', () => {

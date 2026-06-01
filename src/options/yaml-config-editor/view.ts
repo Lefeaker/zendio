@@ -20,6 +20,7 @@ interface YamlTableRow {
   globalField?: YamlEditorField;
   builtIn: boolean;
   isCustom: boolean;
+  defaultCustom: boolean;
 }
 
 interface YamlConfigEditorViewOptions {
@@ -42,8 +43,11 @@ function addRowField(
   contentType: YamlContentType,
   field: YamlEditorField
 ): void {
-  const group = field.builtIn ? 'builtin' : 'custom';
-  const baseKey = `${group}:${field.name.trim() || field.id}`;
+  const isDefaultCustom = field.baselineKind === 'defaultCustomField';
+  const group = field.builtIn ? 'builtin' : isDefaultCustom ? 'default-custom' : 'custom';
+  const identityName =
+    isDefaultCustom && field.baselineName ? field.baselineName : field.name.trim() || field.id;
+  const baseKey = `${group}:${isDefaultCustom ? `${contentType}:` : ''}${identityName}`;
   let key = baseKey;
   while (rows.get(key)?.fields[contentType]) {
     key = `${baseKey}:${field.id}`;
@@ -54,11 +58,13 @@ function addRowField(
       id: field.id,
       fields: {},
       builtIn: field.builtIn,
-      isCustom: field.isCustom || !field.builtIn
+      isCustom: field.isCustom || !field.builtIn,
+      defaultCustom: isDefaultCustom
     } satisfies YamlTableRow);
   row.fields[contentType] = field;
   row.builtIn = row.builtIn || field.builtIn;
   row.isCustom = row.isCustom || field.isCustom || !field.builtIn;
+  row.defaultCustom = row.defaultCustom || isDefaultCustom;
   rows.set(key, row);
 }
 
@@ -82,7 +88,8 @@ function buildRows(state: YamlEditorState, filter: YamlEditorFilter): YamlTableR
         fields: {},
         globalField: field,
         builtIn: false,
-        isCustom: true
+        isCustom: true,
+        defaultCustom: false
       });
     });
   }
@@ -132,8 +139,12 @@ function getRowValuePath(row: YamlTableRow, filter: YamlEditorFilter): string {
 }
 
 function updateRow(row: YamlTableRow, patch: Partial<YamlEditorField>): void {
+  const nextPatch = { ...patch };
+  if (row.defaultCustom) {
+    delete nextPatch.name;
+  }
   getRowFields(row).forEach((field) => {
-    Object.assign(field, patch);
+    Object.assign(field, nextPatch);
   });
 }
 
@@ -183,13 +194,16 @@ function setRowEnabled(
     field.enabled = enabled;
     return;
   }
+  if (row.defaultCustom) {
+    return;
+  }
   if (!row.builtIn) {
     cloneCustomField(state, row, contentType, enabled);
   }
 }
 
 function removeRow(state: YamlEditorState, row: YamlTableRow): void {
-  if (row.builtIn) {
+  if (row.builtIn || row.defaultCustom) {
     return;
   }
   YAML_EDITOR_CONTENT_TYPES.forEach((contentType) => {
@@ -370,6 +384,7 @@ function renderFieldRow(
       textInput({
         className: 'input mono',
         value: getRowName(row),
+        disabled: row.builtIn || row.defaultCustom,
         dataset: { yamlField: 'name', custom: row.isCustom ? 'true' : undefined },
         onInput: (value) => {
           updateRow(row, { name: value });
@@ -421,7 +436,7 @@ function renderFieldRow(
         options.labels.table.deleteButton,
         () => removeRow(options.state, row),
         options,
-        row.builtIn
+        row.builtIn || row.defaultCustom
       )
     )
   );

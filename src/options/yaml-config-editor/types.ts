@@ -8,6 +8,7 @@ export const YAML_EDITOR_CONTENT_TYPES: YamlContentType[] = [
 ];
 
 export type YamlEditorFieldBucket = 'fields' | 'customFields';
+export type YamlEditorFieldBaselineKind = 'defaultCustomField';
 
 export interface YamlEditorField {
   id: string;
@@ -19,6 +20,8 @@ export interface YamlEditorField {
   valuePath: string;
   builtIn: boolean;
   isCustom: boolean;
+  baselineKind?: YamlEditorFieldBaselineKind;
+  baselineName?: string;
 }
 
 export interface YamlEditorDomainField {

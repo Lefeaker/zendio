@@ -55,14 +55,27 @@ function shouldIncludeBuiltInField(field: YamlEditorField, contentType: YamlCont
 
 function shouldIncludeCustomField(field: YamlEditorField, contentType: YamlContentType): boolean {
   const name = field.name.trim();
-  if (!name) {
+  const baselineName =
+    field.baselineKind === 'defaultCustomField' ? field.baselineName?.trim() : undefined;
+  const identityName = baselineName || name;
+  if (!identityName) {
     return false;
   }
-  const baseline = getDefaultCustomField(contentType, name);
+  const baseline = getDefaultCustomField(contentType, identityName);
   if (!baseline) {
     return field.enabled;
   }
   return differsFromBaseline(field, baseline);
+}
+
+function buildCustomFieldConfig(field: YamlEditorField): YamlFieldConfig {
+  const baselineName =
+    field.baselineKind === 'defaultCustomField' ? field.baselineName?.trim() : undefined;
+  return buildFieldConfig({
+    ...field,
+    name: baselineName || field.name,
+    isCustom: true
+  });
 }
 
 function collectDomainOverrides(
@@ -95,7 +108,7 @@ export function serializeYamlEditorState(state: YamlEditorState): YamlConfigOver
       .map(buildFieldConfig);
     const customFields = state.contentTypes[contentType].customFields
       .filter((field) => shouldIncludeCustomField(field, contentType))
-      .map((field) => buildFieldConfig({ ...field, isCustom: true }));
+      .map(buildCustomFieldConfig);
     const domainOverrides = collectDomainOverrides(state, contentType);
     if (!fieldOverrides.length && !customFields.length && !domainOverrides) {
       return;
