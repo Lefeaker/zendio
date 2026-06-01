@@ -35,7 +35,6 @@ const requiredFiles = [
   'src/ui/hosts/shadow/ShadowDialogHost.ts',
   'src/ui/hosts/shared/contract.ts',
   'src/ui/domains/vault-router/index.ts',
-  'src/ui/domains/yaml-config/index.ts',
   'src/ui/domains/privacy/index.ts',
   'src/ui/domains/reading/index.ts',
   'src/ui/domains/video/index.ts',

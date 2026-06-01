@@ -95,17 +95,15 @@ npm run audit:performance:report
 - `src/options/app/productionStitchShellMount.ts`: `254` 行
 - `src/content/extractors/articleExtractor.ts`: `222` 行
 - `src/options/state/optionsStore.ts`: `194` 行
-- `src/ui/domains/yaml-config/yamlConfigTableStateModel.ts`: `182` 行
 - `src/content/video/platforms/bilibiliPlatformAdapter.ts`: `178` 行
 - `src/content/index.ts`: `153` 行
 - `src/options/state/StateManager.ts`: `128` 行；`deepClone=0`，`JSON.stringify=0`
 - `src/content/runtime/bootstrapRuntime.ts`: `77` 行
-- `src/ui/domains/yaml-config/yamlConfigTableRenderer.ts`: `66` 行
 - `src/ui/domains/usage-chart/usageChartRenderers.ts`: `23` 行
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 native YAML retirement 后当前动态发现 `94` 个热点路径，注册 `95` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-01 Plan 03 R3 legacy YAML domain retirement 后当前动态发现 `93` 个热点路径，注册 `94` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
 - 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 746`、`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`RestSectionView.ts <= 260`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`。
 

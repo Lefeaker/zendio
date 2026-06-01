@@ -163,8 +163,6 @@ credentials and manual confirmation.
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/yaml-config/yamlConfigTableDom.ts`
-- `src/ui/domains/yaml-config/yamlConfigTableModel.ts`
 - `src/ui/domains/privacy/PrivacySettings.ts`
 - `src/options/components/sections/RestSection.ts`
 

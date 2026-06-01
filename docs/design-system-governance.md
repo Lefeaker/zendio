@@ -39,14 +39,14 @@
   - `ContentDialogHost`：`src/ui/hosts/content/ContentDialogHost.ts`
 - domains：`src/ui/domains/*`
   - 代表性领域入口：`src/ui/domains/vault-router/index.ts`
-  - `vault-router`、`yaml-config`、`privacy`、`reading`、`video`
+  - `vault-router`、`privacy`、`reading`、`video`
 
 ### 已退役入口
 
 以下兼容 wrapper / 旧入口别名已退役，不得再恢复：
 
 - `src/options/components/shared/Daisy*.ts` 与 OptionsLayout 旧入口
-- Options controls 旧入口：VaultRouterView / YamlConfigView / privacySettings / yamlConfigTable\*
+- Options controls 旧入口：VaultRouterView / YAML 配置 view/table / privacySettings
 - `src/content/shared/daisy/*` 与 ReaderDialog / VideoDialog / SupportPromptView 旧入口
 
 ## 2. 组件分层规则
@@ -75,7 +75,7 @@
 
 - `src/ui/domains/*` 负责真实实现所有权。
 - feature 可以依赖 domains；domains 不可反向依赖 `options/*`、`content/*` 旧 feature 文件。
-- 当前 `privacy`、`yaml-config`、`vault-router`、`reading`、`video` 已满足该依赖方向。
+- 当前 `privacy`、`vault-router`、`reading`、`video` 已满足该依赖方向；YAML 配置 UI 已迁入 `src/options/yaml-config-editor/**`，不再由旧 UI-domain YAML 实现承载。
 
 ## 3. 命名与交互现状
 

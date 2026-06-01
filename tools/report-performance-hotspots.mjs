@@ -46,7 +46,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoControlBarButton.ts', 383],
   ['src/content/stitch/runtimeSurfaceContent.ts', 378],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
-  ['src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts', 373],
   ['src/shared/exportDestination.ts', 372],
   ['src/ui/domains/reading/ReaderDialog.ts', 371],
   ['src/content/video/ui/VideoDialogPanel.ts', 369],

@@ -37,17 +37,17 @@ async function getHarnessHtml(): Promise<string> {
     <title>YAML Config Harness</title>
     <style>
       body { font-family: system-ui, sans-serif; padding: 16px; }
-      #yamlConfigTable, #yamlDomainOverrides { margin-top: 16px; }
-      .aobx-table__row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding: 8px 0; border-bottom: 1px solid #ddd; }
-      .aobx-table__cell, .aobx-table__actions { display: flex; flex-direction: column; gap: 4px; }
-      .aobx-domain__card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-top: 12px; }
+      #yamlEditorHost { margin-top: 16px; }
+      .stitch-yaml-config-table { overflow-x: auto; }
+      .stitch-yaml-domain-rule { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-top: 12px; }
+      .yaml-rule-meta, .yaml-domain-field-row, .stitch-yaml-actions { display: flex; gap: 8px; margin-top: 8px; }
       button { cursor: pointer; }
     </style>
   </head>
   <body>
-    <button id="yamlAddFieldBtn" type="button">Add Custom Field</button>
-    <div id="yamlConfigTable"></div>
-    <div id="yamlDomainOverrides"></div>
+    <section id="yamlHarnessRoot">
+      <div id="yamlEditorHost"></div>
+    </section>
     <script type="module" src="data:text/javascript;base64,${encoded}"></script>
   </body>
 </html>`;
@@ -58,22 +58,13 @@ async function getHarnessHtml(): Promise<string> {
 async function mountHarness(page: Page): Promise<void> {
   const html = await getHarnessHtml();
   await page.setContent(html, { waitUntil: 'load' });
-  await page.waitForSelector('#yamlConfigTable', { state: 'attached' });
+  await page.waitForSelector('#yamlEditorHost', { state: 'attached' });
   await page.evaluate(() => {
     window.yamlTest.resetAutoSave();
     window.yamlTest.mount();
   });
-  await page.waitForSelector('.aobx-table__row');
-}
-
-async function triggerFirstMatchingClick(page: Page, selector: string): Promise<void> {
-  await page.evaluate((target) => {
-    const element = document.querySelector<HTMLElement>(target);
-    if (!element) {
-      throw new Error(`Element not found: ${target}`);
-    }
-    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  }, selector);
+  await page.waitForSelector('[data-stitch-widget="yaml-config"]');
+  await page.waitForSelector('.stitch-yaml-config-table tbody tr');
 }
 
 test.describe('YAML configuration browser interactions', () => {
@@ -93,39 +84,38 @@ test.describe('YAML configuration browser interactions', () => {
   test('manages domain overrides with array previews', async ({ page }) => {
     await mountHarness(page);
 
-    await page.locator('.aobx-domain__add-btn').click();
+    await page.locator('.stitch-yaml-actions button', { hasText: '+ Add domain rule' }).click();
 
-    const card = page.locator('.aobx-domain__card').first();
+    const card = page.locator('.stitch-yaml-domain-rule').first();
     await expect(card).toBeVisible();
 
-    await card.locator('.aobx-domain__domain-input').fill('example.com');
-    await card.locator('.aobx-domain__type-select').selectOption('article');
+    await card.locator('input[data-yaml-domain="domain"]').fill('example.com');
+    await card.locator('.yaml-rule-meta select').selectOption('article');
 
-    await triggerFirstMatchingClick(page, '.aobx-domain__card .aobx-domain__add-field-btn');
-    const tagsField = card.locator('.aobx-domain__field').nth(0);
-    await expect(card.locator('.aobx-domain__field')).toHaveCount(1);
-    await expect(tagsField.locator('.aobx-domain__field-select')).toBeVisible();
-    await tagsField.locator('.aobx-domain__field-select').selectOption('tags');
+    const tagsField = card.locator('.yaml-domain-field-row').nth(0);
+    await expect(card.locator('.yaml-domain-field-row')).toHaveCount(1);
+    await expect(tagsField.locator('select[data-yaml-domain-field="name"]')).toBeVisible();
+    await tagsField.locator('select[data-yaml-domain-field="name"]').selectOption('tags');
 
-    const tagsInput = tagsField.locator('input.aobx-table__array-input');
+    const tagsInput = tagsField.locator('input[data-yaml-domain-field="defaultValue"]');
     await tagsInput.fill('alpha; beta; gamma');
     await tagsInput.blur();
     await expect(tagsInput).toHaveValue('alpha; beta; gamma');
 
-    await triggerFirstMatchingClick(page, '.aobx-domain__card .aobx-domain__add-field-btn');
-    const authorField = card.locator('.aobx-domain__field').nth(1);
-    await expect(card.locator('.aobx-domain__field')).toHaveCount(2);
-    await expect(authorField.locator('.aobx-domain__field-select')).toBeVisible();
-    await authorField.locator('.aobx-domain__field-select').selectOption('author');
+    await card.locator('button', { hasText: '+ Add field' }).click();
+    const authorField = card.locator('.yaml-domain-field-row').nth(1);
+    await expect(card.locator('.yaml-domain-field-row')).toHaveCount(2);
+    await expect(authorField.locator('select[data-yaml-domain-field="name"]')).toBeVisible();
+    await authorField.locator('select[data-yaml-domain-field="name"]').selectOption('author');
 
-    const enabledToggle = authorField.locator('.aobx-domain__field-enabled input[type="checkbox"]');
+    const enabledToggle = authorField.locator('input[data-yaml-domain-field="enabled"]');
     await enabledToggle.check();
 
-    const authorInput = authorField.locator('.aobx-domain__field-body input.aobx-input').first();
+    const authorInput = authorField.locator('input[data-yaml-domain-field="defaultValue"]');
     await authorInput.fill('Guest Author');
     await authorInput.blur();
 
-    const valuePathInput = authorField.locator('.aobx-domain__value-path-input');
+    const valuePathInput = authorField.locator('input[data-yaml-domain-field="valuePath"]');
     await valuePathInput.fill('meta.author');
     await valuePathInput.blur();
 
