@@ -92,9 +92,9 @@ credentials and manual confirmation.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `137`，fresh warning count 为 `136`，当前低于 baseline。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `132`，fresh warning count 为 `132`，当前与 baseline 持平。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`102`）、unsafe type warnings、`no-restricted-syntax`。
+- 当前 warning 主要规则族：`require-await`（`99`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `11` warning-only findings，且已接入 `quality` 与 CI。
 - `npm run lint:type-any`：扫描当前集成树 `1108` files；overall 为 `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
