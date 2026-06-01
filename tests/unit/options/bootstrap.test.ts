@@ -168,7 +168,6 @@ describe('options bootstrap', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/options/app/bootstrap.ts'), 'utf8');
     expect(source).not.toContain('mountOptionsShell');
     expect(source).not.toContain('ThemeSwitcher');
-    expect(source).not.toContain('FormSectionRegistry');
   });
 
   it('cleans up the previous Stitch shell before a second bootstrap', async () => {

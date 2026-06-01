@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
@@ -23,7 +23,8 @@ function walk(dir) {
 
 const findings = [];
 const sourceFiles = walk(SRC_ROOT);
-const sectionFiles = walk(join(SRC_ROOT, 'options/components/sections'));
+const sectionsRoot = join(SRC_ROOT, 'options/components/sections');
+const sectionFiles = existsSync(sectionsRoot) ? walk(sectionsRoot) : [];
 const references = {
   chromeOptionsPersistence: [],
   legacyOptionsRepository: [],

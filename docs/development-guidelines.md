@@ -190,7 +190,7 @@ try {
 - **核心组成**
   - 正式 Options UI 启动链为 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
   - `src/options/stitch/*` 的 schema、renderer、content 与 CSS 是当前 Options UI behavior 真值；新增 UI behavior 优先落在 Stitch schema/render/domain code 或 `src/ui/domains/*`。
-  - 旧 layout shell 源码已退役；旧 Section class 与 `FormSectionRegistry` 属于兼容/验证迁移资产，不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
+  - 旧 layout shell 与最终旧 section/form 兼容源码已退役；retired Options 兼容类不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
   - 删除旧 Options source 前必须运行 Non-Production Code 3.0 owner scan：记录 `audit:non-production-source:report` counts/exit status，并要求 `audit:non-production-source:check` 通过。
   - `OptionsController`（`src/options/app/optionsController.ts`）集中处理持久化、自动保存、导入导出，自动保存链路需调用 `markPendingAutoSave()` + `scheduleAutoSave()`。
 

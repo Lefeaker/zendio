@@ -47,7 +47,7 @@ const EXPLICIT_RETAIN_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'privacy domain compatibility shell',
     deletionCondition: 'delete only after imports use PrivacySettingsView directly'
-  },
+  }
 ];
 
 const EXPLICIT_CLASSIFICATION_PATTERNS = [
@@ -354,7 +354,6 @@ const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/VideoSettingsWidget.ts',
   'src/options/widgets/index.ts',
   'src/options/components/controls/domainMappings.ts',
-  'src/options/components/formSections/formSectionManager.ts',
   'src/options/utils/defaults.ts'
 ];
 
