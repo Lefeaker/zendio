@@ -10,9 +10,9 @@
 
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
-- Legacy Options section、form-section 与旧 modal/controller 代码只保留为兼容测试资产；旧 layout 源码已退役，除兼容修复外，不要把剩余旧资产重新接入生产启动链。
+- Legacy Options section/form compatibility source and old layout source have been retired; remaining old modal/controller code is compatibility-only and must not be reconnected to the production startup chain.
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
-- 旧 sections/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
+- 旧 widgets and other retained compatibility source are not current implementation guidance unless `audit:non-production-source:report` gives an exact production/import/test/script/public/verification owner; deletion must satisfy Non-Production Code 3.0 six-owner proof and pass `audit:non-production-source:check`.
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
 - `src/options/app/changelogContent.ts` 当前仍按 Options changelog content compatibility module 保留；只有在 Options public behavior 移除 changelog content 且六项 owner proof 为空时，才能进入后续删除批次。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
@@ -22,8 +22,6 @@
 
 - `index.ts -> runtimeEntry.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 repository 注册、I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
-- `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
-- `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
 - `utils/`：辅助方法（导入导出、transfer 等）；正式 Options 样式由 `stitch/styles/` 承载。
 
@@ -107,8 +105,6 @@ src/options/
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── sections/             # 旧 Section 兼容/迁移资产；不得作为新增生产 UI owner
-│   ├── formSections/         # 旧 FormSectionRegistry 兼容层；不得重新接入正式启动链
 │   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/domain UI
 │   └── services/             # 配置传输等选项页专用服务
 └── utils/                     # 选项页工具（如 optionsTransfer.ts）
@@ -125,7 +121,7 @@ src/options/
 - `initializeOptionsController()`：实例化 `OptionsController`，通过 `createOptionsFormAdapter()` 读取当前生产表单状态并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
 - `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
-- 已退役的旧 layout shell、`mountOptionsShell`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
+- 已退役的旧 layout shell、`mountOptionsShell` 与 `ModalController` 不得重新进入正式页面启动链。
 - `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；repository 注册归属 `src/options/runtimeEntry.ts`；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
 2. **Options 主状态链（Phase 3 当前口径）**
@@ -140,11 +136,11 @@ src/options/
 - 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
-3. **旧 Section/FormSection 兼容边界**
+3. **旧 Options compatibility 边界**
 
-- `BaseSection` 子类、`registerFormIntegration()`、`FormSectionRegistry` 与旧 Section lifecycle 只作为兼容测试或迁移定位资产保留，不是新增生产 Options UI 的实现指南。
-- 不要新增旧 Section 子类，不要把旧 form-section 注册链重新接入 `src/options/app/bootstrap.ts`、`productionStitchShell.ts` 或正式页面启动链。
-- 如需删除旧资产，必须先满足 Non-Production Code 3.0 的 production build graph、import graph、test/script/public/verification owner 六项 proof，并让相关 audit 通过。
+- 旧 section/form compatibility source 已退役，不是新增生产 Options UI 的实现指南。
+- 不要新增旧 section 类或恢复旧表单注册链，也不要将其重新接入 `src/options/app/bootstrap.ts`、`productionStitchShell.ts` 或正式页面启动链。
+- 如需继续删除 retained compatibility source，必须先满足 Non-Production Code 3.0 的 production build graph、import graph、test/script/public/verification owner 六项 proof，并让相关 audit 通过。
 
 4. **Helper/Controller 迁移边界**
 
@@ -159,13 +155,13 @@ src/options/
 - **新增生产 Options UI 行为**
   1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
   2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
-  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 Section/FormSection owner。
-  4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能调用旧 `registerFormIntegration()` 或恢复 `FormSectionRegistry` 注册。
+  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 section/form owner。
+  4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能恢复旧表单注册链。
   5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
 
-- **旧 Section/FormSection 兼容说明**
-  - `BaseSection`、`registerFormIntegration()`、`FormSectionRegistry` 与旧 Section 类只允许作为兼容测试、迁移定位或待删除 inventory 语境出现。
-  - 如果 audit 显示某个旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类；不得为了让生产功能工作而把它重新连回正式启动链。
+- **旧 Options compatibility 说明**
+  - 旧 section/form compatibility source 已退役；如果 audit 显示其他旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类。
+  - 不得为了让生产功能工作而把 retired compatibility source 重新连回正式启动链。
 
 - **多语言适配**
   - 文案统一由 `setMessages()` 或 `data-i18n` 驱动，参照 `docs/options-multilingual-adaptation-guide.md` 进行整改。
@@ -173,7 +169,7 @@ src/options/
 
 - **运行时清理**
   - 若创建了额外的定时器或全局事件，需使用 `registerCleanup()` 或 Section `destroy()` 手动释放。
-  - 禁止绕过 `bootstrap.ts` 直接实例化 `OptionsController`、`FormSectionRegistry`。
+  - 禁止绕过 `bootstrap.ts` 直接实例化 `OptionsController` 或恢复 retired form registration。
 
 ---
 

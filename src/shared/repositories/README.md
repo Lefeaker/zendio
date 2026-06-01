@@ -83,12 +83,11 @@ import type { IOptionsRepository } from '@/shared/repositories';
 import { DI_TOKENS } from '@/shared/di/tokens';
 import { container } from '@/shared/di/serviceRegistry';
 
-class MySection extends BaseSection {
+class MyOptionsPresenter {
   private optionsRepo: IOptionsRepository;
   private unsubscribe: (() => void) | null = null;
 
   constructor() {
-    super();
     // 通过 DI 容器获取 Repository 实例
     this.optionsRepo = container.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   }

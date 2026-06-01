@@ -78,8 +78,6 @@ The coverage denominator excludes documented Non-Production Code 3.0
 retained/deferred Options compatibility surfaces that are no longer production
 implementation targets:
 
-- `src/options/components/formSections/**`
-- `src/options/components/sections/**`
 - `src/options/widgets/shared/**`
 
 Those paths remain governed by `audit:non-production-source:report` and

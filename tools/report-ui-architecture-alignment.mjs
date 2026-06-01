@@ -88,9 +88,6 @@ const forbiddenFiles = [
 ];
 
 const requiredSnippets = {
-  'src/options/components/sections/BaseSection.ts': [
-    ['../../../ui/patterns/section-shell', '@ui/patterns/section-shell']
-  ],
   'src/content/reader/ui/ReaderDialogPanel.ts': [
     ['@content/stitch/runtimeSurfaceRenderer'],
     ['@content/stitch/runtimeSurfaceContent']
