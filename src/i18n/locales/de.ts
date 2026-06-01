@@ -485,6 +485,12 @@ const runtime: Messages = {
   yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
   yamlFieldValuePathHint:
     'Optional: map this field to data in the capture context. Leave empty to use captured or default values.',
+  yamlFieldErrorNameRequired: 'Field name is required.',
+  yamlFieldErrorNamePattern:
+    'Field name must start with a letter or underscore and use letters, numbers, underscores, or hyphens.',
+  yamlFieldErrorNameDuplicate: 'Duplicate field name.',
+  yamlFieldErrorValueInvalid: 'Default value does not match the field type.',
+  yamlFieldSaveBlockedWarning: 'Please fix YAML configuration errors before saving.',
   yamlFieldAvailabilityNote:
     'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlDefaultGroupLabel: 'Default fields',

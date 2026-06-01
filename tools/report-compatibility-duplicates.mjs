@@ -4,15 +4,18 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_ALLOWLIST_PATH = 'tools/baselines/compatibility-duplicates.json';
+const SCOPE_MODE = 'retired compatibility reintroduction guard';
 const CANDIDATE_SCOPES = [
   {
     directory: 'src/options/components/sections',
-    filenamePattern: /^usage.*\.ts$/
+    filenamePattern: /^usage.*\.ts$/,
+    reason: 'retired Options usage section reintroduction guard'
   },
   {
     directory: 'src/options/widgets/shared/usage',
-    filenamePattern: /^.*\.ts$/
-  },
+    filenamePattern: /^.*\.ts$/,
+    reason: 'retired shared usage widget reintroduction guard'
+  }
 ];
 
 function normalizePath(path) {
@@ -74,7 +77,9 @@ function collectCandidateFiles(root) {
 }
 
 function hashFile(root, relativePath) {
-  return createHash('sha256').update(readFileSync(join(root, relativePath))).digest('hex');
+  return createHash('sha256')
+    .update(readFileSync(join(root, relativePath)))
+    .digest('hex');
 }
 
 export function findDuplicateGroups(root = process.cwd()) {
@@ -148,6 +153,7 @@ export function evaluateDuplicateGroups(duplicateGroups, allowlist) {
 
 function printReport({ candidateFiles, duplicateGroups, allowlist, evaluation }) {
   console.log('Compatibility duplicate audit');
+  console.log(`scope mode: ${SCOPE_MODE}`);
   console.log(`candidate files: ${candidateFiles.length}`);
   console.log(`duplicate groups: ${duplicateGroups.length}`);
   console.log(`allowlist entries: ${allowlist.length}`);
@@ -160,7 +166,9 @@ function printReport({ candidateFiles, duplicateGroups, allowlist, evaluation })
   }
 
   for (const files of duplicateGroups) {
-    const allowed = !evaluation.unexpected.some((unexpected) => groupKey(unexpected) === groupKey(files));
+    const allowed = !evaluation.unexpected.some(
+      (unexpected) => groupKey(unexpected) === groupKey(files)
+    );
     console.log(`\n${allowed ? 'allowed' : 'unexpected'} duplicate group:`);
     for (const file of files) {
       console.log(`- ${file}`);

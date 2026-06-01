@@ -11,6 +11,7 @@ describe('report-compatibility-duplicates', () => {
     });
 
     expect(output).toContain('duplicate groups: 1');
+    expect(output).toContain('scope mode: retired compatibility reintroduction guard');
     expect(output).toContain('src/options/components/sections/usageClone.ts');
     expect(output).toContain('src/options/widgets/shared/usage/usageClone.ts');
     expect(output).toContain('unexpected duplicate groups: 1');

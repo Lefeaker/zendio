@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProductionStitchWidgetHost } from '@options/app/productionStitchWidgetHost';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import en from '@i18n/locales/en';
 import type { CompleteOptions } from '@shared/types/options';
 
 function createMount(
@@ -23,8 +24,11 @@ function createMount(
 
   adapter.mount(
     container,
-    { options: mergeOptions(initialOptions) as CompleteOptions, messages: null },
-    { notifyDirty, reportError: vi.fn() }
+    { options: mergeOptions(initialOptions) as CompleteOptions },
+    {
+      notifyDirty,
+      reportError: vi.fn()
+    }
   );
 
   return { adapter, container, notifyDirty };
@@ -76,6 +80,53 @@ describe('YamlConfigEditorWidgetAdapter', () => {
       }
     });
     expect(container.textContent).toContain('Please fix YAML configuration errors before saving.');
+  });
+
+  it('renders user-visible YAML labels from injected messages', () => {
+    const container = document.createElement('div');
+    const adapter = new YamlConfigEditorWidgetAdapter();
+    adapter.mount(
+      container,
+      {
+        options: mergeOptions({
+          yamlConfig: {
+            contentTypes: {
+              article: {
+                customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+              }
+            }
+          }
+        }) as CompleteOptions,
+        messages: {
+          ...en.runtime,
+          yamlFieldArticleLabel: 'Artikel test',
+          yamlFieldAddButton: '+ Feld test',
+          yamlFieldSaveBlockedWarning: 'YAML test block'
+        }
+      },
+      { notifyDirty: vi.fn(), reportError: vi.fn() }
+    );
+
+    expect(container.textContent).toContain('Artikel test');
+    expect(container.textContent).toContain('+ Feld test');
+
+    const scoreRow = Array.from(container.querySelectorAll<HTMLElement>('[data-row-id]')).find(
+      (row) =>
+        Array.from(row.querySelectorAll<HTMLInputElement>('input')).some(
+          (input) => input.value === 'score'
+        )
+    );
+    const defaultValue = scoreRow?.querySelector<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]'
+    );
+    expect(defaultValue).toBeTruthy();
+    defaultValue!.value = 'not-a-number';
+    defaultValue!.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(container.textContent).toContain('YAML test block');
+    expect(container.textContent).not.toContain(
+      'Please fix YAML configuration errors before saving.'
+    );
   });
 
   it('is the production yaml-config widget factory result', () => {
