@@ -86,8 +86,36 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('.video-screenshot-toggle.is-on');
     expect(stitchCss).toContain('background: var(--success);');
     expect(stitchCss).toContain('.video-timestamp-marker');
-    expect(stitchCss).toContain('gap: var(--space-2-5);');
-    expect(stitchCss).toContain('margin-left: -2px;');
+    expect(stitchCss).toContain('gap: 0;');
+    expect(stitchCss).toContain('left: var(--session-video-screenshot-dot-offset, -2px);');
+    expect(stitchCss).toContain('transform: translateY(-50%);');
+  });
+
+  it('keeps video timestamp rows centered and uses one gap into fragments', () => {
+    expect(stitchCss).toContain('--session-comment-height: 27px;');
+    expect(stitchCss).toContain('--session-reader-highlight-weight: 610;');
+    expect(stitchCss).toContain('--session-video-fragment-weight: 480;');
+    expect(stitchCss).toContain('--session-video-timestamp-row-min-height: 28px;');
+    expect(stitchCss).toContain('--session-video-timestamp-adjacent-gap: 1px;');
+    expect(stitchCss).toMatch(
+      /\.session-item-card\[data-capture-kind='timestamp'\]\s+\+\s+\.session-item-card\[data-capture-kind='timestamp'\]/
+    );
+    expect(stitchCss).toContain(
+      ".session-item-card[data-capture-kind='timestamp'] + .video-fragment-session-item-card"
+    );
+    expect(stitchCss).toContain('margin-top: var(--session-video-timestamp-adjacent-gap, 0);');
+    expect(stitchCss).toContain('min-height: var(--session-video-timestamp-row-min-height, 28px);');
+  });
+
+  it('applies the tuned clipper content radii and spacing tokens', () => {
+    expect(stitchCss).toContain('--clipper-selection-radius: 5px;');
+    expect(stitchCss).toContain('--clipper-comment-radius: 4px;');
+    expect(stitchCss).toContain('--clipper-comment-height: 40px;');
+    expect(stitchCss).toContain(
+      'padding: var(--clipper-selection-padding-y) var(--clipper-selection-padding-x);'
+    );
+    expect(stitchCss).toContain('border-radius: var(--clipper-selection-radius);');
+    expect(stitchCss).toContain('height: var(--clipper-comment-height);');
   });
 
   it('uses polished Stitch button treatments for YAML actions and deletes', () => {

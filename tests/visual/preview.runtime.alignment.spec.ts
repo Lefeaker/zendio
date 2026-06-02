@@ -803,9 +803,25 @@ test.describe('Stitch runtime surface alignment', () => {
     await page.mouse.up();
 
     await expect(captures).toHaveCount(beforeCount + 1, { timeout: 10000 });
+    const timestamp = page
+      .locator('[data-stitch-surface="video"] article[data-capture-kind="timestamp"]')
+      .first();
     const fragment = page
-      .locator('[data-stitch-surface="video"] .video-fragment-session-item-card')
+      .locator('[data-stitch-surface="video"] article[data-capture-kind="fragment"]')
       .last();
+    const timestampBox = await timestamp.boundingBox();
+    const fragmentBox = await fragment.boundingBox();
+    const chipBox = await timestamp.locator('.session-item-marker-time').boundingBox();
+    const dotBox = await timestamp.locator('.video-screenshot-toggle').boundingBox();
+    const inputBox = await timestamp.locator('.session-item-comment-input').boundingBox();
+    if (!timestampBox || !fragmentBox || !chipBox || !dotBox || !inputBox) {
+      throw new Error('Missing video timestamp geometry targets');
+    }
+    const centerY = (box: NonNullable<Awaited<ReturnType<typeof timestamp.boundingBox>>>) =>
+      box.y + box.height / 2;
+    expect(Math.abs(centerY(chipBox) - centerY(dotBox))).toBeLessThanOrEqual(1);
+    expect(Math.abs(centerY(chipBox) - centerY(inputBox))).toBeLessThanOrEqual(1);
+    expect(fragmentBox.y - (timestampBox.y + timestampBox.height)).toBeCloseTo(1, 0);
     await expect(fragment.locator('.session-item-marker-index')).toHaveText('1');
     const fragmentInput = fragment.locator('[data-capture-input]');
     await expect(fragmentInput).toHaveAttribute('placeholder', /note|批注/i);
