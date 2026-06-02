@@ -23,9 +23,6 @@ export default defineConfig({
         'src/**/__tests__/**',
         'src/**/types.ts',
         'src/**/index.ts',
-        'src/options/components/formSections/**',
-        'src/options/components/layout/**',
-        'src/options/components/sections/**',
         'src/options/widgets/shared/**',
         'src/styles/**'
       ],

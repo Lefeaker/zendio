@@ -116,7 +116,7 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 - `src/options/components/sections/Usage*`
 - `tests/unit/options/optionsShell.test.ts`
 - `tests/unit/options/bootstrap.test.ts`
-- `tests/unit/options/sections/RestSection.test.ts`
+- `tests/unit/options/app/rest-settings/storageSettingsContent.test.ts`
 - retired fragment section test
 - retired usage section test
 

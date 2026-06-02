@@ -242,4 +242,4 @@ src/options/
 
 ---
 
-如有疑问，请先查阅 `docs/development-guidelines.md`、`docs/options-refactor-summary-2025.md` 和 `docs/options-multilingual-adaptation-guide.md`。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！
+如有疑问，请先查阅 `docs/development-guidelines.md` 和 `docs/options-multilingual-adaptation-guide.md`；旧 Options 重构复盘已归档到 `docs/archive/completed-guides/options-refactor-summary-2025.md`，仅用于历史追溯。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！

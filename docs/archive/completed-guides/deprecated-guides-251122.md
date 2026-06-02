@@ -69,7 +69,7 @@
 - **依据**：
   - `src/options/components/controls/vaultRouterController.ts:1` 已继承 `BaseComponent` 并提供 `render()/destroy()`。
   - `src/options/index.html:7` 只引用 `aob-options.css`，`options-aob.css` 等遗留文件已删除。
-- **替代方案**：以 `src/options/README.md` 与 `options-refactor-summary-2025.md` 中的最新描述为准，必要时在 README 更新状态。
+- **替代方案**：以 `src/options/README.md` 中的 production Stitch shell / schema / domain 描述为准；旧 `options-refactor-summary-2025.md` 已移入 `docs/archive/completed-guides/` 仅作历史复盘。
 
 ## 9. docs/typescript-typecheck-governance.md
 

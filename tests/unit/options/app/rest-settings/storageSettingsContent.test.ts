@@ -7,9 +7,9 @@ import {
   createSchemaContext,
   expectProductionText,
   expectSettingsSchemas
-} from '../../../utils/productionStitchAssertions';
+} from '../../../../utils/productionStitchAssertions';
 import { getSettingsView } from '@options/stitch/schema/registry';
-import { getRestDefaults } from '../../../utils/restDefaults';
+import { getRestDefaults } from '../../../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCALHOST_BASE_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;

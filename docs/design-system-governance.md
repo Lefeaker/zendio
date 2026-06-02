@@ -133,7 +133,7 @@
 ### 禁止规则
 
 - 生产代码、正式 harness、构建脚本不得重新引用上述 archive 资产
-- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section classes 在验证 owner 替换或迁出前只可按验证/兼容资产处理，不得直接作为 `delete-now` 路径删除
+- 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；旧 Options layout/formSections/section class 源码已按 retired-code inventory 删除，同名测试路径已迁出到当前 production Stitch / REST owner 测试，不得恢复为生产 UI、正式验证或 fallback shell
 - 非 YAML `src/options/widgets/**` 不得重新获得 production UI ownership；真实 Options UI behavior 必须落在 Stitch schema/render/domain code 或 `src/ui/domains/*`
 - compatibility shells、barrel/type-only files、source aliases 与 public UI boundary files 必须有明确 owner 与删除条件；它们不是 source-of-truth docs，也不能绕过 Non-Production Code 3.0 owner scan
 - session / UI state 不得重新回流到 `window.__aiob*` 全局命名空间

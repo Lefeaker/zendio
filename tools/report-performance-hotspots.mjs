@@ -95,6 +95,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/fragmentHighlighter.ts', 255],
   ['src/ui/domains/privacy/PrivacySettingsView.ts', 255],
   ['src/options/app/productionStitchShellMount.ts', 254],
+  ['src/options/yaml-config-editor/rowModel.ts', 254],
   ['src/shared/errors/analytics/analyticsConfig.ts', 252],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 252]
 ]);

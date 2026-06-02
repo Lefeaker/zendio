@@ -198,14 +198,11 @@ export function validateRestOptions(data: unknown) {
   2. [ ] 在 `load()` 中添加数据校验（防止损坏数据）
   3. [ ] 添加降级逻辑（数据损坏时恢复默认值）
 
-#### ✅ Options 页表单组件
+#### ✅ Options 页表单配置
 
-- [ ] **目标**：为所有表单字段添加 Zod 验证
-- [ ] **涉及文件**：
-  - [ ] `formSections/restConnectionSection.ts`
-  - [ ] `formSections/templatesSection.ts`
-  - [ ] `formSections/classifierSection.ts`
-  - [ ] 其他表单 Section
+- [ ] **目标**：为当前 Options 配置入口添加 Zod 验证
+- [ ] **当前 owner**：production Stitch schema/settings、`src/options/app/**`、`src/shared/config/**`
+- [ ] **退役约束**：旧 `formSections/*` 路径只属于历史示例，不得恢复为当前 Options 表单实现入口
 
 ---
 

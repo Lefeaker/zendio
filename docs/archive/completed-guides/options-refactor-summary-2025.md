@@ -2,7 +2,7 @@
 
 > 复盘 2025 年 10-11 月完成的 Options 页面架构与体验改造，用于团队交接与后续评估。本文聚焦多语言以外的工作内容。
 >
-> 2026-05-31 状态：本文为历史复盘；旧 layout shell 源码已退役，新增 Options UI 行为归属 production Stitch shell、schema/render/domain code。
+> 2026-06-02 归档状态：本文为旧 Options layout/form section 时代的历史复盘；旧 layout shell、formSections 与 class section 源码及同名测试路径均已退役或迁出。新增 Options UI 行为归属 production Stitch shell、schema/render/domain code。
 
 ---
 
