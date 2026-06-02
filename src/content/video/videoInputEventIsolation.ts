@@ -34,7 +34,7 @@ export function isolateVideoInputKeyboardEvent(event: KeyboardEvent): void {
 }
 
 function needsOwnedTargetCommandHandler(event: KeyboardEvent): boolean {
-  return !event.isComposing && (event.key === 'Enter' || event.key === 'Escape');
+  return !event.isComposing && event.key === 'Enter';
 }
 
 function isolateVideoInputKeyboardBoundaryEvent(event: KeyboardEvent): void {
