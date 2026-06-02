@@ -438,7 +438,7 @@ export function videoCaptureItem(
           classNames.session.readerItem,
           'video-fragment-session-item-card'
         ].join(' '),
-        dataset: { captureId: capture.id }
+        dataset: { captureId: capture.id, captureKind: 'fragment' }
       },
       [
         sessionItemMarker(String(capture.index), 'index'),
@@ -476,7 +476,7 @@ export function videoCaptureItem(
     capture.draft ?? capture.comment ?? '',
     labels.notePlaceholder,
     null,
-    { captureId: capture.id },
+    { captureId: capture.id, captureKind: 'timestamp' },
     undefined,
     'input',
     sessionItemCloseButton(labels.deleteLabel, 'video:delete', { captureId: capture.id })

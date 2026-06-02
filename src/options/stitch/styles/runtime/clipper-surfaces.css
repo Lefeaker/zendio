@@ -1,4 +1,3 @@
-
 .clipper-preview-block {
   display: grid;
   gap: var(--space-2-5);
@@ -15,14 +14,14 @@
 
 .clipper-selection-preview {
   position: relative;
-  padding: var(--space-5-5) var(--space-6-5);
-  border-radius: var(--radius-lg);
+  padding: var(--clipper-selection-padding-y) var(--clipper-selection-padding-x);
+  border-radius: var(--clipper-selection-radius);
   border: 1px solid var(--runtime-line);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.03));
   box-shadow: var(--shadow-runtime-soft);
   color: var(--text);
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-rich);
+  font-size: var(--clipper-selection-font-size);
+  line-height: var(--clipper-selection-line-height);
   font-style: italic;
 }
 
@@ -30,13 +29,16 @@
   box-sizing: border-box;
   display: block;
   width: 100%;
-  min-height: calc(var(--control-height-md) + 2px);
-  max-height: calc((var(--font-size-sm) * var(--line-height-normal) * 2) + var(--space-4));
+  height: var(--clipper-comment-height);
+  min-height: var(--clipper-comment-height);
+  max-height: var(--clipper-comment-height);
+  border-radius: var(--clipper-comment-radius);
   border-color: var(--runtime-line);
   background: var(--runtime-panel-2);
   resize: none;
   overflow-y: auto;
-  line-height: var(--line-height-normal);
+  font-size: var(--clipper-comment-font-size);
+  line-height: var(--clipper-comment-line-height);
 }
 
 .clipper-source-row {
@@ -245,9 +247,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin: 0 calc(var(--space-7) * -1) calc(var(--space-6-5) * -1);
-  padding: var(--space-4-5) var(--space-7);
+  gap: var(--clipper-footer-gap);
+  margin: 0 calc(var(--clipper-body-padding-x) * -1) calc(var(--clipper-body-padding-y) * -1);
+  padding: var(--clipper-footer-padding-y) var(--clipper-footer-padding-x);
   border-top: 1px solid var(--runtime-line);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: var(--runtime-actionbar);
@@ -326,8 +328,8 @@
 }
 
 .clipper-dialog-icon {
-  width: 28px;
-  height: 28px;
+  width: var(--clipper-icon-size);
+  height: var(--clipper-icon-size);
   object-fit: contain;
 }
 

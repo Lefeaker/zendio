@@ -423,6 +423,7 @@ describe('VideoDialogPanel', () => {
       shadow?.querySelectorAll<HTMLElement>('article[data-capture-id]') ?? []
     );
     expect(items.map((item) => item.dataset.captureId)).toEqual(['ts-1', 'frag-1']);
+    expect(items.map((item) => item.dataset.captureKind)).toEqual(['timestamp', 'fragment']);
     expect(
       shadow?.querySelector('[data-capture-id="ts-1"] .session-item-marker-time')?.textContent
     ).toBe('00:42');

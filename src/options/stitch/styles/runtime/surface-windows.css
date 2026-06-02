@@ -1,4 +1,3 @@
-
 .surface-preview-grid {
   align-items: start;
 }
@@ -213,8 +212,29 @@
   background: var(--panel);
 }
 
+.resource-modal--clipper {
+  --clipper-header-padding-x: 18px;
+  --clipper-header-padding-y: 16px;
+  --clipper-body-padding-x: 18px;
+  --clipper-body-padding-y: 16px;
+  --clipper-body-gap: 14px;
+  --clipper-icon-size: 28px;
+  --clipper-selection-padding-x: 16px;
+  --clipper-selection-padding-y: 14px;
+  --clipper-selection-radius: 5px;
+  --clipper-selection-font-size: 14px;
+  --clipper-selection-line-height: 23px;
+  --clipper-comment-height: 40px;
+  --clipper-comment-line-height: 20px;
+  --clipper-comment-font-size: 12px;
+  --clipper-comment-radius: 4px;
+  --clipper-footer-padding-x: 18px;
+  --clipper-footer-padding-y: 10px;
+  --clipper-footer-gap: 10px;
+}
+
 .resource-modal--clipper .surface-window-header {
-  padding: var(--space-6-5) var(--space-7) var(--space-5-5);
+  padding: var(--clipper-header-padding-y) var(--clipper-header-padding-x);
   border-bottom: var(--border-default);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border-color: var(--runtime-line);
@@ -222,8 +242,8 @@
 }
 
 .resource-modal--clipper .surface-window-body {
-  gap: var(--space-5-5);
-  padding: var(--space-6-5) var(--space-7);
+  gap: var(--clipper-body-gap);
+  padding: var(--clipper-body-padding-y) var(--clipper-body-padding-x);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   background: var(--runtime-panel);
 }
@@ -234,12 +254,63 @@
   background: transparent;
 }
 
+.resource-modal--session {
+  --session-body-padding-x: 20px;
+  --session-body-padding-y: 16px;
+  --session-list-gap: 0;
+  --session-item-column-gap: 8px;
+  --session-content-padding-bottom: 14px;
+  --session-marker-width: 30px;
+  --session-comment-height: 27px;
+  --session-comment-line-height: 28px;
+  --session-comment-font-size: 13px;
+  --session-comment-padding-x: 0;
+  --session-comment-radius: 4px;
+  --session-comment-border-width: 0;
+  --session-comment-border-alpha: 0.28;
+  --session-comment-bg-alpha: 0;
+  --session-active-border-width: 0;
+  --session-active-border-alpha: 0.46;
+  --session-active-ring-alpha: 0.17;
+  --session-header-padding-x: 16px;
+  --session-header-padding-y: 12px;
+  --session-header-column-gap: 10px;
+  --session-header-icon-size: 25px;
+  --session-header-icon-offset-x: 0;
+  --session-header-icon-offset-y: 0;
+  --session-header-title-offset-x: 0;
+  --session-header-title-offset-y: 6px;
+  --session-header-subtitle-offset-x: 0;
+  --session-header-subtitle-offset-y: 7px;
+  --session-header-title-subtitle-gap: 8px;
+  --session-header-collapse-offset-x: 0;
+  --session-header-collapse-offset-y: -1px;
+  --session-reader-highlight-gap: 4px;
+  --session-reader-highlight-font-size: 13px;
+  --session-reader-highlight-line-height: 20px;
+  --session-reader-highlight-weight: 610;
+  --session-reader-highlight-content-padding-bottom: 6px;
+  --session-reader-comment-offset: 1px;
+  --session-video-fragment-gap: 1px;
+  --session-video-fragment-font-size: 13px;
+  --session-video-fragment-line-height: 20px;
+  --session-video-fragment-weight: 480;
+  --session-video-fragment-content-padding-bottom: 4px;
+  --session-video-fragment-comment-offset: 1px;
+  --session-video-marker-track-width: 46px;
+  --session-video-timestamp-chip-width: 40px;
+  --session-video-screenshot-dot-offset: -13px;
+  --session-video-timestamp-row-min-height: 28px;
+  --session-video-timestamp-adjacent-gap: 1px;
+  --session-video-marker-chip-height: 20px;
+}
+
 .resource-modal--session .surface-window-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
-  column-gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
+  column-gap: var(--session-header-column-gap);
+  padding: var(--session-header-padding-y) var(--session-header-padding-x);
   border-bottom: var(--border-default);
   border-color: var(--runtime-line);
   background: var(--runtime-panel);
@@ -255,9 +326,10 @@
 
 .resource-modal--session .surface-window-icon {
   grid-column: 1;
-  width: 28px;
-  height: 28px;
+  width: var(--session-header-icon-size);
+  height: var(--session-header-icon-size);
   border-radius: var(--radius-sm);
+  transform: translate(var(--session-header-icon-offset-x), var(--session-header-icon-offset-y));
 }
 
 .resource-modal--session .surface-window-icon-glyph {
@@ -275,6 +347,10 @@
   font-size: 18px;
   font-weight: 400;
   cursor: pointer;
+  transform: translate(
+    var(--session-header-collapse-offset-x),
+    var(--session-header-collapse-offset-y)
+  );
 }
 
 .session-panel-collapse-trigger:hover {
@@ -284,8 +360,8 @@
 
 .resource-modal--session .surface-window-body {
   flex: 1 1 auto;
-  gap: var(--space-5);
-  padding: var(--space-6-5) var(--space-8) var(--space-7);
+  gap: 0;
+  padding: var(--session-body-padding-y) var(--session-body-padding-x);
   background: var(--runtime-panel);
   min-height: 0;
   overflow-y: auto;
@@ -312,19 +388,25 @@
 }
 
 .resource-modal--session .surface-heading-copy {
-  --surface-window-icon-size: 28px;
+  --surface-window-icon-size: var(--session-header-icon-size);
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--session-header-title-subtitle-gap);
   min-width: 0;
   white-space: nowrap;
 }
 
 .resource-modal--session .surface-window-title {
   flex: none;
+  position: relative;
+  left: var(--session-header-title-offset-x);
+  top: var(--session-header-title-offset-y);
 }
 
 .resource-modal--session .surface-window-subtitle {
+  position: relative;
+  left: var(--session-header-subtitle-offset-x);
+  top: var(--session-header-subtitle-offset-y);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
