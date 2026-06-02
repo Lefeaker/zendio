@@ -200,10 +200,8 @@ describe('YAML editor core', () => {
       expect.objectContaining({ name: 'status', enabled: true })
     );
     expect(serializeYamlEditorState(next)).toBeNull();
-    expect(service.resolveConfig('article', serializeYamlEditorState(next))).toEqual(
-      expect.objectContaining({
-        fields: expect.arrayContaining([expect.objectContaining({ name: 'status', enabled: true })])
-      })
+    expect(service.resolveConfig('article', serializeYamlEditorState(next)).fields).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'status', enabled: true })])
     );
   });
 
