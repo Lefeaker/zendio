@@ -8,6 +8,7 @@ import {
 import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 const BILIBILI_SHADOW_HOST_SELECTOR = [
+  'bili-comments',
   'bili-comment-thread-renderer',
   'bili-comment-renderer',
   'bili-comment-reply-renderer',
@@ -117,8 +118,19 @@ export function extractBilibiliSelectionFromEvent(
   return null;
 }
 
-export function queryBilibiliShadowHosts(doc: Document): NodeListOf<HTMLElement> {
-  return doc.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
+export function queryBilibiliShadowHosts(doc: Document): HTMLElement[] {
+  const hosts: HTMLElement[] = [];
+  const rootHosts = doc.querySelectorAll<HTMLElement>('bili-comments');
+  rootHosts.forEach((host) => {
+    hosts.push(host);
+    host.shadowRoot
+      ?.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR)
+      .forEach((nestedHost) => hosts.push(nestedHost));
+  });
+  doc
+    .querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR)
+    .forEach((host) => hosts.push(host));
+  return dedupeByIdentity(hosts);
 }
 
 export function buildRangeCoveringBilibiliRichText(
@@ -126,4 +138,15 @@ export function buildRangeCoveringBilibiliRichText(
   helpers: BilibiliSelectionHelpers
 ): Range | null {
   return buildRangeCoveringBilibiliRichTextHost(host, helpers);
+}
+
+function dedupeByIdentity<T extends object>(items: T[]): T[] {
+  const seen = new WeakSet<T>();
+  return items.filter((item) => {
+    if (seen.has(item)) {
+      return false;
+    }
+    seen.add(item);
+    return true;
+  });
 }

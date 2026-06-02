@@ -2,6 +2,7 @@ import type { VideoPlatformContext } from './baseVideoPlatform';
 import { queryBilibiliShadowHosts } from './bilibiliPlatformSelection';
 
 const BILIBILI_SHADOW_HOST_TAGS = [
+  'bili-comments',
   'bili-comment-thread-renderer',
   'bili-comment-renderer',
   'bili-comment-reply-renderer',
@@ -17,6 +18,7 @@ const BILIBILI_COMMENT_HOST_SELECTORS: ReadonlyArray<string> = [...BILIBILI_SHAD
 const BILIBILI_SHADOW_HOST_TAG_SET = new Set<string>(BILIBILI_COMMENT_HOST_SELECTORS);
 const BILIBILI_SHADOW_HOST_SELECTOR = BILIBILI_COMMENT_HOST_SELECTORS.join(',');
 const BILIBILI_COMMENT_REGION_SELECTOR = [
+  'bili-comments',
   'bili-comment-thread-renderer',
   'bili-comment-renderer',
   'bili-comment-reply-renderer',
@@ -47,6 +49,7 @@ export class BilibiliShadowObserver {
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
   private readonly pendingShadowHosts = new WeakSet<HTMLElement>();
   private readonly pendingTimeouts = new Set<number>();
+  private pendingRefreshHandle: number | null = null;
 
   constructor(
     private readonly document: Document,
@@ -77,7 +80,6 @@ export class BilibiliShadowObserver {
       if (mutation.type !== 'childList') {
         continue;
       }
-      shouldRefresh = true;
       mutation.addedNodes.forEach((node) => {
         if (!(node instanceof Element)) {
           return;
@@ -86,23 +88,21 @@ export class BilibiliShadowObserver {
           return;
         }
         if (isPotentialCommentHost(node)) {
-          const view = this.document.defaultView ?? window;
-          const handle = view.setTimeout(() => {
-            this.pendingTimeouts.delete(handle);
-            this.observeShadowRoots();
-            this.context.scheduleFragmentHighlightRestore();
-          }, 100);
-          this.pendingTimeouts.add(handle);
+          shouldRefresh = true;
         }
       });
     }
     if (shouldRefresh) {
-      this.observeShadowRoots();
+      this.scheduleShadowRefresh();
     }
   }
 
   dispose(): void {
     const view = this.document.defaultView ?? window;
+    if (this.pendingRefreshHandle !== null) {
+      view.clearTimeout(this.pendingRefreshHandle);
+      this.pendingRefreshHandle = null;
+    }
     for (const handle of this.pendingTimeouts) {
       view.clearTimeout(handle);
     }
@@ -121,6 +121,18 @@ export class BilibiliShadowObserver {
     } catch (error) {
       console.warn('[BilibiliVideoPlatform] Failed to observe shadow roots:', error);
     }
+  }
+
+  private scheduleShadowRefresh(): void {
+    if (this.pendingRefreshHandle !== null) {
+      return;
+    }
+    const view = this.document.defaultView ?? window;
+    this.pendingRefreshHandle = view.setTimeout(() => {
+      this.pendingRefreshHandle = null;
+      this.observeShadowRoots();
+      this.context.scheduleFragmentHighlightRestore();
+    }, 100);
   }
 
   private ensureShadowHostObservation(host: Element): void {
@@ -205,6 +217,19 @@ export function isBilibiliDanmakuNode(node: Node | null): boolean {
 }
 
 export function isBilibiliCommentRegionNode(node: Node | null): boolean {
+  return isBilibiliCommentRegionNodeInternal(node, new Set<Node>());
+}
+
+function isBilibiliCommentRegionNodeInternal(node: Node | null, visited: Set<Node>): boolean {
+  if (!node || visited.has(node)) {
+    return false;
+  }
+  visited.add(node);
+  if (node instanceof ShadowRoot) {
+    return node.host instanceof Element
+      ? isBilibiliCommentRegionNodeInternal(node.host, visited)
+      : false;
+  }
   const element =
     node instanceof Element
       ? node
@@ -217,7 +242,14 @@ export function isBilibiliCommentRegionNode(node: Node | null): boolean {
   if (element.matches(BILIBILI_COMMENT_REGION_SELECTOR)) {
     return true;
   }
-  return Boolean(element.closest(BILIBILI_COMMENT_REGION_SELECTOR));
+  if (element.closest(BILIBILI_COMMENT_REGION_SELECTOR)) {
+    return true;
+  }
+  const root = element.getRootNode();
+  if (root instanceof ShadowRoot && root.host instanceof Element) {
+    return isBilibiliCommentRegionNodeInternal(root.host, visited);
+  }
+  return false;
 }
 
 function isWithinCommentRegion(element: Element): boolean {
@@ -232,8 +264,11 @@ function isPotentialCommentHost(element: Element): boolean {
     return false;
   }
   const tagName = element.tagName?.toLowerCase() ?? '';
-  if (tagName.startsWith('bili-comment') || tagName.includes('rich-text')) {
+  if (BILIBILI_SHADOW_HOST_TAG_SET.has(tagName)) {
     return true;
   }
-  return Boolean(element.querySelector('[class*="comment"]'));
+  return Boolean(
+    element.querySelector(BILIBILI_SHADOW_HOST_SELECTOR) ||
+    element.querySelector('[class*="comment"]')
+  );
 }
