@@ -77,13 +77,8 @@ for (const relativePath of references.chromeOptionsPersistence) {
   }
 }
 
-const allowedLegacyRefs = new Set(['src/infrastructure/optionsRepository.ts']);
 for (const relativePath of references.legacyOptionsRepository) {
-  if (!allowedLegacyRefs.has(relativePath)) {
-    findings.push(
-      `legacy OptionsRepository compatibility leaked into production path: ${relativePath}`
-    );
-  }
+  findings.push(`legacy OptionsRepository compatibility leaked into production path: ${relativePath}`);
 }
 
 for (const relativePath of references.sectionRegistryImports) {
