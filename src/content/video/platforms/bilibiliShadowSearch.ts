@@ -2,16 +2,27 @@ import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 export function findBilibiliTextRangeAcrossShadowRoots(
   text: string,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly ShadowRoot[]
 ): Range | null {
-  const shadowRoots = collectAllShadowRoots(helpers.document);
-  for (const root of shadowRoots) {
+  for (const root of roots) {
     const range = searchInShadowRoot(root, text, helpers);
     if (range) {
       return range;
     }
   }
   return null;
+}
+
+export function findBilibiliTextRangeAcrossDocumentShadowRootsForDebug(
+  text: string,
+  helpers: BilibiliSelectionHelpers
+): Range | null {
+  return findBilibiliTextRangeAcrossShadowRoots(
+    text,
+    helpers,
+    collectAllShadowRoots(helpers.document)
+  );
 }
 
 function collectAllShadowRoots(doc: Document): ShadowRoot[] {

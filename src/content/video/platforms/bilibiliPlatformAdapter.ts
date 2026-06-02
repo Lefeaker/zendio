@@ -89,7 +89,8 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
 
     const candidates = this.buildSearchCandidates(normalized);
     for (const candidate of candidates) {
-      const shadowRange = findBilibiliTextRangeInShadowDOM(candidate, this.selectionHelpers);
+      const roots = this.shadowObserver.getObservedCommentRootsForSearch();
+      const shadowRange = findBilibiliTextRangeInShadowDOM(candidate, this.selectionHelpers, roots);
       if (shadowRange) {
         return shadowRange;
       }

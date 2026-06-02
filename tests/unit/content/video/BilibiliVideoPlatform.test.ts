@@ -63,6 +63,7 @@ function withScheduledRestore(
 }
 
 function mountBiliCommentsFixture(): {
+  commentsHost: HTMLElement;
   root: ShadowRoot;
   thread: HTMLElement;
   comment: HTMLElement;
@@ -88,7 +89,39 @@ function mountBiliCommentsFixture(): {
   threadRoot.append(comment);
   contents.append(thread);
   root.append(contents);
-  return { root, thread, comment, richText, content };
+  return { commentsHost: host, root, thread, comment, richText, content };
+}
+
+function createBilibiliRichTextHost(html: string): HTMLElement {
+  const host = document.createElement('bili-rich-text');
+  const root = host.attachShadow({ mode: 'open' });
+  root.innerHTML = `<p id="contents">${html}</p>`;
+  return host;
+}
+
+function mountBiliCommentWithRichText(html: string): {
+  commentsHost: HTMLElement;
+  richText: HTMLElement;
+  content: HTMLElement;
+} {
+  const commentsHost = document.createElement('bili-comments');
+  const commentsRoot = commentsHost.attachShadow({ mode: 'open' });
+  const thread = document.createElement('bili-comment-thread-renderer');
+  const threadRoot = thread.attachShadow({ mode: 'open' });
+  const comment = document.createElement('bili-comment-renderer');
+  const commentRoot = comment.attachShadow({ mode: 'open' });
+  const richText = createBilibiliRichTextHost(html);
+  const content = richText.shadowRoot?.querySelector<HTMLElement>('#contents');
+  if (!content) {
+    throw new Error('Failed to create Bilibili rich text fixture content');
+  }
+
+  commentRoot.append(richText);
+  threadRoot.append(comment);
+  commentsRoot.append(thread);
+  document.body.append(commentsHost);
+
+  return { commentsHost, richText, content };
 }
 
 describe('BilibiliVideoPlatform', () => {
@@ -667,6 +700,71 @@ describe('BilibiliVideoPlatform', () => {
     expect(result.html).toContain('data-aiob-fragment="emoji"');
     expect(result.html).toContain('data-aiob-fragment="mention"');
     expect(result.html).toContain('<a href="https://example.com/fallback"');
+  });
+
+  it.each([
+    {
+      name: 'plain text',
+      html: '<span>這婚是非結不可的嗎 不結婚會被抓嗎?</span>',
+      expectedText: '這婚是非結不可的嗎 不結婚會被抓嗎?'
+    },
+    {
+      name: 'reply mention and emoji',
+      html: '<span>回复</span><a href="//space.bilibili.com/508008818" data-type="mention">@-银河路车神</a><span>: 那真的太會花錢了</span><img alt="[doge]" />',
+      expectedText: '回复 @-银河路车神 : 那真的太會花錢了 [doge]'
+    },
+    {
+      name: 'multi-line text',
+      html: '<span>第一行\n第二行</span>',
+      expectedText: '第一行 第二行'
+    }
+  ])('extracts Bilibili rich text from shadow contents: $name', ({ html, expectedText }) => {
+    const { richText, content } = mountBiliCommentWithRichText(html);
+    const event = new MouseEvent('mouseup', { bubbles: true });
+    Object.defineProperty(event, 'composedPath', {
+      configurable: true,
+      value: () => [content.firstChild ?? content, content, richText.shadowRoot, richText]
+    });
+
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const result = platform.resolveSelection({
+      range: null,
+      selectedText: '',
+      selectedHtml: '',
+      event
+    } as PlatformSelectionInput);
+
+    expect(result?.text).toBe(expectedText);
+    expect(result?.html).toContain(expectedText.split(' ')[0]);
+    if (html.includes('<img')) {
+      expect(result?.html).toContain('data-aiob-fragment="emoji"');
+      expect(result?.html).toContain('[doge]');
+    }
+    if (html.includes('data-type="mention"')) {
+      expect(result?.html).toContain('href="//space.bilibili.com/508008818"');
+      expect(result?.html).toContain('@-银河路车神');
+    }
+  });
+
+  it('searches observed Bilibili comment roots before unrelated document shadow roots', () => {
+    const targetText = 'scoped restore target';
+    const unrelatedHost = document.createElement('bili-avatar');
+    const unrelatedRoot = unrelatedHost.attachShadow({ mode: 'open' });
+    unrelatedRoot.innerHTML = `<span>${targetText}</span>`;
+    document.body.append(unrelatedHost);
+
+    const { commentsHost, content } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const platformAny = platform as unknown as {
+      ensureShadowHostObservation: (host: Element) => void;
+    };
+    platform.observeDomChanges({} as MutationObserver);
+    platformAny.ensureShadowHostObservation(commentsHost);
+
+    const range = platform.findTextRange(targetText);
+
+    expect(range?.startContainer.getRootNode()).toBe(content.getRootNode());
+    expect(range?.toString()).toBe(targetText);
   });
 
   it('falls back when rich text containers or ranges cannot be resolved', () => {
