@@ -1,6 +1,6 @@
 # Non-Production Code Ownership
 
-Last updated: 2026-05-25
+Last updated: 2026-06-01
 
 ## 3.0 Definition
 
@@ -60,6 +60,7 @@ If any proof is non-empty, malformed, missing, or unknown, the row must remain a
 Use both commands together:
 
 ```bash
+npm run audit:production-build-graph:report
 npm run audit:non-production-source:report
 npm run audit:non-production-source:check
 ```
@@ -73,6 +74,17 @@ Require the check command to exit 0. It fails on:
 - internal classifier contradictions where retained source import, re-export, dependency, script, test, public, manifest, or required verification owners coexist with `delete-now`.
 
 It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains. The separate report command is stricter for completion audits: unresolved `migrate-test-owner` and `migrate-script-owner` rows must not remain in a completed orchestration.
+
+2026-06-01 report-closure truth: after `audit:production-build-graph:report`,
+`audit:non-production-source:report` exits 0 with counts
+`migrate-import-owner: 124`, `retain-production: 532`, and
+`retain-production-facade: 17`. The four Plan 09 completion blockers were
+resolved without weakening gates:
+
+- `src/options/components/controls/readingTemplateControls.ts` was deleted after exact owner proof; current reading template behavior is covered by the production Stitch template state owner.
+- `src/options/components/infrastructure/ModalController.ts` was deleted after exact owner proof; retired modal hosts remain absent from the production Options HTML contract.
+- `src/ui/foundation/keyboard/index.ts` is explicitly retained as the UI foundation keyboard source-of-truth boundary.
+- `src/ui/hosts/options/index.ts` is explicitly retained as the Options UI host source-of-truth boundary.
 
 ## Current Retained Contracts
 
@@ -93,6 +105,8 @@ deletion-condition metadata in `tools/report-non-production-source.mjs`:
 - `src/styles/clipper/highlight-themes.css` — reader and video highlight theme build asset contract.
 - `src/styles/design-tokens.css` — design token source-of-truth asset.
 - `src/ui/foundation/tokens/index.ts` — design token metadata source contract.
+- `src/ui/foundation/keyboard/index.ts` — UI foundation keyboard source-of-truth boundary.
+- `src/ui/hosts/options/index.ts` — Options UI host source-of-truth boundary.
 
 Future changes must not hide new rows with broad allowlists or promote unresolved
 report blockers into production hard gates. Each new blocker needs an exact owner

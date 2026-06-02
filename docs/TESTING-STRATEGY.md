@@ -74,18 +74,16 @@ npm run test:e2e
 
 The thresholds are evaluated in CI through `npm run test:coverage`.
 
-The coverage denominator excludes documented Non-Production Code 3.0
-retained/deferred Options compatibility surfaces that are no longer production
-implementation targets:
+The coverage denominator still contains retired Options glob exclusions so old
+compatibility paths cannot distort coverage if they are inspected from history or
+temporarily restored during an audit. Current source truth is that the old
+widgets tree is absent:
 
-- `src/options/components/formSections/**`
-- `src/options/components/layout/**`
-- `src/options/components/sections/**`
 - `src/options/widgets/shared/**`
 
-Those paths remain governed by `audit:non-production-source:report` and
-`audit:non-production-source:check`; production Stitch behavior remains covered
-by the production Stitch tests.
+Any reintroduced path under that tree must re-enter Non-Production Code 3.0
+classification and satisfy six-owner proof before deletion. Production Stitch
+behavior remains covered by the production Stitch tests.
 
 ## Recommended author workflow
 

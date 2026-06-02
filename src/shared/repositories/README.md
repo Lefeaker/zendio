@@ -7,8 +7,8 @@
 当前架构存在**前后端逻辑混合**问题:
 
 ```typescript
-// ❌ 问题代码示例 (UsageSection.ts:471)
-class UsageSection {
+// ❌ 问题代码示例（旧 Options UI 直接依赖 platform services）
+class UsageDashboardView {
   async clearStats() {
     const { storage } = platformServices; // UI 直接依赖 chrome.storage
     await storage.set({ usageStats: {} });
@@ -83,12 +83,11 @@ import type { IOptionsRepository } from '@/shared/repositories';
 import { DI_TOKENS } from '@/shared/di/tokens';
 import { container } from '@/shared/di/serviceRegistry';
 
-class MySection extends BaseSection {
+class MyOptionsPresenter {
   private optionsRepo: IOptionsRepository;
   private unsubscribe: (() => void) | null = null;
 
   constructor() {
-    super();
     // 通过 DI 容器获取 Repository 实例
     this.optionsRepo = container.resolve<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   }
@@ -221,16 +220,16 @@ export class ChromeMyRepository implements IMyRepository {
 
 ## 接口总览（2025-11-30）
 
-| 接口                             | 职责              | 主要消费者                 |
-| -------------------------------- | ----------------- | -------------------------- |
-| `IOptionsRepository`             | 配置存储          | Options Shell              |
-| `IYamlRepository`                | YAML Overrides    | YAML Section, Reader/Video |
-| `IMessagingRepository`           | Background 通信   | Content Scripts            |
-| `IVideoClipRepository`           | 视频剪辑缓存/发送 | Video Session Exporter     |
-| `IVideoPromptPositionRepository` | 浮窗位置          | Video Prompt               |
-| `IUsageStatsRepository`          | 使用统计          | Usage Dashboard            |
-| `IVaultRouterRepository`         | 多仓路由          | RoutingSection             |
-| `IFragmentRepository`            | Clipper 片段缓存  | Fragment 工具链            |
+| 接口                             | 职责              | 主要消费者                |
+| -------------------------------- | ----------------- | ------------------------- |
+| `IOptionsRepository`             | 配置存储          | Options Shell             |
+| `IYamlRepository`                | YAML Overrides    | YAML editor, Reader/Video |
+| `IMessagingRepository`           | Background 通信   | Content Scripts           |
+| `IVideoClipRepository`           | 视频剪辑缓存/发送 | Video Session Exporter    |
+| `IVideoPromptPositionRepository` | 浮窗位置          | Video Prompt              |
+| `IUsageStatsRepository`          | 使用统计          | Usage Dashboard           |
+| `IVaultRouterRepository`         | 多仓路由          | Production Stitch storage |
+| `IFragmentRepository`            | Clipper 片段缓存  | Fragment 工具链           |
 
 > 详细设计参见 `docs/REPOSITORY-PATTERN.md`，迁移步骤参见 `docs/MIGRATION-GUIDE.md`。
 

@@ -100,6 +100,32 @@ describe('configTransfer service', () => {
     });
   });
 
+  it('normalizes legacy YAML array shape before schema validation for versioned imports', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          yamlConfig: {
+            contentTypes: [
+              {
+                contentType: 'article',
+                fields: [{ name: 'title', type: 'text', enabled: false }]
+              }
+            ]
+          }
+        }
+      })
+    );
+
+    expect(parsed.version).toBe(2);
+    expect(parsed.options.yamlConfig?.contentTypes?.article?.fields?.[0]).toEqual({
+      name: 'title',
+      type: 'text',
+      enabled: false
+    });
+    expect(Array.isArray(parsed.options.yamlConfig?.contentTypes)).toBe(false);
+  });
+
   it('兼容旧版仅包含选项的格式', () => {
     const text =
       '{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}}';
@@ -107,6 +133,26 @@ describe('configTransfer service', () => {
     expect(parsed.version).toBe(0);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
     expect(parsed.analytics).toBeUndefined();
+  });
+
+  it('normalizes legacy YAML array shape before schema validation for bare options imports', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        yamlConfig: {
+          contentTypes: [
+            {
+              contentType: 'article',
+              fields: [{ name: 'title', type: 'text', enabled: false }]
+            }
+          ]
+        },
+        customKey: { hello: 'world' }
+      })
+    );
+
+    expect(parsed.version).toBe(0);
+    expect(parsed.options.yamlConfig?.contentTypes?.article?.fields?.[0]?.enabled).toBe(false);
+    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
   });
 
   it('imports known current settings and sensitive fields through the transfer sanitizer', () => {

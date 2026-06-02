@@ -50,20 +50,12 @@ const HARDCODED_PATTERNS = [
     pattern: /Articles\/\{domain\}\/\{yyyy\}/g,
     message: 'Hardcoded template path found. Use configProvider.getTemplates() instead.',
     severity: 'warning',
-    allowedFiles: ['appConfig.ts', 'configProvider.test.ts', 'readingTemplateControls.test.ts', 'resolvePath.test.ts', 'index.html']
+    allowedFiles: ['appConfig.ts', 'configProvider.test.ts', 'resolvePath.test.ts', 'index.html']
   }
 ];
 
 const LOCALIZED_REST_EXAMPLE_KEYS = new Set(['step1Detail3', 'step1Detail4']);
 const LOCALIZED_REST_EXAMPLE_FILE_PATTERN = /^i18n\/locales\/[A-Za-z0-9-]+\.ts$/;
-const REST_VAULT_ROW_PLACEHOLDER_FILES = new Set([
-  'options/components/sections/restSectionVaultRow.ts',
-  'options/widgets/shared/rest/restSectionVaultRow.ts'
-]);
-const REST_VAULT_ROW_PLACEHOLDER_LINES = new Set([
-  "'https://127.0.0.1:27124/',",
-  "'http://127.0.0.1:27123/',"
-]);
 const CHANGELOG_REST_EXAMPLE_FILE = 'options/app/changelogContent.ts';
 const STITCH_PREVIEW_REST_EXAMPLE_FILE = 'options/stitch/content.ts';
 const PRODUCT_REST_EXAMPLE_URLS = [
@@ -112,15 +104,6 @@ const ALLOWLIST_RULES = [
       return isProductRestExampleLine(relativePath, line);
     }
   },
-  {
-    category: 'rest-vault-row-placeholder-text',
-    isAllowed({ relativePath, line }) {
-      return (
-        REST_VAULT_ROW_PLACEHOLDER_FILES.has(relativePath) &&
-        REST_VAULT_ROW_PLACEHOLDER_LINES.has(line.trim())
-      );
-    }
-  }
 ];
 
 // Files and directories to exclude from linting

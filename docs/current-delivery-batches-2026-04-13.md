@@ -56,22 +56,22 @@
 
 处理决定：不重写已验证 commit 历史；接受 amended ownership，并把最终 release handoff owner 固定如下。后续若必须恢复“历史 commit path exactly once”，需要单独拆 commit/重放分支，不在本次 gap closure 中进行。
 
-| Path                                                 | Historical overlap        | Final owner                      | Release handoff decision                                                                                 |
-| ---------------------------------------------------- | ------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `src/content/index.ts`                               | Phase 1, Phase 3, Phase 5 | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final budget/Stitch runtime adjustment happened in Phase 5.        |
-| `src/content/runtime/contentLazyRuntime.ts`          | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault runtime verification owns final lazy runtime boundary. |
-| `src/options/components/sections/RestSectionView.ts` | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault settings UI owns final Rest section state.             |
-| `src/options/stitch/types.ts`                        | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault schema/stitch surface owns final type expansion.       |
-| `src/options/stitch/styles/stitch.css`               | Phase 3, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final visual/Stitch contract was verified in Phase 5.              |
-| `src/background/services/notifications.ts`           | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `src/content/runtime/clipFlow.ts`                    | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `src/platform/preview/services.ts`                   | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `src/shared/di/testHelpers.ts`                       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `tests/unit/background/clipPipeline.test.ts`         | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `tests/unit/background/obsidianWriter.test.ts`       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `src/dev/localVaultWriteHarness.ts`                  | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                             |
-| `src/content/video/videoPromptLayout.ts`             | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.  |
-| `src/content/video/videoPromptRenderer.ts`           | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.  |
+| Path                                                 | Historical overlap        | Final owner                      | Release handoff decision                                                                                                                                         |
+| ---------------------------------------------------- | ------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/content/index.ts`                               | Phase 1, Phase 3, Phase 5 | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final budget/Stitch runtime adjustment happened in Phase 5.                                                                |
+| `src/content/runtime/contentLazyRuntime.ts`          | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault runtime verification owns final lazy runtime boundary.                                                         |
+| `src/options/components/sections/RestSectionView.ts` | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Historical overlap record only; the file was retired in 2026-06-01 Plan 07 RST3 and current REST settings ownership moved to `src/options/app/rest-settings/**`. |
+| `src/options/stitch/types.ts`                        | Phase 1, Phase 3          | Phase 3 `B2-local-vault-risk`    | Accepted as amended ownership because Local Vault schema/stitch surface owns final type expansion.                                                               |
+| `src/options/stitch/styles/stitch.css`               | Phase 3, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final visual/Stitch contract was verified in Phase 5.                                                                      |
+| `src/background/services/notifications.ts`           | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `src/content/runtime/clipFlow.ts`                    | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `src/platform/preview/services.ts`                   | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `src/shared/di/testHelpers.ts`                       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `tests/unit/background/clipPipeline.test.ts`         | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `tests/unit/background/obsidianWriter.test.ts`       | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `src/dev/localVaultWriteHarness.ts`                  | Phase 3, Phase 4          | Phase 4 `B4-lint-priority`       | Accepted as amended ownership because final change was warning cleanup only.                                                                                     |
+| `src/content/video/videoPromptLayout.ts`             | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.                                                          |
+| `src/content/video/videoPromptRenderer.ts`           | Phase 1, Phase 5          | Phase 5 `B3-options-shell-split` | Accepted as amended ownership because final video prompt alias/layout contract was verified in Phase 5.                                                          |
 
 Release handoff status：可接受。治理边界已从“历史 phase manifests exactly once”修正为“Phase 0 audit-time classification exactly once + post-fact amended ownership for overlapped committed paths”。本页不再声称历史 committed path manifests exactly once。
 
@@ -101,7 +101,7 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 - `src/options/services/connectionTestRuntime.ts`
 - `tests/unit/background/connectionTestPipeline.test.ts`
 - `tests/unit/infrastructure/restClient.test.ts`
-- `tests/unit/options/sections/PrivacySection.test.ts`
+- retired non-REST section test
 
 状态：已固定为独立交付提交 `cf777fb`
 
@@ -110,29 +110,27 @@ Release handoff status：可接受。治理边界已从“历史 phase manifests
 归属范围：
 
 - `src/options/app/optionsShell*`
-- `src/options/components/layout/MainContent.ts`
+- `src/options/app/productionStitchShell*`
 - `src/options/components/sections/RestSection*`
-- `src/options/components/sections/FragmentSection*`
+- retired fragment section files
 - `src/options/components/sections/Usage*`
 - `tests/unit/options/optionsShell.test.ts`
 - `tests/unit/options/bootstrap.test.ts`
-- `tests/unit/options/sections/RestSection.test.ts`
-- `tests/unit/options/sections/FragmentSection.test.ts`
-- `tests/unit/options/sections/UsageSection.test.ts`
+- `tests/unit/options/app/rest-settings/storageSettingsContent.test.ts`
+- retired fragment section test
+- retired usage section test
 
 状态：已固定为独立交付提交 `f4a2b87`
 
-## B3 content / video / yaml-config 热点
+## B3 content / video / YAML 历史热点
 
 归属范围：
 
 - `src/content/video/**` 热点主线
 - `src/content/reader/utils/readerMarkdown*`
-- `src/ui/domains/yaml-config/**`
 - `tests/unit/content/video/**`
 - `tests/unit/content/readerMarkdownBuilder.test.ts`
-- `tests/unit/options/yamlConfigTable.test.ts`
-- `tests/unit/options/yamlConfigView.test.ts`
+- YAML table/view 历史测试已随 Plan 03 YAML owner migration 退役。
 
 状态：已固定为独立交付提交 `1b45b4f`
 

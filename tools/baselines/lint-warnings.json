@@ -1,9 +1,8 @@
 {
-  "totalWarnings": 141,
+  "totalWarnings": 132,
   "ruleCounts": {
-    "@typescript-eslint/require-await": 102,
-    "no-restricted-syntax": 3,
-    "@typescript-eslint/no-unsafe-assignment": 26,
+    "@typescript-eslint/require-await": 99,
+    "@typescript-eslint/no-unsafe-assignment": 23,
     "@typescript-eslint/no-unsafe-return": 4,
     "@typescript-eslint/no-unsafe-argument": 2,
     "@typescript-eslint/no-unsafe-member-access": 3,
@@ -111,45 +110,6 @@
           "column": 7,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async method 'sendMessage' has no 'await' expression."
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/fragmentSectionLayoutBuilders.ts",
-      "warnings": [
-        {
-          "line": 202,
-          "column": 5,
-          "ruleId": "no-restricted-syntax",
-          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
-        },
-        {
-          "line": 207,
-          "column": 20,
-          "ruleId": "no-restricted-syntax",
-          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/LanguageSection.ts",
-      "warnings": [
-        {
-          "line": 76,
-          "column": 30,
-          "ruleId": "no-restricted-syntax",
-          "message": "Consider replacing long Tailwind class lists with DaisyUI components"
-        }
-      ]
-    },
-    {
-      "file": "src/options/components/sections/PrivacySection.ts",
-      "warnings": [
-        {
-          "line": 31,
-          "column": 3,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async method 'refreshSettings' has no 'await' expression."
         }
       ]
     },
@@ -503,17 +463,6 @@
       ]
     },
     {
-      "file": "tests/unit/background/runtimeMessages.test.ts",
-      "warnings": [
-        {
-          "line": 140,
-          "column": 33,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
       "file": "tests/unit/background/store.test.ts",
       "warnings": [
         {
@@ -781,13 +730,13 @@
       "file": "tests/unit/content/reader/ReaderSession.test.ts",
       "warnings": [
         {
-          "line": 99,
+          "line": 105,
           "column": 27,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 243,
+          "line": 249,
           "column": 49,
           "ruleId": "@typescript-eslint/no-unsafe-argument",
           "message": "Unsafe argument of type `any` assigned to a parameter of type `NormalizedProcedure<Procedure>`."
@@ -866,40 +815,6 @@
         },
         {
           "line": 160,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/options/nativeLeafWidgets.retainedLegacyCoverage.test.ts",
-      "warnings": [
-        {
-          "line": 78,
-          "column": 49,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 164,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        }
-      ]
-    },
-    {
-      "file": "tests/unit/options/nativeLeafWidgets.test.ts",
-      "warnings": [
-        {
-          "line": 78,
-          "column": 49,
-          "ruleId": "@typescript-eslint/require-await",
-          "message": "Async arrow function has no 'await' expression."
-        },
-        {
-          "line": 164,
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."

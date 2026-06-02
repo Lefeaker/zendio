@@ -116,6 +116,17 @@ describe('design system documentation report', () => {
     }
   });
 
+  it('does not treat top-level Options refresh logs as archive-only docs', () => {
+    const root = writeFixture({
+      'docs/options-doc-refresh-log.md': 'Use DaisyUI for new Options components.\n'
+    });
+    try {
+      expectReportFailure(root, 'docs/options-doc-refresh-log.md');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('ignores git-ignored local process archives when scanning active guidance', () => {
     const root = writeFixture({
       '.gitignore': 'docs/local-process-archive/\n',

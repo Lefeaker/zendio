@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
@@ -23,7 +23,8 @@ function walk(dir) {
 
 const findings = [];
 const sourceFiles = walk(SRC_ROOT);
-const sectionFiles = walk(join(SRC_ROOT, 'options/components/sections'));
+const sectionsRoot = join(SRC_ROOT, 'options/components/sections');
+const sectionFiles = existsSync(sectionsRoot) ? walk(sectionsRoot) : [];
 const references = {
   chromeOptionsPersistence: [],
   legacyOptionsRepository: [],
@@ -76,13 +77,8 @@ for (const relativePath of references.chromeOptionsPersistence) {
   }
 }
 
-const allowedLegacyRefs = new Set(['src/infrastructure/optionsRepository.ts']);
 for (const relativePath of references.legacyOptionsRepository) {
-  if (!allowedLegacyRefs.has(relativePath)) {
-    findings.push(
-      `legacy OptionsRepository compatibility leaked into production path: ${relativePath}`
-    );
-  }
+  findings.push(`legacy OptionsRepository compatibility leaked into production path: ${relativePath}`);
 }
 
 for (const relativePath of references.sectionRegistryImports) {

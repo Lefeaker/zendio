@@ -47,24 +47,6 @@ const EXPLICIT_RETAIN_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'privacy domain compatibility shell',
     deletionCondition: 'delete only after imports use PrivacySettingsView directly'
-  },
-  {
-    pattern: 'src/options/components/sections/RestSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'REST section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
-  },
-  {
-    pattern: 'src/options/components/sections/FragmentSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'Fragment section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
-  },
-  {
-    pattern: 'src/options/components/sections/UsageSection.ts',
-    decision: 'retain-production-facade',
-    owner: 'Usage section compatibility shell',
-    deletionCondition: 'delete only after compatibility tests and public imports are migrated'
   }
 ];
 
@@ -193,25 +175,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete after production Stitch schema registry fully replaces legacy section lookup'
   },
   {
-    pattern: 'src/options/components/sections/fragmentSection*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Fragment section helper retained by old section coverage',
-    deletionCondition: 'delete after Fragment behavior is covered by production Stitch/schema tests'
-  },
-  {
-    pattern: 'src/options/components/sections/restSection*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy REST section helper retained by old section coverage',
-    deletionCondition:
-      'delete after REST/storage behavior is covered by production Stitch/storage tests'
-  },
-  {
-    pattern: 'src/options/components/sections/usage*.ts',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Usage section helper retained by old usage coverage',
-    deletionCondition: 'delete after usage behavior is covered by production Stitch/domain tests'
-  },
-  {
     pattern: 'src/options/schema-runtime/index.ts',
     decision: 'retain-production-facade',
     owner: 'Options schema runtime public barrel',
@@ -268,19 +231,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'Options utilities public barrel',
     deletionCondition: 'delete only after public utility imports move to concrete modules'
-  },
-  {
-    pattern: 'src/options/widgets/shared/rest/**',
-    decision: 'migrate-test-owner',
-    owner: 'legacy REST widget helper retained for REST/widget migration',
-    deletionCondition:
-      'delete after REST storage widget behavior is covered by Stitch/domain owners'
-  },
-  {
-    pattern: 'src/options/widgets/shared/usage/**',
-    decision: 'migrate-test-owner',
-    owner: 'legacy Usage widget helper retained for usage widget migration',
-    deletionCondition: 'delete after usage dashboard behavior is covered by Stitch/domain owners'
   },
   {
     pattern: 'src/shared/config/types.ts',
@@ -364,6 +314,24 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'Retain the exact design token metadata contract until design system tooling owners record a replacement or six-proof deletion.'
   },
   {
+    pattern: 'src/ui/foundation/keyboard/index.ts',
+    decision: 'retain-production-facade',
+    owner: 'UI foundation keyboard source-of-truth boundary',
+    deletionCondition:
+      'delete only after design-system governance and UI architecture audit move to a replacement keyboard owner',
+    requiredAction:
+      'Retain the exact keyboard foundation boundary until design-system tooling owners record a replacement or six-proof deletion.'
+  },
+  {
+    pattern: 'src/ui/hosts/options/index.ts',
+    decision: 'retain-production-facade',
+    owner: 'Options UI host source-of-truth boundary',
+    deletionCondition:
+      'delete only after architecture-boundary docs and UI architecture audit move to a replacement Options host owner',
+    requiredAction:
+      'Retain the exact Options host boundary until architecture tooling owners record a replacement or six-proof deletion.'
+  },
+  {
     pattern: 'src/ui/domains/**',
     decision: 'retain-production-facade',
     owner: 'UI domain public boundary',
@@ -398,20 +366,6 @@ const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/VideoSettingsWidget.ts',
   'src/options/widgets/index.ts',
   'src/options/components/controls/domainMappings.ts',
-  'src/options/components/formSections/formSectionManager.ts',
-  'src/options/components/layout/Navigation.ts',
-  'src/options/components/layout/NavigationController.ts',
-  'src/options/components/layout/OptionsApp.ts',
-  'src/options/components/layout/Sidebar.ts',
-  'src/options/components/sections/AiSection.ts',
-  'src/options/components/sections/ClassifierSection.ts',
-  'src/options/components/sections/DeepResearchSection.ts',
-  'src/options/components/sections/DiagnosisSection.ts',
-  'src/options/components/sections/LanguageSection.ts',
-  'src/options/components/sections/ReadingSection.ts',
-  'src/options/components/sections/TemplatesSection.ts',
-  'src/options/components/sections/TransferSection.ts',
-  'src/options/components/sections/VideoSection.ts',
   'src/options/utils/defaults.ts'
 ];
 

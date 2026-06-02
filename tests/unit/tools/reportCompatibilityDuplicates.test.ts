@@ -11,11 +11,10 @@ describe('report-compatibility-duplicates', () => {
     });
 
     expect(output).toContain('duplicate groups: 1');
+    expect(output).toContain('scope mode: retired compatibility reintroduction guard');
     expect(output).toContain('src/options/components/sections/usageClone.ts');
     expect(output).toContain('src/options/widgets/shared/usage/usageClone.ts');
-    expect(output).not.toContain(
-      'unexpected duplicate group:\n- src/options/components/sections/restSectionLayout.ts'
-    );
+    expect(output).toContain('unexpected duplicate groups: 1');
   });
 
   it('fails check mode when duplicate groups are not allowlisted', () => {

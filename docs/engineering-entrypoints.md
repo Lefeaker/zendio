@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-05-29
+最后更新：2026-06-01
 
 ## 推荐运行环境
 
@@ -21,7 +21,7 @@
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
-  - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` errors / `11` warnings，warning-only 不阻塞该 hard gate
+  - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` errors / `8` warnings，warning-only 不阻塞该 hard gate
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
 - `npm run verify:preflight`
   - 显式包含 `verify:runtime`
@@ -38,11 +38,12 @@
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
-- 2026-05-26 M10 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `16`，exact duplicate groups 为 `0`，因此没有生产 allowlist
+- 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 - 2026-05-29 Plan 10 D3 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 与 `npm audit --audit-level=low` 均为 `0` vulnerabilities；production runtime release gate 与 dev/release toolchain audit 均为 green
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
+- 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
 
 ## 当前推荐执行顺序
 
@@ -92,10 +93,10 @@ credentials and manual confirmation.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `141`，fresh warning count 为 `140`，当前低于 baseline。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `132`，fresh warning count 为 `132`，当前与 baseline 持平。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`102`）、unsafe type warnings、`no-restricted-syntax`。
-- `npm run lint:hardcoded`：通过；当前为 `0` errors / `11` warning-only findings，且已接入 `quality` 与 CI。
+- 当前 warning 主要规则族：`require-await`（`99`）与 unsafe type warnings。
+- `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
 - `npm run lint:type-any`：扫描当前集成树 `1108` files；overall 为 `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
 - `npm run lint:type-any:ratchet`：同时守住 overall `0/992/1673/108/4`、src `0/551/620/5/0`、tests `0/441/1053/103/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
@@ -112,7 +113,6 @@ credentials and manual confirmation.
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 90 KB`
-- `RestSection <= 40 KB`
 - `yaml-config <= 70 KB`
 - `chunk count <= 112`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
@@ -163,12 +163,7 @@ credentials and manual confirmation.
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/yaml-config/yamlConfigTableDom.ts`
-- `src/ui/domains/yaml-config/yamlConfigTableModel.ts`
 - `src/ui/domains/privacy/PrivacySettings.ts`
-- `src/options/components/sections/RestSection.ts`
-- `src/options/components/sections/FragmentSection.ts`
-- `src/options/components/sections/UsageSection.ts`
 
 ## MCP / 本地浏览器调试入口
 

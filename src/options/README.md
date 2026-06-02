@@ -10,9 +10,9 @@
 
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
-- Legacy Options layout、section、form-section 与旧 modal/controller 代码只保留为兼容测试资产；除兼容修复外，不要把它们重新接入生产启动链。
+- Legacy Options section/form compatibility source and old layout source have been retired; remaining old modal/controller code is compatibility-only and must not be reconnected to the production startup chain.
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
-- 旧 sections/layout/form sections/widgets 不是当前实现指南，除非 `audit:non-production-source:report` 明确给出 production/import/test/script/public/verification owner；删除必须先满足 Non-Production Code 3.0 六项 owner proof，并由 `audit:non-production-source:check` 通过。
+- 旧 widgets and other retained compatibility source are not current implementation guidance unless `audit:non-production-source:report` gives an exact production/import/test/script/public/verification owner; deletion must satisfy Non-Production Code 3.0 six-owner proof and pass `audit:non-production-source:check`.
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`audit:non-production-source:check` 是可接入 `quality` 的 hard gate。
 - `src/options/app/changelogContent.ts` 当前仍按 Options changelog content compatibility module 保留；只有在 Options public behavior 移除 changelog content 且六项 owner proof 为空时，才能进入后续删除批次。
 - Options 验收除通用 `quality` / `verify:preflight` 外，必须追加 `npm run verify:stitch-secondary`。
@@ -22,9 +22,6 @@
 
 - `index.ts -> runtimeEntry.ts -> app/bootstrap.ts -> app/productionStitchShell.ts`：唯一正式入口，负责 repository 注册、I18n、Controller、Stitch Shell 初始化。
 - `stitch/*`：Stitch Secondary 共享 UI 包，production 以 `future/options-component-preview 2/index.html` 的原始参考运行结果为视觉真值；`future/options-component-preview/options-preview-stitch-secondary.html` 仅作开发改稿对比输入。
-- `components/layout/*`：旧 Shell 与主内容挂载，兼容测试可用，不再是页面主启动链；剩余删除条件以 non-production source audit 的 exact-path owner proof 为准。
-- `components/sections/*`：旧设置面板与 leaf widget 适配资产，兼容测试可用；正式生产 UI 从 Stitch schema 渲染。
-- `components/formSections/*`：旧 `FormSectionRegistry` 兼容层，不得重新接入正式启动链。
 - `components/infrastructure/` 与 `components/services/`：选项页专属 Modal/UI 控件与配置传输服务。
 - `utils/`：辅助方法（导入导出、transfer 等）；正式 Options 样式由 `stitch/styles/` 承载。
 
@@ -43,7 +40,7 @@
 npm run lint                 # Typescript + ESLint/Stylelint 基线
 npm run lint:options-css     # 限定 Options CSS 的 Stylelint
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
-npm run test:unit            # Section/Controller 的最小回归
+npm run test:unit            # Stitch shell / controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
 ```
 
@@ -68,19 +65,19 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 #### 传统组件类 (逐步迁移中)
 
-| 名称                                                                 | 用途                           | 备注                                                                   |
-| -------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| `.aobx-card`                                                         | 卡片容器                       | 支持 light/dark，常用于 Section 外层                                   |
-| `.aobx-card--muted / --outline / --accent-border / --neutral-border` | 卡片修饰符                     | 组合背景、描边、强调边框，供隐私提示、Domain 控件等复用                |
-| `.aobx-alert`                                                        | 信息、成功、警告、错误提醒     | 通过修饰符控制语义                                                     |
-| `.aobx-field-group`                                                  | 表单字段组                     | 统一 label/控件间距                                                    |
-| `.aobx-table`                                                        | 数据表格                       | YAML/REST 等共享                                                       |
-| `.aobx-table__filters / __sort-btn / __advanced-*`                   | 表格筛选、排序与 Advanced 面板 | 复用 `.aobx-chip-btn` 与 `.aobx-table`                                 |
-| `.aobx-button-row`                                                   | 按钮行                         | 对齐间距、栅格                                                         |
-| `.aobx-chip` / `.aobx-chip-btn`                                      | Tag/Chip                       | 过滤器或标签选择                                                       |
-| `.aobx-domain__*`                                                    | YAML 域名覆盖编辑器            | 组合 `.aobx-card`、`.aobx-input`、`.aobx-btn`                          |
-| `.aobx-highlight-button + --{theme}`                                 | 阅读高亮主题按钮               | 色板基于 `--aobx-highlight-*` Token，`ReadingSection` 和预览可直接复用 |
-| `.aobx-hint-row` / `.aobx-hint-card` / `__code`                      | 示例提示块                     | 在 Fragment 等 Section 展示 markdown/code 提示                         |
+| 名称                                                                 | 用途                           | 备注                                                              |
+| -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------- |
+| `.aobx-card`                                                         | 卡片容器                       | 支持 light/dark，常用于 Section 外层                              |
+| `.aobx-card--muted / --outline / --accent-border / --neutral-border` | 卡片修饰符                     | 组合背景、描边、强调边框，供隐私提示、Domain 控件等复用           |
+| `.aobx-alert`                                                        | 信息、成功、警告、错误提醒     | 通过修饰符控制语义                                                |
+| `.aobx-field-group`                                                  | 表单字段组                     | 统一 label/控件间距                                               |
+| `.aobx-table`                                                        | 数据表格                       | YAML/REST 等共享                                                  |
+| `.aobx-table__filters / __sort-btn / __advanced-*`                   | 表格筛选、排序与 Advanced 面板 | 复用 `.aobx-chip-btn` 与 `.aobx-table`                            |
+| `.aobx-button-row`                                                   | 按钮行                         | 对齐间距、栅格                                                    |
+| `.aobx-chip` / `.aobx-chip-btn`                                      | Tag/Chip                       | 过滤器或标签选择                                                  |
+| `.aobx-domain__*`                                                    | YAML 域名覆盖编辑器            | 组合 `.aobx-card`、`.aobx-input`、`.aobx-btn`                     |
+| `.aobx-highlight-button + --{theme}`                                 | 阅读高亮主题按钮               | 色板基于 `--aobx-highlight-*` Token，生产 Stitch 与预览可直接复用 |
+| `.aobx-hint-row` / `.aobx-hint-card` / `__code`                      | 示例提示块                     | 在 Fragment 等 Stitch 面板展示 markdown/code 提示                 |
 
 更多组件抽象请参阅 `docs/options-style-refinement-plan.md`。
 
@@ -102,18 +99,13 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 ```
 src/options/
 ├── app/
-│   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Shell
+│   ├── bootstrap.ts          # 入口：初始化 I18n、Controller、Stitch Shell
 │   ├── productionStitchShell.ts # 正式 Stitch Secondary production adapter
 │   ├── optionsController.ts  # 控制器：持久化、自动保存、导入导出
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── layout/
-│   │   ├── OptionsApp.ts     # 装配 Shell、Sidebar、MainContent
-│   │   └── MainContent.ts    # Section 懒加载与挂载调度
-│   ├── sections/             # 各设置面板（BaseSection 子类）
-│   ├── formSections/         # FormSectionRegistry 及作用域绑定
-│   ├── infrastructure/       # ModalController 等基础控件
+│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/domain UI
 │   └── services/             # 配置传输等选项页专用服务
 └── utils/                     # 选项页工具（如 optionsTransfer.ts）
 ```
@@ -126,10 +118,10 @@ src/options/
 
 - `teardownMountedShell()` + `disposeCleanupHandlers()`：保证二次初始化时清理旧实例。
 - `applyI18n()`：创建并挂载 `PageI18nController`。
-- `initializeOptionsRuntime()`：实例化 `FormSectionRegistry`、`OptionsController` 并注册清理函数。
+- `initializeOptionsController()`：实例化 `OptionsController`，通过 `createOptionsFormAdapter()` 读取当前生产表单状态并注册清理函数。
 - `mountProductionStitchShell()`：挂载 Stitch Secondary Shell，实现导航、资源弹层、生产状态绑定与自动保存。
 - `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts` 是唯一正式页面启动链；旧 `src/options/bootstrap.ts` 兼容入口已删除。
-- `mountOptionsShell`、`OptionsApp`、`MainContent`、`Sidebar`、`FormSectionRegistry`、`ModalController` 不得重新进入正式页面启动链。
+- 已退役的旧 layout shell、`mountOptionsShell` 与 `ModalController` 不得重新进入正式页面启动链。
 - `getPlatformServices` 只允许保留在 `src/options/index.ts` 这个 Options composition root；repository 注册归属 `src/options/runtimeEntry.ts`；`src/options/app/bootstrap.ts` 必须保持为显式依赖注入入口。
 
 2. **Options 主状态链（Phase 3 当前口径）**
@@ -139,32 +131,37 @@ src/options/
 - 兼容层：`chromeOptionsPersistence` 仅作为 `OptionsController` 仍在消费的适配器，不再被视为独立主链。
 - 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
 - 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
-- 兼容职责：`ChromeSyncOptionsRepository` 仅保留 historical `load/save/snapshot/subscribe/reset` 语义，不再承担 normalize / merge 主链职责。
-- 当前 residual consumers：legacy `OptionsRepository` 兼容语义仍由 infrastructure barrel、options-mainline audit 与少量测试 / e2e 夹具跟踪；content/background 正式代码已切回 `IOptionsRepository` 主合同。
-- 退役路径：待 legacy `OptionsRepository` 测试 / 兼容夹具也完成收敛后，再评估删除 compatibility adapter 本体。
+- 已清退项：legacy infrastructure compatibility adapter 与 infrastructure barrel export 已删除；不要恢复 `ChromeSyncOptionsRepository`、`LegacyOptionsRepositoryAdapter`、`adaptOptionsRepository` 或 `createCompatibilityOptionsRepository`。
+- 当前 residual consumers：`src/shared/interfaces/optionsRepository.ts` 仍保留 historical `load/save/snapshot/subscribe/reset` 类型合同，供尚未迁移的内容侧 helper 和测试夹具使用；它不是 Options UI 主状态链，也不再有 infrastructure adapter owner。
+- 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
-3. **Section 生命周期**
+3. **旧 Options compatibility 边界**
 
-- `render()`：使用传入容器渲染 DOM，仅绑定自身事件。
-- `setMessages()`：接收最新文案，更新静态文本。
-- `applySnapshot()` / `collectChanges()`：由 `FormSectionRegistry` 驱动，与 `OptionsController` 结合支持自动保存。
-- `destroy()`：释放事件和子组件，放入 `registerCleanup()` 的回调会在页面卸载或热重启时执行。
+- 旧 section/form compatibility source 已退役，不是新增生产 Options UI 的实现指南。
+- 不要新增旧 section 类或恢复旧表单注册链，也不要将其重新接入 `src/options/app/bootstrap.ts`、`productionStitchShell.ts` 或正式页面启动链。
+- 如需继续删除 retained compatibility source，必须先满足 Non-Production Code 3.0 的 production build graph、import graph、test/script/public/verification owner 六项 proof，并让相关 audit 通过。
 
-4. **Helper/Controller**
+4. **Helper/Controller 迁移边界**
 
-- 诸如 `DomainMappingsController`、`YamlConfigTable` 必须实现 `render()` / `collect()` / `destroy()`，并在 Section 的 `destroy()` 中统一释放。
+- 旧 `DomainMappingsController`、`YamlConfigTable` 等 helper/controller 的 `render()` / `collect()` / `destroy()` 约定仅用于理解兼容残留，不作为新增生产功能模板。
+- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS，复杂领域控件落到当前 `src/ui/domains/*` owner。
+- 通用控件复用 `src/ui/primitives/*` 与 `src/ui/patterns/*`；shell 级状态、自动保存、资源弹层或语言切换才进入 `src/options/app/productionStitchShell.ts` 相关模块。
 
 ---
 
 ## 3. 开发规范速查
 
-- **新增 Section**
-  1. 继承 `BaseSection`，在构造函数中仅保存容器。
-  2. 在 `render()` 中渲染结构并调用 `registerFormIntegration()` 注册到 `FormSectionRegistry`。
-  3. 通过 `markPendingAutoSave(sectionId)` + `getOptionsController()?.scheduleAutoSave()` 触发自动保存。
-  4. 使用 `this.messages` 设置静态文案；新增键需写入 `src/options/components/messages.ts` 并更新 `_locales`。
-  5. 补充单测 `tests/unit/options/sections/<Section>.test.ts`，验证 `render/applySnapshot/collectChanges`。
+- **新增生产 Options UI 行为**
+  1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
+  2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
+  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 section/form owner。
+  4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能恢复旧表单注册链。
+  5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
+
+- **旧 Options compatibility 说明**
+  - 旧 section/form compatibility source 已退役；如果 audit 显示其他旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类。
+  - 不得为了让生产功能工作而把 retired compatibility source 重新连回正式启动链。
 
 - **多语言适配**
   - 文案统一由 `setMessages()` 或 `data-i18n` 驱动，参照 `docs/options-multilingual-adaptation-guide.md` 进行整改。
@@ -172,7 +169,7 @@ src/options/
 
 - **运行时清理**
   - 若创建了额外的定时器或全局事件，需使用 `registerCleanup()` 或 Section `destroy()` 手动释放。
-  - 禁止绕过 `bootstrap.ts` 直接实例化 `OptionsController`、`FormSectionRegistry`。
+  - 禁止绕过 `bootstrap.ts` 直接实例化 `OptionsController` 或恢复 retired form registration。
 
 ---
 
@@ -227,7 +224,7 @@ src/options/
 
 ## 6. 常见问题
 
-- **懒加载不起作用**：确认 `MainContent.sectionDefinitions` 中的 `load` 使用动态导入，并检查 `NavigationController` 是否在 `aob:sectionmounted` 事件后绑定监听。
+- **导航/面板切换异常**：从 Stitch schema registry、`productionStitchShell.ts` 与 production render lifecycle 排查，不要恢复旧 layout shell。
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：运行 `ensureDeclarativeI18nController()` 后调用 `section.setMessages(messages)`；对于静态模板应检查 `data-i18n` 是否配置正确。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
@@ -245,4 +242,4 @@ src/options/
 
 ---
 
-如有疑问，请先查阅 `docs/development-guidelines.md`、`docs/options-refactor-summary-2025.md` 和 `docs/options-multilingual-adaptation-guide.md`。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！
+如有疑问，请先查阅 `docs/development-guidelines.md` 和 `docs/options-multilingual-adaptation-guide.md`；旧 Options 重构复盘已归档到 `docs/archive/completed-guides/options-refactor-summary-2025.md`，仅用于历史追溯。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！

@@ -497,6 +497,92 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
   });
 
+  it('keeps disabled default YAML custom fields in production collectDraft', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const statusToggle = queryRequired<HTMLInputElement>('input[type="checkbox"]', statusRow);
+
+    expect(statusToggle.checked).toBe(true);
+    statusToggle.checked = false;
+    statusToggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields).toEqual([
+      expect.objectContaining({
+        name: 'status',
+        enabled: false,
+        defaultValue: ['unread']
+      })
+    ]);
+  });
+
+  it('locks default YAML custom field delete and rename controls in production', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const nameInput = queryRequired<HTMLInputElement>('input[data-yaml-field="name"]', statusRow);
+    const deleteButton = queryRequired<HTMLButtonElement>('button.yaml-delete-button', statusRow);
+
+    expect(nameInput.disabled).toBe(true);
+    expect(deleteButton.disabled).toBe(true);
+
+    nameInput.value = 'state';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    deleteButton.click();
+
+    const draft = mounted.collectDraft();
+    expect(draft.yamlConfig ?? null).toBeNull();
+
+    mounted.refreshOptions(draft);
+    expect(findYamlRowByField('status')).toBeTruthy();
+    expect(findYamlRowByField('state')).toBeNull();
+  });
+
+  it('does not clone default YAML custom fields from non-owner content toggles', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const articleToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="article"]',
+      statusRow
+    );
+    const nonOwnerToggles = ['clipper', 'video', 'ai_chat'].map((contentType) =>
+      queryRequired<HTMLInputElement>(
+        `input.stitch-yaml-toggle[data-mode="${contentType}"]`,
+        statusRow
+      )
+    );
+
+    expect(articleToggle.disabled).toBe(false);
+    expect(articleToggle.checked).toBe(true);
+    for (const toggle of nonOwnerToggles) {
+      expect(toggle.disabled).toBe(true);
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const draft = mounted.collectDraft();
+    expect(draft.yamlConfig ?? null).toBeNull();
+  });
+
   it('does not let invalid YAML widget edits pollute production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
@@ -522,6 +608,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     defaultValue.value = 'not-a-number';
     defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
 
+    expect(vi.mocked(controller.scheduleAutoSave)).not.toHaveBeenCalled();
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields).toEqual([
       expect.objectContaining({ name: 'score', defaultValue: 42 })
     ]);

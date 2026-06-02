@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { dirname, join, relative } from 'node:path';
+import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
 const INVENTORY_PATH = 'docs/retired-code-inventory.md';
@@ -10,6 +10,7 @@ const SYNTHETIC_AUDIT_REFERENCE_FILES = new Set([
   'tests/fixtures/tools/compatibility-duplicates/allowlist-stale.json',
   'tests/fixtures/tools/compatibility-duplicates/allowlist.json',
   'tests/unit/tools/reportCompatibilityDuplicates.test.ts',
+  'tests/unit/tools/productionBuildGraph.test.ts',
   'tests/unit/tools/reportNonProductionSource.test.ts'
 ]);
 
@@ -87,16 +88,19 @@ function familyTokens(pathFamily) {
   return Array.from(new Set([base, base.replace(/^src\//, '')]));
 }
 
-function pathExistsForFamily(pathFamily) {
-  if (pathFamily.endsWith('/**')) {
-    return existsSync(pathFamily.slice(0, -3));
-  }
+function patternToRegExp(pattern) {
+  const prepared = pattern.replaceAll('**', '__DOUBLE_STAR__').replaceAll('*', '__STAR__');
+  const escaped = prepared
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replaceAll('__DOUBLE_STAR__', '.*')
+    .replaceAll('__STAR__', '[^/]*');
+  return new RegExp(`^${escaped}$`);
+}
+
+function pathExistsForFamily(pathFamily, files) {
   if (pathFamily.includes('*')) {
-    const prefix = pathFamily.slice(0, pathFamily.indexOf('*'));
-    return existsSync(prefix) || existsSync(dirname(prefix));
-  }
-  if (pathFamily.endsWith('/*Section.ts')) {
-    return existsSync('src/options/components/sections');
+    const familyPattern = patternToRegExp(pathFamily);
+    return files.some((file) => familyPattern.test(file.path));
   }
   return existsSync(pathFamily);
 }
@@ -143,7 +147,7 @@ export async function buildRetiredCodeInventoryReport(args = {}) {
   const files = await readTextFiles();
   const findings = rows.map((row) => ({
     ...row,
-    exists: pathExistsForFamily(row.pathFamily),
+    exists: pathExistsForFamily(row.pathFamily, files),
     owners: findOwners(files, row.pathFamily)
   }));
   return {

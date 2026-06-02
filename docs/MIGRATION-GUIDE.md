@@ -49,7 +49,7 @@ rg -n \"getPlatformServices()\" src/options src/content | rg -v \"Dependencies\"
 ### Before
 
 ```ts
-class UsageSection {
+class UsageDashboardView {
   async clearStats() {
     const { storage } = getPlatformServices();
     await storage.sync.set({ usageStats: {} });
@@ -61,7 +61,7 @@ class UsageSection {
 ### After
 
 ```ts
-class UsageSection {
+class UsageDashboardView {
   private readonly repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
   async clearStats(): Promise<void> {
@@ -225,7 +225,7 @@ pnpx hygen repo test --name Foo
 | 1   | 梳理 YAML Service chrome 依赖 | `YAML-CONFIG-SERVICE-REFACTOR-NOTES.md`                 |
 | 2   | 编写 `IYamlRepository` 接口   | `src/shared/repositories/IYamlRepository.ts`            |
 | 3   | Chrome 实现 + 测试            | `ChromeYamlRepository.ts` + 单测                        |
-| 4   | 替换 Options Section          | `YamlConfigSection.ts` 更新                             |
+| 4   | 替换 Options Section          | production Stitch YAML owner 更新                       |
 | 5   | 更新模板、文档、审计报告      | `REPOSITORY-PATTERN.md` / `REPO-MONTH3-SHARED-AUDIT.md` |
 
 ## 15. 实战 Tips
@@ -263,13 +263,13 @@ pnpx hygen repo test --name Foo
 
 ## 18. 迁移风险矩阵
 
-| 风险                      | 影响         | 缓解措施                          |
-| ------------------------- | ------------ | --------------------------------- |
-| 忘记取消订阅              | 内存泄漏     | 在 BaseSection destroy 中统一调用 |
-| 错误吞掉                  | 用户无法得知 | RepositoryError 必须向上抛出      |
-| Mock 行为与 Chrome 不一致 | 测试失真     | 编写端到端测试和行为对比清单      |
-| 未更新文档                | 知识断层     | 在 CI 中加入文档检查              |
-| 行数膨胀                  | 维护成本增加 | 在审计报告中记录行数 + 原因       |
+| 风险                      | 影响         | 缓解措施                                       |
+| ------------------------- | ------------ | ---------------------------------------------- |
+| 忘记取消订阅              | 内存泄漏     | 在当前 owner 的 cleanup/dispose 钩子中统一调用 |
+| 错误吞掉                  | 用户无法得知 | RepositoryError 必须向上抛出                   |
+| Mock 行为与 Chrome 不一致 | 测试失真     | 编写端到端测试和行为对比清单                   |
+| 未更新文档                | 知识断层     | 在 CI 中加入文档检查                           |
+| 行数膨胀                  | 维护成本增加 | 在审计报告中记录行数 + 原因                    |
 
 ## 19. 迁移完成后的自检
 

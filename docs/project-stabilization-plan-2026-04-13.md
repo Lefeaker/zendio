@@ -24,14 +24,14 @@
 
 ## 1. Milestone 状态
 
-| Milestone | 状态                 | 当前结论                                                                                 |
-| --------- | -------------------- | ---------------------------------------------------------------------------------------- |
-| `M0`      | 已通过               | `quality`、`verify:preflight`、CI 均包含 `typecheck:app/tests/strict`                    |
-| `M1`      | 已通过               | connection/rest 已完成；Privacy 已改为 UI 降级优先，`MainContent` 复验无 Privacy 噪音    |
-| `M2`      | 已通过               | 5 个热点全部达最低目标，3 个热点达 stretch，新增/拆出的 support modules 已复核为 `<=250` |
-| `M3`      | 已通过               | 包体预算达标，浏览器 smoke / visual / reader-panel 路径均已通过                          |
-| `M4`      | 已通过（重定义口径） | 当前分支保留已验真的技术真值；停车分支保存延期/溢出真值；正式文档与 backlog 已切到新口径 |
-| `M5`      | 已通过               | 最终命令链在 Node `v20.20.2` 下复核通过，release summary 已生成                          |
+| Milestone | 状态                 | 当前结论                                                                                        |
+| --------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| `M0`      | 已通过               | `quality`、`verify:preflight`、CI 均包含 `typecheck:app/tests/strict`                           |
+| `M1`      | 已通过               | connection/rest 已完成；Privacy 已改为 UI 降级优先，production Stitch shell 复验无 Privacy 噪音 |
+| `M2`      | 已通过               | 5 个热点全部达最低目标，3 个热点达 stretch，新增/拆出的 support modules 已复核为 `<=250`        |
+| `M3`      | 已通过               | 包体预算达标，浏览器 smoke / visual / reader-panel 路径均已通过                                 |
+| `M4`      | 已通过（重定义口径） | 当前分支保留已验真的技术真值；停车分支保存延期/溢出真值；正式文档与 backlog 已切到新口径        |
+| `M5`      | 已通过               | 最终命令链在 Node `v20.20.2` 下复核通过，release summary 已生成                                 |
 
 ## 2. M1 失败路径质量收口
 
@@ -46,25 +46,24 @@
 ```bash
 npx vitest run tests/unit/background/connectionTestPipeline.test.ts
 npx vitest run tests/unit/infrastructure/restClient.test.ts
-npx vitest run tests/unit/options/layout/MainContent.test.ts
+npx vitest run tests/unit/options/productionStitchShell.renderLifecycle.test.ts
 ```
 
 ## 3. M2 热点模块继续压缩
 
 当前目标：
 
-| 文件                                                                | 最低目标 | Stretch 目标 | 当前真值 |
-| ------------------------------------------------------------------- | -------: | -----------: | -------: |
-| `src/content/video/videoSessionRuntime.ts`                          | `<= 360` |     `<= 320` |    `314` |
-| `src/options/components/sections/RestSectionView.ts`                | `<= 300` |     `<= 260` |    `300` |
-| `src/ui/domains/privacy/PrivacySettingsView.ts`                     | `<= 300` |     `<= 260` |    `260` |
-| `src/options/components/sections/UsageDashboardSection.ts`          | `<= 280` |     `<= 260` |    `231` |
-| `src/ui/domains/yaml-config/yamlConfigTableControllerState.impl.ts` | `<= 500` |     `<= 420` |    `471` |
+| 文件                                            |                                   最低目标 |             Stretch 目标 |                                  当前真值 |
+| ----------------------------------------------- | -----------------------------------------: | -----------------------: | ----------------------------------------: |
+| `src/content/video/videoSessionRuntime.ts`      |                                   `<= 360` |                 `<= 320` |                                     `314` |
+| `src/options/app/rest-settings/**`              | 见当前 production-shape / performance gate | 当前 REST settings owner | Plan 07 后替代已退役 `RestSectionView.ts` |
+| `src/ui/domains/privacy/PrivacySettingsView.ts` |                                   `<= 300` |                 `<= 260` |                                     `260` |
+| legacy usage dashboard section                  |                                   `<= 280` |                 `<= 260` |                                     `231` |
 
 当前结论：
 
-- 5 个热点全部达到最低目标
-- `videoSessionRuntime`、`PrivacySettingsView`、`UsageDashboardSection` 3 个热点达到 stretch
+- 原 5 个热点已全部达到最低目标；legacy YAML domain 热点已在 2026-06-01 Plan 03 R3 退役；`RestSectionView.ts` 已在 2026-06-01 Plan 07 RST3 退役，当前 REST 真值转为 `src/options/app/rest-settings/**`
+- `videoSessionRuntime`、`PrivacySettingsView`、`legacy usage dashboard section` 3 个热点达到 stretch
 - `<=250` 仅适用于本轮新增/拆出的 support modules，不适用于上述 5 个主热点入口
 - 当前新增/AM 的 `src/` support modules 已重新核实，无 `>250` 残留
 

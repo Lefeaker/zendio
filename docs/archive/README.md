@@ -10,6 +10,7 @@
   已完成主线对应的历史执行手册、milestone 台账与收口 backlog；可用于追溯执行路径，但不再作为当前工程真值入口。
 - `completed-guides/`
   已完成或已被当前真值替代的过程性修复指南、整改手册、分析报告与阶段性总结。
+  其中 `options-refactor-summary-2025.md`、`deprecated-guides-251122.md`、`options-doc-refresh-log.md` 均是旧 Options layout/form section 时代的历史材料，不再作为当前 Options 实现入口。
 
 ## 使用规则
 
