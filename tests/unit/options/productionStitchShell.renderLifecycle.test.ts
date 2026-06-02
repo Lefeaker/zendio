@@ -550,6 +550,39 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(findYamlRowByField('state')).toBeNull();
   });
 
+  it('does not clone default YAML custom fields from non-owner content toggles', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
+    const articleToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="article"]',
+      statusRow
+    );
+    const nonOwnerToggles = ['clipper', 'video', 'ai_chat'].map((contentType) =>
+      queryRequired<HTMLInputElement>(
+        `input.stitch-yaml-toggle[data-mode="${contentType}"]`,
+        statusRow
+      )
+    );
+
+    expect(articleToggle.disabled).toBe(false);
+    expect(articleToggle.checked).toBe(true);
+    for (const toggle of nonOwnerToggles) {
+      expect(toggle.disabled).toBe(true);
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const draft = mounted.collectDraft();
+    expect(draft.yamlConfig ?? null).toBeNull();
+  });
+
   it('does not let invalid YAML widget edits pollute production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

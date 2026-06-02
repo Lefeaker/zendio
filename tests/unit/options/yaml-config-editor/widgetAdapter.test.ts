@@ -34,6 +34,18 @@ function createMount(
   return { adapter, container, notifyDirty };
 }
 
+function findYamlRow(container: HTMLElement, fieldName: string): HTMLElement {
+  const row = Array.from(container.querySelectorAll<HTMLElement>('[data-row-id]')).find((row) =>
+    Array.from(row.querySelectorAll<HTMLInputElement>('input')).some(
+      (input) => input.value === fieldName
+    )
+  );
+  if (!row) {
+    throw new Error(`Missing YAML row ${fieldName}`);
+  }
+  return row;
+}
+
 describe('YamlConfigEditorWidgetAdapter', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -127,6 +139,36 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     expect(container.textContent).not.toContain(
       'Please fix YAML configuration errors before saving.'
     );
+  });
+
+  it('locks non-owner content toggles for default custom fields in the all view', () => {
+    const { adapter, container, notifyDirty } = createMount({ yamlConfig: null });
+    const statusRow = findYamlRow(container, 'status');
+
+    const articleToggle = statusRow.querySelector<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="article"]'
+    );
+    const clipperToggle = statusRow.querySelector<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="clipper"]'
+    );
+    const videoToggle = statusRow.querySelector<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="video"]'
+    );
+    const aiToggle = statusRow.querySelector<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="ai_chat"]'
+    );
+
+    expect(articleToggle?.disabled).toBe(false);
+    expect(articleToggle?.checked).toBe(true);
+    for (const toggle of [clipperToggle, videoToggle, aiToggle]) {
+      expect(toggle?.disabled).toBe(true);
+      toggle!.checked = true;
+      toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const draft = adapter.collect().yamlConfig;
+    expect(draft ?? null).toBeNull();
+    expect(notifyDirty).not.toHaveBeenCalledWith(['yamlConfig'], { invalid: false });
   });
 
   it('is the production yaml-config widget factory result', () => {

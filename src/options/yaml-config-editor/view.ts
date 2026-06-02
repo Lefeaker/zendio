@@ -14,9 +14,22 @@ import {
 
 export type YamlEditorFilter = YamlContentType | 'all';
 
+type YamlTableRowKind =
+  | 'builtInDefaultField'
+  | 'defaultCustomField'
+  | 'userCreatedCustomField'
+  | 'globalField';
+
+interface YamlTableCell {
+  field?: YamlEditorField;
+  operable: boolean;
+}
+
 interface YamlTableRow {
   id: string;
+  kind: YamlTableRowKind;
   fields: Partial<Record<YamlContentType, YamlEditorField>>;
+  cells: Record<YamlContentType, YamlTableCell>;
   globalField?: YamlEditorField;
   builtIn: boolean;
   isCustom: boolean;
@@ -38,6 +51,40 @@ function allocateId(state: YamlEditorState, prefix: string): string {
   return `${prefix}-${state.nextId}`;
 }
 
+function createRowCells(
+  fields: Partial<Record<YamlContentType, YamlEditorField>>,
+  kind: YamlTableRowKind
+): Record<YamlContentType, YamlTableCell> {
+  return Object.fromEntries(
+    YAML_EDITOR_CONTENT_TYPES.map((contentType) => {
+      const field = fields[contentType];
+      const operable =
+        kind === 'defaultCustomField'
+          ? Boolean(field)
+          : kind !== 'builtInDefaultField' || Boolean(field);
+      const cell: YamlTableCell = { operable };
+      if (field) {
+        cell.field = field;
+      }
+      return [contentType, cell];
+    })
+  ) as Record<YamlContentType, YamlTableCell>;
+}
+
+function getRowKind(field: YamlEditorField): YamlTableRowKind {
+  if (field.builtIn) {
+    return 'builtInDefaultField';
+  }
+  if (field.baselineKind === 'defaultCustomField') {
+    return 'defaultCustomField';
+  }
+  return 'userCreatedCustomField';
+}
+
+function refreshRowCells(row: YamlTableRow): void {
+  row.cells = createRowCells(row.fields, row.kind);
+}
+
 function addRowField(
   rows: Map<string, YamlTableRow>,
   contentType: YamlContentType,
@@ -56,7 +103,9 @@ function addRowField(
     rows.get(key) ??
     ({
       id: field.id,
+      kind: getRowKind(field),
       fields: {},
+      cells: createRowCells({}, getRowKind(field)),
       builtIn: field.builtIn,
       isCustom: field.isCustom || !field.builtIn,
       defaultCustom: isDefaultCustom
@@ -65,6 +114,7 @@ function addRowField(
   row.builtIn = row.builtIn || field.builtIn;
   row.isCustom = row.isCustom || field.isCustom || !field.builtIn;
   row.defaultCustom = row.defaultCustom || isDefaultCustom;
+  refreshRowCells(row);
   rows.set(key, row);
 }
 
@@ -85,7 +135,9 @@ function buildRows(state: YamlEditorState, filter: YamlEditorFilter): YamlTableR
     state.globalFields.forEach((field) => {
       rows.set(`global:${field.name.trim() || field.id}`, {
         id: field.id,
+        kind: 'globalField',
         fields: {},
+        cells: createRowCells({}, 'globalField'),
         globalField: field,
         builtIn: false,
         isCustom: true,
@@ -180,6 +232,7 @@ function cloneCustomField(
   };
   state.contentTypes[contentType].customFields.push(field);
   row.fields[contentType] = field;
+  refreshRowCells(row);
   return field;
 }
 
@@ -189,6 +242,9 @@ function setRowEnabled(
   contentType: YamlContentType,
   enabled: boolean
 ): void {
+  if (!row.cells[contentType].operable) {
+    return;
+  }
   const field = row.fields[contentType];
   if (field) {
     field.enabled = enabled;
@@ -332,17 +388,20 @@ function renderToggle(
   row: YamlTableRow,
   contentType: YamlContentType
 ): HTMLInputElement {
+  const cell = row.cells[contentType];
   const checkbox = el('input', {
     className: 'schema-switch-input stitch-yaml-toggle',
     type: 'checkbox',
     dataset: { mode: contentType },
-    disabled: row.builtIn && !row.fields[contentType]
+    disabled: !cell.operable
   });
-  checkbox.checked = Boolean(row.fields[contentType]?.enabled);
-  checkbox.addEventListener('change', () => {
-    setRowEnabled(options.state, row, contentType, checkbox.checked);
-    options.onChange();
-  });
+  checkbox.checked = Boolean(cell.field?.enabled);
+  if (cell.operable) {
+    checkbox.addEventListener('change', () => {
+      setRowEnabled(options.state, row, contentType, checkbox.checked);
+      options.onChange();
+    });
+  }
   return checkbox;
 }
 
