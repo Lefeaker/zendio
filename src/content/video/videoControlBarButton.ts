@@ -1,8 +1,10 @@
 import { findVideoControlTarget } from './videoPromptObserver';
+import { bindVideoInputKeyboardIsolationBoundary } from './videoInputEventIsolation';
 
 const CONTROL_BUTTON_CLASS = 'aiob-video-control-bar-button';
 const CONTROL_POPOVER_CLASS = 'aiob-video-control-bar-popover';
 const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
+const popoverKeyboardIsolationDisposers = new WeakMap<HTMLElement, () => void>();
 type VideoControlBarPlatform = 'youtube' | 'bilibili' | 'generic';
 
 export interface VideoControlBarPreferences {
@@ -201,7 +203,11 @@ function positionPopover(button: HTMLButtonElement, popover: HTMLElement): void 
 }
 
 function removePopover(doc: Document): void {
-  doc.querySelectorAll(`.${CONTROL_POPOVER_CLASS}`).forEach((popover) => popover.remove());
+  doc.querySelectorAll<HTMLElement>(`.${CONTROL_POPOVER_CLASS}`).forEach((popover) => {
+    popoverKeyboardIsolationDisposers.get(popover)?.();
+    popoverKeyboardIsolationDisposers.delete(popover);
+    popover.remove();
+  });
 }
 
 function createPreferenceToggle(
@@ -231,6 +237,8 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   const doc = options.doc;
   const existing = doc.querySelector<HTMLElement>(`.${CONTROL_POPOVER_CLASS}`);
   if (existing) {
+    popoverKeyboardIsolationDisposers.get(existing)?.();
+    popoverKeyboardIsolationDisposers.delete(existing);
     existing.remove();
     return;
   }
@@ -241,9 +249,13 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   popover.dataset.aiobVideoControlBarPopover = 'true';
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', options.label);
+  const disposeKeyboardIsolation = bindVideoInputKeyboardIsolationBoundary(popover);
+  popoverKeyboardIsolationDisposers.set(popover, disposeKeyboardIsolation);
 
   const closePopover = (notifyDismiss: boolean): void => {
     doc.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+    disposeKeyboardIsolation();
+    popoverKeyboardIsolationDisposers.delete(popover);
     popover.remove();
     if (notifyDismiss) {
       options.onPopoverDismiss?.(preferences);

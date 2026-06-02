@@ -17,6 +17,7 @@ import { SessionCommentDraftController } from '@content/shared/panels/sessionCom
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
+import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
 
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
@@ -24,15 +25,12 @@ interface VideoDialogPanelOptions {
   initialCollapsed?: boolean;
 }
 
-export class VideoDialogPanel
-  implements
-    UiMountable<
-      HTMLElement | undefined,
-      | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
-      | undefined,
-      HTMLElement
-    >
-{
+export class VideoDialogPanel implements UiMountable<
+  HTMLElement | undefined,
+  | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
+  | undefined,
+  HTMLElement
+> {
   readonly popupLifecycle = { preserveOnTransientClose: true };
 
   private renderRoot: HTMLElement;
@@ -41,6 +39,7 @@ export class VideoDialogPanel
   private unregisterPopup: (() => void) | null = null;
   private resizeDisposer: (() => void) | null = null;
   private previewExpansionDisposer: (() => void) | null = null;
+  private keyboardIsolationDisposer: (() => void) | null = null;
   private texts: VideoPanelTexts;
   private captures: VideoPanelCapture[] = [];
   private destination: ExportDestinationSurfacePreview | undefined;
@@ -66,6 +65,7 @@ export class VideoDialogPanel
     });
     this.renderRoot = createSessionPanelRenderRoot();
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
+    this.keyboardIsolationDisposer = bindVideoInputKeyboardIsolationBoundary(shadow);
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.rerender();
     void this.collapsePersistence.restore();
@@ -181,6 +181,8 @@ export class VideoDialogPanel
     this.resizeDisposer = null;
     this.previewExpansionDisposer?.();
     this.previewExpansionDisposer = null;
+    this.keyboardIsolationDisposer?.();
+    this.keyboardIsolationDisposer = null;
     this.renderRoot.remove();
   }
 

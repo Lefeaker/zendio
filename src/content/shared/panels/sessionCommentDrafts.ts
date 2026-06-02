@@ -76,8 +76,8 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   bindInput(input: HTMLInputElement | null | undefined, id: string): void {
     input?.addEventListener('input', () => this.remember(id, input.value));
-    input?.addEventListener('keydown', (event) => {
-      if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') {
+    input?.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.isComposing) {
         return;
       }
       event.preventDefault();
