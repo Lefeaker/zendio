@@ -88,6 +88,90 @@ describe('ensureVideoControlBarButton', () => {
     expect(document.querySelector('.aiob-video-control-bar-popover')).toBeNull();
   });
 
+  it('keeps ordinary note input keys from reaching host page shortcuts', () => {
+    mountYoutubeControls();
+    const hostKeydown = vi.fn();
+    const hostKeyup = vi.fn();
+    const hostKeypress = vi.fn();
+    document.addEventListener('keydown', hostKeydown);
+    document.addEventListener('keyup', hostKeyup);
+    document.addEventListener('keypress', hostKeypress);
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
+    const input = popover.querySelector<HTMLInputElement>(
+      '.aiob-video-control-bar-popover__note-input'
+    )!;
+
+    for (const key of ['l', ' ', 'm']) {
+      input.value = key;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, composed: true }));
+      input.dispatchEvent(new KeyboardEvent('keypress', { key, bubbles: true, composed: true }));
+      input.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, composed: true }));
+    }
+
+    expect(hostKeydown).not.toHaveBeenCalled();
+    expect(hostKeypress).not.toHaveBeenCalled();
+    expect(hostKeyup).not.toHaveBeenCalled();
+    expect(input.value).toBe('m');
+
+    document.removeEventListener('keydown', hostKeydown);
+    document.removeEventListener('keyup', hostKeyup);
+    document.removeEventListener('keypress', hostKeypress);
+  });
+
+  it('keeps ordinary note input keys from reaching later capture listeners', () => {
+    mountYoutubeControls();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    const hostCaptureKeydown = vi.fn();
+    const hostCaptureKeyup = vi.fn();
+    const hostCaptureKeypress = vi.fn();
+    document.addEventListener('keydown', hostCaptureKeydown, true);
+    document.addEventListener('keyup', hostCaptureKeyup, true);
+    document.addEventListener('keypress', hostCaptureKeypress, true);
+    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
+    const input = popover.querySelector<HTMLInputElement>(
+      '.aiob-video-control-bar-popover__note-input'
+    )!;
+
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, composed: true }));
+    input.dispatchEvent(new KeyboardEvent('keypress', { key: 'l', bubbles: true, composed: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'l', bubbles: true, composed: true }));
+
+    expect(hostCaptureKeydown).not.toHaveBeenCalled();
+    expect(hostCaptureKeypress).not.toHaveBeenCalled();
+    expect(hostCaptureKeyup).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostCaptureKeydown, true);
+    document.removeEventListener('keyup', hostCaptureKeyup, true);
+    document.removeEventListener('keypress', hostCaptureKeypress, true);
+  });
+
   it('dismisses the popover on outside click and notifies the host with current preferences', () => {
     mountYoutubeControls();
     const onPrimaryAction = vi.fn();
