@@ -62,6 +62,35 @@ function withScheduledRestore(
   return context;
 }
 
+function mountBiliCommentsFixture(): {
+  root: ShadowRoot;
+  thread: HTMLElement;
+  comment: HTMLElement;
+  richText: HTMLElement;
+  content: HTMLElement;
+} {
+  const host = document.createElement('bili-comments');
+  document.body.append(host);
+  const root = host.attachShadow({ mode: 'open' });
+  const contents = document.createElement('div');
+  contents.id = 'contents';
+  const thread = document.createElement('bili-comment-thread-renderer');
+  const threadRoot = thread.attachShadow({ mode: 'open' });
+  const comment = document.createElement('bili-comment-renderer');
+  const commentRoot = comment.attachShadow({ mode: 'open' });
+  const richText = document.createElement('bili-rich-text');
+  const richTextRoot = richText.attachShadow({ mode: 'open' });
+  const content = document.createElement('p');
+  content.id = 'contents';
+  content.innerHTML = '<span>fixture comment</span>';
+  richTextRoot.append(content);
+  commentRoot.append(richText);
+  threadRoot.append(comment);
+  contents.append(thread);
+  root.append(contents);
+  return { root, thread, comment, richText, content };
+}
+
 describe('BilibiliVideoPlatform', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -284,6 +313,110 @@ describe('BilibiliVideoPlatform', () => {
     expect(restored).toBe('existing-wrapper');
     expect(context.__mocks.decorateHighlight).toHaveBeenCalledWith(existing);
     expect(context.__mocks.scheduleFragmentHighlightRestore).toHaveBeenCalled();
+  });
+
+  it('observes bili-comments root and nested comment shadow roots through scoped discovery', () => {
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(context);
+    const { root, thread, comment, richText, content } = mountBiliCommentsFixture();
+    const observer = new MutationObserver(() => undefined);
+    platform.observeDomChanges(observer);
+
+    const range = document.createRange();
+    const textNode = content.querySelector('span')?.firstChild;
+    if (!textNode) {
+      throw new Error('Expected nested Bilibili fixture text');
+    }
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 'fixture'.length);
+
+    expect(platform.highlight(range, 'capture-bili-comments', 'https://example.com/')).toBe(
+      'wrapper-1'
+    );
+
+    const registeredRoots = new Set(
+      context.__mocks.registerShadowSelectionBridge.mock.calls.map(
+        ([registeredRoot]) => registeredRoot
+      )
+    );
+    expect(isBilibiliCommentRegionNode(root.getElementById('contents'))).toBe(true);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+    expect(registeredRoots.size).toBe(4);
+  });
+
+  it('batches comment-root mutation refreshes to one restore', () => {
+    vi.useFakeTimers();
+    const scheduleRestore = vi.fn();
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    platform.observeDomChanges({} as MutationObserver);
+
+    const first = document.createElement('bili-comment-renderer');
+    const second = document.createElement('bili-comment-reply-renderer');
+    document.body.append(first, second);
+
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: [first, second],
+        removedNodes: [],
+        target: document.body,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+
+    vi.advanceTimersByTime(120);
+
+    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh comment roots for danmaku-only mutation bursts', () => {
+    vi.useFakeTimers();
+    const scheduleRestore = vi.fn();
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const commentHost = document.createElement('bili-comment-renderer');
+    commentHost.attachShadow({ mode: 'open' });
+    region.append(commentHost);
+    document.body.append(region);
+    platform.observeDomChanges({} as MutationObserver);
+
+    const danmakuWrap = document.createElement('div');
+    danmakuWrap.className = 'bpx-player-render-dm-wrap';
+    for (let index = 0; index < 20; index += 1) {
+      const danmaku = document.createElement('span');
+      danmaku.className = 'bili-danmaku-x-dm';
+      danmaku.textContent = `dm-${index}`;
+      danmakuWrap.append(danmaku);
+    }
+    document.body.append(danmakuWrap);
+
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: Array.from(danmakuWrap.childNodes),
+        removedNodes: [],
+        target: danmakuWrap,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+    vi.advanceTimersByTime(120);
+
+    expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
   it('clears pending shadow-host polling when disposed', () => {
