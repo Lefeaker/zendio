@@ -40,13 +40,14 @@ export function buildBilibiliSearchCandidates(normalized: string): string[] {
 
 export function findBilibiliTextRangeInShadowDOM(
   text: string,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly ShadowRoot[]
 ): Range | null {
   const normalized = helpers.normalizeWhitespace(text);
-  if (!normalized) {
+  if (!normalized || !roots.length) {
     return null;
   }
-  return findBilibiliTextRangeAcrossShadowRoots(normalized, helpers);
+  return findBilibiliTextRangeAcrossShadowRoots(normalized, helpers, roots);
 }
 
 export function extractBilibiliSelection(

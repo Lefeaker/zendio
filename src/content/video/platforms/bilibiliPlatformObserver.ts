@@ -47,6 +47,7 @@ const BILIBILI_DANMAKU_SELECTOR = [
 export class BilibiliShadowObserver {
   private fragmentObserver: MutationObserver | null = null;
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
+  private readonly observedCommentRoots = new Set<ShadowRoot>();
   private readonly pendingShadowHosts = new WeakSet<HTMLElement>();
   private readonly pendingTimeouts = new Set<number>();
   private pendingRefreshHandle: number | null = null;
@@ -72,6 +73,11 @@ export class BilibiliShadowObserver {
 
   ensureShadowHostObservationForTests(host: Element): void {
     this.ensureShadowHostObservation(host);
+  }
+
+  getObservedCommentRootsForSearch(): ShadowRoot[] {
+    this.pruneDisconnectedCommentRoots();
+    return Array.from(this.observedCommentRoots);
   }
 
   handleMutations(mutations: MutationRecord[]): void {
@@ -195,9 +201,20 @@ export class BilibiliShadowObserver {
     this.context.registerShadowSelectionBridge(root);
     this.context.observeWithFragmentObserver(root, { childList: true, subtree: true });
     this.observedShadowRoots.add(root);
+    if (isBilibiliCommentRegionNode(root)) {
+      this.observedCommentRoots.add(root);
+    }
 
     const nestedHosts = root.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
     nestedHosts.forEach((element) => this.ensureShadowHostObservation(element));
+  }
+
+  private pruneDisconnectedCommentRoots(): void {
+    for (const root of this.observedCommentRoots) {
+      if (!isBilibiliCommentRegionNode(root)) {
+        this.observedCommentRoots.delete(root);
+      }
+    }
   }
 }
 

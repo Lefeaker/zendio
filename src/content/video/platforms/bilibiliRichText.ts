@@ -100,22 +100,21 @@ export function serializeBilibiliRichTextFragment(
   root: Element | ShadowRoot,
   escapeHtml: (value: string) => string
 ): { text: string; html: string } {
-  const textParts: string[] = [];
-  const htmlParts: string[] = [];
+  const textTokens: Array<{ text: string; html: string; separated: boolean }> = [];
 
-  const append = (raw: string | null | undefined, htmlOverride?: string) => {
+  const append = (raw: string | null | undefined, htmlOverride?: string, separated = false) => {
     if (raw == null) {
       return;
     }
-    if (raw.trim().length === 0) {
-      if (raw.length > 0) {
-        textParts.push(' ');
-        htmlParts.push(' ');
-      }
+    const normalized = raw.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
       return;
     }
-    textParts.push(raw);
-    htmlParts.push(htmlOverride ?? escapeHtml(raw));
+    textTokens.push({
+      text: normalized,
+      html: htmlOverride ?? escapeHtml(normalized),
+      separated: separated || /^\s|\s$/.test(raw)
+    });
   };
 
   const walk = (node: Node): void => {
@@ -131,6 +130,9 @@ export function serializeBilibiliRichTextFragment(
     if (tagName === 'style' || tagName === 'script' || tagName === 'template') {
       return;
     }
+    if (isHiddenBilibiliRichTextChrome(node)) {
+      return;
+    }
 
     if (tagName === 'bili-emoji') {
       const emojiText =
@@ -144,7 +146,8 @@ export function serializeBilibiliRichTextFragment(
         const escaped = escapeHtml(emojiText);
         append(
           emojiText,
-          `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`
+          `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`,
+          true
         );
       }
       return;
@@ -159,7 +162,11 @@ export function serializeBilibiliRichTextFragment(
         '';
       if (alt) {
         const escaped = escapeHtml(alt);
-        append(alt, `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`);
+        append(
+          alt,
+          `<span data-aiob-fragment="emoji" data-emoji="${escaped}">${escaped}</span>`,
+          true
+        );
         return;
       }
     }
@@ -173,7 +180,11 @@ export function serializeBilibiliRichTextFragment(
         '';
       if (mentionText) {
         const normalized = mentionText.startsWith('@') ? mentionText : `@${mentionText}`;
-        append(normalized, `<span data-aiob-fragment="mention">${escapeHtml(normalized)}</span>`);
+        append(
+          normalized,
+          `<span data-aiob-fragment="mention">${escapeHtml(normalized)}</span>`,
+          true
+        );
       }
       return;
     }
@@ -192,10 +203,13 @@ export function serializeBilibiliRichTextFragment(
         const normalized = linkText.trim();
         if (normalized) {
           const escapedText = escapeHtml(normalized);
+          const isMention =
+            node.getAttribute('data-type')?.toLowerCase() === 'mention' ||
+            normalized.startsWith('@');
           const html = href
             ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapedText}</a>`
             : escapedText;
-          append(normalized, html);
+          append(normalized, html, isMention);
         }
       }
       return;
@@ -216,11 +230,60 @@ export function serializeBilibiliRichTextFragment(
 
   Array.from(root.childNodes).forEach((child) => walk(child));
 
-  const combined = textParts.join('');
+  const combined = joinBilibiliRichTextTokens(textTokens, (token) => token.text);
+  const combinedHtml = joinBilibiliRichTextTokens(textTokens, (token) => token.html);
   return {
-    text: combined.replace(/\s+/g, ' ').trim(),
-    html: htmlParts.join('')
+    text: combined,
+    html: combinedHtml
   };
+}
+
+function joinBilibiliRichTextTokens<T extends { text: string; separated: boolean }>(
+  tokens: readonly T[],
+  select: (token: T) => string
+): string {
+  let combined = '';
+
+  for (const token of tokens) {
+    const value = select(token);
+    if (!value) {
+      continue;
+    }
+    if (
+      combined &&
+      (token.separated || shouldSeparateBilibiliRichTextToken(combined, token.text))
+    ) {
+      combined += ' ';
+    }
+    combined += value;
+  }
+
+  return combined.replace(/\s+/g, ' ').trim();
+}
+
+function shouldSeparateBilibiliRichTextToken(previous: string, next: string): boolean {
+  if (!previous || !next) {
+    return false;
+  }
+  const previousChar = previous[previous.length - 1];
+  const nextChar = next[0];
+  if (nextChar === ':' || nextChar === '：' || nextChar === ',' || nextChar === '，') {
+    return true;
+  }
+  if (previousChar === ':' || previousChar === '：') {
+    return true;
+  }
+  return false;
+}
+
+function isHiddenBilibiliRichTextChrome(node: Element): boolean {
+  if (node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true') {
+    return true;
+  }
+  const className = node.getAttribute('class') ?? '';
+  return /(?:action|menu|card|popover|panel|toolbar|operation|reply-btn|like|avatar)/i.test(
+    className
+  );
 }
 
 function findNestedImageAlt(node: Element): string | null {
