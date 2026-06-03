@@ -174,6 +174,7 @@ export class VideoDialogPanel implements UiMountable<
   }
 
   destroy(): void {
+    this.cancelActiveEditor();
     this.collapsePersistence.destroy();
     this.unregisterPopup?.();
     this.unregisterPopup = null;
@@ -232,7 +233,10 @@ export class VideoDialogPanel implements UiMountable<
           this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture('note-input')),
         'video:finish': () =>
           this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish()),
-        'video:cancel': () => this.options.callbacks.onCancel(),
+        'video:cancel': () => {
+          this.cancelActiveEditor();
+          this.options.callbacks.onCancel();
+        },
         'export-destination:select': (event) => {
           const id = this.resolveActionId(event, 'destinationId');
           if (id) {
@@ -246,6 +250,10 @@ export class VideoDialogPanel implements UiMountable<
         'video:delete': (event) => {
           const id = this.resolveActionId(event, 'captureId');
           if (id) {
+            if (id === this.editingCaptureId) {
+              this.options.callbacks.onCaptureEditorCancel?.(id);
+              this.editingCaptureId = null;
+            }
             this.commentDrafts.clear(id);
             this.options.callbacks.onDeleteCapture(id);
           }
@@ -334,6 +342,13 @@ export class VideoDialogPanel implements UiMountable<
       });
       const input = item.querySelector<HTMLInputElement>('[data-capture-input]');
       this.commentDrafts.bindInput(input, id);
+      input?.addEventListener('focus', () => this.options.callbacks.onCaptureEditorFocus?.(id));
+      input?.addEventListener('blur', (event) => {
+        this.options.callbacks.onCaptureEditorBlur?.(
+          id,
+          this.isTargetInsidePanel(event.relatedTarget) ? 'inside-panel' : 'outside-panel'
+        );
+      });
     });
   }
 
@@ -359,6 +374,27 @@ export class VideoDialogPanel implements UiMountable<
       target?.closest(
         'button, input, textarea, select, a, [contenteditable="true"], [data-action-id]'
       )
+    );
+  }
+
+  private cancelActiveEditor(): void {
+    const id = this.editingCaptureId;
+    if (!id) {
+      return;
+    }
+    this.options.callbacks.onCaptureEditorCancel?.(id);
+    this.commentDrafts.clear(id);
+    this.editingCaptureId = null;
+  }
+
+  private isTargetInsidePanel(target: EventTarget | null): boolean {
+    if (!(target instanceof Node)) {
+      return false;
+    }
+    return (
+      target === this.renderRoot ||
+      this.renderRoot.contains(target) ||
+      Boolean(this.renderRoot.shadowRoot?.contains(target))
     );
   }
 
