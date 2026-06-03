@@ -2,14 +2,77 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureVideoControlBarButton } from '@content/video/videoControlBarButton';
+import { toControlBarCaptureOptions } from '@content/video/videoPromptControlBarAdapter';
+import { createVideoPromptControlTargetLifecycle } from '@content/video/videoPromptControlTargetLifecycle';
 
 function mountYoutubeControls(): HTMLElement {
   document.body.innerHTML = '<div class="ytp-right-controls"></div>';
   return document.querySelector<HTMLElement>('.ytp-right-controls')!;
 }
 
+function mountControlledVideo(initiallyPaused: boolean): {
+  video: HTMLVideoElement;
+  pauseSpy: ReturnType<typeof vi.fn>;
+  playSpy: ReturnType<typeof vi.fn>;
+  setPaused(value: boolean): void;
+} {
+  const video = document.createElement('video');
+  let paused = initiallyPaused;
+  Object.defineProperty(video, 'paused', {
+    get: () => paused,
+    configurable: true
+  });
+  const pauseSpy = vi.fn(() => {
+    paused = true;
+  });
+  const playSpy = vi.fn(() => {
+    paused = false;
+    return Promise.resolve();
+  });
+  Object.defineProperty(video, 'pause', {
+    value: pauseSpy,
+    configurable: true
+  });
+  Object.defineProperty(video, 'play', {
+    value: playSpy,
+    configurable: true
+  });
+  document.body.appendChild(video);
+  return {
+    video,
+    pauseSpy,
+    playSpy,
+    setPaused(value: boolean): void {
+      paused = value;
+    }
+  };
+}
+
+function mountControlTargetLifecycle(
+  preferences = {
+    autoPauseEnabled: true,
+    captureScreenshotEnabled: true
+  }
+): ReturnType<typeof createVideoPromptControlTargetLifecycle> {
+  mountYoutubeControls();
+  return createVideoPromptControlTargetLifecycle({
+    getDocument: () => document,
+    getWindow: () => window,
+    getUrl: () => 'https://www.youtube.com/watch?v=abc123',
+    getLabel: () => '开启视频笔记',
+    getShortcut: () => '',
+    getPreferences: () => preferences,
+    setPreferences: vi.fn(),
+    getIconUrl: () => null,
+    onPrimaryAction: vi.fn(),
+    onTargetObserved: vi.fn(),
+    incrementSyncCount: vi.fn()
+  });
+}
+
 describe('ensureVideoControlBarButton', () => {
   beforeEach(() => {
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });
@@ -310,5 +373,126 @@ describe('ensureVideoControlBarButton', () => {
       captureScreenshotEnabled: true
     });
     expect(onPrimaryAction).not.toHaveBeenCalled();
+  });
+
+  it('restores playback on outside dismiss only when the popover paused a playing video', () => {
+    const lifecycle = mountControlTargetLifecycle();
+    const { pauseSpy, playSpy } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).not.toHaveBeenCalled();
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not resume an initially paused video after outside dismiss', () => {
+    const lifecycle = mountControlTargetLifecycle();
+    const { pauseSpy, playSpy } = mountControlledVideo(true);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(playSpy).not.toHaveBeenCalled();
+  });
+
+  it('re-pauses synthetic playback while the popover lease is active', () => {
+    const lifecycle = mountControlTargetLifecycle();
+    const { video, pauseSpy, setPaused } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    setPaused(false);
+    video.dispatchEvent(new Event('play'));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(2);
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+  });
+
+  it('restores playback after submitting a popover note when auto pause paused playback', () => {
+    const onPrimaryAction = vi.fn();
+    mountYoutubeControls();
+    const lifecycle = createVideoPromptControlTargetLifecycle({
+      getDocument: () => document,
+      getWindow: () => window,
+      getUrl: () => 'https://www.youtube.com/watch?v=abc123',
+      getLabel: () => '开启视频笔记',
+      getShortcut: () => '',
+      getPreferences: () => ({
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      }),
+      setPreferences: vi.fn(),
+      getIconUrl: () => null,
+      onPrimaryAction,
+      onTargetObserved: vi.fn(),
+      incrementSyncCount: vi.fn()
+    });
+    const { pauseSpy, playSpy } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    const input = document.querySelector<HTMLInputElement>(
+      '[data-aiob-video-control-bar-note-input="true"]'
+    )!;
+    input.value = 'submit note';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(onPrimaryAction).toHaveBeenCalledWith(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'submit note',
+        source: 'note-input'
+      }
+    );
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not pause or resume while auto pause is disabled', () => {
+    const lifecycle = mountControlTargetLifecycle({
+      autoPauseEnabled: false,
+      captureScreenshotEnabled: true
+    });
+    const { pauseSpy, playSpy } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(playSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not ask the video session to resume playback for submitted control-bar notes', () => {
+    expect(
+      toControlBarCaptureOptions(
+        {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: false
+        },
+        {
+          comment: 'note',
+          source: 'note-input'
+        }
+      )
+    ).toEqual({
+      comment: 'note',
+      pauseVideo: false,
+      captureScreenshot: false,
+      beginEditing: false,
+      resumePlayback: false,
+      collapseAfterCapture: true
+    });
   });
 });
