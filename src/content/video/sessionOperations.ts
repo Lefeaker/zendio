@@ -105,6 +105,9 @@ export async function handleVideoSessionAddCapture(
   };
 
   context.state.captures.push(capture);
+  if (shouldLeasePlayback) {
+    context.beginPlaybackEditLease?.(capture.id);
+  }
   if (options.collapseAfterCapture) {
     context.dom.collapsePanel();
   }
@@ -113,7 +116,6 @@ export async function handleVideoSessionAddCapture(
   await saveVideoCaptures(context);
   context.syncPanel();
   if (options.beginEditing !== false) {
-    context.beginPlaybackEditLease?.(capture.id);
     context.dom.beginEditingCapture(capture.id, capture.comment);
   } else {
     context.dom.stopEditing();
