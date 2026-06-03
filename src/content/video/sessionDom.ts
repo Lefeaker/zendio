@@ -135,6 +135,20 @@ export class VideoSessionDomController {
     this.panel?.stopEditing();
   }
 
+  isEventInsidePanel(event: Event): boolean {
+    return event.composedPath().some((entry) => {
+      if (!(entry instanceof HTMLElement)) {
+        return false;
+      }
+      return (
+        entry.dataset.stitchSurface === 'video' ||
+        entry.classList.contains('video-surface-window') ||
+        entry.hasAttribute('data-capture-input') ||
+        entry.hasAttribute('data-capture-id')
+      );
+    });
+  }
+
   collapsePanel(): void {
     this.panel?.collapse?.();
   }

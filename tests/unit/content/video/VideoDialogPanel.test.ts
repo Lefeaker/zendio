@@ -207,6 +207,55 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('reports capture editor focus and blur lifecycle events', async () => {
+    const lifecycleCallbacks: VideoPanelCallbacks & {
+      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
+      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
+    } = {
+      ...callbacks,
+      onCaptureEditorFocus: vi.fn(),
+      onCaptureEditorBlur: vi.fn()
+    };
+    const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+
+    const cancelButton = panel.element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:cancel"]'
+    );
+    expect(cancelButton).toBeTruthy();
+    if (!cancelButton) {
+      throw new Error('cancel button missing');
+    }
+
+    input.dispatchEvent(new FocusEvent('focus'));
+    input.dispatchEvent(new FocusEvent('blur', { relatedTarget: cancelButton }));
+    input.dispatchEvent(new FocusEvent('blur'));
+
+    expect(lifecycleCallbacks.onCaptureEditorFocus).toHaveBeenCalledWith('capture-1');
+    expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenNthCalledWith(
+      1,
+      'capture-1',
+      'inside-panel'
+    );
+    expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenCalledWith(
+      'capture-1',
+      'outside-panel'
+    );
+
+    panel.destroy();
+  });
+
   it('preserves unsaved capture note drafts when additional captures render', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     const first = createCapture({ id: 'capture-1', index: 1, timeLabel: '00:42' });

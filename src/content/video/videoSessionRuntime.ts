@@ -55,6 +55,7 @@ import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionControllers } from './videoSessionControllers';
 import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
+import { VideoPlaybackEditLease } from './videoPlaybackEditLease';
 
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -71,10 +72,11 @@ export class VideoSession {
   private platformController!: VideoSessionPlatformController;
   private dom!: VideoSessionDomController;
   private readonly destinationState: ContentExportDestinationState;
+  private readonly playbackEditLease = new VideoPlaybackEditLease();
   private controllersReadyPromise: Promise<void> | null = null;
 
   private get operationContext() {
-    return createVideoSessionOperationContext({
+    const context = createVideoSessionOperationContext({
       session: this,
       doc: this.doc,
       state: this.state,
@@ -102,6 +104,13 @@ export class VideoSession {
       highlightFragmentText: (text: string) =>
         highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
       getExportDestinationMetadata: () => this.destinationState.metadata
+    });
+
+    return Object.assign(context, {
+      beginPlaybackEditLease: (captureId: string) => this.beginPlaybackEditLease(captureId),
+      releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
+        this.playbackEditLease.releaseForCapture(captureId, { restorePlayback }),
+      resetPlaybackEditLease: () => this.playbackEditLease.reset()
     });
   }
 
@@ -185,10 +194,16 @@ export class VideoSession {
       dependencies: this.dependencies,
       dom: this.dom,
       interactionHandlers: {
-        onMouseDown: (event) => this.fragmentSelectionController.handleMouseDown(event),
+        onMouseDown: (event) => {
+          this.releasePlaybackEditLeaseOnOutsidePointer(event);
+          this.fragmentSelectionController.handleMouseDown(event);
+        },
         onKeyDown: (event) => this.fragmentSelectionController.handleKeyDown(event),
         onKeyUp: (event) => this.fragmentSelectionController.handleKeyUp(event),
-        onWindowBlur: () => this.fragmentSelectionController.handleWindowBlur()
+        onWindowBlur: () => {
+          this.playbackEditLease.reset();
+          this.fragmentSelectionController.handleWindowBlur();
+        }
       },
       selectionCaptureController: this.selectionCaptureController,
       fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
@@ -221,7 +236,15 @@ export class VideoSession {
           onSubmitCaptureEdit: (id, comment) =>
             void submitVideoSessionCaptureEdit(this.operationContext, id, comment),
           onToggleScreenshot: (id) => void this.toggleCaptureScreenshot(id),
-          onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id)
+          onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id),
+          onCaptureEditorFocus: (id) => this.beginPlaybackEditLease(id),
+          onCaptureEditorBlur: (id, scope) => {
+            if (scope === 'outside-panel') {
+              this.playbackEditLease.releaseForCapture(id, { restorePlayback: true });
+            }
+          },
+          onCaptureEditorCancel: (id) =>
+            this.playbackEditLease.releaseForCapture(id, { restorePlayback: false })
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
         applyHint: (state) => this.applyHint(state),
@@ -264,6 +287,20 @@ export class VideoSession {
   private async refreshDestinationPreview(): Promise<void> {
     const preview = await this.destinationState.refresh();
     this.dom.updateDestination(preview);
+  }
+
+  private beginPlaybackEditLease(captureId: string): void {
+    const video = this.state.videoElement ?? this.doc.querySelector('video');
+    if (video) {
+      this.playbackEditLease.acquire(captureId, video);
+    }
+  }
+
+  private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {
+    if (this.dom.isEventInsidePanel(event)) {
+      return;
+    }
+    this.playbackEditLease.release({ restorePlayback: true });
   }
 
   private async selectDestination(id: string): Promise<void> {

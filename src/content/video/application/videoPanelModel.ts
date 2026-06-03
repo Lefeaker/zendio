@@ -9,6 +9,9 @@ export interface VideoPanelCallbacks {
   onSubmitCaptureEdit: (id: string, comment: string) => void | Promise<void>;
   onToggleScreenshot: (id: string) => void | Promise<void>;
   onFocusCapture: (id: string) => void;
+  onCaptureEditorFocus?: (id: string) => void;
+  onCaptureEditorBlur?: (id: string, scope: 'inside-panel' | 'outside-panel') => void;
+  onCaptureEditorCancel?: (id: string) => void;
 }
 
 export interface VideoPanelCapture {

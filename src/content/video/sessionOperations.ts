@@ -46,6 +46,9 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  beginPlaybackEditLease?: (captureId: string) => void;
+  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
+  resetPlaybackEditLease?: () => void;
 }
 
 export async function handleVideoSessionAddCapture(
@@ -71,7 +74,8 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  if (options.pauseVideo && typeof video.pause === 'function') {
+  const shouldLeasePlayback = Boolean(options.pauseVideo && options.beginEditing !== false);
+  if (options.pauseVideo && !shouldLeasePlayback && typeof video.pause === 'function') {
     video.pause();
   }
 
@@ -109,6 +113,7 @@ export async function handleVideoSessionAddCapture(
   await saveVideoCaptures(context);
   context.syncPanel();
   if (options.beginEditing !== false) {
+    context.beginPlaybackEditLease?.(capture.id);
     context.dom.beginEditingCapture(capture.id, capture.comment);
   } else {
     context.dom.stopEditing();
@@ -202,6 +207,7 @@ export async function submitVideoSessionCaptureEdit(
   context.applyHint('saving');
   await saveVideoCaptures(context);
   context.syncPanel();
+  context.releasePlaybackEditLease?.(id, true);
   context.dom.stopEditing();
 }
 
@@ -211,6 +217,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
     return;
   }
   const [removed] = context.state.captures.splice(index, 1);
+  context.releasePlaybackEditLease?.(id, false);
   if (removed?.kind === 'fragment' && removed.wrapperId) {
     context.fragmentHighlighter.removeById(removed.wrapperId);
   }
@@ -346,6 +353,7 @@ export function cancelVideoSession(context: VideoSessionOperationContext): void 
 }
 
 export function cleanupVideoSession(context: VideoSessionOperationContext): void {
+  context.resetPlaybackEditLease?.();
   context.lifecycle.stop();
   context.state.stopOptionsWatcher?.();
   context.state.stopOptionsWatcher = null;

@@ -321,6 +321,7 @@ describe('VideoSession', () => {
 
     const video = document.querySelector('video');
     Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'paused', { value: false, configurable: true });
     const pauseSpy = vi
       .spyOn(video as HTMLVideoElement, 'pause')
       .mockImplementation(() => undefined);
@@ -334,6 +335,31 @@ describe('VideoSession', () => {
       expect.stringContaining('aiob-video-'),
       ''
     );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('keeps playback paused while a note editor remains active', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'paused', { value: false, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+
+    await sessionApi.handleAddCapture('note-input');
+    video.dispatchEvent(new Event('play'));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(2);
+    expect(playSpy).not.toHaveBeenCalled();
 
     sessionApi.cleanup();
     vi.useRealTimers();
