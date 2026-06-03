@@ -10,8 +10,8 @@ import {
   type VideoControlBarPreferences
 } from './videoControlBarButton';
 import {
-  pauseActiveVideoForControlBar,
-  resumeActiveVideoForControlBar
+  acquireControlBarPlaybackLease,
+  type VideoControlBarPlaybackLease
 } from './videoPromptControlBarAdapter';
 import { CONTROL_TARGET_RETRY_DELAYS_MS } from './videoPromptState';
 
@@ -38,6 +38,12 @@ export function createVideoPromptControlTargetLifecycle(
   let stopControlTargetObserver: (() => void) | null = null;
   let controlTargetRetryHandle: number | null = null;
   let controlTargetRetryIndex = 0;
+  let popoverPlaybackLease: VideoControlBarPlaybackLease | null = null;
+
+  function releasePopoverPlaybackLease(restorePlayback: boolean): void {
+    popoverPlaybackLease?.release({ restorePlayback });
+    popoverPlaybackLease = null;
+  }
 
   function clearObserver(): void {
     stopControlTargetObserver?.();
@@ -81,16 +87,21 @@ export function createVideoPromptControlTargetLifecycle(
       preferences: options.getPreferences(),
       onPreferencesChange: (preferences) => options.setPreferences(preferences),
       onPopoverOpen: (preferences) => {
-        if (preferences.autoPauseEnabled) {
-          pauseActiveVideoForControlBar(doc);
-        }
+        releasePopoverPlaybackLease(false);
+        popoverPlaybackLease = preferences.autoPauseEnabled
+          ? acquireControlBarPlaybackLease(doc)
+          : null;
       },
       onPopoverDismiss: (preferences) => {
-        if (preferences.autoPauseEnabled) {
-          resumeActiveVideoForControlBar(doc);
-        }
+        releasePopoverPlaybackLease(preferences.autoPauseEnabled);
       },
-      onPrimaryAction: (preferences, payload) => options.onPrimaryAction(preferences, payload)
+      onPrimaryAction: (preferences, payload) => {
+        try {
+          options.onPrimaryAction(preferences, payload);
+        } finally {
+          releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+        }
+      }
     });
   }
 
@@ -134,6 +145,7 @@ export function createVideoPromptControlTargetLifecycle(
   }
 
   function removeButton(): void {
+    releasePopoverPlaybackLease(false);
     removeVideoControlBarButton(options.getDocument());
   }
 
