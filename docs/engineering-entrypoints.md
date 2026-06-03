@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-01
+最后更新：2026-06-03
 
 ## 推荐运行环境
 
@@ -44,6 +44,7 @@
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
+- 2026-06-03 video-mode structural repair 真值：P01-P06 合入后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/971/1616/41/4`、src `0/537/565/5/0`、tests `0/434/1051/36/4`；本次同步只反映新增视频/哔哩哔哩测试夹具的 current truth，同时收紧 overall assertions/non-null 与 src unknown/assertion 上限。
 
 ## 当前推荐执行顺序
 
@@ -65,6 +66,12 @@ npm run test:e2e:browser:reader-panel
 npm run verify:stitch-secondary
 npm run visual:test
 ```
+
+Reader/video browser E2E command truth:
+
+- `node scripts/run-playwright.mjs test tests/e2e/<file> --project=chromium-desktop` automatically uses `playwright.reader.config.ts` when no explicit `--config` is supplied.
+- `playwright.reader.config.ts` starts the local Playwright web server and runs `build:dev`, so reader/video browser E2E tests do not depend on a pre-existing `build/dist`.
+- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`.
 
 Local Vault / release handoff checks:
 
@@ -97,9 +104,9 @@ credentials and manual confirmation.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`99`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前集成树 `1108` files；overall 为 `any: 0`、`unknown: 992`、assertions `1673`、non-null assertions `108`、`ts-expect-error: 4`。
+- `npm run lint:type-any`：扫描当前集成树 `1012` files；overall 为 `any: 0`、`unknown: 971`、assertions `1616`、non-null assertions `41`、`ts-expect-error: 4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/992/1673/108/4`、src `0/551/620/5/0`、tests `0/441/1053/103/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/971/1616/41/4`、src `0/537/565/5/0`、tests `0/434/1051/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 

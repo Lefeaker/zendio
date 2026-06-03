@@ -86,7 +86,12 @@ npm run audit:performance:report
 当前热点：
 
 - `src/options/yaml-config-editor/view.ts`: `746` 行
-- `src/content/video/videoSessionRuntime.ts`: `395` 行
+- `src/content/video/sessionOperations.ts`: `491` 行
+- `src/content/video/videoSessionRuntime.ts`: `432` 行
+- `src/content/video/ui/VideoDialogPanel.ts`: `407` 行
+- `src/content/video/videoControlBarButton.ts`: `395` 行
+- `src/content/video/platforms/bilibiliRichText.ts`: `302` 行
+- `src/content/video/platforms/bilibiliPlatformObserver.ts`: `292` 行
 - `src/content/reader/utils/markdownBuilder.ts`: `288` 行
 - `src/options/yaml-config-editor/validation.ts`: `270` 行
 - `src/ui/domains/privacy/PrivacySettingsView.ts`: `255` 行
@@ -101,9 +106,9 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-02 YAML row-model shape repair 后当前动态发现 `91` 个热点路径，注册 `92` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-03 video-mode structural repair 后当前动态发现 `93` 个热点路径，注册 `94` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
-- 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 746`、`videoSessionRuntime.ts <= 395`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`。
+- 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 491`、`videoSessionRuntime.ts <= 432`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 746` were not loosened.
 
 本轮有效收口结果：
@@ -111,7 +116,7 @@ npm run audit:performance:report
 - `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
 - `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
-- `videoSessionRuntime` 当前仍为 `395` 行，保留为 runtime hotspot 观察项。
+- `videoSessionRuntime` 当前为 `432` 行；video structural repair 同步将 `sessionOperations`、`VideoDialogPanel`、`videoControlBarButton`、`bilibiliRichText` 与 `bilibiliPlatformObserver` 纳入 exact current-line budget，作为后续拆分观察项。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
 
 ## 3. 浏览器验真

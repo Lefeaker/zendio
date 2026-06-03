@@ -14,7 +14,7 @@ function mountControlledVideo(initiallyPaused: boolean): {
   video: HTMLVideoElement;
   pauseSpy: ReturnType<typeof vi.fn>;
   playSpy: ReturnType<typeof vi.fn>;
-  setPaused(value: boolean): void;
+  setPaused: (value: boolean) => void;
 } {
   const video = document.createElement('video');
   let paused = initiallyPaused;
@@ -42,7 +42,7 @@ function mountControlledVideo(initiallyPaused: boolean): {
     video,
     pauseSpy,
     playSpy,
-    setPaused(value: boolean): void {
+    setPaused: (value: boolean): void => {
       paused = value;
     }
   };

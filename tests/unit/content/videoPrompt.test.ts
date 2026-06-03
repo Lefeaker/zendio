@@ -526,9 +526,14 @@ describe('video prompt', () => {
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
     const video = document.createElement('video');
     document.body.appendChild(video);
-    const pauseSpy = vi
-      .spyOn(window.HTMLMediaElement.prototype, 'pause')
-      .mockImplementation(() => undefined);
+    let paused = false;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {
+      paused = true;
+    });
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -579,7 +584,7 @@ describe('video prompt', () => {
     });
   });
 
-  it('resumes playback after submitting a control-bar note when auto-pause is enabled', async () => {
+  it('submits a control-bar note without asking the capture save to resume playback', async () => {
     const controls = document.createElement('div');
     controls.className = 'ytp-right-controls';
     document.body.appendChild(controls);
@@ -610,7 +615,7 @@ describe('video prompt', () => {
       pauseVideo: false,
       captureScreenshot: true,
       beginEditing: false,
-      resumePlayback: true,
+      resumePlayback: false,
       collapseAfterCapture: true
     });
   });
@@ -626,14 +631,29 @@ describe('video prompt', () => {
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
     const video = document.createElement('video');
     document.body.appendChild(video);
-    const playSpy = vi
-      .spyOn(window.HTMLMediaElement.prototype, 'play')
-      .mockImplementation(() => Promise.resolve());
+    let paused = false;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
 
     await module.initVideoPrompt();
     await flushMicrotasks();
 
     const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPopoverOpen?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+
     controlOptions?.onPopoverDismiss?.({
       autoPauseEnabled: true,
       captureScreenshotEnabled: true
