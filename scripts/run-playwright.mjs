@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
 
-const args = process.argv.slice(2);
-const selectedPort = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? await reservePlaywrightPort();
+const args = withDefaultConfigForExplicitE2eTests(process.argv.slice(2));
+const selectedPort = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? (await reservePlaywrightPort());
 const env = createCleanCliEnv({
   PLAYWRIGHT_WEB_SERVER_PORT: selectedPort
 });
@@ -26,6 +26,28 @@ child.on('error', (error) => {
   console.error('[run-playwright] Failed to launch Playwright:', error);
   process.exit(1);
 });
+
+function withDefaultConfigForExplicitE2eTests(args) {
+  if (hasConfigArg(args) || !targetsE2eTestFile(args)) {
+    return args;
+  }
+
+  return [...args, '--config=playwright.reader.config.ts'];
+}
+
+function hasConfigArg(args) {
+  return args.some((arg) => arg === '--config' || arg.startsWith('--config='));
+}
+
+function targetsE2eTestFile(args) {
+  return args.some((arg) => {
+    if (arg.startsWith('-')) {
+      return false;
+    }
+
+    return arg.replaceAll('\\', '/').includes('tests/e2e/');
+  });
+}
 
 function reservePlaywrightPort() {
   return new Promise((resolve, reject) => {
