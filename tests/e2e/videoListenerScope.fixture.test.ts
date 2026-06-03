@@ -5,11 +5,16 @@ import {
   ensureVideoControlBarButton,
   removeVideoControlBarButton
 } from '../../src/content/video/videoControlBarButton';
+import { BilibiliVideoPlatform } from '../../src/content/video/platforms/bilibiliPlatform';
 import { findVideoControlTarget } from '../../src/content/video/videoPromptObserver';
 import { SelectionCaptureController } from '../../src/content/video/selectionCaptureController';
 import { VideoFragmentSelectionController } from '../../src/content/video/videoFragmentSelectionController';
 import type { PendingSelectionTracker } from '../../src/content/video/pendingSelectionTracker';
-import type { VideoPlatformAdapter } from '../../src/content/video/platforms';
+import type {
+  PlatformSelectionInput,
+  VideoPlatformAdapter,
+  VideoPlatformContext
+} from '../../src/content/video/platforms';
 import { asType, selection as mkSelection } from '../utils/typeHelpers';
 
 function createRangeSelection(text = 'Selected text'): { range: Range; selection: Selection } {
@@ -31,6 +36,72 @@ function createRangeSelection(text = 'Selected text'): { range: Range; selection
       removeAllRanges: vi.fn()
     })
   };
+}
+
+function createPlatformContext(): VideoPlatformContext {
+  return {
+    doc: document,
+    highlightSelection: vi.fn(() => undefined),
+    decorateHighlight: vi.fn(),
+    scheduleFragmentHighlightRestore: vi.fn(),
+    getElementByIdDeep: vi.fn(() => null),
+    querySelectorDeep: vi.fn(() => null),
+    observeWithFragmentObserver: vi.fn(),
+    registerShadowSelectionBridge: vi.fn(),
+    ensureHighlightStyles: vi.fn()
+  };
+}
+
+function createRichTextHost(fixtureId: string, html: string): HTMLElement {
+  const richText = document.createElement('bili-rich-text');
+  richText.dataset.fixture = fixtureId;
+  const root = richText.attachShadow({ mode: 'open' });
+  root.innerHTML = `<div id="contents" class="rich-text-content">${html}</div>`;
+  return richText;
+}
+
+function mountNestedBilibiliCommentsFixture(): {
+  mainContent: HTMLElement;
+  mainRichText: HTMLElement;
+  replyContent: HTMLElement;
+  replyRichText: HTMLElement;
+} {
+  const comments = document.createElement('bili-comments');
+  const commentsRoot = comments.attachShadow({ mode: 'open' });
+  const thread = document.createElement('bili-comment-thread-renderer');
+  const threadRoot = thread.attachShadow({ mode: 'open' });
+  const comment = document.createElement('bili-comment-renderer');
+  const commentRoot = comment.attachShadow({ mode: 'open' });
+  const reply = document.createElement('bili-comment-reply-renderer');
+  const replyRoot = reply.attachShadow({ mode: 'open' });
+  const mainRichText = createRichTextHost('main-rich-text', '<span>Main fixture rich text</span>');
+  const replyRichText = createRichTextHost(
+    'reply-rich-text',
+    '<span>Reply </span><a data-type="mention" href="//space.bilibili.com/123">@reply-user</a><span> fixture rich text</span>'
+  );
+
+  commentRoot.append(mainRichText);
+  replyRoot.append(replyRichText);
+  threadRoot.append(comment, reply);
+  commentsRoot.append(thread);
+  document.body.append(comments);
+
+  const mainContent = mainRichText.shadowRoot?.querySelector<HTMLElement>('.rich-text-content');
+  const replyContent = replyRichText.shadowRoot?.querySelector<HTMLElement>('.rich-text-content');
+  if (!mainContent || !replyContent) {
+    throw new Error('Failed to mount nested Bilibili fixture.');
+  }
+
+  return { mainContent, mainRichText, replyContent, replyRichText };
+}
+
+function createBilibiliMouseUp(path: readonly EventTarget[]): MouseEvent {
+  const event = new MouseEvent('mouseup', { bubbles: true, composed: true });
+  Object.defineProperty(event, 'composedPath', {
+    configurable: true,
+    value: () => path
+  });
+  return event;
 }
 
 describe('video listener scope jsdom fixtures', () => {
@@ -208,5 +279,44 @@ describe('video listener scope jsdom fixtures', () => {
     );
     controller.stop();
     removeVideoControlBarButton(document);
+  });
+
+  it('extracts nested Bilibili main and reply rich text from open shadow roots', () => {
+    const { mainContent, mainRichText, replyContent, replyRichText } =
+      mountNestedBilibiliCommentsFixture();
+    const platform = new BilibiliVideoPlatform(createPlatformContext());
+
+    const main = platform.resolveSelection({
+      range: null,
+      selectedText: '',
+      selectedHtml: '',
+      event: createBilibiliMouseUp([
+        mainContent.firstChild ?? mainContent,
+        mainContent,
+        mainRichText.shadowRoot!,
+        mainRichText,
+        document.body,
+        document,
+        window
+      ])
+    } as PlatformSelectionInput);
+    expect(main?.text).toBe('Main fixture rich text');
+
+    const reply = platform.resolveSelection({
+      range: null,
+      selectedText: '',
+      selectedHtml: '',
+      event: createBilibiliMouseUp([
+        replyContent.firstChild ?? replyContent,
+        replyContent,
+        replyRichText.shadowRoot!,
+        replyRichText,
+        document.body,
+        document,
+        window
+      ])
+    } as PlatformSelectionInput);
+    expect(reply?.text).toBe('Reply @reply-user fixture rich text');
+    expect(reply?.html).toContain('@reply-user');
   });
 });

@@ -1,11 +1,17 @@
 import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  BILIBILI_MAIN_COMMENT_TEXT,
+  BILIBILI_REPLY_COMMENT_TEXT,
+  buildBilibiliCommentsShadowFixture
+} from './fixtures/bilibili-comments-shadow';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EXTENSION_PATH = path.resolve(__dirname, '../../build/dist');
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=browserListenerScope';
+const YOUTUBE_PAUSED_URL = 'https://www.youtube.com/watch?v=browserListenerScopePaused';
 const BILIBILI_URL = 'https://www.bilibili.com/video/BV1browser/';
 
 type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
@@ -14,6 +20,20 @@ type VideoPromptDebugCounters = {
   evaluateCount: number;
   controlButtonSyncCount: number;
   floatingPromptMountCount: number;
+};
+
+type HostShortcutCounters = {
+  keydown: number;
+  l: number;
+  m: number;
+  space: number;
+};
+
+type VideoPlaybackCounters = {
+  pause: number;
+  play: number;
+  playEvent: number;
+  paused: boolean;
 };
 
 type StoredOptionsFixture = {
@@ -159,6 +179,129 @@ async function readPromptCounters(
   return counters;
 }
 
+async function readHostShortcutCounters(page: Page): Promise<HostShortcutCounters> {
+  const counters = await page.evaluate(() => {
+    return (
+      window as typeof window & {
+        __hostShortcutCounters?: HostShortcutCounters;
+      }
+    ).__hostShortcutCounters;
+  });
+  if (!counters) {
+    throw new Error('Host shortcut counters were not installed in the fixture.');
+  }
+  return counters;
+}
+
+async function installPlaybackFixture(
+  extensionPage: Page,
+  tabId: number,
+  initiallyPaused: boolean
+): Promise<void> {
+  await extensionPage.evaluate(
+    async ({ targetTabId, isInitiallyPaused }) => {
+      await chrome.scripting.executeScript({
+        target: { tabId: targetTabId },
+        func: (initiallyPausedInContentWorld) => {
+          const video = document.querySelector('video');
+          if (!(video instanceof HTMLVideoElement)) {
+            throw new Error('Missing video element for playback fixture.');
+          }
+          let paused = initiallyPausedInContentWorld;
+          const counters = {
+            pause: 0,
+            play: 0,
+            playEvent: 0,
+            paused
+          };
+          Object.defineProperty(video, 'paused', {
+            configurable: true,
+            get: () => paused
+          });
+          Object.defineProperty(video, 'currentTime', {
+            configurable: true,
+            get: () => 42,
+            set: () => undefined
+          });
+          Object.defineProperty(video, 'pause', {
+            configurable: true,
+            value: () => {
+              counters.pause += 1;
+              paused = true;
+              counters.paused = paused;
+            }
+          });
+          Object.defineProperty(video, 'play', {
+            configurable: true,
+            value: () => {
+              counters.play += 1;
+              paused = false;
+              counters.paused = paused;
+              return Promise.resolve();
+            }
+          });
+
+          (
+            globalThis as typeof globalThis & {
+              __videoPlaybackCounters?: VideoPlaybackCounters;
+              __dispatchSyntheticVideoPlayForTests?: () => void;
+            }
+          ).__videoPlaybackCounters = counters;
+          (
+            globalThis as typeof globalThis & {
+              __dispatchSyntheticVideoPlayForTests?: () => void;
+            }
+          ).__dispatchSyntheticVideoPlayForTests = () => {
+            paused = false;
+            counters.paused = paused;
+            counters.playEvent += 1;
+            video.dispatchEvent(new Event('play', { bubbles: true }));
+          };
+        },
+        args: [isInitiallyPaused]
+      });
+    },
+    { targetTabId: tabId, isInitiallyPaused: initiallyPaused }
+  );
+}
+
+async function readPlaybackCounters(
+  extensionPage: Page,
+  tabId: number
+): Promise<VideoPlaybackCounters> {
+  const results = await extensionPage.evaluate(async (targetTabId) => {
+    return await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () =>
+        (
+          globalThis as typeof globalThis & {
+            __videoPlaybackCounters?: VideoPlaybackCounters;
+          }
+        ).__videoPlaybackCounters ?? null
+    });
+  }, tabId);
+  const counters = results[0]?.result;
+  if (!counters) {
+    throw new Error('Playback counters were not installed in the fixture.');
+  }
+  return counters;
+}
+
+async function dispatchSyntheticVideoPlay(extensionPage: Page, tabId: number): Promise<void> {
+  await extensionPage.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        (
+          globalThis as typeof globalThis & {
+            __dispatchSyntheticVideoPlayForTests?: () => void;
+          }
+        ).__dispatchSyntheticVideoPlayForTests?.();
+      }
+    });
+  }, tabId);
+}
+
 async function openFixtureWithRuntime(
   context: BrowserContext,
   extensionPage: Page,
@@ -197,6 +340,15 @@ function youtubeFixtureHtml(): string {
             <p id="selectable">Browser selected fragment text</p>
           </section>
         </main>
+        <script>
+          window.__hostShortcutCounters = { keydown: 0, l: 0, m: 0, space: 0 };
+          document.addEventListener('keydown', (event) => {
+            window.__hostShortcutCounters.keydown += 1;
+            if (event.key === 'l') window.__hostShortcutCounters.l += 1;
+            if (event.key === 'm') window.__hostShortcutCounters.m += 1;
+            if (event.key === ' ') window.__hostShortcutCounters.space += 1;
+          });
+        </script>
       </body>
     </html>`;
 }
@@ -214,7 +366,7 @@ function bilibiliFixtureHtml(): string {
             <div class="bpx-player-render-dm-wrap"></div>
           </div>
           <aside class="recommendations"></aside>
-          <section id="comment"></section>
+          <section id="comment">${buildBilibiliCommentsShadowFixture()}</section>
         </main>
       </body>
     </html>`;
@@ -235,12 +387,133 @@ async function selectFixtureText(page: Page): Promise<void> {
   });
 }
 
+async function submitControlBarNote(page: Page, note: string): Promise<void> {
+  await page.locator('[data-aiob-video-control-bar-button="true"]').click();
+  const input = page.locator('[data-aiob-video-control-bar-note-input="true"]');
+  await expect(input).toBeVisible();
+  await input.fill(note);
+  await input.press('Enter');
+}
+
+async function openVideoPanelFromControlBar(
+  page: Page,
+  note = 'Browser control bar note'
+): Promise<void> {
+  await submitControlBarNote(page, note);
+  await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible({ timeout: 10000 });
+}
+
+async function expandVideoPanel(page: Page): Promise<void> {
+  const surfaceWindow = page.locator('.video-surface-window').first();
+  await expect(surfaceWindow).toBeVisible();
+  const isCollapsed = await surfaceWindow.evaluate((element) =>
+    element.classList.contains('is-collapsed')
+  );
+  if (isCollapsed) {
+    await surfaceWindow.click();
+    await expect(surfaceWindow).not.toHaveClass(/is-collapsed/);
+  }
+}
+
+async function dispatchBilibiliRichTextSelection(
+  extensionPage: Page,
+  tabId: number,
+  fixtureId: string
+): Promise<string> {
+  const results = await extensionPage.evaluate(
+    async ({ targetTabId, targetFixtureId }) => {
+      return await chrome.scripting.executeScript({
+        target: { tabId: targetTabId },
+        func: (fixtureIdInContentWorld) => {
+          function findRichTextHost(root: ParentNode): HTMLElement | null {
+            const direct = root.querySelector<HTMLElement>(
+              `bili-rich-text[data-fixture="${fixtureIdInContentWorld}"]`
+            );
+            if (direct) {
+              return direct;
+            }
+            const elements = Array.from(root.querySelectorAll<HTMLElement>('*'));
+            for (const element of elements) {
+              if (!element.shadowRoot) {
+                continue;
+              }
+              const nested = findRichTextHost(element.shadowRoot);
+              if (nested) {
+                return nested;
+              }
+            }
+            return null;
+          }
+
+          const richText = findRichTextHost(document);
+          if (!richText?.shadowRoot) {
+            throw new Error(`Missing Bilibili rich text fixture: ${fixtureIdInContentWorld}`);
+          }
+
+          const textNodes: Text[] = [];
+          const walker = document.createTreeWalker(richText.shadowRoot, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) =>
+              node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+          });
+          let current = walker.nextNode() as Text | null;
+          while (current) {
+            textNodes.push(current);
+            current = walker.nextNode() as Text | null;
+          }
+          if (!textNodes.length) {
+            throw new Error(`Missing text nodes for Bilibili fixture: ${fixtureIdInContentWorld}`);
+          }
+
+          const range = document.createRange();
+          const first = textNodes[0];
+          const last = textNodes[textNodes.length - 1];
+          range.setStart(first, 0);
+          range.setEnd(last, last.textContent?.length ?? 0);
+
+          const selectedText = range.toString();
+          const syntheticSelection = {
+            rangeCount: 1,
+            isCollapsed: false,
+            getRangeAt: () => range,
+            toString: () => selectedText,
+            removeAllRanges: () => undefined
+          } as unknown as Selection;
+          const originalGetSelection = document.getSelection?.bind(document);
+          Object.defineProperty(document, 'getSelection', {
+            configurable: true,
+            value: () => syntheticSelection
+          });
+
+          try {
+            document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+            const eventTarget = first.parentElement ?? richText;
+            eventTarget.dispatchEvent(
+              new MouseEvent('mouseup', { bubbles: true, composed: true, button: 0 })
+            );
+          } finally {
+            if (originalGetSelection) {
+              Object.defineProperty(document, 'getSelection', {
+                configurable: true,
+                value: originalGetSelection
+              });
+            }
+          }
+          return selectedText;
+        },
+        args: [targetFixtureId]
+      });
+    },
+    { targetTabId: tabId, targetFixtureId: fixtureId }
+  );
+  return results[0]?.result ?? '';
+}
+
 testWithExtension.describe('video listener scope browser runtime', () => {
   testWithExtension.slow();
   testWithExtension.setTimeout(60000);
 
   testWithExtension(
-    'opens real Video Mode from one YouTube-like logo',
+    'opens real Video Mode from a YouTube-like control-bar note',
     async ({ context, extensionPage }) => {
       const { page } = await openFixtureWithRuntime(
         context,
@@ -251,9 +524,9 @@ testWithExtension.describe('video listener scope browser runtime', () => {
 
       const logo = page.locator('[data-aiob-video-control-bar-button="true"]');
       await expect(logo).toHaveCount(1);
-      await logo.click();
-      await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible();
+      await openVideoPanelFromControlBar(page, 'Browser control-bar note');
       await expect(logo).toHaveCount(1);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
     }
   );
 
@@ -294,6 +567,83 @@ testWithExtension.describe('video listener scope browser runtime', () => {
   );
 
   testWithExtension(
+    'keeps panel note input keys isolated from YouTube-like host shortcuts',
+    async ({ context, extensionPage }) => {
+      const { page } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        YOUTUBE_URL,
+        youtubeFixtureHtml()
+      );
+
+      await openVideoPanelFromControlBar(page, '');
+      await expandVideoPanel(page);
+      const before = await readHostShortcutCounters(page);
+
+      await page.locator('[data-action-id="video:add-note"]').click();
+      const input = page.locator('[data-capture-input]').first();
+      await expect(input).toBeVisible();
+      await input.click();
+      await page.keyboard.type('lm test');
+
+      const after = await readHostShortcutCounters(page);
+      expect(after.l).toBe(before.l);
+      expect(after.m).toBe(before.m);
+      expect(after.space).toBe(before.space);
+      await expect(input).toHaveValue('lm test');
+    }
+  );
+
+  testWithExtension(
+    'keeps playback paused while the control-bar note input is active and restores only playing videos',
+    async ({ context, extensionPage }) => {
+      const { page: playingPage, tabId: playingTabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        YOUTUBE_URL,
+        youtubeFixtureHtml()
+      );
+      await installPlaybackFixture(extensionPage, playingTabId, false);
+
+      await playingPage.locator('[data-aiob-video-control-bar-button="true"]').click();
+      const playingInput = playingPage.locator('[data-aiob-video-control-bar-note-input="true"]');
+      await expect(playingInput).toBeFocused();
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.pause)
+        )
+        .toBe(1);
+
+      await dispatchSyntheticVideoPlay(extensionPage, playingTabId);
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.pause)
+        )
+        .toBe(2);
+
+      await playingInput.fill('Playing note');
+      await playingInput.press('Enter');
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.play)
+        )
+        .toBe(1);
+
+      const { page: pausedPage, tabId: pausedTabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        YOUTUBE_PAUSED_URL,
+        youtubeFixtureHtml()
+      );
+      await installPlaybackFixture(extensionPage, pausedTabId, true);
+      await submitControlBarNote(pausedPage, 'Paused note');
+      const pausedCounters = await readPlaybackCounters(extensionPage, pausedTabId);
+      expect(pausedCounters.pause).toBe(0);
+      expect(pausedCounters.play).toBe(0);
+    }
+  );
+
+  testWithExtension(
     'keeps selection capture modifier-gated through the real session',
     async ({ context, extensionPage }) => {
       const { page } = await openFixtureWithRuntime(
@@ -307,9 +657,9 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         })
       );
 
-      await page.locator('[data-aiob-video-control-bar-button="true"]').click();
-      await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible();
-      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(0);
+      await openVideoPanelFromControlBar(page, 'Seed modifier capture');
+      await expandVideoPanel(page);
+      const initialCount = await page.locator('[data-role="capture-item"]').count();
 
       await selectFixtureText(page);
       await page.evaluate(() => {
@@ -317,7 +667,7 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
       });
       await page.waitForTimeout(100);
-      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(0);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount);
 
       await page.keyboard.down('Shift');
       await selectFixtureText(page);
@@ -329,9 +679,47 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       });
       await page.keyboard.up('Shift');
 
-      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
-      await expect(page.locator('[data-role="capture-summary"]')).toContainText(
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         'Browser selected fragment text'
+      );
+    }
+  );
+
+  testWithExtension(
+    'captures main and reply Bilibili rich text from nested open shadow roots',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        BILIBILI_URL,
+        bilibiliFixtureHtml()
+      );
+
+      await openVideoPanelFromControlBar(page, 'Bilibili seed capture');
+      await expandVideoPanel(page);
+      const initialCount = await page.locator('[data-role="capture-item"]').count();
+
+      const selectedMain = await dispatchBilibiliRichTextSelection(
+        extensionPage,
+        tabId,
+        'main-rich-text'
+      );
+      expect(selectedMain).toContain(BILIBILI_MAIN_COMMENT_TEXT);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_MAIN_COMMENT_TEXT
+      );
+
+      const selectedReply = await dispatchBilibiliRichTextSelection(
+        extensionPage,
+        tabId,
+        'reply-rich-text'
+      );
+      expect(selectedReply).toContain(BILIBILI_REPLY_COMMENT_TEXT);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 2);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_REPLY_COMMENT_TEXT
       );
     }
   );
