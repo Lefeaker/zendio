@@ -9,8 +9,9 @@ import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+const buildDir = path.resolve(rootDir, 'build');
 const distDir = path.resolve(rootDir, 'build/dist');
-const buildLockDir = path.resolve(rootDir, 'build/.playwright-build.lock');
+const buildLockDir = path.resolve(buildDir, '.playwright-build.lock');
 const host = process.env.PLAYWRIGHT_WEB_SERVER_HOST ?? '127.0.0.1';
 const port = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4173');
 
@@ -96,6 +97,7 @@ async function acquireBuildLock(timeoutMs = 180_000) {
   const startedAt = Date.now();
   while (true) {
     try {
+      await mkdir(buildDir, { recursive: true });
       await mkdir(buildLockDir);
       return async () => {
         await rm(buildLockDir, { recursive: true, force: true });
