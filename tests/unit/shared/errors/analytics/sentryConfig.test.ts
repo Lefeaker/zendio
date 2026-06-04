@@ -12,9 +12,8 @@ describe('getSentryBuildConfig', () => {
     vi.stubGlobal('__AIIINOB_SENTRY_ENVIRONMENT__', 'staging');
     vi.stubGlobal('__AIIINOB_SENTRY_RELEASE__', '2.0.0');
 
-    const { getSentryBuildConfig } = await import(
-      '../../../../../src/shared/errors/analytics/sentryConfig'
-    );
+    const { getSentryBuildConfig } =
+      await import('../../../../../src/shared/errors/analytics/sentryConfig');
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: true,
@@ -24,13 +23,50 @@ describe('getSentryBuildConfig', () => {
     });
   });
 
+  it('reads Zendio Sentry runtime globals', async () => {
+    vi.stubGlobal('__ZENDIO_SENTRY_DSN__', 'https://zendio@example.ingest.sentry.io/123456');
+    vi.stubGlobal('__ZENDIO_SENTRY_ENABLED__', true);
+    vi.stubGlobal('__ZENDIO_SENTRY_ENVIRONMENT__', 'preview');
+    vi.stubGlobal('__ZENDIO_SENTRY_RELEASE__', '3.0.0');
+
+    const { getSentryBuildConfig } =
+      await import('../../../../../src/shared/errors/analytics/sentryConfig');
+
+    expect(getSentryBuildConfig()).toEqual({
+      enabled: true,
+      dsn: 'https://zendio@example.ingest.sentry.io/123456',
+      environment: 'preview',
+      release: '3.0.0'
+    });
+  });
+
+  it('prefers Zendio Sentry runtime globals over AiiinOB compatibility globals', async () => {
+    vi.stubGlobal('__AIIINOB_SENTRY_DSN__', 'https://old@example.ingest.sentry.io/123456');
+    vi.stubGlobal('__AIIINOB_SENTRY_ENABLED__', false);
+    vi.stubGlobal('__AIIINOB_SENTRY_ENVIRONMENT__', 'old');
+    vi.stubGlobal('__AIIINOB_SENTRY_RELEASE__', '1.0.0');
+    vi.stubGlobal('__ZENDIO_SENTRY_DSN__', 'https://new@example.ingest.sentry.io/654321');
+    vi.stubGlobal('__ZENDIO_SENTRY_ENABLED__', true);
+    vi.stubGlobal('__ZENDIO_SENTRY_ENVIRONMENT__', 'new');
+    vi.stubGlobal('__ZENDIO_SENTRY_RELEASE__', '3.0.0');
+
+    const { getSentryBuildConfig } =
+      await import('../../../../../src/shared/errors/analytics/sentryConfig');
+
+    expect(getSentryBuildConfig()).toEqual({
+      enabled: true,
+      dsn: 'https://new@example.ingest.sentry.io/654321',
+      environment: 'new',
+      release: '3.0.0'
+    });
+  });
+
   it('keeps sentry disabled when dsn is missing even if enabled flag is true', async () => {
     vi.stubGlobal('__AIIINOB_SENTRY_DSN__', '');
     vi.stubGlobal('__AIIINOB_SENTRY_ENABLED__', true);
 
-    const { getSentryBuildConfig } = await import(
-      '../../../../../src/shared/errors/analytics/sentryConfig'
-    );
+    const { getSentryBuildConfig } =
+      await import('../../../../../src/shared/errors/analytics/sentryConfig');
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: false,
@@ -41,9 +77,8 @@ describe('getSentryBuildConfig', () => {
   it('infers enabled state from dsn when flag is not injected', async () => {
     vi.stubGlobal('__AIIINOB_SENTRY_DSN__', 'https://public@example.ingest.sentry.io/654321');
 
-    const { getSentryBuildConfig } = await import(
-      '../../../../../src/shared/errors/analytics/sentryConfig'
-    );
+    const { getSentryBuildConfig } =
+      await import('../../../../../src/shared/errors/analytics/sentryConfig');
 
     expect(getSentryBuildConfig()).toEqual({
       enabled: true,

@@ -16,6 +16,14 @@ function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
 }
 
+function resolveEnvAlias(newName, oldName, fallback = '') {
+  return process.env[newName] ?? process.env[oldName] ?? fallback;
+}
+
+function resolveSentryEnv(name, fallback = '') {
+  return resolveEnvAlias(`ZENDIO_SENTRY_${name}`, `AIIINOB_SENTRY_${name}`, fallback);
+}
+
 // 运行质量检查（仅在生产模式且未跳过检查时）
 if (prod && !skipChecks && !watch) {
   console.log('🔍 运行质量检查...');
@@ -55,14 +63,18 @@ const sharedBuildOptions = {
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
     __DEV__: prod ? 'false' : 'true',
-    __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
-    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
-      process.env.AIIINOB_SENTRY_ENVIRONMENT ?? (prod ? 'production' : 'development')
+    __ZENDIO_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
+    __ZENDIO_SENTRY_ENVIRONMENT__: JSON.stringify(
+      resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
-    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
-    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
-      ? 'true'
-      : 'false'
+    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __ZENDIO_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
+    __AIIINOB_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
+    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
+      resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
+    ),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false'
   },
   charset: 'utf8',
   loader: {

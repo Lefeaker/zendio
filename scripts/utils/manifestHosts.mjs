@@ -17,25 +17,38 @@ function normalizeHost(host) {
   return host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 }
 
+function resolveEnvAlias(newName, oldName) {
+  return process.env[newName] ?? process.env[oldName];
+}
+
+function resolveRestEnv(name) {
+  return resolveEnvAlias(`ZENDIO_REST_${name}`, `AIIINOB_REST_${name}`);
+}
+
 function buildHostPermission(protocol, host, port) {
   if (!host) {
     return null;
   }
   const normalizedHost = normalizeHost(host);
   const hasPort = normalizedHost.includes(':');
-  const suffix = hasPort ? normalizedHost : (typeof port === 'number' ? `${normalizedHost}:${port}` : normalizedHost);
+  const suffix = hasPort
+    ? normalizedHost
+    : typeof port === 'number'
+      ? `${normalizedHost}:${port}`
+      : normalizedHost;
   return `${protocol}://${suffix}/*`;
 }
 
 export function resolveRestHostPermissions() {
   const defaults = resolveManifestRestDefaults();
-  const httpsHost = normalizeHost(process.env.AIIINOB_REST_HTTPS_HOST) || defaults.httpsHost;
-  const httpHost = normalizeHost(process.env.AIIINOB_REST_HTTP_HOST)
-    || normalizeHost(process.env.AIIINOB_REST_HTTPS_HOST)
-    || defaults.httpHost;
+  const httpsHost = normalizeHost(resolveRestEnv('HTTPS_HOST')) || defaults.httpsHost;
+  const httpHost =
+    normalizeHost(resolveRestEnv('HTTP_HOST')) ||
+    normalizeHost(resolveRestEnv('HTTPS_HOST')) ||
+    defaults.httpHost;
 
-  const httpsPort = parsePort(process.env.AIIINOB_REST_HTTPS_PORT, defaults.httpsPort);
-  const httpPort = parsePort(process.env.AIIINOB_REST_HTTP_PORT, defaults.httpPort);
+  const httpsPort = parsePort(resolveRestEnv('HTTPS_PORT'), defaults.httpsPort);
+  const httpPort = parsePort(resolveRestEnv('HTTP_PORT'), defaults.httpPort);
 
   const permissions = [];
   const httpsEntry = buildHostPermission('https', httpsHost, httpsPort);
@@ -57,9 +70,7 @@ export function applyRestHostPermissions(manifest) {
     return manifest;
   }
 
-  const existing = Array.isArray(manifest.host_permissions)
-    ? manifest.host_permissions
-    : [];
+  const existing = Array.isArray(manifest.host_permissions) ? manifest.host_permissions : [];
 
   const merged = new Set(existing);
   for (const permission of restPermissions) {
