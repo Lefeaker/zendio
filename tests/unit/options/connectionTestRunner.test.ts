@@ -10,7 +10,7 @@ import {
   type ConnectionTestElements
 } from '@options/services/connectionTestRunner';
 import type { ConnectionTestResult } from '@shared/types/connection';
-import type { Messages } from '../../../src/i18n/locales';
+import type { Messages } from '../../../src/i18n';
 
 describe('connectionTestRunner', () => {
   let mockButton: HTMLButtonElement;

@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import { loadFragmentConfig } from '../clipper/services/fragmentConfig';
 import type { FragmentClipperOptions } from '../../shared/types/options';

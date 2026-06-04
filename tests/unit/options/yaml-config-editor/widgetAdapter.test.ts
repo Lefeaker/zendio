@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { createProductionStitchWidgetHost } from '@options/app/productionStitchWidgetHost';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import en from '@i18n/locales/en';
 import type { CompleteOptions } from '@shared/types/options';
 
 function createMount(
@@ -110,7 +110,7 @@ describe('YamlConfigEditorWidgetAdapter', () => {
           }
         }) as CompleteOptions,
         messages: {
-          ...en.runtime,
+          ...DEFAULT_RUNTIME_MESSAGES,
           yamlFieldArticleLabel: 'Artikel test',
           yamlFieldAddButton: '+ Feld test',
           yamlFieldSaveBlockedWarning: 'YAML test block'
