@@ -1,20 +1,15 @@
 import { findVideoControlTarget } from './videoPromptObserver';
-import { bindVideoInputKeyboardIsolationBoundary } from './videoInputEventIsolation';
+import {
+  CONTROL_POPOVER_CLASS,
+  closeVideoControlBarPopovers,
+  createVideoControlBarPopoverController,
+  type VideoControlBarPopoverCloseReason
+} from './videoControlBarPopoverController';
+export type { VideoControlBarPopoverCloseReason } from './videoControlBarPopoverController';
 
 const CONTROL_BUTTON_CLASS = 'aiob-video-control-bar-button';
-const CONTROL_POPOVER_CLASS = 'aiob-video-control-bar-popover';
 const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
-const popoverKeyboardIsolationDisposers = new WeakMap<HTMLElement, () => void>();
-const popoverCloseHandlers = new WeakMap<
-  HTMLElement,
-  (reason: VideoControlBarPopoverCloseReason) => void
->();
 type VideoControlBarPlatform = 'youtube' | 'bilibili' | 'generic';
-export type VideoControlBarPopoverCloseReason =
-  | 'outside-dismiss'
-  | 'toggle-dismiss'
-  | 'submit'
-  | 'owner-removal';
 
 export interface VideoControlBarPreferences {
   autoPauseEnabled: boolean;
@@ -219,23 +214,6 @@ function isPromiseLike(value: void | PromiseLike<void>): value is PromiseLike<vo
   return value !== undefined && typeof value.then === 'function';
 }
 
-function removePopover(
-  doc: Document,
-  reason: VideoControlBarPopoverCloseReason = 'owner-removal'
-): void {
-  doc.querySelectorAll<HTMLElement>(`.${CONTROL_POPOVER_CLASS}`).forEach((popover) => {
-    const closePopover = popoverCloseHandlers.get(popover);
-    if (closePopover) {
-      closePopover(reason);
-      return;
-    }
-    popoverKeyboardIsolationDisposers.get(popover)?.();
-    popoverKeyboardIsolationDisposers.delete(popover);
-    popoverCloseHandlers.delete(popover);
-    popover.remove();
-  });
-}
-
 function createPreferenceToggle(
   doc: Document,
   preference: keyof VideoControlBarPreferences,
@@ -263,7 +241,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   const doc = options.doc;
   const existing = doc.querySelector<HTMLElement>(`.${CONTROL_POPOVER_CLASS}`);
   if (existing) {
-    removePopover(doc, 'toggle-dismiss');
+    closeVideoControlBarPopovers(doc, 'toggle-dismiss');
     return;
   }
 
@@ -273,37 +251,14 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   popover.dataset.aiobVideoControlBarPopover = 'true';
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', options.label);
-  const disposeKeyboardIsolation = bindVideoInputKeyboardIsolationBoundary(popover);
-  popoverKeyboardIsolationDisposers.set(popover, disposeKeyboardIsolation);
-  let closed = false;
-
-  const closePopover = (reason: VideoControlBarPopoverCloseReason): void => {
-    if (closed) {
-      return;
-    }
-    closed = true;
-    doc.removeEventListener('pointerdown', handleDocumentPointerDown, true);
-    disposeKeyboardIsolation();
-    popoverKeyboardIsolationDisposers.delete(popover);
-    popoverCloseHandlers.delete(popover);
-    popover.remove();
-    if (reason === 'outside-dismiss' || reason === 'toggle-dismiss') {
-      options.onPopoverDismiss?.(preferences);
-    }
-    options.onPopoverClose?.(reason, preferences);
-  };
-  popoverCloseHandlers.set(popover, closePopover);
-
-  function handleDocumentPointerDown(event: PointerEvent): void {
-    const target = event.target;
-    if (!(target instanceof Node)) {
-      return;
-    }
-    if (popover.contains(target) || button.contains(target)) {
-      return;
-    }
-    closePopover('outside-dismiss');
-  }
+  const popoverController = createVideoControlBarPopoverController({
+    doc,
+    button,
+    popover,
+    getPreferences: () => preferences,
+    onPopoverDismiss: options.onPopoverDismiss,
+    onPopoverClose: options.onPopoverClose
+  });
 
   const noteInput = doc.createElement('input');
   noteInput.type = 'text';
@@ -336,7 +291,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   );
 
   const submitNote = (): void => {
-    closePopover('submit');
+    popoverController.close('submit');
     const result = options.onPrimaryAction(preferences, {
       comment: noteInput.value.trim(),
       source: 'note-input'
@@ -359,7 +314,6 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
 
   popover.append(noteInput, autoPause, screenshot);
   (doc.body ?? doc.documentElement).appendChild(popover);
-  doc.addEventListener('pointerdown', handleDocumentPointerDown, true);
   positionPopover(button, popover);
   options.onPopoverOpen?.(preferences);
   if (preferences.autoPauseEnabled) {
@@ -410,7 +364,7 @@ export function ensureVideoControlBarButton(options: VideoControlBarButtonOption
     `.${CONTROL_BUTTON_CLASS}[data-aiob-video-control-bar-button="true"]`
   );
   if (button && button.parentElement !== target) {
-    removePopover(options.doc, 'owner-removal');
+    closeVideoControlBarPopovers(options.doc, 'owner-removal');
     button.remove();
     button = null;
   }
@@ -424,7 +378,7 @@ export function ensureVideoControlBarButton(options: VideoControlBarButtonOption
 }
 
 export function removeVideoControlBarButton(doc: Document): void {
-  removePopover(doc, 'owner-removal');
+  closeVideoControlBarPopovers(doc, 'owner-removal');
   doc
     .querySelectorAll(`.${CONTROL_BUTTON_CLASS}[data-aiob-video-control-bar-button="true"]`)
     .forEach((button) => button.remove());

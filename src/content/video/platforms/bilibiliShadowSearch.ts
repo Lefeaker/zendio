@@ -28,37 +28,6 @@ export function findBilibiliTextRangeAcrossScopedNodes(
   return null;
 }
 
-export function findBilibiliTextRangeAcrossDocumentShadowRootsForDebug(
-  text: string,
-  helpers: BilibiliSelectionHelpers
-): Range | null {
-  return findBilibiliTextRangeAcrossShadowRoots(
-    text,
-    helpers,
-    collectAllShadowRoots(helpers.document)
-  );
-}
-
-function collectAllShadowRoots(doc: Document): ShadowRoot[] {
-  const roots: ShadowRoot[] = [];
-  const visited = new Set<ShadowRoot>();
-
-  const traverse = (node: Node) => {
-    if (node instanceof Element && node.shadowRoot && !visited.has(node.shadowRoot)) {
-      roots.push(node.shadowRoot);
-      visited.add(node.shadowRoot);
-      Array.from(node.shadowRoot.querySelectorAll('*')).forEach(traverse);
-    }
-    Array.from(node.childNodes).forEach(traverse);
-  };
-
-  const root = doc.documentElement;
-  if (root) {
-    traverse(root);
-  }
-  return roots;
-}
-
 function searchInNode(root: Node, text: string, helpers: BilibiliSelectionHelpers): Range | null {
   const normalizedChars: Array<{ node: Text; offset: number }> = [];
   const normalizedBuilder: string[] = [];

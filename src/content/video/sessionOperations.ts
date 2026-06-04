@@ -20,6 +20,11 @@ import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
+import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
+import {
+  createVideoTimestampCapture,
+  saveVideoTimestampCaptureOrRollback
+} from './videoTimestampCaptureTransaction';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -92,18 +97,13 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  const screenshot = options.captureScreenshot
-    ? captureVideoFrameScreenshot(video, currentTime)
-    : null;
-  const capture: VideoTimestampCapture = {
-    kind: 'timestamp',
-    id: `aiob-video-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    timeSec: currentTime,
-    comment: options.comment?.trim() ?? '',
-    url: shareUrl,
-    createdAt: Date.now(),
-    ...(screenshot ? { screenshot } : {})
-  };
+  const capture = createVideoTimestampCapture({
+    video,
+    currentTime,
+    shareUrl,
+    comment: options.comment,
+    captureScreenshot: options.captureScreenshot
+  });
 
   context.state.captures.push(capture);
   if (shouldLeasePlayback) {
@@ -114,16 +114,13 @@ export async function handleVideoSessionAddCapture(
   }
   context.syncPanel();
   context.applyHint('saving');
-  let saveHint: VideoHintState | null;
-  try {
-    saveHint = await saveVideoCaptures(context);
-  } catch (error) {
-    console.warn('[VideoSession] Failed to save timestamp capture:', error);
-    rollbackVideoSessionAddCapture(context, capture, shouldLeasePlayback);
-    return null;
-  }
-  if (saveHint === 'failure') {
-    rollbackVideoSessionAddCapture(context, capture, shouldLeasePlayback);
+  const saved = await saveVideoTimestampCaptureOrRollback(
+    context,
+    capture,
+    shouldLeasePlayback,
+    () => saveVideoCaptures(context)
+  );
+  if (!saved) {
     return null;
   }
   context.syncPanel();
@@ -136,23 +133,6 @@ export async function handleVideoSessionAddCapture(
     void Promise.resolve(video.play()).catch(() => undefined);
   }
   return capture;
-}
-
-function rollbackVideoSessionAddCapture(
-  context: VideoSessionOperationContext,
-  capture: VideoTimestampCapture,
-  releasePlaybackLease: boolean
-): void {
-  const captureIndex = context.state.captures.findIndex((item) => item.id === capture.id);
-  if (captureIndex !== -1) {
-    context.state.captures.splice(captureIndex, 1);
-  }
-  if (releasePlaybackLease) {
-    context.releasePlaybackEditLease?.(capture.id, true);
-  }
-  context.dom.stopEditing();
-  context.syncPanel();
-  context.applyHint('failure');
 }
 
 export function ingestVideoSessionTextCapture(
@@ -472,43 +452,6 @@ export function watchVideoSessionHighlightTheme(
   context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange((value) => {
     applyOptions(value as StoredOptions);
   });
-}
-
-function focusTimestampCapture(
-  context: VideoSessionOperationContext,
-  capture: VideoTimestampCapture
-): void {
-  const video = context.state.videoElement ?? context.findVideoElement();
-  if (!video) {
-    context.applyHint('noVideo');
-    return;
-  }
-  try {
-    video.currentTime = capture.timeSec;
-    const playResult = video.play();
-    void Promise.resolve(playResult).catch(() => undefined);
-  } catch (error) {
-    console.warn('[VideoSession] Failed to seek video:', error);
-  }
-}
-
-function focusFragmentCapture(
-  context: VideoSessionOperationContext,
-  capture: VideoFragmentCapture
-): void {
-  context.ensureCaptureHighlight(capture);
-  if (capture.wrapperId) {
-    const element = context.fragmentHighlighter.getElementByIdDeep(capture.wrapperId);
-    if (element) {
-      context.fragmentHighlighter.decorateElement(element);
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      element.classList.add('aiob-reader-highlight--focus');
-      window.setTimeout(() => element.classList.remove('aiob-reader-highlight--focus'), 1600);
-      context.fragmentHighlightCoordinator.scheduleRestore();
-      return;
-    }
-  }
-  context.highlightFragmentText(capture.selectedText);
 }
 
 async function saveVideoCaptures(
