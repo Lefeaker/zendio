@@ -93,9 +93,8 @@ describe('content/bootstrap', () => {
   });
 
   it('bootstraps scoped services and style managers on context construction', async () => {
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -152,9 +151,8 @@ describe('content/bootstrap', () => {
       return null;
     });
 
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -195,16 +193,17 @@ describe('content/bootstrap', () => {
     const second = mod.getGlobalContentContext();
     expect(second).toBe(first);
     expect(mod.bootstrapContentScript()).toBe(first);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
 
     mod.resetGlobalContentContext();
     const third = mod.getGlobalContentContext();
     expect(third).not.toBe(first);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(2);
   });
 
   it('requires explicit storage configuration before bootstrap', async () => {
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
