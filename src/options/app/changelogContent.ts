@@ -6,7 +6,9 @@ export function getChangelogByLanguage(language: string): string {
       <ul>
         <li><strong>新版设置中心</strong>: 重构选项页，集中管理使用概览、界面语言、隐私数据、存储、采集、输出和维护工具。</li>
         <li><strong>多 Vault 与智能路由</strong>: 支持配置多个 Obsidian 仓库，并按域名、关键词或 URL Pattern 自动选择目标仓库。</li>
-        <li><strong>更可靠的 Obsidian 写入</strong>: 支持 HTTPS / HTTP 双连接、连接测试、本地 Vault 目录写入，并在不可用时回退 REST API。</li>
+        <li><strong>更可靠的 Obsidian 写入</strong>: 支持 HTTPS / HTTP 双连接、连接测试和 REST API 回退。</li>
+        <li><strong>Chrome 本地路径写入</strong>: Chrome / Chromium 浏览器授权本地 Vault 文件夹后，可按模板路径直接写入本地目录，权限缺失或写入失败时自动回退 REST API。</li>
+        <li><strong>面板路径自由选择</strong>: 剪藏、阅读和视频面板可切换保存目标并预览输出路径，支持在 Vault、本地目录或下载路径之间选择。</li>
         <li><strong>片段剪藏与阅读模式增强</strong>: 新增上下文捕捉、脚注格式、快捷键、高亮主题和阅读导出方式配置。</li>
         <li><strong>视频笔记</strong>: 支持 YouTube / 哔哩哔哩时间点记录、字幕或评论片段捕捉，以及批注编辑。</li>
         <li><strong>AI 对话导出扩展</strong>: 支持 ChatGPT、Claude、Gemini、Copilot、通义、DeepSeek、Kimi、豆包、Monica、Perplexity 等平台。</li>
@@ -17,7 +19,7 @@ export function getChangelogByLanguage(language: string): string {
       <h3>🔧 使用建议</h3>
       <ul>
         <li>先在 Storage 中配置默认仓库，再按需要添加附加仓库和路由规则。</li>
-        <li>Chromium 浏览器可选本地 Vault 目录写入；Firefox 继续使用 REST API 路径。</li>
+        <li>Chrome / Chromium 浏览器可选本地 Vault 文件夹写入；Firefox 继续使用 REST API 路径。</li>
         <li>AI 页面总结、阅读顶部总结和字幕翻译仍在规划中，本版本不作为已发布能力开放。</li>
       </ul>
 
@@ -40,7 +42,9 @@ export function getChangelogByLanguage(language: string): string {
       <ul>
         <li><strong>New settings center</strong>: Rebuilt Options around overview, language, privacy, storage, capture, output, and maintenance workflows.</li>
         <li><strong>Multi-vault routing</strong>: Configure multiple Obsidian vaults and route by domain, keyword, or URL pattern.</li>
-        <li><strong>More reliable Obsidian writes</strong>: Added HTTPS / HTTP dual endpoints, connection tests, optional Local Vault folder writes, and REST API fallback.</li>
+        <li><strong>More reliable Obsidian writes</strong>: Added HTTPS / HTTP dual endpoints, connection tests, and REST API fallback.</li>
+        <li><strong>Chrome local path writes</strong>: Chromium browsers can write directly into an authorized Local Vault folder using configured path templates, with REST fallback when permission or writing fails.</li>
+        <li><strong>Panel path choices</strong>: Clipper, Reader, and Video panels can switch save targets and preview output paths across Vault, local-folder, and download destinations.</li>
         <li><strong>Fragment and reading upgrades</strong>: Configure context capture, footnote format, shortcuts, highlight themes, and reading export modes.</li>
         <li><strong>Video notes</strong>: Capture YouTube / Bilibili timestamps, subtitle or comment fragments, and editable notes.</li>
         <li><strong>Expanded AI chat export</strong>: Supports ChatGPT, Claude, Gemini, Copilot, Tongyi, DeepSeek, Kimi, Doubao, Monica, Perplexity, and more.</li>
@@ -51,7 +55,7 @@ export function getChangelogByLanguage(language: string): string {
       <h3>🔧 Notes</h3>
       <ul>
         <li>Configure the default vault first, then add extra vaults and routing rules as needed.</li>
-        <li>Chromium browsers can use optional Local Vault folder writes; Firefox continues to use the REST API path.</li>
+        <li>Chrome / Chromium browsers can use optional Local Vault folder writes; Firefox continues to use the REST API path.</li>
         <li>Page summary, reading overlay summary, and subtitle translation remain planned features and are not shipped as active v0.2.0 capabilities.</li>
       </ul>
 
@@ -74,7 +78,9 @@ export function getChangelogByLanguage(language: string): string {
       <ul>
         <li><strong>新しい設定センター</strong>: 概要、言語、プライバシー、保存先、キャプチャ、出力、メンテナンスをまとめて管理できます。</li>
         <li><strong>複数 Vault ルーティング</strong>: 複数の Obsidian Vault を設定し、ドメイン、キーワード、URL Pattern で保存先を自動選択できます。</li>
-        <li><strong>Obsidian 書き込みの信頼性向上</strong>: HTTPS / HTTP の二系統接続、接続テスト、任意のローカル Vault フォルダー書き込み、REST API フォールバックに対応しました。</li>
+        <li><strong>Obsidian 書き込みの信頼性向上</strong>: HTTPS / HTTP の二系統接続、接続テスト、REST API フォールバックに対応しました。</li>
+        <li><strong>Chrome ローカルパス書き込み</strong>: Chromium ブラウザーでは、許可したローカル Vault フォルダーへテンプレートパスに沿って直接書き込み、権限不足や失敗時は REST API に戻ります。</li>
+        <li><strong>パネル内の保存先選択</strong>: Clipper、Reader、Video パネルで保存先と出力パスを切り替え、Vault、ローカルフォルダー、ダウンロード先を選べます。</li>
         <li><strong>フラグメントと読書モードの強化</strong>: コンテキスト取得、脚注形式、ショートカット、ハイライトテーマ、読書エクスポート方式を設定できます。</li>
         <li><strong>動画ノート</strong>: YouTube / Bilibili のタイムスタンプ、字幕やコメントの断片、編集可能なメモを保存できます。</li>
         <li><strong>AI チャット出力の拡張</strong>: ChatGPT、Claude、Gemini、Copilot、Tongyi、DeepSeek、Kimi、Doubao、Monica、Perplexity などに対応しました。</li>

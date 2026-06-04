@@ -6,7 +6,9 @@
 
 - **新版设置中心**：重构选项页，集中管理使用概览、界面语言、隐私数据、存储、采集、输出和维护工具。
 - **多 Vault 与智能路由**：支持配置多个 Obsidian 仓库，并按域名、关键词或 URL Pattern 自动选择目标仓库。
-- **更可靠的 Obsidian 写入**：支持 HTTPS / HTTP 双连接、连接测试、本地 Vault 目录写入，并在不可用时回退 REST API。
+- **更可靠的 Obsidian 写入**：支持 HTTPS / HTTP 双连接、连接测试和 REST API 回退。
+- **Chrome 本地路径写入**：Chrome / Chromium 浏览器授权本地 Vault 文件夹后，可按模板路径直接写入本地目录，权限缺失或写入失败时自动回退 REST API。
+- **面板路径自由选择**：剪藏、阅读和视频面板可切换保存目标并预览输出路径，支持在 Vault、本地目录或下载路径之间选择。
 - **片段剪藏与阅读模式增强**：新增上下文捕捉、脚注格式、快捷键、高亮主题和阅读导出方式配置。
 - **视频笔记**：支持 YouTube / 哔哩哔哩时间点记录、字幕或评论片段捕捉，以及批注编辑。
 - **AI 对话导出扩展**：支持 ChatGPT、Claude、Gemini、Copilot、通义、DeepSeek、Kimi、豆包、Monica、Perplexity 等平台。
@@ -16,7 +18,7 @@
 ### 🔧 使用建议
 
 1. 先在 Storage 中配置默认仓库，再按需要添加附加仓库和路由规则。
-2. Chromium 浏览器可选本地 Vault 目录写入；Firefox 继续使用 REST API 路径。
+2. Chrome / Chromium 浏览器可选本地 Vault 文件夹写入；Firefox 继续使用 REST API 路径。
 3. AI 页面总结、阅读顶部总结和字幕翻译仍在规划中，本版本不作为已发布能力开放。
 
 ---
