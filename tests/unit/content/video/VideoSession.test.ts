@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
+import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 import {
@@ -235,6 +236,20 @@ function createDependencies(): VideoSessionDependencies {
   } as unknown as VideoSessionDependencies;
 }
 
+function requireMountedPanelCallbacks(callbacks: VideoPanelCallbacks | null): VideoPanelCallbacks {
+  if (!callbacks) {
+    throw new Error('Video panel callbacks were not mounted');
+  }
+  return callbacks;
+}
+
+function requirePromise(value: void | Promise<void>): Promise<void> {
+  if (!(value instanceof Promise)) {
+    throw new Error('Expected panel callback to return a Promise');
+  }
+  return value;
+}
+
 describe('VideoSession', () => {
   beforeEach(() => {
     document.body.innerHTML = '<h1>Video Title</h1><video></video>';
@@ -461,6 +476,68 @@ describe('VideoSession', () => {
     expect(playSpy).not.toHaveBeenCalled();
 
     sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('restores playback after panel add-note input submits with Enter', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+
+    await session.start();
+
+    const video = document.querySelector('video') as HTMLVideoElement;
+    let paused = false;
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+
+    await session.addCurrentTimestamp('note-input');
+    const captureId = view.beginEditingCapture.mock.calls.at(-1)?.[0];
+    expect(captureId).toBeTruthy();
+    if (!captureId) {
+      throw new Error('add-note did not create a capture');
+    }
+
+    const submitGate: { resolve?: () => void } = {};
+    saveCaptureDataMock.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          submitGate.resolve = () => resolve(undefined);
+        })
+    );
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const submitPromise = requirePromise(callbacks.onSubmitCaptureEdit(captureId, 'panel note'));
+
+    paused = false;
+    video.dispatchEvent(new Event('play'));
+    expect(pauseSpy).toHaveBeenCalledTimes(2);
+    expect(playSpy).not.toHaveBeenCalled();
+
+    expect(submitGate.resolve).toBeTruthy();
+    submitGate.resolve?.();
+    await submitPromise;
+
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(view.stopEditing).toHaveBeenCalled();
+
+    callbacks.onCancel();
     vi.useRealTimers();
   });
 

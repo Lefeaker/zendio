@@ -1,8 +1,8 @@
 export type VideoAddCaptureSource = 'button' | 'note-input';
 
 export interface VideoPanelCallbacks {
-  onAddCapture: (source?: VideoAddCaptureSource) => void;
-  onFinish: () => void;
+  onAddCapture: (source?: VideoAddCaptureSource) => void | Promise<void>;
+  onFinish: () => void | Promise<void>;
   onCancel: () => void;
   onSelectDestination?: (id: string) => void | Promise<void>;
   onDeleteCapture: (id: string) => void;

@@ -81,7 +81,7 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
         return;
       }
       event.preventDefault();
-      void this.submit(id, input.value);
+      this.runAsync(() => this.submit(id, input.value));
     });
   }
 
@@ -104,12 +104,13 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
   }
 
   runAfterFlush(action: () => void | Promise<void>): void {
-    this.captureRenderedInputs();
-    if (!this.store.hasDrafts()) {
-      void action();
-      return;
-    }
-    void this.flush().then(action);
+    this.runAsync(async () => {
+      this.captureRenderedInputs();
+      if (this.store.hasDrafts()) {
+        await this.flush();
+      }
+      await action();
+    });
   }
 
   private async flush(): Promise<void> {
@@ -126,5 +127,13 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   private findCanonicalComment(id: string): string {
     return this.options.getItems().find((item) => item.id === id)?.comment ?? '';
+  }
+
+  private runAsync(action: () => void | Promise<void>): void {
+    void Promise.resolve()
+      .then(action)
+      .catch((error) => {
+        console.warn('[SessionCommentDrafts] Failed to submit session comment draft:', error);
+      });
   }
 }

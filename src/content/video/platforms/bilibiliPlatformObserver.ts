@@ -34,6 +34,7 @@ const BILIBILI_DANMAKU_SELECTOR = [
 
 export class BilibiliShadowObserver {
   private fragmentObserver: MutationObserver | null = null;
+  private selectionObserver: MutationObserver | null = null;
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
   private readonly observedCommentRoots = new Set<ShadowRoot>();
   private readonly pendingShadowHosts = new WeakSet<HTMLElement>();
@@ -93,6 +94,8 @@ export class BilibiliShadowObserver {
 
   dispose(): void {
     const view = this.document.defaultView ?? window;
+    this.selectionObserver?.disconnect();
+    this.selectionObserver = null;
     if (this.pendingRefreshHandle !== null) {
       view.clearTimeout(this.pendingRefreshHandle);
       this.pendingRefreshHandle = null;
@@ -105,11 +108,8 @@ export class BilibiliShadowObserver {
   }
 
   private observeShadowRoots(): void {
-    if (!this.fragmentObserver) {
-      return;
-    }
-
     try {
+      this.ensureSelectionMutationObservation();
       const hosts = queryBilibiliShadowHosts(this.document);
       hosts.forEach((host) => this.ensureShadowHostObservation(host));
     } catch (error) {
@@ -195,6 +195,14 @@ export class BilibiliShadowObserver {
 
     const nestedHosts = root.querySelectorAll<HTMLElement>(BILIBILI_COMMENT_SHADOW_HOST_SELECTOR);
     nestedHosts.forEach((element) => this.ensureShadowHostObservation(element));
+  }
+
+  private ensureSelectionMutationObservation(): void {
+    if (this.selectionObserver || typeof MutationObserver === 'undefined' || !this.document.body) {
+      return;
+    }
+    this.selectionObserver = new MutationObserver((mutations) => this.handleMutations(mutations));
+    this.selectionObserver.observe(this.document.body, { childList: true, subtree: true });
   }
 
   private pruneDisconnectedCommentRoots(): void {

@@ -201,7 +201,7 @@ export class VideoSession {
         onKeyDown: (event) => this.fragmentSelectionController.handleKeyDown(event),
         onKeyUp: (event) => this.fragmentSelectionController.handleKeyUp(event),
         onWindowBlur: () => {
-          this.playbackEditLease.reset();
+          this.playbackEditLease.reset({ preserveTransactions: true });
           this.fragmentSelectionController.handleWindowBlur();
         }
       },
@@ -228,13 +228,13 @@ export class VideoSession {
         fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
         highlightThemePromise,
         panelCallbacks: {
-          onAddCapture: (source) => void this.handleAddCapture(source),
-          onFinish: () => void this.finish(),
+          onAddCapture: (source) => this.handleAddCapture(source),
+          onFinish: () => this.finish(),
           onCancel: () => this.cancel(),
           onSelectDestination: (id) => this.selectDestination(id),
           onDeleteCapture: (id) => removeVideoSessionCapture(this.operationContext, id),
           onSubmitCaptureEdit: (id, comment) =>
-            void submitVideoSessionCaptureEdit(this.operationContext, id, comment),
+            submitVideoSessionCaptureEdit(this.operationContext, id, comment),
           onToggleScreenshot: (id) => void this.toggleCaptureScreenshot(id),
           onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id),
           onCaptureEditorFocus: (id) => this.beginPlaybackEditLease(id),

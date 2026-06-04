@@ -113,7 +113,7 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('routes the inline add and item close buttons to video callbacks', () => {
+  it('routes the inline add and item close buttons to video callbacks', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
     panel.setCaptures([createCapture()]);
@@ -123,6 +123,7 @@ describe('VideoDialogPanel', () => {
     shadow?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:toggle-screenshot"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:delete"]')?.click();
+    await flushPanelPersistence();
 
     expect(callbacks.onAddCapture).toHaveBeenCalledTimes(2);
     expect(callbacks.onAddCapture).toHaveBeenNthCalledWith(1, 'button');
@@ -304,8 +305,7 @@ describe('VideoDialogPanel', () => {
     input.value = 'finish capture draft';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="finish-btn"]')?.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPanelPersistence();
 
     expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('capture-1', 'finish capture draft');
     expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
@@ -502,6 +502,7 @@ describe('VideoDialogPanel', () => {
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
 
     input.dispatchEvent(event);
+    await flushPanelPersistence();
 
     expect(preventDefaultSpy).toHaveBeenCalled();
     expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('capture-1', 'Important timestamp');

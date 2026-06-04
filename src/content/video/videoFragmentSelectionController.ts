@@ -82,11 +82,14 @@ export class VideoFragmentSelectionController {
   }
 
   processActivatedSelection({ range, selection, event }: SelectionActivationPayload): void {
-    let highlightRange: Range | null = range.cloneRange();
+    let highlightRange: Range | null = range ? range.cloneRange() : null;
     const container = this.deps.doc.createElement('div');
-    container.appendChild(highlightRange.cloneContents());
+    if (highlightRange) {
+      container.appendChild(highlightRange.cloneContents());
+    }
     let selectedHtml = container.innerHTML;
-    let selectedText = (selection?.toString() ?? highlightRange.toString()).trim();
+    const selectionText = selection?.toString().trim() ?? '';
+    let selectedText = selectionText || highlightRange?.toString().trim() || '';
 
     const platformAdapter = this.deps.getPlatformAdapter();
     const platformSelection: PlatformSelectionResult | null =
@@ -113,7 +116,7 @@ export class VideoFragmentSelectionController {
       return;
     }
 
-    syncModifierState(this.modifierState, event);
+    syncModifierState(this.modifierState, readModifierSource(event));
     const modifierRequired = fragmentConfig.selectionModifierEnabled;
     const modifiersSatisfied =
       this.selectionModifierActive ||
@@ -128,4 +131,21 @@ export class VideoFragmentSelectionController {
     selection?.removeAllRanges();
     this.selectionModifierActive = false;
   }
+}
+
+function readModifierSource(event: Event): Partial<ModifierState> {
+  const source: Partial<ModifierState> = {};
+  if ('altKey' in event) {
+    source.altKey = Boolean(event.altKey);
+  }
+  if ('metaKey' in event) {
+    source.metaKey = Boolean(event.metaKey);
+  }
+  if ('ctrlKey' in event) {
+    source.ctrlKey = Boolean(event.ctrlKey);
+  }
+  if ('shiftKey' in event) {
+    source.shiftKey = Boolean(event.shiftKey);
+  }
+  return source;
 }

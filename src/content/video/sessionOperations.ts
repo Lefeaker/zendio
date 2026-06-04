@@ -214,9 +214,16 @@ export async function submitVideoSessionCaptureEdit(
   if (!target) {
     return;
   }
+  const previousComment = target.comment;
   target.comment = comment.trim();
   context.applyHint('saving');
-  await saveVideoCaptures(context);
+  const saveHint = await saveVideoCaptures(context);
+  if (saveHint === 'failure') {
+    target.comment = previousComment;
+    context.syncPanel();
+    context.applyHint('failure');
+    return;
+  }
   context.syncPanel();
   context.releasePlaybackEditLease?.(id, true);
   context.dom.stopEditing();

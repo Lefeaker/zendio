@@ -36,6 +36,12 @@ type VideoPlaybackCounters = {
   paused: boolean;
 };
 
+declare global {
+  interface Window {
+    __videoPlaybackCounters?: VideoPlaybackCounters;
+  }
+}
+
 type StoredOptionsFixture = {
   video: {
     floatingPromptEnabled: boolean;
@@ -302,6 +308,23 @@ async function dispatchSyntheticVideoPlay(extensionPage: Page, tabId: number): P
   }, tabId);
 }
 
+async function resetPlaybackCounters(extensionPage: Page, tabId: number): Promise<void> {
+  await extensionPage.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        const counters = window.__videoPlaybackCounters;
+        if (!counters) {
+          throw new Error('Playback counters were not installed in the fixture.');
+        }
+        counters.pause = 0;
+        counters.play = 0;
+        counters.playEvent = 0;
+      }
+    });
+  }, tabId);
+}
+
 async function openFixtureWithRuntime(
   context: BrowserContext,
   extensionPage: Page,
@@ -415,97 +438,48 @@ async function expandVideoPanel(page: Page): Promise<void> {
   }
 }
 
-async function dispatchBilibiliRichTextSelection(
-  extensionPage: Page,
-  tabId: number,
-  fixtureId: string
-): Promise<string> {
-  const results = await extensionPage.evaluate(
-    async ({ targetTabId, targetFixtureId }) => {
-      return await chrome.scripting.executeScript({
-        target: { tabId: targetTabId },
-        func: (fixtureIdInContentWorld) => {
-          function findRichTextHost(root: ParentNode): HTMLElement | null {
-            const direct = root.querySelector<HTMLElement>(
-              `bili-rich-text[data-fixture="${fixtureIdInContentWorld}"]`
-            );
-            if (direct) {
-              return direct;
-            }
-            const elements = Array.from(root.querySelectorAll<HTMLElement>('*'));
-            for (const element of elements) {
-              if (!element.shadowRoot) {
-                continue;
-              }
-              const nested = findRichTextHost(element.shadowRoot);
-              if (nested) {
-                return nested;
-              }
-            }
-            return null;
-          }
+async function dragSelectBilibiliRichText(page: Page, fixtureId: string): Promise<void> {
+  const content = page.locator(`bili-rich-text[data-fixture="${fixtureId}"] #contents`).first();
+  await expect(content).toBeVisible();
+  const box = await content.boundingBox();
+  if (!box) {
+    throw new Error(`Missing visible Bilibili rich text fixture: ${fixtureId}`);
+  }
 
-          const richText = findRichTextHost(document);
-          if (!richText?.shadowRoot) {
-            throw new Error(`Missing Bilibili rich text fixture: ${fixtureIdInContentWorld}`);
-          }
+  const y = box.y + box.height / 2;
+  await page.keyboard.down('Shift');
+  await page.mouse.move(box.x + 2, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 2, y, { steps: 12 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+}
 
-          const textNodes: Text[] = [];
-          const walker = document.createTreeWalker(richText.shadowRoot, NodeFilter.SHOW_TEXT, {
-            acceptNode: (node) =>
-              node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
-          });
-          let current = walker.nextNode() as Text | null;
-          while (current) {
-            textNodes.push(current);
-            current = walker.nextNode() as Text | null;
-          }
-          if (!textNodes.length) {
-            throw new Error(`Missing text nodes for Bilibili fixture: ${fixtureIdInContentWorld}`);
-          }
+async function countBilibiliRichTextHighlights(page: Page, fixtureId: string): Promise<number> {
+  return await page.evaluate((targetFixtureId) => {
+    function findRichTextHost(root: ParentNode): HTMLElement | null {
+      const direct = root.querySelector<HTMLElement>(
+        `bili-rich-text[data-fixture="${targetFixtureId}"]`
+      );
+      if (direct) {
+        return direct;
+      }
+      const elements = Array.from(root.querySelectorAll<HTMLElement>('*'));
+      for (const element of elements) {
+        if (!element.shadowRoot) {
+          continue;
+        }
+        const nested = findRichTextHost(element.shadowRoot);
+        if (nested) {
+          return nested;
+        }
+      }
+      return null;
+    }
 
-          const range = document.createRange();
-          const first = textNodes[0];
-          const last = textNodes[textNodes.length - 1];
-          range.setStart(first, 0);
-          range.setEnd(last, last.textContent?.length ?? 0);
-
-          const selectedText = range.toString();
-          const syntheticSelection = {
-            rangeCount: 1,
-            isCollapsed: false,
-            getRangeAt: () => range,
-            toString: () => selectedText,
-            removeAllRanges: () => undefined
-          } as unknown as Selection;
-          const originalGetSelection = document.getSelection?.bind(document);
-          Object.defineProperty(document, 'getSelection', {
-            configurable: true,
-            value: () => syntheticSelection
-          });
-
-          try {
-            document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
-            const eventTarget = first.parentElement ?? richText;
-            eventTarget.dispatchEvent(
-              new MouseEvent('mouseup', { bubbles: true, composed: true, button: 0 })
-            );
-          } finally {
-            if (originalGetSelection) {
-              Object.defineProperty(document, 'getSelection', {
-                configurable: true,
-                value: originalGetSelection
-              });
-            }
-          }
-          return selectedText;
-        },
-        args: [targetFixtureId]
-      });
-    },
-    { targetTabId: tabId, targetFixtureId: fixtureId }
-  );
-  return results[0]?.result ?? '';
+    const richText = findRichTextHost(document);
+    return richText?.shadowRoot?.querySelectorAll('mark[data-video-fragment-id]').length ?? 0;
+  }, fixtureId);
 }
 
 testWithExtension.describe('video listener scope browser runtime', () => {
@@ -644,6 +618,68 @@ testWithExtension.describe('video listener scope browser runtime', () => {
   );
 
   testWithExtension(
+    'restores playback after panel add-note Enter only for videos that were playing',
+    async ({ context, extensionPage }) => {
+      const { page: playingPage, tabId: playingTabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        BILIBILI_URL,
+        bilibiliFixtureHtml()
+      );
+      await installPlaybackFixture(extensionPage, playingTabId, false);
+      await openVideoPanelFromControlBar(playingPage, 'Seed panel note test');
+      await expandVideoPanel(playingPage);
+      await resetPlaybackCounters(extensionPage, playingTabId);
+
+      await playingPage.locator('[data-action-id="video:add-note"]').click();
+      const playingInput = playingPage.locator('[data-capture-input]').last();
+      await expect(playingInput).toBeVisible();
+      await expect(playingInput).toBeFocused();
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.pause)
+        )
+        .toBe(1);
+      await dispatchSyntheticVideoPlay(extensionPage, playingTabId);
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.pause)
+        )
+        .toBe(2);
+
+      await playingInput.fill('Panel add note');
+      await playingInput.press('Enter');
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.play)
+        )
+        .toBe(1);
+
+      const { page: pausedPage, tabId: pausedTabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?paused=1`,
+        bilibiliFixtureHtml()
+      );
+      await installPlaybackFixture(extensionPage, pausedTabId, true);
+      await openVideoPanelFromControlBar(pausedPage, 'Seed paused panel note test');
+      await expandVideoPanel(pausedPage);
+      await resetPlaybackCounters(extensionPage, pausedTabId);
+
+      await pausedPage.locator('[data-action-id="video:add-note"]').click();
+      const pausedInput = pausedPage.locator('[data-capture-input]').last();
+      await expect(pausedInput).toBeVisible();
+      await pausedInput.fill('Paused panel note');
+      await pausedInput.press('Enter');
+      await pausedPage.waitForTimeout(100);
+
+      const pausedCounters = await readPlaybackCounters(extensionPage, pausedTabId);
+      expect(pausedCounters.pause).toBe(0);
+      expect(pausedCounters.play).toBe(0);
+    }
+  );
+
+  testWithExtension(
     'keeps selection capture modifier-gated through the real session',
     async ({ context, extensionPage }) => {
       const { page } = await openFixtureWithRuntime(
@@ -687,40 +723,36 @@ testWithExtension.describe('video listener scope browser runtime', () => {
   );
 
   testWithExtension(
-    'captures main and reply Bilibili rich text from nested open shadow roots',
+    'captures and highlights Bilibili rich text selected by real mouse drag in nested shadow roots',
     async ({ context, extensionPage }) => {
-      const { page, tabId } = await openFixtureWithRuntime(
+      const { page } = await openFixtureWithRuntime(
         context,
         extensionPage,
         BILIBILI_URL,
-        bilibiliFixtureHtml()
+        bilibiliFixtureHtml(),
+        createOptionsFixture({
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['shift']
+        })
       );
 
       await openVideoPanelFromControlBar(page, 'Bilibili seed capture');
       await expandVideoPanel(page);
       const initialCount = await page.locator('[data-role="capture-item"]').count();
 
-      const selectedMain = await dispatchBilibiliRichTextSelection(
-        extensionPage,
-        tabId,
-        'main-rich-text'
-      );
-      expect(selectedMain).toContain(BILIBILI_MAIN_COMMENT_TEXT);
+      await dragSelectBilibiliRichText(page, 'main-rich-text');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 1);
       await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         BILIBILI_MAIN_COMMENT_TEXT
       );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
 
-      const selectedReply = await dispatchBilibiliRichTextSelection(
-        extensionPage,
-        tabId,
-        'reply-rich-text'
-      );
-      expect(selectedReply).toContain(BILIBILI_REPLY_COMMENT_TEXT);
+      await dragSelectBilibiliRichText(page, 'reply-rich-text');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 2);
       await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         BILIBILI_REPLY_COMMENT_TEXT
       );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'reply-rich-text')).toBe(1);
     }
   );
 });

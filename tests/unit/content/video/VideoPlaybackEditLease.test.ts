@@ -45,4 +45,53 @@ describe('VideoPlaybackEditLease', () => {
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).not.toHaveBeenCalled();
   });
+
+  it('preserves the original playing state when the same capture reacquires after focus rerenders', () => {
+    const video = document.createElement('video');
+    let paused = false;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+    const lease = new VideoPlaybackEditLease();
+
+    lease.acquire('capture-1', video);
+    lease.acquire('capture-1', video);
+    lease.releaseForCapture('capture-1', { restorePlayback: true });
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the original playing state across transient window reset and reacquire', () => {
+    const video = document.createElement('video');
+    let paused = false;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+    const lease = new VideoPlaybackEditLease();
+
+    lease.acquire('capture-1', video);
+    lease.reset({ preserveTransactions: true });
+    lease.acquire('capture-1', video);
+    lease.releaseForCapture('capture-1', { restorePlayback: true });
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
 });

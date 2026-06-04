@@ -4,8 +4,13 @@ export interface VideoPlaybackEditLeaseState {
   wasPlayingBeforeLease: boolean;
 }
 
+interface VideoPlaybackEditLeaseResetOptions {
+  preserveTransactions?: boolean;
+}
+
 export class VideoPlaybackEditLease {
   private active: VideoPlaybackEditLeaseState | null = null;
+  private readonly transactions = new Map<string, VideoPlaybackEditLeaseState>();
 
   private readonly handlePlay = (): void => {
     const video = this.active?.video;
@@ -24,11 +29,18 @@ export class VideoPlaybackEditLease {
       return;
     }
 
-    this.release({ restorePlayback: false });
-    const wasPlayingBeforeLease = !video.paused;
+    for (const key of this.transactions.keys()) {
+      if (key !== captureId) {
+        this.transactions.delete(key);
+      }
+    }
+    this.deactivateActiveLease();
+    const existingTransaction = this.transactions.get(captureId);
+    const wasPlayingBeforeLease = existingTransaction?.wasPlayingBeforeLease ?? !video.paused;
     this.active = { captureId, video, wasPlayingBeforeLease };
+    this.transactions.set(captureId, this.active);
     video.addEventListener('play', this.handlePlay, true);
-    if (wasPlayingBeforeLease) {
+    if (wasPlayingBeforeLease && !video.paused) {
       try {
         video.pause();
       } catch {
@@ -40,28 +52,58 @@ export class VideoPlaybackEditLease {
   release(options: { restorePlayback: boolean }): void {
     const current = this.active;
     if (!current) {
+      const transactions = Array.from(this.transactions.values());
+      this.transactions.clear();
+      transactions.forEach((transaction) =>
+        this.restorePlaybackIfNeeded(transaction, options.restorePlayback)
+      );
       return;
     }
 
-    current.video.removeEventListener('play', this.handlePlay, true);
-    this.active = null;
-    if (options.restorePlayback && current.wasPlayingBeforeLease) {
-      try {
-        void current.video.play().catch(() => undefined);
-      } catch {
-        // Browser autoplay policy or host wrappers may reject scripted playback.
-      }
-    }
+    this.deactivateActiveLease();
+    this.transactions.clear();
+    this.restorePlaybackIfNeeded(current, options.restorePlayback);
   }
 
   releaseForCapture(captureId: string, options: { restorePlayback: boolean }): void {
-    if (this.active?.captureId !== captureId) {
+    const transaction = this.transactions.get(captureId);
+    if (!transaction) {
       return;
     }
-    this.release(options);
+    if (this.active?.captureId === captureId) {
+      this.deactivateActiveLease();
+    }
+    this.transactions.delete(captureId);
+    this.restorePlaybackIfNeeded(transaction, options.restorePlayback);
   }
 
-  reset(): void {
-    this.release({ restorePlayback: false });
+  reset(options: VideoPlaybackEditLeaseResetOptions = {}): void {
+    this.deactivateActiveLease();
+    if (!options.preserveTransactions) {
+      this.transactions.clear();
+    }
+  }
+
+  private deactivateActiveLease(): void {
+    const current = this.active;
+    if (!current) {
+      return;
+    }
+    current.video.removeEventListener('play', this.handlePlay, true);
+    this.active = null;
+  }
+
+  private restorePlaybackIfNeeded(
+    transaction: VideoPlaybackEditLeaseState,
+    restorePlayback: boolean
+  ): void {
+    if (!restorePlayback || !transaction.wasPlayingBeforeLease) {
+      return;
+    }
+    try {
+      void transaction.video.play().catch(() => undefined);
+    } catch {
+      // Browser autoplay policy or host wrappers may reject scripted playback.
+    }
   }
 }

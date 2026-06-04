@@ -7,6 +7,7 @@ import {
   buildRangeCoveringBilibiliRichTextHost,
   extractTextFromBilibiliRichTextHost,
   findContainingBilibiliRichTextHost,
+  resolveBilibiliRichTextSearchRoot,
   resolveBilibiliRichTextHosts
 } from './bilibiliRichTextSelectionDom';
 import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
@@ -97,10 +98,12 @@ export function extractBilibiliSelection(
 }
 
 export function extractBilibiliSelectionFromEvent(
-  event: MouseEvent,
+  event: Event,
   existingRange: Range | null,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  selectedText = ''
 ): { text: string; html: string; range?: Range } | null {
+  const normalizedSelectedText = helpers.normalizeWhitespace(selectedText);
   const path = event.composedPath();
   for (const target of path) {
     if (!(target instanceof Node)) {
@@ -114,10 +117,19 @@ export function extractBilibiliSelectionFromEvent(
     if (!extracted || !extracted.text.trim()) {
       continue;
     }
-    const range = existingRange ?? buildRangeCoveringBilibiliRichTextHost(host, helpers);
-    return range
-      ? { text: extracted.text, html: extracted.html, range }
-      : { text: extracted.text, html: extracted.html };
+    const exactRange = normalizedSelectedText
+      ? findBilibiliTextRangeAcrossScopedNodes(normalizedSelectedText, helpers, [
+          resolveBilibiliRichTextSearchRoot(host)
+        ])
+      : null;
+    const range =
+      existingRange ?? exactRange ?? buildRangeCoveringBilibiliRichTextHost(host, helpers);
+    const text = normalizedSelectedText || extracted.text;
+    const html =
+      exactRange && !existingRange
+        ? serializeBilibiliRangeHtml(exactRange, text, helpers)
+        : extracted.html;
+    return range ? { text, html, range } : { text, html };
   }
   return null;
 }
@@ -131,4 +143,14 @@ export function buildRangeCoveringBilibiliRichText(
   helpers: BilibiliSelectionHelpers
 ): Range | null {
   return buildRangeCoveringBilibiliRichTextHost(host, helpers);
+}
+
+function serializeBilibiliRangeHtml(
+  range: Range,
+  fallbackText: string,
+  helpers: BilibiliSelectionHelpers
+): string {
+  const container = helpers.document.createElement('div');
+  container.append(range.cloneContents());
+  return container.innerHTML.trim() || helpers.escapeHtml(fallbackText);
 }

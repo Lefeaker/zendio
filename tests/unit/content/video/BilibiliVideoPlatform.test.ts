@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
 import {
+  BilibiliShadowObserver,
   isBilibiliCommentRegionNode,
   isBilibiliDanmakuNode
 } from '@content/video/platforms/bilibiliPlatformObserver';
@@ -213,6 +214,45 @@ describe('BilibiliVideoPlatform', () => {
     expect(result?.range?.toString()).toBe('Event fallback text');
   });
 
+  it('rebuilds an exact rich text range from selected text during event fallback', () => {
+    const { content } = mountBiliCommentWithRichText(
+      '<span>before </span><span>selected target</span><span> after</span>'
+    );
+    const selectedNode = content.querySelectorAll('span')[1]?.firstChild;
+    if (!selectedNode) {
+      throw new Error('Failed to build selected text fixture');
+    }
+    const root = content.getRootNode();
+    const event = new MouseEvent('mouseup', { bubbles: true });
+    Object.defineProperty(event, 'composedPath', {
+      configurable: true,
+      value: () => [
+        selectedNode,
+        content,
+        root,
+        root instanceof ShadowRoot ? root.host : null,
+        document.body,
+        document,
+        window
+      ]
+    });
+
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const input: PlatformSelectionInput = {
+      range: null,
+      selectedText: 'selected target',
+      selectedHtml: '',
+      event
+    };
+    const result = platform.resolveSelection(input);
+
+    expect(result?.text).toBe('selected target');
+    expect(result?.range?.toString()).toBe('selected target');
+    expect(result?.html).toContain('selected target');
+    expect(result?.html).not.toContain('before');
+    expect(result?.html).not.toContain('after');
+  });
+
   it('schedules restore when comment hosts are added through mutations', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
@@ -378,6 +418,34 @@ describe('BilibiliVideoPlatform', () => {
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
     expect(registeredRoots.size).toBe(4);
+  });
+
+  it('registers Bilibili comment shadow roots for selection even without fragment captures', () => {
+    const context = createContext(document);
+    const { root, thread, comment, richText } = mountBiliCommentsFixture();
+    const observer = new BilibiliShadowObserver(document, context);
+
+    observer.ensureObservedRoots();
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+  });
+
+  it('lets the platform proactively register Bilibili selection shadow roots on session start', () => {
+    const context = createContext(document);
+    const { root, richText } = mountBiliCommentsFixture();
+    const platform = new BilibiliVideoPlatform(context);
+
+    platform.observeSelectionRoots();
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
+      childList: true,
+      subtree: true
+    });
   });
 
   it('batches comment-root mutation refreshes to one restore', () => {

@@ -103,8 +103,7 @@ export function buildRangeCoveringBilibiliRichTextHost(
   host: HTMLElement,
   helpers: BilibiliSelectionHelpers
 ): Range | null {
-  const container = host.shadowRoot ? resolveBilibiliRichTextContainer(host.shadowRoot) : null;
-  const target = container ?? host.shadowRoot ?? host;
+  const target = resolveBilibiliRichTextSearchRoot(host);
   if (!target) {
     return null;
   }
@@ -138,4 +137,9 @@ export function buildRangeCoveringBilibiliRichTextHost(
   const lastNode = textNodes[textNodes.length - 1];
   range.setEnd(lastNode, lastNode.textContent?.length ?? 0);
   return range;
+}
+
+export function resolveBilibiliRichTextSearchRoot(host: HTMLElement): Node {
+  const container = host.shadowRoot ? resolveBilibiliRichTextContainer(host.shadowRoot) : null;
+  return container ?? host.shadowRoot ?? host;
 }

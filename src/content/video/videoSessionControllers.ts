@@ -65,12 +65,6 @@ export function createVideoSessionControllers(args: {
   const fragmentHighlighter = new FragmentHighlighter(doc);
   const hintManager = new VideoHintManager(getMessages);
   const pendingSelection = new PendingSelectionTracker();
-  const shadowSelectionBridge = new ShadowSelectionBridge({
-    suppressSelectionCapture: () => state.suppressSelectionCapture,
-    getDocumentSelection,
-    isRangeInsideUi,
-    pendingSelection
-  });
   const fragmentHighlightCoordinator = new FragmentHighlightCoordinator({
     doc,
     highlighter: fragmentHighlighter,
@@ -103,6 +97,14 @@ export function createVideoSessionControllers(args: {
     onSelectionCleared: () => {
       // no-op for now; handled by fragment selection controller when needed
     }
+  });
+  const shadowSelectionBridge = new ShadowSelectionBridge({
+    suppressSelectionCapture: () => state.suppressSelectionCapture,
+    getDocumentSelection,
+    isRangeInsideUi,
+    pendingSelection,
+    activatePendingSelection: (event, options) =>
+      selectionCaptureController.activatePendingSelection(event, options)
   });
   const lifecycle = new VideoSessionLifecycle(
     {
