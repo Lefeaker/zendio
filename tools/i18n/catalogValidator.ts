@@ -2,6 +2,7 @@ import { RELEASE_LANGUAGE_ORDER } from '../../src/i18n/catalog/languages';
 import type { CatalogLocaleCatalog } from '../../src/i18n/catalog/schema';
 import type { RuntimeMessageKey } from '../../src/i18n/catalog/keys';
 import { isRuntimeMessageKey } from '../../src/i18n/catalog/keys';
+import type { ChromeStaticCatalog } from '../../src/i18n/catalog/static';
 import type { CompiledCatalog, CompileCatalogOptions } from './compileCatalog';
 
 function findMatchingBrace(template: string, startIndex: number): number {
@@ -101,6 +102,10 @@ function normalizeRuntimeMessages(
   }
 
   return normalized;
+}
+
+function normalizeStaticMessages(catalog: CatalogLocaleCatalog): Partial<ChromeStaticCatalog> {
+  return catalog.static ? { ...catalog.static } : {};
 }
 
 export function validateCatalogSource(
@@ -205,10 +210,12 @@ export function validateCatalogSource(
 
   const localeCodes = [...targetLanguages];
   const messageKeys = [...expectedKeys];
+  const sourceLocaleCodes = [...catalogByLanguage.keys()];
 
   return {
     localeCodes,
     messageKeys,
+    sourceLocaleCodes,
     locales: Object.fromEntries(
       localeCodes.map((language) => {
         const catalog = catalogByLanguage.get(language);
@@ -216,6 +223,15 @@ export function validateCatalogSource(
           throw new Error(`Validated catalog missing language: ${language}`);
         }
         return [language, normalizeRuntimeMessages(catalog, messageKeys)];
+      })
+    ),
+    staticCatalogs: Object.fromEntries(
+      sourceLocaleCodes.map((language) => {
+        const catalog = catalogByLanguage.get(language);
+        if (!catalog) {
+          throw new Error(`Validated catalog missing language: ${language}`);
+        }
+        return [language, normalizeStaticMessages(catalog)];
       })
     )
   };

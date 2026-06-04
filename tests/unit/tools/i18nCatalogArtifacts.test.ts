@@ -13,11 +13,13 @@ import { compileCatalog } from '../../../tools/i18n/compileCatalog';
 
 function createLocaleCatalog(
   language: string,
-  runtime: Record<string, string>
+  runtime: Record<string, string>,
+  staticMessages?: Record<string, string>
 ): CatalogLocaleCatalog {
   return {
     language: language as CatalogLocaleCatalog['language'],
-    runtime: runtime as CatalogLocaleCatalog['runtime']
+    runtime: runtime as CatalogLocaleCatalog['runtime'],
+    static: staticMessages as CatalogLocaleCatalog['static']
   };
 }
 
@@ -131,5 +133,59 @@ describe('i18n generated artifact drift checks', () => {
 
       expect(content).toBe(formattedContent);
     }
+  });
+
+  it('emits WebExtension locale artifacts when static catalog messages are present', async () => {
+    const compiled = compileCatalog(
+      [
+        createLocaleCatalog(
+          'en',
+          {
+            extensionName: 'Alpha'
+          },
+          {
+            extName: 'Alpha',
+            extDescription: 'English description'
+          }
+        ),
+        createLocaleCatalog(
+          'de',
+          {
+            extensionName: 'Alpha'
+          },
+          {
+            extName: 'Alpha',
+            extDescription: 'Deutsche Beschreibung'
+          }
+        )
+      ],
+      {
+        expectedKeys: runtimeKeys('extensionName'),
+        releaseLanguageOrder: ['en', 'de']
+      }
+    );
+
+    const artifacts = await buildGeneratedArtifacts(compiled);
+
+    expect(artifacts.get('public/_locales/en/messages.json')).toBe(
+      `${JSON.stringify(
+        {
+          extName: { message: 'Alpha' },
+          extDescription: { message: 'English description' }
+        },
+        null,
+        2
+      )}\n`
+    );
+    expect(artifacts.get('public/_locales/de/messages.json')).toBe(
+      `${JSON.stringify(
+        {
+          extName: { message: 'Alpha' },
+          extDescription: { message: 'Deutsche Beschreibung' }
+        },
+        null,
+        2
+      )}\n`
+    );
   });
 });

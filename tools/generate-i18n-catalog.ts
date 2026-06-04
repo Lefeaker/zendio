@@ -29,7 +29,8 @@ function parseArgs(argv: string[]): { checkOnly: boolean } {
 
 async function main(): Promise<void> {
   const { checkOnly } = parseArgs(process.argv.slice(2));
-  const compiled = compileCatalog(readCatalogSource(), {
+  const sourceCatalogs = readCatalogSource({ includePseudoLocale: true });
+  const compiled = compileCatalog(sourceCatalogs, {
     expectedKeys: RUNTIME_MESSAGE_KEYS,
     releaseLanguageOrder: RELEASE_LANGUAGE_ORDER
   });

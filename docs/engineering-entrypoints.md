@@ -23,6 +23,8 @@
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` errors / `8` warnings，warning-only 不阻塞该 hard gate
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
+  - `i18n:catalog:generate` 当前同时生成 `src/i18n/generated/*` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
+  - `public/_locales/**` 是当前 catalog-owned WebExtension static source；root `_locales/**` 仍保留为 compatibility duplicate，不参与 production build/package ownership
 - `npm run verify:preflight`
   - 显式包含 `verify:runtime`
   - 显式包含 `typecheck:app`

@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RELEASE_LANGUAGE_ORDER } from '../../../src/i18n/catalog/languages';
 import { getConfiguredLanguageCodes, getWebExtensionLocaleFolder } from '../../../src/i18n/config';
 
 const root = process.cwd();
@@ -20,6 +21,14 @@ describe('WebExtension locale folders', () => {
     const publicFolders = new Set(await readdir(publicLocalesDir));
 
     for (const code of getConfiguredLanguageCodes()) {
+      expect(publicFolders.has(getWebExtensionLocaleFolder(code))).toBe(true);
+    }
+  });
+
+  it('keeps a public locale folder for every release locale code', async () => {
+    const publicFolders = new Set(await readdir(publicLocalesDir));
+
+    for (const code of RELEASE_LANGUAGE_ORDER) {
       expect(publicFolders.has(getWebExtensionLocaleFolder(code))).toBe(true);
     }
   });

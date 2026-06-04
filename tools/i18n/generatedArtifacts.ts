@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import prettier from 'prettier';
 import type { CompiledCatalog } from './compileCatalog';
+import { emitGeneratedChromeLocales } from './emitGeneratedChromeLocales';
 import { emitGeneratedLocales } from './emitGeneratedLocales';
 import { emitGeneratedTypes } from './emitGeneratedTypes';
 
@@ -30,7 +31,8 @@ export async function buildGeneratedArtifacts(
 ): Promise<Map<string, string>> {
   const rawArtifacts = new Map<string, string>([
     ['src/i18n/generated/messages.generated.ts', emitGeneratedTypes(compiled)],
-    ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(compiled)]
+    ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(compiled)],
+    ...emitGeneratedChromeLocales(compiled)
   ]);
 
   const formattedEntries = await Promise.all(

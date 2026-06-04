@@ -76,10 +76,16 @@ async function loadBudgetModule() {
 async function loadLanguageConfig() {
   const modulePath = path.join(ROOT, 'src/i18n/config.ts');
   const mod = await bundleModule(modulePath);
-  if (!mod.LANGUAGE_CONFIG) {
-    throw new Error('Failed to load LANGUAGE_CONFIG from src/i18n/config.ts');
+  if (
+    !mod.LANGUAGE_CONFIG
+    || typeof mod.getConfiguredLanguageCodes !== 'function'
+    || typeof mod.getWebExtensionLocaleFolder !== 'function'
+  ) {
+    throw new Error(
+      'Failed to load LANGUAGE_CONFIG/getConfiguredLanguageCodes/getWebExtensionLocaleFolder from src/i18n/config.ts'
+    );
   }
-  return mod.LANGUAGE_CONFIG;
+  return mod;
 }
 
 async function loadGlossaryModule() {
@@ -236,8 +242,9 @@ async function main() {
     }
   }
 
-  const languageConfig = await loadLanguageConfig();
-  const { errors: chromeErrors, warnings: chromeWarnings } = await validateChromeLocales(languageConfig);
+  const languageConfigModule = await loadLanguageConfig();
+  const { errors: chromeErrors, warnings: chromeWarnings } =
+    await validateChromeLocales(languageConfigModule);
   errors.push(...chromeErrors);
 
   if (chromeWarnings.length > 0) {
@@ -265,10 +272,6 @@ main().catch((error) => {
   process.exitCode = 1;
 });
 
-function normaliseChromeLocaleCandidate(value) {
-  return value.replace(/-/g, '_');
-}
-
 async function loadChromeLocale(folder) {
   const filePath = path.join(CHROME_LOCALES_DIR, folder, 'messages.json');
   const raw = await fs.readFile(filePath, 'utf8');
@@ -283,17 +286,8 @@ async function loadChromeLocale(folder) {
   return map;
 }
 
-function buildChromeCandidates(code, configEntry) {
-  const aliases = configEntry.aliases ?? [];
-  const candidates = new Set([code, normaliseChromeLocaleCandidate(code)]);
-  for (const alias of aliases) {
-    candidates.add(alias);
-    candidates.add(normaliseChromeLocaleCandidate(alias));
-  }
-  return Array.from(candidates).map((candidate) => normaliseChromeLocaleCandidate(candidate));
-}
-
-async function validateChromeLocales(languageConfig) {
+async function validateChromeLocales(languageConfigModule) {
+  const { getConfiguredLanguageCodes, getWebExtensionLocaleFolder } = languageConfigModule;
   let chromeFolders = [];
   try {
     chromeFolders = await fs.readdir(CHROME_LOCALES_DIR);
@@ -313,16 +307,14 @@ async function validateChromeLocales(languageConfig) {
   const errors = [];
   const warnings = [];
 
-  const languageCodes = Object.keys(languageConfig);
+  const languageCodes = getConfiguredLanguageCodes();
   for (const code of languageCodes) {
     if (code === 'qps-ploc') {
       continue;
     }
-    const configEntry = languageConfig[code];
-    const candidates = buildChromeCandidates(code, configEntry);
-    const folder = candidates.find((candidate) => chromeFolders.includes(candidate));
-    if (!folder) {
-      errors.push(`[chrome:${code}] Missing Chrome locale folder (checked ${candidates.join(', ')})`);
+    const folder = getWebExtensionLocaleFolder(code);
+    if (!chromeFolders.includes(folder)) {
+      errors.push(`[chrome:${code}] Missing Chrome locale folder ${folder}`);
       continue;
     }
 
@@ -351,7 +343,12 @@ async function validateChromeLocales(languageConfig) {
     }
   }
 
-  const unusedFolders = chromeFolders.filter((folder) => !usedFolders.has(folder));
+  const configuredFolderSet = new Set(
+    languageCodes.filter((code) => code !== 'qps-ploc').map((code) => getWebExtensionLocaleFolder(code))
+  );
+  const unusedFolders = chromeFolders.filter(
+    (folder) => !usedFolders.has(folder) && !configuredFolderSet.has(folder)
+  );
   for (const folder of unusedFolders) {
     warnings.push(`[chrome:${folder}] No runtime language maps to this Chrome locale folder.`);
   }
