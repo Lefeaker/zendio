@@ -5,6 +5,7 @@
 ## 正式入口
 
 - 工程命令与门禁：[`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- GA telemetry 事件与字段真值：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
 - 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
@@ -59,6 +60,7 @@
 ## 使用规则
 
 - 想知道“现在该跑什么命令”，先看 [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- 想知道“当前 telemetry 事件、字段、分类与隐私边界”，先看 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - 想知道“现在包体和热点是多少”，先看 [`performance-baseline.md`](./performance-baseline.md)
 - 想知道“审计时的脏工作树属于哪个交付批次”，先看 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 - 如果新增正式入口、门禁口径或批次归属规则，必须同步更新本页与 [`README.md`](./README.md)

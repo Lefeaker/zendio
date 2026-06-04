@@ -1,297 +1,303 @@
-# Google Analytics 4 错误监控仪表板设置指南
+# Google Analytics Dashboard Setup
+
+最后更新：2026-06-05
+
+本文说明如何基于当前 AiiinOB telemetry contract 建立 GA4 自定义定义、Exploration 与 owner dashboard。
+
+## 前置条件
+
+- release build 已注入 public analytics config
+- 生产 transport 使用 owner proxy
+- 测试 profile 已显式开启 consent
+- 事件与字段真值以 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md) 为准
 
-本文档提供了为 AiiinOB 扩展设置 Google Analytics 4 错误监控仪表板的完整指南。
+## Dashboard 设计硬规则
 
-## 目录
+- 所有时长分析只使用 `duration_bucket`
+- 不要求、不假设、不回填产品侧 `duration_ms`
+- `dev-only`、contract-only、inventory-only、docs-only 行不进入生产 KPI
+- owner 若需要精确服务端耗时，应查看 proxy / backend logs，不要把要求转嫁给扩展产品遥测
 
-1. [GA4 配置](#ga4-配置)
-2. [自定义事件设置](#自定义事件设置)
-3. [仪表板创建](#仪表板创建)
-4. [关键指标监控](#关键指标监控)
-5. [报警设置](#报警设置)
+## 推荐自定义定义
+
+GA4 definition quota 有上限。先注册会被正式 dashboard 使用的字段。
 
-## GA4 配置
+### 推荐 event-scoped dimensions
 
-### 1. 创建 GA4 属性
+| Parameter                   | 用途                                                        |
+| --------------------------- | ----------------------------------------------------------- |
+| `duration_bucket`           | onboarding、clip、reader、video、connection、vault 时长分析 |
+| `content_type`              | clip / extraction 内容类型切片                              |
+| `storage_target`            | 下载、本地目录、REST API 的成败分析                         |
+| `failure_category`          | 失败原因切片                                                |
+| `platform`                  | AI chat / video 平台切片                                    |
+| `destination`               | reader / video 导出目标                                     |
+| `source`                    | 入口来源切片                                                |
+| `step`                      | onboarding 漏斗                                             |
+| `action`                    | onboarding support action、options action 分析              |
+| `field`                     | consent 变更字段                                            |
+| `section`                   | options section / action 切片                               |
+| `theme`                     | options theme change 分析                                   |
+| `language`                  | options language 与 i18n overflow 分析                      |
+| `feature_key`               | 实验开关使用频率                                            |
+| `analytics_payload_present` | config import 是否包含 analytics payload                    |
+| `category`                  | usage dashboard 分类                                        |
+| `variant`                   | support prompt / review toast 分析                          |
+| `target`                    | support link 出口切片                                       |
+| `message_count_bucket`      | AI chat 消息量 bucket                                       |
+| `attachment_count_bucket`   | clip 附件量 bucket                                          |
+| `capture_count_bucket`      | video capture 量级                                          |
+| `screenshot_count_bucket`   | video screenshot 量级                                       |
+| `selection_length_bucket`   | reader 高亮长度 bucket                                      |
+| `highlight_count_bucket`    | reader 高亮数 bucket                                        |
+| `error_domain`              | 错误域趋势                                                  |
+| `error_category`            | 错误类别趋势                                                |
+| `error_severity`            | 错误严重度趋势                                              |
+| `error_recoverable`         | 错误可恢复性分析                                            |
+| `browser_name`              | 浏览器分布                                                  |
+| `browser_version`           | 主版本切片                                                  |
+| `extension_version`         | release regression / rollout 对比                           |
 
-1. 登录 [Google Analytics](https://analytics.google.com/)
-2. 创建新的 GA4 属性
-3. 记录 `Measurement ID` (格式: G-XXXXXXXXXX)
-4. 在"数据流"中创建"网络"数据流（用于接收扩展数据）
+### 推荐 event-scoped metrics
 
-### 2. 配置 Measurement Protocol
+| Parameter     | 用途                       |
+| ------------- | -------------------------- |
+| `increment`   | usage dashboard 增量求和   |
+| `total_after` | usage dashboard 累计值参考 |
+| `length`      | i18n overflow 实际长度分析 |
+| `limit`       | i18n overflow 预算上限分析 |
 
-1. 进入"管理" > "数据流" > 选择你的数据流
-2. 点击"Measurement Protocol API 密钥"
-3. 创建新的 API 密钥
-4. 记录 `API Secret`
+## Recommended Explorations
 
-### 3. 更新扩展配置
+### 1. Onboarding funnel
 
-在 `AiiinOB/src/shared/errors/analytics/analyticsConfig.ts` 中更新配置：
+事件集：
 
-```typescript
-export const GA4_CONFIG = {
-  MEASUREMENT_ID: 'G-YOUR-MEASUREMENT-ID', // 替换为实际的 Measurement ID
-  API_SECRET: 'YOUR_API_SECRET' // 替换为实际的 API Secret
-  // ... 其他配置
-};
-```
+- `onboarding_started`
+- `onboarding_step_completed`
+- `onboarding_skipped`
+- `onboarding_completed`
 
-## 自定义事件设置
+推荐 breakdown：
 
-### 1. 错误事件结构
+- `step`
+- `duration_bucket`
+- `extension_version`
 
-我们的错误报告使用以下事件结构：
+读法：
 
-```javascript
-{
-  "name": "extension_error",
-  "params": {
-    "error_code": "EXTRACTION_CONTENT_NO_MARKDOWN",
-    "error_domain": "extraction",
-    "error_category": "CONTENT",
-    "error_severity": "error",
-    "error_severity_level": 3,
-    "error_recoverable": false,
-    "error_description": "Content extraction produced no markdown",
-    "extension_version": "0.2.0",
-    "browser_name": "chrome",
-    "browser_version": "120",
-    "timestamp": 1703123456789,
-    "session_id": "abc123-def456"
-  }
-}
-```
-
-### 2. 自定义维度设置
-
-在 GA4 中创建以下自定义维度：
-
-1. **错误代码** (`error_code`)
-   - 范围：事件
-   - 描述：标准化的错误代码
-
-2. **错误域** (`error_domain`)
-   - 范围：事件
-   - 描述：错误发生的功能域
-
-3. **错误类别** (`error_category`)
-   - 范围：事件
-   - 描述：错误的分类类别
-
-4. **错误严重程度** (`error_severity`)
-   - 范围：事件
-   - 描述：错误的严重程度级别
-
-5. **扩展版本** (`extension_version`)
-   - 范围：事件
-   - 描述：发生错误时的扩展版本
-
-6. **浏览器名称** (`browser_name`)
-   - 范围：事件
-   - 描述：用户使用的浏览器类型
-
-### 3. 自定义指标设置
+- 用 `onboarding_started` 作为 funnel 起点
+- 比较 `welcome` -> `vault` -> `privacy` -> `shortcut` -> `finish`
+- 对 `onboarding_skipped` 单独做 drop-off 视图
 
-创建以下自定义指标：
+### 2. First successful save funnel
 
-1. **错误严重程度级别** (`error_severity_level`)
-   - 范围：事件
-   - 单位：标准
-   - 描述：数值化的错误严重程度（1-4）
+主漏斗事件：
 
-## 仪表板创建
+- `clip_started`
+- `extraction_completed`
+- `clip_save_completed`
 
-### 1. 错误概览仪表板
+推荐 breakdown：
 
-创建一个综合性的错误监控仪表板，包含以下组件：
+- `content_type`
+- `storage_target`
+- `duration_bucket`
 
-#### 关键指标卡片
+补充失败视图：
 
-- **总错误数**：过去 7 天的错误总数
-- **严重错误数**：严重程度为 "critical" 的错误数
-- **错误率**：错误数 / 总会话数
-- **影响用户数**：遇到错误的唯一用户数
+- `clip_save_failed`
+- `failure_category`
 
-#### 趋势图表
+### 3. Feature frequency by content type
 
-- **错误趋势**：过去 30 天的每日错误数量
-- **严重程度分布**：不同严重程度错误的占比
-- **域分布**：各功能域的错误分布
+推荐事件：
 
-#### 详细分析表格
+- `clip_started`
+- `clip_prompt_opened`
+- `clip_prompt_submitted`
+- `clip_prompt_cancelled`
+- `ai_chat_detected`
+- `ai_chat_exported`
 
-- **热门错误代码**：按频率排序的错误代码列表
-- **版本对比**：不同扩展版本的错误率对比
-- **浏览器分析**：不同浏览器的错误分布
+推荐 breakdown：
 
-### 2. 仪表板配置示例
+- `content_type`
+- `platform`
+- `source`
 
-```json
-{
-  "dashboard_name": "AiiinOB 错误监控",
-  "widgets": [
-    {
-      "type": "scorecard",
-      "title": "总错误数",
-      "metric": "extension_error",
-      "time_range": "last_7_days"
-    },
-    {
-      "type": "time_series",
-      "title": "错误趋势",
-      "metric": "extension_error",
-      "dimension": "date",
-      "time_range": "last_30_days"
-    },
-    {
-      "type": "pie_chart",
-      "title": "错误严重程度分布",
-      "metric": "extension_error",
-      "dimension": "error_severity"
-    },
-    {
-      "type": "table",
-      "title": "热门错误代码",
-      "metric": "extension_error",
-      "dimension": "error_code",
-      "sort": "descending",
-      "limit": 20
-    }
-  ]
-}
-```
+### 4. Save outcome by storage target
 
-## 关键指标监控
+推荐事件：
 
-### 1. 错误率阈值
+- `clip_save_completed`
+- `clip_save_failed`
+- `vault_write_completed`
+- `vault_write_failed`
+- `connection_test_completed`
 
-设置以下错误率阈值进行监控：
+推荐 breakdown：
 
-- **正常**：< 1% 的会话遇到错误
-- **警告**：1-5% 的会话遇到错误
-- **严重**：> 5% 的会话遇到错误
+- `storage_target`
+- `failure_category`
+- `duration_bucket`
 
-### 2. 关键错误类型
+### 5. Duration bucket exploration
 
-重点监控以下类型的错误：
+推荐事件：
 
-- **CRITICAL 级别错误**：所有严重错误都需要立即关注
-- **网络相关错误**：REST*NETWORK*\* 类型的错误
-- **Chrome API 错误**：CHROME*API*\* 类型的错误
-- **内容提取错误**：EXTRACTION\_\* 类型的错误
+- `onboarding_step_completed`
+- `onboarding_completed`
+- `extraction_completed`
+- `background_stage_completed`
+- `clip_save_completed`
+- `connection_test_completed`
+- `vault_write_completed`
+- `reader_exported`
+- `reader_session_cancelled`
+- `video_exported`
+- `video_session_cancelled`
 
-### 3. 版本回归检测
+推荐 breakdown：
 
-监控新版本发布后的错误率变化：
+- `duration_bucket`
+- `content_type`
+- `storage_target`
+- `platform`
 
-- 对比新版本与前一版本的错误率
-- 识别新版本引入的新错误类型
-- 监控特定错误代码的频率变化
+严格说明：
 
-## 报警设置
+- 这里的所有时长图都以 `duration_bucket` 为准
+- 不要建立依赖原始 `duration_ms` 的生产报表
 
-### 1. 实时报警
+### 6. Reader / Video usage
 
-在 GA4 中设置以下实时报警：
+Reader 事件：
 
-#### 严重错误报警
+- `reader_session_started`
+- `reader_highlight_added`
+- `reader_exported`
+- `reader_export_failed`
+- `reader_session_cancelled`
 
-- **条件**：error_severity = "critical"
-- **阈值**：> 10 次/小时
-- **通知**：邮件 + Slack
+Video 事件：
 
-#### 错误率激增报警
+- `video_session_started`
+- `video_timestamp_added`
+- `video_fragment_added`
+- `video_screenshot_captured`
+- `video_capture_removed`
+- `video_exported`
+- `video_export_failed`
+- `video_session_cancelled`
 
-- **条件**：错误总数相比前一小时增长 > 200%
-- **阈值**：> 50 次/小时
-- **通知**：邮件
+推荐 breakdown：
 
-#### 新错误类型报警
+- `destination`
+- `platform`
+- `capture_count_bucket`
+- `selection_length_bucket`
+- `highlight_count_bucket`
+- `duration_bucket`
 
-- **条件**：出现新的 error_code
-- **阈值**：> 5 次/小时
-- **通知**：Slack
+### 7. Connection / Local Vault friction
 
-### 2. 每日报告
+推荐事件：
 
-设置每日错误摘要报告：
+- `connection_test_completed`
+- `local_vault_permission_prompted`
+- `local_vault_permission_resolved`
+- `vault_write_failed`
 
-- **发送时间**：每天上午 9:00
-- **内容**：
-  - 昨日错误总数和趋势
-  - 新出现的错误类型
-  - 热门错误代码 Top 10
-  - 版本和浏览器分布
+推荐 breakdown：
 
-### 3. 周报设置
+- `storage_target`
+- `failure_category`
+- `outcome`
+- `source`
 
-设置每周错误分析报告：
+推荐问题：
 
-- **发送时间**：每周一上午 10:00
-- **内容**：
-  - 周错误趋势分析
-  - 错误率变化对比
-  - 用户影响分析
-  - 改进建议
+- 哪个 target 的测试失败最多
+- local folder permission prompt 的完成率如何
+- 哪些失败主要来自 permission / connection / write
 
-## 数据隐私合规
+### 8. Error trends
 
-### 1. 数据匿名化验证
+核心事件：
 
-定期验证发送到 GA4 的数据已正确匿名化：
+- `extension_error`
 
-- 检查是否包含个人身份信息
-- 验证敏感数据已被清理
-- 确认 URL 和路径信息已脱敏
+推荐 breakdown：
 
-### 2. 数据保留设置
+- `error_domain`
+- `error_category`
+- `error_severity`
+- `error_recoverable`
+- `browser_name`
+- `browser_version`
+- `extension_version`
 
-在 GA4 中配置适当的数据保留期：
+建议固定图表：
 
-- **事件数据保留**：14 个月
-- **用户数据保留**：14 个月
-- **自动删除**：启用
+- 按日 error count
+- 按版本 error count
+- 按 domain / severity 堆叠图
+- recoverable vs non-recoverable 比例
 
-### 3. 用户同意管理
+## Validation
 
-确保错误报告符合隐私法规：
+### DebugView validation
 
-- 用户明确同意后才开始收集
-- 提供随时撤销同意的选项
-- 同意撤销后立即停止数据收集
+仅本地使用 `directDebug`：
 
-## 故障排除
+- 打开 consent
+- 触发一个 options 事件、一个 clip 事件、一个错误事件
+- 确认 DebugView 中看到事件名与自定义字段
 
-### 1. 常见问题
+### Proxy log validation
 
-**数据未出现在 GA4 中**
+生产与 staging 以 proxy log 为主：
 
-- 检查 Measurement ID 和 API Secret 是否正确
-- 验证网络连接和防火墙设置
-- 查看浏览器开发者工具中的网络请求
+- 确认请求打到 owner proxy，而不是产品文档要求的直接 Google endpoint
+- 确认 event name、response code、version、transport mode 正常
+- 确认 payload 中没有正文、路径、token、secret
 
-**数据格式错误**
+### No-consent smoke check
 
-- 确认自定义维度和指标已正确创建
-- 检查事件参数名称是否匹配
-- 验证数据类型是否正确
+- 关闭 `analytics` 与 `errorReporting`
+- 复做一次 options / clip / reader / video 操作
+- 确认没有新 proxy log / DebugView 事件
 
-### 2. 调试工具
+## 建议的 owner dashboard 页面
 
-使用以下工具进行调试：
+### Page 1: Activation / Setup
 
-- **GA4 DebugView**：实时查看事件数据
-- **Measurement Protocol Validation**：验证请求格式
-- **浏览器开发者工具**：检查网络请求和错误
+- onboarding funnel
+- options opened / section viewed
+- consent change trend
 
-## 最佳实践
+### Page 2: Save / Export
 
-1. **渐进式部署**：先在小范围用户中测试错误报告
-2. **定期审查**：每月审查错误模式和趋势
-3. **版本标记**：确保每个版本都有正确的版本标识
-4. **文档更新**：及时更新错误代码文档和处理指南
-5. **团队培训**：确保团队成员了解如何使用仪表板
+- first successful save funnel
+- save success by storage target
+- save failure by failure category
+- AI chat export trend
 
-通过遵循本指南，您可以建立一个全面的错误监控系统，帮助快速发现和解决 AiiinOB 扩展中的问题，提升用户体验。
+### Page 3: Reader / Video
+
+- reader sessions and exports
+- video sessions and exports
+- duration bucket distributions
+
+### Page 4: Reliability
+
+- `extension_error` trend
+- browser / version breakdown
+- connection / local vault friction
+
+## 不要做的事情
+
+- 不要把 catalog-only / historical rows当作正式 KPI
+- 不要要求原始 `duration_ms`
+- 不要在 dashboard 说明里要求 owner 把服务端 credential 放进扩展
