@@ -8,7 +8,7 @@
 - 运行时导出契约：`src/shared/types/analytics.ts`
 - 参数清洗真值：`src/shared/analytics/analyticsSanitizers.ts`
 - 错误匿名化真值：`src/shared/errors/analytics/dataSanitizer.ts`
-- 集成分支校验基线：`codex/aiiinob-ga-production-telemetry-2026-06-04-integration` at `02ee60f277a53c6f8c401b7564c26d6f0902554b`
+- 集成分支校验基线：以 `codex/aiiinob-ga-production-telemetry-2026-06-04-integration` 作为当前分支真值；commit 级验证请查看本次 P13 final audit 与该分支的 `git log` / `git show`，不要在本文硬编码当前 HEAD。
 
 ## 当前传输与同意真值
 

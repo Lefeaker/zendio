@@ -1,5 +1,10 @@
 import { normalizeToAppError } from '../../shared/errors';
-import { bucketCount, createFeatureTimer, type ContentType } from '../../shared/analytics';
+import {
+  bucketCount,
+  createFeatureTimer,
+  type ContentType,
+  type CountBucket
+} from '../../shared/analytics';
 import {
   createTrackUsageEventMessage,
   type TrackUsageEventPayload,
@@ -201,7 +206,7 @@ function inferCompletedContentType(
 }
 
 function buildAttachmentCountBucket(result: ClipFlowResult): {
-  attachment_count_bucket?: UsageEventParamMap['extraction_completed']['attachment_count_bucket'];
+  attachment_count_bucket?: CountBucket;
 } {
   const attachments = result.meta?.attachments;
   if (!Array.isArray(attachments)) {
