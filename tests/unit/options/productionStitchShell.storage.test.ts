@@ -256,6 +256,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders and persists Chromium local folders in the production Vault List', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging(undefined);
     const chooseDirectory = vi.fn(() =>
       Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
     );
@@ -284,8 +285,9 @@ describe('mountProductionStitchShell storage', () => {
         }
       },
       messages: null,
-      language: 'en'
-    });
+      language: 'en',
+      messagingRepository
+    } as never);
 
     const vaultList = findCardByTitle('Vault List');
     expect(
@@ -341,10 +343,27 @@ describe('mountProductionStitchShell storage', () => {
     expect(cleared.rest.localFolderName).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_prompted',
+      {
+        source: 'options'
+      },
+      ['source']
+    );
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_resolved',
+      {
+        outcome: 'completed'
+      },
+      ['outcome']
+    );
   });
 
   it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging(undefined);
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
     registerService(
       TOKENS.platformServices,
@@ -390,8 +409,9 @@ describe('mountProductionStitchShell storage', () => {
         }
       } as Partial<CompleteOptions>,
       messages: null,
-      language: 'en'
-    });
+      language: 'en',
+      messagingRepository
+    } as never);
 
     const selectedFolderButton = Array.from(
       findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
@@ -404,6 +424,22 @@ describe('mountProductionStitchShell storage', () => {
     const vaultList = findCardByTitle('Vault List');
     expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
     expect(document.body.textContent).toContain('本地目录需要重新授权');
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_prompted',
+      {
+        source: 'options'
+      },
+      ['source']
+    );
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_resolved',
+      {
+        outcome: 'failed'
+      },
+      ['outcome']
+    );
   });
 
   it('persists domain mapping edits and delete actions', () => {
@@ -585,12 +621,20 @@ describe('mountProductionStitchShell storage', () => {
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
     const controller = createController();
-    const messagingRepository = createMessaging({
-      success: false,
-      status: 401,
-      message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
-      error: '本地目录需要重新授权：LocalFolder'
-    });
+    const messagingRepository = {
+      send: vi.fn((message: { type?: string }) => {
+        if (message.type === 'TEST_VAULT_CONNECTION') {
+          return Promise.resolve({
+            success: false,
+            status: 401,
+            message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
+            error: '本地目录需要重新授权：LocalFolder'
+          });
+        }
+        return Promise.resolve(undefined);
+      }),
+      onMessage: vi.fn(() => () => {})
+    };
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -648,5 +692,61 @@ describe('mountProductionStitchShell storage', () => {
       expect.objectContaining({ vaultId: 'disabled' })
     );
     expect(document.body.textContent).toContain('本地目录需要重新授权：LocalFolder');
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'connection_test_completed',
+      {
+        failure_category: 'unknown',
+        outcome: 'failed',
+        storage_target: 'unknown'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 });
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'apiKey',
+  'baseUrl',
+  'duration_ms',
+  'endpoint',
+  'fallback_reason',
+  'failure_count_bucket',
+  'filePath',
+  'folderId',
+  'folderName',
+  'localFolderName',
+  'noteName',
+  'permission_state',
+  'response',
+  'responseBody',
+  'success_count_bucket',
+  'test_scope',
+  'vault',
+  'vaultName',
+  'vault_count_bucket'
+]);
+
+function expectAnalyticsMessage(
+  calls: unknown[][],
+  expectedEvent: string,
+  expectedParams: Record<string, unknown>,
+  allowedKeys: string[]
+): void {
+  const analyticsCall = calls.find((call) => {
+    const message = call[0] as { type?: string; event?: string } | undefined;
+    return message?.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+  });
+  expect(analyticsCall).toBeDefined();
+  const message = analyticsCall?.[0] as {
+    event: string;
+    params?: Record<string, unknown>;
+    type: 'TRACK_USAGE_EVENT';
+  };
+  expect(message.params).toEqual(expect.objectContaining(expectedParams));
+  const params = message.params ?? {};
+  expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+  Object.keys(params).forEach((key) => {
+    expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+  });
+}
