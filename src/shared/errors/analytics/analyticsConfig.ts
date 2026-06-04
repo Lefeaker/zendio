@@ -1,7 +1,15 @@
 import type { StorageService } from '@platform/interfaces/storage';
+import {
+  DEFAULT_ANALYTICS_MEASUREMENT_ID,
+  normalizeAnalyticsTransportMode,
+  normalizeMeasurementId,
+  normalizeProxyEndpoint,
+  readAnalyticsPublicBuildConfig,
+  type AnalyticsTransportMode
+} from '../../analytics/analyticsEnvironment';
 
 export const GA4_CONFIG = {
-  MEASUREMENT_ID: 'G-XXXXXXXXXX',
+  MEASUREMENT_ID: DEFAULT_ANALYTICS_MEASUREMENT_ID,
   EVENT_NAMES: {
     ERROR: 'extension_error',
     USAGE: 'extension_usage',
@@ -40,6 +48,8 @@ export interface AnalyticsConfig {
   enabled: boolean;
   debugMode: boolean;
   measurementId: string;
+  transportMode: AnalyticsTransportMode;
+  proxyEndpoint?: string;
   clientId?: string;
   sessionId?: string;
   userConsent?: UserConsent;
@@ -48,10 +58,16 @@ export interface AnalyticsConfig {
   batchSize: number;
 }
 
+const PUBLIC_BUILD_ANALYTICS_CONFIG = readAnalyticsPublicBuildConfig();
+
 export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
   enabled: false,
   debugMode: false,
-  measurementId: GA4_CONFIG.MEASUREMENT_ID,
+  measurementId: PUBLIC_BUILD_ANALYTICS_CONFIG.measurementId ?? GA4_CONFIG.MEASUREMENT_ID,
+  transportMode: PUBLIC_BUILD_ANALYTICS_CONFIG.transportMode ?? 'disabled',
+  ...(PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint
+    ? { proxyEndpoint: PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint }
+    : {}),
   reportingInterval: 30000,
   maxErrorsPerSession: 50,
   batchSize: 10
@@ -65,7 +81,7 @@ export class AnalyticsConfigManager {
   async initialize(): Promise<void> {
     await this.refreshFromStorage();
     await this.ensureClientId();
-    await this.renewSession();
+    await this.ensureSessionId();
   }
 
   async refreshFromStorage(): Promise<void> {
@@ -80,10 +96,7 @@ export class AnalyticsConfigManager {
       GA4_CONFIG.STORAGE_KEYS.SESSION_ID
     );
 
-    this.config = {
-      ...DEFAULT_ANALYTICS_CONFIG,
-      ...(storedConfig ?? {})
-    };
+    this.config = normalizeAnalyticsConfig(storedConfig ?? {});
 
     if (storedClientId) {
       this.config.clientId = storedClientId;
@@ -106,10 +119,10 @@ export class AnalyticsConfigManager {
   }
 
   async updateConfig(updates: Partial<AnalyticsConfig>): Promise<void> {
-    this.config = {
+    this.config = normalizeAnalyticsConfig({
       ...this.config,
       ...updates
-    };
+    });
     await this.saveConfig();
   }
 
@@ -162,6 +175,8 @@ export class AnalyticsConfigManager {
     debugMode: boolean;
     reportingInterval: number;
     maxErrorsPerSession: number;
+    transportMode: AnalyticsTransportMode;
+    proxyEndpoint?: string;
   } {
     return {
       enabled: this.config.enabled,
@@ -171,7 +186,9 @@ export class AnalyticsConfigManager {
       measurementId: this.config.measurementId,
       debugMode: this.config.debugMode,
       reportingInterval: this.config.reportingInterval,
-      maxErrorsPerSession: this.config.maxErrorsPerSession
+      maxErrorsPerSession: this.config.maxErrorsPerSession,
+      transportMode: this.config.transportMode,
+      ...(this.config.proxyEndpoint ? { proxyEndpoint: this.config.proxyEndpoint } : {})
     };
   }
 
@@ -191,6 +208,17 @@ export class AnalyticsConfigManager {
     if (!existingClientId) {
       await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
     }
+  }
+
+  private async ensureSessionId(): Promise<void> {
+    const existingSessionId =
+      this.config.sessionId ??
+      (await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.SESSION_ID));
+    if (existingSessionId) {
+      this.config.sessionId = existingSessionId;
+      return;
+    }
+    await this.renewSession();
   }
 
   private async saveConfig(): Promise<void> {
@@ -233,6 +261,48 @@ export async function initializeAnalyticsConfig(): Promise<AnalyticsConfig> {
   return manager.getConfig();
 }
 
+export async function refreshAnalyticsConfig(): Promise<AnalyticsConfig> {
+  const manager = getAnalyticsConfigManager();
+  await manager.refreshFromStorage();
+  return manager.getConfig();
+}
+
+export function watchAnalyticsConfigStorage(
+  onRefresh?: (config: AnalyticsConfig) => void
+): () => void {
+  if (!analyticsStorage) {
+    throw new Error('[Analytics Config] StorageService is not configured.');
+  }
+  const storage = analyticsStorage;
+
+  let refreshPromise: Promise<void> | null = null;
+  const refresh = (): void => {
+    refreshPromise = (refreshPromise ?? Promise.resolve())
+      .then(async () => {
+        const config = await refreshAnalyticsConfig();
+        onRefresh?.(config);
+      })
+      .catch((error) => {
+        console.warn('[Analytics Config] Failed to refresh analytics config:', error);
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  };
+
+  const watchedKeys = [
+    GA4_CONFIG.STORAGE_KEYS.CONFIG,
+    GA4_CONFIG.STORAGE_KEYS.USER_CONSENT,
+    GA4_CONFIG.STORAGE_KEYS.CLIENT_ID,
+    GA4_CONFIG.STORAGE_KEYS.SESSION_ID
+  ];
+  const unwatchers = watchedKeys.map((key) => storage.local.watchKey(key, refresh));
+
+  return () => {
+    unwatchers.forEach((unwatch) => unwatch());
+  };
+}
+
 export function shouldReportErrors(): boolean {
   const config = getAnalyticsConfigManager().getConfig();
   return Boolean(config.enabled && config.userConsent?.errorReporting);
@@ -248,4 +318,52 @@ export async function setAnalyticsConsent(
 
 export function getAnalyticsConfig(): AnalyticsConfig {
   return getAnalyticsConfigManager().getConfig();
+}
+
+function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
+  const { proxyEndpoint: _defaultProxyEndpoint, ...defaultConfigWithoutProxyEndpoint } =
+    DEFAULT_ANALYTICS_CONFIG;
+  const hasStoredTransportMode = Object.prototype.hasOwnProperty.call(
+    storedConfig,
+    'transportMode'
+  );
+  const transportMode = hasStoredTransportMode
+    ? (normalizeAnalyticsTransportMode(storedConfig.transportMode, 'disabled') ?? 'disabled')
+    : DEFAULT_ANALYTICS_CONFIG.transportMode;
+  const proxyEndpoint =
+    transportMode === 'proxy'
+      ? Object.prototype.hasOwnProperty.call(storedConfig, 'proxyEndpoint')
+        ? normalizeProxyEndpoint(storedConfig.proxyEndpoint)
+        : DEFAULT_ANALYTICS_CONFIG.proxyEndpoint
+      : undefined;
+
+  return {
+    ...defaultConfigWithoutProxyEndpoint,
+    enabled: typeof storedConfig.enabled === 'boolean' ? storedConfig.enabled : false,
+    debugMode:
+      typeof storedConfig.debugMode === 'boolean'
+        ? storedConfig.debugMode
+        : DEFAULT_ANALYTICS_CONFIG.debugMode,
+    measurementId:
+      normalizeMeasurementId(storedConfig.measurementId, DEFAULT_ANALYTICS_CONFIG.measurementId) ??
+      DEFAULT_ANALYTICS_CONFIG.measurementId,
+    transportMode,
+    ...(proxyEndpoint ? { proxyEndpoint } : {}),
+    reportingInterval: normalizePositiveInteger(
+      storedConfig.reportingInterval,
+      DEFAULT_ANALYTICS_CONFIG.reportingInterval
+    ),
+    maxErrorsPerSession: normalizePositiveInteger(
+      storedConfig.maxErrorsPerSession,
+      DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession
+    ),
+    batchSize: normalizePositiveInteger(storedConfig.batchSize, DEFAULT_ANALYTICS_CONFIG.batchSize),
+    ...(storedConfig.clientId ? { clientId: storedConfig.clientId } : {}),
+    ...(storedConfig.sessionId ? { sessionId: storedConfig.sessionId } : {}),
+    ...(storedConfig.userConsent ? { userConsent: { ...storedConfig.userConsent } } : {})
+  };
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
