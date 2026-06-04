@@ -211,10 +211,14 @@ export function pseudoLocalizeString(text: string): string {
   return `[${transformed}·${text.length}]`;
 }
 
-export function pseudoLocalizeRecord<T extends Record<string, string>>(base: T): T {
-  return Object.fromEntries(
-    Object.entries(base).map(([key, value]) => [key, pseudoLocalizeString(value)])
-  ) as T;
+type StringRecordShape<T> = { [Key in keyof T]: string };
+
+export function pseudoLocalizeRecord<T extends StringRecordShape<T>>(base: T): T {
+  const entries = Object.keys(base).map((key) => {
+    const typedKey = key as keyof T;
+    return [typedKey, pseudoLocalizeString(base[typedKey])];
+  });
+  return Object.fromEntries(entries) as T;
 }
 
 export function pseudoLocalizeMessages(base: Messages): Messages {

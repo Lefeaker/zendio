@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
+import { pseudoLocalizeRecord, pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
 
 describe('pseudoLocalization', () => {
   it('preserves simple placeholders while pseudo-localizing visible text', () => {
@@ -28,5 +28,20 @@ describe('pseudoLocalization', () => {
     expect(localized).toContain('ìːñṽ');
     expect(localized).not.toContain('invitee');
     expect(localized).toContain(`·${template.length}]`);
+  });
+
+  it('pseudo-localizes explicit string-keyed shapes without requiring index signatures', () => {
+    interface ExplicitMessages {
+      title: string;
+      description: string;
+    }
+
+    const localized: ExplicitMessages = pseudoLocalizeRecord<ExplicitMessages>({
+      title: 'Title',
+      description: 'Description'
+    });
+
+    expect(localized.title).toBe('[Ťìːťľèː·5]');
+    expect(localized.description).toBe('[Ďèːšçřìːṕťìːòːñ·11]');
   });
 });
