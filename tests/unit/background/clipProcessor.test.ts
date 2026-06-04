@@ -580,7 +580,7 @@ describe('clipProcessor', () => {
 
     const failedCall = trackUsageEventMock.mock.calls.at(-1);
     expectAnalyticsEvent(
-      failedCall as unknown[],
+      failedCall,
       'clip_save_failed',
       {
         operation_id: 'op_fail1234',
@@ -589,7 +589,7 @@ describe('clipProcessor', () => {
       },
       ['failure_category', 'operation_id', 'storage_target']
     );
-    expectNoSensitiveValues(failedCall?.[1] as Record<string, unknown> | undefined, [
+    expectNoSensitiveValues(failedCall?.[1], [
       'Failure Secret',
       'private failing markdown',
       'https://example.com/failure',
