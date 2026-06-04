@@ -63,7 +63,12 @@ export type FailureCategory =
 export type SupportLinkTarget = 'ko-fi' | 'afdian';
 export type SupportToastVariant = 'first' | 'returning' | 'acknowledged';
 export type UsageDashboardCategory = 'ai_chat' | 'fragment' | 'article';
-export type AnalyticsSource = 'menu' | 'toolbar' | 'shortcut' | 'runtime-observability-harness';
+export type AnalyticsSource =
+  | 'menu'
+  | 'toolbar'
+  | 'shortcut'
+  | 'runtime-observability-harness'
+  | 'unknown';
 export type AnalyticsPlatform =
   | 'youtube'
   | 'bilibili'

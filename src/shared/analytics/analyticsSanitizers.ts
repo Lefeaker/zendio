@@ -23,7 +23,13 @@ const SUPPORT_LINK_TARGETS = new Set(['ko-fi', 'afdian']);
 const USAGE_DASHBOARD_CATEGORIES = new Set(['ai_chat', 'fragment', 'article']);
 const I18N_COMPONENTS = new Set(['button', 'label', 'hint', 'title']);
 const I18N_PRIORITIES = new Set(['high', 'medium', 'low']);
-const ANALYTICS_SOURCES = new Set(['menu', 'toolbar', 'shortcut', 'runtime-observability-harness']);
+const ANALYTICS_SOURCES = new Set([
+  'menu',
+  'toolbar',
+  'shortcut',
+  'runtime-observability-harness',
+  'unknown'
+]);
 const CONTENT_TYPES = new Set(['article', 'selection', 'ai_chat', 'reader', 'video', 'other']);
 const STORAGE_TARGETS = new Set(['downloads', 'local_folder', 'rest_api', 'unknown']);
 const EXPORT_DESTINATIONS = new Set([
