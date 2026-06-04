@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import prettier from 'prettier';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RuntimeMessageKey } from '../../../src/i18n/catalog/keys';
 import type { CatalogLocaleCatalog } from '../../../src/i18n/catalog/schema';
@@ -44,7 +45,7 @@ describe('i18n generated artifact drift checks', () => {
     }
   });
 
-  it('reports no drift when generated files already match', () => {
+  it('reports no drift when generated files already match', async () => {
     const compiled = compileCatalog(
       [
         createLocaleCatalog('en', {
@@ -63,13 +64,13 @@ describe('i18n generated artifact drift checks', () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'aiiinob-i18n-catalog-'));
     tempRoots.push(rootDir);
 
-    const artifacts = buildGeneratedArtifacts(compiled);
+    const artifacts = await buildGeneratedArtifacts(compiled);
     writeArtifacts(rootDir, artifacts);
 
     expect(diffGeneratedArtifacts(rootDir, artifacts)).toEqual([]);
   });
 
-  it('reports drift when a generated file differs from the compiled output', () => {
+  it('reports drift when a generated file differs from the compiled output', async () => {
     const compiled = compileCatalog(
       [
         createLocaleCatalog('en', {
@@ -88,7 +89,7 @@ describe('i18n generated artifact drift checks', () => {
     const rootDir = mkdtempSync(join(tmpdir(), 'aiiinob-i18n-catalog-'));
     tempRoots.push(rootDir);
 
-    const artifacts = buildGeneratedArtifacts(compiled);
+    const artifacts = await buildGeneratedArtifacts(compiled);
     writeArtifacts(rootDir, artifacts);
 
     const [messagesFile] = [...artifacts.keys()];
@@ -98,5 +99,37 @@ describe('i18n generated artifact drift checks', () => {
     expect(diffGeneratedArtifacts(rootDir, artifacts)).toEqual([
       { path: messagesFile, reason: 'content-mismatch' }
     ]);
+  });
+
+  it('emits generated artifacts that are already prettier-stable', async () => {
+    const compiled = compileCatalog(
+      [
+        createLocaleCatalog('en', {
+          extensionName: 'Alpha',
+          settingsTitle: 'Settings'
+        }),
+        createLocaleCatalog('de', {
+          extensionName: 'Alpha',
+          settingsTitle: 'Einstellungen'
+        })
+      ],
+      {
+        expectedKeys: runtimeKeys('extensionName', 'settingsTitle'),
+        releaseLanguageOrder: ['en', 'de']
+      }
+    );
+
+    const artifacts = await buildGeneratedArtifacts(compiled);
+
+    for (const [relativePath, content] of artifacts) {
+      const filePath = resolve(process.cwd(), relativePath);
+      const prettierOptions = await prettier.resolveConfig(filePath);
+      const formattedContent = await prettier.format(content, {
+        ...prettierOptions,
+        filepath: filePath
+      });
+
+      expect(content).toBe(formattedContent);
+    }
   });
 });

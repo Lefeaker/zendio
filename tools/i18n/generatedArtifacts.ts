@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import prettier from 'prettier';
 import type { CompiledCatalog } from './compileCatalog';
 import { emitGeneratedLocales } from './emitGeneratedLocales';
 import { emitGeneratedTypes } from './emitGeneratedTypes';
@@ -9,11 +10,37 @@ export interface GeneratedArtifactDrift {
   reason: 'missing' | 'content-mismatch';
 }
 
-export function buildGeneratedArtifacts(compiled: CompiledCatalog): Map<string, string> {
-  return new Map<string, string>([
+async function formatGeneratedArtifact(
+  rootDir: string,
+  relativePath: string,
+  content: string
+): Promise<string> {
+  const filePath = path.join(rootDir, relativePath);
+  const prettierOptions = await prettier.resolveConfig(filePath);
+
+  return prettier.format(content, {
+    ...(prettierOptions ?? {}),
+    filepath: filePath
+  });
+}
+
+export async function buildGeneratedArtifacts(
+  compiled: CompiledCatalog,
+  rootDir = process.cwd()
+): Promise<Map<string, string>> {
+  const rawArtifacts = new Map<string, string>([
     ['src/i18n/generated/messages.generated.ts', emitGeneratedTypes(compiled)],
     ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(compiled)]
   ]);
+
+  const formattedEntries = await Promise.all(
+    [...rawArtifacts.entries()].map(
+      async ([relativePath, content]) =>
+        [relativePath, await formatGeneratedArtifact(rootDir, relativePath, content)] as const
+    )
+  );
+
+  return new Map<string, string>(formattedEntries);
 }
 
 export function diffGeneratedArtifacts(

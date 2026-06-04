@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     expectedKeys: RUNTIME_MESSAGE_KEYS,
     releaseLanguageOrder: RELEASE_LANGUAGE_ORDER
   });
-  const artifacts = buildGeneratedArtifacts(compiled);
+  const artifacts = await buildGeneratedArtifacts(compiled, ROOT);
 
   if (checkOnly) {
     const drift = diffGeneratedArtifacts(ROOT, artifacts);
