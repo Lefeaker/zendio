@@ -13,6 +13,7 @@ import {
 } from '../../../src/i18n/catalog/dynamicTemplates';
 import { CATALOG_DOMAIN_NAMES, isCatalogDomain } from '../../../src/i18n/catalog/domains';
 import { RUNTIME_MESSAGE_KEYS, isRuntimeMessageKey } from '../../../src/i18n/catalog/keys';
+import { SCHEMA_MESSAGE_KEYS, isSchemaMessageKey } from '../../../src/i18n/catalog/schemaKeys';
 import type { Messages } from '../../../src/i18n/messages';
 import {
   AVAILABLE_LANGUAGE_ORDER,
@@ -101,6 +102,14 @@ describe('i18n catalog contract', () => {
     expect(new Set(RUNTIME_MESSAGE_KEYS).size).toBe(RUNTIME_MESSAGE_KEYS.length);
     expect(isRuntimeMessageKey(knownRuntimeKey)).toBe(true);
     expect(isRuntimeMessageKey('extName')).toBe(false);
+  });
+
+  it('tracks schema-only runtime keys as a dedicated catalog subset', () => {
+    expect(SCHEMA_MESSAGE_KEYS.length).toBeGreaterThan(0);
+    expect(SCHEMA_MESSAGE_KEYS.every((key) => key.startsWith('schema'))).toBe(true);
+    expect(SCHEMA_MESSAGE_KEYS.every((key) => RUNTIME_MESSAGE_KEYS.includes(key))).toBe(true);
+    expect(isSchemaMessageKey('schemaOverviewTitle')).toBe(true);
+    expect(isSchemaMessageKey('settingsTitle')).toBe(false);
   });
 
   it('validates minimal catalog schema shapes', () => {
