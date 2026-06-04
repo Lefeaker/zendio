@@ -82,6 +82,35 @@ describe('usage telemetry contract', () => {
     ).toBe(true);
   });
 
+  it('accepts sanitized runtime product-event messages', () => {
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'clip_started',
+        params: {
+          operation_id: 'op_abcdef',
+          source: 'toolbar',
+          content_type: 'article'
+        }
+      })
+    ).toBe(true);
+  });
+
+  it('rejects unsafe runtime product-event params', () => {
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'clip_started',
+        params: {
+          operation_id: 'op_abcdef',
+          source: 'toolbar',
+          content_type: 'article',
+          url: 'https://example.com/private'
+        }
+      })
+    ).toBe(false);
+  });
+
   it('drops unsafe params during final sender sanitization', () => {
     expect(
       sanitizeUsageEventParams('support_link_clicked', {

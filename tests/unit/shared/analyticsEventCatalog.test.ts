@@ -39,7 +39,7 @@ describe('analytics event catalog', () => {
     expect(ANALYTICS_EVENT_CATALOG.video_started.classification).toBe('contract-only');
   });
 
-  it('includes future milestone events without making them runtime-sendable yet', () => {
+  it('keeps future milestone events classified as future while opening the runtime contract', () => {
     expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('clip_started');
     expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('privacy_consent_changed');
     expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('reader_exported');
@@ -47,9 +47,12 @@ describe('analytics event catalog', () => {
 
     expect(ANALYTICS_EVENT_CATALOG.clip_started).toMatchObject({
       classification: 'future',
-      runtimeAllowed: false
+      runtimeAllowed: true
     });
-    expect(RUNTIME_USAGE_EVENT_NAMES).not.toContain('clip_started');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('clip_started');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('privacy_consent_changed');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('reader_exported');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('video_session_started');
   });
 
   it('declares required params for representative current and future events', () => {
