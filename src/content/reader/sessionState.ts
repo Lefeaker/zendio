@@ -3,6 +3,8 @@ import type { ReaderSessionMessages } from './sessionMessages';
 import { DEFAULT_SESSION_MESSAGES } from './sessionMessages';
 import type { ReaderHighlightTheme, ReadingSessionOptions } from '../../shared/types/options';
 import { DEFAULT_READING_CONFIG } from './sessionTypes';
+import type { FeatureTimer } from '../../shared/analytics/featureTimer';
+import type { AnalyticsSource } from '../../shared/analytics/eventCatalog';
 
 const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
   'gradient',
@@ -20,6 +22,8 @@ export class ReaderSessionState {
   messages: ReaderSessionMessages = DEFAULT_SESSION_MESSAGES;
   highlightFocusTimeout: number | null = null;
   stopReadingConfigWatcher: (() => void) | null = null;
+  analyticsTimer: FeatureTimer | null = null;
+  analyticsSource: AnalyticsSource = 'unknown';
 }
 
 export function createReaderHighlightId(): string {
