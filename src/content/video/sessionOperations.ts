@@ -224,9 +224,9 @@ export async function submitVideoSessionCaptureEdit(
     context.applyHint('failure');
     return;
   }
-  context.syncPanel();
   context.releasePlaybackEditLease?.(id, true);
   context.dom.stopEditing();
+  context.syncPanel();
 }
 
 export function removeVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {

@@ -257,6 +257,42 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('does not report outside blur when internal rerender replaces the active editor', async () => {
+    const lifecycleCallbacks: VideoPanelCallbacks & {
+      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
+      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
+    } = {
+      ...callbacks,
+      onCaptureEditorBlur: vi.fn(),
+      onCaptureEditorFocus: vi.fn()
+    };
+    const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+
+    input.focus();
+    expect(panel.element.shadowRoot?.activeElement).toBe(input);
+
+    panel.updateHint('Saving');
+
+    expect(lifecycleCallbacks.onCaptureEditorBlur).not.toHaveBeenCalledWith(
+      'capture-1',
+      'outside-panel'
+    );
+
+    panel.destroy();
+  });
+
   it('preserves unsaved capture note drafts when additional captures render', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     const first = createCapture({ id: 'capture-1', index: 1, timeLabel: '00:42' });

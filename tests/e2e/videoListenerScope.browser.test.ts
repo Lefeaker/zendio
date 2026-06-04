@@ -36,10 +36,17 @@ type VideoPlaybackCounters = {
   paused: boolean;
 };
 
+type DelayedVideoStorageWriteController = {
+  readDelayedWriteCount: () => number;
+  release: () => void;
+};
+
 declare global {
   interface Window {
     __videoPlaybackCounters?: VideoPlaybackCounters;
   }
+  // eslint-disable-next-line no-var
+  var __delayedVideoCaptureStorageWritesForTests: DelayedVideoStorageWriteController | undefined;
 }
 
 type StoredOptionsFixture = {
@@ -325,6 +332,85 @@ async function resetPlaybackCounters(extensionPage: Page, tabId: number): Promis
       }
     });
   }, tabId);
+}
+
+async function installDelayedVideoCaptureStorageWrites(
+  extensionPage: Page,
+  tabId: number
+): Promise<{
+  release: () => Promise<void>;
+  readDelayedWriteCount: () => Promise<number>;
+}> {
+  await extensionPage.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        type StorageSetItem = { entries?: readonly object[] } | string | number | boolean | null;
+        if (globalThis.__delayedVideoCaptureStorageWritesForTests) {
+          return;
+        }
+        const storageArea = chrome.storage.local;
+        const originalSet = storageArea.set.bind(storageArea);
+        let delayedWriteCount = 0;
+        let pendingWrite: (() => void) | null = null;
+        const isVideoCapturePayload = (value: StorageSetItem): boolean => {
+          if (!value || typeof value !== 'object') {
+            return false;
+          }
+          return Array.isArray(value.entries);
+        };
+        Object.defineProperty(storageArea, 'set', {
+          configurable: true,
+          value: (items: Record<string, StorageSetItem>, callback?: () => void) => {
+            const writeItems = () => {
+              if (callback) {
+                void originalSet(items, callback);
+                return;
+              }
+              void originalSet(items);
+            };
+            if (!Object.values(items).some(isVideoCapturePayload)) {
+              writeItems();
+              return;
+            }
+            delayedWriteCount += 1;
+            pendingWrite = writeItems;
+          }
+        });
+        globalThis.__delayedVideoCaptureStorageWritesForTests = {
+          readDelayedWriteCount: () => delayedWriteCount,
+          release: () => {
+            const write = pendingWrite;
+            pendingWrite = null;
+            write?.();
+          }
+        };
+      }
+    });
+  }, tabId);
+
+  return {
+    readDelayedWriteCount: async () => {
+      const results = await extensionPage.evaluate(async (targetTabId) => {
+        return await chrome.scripting.executeScript({
+          target: { tabId: targetTabId },
+          func: () =>
+            globalThis.__delayedVideoCaptureStorageWritesForTests?.readDelayedWriteCount() ?? 0
+        });
+      }, tabId);
+      return results[0]?.result ?? 0;
+    },
+    release: async () => {
+      await extensionPage.evaluate(async (targetTabId) => {
+        await chrome.scripting.executeScript({
+          target: { tabId: targetTabId },
+          func: () => {
+            globalThis.__delayedVideoCaptureStorageWritesForTests?.release();
+          }
+        });
+      }, tabId);
+    }
+  };
 }
 
 async function openFixtureWithRuntime(
@@ -681,8 +767,19 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         )
         .toBe(2);
 
+      const delayedStorage = await installDelayedVideoCaptureStorageWrites(
+        extensionPage,
+        playingTabId
+      );
       await playingInput.fill('Panel add note');
       await playingInput.press('Enter');
+      await expect.poll(delayedStorage.readDelayedWriteCount).toBe(1);
+      await expect
+        .poll(() =>
+          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.play)
+        )
+        .toBe(0);
+      await delayedStorage.release();
       await expect
         .poll(() =>
           readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.play)
