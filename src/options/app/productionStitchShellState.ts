@@ -12,6 +12,7 @@ import {
   resolveReadingPathMode,
   toTemplateValues
 } from './productionStitchStateMapper';
+import { updateVideoDraftPath } from './productionStitchVideoDraftState';
 
 export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
   let snapshot = mergeOptions(null) as CompleteOptions;
@@ -238,14 +239,13 @@ export function updateDraftPath(
   path: string,
   value: unknown
 ): void {
+  if (updateVideoDraftPath(draft, state, path, Boolean(value))) {
+    return;
+  }
   switch (path) {
     case 'aiChat.userName':
       draft.aiChat.userName = String(value ?? '');
       state.aiUserName = draft.aiChat.userName;
-      break;
-    case 'video.floatingPromptEnabled':
-      draft.video.floatingPromptEnabled = Boolean(value);
-      state.videoFloatingPromptEnabled = draft.video.floatingPromptEnabled;
       break;
     case 'readingSession.exportMode':
       draft.readingSession.exportMode = String(

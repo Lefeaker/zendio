@@ -2,6 +2,7 @@ import type {
   ActionDescriptor as SharedActionDescriptor,
   StateBinding as SharedStateBinding
 } from '@options/schema-runtime';
+import type { PreviewVideoStoreState } from './videoStateTypes';
 
 export interface HeroData {
   title: string;
@@ -349,7 +350,7 @@ export interface PreviewContent {
   maintenanceLog: string;
 }
 
-export interface PreviewStoreState {
+export interface PreviewStoreState extends PreviewVideoStoreState {
   activePanel: string;
   activeResource: string | null;
   previewTheme: 'dark' | 'light';
@@ -380,7 +381,6 @@ export interface PreviewStoreState {
   classifierModel?: string;
   classifierApiKey?: string;
   classifierTaxonomyText?: string;
-  videoFloatingPromptEnabled?: boolean;
   fragmentUseFootnoteFormat?: boolean;
   fragmentCaptureContext?: boolean;
   fragmentContextLength?: number;

@@ -54,6 +54,7 @@ type StoredOptionsFixture = {
     floatingPromptEnabled: boolean;
     promptButtonLabel: string;
     promptShortcut: string;
+    commentEditorAutoPause: boolean;
   };
   fragmentClipper: {
     useFootnoteFormat: boolean;
@@ -114,7 +115,8 @@ function createOptionsFixture(
     video: {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
-      promptShortcut: 'Alt+V'
+      promptShortcut: 'Alt+V',
+      commentEditorAutoPause: false
     },
     fragmentClipper: {
       useFootnoteFormat: true,

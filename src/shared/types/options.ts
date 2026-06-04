@@ -56,6 +56,7 @@ export interface VideoOptions {
   promptShortcut: string;
   controlBarAutoPause: boolean;
   controlBarScreenshot: boolean;
+  commentEditorAutoPause: boolean;
   promptPosition?: { x: number; y: number };
 }
 

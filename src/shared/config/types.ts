@@ -148,6 +148,7 @@ export type ReadonlyVideoOptions = ReadonlyDeep<{
   promptShortcut: string;
   controlBarAutoPause: boolean;
   controlBarScreenshot: boolean;
+  commentEditorAutoPause: boolean;
 }>;
 
 export type ReadonlyDeepResearchOptions = ReadonlyDeep<{

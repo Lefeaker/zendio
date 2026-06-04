@@ -85,6 +85,7 @@ export const VideoOptionsSchema = z.object({
   promptShortcut: z.string().min(1),
   controlBarAutoPause: z.boolean().optional(),
   controlBarScreenshot: z.boolean().optional(),
+  commentEditorAutoPause: z.boolean().optional(),
   promptPosition: z
     .object({
       x: z.number(),

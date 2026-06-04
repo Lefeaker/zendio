@@ -34,7 +34,8 @@ const DEFAULT_VIDEO = DEFAULT_OPTIONS.video ?? {
   promptButtonLabel: 'Clip video',
   promptShortcut: '',
   controlBarAutoPause: true,
-  controlBarScreenshot: true
+  controlBarScreenshot: true,
+  commentEditorAutoPause: false
 };
 const DEFAULT_FRAGMENT_CLIPPER = DEFAULT_OPTIONS.fragmentClipper ?? {
   useFootnoteFormat: false,

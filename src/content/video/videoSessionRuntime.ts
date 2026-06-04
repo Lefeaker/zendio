@@ -55,7 +55,16 @@ import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionControllers } from './videoSessionControllers';
 import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
-import { VideoPlaybackEditLease } from './videoPlaybackEditLease';
+import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlaybackController';
+
+type VideoSessionAddCaptureOptions = {
+  comment?: string;
+  captureScreenshot?: boolean;
+  pauseVideo?: boolean;
+  beginEditing?: boolean;
+  resumePlayback?: boolean;
+  collapseAfterCapture?: boolean;
+};
 
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -72,7 +81,7 @@ export class VideoSession {
   private platformController!: VideoSessionPlatformController;
   private dom!: VideoSessionDomController;
   private readonly destinationState: ContentExportDestinationState;
-  private readonly playbackEditLease = new VideoPlaybackEditLease();
+  private readonly commentEditorPlayback: VideoCommentEditorPlaybackController;
   private controllersReadyPromise: Promise<void> | null = null;
 
   private get operationContext() {
@@ -107,10 +116,11 @@ export class VideoSession {
     });
 
     return Object.assign(context, {
-      beginPlaybackEditLease: (captureId: string) => this.beginPlaybackEditLease(captureId),
+      beginPlaybackEditLease: (captureId: string) =>
+        this.commentEditorPlayback.beginPlaybackEditLease(captureId),
       releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
-        this.playbackEditLease.releaseForCapture(captureId, { restorePlayback }),
-      resetPlaybackEditLease: () => this.playbackEditLease.reset()
+        this.commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
+      resetPlaybackEditLease: () => this.commentEditorPlayback.reset()
     });
   }
 
@@ -123,6 +133,11 @@ export class VideoSession {
       () => this.createDestinationPayload(),
       this.dependencies.optionsPageUrl
     );
+    this.commentEditorPlayback = new VideoCommentEditorPlaybackController({
+      doc: this.doc,
+      videoRepository: this.dependencies.videoRepository,
+      findVideoElement: () => this.state.videoElement
+    });
   }
 
   private async ensureControllers(): Promise<void> {
@@ -186,6 +201,7 @@ export class VideoSession {
       () => DEFAULT_HIGHLIGHT_THEME
     );
     await this.dom.waitForDocumentReady();
+    await this.commentEditorPlayback.start();
     registerVideoSession(this, this.doc);
 
     await initializeVideoSessionEnvironment({
@@ -201,7 +217,7 @@ export class VideoSession {
         onKeyDown: (event) => this.fragmentSelectionController.handleKeyDown(event),
         onKeyUp: (event) => this.fragmentSelectionController.handleKeyUp(event),
         onWindowBlur: () => {
-          this.playbackEditLease.reset({ preserveTransactions: true });
+          this.commentEditorPlayback.reset({ preserveTransactions: true });
           this.fragmentSelectionController.handleWindowBlur();
         }
       },
@@ -237,14 +253,13 @@ export class VideoSession {
             submitVideoSessionCaptureEdit(this.operationContext, id, comment),
           onToggleScreenshot: (id) => void this.toggleCaptureScreenshot(id),
           onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id),
-          onCaptureEditorFocus: (id) => this.beginPlaybackEditLease(id),
+          onCaptureEditorFocus: (id) => this.commentEditorPlayback.beginCommentEditorLease(id),
           onCaptureEditorBlur: (id, scope) => {
             if (scope === 'outside-panel') {
-              this.playbackEditLease.releaseForCapture(id, { restorePlayback: true });
+              this.commentEditorPlayback.releaseCommentEditorLease(id);
             }
           },
-          onCaptureEditorCancel: (id) =>
-            this.playbackEditLease.releaseForCapture(id, { restorePlayback: false })
+          onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false)
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
         applyHint: (state) => this.applyHint(state),
@@ -289,18 +304,11 @@ export class VideoSession {
     this.dom.updateDestination(preview);
   }
 
-  private beginPlaybackEditLease(captureId: string): void {
-    const video = this.state.videoElement ?? this.doc.querySelector('video');
-    if (video) {
-      this.playbackEditLease.acquire(captureId, video);
-    }
-  }
-
   private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {
     if (this.dom.isEventInsidePanel(event)) {
       return;
     }
-    this.playbackEditLease.release({ restorePlayback: true });
+    this.commentEditorPlayback.releaseAll(true);
   }
 
   private async selectDestination(id: string): Promise<void> {
@@ -351,14 +359,7 @@ export class VideoSession {
 
   async addCurrentTimestamp(
     source: VideoAddCaptureSource = 'button',
-    options: {
-      comment?: string;
-      captureScreenshot?: boolean;
-      pauseVideo?: boolean;
-      beginEditing?: boolean;
-      resumePlayback?: boolean;
-      collapseAfterCapture?: boolean;
-    } = {}
+    options: VideoSessionAddCaptureOptions = {}
   ): Promise<void> {
     await this.handleAddCapture(source, options);
   }
@@ -369,19 +370,16 @@ export class VideoSession {
 
   private async handleAddCapture(
     source: VideoAddCaptureSource = 'button',
-    options: {
-      comment?: string;
-      captureScreenshot?: boolean;
-      pauseVideo?: boolean;
-      beginEditing?: boolean;
-      resumePlayback?: boolean;
-      collapseAfterCapture?: boolean;
-    } = {}
+    options: VideoSessionAddCaptureOptions = {}
   ): Promise<void> {
-    await handleVideoSessionAddCapture(this.operationContext, {
-      pauseVideo: source === 'note-input',
-      ...options
+    const pauseVideo = options.pauseVideo ?? source === 'note-input';
+    const capture = await handleVideoSessionAddCapture(this.operationContext, {
+      ...options,
+      pauseVideo
     });
+    if (capture && pauseVideo && options.beginEditing !== false) {
+      this.commentEditorPlayback.markAddNoteTransaction(capture.id);
+    }
   }
 
   private applyHighlightTheme(theme: ReaderHighlightTheme): void {
@@ -426,6 +424,7 @@ export class VideoSession {
   }
 
   private cleanup(): void {
+    this.commentEditorPlayback.dispose();
     cleanupVideoSession(this.operationContext);
   }
 }
