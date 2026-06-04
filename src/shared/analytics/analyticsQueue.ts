@@ -50,7 +50,11 @@ export function createAnalyticsEventQueue(
       if (!isAllowedAnalyticsEventName(eventName)) {
         return false;
       }
-      entries.push({ eventName, params, enqueuedAt: now() });
+      const entry: AnalyticsQueueEntry = { eventName, enqueuedAt: now() };
+      if (params !== undefined) {
+        entry.params = params;
+      }
+      entries.push(entry);
       return true;
     },
 
