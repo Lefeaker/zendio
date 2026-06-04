@@ -93,4 +93,27 @@ describe('analytics sanitizers', () => {
     });
     expect(hasRequiredAnalyticsEventParams('clip_save_failed', invalid)).toBe(false);
   });
+
+  it('allows unknown source only as the explicit low-cardinality fallback', () => {
+    expect(
+      parseAnalyticsEventParams('reader_session_started', {
+        source: 'unknown'
+      })
+    ).toEqual({ source: 'unknown' });
+
+    expect(
+      parseAnalyticsEventParams('video_session_started', {
+        platform: 'youtube',
+        source: 'unknown'
+      })
+    ).toEqual({ platform: 'youtube', source: 'unknown' });
+
+    expect(
+      parseAnalyticsEventParams('clip_started', {
+        operation_id: 'op_source1',
+        source: 'popup-button',
+        content_type: 'article'
+      })
+    ).toBeNull();
+  });
 });

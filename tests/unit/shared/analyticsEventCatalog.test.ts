@@ -68,6 +68,10 @@ describe('analytics event catalog', () => {
       'source',
       'content_type'
     ]);
+    expect(ANALYTICS_EVENT_CATALOG.video_session_started.requiredParams).toEqual([
+      'platform',
+      'source'
+    ]);
     expect(ERROR_EVENT_NAMES).toEqual(['extension_error']);
   });
 });

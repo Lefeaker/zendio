@@ -94,6 +94,14 @@ describe('usage telemetry contract', () => {
         }
       })
     ).toBe(true);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'reader_session_started',
+        params: { source: 'unknown' }
+      })
+    ).toBe(true);
   });
 
   it('rejects unsafe runtime product-event params', () => {
@@ -106,6 +114,17 @@ describe('usage telemetry contract', () => {
           source: 'toolbar',
           content_type: 'article',
           url: 'https://example.com/private'
+        }
+      })
+    ).toBe(false);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'video_session_started',
+        params: {
+          platform: 'youtube',
+          source: 'popup-button'
         }
       })
     ).toBe(false);
