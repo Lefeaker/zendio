@@ -22,6 +22,12 @@ function renderKey(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
+function renderSchemaConstantName(code: string): string {
+  return `GENERATED_RELEASE_SCHEMA_MESSAGES_${code
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toUpperCase()}`;
+}
+
 function renderLocaleMessages(messages: Record<string, string>): string[] {
   return [
     '{',
@@ -35,14 +41,22 @@ function renderLocaleMessages(messages: Record<string, string>): string[] {
 export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
   const schemaKeyLines = compiled.messageKeys.map((key) => `  ${renderKey(key)},`);
   const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
-  const registryLines = compiled.localeCodes.flatMap((code) => {
+  const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
-    return [`  ${renderKey(code)}: ${renderLocaleMessages(locale).join('\n')},`];
+    return [
+      `export const ${renderSchemaConstantName(code)}: GeneratedSchemaMessages = ${renderLocaleMessages(
+        locale
+      ).join('\n')};`,
+      ''
+    ];
+  });
+  const registryLines = compiled.localeCodes.flatMap((code) => {
+    return [`  ${renderKey(code)}: ${renderSchemaConstantName(code)},`];
   });
   const aliasLines = compiled.localeCodes.flatMap((code) => {
     const aliases = SCHEMA_EXPORT_ALIASES[code as keyof typeof SCHEMA_EXPORT_ALIASES] ?? [];
     return aliases.map(
-      (alias) => `export const ${alias} = GENERATED_RELEASE_SCHEMA_MESSAGES[${renderKey(code)}];`
+      (alias) => `export const ${alias} = ${renderSchemaConstantName(code)};`
     );
   });
 
@@ -62,6 +76,7 @@ export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
     ...localeCodeLines,
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
+    ...localeConstantLines,
     'export const GENERATED_RELEASE_SCHEMA_MESSAGES: Record<ReleaseLangCode, GeneratedSchemaMessages> = {',
     ...registryLines,
     '};',

@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import { build } from 'esbuild';
+import { join } from 'node:path';
 import {
   generateDynamicMessages,
   getDynamicMessage,
   updateDynamicMessages
 } from '../../../src/i18n/dynamicMessages';
+import { DYNAMIC_MESSAGE_TEMPLATES } from '../../../src/i18n/catalog/dynamicTemplates';
 import { createPageI18nController } from '../../../src/i18n/pageController';
 import type { Language } from '../../../src/i18n/locales';
+import { pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
 
 // Mock the configProvider
 vi.mock('../../../src/shared/config/provider', () => ({
@@ -18,6 +22,24 @@ vi.mock('../../../src/shared/config/provider', () => ({
     })
   }
 }));
+
+async function buildProductionBundle(entryPoint: string): Promise<string> {
+  const result = await build({
+    entryPoints: [join(process.cwd(), entryPoint)],
+    bundle: true,
+    write: false,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    minify: true,
+    logLevel: 'silent',
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production')
+    }
+  });
+
+  return result.outputFiles[0].text;
+}
 
 describe('dynamicMessages', () => {
   describe('generateDynamicMessages', () => {
@@ -56,9 +78,31 @@ describe('dynamicMessages', () => {
     it('keeps qps-ploc coverage dev-only via pseudo-localized English templates', () => {
       const messages = generateDynamicMessages('qps-ploc');
 
-      expect(messages.httpsUrlHint).toMatch(/^\[.+·\d+\]$/);
-      expect(messages.httpsUrlHint).toContain('27124');
-      expect(messages.vaultNamePlaceholder).toMatch(/^\[.+·\d+\]$/);
+      expect(messages.httpsUrlHint).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.httpsUrlHint).replace(
+          '{httpsPort}',
+          '27124'
+        )
+      );
+      expect(messages.httpUrlHint).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.httpUrlHint).replace(
+          '{httpPort}',
+          '27123'
+        )
+      );
+      expect(messages.vaultNamePlaceholder).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.vaultNamePlaceholder).replace(
+          '{vault}',
+          'TestVault'
+        )
+      );
+    });
+
+    it('omits pseudo locale identifiers from production dynamic message bundles', async () => {
+      const bundle = await buildProductionBundle('src/i18n/dynamicMessages.ts');
+
+      expect(bundle).not.toContain('qps-ploc');
+      expect(bundle).not.toContain('qps_ploc');
     });
 
     it('falls back to English for unsupported languages', () => {
