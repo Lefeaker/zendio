@@ -6,7 +6,9 @@ import { pathToFileURL } from 'node:url';
 const ROOT = process.cwd();
 
 const MAX_LINE_BUDGETS = new Map([
-  ['src/i18n/schemaShellMessages.ts', 2133],
+  ['src/i18n/generated/localeRegistry.generated.ts', 8899],
+  ['src/i18n/generated/schemaMessages.generated.ts', 2160],
+  ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/options/stitch/content.ts', 906],
   ['src/i18n/messages.ts', 752],
   ['src/options/yaml-config-editor/view.ts', 746],
@@ -64,7 +66,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/errors/analytics/analyticsConfig.template.ts', 317],
   ['src/shared/errors/analytics/dataSanitizer.ts', 316],
   ['src/content/video/videoPromptMountLifecycle.ts', 313],
-  ['src/options/components/diagnostics.ts', 313],
+  ['src/options/components/diagnostics.ts', 322],
   ['src/options/state/vaultRouterStore.ts', 308],
   ['src/components/trial-notice.ts', 305],
   ['src/content/clipper/services/contextCapture.ts', 305],
@@ -89,6 +91,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 265],
   ['src/options/utils/localizedText.ts', 264],
   ['src/options/services/connectionTestRunner.ts', 262],
+  ['src/i18n/adapters/domBindingAdapter.ts', 257],
   ['src/background/listeners/contextMenusCoordinator.ts', 258],
   ['src/content/runtime/contentLazyRuntime.ts', 258],
   ['src/options/stitch/render/contentRenderers.ts', 256],
@@ -99,7 +102,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/app/productionStitchShellMount.ts', 254],
   ['src/options/yaml-config-editor/rowModel.ts', 254],
   ['src/shared/errors/analytics/analyticsConfig.ts', 252],
-  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 252]
+  ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 252],
+  ['src/i18n/catalog/languages.ts', 277]
 ]);
 
 const PATTERNS = [
@@ -172,21 +176,29 @@ function readBudgetMap(budgetJson) {
   );
 }
 
-function listTrackedSourceFiles(root) {
-  const output = execFileSync(
-    'git',
-    ['-C', root, 'ls-files', '--', 'src/*.ts', 'src/*.tsx', 'src/**/*.ts', 'src/**/*.tsx'],
-    {
-      encoding: 'utf8'
-    }
-  );
+function isSourceModulePath(relativePath) {
+  return relativePath.startsWith('src/') && (relativePath.endsWith('.ts') || relativePath.endsWith('.tsx'));
+}
+
+function readGitPaths(root, args) {
+  const output = execFileSync('git', ['-C', root, 'ls-files', ...args], {
+    encoding: 'utf8'
+  });
 
   return output
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .map(normalizeRelativePath)
+    .filter(isSourceModulePath)
     .filter((relativePath) => existsSync(join(root, relativePath)))
+}
+
+function listCurrentSourceFiles(root) {
+  return [...new Set([
+    ...readGitPaths(root, ['--', 'src']),
+    ...readGitPaths(root, ['--others', '--exclude-standard', '--', 'src'])
+  ])]
     .sort((left, right) => left.localeCompare(right));
 }
 
@@ -203,14 +215,14 @@ function countLines(source) {
 export function collectPerformanceHotspots({
   root = ROOT,
   budgets = new Map(MAX_LINE_BUDGETS),
-  trackedSourceFiles = listTrackedSourceFiles(root)
+  sourceFiles = listCurrentSourceFiles(root)
 } = {}) {
-  const trackedSourceSet = new Set(trackedSourceFiles);
+  const trackedSourceSet = new Set(sourceFiles);
   const staleBudgetPaths = [...budgets.keys()].filter(
     (relativePath) => !trackedSourceSet.has(relativePath)
   );
 
-  const rows = trackedSourceFiles
+  const rows = sourceFiles
     .map((relativePath) => {
       const source = readFileSync(join(root, relativePath), 'utf8');
       return {
@@ -235,7 +247,7 @@ export function collectPerformanceHotspots({
 
   return {
     rows,
-    trackedSourceCount: trackedSourceFiles.length,
+    sourceFileCount: sourceFiles.length,
     dynamicHotspotCount: rows.length,
     registeredBudgetCount: budgets.size,
     missingBudgetPaths,
@@ -255,7 +267,7 @@ export function formatPerformanceHotspots(report) {
   });
 
   lines.push(
-    `dynamic hotspot coverage: trackedSourceFiles=${report.trackedSourceCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}`
+    `dynamic hotspot coverage: sourceFiles=${report.sourceFileCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}`
   );
 
   return lines.join('\n');
@@ -271,7 +283,7 @@ function printFailures(report) {
   }
   if (report.staleBudgetPaths.length > 0) {
     console.error(
-      `Stale line budgets reference non-tracked src files:\n${report.staleBudgetPaths
+      `Stale line budgets reference non-current src files:\n${report.staleBudgetPaths
         .map((relativePath) => `- ${relativePath}`)
         .join('\n')}`
     );

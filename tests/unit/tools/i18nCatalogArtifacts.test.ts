@@ -188,4 +188,50 @@ describe('i18n generated artifact drift checks', () => {
       )}\n`
     );
   });
+
+  it('emits generated schema message artifacts when schema catalogs are present', async () => {
+    const runtimeCompiled = compileCatalog(
+      [
+        createLocaleCatalog('en', {
+          extensionName: 'Alpha'
+        }),
+        createLocaleCatalog('de', {
+          extensionName: 'Alpha'
+        })
+      ],
+      {
+        expectedKeys: runtimeKeys('extensionName'),
+        releaseLanguageOrder: ['en', 'de']
+      }
+    );
+
+    const schemaCompiled = compileCatalog(
+      [
+        createLocaleCatalog('en', {
+          schemaOverviewTitle: 'Overview'
+        }),
+        createLocaleCatalog('de', {
+          schemaOverviewTitle: 'Uebersicht'
+        })
+      ],
+      {
+        expectedKeys: runtimeKeys('schemaOverviewTitle'),
+        releaseLanguageOrder: ['en', 'de']
+      }
+    );
+
+    const artifacts = await buildGeneratedArtifacts({
+      runtime: runtimeCompiled,
+      schema: schemaCompiled
+    });
+
+    const schemaArtifact = artifacts.get('src/i18n/generated/schemaMessages.generated.ts');
+    expect(schemaArtifact).toContain(
+      "export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES['en'];"
+    );
+    expect(schemaArtifact).toContain(
+      "export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES['de'];"
+    );
+    expect(schemaArtifact).toContain("schemaOverviewTitle: 'Overview'");
+  });
 });

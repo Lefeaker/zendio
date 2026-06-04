@@ -1,6 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
-import { schemaShellMessagesEnglish as schemaShellMessagesLocale } from '../schemaShellMessages';
+import { schemaShellMessagesEnglish as schemaShellMessagesLocale } from '../generated/schemaMessages.generated';
 
 const runtime: Messages = {
   // General

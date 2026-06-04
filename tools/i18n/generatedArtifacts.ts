@@ -4,11 +4,17 @@ import prettier from 'prettier';
 import type { CompiledCatalog } from './compileCatalog';
 import { emitGeneratedChromeLocales } from './emitGeneratedChromeLocales';
 import { emitGeneratedLocales } from './emitGeneratedLocales';
+import { emitGeneratedSchemaMessages } from './emitGeneratedSchemaMessages';
 import { emitGeneratedTypes } from './emitGeneratedTypes';
 
 export interface GeneratedArtifactDrift {
   path: string;
   reason: 'missing' | 'content-mismatch';
+}
+
+export interface GeneratedArtifactCatalogs {
+  runtime: CompiledCatalog;
+  schema?: CompiledCatalog;
 }
 
 async function formatGeneratedArtifact(
@@ -26,14 +32,23 @@ async function formatGeneratedArtifact(
 }
 
 export async function buildGeneratedArtifacts(
-  compiled: CompiledCatalog,
+  compiledOrCatalogs: CompiledCatalog | GeneratedArtifactCatalogs,
   rootDir = process.cwd()
 ): Promise<Map<string, string>> {
+  const { runtime, schema } =
+    'runtime' in compiledOrCatalogs ? compiledOrCatalogs : { runtime: compiledOrCatalogs };
   const rawArtifacts = new Map<string, string>([
-    ['src/i18n/generated/messages.generated.ts', emitGeneratedTypes(compiled)],
-    ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(compiled)],
-    ...emitGeneratedChromeLocales(compiled)
+    ['src/i18n/generated/messages.generated.ts', emitGeneratedTypes(runtime)],
+    ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(runtime)],
+    ...emitGeneratedChromeLocales(runtime)
   ]);
+
+  if (schema) {
+    rawArtifacts.set(
+      'src/i18n/generated/schemaMessages.generated.ts',
+      emitGeneratedSchemaMessages(schema)
+    );
+  }
 
   const formattedEntries = await Promise.all(
     [...rawArtifacts.entries()].map(

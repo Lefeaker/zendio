@@ -1,6 +1,6 @@
 import type { LocaleDefinition } from '../localeDefinition';
 import type { Messages } from '../messages';
-import { schemaShellMessagesEn } from '../schemaShellMessages';
+import { schemaShellMessagesEn } from '../generated/schemaMessages.generated';
 
 const runtime: Messages = {
   extensionName: '[Àːľľ ìːñ Òːƀ·9]',
