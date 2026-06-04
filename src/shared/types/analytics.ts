@@ -54,6 +54,16 @@ export type TrackUsageEventPayload = {
   };
 }[UsageEventName];
 
+export function createTrackUsageEventMessage<EventName extends UsageEventName>(
+  event: EventName,
+  params?: UsageEventParamMap[EventName]
+): TrackUsageEventPayload {
+  if (params === undefined) {
+    return { type: TRACK_USAGE_EVENT, event } as TrackUsageEventPayload;
+  }
+  return { type: TRACK_USAGE_EVENT, event, params } as TrackUsageEventPayload;
+}
+
 export function isTrackUsageEventMessage(message: unknown): message is TrackUsageEventPayload {
   if (typeof message !== 'object' || message === null) {
     return false;

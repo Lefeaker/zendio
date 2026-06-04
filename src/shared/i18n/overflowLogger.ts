@@ -2,8 +2,8 @@ import { resolveRepository } from '../di/serviceRegistry';
 import { DI_TOKENS } from '../di/tokens';
 import type { IMessagingRepository } from '../repositories';
 import {
+  createTrackUsageEventMessage,
   parseUsageEventParams,
-  TRACK_USAGE_EVENT,
   type TrackUsageEventPayload
 } from '../types/analytics';
 import type { AdaptiveTextResult } from './textAdaptationTypes';
@@ -65,11 +65,10 @@ export function logTextOverflowEvent(element: HTMLElement, result: AdaptiveTextR
     return;
   }
 
-  const payload: TrackUsageEventPayload = {
-    type: TRACK_USAGE_EVENT,
-    event: 'i18n_text_overflow',
+  const payload: TrackUsageEventPayload = createTrackUsageEventMessage(
+    'i18n_text_overflow',
     params
-  };
+  );
 
   void messaging.send(payload).catch(() => {
     // 忽略打点失败，避免影响主流程

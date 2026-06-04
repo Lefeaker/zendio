@@ -82,7 +82,7 @@ describe('options app actions', () => {
     expect(setLocal).toHaveBeenNthCalledWith(1, 'usageStats', stats);
     expect(setLocal).toHaveBeenNthCalledWith(2, 'usage_stats', stats);
     expect(send).toHaveBeenCalledWith({
-      type: 'track',
+      type: 'TRACK_USAGE_EVENT',
       event: 'clear_stats',
       params: { timestamp: 123 }
     });

@@ -1,3 +1,4 @@
+import { createTrackUsageEventMessage } from '../../shared/types/analytics';
 import type * as Analytics from '../../shared/types/analytics';
 import type { UiMountable } from '../../ui/hosts/shared/contract';
 import type {
@@ -316,11 +317,8 @@ export class SupportPrompt implements UiMountable<
     params?: Analytics.UsageEventParamMap[EventName]
   ): Promise<void> {
     try {
-      await this.deps.messaging.send({
-        type: 'track',
-        event: name,
-        ...(params !== undefined && { params })
-      } as Analytics.TrackUsageEventPayload);
+      const payload = createTrackUsageEventMessage(name, params);
+      await this.deps.messaging.send(payload as Analytics.TrackUsageEventPayload);
     } catch (error) {
       console.debug('[support-prompt] Failed to send analytics event:', error);
     }
