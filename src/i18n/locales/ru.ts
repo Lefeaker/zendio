@@ -4,7 +4,7 @@ import { schemaShellMessagesRu as schemaShellMessagesLocale } from '../schemaShe
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'Настройте ваш клиппер для более умного управления контентом',
 
   // Usage dashboard
@@ -407,8 +407,8 @@ const runtime: Messages = {
   videoPromptDismiss: 'Отклонить подсказку видео',
 
   // Support Prompt
-  supportPromptDialogLabel: 'Поддержать All in Ob',
-  supportPromptTitle: 'Поддержать All in Ob',
+  supportPromptDialogLabel: 'Поддержать Zendio',
+  supportPromptTitle: 'Поддержать Zendio',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: 'Купить мне кофе',
   supportPromptAfdianTitle: 'Afdian',
@@ -531,10 +531,10 @@ const runtime: Messages = {
   editRuleButton: 'Редактировать',
 
   // Onboarding Page
-  onboardingTitle: 'Добро пожаловать в All in Ob',
+  onboardingTitle: 'Добро пожаловать в Zendio',
   onboardingSubtitle: 'Давайте быстро настроим ваше расширение-клиппер',
   onboardingWelcomeMessage:
-    'Спасибо за установку All in Ob! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
+    'Спасибо за установку Zendio! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
 
   // Step 1: API Configuration
   step1Title: 'Настроить Obsidian Local REST API (Обязательно)',
@@ -632,7 +632,7 @@ const runtime: Messages = {
   onboardingFooterNote: 'Вы можете перенастроить эти опции на странице настроек в любое время.',
   onboardingCompleted: 'Руководство завершено!',
   onboardingCompletedMessage:
-    'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать All in Ob для сохранения вашего веб-контента!',
+    'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать Zendio для сохранения вашего веб-контента!',
   onboardingLinkText: 'Руководство',
 
   // Footer links
@@ -642,7 +642,7 @@ const runtime: Messages = {
 
   suggestionsModalTitle: 'Поделитесь вашими предложениями',
   suggestionsModalDescription:
-    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+    'Спасибо за помощь в улучшении Zendio. Вы можете связаться с автором через любой из следующих каналов:',
   suggestionsModalReddit: 'Чат на Reddit',
   suggestionsModalXiaohongshu: 'Присоединиться к Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
@@ -678,7 +678,7 @@ const runtime: Messages = {
 const ru: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription:
       'ИИ-улучшенный веб-клиппер для сохранения чатов, фрагментов и статей в Obsidian.'
   }

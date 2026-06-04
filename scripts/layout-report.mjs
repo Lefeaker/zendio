@@ -100,7 +100,7 @@ async function inspectPage(htmlPath, languages, deps) {
     });
 
     const dom = new JSDOM(html, {
-      url: 'https://allinob.local/options',
+      url: 'https://zendio.local/options',
       pretendToBeVisual: true,
       virtualConsole
     });

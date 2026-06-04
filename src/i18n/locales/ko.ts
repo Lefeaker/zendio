@@ -4,7 +4,7 @@ import { schemaShellMessagesKo as schemaShellMessagesLocale } from '../schemaShe
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '더 스마트한 콘텐츠 관리를 위해 클리퍼를 구성하세요',
 
   // Usage dashboard
@@ -390,8 +390,8 @@ const runtime: Messages = {
   videoPromptDismiss: '비디오 프롬프트 무시',
 
   // Support Prompt
-  supportPromptDialogLabel: 'All in Ob 지원',
-  supportPromptTitle: 'All in Ob 지원',
+  supportPromptDialogLabel: 'Zendio 지원',
+  supportPromptTitle: 'Zendio 지원',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: '커피 한 잔 사주세요',
   supportPromptAfdianTitle: 'Afdian',
@@ -513,10 +513,10 @@ const runtime: Messages = {
   editRuleButton: '편집',
 
   // Onboarding Page
-  onboardingTitle: 'All in Ob에 오신 것을 환영합니다',
+  onboardingTitle: 'Zendio에 오신 것을 환영합니다',
   onboardingSubtitle: '클리퍼 확장 프로그램을 빠르게 설정해 보겠습니다',
   onboardingWelcomeMessage:
-    'All in Ob를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
+    'Zendio를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
 
   // Step 1: API Configuration
   step1Title: 'Obsidian Local REST API 구성 (필수)',
@@ -606,7 +606,7 @@ const runtime: Messages = {
   onboardingFooterNote: '언제든지 설정 페이지에서 이러한 옵션을 다시 구성할 수 있습니다.',
   onboardingCompleted: '가이드 완료!',
   onboardingCompletedMessage:
-    '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 All in Ob를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
+    '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 Zendio를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
   onboardingLinkText: '가이드',
 
   // Footer links
@@ -616,7 +616,7 @@ const runtime: Messages = {
 
   suggestionsModalTitle: '제안 공유',
   suggestionsModalDescription:
-    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+    'Zendio 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   suggestionsModalReddit: 'Reddit에서 채팅',
   suggestionsModalXiaohongshu: 'Xiaohongshu 가입',
   suggestionsModalGithub: 'GitHub Issue',
@@ -652,7 +652,7 @@ const runtime: Messages = {
 const ko: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription: 'AI 강화 웹 클리퍼로 채팅, 조각, 기사를 Obsidian에 저장하세요.'
   }
 };
