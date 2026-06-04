@@ -6,8 +6,8 @@ export interface RuntimeStorageAdapter {
 }
 
 const nullStorageAdapter: RuntimeStorageAdapter = {
-  get: async () => undefined,
-  set: async () => undefined
+  get: () => Promise.resolve(undefined),
+  set: () => Promise.resolve()
 };
 
 export function createStorageAdapter(

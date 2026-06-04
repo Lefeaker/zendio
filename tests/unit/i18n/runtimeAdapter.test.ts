@@ -4,32 +4,41 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_LANGUAGE } from '../../../src/i18n/config';
 import { DEFAULT_RUNTIME_MESSAGES } from '../../../src/i18n/locales';
 import type { LocaleDefinition } from '../../../src/i18n/localeDefinition';
-import type { PageI18nController } from '../../../src/i18n/pageController';
+import type {
+  PageI18nController,
+  PageI18nControllerDependencies
+} from '../../../src/i18n/pageController';
 import type { StorageAreaService } from '../../../src/platform/interfaces/storage';
 
 function createStorageArea(initial: Record<string, unknown> = {}): StorageAreaService {
   const store = new Map<string, unknown>(Object.entries(initial));
 
   return {
-    get: vi.fn(async <T>(key: string) => store.get(key) as T | undefined) as StorageAreaService['get'],
-    set: vi.fn(async <T>(key: string, value: T) => {
+    get: vi.fn(<T>(key: string) =>
+      Promise.resolve(store.get(key) as T | undefined)
+    ) as StorageAreaService['get'],
+    set: vi.fn(<T>(key: string, value: T) => {
       store.set(key, value);
+      return Promise.resolve();
     }) as StorageAreaService['set'],
-    getMany: vi.fn(async <T>(keys: string[]) =>
-      Object.fromEntries(keys.map((key) => [key, store.get(key) as T | undefined]))
+    getMany: vi.fn(<T>(keys: string[]) =>
+      Promise.resolve(Object.fromEntries(keys.map((key) => [key, store.get(key) as T | undefined])))
     ) as StorageAreaService['getMany'],
-    setMany: vi.fn(async <T>(entries: Record<string, T>) => {
+    setMany: vi.fn(<T>(entries: Record<string, T>) => {
       for (const [key, value] of Object.entries(entries)) {
         store.set(key, value);
       }
+      return Promise.resolve();
     }) as StorageAreaService['setMany'],
-    remove: vi.fn(async (key: string | string[]) => {
+    remove: vi.fn((key: string | string[]) => {
       for (const entry of Array.isArray(key) ? key : [key]) {
         store.delete(entry);
       }
+      return Promise.resolve();
     }) as StorageAreaService['remove'],
-    clear: vi.fn(async () => {
+    clear: vi.fn(() => {
       store.clear();
+      return Promise.resolve();
     }) as StorageAreaService['clear'],
     watchKey: vi.fn(() => () => undefined) as StorageAreaService['watchKey'],
     watchAll: vi.fn(() => () => undefined) as StorageAreaService['watchAll']
@@ -70,8 +79,8 @@ describe('runtime storage and language services', () => {
     const { createStorageAdapter } = await import('../../../src/i18n/runtime/storageAdapter');
     const storage = createStorageArea();
     const readError = new Error('read failed');
-    const onReadError = vi.fn(async () => undefined);
-    const onWriteError = vi.fn(async () => undefined);
+    const onReadError = vi.fn(() => Promise.resolve());
+    const onWriteError = vi.fn(() => Promise.resolve());
 
     vi.mocked(storage.get).mockRejectedValueOnce(readError);
 
@@ -98,13 +107,13 @@ describe('runtime locale and page services', () => {
 
   it('loads locale definitions once and preserves fallback behavior', async () => {
     const { createLocaleService } = await import('../../../src/i18n/runtime/localeService');
-    const zhLoader = vi.fn(async () => createLocaleDefinition('zh-CN'));
+    const zhLoader = vi.fn(() => Promise.resolve(createLocaleDefinition('zh-CN')));
 
     const service = createLocaleService({
       defaultLanguage: DEFAULT_LANGUAGE,
       defaultDefinition: createLocaleDefinition('en'),
       loaders: {
-        en: async () => createLocaleDefinition('en'),
+        en: () => Promise.resolve(createLocaleDefinition('en')),
         'zh-CN': zhLoader
       }
     });
@@ -129,10 +138,10 @@ describe('runtime locale and page services', () => {
       clear: vi.fn()
     };
     const controller: PageI18nController = {
-      load: vi.fn(async () => undefined),
+      load: vi.fn(() => Promise.resolve()),
       mount: vi.fn(),
       registerDynamic: vi.fn(),
-      changeLanguage: vi.fn(async () => undefined),
+      changeLanguage: vi.fn(() => Promise.resolve()),
       dispose: vi.fn(),
       getCurrentResource: vi.fn(() => null),
       getBinder: vi.fn(
@@ -144,14 +153,14 @@ describe('runtime locale and page services', () => {
           }) as never
       )
     };
-    const createPageController = vi.fn(() => controller);
+    const createPageController = vi.fn((_: PageI18nControllerDependencies) => controller);
 
     const runtime = createPageRuntime({
-      loadLocaleDefinition: async () => createLocaleDefinition('zh-CN'),
+      loadLocaleDefinition: () => Promise.resolve(createLocaleDefinition('zh-CN')),
       defaultRuntimeMessages: DEFAULT_RUNTIME_MESSAGES,
-      getMessagesForLanguage: async () => DEFAULT_RUNTIME_MESSAGES,
-      getCurrentLanguage: async () => 'en',
-      setCurrentLanguage: async () => undefined,
+      getMessagesForLanguage: () => Promise.resolve(DEFAULT_RUNTIME_MESSAGES),
+      getCurrentLanguage: () => Promise.resolve('en'),
+      setCurrentLanguage: () => Promise.resolve(),
       createBindingAdapter: () => bindingAdapter,
       createPageController
     });
@@ -162,14 +171,12 @@ describe('runtime locale and page services', () => {
     expect(messages.extensionSubtitle).toBe('zh-CN');
     expect(document.documentElement.getAttribute('lang')).toBe('zh-CN');
     expect(document.documentElement.getAttribute('dir')).toBe('ltr');
-    expect(createPageController).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bindingAdapter,
-        defaultLanguage: DEFAULT_LANGUAGE,
-        getCurrentLanguage: expect.any(Function),
-        setCurrentLanguage: expect.any(Function)
-      })
-    );
+    expect(createPageController).toHaveBeenCalledTimes(1);
+    const controllerOptions = createPageController.mock.calls[0]?.[0];
+    expect(controllerOptions?.bindingAdapter).toBe(bindingAdapter);
+    expect(controllerOptions?.defaultLanguage).toBe(DEFAULT_LANGUAGE);
+    expect(typeof controllerOptions?.getCurrentLanguage).toBe('function');
+    expect(typeof controllerOptions?.setCurrentLanguage).toBe('function');
     expect(createdController).toBe(controller);
   });
 });

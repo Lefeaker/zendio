@@ -42,7 +42,8 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
   };
   const pendingLocaleLoads = new Map<LangCode, Promise<LocaleDefinition>>();
 
-  const hasLocaleLoader = (language: string): language is LangCode => Reflect.has(loaders, language);
+  const hasLocaleLoader = (language: string): language is LangCode =>
+    Reflect.has(loaders, language);
 
   return {
     defaultLanguage,
@@ -113,7 +114,7 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
 }
 
 const localeLoaders: LocaleLoaderMap = {
-  en: async () => en,
+  en: () => Promise.resolve(en),
   'zh-CN': async () => (await import('../locales/zh-CN')).default,
   ja: async () => (await import('../locales/ja')).default,
   de: async () => (await import('../locales/de')).default,

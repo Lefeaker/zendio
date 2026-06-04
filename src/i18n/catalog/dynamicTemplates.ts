@@ -1,16 +1,10 @@
-import { getLanguageFallbackChain } from '../config';
-import type { Language } from '../locales';
+import { getLanguageFallbackChain, type LangCode } from '../config';
 import type { ReleaseLangCode } from './languages';
 import { isReleaseLanguage, PSEUDO_LOCALE_CODE, PSEUDO_LOCALE_ENABLED } from './languages';
 import { buildPseudoDynamicMessageTemplates } from './pseudoLocale';
+import type { DynamicMessageKey, DynamicMessageTemplates } from './dynamicTypes';
 
-export interface DynamicMessageTemplates {
-  httpsUrlHint: string;
-  httpUrlHint: string;
-  vaultNamePlaceholder: string;
-}
-
-export type DynamicMessageKey = keyof DynamicMessageTemplates;
+export type { DynamicMessageKey, DynamicMessageTemplates } from './dynamicTypes';
 
 export const DYNAMIC_MESSAGE_KEYS: readonly DynamicMessageKey[] = [
   'httpsUrlHint',
@@ -91,9 +85,13 @@ const pseudoDynamicMessageTemplates = PSEUDO_LOCALE_ENABLED
   ? createPseudoDynamicMessageTemplates()
   : null;
 
-export function getDynamicMessageTemplates(language: Language): DynamicMessageTemplates {
+export function getDynamicMessageTemplates(language: LangCode): DynamicMessageTemplates {
   for (const candidate of getLanguageFallbackChain(language)) {
-    if (PSEUDO_LOCALE_ENABLED && candidate === PSEUDO_LOCALE_CODE && pseudoDynamicMessageTemplates) {
+    if (
+      PSEUDO_LOCALE_ENABLED &&
+      candidate === PSEUDO_LOCALE_CODE &&
+      pseudoDynamicMessageTemplates
+    ) {
       return pseudoDynamicMessageTemplates;
     }
 

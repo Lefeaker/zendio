@@ -227,10 +227,10 @@ describe('i18n generated artifact drift checks', () => {
 
     const schemaArtifact = artifacts.get('src/i18n/generated/schemaMessages.generated.ts');
     expect(schemaArtifact).toContain(
-      "export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES['en'];"
+      'export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES_EN;'
     );
     expect(schemaArtifact).toContain(
-      "export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES['de'];"
+      'export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES_DE;'
     );
     expect(schemaArtifact).toContain("schemaOverviewTitle: 'Overview'");
   });
