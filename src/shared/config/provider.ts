@@ -259,6 +259,18 @@ function resolveProcessEnv(): Record<string, string | undefined> | undefined {
   return globalEnv.process?.env;
 }
 
+function resolveEnvAlias(
+  env: Record<string, string | undefined>,
+  newName: string,
+  oldName: string
+): string | undefined {
+  return env[newName] ?? env[oldName];
+}
+
+function resolveRestEnv(env: Record<string, string | undefined>, name: string): string | undefined {
+  return resolveEnvAlias(env, `ZENDIO_REST_${name}`, `AIIINOB_REST_${name}`);
+}
+
 export function loadOverrideFromEnv(): ConfigOverrides | undefined {
   const env = resolveProcessEnv();
 
@@ -268,28 +280,33 @@ export function loadOverrideFromEnv(): ConfigOverrides | undefined {
 
   const restOverride: Partial<RestDefaults> = {};
 
-  if (env.AIIINOB_REST_HTTPS_HOST) {
-    restOverride.httpsHost = env.AIIINOB_REST_HTTPS_HOST;
+  const httpsHost = resolveRestEnv(env, 'HTTPS_HOST');
+  if (httpsHost) {
+    restOverride.httpsHost = httpsHost;
   }
-  const httpsPort = parsePort(env.AIIINOB_REST_HTTPS_PORT);
+  const httpsPort = parsePort(resolveRestEnv(env, 'HTTPS_PORT'));
   if (typeof httpsPort === 'number') {
     restOverride.httpsPort = httpsPort;
   }
-  if (env.AIIINOB_REST_HTTP_HOST) {
-    restOverride.httpHost = env.AIIINOB_REST_HTTP_HOST;
+  const httpHost = resolveRestEnv(env, 'HTTP_HOST');
+  if (httpHost) {
+    restOverride.httpHost = httpHost;
   }
-  const httpPort = parsePort(env.AIIINOB_REST_HTTP_PORT);
+  const httpPort = parsePort(resolveRestEnv(env, 'HTTP_PORT'));
   if (typeof httpPort === 'number') {
     restOverride.httpPort = httpPort;
   }
-  if (env.AIIINOB_REST_BASE_PATH) {
-    restOverride.basePath = env.AIIINOB_REST_BASE_PATH;
+  const basePath = resolveRestEnv(env, 'BASE_PATH');
+  if (basePath) {
+    restOverride.basePath = basePath;
   }
-  if (env.AIIINOB_REST_VAULT_NAME) {
-    restOverride.vaultName = env.AIIINOB_REST_VAULT_NAME;
+  const vaultName = resolveRestEnv(env, 'VAULT_NAME');
+  if (vaultName) {
+    restOverride.vaultName = vaultName;
   }
-  if (env.AIIINOB_REST_API_KEY) {
-    restOverride.apiKey = env.AIIINOB_REST_API_KEY;
+  const apiKey = resolveRestEnv(env, 'API_KEY');
+  if (apiKey) {
+    restOverride.apiKey = apiKey;
   }
 
   const overrides: ConfigOverrides = {};

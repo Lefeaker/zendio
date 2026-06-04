@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * AiiinOB 错误分析系统设置脚本
- * 
+ * Zendio 错误分析系统设置脚本
+ *
  * 这个脚本帮助开发者快速配置错误分析系统，包括：
  * 1. 验证 GA4 配置
  * 2. 检查必要的文件和依赖
@@ -88,7 +88,7 @@ function writeFile(filePath, content) {
 // 检查必要的文件
 function checkRequiredFiles() {
   info('检查必要的文件...');
-  
+
   const requiredFiles = [
     'src/shared/errors/errorCodes.ts',
     'src/shared/errors/analytics/analyticsConfig.ts',
@@ -99,7 +99,7 @@ function checkRequiredFiles() {
 
   let allFilesExist = true;
 
-  requiredFiles.forEach(file => {
+  requiredFiles.forEach((file) => {
     if (checkFileExists(file)) {
       success(`${file} 存在`);
     } else {
@@ -114,18 +114,18 @@ function checkRequiredFiles() {
 // 检查 GA4 配置
 function checkGA4Config() {
   info('检查 Google Analytics 配置...');
-  
+
   const configPath = 'src/shared/errors/analytics/analyticsConfig.ts';
   const configContent = readFile(configPath);
-  
+
   if (!configContent) {
     error('无法读取 analyticsConfig.ts 文件');
     return false;
   }
 
   // 检查是否包含占位符
-  const hasPlaceholder = configContent.includes('G-XXXXXXXXXX') || 
-                        configContent.includes('YOUR_API_SECRET');
+  const hasPlaceholder =
+    configContent.includes('G-XXXXXXXXXX') || configContent.includes('YOUR_API_SECRET');
 
   if (hasPlaceholder) {
     warning('GA4 配置包含占位符，需要更新为实际值');
@@ -177,10 +177,14 @@ async function generateConfigTemplate() {
   }
 
   // 替换占位符
-  configContent = configContent.replace(/MEASUREMENT_ID:\s*['"`][^'"`]+['"`]/, 
-    `MEASUREMENT_ID: '${measurementId}'`);
-  configContent = configContent.replace(/API_SECRET:\s*['"`][^'"`]+['"`]/, 
-    `API_SECRET: '${apiSecret}'`);
+  configContent = configContent.replace(
+    /MEASUREMENT_ID:\s*['"`][^'"`]+['"`]/,
+    `MEASUREMENT_ID: '${measurementId}'`
+  );
+  configContent = configContent.replace(
+    /API_SECRET:\s*['"`][^'"`]+['"`]/,
+    `API_SECRET: '${apiSecret}'`
+  );
 
   // 写入更新的配置
   if (writeFile(configPath, configContent)) {
@@ -314,7 +318,7 @@ try {
 
 // 主函数
 async function main() {
-  colorLog('cyan', '🚀 AiiinOB 错误分析系统设置向导');
+  colorLog('cyan', '🚀 Zendio 错误分析系统设置向导');
   console.log('');
 
   try {
@@ -356,7 +360,6 @@ async function main() {
     info('- docs/error-analytics-integration-guide.md');
     info('- docs/google-analytics-dashboard-setup.md');
     info('- docs/integration-example.ts');
-
   } catch (err) {
     error(`设置过程中出现错误: ${err.message}`);
     process.exit(1);
