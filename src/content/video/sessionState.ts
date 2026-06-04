@@ -1,4 +1,5 @@
 import type { PageI18nController } from '../../i18n';
+import type { FeatureTimer } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { FragmentClipperOptions } from '../../shared/types/options';
 import type { VideoPlatform } from './utils';
@@ -24,6 +25,7 @@ export class VideoSessionState {
   platformAdapter: VideoPlatformAdapter | null = null;
   fragmentConfig: FragmentClipperOptions | null = null;
   highlightTheme: ReaderHighlightTheme;
+  analyticsTimer: FeatureTimer | null = null;
 
   constructor(defaultHighlightTheme: ReaderHighlightTheme) {
     this.highlightTheme = defaultHighlightTheme;
