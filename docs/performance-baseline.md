@@ -26,7 +26,7 @@ npm run audit:build:report
 
 2026-05-29 Plan 11 G3 source-of-truth sync 复核重新采集 `build:fast`、`build:dev`、`audit:build:report` 与 `audit:performance:report`。本页数值以该次采集为当前构建和热点真值。
 
-2026-06-05 GA production telemetry P13 performance-budget gap fix 复核重新采集 `audit:performance:report`。本页热点与 line-budget 数值以该次采集为当前热点真值；本次只同步文档真值，不改变 `tools/report-performance-hotspots.mjs` 的 gate 逻辑或预算。
+2026-06-05 GA production telemetry P13 final gap fix 复核重新采集 `quality`、`verify:preflight`、`build:dev`、`audit:build:report` 与 `audit:performance:report`。本页 build/hotspot/line-budget 数值以该次采集为当前真值；`analyticsConfig.ts` / `analyticsConfig.template.ts` budgets 已随等价行数收紧同步到当前值。
 
 当前 production fast build 真值：
 
@@ -42,26 +42,28 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `53.1 KB`（raw `54,375` bytes；距离 `56,320` raw-byte stop gate 还有 `1,945` bytes）
+- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,246` bytes；距离 `56,320` raw-byte stop gate 还有 `74` bytes）
 - `build/dist/options/index.js`: `997 B`
-- `build/dist/onboarding/index.js`: `12.3 KB`
-- 总 chunk 数：`103`
-- `chunks/runtimeEntry-*.js`: `284.7 KB`
-- `chunks/videoSessionControllers-*.js`: `70.9 KB`
-- `chunks/qps-ploc-*.js`: `57.1 KB`（raw `58,486` bytes）
-- `chunks/videoLazyRuntime-*.js`: `41.1 KB`
+- `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
+- 总 chunk 数：`108`
+- `chunks/runtimeEntry-*.js`: `303.4 KB`
+- `chunks/videoSessionControllers-*.js`: `80.9 KB`
+- `chunks/qps-ploc-*.js`: `57.5 KB`（raw `58,906` bytes）
+- `chunks/videoLazyRuntime-*.js`: `44.7 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
-- 最大 shared chunk：`184.0 KB`
+- 最大 shared chunk：`184.5 KB`
 - 第二大 shared chunk：`128.3 KB`
 - 第三大 shared chunk：`82.8 KB`
 
 当前重点功能 chunk：
 
 - No retired Options section chunk is emitted in the current report.
-- No `yaml-config-*` chunk is emitted in the 2026-05-29 report.
+- No `yaml-config-*` chunk is emitted in the 2026-06-05 GA final report.
 - `chunks/registry-*.js`: `3.6 KB`
+- `chunks/clipFlowAnalytics-*.js`: `2.5 KB`
+- `chunks/onboardingAnalytics-*.js`: `1.8 KB`
 
 当前 `audit:build:report` 预算口径：
 
@@ -95,7 +97,7 @@ npm run audit:performance:report
 - `src/options/stitch/ui/components.ts`: `592` 行
 - `src/content/video/sessionOperations.ts`: `587` 行
 - `src/options/yaml-config-editor/view.ts`: `586` 行
-- `src/onboarding/bootstrap.ts`: `584` 行
+- `src/onboarding/bootstrap.ts`: `557` 行
 - `src/background/pipelines/connectionTest.ts`: `573` 行
 - `src/options/stitch/schema/builders/surfaces.ts`: `558` 行
 - `src/content/clipper/components/clipperDialogController.ts`: `511` 行
@@ -105,15 +107,17 @@ npm run audit:performance:report
 - `src/shared/analytics/eventCatalog.ts`: `485` 行
 - `src/ui/domains/video/VideoDialog.ts`: `468` 行
 - `src/content/video/videoPromptLifecycle.ts`: `458` 行
-- `src/shared/analytics/analyticsSanitizers.ts`: `456` 行
+- `src/shared/analytics/analyticsSanitizers.ts`: `455` 行
 - `src/content/video/videoSessionRuntime.ts`: `434` 行
+- `src/shared/errors/analytics/analyticsConfig.ts`: `369` 行
+- `src/shared/errors/analytics/analyticsConfig.template.ts`: `364` 行
 - `src/shared/errors/analytics/googleAnalyticsReporter.ts`: `301` 行
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-05 GA production telemetry P13 复核后当前动态发现 `99` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 guarded line budget；2026-06-05 GA production telemetry P13 final gap fix 复核后当前 trackedSourceFiles=`673`、动态发现 `99` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`stitch/types.ts <= 743`、`i18n/locales/fr.ts <= 697`。
-- 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 391`、`videoControlBarButton.ts <= 386`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 254`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`googleAnalyticsReporter.ts <= 301`。
+- 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 391`、`videoControlBarButton.ts <= 386`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 254`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`analyticsConfig.ts <= 369`、`analyticsConfig.template.ts <= 364`、`googleAnalyticsReporter.ts <= 301`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 586` were not loosened.
 
 本轮有效收口结果：
