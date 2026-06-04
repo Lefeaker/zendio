@@ -66,7 +66,8 @@ const HARDCODED_PATTERNS = [
 ];
 
 const LOCALIZED_REST_EXAMPLE_KEYS = new Set(['step1Detail3', 'step1Detail4']);
-const LOCALIZED_REST_EXAMPLE_FILE_PATTERN = /^i18n\/locales\/[A-Za-z0-9-]+\.ts$/;
+const LOCALIZED_REST_EXAMPLE_FILE_PATTERN =
+  /^i18n\/(?:locales\/[A-Za-z0-9-]+\.ts|catalog\/messages\/[A-Za-z0-9-]+\/runtime\.json|generated\/locales\/[A-Za-z0-9-]+\.generated\.ts)$/;
 const GENERATED_LOCALE_REGISTRY_FILE = 'i18n/generated/localeRegistry.generated.ts';
 const CHANGELOG_REST_EXAMPLE_FILE = 'options/app/changelogContent.ts';
 const STITCH_PREVIEW_REST_EXAMPLE_FILE = 'options/stitch/content.ts';
@@ -99,7 +100,7 @@ const ALLOWLIST_RULES = [
     category: 'localized-rest-example-text',
     isAllowed({ relativePath, line }) {
       if (LOCALIZED_REST_EXAMPLE_FILE_PATTERN.test(relativePath)) {
-        const keyMatch = line.match(/^\s*([A-Za-z0-9_]+):\s*['"`]/);
+        const keyMatch = line.match(/^\s*["']?([A-Za-z0-9_]+)["']?:\s*['"`]/);
         return keyMatch ? LOCALIZED_REST_EXAMPLE_KEYS.has(keyMatch[1]) : false;
       }
 

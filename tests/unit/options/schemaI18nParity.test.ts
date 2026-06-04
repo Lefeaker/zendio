@@ -1,18 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import de from '@i18n/locales/de';
-import en from '@i18n/locales/en';
-import es419 from '@i18n/locales/es-419';
-import esES from '@i18n/locales/es-ES';
-import fr from '@i18n/locales/fr';
-import itLocale from '@i18n/locales/it';
-import ja from '@i18n/locales/ja';
-import ko from '@i18n/locales/ko';
-import ptBR from '@i18n/locales/pt-BR';
-import ru from '@i18n/locales/ru';
-import zhCN from '@i18n/locales/zh-CN';
-import zhTW from '@i18n/locales/zh-TW';
+import de from '@i18n/generated/locales/de.generated';
+import en from '@i18n/generated/locales/en.generated';
+import es419 from '@i18n/generated/locales/es-419.generated';
+import esES from '@i18n/generated/locales/es-ES.generated';
+import fr from '@i18n/generated/locales/fr.generated';
+import itLocale from '@i18n/generated/locales/it.generated';
+import ja from '@i18n/generated/locales/ja.generated';
+import ko from '@i18n/generated/locales/ko.generated';
+import ptBR from '@i18n/generated/locales/pt-BR.generated';
+import ru from '@i18n/generated/locales/ru.generated';
+import zhCN from '@i18n/generated/locales/zh-CN.generated';
+import zhTW from '@i18n/generated/locales/zh-TW.generated';
 import {
   schemaShellMessagesDe,
   schemaShellMessagesEn,
@@ -30,35 +30,14 @@ import {
 } from '@i18n/generated/schemaMessages.generated';
 
 describe('schema i18n parity', () => {
-  it('moves release locale modules off the legacy schema-shell facade', () => {
-    const localeFiles = [
-      'en.ts',
-      'de.ts',
-      'es-419.ts',
-      'es-ES.ts',
-      'fr.ts',
-      'it.ts',
-      'ja.ts',
-      'ko.ts',
-      'pt-BR.ts',
-      'ru.ts',
-      'zh-CN.ts',
-      'zh-TW.ts'
-    ];
+  it('removes legacy handwritten locale and schema-shell facades', () => {
+    const localesDir = resolve(process.cwd(), 'src/i18n/locales');
+    const localeFiles = existsSync(localesDir)
+      ? readdirSync(localesDir).filter((file) => file.endsWith('.ts'))
+      : [];
 
-    localeFiles.forEach((filename) => {
-      const source = readFileSync(resolve(process.cwd(), 'src/i18n/locales', filename), 'utf8');
-
-      expect(source).not.toContain('../schemaShellMessages');
-      expect(source).toContain('../generated/schemaMessages.generated');
-    });
-  });
-
-  it('keeps schemaShellMessages.ts as a compatibility facade', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/i18n/schemaShellMessages.ts'), 'utf8');
-
-    expect(source).toContain('./generated/schemaMessages.generated');
-    expect(source).not.toContain('schemaOverviewTitle:');
+    expect(localeFiles).toEqual([]);
+    expect(existsSync(resolve(process.cwd(), 'src/i18n/schemaShellMessages.ts'))).toBe(false);
   });
 
   it('keeps generated schema catalogs aligned with the English keyset', () => {

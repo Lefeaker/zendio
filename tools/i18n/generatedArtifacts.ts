@@ -3,8 +3,13 @@ import path from 'node:path';
 import prettier from 'prettier';
 import type { CompiledCatalog } from './compileCatalog';
 import { emitGeneratedChromeLocales } from './emitGeneratedChromeLocales';
+import {
+  emitGeneratedLocaleModules,
+  emitGeneratedPseudoLocaleModule
+} from './emitGeneratedLocaleModules';
 import { emitGeneratedLocales } from './emitGeneratedLocales';
 import { emitGeneratedSchemaMessages } from './emitGeneratedSchemaMessages';
+import { emitGeneratedStaticRegistry } from './emitGeneratedStaticRegistry';
 import { emitGeneratedTypes } from './emitGeneratedTypes';
 
 export interface GeneratedArtifactDrift {
@@ -40,6 +45,12 @@ export async function buildGeneratedArtifacts(
   const rawArtifacts = new Map<string, string>([
     ['src/i18n/generated/messages.generated.ts', emitGeneratedTypes(runtime)],
     ['src/i18n/generated/localeRegistry.generated.ts', emitGeneratedLocales(runtime)],
+    ['src/i18n/generated/staticRegistry.generated.ts', emitGeneratedStaticRegistry(runtime)],
+    ...emitGeneratedLocaleModules(runtime),
+    [
+      'src/i18n/generated/locales/qps-ploc.generated.ts',
+      emitGeneratedPseudoLocaleModule()
+    ],
     ...emitGeneratedChromeLocales(runtime)
   ]);
 

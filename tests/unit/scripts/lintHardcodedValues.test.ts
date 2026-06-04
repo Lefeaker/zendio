@@ -56,12 +56,12 @@ afterEach(async () => {
 describe('lint-hardcoded-values allowlists', () => {
   it('allows localized REST examples only on onboarding detail keys', async () => {
     const linter = await lintSource(
-      'i18n/locales/en.ts',
+      'i18n/catalog/messages/en/runtime.json',
       [
-        'export const en = {',
-        `  step1Detail3: 'Note the HTTPS URL (usually ${HTTPS_REST_URL})',`,
-        `  step1Detail4: 'Note the HTTP URL (usually ${HTTP_REST_URL})',`,
-        '};'
+        '{',
+        `  "step1Detail3": "Note the HTTPS URL (usually ${HTTPS_REST_URL})",`,
+        `  "step1Detail4": "Note the HTTP URL (usually ${HTTP_REST_URL})"`,
+        '}'
       ].join('\n')
     );
 
@@ -70,8 +70,8 @@ describe('lint-hardcoded-values allowlists', () => {
 
   it('rejects localized REST literals outside onboarding detail keys', async () => {
     const linter = await lintSource(
-      'i18n/locales/en.ts',
-      ['export const en = {', `  runtimeDefaultUrl: '${HTTPS_REST_URL}',`, '};'].join('\n')
+      'i18n/catalog/messages/en/runtime.json',
+      ['{', `  "runtimeDefaultUrl": "${HTTPS_REST_URL}"`, '}'].join('\n')
     );
 
     expect(linter.errors.length).toBeGreaterThan(0);
@@ -79,7 +79,7 @@ describe('lint-hardcoded-values allowlists', () => {
 
   it('allows generated localized REST examples only on onboarding detail keys', async () => {
     const allowed = await lintSource(
-      'i18n/generated/localeRegistry.generated.ts',
+      'i18n/generated/locales/en.generated.ts',
       [
         'export const GENERATED_LOCALE_MESSAGES_EN = {',
         `  step1Detail3: 'Note the HTTPS URL (usually ${HTTPS_REST_URL})',`,
@@ -90,7 +90,7 @@ describe('lint-hardcoded-values allowlists', () => {
     expect(allowed.errors).toEqual([]);
 
     const rejected = await lintSource(
-      'i18n/generated/localeRegistry.generated.ts',
+      'i18n/generated/locales/en.generated.ts',
       [
         'export const GENERATED_LOCALE_MESSAGES_EN = {',
         `  runtimeDefaultUrl: '${HTTPS_REST_URL}',`,
