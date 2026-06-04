@@ -134,6 +134,15 @@ credentials and manual confirmation.
 - 2026-05-22 review gap patch 在 Node `v20.20.2` / npm `10.8.2` 下补跑并通过 Chrome `npm run build` -> `npm run audit:local-vault-release:report -- --browser chrome`、Firefox `npm run build:firefox` -> `npm run audit:local-vault-release:report -- --browser firefox`
 - `src/shared/errors/analytics/analyticsConfig.ts` is tracked as a non-sensitive disabled default; clean checkout no longer needs a copied ignored local analytics file for typecheck/build.
 
+2026-06-05 GA production telemetry P13 final build truth:
+
+- `quality` 与 `verify:preflight` 在 Node `v20.20.2` 下通过
+- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,246` bytes；raw stop gate `56,320`）
+- `build/dist/options/index.js`: `997 B`
+- `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
+- chunks: `108`
+- GA content/onboarding telemetry now lives behind lazy `clipFlowAnalytics-*` / `onboardingAnalytics-*` chunks so entry bundles remain within the existing release gates.
+
 ## 核心命令
 
 - `npm run build:dev`
