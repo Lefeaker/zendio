@@ -62,7 +62,10 @@ const sharedBuildOptions = {
     __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
     __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
       ? 'true'
-      : 'false'
+      : 'false',
+    __AIIINOB_GA_MEASUREMENT_ID__: JSON.stringify(process.env.AIIINOB_GA_MEASUREMENT_ID ?? ''),
+    __AIIINOB_GA_TRANSPORT_MODE__: JSON.stringify(process.env.AIIINOB_GA_TRANSPORT_MODE ?? ''),
+    __AIIINOB_GA_PROXY_ENDPOINT__: JSON.stringify(process.env.AIIINOB_GA_PROXY_ENDPOINT ?? '')
   },
   charset: 'utf8',
   loader: {
