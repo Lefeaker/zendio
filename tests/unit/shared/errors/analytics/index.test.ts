@@ -5,6 +5,8 @@ const initializeAnalyticsConfigMock = vi.hoisted(() =>
     enabled: true,
     debugMode: false,
     measurementId: 'G-123',
+    transportMode: 'proxy' as const,
+    proxyEndpoint: 'https://analytics.example.test/ga4',
     clientId: 'client-1',
     sessionId: 'session-1'
   }))
@@ -47,15 +49,47 @@ describe('error analytics initialization', () => {
     vi.clearAllMocks();
   });
 
-  it('registers GA and sentry reporters on the provided handler', async () => {
-    const addReporter = vi.fn(() => () => undefined);
+  it('registers GA and sentry reporters with stable session config across repeated initialization', async () => {
+    const unregisterGa1 = vi.fn();
+    const unregisterSentry1 = vi.fn();
+    const unregisterGa2 = vi.fn();
+    const unregisterSentry2 = vi.fn();
+    const addReporter = vi
+      .fn<() => () => void>()
+      .mockReturnValueOnce(unregisterGa1)
+      .mockReturnValueOnce(unregisterSentry1)
+      .mockReturnValueOnce(unregisterGa2)
+      .mockReturnValueOnce(unregisterSentry2);
 
     const module = await import('../../../../../src/shared/errors/analytics');
     await module.initializeErrorAnalytics({ addReporter });
+    await module.initializeErrorAnalytics({ addReporter });
 
-    expect(createGoogleAnalyticsReporterMock).toHaveBeenCalledTimes(1);
-    expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(1);
-    expect(addReporter).toHaveBeenCalledTimes(2);
+    expect(createGoogleAnalyticsReporterMock).toHaveBeenCalledTimes(2);
+    expect(createGoogleAnalyticsReporterMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        measurementId: 'G-123',
+        transportMode: 'proxy',
+        proxyEndpoint: 'https://analytics.example.test/ga4',
+        clientId: 'client-1',
+        sessionId: 'session-1'
+      })
+    );
+    expect(createGoogleAnalyticsReporterMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        measurementId: 'G-123',
+        transportMode: 'proxy',
+        proxyEndpoint: 'https://analytics.example.test/ga4',
+        clientId: 'client-1',
+        sessionId: 'session-1'
+      })
+    );
+    expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(2);
+    expect(addReporter).toHaveBeenCalledTimes(4);
+    expect(unregisterGa1).toHaveBeenCalledTimes(1);
+    expect(unregisterSentry1).toHaveBeenCalledTimes(1);
     expect(module.getErrorAnalyticsStatus()).toMatchObject({
       enabled: true,
       hasReporter: true,
@@ -63,7 +97,7 @@ describe('error analytics initialization', () => {
     });
   });
 
-  it('clears reporters when disabled', async () => {
+  it('requires errorReporting consent even when analytics consent keeps config enabled', async () => {
     const addReporter = vi.fn(() => () => undefined);
     shouldReportErrorsMock.mockReturnValueOnce(false);
 
@@ -71,6 +105,8 @@ describe('error analytics initialization', () => {
     await module.initializeErrorAnalytics({ addReporter });
 
     expect(addReporter).not.toHaveBeenCalled();
+    expect(createGoogleAnalyticsReporterMock).not.toHaveBeenCalled();
+    expect(createSentryErrorReporterMock).not.toHaveBeenCalled();
     expect(module.getErrorAnalyticsStatus()).toMatchObject({
       hasReporter: false
     });
