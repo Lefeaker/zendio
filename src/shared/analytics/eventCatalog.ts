@@ -305,10 +305,13 @@ export const FUTURE_PRODUCT_EVENT_NAMES = [
   'video_session_cancelled'
 ] as const satisfies readonly AnalyticsEventName[];
 
+export const PRODUCT_USAGE_EVENT_NAMES = FUTURE_PRODUCT_EVENT_NAMES;
+
 export type RuntimeUsageEventName =
   | (typeof EMITTED_USAGE_EVENT_NAMES)[number]
   | (typeof DEV_ONLY_EVENT_NAMES)[number]
-  | (typeof CONTRACT_ONLY_EVENT_NAMES)[number];
+  | (typeof CONTRACT_ONLY_EVENT_NAMES)[number]
+  | (typeof PRODUCT_USAGE_EVENT_NAMES)[number];
 
 export type UsageEventName = RuntimeUsageEventName;
 export type UsageEventParamMap = Pick<AnalyticsEventParamMap, UsageEventName>;
@@ -465,7 +468,7 @@ export const ANALYTICS_EVENT_CATALOG = Object.freeze({
   runtime_harness_open: createDefinition('runtime_harness_open', 'dev-only', true),
   video_started: createDefinition('video_started', 'contract-only', true),
   ...Object.fromEntries(
-    FUTURE_PRODUCT_EVENT_NAMES.map((name) => [name, createDefinition(name, 'future', false)])
+    FUTURE_PRODUCT_EVENT_NAMES.map((name) => [name, createDefinition(name, 'future', true)])
   )
 }) as Readonly<Record<AnalyticsEventName, AnalyticsEventDefinition>>;
 

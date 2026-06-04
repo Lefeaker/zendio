@@ -13,7 +13,7 @@ describe('analytics sanitizers', () => {
     expect(isAllowedUsageEventName('support_like_clicked')).toBe(true);
     expect(isAllowedUsageEventName('runtime_harness_open')).toBe(true);
     expect(isAllowedUsageEventName('video_started')).toBe(true);
-    expect(isAllowedUsageEventName('clip_started')).toBe(false);
+    expect(isAllowedUsageEventName('clip_started')).toBe(true);
     expect(isAllowedAnalyticsEventName('clip_started')).toBe(true);
   });
 
