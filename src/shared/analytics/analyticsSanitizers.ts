@@ -39,7 +39,6 @@ const EXPORT_DESTINATIONS = new Set([
   'clipboard',
   'unknown'
 ]);
-const OUTCOMES = new Set(['started', 'completed', 'cancelled', 'failed', 'skipped']);
 const FAILURE_CATEGORIES = new Set([
   'permission',
   'connection',

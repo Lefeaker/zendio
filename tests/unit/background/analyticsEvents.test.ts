@@ -177,9 +177,9 @@ describe('analyticsEvents', () => {
     let cachedConfig = createAnalyticsConfig();
     let storedConfig = createAnalyticsConfig();
     getConfigMock.mockImplementation(() => ({ ...cachedConfig }));
-    refreshAnalyticsConfigMock.mockImplementation(async () => {
+    refreshAnalyticsConfigMock.mockImplementation(() => {
       cachedConfig = { ...storedConfig };
-      return { ...cachedConfig };
+      return Promise.resolve({ ...cachedConfig });
     });
     fetchMock.mockResolvedValue({
       ok: true,

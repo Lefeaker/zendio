@@ -66,7 +66,7 @@ function createActionRuntimeHarness() {
       scheduleAutoSave: vi.fn()
     },
     optionsRepository: createRepository(),
-    changeLanguage: vi.fn(async (language: Language) => ({ messages: null, language })),
+    changeLanguage: vi.fn((language: Language) => Promise.resolve({ messages: null, language })),
     getAppData: () => appData,
     getCurrentLanguage: () => state.previewLanguage as Language,
     getCurrentMessages: () => null,

@@ -11,7 +11,9 @@ const writeAttachmentMock = vi.fn();
 const createWriteSessionMock = vi.fn();
 const recordUsageMock = vi.fn();
 const downloadMock = vi.fn();
-const trackUsageEventMock = vi.fn();
+type TrackUsageEventMock = (eventName: string, params?: Record<string, unknown>) => Promise<void>;
+type TrackUsageEventCall = Parameters<TrackUsageEventMock>;
+const trackUsageEventMock = vi.fn<TrackUsageEventMock>();
 const getServiceMock = vi.hoisted(() =>
   vi.fn(() => ({
     downloads: {
@@ -118,14 +120,15 @@ describe('clipProcessor', () => {
   }
 
   function expectAnalyticsEvent(
-    call: unknown[],
+    call: TrackUsageEventCall | undefined,
     expectedEvent: string,
     expectedParams: Record<string, unknown>,
     allowedKeys: string[]
   ): void {
-    expect(call[0]).toBe(expectedEvent);
-    expect(call[1]).toEqual(expect.objectContaining(expectedParams));
-    const params = call[1] as Record<string, unknown>;
+    expect(call).toBeDefined();
+    const [eventName, params = {}] = call ?? [];
+    expect(eventName).toBe(expectedEvent);
+    expect(params).toMatchObject(expectedParams);
     expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
     Object.keys(params).forEach((key) => {
       expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
@@ -386,7 +389,7 @@ describe('clipProcessor', () => {
     );
     expect(stageCalls).toHaveLength(4);
     expectAnalyticsEvent(
-      stageCalls[0] as unknown[],
+      stageCalls[0],
       'background_stage_completed',
       {
         operation_id: 'op_abc123def',
@@ -396,7 +399,7 @@ describe('clipProcessor', () => {
       ['duration_bucket', 'operation_id', 'stage']
     );
     expectAnalyticsEvent(
-      stageCalls[1] as unknown[],
+      stageCalls[1],
       'background_stage_completed',
       {
         operation_id: 'op_abc123def',
@@ -406,7 +409,7 @@ describe('clipProcessor', () => {
       ['duration_bucket', 'operation_id', 'stage']
     );
     expectAnalyticsEvent(
-      stageCalls[2] as unknown[],
+      stageCalls[2],
       'background_stage_completed',
       {
         operation_id: 'op_abc123def',
@@ -416,7 +419,7 @@ describe('clipProcessor', () => {
       ['duration_bucket', 'operation_id', 'stage']
     );
     expectAnalyticsEvent(
-      stageCalls[3] as unknown[],
+      stageCalls[3],
       'background_stage_completed',
       {
         operation_id: 'op_abc123def',
@@ -513,7 +516,7 @@ describe('clipProcessor', () => {
     );
     expect(stageCalls).toHaveLength(5);
     expectAnalyticsEvent(
-      stageCalls[2] as unknown[],
+      stageCalls[2],
       'background_stage_completed',
       {
         operation_id: 'op_download7',
@@ -534,7 +537,7 @@ describe('clipProcessor', () => {
     );
 
     trackUsageEventMock.mock.calls.forEach(([, params]) => {
-      expectNoSensitiveValues(params as Record<string, unknown> | undefined, [
+      expectNoSensitiveValues(params, [
         'Downloads Secret',
         'private clip markdown',
         'https://example.com/private',
