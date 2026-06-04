@@ -5,6 +5,11 @@ import type {
   ProductionStitchStorageControllerOptions,
   ProductionStitchStorageLoad
 } from './productionStitchStorageTypes';
+import {
+  classifyPermissionPromptErrorOutcome,
+  emitLocalVaultPermissionPrompted,
+  emitLocalVaultPermissionResolved
+} from '@options/services/connectionTester';
 
 export interface ProductionStitchStorageSubscriptions {
   activateVaultLocalFolder(index: number): Promise<void>;
@@ -38,12 +43,14 @@ export function createProductionStitchStorageSubscriptions(
       return;
     }
     try {
+      emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const previousFolderId = vault.localFolderId;
       const selection = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.chooseDirectory({
         suggestedName: vault.name || vault.vault
       });
+      emitLocalVaultPermissionResolved(options.getMessagingRepository(), 'completed');
       state.activeLocalFolderVaultIndex = null;
       vault.localFolderId = selection.id;
       vault.localFolderName = selection.name;
@@ -57,6 +64,10 @@ export function createProductionStitchStorageSubscriptions(
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        classifyPermissionPromptErrorOutcome(error)
+      );
       console.warn('[Options] Failed to choose local vault folder:', error);
       options.setConnectionNotice({
         title: '本地目录',
@@ -102,9 +113,14 @@ export function createProductionStitchStorageSubscriptions(
     }
 
     try {
+      emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        permission === 'granted' ? 'completed' : 'failed'
+      );
       if (permission !== 'granted') {
         options.setConnectionNotice({
           title: '本地目录需要重新授权',
@@ -122,6 +138,10 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'success'
       });
     } catch (error) {
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        classifyPermissionPromptErrorOutcome(error)
+      );
       console.warn('[Options] Failed to refresh local vault folder permission:', error);
       options.setConnectionNotice({
         title: '本地目录需要重新授权',

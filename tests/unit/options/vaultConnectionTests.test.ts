@@ -40,7 +40,16 @@ describe('runVaultListConnectionTest', () => {
       message: '没有可测试的启用仓库。',
       error: '没有可测试的启用仓库。'
     });
-    expect(send).not.toHaveBeenCalled();
+    expectAnalyticsMessage(
+      send.mock.calls,
+      'connection_test_completed',
+      {
+        failure_category: 'validation',
+        outcome: 'failed',
+        storage_target: 'unknown'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 
   it('aggregates successful enabled vault results', async () => {
@@ -65,7 +74,11 @@ describe('runVaultListConnectionTest', () => {
       success: true,
       message: 'research ok\n\narchive ok'
     });
-    expect(send).toHaveBeenCalledTimes(2);
+    const connectionCalls = send.mock.calls.filter((call) => {
+      const message = call[0] as { type?: string; vaultId?: string } | undefined;
+      return message?.type === 'TEST_VAULT_CONNECTION';
+    });
+    expect(connectionCalls).toHaveLength(2);
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ vaultId: 'disabled' }));
   });
 
@@ -92,5 +105,61 @@ describe('runVaultListConnectionTest', () => {
     expect(result.message).toContain('research ok');
     expect(result.message).toContain('[Archive] network denied');
     expect(result.error).toBe('network denied');
+    expectAnalyticsMessage(
+      send.mock.calls,
+      'connection_test_completed',
+      {
+        failure_category: 'unknown',
+        outcome: 'failed',
+        storage_target: 'unknown'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 });
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'apiKey',
+  'baseUrl',
+  'duration_ms',
+  'endpoint',
+  'fallback_reason',
+  'failure_count_bucket',
+  'filePath',
+  'folderId',
+  'folderName',
+  'localFolderName',
+  'noteName',
+  'permission_state',
+  'response',
+  'responseBody',
+  'success_count_bucket',
+  'test_scope',
+  'vault',
+  'vaultName',
+  'vault_count_bucket'
+]);
+
+function expectAnalyticsMessage(
+  calls: unknown[][],
+  expectedEvent: string,
+  expectedParams: Record<string, unknown>,
+  allowedKeys: string[]
+): void {
+  const analyticsCall = calls.find((call) => {
+    const message = call[0] as { type?: string; event?: string } | undefined;
+    return message?.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+  });
+  expect(analyticsCall).toBeDefined();
+  const message = analyticsCall?.[0] as {
+    event: string;
+    params?: Record<string, unknown>;
+    type: 'TRACK_USAGE_EVENT';
+  };
+  expect(message.params).toEqual(expect.objectContaining(expectedParams));
+  const params = message.params ?? {};
+  expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+  Object.keys(params).forEach((key) => {
+    expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+  });
+}

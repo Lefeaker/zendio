@@ -7,8 +7,27 @@ import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
 import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
+import { trackUsageEvent } from '../services/analyticsEvents';
+import type {
+  DurationBucket,
+  FailureCategory as AnalyticsFailureCategory,
+  StorageTarget
+} from '../../shared/types/analytics';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
+type ConnectionTestSummary = {
+  result: ConnectionTestResult;
+  storageTarget: StorageTarget;
+  failureCategory?: AnalyticsFailureCategory;
+};
+type ConnectionResultSummary = {
+  result: ConnectionTestResult;
+  failureCategory?: AnalyticsFailureCategory;
+};
+type LocalConnectionResultSummary = {
+  result: ConnectionTestResult | null;
+  failureCategory?: AnalyticsFailureCategory;
+};
 
 const RESPONSE_SNIPPET_LIMIT = 120;
 const NETWORK_FAILURE_DETAIL = 'request failed';
@@ -84,6 +103,7 @@ interface ConnectionTestConfig {
 export async function handleConnectionTest(
   restDraft?: Partial<RestOptions>
 ): Promise<ConnectionTestResult> {
+  const startedAt = Date.now();
   try {
     const options = await getOptions();
     const rest = mergeRestOptions(options.rest, restDraft);
@@ -99,18 +119,29 @@ export async function handleConnectionTest(
         ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {})
       };
 
-      return await executeStorageTargetTest(config);
+      const summary = await executeStorageTargetTest(config);
+      trackConnectionTestCompleted(summary, startedAt);
+      return summary.result;
     } catch (error) {
-      return buildFailureResult(error, rest.vault);
+      const summary = buildFailureSummary(
+        error,
+        rest.vault,
+        rest.localFolderId ? 'local_folder' : 'rest_api'
+      );
+      trackConnectionTestCompleted(summary, startedAt);
+      return summary.result;
     }
   } catch (error) {
-    return buildFailureResult(error);
+    const summary = buildFailureSummary(error, undefined, 'unknown');
+    trackConnectionTestCompleted(summary, startedAt);
+    return summary.result;
   }
 }
 
 export async function handleVaultConnectionTest(
   message: TestVaultConnectionMessage
 ): Promise<ConnectionTestResult> {
+  const startedAt = Date.now();
   try {
     const options = await getOptions();
     const activeVaults = (options.vaultRouter?.vaults ?? []).filter((v) => v.enabled !== false);
@@ -137,40 +168,67 @@ export async function handleVaultConnectionTest(
         ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {})
       };
 
-      return await executeStorageTargetTest(config);
+      const summary = await executeStorageTargetTest(config);
+      trackConnectionTestCompleted(summary, startedAt);
+      return summary.result;
     } catch (error) {
-      return buildFailureResult(error, label);
+      const summary = buildFailureSummary(
+        error,
+        label,
+        vault.localFolderId ? 'local_folder' : 'rest_api'
+      );
+      trackConnectionTestCompleted(summary, startedAt);
+      return summary.result;
     }
   } catch (error) {
-    return buildFailureResult(error);
+    const summary = buildFailureSummary(
+      error,
+      undefined,
+      message.vault?.localFolderId ? 'local_folder' : 'unknown'
+    );
+    trackConnectionTestCompleted(summary, startedAt);
+    return summary.result;
   }
 }
 
 async function executeStorageTargetTest(
   config: ConnectionTestConfig
-): Promise<ConnectionTestResult> {
+): Promise<ConnectionTestSummary> {
   const restResult = await executeConnectionTest(config);
   const localResult = await executeLocalFolderTest(config);
+  const storageTarget: StorageTarget = config.localFolderId ? 'local_folder' : 'rest_api';
 
-  if (!localResult) {
+  if (!localResult.result) {
     return {
-      ...restResult,
-      message: `${formatRestMessage(restResult)}\n本地目录：未配置，已跳过。`
+      result: {
+        ...restResult.result,
+        message: `${formatRestMessage(restResult.result)}\n本地目录：未配置，已跳过。`
+      },
+      storageTarget,
+      ...(restResult.failureCategory ? { failureCategory: restResult.failureCategory } : {})
     };
   }
 
-  const success = restResult.success && localResult.success;
-  const messages = [formatRestMessage(restResult), localResult.message];
-  const errors = [restResult.error, localResult.error].filter(
+  const success = restResult.result.success && localResult.result.success;
+  const messages = [formatRestMessage(restResult.result), localResult.result.message];
+  const errors = [restResult.result.error, localResult.result.error].filter(
     (message): message is string => typeof message === 'string' && message.length > 0
   );
 
+  const failureCategory = !success
+    ? (localResult.failureCategory ?? restResult.failureCategory)
+    : undefined;
+
   return {
-    success,
-    ...(restResult.status !== undefined && { status: restResult.status }),
-    message: messages.join('\n'),
-    ...(restResult.response !== undefined && { response: restResult.response }),
-    ...(errors.length ? { error: errors.join('\n') } : {})
+    result: {
+      success,
+      ...(restResult.result.status !== undefined && { status: restResult.result.status }),
+      message: messages.join('\n'),
+      ...(restResult.result.response !== undefined ? { response: restResult.result.response } : {}),
+      ...(errors.length ? { error: errors.join('\n') } : {})
+    },
+    storageTarget,
+    ...(failureCategory ? { failureCategory } : {})
   };
 }
 
@@ -180,9 +238,9 @@ function formatRestMessage(result: ConnectionTestResult): string {
 
 async function executeLocalFolderTest(
   config: ConnectionTestConfig
-): Promise<ConnectionTestResult | null> {
+): Promise<LocalConnectionResultSummary> {
   if (!config.localFolderId) {
-    return null;
+    return { result: null };
   }
 
   const folderName = config.localFolderName || config.label || config.vault;
@@ -192,22 +250,30 @@ async function executeLocalFolderTest(
     ).fileSystemAccess.queryPermission(config.localFolderId);
     if (permission === 'granted') {
       return {
-        success: true,
-        message: `本地目录可用：${folderName}`
+        result: {
+          success: true,
+          message: `本地目录可用：${folderName}`
+        }
       };
     }
     return {
-      success: false,
-      message: formatLocalFolderFailure(permission, folderName),
-      error: formatLocalFolderFailure(permission, folderName)
+      result: {
+        success: false,
+        message: formatLocalFolderFailure(permission, folderName),
+        error: formatLocalFolderFailure(permission, folderName)
+      },
+      failureCategory: permission === 'unsupported' ? 'unsupported' : 'permission'
     };
   } catch (error) {
     const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
     const message = `本地目录测试失败：${folderName}${detail ? ` - ${detail}` : ''}`;
     return {
-      success: false,
-      message,
-      error: message
+      result: {
+        success: false,
+        message,
+        error: message
+      },
+      failureCategory: 'unknown'
     };
   }
 }
@@ -231,7 +297,9 @@ function formatLocalFolderFailure(
   return `本地目录不可用：${folderName}`;
 }
 
-async function executeConnectionTest(config: ConnectionTestConfig): Promise<ConnectionTestResult> {
+async function executeConnectionTest(
+  config: ConnectionTestConfig
+): Promise<ConnectionResultSummary> {
   const trimmedBase = config.baseUrl.trim();
   const httpsUrl = sanitizeUrl(config.httpsUrl);
   const httpUrl = sanitizeUrl(config.httpUrl);
@@ -288,10 +356,12 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
         continue;
       }
       return {
-        success: true,
-        status: response.status,
-        message: `${prefix}✅ 通过 ${candidate.protocol} 连接成功！状态码: ${response.status}`,
-        response: text.slice(0, 200)
+        result: {
+          success: true,
+          status: response.status,
+          message: `${prefix}✅ 通过 ${candidate.protocol} 连接成功！状态码: ${response.status}`,
+          response: text.slice(0, 200)
+        }
       };
     } catch (error) {
       const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
@@ -313,9 +383,12 @@ async function executeConnectionTest(config: ConnectionTestConfig): Promise<Conn
   }
 
   return {
-    success: false,
-    error: errors.join('\n'),
-    message: `${prefix}连接失败，已尝试：\n${errors.join('\n')}`
+    result: {
+      success: false,
+      error: errors.join('\n'),
+      message: `${prefix}连接失败，已尝试：\n${errors.join('\n')}`
+    },
+    failureCategory: 'connection'
   };
 }
 
@@ -412,16 +485,24 @@ function formatCategoryMessage(category: FailureCategory, detail?: string): stri
   return category;
 }
 
-function buildFailureResult(error: unknown, label?: string): ConnectionTestResult {
+function buildFailureSummary(
+  error: unknown,
+  label: string | undefined,
+  storageTarget: StorageTarget
+): ConnectionTestSummary {
   const category = deriveExternalCategory(error);
   const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
   const formatted = formatCategoryMessage(category, normalizeFailureDetail(category, detail));
   const prefix = label ? `[${label}] ` : '';
   console.error(`[connectionTest] unexpected error${label ? ` (${label})` : ''}:`, error);
   return {
-    success: false,
-    error: formatted,
-    message: `${prefix}连接失败: ${formatted}`
+    result: {
+      success: false,
+      error: formatted,
+      message: `${prefix}连接失败: ${formatted}`
+    },
+    storageTarget,
+    failureCategory: toAnalyticsFailureCategory(category)
   };
 }
 
@@ -447,4 +528,45 @@ function resolveVaultConfig(
 function sanitizeUrl(url: string | undefined): string | undefined {
   const trimmed = url?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function trackConnectionTestCompleted(summary: ConnectionTestSummary, startedAt: number): void {
+  void trackUsageEvent('connection_test_completed', {
+    storage_target: summary.storageTarget,
+    outcome: summary.result.success ? 'completed' : 'failed',
+    duration_bucket: toDurationBucket(Date.now() - startedAt),
+    ...(summary.failureCategory ? { failure_category: summary.failureCategory } : {})
+  });
+}
+
+function toAnalyticsFailureCategory(category: FailureCategory): AnalyticsFailureCategory {
+  if (category === 'config error') {
+    return 'validation';
+  }
+  return 'connection';
+}
+
+function toDurationBucket(durationMs: number): DurationBucket {
+  if (durationMs < 100) {
+    return 'under_100ms';
+  }
+  if (durationMs < 500) {
+    return '100ms_to_499ms';
+  }
+  if (durationMs < 1000) {
+    return '500ms_to_999ms';
+  }
+  if (durationMs < 3000) {
+    return '1s_to_2s';
+  }
+  if (durationMs < 10000) {
+    return '3s_to_9s';
+  }
+  if (durationMs < 30000) {
+    return '10s_to_29s';
+  }
+  if (durationMs < 120000) {
+    return '30s_to_119s';
+  }
+  return '2m_plus';
 }

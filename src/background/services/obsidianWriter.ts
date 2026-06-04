@@ -7,6 +7,8 @@ import type { PlatformServices } from '../../platform/types';
 import { ErrorSeverity, handleError, type AppError } from '../../shared/errors';
 import { restErrors } from '../../shared/errors/restErrors';
 import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
+import { trackUsageEvent } from './analyticsEvents';
+import type { DurationBucket, StorageTarget } from '../../shared/types/analytics';
 
 export type VaultStorageTarget = 'local-folder' | 'rest-api';
 export type LocalVaultFallbackReason =
@@ -95,6 +97,7 @@ export async function createVaultWriteSession(
     }
 
     if (permission === 'prompt' && options.requestLocalVaultPermission) {
+      trackLocalVaultPermissionPrompted();
       const reauthResult = await options.requestLocalVaultPermission({
         folderId: rest.localFolderId,
         ...(rest.localFolderName ? { folderName: rest.localFolderName } : {}),
@@ -103,11 +106,13 @@ export async function createVaultWriteSession(
       if (reauthResult.action === 'granted') {
         const verified = await platform.fileSystemAccess.queryPermission(rest.localFolderId);
         if (verified === 'granted') {
+          trackLocalVaultPermissionResolved('completed');
           return createLocalWriteSession(platform, rest, {
             storageTarget: 'local-folder',
             ...(rest.localFolderName ? { localFolderName: rest.localFolderName } : {})
           });
         }
+        trackLocalVaultPermissionResolved('failed');
         console.warn(
           '[obsidianWriter] Local vault reauthorization did not verify as granted; using REST:',
           verified
@@ -120,6 +125,9 @@ export async function createVaultWriteSession(
       }
 
       const fallbackPermission = reauthResult.permissionState ?? permission;
+      trackLocalVaultPermissionResolved(
+        reauthResult.action === 'cancelled' ? 'cancelled' : 'failed'
+      );
       console.warn(
         '[obsidianWriter] Local vault reauthorization was not granted; using REST:',
         fallbackPermission
@@ -166,6 +174,7 @@ function createLocalWriteSession(
     content: BodyInit,
     contentType: string
   ): Promise<void> {
+    const startedAt = Date.now();
     try {
       await platform.fileSystemAccess.writeFile({
         folderId: localFolderId,
@@ -173,7 +182,9 @@ function createLocalWriteSession(
         content: normalizeLocalContent(content),
         contentType
       });
+      trackVaultWriteCompleted(target, startedAt);
     } catch (error) {
+      trackVaultWriteFailed(target, 'write');
       throw createLocalWriteFailedError(rest, filePath, error);
     }
   }
@@ -227,9 +238,12 @@ async function writeVaultFile(
   content: BodyInit,
   contentType: string
 ): Promise<void> {
+  const startedAt = Date.now();
   try {
     await restClient.writeFile(connection, filePath, content, { contentType });
+    trackVaultWriteCompleted(target, startedAt);
   } catch (error) {
+    trackVaultWriteFailed(target, 'connection');
     await handleError(
       restErrors.requestFailed(
         `Failed to write file to vault: ${filePath}`,
@@ -322,6 +336,62 @@ function createLocalWriteFailedError(
     },
     cause
   };
+}
+
+function trackLocalVaultPermissionPrompted(): void {
+  void trackUsageEvent('local_vault_permission_prompted', {
+    source: 'clip'
+  });
+}
+
+function trackLocalVaultPermissionResolved(outcome: 'completed' | 'failed' | 'cancelled'): void {
+  void trackUsageEvent('local_vault_permission_resolved', { outcome });
+}
+
+function trackVaultWriteCompleted(target: VaultWriteTargetInfo, startedAt: number): void {
+  void trackUsageEvent('vault_write_completed', {
+    storage_target: toAnalyticsStorageTarget(target),
+    duration_bucket: toDurationBucket(Date.now() - startedAt)
+  });
+}
+
+function trackVaultWriteFailed(
+  target: VaultWriteTargetInfo,
+  failureCategory: 'connection' | 'write'
+): void {
+  void trackUsageEvent('vault_write_failed', {
+    storage_target: toAnalyticsStorageTarget(target),
+    failure_category: failureCategory
+  });
+}
+
+function toAnalyticsStorageTarget(target: VaultWriteTargetInfo): StorageTarget {
+  return target.storageTarget === 'local-folder' ? 'local_folder' : 'rest_api';
+}
+
+function toDurationBucket(durationMs: number): DurationBucket {
+  if (durationMs < 100) {
+    return 'under_100ms';
+  }
+  if (durationMs < 500) {
+    return '100ms_to_499ms';
+  }
+  if (durationMs < 1000) {
+    return '500ms_to_999ms';
+  }
+  if (durationMs < 3000) {
+    return '1s_to_2s';
+  }
+  if (durationMs < 10000) {
+    return '3s_to_9s';
+  }
+  if (durationMs < 30000) {
+    return '10s_to_29s';
+  }
+  if (durationMs < 120000) {
+    return '30s_to_119s';
+  }
+  return '2m_plus';
 }
 
 function normalizeLocalContent(content: BodyInit): string | Blob | ArrayBuffer | Uint8Array {
