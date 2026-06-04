@@ -4,7 +4,7 @@ import { schemaShellMessagesEnglish as schemaShellMessagesLocale } from '../sche
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'Configure your clipper for smarter content management',
 
   // Usage dashboard
@@ -395,8 +395,8 @@ const runtime: Messages = {
   videoPromptDismiss: 'Dismiss video prompt',
 
   // Support Prompt
-  supportPromptDialogLabel: 'Support All in Ob',
-  supportPromptTitle: 'Support All in Ob',
+  supportPromptDialogLabel: 'Support Zendio',
+  supportPromptTitle: 'Support Zendio',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: 'Buy me a coffee',
   supportPromptAfdianTitle: 'Afdian',
@@ -518,10 +518,10 @@ const runtime: Messages = {
   editRuleButton: 'Edit',
 
   // Onboarding Page
-  onboardingTitle: 'Welcome to All in Ob',
+  onboardingTitle: 'Welcome to Zendio',
   onboardingSubtitle: "Let's quickly set up your clipper extension",
   onboardingWelcomeMessage:
-    'Thank you for installing All in Ob! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
+    'Thank you for installing Zendio! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
 
   // Step 1: API Configuration
   step1Title: 'Configure Obsidian Local REST API (Required)',
@@ -615,7 +615,7 @@ const runtime: Messages = {
   onboardingFooterNote: 'You can reconfigure these options in the settings page at any time.',
   onboardingCompleted: 'Guide Completed!',
   onboardingCompletedMessage:
-    'You have successfully completed the extension configuration guide. Now you can start using All in Ob to save your web content!',
+    'You have successfully completed the extension configuration guide. Now you can start using Zendio to save your web content!',
   onboardingLinkText: 'Guide',
 
   // Footer links
@@ -625,7 +625,7 @@ const runtime: Messages = {
 
   suggestionsModalTitle: 'Share Your Suggestions',
   suggestionsModalDescription:
-    'Thank you for helping improve All in Ob. You can reach the author through any of the following channels:',
+    'Thank you for helping improve Zendio. You can reach the author through any of the following channels:',
   suggestionsModalReddit: 'Chat on Reddit',
   suggestionsModalXiaohongshu: 'Join Xiaohongshu',
   suggestionsModalGithub: 'GitHub Issue',
@@ -662,7 +662,7 @@ const runtime: Messages = {
 const en: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription:
       'AI-enhanced web clipper for saving chats, fragments, and articles into Obsidian.'
   }

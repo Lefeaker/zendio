@@ -4,7 +4,7 @@ import { schemaShellMessagesZhHant as schemaShellMessagesLocale } from '../schem
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '配置您的剪藏器以實現更智慧的內容管理',
 
   // Usage dashboard
@@ -370,8 +370,8 @@ const runtime: Messages = {
   videoPromptDismiss: '忽略影片提示',
 
   // Support Prompt
-  supportPromptDialogLabel: '支援 All in Ob',
-  supportPromptTitle: '支援 All in Ob',
+  supportPromptDialogLabel: '支援 Zendio',
+  supportPromptTitle: '支援 Zendio',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: '請我喝杯咖啡',
   supportPromptAfdianTitle: 'Afdian',
@@ -490,10 +490,10 @@ const runtime: Messages = {
   editRuleButton: '編輯',
 
   // Onboarding Page
-  onboardingTitle: '歡迎使用 All in Ob',
+  onboardingTitle: '歡迎使用 Zendio',
   onboardingSubtitle: '讓我們快速設定您的剪藏器擴充功能',
   onboardingWelcomeMessage:
-    '感謝您安裝 All in Ob！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
+    '感謝您安裝 Zendio！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
 
   // Step 1: API Configuration
   step1Title: '配置 Obsidian Local REST API（必需）',
@@ -572,7 +572,7 @@ const runtime: Messages = {
   onboardingFooterNote: '您可以隨時在設定頁面重新配置這些選項。',
   onboardingCompleted: '指南完成！',
   onboardingCompletedMessage:
-    '您已成功完成擴充功能設定指南。現在可以開始使用 All in Ob 保存您的網頁內容！',
+    '您已成功完成擴充功能設定指南。現在可以開始使用 Zendio 保存您的網頁內容！',
   onboardingLinkText: '指南',
 
   // Footer links
@@ -581,7 +581,7 @@ const runtime: Messages = {
   footerContactLink: '聯絡作者',
 
   suggestionsModalTitle: '分享您的建議',
-  suggestionsModalDescription: '感謝您幫助改進 All in Ob。您可以透過以下任一管道聯絡作者：',
+  suggestionsModalDescription: '感謝您幫助改進 Zendio。您可以透過以下任一管道聯絡作者：',
   suggestionsModalReddit: '在 Reddit 上聊天',
   suggestionsModalXiaohongshu: '加入小紅書',
   suggestionsModalGithub: 'GitHub Issue',
@@ -615,7 +615,7 @@ const runtime: Messages = {
 const zhTW: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription: 'AI 增強的網頁剪藏器，用於將聊天、片段和文章保存到 Obsidian。'
   }
 };

@@ -4,7 +4,7 @@ import { schemaShellMessagesZhHans as schemaShellMessagesLocale } from '../schem
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '配置你的剪藏插件，让内容管理更智能',
 
   // Usage dashboard
@@ -372,8 +372,8 @@ const runtime: Messages = {
   videoPromptDismiss: '关闭视频提示',
 
   // Support Prompt
-  supportPromptDialogLabel: '支持 All in Ob',
-  supportPromptTitle: '支持 All in Ob',
+  supportPromptDialogLabel: '支持 Zendio',
+  supportPromptTitle: '支持 Zendio',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: '请我喝杯咖啡',
   supportPromptAfdianTitle: '爱发电',
@@ -490,10 +490,10 @@ const runtime: Messages = {
   editRuleButton: '编辑',
 
   // Onboarding Page
-  onboardingTitle: '欢迎使用 All in Ob',
+  onboardingTitle: '欢迎使用 Zendio',
   onboardingSubtitle: '让我们快速配置您的剪藏插件',
   onboardingWelcomeMessage:
-    '感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
+    '感谢您安装 Zendio！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
 
   // Step 1: API Configuration
   step1Title: '配置 Obsidian Local REST API（必须配置）',
@@ -576,7 +576,7 @@ const runtime: Messages = {
   onboardingFooterNote: '您可以随时在设置页面中重新配置这些选项。',
   onboardingCompleted: '引导已完成！',
   onboardingCompletedMessage:
-    '您已成功完成插件配置引导。现在可以开始使用 All in Ob 来保存您的网页内容了！',
+    '您已成功完成插件配置引导。现在可以开始使用 Zendio 来保存您的网页内容了！',
   onboardingLinkText: '引导',
 
   // Footer links
@@ -619,7 +619,7 @@ const runtime: Messages = {
 const zhCN: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription: 'AI 驱动的网页与对话剪藏插件，支持将内容一键同步到 Obsidian。'
   }
 };

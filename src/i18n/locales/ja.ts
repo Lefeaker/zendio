@@ -4,7 +4,7 @@ import { schemaShellMessagesJa as schemaShellMessagesLocale } from '../schemaShe
 
 const runtime: Messages = {
   // General
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'クリッパーを設定して、よりスマートなコンテンツ管理を実現',
 
   // Usage dashboard
@@ -400,8 +400,8 @@ const runtime: Messages = {
   videoPromptDismiss: '動画プロンプトを閉じる',
 
   // Support Prompt
-  supportPromptDialogLabel: 'All in Ob を応援する',
-  supportPromptTitle: 'All in Ob を応援する',
+  supportPromptDialogLabel: 'Zendio を応援する',
+  supportPromptTitle: 'Zendio を応援する',
   supportPromptKoFiTitle: 'Ko-fi',
   supportPromptKoFiDescription: 'コーヒーを一杯ごちそうする',
   supportPromptAfdianTitle: '爱发电',
@@ -522,10 +522,10 @@ const runtime: Messages = {
   editRuleButton: '編集',
 
   // Onboarding Page
-  onboardingTitle: 'All in Ob へようこそ',
+  onboardingTitle: 'Zendio へようこそ',
   onboardingSubtitle: 'クリッパー拡張機能を素早く設定しましょう',
   onboardingWelcomeMessage:
-    'All in Ob をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
+    'Zendio をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
 
   // Step 1: API Configuration
   step1Title: 'Obsidian Local REST API の設定（必須）',
@@ -614,7 +614,7 @@ const runtime: Messages = {
   onboardingFooterNote: 'これらのオプションは設定ページでいつでも再設定できます。',
   onboardingCompleted: 'ガイド完了！',
   onboardingCompletedMessage:
-    '拡張機能の設定ガイドが正常に完了しました。これでAll in Obを使用してウェブコンテンツを保存できます！',
+    '拡張機能の設定ガイドが正常に完了しました。これでZendioを使用してウェブコンテンツを保存できます！',
   onboardingLinkText: 'ガイド',
 
   // Footer links
@@ -624,7 +624,7 @@ const runtime: Messages = {
 
   suggestionsModalTitle: 'ご意見をお寄せください',
   suggestionsModalDescription:
-    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+    'Zendio を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   suggestionsModalReddit: 'Reddit で交流',
   suggestionsModalXiaohongshu: '小紅書コミュニティ',
   suggestionsModalGithub: 'GitHub Issue',
@@ -661,7 +661,7 @@ const runtime: Messages = {
 const jaJP: LocaleDefinition = {
   runtime,
   static: {
-    extName: 'All in Ob',
+    extName: 'Zendio',
     extDescription:
       'AI強化のウェブクリッパーで、チャットやスニペット、記事をObsidianに保存できます。'
   }

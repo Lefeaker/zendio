@@ -6,11 +6,11 @@ import type { Language, Messages } from '../../../src/i18n/locales';
 
 const messages: Partial<Record<Language, Messages>> & Record<'en' | 'zh-CN', Messages> = {
   en: {
-    extensionName: 'All-in-Obsidian',
+    extensionName: 'Zendio',
     domainMappingDomainPlaceholder: 'example.com'
   } as Messages,
   'zh-CN': {
-    extensionName: 'All-in-Obsidian',
+    extensionName: 'Zendio',
     domainMappingDomainPlaceholder: '示例.中国'
   } as Messages
 };
