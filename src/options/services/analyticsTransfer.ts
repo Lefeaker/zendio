@@ -1,3 +1,4 @@
+import { updateErrorAnalyticsConfig } from '../../shared/errors/analytics';
 import { getAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
 
 export interface AnalyticsTransferPayload {
@@ -46,15 +47,35 @@ export async function applyAnalyticsTransferPayload(
 
   const manager = getAnalyticsConfigManager();
   await manager.refreshFromStorage();
+  const currentConsent = await manager.getUserConsent();
+  const nextConsent = payload.consent
+    ? {
+        analytics: Boolean(payload.consent.analytics),
+        errorReporting: Boolean(payload.consent.errorReporting)
+      }
+    : {
+        analytics: Boolean(currentConsent?.analytics),
+        errorReporting: Boolean(currentConsent?.errorReporting)
+      };
 
   if (payload.consent) {
-    await manager.setUserConsent({
-      analytics: Boolean(payload.consent.analytics),
-      errorReporting: Boolean(payload.consent.errorReporting)
-    });
+    await manager.setUserConsent(nextConsent);
   }
 
-  if (typeof payload.debugMode === 'boolean') {
-    await manager.updateConfig({ debugMode: payload.debugMode });
+  const currentDebugMode = manager.getConfig().debugMode;
+  const nextDebugMode =
+    nextConsent.analytics || nextConsent.errorReporting
+      ? typeof payload.debugMode === 'boolean'
+        ? payload.debugMode
+        : currentDebugMode
+      : false;
+  const shouldUpdateDebugMode =
+    typeof payload.debugMode === 'boolean' || nextDebugMode !== currentDebugMode;
+  if (shouldUpdateDebugMode) {
+    await manager.updateConfig({ debugMode: nextDebugMode });
+  }
+
+  if (payload.consent) {
+    await updateErrorAnalyticsConfig(nextConsent.errorReporting);
   }
 }
