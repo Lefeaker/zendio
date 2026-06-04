@@ -7,6 +7,12 @@ import {
   getConfiguredLanguageCodes,
   getWebExtensionLocaleFolder
 } from '../../../src/i18n/config';
+import {
+  DYNAMIC_MESSAGE_KEYS,
+  DYNAMIC_MESSAGE_TEMPLATES
+} from '../../../src/i18n/catalog/dynamicTemplates';
+import { CATALOG_DOMAIN_NAMES, isCatalogDomain } from '../../../src/i18n/catalog/domains';
+import { RUNTIME_MESSAGE_KEYS, isRuntimeMessageKey } from '../../../src/i18n/catalog/keys';
 import type { Messages } from '../../../src/i18n/messages';
 import {
   AVAILABLE_LANGUAGE_ORDER,
@@ -22,8 +28,6 @@ import {
   getWebExtensionLocaleFolder as getCatalogWebExtensionLocaleFolder,
   isReleaseLanguage
 } from '../../../src/i18n/catalog/languages';
-import { CATALOG_DOMAIN_NAMES, isCatalogDomain } from '../../../src/i18n/catalog/domains';
-import { RUNTIME_MESSAGE_KEYS, isRuntimeMessageKey } from '../../../src/i18n/catalog/keys';
 import {
   isCatalogDomainGroups,
   isCatalogLocaleCatalog,
@@ -129,5 +133,17 @@ describe('i18n catalog contract', () => {
       })
     ).toBe(false);
     expect(isCatalogSchema({ runtime: {} })).toBe(false);
+  });
+
+  it('keeps a dedicated small dynamic-template catalog for release languages', () => {
+    expect(Object.keys(DYNAMIC_MESSAGE_TEMPLATES)).toEqual(RELEASE_LANGUAGE_ORDER);
+
+    for (const language of RELEASE_LANGUAGE_ORDER) {
+      const templates = DYNAMIC_MESSAGE_TEMPLATES[language];
+      expect(Object.keys(templates).sort()).toEqual([...DYNAMIC_MESSAGE_KEYS].sort());
+      expect(templates.httpsUrlHint).toContain('{httpsPort}');
+      expect(templates.httpUrlHint).toContain('{httpPort}');
+      expect(templates.vaultNamePlaceholder).toBe('{vault}');
+    }
   });
 });
