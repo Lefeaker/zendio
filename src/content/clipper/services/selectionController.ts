@@ -2,6 +2,7 @@ import {
   extractSelectionClip,
   type SelectionClipResult
 } from '../../extractors/selectionExtractor';
+import type { SelectionPromptLifecycleHandlers } from '../../runtime/clipFlowTypes';
 import type { ReaderBootstrapHighlight } from '../../reader/types';
 import type { ClipPromptGateway } from '../application/clipPromptGateway';
 import { ADD_HIGHLIGHT_EVENT } from '../../reader/constants';
@@ -47,7 +48,8 @@ export interface SelectionController {
   handleSelectionClip(
     doc: Document,
     url: string,
-    selection: Selection
+    selection: Selection,
+    promptLifecycle?: SelectionPromptLifecycleHandlers
   ): Promise<SelectionClipResult | null>;
   handleVideoSelectionClip(doc: Document, url: string, selection: Selection): Promise<void>;
   handleVideoSelectionClipFromData(
@@ -63,7 +65,8 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
   async function handleSelectionClip(
     doc: Document,
     url: string,
-    selection: Selection
+    selection: Selection,
+    promptLifecycle?: SelectionPromptLifecycleHandlers
   ): Promise<SelectionClipResult | null> {
     if (!selection.rangeCount) {
       throw new Error('No text selected');
@@ -101,6 +104,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     const comment = promptResult.comment.trim();
 
     if (action === 'cancel') {
+      promptLifecycle?.onPromptCancelled?.();
       selection.removeAllRanges();
       return null;
     }
@@ -142,6 +146,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     }
 
     const fragmentConfig = await loadFragmentConfig(deps.optionsRepository);
+    promptLifecycle?.onPromptSubmitted?.();
 
     const clip = await extractSelectionClip({
       doc,

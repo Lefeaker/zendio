@@ -1,16 +1,33 @@
 import type { MessagingService } from '../../platform/interfaces/messaging';
+import type { AnalyticsSource } from '../../shared/analytics';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
 import type { SupportProgressReporter } from './supportProgress';
 
-export type ClipFlowResult = { markdown?: string; type?: string };
+export type ClipAnalyticsSource = Extract<
+  AnalyticsSource,
+  'menu' | 'toolbar' | 'shortcut' | 'unknown'
+>;
+
+export type ClipFlowResult = {
+  markdown?: string;
+  type?: string;
+  meta?: ({ attachments?: unknown[] } & Record<string, unknown>) | undefined;
+};
+
+export interface SelectionPromptLifecycleHandlers {
+  onPromptOpened?(): void;
+  onPromptSubmitted?(): void;
+  onPromptCancelled?(): void;
+}
 
 export interface VideoSelectionController {
   handleSelectionClip(
     document: Document,
     url: string,
-    selection: Selection
+    selection: Selection,
+    promptLifecycle?: SelectionPromptLifecycleHandlers
   ): Promise<ClipFlowResult | null>;
   handleVideoSelectionClip(document: Document, url: string, selection: Selection): Promise<void>;
 }
