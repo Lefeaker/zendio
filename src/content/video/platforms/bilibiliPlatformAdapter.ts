@@ -11,9 +11,11 @@ import {
   buildBilibiliSearchCandidates,
   extractBilibiliSelection,
   extractBilibiliSelectionFromEvent,
+  findBilibiliTextRangeInScopedNodes,
   findBilibiliTextRangeInShadowDOM
 } from './bilibiliPlatformSelection';
 import { BilibiliShadowObserver } from './bilibiliPlatformObserver';
+import { collectBilibiliCommentRestoreRoots } from './bilibiliCommentRestoreScope';
 
 export class BilibiliVideoPlatform extends BaseVideoPlatform {
   private readonly selectionHelpers = {
@@ -54,7 +56,11 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     }
 
     if ((!selectedText || !selectedHtml) && input.event) {
-      const fallbackFromEvent = this.extractBilibiliSelectionFromEvent(input.event, range);
+      const fallbackFromEvent = this.extractBilibiliSelectionFromEvent(
+        input.event,
+        range,
+        selectedText
+      );
       if (fallbackFromEvent) {
         if (!selectedText && fallbackFromEvent.text.trim()) {
           selectedText = this.normalizeWhitespace(fallbackFromEvent.text);
@@ -89,11 +95,16 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
 
     const candidates = this.buildSearchCandidates(normalized);
     for (const candidate of candidates) {
-      const shadowRange = findBilibiliTextRangeInShadowDOM(candidate, this.selectionHelpers);
+      const roots = this.shadowObserver.getObservedCommentRootsForSearch();
+      const shadowRange = findBilibiliTextRangeInShadowDOM(candidate, this.selectionHelpers, roots);
       if (shadowRange) {
         return shadowRange;
       }
-      const range = super.findTextRange(candidate);
+      const range = findBilibiliTextRangeInScopedNodes(
+        candidate,
+        this.selectionHelpers,
+        collectBilibiliCommentRestoreRoots(this.document)
+      );
       if (range) {
         return range;
       }
@@ -109,6 +120,10 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
   restoreHighlight(capture: VideoFragmentCapture): string | undefined {
     this.shadowObserver.ensureObservedRoots();
     return super.restoreHighlight(capture);
+  }
+
+  observeSelectionRoots(): void {
+    this.shadowObserver.ensureObservedRoots();
   }
 
   observeDomChanges(observer: MutationObserver): void {
@@ -165,10 +180,16 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
   }
 
   private extractBilibiliSelectionFromEvent(
-    event: MouseEvent,
-    existingRange: Range | null
+    event: Event,
+    existingRange: Range | null,
+    selectedText = ''
   ): { text: string; html: string; range?: Range } | null {
-    return extractBilibiliSelectionFromEvent(event, existingRange, this.selectionHelpers);
+    return extractBilibiliSelectionFromEvent(
+      event,
+      existingRange,
+      this.selectionHelpers,
+      selectedText
+    );
   }
 
   private buildRangeCoveringBilibiliRichText(host: HTMLElement): Range | null {

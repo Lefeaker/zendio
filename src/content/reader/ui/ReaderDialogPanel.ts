@@ -24,20 +24,17 @@ interface ReaderDialogPanelOptions {
   resolveAssetUrl?: (path: string) => string;
 }
 
-export class ReaderDialogPanel
-  implements
-    UiMountable<
-      HTMLElement | undefined,
-      | {
-          texts?: ReaderPanelTexts;
-          count?: number;
-          hint?: string;
-          highlights?: ReaderPanelHighlight[];
-        }
-      | undefined,
-      HTMLElement
-    >
-{
+export class ReaderDialogPanel implements UiMountable<
+  HTMLElement | undefined,
+  | {
+      texts?: ReaderPanelTexts;
+      count?: number;
+      hint?: string;
+      highlights?: ReaderPanelHighlight[];
+    }
+  | undefined,
+  HTMLElement
+> {
   readonly popupLifecycle = { preserveOnTransientClose: true };
 
   private renderRoot: HTMLElement;
@@ -219,8 +216,9 @@ export class ReaderDialogPanel
       surfaceId: 'reader',
       appData: content,
       actions: {
-        'reader:finish': () =>
-          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish()),
+        'reader:finish': () => {
+          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
+        },
         'reader:cancel': () => this.options.callbacks.onCancel(),
         'export-destination:select': (event) => {
           const id = this.resolveActionId(event, 'destinationId');

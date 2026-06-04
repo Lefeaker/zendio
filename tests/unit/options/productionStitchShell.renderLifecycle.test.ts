@@ -415,16 +415,22 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(text).not.toContain('提示文案与快捷键');
     expect(text).not.toContain('promptPosition');
     expect(text).toContain('在视频网站显示笔记按钮');
+    expect(text).toContain('编辑批注时自动暂停视频播放');
 
-    const videoSwitch = queryRequired<HTMLInputElement>(
-      '.card-header input[type="checkbox"]',
-      findCardByTitle('Video Prompt & Entry')
+    const videoCard = findCardByTitle('Video Prompt & Entry');
+    const videoSwitches = Array.from(
+      videoCard.querySelectorAll<HTMLInputElement>('.card-header input[type="checkbox"]')
     );
+    expect(videoSwitches).toHaveLength(2);
+    const [videoSwitch, commentEditorAutoPauseSwitch] = videoSwitches;
     videoSwitch.checked = false;
     videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    commentEditorAutoPauseSwitch.checked = true;
+    commentEditorAutoPauseSwitch.dispatchEvent(new Event('change', { bubbles: true }));
 
     const draft = mounted.collectDraft();
     expect(draft.video.floatingPromptEnabled).toBe(false);
+    expect(draft.video.commentEditorAutoPause).toBe(true);
     expect(draft.aiChat.includeTimestamps).toBe(true);
     expect(draft.deepResearch.pureMode).toBe(true);
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });

@@ -1,7 +1,12 @@
 import type { VideoPlatformContext } from './baseVideoPlatform';
 import { queryBilibiliShadowHosts } from './bilibiliPlatformSelection';
+import {
+  BILIBILI_COMMENT_SHADOW_HOST_SELECTOR,
+  isBilibiliCommentRegionNode
+} from './bilibiliCommentRestoreScope';
 
 const BILIBILI_SHADOW_HOST_TAGS = [
+  'bili-comments',
   'bili-comment-thread-renderer',
   'bili-comment-renderer',
   'bili-comment-reply-renderer',
@@ -15,21 +20,6 @@ const BILIBILI_SHADOW_HOST_TAGS = [
 
 const BILIBILI_COMMENT_HOST_SELECTORS: ReadonlyArray<string> = [...BILIBILI_SHADOW_HOST_TAGS];
 const BILIBILI_SHADOW_HOST_TAG_SET = new Set<string>(BILIBILI_COMMENT_HOST_SELECTORS);
-const BILIBILI_SHADOW_HOST_SELECTOR = BILIBILI_COMMENT_HOST_SELECTORS.join(',');
-const BILIBILI_COMMENT_REGION_SELECTOR = [
-  'bili-comment-thread-renderer',
-  'bili-comment-renderer',
-  'bili-comment-reply-renderer',
-  '.comment-list',
-  '.comment-list-item',
-  '.comment-wrap',
-  '.comment-thread',
-  '.reply-item',
-  '.reply-list',
-  '.bb-comment',
-  '#comment',
-  '#comment-app'
-].join(',');
 
 const BILIBILI_DANMAKU_SELECTOR = [
   '.bpx-player-render-dm-wrap',
@@ -44,9 +34,12 @@ const BILIBILI_DANMAKU_SELECTOR = [
 
 export class BilibiliShadowObserver {
   private fragmentObserver: MutationObserver | null = null;
+  private selectionObserver: MutationObserver | null = null;
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
+  private readonly observedCommentRoots = new Set<ShadowRoot>();
   private readonly pendingShadowHosts = new WeakSet<HTMLElement>();
   private readonly pendingTimeouts = new Set<number>();
+  private pendingRefreshHandle: number | null = null;
 
   constructor(
     private readonly document: Document,
@@ -71,13 +64,17 @@ export class BilibiliShadowObserver {
     this.ensureShadowHostObservation(host);
   }
 
+  getObservedCommentRootsForSearch(): ShadowRoot[] {
+    this.pruneDisconnectedCommentRoots();
+    return Array.from(this.observedCommentRoots);
+  }
+
   handleMutations(mutations: MutationRecord[]): void {
     let shouldRefresh = false;
     for (const mutation of mutations) {
       if (mutation.type !== 'childList') {
         continue;
       }
-      shouldRefresh = true;
       mutation.addedNodes.forEach((node) => {
         if (!(node instanceof Element)) {
           return;
@@ -86,23 +83,23 @@ export class BilibiliShadowObserver {
           return;
         }
         if (isPotentialCommentHost(node)) {
-          const view = this.document.defaultView ?? window;
-          const handle = view.setTimeout(() => {
-            this.pendingTimeouts.delete(handle);
-            this.observeShadowRoots();
-            this.context.scheduleFragmentHighlightRestore();
-          }, 100);
-          this.pendingTimeouts.add(handle);
+          shouldRefresh = true;
         }
       });
     }
     if (shouldRefresh) {
-      this.observeShadowRoots();
+      this.scheduleShadowRefresh();
     }
   }
 
   dispose(): void {
     const view = this.document.defaultView ?? window;
+    this.selectionObserver?.disconnect();
+    this.selectionObserver = null;
+    if (this.pendingRefreshHandle !== null) {
+      view.clearTimeout(this.pendingRefreshHandle);
+      this.pendingRefreshHandle = null;
+    }
     for (const handle of this.pendingTimeouts) {
       view.clearTimeout(handle);
     }
@@ -111,16 +108,25 @@ export class BilibiliShadowObserver {
   }
 
   private observeShadowRoots(): void {
-    if (!this.fragmentObserver) {
-      return;
-    }
-
     try {
+      this.ensureSelectionMutationObservation();
       const hosts = queryBilibiliShadowHosts(this.document);
       hosts.forEach((host) => this.ensureShadowHostObservation(host));
     } catch (error) {
       console.warn('[BilibiliVideoPlatform] Failed to observe shadow roots:', error);
     }
+  }
+
+  private scheduleShadowRefresh(): void {
+    if (this.pendingRefreshHandle !== null) {
+      return;
+    }
+    const view = this.document.defaultView ?? window;
+    this.pendingRefreshHandle = view.setTimeout(() => {
+      this.pendingRefreshHandle = null;
+      this.observeShadowRoots();
+      this.context.scheduleFragmentHighlightRestore();
+    }, 100);
   }
 
   private ensureShadowHostObservation(host: Element): void {
@@ -183,9 +189,28 @@ export class BilibiliShadowObserver {
     this.context.registerShadowSelectionBridge(root);
     this.context.observeWithFragmentObserver(root, { childList: true, subtree: true });
     this.observedShadowRoots.add(root);
+    if (isBilibiliCommentRegionNode(root)) {
+      this.observedCommentRoots.add(root);
+    }
 
-    const nestedHosts = root.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
+    const nestedHosts = root.querySelectorAll<HTMLElement>(BILIBILI_COMMENT_SHADOW_HOST_SELECTOR);
     nestedHosts.forEach((element) => this.ensureShadowHostObservation(element));
+  }
+
+  private ensureSelectionMutationObservation(): void {
+    if (this.selectionObserver || typeof MutationObserver === 'undefined' || !this.document.body) {
+      return;
+    }
+    this.selectionObserver = new MutationObserver((mutations) => this.handleMutations(mutations));
+    this.selectionObserver.observe(this.document.body, { childList: true, subtree: true });
+  }
+
+  private pruneDisconnectedCommentRoots(): void {
+    for (const root of this.observedCommentRoots) {
+      if (!isBilibiliCommentRegionNode(root)) {
+        this.observedCommentRoots.delete(root);
+      }
+    }
   }
 }
 
@@ -204,22 +229,6 @@ export function isBilibiliDanmakuNode(node: Node | null): boolean {
   );
 }
 
-export function isBilibiliCommentRegionNode(node: Node | null): boolean {
-  const element =
-    node instanceof Element
-      ? node
-      : node?.parentElement instanceof Element
-        ? node.parentElement
-        : null;
-  if (!element || !element.isConnected) {
-    return false;
-  }
-  if (element.matches(BILIBILI_COMMENT_REGION_SELECTOR)) {
-    return true;
-  }
-  return Boolean(element.closest(BILIBILI_COMMENT_REGION_SELECTOR));
-}
-
 function isWithinCommentRegion(element: Element): boolean {
   if (!element.isConnected) {
     return false;
@@ -232,8 +241,13 @@ function isPotentialCommentHost(element: Element): boolean {
     return false;
   }
   const tagName = element.tagName?.toLowerCase() ?? '';
-  if (tagName.startsWith('bili-comment') || tagName.includes('rich-text')) {
+  if (BILIBILI_SHADOW_HOST_TAG_SET.has(tagName)) {
     return true;
   }
-  return Boolean(element.querySelector('[class*="comment"]'));
+  return Boolean(
+    element.querySelector(BILIBILI_COMMENT_SHADOW_HOST_SELECTOR) ||
+    element.querySelector('[class*="comment"]')
+  );
 }
+
+export { isBilibiliCommentRegionNode };

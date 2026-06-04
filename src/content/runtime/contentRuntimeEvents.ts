@@ -4,6 +4,7 @@ import {
 } from '../clipper/services/fragmentConfig';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
+import { isVideoSessionActive } from './contentSessionRegistry';
 
 export interface CreateContentRuntimeEventsOptions {
   document: Document;
@@ -52,7 +53,7 @@ export function createContentRuntimeEvents(
     if (event.button !== 0) {
       return;
     }
-    if (isReaderSessionActive(document)) {
+    if (isReaderSessionActive(document) || isVideoSessionActive(document)) {
       return;
     }
     syncModifierState(runtimeState.getModifierState(), event);

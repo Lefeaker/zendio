@@ -138,7 +138,7 @@ const controlTargetLifecycle = createVideoPromptControlTargetLifecycle({
   onPrimaryAction: (preferences, payload) => {
     promptSuppressed = true;
     promptMountLifecycle.removePrompt();
-    void captureFromControlBar(preferences, payload);
+    return captureFromControlBar(preferences, payload);
   },
   onTargetObserved: () => evaluatePrompt(true),
   incrementSyncCount: () => {

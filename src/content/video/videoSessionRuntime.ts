@@ -55,6 +55,16 @@ import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionControllers } from './videoSessionControllers';
 import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
+import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlaybackController';
+
+type VideoSessionAddCaptureOptions = {
+  comment?: string;
+  captureScreenshot?: boolean;
+  pauseVideo?: boolean;
+  beginEditing?: boolean;
+  resumePlayback?: boolean;
+  collapseAfterCapture?: boolean;
+};
 
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -71,10 +81,11 @@ export class VideoSession {
   private platformController!: VideoSessionPlatformController;
   private dom!: VideoSessionDomController;
   private readonly destinationState: ContentExportDestinationState;
+  private readonly commentEditorPlayback: VideoCommentEditorPlaybackController;
   private controllersReadyPromise: Promise<void> | null = null;
 
   private get operationContext() {
-    return createVideoSessionOperationContext({
+    const context = createVideoSessionOperationContext({
       session: this,
       doc: this.doc,
       state: this.state,
@@ -103,6 +114,14 @@ export class VideoSession {
         highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
       getExportDestinationMetadata: () => this.destinationState.metadata
     });
+
+    return Object.assign(context, {
+      beginPlaybackEditLease: (captureId: string) =>
+        this.commentEditorPlayback.beginPlaybackEditLease(captureId),
+      releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
+        this.commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
+      resetPlaybackEditLease: () => this.commentEditorPlayback.reset()
+    });
   }
 
   constructor(
@@ -114,6 +133,11 @@ export class VideoSession {
       () => this.createDestinationPayload(),
       this.dependencies.optionsPageUrl
     );
+    this.commentEditorPlayback = new VideoCommentEditorPlaybackController({
+      doc: this.doc,
+      videoRepository: this.dependencies.videoRepository,
+      findVideoElement: () => this.state.videoElement
+    });
   }
 
   private async ensureControllers(): Promise<void> {
@@ -177,6 +201,7 @@ export class VideoSession {
       () => DEFAULT_HIGHLIGHT_THEME
     );
     await this.dom.waitForDocumentReady();
+    await this.commentEditorPlayback.start();
     registerVideoSession(this, this.doc);
 
     await initializeVideoSessionEnvironment({
@@ -185,10 +210,16 @@ export class VideoSession {
       dependencies: this.dependencies,
       dom: this.dom,
       interactionHandlers: {
-        onMouseDown: (event) => this.fragmentSelectionController.handleMouseDown(event),
+        onMouseDown: (event) => {
+          this.releasePlaybackEditLeaseOnOutsidePointer(event);
+          this.fragmentSelectionController.handleMouseDown(event);
+        },
         onKeyDown: (event) => this.fragmentSelectionController.handleKeyDown(event),
         onKeyUp: (event) => this.fragmentSelectionController.handleKeyUp(event),
-        onWindowBlur: () => this.fragmentSelectionController.handleWindowBlur()
+        onWindowBlur: () => {
+          this.commentEditorPlayback.reset({ preserveTransactions: true });
+          this.fragmentSelectionController.handleWindowBlur();
+        }
       },
       selectionCaptureController: this.selectionCaptureController,
       fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
@@ -213,15 +244,22 @@ export class VideoSession {
         fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
         highlightThemePromise,
         panelCallbacks: {
-          onAddCapture: (source) => void this.handleAddCapture(source),
-          onFinish: () => void this.finish(),
+          onAddCapture: (source) => this.handleAddCapture(source),
+          onFinish: () => this.finish(),
           onCancel: () => this.cancel(),
           onSelectDestination: (id) => this.selectDestination(id),
           onDeleteCapture: (id) => removeVideoSessionCapture(this.operationContext, id),
           onSubmitCaptureEdit: (id, comment) =>
-            void submitVideoSessionCaptureEdit(this.operationContext, id, comment),
+            submitVideoSessionCaptureEdit(this.operationContext, id, comment),
           onToggleScreenshot: (id) => void this.toggleCaptureScreenshot(id),
-          onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id)
+          onFocusCapture: (id) => focusVideoSessionCapture(this.operationContext, id),
+          onCaptureEditorFocus: (id) => this.commentEditorPlayback.beginCommentEditorLease(id),
+          onCaptureEditorBlur: (id, scope) => {
+            if (scope === 'outside-panel') {
+              this.commentEditorPlayback.releaseCommentEditorLease(id);
+            }
+          },
+          onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false)
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
         applyHint: (state) => this.applyHint(state),
@@ -264,6 +302,13 @@ export class VideoSession {
   private async refreshDestinationPreview(): Promise<void> {
     const preview = await this.destinationState.refresh();
     this.dom.updateDestination(preview);
+  }
+
+  private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {
+    if (this.dom.isEventInsidePanel(event)) {
+      return;
+    }
+    this.commentEditorPlayback.releaseAll(true);
   }
 
   private async selectDestination(id: string): Promise<void> {
@@ -314,14 +359,7 @@ export class VideoSession {
 
   async addCurrentTimestamp(
     source: VideoAddCaptureSource = 'button',
-    options: {
-      comment?: string;
-      captureScreenshot?: boolean;
-      pauseVideo?: boolean;
-      beginEditing?: boolean;
-      resumePlayback?: boolean;
-      collapseAfterCapture?: boolean;
-    } = {}
+    options: VideoSessionAddCaptureOptions = {}
   ): Promise<void> {
     await this.handleAddCapture(source, options);
   }
@@ -332,19 +370,16 @@ export class VideoSession {
 
   private async handleAddCapture(
     source: VideoAddCaptureSource = 'button',
-    options: {
-      comment?: string;
-      captureScreenshot?: boolean;
-      pauseVideo?: boolean;
-      beginEditing?: boolean;
-      resumePlayback?: boolean;
-      collapseAfterCapture?: boolean;
-    } = {}
+    options: VideoSessionAddCaptureOptions = {}
   ): Promise<void> {
-    await handleVideoSessionAddCapture(this.operationContext, {
-      pauseVideo: source === 'note-input',
-      ...options
+    const pauseVideo = options.pauseVideo ?? source === 'note-input';
+    const capture = await handleVideoSessionAddCapture(this.operationContext, {
+      ...options,
+      pauseVideo
     });
+    if (capture && pauseVideo && options.beginEditing !== false) {
+      this.commentEditorPlayback.markAddNoteTransaction(capture.id);
+    }
   }
 
   private applyHighlightTheme(theme: ReaderHighlightTheme): void {
@@ -389,6 +424,7 @@ export class VideoSession {
   }
 
   private cleanup(): void {
+    this.commentEditorPlayback.dispose();
     cleanupVideoSession(this.operationContext);
   }
 }

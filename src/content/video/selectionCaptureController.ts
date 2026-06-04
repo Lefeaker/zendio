@@ -1,9 +1,13 @@
 import type { PendingSelectionTracker } from './pendingSelectionTracker';
 
 export interface SelectionActivationPayload {
-  range: Range;
+  range: Range | null;
   selection: Selection | null;
-  event: MouseEvent;
+  event: Event;
+}
+
+interface SelectionActivationOptions {
+  allowEventFallback?: boolean;
 }
 
 interface SelectionCaptureControllerOptions {
@@ -59,6 +63,44 @@ export class SelectionCaptureController {
     this.started = false;
   }
 
+  activatePendingSelection(event: Event, options: SelectionActivationOptions = {}): void {
+    const button = readEventMouseButton(event);
+    if (button !== null && button !== 0) {
+      return;
+    }
+
+    if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
+      return;
+    }
+
+    const selection = this.getDocumentSelection();
+    let activeRange: Range | null = null;
+
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+      activeRange = selection.getRangeAt(0).cloneRange();
+      this.pendingSelection.reset();
+    } else {
+      activeRange = this.pendingSelection.consume();
+    }
+
+    if (!activeRange && !options.allowEventFallback) {
+      return;
+    }
+
+    if (activeRange && this.isRangeInsideUi(activeRange)) {
+      selection?.removeAllRanges();
+      this.pendingSelection.reset();
+      this.onSelectionCleared?.();
+      return;
+    }
+
+    this.onSelectionActivated({
+      range: activeRange,
+      selection,
+      event
+    });
+  }
+
   private handleSelectionChange = (): void => {
     if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
       return;
@@ -92,39 +134,13 @@ export class SelectionCaptureController {
   };
 
   private handleMouseUp = (event: MouseEvent): void => {
-    if (event.button !== 0) {
-      return;
-    }
-
-    if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
-      return;
-    }
-
-    const selection = this.getDocumentSelection();
-    let activeRange: Range | null = null;
-
-    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-      activeRange = selection.getRangeAt(0).cloneRange();
-      this.pendingSelection.reset();
-    } else {
-      activeRange = this.pendingSelection.consume();
-    }
-
-    if (!activeRange) {
-      return;
-    }
-
-    if (this.isRangeInsideUi(activeRange)) {
-      selection?.removeAllRanges();
-      this.pendingSelection.reset();
-      this.onSelectionCleared?.();
-      return;
-    }
-
-    this.onSelectionActivated({
-      range: activeRange,
-      selection,
-      event
-    });
+    this.activatePendingSelection(event);
   };
+}
+
+function readEventMouseButton(event: Event): number | null {
+  if (!('button' in event) || typeof event.button !== 'number') {
+    return null;
+  }
+  return event.button;
 }

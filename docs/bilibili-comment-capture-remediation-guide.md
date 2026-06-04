@@ -125,3 +125,56 @@
 - `docs/bilibili-comment-shadow-dom-fix.md`
 
 > ⚠️ 本指南尚未在代码层面落地，执行前需与团队确认优先级与排期。完成实现后，请将测试结果与性能数据补充回本文件或另建跟进文档。
+
+
+## 9. 2026-06-03 当前落地状态
+
+本节记录 video-mode structural repair 完成后的当前真值。上文保留为历史问题梳理与风险背景，不再代表当前生产实现状态。
+
+### 9.1 当前 DOM 根与作用域
+
+- 真实 Bilibili 视频页当前的评论根为 light DOM 中的 `bili-comments`。
+- 评论线程、主评、回复与 `bili-rich-text` 位于 `bili-comments.shadowRoot` 内部的多级 open Shadow DOM 中。
+- 生产热路径不得对整页 ShadowRoot 做全量递归扫描。评论捕捉、选择桥接与恢复搜索必须优先使用已观察到的 `bili-comments` 作用域根。
+- `biliShadowSearch.ts` 负责 scoped restore search；full-page Shadow DOM traversal 仅保留为调试/兜底路径，不作为高频事件或定时恢复的默认生产路径。
+
+### 9.2 当前 owner 文件
+
+- 评论根发现与 scoped observer：
+  - `src/content/video/platforms/bilibiliPlatformObserver.ts`
+  - `src/content/video/platforms/bilibiliShadowSearch.ts`
+- 富文本抽取：
+  - `src/content/video/platforms/bilibiliRichText.ts`
+  - `src/content/video/platforms/bilibiliRichTextSelectionDom.ts`
+- 选择事件桥接与平台适配：
+  - `src/content/video/platforms/bilibiliPlatformSelection.ts`
+  - `src/content/video/platforms/bilibiliPlatformAdapter.ts`
+
+### 9.3 当前验证证据
+
+- Deterministic browser coverage:
+  - `tests/e2e/videoListenerScope.browser.test.ts`
+  - `tests/e2e/fixtures/bilibili-comments-shadow.ts`
+- Fixture/unit-style coverage:
+  - `tests/e2e/videoListenerScope.fixture.test.ts`
+  - `tests/unit/content/video/BilibiliVideoPlatform.test.ts`
+  - `tests/unit/content/video/FragmentHighlighter.test.ts`
+- Real-page evidence is local-only and ignored:
+  - `.tmp/aiiinob-video-mode-structural-2026-06-02/p06-browser-regression/bilibili-dom-summary.json`
+  - `.tmp/aiiinob-video-mode-structural-2026-06-02/p06-browser-regression/manual-check-notes.md`
+
+### 9.4 当前验证命令
+
+Focused Bilibili/comment checks:
+
+```bash
+npx vitest run tests/unit/content/video/BilibiliVideoPlatform.test.ts tests/unit/content/video/FragmentHighlighter.test.ts
+npx vitest run tests/e2e/videoListenerScope.fixture.test.ts
+node scripts/run-playwright.mjs test tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+```
+
+The `run-playwright` wrapper now routes explicit `tests/e2e/` browser files to `playwright.reader.config.ts` when no config is supplied. `playwright.reader.config.ts` owns the reader/video browser E2E build preflight and `chromium-desktop` project.
+
+### 9.5 Remaining caveat
+
+Real-page manual checks proved no observable host shortcut side effect after the video note input is focused on the sampled public YouTube and Bilibili pages. Browser APIs still cannot prove whether a private, earlier-registered capture-phase listener internally observed those key events. If a future real-page check proves observable leakage from such a listener, the next structural escalation is iframe-based isolation for video note inputs.

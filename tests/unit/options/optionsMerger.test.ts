@@ -206,6 +206,7 @@ describe('shared optionsMerger', () => {
         promptShortcut: '',
         controlBarAutoPauseEnabled: false,
         controlBarCaptureScreenshotEnabled: false,
+        commentEditorAutoPause: true,
         promptPosition: { x: Number.NaN, y: 12 }
       } as StoredOptions['video'],
       experimentalAi: {
@@ -229,6 +230,7 @@ describe('shared optionsMerger', () => {
     expect(result.video?.promptShortcut).toBe(DEFAULT_OPTIONS.video?.promptShortcut ?? 'Alt+V');
     expect(result.video?.controlBarAutoPause).toBe(false);
     expect(result.video?.controlBarScreenshot).toBe(false);
+    expect(result.video?.commentEditorAutoPause).toBe(true);
     expect(result.video?.promptPosition).toEqual({ x: 0, y: 12 });
     expect(result.experimentalAi?.provider).toBe(
       DEFAULT_OPTIONS.experimentalAi?.provider ?? 'compatible'

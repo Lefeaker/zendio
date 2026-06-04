@@ -1,23 +1,16 @@
-import { findBilibiliTextRangeAcrossShadowRoots } from './bilibiliShadowSearch';
+import {
+  findBilibiliTextRangeAcrossScopedNodes,
+  findBilibiliTextRangeAcrossShadowRoots
+} from './bilibiliShadowSearch';
+import { collectBilibiliCommentShadowHosts } from './bilibiliCommentRestoreScope';
 import {
   buildRangeCoveringBilibiliRichTextHost,
   extractTextFromBilibiliRichTextHost,
   findContainingBilibiliRichTextHost,
+  resolveBilibiliRichTextSearchRoot,
   resolveBilibiliRichTextHosts
 } from './bilibiliRichTextSelectionDom';
 import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
-
-const BILIBILI_SHADOW_HOST_SELECTOR = [
-  'bili-comment-thread-renderer',
-  'bili-comment-renderer',
-  'bili-comment-reply-renderer',
-  'bili-rich-text',
-  'bili-emoji',
-  'bili-avatar',
-  'bili-at',
-  'bili-link',
-  'bili-dyn-content'
-].join(',');
 
 export function buildBilibiliSearchCandidates(normalized: string): string[] {
   const variants = new Set<string>();
@@ -39,13 +32,26 @@ export function buildBilibiliSearchCandidates(normalized: string): string[] {
 
 export function findBilibiliTextRangeInShadowDOM(
   text: string,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly ShadowRoot[]
 ): Range | null {
   const normalized = helpers.normalizeWhitespace(text);
-  if (!normalized) {
+  if (!normalized || !roots.length) {
     return null;
   }
-  return findBilibiliTextRangeAcrossShadowRoots(normalized, helpers);
+  return findBilibiliTextRangeAcrossShadowRoots(normalized, helpers, roots);
+}
+
+export function findBilibiliTextRangeInScopedNodes(
+  text: string,
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly Node[]
+): Range | null {
+  const normalized = helpers.normalizeWhitespace(text);
+  if (!normalized || !roots.length) {
+    return null;
+  }
+  return findBilibiliTextRangeAcrossScopedNodes(normalized, helpers, roots);
 }
 
 export function extractBilibiliSelection(
@@ -92,10 +98,12 @@ export function extractBilibiliSelection(
 }
 
 export function extractBilibiliSelectionFromEvent(
-  event: MouseEvent,
+  event: Event,
   existingRange: Range | null,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  selectedText = ''
 ): { text: string; html: string; range?: Range } | null {
+  const normalizedSelectedText = helpers.normalizeWhitespace(selectedText);
   const path = event.composedPath();
   for (const target of path) {
     if (!(target instanceof Node)) {
@@ -109,16 +117,25 @@ export function extractBilibiliSelectionFromEvent(
     if (!extracted || !extracted.text.trim()) {
       continue;
     }
-    const range = existingRange ?? buildRangeCoveringBilibiliRichTextHost(host, helpers);
-    return range
-      ? { text: extracted.text, html: extracted.html, range }
-      : { text: extracted.text, html: extracted.html };
+    const exactRange = normalizedSelectedText
+      ? findBilibiliTextRangeAcrossScopedNodes(normalizedSelectedText, helpers, [
+          resolveBilibiliRichTextSearchRoot(host)
+        ])
+      : null;
+    const range =
+      existingRange ?? exactRange ?? buildRangeCoveringBilibiliRichTextHost(host, helpers);
+    const text = normalizedSelectedText || extracted.text;
+    const html =
+      exactRange && !existingRange
+        ? serializeBilibiliRangeHtml(exactRange, text, helpers)
+        : extracted.html;
+    return range ? { text, html, range } : { text, html };
   }
   return null;
 }
 
-export function queryBilibiliShadowHosts(doc: Document): NodeListOf<HTMLElement> {
-  return doc.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR);
+export function queryBilibiliShadowHosts(doc: Document): HTMLElement[] {
+  return collectBilibiliCommentShadowHosts(doc);
 }
 
 export function buildRangeCoveringBilibiliRichText(
@@ -126,4 +143,14 @@ export function buildRangeCoveringBilibiliRichText(
   helpers: BilibiliSelectionHelpers
 ): Range | null {
   return buildRangeCoveringBilibiliRichTextHost(host, helpers);
+}
+
+function serializeBilibiliRangeHtml(
+  range: Range,
+  fallbackText: string,
+  helpers: BilibiliSelectionHelpers
+): string {
+  const container = helpers.document.createElement('div');
+  container.append(range.cloneContents());
+  return container.innerHTML.trim() || helpers.escapeHtml(fallbackText);
 }

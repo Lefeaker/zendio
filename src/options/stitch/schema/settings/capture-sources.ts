@@ -87,6 +87,20 @@ const schema: SettingsSchema = {
                       valueFrom: 'target.checked'
                     }
                   })
+                ]),
+                element('div', { className: 'video-entry-toggle' }, [
+                  element('span', { text: '编辑批注时自动暂停视频播放' }),
+                  boundSwitch({
+                    bind: 'videoCommentEditorAutoPause',
+                    compact: true,
+                    stateText: (current) =>
+                      current.state.videoCommentEditorAutoPause ? '已开启' : '已关闭',
+                    onChange: {
+                      id: 'options:updateField',
+                      args: ['video.commentEditorAutoPause'],
+                      valueFrom: 'target.checked'
+                    }
+                  })
                 ])
               ],
               body: [

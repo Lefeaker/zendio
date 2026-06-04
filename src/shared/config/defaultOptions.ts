@@ -56,7 +56,8 @@ export const DEFAULT_OPTIONS: OptionsState = {
     promptButtonLabel: '开启视频笔记',
     promptShortcut: 'Alt+V',
     controlBarAutoPause: true,
-    controlBarScreenshot: true
+    controlBarScreenshot: true,
+    commentEditorAutoPause: false
   },
   experimentalAi: {
     provider: 'compatible',

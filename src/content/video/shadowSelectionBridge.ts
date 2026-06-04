@@ -5,10 +5,24 @@ interface ShadowSelectionBridgeOptions {
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range) => boolean;
   pendingSelection: PendingSelectionTracker;
+  activatePendingSelection: (event: Event, options?: { allowEventFallback?: boolean }) => void;
+}
+
+interface ShadowPointerStart {
+  x: number;
+  y: number;
+}
+
+interface ShadowMouseEventData {
+  button: number;
+  clientX: number;
+  clientY: number;
 }
 
 export class ShadowSelectionBridge {
   private registeredRoots: WeakSet<ShadowRoot> = new WeakSet();
+  private readonly pointerStarts = new WeakMap<ShadowRoot, ShadowPointerStart>();
+  private readonly activatedEvents = new WeakSet<Event>();
 
   constructor(private readonly options: ShadowSelectionBridgeOptions) {}
 
@@ -21,7 +35,7 @@ export class ShadowSelectionBridge {
       if (this.options.suppressSelectionCapture()) {
         return;
       }
-      const selection = this.options.getDocumentSelection();
+      const selection = this.getSelectionForRoot(root);
       if (!selection) {
         return;
       }
@@ -44,11 +58,36 @@ export class ShadowSelectionBridge {
       this.options.pendingSelection.capture(range);
     };
 
-    const scheduleSync = () => {
-      window.setTimeout(syncSelection, 0);
+    const handleMouseDown = (event: Event) => {
+      const mouse = readShadowMouseEventData(event);
+      if (!mouse || mouse.button !== 0) {
+        this.pointerStarts.delete(root);
+        return;
+      }
+      this.pointerStarts.set(root, { x: mouse.clientX, y: mouse.clientY });
+    };
+
+    const activateOnce = (eventKey: Event, activationEvent: Event, allowEventFallback: boolean) => {
+      if (this.activatedEvents.has(eventKey)) {
+        return;
+      }
+      this.activatedEvents.add(eventKey);
+      this.options.activatePendingSelection(activationEvent, { allowEventFallback });
+    };
+
+    const scheduleSync = (event: Event) => {
+      const view = root.ownerDocument.defaultView ?? window;
+      const allowEventFallback = this.isDragSelectionEnd(root, event);
+      const activationEvent = snapshotShadowSelectionEvent(event);
+      view.setTimeout(syncSelection, 0);
+      view.setTimeout(() => {
+        syncSelection();
+        activateOnce(event, activationEvent, allowEventFallback);
+      }, 32);
     };
 
     root.addEventListener('selectionchange', syncSelection, true);
+    root.addEventListener('mousedown', handleMouseDown, true);
     root.addEventListener('mouseup', scheduleSync, true);
     root.addEventListener('touchend', scheduleSync, true);
     root.addEventListener('keyup', scheduleSync, true);
@@ -58,4 +97,83 @@ export class ShadowSelectionBridge {
   reset(): void {
     this.registeredRoots = new WeakSet();
   }
+
+  private getSelectionForRoot(root: ShadowRoot): Selection | null {
+    const rootWithSelection = root as ShadowRoot & {
+      getSelection?: () => Selection | null;
+    };
+    if (typeof rootWithSelection.getSelection === 'function') {
+      const rootSelection = rootWithSelection.getSelection();
+      if (rootSelection) {
+        return rootSelection;
+      }
+    }
+    return this.options.getDocumentSelection();
+  }
+
+  private isDragSelectionEnd(root: ShadowRoot, event: Event): boolean {
+    const mouse = readShadowMouseEventData(event);
+    if (!mouse) {
+      return false;
+    }
+    const start = this.pointerStarts.get(root);
+    this.pointerStarts.delete(root);
+    if (!start) {
+      return false;
+    }
+    return Math.hypot(mouse.clientX - start.x, mouse.clientY - start.y) >= 4;
+  }
+}
+
+function readShadowMouseEventData(event: Event): ShadowMouseEventData | null {
+  if (
+    !('button' in event) ||
+    !('clientX' in event) ||
+    !('clientY' in event) ||
+    typeof event.button !== 'number' ||
+    typeof event.clientX !== 'number' ||
+    typeof event.clientY !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    button: event.button,
+    clientX: event.clientX,
+    clientY: event.clientY
+  };
+}
+
+function snapshotShadowSelectionEvent(event: Event): Event {
+  const path = event.composedPath();
+  if (!path.length) {
+    return event;
+  }
+
+  const snapshot = new Event(event.type, {
+    bubbles: event.bubbles,
+    cancelable: event.cancelable,
+    composed: event.composed
+  });
+  Object.defineProperty(snapshot, 'composedPath', {
+    configurable: true,
+    value: () => path
+  });
+  copyEventProperty(event, snapshot, 'button');
+  copyEventProperty(event, snapshot, 'clientX');
+  copyEventProperty(event, snapshot, 'clientY');
+  copyEventProperty(event, snapshot, 'altKey');
+  copyEventProperty(event, snapshot, 'metaKey');
+  copyEventProperty(event, snapshot, 'ctrlKey');
+  copyEventProperty(event, snapshot, 'shiftKey');
+  return snapshot;
+}
+
+function copyEventProperty(source: Event, target: Event, key: string): void {
+  if (!(key in source)) {
+    return;
+  }
+  Object.defineProperty(target, key, {
+    configurable: true,
+    value: source[key as keyof Event]
+  });
 }

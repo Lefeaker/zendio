@@ -4,7 +4,7 @@ import {
 } from '../clipper/services/fragmentConfig';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
-import { isReaderSessionActive } from './contentSessionRegistry';
+import { isReaderSessionActive, isVideoSessionActive } from './contentSessionRegistry';
 import { hasUsableSelection } from './selectionSnapshot';
 
 export function handleModifierKey(runtimeState: ContentRuntimeState, event: KeyboardEvent): void {
@@ -38,7 +38,7 @@ export function handleAutoSelectionClip(
   runClip: () => Promise<void>,
   event: MouseEvent
 ): void {
-  if (event.button !== 0 || isReaderSessionActive(document)) {
+  if (event.button !== 0 || isReaderSessionActive(document) || isVideoSessionActive(document)) {
     return;
   }
   syncModifierState(runtimeState.getModifierState(), event);

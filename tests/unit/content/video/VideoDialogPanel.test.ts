@@ -113,7 +113,7 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('routes the inline add and item close buttons to video callbacks', () => {
+  it('routes the inline add and item close buttons to video callbacks', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
     panel.setCaptures([createCapture()]);
@@ -123,6 +123,7 @@ describe('VideoDialogPanel', () => {
     shadow?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:toggle-screenshot"]')?.click();
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="video:delete"]')?.click();
+    await flushPanelPersistence();
 
     expect(callbacks.onAddCapture).toHaveBeenCalledTimes(2);
     expect(callbacks.onAddCapture).toHaveBeenNthCalledWith(1, 'button');
@@ -207,6 +208,91 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('reports capture editor focus and blur lifecycle events', async () => {
+    const lifecycleCallbacks: VideoPanelCallbacks & {
+      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
+      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
+    } = {
+      ...callbacks,
+      onCaptureEditorFocus: vi.fn(),
+      onCaptureEditorBlur: vi.fn()
+    };
+    const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+
+    const cancelButton = panel.element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:cancel"]'
+    );
+    expect(cancelButton).toBeTruthy();
+    if (!cancelButton) {
+      throw new Error('cancel button missing');
+    }
+
+    input.dispatchEvent(new FocusEvent('focus'));
+    input.dispatchEvent(new FocusEvent('blur', { relatedTarget: cancelButton }));
+    input.dispatchEvent(new FocusEvent('blur'));
+
+    expect(lifecycleCallbacks.onCaptureEditorFocus).toHaveBeenCalledWith('capture-1');
+    expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenNthCalledWith(
+      1,
+      'capture-1',
+      'inside-panel'
+    );
+    expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenCalledWith(
+      'capture-1',
+      'outside-panel'
+    );
+
+    panel.destroy();
+  });
+
+  it('does not report outside blur when internal rerender replaces the active editor', async () => {
+    const lifecycleCallbacks: VideoPanelCallbacks & {
+      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
+      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
+    } = {
+      ...callbacks,
+      onCaptureEditorBlur: vi.fn(),
+      onCaptureEditorFocus: vi.fn()
+    };
+    const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+
+    input.focus();
+    expect(panel.element.shadowRoot?.activeElement).toBe(input);
+
+    panel.updateHint('Saving');
+
+    expect(lifecycleCallbacks.onCaptureEditorBlur).not.toHaveBeenCalledWith(
+      'capture-1',
+      'outside-panel'
+    );
+
+    panel.destroy();
+  });
+
   it('preserves unsaved capture note drafts when additional captures render', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     const first = createCapture({ id: 'capture-1', index: 1, timeLabel: '00:42' });
@@ -255,8 +341,7 @@ describe('VideoDialogPanel', () => {
     input.value = 'finish capture draft';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="finish-btn"]')?.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPanelPersistence();
 
     expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('capture-1', 'finish capture draft');
     expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
@@ -264,6 +349,237 @@ describe('VideoDialogPanel', () => {
       vi.mocked(callbacks.onFinish).mock.invocationCallOrder[0] ?? 0
     );
 
+    panel.destroy();
+  });
+
+  it('keeps ordinary note input keys from reaching host page shortcuts', async () => {
+    const hostKeydown = vi.fn();
+    const hostKeyup = vi.fn();
+    const hostKeypress = vi.fn();
+    document.addEventListener('keydown', hostKeydown);
+    document.addEventListener('keyup', hostKeyup);
+    document.addEventListener('keypress', hostKeypress);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+
+    for (const key of ['l', ' ', 'm']) {
+      input.value = key;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, composed: true }));
+      input.dispatchEvent(new KeyboardEvent('keypress', { key, bubbles: true, composed: true }));
+      input.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, composed: true }));
+    }
+
+    expect(hostKeydown).not.toHaveBeenCalled();
+    expect(hostKeypress).not.toHaveBeenCalled();
+    expect(hostKeyup).not.toHaveBeenCalled();
+    expect(input.value).toBe('m');
+
+    document.removeEventListener('keydown', hostKeydown);
+    document.removeEventListener('keyup', hostKeyup);
+    document.removeEventListener('keypress', hostKeypress);
+    panel.destroy();
+  });
+
+  it('keeps ordinary note input keys from reaching later capture listeners', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+    const hostCaptureKeydown = vi.fn();
+    const hostCaptureKeyup = vi.fn();
+    const hostCaptureKeypress = vi.fn();
+    document.addEventListener('keydown', hostCaptureKeydown, true);
+    document.addEventListener('keyup', hostCaptureKeyup, true);
+    document.addEventListener('keypress', hostCaptureKeypress, true);
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, composed: true }));
+    input.dispatchEvent(new KeyboardEvent('keypress', { key: 'l', bubbles: true, composed: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'l', bubbles: true, composed: true }));
+
+    expect(hostCaptureKeydown).not.toHaveBeenCalled();
+    expect(hostCaptureKeypress).not.toHaveBeenCalled();
+    expect(hostCaptureKeyup).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostCaptureKeydown, true);
+    document.removeEventListener('keyup', hostCaptureKeyup, true);
+    document.removeEventListener('keypress', hostCaptureKeypress, true);
+    panel.destroy();
+  });
+
+  it('keeps unowned Escape from reaching host page shortcuts', async () => {
+    const hostKeydown = vi.fn();
+    const hostKeyup = vi.fn();
+    const hostKeypress = vi.fn();
+    document.addEventListener('keydown', hostKeydown);
+    document.addEventListener('keyup', hostKeyup);
+    document.addEventListener('keypress', hostKeypress);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+    input.dispatchEvent(event);
+    input.dispatchEvent(
+      new KeyboardEvent('keypress', { key: 'Escape', bubbles: true, composed: true })
+    );
+    input.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'Escape', bubbles: true, composed: true })
+    );
+
+    expect(preventDefaultSpy).not.toHaveBeenCalled();
+    expect(callbacks.onSubmitCaptureEdit).not.toHaveBeenCalled();
+    expect(hostKeydown).not.toHaveBeenCalled();
+    expect(hostKeypress).not.toHaveBeenCalled();
+    expect(hostKeyup).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostKeydown);
+    document.removeEventListener('keyup', hostKeyup);
+    document.removeEventListener('keypress', hostKeypress);
+    panel.destroy();
+  });
+
+  it('keeps unowned Escape from reaching later capture listeners', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+    const hostCaptureKeydown = vi.fn();
+    const hostCaptureKeyup = vi.fn();
+    const hostCaptureKeypress = vi.fn();
+    document.addEventListener('keydown', hostCaptureKeydown, true);
+    document.addEventListener('keyup', hostCaptureKeyup, true);
+    document.addEventListener('keypress', hostCaptureKeypress, true);
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true })
+    );
+    input.dispatchEvent(
+      new KeyboardEvent('keypress', { key: 'Escape', bubbles: true, composed: true })
+    );
+    input.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'Escape', bubbles: true, composed: true })
+    );
+
+    expect(hostCaptureKeydown).not.toHaveBeenCalled();
+    expect(hostCaptureKeypress).not.toHaveBeenCalled();
+    expect(hostCaptureKeyup).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostCaptureKeydown, true);
+    document.removeEventListener('keyup', hostCaptureKeyup, true);
+    document.removeEventListener('keypress', hostCaptureKeypress, true);
+    panel.destroy();
+  });
+
+  it('submits capture edits on Enter through the existing command handler', async () => {
+    const hostKeydown = vi.fn();
+    document.addEventListener('keydown', hostKeydown);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.value = 'Important timestamp';
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true
+    });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+    input.dispatchEvent(event);
+    await flushPanelPersistence();
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith('capture-1', 'Important timestamp');
+    expect(hostKeydown).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostKeydown);
+    panel.destroy();
+  });
+
+  it('does not submit capture edits while IME composition owns Enter', async () => {
+    const hostKeydown = vi.fn();
+    document.addEventListener('keydown', hostKeydown);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.value = 'Composing timestamp';
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      isComposing: true
+    });
+    const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+    input.dispatchEvent(event);
+
+    expect(preventDefaultSpy).not.toHaveBeenCalled();
+    expect(callbacks.onSubmitCaptureEdit).not.toHaveBeenCalled();
+    expect(hostKeydown).not.toHaveBeenCalled();
+
+    document.removeEventListener('keydown', hostKeydown);
     panel.destroy();
   });
 

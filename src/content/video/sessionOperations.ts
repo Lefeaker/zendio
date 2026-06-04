@@ -16,9 +16,15 @@ import type { VideoSessionPlatformController } from './sessionPlatformController
 import type { VideoSessionDomController } from './sessionDom';
 import { clearVideoSession } from '../runtime/contentSessionRegistry';
 import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
+import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
+import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
+import {
+  createVideoTimestampCapture,
+  saveVideoTimestampCaptureOrRollback
+} from './videoTimestampCaptureTransaction';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -46,6 +52,9 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  beginPlaybackEditLease?: (captureId: string) => void;
+  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
+  resetPlaybackEditLease?: () => void;
 }
 
 export async function handleVideoSessionAddCapture(
@@ -71,7 +80,8 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  if (options.pauseVideo && typeof video.pause === 'function') {
+  const shouldLeasePlayback = Boolean(options.pauseVideo && options.beginEditing !== false);
+  if (options.pauseVideo && !shouldLeasePlayback && typeof video.pause === 'function') {
     video.pause();
   }
 
@@ -87,26 +97,32 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  const screenshot = options.captureScreenshot
-    ? captureVideoFrameScreenshot(video, currentTime)
-    : null;
-  const capture: VideoTimestampCapture = {
-    kind: 'timestamp',
-    id: `aiob-video-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    timeSec: currentTime,
-    comment: options.comment?.trim() ?? '',
-    url: shareUrl,
-    createdAt: Date.now(),
-    ...(screenshot ? { screenshot } : {})
-  };
+  const capture = createVideoTimestampCapture({
+    video,
+    currentTime,
+    shareUrl,
+    comment: options.comment,
+    captureScreenshot: options.captureScreenshot
+  });
 
   context.state.captures.push(capture);
+  if (shouldLeasePlayback) {
+    context.beginPlaybackEditLease?.(capture.id);
+  }
   if (options.collapseAfterCapture) {
     context.dom.collapsePanel();
   }
   context.syncPanel();
   context.applyHint('saving');
-  await saveVideoCaptures(context);
+  const saved = await saveVideoTimestampCaptureOrRollback(
+    context,
+    capture,
+    shouldLeasePlayback,
+    () => saveVideoCaptures(context)
+  );
+  if (!saved) {
+    return null;
+  }
   context.syncPanel();
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
@@ -198,11 +214,19 @@ export async function submitVideoSessionCaptureEdit(
   if (!target) {
     return;
   }
+  const previousComment = target.comment;
   target.comment = comment.trim();
   context.applyHint('saving');
-  await saveVideoCaptures(context);
-  context.syncPanel();
+  const saveHint = await saveVideoCaptures(context);
+  if (saveHint === 'failure') {
+    target.comment = previousComment;
+    context.syncPanel();
+    context.applyHint('failure');
+    return;
+  }
+  context.releasePlaybackEditLease?.(id, true);
   context.dom.stopEditing();
+  context.syncPanel();
 }
 
 export function removeVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
@@ -211,6 +235,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
     return;
   }
   const [removed] = context.state.captures.splice(index, 1);
+  context.releasePlaybackEditLease?.(id, false);
   if (removed?.kind === 'fragment' && removed.wrapperId) {
     context.fragmentHighlighter.removeById(removed.wrapperId);
   }
@@ -346,6 +371,7 @@ export function cancelVideoSession(context: VideoSessionOperationContext): void 
 }
 
 export function cleanupVideoSession(context: VideoSessionOperationContext): void {
+  context.resetPlaybackEditLease?.();
   context.lifecycle.stop();
   context.state.stopOptionsWatcher?.();
   context.state.stopOptionsWatcher = null;
@@ -435,46 +461,12 @@ export function watchVideoSessionHighlightTheme(
   });
 }
 
-function focusTimestampCapture(
-  context: VideoSessionOperationContext,
-  capture: VideoTimestampCapture
-): void {
-  const video = context.state.videoElement ?? context.findVideoElement();
-  if (!video) {
-    context.applyHint('noVideo');
-    return;
-  }
-  try {
-    video.currentTime = capture.timeSec;
-    const playResult = video.play();
-    void Promise.resolve(playResult).catch(() => undefined);
-  } catch (error) {
-    console.warn('[VideoSession] Failed to seek video:', error);
-  }
-}
-
-function focusFragmentCapture(
-  context: VideoSessionOperationContext,
-  capture: VideoFragmentCapture
-): void {
-  context.ensureCaptureHighlight(capture);
-  if (capture.wrapperId) {
-    const element = context.fragmentHighlighter.getElementByIdDeep(capture.wrapperId);
-    if (element) {
-      context.fragmentHighlighter.decorateElement(element);
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      element.classList.add('aiob-reader-highlight--focus');
-      window.setTimeout(() => element.classList.remove('aiob-reader-highlight--focus'), 1600);
-      context.fragmentHighlightCoordinator.scheduleRestore();
-      return;
-    }
-  }
-  context.highlightFragmentText(capture.selectedText);
-}
-
-async function saveVideoCaptures(context: VideoSessionOperationContext): Promise<void> {
+async function saveVideoCaptures(
+  context: VideoSessionOperationContext
+): Promise<VideoHintState | null> {
   const hintState = await context.platformController.saveCaptures();
   if (hintState) {
     context.applyHint(hintState);
   }
+  return hintState;
 }

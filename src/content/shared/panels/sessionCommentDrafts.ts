@@ -76,12 +76,12 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   bindInput(input: HTMLInputElement | null | undefined, id: string): void {
     input?.addEventListener('input', () => this.remember(id, input.value));
-    input?.addEventListener('keydown', (event) => {
-      if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') {
+    input?.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.isComposing) {
         return;
       }
       event.preventDefault();
-      void this.submit(id, input.value);
+      void this.runAsync(() => this.submit(id, input.value));
     });
   }
 
@@ -103,13 +103,16 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     this.store.clear(id);
   }
 
-  runAfterFlush(action: () => void | Promise<void>): void {
+  runAfterFlush(action: () => void | Promise<void>): Promise<void> {
     this.captureRenderedInputs();
-    if (!this.store.hasDrafts()) {
-      void action();
-      return;
-    }
-    void this.flush().then(action);
+    const task = (async () => {
+      if (this.store.hasDrafts()) {
+        await this.flush();
+      }
+      await action();
+    })();
+    this.observeAsync(task);
+    return task;
   }
 
   private async flush(): Promise<void> {
@@ -126,5 +129,17 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   private findCanonicalComment(id: string): string {
     return this.options.getItems().find((item) => item.id === id)?.comment ?? '';
+  }
+
+  private runAsync(action: () => void | Promise<void>): Promise<void> {
+    const task = Promise.resolve().then(action);
+    this.observeAsync(task);
+    return task;
+  }
+
+  private observeAsync(task: Promise<void>): void {
+    void task.catch((error) => {
+      console.warn('[SessionCommentDrafts] Failed to submit session comment draft:', error);
+    });
   }
 }

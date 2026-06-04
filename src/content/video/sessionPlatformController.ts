@@ -77,6 +77,7 @@ export class VideoSessionPlatformController {
       this.deps.state.platformAdapter &&
       this.deps.state.platformAdapter.platform === this.deps.state.platform
     ) {
+      this.deps.state.platformAdapter.observeSelectionRoots?.();
       return;
     }
 
@@ -86,6 +87,7 @@ export class VideoSessionPlatformController {
       this.deps.createPlatformContext()
     );
     this.deps.onAdapterChange(this.deps.state.platformAdapter);
+    this.deps.state.platformAdapter.observeSelectionRoots?.();
   }
 
   extractVideoTitle(): string {

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BilibiliVideoPlatform } from '@content/video/platforms/bilibiliPlatform';
 import {
+  BilibiliShadowObserver,
   isBilibiliCommentRegionNode,
   isBilibiliDanmakuNode
 } from '@content/video/platforms/bilibiliPlatformObserver';
@@ -60,6 +61,68 @@ function withScheduledRestore(
   context.scheduleFragmentHighlightRestore = scheduleRestore;
   context.__mocks.scheduleFragmentHighlightRestore = scheduleRestore;
   return context;
+}
+
+function mountBiliCommentsFixture(): {
+  commentsHost: HTMLElement;
+  root: ShadowRoot;
+  thread: HTMLElement;
+  comment: HTMLElement;
+  richText: HTMLElement;
+  content: HTMLElement;
+} {
+  const host = document.createElement('bili-comments');
+  document.body.append(host);
+  const root = host.attachShadow({ mode: 'open' });
+  const contents = document.createElement('div');
+  contents.id = 'contents';
+  const thread = document.createElement('bili-comment-thread-renderer');
+  const threadRoot = thread.attachShadow({ mode: 'open' });
+  const comment = document.createElement('bili-comment-renderer');
+  const commentRoot = comment.attachShadow({ mode: 'open' });
+  const richText = document.createElement('bili-rich-text');
+  const richTextRoot = richText.attachShadow({ mode: 'open' });
+  const content = document.createElement('p');
+  content.id = 'contents';
+  content.innerHTML = '<span>fixture comment</span>';
+  richTextRoot.append(content);
+  commentRoot.append(richText);
+  threadRoot.append(comment);
+  contents.append(thread);
+  root.append(contents);
+  return { commentsHost: host, root, thread, comment, richText, content };
+}
+
+function createBilibiliRichTextHost(html: string): HTMLElement {
+  const host = document.createElement('bili-rich-text');
+  const root = host.attachShadow({ mode: 'open' });
+  root.innerHTML = `<p id="contents">${html}</p>`;
+  return host;
+}
+
+function mountBiliCommentWithRichText(html: string): {
+  commentsHost: HTMLElement;
+  richText: HTMLElement;
+  content: HTMLElement;
+} {
+  const commentsHost = document.createElement('bili-comments');
+  const commentsRoot = commentsHost.attachShadow({ mode: 'open' });
+  const thread = document.createElement('bili-comment-thread-renderer');
+  const threadRoot = thread.attachShadow({ mode: 'open' });
+  const comment = document.createElement('bili-comment-renderer');
+  const commentRoot = comment.attachShadow({ mode: 'open' });
+  const richText = createBilibiliRichTextHost(html);
+  const content = richText.shadowRoot?.querySelector<HTMLElement>('#contents');
+  if (!content) {
+    throw new Error('Failed to create Bilibili rich text fixture content');
+  }
+
+  commentRoot.append(richText);
+  threadRoot.append(comment);
+  commentsRoot.append(thread);
+  document.body.append(commentsHost);
+
+  return { commentsHost, richText, content };
 }
 
 describe('BilibiliVideoPlatform', () => {
@@ -149,6 +212,45 @@ describe('BilibiliVideoPlatform', () => {
     expect(result?.text).toBe('Event fallback text');
     expect(result?.html).toContain('Event fallback text');
     expect(result?.range?.toString()).toBe('Event fallback text');
+  });
+
+  it('rebuilds an exact rich text range from selected text during event fallback', () => {
+    const { content } = mountBiliCommentWithRichText(
+      '<span>before </span><span>selected target</span><span> after</span>'
+    );
+    const selectedNode = content.querySelectorAll('span')[1]?.firstChild;
+    if (!selectedNode) {
+      throw new Error('Failed to build selected text fixture');
+    }
+    const root = content.getRootNode();
+    const event = new MouseEvent('mouseup', { bubbles: true });
+    Object.defineProperty(event, 'composedPath', {
+      configurable: true,
+      value: () => [
+        selectedNode,
+        content,
+        root,
+        root instanceof ShadowRoot ? root.host : null,
+        document.body,
+        document,
+        window
+      ]
+    });
+
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const input: PlatformSelectionInput = {
+      range: null,
+      selectedText: 'selected target',
+      selectedHtml: '',
+      event
+    };
+    const result = platform.resolveSelection(input);
+
+    expect(result?.text).toBe('selected target');
+    expect(result?.range?.toString()).toBe('selected target');
+    expect(result?.html).toContain('selected target');
+    expect(result?.html).not.toContain('before');
+    expect(result?.html).not.toContain('after');
   });
 
   it('schedules restore when comment hosts are added through mutations', () => {
@@ -284,6 +386,138 @@ describe('BilibiliVideoPlatform', () => {
     expect(restored).toBe('existing-wrapper');
     expect(context.__mocks.decorateHighlight).toHaveBeenCalledWith(existing);
     expect(context.__mocks.scheduleFragmentHighlightRestore).toHaveBeenCalled();
+  });
+
+  it('observes bili-comments root and nested comment shadow roots through scoped discovery', () => {
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(context);
+    const { root, thread, comment, richText, content } = mountBiliCommentsFixture();
+    const observer = new MutationObserver(() => undefined);
+    platform.observeDomChanges(observer);
+
+    const range = document.createRange();
+    const textNode = content.querySelector('span')?.firstChild;
+    if (!textNode) {
+      throw new Error('Expected nested Bilibili fixture text');
+    }
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 'fixture'.length);
+
+    expect(platform.highlight(range, 'capture-bili-comments', 'https://example.com/')).toBe(
+      'wrapper-1'
+    );
+
+    const registeredRoots = new Set(
+      context.__mocks.registerShadowSelectionBridge.mock.calls.map(
+        ([registeredRoot]) => registeredRoot
+      )
+    );
+    expect(isBilibiliCommentRegionNode(root.getElementById('contents'))).toBe(true);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+    expect(registeredRoots.size).toBe(4);
+  });
+
+  it('registers Bilibili comment shadow roots for selection even without fragment captures', () => {
+    const context = createContext(document);
+    const { root, thread, comment, richText } = mountBiliCommentsFixture();
+    const observer = new BilibiliShadowObserver(document, context);
+
+    observer.ensureObservedRoots();
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+  });
+
+  it('lets the platform proactively register Bilibili selection shadow roots on session start', () => {
+    const context = createContext(document);
+    const { root, richText } = mountBiliCommentsFixture();
+    const platform = new BilibiliVideoPlatform(context);
+
+    platform.observeSelectionRoots();
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
+      childList: true,
+      subtree: true
+    });
+  });
+
+  it('batches comment-root mutation refreshes to one restore', () => {
+    vi.useFakeTimers();
+    const scheduleRestore = vi.fn();
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    platform.observeDomChanges({} as MutationObserver);
+
+    const first = document.createElement('bili-comment-renderer');
+    const second = document.createElement('bili-comment-reply-renderer');
+    document.body.append(first, second);
+
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: [first, second],
+        removedNodes: [],
+        target: document.body,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+
+    vi.advanceTimersByTime(120);
+
+    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh comment roots for danmaku-only mutation bursts', () => {
+    vi.useFakeTimers();
+    const scheduleRestore = vi.fn();
+    const context = createContext(document);
+    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const commentHost = document.createElement('bili-comment-renderer');
+    commentHost.attachShadow({ mode: 'open' });
+    region.append(commentHost);
+    document.body.append(region);
+    platform.observeDomChanges({} as MutationObserver);
+
+    const danmakuWrap = document.createElement('div');
+    danmakuWrap.className = 'bpx-player-render-dm-wrap';
+    for (let index = 0; index < 20; index += 1) {
+      const danmaku = document.createElement('span');
+      danmaku.className = 'bili-danmaku-x-dm';
+      danmaku.textContent = `dm-${index}`;
+      danmakuWrap.append(danmaku);
+    }
+    document.body.append(danmakuWrap);
+
+    platform.handleMutations([
+      {
+        type: 'childList',
+        addedNodes: Array.from(danmakuWrap.childNodes),
+        removedNodes: [],
+        target: danmakuWrap,
+        attributeName: null,
+        attributeNamespace: null,
+        nextSibling: null,
+        oldValue: null,
+        previousSibling: null
+      } as unknown as MutationRecord
+    ]);
+    vi.advanceTimersByTime(120);
+
+    expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
   it('clears pending shadow-host polling when disposed', () => {
@@ -534,6 +768,116 @@ describe('BilibiliVideoPlatform', () => {
     expect(result.html).toContain('data-aiob-fragment="emoji"');
     expect(result.html).toContain('data-aiob-fragment="mention"');
     expect(result.html).toContain('<a href="https://example.com/fallback"');
+  });
+
+  it.each([
+    {
+      name: 'plain text',
+      html: '<span>這婚是非結不可的嗎 不結婚會被抓嗎?</span>',
+      expectedText: '這婚是非結不可的嗎 不結婚會被抓嗎?'
+    },
+    {
+      name: 'reply mention and emoji',
+      html: '<span>回复</span><a href="//space.bilibili.com/508008818" data-type="mention">@-银河路车神</a><span>: 那真的太會花錢了</span><img alt="[doge]" />',
+      expectedText: '回复 @-银河路车神 : 那真的太會花錢了 [doge]'
+    },
+    {
+      name: 'multi-line text',
+      html: '<span>第一行\n第二行</span>',
+      expectedText: '第一行 第二行'
+    }
+  ])('extracts Bilibili rich text from shadow contents: $name', ({ html, expectedText }) => {
+    const { richText, content } = mountBiliCommentWithRichText(html);
+    const event = new MouseEvent('mouseup', { bubbles: true });
+    Object.defineProperty(event, 'composedPath', {
+      configurable: true,
+      value: () => [content.firstChild ?? content, content, richText.shadowRoot, richText]
+    });
+
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const result = platform.resolveSelection({
+      range: null,
+      selectedText: '',
+      selectedHtml: '',
+      event
+    } as PlatformSelectionInput);
+
+    expect(result?.text).toBe(expectedText);
+    expect(result?.html).toContain(expectedText.split(' ')[0]);
+    if (html.includes('<img')) {
+      expect(result?.html).toContain('data-aiob-fragment="emoji"');
+      expect(result?.html).toContain('[doge]');
+    }
+    if (html.includes('data-type="mention"')) {
+      expect(result?.html).toContain('href="//space.bilibili.com/508008818"');
+      expect(result?.html).toContain('@-银河路车神');
+    }
+  });
+
+  it('searches observed Bilibili comment roots before unrelated document shadow roots', () => {
+    const targetText = 'scoped restore target';
+    const unrelatedHost = document.createElement('bili-avatar');
+    const unrelatedRoot = unrelatedHost.attachShadow({ mode: 'open' });
+    unrelatedRoot.innerHTML = `<span>${targetText}</span>`;
+    document.body.append(unrelatedHost);
+
+    const { commentsHost, content } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const platformAny = platform as unknown as {
+      ensureShadowHostObservation: (host: Element) => void;
+    };
+    platform.observeDomChanges({} as MutationObserver);
+    platformAny.ensureShadowHostObservation(commentsHost);
+
+    const range = platform.findTextRange(targetText);
+
+    expect(range?.startContainer.getRootNode()).toBe(content.getRootNode());
+    expect(range?.toString()).toBe(targetText);
+  });
+
+  it('does not restore from unrelated page body text outside Bilibili comment regions', () => {
+    const targetText = 'outside body restore target';
+    document.body.innerHTML = `<main><p>${targetText}</p></main>`;
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('does not restore from unrelated page shadow roots outside Bilibili comment regions', () => {
+    const targetText = 'outside shadow restore target';
+    const host = document.createElement('section');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    document.body.append(host);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('does not restore from unrelated bili-rich-text shadow roots outside Bilibili comment regions', () => {
+    const targetText = 'outside rich text target';
+    const host = document.createElement('bili-rich-text');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    document.body.append(host);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('restores from bili-rich-text shadow roots inside legacy Bilibili comment containers', () => {
+    const targetText = 'inside legacy comment rich text target';
+    const wrapper = document.createElement('div');
+    wrapper.id = 'comment';
+    const host = document.createElement('bili-rich-text');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    wrapper.append(host);
+    document.body.append(wrapper);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const range = platform.findTextRange(targetText);
+
+    expect(range?.toString()).toBe(targetText);
   });
 
   it('falls back when rich text containers or ranges cannot be resolved', () => {

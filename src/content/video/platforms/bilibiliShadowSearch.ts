@@ -2,11 +2,11 @@ import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
 
 export function findBilibiliTextRangeAcrossShadowRoots(
   text: string,
-  helpers: BilibiliSelectionHelpers
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly ShadowRoot[]
 ): Range | null {
-  const shadowRoots = collectAllShadowRoots(helpers.document);
-  for (const root of shadowRoots) {
-    const range = searchInShadowRoot(root, text, helpers);
+  for (const root of roots) {
+    const range = searchInNode(root, text, helpers);
     if (range) {
       return range;
     }
@@ -14,50 +14,30 @@ export function findBilibiliTextRangeAcrossShadowRoots(
   return null;
 }
 
-function collectAllShadowRoots(doc: Document): ShadowRoot[] {
-  const roots: ShadowRoot[] = [];
-  const visited = new Set<ShadowRoot>();
-
-  const traverse = (node: Node) => {
-    if (node instanceof Element && node.shadowRoot && !visited.has(node.shadowRoot)) {
-      roots.push(node.shadowRoot);
-      visited.add(node.shadowRoot);
-      Array.from(node.shadowRoot.querySelectorAll('*')).forEach(traverse);
+export function findBilibiliTextRangeAcrossScopedNodes(
+  text: string,
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly Node[]
+): Range | null {
+  for (const root of roots) {
+    const range = searchInNode(root, text, helpers);
+    if (range) {
+      return range;
     }
-    Array.from(node.childNodes).forEach(traverse);
-  };
-
-  const root = doc.documentElement;
-  if (root) {
-    traverse(root);
   }
-  return roots;
+  return null;
 }
 
-function searchInShadowRoot(
-  root: ShadowRoot,
-  text: string,
-  helpers: BilibiliSelectionHelpers
-): Range | null {
+function searchInNode(root: Node, text: string, helpers: BilibiliSelectionHelpers): Range | null {
   const normalizedChars: Array<{ node: Text; offset: number }> = [];
   const normalizedBuilder: string[] = [];
   const normalizedLowerBuilder: string[] = [];
   let lastWasWhitespace = true;
 
-  const walker = helpers.document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (node) => {
-      if (helpers.shouldSkipTextNode(node as Text)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    }
-  });
-
-  let node: Text | null;
-  while ((node = walker.nextNode() as Text | null)) {
+  const appendTextNode = (node: Text): void => {
     const textContent = node.textContent;
     if (!textContent) {
-      continue;
+      return;
     }
     for (let index = 0; index < textContent.length; index += 1) {
       const char = textContent[index];
@@ -76,7 +56,17 @@ function searchInShadowRoot(
         lastWasWhitespace = false;
       }
     }
-  }
+  };
+
+  traverseShadowInclusive(root, (node) => {
+    if (!(node instanceof Text)) {
+      return;
+    }
+    if (helpers.shouldSkipTextNode(node)) {
+      return;
+    }
+    appendTextNode(node);
+  });
 
   while (normalizedBuilder.length && normalizedBuilder[normalizedBuilder.length - 1] === ' ') {
     normalizedBuilder.pop();
@@ -106,4 +96,14 @@ function searchInShadowRoot(
   range.setStart(startChar.node, startChar.offset);
   range.setEnd(endChar.node, endChar.offset + 1);
   return range;
+}
+
+function traverseShadowInclusive(node: Node, visitor: (node: Node) => void): void {
+  visitor(node);
+  if (node instanceof Element && node.shadowRoot) {
+    traverseShadowInclusive(node.shadowRoot, visitor);
+  }
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    traverseShadowInclusive(child, visitor);
+  }
 }

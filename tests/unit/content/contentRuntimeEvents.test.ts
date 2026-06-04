@@ -2,6 +2,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createContentRuntimeEvents } from '@content/runtime/contentRuntimeEvents';
+import {
+  __resetContentSessionRegistryForTests,
+  clearVideoSession,
+  registerVideoSession
+} from '@content/runtime/contentSessionRegistry';
 import type { ContentRuntimeState } from '@content/runtime/contentRuntimeState';
 
 function createRuntimeState(): ContentRuntimeState {
@@ -45,6 +50,7 @@ function createRuntimeState(): ContentRuntimeState {
 describe('contentRuntimeEvents', () => {
   beforeEach(() => {
     document.body.innerHTML = '<p id="content">auto selection</p>';
+    __resetContentSessionRegistryForTests(document);
     vi.restoreAllMocks();
   });
 
@@ -84,6 +90,40 @@ describe('contentRuntimeEvents', () => {
     expect(runtimeState.isSelectionModifierActive()).toBe(false);
 
     detach();
+  });
+
+  it('lets the video session own auto selections while a video session is active', () => {
+    const runtimeState = createRuntimeState();
+    const runClip = vi.fn().mockResolvedValue(undefined);
+    const selection = {
+      rangeCount: 1,
+      isCollapsed: false,
+      toString: () => 'video session selection'
+    } as Selection;
+    const videoSession = {};
+
+    registerVideoSession(videoSession, document);
+    const detach = createContentRuntimeEvents({
+      document,
+      window,
+      runtimeState,
+      selectionTracker: {
+        resolveActiveSelection: vi.fn(() => ({ selection, root: document })),
+        isSelectionInsideUi: vi.fn(() => false),
+        isSelectionEditable: vi.fn(() => false),
+        handleSelectionChange: vi.fn(),
+        handleSelectStart: vi.fn()
+      } as never,
+      isReaderSessionActive: vi.fn(() => false),
+      runClip
+    }).attach();
+
+    document.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+
+    expect(runClip).not.toHaveBeenCalled();
+
+    detach();
+    clearVideoSession(videoSession, document);
   });
 
   it('ignores auto selections inside UI containers', () => {

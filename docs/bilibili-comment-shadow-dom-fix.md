@@ -239,6 +239,8 @@ private discoverShadowHosts(): HTMLElement[] {
 
 #### 2.1 增强Shadow DOM遍历
 
+> 历史方案示例：当前生产恢复链路不得使用全页 Shadow DOM 扫描，Bilibili 评论高亮恢复应以 scoped comment restore roots 为入口。
+
 ```typescript
 private findTextRangeInShadowDOM(text: string): Range | null {
   const normalized = text.replace(/\s+/g, ' ').trim();
