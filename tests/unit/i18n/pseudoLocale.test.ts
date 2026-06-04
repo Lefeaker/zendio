@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RUNTIME_MESSAGE_KEYS } from '../../../src/i18n/catalog/keys';
 import { schemaShellMessagesEnglish } from '../../../src/i18n/generated/schemaMessages.generated';
-import en from '../../../src/i18n/locales/en';
-import qpsPloc from '../../../src/i18n/locales/qps-ploc';
+import en from '../../../src/i18n/generated/locales/en.generated';
+import qpsPloc from '../../../src/i18n/generated/locales/qps-ploc.generated';
 import { pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
 import { readCatalogSource } from '../../../tools/i18n/catalogReader';
 

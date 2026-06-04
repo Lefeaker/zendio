@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-03
+最后更新：2026-06-05
 
 ## 正式入口
 
@@ -26,7 +26,7 @@
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤
 - Quality gate 当前真值：`quality` 包含 i18n catalog drift check、locale source alignment、hardcoded config 守卫、type/lint ratchet、release surface 与 non-production source hard gate；CI i18n catalog drift check、locale source alignment 与 hardcoded config guard 均为 hard gate；`verify:preflight` 同样显式包含 `i18n:catalog:check`；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
-- i18n 语言范围当前真值：产品决策标签为 `release-13-languages`；release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；README、runtime config、locale loaders、`src/i18n/locales/*.ts` 与 WebExtension `_locales` 必须与该范围一致；当前 catalog-owned checked-in static source 为 `public/_locales/**`
+- i18n 语言范围当前真值：产品决策标签为 `release-13-languages`；release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；README、runtime config、locale loaders、`src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json`、`src/i18n/generated/locales/*.generated.ts` 与 WebExtension `_locales` 必须与该范围一致；当前 catalog-owned checked-in static source 为 `public/_locales/**`
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - root `_locales/**` 当前仅作为 retained compatibility duplicate 存在；production build/package/release surface owner 为 `public/_locales/**` -> `build/dist/_locales/**`
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation

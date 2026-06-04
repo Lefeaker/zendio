@@ -35,13 +35,18 @@ messages.ts # 键集合/工具类型（以 en 为准）
 index.ts # t()、loadLocale()、formatter 工具
 dynamicMessages.ts # 仍保留，但改为 MessageFormat 工厂
 config.ts # LANGUAGE*CONFIG（code/label/dir/aliases）
-locales/
-en.ts
-zh-CN.ts
-ja.ts
+catalog/messages/
+en/runtime.json
+en/static.json
+en/schema.json
+zh-CN/runtime.json
+...
+generated/locales/
+en.generated.ts
+zh-CN.generated.ts
 ...
 scripts/
-gen-locales.ts # 从 src/i18n/locales/* 生成 \_locales/\_/messages.json
+i18n:catalog:generate # 从 catalog/messages/* 生成 generated locale modules 与 public/_locales
 lint-i18n.ts # 键/占位符/HTML 校验
 \_locales/ # 由脚本生成（不要手改）
 en/messages.json
@@ -82,7 +87,7 @@ it: { label: 'Italiano', dir: 'ltr' },
 
 2. 以英文为准的类型锚
 
-// src/i18n/locales/en.ts
+// src/i18n/catalog/messages/en/runtime.json
 export const en = {
 common: {
 ok: 'OK',
@@ -179,7 +184,7 @@ const chromeCode = MAP[code] ?? code;
 async function toChromeMessages(code: string, statics: Record<string, string>) {
 // 实际生产建议读取每种语言自己的静态区（如 locales/<lang>.static.ts）
 // 这里示例直接用英语键作为 key，其他语言你可在各自文件放对应翻译
-const mod = await import(path.resolve(`../src/i18n/locales/${code}.ts`));
+const mod = await import(path.resolve(`../src/i18n/generated/locales/${code}.generated.ts`));
 const dict: Record<string, any> = {};
 for (const [k, enValue] of Object.entries(statics)) {
 const v = mod.default?.static?.[k] ?? enValue; // 各语言可选的 static 字段

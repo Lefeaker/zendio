@@ -19,7 +19,10 @@ function createLocaleCatalog(
   return {
     language: language as CatalogLocaleCatalog['language'],
     runtime: runtime as CatalogLocaleCatalog['runtime'],
-    static: staticMessages as CatalogLocaleCatalog['static']
+    static: (staticMessages ?? {
+      extName: `${language} extension`,
+      extDescription: `${language} description`
+    }) as CatalogLocaleCatalog['static']
   };
 }
 

@@ -6,7 +6,6 @@ import { build } from 'esbuild';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
-const LOCALES_DIR = path.join(ROOT, 'src/i18n/locales');
 const CHROME_LOCALES_DIR = path.join(ROOT, 'public', '_locales');
 
 function flattenMessages(record, prefix = '', output = {}) {
@@ -55,13 +54,24 @@ async function bundleModule(filePath) {
   return import(dataUrl);
 }
 
-async function loadLocale(code) {
-  const modulePath = path.join(LOCALES_DIR, `${code}.ts`);
+async function loadLocaleApi() {
+  const modulePath = path.join(ROOT, 'src/i18n/locales.ts');
   const mod = await bundleModule(modulePath);
-  if (!mod.default) {
-    throw new Error(`Locale module ${code} does not export default locale definition.`);
+  if (
+    typeof mod.getLocaleCodes !== 'function' ||
+    typeof mod.loadLocaleMessages !== 'function' ||
+    typeof mod.loadStaticMessages !== 'function'
+  ) {
+    throw new Error('Failed to load locale API from src/i18n/locales.ts');
   }
-  return mod.default;
+  return mod;
+}
+
+async function loadLocale(localeApi, code) {
+  return {
+    runtime: await localeApi.loadLocaleMessages(code),
+    static: await localeApi.loadStaticMessages(code)
+  };
 }
 
 async function loadBudgetModule() {
@@ -140,14 +150,14 @@ function evaluateBudgets(localeRuntimeMap, budgets, resolveBudgetForLanguage) {
 }
 
 async function main() {
-  const files = await fs.readdir(LOCALES_DIR);
-  const localeCodes = files.filter((file) => file.endsWith('.ts')).map((file) => file.replace(/\.ts$/, ''));
+  const localeApi = await loadLocaleApi();
+  const localeCodes = localeApi.getLocaleCodes();
 
   if (!localeCodes.includes('en')) {
     throw new Error('English locale (en.ts) is required as baseline for linting.');
   }
 
-  const baseline = await loadLocale('en');
+  const baseline = await loadLocale(localeApi, 'en');
   const baselineRuntime = flattenMessages(baseline.runtime);
   const localeRuntimeMap = {
     en: baselineRuntime
@@ -160,7 +170,7 @@ async function main() {
       continue;
     }
 
-    const current = await loadLocale(code);
+    const current = await loadLocale(localeApi, code);
     const currentRuntime = flattenMessages(current.runtime);
     localeRuntimeMap[code] = currentRuntime;
 
@@ -263,11 +273,11 @@ async function main() {
     return;
   }
 
-  console.log('[lint-i18n] All locale files passed consistency checks.');
+  console.log('[lint-i18n] All catalog locales passed consistency checks.');
 }
 
 main().catch((error) => {
-  console.error('[lint-i18n] Failed to lint locale files.');
+  console.error('[lint-i18n] Failed to lint catalog locales.');
   console.error(error);
   process.exitCode = 1;
 });
