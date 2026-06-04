@@ -5,6 +5,7 @@ import {
   getDynamicMessage,
   updateDynamicMessages
 } from '../../../src/i18n/dynamicMessages';
+import { createPageI18nController } from '../../../src/i18n/pageController';
 import type { Language } from '../../../src/i18n/locales';
 
 // Mock the configProvider
@@ -52,7 +53,7 @@ describe('dynamicMessages', () => {
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
     });
 
-    it('generates pseudo-localized messages for qps-ploc', () => {
+    it('keeps qps-ploc coverage dev-only via pseudo-localized English templates', () => {
       const messages = generateDynamicMessages('qps-ploc');
 
       expect(messages.httpsUrlHint).toMatch(/^\[.+·\d+\]$/);
@@ -60,11 +61,11 @@ describe('dynamicMessages', () => {
       expect(messages.vaultNamePlaceholder).toMatch(/^\[.+·\d+\]$/);
     });
 
-    it('falls back to Chinese for unsupported languages', () => {
+    it('falls back to English for unsupported languages', () => {
       const messages = generateDynamicMessages('xx' as Language);
 
-      expect(messages.httpsUrlHint).toBe('通常端口为 27124，适用于安全连接');
-      expect(messages.httpUrlHint).toBe('通常端口为 27123，作为备用连接');
+      expect(messages.httpsUrlHint).toBe('Usually port 27124, for secure connections');
+      expect(messages.httpUrlHint).toBe('Usually port 27123, as fallback connection');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
     });
   });
@@ -181,6 +182,83 @@ describe('dynamicMessages', () => {
         'input[id*="vault"], input[placeholder*="Vault"]'
       );
       expect(mockInput.placeholder).toBe('TestVault');
+    });
+
+    it('still updates dynamic DOM nodes after pageController language changes', async () => {
+      const httpsElement = {
+        selector: '[data-i18n="httpsUrlHint"]',
+        textContent: ''
+      };
+      const httpElement = {
+        selector: '[data-i18n="httpUrlHint"]',
+        textContent: ''
+      };
+
+      class MockHTMLInputElement implements MockInputElement {
+        value = '';
+        placeholder = '';
+      }
+
+      const vaultInput = new MockHTMLInputElement();
+
+      const documentStub: DocumentStub = {
+        querySelector: vi.fn((selector: string) => {
+          if (selector === '[data-i18n="httpsUrlHint"]') {
+            return httpsElement;
+          }
+          if (selector === '[data-i18n="httpUrlHint"]') {
+            return httpElement;
+          }
+          return null;
+        }),
+        querySelectorAll: vi.fn((selector: string) => {
+          if (selector === 'input[id*="vault"], input[placeholder*="Vault"]') {
+            return [vaultInput];
+          }
+          return [];
+        })
+      };
+
+      vi.stubGlobal('HTMLInputElement', MockHTMLInputElement);
+      installDocumentStub(documentStub);
+
+      const controller = createPageI18nController({
+        bindingAdapter: {
+          bindText: vi.fn(),
+          bindAttribute: vi.fn(),
+          bindHtml: vi.fn(),
+          refresh: vi.fn(),
+          clear: vi.fn()
+        },
+        defaultLanguage: 'zh-CN',
+        loadMessages: (language) =>
+          Promise.resolve({
+            extensionName: language === 'zh-CN' ? 'All in Ob' : 'All in Ob',
+            httpsUrlHint:
+              language === 'zh-CN'
+                ? '通常端口为 27124，适用于安全连接'
+                : 'Usually port 27124, for secure connections',
+            httpUrlHint:
+              language === 'zh-CN'
+                ? '通常端口为 27123，作为备用连接'
+                : 'Usually port 27123, as fallback connection',
+            vaultNamePlaceholder: 'YourVault'
+          } as never),
+        getCurrentLanguage: () => Promise.resolve('zh-CN'),
+        setCurrentLanguage: vi.fn()
+      });
+
+      await controller.load();
+      const root = {
+        querySelectorAll: () => [] as unknown as NodeListOf<HTMLElement>
+      } as unknown as ParentNode;
+
+      controller.mount(root);
+      await controller.changeLanguage('en');
+
+      expect(httpsElement.textContent).toBe('Usually port 27124, for secure connections');
+      expect(httpElement.textContent).toBe('Usually port 27123, as fallback connection');
+      expect(vaultInput.placeholder).toBe('TestVault');
     });
   });
 });

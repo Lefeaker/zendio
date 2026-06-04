@@ -11,11 +11,7 @@ import { AVAILABLE_LANGUAGES, resolveLanguage } from './config';
 import type { PageI18nController } from './pageController';
 import type { I18nBindingAdapter } from './types';
 import { errorHandler, i18nErrors } from '../shared/errors';
-import { formatWithICU } from './messageFormatter';
-import {
-  createLanguageService,
-  LANGUAGE_STORAGE_KEY
-} from './runtime/languageService';
+import { createLanguageService, LANGUAGE_STORAGE_KEY } from './runtime/languageService';
 import { createPageRuntime } from './runtime/pageRuntime';
 import { createStorageAdapter } from './runtime/storageAdapter';
 
@@ -25,6 +21,7 @@ export type { I18nBinder, I18nBindingAdapter, I18nBindingHandle, I18nResource } 
 export type { Messages, Language } from './locales';
 export { DEFAULT_LANGUAGE };
 export { resolveLanguage } from './config';
+export { formatMessage } from './messageFormatter';
 
 let languageStorage: StorageAreaService | null = null;
 
@@ -123,21 +120,6 @@ const pageRuntime = createPageRuntime({
 
 export function loadLocale(language?: string): Promise<Messages> {
   return pageRuntime.loadLocale(language);
-}
-
-/**
- * Format a message with placeholders
- * Example: formatMessage("Hello {name}!", { name: "World" }) => "Hello World!"
- */
-export function formatMessage(
-  template: string,
-  params: Record<string, string | number | boolean | Date | null | undefined> = {},
-  language?: string
-): string {
-  return formatWithICU(template, {
-    values: params,
-    ...(language !== undefined && { language })
-  });
 }
 
 export interface PageI18nControllerOptions {
