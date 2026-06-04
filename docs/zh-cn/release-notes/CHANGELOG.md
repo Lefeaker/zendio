@@ -1,60 +1,33 @@
 # 更新日志
 
-## [0.2.0] - 2025-09-30
+## [0.2.0] - 2026-06-10
 
-### ✨ 新增功能
+### ✨ 主要更新
 
-- **双 URL 配置**: 现在可以分别配置 HTTPS 和 HTTP 两个 URL
-  - 在选项页面添加了 `HTTPS URL` 和 `HTTP URL` 两个独立字段
-  - 扩展会智能选择可用的连接方式
-  - 向后兼容旧的 `baseUrl` 配置
+- **新版设置中心**：重构选项页，集中管理使用概览、界面语言、隐私数据、存储、采集、输出和维护工具。
+- **多 Vault 与智能路由**：支持配置多个 Obsidian 仓库，并按域名、关键词或 URL Pattern 自动选择目标仓库。
+- **更可靠的 Obsidian 写入**：支持 HTTPS / HTTP 双连接、连接测试、本地 Vault 目录写入，并在不可用时回退 REST API。
+- **片段剪藏与阅读模式增强**：新增上下文捕捉、脚注格式、快捷键、高亮主题和阅读导出方式配置。
+- **视频笔记**：支持 YouTube / 哔哩哔哩时间点记录、字幕或评论片段捕捉，以及批注编辑。
+- **AI 对话导出扩展**：支持 ChatGPT、Claude、Gemini、Copilot、通义、DeepSeek、Kimi、豆包、Monica、Perplexity 等平台。
+- **结构化输出**：新增 YAML 配置、路径模板、域名映射、配置迁移和诊断修复工具。
+- **多语言界面**：正式支持 12 种界面语言，并覆盖新版设置页主要入口。
 
-### 🔧 改进
+### 🔧 使用建议
 
-- **智能容错机制增强**
-  - 优先使用用户配置的 HTTPS 和 HTTP URL
-  - 自动在多个协议和端口之间切换
-  - 详细的日志输出，方便调试
-
-### 📝 配置说明
-
-**新的配置方式**（推荐）:
-
-```
-HTTPS URL: https://127.0.0.1:27124/
-HTTP URL:  http://127.0.0.1:27123/
-Vault:     your-vault-name
-API Key:   your-api-key
-```
-
-**旧的配置方式**（仍然支持）:
-
-```
-Base URL:  https://127.0.0.1:27124/
-Vault:     your-vault-name
-API Key:   your-api-key
-```
-
-### 🎯 使用建议
-
-1. 配置两个 URL（HTTPS 和 HTTP），让扩展自动选择可用的连接
-2. 如果不确定端口，可以在 Obsidian 的 Local REST API 插件设置中查看
-3. 通常 HTTPS 端口为 27124，HTTP 端口为 27123
-
-### 📚 技术细节
-
-- 修改了 `src/background/store.ts` 添加 `httpsUrl` 和 `httpUrl` 字段
-- 更新了 `src/options/index.html` 和 `src/options/index.ts` 配置页面
-- 增强了 `src/background/sinks/obsidianRest.ts` 的容错逻辑
-- 改进了 `src/background/index.ts` 的连接测试功能
+1. 先在 Storage 中配置默认仓库，再按需要添加附加仓库和路由规则。
+2. Chromium 浏览器可选本地 Vault 目录写入；Firefox 继续使用 REST API 路径。
+3. AI 页面总结、阅读顶部总结和字幕翻译仍在规划中，本版本不作为已发布能力开放。
 
 ---
 
-## [0.1.0] - 2025-09-26
+## [0.1.0] - 2025-10-13
 
 ### 🎉 初始版本
 
-- 基本的网页剪藏功能
+- 网页剪藏基础能力上线
 - Obsidian Local REST API 集成
-- 模板系统
+- 基础路径模板和域名映射
 - AI 分类器支持
+- AI 对话导出起步支持
+- 多语言界面起步支持

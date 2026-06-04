@@ -609,26 +609,31 @@ export const previewContent: PreviewContent = {
       hero: {
         title: 'Changelog',
         description: '这里直接使用项目中的更新日志重点内容，保持和真实版本记录一致。',
-        pills: ['v0.2.0', 'Dual URL', 'Fallback', 'v0.1.0'],
+        pills: ['v0.2.0', 'Settings Center', 'Multi-Vault', 'Video', '12 Languages'],
         icon: 'history'
       },
       entries: [
         {
           version: 'v0.2.0',
-          date: '2025-09-30',
+          date: '2026-06-10',
           bullets: [
-            '新增双 URL 配置，可分别填写 HTTPS URL 与 HTTP URL',
-            '扩展会在多个协议和端口之间自动容错切换',
-            '连接测试与日志输出进一步增强'
+            '重构选项页为新的设置中心，集中管理使用概览、界面语言、隐私数据、存储、采集、输出和维护工具',
+            '新增多 Vault 管理与智能路由，可按域名、关键词或 URL Pattern 自动选择目标 Obsidian 仓库',
+            '强化 Obsidian 写入链路，支持 HTTPS / HTTP 双连接、连接测试、本地 Vault 目录写入和 REST API 回退',
+            '增强片段剪藏与阅读模式，支持上下文捕捉、脚注格式、快捷键、高亮主题和阅读导出方式配置',
+            '新增视频笔记能力，支持 YouTube / 哔哩哔哩时间点记录、字幕或评论片段捕捉和批注编辑',
+            '扩展 AI 对话导出，支持 ChatGPT、Claude、Gemini、Copilot、通义、DeepSeek、Kimi、豆包、Monica、Perplexity 等平台',
+            '新增结构化 YAML 配置、路径模板、域名映射、配置迁移和诊断修复工具',
+            '正式支持 12 种界面语言，覆盖新版设置页主要入口'
           ]
         },
         {
           version: 'v0.1.0',
-          date: '2025-09-26',
+          date: '2025-10-13',
           bullets: [
-            '基础网页剪藏功能上线',
+            '网页剪藏基础能力上线',
             '集成 Obsidian Local REST API',
-            '支持模板系统、域名映射和多平台 AI 对话导出'
+            '支持基础路径模板、域名映射、AI 分类器和 AI 对话导出起步能力'
           ]
         }
       ]
