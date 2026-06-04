@@ -4,7 +4,11 @@ import type { ContentSelectionTracker } from './contentSelectionTracker';
 import { isVideoSessionActive } from './contentSessionRegistry';
 import type { SupportProgressReporter } from './supportProgress';
 import { hasUsableSelection } from './selectionSnapshot';
-import type { ClipFlowResult, VideoSelectionController } from './clipFlowTypes';
+import type {
+  ClipFlowResult,
+  SelectionPromptLifecycleHandlers,
+  VideoSelectionController
+} from './clipFlowTypes';
 
 export async function prepareSelectionClip(
   document: Document,
@@ -12,7 +16,8 @@ export async function prepareSelectionClip(
   runtimeState: ContentRuntimeState,
   selectionTracker: ContentSelectionTracker,
   selectionController: VideoSelectionController,
-  showSupportProgress?: SupportProgressReporter
+  showSupportProgress?: SupportProgressReporter,
+  promptLifecycle?: SelectionPromptLifecycleHandlers
 ): Promise<ClipFlowResult | undefined> {
   let selectionInfo = selectionTracker.resolveActiveSelection();
   if (
@@ -40,7 +45,13 @@ export async function prepareSelectionClip(
     return undefined;
   }
 
-  const clip = await selectionController.handleSelectionClip(document, url, selection);
+  promptLifecycle?.onPromptOpened?.();
+  const clip = await selectionController.handleSelectionClip(
+    document,
+    url,
+    selection,
+    promptLifecycle
+  );
   runtimeState.setClipMode('full');
   runtimeState.setLastSelectionSnapshot(null);
   if (!clip) {

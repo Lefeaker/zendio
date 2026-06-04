@@ -1,5 +1,18 @@
 import { normalizeToAppError } from '../../shared/errors';
-import type { ClipFlowHandlers, ClipFlowResult, InitClipFlowOptions } from './clipFlowTypes';
+import { bucketCount, createFeatureTimer, type ContentType } from '../../shared/analytics';
+import {
+  createTrackUsageEventMessage,
+  type TrackUsageEventPayload,
+  type UsageEventParamMap
+} from '../../shared/types/analytics';
+import { isAIChat } from '../detect';
+import type {
+  ClipAnalyticsSource,
+  ClipFlowHandlers,
+  ClipFlowResult,
+  InitClipFlowOptions,
+  SelectionPromptLifecycleHandlers
+} from './clipFlowTypes';
 import {
   handleAutoSelectionClip,
   handleModifierKey,
@@ -12,6 +25,19 @@ export type {
   InitClipFlowOptions,
   VideoSelectionController
 } from './clipFlowTypes';
+
+type ClipAnalyticsEventName =
+  | 'clip_started'
+  | 'clip_prompt_opened'
+  | 'clip_prompt_submitted'
+  | 'clip_prompt_cancelled'
+  | 'extraction_completed';
+
+let queuedClipAnalyticsSource: ClipAnalyticsSource | null = null;
+
+export function queueNextClipAnalyticsSource(source: ClipAnalyticsSource): void {
+  queuedClipAnalyticsSource = source;
+}
 
 export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   const {
@@ -28,24 +54,35 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
     const url = location.href;
     const doc = document;
     const clipMode = runtimeState.getClipMode();
+    const source = consumeQueuedClipAnalyticsSource();
+    const timer = createFeatureTimer();
+    const startedContentType = inferStartedContentType(clipMode, url, doc);
     if (clipMode !== 'selection') {
       showSupportProgress?.({
         value: 8,
         label: '正在准备网页剪藏'
       });
     }
+    emitClipAnalyticsEvent(messaging, 'clip_started', {
+      operation_id: timer.operationId,
+      source,
+      content_type: startedContentType
+    });
+
     try {
       let result: ClipFlowResult | undefined;
 
       if (clipMode === 'selection') {
         const { prepareSelectionClip } = await import('./clipFlowSelection');
+        const promptLifecycle = createSelectionPromptLifecycle(timer.operationId);
         result = await prepareSelectionClip(
           doc,
           url,
           runtimeState,
           selectionTracker,
           selectionController,
-          showSupportProgress
+          showSupportProgress,
+          promptLifecycle
         );
         if (!result) {
           return;
@@ -53,6 +90,13 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       } else {
         result = await extractorRegistry.extract({ url, document: doc });
       }
+
+      emitClipAnalyticsEvent(messaging, 'extraction_completed', {
+        operation_id: timer.operationId,
+        content_type: inferCompletedContentType(clipMode, result),
+        duration_bucket: timer.durationBucket(),
+        ...buildAttachmentCountBucket(result)
+      });
 
       const { sendClipResult } = await import('./clipFlowDispatch');
       await sendClipResult(messaging, result, url);
@@ -65,6 +109,26 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       });
       const { emitClipError } = await import('./clipFlowDispatch');
       await emitClipError(messaging, appError);
+    }
+
+    function createSelectionPromptLifecycle(operationId: string): SelectionPromptLifecycleHandlers {
+      return {
+        onPromptOpened: () =>
+          emitClipAnalyticsEvent(messaging, 'clip_prompt_opened', {
+            operation_id: operationId,
+            content_type: 'selection'
+          }),
+        onPromptSubmitted: () =>
+          emitClipAnalyticsEvent(messaging, 'clip_prompt_submitted', {
+            operation_id: operationId,
+            content_type: 'selection'
+          }),
+        onPromptCancelled: () =>
+          emitClipAnalyticsEvent(messaging, 'clip_prompt_cancelled', {
+            operation_id: operationId,
+            content_type: 'selection'
+          })
+      };
     }
   }
 
@@ -79,11 +143,81 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   return {
     handleClip,
     handleAutoSelectionClip: (event) =>
-      handleAutoSelectionClip(document, runtimeState, selectionTracker, handleClip, event),
+      handleAutoSelectionClip(
+        document,
+        runtimeState,
+        selectionTracker,
+        () => {
+          queueNextClipAnalyticsSource(
+            runtimeState.isSelectionModifierActive() ? 'shortcut' : 'unknown'
+          );
+          return handleClip();
+        },
+        event
+      ),
     handleModifierKey: (event) => handleModifierKey(runtimeState, event),
     handleWindowBlur: () => handleWindowBlur(runtimeState),
     handlePrimaryMouseDown: (event) => handlePrimaryMouseDown(runtimeState, event),
     handleSelectionChange,
     handleSelectStart
   };
+}
+
+function consumeQueuedClipAnalyticsSource(): ClipAnalyticsSource {
+  const source = queuedClipAnalyticsSource ?? 'unknown';
+  queuedClipAnalyticsSource = null;
+  return source;
+}
+
+function inferStartedContentType(
+  clipMode: 'full' | 'selection',
+  url: string,
+  doc: Document
+): ContentType {
+  if (clipMode === 'selection') {
+    return 'selection';
+  }
+
+  try {
+    return isAIChat(url, doc) ? 'ai_chat' : 'article';
+  } catch {
+    return 'other';
+  }
+}
+
+function inferCompletedContentType(
+  clipMode: 'full' | 'selection',
+  result: ClipFlowResult
+): ContentType {
+  if (clipMode === 'selection') {
+    return 'selection';
+  }
+
+  if (result.type === 'article' || result.type === 'ai_chat') {
+    return result.type;
+  }
+
+  return 'other';
+}
+
+function buildAttachmentCountBucket(result: ClipFlowResult): {
+  attachment_count_bucket?: UsageEventParamMap['extraction_completed']['attachment_count_bucket'];
+} {
+  const attachments = result.meta?.attachments;
+  if (!Array.isArray(attachments)) {
+    return {};
+  }
+
+  return {
+    attachment_count_bucket: bucketCount(attachments.length)
+  };
+}
+
+function emitClipAnalyticsEvent<EventName extends ClipAnalyticsEventName>(
+  messaging: Pick<InitClipFlowOptions['messaging'], 'send'>,
+  event: EventName,
+  params: UsageEventParamMap[EventName]
+): void {
+  const payload = createTrackUsageEventMessage(event, params);
+  void Promise.resolve(messaging.send(payload as TrackUsageEventPayload)).catch(() => undefined);
 }
