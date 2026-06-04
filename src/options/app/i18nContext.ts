@@ -1,5 +1,4 @@
-import type { I18nBinder, I18nResource, Messages } from '../../i18n';
-import { getMessages } from '../../i18n';
+import { getMessages, type I18nBinder, type I18nResource, type Messages } from '@i18n';
 
 let currentBinder: I18nBinder | null = null;
 let currentResource: I18nResource | null = null;

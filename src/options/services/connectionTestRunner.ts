@@ -1,5 +1,5 @@
 import type { ConnectionTestResult } from '../../shared/types/connection';
-import type { Messages } from '../../i18n/locales';
+import type { Messages } from '@i18n';
 import { isAppError, normalizeToAppError } from '../../shared/errors';
 
 export interface ConnectionTestRunnerConfig {

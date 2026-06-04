@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { attachDragHandlers, createPromptElement, updatePromptLabels } from './videoPromptRenderer';
 import {

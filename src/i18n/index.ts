@@ -19,7 +19,7 @@ export { createPageI18nController } from './pageController';
 export type { PageI18nController } from './pageController';
 export type { I18nBinder, I18nBindingAdapter, I18nBindingHandle, I18nResource } from './types';
 export type { Messages, Language } from './locales';
-export { DEFAULT_LANGUAGE };
+export { DEFAULT_LANGUAGE, DEFAULT_RUNTIME_MESSAGES };
 export { resolveLanguage } from './config';
 export { formatMessage } from './messageFormatter';
 
@@ -110,16 +110,24 @@ export function getAvailableLanguages(): Array<{
 /**
  * Load locale module and update document metadata.
  */
-const pageRuntime = createPageRuntime({
-  loadLocaleDefinition,
-  defaultRuntimeMessages: DEFAULT_RUNTIME_MESSAGES,
-  getMessagesForLanguage: (language) => getMessagesForLanguage(language),
-  getCurrentLanguage: () => getCurrentLanguage(),
-  setCurrentLanguage: (language) => setCurrentLanguage(language)
-});
+let pageRuntime: ReturnType<typeof createPageRuntime> | null = null;
+
+function getPageRuntime(): ReturnType<typeof createPageRuntime> {
+  if (!pageRuntime) {
+    pageRuntime = createPageRuntime({
+      loadLocaleDefinition,
+      defaultRuntimeMessages: DEFAULT_RUNTIME_MESSAGES,
+      getMessagesForLanguage: (language) => getMessagesForLanguage(language),
+      getCurrentLanguage: () => getCurrentLanguage(),
+      setCurrentLanguage: (language) => setCurrentLanguage(language)
+    });
+  }
+
+  return pageRuntime;
+}
 
 export function loadLocale(language?: string): Promise<Messages> {
-  return pageRuntime.loadLocale(language);
+  return getPageRuntime().loadLocale(language);
 }
 
 export interface PageI18nControllerOptions {
@@ -129,5 +137,5 @@ export interface PageI18nControllerOptions {
 export function createDefaultPageI18nController(
   options: PageI18nControllerOptions = {}
 ): PageI18nController {
-  return pageRuntime.createDefaultPageI18nController(options);
+  return getPageRuntime().createDefaultPageI18nController(options);
 }

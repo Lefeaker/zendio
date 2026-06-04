@@ -1,5 +1,4 @@
-import type { Messages } from '../../i18n/messages';
-import type { I18nResource } from '../../i18n/types';
+import type { I18nResource, Messages } from '@i18n';
 import { getTextBudget, type TextBudget } from './budgets';
 import { logTextOverflowEvent } from './overflowLogger';
 import type { AdaptiveTextResult } from './textAdaptationTypes';
