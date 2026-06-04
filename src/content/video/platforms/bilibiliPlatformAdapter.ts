@@ -11,9 +11,11 @@ import {
   buildBilibiliSearchCandidates,
   extractBilibiliSelection,
   extractBilibiliSelectionFromEvent,
+  findBilibiliTextRangeInScopedNodes,
   findBilibiliTextRangeInShadowDOM
 } from './bilibiliPlatformSelection';
 import { BilibiliShadowObserver } from './bilibiliPlatformObserver';
+import { collectBilibiliCommentRestoreRoots } from './bilibiliCommentRestoreScope';
 
 export class BilibiliVideoPlatform extends BaseVideoPlatform {
   private readonly selectionHelpers = {
@@ -94,7 +96,11 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
       if (shadowRange) {
         return shadowRange;
       }
-      const range = super.findTextRange(candidate);
+      const range = findBilibiliTextRangeInScopedNodes(
+        candidate,
+        this.selectionHelpers,
+        collectBilibiliCommentRestoreRoots(this.document)
+      );
       if (range) {
         return range;
       }

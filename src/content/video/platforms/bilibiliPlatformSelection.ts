@@ -1,4 +1,8 @@
-import { findBilibiliTextRangeAcrossShadowRoots } from './bilibiliShadowSearch';
+import {
+  findBilibiliTextRangeAcrossScopedNodes,
+  findBilibiliTextRangeAcrossShadowRoots
+} from './bilibiliShadowSearch';
+import { collectBilibiliCommentShadowHosts } from './bilibiliCommentRestoreScope';
 import {
   buildRangeCoveringBilibiliRichTextHost,
   extractTextFromBilibiliRichTextHost,
@@ -6,19 +10,6 @@ import {
   resolveBilibiliRichTextHosts
 } from './bilibiliRichTextSelectionDom';
 import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
-
-const BILIBILI_SHADOW_HOST_SELECTOR = [
-  'bili-comments',
-  'bili-comment-thread-renderer',
-  'bili-comment-renderer',
-  'bili-comment-reply-renderer',
-  'bili-rich-text',
-  'bili-emoji',
-  'bili-avatar',
-  'bili-at',
-  'bili-link',
-  'bili-dyn-content'
-].join(',');
 
 export function buildBilibiliSearchCandidates(normalized: string): string[] {
   const variants = new Set<string>();
@@ -48,6 +39,18 @@ export function findBilibiliTextRangeInShadowDOM(
     return null;
   }
   return findBilibiliTextRangeAcrossShadowRoots(normalized, helpers, roots);
+}
+
+export function findBilibiliTextRangeInScopedNodes(
+  text: string,
+  helpers: BilibiliSelectionHelpers,
+  roots: readonly Node[]
+): Range | null {
+  const normalized = helpers.normalizeWhitespace(text);
+  if (!normalized || !roots.length) {
+    return null;
+  }
+  return findBilibiliTextRangeAcrossScopedNodes(normalized, helpers, roots);
 }
 
 export function extractBilibiliSelection(
@@ -120,18 +123,7 @@ export function extractBilibiliSelectionFromEvent(
 }
 
 export function queryBilibiliShadowHosts(doc: Document): HTMLElement[] {
-  const hosts: HTMLElement[] = [];
-  const rootHosts = doc.querySelectorAll<HTMLElement>('bili-comments');
-  rootHosts.forEach((host) => {
-    hosts.push(host);
-    host.shadowRoot
-      ?.querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR)
-      .forEach((nestedHost) => hosts.push(nestedHost));
-  });
-  doc
-    .querySelectorAll<HTMLElement>(BILIBILI_SHADOW_HOST_SELECTOR)
-    .forEach((host) => hosts.push(host));
-  return dedupeByIdentity(hosts);
+  return collectBilibiliCommentShadowHosts(doc);
 }
 
 export function buildRangeCoveringBilibiliRichText(
@@ -139,15 +131,4 @@ export function buildRangeCoveringBilibiliRichText(
   helpers: BilibiliSelectionHelpers
 ): Range | null {
   return buildRangeCoveringBilibiliRichTextHost(host, helpers);
-}
-
-function dedupeByIdentity<T extends object>(items: T[]): T[] {
-  const seen = new WeakSet<T>();
-  return items.filter((item) => {
-    if (seen.has(item)) {
-      return false;
-    }
-    seen.add(item);
-    return true;
-  });
 }

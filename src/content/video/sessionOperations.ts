@@ -16,6 +16,7 @@ import type { VideoSessionPlatformController } from './sessionPlatformController
 import type { VideoSessionDomController } from './sessionDom';
 import { clearVideoSession } from '../runtime/contentSessionRegistry';
 import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
+import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
@@ -113,7 +114,18 @@ export async function handleVideoSessionAddCapture(
   }
   context.syncPanel();
   context.applyHint('saving');
-  await saveVideoCaptures(context);
+  let saveHint: VideoHintState | null;
+  try {
+    saveHint = await saveVideoCaptures(context);
+  } catch (error) {
+    console.warn('[VideoSession] Failed to save timestamp capture:', error);
+    rollbackVideoSessionAddCapture(context, capture, shouldLeasePlayback);
+    return null;
+  }
+  if (saveHint === 'failure') {
+    rollbackVideoSessionAddCapture(context, capture, shouldLeasePlayback);
+    return null;
+  }
   context.syncPanel();
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
@@ -124,6 +136,23 @@ export async function handleVideoSessionAddCapture(
     void Promise.resolve(video.play()).catch(() => undefined);
   }
   return capture;
+}
+
+function rollbackVideoSessionAddCapture(
+  context: VideoSessionOperationContext,
+  capture: VideoTimestampCapture,
+  releasePlaybackLease: boolean
+): void {
+  const captureIndex = context.state.captures.findIndex((item) => item.id === capture.id);
+  if (captureIndex !== -1) {
+    context.state.captures.splice(captureIndex, 1);
+  }
+  if (releasePlaybackLease) {
+    context.releasePlaybackEditLease?.(capture.id, true);
+  }
+  context.dom.stopEditing();
+  context.syncPanel();
+  context.applyHint('failure');
 }
 
 export function ingestVideoSessionTextCapture(
@@ -482,9 +511,12 @@ function focusFragmentCapture(
   context.highlightFragmentText(capture.selectedText);
 }
 
-async function saveVideoCaptures(context: VideoSessionOperationContext): Promise<void> {
+async function saveVideoCaptures(
+  context: VideoSessionOperationContext
+): Promise<VideoHintState | null> {
   const hintState = await context.platformController.saveCaptures();
   if (hintState) {
     context.applyHint(hintState);
   }
+  return hintState;
 }

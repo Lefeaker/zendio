@@ -388,6 +388,57 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('rolls back an add-note capture and playback lease when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    saveCaptureDataMock.mockRejectedValueOnce(new Error('save failed'));
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+
+    await session.start();
+
+    const video = document.querySelector('video');
+    if (!(video instanceof HTMLVideoElement)) {
+      throw new Error('video fixture did not mount');
+    }
+    let paused = false;
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+    view.setCaptures.mockClear();
+    view.beginEditingCapture.mockClear();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    await session.addCurrentTimestamp('note-input');
+
+    expect(saveCaptureDataMock).toHaveBeenCalledTimes(1);
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toEqual([]);
+    expect(view.beginEditingCapture).not.toHaveBeenCalled();
+    expect(view.stopEditing).toHaveBeenCalled();
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+
+    paused = false;
+    video.dispatchEvent(new Event('play'));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
   it('keeps playback paused while a note editor remains active', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));

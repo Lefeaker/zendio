@@ -767,6 +767,51 @@ describe('BilibiliVideoPlatform', () => {
     expect(range?.toString()).toBe(targetText);
   });
 
+  it('does not restore from unrelated page body text outside Bilibili comment regions', () => {
+    const targetText = 'outside body restore target';
+    document.body.innerHTML = `<main><p>${targetText}</p></main>`;
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('does not restore from unrelated page shadow roots outside Bilibili comment regions', () => {
+    const targetText = 'outside shadow restore target';
+    const host = document.createElement('section');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    document.body.append(host);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('does not restore from unrelated bili-rich-text shadow roots outside Bilibili comment regions', () => {
+    const targetText = 'outside rich text target';
+    const host = document.createElement('bili-rich-text');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    document.body.append(host);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
+  it('restores from bili-rich-text shadow roots inside legacy Bilibili comment containers', () => {
+    const targetText = 'inside legacy comment rich text target';
+    const wrapper = document.createElement('div');
+    wrapper.id = 'comment';
+    const host = document.createElement('bili-rich-text');
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = `<p>${targetText}</p>`;
+    wrapper.append(host);
+    document.body.append(wrapper);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const range = platform.findTextRange(targetText);
+
+    expect(range?.toString()).toBe(targetText);
+  });
+
   it('falls back when rich text containers or ranges cannot be resolved', () => {
     const platform = new BilibiliVideoPlatform(createContext(document));
     const platformAny = platform as unknown as {

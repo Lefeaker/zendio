@@ -7,6 +7,7 @@ import {
   ensureVideoControlBarButton,
   removeVideoControlBarButton,
   type VideoControlBarNotePayload,
+  type VideoControlBarPopoverCloseReason,
   type VideoControlBarPreferences
 } from './videoControlBarButton';
 import {
@@ -27,7 +28,7 @@ interface VideoPromptControlTargetLifecycleOptions {
   onPrimaryAction(
     preferences: VideoControlBarPreferences,
     payload?: VideoControlBarNotePayload
-  ): void;
+  ): void | PromiseLike<void>;
   onTargetObserved(): void;
   incrementSyncCount(): void;
 }
@@ -43,6 +44,10 @@ export function createVideoPromptControlTargetLifecycle(
   function releasePopoverPlaybackLease(restorePlayback: boolean): void {
     popoverPlaybackLease?.release({ restorePlayback });
     popoverPlaybackLease = null;
+  }
+
+  function isPromiseLike(value: void | PromiseLike<void>): value is PromiseLike<void> {
+    return value !== undefined && typeof value.then === 'function';
   }
 
   function clearObserver(): void {
@@ -95,12 +100,32 @@ export function createVideoPromptControlTargetLifecycle(
       onPopoverDismiss: (preferences) => {
         releasePopoverPlaybackLease(preferences.autoPauseEnabled);
       },
-      onPrimaryAction: (preferences, payload) => {
-        try {
-          options.onPrimaryAction(preferences, payload);
-        } finally {
-          releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+      onPopoverClose: (reason: VideoControlBarPopoverCloseReason) => {
+        if (reason === 'owner-removal') {
+          releasePopoverPlaybackLease(false);
         }
+      },
+      onPrimaryAction: (preferences, payload) => {
+        let result: void | PromiseLike<void>;
+        try {
+          result = options.onPrimaryAction(preferences, payload);
+        } catch (error) {
+          releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+          throw error;
+        }
+        if (isPromiseLike(result)) {
+          return result.then(
+            () => {
+              releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+            },
+            (error: Error) => {
+              releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+              throw error;
+            }
+          );
+        }
+        releasePopoverPlaybackLease(preferences.autoPauseEnabled);
+        return undefined;
       }
     });
   }

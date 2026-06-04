@@ -175,12 +175,14 @@ const ensureVideoControlBarButtonMock = vi.hoisted(() =>
           captureScreenshotEnabled: boolean;
         },
         payload?: { comment?: string; source?: string }
-      ): void;
+      ): void | PromiseLike<void>;
     }) => {
       const button = options.doc.createElement('button');
       button.className = 'aiob-video-control-bar-button';
       button.dataset.aiobVideoControlBarButton = 'true';
-      button.addEventListener('click', () => options.onPrimaryAction(options.preferences));
+      button.addEventListener('click', () => {
+        void Promise.resolve(options.onPrimaryAction(options.preferences)).catch(() => undefined);
+      });
       options.doc.body.appendChild(button);
       return true;
     }
@@ -334,7 +336,7 @@ const createStorageAreaStub = (): StorageAreaStub => ({
   watchAll: vi.fn(() => vi.fn())
 });
 
-function createTestDependencies(): TestDeps {
+function createTestDependencies(): TestDeps & VideoPromptDependencies {
   let configListener: ((config: VideoOptionsStub) => void) | null = null;
   let languageWatcher: (() => void) | null = null;
 
@@ -402,7 +404,7 @@ function createTestDependencies(): TestDeps {
     getRuntimeTheme: vi.fn<(...args: []) => Promise<null>>(() => Promise.resolve(null)),
     emitConfigChange: (config) => configListener?.(config),
     triggerLanguageChange: () => languageWatcher?.()
-  } as TestDeps & { createVideoSession: typeof videoSessionFactoryMock };
+  } as TestDeps & VideoPromptDependencies;
 }
 
 describe('video prompt', () => {
@@ -457,7 +459,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     expect(deps.videoRepo.getVideoConfig).toHaveBeenCalled();
@@ -618,6 +620,73 @@ describe('video prompt', () => {
       resumePlayback: false,
       collapseAfterCapture: true
     });
+  });
+
+  it('keeps auto-paused playback leased until an async control-bar capture finishes', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    let resolveCapture = (): void => {
+      throw new Error('control-bar capture promise was not initialized');
+    };
+    const capturePromise = new Promise<void>((resolve) => {
+      resolveCapture = () => resolve();
+    });
+    addCurrentTimestampMock.mockImplementationOnce(() => capturePromise);
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    const video = document.createElement('video');
+    document.body.appendChild(video);
+    let paused = false;
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    const pauseSpy = vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+    controlOptions?.onPopoverOpen?.({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+
+    controlOptions?.onPrimaryAction(
+      {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      {
+        comment: 'slow capture',
+        source: 'note-input'
+      }
+    );
+    await flushMicrotasks();
+
+    paused = false;
+    video.dispatchEvent(new Event('play'));
+
+    expect(addCurrentTimestampMock).toHaveBeenCalled();
+    expect(pauseSpy).toHaveBeenCalledTimes(2);
+    expect(playSpy).not.toHaveBeenCalled();
+
+    resolveCapture();
+    await capturePromise;
+    await flushMicrotasks();
+
+    expect(playSpy).toHaveBeenCalledTimes(1);
   });
 
   it('resumes playback when an auto-paused control-bar popover is dismissed outside', async () => {

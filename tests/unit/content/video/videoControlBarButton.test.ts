@@ -375,6 +375,41 @@ describe('ensureVideoControlBarButton', () => {
     expect(onPrimaryAction).not.toHaveBeenCalled();
   });
 
+  it('notifies dismiss and removes the outside pointer listener when the button toggles the popover closed', () => {
+    mountYoutubeControls();
+    const onPrimaryAction = vi.fn();
+    const onPopoverDismiss = vi.fn();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPopoverDismiss,
+      onPrimaryAction
+    });
+
+    const button = document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button');
+    button?.click();
+    button?.click();
+
+    expect(document.querySelector('.aiob-video-control-bar-popover')).toBeNull();
+    expect(onPopoverDismiss).toHaveBeenCalledTimes(1);
+    expect(onPopoverDismiss).toHaveBeenCalledWith({
+      autoPauseEnabled: true,
+      captureScreenshotEnabled: true
+    });
+
+    document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    expect(onPopoverDismiss).toHaveBeenCalledTimes(1);
+    expect(onPrimaryAction).not.toHaveBeenCalled();
+  });
+
   it('restores playback on outside dismiss only when the popover paused a playing video', () => {
     const lifecycle = mountControlTargetLifecycle();
     const { pauseSpy, playSpy } = mountControlledVideo(false);
@@ -388,6 +423,24 @@ describe('ensureVideoControlBarButton', () => {
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
 
     expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores playback when the control-bar button toggles an open popover closed', () => {
+    const lifecycle = mountControlTargetLifecycle();
+    const { video, pauseSpy, playSpy, setPaused } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    const button = document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button');
+    button?.click();
+    button?.click();
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+
+    setPaused(false);
+    video.dispatchEvent(new Event('play'));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
   });
 
   it('does not resume an initially paused video after outside dismiss', () => {
@@ -456,6 +509,57 @@ describe('ensureVideoControlBarButton', () => {
         source: 'note-input'
       }
     );
+    expect(playSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the popover playback lease active until an async primary action settles', async () => {
+    let resolvePrimaryAction = (): void => {
+      throw new Error('primary action promise was not initialized');
+    };
+    const primaryActionPromise = new Promise<void>((resolve) => {
+      resolvePrimaryAction = () => resolve();
+    });
+    const onPrimaryAction = vi.fn(() => primaryActionPromise);
+    mountYoutubeControls();
+    const lifecycle = createVideoPromptControlTargetLifecycle({
+      getDocument: () => document,
+      getWindow: () => window,
+      getUrl: () => 'https://www.youtube.com/watch?v=abc123',
+      getLabel: () => '开启视频笔记',
+      getShortcut: () => '',
+      getPreferences: () => ({
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      }),
+      setPreferences: vi.fn(),
+      getIconUrl: () => null,
+      onPrimaryAction,
+      onTargetObserved: vi.fn(),
+      incrementSyncCount: vi.fn()
+    });
+    const { video, pauseSpy, playSpy, setPaused } = mountControlledVideo(false);
+
+    lifecycle.syncButton();
+    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    const input = document.querySelector<HTMLInputElement>(
+      '[data-aiob-video-control-bar-note-input="true"]'
+    );
+    if (!input) {
+      throw new Error('control-bar popover did not open');
+    }
+    input.value = 'submit note';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    setPaused(false);
+    video.dispatchEvent(new Event('play'));
+
+    expect(pauseSpy).toHaveBeenCalledTimes(2);
+    expect(playSpy).not.toHaveBeenCalled();
+
+    resolvePrimaryAction();
+    await primaryActionPromise;
+    await Promise.resolve();
+
     expect(playSpy).toHaveBeenCalledTimes(1);
   });
 
