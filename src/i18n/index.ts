@@ -7,7 +7,7 @@ import {
   loadMessagesWithFallback,
   Messages
 } from './locales';
-import { AVAILABLE_LANGUAGES, resolveLanguage } from './config';
+import { AVAILABLE_LANGUAGES } from './config';
 import type { PageI18nController } from './pageController';
 import type { I18nBindingAdapter } from './types';
 import { errorHandler, i18nErrors } from '../shared/errors';

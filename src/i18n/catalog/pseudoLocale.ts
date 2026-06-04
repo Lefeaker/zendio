@@ -8,7 +8,7 @@ import {
   pseudoLocalizeRecord,
   pseudoLocalizeStatic
 } from '../pseudoLocalization';
-import type { DynamicMessageTemplates } from './dynamicTemplates';
+import type { DynamicMessageTemplates } from './dynamicTypes';
 
 const ENGLISH_RUNTIME_MESSAGES = GENERATED_RELEASE_LOCALE_MESSAGES_EN as Messages;
 const ENGLISH_SCHEMA_MESSAGES = schemaShellMessagesEnglish;

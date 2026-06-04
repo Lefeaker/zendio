@@ -66,8 +66,8 @@ export function createPageRuntime(options: PageRuntimeOptions): PageRuntime {
         bindingAdapter,
         defaultLanguage,
         loadMessages: (language) => options.getMessagesForLanguage(language),
-        getCurrentLanguage: options.getCurrentLanguage,
-        setCurrentLanguage: options.setCurrentLanguage
+        getCurrentLanguage: () => options.getCurrentLanguage(),
+        setCurrentLanguage: (language) => options.setCurrentLanguage(language)
       });
     }
   };

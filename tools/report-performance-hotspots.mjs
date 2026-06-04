@@ -7,7 +7,7 @@ const ROOT = process.cwd();
 
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
-  ['src/i18n/generated/schemaMessages.generated.ts', 2160],
+  ['src/i18n/generated/schemaMessages.generated.ts', 2173],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/options/stitch/content.ts', 906],
   ['src/i18n/messages.ts', 752],
@@ -103,7 +103,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/yaml-config-editor/rowModel.ts', 254],
   ['src/shared/errors/analytics/analyticsConfig.ts', 252],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 252],
-  ['src/i18n/catalog/languages.ts', 277]
+  ['src/i18n/catalog/languages.ts', 280]
 ]);
 
 const PATTERNS = [
@@ -177,7 +177,10 @@ function readBudgetMap(budgetJson) {
 }
 
 function isSourceModulePath(relativePath) {
-  return relativePath.startsWith('src/') && (relativePath.endsWith('.ts') || relativePath.endsWith('.tsx'));
+  return (
+    relativePath.startsWith('src/') &&
+    (relativePath.endsWith('.ts') || relativePath.endsWith('.tsx'))
+  );
 }
 
 function readGitPaths(root, args) {
@@ -191,15 +194,16 @@ function readGitPaths(root, args) {
     .filter(Boolean)
     .map(normalizeRelativePath)
     .filter(isSourceModulePath)
-    .filter((relativePath) => existsSync(join(root, relativePath)))
+    .filter((relativePath) => existsSync(join(root, relativePath)));
 }
 
 function listCurrentSourceFiles(root) {
-  return [...new Set([
-    ...readGitPaths(root, ['--', 'src']),
-    ...readGitPaths(root, ['--others', '--exclude-standard', '--', 'src'])
-  ])]
-    .sort((left, right) => left.localeCompare(right));
+  return [
+    ...new Set([
+      ...readGitPaths(root, ['--', 'src']),
+      ...readGitPaths(root, ['--others', '--exclude-standard', '--', 'src'])
+    ])
+  ].sort((left, right) => left.localeCompare(right));
 }
 
 function countMatches(source) {

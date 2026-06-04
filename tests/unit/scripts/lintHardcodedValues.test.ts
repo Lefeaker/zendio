@@ -77,6 +77,29 @@ describe('lint-hardcoded-values allowlists', () => {
     expect(linter.errors.length).toBeGreaterThan(0);
   });
 
+  it('allows generated localized REST examples only on onboarding detail keys', async () => {
+    const allowed = await lintSource(
+      'i18n/generated/localeRegistry.generated.ts',
+      [
+        'export const GENERATED_LOCALE_MESSAGES_EN = {',
+        `  step1Detail3: 'Note the HTTPS URL (usually ${HTTPS_REST_URL})',`,
+        `  step1Detail4: 'Note the HTTP URL (usually ${HTTP_REST_URL})',`,
+        '};'
+      ].join('\n')
+    );
+    expect(allowed.errors).toEqual([]);
+
+    const rejected = await lintSource(
+      'i18n/generated/localeRegistry.generated.ts',
+      [
+        'export const GENERATED_LOCALE_MESSAGES_EN = {',
+        `  runtimeDefaultUrl: '${HTTPS_REST_URL}',`,
+        '};'
+      ].join('\n')
+    );
+    expect(rejected.errors.length).toBeGreaterThan(0);
+  });
+
   it('allows only exact onboarding fallback REST detail items', async () => {
     const linter = await lintSource(
       'onboarding/index.html',

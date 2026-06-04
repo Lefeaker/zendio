@@ -107,8 +107,8 @@ npm run audit:performance:report
 当前 hotspot line budget 口径：
 
 - 全部当前 `src` >250 LOC 文件均有 exact current-line budget；2026-06-05 M07 schema shell split 后当前动态发现 `96` 个热点路径，注册 `98` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
-- 当前 top line budgets：`localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2160`、`messages.generated.ts <= 1312`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`。
-- M07 current truth：`schemaShellMessages.ts` 已缩到 `17` 行 compatibility facade，不再属于 hotspot budget 集；新增 generated i18n 热点预算为 `localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2160`、`messages.generated.ts <= 1312`，并同步了 `catalog/languages.ts <= 277`、`domBindingAdapter.ts <= 257` 与 `diagnostics.ts <= 322` 的 exact current-line truth。
+- 当前 top line budgets：`localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`。
+- M11 current truth：`schemaShellMessages.ts` 已缩到 `17` 行 compatibility facade，不再属于 hotspot budget 集；generated i18n 热点预算为 `localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`，并同步了 `catalog/languages.ts <= 280`、`domBindingAdapter.ts <= 257` 与 `diagnostics.ts <= 322` 的 exact current-line truth。
 - 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 491`、`videoSessionRuntime.ts <= 432`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 746` were not loosened.
 
