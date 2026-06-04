@@ -70,6 +70,15 @@ function buildOnboardingDom(): void {
   `;
 }
 
+async function waitForSentMessage(
+  send: (message: unknown) => unknown,
+  message: unknown
+): Promise<void> {
+  await vi.waitFor(() => {
+    expect(send).toHaveBeenCalledWith(message);
+  });
+}
+
 describe('onboarding bootstrap', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -201,7 +210,7 @@ describe('onboarding bootstrap', () => {
     await Promise.resolve();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_started',
       params: { source: 'install' }
@@ -213,7 +222,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_step_completed',
       params: {
@@ -237,7 +246,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_skipped',
       params: {
@@ -260,14 +269,14 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_support_action',
       params: {
         action: 'docs'
       }
     });
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_step_completed',
       params: {
@@ -290,7 +299,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_completed',
       params: {
@@ -346,7 +355,7 @@ describe('onboarding bootstrap', () => {
       'noopener,noreferrer'
     );
     expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_support_action',
       params: {
@@ -367,7 +376,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(messagingRepository.send).toHaveBeenCalledWith({
+    await waitForSentMessage(messagingRepository.send, {
       type: 'TRACK_USAGE_EVENT',
       event: 'onboarding_support_action',
       params: {

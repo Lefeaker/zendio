@@ -85,16 +85,11 @@ export class AnalyticsConfigManager {
   }
 
   async refreshFromStorage(): Promise<void> {
-    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
-      GA4_CONFIG.STORAGE_KEYS.CONFIG
-    );
-    const storedConsent = await this.storage.local.get<UserConsent>(
-      GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
-    );
-    const storedClientId = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
-    const storedSessionId = await this.storage.local.get<string>(
-      GA4_CONFIG.STORAGE_KEYS.SESSION_ID
-    );
+    const { CLIENT_ID, CONFIG, SESSION_ID, USER_CONSENT } = GA4_CONFIG.STORAGE_KEYS;
+    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(CONFIG);
+    const storedConsent = await this.storage.local.get<UserConsent>(USER_CONSENT);
+    const storedClientId = await this.storage.local.get<string>(CLIENT_ID);
+    const storedSessionId = await this.storage.local.get<string>(SESSION_ID);
 
     this.config = normalizeAnalyticsConfig(storedConfig ?? {});
 
@@ -290,13 +285,10 @@ export function watchAnalyticsConfigStorage(
       });
   };
 
-  const watchedKeys = [
-    GA4_CONFIG.STORAGE_KEYS.CONFIG,
-    GA4_CONFIG.STORAGE_KEYS.USER_CONSENT,
-    GA4_CONFIG.STORAGE_KEYS.CLIENT_ID,
-    GA4_CONFIG.STORAGE_KEYS.SESSION_ID
-  ];
-  const unwatchers = watchedKeys.map((key) => storage.local.watchKey(key, refresh));
+  const { CLIENT_ID, CONFIG, SESSION_ID, USER_CONSENT } = GA4_CONFIG.STORAGE_KEYS;
+  const unwatchers = [CONFIG, USER_CONSENT, CLIENT_ID, SESSION_ID].map((key) =>
+    storage.local.watchKey(key, refresh)
+  );
 
   return () => {
     unwatchers.forEach((unwatch) => unwatch());

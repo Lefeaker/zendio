@@ -110,16 +110,11 @@ export class AnalyticsConfigManager {
   }
 
   async refreshFromStorage(): Promise<void> {
-    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
-      GA4_CONFIG.STORAGE_KEYS.CONFIG
-    );
-    const storedConsent = await this.storage.local.get<UserConsent>(
-      GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
-    );
-    const storedClientId = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
-    const storedSessionId = await this.storage.local.get<string>(
-      GA4_CONFIG.STORAGE_KEYS.SESSION_ID
-    );
+    const { CLIENT_ID, CONFIG, SESSION_ID, USER_CONSENT } = GA4_CONFIG.STORAGE_KEYS;
+    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(CONFIG);
+    const storedConsent = await this.storage.local.get<UserConsent>(USER_CONSENT);
+    const storedClientId = await this.storage.local.get<string>(CLIENT_ID);
+    const storedSessionId = await this.storage.local.get<string>(SESSION_ID);
 
     this.config = normalizeAnalyticsConfig(storedConfig ?? {});
     if (storedClientId) this.config.clientId = storedClientId;
@@ -132,19 +127,14 @@ export class AnalyticsConfigManager {
    * 确保客户端 ID 存在
    */
   private async ensureClientId(): Promise<void> {
-    let clientId = this.config.clientId;
-
-    if (!clientId) {
-      const stored = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
-      clientId = stored;
-    }
-
-    if (!clientId) {
-      clientId = this.generateClientId();
+    const existingClientId =
+      this.config.clientId ??
+      (await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
+    const clientId = existingClientId ?? this.generateClientId();
+    this.config.clientId = clientId;
+    if (!existingClientId) {
       await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
     }
-
-    this.config.clientId = clientId;
   }
 
   async renewSession(): Promise<void> {
@@ -169,18 +159,14 @@ export class AnalyticsConfigManager {
    * 生成客户端 ID
    */
   private generateClientId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 11);
-    return `ext-${timestamp}-${random}`;
+    return `ext-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
   }
 
   /**
    * 生成会话 ID
    */
   private generateSessionId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 7);
-    return `${timestamp}-${random}`;
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 
   /**

@@ -13,18 +13,10 @@ import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import type { PlatformServices } from '../platform/types';
-import { createFeatureTimer, type FeatureTimer } from '../shared/analytics';
 import type { InterfaceTheme } from '../shared/types/options';
-import { createTrackUsageEventMessage } from '../shared/types/analytics';
+import type { OnboardingTrackingRequest } from './onboardingAnalytics';
 
 let declarativeI18nController: PageI18nController | null = null;
-const ONBOARDING_STEP_NAMES = {
-  1: 'welcome',
-  2: 'vault',
-  3: 'privacy',
-  4: 'shortcut',
-  5: 'finish'
-} as const;
 
 type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 
@@ -179,7 +171,8 @@ function resolveOnboardingDependencies(): OnboardingControllerDependencies {
 
 export class OnboardingController {
   private dependencies: OnboardingControllerDependencies | null;
-  private readonly onboardingTimer: FeatureTimer;
+  private readonly onboardingStartedAt: number;
+  private readonly now: () => number;
   private startedTracked = false;
 
   constructor(
@@ -187,7 +180,8 @@ export class OnboardingController {
     dependencies?: OnboardingControllerDependencies
   ) {
     this.dependencies = dependencies ?? null;
-    this.onboardingTimer = createFeatureTimer(dependencies?.now ?? Date.now);
+    this.now = dependencies?.now ?? Date.now;
+    this.onboardingStartedAt = this.now();
   }
 
   initialize(): void {
@@ -230,16 +224,15 @@ export class OnboardingController {
     }
   }
 
-  private async sendTrackingMessage(
-    message: ReturnType<typeof createTrackUsageEventMessage>
-  ): Promise<void> {
+  private async sendTrackingRequest(request: OnboardingTrackingRequest): Promise<void> {
     const messagingRepository = this.getMessagingRepository();
     if (!messagingRepository || !(await this.hasAnalyticsConsent())) {
       return;
     }
 
     try {
-      await messagingRepository.send(message);
+      const { sendOnboardingTrackingEvent } = await import('./onboardingAnalytics');
+      await sendOnboardingTrackingEvent(messagingRepository, request);
     } catch {
       // Ignore analytics failures so onboarding UX stays unaffected.
     }
@@ -250,54 +243,34 @@ export class OnboardingController {
       return;
     }
     this.startedTracked = true;
-    await this.sendTrackingMessage(
-      createTrackUsageEventMessage('onboarding_started', {
-        source: 'install'
-      })
-    );
+    await this.sendTrackingRequest({ name: 'onboarding_started', source: 'install' });
   }
 
   private async trackStepCompleted(stepNumber: number): Promise<void> {
-    const step = ONBOARDING_STEP_NAMES[stepNumber as keyof typeof ONBOARDING_STEP_NAMES];
-    if (!step) {
-      return;
-    }
-
-    await this.sendTrackingMessage(
-      createTrackUsageEventMessage('onboarding_step_completed', {
-        step,
-        duration_bucket: this.onboardingTimer.durationBucket()
-      })
-    );
+    await this.sendTrackingRequest({
+      name: 'onboarding_step_completed',
+      stepNumber,
+      durationMs: this.getOnboardingDurationMs()
+    });
   }
 
   private async trackStepSkipped(stepNumber: number): Promise<void> {
-    const step = ONBOARDING_STEP_NAMES[stepNumber as keyof typeof ONBOARDING_STEP_NAMES];
-    if (!step) {
-      return;
-    }
-
-    await this.sendTrackingMessage(
-      createTrackUsageEventMessage('onboarding_skipped', {
-        step
-      })
-    );
+    await this.sendTrackingRequest({ name: 'onboarding_skipped', stepNumber });
   }
 
   private async trackSupportAction(action: 'contact' | 'feedback' | 'docs'): Promise<void> {
-    await this.sendTrackingMessage(
-      createTrackUsageEventMessage('onboarding_support_action', {
-        action
-      })
-    );
+    await this.sendTrackingRequest({ action, name: 'onboarding_support_action' });
   }
 
   private async trackOnboardingCompleted(): Promise<void> {
-    await this.sendTrackingMessage(
-      createTrackUsageEventMessage('onboarding_completed', {
-        duration_bucket: this.onboardingTimer.durationBucket()
-      })
-    );
+    await this.sendTrackingRequest({
+      durationMs: this.getOnboardingDurationMs(),
+      name: 'onboarding_completed'
+    });
+  }
+
+  private getOnboardingDurationMs(): number {
+    return this.now() - this.onboardingStartedAt;
   }
 
   private bindEventHandlers(): void {
