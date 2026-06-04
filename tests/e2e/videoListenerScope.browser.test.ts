@@ -100,7 +100,8 @@ const testWithExtension = test.extend<{
 });
 
 function createOptionsFixture(
-  fragment: Partial<StoredOptionsFixture['fragmentClipper']> = {}
+  fragment: Partial<StoredOptionsFixture['fragmentClipper']> = {},
+  reading: Partial<StoredOptionsFixture['readingSession']> = {}
 ): StoredOptionsFixture {
   return {
     video: {
@@ -120,7 +121,8 @@ function createOptionsFixture(
     },
     readingSession: {
       exportMode: 'highlights',
-      highlightTheme: 'gradient'
+      highlightTheme: 'gradient',
+      ...reading
     }
   };
 }
@@ -482,6 +484,38 @@ async function countBilibiliRichTextHighlights(page: Page, fixtureId: string): P
   }, fixtureId);
 }
 
+async function isBilibiliRichTextHighlightVisible(page: Page, fixtureId: string): Promise<boolean> {
+  return await page.evaluate((targetFixtureId) => {
+    function findRichTextHost(root: ParentNode): HTMLElement | null {
+      const direct = root.querySelector<HTMLElement>(
+        `bili-rich-text[data-fixture="${targetFixtureId}"]`
+      );
+      if (direct) {
+        return direct;
+      }
+      const elements = Array.from(root.querySelectorAll<HTMLElement>('*'));
+      for (const element of elements) {
+        if (!element.shadowRoot) {
+          continue;
+        }
+        const nested = findRichTextHost(element.shadowRoot);
+        if (nested) {
+          return nested;
+        }
+      }
+      return null;
+    }
+
+    const richText = findRichTextHost(document);
+    const mark = richText?.shadowRoot?.querySelector<HTMLElement>('mark[data-video-fragment-id]');
+    if (!mark) {
+      return false;
+    }
+    const style = getComputedStyle(mark);
+    return style.backgroundImage !== 'none' || style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  }, fixtureId);
+}
+
 testWithExtension.describe('video listener scope browser runtime', () => {
   testWithExtension.slow();
   testWithExtension.setTimeout(60000);
@@ -730,10 +764,13 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         extensionPage,
         BILIBILI_URL,
         bilibiliFixtureHtml(),
-        createOptionsFixture({
-          selectionModifierEnabled: true,
-          selectionModifierKeys: ['shift']
-        })
+        createOptionsFixture(
+          {
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['shift']
+          },
+          { highlightTheme: 'neonOrange' }
+        )
       );
 
       await openVideoPanelFromControlBar(page, 'Bilibili seed capture');
@@ -746,6 +783,9 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         BILIBILI_MAIN_COMMENT_TEXT
       );
       await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+      await expect
+        .poll(() => isBilibiliRichTextHighlightVisible(page, 'main-rich-text'))
+        .toBe(true);
 
       await dragSelectBilibiliRichText(page, 'reply-rich-text');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 2);
@@ -753,6 +793,9 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         BILIBILI_REPLY_COMMENT_TEXT
       );
       await expect.poll(() => countBilibiliRichTextHighlights(page, 'reply-rich-text')).toBe(1);
+      await expect
+        .poll(() => isBilibiliRichTextHighlightVisible(page, 'reply-rich-text'))
+        .toBe(true);
     }
   );
 });

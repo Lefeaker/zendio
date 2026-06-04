@@ -58,6 +58,23 @@ describe('FragmentHighlighter', () => {
     );
   });
 
+  it('keeps solid highlight themes visible inside shadow roots', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const inner = document.createElement('mark');
+    shadow.appendChild(inner);
+
+    const highlighter = new FragmentHighlighter(document);
+    highlighter.setTheme('neonOrange');
+    highlighter.decorateElement(inner);
+
+    const styleText = shadow.querySelector('style')?.textContent ?? '';
+    expect(styleText).toContain('background: var(--reader-highlight-bg');
+    expect(styleText).toContain('!important');
+    expect(styleText).not.toContain('background-color: transparent');
+  });
+
   it('refreshes or removes shadow styles based on host connectivity', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
