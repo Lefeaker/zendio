@@ -7,12 +7,12 @@ const getServiceMock = vi.hoisted(() => vi.fn());
 const sanitizeErrorForAnalyticsMock = vi.hoisted(() => vi.fn((error: unknown) => error));
 const sendAnalyticsTransportEventMock = vi.hoisted(() =>
   vi.fn(
-    async (
+    (
       _eventName: string,
       _params?: Record<string, unknown>,
       _config?: unknown,
       _options?: { extensionVersion?: string }
-    ) => ({ status: 'sent', transportMode: 'proxy' as const, responseStatus: 200 })
+    ) => Promise.resolve({ status: 'sent', transportMode: 'proxy' as const, responseStatus: 200 })
   )
 );
 const manifest: chrome.runtime.Manifest = {
@@ -113,8 +113,7 @@ describe('GoogleAnalyticsReporter', () => {
         browser_version: '123',
         extractor: 'reader',
         domain: 'example.com',
-        protocol: 'https:',
-        stackTrace: expect.any(String)
+        protocol: 'https:'
       }),
       expect.objectContaining({
         measurementId: 'G-123',

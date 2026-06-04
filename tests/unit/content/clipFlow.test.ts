@@ -6,6 +6,28 @@ import type { ContentRuntimeState } from '@content/runtime/contentRuntimeState';
 import type { ContentSelectionTracker } from '@content/runtime/contentSelectionTracker';
 import type { SelectionPromptLifecycleHandlers } from '@content/runtime/clipFlowTypes';
 
+type TrackUsageEventMessage = {
+  type: 'TRACK_USAGE_EVENT';
+  event: string;
+  params?: Record<string, unknown>;
+};
+
+type SendMock = ReturnType<typeof vi.fn<(message: unknown) => Promise<void>>>;
+
+function createSendMock(
+  implementation: (message: unknown) => Promise<void> = () => Promise.resolve()
+): SendMock {
+  return vi.fn<(message: unknown) => Promise<void>>(implementation);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function hasMessageType(message: unknown, type: string): boolean {
+  return isRecord(message) && message.type === type;
+}
+
 function createRuntimeState(mode: 'full' | 'selection'): ContentRuntimeState {
   let clipMode = mode;
   return {
@@ -59,17 +81,14 @@ function createSelection(): Selection {
   } as Selection;
 }
 
-function getTrackEvents(send: ReturnType<typeof vi.fn>) {
+function getTrackEvents(send: SendMock): TrackUsageEventMessage[] {
   return send.mock.calls
     .map(([message]) => message)
     .filter(
-      (
-        message
-      ): message is {
-        type: 'TRACK_USAGE_EVENT';
-        event: string;
-        params?: Record<string, unknown>;
-      } => typeof message === 'object' && message !== null && message.type === 'TRACK_USAGE_EVENT'
+      (message): message is TrackUsageEventMessage =>
+        isRecord(message) &&
+        message.type === 'TRACK_USAGE_EVENT' &&
+        typeof message.event === 'string'
     );
 }
 
@@ -98,11 +117,11 @@ describe('clipFlow support progress', () => {
     const showSupportProgress = vi.fn();
     const flow = initClipFlow({
       document,
-      messaging: { send: vi.fn() },
+      messaging: { send: createSendMock() as never },
       runtimeState: createRuntimeState('selection'),
       selectionTracker: createSelectionTracker(createSelection()),
       selectionController: {
-        handleSelectionClip: vi.fn(async () => null),
+        handleSelectionClip: vi.fn(() => Promise.resolve(null)),
         handleVideoSelectionClip: vi.fn()
       },
       extractorRegistry: { extract: vi.fn() } as never,
@@ -116,7 +135,7 @@ describe('clipFlow support progress', () => {
 
   it('shows support progress only after a selection clip is confirmed', async () => {
     const showSupportProgress = vi.fn();
-    const send = vi.fn(async () => undefined);
+    const send = createSendMock();
     queueNextClipAnalyticsSource('menu');
     const flow = initClipFlow({
       document,
@@ -125,17 +144,17 @@ describe('clipFlow support progress', () => {
       selectionTracker: createSelectionTracker(createSelection()),
       selectionController: {
         handleSelectionClip: vi.fn(
-          async (
+          (
             _document: Document,
             _url: string,
             _selection: Selection,
             promptLifecycle?: SelectionPromptLifecycleHandlers
           ) => {
             promptLifecycle?.onPromptSubmitted?.();
-            return {
+            return Promise.resolve({
               markdown: '# selected',
-              type: 'clipper'
-            };
+              type: 'clipper' as const
+            });
           }
         ),
         handleVideoSelectionClip: vi.fn()
@@ -157,38 +176,32 @@ describe('clipFlow support progress', () => {
 
     const trackEvents = getTrackEvents(send);
     const operationId = trackEvents[0]?.params?.operation_id;
-    expect(trackEvents).toEqual([
-      expect.objectContaining({
-        event: 'clip_started',
-        params: expect.objectContaining({
-          operation_id: expect.stringMatching(/^op_[a-z0-9]{6,24}$/),
-          source: 'menu',
-          content_type: 'selection'
-        })
-      }),
-      expect.objectContaining({
-        event: 'clip_prompt_opened',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'selection'
-        })
-      }),
-      expect.objectContaining({
-        event: 'clip_prompt_submitted',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'selection'
-        })
-      }),
-      expect.objectContaining({
-        event: 'extraction_completed',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'selection',
-          duration_bucket: 'under_100ms'
-        })
-      })
+    expect(trackEvents.map((event) => event.event)).toEqual([
+      'clip_started',
+      'clip_prompt_opened',
+      'clip_prompt_submitted',
+      'extraction_completed'
     ]);
+    expect(trackEvents[0]?.params?.operation_id).toEqual(
+      expect.stringMatching(/^op_[a-z0-9]{6,24}$/)
+    );
+    expect(trackEvents[0]?.params).toMatchObject({
+      source: 'menu',
+      content_type: 'selection'
+    });
+    expect(trackEvents[1]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'selection'
+    });
+    expect(trackEvents[2]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'selection'
+    });
+    expect(trackEvents[3]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'selection',
+      duration_bucket: 'under_100ms'
+    });
     expect(trackEvents.map((event) => event.event)).not.toEqual(
       expect.arrayContaining([
         'clip_cancelled',
@@ -201,12 +214,14 @@ describe('clipFlow support progress', () => {
   });
 
   it('dispatches full-page clips through the extractor registry and messaging service', async () => {
-    const send = vi.fn(async () => undefined);
+    const send = createSendMock();
     queueNextClipAnalyticsSource('toolbar');
-    const extract = vi.fn(async () => ({
-      markdown: '# article',
-      type: 'article'
-    }));
+    const extract = vi.fn(() =>
+      Promise.resolve({
+        markdown: '# article',
+        type: 'article' as const
+      })
+    );
     const flow = initClipFlow({
       document,
       messaging: { send: send as never },
@@ -229,29 +244,27 @@ describe('clipFlow support progress', () => {
 
     const trackEvents = getTrackEvents(send);
     const operationId = trackEvents[0]?.params?.operation_id;
-    expect(trackEvents).toEqual([
-      expect.objectContaining({
-        event: 'clip_started',
-        params: expect.objectContaining({
-          operation_id: expect.stringMatching(/^op_[a-z0-9]{6,24}$/),
-          source: 'toolbar',
-          content_type: 'article'
-        })
-      }),
-      expect.objectContaining({
-        event: 'extraction_completed',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'article',
-          duration_bucket: 'under_100ms'
-        })
-      })
+    expect(trackEvents.map((event) => event.event)).toEqual([
+      'clip_started',
+      'extraction_completed'
     ]);
+    expect(trackEvents[0]?.params?.operation_id).toEqual(
+      expect.stringMatching(/^op_[a-z0-9]{6,24}$/)
+    );
+    expect(trackEvents[0]?.params).toMatchObject({
+      source: 'toolbar',
+      content_type: 'article'
+    });
+    expect(trackEvents[1]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'article',
+      duration_bucket: 'under_100ms'
+    });
     expectPrivacySafeAnalytics(trackEvents);
   });
 
   it('emits canonical prompt cancellation without dispatching clip payloads', async () => {
-    const send = vi.fn(async () => undefined);
+    const send = createSendMock();
     const showSupportProgress = vi.fn();
     queueNextClipAnalyticsSource('menu');
     const flow = initClipFlow({
@@ -261,14 +274,14 @@ describe('clipFlow support progress', () => {
       selectionTracker: createSelectionTracker(createSelection()),
       selectionController: {
         handleSelectionClip: vi.fn(
-          async (
+          (
             _document: Document,
             _url: string,
             _selection: Selection,
             promptLifecycle?: SelectionPromptLifecycleHandlers
           ) => {
             promptLifecycle?.onPromptCancelled?.();
-            return null;
+            return Promise.resolve(null);
           }
         ),
         handleVideoSelectionClip: vi.fn()
@@ -281,30 +294,26 @@ describe('clipFlow support progress', () => {
 
     const trackEvents = getTrackEvents(send);
     const operationId = trackEvents[0]?.params?.operation_id;
-    expect(trackEvents).toEqual([
-      expect.objectContaining({
-        event: 'clip_started',
-        params: expect.objectContaining({
-          operation_id: expect.stringMatching(/^op_[a-z0-9]{6,24}$/),
-          source: 'menu',
-          content_type: 'selection'
-        })
-      }),
-      expect.objectContaining({
-        event: 'clip_prompt_opened',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'selection'
-        })
-      }),
-      expect.objectContaining({
-        event: 'clip_prompt_cancelled',
-        params: expect.objectContaining({
-          operation_id: operationId,
-          content_type: 'selection'
-        })
-      })
+    expect(trackEvents.map((event) => event.event)).toEqual([
+      'clip_started',
+      'clip_prompt_opened',
+      'clip_prompt_cancelled'
     ]);
+    expect(trackEvents[0]?.params?.operation_id).toEqual(
+      expect.stringMatching(/^op_[a-z0-9]{6,24}$/)
+    );
+    expect(trackEvents[0]?.params).toMatchObject({
+      source: 'menu',
+      content_type: 'selection'
+    });
+    expect(trackEvents[1]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'selection'
+    });
+    expect(trackEvents[2]?.params).toMatchObject({
+      operation_id: operationId,
+      content_type: 'selection'
+    });
     expect(send).not.toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'CLIP_RESULT'
@@ -315,11 +324,11 @@ describe('clipFlow support progress', () => {
   });
 
   it('does not let analytics transport failures block clip result dispatch', async () => {
-    const send = vi.fn(async (message: { type: string }) => {
-      if (message.type === 'TRACK_USAGE_EVENT') {
-        throw new Error('analytics offline');
+    const send = createSendMock((message) => {
+      if (hasMessageType(message, 'TRACK_USAGE_EVENT')) {
+        return Promise.reject(new Error('analytics offline'));
       }
-      return undefined;
+      return Promise.resolve();
     });
     queueNextClipAnalyticsSource('toolbar');
     const flow = initClipFlow({
@@ -332,10 +341,12 @@ describe('clipFlow support progress', () => {
         handleVideoSelectionClip: vi.fn()
       },
       extractorRegistry: {
-        extract: vi.fn(async () => ({
-          markdown: '# article',
-          type: 'article'
-        }))
+        extract: vi.fn(() =>
+          Promise.resolve({
+            markdown: '# article',
+            type: 'article' as const
+          })
+        )
       } as never
     });
 

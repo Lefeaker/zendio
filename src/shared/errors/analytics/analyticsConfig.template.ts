@@ -322,8 +322,15 @@ export function getAnalyticsConfig(): AnalyticsConfig {
 }
 
 function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
-  const { proxyEndpoint: _defaultProxyEndpoint, ...defaultConfigWithoutProxyEndpoint } =
-    DEFAULT_ANALYTICS_CONFIG;
+  const defaultConfigWithoutProxyEndpoint = {
+    enabled: DEFAULT_ANALYTICS_CONFIG.enabled,
+    debugMode: DEFAULT_ANALYTICS_CONFIG.debugMode,
+    measurementId: DEFAULT_ANALYTICS_CONFIG.measurementId,
+    transportMode: DEFAULT_ANALYTICS_CONFIG.transportMode,
+    reportingInterval: DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+    maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
+    batchSize: DEFAULT_ANALYTICS_CONFIG.batchSize
+  } satisfies AnalyticsConfig;
   const hasStoredTransportMode = Object.prototype.hasOwnProperty.call(
     storedConfig,
     'transportMode'

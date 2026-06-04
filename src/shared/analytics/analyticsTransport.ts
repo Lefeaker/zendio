@@ -148,7 +148,11 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
   const endpoint = `https://www.google-analytics.com/debug/mp/collect?measurement_id=${encodeURIComponent(
     config.measurementId
   )}`;
-  const { measurement_id: _measurementId, ...directPayload } = payload;
+  const directPayload: Omit<AnalyticsTransportPayload, 'measurement_id'> = {
+    client_id: payload.client_id,
+    events: payload.events,
+    timestamp_micros: payload.timestamp_micros
+  };
   return postAnalyticsPayload(endpoint, directPayload, transportMode, requestFetch);
 }
 
