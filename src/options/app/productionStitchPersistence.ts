@@ -8,7 +8,7 @@ import {
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
-import { createTrackUsageEventMessage } from '@shared/types/analytics';
+import { createTrackUsageEventMessage, type TrackUsageEventPayload } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 import type { Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
@@ -60,6 +60,7 @@ export interface ProductionStitchPersistence {
   ): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
+  trackUsageEvent(message: TrackUsageEventPayload): Promise<void>;
 }
 
 export function createProductionStitchPersistence(
@@ -278,10 +279,20 @@ export function createProductionStitchPersistence(
     setButtonBusy(button, true);
     try {
       await writeToClipboard(serializeOptionsFullBackup(options.collectDraftWithWidgets()));
+      await trackUsageEvent(
+        createTrackUsageEventMessage('config_export_completed', {
+          outcome: 'completed'
+        })
+      );
       options.setMaintenanceLog(
         getMessage(options.getCurrentMessages(), 'copyConfigSuccess', '配置已复制到剪贴板！')
       );
     } catch (error) {
+      await trackUsageEvent(
+        createTrackUsageEventMessage('config_export_completed', {
+          outcome: 'failed'
+        })
+      );
       options.setMaintenanceLog(`Copy failed: ${String(error)}`);
     } finally {
       setButtonBusy(button, false);
@@ -369,6 +380,7 @@ export function createProductionStitchPersistence(
     loadUsageStatsFromStorage,
     persistPrivacyPreference,
     repairConfiguration,
-    resetUsageData
+    resetUsageData,
+    trackUsageEvent
   };
 }

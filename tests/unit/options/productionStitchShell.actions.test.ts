@@ -13,6 +13,12 @@ vi.mock('@shared/errors/analytics', () => ({
 }));
 
 import {
+  applyOptionsToState,
+  createInitialStitchState,
+  createProductionContent
+} from '@options/app/productionStitchStateMapper';
+import { createProductionStitchShellActionRuntime } from '@options/app/productionStitchShellActionRuntime';
+import {
   analyticsMocks,
   asOptionsController,
   createController,
@@ -26,7 +32,9 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import type { Language } from '@i18n';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import { getRestDefaults } from '../../utils/restDefaults';
@@ -35,6 +43,104 @@ const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+function createActionRuntimeHarness() {
+  const mountRoot = document.createElement('div');
+  document.body.append(mountRoot);
+
+  let draft = mergeOptions(null) as CompleteOptions;
+  let appData = createProductionContent(previewContent, draft);
+  let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
+  const scrollToPanelMock = vi.fn();
+  const openResourceMock = vi.fn();
+
+  const runtime = createProductionStitchShellActionRuntime({
+    mountRoot,
+    buttonPressScrollGuard: {
+      cleanup: vi.fn(),
+      getSnapshot: vi.fn(() => null)
+    },
+    controller: {
+      loadRaw: vi.fn(() => Promise.resolve(draft)),
+      scheduleAutoSave: vi.fn()
+    },
+    optionsRepository: createRepository(),
+    changeLanguage: vi.fn(async (language: Language) => ({ messages: null, language })),
+    getAppData: () => appData,
+    getCurrentLanguage: () => state.previewLanguage as Language,
+    getCurrentMessages: () => null,
+    getDraft: () => draft,
+    getState: () => state,
+    setConnectionNotice: vi.fn(),
+    setDomainMappingRows: vi.fn(),
+    setLanguageResource: ({ language }) => {
+      state = { ...state, previewLanguage: language };
+    },
+    setMaintenanceLog: vi.fn(),
+    setState: (nextState) => {
+      state = nextState;
+    },
+    createSchemaContext: () => ({
+      appData,
+      language: state.previewLanguage,
+      state
+    }),
+    mutate: (mutator) => {
+      mutator(state);
+    },
+    currentDomainEntries: () => [],
+    refreshAppData: () => {
+      appData = createProductionContent(previewContent, draft);
+    },
+    refreshOptions: (options) => {
+      draft = mergeOptions(options) as CompleteOptions;
+      appData = createProductionContent(previewContent, draft);
+      state = applyOptionsToState(state, draft, appData);
+    },
+    render: vi.fn(),
+    renderActiveResourceModal: vi.fn(),
+    scheduleDraftSave: vi.fn(),
+    scrollToPanel: scrollToPanelMock,
+    syncDomainEntries: vi.fn(),
+    syncHighlightThemeControls: vi.fn(),
+    syncModifierControls: vi.fn(),
+    syncPreviewThemeControls: vi.fn(),
+    openResource: openResourceMock,
+    persistence: {
+      clearAnalyticsPrivacyData: vi.fn(() => Promise.resolve()),
+      copyConfigurationToClipboard: vi.fn(() => Promise.resolve()),
+      importConfigurationWithStatus: vi.fn(() => Promise.resolve()),
+      loadUsageStatsFromStorage: vi.fn(() => Promise.resolve()),
+      persistPrivacyPreference: vi.fn(() => Promise.resolve()),
+      repairConfiguration: vi.fn(() => Promise.resolve()),
+      resetUsageData: vi.fn(() => Promise.resolve()),
+      trackUsageEvent: trackUsageEventMock
+    } as never,
+    storageController: {
+      activateVaultLocalFolder: vi.fn(() => Promise.resolve()),
+      applyConnectionNotice: vi.fn(),
+      chooseVaultLocalFolder: vi.fn(() => Promise.resolve()),
+      clearVaultLocalFolder: vi.fn(),
+      ensureVaultRouter: vi.fn(() => ({ vaults: [], rules: [], defaultVaultId: '' })),
+      runVaultListConnectionTest: vi.fn(() => Promise.resolve({ success: true, message: 'ok' })),
+      syncRoutingRulesToDraft: vi.fn(),
+      updateVaultField: vi.fn()
+    } as never,
+    widgetHost: {
+      collectDraftWithWidgets: vi.fn(() => draft),
+      flushDirtyWidgets: vi.fn(),
+      markDirty: vi.fn()
+    } as never
+  });
+
+  return {
+    runtime,
+    scrollToPanelMock,
+    openResourceMock,
+    trackUsageEventMock
+  };
+}
 
 describe('mountProductionStitchShell actions', () => {
   beforeEach(() => {
@@ -168,6 +274,92 @@ describe('mountProductionStitchShell actions', () => {
     );
     expect(document.body.textContent).not.toContain('Imported config');
     expect(importButton.hasAttribute('aria-busy')).toBe(false);
+  });
+
+  it('tracks only the allowlisted runtime actions and never emits raw option values', async () => {
+    const { runtime, scrollToPanelMock, openResourceMock, trackUsageEventMock } =
+      createActionRuntimeHarness();
+
+    runtime.dispatch('preview:setTheme', [], 'system');
+    runtime.dispatch('preview:setLanguage', [], 'ja');
+    runtime.dispatch('maintenance:diagnose');
+    runtime.dispatch('resource:open', ['privacy-policy']);
+    runtime.dispatch('navigation:scrollToPanel', ['storage']);
+    runtime.dispatch('experimental:setPageSummaryEnabled');
+    runtime.dispatch('options:updateField', ['aiChat.userName'], 'Sensitive Name');
+    runtime.dispatch('template:updateValue', ['articleVideo'], 'Articles/secret.md');
+    runtime.dispatch('experimental:updateAiConfigField', ['apiKey'], 'SECRET_TOKEN');
+    runtime.dispatch('unknown:action');
+    await flushPromises();
+
+    expect(scrollToPanelMock).toHaveBeenCalledWith('storage');
+    expect(openResourceMock).toHaveBeenCalledWith('privacy-policy');
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_theme_changed',
+      params: {
+        theme: 'system'
+      }
+    });
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_language_changed',
+      params: {
+        language: 'ja'
+      }
+    });
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_action_completed',
+      params: {
+        action: 'maintenance_diagnose',
+        outcome: 'completed',
+        section: 'advanced'
+      }
+    });
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_action_completed',
+      params: {
+        action: 'resource_open',
+        outcome: 'completed',
+        section: 'privacy'
+      }
+    });
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_section_viewed',
+      params: {
+        section: 'storage'
+      }
+    });
+    expect(trackUsageEventMock).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'experimental_feature_toggled',
+      params: {
+        feature_key: 'page_summary_enabled',
+        enabled: false
+      }
+    });
+
+    const trackedPayloads = JSON.stringify(trackUsageEventMock.mock.calls);
+    expect(trackedPayloads).not.toContain('Sensitive Name');
+    expect(trackedPayloads).not.toContain('Articles/secret.md');
+    expect(trackedPayloads).not.toContain('SECRET_TOKEN');
+
+    const emittedEvents = (trackUsageEventMock.mock.calls as unknown as Array<[unknown]>).map(
+      ([message]) => (message as { event?: string } | undefined)?.event
+    );
+    expect(emittedEvents).not.toEqual(
+      expect.arrayContaining([
+        'theme_changed',
+        'language_changed',
+        'config_exported',
+        'config_imported',
+        'config_repair_completed',
+        'options_resource_viewed'
+      ])
+    );
   });
 
   it('uses the transfer clipboard fallback and does not report copy success when fallback fails', async () => {
@@ -498,6 +690,55 @@ describe('mountProductionStitchShell actions', () => {
     });
   });
 
+  it('emits canonical export telemetry without leaking exported option content', async () => {
+    const controller = createController();
+    const messagingRepository = createMessaging();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        aiChat: { userName: 'Sensitive Name' },
+        rest: {
+          apiKey: 'REST_SECRET_TOKEN'
+        }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository: messagingRepository as never
+    });
+
+    findButton('复制配置').click();
+    await flushPromises();
+
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'config_export_completed',
+      params: {
+        outcome: 'completed'
+      }
+    });
+    expect(JSON.stringify(messagingRepository.send.mock.calls)).not.toContain('Sensitive Name');
+    expect(JSON.stringify(messagingRepository.send.mock.calls)).not.toContain('REST_SECRET_TOKEN');
+
+    vi.mocked(messagingRepository.send).mockClear();
+    writeText.mockRejectedValueOnce(new Error('clipboard denied'));
+    findButton('复制配置').click();
+    await flushPromises();
+
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'config_export_completed',
+      params: {
+        outcome: 'failed'
+      }
+    });
+  });
+
   it('imports configuration before analytics payload application and emits sanitized import telemetry', async () => {
     const controller = createController();
     const messagingRepository = createMessaging();
@@ -649,6 +890,7 @@ describe('mountProductionStitchShell actions', () => {
 
   it('repairs configuration using the existing production repair rules', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -665,7 +907,8 @@ describe('mountProductionStitchShell actions', () => {
         }
       },
       messages: null,
-      language: 'en'
+      language: 'en',
+      messagingRepository: messagingRepository as never
     });
 
     findButton('修复配置').click();
@@ -682,6 +925,15 @@ describe('mountProductionStitchShell actions', () => {
       draft: expect.objectContaining({
         rest: expect.objectContaining({ baseUrl: LOCAL_HTTPS_URL }) as unknown
       }) as unknown
+    });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_action_completed',
+      params: {
+        action: 'maintenance_repair',
+        outcome: 'completed',
+        section: 'advanced'
+      }
     });
   });
 });
