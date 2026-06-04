@@ -7,6 +7,12 @@ function renderKey(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
+function renderLocaleConstantName(code: string): string {
+  return `GENERATED_RELEASE_LOCALE_MESSAGES_${code
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toUpperCase()}`;
+}
+
 function renderLocaleMessages(messages: Record<string, string>): string[] {
   return [
     '{',
@@ -19,9 +25,17 @@ function renderLocaleMessages(messages: Record<string, string>): string[] {
 
 export function emitGeneratedLocales(compiled: CompiledCatalog): string {
   const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
-  const registryLines = compiled.localeCodes.flatMap((code) => {
+  const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
-    return [`  ${renderKey(code)}: ${renderLocaleMessages(locale).join('\n')},`];
+    return [
+      `export const ${renderLocaleConstantName(code)}: GeneratedMessages = ${renderLocaleMessages(
+        locale
+      ).join('\n')};`,
+      ''
+    ];
+  });
+  const registryLines = compiled.localeCodes.flatMap((code) => {
+    return [`  ${renderKey(code)}: ${renderLocaleConstantName(code)},`];
   });
 
   return [
@@ -36,6 +50,7 @@ export function emitGeneratedLocales(compiled: CompiledCatalog): string {
     ...localeCodeLines,
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
+    ...localeConstantLines,
     'export const GENERATED_RELEASE_LOCALE_REGISTRY: GeneratedLocaleRegistry = {',
     ...registryLines,
     '};',

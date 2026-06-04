@@ -1,8 +1,8 @@
 import { getLanguageFallbackChain } from '../config';
 import type { Language } from '../locales';
-import { pseudoLocalizeString } from '../pseudoLocalization';
 import type { ReleaseLangCode } from './languages';
-import { isReleaseLanguage } from './languages';
+import { isReleaseLanguage, PSEUDO_LOCALE_CODE, PSEUDO_LOCALE_ENABLED } from './languages';
+import { buildPseudoDynamicMessageTemplates } from './pseudoLocale';
 
 export interface DynamicMessageTemplates {
   httpsUrlHint: string;
@@ -84,21 +84,16 @@ export const DYNAMIC_MESSAGE_TEMPLATES: Record<ReleaseLangCode, DynamicMessageTe
 const ENGLISH_DYNAMIC_MESSAGE_TEMPLATES = DYNAMIC_MESSAGE_TEMPLATES.en;
 
 function createPseudoDynamicMessageTemplates(): DynamicMessageTemplates {
-  return {
-    httpsUrlHint: pseudoLocalizeString(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpsUrlHint),
-    httpUrlHint: pseudoLocalizeString(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpUrlHint),
-    vaultNamePlaceholder: pseudoLocalizeString(
-      ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.vaultNamePlaceholder
-    )
-  };
+  return buildPseudoDynamicMessageTemplates(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES);
 }
 
-const pseudoDynamicMessageTemplates =
-  process.env.NODE_ENV !== 'production' ? createPseudoDynamicMessageTemplates() : null;
+const pseudoDynamicMessageTemplates = PSEUDO_LOCALE_ENABLED
+  ? createPseudoDynamicMessageTemplates()
+  : null;
 
 export function getDynamicMessageTemplates(language: Language): DynamicMessageTemplates {
   for (const candidate of getLanguageFallbackChain(language)) {
-    if (candidate === 'qps-ploc' && pseudoDynamicMessageTemplates) {
+    if (PSEUDO_LOCALE_ENABLED && candidate === PSEUDO_LOCALE_CODE && pseudoDynamicMessageTemplates) {
       return pseudoDynamicMessageTemplates;
     }
 

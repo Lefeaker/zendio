@@ -29,8 +29,8 @@ export type ReleaseLangCode = Exclude<LangCode, PseudoLocaleCode>;
 
 const BASE_LANGUAGE: LangCode = 'en';
 export const DEFAULT_LANGUAGE: LangCode = BASE_LANGUAGE;
-export const PSEUDO_LOCALE_CODE: PseudoLocaleCode = 'qps-ploc';
 export const PSEUDO_LOCALE_ENABLED = process.env.NODE_ENV !== 'production';
+export const PSEUDO_LOCALE_CODE = (PSEUDO_LOCALE_ENABLED ? 'qps-ploc' : null) as PseudoLocaleCode;
 
 export const RELEASE_LANGUAGE_ORDER: ReleaseLangCode[] = [
   'en',
@@ -170,18 +170,21 @@ export const RELEASE_LANGUAGE_CONFIG: Record<ReleaseLangCode, LanguageMetadata> 
   }
 };
 
-export const PSEUDO_LANGUAGE_CONFIG: Record<PseudoLocaleCode, LanguageMetadata> = {
-  'qps-ploc': {
-    label: '[Pseudo]',
-    dir: 'ltr',
-    englishName: 'Pseudo',
-    nativeName: 'Pseudo',
-    region: 'TEST',
-    aliases: ['pseudo', 'qps-ploc', 'qps_ploc', 'x-pseudo'],
-    fallbacks: [BASE_LANGUAGE],
-    textExpansion: 1.6
-  }
-};
+export const PSEUDO_LANGUAGE_CONFIG: Partial<Record<PseudoLocaleCode, LanguageMetadata>> =
+  PSEUDO_LOCALE_ENABLED
+    ? {
+        [PSEUDO_LOCALE_CODE]: {
+          label: '[Pseudo]',
+          dir: 'ltr',
+          englishName: 'Pseudo',
+          nativeName: 'Pseudo',
+          region: 'TEST',
+          aliases: ['pseudo', PSEUDO_LOCALE_CODE, 'qps_ploc', 'x-pseudo'],
+          fallbacks: [BASE_LANGUAGE],
+          textExpansion: 1.6
+        }
+      }
+    : {};
 
 export const LANGUAGE_CONFIG: Partial<Record<LangCode, LanguageMetadata>> = PSEUDO_LOCALE_ENABLED
   ? { ...RELEASE_LANGUAGE_CONFIG, ...PSEUDO_LANGUAGE_CONFIG }
