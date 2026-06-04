@@ -1,6 +1,17 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const applyAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+
+vi.mock('@options/services/analyticsTransfer', () => ({
+  applyAnalyticsTransferPayload: applyAnalyticsTransferPayloadMock
+}));
+vi.mock('@shared/errors/analytics', () => ({
+  updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
+}));
+
 import {
   analyticsMocks,
   asOptionsController,
@@ -26,7 +37,11 @@ const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
 
 describe('mountProductionStitchShell actions', () => {
-  beforeEach(setupProductionStitchShellTest);
+  beforeEach(() => {
+    setupProductionStitchShellTest();
+    applyAnalyticsTransferPayloadMock.mockClear();
+    updateErrorAnalyticsConfigMock.mockClear();
+  });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
     const reloaded = mergeOptions({ aiChat: { userName: 'Reloaded' } }) as CompleteOptions;
@@ -263,6 +278,7 @@ describe('mountProductionStitchShell actions', () => {
   it('syncs privacy switches with the analytics runtime consent and debug config', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -274,6 +290,7 @@ describe('mountProductionStitchShell actions', () => {
       },
       messages: null,
       language: 'en',
+      messagingRepository,
       optionsRepository
     } as never);
 
@@ -282,12 +299,30 @@ describe('mountProductionStitchShell actions', () => {
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
     expect(analyticsMocks.setAnalyticsConsent).toHaveBeenLastCalledWith(true, false);
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenLastCalledWith(false);
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'privacy_consent_changed',
+      params: {
+        field: 'analytics',
+        enabled: true
+      }
+    });
 
     const errorReporting = findCheckboxInText('错误报告');
     errorReporting.checked = true;
     errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
     expect(analyticsMocks.setAnalyticsConsent).toHaveBeenLastCalledWith(true, true);
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenLastCalledWith(true);
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'privacy_consent_changed',
+      params: {
+        field: 'errorReporting',
+        enabled: true
+      }
+    });
 
     const debugMode = findCheckboxInText('调试模式');
     expect(debugMode.disabled).toBe(false);
@@ -303,11 +338,26 @@ describe('mountProductionStitchShell actions', () => {
         debugMode: true
       }
     });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'privacy_consent_changed',
+      params: {
+        field: 'debugMode',
+        enabled: true
+      }
+    });
+
+    errorReporting.checked = false;
+    errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+    expect(analyticsMocks.setAnalyticsConsent).toHaveBeenLastCalledWith(true, false);
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenLastCalledWith(false);
   });
 
   it('clears all analytics privacy data through the production analytics manager', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -326,6 +376,7 @@ describe('mountProductionStitchShell actions', () => {
       },
       messages: null,
       language: 'en',
+      messagingRepository,
       optionsRepository
     } as never);
 
@@ -345,11 +396,19 @@ describe('mountProductionStitchShell actions', () => {
       errorReporting: false,
       debugMode: false
     });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'analytics_data_cleared',
+      params: {
+        outcome: 'completed'
+      }
+    });
   });
 
   it('uses localized privacy clear-all confirmation and visible status messages', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
     const confirmSpy = vi.mocked(window.confirm);
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -366,6 +425,7 @@ describe('mountProductionStitchShell actions', () => {
         clearDataError: 'Localized clear error'
       } as never,
       language: 'en',
+      messagingRepository,
       optionsRepository
     } as never);
 
@@ -385,6 +445,13 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(document.body.textContent).toContain('Localized clear error');
+    expect(messagingRepository.send).not.toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'analytics_data_cleared',
+      params: {
+        outcome: 'failed'
+      }
+    });
   });
 
   it('clears usage data through the existing reset action dependencies', async () => {
@@ -425,19 +492,28 @@ describe('mountProductionStitchShell actions', () => {
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'track',
+      type: 'TRACK_USAGE_EVENT',
       event: 'clear_stats',
       params: { timestamp: 1234 }
     });
   });
 
-  it('imports configuration from clipboard and saves it through the controller', async () => {
+  it('imports configuration before analytics payload application and emits sanitized import telemetry', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
         readText: vi.fn(() =>
-          Promise.resolve(JSON.stringify({ options: { aiChat: { userName: 'Imported' } } }))
+          Promise.resolve(
+            JSON.stringify({
+              options: { aiChat: { userName: 'Imported' } },
+              analytics: {
+                consent: { analytics: true, errorReporting: false },
+                debugMode: false
+              }
+            })
+          )
         )
       }
     });
@@ -446,7 +522,8 @@ describe('mountProductionStitchShell actions', () => {
       controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: null,
-      language: 'en'
+      language: 'en',
+      messagingRepository: messagingRepository as never
     });
 
     findButton('导入并保存').click();
@@ -457,6 +534,117 @@ describe('mountProductionStitchShell actions', () => {
         aiChat: expect.objectContaining({ userName: 'Imported' }) as unknown
       })
     );
+    expect(controller.applyImportedConfig.mock.invocationCallOrder[0]).toBeLessThan(
+      applyAnalyticsTransferPayloadMock.mock.invocationCallOrder[0]
+    );
+    expect(applyAnalyticsTransferPayloadMock).toHaveBeenCalledWith({
+      consent: { analytics: true, errorReporting: false },
+      debugMode: false
+    });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'config_import_completed',
+      params: {
+        outcome: 'completed',
+        analytics_payload_present: true
+      }
+    });
+  });
+
+  it('does not apply analytics when imported options fail to save', async () => {
+    const controller = {
+      ...createController(),
+      applyImportedConfig: vi.fn(() => Promise.reject(new Error('save failed')))
+    };
+    const messagingRepository = createMessaging();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        readText: vi.fn(() =>
+          Promise.resolve(
+            JSON.stringify({
+              options: { aiChat: { userName: 'Imported' } },
+              analytics: {
+                consent: { analytics: true, errorReporting: true },
+                debugMode: true
+              }
+            })
+          )
+        )
+      }
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { aiChat: { userName: 'Before' } },
+      messages: {
+        importSuccess: 'Imported config'
+      } as never,
+      language: 'en',
+      messagingRepository: messagingRepository as never
+    });
+
+    findButton('导入并保存').click();
+    await flushPromises();
+
+    expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Import failed: Error: save failed');
+    expect(document.body.textContent).not.toContain('Imported config');
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'config_import_completed',
+      params: {
+        outcome: 'failed',
+        analytics_payload_present: true
+      }
+    });
+  });
+
+  it('surfaces analytics import failure without emitting a success event', async () => {
+    const controller = createController();
+    const messagingRepository = createMessaging();
+    applyAnalyticsTransferPayloadMock.mockRejectedValueOnce(new Error('analytics failed'));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        readText: vi.fn(() =>
+          Promise.resolve(
+            JSON.stringify({
+              options: { aiChat: { userName: 'Imported' } },
+              analytics: {
+                consent: { analytics: true, errorReporting: false },
+                debugMode: false
+              }
+            })
+          )
+        )
+      }
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { aiChat: { userName: 'Before' } },
+      messages: {
+        importSuccess: 'Imported config'
+      } as never,
+      language: 'en',
+      messagingRepository: messagingRepository as never
+    });
+
+    findButton('导入并保存').click();
+    await flushPromises();
+
+    expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain('Import failed: Error: analytics failed');
+    expect(document.body.textContent).not.toContain('Imported config');
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'config_import_completed',
+      params: {
+        outcome: 'failed',
+        analytics_payload_present: true
+      }
+    });
   });
 
   it('repairs configuration using the existing production repair rules', async () => {

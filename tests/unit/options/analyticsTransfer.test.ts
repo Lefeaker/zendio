@@ -5,6 +5,7 @@ const getUserConsentMock = vi.hoisted(() => vi.fn());
 const getConfigMock = vi.hoisted(() => vi.fn());
 const setUserConsentMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const updateConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 vi.mock('@shared/errors/analytics/analyticsConfig', () => ({
   getAnalyticsConfigManager: () => ({
@@ -15,6 +16,9 @@ vi.mock('@shared/errors/analytics/analyticsConfig', () => ({
     updateConfig: updateConfigMock
   })
 }));
+vi.mock('@shared/errors/analytics', () => ({
+  updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
+}));
 
 import {
   applyAnalyticsTransferPayload,
@@ -24,6 +28,7 @@ import {
 describe('analyticsTransfer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    updateErrorAnalyticsConfigMock.mockClear();
   });
 
   it('exports consent and debug mode when available', async () => {
@@ -53,6 +58,20 @@ describe('analyticsTransfer', () => {
     expect(refreshFromStorageMock).toHaveBeenCalledTimes(1);
     expect(setUserConsentMock).toHaveBeenCalledWith({ analytics: false, errorReporting: true });
     expect(updateConfigMock).toHaveBeenCalledWith({ debugMode: false });
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true);
+  });
+
+  it('forces debug mode off when imported consent disables analytics and error reporting', async () => {
+    getUserConsentMock.mockResolvedValue({ analytics: true, errorReporting: true });
+
+    await applyAnalyticsTransferPayload({
+      consent: { analytics: false, errorReporting: false },
+      debugMode: true
+    });
+
+    expect(setUserConsentMock).toHaveBeenCalledWith({ analytics: false, errorReporting: false });
+    expect(updateConfigMock).toHaveBeenCalledWith({ debugMode: false });
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(false);
   });
 
   it('returns early when payload is absent', async () => {

@@ -8,6 +8,7 @@ import {
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
+import { createTrackUsageEventMessage } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 import type { Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
@@ -21,6 +22,7 @@ import {
   getAnalyticsConfigManager,
   setAnalyticsConsent
 } from '@shared/errors/analytics/analyticsConfig';
+import { updateErrorAnalyticsConfig } from '@shared/errors/analytics';
 import { serializeOptionsFullBackup } from './productionStitchConfigExport';
 import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
@@ -63,6 +65,16 @@ export interface ProductionStitchPersistence {
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
+  async function trackUsageEvent(
+    message: ReturnType<typeof createTrackUsageEventMessage>
+  ): Promise<void> {
+    try {
+      await options.messagingRepository.send(message);
+    } catch {
+      // Telemetry is best-effort and must not block options actions.
+    }
+  }
+
   function getPrivacySnapshot(): {
     analytics: boolean;
     errorReporting: boolean;
@@ -80,12 +92,44 @@ export function createProductionStitchPersistence(
     };
   }
 
+  function syncPrivacySnapshotToState(nextSnapshot: {
+    analytics: boolean;
+    errorReporting: boolean;
+    debugMode: boolean;
+  }): void {
+    const draft = options.getDraft();
+    const state = options.getState();
+    (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
+    state.privacyAnalytics = nextSnapshot.analytics;
+    state.privacyErrorReporting = nextSnapshot.errorReporting;
+    state.privacyDebugMode = nextSnapshot.debugMode;
+  }
+
+  async function applyRuntimePrivacySnapshot(
+    nextSnapshot: {
+      analytics: boolean;
+      errorReporting: boolean;
+      debugMode: boolean;
+    },
+    field: 'analytics' | 'errorReporting' | 'debugMode'
+  ): Promise<void> {
+    const runtimeDebugMode =
+      nextSnapshot.analytics || nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
+
+    if (field === 'debugMode') {
+      await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
+      return;
+    }
+
+    await setAnalyticsConsent(nextSnapshot.analytics, nextSnapshot.errorReporting);
+    await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
+    await updateErrorAnalyticsConfig(nextSnapshot.errorReporting);
+  }
+
   async function persistPrivacyPreference(
     field: 'analytics' | 'errorReporting' | 'debugMode',
     value: boolean
   ): Promise<void> {
-    const draft = options.getDraft();
-    const state = options.getState();
     const nextSnapshot = {
       ...getPrivacySnapshot(),
       [field]: value
@@ -93,22 +137,18 @@ export function createProductionStitchPersistence(
     if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
       nextSnapshot.debugMode = false;
     }
-    (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
-    state.privacyAnalytics = nextSnapshot.analytics;
-    state.privacyErrorReporting = nextSnapshot.errorReporting;
-    state.privacyDebugMode = nextSnapshot.debugMode;
-    if (field === 'debugMode') {
-      await getAnalyticsConfigManager().updateConfig({ debugMode: nextSnapshot.debugMode });
-    } else {
-      await setAnalyticsConsent(nextSnapshot.analytics, nextSnapshot.errorReporting);
-      if (!nextSnapshot.debugMode) {
-        await getAnalyticsConfigManager().updateConfig({ debugMode: false });
-      }
-    }
     await persistPrivacyConsentAction(nextSnapshot, {
       optionsRepository: options.optionsRepository
     });
+    syncPrivacySnapshotToState(nextSnapshot);
+    await applyRuntimePrivacySnapshot(nextSnapshot, field);
     options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
+    await trackUsageEvent(
+      createTrackUsageEventMessage('privacy_consent_changed', {
+        field,
+        enabled: nextSnapshot[field]
+      })
+    );
   }
 
   async function clearAnalyticsPrivacyData(): Promise<void> {
@@ -122,27 +162,29 @@ export function createProductionStitchPersistence(
       return;
     }
     try {
-      const draft = options.getDraft();
-      const state = options.getState();
       const nextSnapshot = {
         analytics: false,
         errorReporting: false,
         debugMode: false
       };
+      await persistPrivacyConsentAction(nextSnapshot, {
+        optionsRepository: options.optionsRepository
+      });
+      syncPrivacySnapshotToState(nextSnapshot);
+      await setAnalyticsConsent(false, false);
       await getAnalyticsConfigManager().clearAllData();
-      (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
-      state.privacyAnalytics = false;
-      state.privacyErrorReporting = false;
-      state.privacyDebugMode = false;
-      state.privacyStatus = getMessage(
+      await updateErrorAnalyticsConfig(false);
+      options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'allDataCleared',
         '所有分析数据已清除。'
       );
-      await persistPrivacyConsentAction(nextSnapshot, {
-        optionsRepository: options.optionsRepository
-      });
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
+      await trackUsageEvent(
+        createTrackUsageEventMessage('analytics_data_cleared', {
+          outcome: 'completed'
+        })
+      );
     } catch (error) {
       void error;
       options.getState().privacyStatus = getMessage(
@@ -199,16 +241,37 @@ export function createProductionStitchPersistence(
     }
   }
 
-  async function importConfigurationFromClipboard(): Promise<void> {
+  async function readImportedConfigurationFromClipboard(): Promise<{
+    analytics: Awaited<ReturnType<typeof parseConfigInput>>['analytics'];
+    analyticsPayloadPresent: boolean;
+    imported: CompleteOptions;
+    version: Awaited<ReturnType<typeof parseConfigInput>>['version'];
+  }> {
     const parsed = parseConfigInput(await readConfigTextFromClipboard());
-    await applyAnalyticsTransferPayload(parsed.analytics);
-    const imported = mergeOptions(parsed.options) as CompleteOptions;
-    await options.controller.applyImportedConfig(imported);
-    options.setDraft(imported);
-    options.setMaintenanceLog(JSON.stringify({ imported: true, version: parsed.version }, null, 2));
+    return {
+      analytics: parsed.analytics,
+      analyticsPayloadPresent: parsed.analytics !== undefined,
+      imported: mergeOptions(parsed.options) as CompleteOptions,
+      version: parsed.version
+    };
+  }
+
+  async function importConfigurationFromClipboard(configuration: {
+    analytics: Awaited<ReturnType<typeof parseConfigInput>>['analytics'];
+    imported: CompleteOptions;
+    version: Awaited<ReturnType<typeof parseConfigInput>>['version'];
+  }): Promise<void> {
+    await options.controller.applyImportedConfig(configuration.imported);
+    options.setDraft(configuration.imported);
     options.refreshAppData();
-    options.setState(applyOptionsToState(options.getState(), imported, options.getAppData()));
+    options.setState(
+      applyOptionsToState(options.getState(), configuration.imported, options.getAppData())
+    );
     options.render();
+    await applyAnalyticsTransferPayload(configuration.analytics);
+    options.setMaintenanceLog(
+      JSON.stringify({ imported: true, version: configuration.version }, null, 2)
+    );
   }
 
   async function copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void> {
@@ -229,12 +292,27 @@ export function createProductionStitchPersistence(
 
   async function importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void> {
     setButtonBusy(button, true);
+    let analyticsPayloadPresent = false;
     try {
-      await importConfigurationFromClipboard();
+      const configuration = await readImportedConfigurationFromClipboard();
+      analyticsPayloadPresent = configuration.analyticsPayloadPresent;
+      await importConfigurationFromClipboard(configuration);
+      await trackUsageEvent(
+        createTrackUsageEventMessage('config_import_completed', {
+          outcome: 'completed',
+          analytics_payload_present: analyticsPayloadPresent
+        })
+      );
       options.setMaintenanceLog(
         getMessage(options.getCurrentMessages(), 'importSuccess', '配置已成功导入！')
       );
     } catch (error) {
+      await trackUsageEvent(
+        createTrackUsageEventMessage('config_import_completed', {
+          outcome: 'failed',
+          analytics_payload_present: analyticsPayloadPresent
+        })
+      );
       options.setMaintenanceLog(`Import failed: ${String(error)}`);
     } finally {
       setButtonBusy(button, false);
