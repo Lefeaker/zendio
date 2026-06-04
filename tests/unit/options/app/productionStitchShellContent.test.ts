@@ -17,6 +17,6 @@ describe('production shell content', () => {
       'maintenance'
     );
     expect(getSettingsView('overview', createSchemaContext())).toBeTruthy();
-    expectProductionText('All in Ob', 'Overview', 'Maintenance');
+    expectProductionText('Zendio', 'Overview', 'Maintenance');
   });
 });

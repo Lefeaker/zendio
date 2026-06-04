@@ -34,7 +34,7 @@ export function localizeStitchContent(content: PreviewContent, language: string)
     ...content,
     brand: {
       ...content.brand,
-      title: 'All in Ob'
+      title: 'Zendio'
     },
     rendererLabels: {
       ...content.rendererLabels,

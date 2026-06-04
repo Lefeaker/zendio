@@ -22,7 +22,7 @@ const schema: ResourceSchema = {
             surfaceWindow('task-success-window', [
               div('surface-window-header task-success-header', [
                 div(classNames.surface.headingCopy, [
-                  strong('支持 All in Ob', classNames.surface.windowTitle)
+                  strong('支持 Zendio', classNames.surface.windowTitle)
                 ]),
                 div('task-status-copy', [
                   element('span', { className: 'task-header-status', text: surface.statusMessage }),

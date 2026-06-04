@@ -17,7 +17,7 @@ const usageHistory = usageHistoryValues.map((value, index) => {
 
 export const previewContent: PreviewContent = {
   brand: {
-    title: 'All in Ob',
+    title: 'Zendio',
     subtitle: 'Component Preview',
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
