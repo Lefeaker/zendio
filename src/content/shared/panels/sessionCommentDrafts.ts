@@ -81,7 +81,7 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
         return;
       }
       event.preventDefault();
-      this.runAsync(() => this.submit(id, input.value));
+      void this.runAsync(() => this.submit(id, input.value));
     });
   }
 
@@ -103,14 +103,16 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     this.store.clear(id);
   }
 
-  runAfterFlush(action: () => void | Promise<void>): void {
-    this.runAsync(async () => {
-      this.captureRenderedInputs();
+  runAfterFlush(action: () => void | Promise<void>): Promise<void> {
+    this.captureRenderedInputs();
+    const task = (async () => {
       if (this.store.hasDrafts()) {
         await this.flush();
       }
       await action();
-    });
+    })();
+    this.observeAsync(task);
+    return task;
   }
 
   private async flush(): Promise<void> {
@@ -129,11 +131,15 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     return this.options.getItems().find((item) => item.id === id)?.comment ?? '';
   }
 
-  private runAsync(action: () => void | Promise<void>): void {
-    void Promise.resolve()
-      .then(action)
-      .catch((error) => {
-        console.warn('[SessionCommentDrafts] Failed to submit session comment draft:', error);
-      });
+  private runAsync(action: () => void | Promise<void>): Promise<void> {
+    const task = Promise.resolve().then(action);
+    this.observeAsync(task);
+    return task;
+  }
+
+  private observeAsync(task: Promise<void>): void {
+    void task.catch((error) => {
+      console.warn('[SessionCommentDrafts] Failed to submit session comment draft:', error);
+    });
   }
 }

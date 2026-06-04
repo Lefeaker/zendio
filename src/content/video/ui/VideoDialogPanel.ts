@@ -241,12 +241,19 @@ export class VideoDialogPanel implements UiMountable<
       surfaceId: 'video',
       appData: content,
       actions: {
-        'video:add': () =>
-          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture('button')),
-        'video:add-note': () =>
-          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture('note-input')),
-        'video:finish': () =>
-          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish()),
+        'video:add': () => {
+          void this.commentDrafts.runAfterFlush(() =>
+            this.options.callbacks.onAddCapture('button')
+          );
+        },
+        'video:add-note': () => {
+          void this.commentDrafts.runAfterFlush(() =>
+            this.options.callbacks.onAddCapture('note-input')
+          );
+        },
+        'video:finish': () => {
+          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
+        },
         'video:cancel': () => {
           this.cancelActiveEditor();
           this.options.callbacks.onCancel();
