@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-05-29
+日期：2026-06-05
 
 ## 1. 构建真值
 
@@ -25,6 +25,8 @@ npm run audit:build:report
 2026-05-26 M10 doc/gate sync 复核重新采集 `quality`、`verify:preflight`、`audit:performance:report`、`build:dev` 与 `audit:build:report`。本页数值仍以当前 dev build 与 hotspot audit 为真值；M10 仅收紧已通过的 warning/type gate，不改变生产构建路径。
 
 2026-05-29 Plan 11 G3 source-of-truth sync 复核重新采集 `build:fast`、`build:dev`、`audit:build:report` 与 `audit:performance:report`。本页数值以该次采集为当前构建和热点真值。
+
+2026-06-05 GA production telemetry P13 performance-budget gap fix 复核重新采集 `audit:performance:report`。本页热点与 line-budget 数值以该次采集为当前热点真值；本次只同步文档真值，不改变 `tools/report-performance-hotspots.mjs` 的 gate 逻辑或预算。
 
 当前 production fast build 真值：
 
@@ -83,40 +85,43 @@ npm run audit:build:report
 npm run audit:performance:report
 ```
 
-当前热点：
+当前热点摘要（完整 `src` >250 LOC 路径列表以 `tools/report-performance-hotspots.mjs` 为准）：
 
-- `src/options/yaml-config-editor/view.ts`: `746` 行
-- `src/content/video/sessionOperations.ts`: `491` 行
-- `src/content/video/videoSessionRuntime.ts`: `432` 行
-- `src/content/video/ui/VideoDialogPanel.ts`: `407` 行
-- `src/content/video/videoControlBarButton.ts`: `395` 行
-- `src/content/video/platforms/bilibiliRichText.ts`: `302` 行
-- `src/content/video/platforms/bilibiliPlatformObserver.ts`: `292` 行
-- `src/content/reader/utils/markdownBuilder.ts`: `288` 行
-- `src/options/yaml-config-editor/validation.ts`: `270` 行
-- `src/ui/domains/privacy/PrivacySettingsView.ts`: `255` 行
-- `src/options/app/productionStitchShellMount.ts`: `254` 行
-- `src/content/extractors/articleExtractor.ts`: `222` 行
-- `src/options/state/optionsStore.ts`: `194` 行
-- `src/content/video/platforms/bilibiliPlatformAdapter.ts`: `178` 行
-- `src/content/index.ts`: `153` 行
-- `src/options/state/StateManager.ts`: `128` 行；`deepClone=0`，`JSON.stringify=0`
-- `src/content/runtime/bootstrapRuntime.ts`: `77` 行
-- `src/ui/domains/usage-chart/usageChartRenderers.ts`: `23` 行
+- `src/i18n/schemaShellMessages.ts`: `2133` 行
+- `src/options/stitch/content.ts`: `906` 行
+- `src/i18n/messages.ts`: `752` 行
+- `src/options/stitch/types.ts`: `743` 行
+- `src/i18n/locales/fr.ts`: `697` 行；其他 release locale 文件当前在 `624`-`692` 行范围内
+- `src/options/stitch/ui/components.ts`: `592` 行
+- `src/content/video/sessionOperations.ts`: `587` 行
+- `src/options/yaml-config-editor/view.ts`: `586` 行
+- `src/onboarding/bootstrap.ts`: `584` 行
+- `src/background/pipelines/connectionTest.ts`: `573` 行
+- `src/options/stitch/schema/builders/surfaces.ts`: `558` 行
+- `src/content/clipper/components/clipperDialogController.ts`: `511` 行
+- `src/options/app/productionStitchStateMapper.ts`: `509` 行
+- `src/content/reader/services/highlightManager.ts`: `505` 行
+- `src/background/application/clipProcessor.ts`: `502` 行
+- `src/shared/analytics/eventCatalog.ts`: `485` 行
+- `src/ui/domains/video/VideoDialog.ts`: `468` 行
+- `src/content/video/videoPromptLifecycle.ts`: `458` 行
+- `src/shared/analytics/analyticsSanitizers.ts`: `456` 行
+- `src/content/video/videoSessionRuntime.ts`: `434` 行
+- `src/shared/errors/analytics/googleAnalyticsReporter.ts`: `301` 行
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-03 video-mode structural repair 后当前动态发现 `93` 个热点路径，注册 `94` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
-- 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
-- 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 491`、`videoSessionRuntime.ts <= 432`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`。
-- 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 746` were not loosened.
+- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-05 GA production telemetry P13 复核后当前动态发现 `99` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`stitch/types.ts <= 743`、`i18n/locales/fr.ts <= 697`。
+- 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 391`、`videoControlBarButton.ts <= 386`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 254`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`googleAnalyticsReporter.ts <= 301`。
+- 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 586` were not loosened.
 
 本轮有效收口结果：
 
 - `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
 - `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
-- `videoSessionRuntime` 当前为 `432` 行；video structural repair 同步将 `sessionOperations`、`VideoDialogPanel`、`videoControlBarButton`、`bilibiliRichText` 与 `bilibiliPlatformObserver` 纳入 exact current-line budget，作为后续拆分观察项。
+- `videoSessionRuntime` 当前为 `434` 行；video structural repair 同步将 `sessionOperations`、`VideoDialogPanel`、`videoControlBarButton`、`bilibiliRichText` 与 `bilibiliPlatformObserver` 纳入 exact current-line budget，作为后续拆分观察项。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
 
 ## 3. 浏览器验真
