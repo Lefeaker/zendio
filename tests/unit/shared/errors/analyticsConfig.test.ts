@@ -103,9 +103,9 @@ describe('analyticsConfig', () => {
   });
 
   it('reads public GA build globals without adding secret fields', async () => {
-    vi.stubGlobal('__AIIINOB_GA_MEASUREMENT_ID__', 'G-BUILD1234');
-    vi.stubGlobal('__AIIINOB_GA_TRANSPORT_MODE__', 'proxy');
-    vi.stubGlobal('__AIIINOB_GA_PROXY_ENDPOINT__', 'https://analytics.example.test/collect');
+    vi.stubGlobal('__ZENDIO_GA_MEASUREMENT_ID__', 'G-BUILD1234');
+    vi.stubGlobal('__ZENDIO_GA_TRANSPORT_MODE__', 'proxy');
+    vi.stubGlobal('__ZENDIO_GA_PROXY_ENDPOINT__', 'https://analytics.example.test/collect');
 
     const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
 

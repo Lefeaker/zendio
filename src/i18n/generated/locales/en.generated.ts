@@ -140,7 +140,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: 'Personal identifiable information',
   errorReportingNotCollectedTitle: 'Not collected:',
   errorReportingNotCollectedUrls: 'Exact URLs you visit',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'Configure your clipper for smarter content management',
   extractionFailed: 'Content extraction failed',
   featureUnstableNote: 'Feature is unstable',
@@ -209,13 +209,13 @@ const runtime = {
   multiVaultNamePlaceholder: 'My Notes Vault',
   onboardingCompleted: 'Guide Completed!',
   onboardingCompletedMessage:
-    'You have successfully completed the extension configuration guide. Now you can start using All in Ob to save your web content!',
+    'You have successfully completed the extension configuration guide. Now you can start using Zendio to save your web content!',
   onboardingFooterNote: 'You can reconfigure these options in the settings page at any time.',
   onboardingLinkText: 'Guide',
   onboardingSubtitle: "Let's quickly set up your clipper extension",
-  onboardingTitle: 'Welcome to All in Ob',
+  onboardingTitle: 'Welcome to Zendio',
   onboardingWelcomeMessage:
-    'Thank you for installing All in Ob! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
+    'Thank you for installing Zendio! This guide will help you quickly configure the extension so you can easily save web content and AI conversations to Obsidian.',
   openReaderButton: 'Enter reading mode',
   openVideoModeButton: 'Enter video mode',
   portConflictDetected:
@@ -540,7 +540,7 @@ const runtime = {
     'Welcome to suggest improvements, development is not easy, thank you for your support',
   step5Title: 'More Exciting Features, Continuous Iteration',
   suggestionsModalDescription:
-    'Thank you for helping improve All in Ob. You can reach the author through any of the following channels:',
+    'Thank you for helping improve Zendio. You can reach the author through any of the following channels:',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder:
     'QR code will be added soon. For now, feel free to message via Reddit.',
@@ -554,7 +554,7 @@ const runtime = {
   supportModalTitle: 'Thank You for Your Support',
   supportPromptAfdianDescription: 'Chinese donation platform',
   supportPromptAfdianTitle: 'Afdian',
-  supportPromptDialogLabel: 'Support All in Ob',
+  supportPromptDialogLabel: 'Support Zendio',
   supportPromptDislikeLabel: 'Thumbs down',
   supportPromptDislikeQrLinkLabel: 'Scan to share feedback',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
@@ -576,7 +576,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: 'Successfully sent to {vault}',
   supportPromptStatusWarning: 'Saved, but classification fell back',
   supportPromptStatusWarningWithReason: 'Saved, but classification failed: {reason}',
-  supportPromptTitle: 'Support All in Ob',
+  supportPromptTitle: 'Support Zendio',
   taxonomyHint: 'Define classification taxonomy in JSON format',
   taxonomyLabel: 'Taxonomy',
   templateConfigHint: 'Define naming templates for each type of saved content',
@@ -731,7 +731,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'AI-enhanced web clipper for saving chats, fragments, and articles into Obsidian.'
 };
 

@@ -82,7 +82,7 @@ async function writeHtmlEntries() {
 <html lang="zh-CN">
   <head>
 ${sharedHead}
-    <title>All in Ob - Component Preview</title>
+    <title>Zendio - Component Preview</title>
   </head>
   <body>
     <div id="app"></div>
@@ -98,7 +98,7 @@ ${sharedHead}
 <html lang="zh-CN">
   <head>
 ${sharedHead}
-    <title>All in Ob - Onboarding Preview</title>
+    <title>Zendio - Onboarding Preview</title>
   </head>
   <body>
     <div id="app"></div>
@@ -235,7 +235,7 @@ async function writeStandalonePreviewEntry() {
     )
   );
   const onboardingHtml = createStandaloneHtml({
-    title: 'All in Ob - Onboarding Preview Standalone',
+    title: 'Zendio - Onboarding Preview Standalone',
     styles,
     script: onboardingScript
   });
@@ -244,7 +244,7 @@ async function writeStandalonePreviewEntry() {
     patchStandaloneResourceOpen(indexScript)
   ].join('\n\n');
   const standaloneHtml = createStandaloneHtml({
-    title: 'All in Ob - Options Preview Standalone',
+    title: 'Zendio - Options Preview Standalone',
     styles,
     script: standaloneScript
   });
@@ -261,8 +261,8 @@ async function writeSkinVariantEntry() {
   const skinnedHtml = baseHtml
     .replace('<html lang="zh-CN">', '<html lang="zh-CN" data-preview-skin="stitch-secondary">')
     .replace(
-      '<title>All in Ob - Options Preview Standalone</title>',
-      '<title>All in Ob - Options Preview Stitch Secondary</title>'
+      '<title>Zendio - Options Preview Standalone</title>',
+      '<title>Zendio - Options Preview Stitch Secondary</title>'
     )
     .replace(
       '</head>',

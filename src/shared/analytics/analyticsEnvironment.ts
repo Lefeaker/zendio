@@ -13,12 +13,19 @@ const FORBIDDEN_PUBLIC_CONFIG_PATTERN =
   /(api[_-]?key|api[_-]?secret|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|secret|token|password)/i;
 
 export function readAnalyticsPublicBuildConfig(): AnalyticsPublicBuildConfig {
-  const measurementId = normalizeMeasurementId(readBuildString('__AIIINOB_GA_MEASUREMENT_ID__'));
+  const measurementId = normalizeMeasurementId(
+    readBuildString('__ZENDIO_GA_MEASUREMENT_ID__') ??
+      readBuildString('__AIIINOB_GA_MEASUREMENT_ID__')
+  );
   const transportMode = normalizeAnalyticsTransportMode(
-    readBuildString('__AIIINOB_GA_TRANSPORT_MODE__'),
+    readBuildString('__ZENDIO_GA_TRANSPORT_MODE__') ??
+      readBuildString('__AIIINOB_GA_TRANSPORT_MODE__'),
     undefined
   );
-  const proxyEndpoint = normalizeProxyEndpoint(readBuildString('__AIIINOB_GA_PROXY_ENDPOINT__'));
+  const proxyEndpoint = normalizeProxyEndpoint(
+    readBuildString('__ZENDIO_GA_PROXY_ENDPOINT__') ??
+      readBuildString('__AIIINOB_GA_PROXY_ENDPOINT__')
+  );
 
   return {
     ...(measurementId ? { measurementId } : {}),
@@ -103,29 +110,54 @@ export function normalizeProxyEndpoint(value: unknown): string | undefined {
 }
 
 function readBuildString(name: string): string | undefined {
+  if (name === '__ZENDIO_GA_MEASUREMENT_ID__') {
+    return readString(
+      typeof __ZENDIO_GA_MEASUREMENT_ID__ === 'undefined'
+        ? readGlobalValue(name)
+        : __ZENDIO_GA_MEASUREMENT_ID__
+    );
+  }
+  if (name === '__ZENDIO_GA_TRANSPORT_MODE__') {
+    return readString(
+      typeof __ZENDIO_GA_TRANSPORT_MODE__ === 'undefined'
+        ? readGlobalValue(name)
+        : __ZENDIO_GA_TRANSPORT_MODE__
+    );
+  }
+  if (name === '__ZENDIO_GA_PROXY_ENDPOINT__') {
+    return readString(
+      typeof __ZENDIO_GA_PROXY_ENDPOINT__ === 'undefined'
+        ? readGlobalValue(name)
+        : __ZENDIO_GA_PROXY_ENDPOINT__
+    );
+  }
   if (name === '__AIIINOB_GA_MEASUREMENT_ID__') {
     return readString(
       typeof __AIIINOB_GA_MEASUREMENT_ID__ === 'undefined'
-        ? (globalThis as Record<string, unknown>)[name]
+        ? readGlobalValue(name)
         : __AIIINOB_GA_MEASUREMENT_ID__
     );
   }
   if (name === '__AIIINOB_GA_TRANSPORT_MODE__') {
     return readString(
       typeof __AIIINOB_GA_TRANSPORT_MODE__ === 'undefined'
-        ? (globalThis as Record<string, unknown>)[name]
+        ? readGlobalValue(name)
         : __AIIINOB_GA_TRANSPORT_MODE__
     );
   }
   if (name === '__AIIINOB_GA_PROXY_ENDPOINT__') {
     return readString(
       typeof __AIIINOB_GA_PROXY_ENDPOINT__ === 'undefined'
-        ? (globalThis as Record<string, unknown>)[name]
+        ? readGlobalValue(name)
         : __AIIINOB_GA_PROXY_ENDPOINT__
     );
   }
-  const value = (globalThis as Record<string, unknown>)[name];
+  const value = readGlobalValue(name);
   return readString(value);
+}
+
+function readGlobalValue(name: string) {
+  return (globalThis as Record<string, unknown>)[name];
 }
 
 function readString(value: unknown): string | undefined {

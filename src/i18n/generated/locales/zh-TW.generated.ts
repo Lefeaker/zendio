@@ -130,7 +130,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: '個人識別資訊',
   errorReportingNotCollectedTitle: '我們不收集的內容：',
   errorReportingNotCollectedUrls: '您造訪的確切 URL',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '配置您的剪藏器以實現更智慧的內容管理',
   extractionFailed: '內容擷取失敗',
   featureUnstableNote: '不穩定功能',
@@ -195,13 +195,13 @@ const runtime = {
   multiVaultNamePlaceholder: '我的筆記庫',
   onboardingCompleted: '指南完成！',
   onboardingCompletedMessage:
-    '您已成功完成擴充功能設定指南。現在可以開始使用 All in Ob 保存您的網頁內容！',
+    '您已成功完成擴充功能設定指南。現在可以開始使用 Zendio 保存您的網頁內容！',
   onboardingFooterNote: '您可以隨時在設定頁面重新配置這些選項。',
   onboardingLinkText: '指南',
   onboardingSubtitle: '讓我們快速設定您的剪藏器擴充功能',
-  onboardingTitle: '歡迎使用 All in Ob',
+  onboardingTitle: '歡迎使用 Zendio',
   onboardingWelcomeMessage:
-    '感謝您安裝 All in Ob！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
+    '感謝您安裝 Zendio！本指南將幫助您快速設定擴充功能，以便輕鬆將網頁內容和 AI 對話保存到 Obsidian。',
   openReaderButton: '進入閱讀模式',
   openVideoModeButton: '進入影片模式',
   portConflictDetected: '⚠️ 檢測到埠衝突：{ports}。在重試前請在 Obsidian 中分配唯一埠。',
@@ -494,7 +494,7 @@ const runtime = {
   step5Detail2: '雙向互動，不再只是保存筆記，而是瀏覽器與 Obsidian 之間的橋樑',
   step5Detail3: '歡迎建議改進，開發不易，感謝您的支援',
   step5Title: '更多有趣功能，持續迭代',
-  suggestionsModalDescription: '感謝您幫助改進 All in Ob。您可以透過以下任一管道聯絡作者：',
+  suggestionsModalDescription: '感謝您幫助改進 Zendio。您可以透過以下任一管道聯絡作者：',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder: 'QR 碼即將新增。同時，歡迎透過 Reddit 發送訊息。',
   suggestionsModalReddit: '在 Reddit 上聊天',
@@ -506,7 +506,7 @@ const runtime = {
   supportModalTitle: '感謝您的支援',
   supportPromptAfdianDescription: '中國捐贈平台',
   supportPromptAfdianTitle: 'Afdian',
-  supportPromptDialogLabel: '支援 All in Ob',
+  supportPromptDialogLabel: '支援 Zendio',
   supportPromptDislikeLabel: '不喜歡',
   supportPromptDislikeQrLinkLabel: '掃碼回饋',
   supportPromptDislikeQrPlaceholder: 'QR code 暫不可用',
@@ -528,7 +528,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: '成功發送到 {vault}',
   supportPromptStatusWarning: '已保存，但分類失敗',
   supportPromptStatusWarningWithReason: '已保存，但分類失敗：{reason}',
-  supportPromptTitle: '支援 All in Ob',
+  supportPromptTitle: '支援 Zendio',
   taxonomyHint: '以 JSON 格式定義分類分類法',
   taxonomyLabel: '分類法',
   templateConfigHint: '為不同類型的剪藏定義檔名範本',
@@ -677,7 +677,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'AI 增強的網頁剪藏器，用於將聊天、片段和文章保存到 Obsidian。'
 };
 

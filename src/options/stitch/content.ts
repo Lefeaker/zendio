@@ -17,7 +17,7 @@ const usageHistory = usageHistoryValues.map((value, index) => {
 
 export const previewContent: PreviewContent = {
   brand: {
-    title: 'All in Ob',
+    title: 'Zendio',
     subtitle: 'Component Preview',
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
@@ -135,7 +135,7 @@ export const previewContent: PreviewContent = {
     ],
     vaults: [
       {
-        name: 'AllInObsidian',
+        name: 'Zendio',
         https: 'https://127.0.0.1:27124/',
         http: 'http://127.0.0.1:27123/',
         key: 'sk-demo-demo-demo',
@@ -642,7 +642,7 @@ export const previewContent: PreviewContent = {
         pills: ['Clip Selection', 'Reader Entry', 'Video Entry', 'Shortcuts'],
         icon: 'content_cut'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_clipt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_clipt.png',
       labels: {
         title: 'Clip Selection',
         selectionPreview: 'Selection Preview',
@@ -702,7 +702,7 @@ export const previewContent: PreviewContent = {
         pills: ['Non-modal Panel', 'Highlight List', 'Inline Comment Edit', 'AI Summary Slot'],
         icon: 'auto_stories'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_readingt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_readingt.png',
       labels: {
         title: '阅读模式',
         subtitle: 'Reading session',
@@ -891,7 +891,7 @@ export const previewContent: PreviewContent = {
       dismissLabel: '点击页面其他区域即可关闭',
       likeToast: {
         title: '感谢鼓励！',
-        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 All in Ob。',
+        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 Zendio。',
         actions: ['撰写评论', '我已写过评论']
       },
       dislikeToast: {

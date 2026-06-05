@@ -33,7 +33,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     } as never);
 
     expect(document.querySelector('.sidebar')).toBeTruthy();
-    expect(document.querySelector('.brand-copy strong')?.textContent).toBe('All in Ob');
+    expect(document.querySelector('.brand-copy strong')?.textContent).toBe('Zendio');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
     const brandLogo = document.querySelector<HTMLImageElement>('.brand-mark img');
     expect(brandLogo?.getAttribute('src')).toBe('../icons/bannerlogo-128.png');

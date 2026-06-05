@@ -22,7 +22,7 @@ npm run release
 
 创建完整的发布包，包含扩展文件和安装文档。
 
-**输出：** `releases/all-in-ob-v{version}-release.zip`
+**输出：** `releases/zendio-v{version}-release.zip`
 
 **适用场景：** 分发给朋友或用户
 
@@ -36,7 +36,7 @@ npm run release
 
 仅打包扩展文件为 zip。
 
-**输出：** `all-in-ob-v{version}.zip`
+**输出：** `zendio-v{version}.zip`
 
 **适用场景：** 快速打包，不需要文档
 
@@ -53,7 +53,7 @@ npm run release
 ### 方式一：分发完整发布包（推荐）
 
 1. 运行 `npm run release`
-2. 将生成的 `releases/all-in-ob-v{version}-release.zip` 发送给用户
+2. 将生成的 `releases/zendio-v{version}-release.zip` 发送给用户
 3. 用户解压后会看到清晰的文件结构和安装说明
 
 **优点：**
@@ -100,7 +100,7 @@ npm run release
 当你分发扩展时，可以给用户以下简短说明：
 
 ```
-# All in Ob 安装说明
+# Zendio 安装说明
 
 1. 解压收到的 zip 文件
 2. 打开 Chrome，访问 chrome://extensions/

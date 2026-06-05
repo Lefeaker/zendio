@@ -1,8 +1,9 @@
 # Chrome Web Store Listing
 
 ## Basic Info
-- **Name**: All in Ob
-- **Short Description**: Read, Clip, Think. All in Obsidian.
+
+- **Name**: Zendio
+- **Short Description**: Read. Clip. Think. Structured Markdown for Obsidian.
 - **Tagline (EN)**: One-click: pages, highlights, comments & AI chats → structured Markdown in Obsidian.
 
 ## Long Description (ZH)
@@ -22,7 +23,7 @@
 
 1. **网页文章剪藏**：在页面完全加载后，一键保存到 Obsidian，适合希望用 Obsidian 阅读和消化内容的朋友。
 2. **AI 对话归档**：将多平台的 AI 聊天记录集中落地到 Obsidian，方便跨模型继续对话或复盘要点。
-    - 支持 OpenAI、Gemini、Claude、Kimi、Deepseek、Tongyi 六大平台，完美适配消息格式，包括代码块、表格等。
+   - 支持 OpenAI、Gemini、Claude、Kimi、Deepseek、Tongyi 六大平台，完美适配消息格式，包括代码块、表格等。
 3. **碎片摘录与批注**：选中网页中的任意句子即可保存到 Obsidian，可附加批注，并自动生成回链以便随时回到原文。
 4. **阅读模式**：在浏览器内进入阅读模式，边读边批注，完成后一次性同步到 Obsidian。
 
@@ -47,9 +48,7 @@
 
 现在就安装，开始把阅读与思考一站式同步到 Obsidian。
 
-
 ## Long Description (EN)
-
 
 ### How to Get Started?
 
@@ -91,10 +90,11 @@ Thank you, and [feel free to reach out anytime](https://github.com/Lefeaker/Alli
 
 Install now to keep your reading and thinking in a single Obsidian workflow.
 
-
 ## Assets
+
 - **Screenshots**: `marketing/screenshots/chrome-store-main-1280x800.png`
 - **Icons & banners**: see `marketing/` directory for additional assets.
 
 ## Contact
+
 - **Support Email**: allinobsidian@outlook.com

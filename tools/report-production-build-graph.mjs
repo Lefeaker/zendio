@@ -40,18 +40,26 @@ function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
 }
 
+function resolveEnvAlias(newName, oldName, fallback = '') {
+  return process.env[newName] ?? process.env[oldName] ?? fallback;
+}
+
+function resolveSentryEnv(name, fallback = '') {
+  return resolveEnvAlias(`ZENDIO_SENTRY_${name}`, `AIIINOB_SENTRY_${name}`, fallback);
+}
+
 function createProductionBuildGraphDefine() {
   return {
     'process.env.NODE_ENV': JSON.stringify('production'),
     __DEV__: 'false',
-    __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
-    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
-      process.env.AIIINOB_SENTRY_ENVIRONMENT ?? 'production'
-    ),
-    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(process.env.AIIINOB_SENTRY_RELEASE ?? '0.2.0'),
-    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(process.env.AIIINOB_SENTRY_ENABLED)
-      ? 'true'
-      : 'false'
+    __ZENDIO_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
+    __ZENDIO_SENTRY_ENVIRONMENT__: JSON.stringify(resolveSentryEnv('ENVIRONMENT', 'production')),
+    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __ZENDIO_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
+    __AIIINOB_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
+    __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(resolveSentryEnv('ENVIRONMENT', 'production')),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false'
   };
 }
 
@@ -229,7 +237,9 @@ function buildProductionGraphReport({ metafile }) {
     excludedHarnessEntrypoints: HARNESS_ENTRYPOINTS,
     requiredEntrypoints: {
       expected: REQUIRED_ENTRYPOINTS,
-      missing: Array.from(new Set([...missingRequiredEntrypoints, ...missingReachableRequiredSources]))
+      missing: Array.from(
+        new Set([...missingRequiredEntrypoints, ...missingReachableRequiredSources])
+      )
     },
     sourceCount: Object.keys(reachable).length,
     reachableSources: reachable,

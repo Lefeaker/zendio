@@ -6,12 +6,12 @@ import type { Language, Messages } from '../../../src/i18n/locales';
 
 const messages: Partial<Record<Language, Messages>> & Record<'en' | 'zh-CN', Messages> = {
   en: {
-    extensionName: 'All-in-Obsidian',
+    extensionName: 'Zendio',
     domainMappingDomainPlaceholder: 'example.com',
     commentLabel: 'Comment'
   } as Messages,
   'zh-CN': {
-    extensionName: 'All-in-Obsidian',
+    extensionName: 'Zendio',
     domainMappingDomainPlaceholder: '示例.中国',
     commentLabel: '评论'
   } as Messages
@@ -71,11 +71,11 @@ function createMockBindingAdapter(): I18nBindingAdapter & {
   const clearMock = vi.fn(clearImpl);
 
   return {
-    bindText: bindTextMock as unknown as I18nBindingAdapter['bindText'],
-    bindAttribute: bindAttrMock as unknown as I18nBindingAdapter['bindAttribute'],
-    bindHtml: bindHtmlMock as unknown as I18nBindingAdapter['bindHtml'],
-    refresh: refreshMock as unknown as I18nBindingAdapter['refresh'],
-    clear: clearMock as unknown as I18nBindingAdapter['clear'],
+    bindText: bindTextMock as I18nBindingAdapter['bindText'],
+    bindAttribute: bindAttrMock as I18nBindingAdapter['bindAttribute'],
+    bindHtml: bindHtmlMock as I18nBindingAdapter['bindHtml'],
+    refresh: refreshMock as I18nBindingAdapter['refresh'],
+    clear: clearMock as I18nBindingAdapter['clear'],
     handles,
     bindTextMock,
     bindAttrMock,
@@ -92,6 +92,30 @@ describe('pageController', () => {
     bindingAdapter = createMockBindingAdapter();
   });
 
+  const createNodeList = <T extends HTMLElement>(items: T[]): NodeListOf<T> => {
+    const nodeList = {
+      length: items.length,
+      item: (index: number) => items[index] ?? null,
+      forEach: (
+        callbackfn: (value: T, key: number, parent: NodeListOf<T>) => void,
+        thisArg?: unknown
+      ) => {
+        items.forEach((value, key) => callbackfn.call(thisArg, value, key, nodeList));
+      },
+      entries: () => items.entries(),
+      keys: () => items.keys(),
+      values: () => items.values(),
+      [Symbol.iterator]: () => items.values()
+    };
+    items.forEach((value, index) => {
+      Object.defineProperty(nodeList, index, {
+        value,
+        enumerable: true
+      });
+    });
+    return nodeList as NodeListOf<T>;
+  };
+
   const createElementStub = () => {
     const attributes = new Map<string, string>();
     return {
@@ -100,7 +124,7 @@ describe('pageController', () => {
         attributes.set(name, value);
       },
       getAttribute: (name: string) => attributes.get(name) ?? null
-    } as unknown as HTMLElement;
+    } as HTMLElement;
   };
 
   const createInputStub = () => {
@@ -114,7 +138,7 @@ describe('pageController', () => {
         }
       },
       getAttribute: (name: string) => attributes.get(name) ?? null
-    } as unknown as HTMLInputElement;
+    } as HTMLInputElement;
   };
 
   it('loads current language and registers static bindings on mount', async () => {
@@ -138,14 +162,14 @@ describe('pageController', () => {
     const root = {
       querySelectorAll: (selector: string) => {
         if (selector === '[data-i18n]') {
-          return [textNode] as unknown as NodeListOf<HTMLElement>;
+          return createNodeList([textNode]);
         }
         if (selector === '[data-i18n-placeholder]') {
-          return [inputNode] as unknown as NodeListOf<HTMLElement>;
+          return createNodeList([inputNode]);
         }
-        return [] as unknown as NodeListOf<HTMLElement>;
+        return createNodeList([]);
       }
-    } as unknown as ParentNode;
+    } as ParentNode;
 
     controller.mount(root);
 
@@ -190,11 +214,11 @@ describe('pageController', () => {
     const root = {
       querySelectorAll: (selector: string) => {
         if (selector === '[data-i18n-aria-label]') {
-          return [ariaNode] as unknown as NodeListOf<HTMLElement>;
+          return createNodeList([ariaNode]);
         }
-        return [] as unknown as NodeListOf<HTMLElement>;
+        return createNodeList([]);
       }
-    } as unknown as ParentNode;
+    } as ParentNode;
 
     controller.mount(root);
 

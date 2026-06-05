@@ -600,7 +600,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_JA: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: 'リソース',
   schemaResourceSuggestionsChannelsGroupTitle: 'フィードバックチャネル',
   schemaResourceSuggestionsDescription:
-    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+    'Zendio を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   schemaResourceSuggestionsGithubDescription: '機能要望とバグ報告',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'フィードバックチャネル',
@@ -769,7 +769,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_DE: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: 'Ressourcen',
   schemaResourceSuggestionsChannelsGroupTitle: 'Feedback-Kanäle',
   schemaResourceSuggestionsDescription:
-    'Danke, dass Sie helfen, All in Ob zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
+    'Danke, dass Sie helfen, Zendio zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
   schemaResourceSuggestionsGithubDescription: 'Funktionswünsche und Fehlerberichte',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Feedback-Kanäle',
@@ -941,7 +941,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_FR: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: 'Ressources',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canaux de retours',
   schemaResourceSuggestionsDescription:
-    "Merci d'aider à améliorer All in Ob. Vous pouvez contacter l'auteur via l'un des canaux suivants :",
+    "Merci d'aider à améliorer Zendio. Vous pouvez contacter l'auteur via l'un des canaux suivants :",
   schemaResourceSuggestionsGithubDescription: 'Demandes de fonctionnalités et signalements de bugs',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Canaux de retours',
@@ -1114,7 +1114,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_ES_ES: GeneratedSchemaMessages = 
   schemaResourcesGroupTitle: 'Recursos',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canales de comentarios',
   schemaResourceSuggestionsDescription:
-    'Gracias por ayudar a mejorar All in Ob. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
+    'Gracias por ayudar a mejorar Zendio. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
   schemaResourceSuggestionsGithubDescription: 'Solicitudes de funciones e informes de errores',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Canales de comentarios',
@@ -1287,7 +1287,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_ES_419: GeneratedSchemaMessages =
   schemaResourcesGroupTitle: 'Recursos',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canales de comentarios',
   schemaResourceSuggestionsDescription:
-    'Gracias por ayudar a mejorar All in Ob. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
+    'Gracias por ayudar a mejorar Zendio. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
   schemaResourceSuggestionsGithubDescription: 'Solicitudes de funciones e informes de errores',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Canales de comentarios',
@@ -1458,7 +1458,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_IT: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: 'Risorse',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canali di feedback',
   schemaResourceSuggestionsDescription:
-    "Grazie per aver aiutato a migliorare All in Ob. Puoi contattare l'autore tramite uno dei seguenti canali:",
+    "Grazie per aver aiutato a migliorare Zendio. Puoi contattare l'autore tramite uno dei seguenti canali:",
   schemaResourceSuggestionsGithubDescription: 'Richieste di funzionalità e segnalazioni di bug',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Canali di feedback',
@@ -1617,7 +1617,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_KO: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: '리소스',
   schemaResourceSuggestionsChannelsGroupTitle: '피드백 채널',
   schemaResourceSuggestionsDescription:
-    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+    'Zendio 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   schemaResourceSuggestionsGithubDescription: '기능 요청 및 버그 보고',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: '피드백 채널',
@@ -1783,7 +1783,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_PT_BR: GeneratedSchemaMessages = 
   schemaResourcesGroupTitle: 'Recursos',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canais de feedback',
   schemaResourceSuggestionsDescription:
-    'Obrigado por ajudar a melhorar o All in Ob. Você pode contatar o autor através de qualquer um dos seguintes canais:',
+    'Obrigado por ajudar a melhorar o Zendio. Você pode contatar o autor através de qualquer um dos seguintes canais:',
   schemaResourceSuggestionsGithubDescription: 'Solicitações de recursos e relatos de bugs',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Canais de feedback',
@@ -1950,7 +1950,7 @@ export const GENERATED_RELEASE_SCHEMA_MESSAGES_RU: GeneratedSchemaMessages = {
   schemaResourcesGroupTitle: 'Ресурсы',
   schemaResourceSuggestionsChannelsGroupTitle: 'Каналы обратной связи',
   schemaResourceSuggestionsDescription:
-    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+    'Спасибо за помощь в улучшении Zendio. Вы можете связаться с автором через любой из следующих каналов:',
   schemaResourceSuggestionsGithubDescription: 'Запросы функций и сообщения об ошибках',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Каналы обратной связи',

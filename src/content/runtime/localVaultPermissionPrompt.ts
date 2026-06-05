@@ -61,7 +61,7 @@ export function createLocalVaultPermissionPrompt(params: {
         ].join(';');
 
         const frame = document.createElement('iframe');
-        frame.title = 'All in Ob local vault permission';
+        frame.title = 'Zendio local vault permission';
         frame.src = buildFrameUrl(message);
         frame.style.cssText = [
           'width:min(420px,calc(100vw - 32px))',

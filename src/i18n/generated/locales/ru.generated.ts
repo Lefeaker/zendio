@@ -148,7 +148,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: 'Личная идентифицирующая информация',
   errorReportingNotCollectedTitle: 'Не собирается:',
   errorReportingNotCollectedUrls: 'Точные URL, которые вы посещаете',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'Настройте ваш клиппер для более умного управления контентом',
   extractionFailed: 'Ошибка извлечения содержимого',
   featureUnstableNote: 'Функция нестабильна',
@@ -216,13 +216,13 @@ const runtime = {
   multiVaultNamePlaceholder: 'Моё хранилище заметок',
   onboardingCompleted: 'Руководство завершено!',
   onboardingCompletedMessage:
-    'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать All in Ob для сохранения вашего веб-контента!',
+    'Вы успешно завершили руководство по настройке расширения. Теперь вы можете начать использовать Zendio для сохранения вашего веб-контента!',
   onboardingFooterNote: 'Вы можете перенастроить эти опции на странице настроек в любое время.',
   onboardingLinkText: 'Руководство',
   onboardingSubtitle: 'Давайте быстро настроим ваше расширение-клиппер',
-  onboardingTitle: 'Добро пожаловать в All in Ob',
+  onboardingTitle: 'Добро пожаловать в Zendio',
   onboardingWelcomeMessage:
-    'Спасибо за установку All in Ob! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
+    'Спасибо за установку Zendio! Это руководство поможет вам быстро настроить расширение, чтобы вы могли легко сохранять веб-контент и ИИ-разговоры в Obsidian.',
   openReaderButton: 'Войти в режим чтения',
   openVideoModeButton: 'Войти в режим видео',
   portConflictDetected:
@@ -442,7 +442,7 @@ const runtime = {
   schemaResourcesGroupTitle: 'Ресурсы',
   schemaResourceSuggestionsChannelsGroupTitle: 'Каналы обратной связи',
   schemaResourceSuggestionsDescription:
-    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+    'Спасибо за помощь в улучшении Zendio. Вы можете связаться с автором через любой из следующих каналов:',
   schemaResourceSuggestionsGithubDescription: 'Запросы функций и сообщения об ошибках',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Каналы обратной связи',
@@ -559,7 +559,7 @@ const runtime = {
     'Добро пожаловать предлагать улучшения, разработка нелегка, спасибо за вашу поддержку',
   step5Title: 'Больше захватывающих функций, непрерывная итерация',
   suggestionsModalDescription:
-    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+    'Спасибо за помощь в улучшении Zendio. Вы можете связаться с автором через любой из следующих каналов:',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder:
     'QR-код будет добавлен скоро. А пока не стесняйтесь отправлять сообщения через Reddit.',
@@ -573,7 +573,7 @@ const runtime = {
   supportModalTitle: 'Спасибо за вашу поддержку',
   supportPromptAfdianDescription: 'Китайская платформа пожертвований',
   supportPromptAfdianTitle: 'Afdian',
-  supportPromptDialogLabel: 'Поддержать All in Ob',
+  supportPromptDialogLabel: 'Поддержать Zendio',
   supportPromptDislikeLabel: 'Не нравится',
   supportPromptDislikeQrLinkLabel: 'Scan to share feedback',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
@@ -595,7 +595,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: 'Успешно отправлено в {vault}',
   supportPromptStatusWarning: 'Сохранено, но классификация не удалась',
   supportPromptStatusWarningWithReason: 'Сохранено, но классификация не удалась: {reason}',
-  supportPromptTitle: 'Поддержать All in Ob',
+  supportPromptTitle: 'Поддержать Zendio',
   taxonomyHint: 'Определите таксономию классификации в формате JSON',
   taxonomyLabel: 'Таксономия',
   templateConfigHint: 'Определите шаблоны имен для каждого типа сохраняемого контента',
@@ -754,7 +754,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'ИИ-улучшенный веб-клиппер для сохранения чатов, фрагментов и статей в Obsidian.'
 };
 

@@ -140,7 +140,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: '개인 식별 정보',
   errorReportingNotCollectedTitle: '수집되지 않는 것:',
   errorReportingNotCollectedUrls: '방문하는 정확한 URL',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '더 스마트한 콘텐츠 관리를 위해 클리퍼를 구성하세요',
   extractionFailed: '콘텐츠 추출 실패',
   featureUnstableNote: '불안정한 기능',
@@ -207,13 +207,13 @@ const runtime = {
   multiVaultNamePlaceholder: '내 노트 볼트',
   onboardingCompleted: '가이드 완료!',
   onboardingCompletedMessage:
-    '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 All in Ob를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
+    '확장 프로그램 설정 가이드를 성공적으로 완료했습니다. 이제 Zendio를 사용하여 웹 콘텐츠를 저장할 수 있습니다!',
   onboardingFooterNote: '언제든지 설정 페이지에서 이러한 옵션을 다시 구성할 수 있습니다.',
   onboardingLinkText: '가이드',
   onboardingSubtitle: '클리퍼 확장 프로그램을 빠르게 설정해 보겠습니다',
-  onboardingTitle: 'All in Ob에 오신 것을 환영합니다',
+  onboardingTitle: 'Zendio에 오신 것을 환영합니다',
   onboardingWelcomeMessage:
-    'All in Ob를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
+    'Zendio를 설치해 주셔서 감사합니다! 이 가이드는 확장 프로그램을 빠르게 설정하여 웹 콘텐츠와 AI 대화를 Obsidian에 쉽게 저장할 수 있도록 도와드립니다.',
   openReaderButton: '읽기 모드 진입',
   openVideoModeButton: '비디오 모드 진입',
   portConflictDetected:
@@ -423,7 +423,7 @@ const runtime = {
   schemaResourcesGroupTitle: '리소스',
   schemaResourceSuggestionsChannelsGroupTitle: '피드백 채널',
   schemaResourceSuggestionsDescription:
-    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+    'Zendio 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   schemaResourceSuggestionsGithubDescription: '기능 요청 및 버그 보고',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: '피드백 채널',
@@ -530,7 +530,7 @@ const runtime = {
   step5Detail3: '개선 사항을 제안해 주세요. 개발이 쉽지 않습니다. 지원해 주셔서 감사합니다',
   step5Title: '더 많은 흥미로운 기능, 지속적인 반복',
   suggestionsModalDescription:
-    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+    'Zendio 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder:
     'QR 코드가 곧 추가됩니다. 그동안 Reddit을 통해 메시지를 보내주세요.',
@@ -544,7 +544,7 @@ const runtime = {
   supportModalTitle: '지원해 주셔서 감사합니다',
   supportPromptAfdianDescription: '중국 기부 플랫폼',
   supportPromptAfdianTitle: 'Afdian',
-  supportPromptDialogLabel: 'All in Ob 지원',
+  supportPromptDialogLabel: 'Zendio 지원',
   supportPromptDislikeLabel: '싫어요',
   supportPromptDislikeQrLinkLabel: '피드백 공유 QR 스캔',
   supportPromptDislikeQrPlaceholder: 'QR 코드를 사용할 수 없음',
@@ -566,7 +566,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: '{vault}에 성공적으로 전송됨',
   supportPromptStatusWarning: '저장됨, 하지만 분류 실패',
   supportPromptStatusWarningWithReason: '저장됨, 하지만 분류 실패: {reason}',
-  supportPromptTitle: 'All in Ob 지원',
+  supportPromptTitle: 'Zendio 지원',
   taxonomyHint: 'JSON 형식으로 분류 분류법을 정의하세요',
   taxonomyLabel: '분류법',
   templateConfigHint: '저장하는 콘텐츠 유형마다 파일 이름 템플릿을 정의하세요',
@@ -719,7 +719,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'AI 강화 웹 클리퍼로 채팅, 조각, 기사를 Obsidian에 저장하세요.'
 };
 

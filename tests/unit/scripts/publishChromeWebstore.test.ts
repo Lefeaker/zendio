@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createChromeWebStoreUrls,
@@ -17,6 +18,19 @@ const completeEnv = {
 };
 
 describe('Chrome Web Store publisher script', () => {
+  it('uses Zendio for private package metadata while retaining store identity inputs', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { name?: string };
+    const packageLock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
+      name?: string;
+      packages?: Record<string, { name?: string }>;
+    };
+
+    expect(packageJson.name).toBe('zendio');
+    expect(packageLock.name).toBe('zendio');
+    expect(packageLock.packages?.['']?.name).toBe('zendio');
+    expect(completeEnv.CWS_EXTENSION_ID).toBe('extension-id');
+  });
+
   it('requires all Chrome Web Store credentials including publisher id', () => {
     expect(() =>
       readChromeWebStoreConfig({
@@ -145,7 +159,7 @@ describe('Chrome Web Store publisher script', () => {
 
     await expect(
       publishChromeWebStorePackage({
-        zipPath: 'all-in-ob-v0.2.1.zip',
+        zipPath: 'zendio-v0.2.1.zip',
         env: completeEnv,
         fetchImpl,
         readFileImpl,

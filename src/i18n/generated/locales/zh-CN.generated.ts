@@ -130,7 +130,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: '任何个人身份信息',
   errorReportingNotCollectedTitle: '不会收集：',
   errorReportingNotCollectedUrls: '你访问的具体网址',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: '配置你的剪藏插件，让内容管理更智能',
   extractionFailed: '内容提取失败',
   featureUnstableNote: '功能尚不稳定',
@@ -196,13 +196,13 @@ const runtime = {
   multiVaultNamePlaceholder: '我的笔记仓库',
   onboardingCompleted: '引导已完成！',
   onboardingCompletedMessage:
-    '您已成功完成插件配置引导。现在可以开始使用 All in Ob 来保存您的网页内容了！',
+    '您已成功完成插件配置引导。现在可以开始使用 Zendio 来保存您的网页内容了！',
   onboardingFooterNote: '您可以随时在设置页面中重新配置这些选项。',
   onboardingLinkText: '引导',
   onboardingSubtitle: '让我们快速配置您的剪藏插件',
-  onboardingTitle: '欢迎使用 All in Ob',
+  onboardingTitle: '欢迎使用 Zendio',
   onboardingWelcomeMessage:
-    '感谢您安装 All in Ob！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
+    '感谢您安装 Zendio！这个引导将帮助您快速配置插件，让您能够轻松地将网页内容和 AI 对话保存到 Obsidian 中。',
   openReaderButton: '进入阅读模式',
   openVideoModeButton: '进入视频模式',
   portConflictDetected:
@@ -514,7 +514,7 @@ const runtime = {
   supportModalTitle: '感谢支持',
   supportPromptAfdianDescription: '国内赞助渠道',
   supportPromptAfdianTitle: '爱发电',
-  supportPromptDialogLabel: '支持 All in Ob',
+  supportPromptDialogLabel: '支持 Zendio',
   supportPromptDislikeLabel: '倒赞',
   supportPromptDislikeQrLinkLabel: '扫码反馈',
   supportPromptDislikeQrPlaceholder: '二维码暂不可用',
@@ -536,7 +536,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: '成功发送到 {vault}',
   supportPromptStatusWarning: '已保存，但分类结果已回退',
   supportPromptStatusWarningWithReason: '已保存，但分类失败：{reason}',
-  supportPromptTitle: '支持 All in Ob',
+  supportPromptTitle: '支持 Zendio',
   taxonomyHint: '定义分类体系，JSON 格式',
   taxonomyLabel: '分类体系',
   templateConfigHint: '为不同类型的剪藏定义文件命名模板',
@@ -682,7 +682,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'AI 驱动的网页与对话剪藏插件，支持将内容一键同步到 Obsidian。'
 };
 

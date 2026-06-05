@@ -144,6 +144,9 @@ function validateBuildInjection() {
 
   const buildScript = read('scripts/build.mjs');
   const expectedDefines = [
+    '__ZENDIO_GA_MEASUREMENT_ID__',
+    '__ZENDIO_GA_TRANSPORT_MODE__',
+    '__ZENDIO_GA_PROXY_ENDPOINT__',
     '__AIIINOB_GA_MEASUREMENT_ID__',
     '__AIIINOB_GA_TRANSPORT_MODE__',
     '__AIIINOB_GA_PROXY_ENDPOINT__'
@@ -188,24 +191,28 @@ function validatePrivacyWiring() {
   }
 }
 
+function resolvePublicEnv(newName, oldName) {
+  return (process.env[newName] || process.env[oldName] || '').trim();
+}
+
 function validateEnvironmentVariables() {
   info('Checking current shell environment');
 
-  const measurementId = (process.env.AIIINOB_GA_MEASUREMENT_ID || '').trim();
-  const transportMode = (process.env.AIIINOB_GA_TRANSPORT_MODE || '').trim();
-  const proxyEndpoint = (process.env.AIIINOB_GA_PROXY_ENDPOINT || '').trim();
+  const measurementId = resolvePublicEnv('ZENDIO_GA_MEASUREMENT_ID', 'AIIINOB_GA_MEASUREMENT_ID');
+  const transportMode = resolvePublicEnv('ZENDIO_GA_TRANSPORT_MODE', 'AIIINOB_GA_TRANSPORT_MODE');
+  const proxyEndpoint = resolvePublicEnv('ZENDIO_GA_PROXY_ENDPOINT', 'AIIINOB_GA_PROXY_ENDPOINT');
   const secretLikePattern = /(bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|token|password|secret)/i;
 
   if (!transportMode) {
-    warn('AIIINOB_GA_TRANSPORT_MODE is unset; builds will default to disabled');
+    warn('ZENDIO_GA_TRANSPORT_MODE/AIIINOB_GA_TRANSPORT_MODE is unset; builds will default to disabled');
   } else if (!['disabled', 'proxy', 'directDebug'].includes(transportMode)) {
-    fail(`AIIINOB_GA_TRANSPORT_MODE is invalid: ${transportMode}`);
+    fail(`ZENDIO_GA_TRANSPORT_MODE/AIIINOB_GA_TRANSPORT_MODE is invalid: ${transportMode}`);
   } else {
     ok(`transport mode is ${transportMode}`);
   }
 
   if (!measurementId) {
-    warn('AIIINOB_GA_MEASUREMENT_ID is unset');
+    warn('ZENDIO_GA_MEASUREMENT_ID/AIIINOB_GA_MEASUREMENT_ID is unset');
   } else if (!/^G-[A-Z0-9-]{4,48}$/i.test(measurementId) || /X{4,}/i.test(measurementId)) {
     fail(`measurementId format is invalid: ${measurementId}`);
   } else {
@@ -230,9 +237,9 @@ function validateEnvironmentVariables() {
       fail(`proxy endpoint is not a valid URL: ${proxyEndpoint}`);
     }
   } else if (transportMode === 'proxy' || transportMode === 'directDebug') {
-    fail(`${transportMode} transport requires AIIINOB_GA_PROXY_ENDPOINT`);
+    fail(`${transportMode} transport requires ZENDIO_GA_PROXY_ENDPOINT/AIIINOB_GA_PROXY_ENDPOINT`);
   } else {
-    warn('AIIINOB_GA_PROXY_ENDPOINT is unset');
+    warn('ZENDIO_GA_PROXY_ENDPOINT/AIIINOB_GA_PROXY_ENDPOINT is unset');
   }
 }
 

@@ -348,9 +348,9 @@ describe('VideoSession', () => {
       platform: 'bilibili',
       source: 'unknown'
     });
-    expect(
-      JSON.stringify(trackUsageEvent.mock.calls.at(0)?.[1] ?? {})
-    ).not.toContain('Video Title');
+    expect(JSON.stringify(trackUsageEvent.mock.calls.at(0)?.[1] ?? {})).not.toContain(
+      'Video Title'
+    );
 
     vi.setSystemTime(new Date('2026-03-14T10:00:05Z'));
     requireMountedPanelCallbacks(mountedCallbacks).onCancel();
@@ -359,8 +359,12 @@ describe('VideoSession', () => {
       platform: 'bilibili',
       duration_bucket: '3s_to_9s'
     });
-    expectNoForbiddenAnalyticsKeys(trackUsageEvent.mock.calls.at(0)?.[1] as Record<string, unknown>);
-    expectNoForbiddenAnalyticsKeys(trackUsageEvent.mock.calls.at(1)?.[1] as Record<string, unknown>);
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(0)?.[1] as Record<string, unknown>
+    );
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(1)?.[1] as Record<string, unknown>
+    );
     expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName)).toEqual([
       'video_session_started',
       'video_session_cancelled'
@@ -1003,7 +1007,9 @@ describe('VideoSession', () => {
 
     await session.addCurrentTimestamp('button');
     session.ingestTextCapture('<p>Private fragment</p>', 'Private fragment', 'Private comment');
-    const timestampId = sessionApi.state.captures.find((capture) => capture.kind === 'timestamp')?.id;
+    const timestampId = sessionApi.state.captures.find(
+      (capture) => capture.kind === 'timestamp'
+    )?.id;
     const fragmentId = (
       sessionApi.state.captures as Array<{
         kind: 'timestamp' | 'fragment';
@@ -1144,7 +1150,9 @@ describe('VideoSession', () => {
     expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
       'private export note'
     );
-    expectNoForbiddenAnalyticsKeys(trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>);
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    );
 
     vi.useRealTimers();
   });
@@ -1219,7 +1227,9 @@ describe('VideoSession', () => {
     expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
       'private export note'
     );
-    expectNoForbiddenAnalyticsKeys(trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>);
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    );
 
     sessionApi.cleanup();
     vi.useRealTimers();

@@ -9,8 +9,8 @@ import type {
 } from './supportPrompt/types';
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
-  dialogLabel: '支持 All in Ob',
-  title: '支持 All in Ob',
+  dialogLabel: '支持 Zendio',
+  title: '支持 Zendio',
   koFiTitle: 'Ko-fi',
   koFiDescription: '请我喝杯咖啡',
   afdianTitle: '爱发电',

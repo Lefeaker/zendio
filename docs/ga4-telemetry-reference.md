@@ -2,7 +2,7 @@
 
 最后更新：2026-06-05
 
-本文是 AiiinOB 当前 GA 产品遥测与错误遥测的文档真值。
+本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
 
 - 事件目录真值：`src/shared/analytics/eventCatalog.ts`
 - 运行时导出契约：`src/shared/types/analytics.ts`

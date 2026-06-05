@@ -150,7 +150,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: 'Persönlich identifizierbare Informationen',
   errorReportingNotCollectedTitle: 'Nicht gesammelt:',
   errorReportingNotCollectedUrls: 'Genaue URLs, die Sie besuchen',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'Konfigurieren Sie Ihren Clipper für intelligenteres Content-Management',
   extractionFailed: 'Inhaltsextraktion fehlgeschlagen',
   featureUnstableNote: 'Funktion instabil',
@@ -219,14 +219,14 @@ const runtime = {
   multiVaultNamePlaceholder: 'Mein Notizen-Tresor',
   onboardingCompleted: 'Anleitung abgeschlossen!',
   onboardingCompletedMessage:
-    'Sie haben die Erweiterungs-Setup-Anleitung erfolgreich abgeschlossen. Jetzt können Sie All in Ob verwenden, um Ihre Web-Inhalte zu speichern!',
+    'Sie haben die Erweiterungs-Setup-Anleitung erfolgreich abgeschlossen. Jetzt können Sie Zendio verwenden, um Ihre Web-Inhalte zu speichern!',
   onboardingFooterNote:
     'Sie können diese Optionen jederzeit auf der Einstellungsseite neu konfigurieren.',
   onboardingLinkText: 'Anleitung',
   onboardingSubtitle: 'Lassen Sie uns Ihre Clipper-Erweiterung schnell einrichten',
-  onboardingTitle: 'Willkommen bei All in Ob',
+  onboardingTitle: 'Willkommen bei Zendio',
   onboardingWelcomeMessage:
-    'Danke für die Installation von All in Ob! Diese Anleitung hilft Ihnen, die Erweiterung schnell einzurichten, damit Sie einfach Web-Inhalte und KI-Gespräche in Obsidian speichern können.',
+    'Danke für die Installation von Zendio! Diese Anleitung hilft Ihnen, die Erweiterung schnell einzurichten, damit Sie einfach Web-Inhalte und KI-Gespräche in Obsidian speichern können.',
   openReaderButton: 'Lesemodus betreten',
   openVideoModeButton: 'Video-Modus betreten',
   portConflictDetected:
@@ -451,7 +451,7 @@ const runtime = {
   schemaResourcesGroupTitle: 'Ressourcen',
   schemaResourceSuggestionsChannelsGroupTitle: 'Feedback-Kanäle',
   schemaResourceSuggestionsDescription:
-    'Danke, dass Sie helfen, All in Ob zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
+    'Danke, dass Sie helfen, Zendio zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
   schemaResourceSuggestionsGithubDescription: 'Funktionswünsche und Fehlerberichte',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'Feedback-Kanäle',
@@ -567,7 +567,7 @@ const runtime = {
     'Willkommen, Verbesserungen vorzuschlagen, Entwicklung ist nicht einfach, danke für Ihre Unterstützung',
   step5Title: 'Weitere aufregende Funktionen, kontinuierliche Iteration',
   suggestionsModalDescription:
-    'Danke, dass Sie helfen, All in Ob zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
+    'Danke, dass Sie helfen, Zendio zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder:
     'QR-Code wird bald hinzugefügt. Zögern Sie nicht, über Reddit zu schreiben.',
@@ -581,7 +581,7 @@ const runtime = {
   supportModalTitle: 'Danke für Ihre Unterstützung',
   supportPromptAfdianDescription: 'Chinesische Spenden-Plattform',
   supportPromptAfdianTitle: 'Afdian',
-  supportPromptDialogLabel: 'All in Ob unterstützen',
+  supportPromptDialogLabel: 'Zendio unterstützen',
   supportPromptDislikeLabel: 'Gefällt mir nicht',
   supportPromptDislikeQrLinkLabel: 'Scan to share feedback',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
@@ -603,7 +603,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: 'Erfolgreich an {vault} gesendet',
   supportPromptStatusWarning: 'Gespeichert, aber Klassifikation fehlgeschlagen',
   supportPromptStatusWarningWithReason: 'Gespeichert, aber Klassifikation fehlgeschlagen: {reason}',
-  supportPromptTitle: 'All in Ob unterstützen',
+  supportPromptTitle: 'Zendio unterstützen',
   taxonomyHint: 'Klassifikations-Taxonomie im JSON-Format definieren',
   taxonomyLabel: 'Taxonomie',
   templateConfigHint: 'Definieren Sie Namensvorlagen für jede gespeicherte Inhaltsart',
@@ -762,7 +762,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription:
     'KI-verbesserter Web-Clipper zum Speichern von Chats, Fragmenten und Artikeln in Obsidian.'
 };

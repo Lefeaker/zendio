@@ -144,7 +144,7 @@ const runtime = {
   errorReportingNotCollectedPersonal: '個人を特定できる情報',
   errorReportingNotCollectedTitle: '収集されない情報:',
   errorReportingNotCollectedUrls: '閲覧した正確な URL',
-  extensionName: 'All in Ob',
+  extensionName: 'Zendio',
   extensionSubtitle: 'クリッパーを設定して、よりスマートなコンテンツ管理を実現',
   extractionFailed: 'コンテンツの抽出に失敗しました',
   featureUnstableNote: '機能はまだ安定していません',
@@ -213,13 +213,13 @@ const runtime = {
   multiVaultNamePlaceholder: 'マイノート Vault',
   onboardingCompleted: 'ガイド完了！',
   onboardingCompletedMessage:
-    '拡張機能の設定ガイドが正常に完了しました。これでAll in Obを使用してウェブコンテンツを保存できます！',
+    '拡張機能の設定ガイドが正常に完了しました。これでZendioを使用してウェブコンテンツを保存できます！',
   onboardingFooterNote: 'これらのオプションは設定ページでいつでも再設定できます。',
   onboardingLinkText: 'ガイド',
   onboardingSubtitle: 'クリッパー拡張機能を素早く設定しましょう',
-  onboardingTitle: 'All in Ob へようこそ',
+  onboardingTitle: 'Zendio へようこそ',
   onboardingWelcomeMessage:
-    'All in Ob をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
+    'Zendio をインストールしていただき、ありがとうございます！このガイドでは、拡張機能を素早く設定して、ウェブコンテンツやAI会話をObsidianに簡単に保存できるようにします。',
   openReaderButton: '読書モードを開始',
   openVideoModeButton: 'ビデオモードを開始',
   portConflictDetected:
@@ -433,7 +433,7 @@ const runtime = {
   schemaResourcesGroupTitle: 'リソース',
   schemaResourceSuggestionsChannelsGroupTitle: 'フィードバックチャネル',
   schemaResourceSuggestionsDescription:
-    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+    'Zendio を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   schemaResourceSuggestionsGithubDescription: '機能要望とバグ報告',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsHint: 'フィードバックチャネル',
@@ -540,7 +540,7 @@ const runtime = {
   step5Detail3: '改善提案を歓迎、開発は容易ではありません、サポートに感謝',
   step5Title: 'より多くの素晴らしい機能、継続的な反復',
   suggestionsModalDescription:
-    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+    'Zendio を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   suggestionsModalGithub: 'GitHub Issue',
   suggestionsModalQrPlaceholder:
     'QR コードは近日追加予定です。まずは Reddit でのご連絡をお待ちしています。',
@@ -554,7 +554,7 @@ const runtime = {
   supportModalTitle: 'ご支援ありがとうございます',
   supportPromptAfdianDescription: '中国向け支援プラットフォーム',
   supportPromptAfdianTitle: '爱发电',
-  supportPromptDialogLabel: 'All in Ob を応援する',
+  supportPromptDialogLabel: 'Zendio を応援する',
   supportPromptDislikeLabel: '低評価',
   supportPromptDislikeQrLinkLabel: 'フィードバック共有用 QR をスキャン',
   supportPromptDislikeQrPlaceholder: 'QR コードを利用できません',
@@ -576,7 +576,7 @@ const runtime = {
   supportPromptStatusSuccessWithVault: '{vault} に送信しました',
   supportPromptStatusWarning: '保存しましたが分類はフォールバックしました',
   supportPromptStatusWarningWithReason: '保存しましたが分類に失敗しました: {reason}',
-  supportPromptTitle: 'All in Ob を応援する',
+  supportPromptTitle: 'Zendio を応援する',
   taxonomyHint: 'JSON 形式で分類体系を定義',
   taxonomyLabel: '分類体系',
   templateConfigHint: '保存するコンテンツの種類ごとにファイル名テンプレートを定義できます',
@@ -731,7 +731,7 @@ const runtime = {
 };
 
 const staticMessages = {
-  extName: 'All in Ob',
+  extName: 'Zendio',
   extDescription: 'AI強化のウェブクリッパーで、チャットやスニペット、記事をObsidianに保存できます。'
 };
 

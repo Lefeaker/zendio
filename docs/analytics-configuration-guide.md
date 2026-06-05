@@ -2,7 +2,7 @@
 
 最后更新：2026-06-05
 
-本文描述 owner 如何为 AiiinOB 配置公开 GA 参数与 server-side proxy。
+本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
 ## 当前配置真值
 

@@ -32,7 +32,7 @@ export function createProductionStitchSchemaContext(options: {
       ...localizedAppData,
       brand: {
         ...localizedAppData.brand,
-        title: 'All in Ob',
+        title: 'Zendio',
         subtitle: resolveExtensionVersionLabel(),
         logo: '../icons/bannerlogo-128.png'
       }

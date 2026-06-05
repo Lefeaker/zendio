@@ -253,7 +253,7 @@ export class ClipperDialog {
 
     const surface = buildClipperDialogSurface({
       selectedText,
-      iconUrl: this.resolveAssetUrl('icons/60x60/allinob_icon_clipt.png'),
+      iconUrl: this.resolveAssetUrl('icons/60x60/zendio_icon_clipt.png'),
       commentPlaceholder: this.getMessage(
         'commentPlaceholder',
         this.getFallback('commentPlaceholder')

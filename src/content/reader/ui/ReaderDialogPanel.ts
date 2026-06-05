@@ -202,7 +202,7 @@ export class ReaderDialogPanel implements UiMountable<
       texts: this.texts,
       highlights: this.highlights.map((highlight) => this.commentDrafts.withDraft(highlight)),
       counter: this.formatCounter(this.highlightCount),
-      iconUrl: this.resolveAssetUrl('icons/60x60/allinob_icon_readingt.png'),
+      iconUrl: this.resolveAssetUrl('icons/60x60/zendio_icon_readingt.png'),
       ...(this.destination ? { destination: this.destination } : {}),
       actions: [
         { id: 'reader:finish', label: this.texts.finish, variant: 'primary' },

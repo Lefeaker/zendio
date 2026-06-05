@@ -1,6 +1,6 @@
 # Chrome 扩展上架全流程指南
 
-> 目标：指导 AiiinOB 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
+> 目标：指导 Zendio 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
 
 ## 阶段 0：立项与责任人
 
@@ -53,7 +53,7 @@
 
 ## 阶段 5：提交审核
 
-- [ ] 使用 `zip -r all-in-ob-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
+- [ ] 使用 `zip -r zendio-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
 - [ ] 真实发布前由 owner 手动确认 zip 路径、版本号、权限问卷和 CWS credentials。真实发布命令为 `npm run release:chrome:publish -- --zip <release.zip>`；禁止依赖当前目录唯一 zip 的自动选择。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
@@ -91,7 +91,7 @@
 
 ## 附录：建议的资料清单
 
-- 发布压缩包：`releases/all-in-ob-vX.Y.Z.zip`
+- 发布压缩包：`releases/zendio-vX.Y.Z.zip`
 - 构建产物校验记录（截图或命令行输出）
 - 测试结果文档（可放在 `docs/structure/` 或 issue 链接）
 - 隐私政策链接与备份 PDF

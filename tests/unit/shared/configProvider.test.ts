@@ -23,7 +23,7 @@ describe('configProvider', () => {
       expect(restDefaults.httpsPort).toBe(27124);
       expect(restDefaults.httpHost).toBe('127.0.0.1');
       expect(restDefaults.httpPort).toBe(27123);
-      expect(restDefaults.vault).toBe('AllInObsidian');
+      expect(restDefaults.vault).toBe('Zendio');
     });
 
     it('applies overrides correctly', () => {
@@ -102,6 +102,68 @@ describe('configProvider', () => {
       expect(overrides?.rest?.httpsPort).toBe(8443);
       expect(overrides?.rest?.httpPort).toBe(8080);
       expect(overrides?.rest?.vaultName).toBe('EnvVault');
+    });
+
+    it('loads REST configuration from Zendio environment aliases', () => {
+      vi.stubEnv('ZENDIO_REST_HTTPS_HOST', 'zendio.local');
+      vi.stubEnv('ZENDIO_REST_HTTPS_PORT', '9443');
+      vi.stubEnv('ZENDIO_REST_HTTP_HOST', 'zendio-http.local');
+      vi.stubEnv('ZENDIO_REST_HTTP_PORT', '9080');
+      vi.stubEnv('ZENDIO_REST_BASE_PATH', '/zendio');
+      vi.stubEnv('ZENDIO_REST_VAULT_NAME', 'ZendioVault');
+      vi.stubEnv('ZENDIO_REST_API_KEY', 'zendio-api-key');
+
+      const overrides = loadOverrideFromEnv();
+
+      expect(overrides?.rest).toEqual({
+        httpsHost: 'zendio.local',
+        httpsPort: 9443,
+        httpHost: 'zendio-http.local',
+        httpPort: 9080,
+        basePath: '/zendio',
+        vaultName: 'ZendioVault',
+        apiKey: 'zendio-api-key'
+      });
+    });
+
+    it('prefers Zendio REST aliases over AiiinOB compatibility variables', () => {
+      vi.stubEnv('AIIINOB_REST_HTTPS_HOST', 'old.local');
+      vi.stubEnv('AIIINOB_REST_HTTPS_PORT', '8443');
+      vi.stubEnv('AIIINOB_REST_HTTP_HOST', 'old-http.local');
+      vi.stubEnv('AIIINOB_REST_HTTP_PORT', '8080');
+      vi.stubEnv('AIIINOB_REST_BASE_PATH', '/old');
+      vi.stubEnv('AIIINOB_REST_VAULT_NAME', 'OldVault');
+      vi.stubEnv('AIIINOB_REST_API_KEY', 'old-api-key');
+      vi.stubEnv('ZENDIO_REST_HTTPS_HOST', 'new.local');
+      vi.stubEnv('ZENDIO_REST_HTTPS_PORT', '9443');
+      vi.stubEnv('ZENDIO_REST_HTTP_HOST', 'new-http.local');
+      vi.stubEnv('ZENDIO_REST_HTTP_PORT', '9080');
+      vi.stubEnv('ZENDIO_REST_BASE_PATH', '/new');
+      vi.stubEnv('ZENDIO_REST_VAULT_NAME', 'NewVault');
+      vi.stubEnv('ZENDIO_REST_API_KEY', 'new-api-key');
+
+      const overrides = loadOverrideFromEnv();
+
+      expect(overrides?.rest).toEqual({
+        httpsHost: 'new.local',
+        httpsPort: 9443,
+        httpHost: 'new-http.local',
+        httpPort: 9080,
+        basePath: '/new',
+        vaultName: 'NewVault',
+        apiKey: 'new-api-key'
+      });
+    });
+
+    it('falls back to no port override when Zendio REST aliases provide invalid ports', () => {
+      vi.stubEnv('AIIINOB_REST_HTTPS_PORT', '8443');
+      vi.stubEnv('AIIINOB_REST_HTTP_PORT', '8080');
+      vi.stubEnv('ZENDIO_REST_HTTPS_PORT', 'invalid');
+      vi.stubEnv('ZENDIO_REST_HTTP_PORT', 'NaN');
+
+      const overrides = loadOverrideFromEnv();
+
+      expect(overrides).toBeUndefined();
     });
 
     it('handles invalid port numbers gracefully', () => {
