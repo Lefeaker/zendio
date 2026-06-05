@@ -86,7 +86,7 @@ export async function loadAllowlist(path = DEFAULT_ALLOWLIST_PATH) {
 
 export function validateAllowlist(allowlist) {
   const errors = [];
-  const requiredTokens = ['AllInObsidian'];
+  const requiredTokens = ['AllInObsidian', 'AllinOB'];
 
   for (const token of requiredTokens) {
     if (!allowlist.tokens?.includes(token)) {

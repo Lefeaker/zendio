@@ -5,6 +5,7 @@
     "All-in-Obsidian",
     "All in Obsidian",
     "AllInObsidian",
+    "AllinOB",
     "all-in-obsidian",
     "allinobsidian",
     "All in Ob",
@@ -67,6 +68,20 @@
       "lineRegex": "allinobsidian|github\\.com/aiiinob/all-in-obsidian|chromewebstore\\.google\\.com/detail/all-in-ob",
       "class": "external-owner-confirmation-required",
       "reason": "Support email, support repository URL, and Chrome Web Store item URL are externally owned identifiers retained until owner-confirmed replacements exist.",
+      "ownerConfirmationRequired": true
+    },
+    {
+      "id": "external-lefeaker-github-url",
+      "paths": [
+        "docs/privacy-policy.md",
+        "docs/zh-cn/permissions-usage-notes.md",
+        "docs/zh-cn/support-contact.md",
+        "marketing/chrome-web-store/listing.md",
+        "src/**"
+      ],
+      "lineRegex": "github\\.com/Lefeaker/AllinOB",
+      "class": "external-owner-confirmation-required",
+      "reason": "The legacy public GitHub repository URL is an externally owned support/contact identifier retained until owner-confirmed Zendio replacement URLs exist.",
       "ownerConfirmationRequired": true
     },
     {
@@ -155,6 +170,12 @@
       "paths": ["src/content/video/videoPromptObserver.ts", "src/styles/design-tokens.css"],
       "class": "dev-tool-copy",
       "reason": "Residual old token is a source comment/design-token label, not runtime user-facing copy."
+    },
+    {
+      "id": "archive-legacy-options-fixtures",
+      "paths": ["docs/archive/legacy-options-assets/**"],
+      "class": "frozen-reference",
+      "reason": "Archived legacy Options HTML snapshots are retained as frozen reference fixtures for regression comparison, not live product copy."
     },
     {
       "id": "archive-docs",

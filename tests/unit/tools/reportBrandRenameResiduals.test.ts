@@ -61,6 +61,7 @@ const { classifyFinding, loadAllowlist, scanResiduals, validateAllowlist } = (aw
 )) as BrandRenameResidualModule;
 
 const legacyVaultToken = ['All', 'In', 'Obsidian'].join('');
+const legacyRepoSlugToken = ['Allin', 'OB'].join('');
 
 async function writeFixture(root: string, relativePath: string, content: string) {
   const path = join(root, relativePath);
@@ -74,6 +75,7 @@ describe('report-brand-rename-residuals', () => {
 
     expect(validateAllowlist(allowlist)).toEqual([]);
     expect(allowlist.tokens).toContain(legacyVaultToken);
+    expect(allowlist.tokens).toContain(legacyRepoSlugToken);
     expect(allowlist.ignorePaths).toEqual(expect.arrayContaining(['.tmp/**', 'tmp/**']));
   });
 
@@ -111,6 +113,57 @@ describe('report-brand-rename-residuals', () => {
       class: 'repo-path-or-history',
       ownerConfirmationRequired: false
     });
+
+    expect(
+      classifyFinding(
+        {
+          path: 'src/onboarding/bootstrap.ts',
+          line: 215,
+          column: 61,
+          token: legacyRepoSlugToken,
+          lineText: `await this.navigationRepo.openExternalLink('https://github.com/Lefeaker/${legacyRepoSlugToken}/issues');`
+        },
+        allowlist
+      )
+    ).toMatchObject({
+      class: 'external-owner-confirmation-required',
+      ownerConfirmationRequired: true,
+      ruleId: 'external-lefeaker-github-url'
+    });
+
+    expect(
+      classifyFinding(
+        {
+          path: 'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html',
+          line: 1567,
+          column: 75,
+          token: legacyRepoSlugToken,
+          lineText: `<a href="https://github.com/Lefeaker/${legacyRepoSlugToken}/issues/new">Feedback</a>`
+        },
+        allowlist
+      )
+    ).toMatchObject({
+      class: 'frozen-reference',
+      ownerConfirmationRequired: false,
+      ruleId: 'archive-legacy-options-fixtures'
+    });
+
+    expect(
+      classifyFinding(
+        {
+          path: 'docs/reference-fixtures/legacy-options/obsidian-hybrid-preview.html',
+          line: 1567,
+          column: 75,
+          token: legacyRepoSlugToken,
+          lineText: `<a href="https://github.com/Lefeaker/${legacyRepoSlugToken}/issues/new">Feedback</a>`
+        },
+        allowlist
+      )
+    ).toMatchObject({
+      class: 'frozen-reference',
+      ownerConfirmationRequired: false,
+      ruleId: 'reference-fixtures'
+    });
   });
 
   it('scans fixtures and returns class counts for compatible residuals', async () => {
@@ -129,6 +182,11 @@ describe('report-brand-rename-residuals', () => {
         `const fallback = '${legacyVaultToken}';\n`
       );
       await writeFixture(root, 'docs/zh-cn/clipper/旧文档.md', '找到 "All in Ob" 扩展\n');
+      await writeFixture(
+        root,
+        'marketing/chrome-web-store/listing.md',
+        `Feature requests: https://github.com/Lefeaker/${legacyRepoSlugToken}/issues\n`
+      );
 
       const result = await scanResiduals({ root, allowlist });
 
@@ -136,6 +194,7 @@ describe('report-brand-rename-residuals', () => {
       expect(result.counts['compat-retain-user-data']).toBe(1);
       expect(result.counts['internal-dev-preview']).toBe(1);
       expect(result.counts['historical-doc']).toBe(1);
+      expect(result.counts['external-owner-confirmation-required']).toBe(1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
