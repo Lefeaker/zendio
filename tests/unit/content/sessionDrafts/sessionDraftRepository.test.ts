@@ -268,7 +268,8 @@ describe('sessionDraftRepository', () => {
     await expect(storage.get(entry.key)).resolves.toMatchObject({
       draftId: 'duplicate-row'
     });
-    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toEqual({
+      schemaVersion: 1,
       entries: [expect.objectContaining({ key: entry.key, draftId: 'duplicate-row' })]
     });
   });
