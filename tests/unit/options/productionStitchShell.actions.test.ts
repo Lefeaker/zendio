@@ -595,6 +595,13 @@ describe('mountProductionStitchShell actions', () => {
         outcome: 'completed'
       }
     });
+    const clearEventCallOrder = vi.mocked(messagingRepository.send).mock.invocationCallOrder[0];
+    expect(clearEventCallOrder).toBeLessThan(
+      analyticsMocks.setAnalyticsConsent.mock.invocationCallOrder[0]
+    );
+    expect(clearEventCallOrder).toBeLessThan(
+      analyticsMocks.clearAllData.mock.invocationCallOrder[0]
+    );
   });
 
   it('uses localized privacy clear-all confirmation and visible status messages', async () => {

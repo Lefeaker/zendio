@@ -172,6 +172,11 @@ export function createProductionStitchPersistence(
         optionsRepository: options.optionsRepository
       });
       syncPrivacySnapshotToState(nextSnapshot);
+      await trackUsageEvent(
+        createTrackUsageEventMessage('analytics_data_cleared', {
+          outcome: 'completed'
+        })
+      );
       await setAnalyticsConsent(false, false);
       await getAnalyticsConfigManager().clearAllData();
       await updateErrorAnalyticsConfig(false);
@@ -181,11 +186,6 @@ export function createProductionStitchPersistence(
         '所有分析数据已清除。'
       );
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
-      await trackUsageEvent(
-        createTrackUsageEventMessage('analytics_data_cleared', {
-          outcome: 'completed'
-        })
-      );
     } catch (error) {
       void error;
       options.getState().privacyStatus = getMessage(
