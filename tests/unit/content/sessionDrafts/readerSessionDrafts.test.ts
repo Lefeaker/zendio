@@ -60,18 +60,16 @@ describe('readerSessionDrafts', () => {
     }
 
     await repository.save(envelope);
-    await expect(
-      loadLatestReaderSessionDraft(repository, 'https://example.com/article')
-    ).resolves.toMatchObject({
-      storageKey: expect.stringContaining('reader-draft-1'),
-      payload: {
-        mode: 'reader',
-        url: 'https://example.com/article',
-        title: 'Saved article',
-        destination: { kind: 'downloads' },
-        commentDrafts: {
-          'saved-1': 'draft note'
-        }
+    const loadedDraft = await loadLatestReaderSessionDraft(repository, 'https://example.com/article');
+    expect(loadedDraft).not.toBeNull();
+    expect(loadedDraft?.storageKey).toContain('reader-draft-1');
+    expect(loadedDraft?.payload).toMatchObject({
+      mode: 'reader',
+      url: 'https://example.com/article',
+      title: 'Saved article',
+      destination: { kind: 'downloads' },
+      commentDrafts: {
+        'saved-1': 'draft note'
       }
     });
   });

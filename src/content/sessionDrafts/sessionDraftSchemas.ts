@@ -5,9 +5,13 @@ import {
 } from './sessionDraftKeys';
 import {
   SESSION_DRAFT_SCHEMA_VERSION,
+  type ReaderSessionDraftEnvelope,
+  type ReaderSessionDraftPayload,
   type SessionDraftEnvelope,
   type SessionDraftIndex,
-  type SessionDraftIndexEntry
+  type SessionDraftIndexEntry,
+  type VideoSessionDraftEnvelope,
+  type VideoSessionDraftPayload
 } from './sessionDraftTypes';
 
 const TimestampSchema = z.number().int().nonnegative().finite();
@@ -132,6 +136,12 @@ export function measureSessionDraftValueBytes(value: unknown): number {
   return serialized ? textEncoder.encode(serialized).length : 0;
 }
 
+function omitUndefinedOptionalFields<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  ) as T;
+}
+
 export function containsDisallowedSessionDraftPayloadValue(
   value: unknown,
   seen = new Set<unknown>()
@@ -166,11 +176,21 @@ export function normalizeSessionDraftEnvelopeForSave(
 ): SessionDraftEnvelope {
   const parsed = SessionDraftEnvelopeSchema.parse(envelope);
   const pageKey = createSessionDraftPageKey(parsed.mode, parsed.pageUrl);
+  const expiresAt = parsed.expiresAt > parsed.updatedAt ? parsed.expiresAt : parsed.updatedAt + ttlMs;
+  if (parsed.mode === 'reader') {
+    return {
+      ...parsed,
+      pageKey,
+      expiresAt,
+      payload: omitUndefinedOptionalFields(parsed.payload) as ReaderSessionDraftPayload
+    } as ReaderSessionDraftEnvelope;
+  }
   return {
     ...parsed,
     pageKey,
-    expiresAt: parsed.expiresAt > parsed.updatedAt ? parsed.expiresAt : parsed.updatedAt + ttlMs
-  };
+    expiresAt,
+    payload: omitUndefinedOptionalFields(parsed.payload) as VideoSessionDraftPayload
+  } as VideoSessionDraftEnvelope;
 }
 
 export function pruneSessionDraftIndexEntries(

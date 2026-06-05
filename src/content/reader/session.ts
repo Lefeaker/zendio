@@ -224,7 +224,7 @@ export class ReaderSession {
       this.state.analyticsTimer = createFeatureTimer();
       this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
-      const loadedDraft = await this.hydrateStoredDraft(initialHighlights);
+      const loadedDraft = await this.hydrateStoredDraft();
       await this.refreshDestinationPreview();
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
@@ -281,9 +281,7 @@ export class ReaderSession {
     this.destinationState.applyMetadata(initialDestination);
   }
 
-  private async hydrateStoredDraft(
-    initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
-  ): Promise<boolean> {
+  private async hydrateStoredDraft(): Promise<boolean> {
     try {
       const loadedDraft = await loadLatestReaderSessionDraft(this.draftRepository, this.url);
       if (!loadedDraft) {
@@ -430,10 +428,10 @@ export class ReaderSession {
       now,
       pageUrl: this.url,
       pageTitle,
-      destination: this.destinationState.metadata,
       highlights: this.state.highlights,
       commentDrafts: this.panelCoordinator.snapshotCommentDrafts(),
-      status
+      status,
+      ...(this.destinationState.metadata ? { destination: this.destinationState.metadata } : {})
     });
 
     if (!envelope) {

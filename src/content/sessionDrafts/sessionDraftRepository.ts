@@ -38,6 +38,12 @@ import {
 
 type OwnerContextOptions = SessionDraftSaveOptions | SessionDraftSelectionOptions;
 
+function omitUndefinedOptionalFields<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  ) as T;
+}
+
 function hasOwnerContextOverride(
   options: OwnerContextOptions | undefined
 ): options is { ownerContext: SessionDraftOwnerContext | null } {
@@ -83,7 +89,11 @@ export function createSessionDraftRepository(
     if (!parsed.success) {
       return { entries: [], removedKeys: [], dirty: true };
     }
-    return pruneSessionDraftIndexEntries(parsed.data.entries, now, maxEntries);
+    return pruneSessionDraftIndexEntries(
+      parsed.data.entries.map((entry) => omitUndefinedOptionalFields(entry) as SessionDraftIndexEntry),
+      now,
+      maxEntries
+    );
   }
 
   async function persistIndex(

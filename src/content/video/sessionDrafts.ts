@@ -169,12 +169,12 @@ function serializeVideoDraftCapture(capture: VideoCapture): VideoSessionDraftCap
     return {
       kind: 'fragment',
       id: capture.id,
-      timeSec: capture.timeSec,
       comment: capture.comment,
       selectedText: capture.selectedText,
       selectedHtml: capture.selectedHtml,
       fragmentUrl: capture.fragmentUrl,
       createdAt: capture.createdAt,
+      ...(capture.timeSec !== undefined ? { timeSec: capture.timeSec } : {}),
       ...(capture.wrapperId !== undefined ? { wrapperId: capture.wrapperId } : {})
     };
   }
@@ -198,12 +198,12 @@ function deserializeVideoDraftCapture(
     return {
       kind: 'fragment',
       id: capture.id,
-      timeSec: capture.timeSec,
       comment: capture.comment,
       selectedText: capture.selectedText,
       selectedHtml: capture.selectedHtml,
       fragmentUrl: capture.fragmentUrl,
       createdAt: capture.createdAt,
+      ...(capture.timeSec !== undefined ? { timeSec: capture.timeSec } : {}),
       ...(capture.wrapperId !== undefined ? { wrapperId: capture.wrapperId } : {})
     };
   }

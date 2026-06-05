@@ -111,6 +111,36 @@ describe('videoSessionDrafts', () => {
     expect((restored[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
   });
 
+  it('omits undefined optional fragment fields from durable payloads and hydrated captures', () => {
+    const payload = buildVideoSessionDraftPayload({
+      captures: [
+        {
+          kind: 'fragment',
+          id: 'frag-no-time',
+          comment: 'No timestamp fragment',
+          selectedText: 'Quoted text',
+          selectedHtml: '<p>Quoted text</p>',
+          fragmentUrl: 'https://video.example/watch?v=1#:~:text=Quoted%20text',
+          createdAt: BASE_TIME + 3
+        }
+      ],
+      commentDrafts: {},
+      platform: 'youtube',
+      videoId: 'video-1',
+      videoTitle: 'Video title',
+      videoUrl: 'https://video.example/watch?v=1',
+      canonicalUrl: 'https://video.example/watch?v=1'
+    });
+
+    expect(payload.captures[0]).not.toHaveProperty('timeSec');
+
+    const restored = deserializeVideoDraftCaptures(payload.captures, {
+      fallbackUrl: payload.videoUrl
+    });
+
+    expect(restored[0]).not.toHaveProperty('timeSec');
+  });
+
   it('prefers restorable candidates and preserves exact draft keys for removal', () => {
     const olderRestorable = createVideoSessionDraftEnvelope({
       draftId: 'older-restorable',
