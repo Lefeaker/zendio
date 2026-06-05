@@ -1,6 +1,7 @@
-import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import process from 'process';
+import { pathToFileURL } from 'url';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
@@ -24,7 +25,7 @@ function getFlagValue(flag, { defaultValue } = {}) {
   return value;
 }
 
-function sanitizeFileName(text) {
+export function sanitizeFileName(text) {
   const sanitized = text
     .replace(/\s+/g, '-')
     .replace(/[^a-zA-Z0-9._-]/g, '')
@@ -34,7 +35,7 @@ function sanitizeFileName(text) {
   return sanitized.length > 0 ? sanitized : 'extension';
 }
 
-async function createUnsignedXpi(distDir, resolvedName, version) {
+export async function createUnsignedXpi(distDir, resolvedName, version) {
   const zipSafeName = sanitizeFileName(resolvedName);
   const xpiName = `${zipSafeName}-v${version}.xpi`;
   const outputPath = resolve(xpiName);
@@ -47,20 +48,85 @@ async function createUnsignedXpi(distDir, resolvedName, version) {
   return { xpiName, outputPath, zipSafeName };
 }
 
-async function runSigning({ distDir, artifactsDir, zipSafeName, version, apiKey, apiSecret, channel, extensionId }) {
+async function loadWebExt() {
   const webExtModule = await import('web-ext');
-  const webExt = webExtModule.default ?? webExtModule;
+  return webExtModule.default ?? webExtModule;
+}
 
-  if (!(await pathExists(artifactsDir))) {
-    await mkdir(artifactsDir, { recursive: true });
+async function readXpiArtifactSnapshot(artifactsDir, { readdirImpl, statImpl }) {
+  const snapshot = new Map();
+  const files = await readdirImpl(artifactsDir);
+
+  for (const file of files) {
+    if (!file.endsWith('.xpi')) {
+      continue;
+    }
+
+    const fileStats = await statImpl(join(artifactsDir, file));
+    snapshot.set(file, {
+      file,
+      mtimeMs: fileStats.mtimeMs,
+      size: fileStats.size
+    });
   }
 
-  const beforeFiles = new Set(await readdir(artifactsDir));
+  return snapshot;
+}
 
-  console.log('🔏 正在请求 Mozilla 签名服务...');
+function findUpdatedSignedArtifact(beforeSnapshot, afterSnapshot) {
+  const candidates = [];
+
+  for (const [file, afterStats] of afterSnapshot.entries()) {
+    const beforeStats = beforeSnapshot.get(file);
+    if (
+      !beforeStats
+      || beforeStats.mtimeMs !== afterStats.mtimeMs
+      || beforeStats.size !== afterStats.size
+    ) {
+      candidates.push(afterStats);
+    }
+  }
+
+  candidates.sort((left, right) => {
+    if (right.mtimeMs !== left.mtimeMs) {
+      return right.mtimeMs - left.mtimeMs;
+    }
+    return right.file.localeCompare(left.file);
+  });
+
+  return candidates[0]?.file ?? null;
+}
+
+export async function runSigning(
+  { distDir, artifactsDir, zipSafeName, version, apiKey, apiSecret, channel, extensionId },
+  dependencies = {}
+) {
+  const {
+    copyFileImpl = copyFile,
+    importWebExtImpl = loadWebExt,
+    logger = console,
+    mkdirImpl = mkdir,
+    pathExistsImpl = pathExists,
+    readdirImpl = readdir,
+    resolvePathImpl = resolve,
+    statImpl = stat,
+    webExt
+  } = dependencies;
+  const resolvedWebExt = webExt ?? (await importWebExtImpl());
+
+  if (!(await pathExistsImpl(artifactsDir))) {
+    await mkdirImpl(artifactsDir, { recursive: true });
+  }
+
+  const beforeArtifacts = await readXpiArtifactSnapshot(artifactsDir, {
+    readdirImpl,
+    statImpl
+  });
+
+  logger.log('🔏 正在请求 Mozilla 签名服务...');
 
   try {
-    await webExt.cmd.sign(
+    await resolvedWebExt.cmd.sign(
       {
         sourceDir: distDir,
         artifactsDir,
@@ -75,30 +141,46 @@ async function runSigning({ distDir, artifactsDir, zipSafeName, version, apiKey,
     throw new Error(`web-ext 签名失败: ${error.message}`);
   }
 
-  const afterFiles = await readdir(artifactsDir);
-  const newArtifacts = afterFiles.filter((file) => !beforeFiles.has(file));
-  const signedFiles = newArtifacts.filter((file) => file.endsWith('.xpi'));
+  const afterArtifacts = await readXpiArtifactSnapshot(artifactsDir, {
+    readdirImpl,
+    statImpl
+  });
+  const latestSigned = findUpdatedSignedArtifact(beforeArtifacts, afterArtifacts);
 
-  if (signedFiles.length === 0) {
-    console.warn('⚠️  未找到签名后的 XPI 文件，请检查 web-ext 输出日志。');
+  if (!latestSigned) {
+    logger.warn('⚠️  未找到签名后的 XPI 文件，请检查 web-ext 输出日志。');
     return null;
   }
 
-  const latestSigned = signedFiles[0];
   const signedSource = join(artifactsDir, latestSigned);
   const signedTargetName = `${zipSafeName}-v${version}-signed.xpi`;
-  const signedTargetPath = resolve(signedTargetName);
+  const signedTargetPath = resolvePathImpl(signedTargetName);
 
-  await copyFile(signedSource, signedTargetPath);
+  await copyFileImpl(signedSource, signedTargetPath);
 
-  console.log('✅ 签名完成');
-  console.log(`   签名文件: ${signedTargetPath}`);
-  console.log(`   原始文件: ${signedSource}`);
+  logger.log('✅ 签名完成');
+  logger.log(`   签名文件: ${signedTargetPath}`);
+  logger.log(`   原始文件: ${signedSource}`);
 
   return signedTargetPath;
 }
 
-async function packageFirefoxExtension() {
+export async function signAndAuditFirefoxPackage(signingOptions, dependencies = {}) {
+  const {
+    auditReleaseArchiveImpl = auditReleaseArchive,
+    runSigningImpl = runSigning
+  } = dependencies;
+  const signedPath = await runSigningImpl(signingOptions, dependencies);
+
+  if (!signedPath) {
+    throw new Error('Firefox signing did not produce a signed XPI artifact.');
+  }
+
+  await auditReleaseArchiveImpl(signedPath);
+  return signedPath;
+}
+
+export async function packageFirefoxExtension() {
   console.log('📦 开始打包 Firefox 扩展...');
 
   if (!(await pathExists('build/dist'))) {
@@ -147,7 +229,7 @@ async function packageFirefoxExtension() {
     process.exit(1);
   }
 
-  await runSigning({
+  await signAndAuditFirefoxPackage({
     distDir,
     artifactsDir,
     zipSafeName,
@@ -159,7 +241,9 @@ async function packageFirefoxExtension() {
   });
 }
 
-packageFirefoxExtension().catch((error) => {
-  console.error('❌ Firefox 打包流程失败:', error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  packageFirefoxExtension().catch((error) => {
+    console.error('❌ Firefox 打包流程失败:', error);
+    process.exit(1);
+  });
+}

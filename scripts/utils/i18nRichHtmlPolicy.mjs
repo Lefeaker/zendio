@@ -5,6 +5,13 @@ const RICH_HTML_ALLOWED_KEYS = new Set([
   'schemaResourceContactDescription'
 ]);
 const RICH_HTML_ALLOWED_TAGS = new Set(['a', 'br', 'strong', 'em', 'code']);
+const RICH_HTML_ALLOWED_ATTRIBUTES_BY_TAG = new Map([
+  ['a', new Set(['href', 'target', 'rel'])],
+  ['br', new Set()],
+  ['strong', new Set()],
+  ['em', new Set()],
+  ['code', new Set()]
+]);
 const RICH_HTML_FORBIDDEN_TAGS = new Set([
   'script',
   'style',
@@ -54,6 +61,7 @@ function formatIssue(language, key, message) {
 
 function validateElement(element, language, key, errors) {
   const tagName = element.tagName.toLowerCase();
+  const allowedAttributes = RICH_HTML_ALLOWED_ATTRIBUTES_BY_TAG.get(tagName);
 
   if (RICH_HTML_FORBIDDEN_TAGS.has(tagName)) {
     errors.push(formatIssue(language, key, `forbidden tag <${tagName}> is not allowed`));
@@ -64,6 +72,16 @@ function validateElement(element, language, key, errors) {
   for (const attribute of Array.from(element.attributes)) {
     const attributeName = attribute.name.toLowerCase();
     const attributeValue = attribute.value;
+
+    if (allowedAttributes && !allowedAttributes.has(attributeName)) {
+      errors.push(
+        formatIssue(
+          language,
+          key,
+          `attribute ${attribute.name} is not allowed on <${tagName}>`
+        )
+      );
+    }
 
     if (attributeName.startsWith('on')) {
       errors.push(
@@ -88,6 +106,10 @@ function validateElement(element, language, key, errors) {
     ) {
       errors.push(formatIssue(language, key, `unsafe href protocol: ${attributeValue}`));
     }
+  }
+
+  if (tagName === 'a' && !element.hasAttribute('href')) {
+    errors.push(formatIssue(language, key, '<a> requires href'));
   }
 
   for (const child of Array.from(element.children)) {

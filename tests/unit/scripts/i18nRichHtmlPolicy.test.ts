@@ -6,6 +6,17 @@ import { validateRichHtmlCatalogMessages } from '../../../scripts/utils/i18nRich
 const lintScript = resolve('scripts/lint-i18n.mjs');
 
 describe('i18n rich HTML catalog policy', () => {
+  it('accepts safe anchor attributes for explicit rich HTML keys', () => {
+    const errors = validateRichHtmlCatalogMessages({
+      en: {
+        contactModalDescription:
+          '<a href="https://example.com/support" target="_blank" rel="noopener noreferrer">contact</a>'
+      }
+    });
+
+    expect(errors).toEqual([]);
+  });
+
   it('rejects HTML tags outside the explicit allowlist keys', () => {
     const errors = validateRichHtmlCatalogMessages({
       en: {
@@ -46,6 +57,38 @@ describe('i18n rich HTML catalog policy', () => {
         expect.stringContaining(
           '[rich-html:en:contactModalDescription] event attributes are forbidden'
         )
+      ])
+    );
+  });
+
+  it.each([
+    ['strong', '<strong class="x">important</strong>', 'class'],
+    ['em', '<em style="color:red">emphasis</em>', 'style'],
+    ['code', '<code data-x="1">code</code>', 'data-x'],
+    ['br', '<br id="break">', 'id'],
+    ['a', '<a href="https://example.com" style="color:red">contact</a>', 'style']
+  ])('rejects unsupported <%s> attributes', (_tag, value, attribute) => {
+    const errors = validateRichHtmlCatalogMessages({
+      en: {
+        contactModalDescription: value
+      }
+    });
+
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.stringContaining(`attribute ${attribute} is not allowed`)])
+    );
+  });
+
+  it('rejects anchor tags without href before runtime sanitizer can flatten them', () => {
+    const errors = validateRichHtmlCatalogMessages({
+      en: {
+        contactModalDescription: '<a target="_blank" rel="noopener noreferrer">contact</a>'
+      }
+    });
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('[rich-html:en:contactModalDescription] <a> requires href')
       ])
     );
   });

@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const scriptPath = resolve('tools/audit-release-archive.mjs');
@@ -105,6 +106,19 @@ function runAudit(archivePath: string) {
 }
 
 describe('release archive audit', () => {
+  it('can be imported when process.argv[1] is undefined', async () => {
+    const originalArgv = [...process.argv];
+    process.argv.splice(1);
+
+    try {
+      await expect(
+        import(`${pathToFileURL(scriptPath).href}?argv-undefined=${Date.now()}`)
+      ).resolves.toHaveProperty('auditReleaseArchive');
+    } finally {
+      process.argv.splice(0, process.argv.length, ...originalArgv);
+    }
+  });
+
   it('passes a clean packaged archive after extracting it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'aiiinob-release-archive-test-'));
     const archive = writeZipArchive(dir, 'clean.zip', baseArchiveEntries());

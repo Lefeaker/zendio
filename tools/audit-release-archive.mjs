@@ -191,7 +191,7 @@ async function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     console.error('[audit-release-archive] Failed to audit release archive.');
     console.error(error.message ?? error);
