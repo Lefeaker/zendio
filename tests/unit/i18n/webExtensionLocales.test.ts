@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RELEASE_LANGUAGE_ORDER } from '../../../src/i18n/catalog/languages';
@@ -33,21 +33,7 @@ describe('WebExtension locale folders', () => {
     }
   });
 
-  it('keeps root locale folders identical to the public release source', async () => {
-    const publicFolders = (await readdir(publicLocalesDir)).sort();
-    const rootFolders = (await readdir(rootLocalesDir)).sort();
-
-    expect(rootFolders).toEqual(publicFolders);
-
-    for (const folder of publicFolders) {
-      const publicMessages: unknown = JSON.parse(
-        await readFile(join(publicLocalesDir, folder, 'messages.json'), 'utf8')
-      );
-      const rootMessages: unknown = JSON.parse(
-        await readFile(join(rootLocalesDir, folder, 'messages.json'), 'utf8')
-      );
-
-      expect(rootMessages).toEqual(publicMessages);
-    }
+  it('does not keep a root locale compatibility duplicate', async () => {
+    await expect(readdir(rootLocalesDir)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

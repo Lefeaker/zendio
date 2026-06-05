@@ -4,6 +4,7 @@ import process from 'process';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
+import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 const args = process.argv.slice(2);
 
@@ -121,6 +122,7 @@ async function packageFirefoxExtension() {
   console.log(`📝 版本号: ${version}`);
 
   const { xpiName, outputPath, zipSafeName } = await createUnsignedXpi(distDir, resolvedName, version);
+  await auditReleaseArchive(outputPath);
 
   console.log('✅ 未签名 XPI 已生成');
   console.log(`   文件路径: ${outputPath}`);

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { validateRichHtmlCatalogMessages } from './utils/i18nRichHtmlPolicy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -162,6 +163,12 @@ async function main() {
   const localeRuntimeMap = {
     en: baselineRuntime
   };
+  const localeCatalogMessageMap = {
+    en: {
+      ...baselineRuntime,
+      ...flattenMessages(baseline.static)
+    }
+  };
 
   const errors = [];
 
@@ -173,6 +180,10 @@ async function main() {
     const current = await loadLocale(localeApi, code);
     const currentRuntime = flattenMessages(current.runtime);
     localeRuntimeMap[code] = currentRuntime;
+    localeCatalogMessageMap[code] = {
+      ...currentRuntime,
+      ...flattenMessages(current.static)
+    };
 
     const missingRuntimeKeys = [];
     const extraRuntimeKeys = [];
@@ -215,6 +226,8 @@ async function main() {
       }
     }
   }
+
+  errors.push(...validateRichHtmlCatalogMessages(localeCatalogMessageMap));
 
   // Budget evaluation
   const budgetModule = await loadBudgetModule();
