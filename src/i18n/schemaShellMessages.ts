@@ -766,7 +766,7 @@ export const schemaShellMessagesDe = {
   schemaResourceSupportScope3: 'Anleitung zu API-Token, Berechtigungen und Verbindung.',
   schemaResourceSupportScope4: 'Hinweise zu Datenschutz, Berechtigungen und Datensicherheit.',
   schemaResourceSuggestionsDescription:
-    'Danke, dass Sie helfen, All in Ob zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
+    'Danke, dass Sie helfen, Zendio zu verbessern. Sie können den Autor über einen der folgenden Kanäle kontaktieren:',
   schemaResourceSuggestionsChannelsGroupTitle: 'Feedback-Kanäle',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Funktionswünsche und Fehlerberichte',
@@ -939,7 +939,7 @@ export const schemaShellMessagesEs419 = {
   schemaResourceSupportScope3: 'Orientación sobre tokens de API, permisos y conexión.',
   schemaResourceSupportScope4: 'Aclaraciones sobre privacidad, permisos y seguridad de datos.',
   schemaResourceSuggestionsDescription:
-    'Gracias por ayudar a mejorar All in Ob. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
+    'Gracias por ayudar a mejorar Zendio. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canales de comentarios',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Solicitudes de funciones e informes de errores',
@@ -1112,7 +1112,7 @@ export const schemaShellMessagesEsEs = {
   schemaResourceSupportScope3: 'Orientación sobre tokens de API, permisos y conexión.',
   schemaResourceSupportScope4: 'Aclaraciones sobre privacidad, permisos y seguridad de datos.',
   schemaResourceSuggestionsDescription:
-    'Gracias por ayudar a mejorar All in Ob. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
+    'Gracias por ayudar a mejorar Zendio. Puedes contactar al autor a través de cualquiera de los siguientes canales:',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canales de comentarios',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Solicitudes de funciones e informes de errores',
@@ -1286,7 +1286,7 @@ export const schemaShellMessagesFr = {
   schemaResourceSupportScope4:
     'Précisions sur la confidentialité, les permissions et la sécurité des données.',
   schemaResourceSuggestionsDescription:
-    "Merci d'aider à améliorer All in Ob. Vous pouvez contacter l'auteur via l'un des canaux suivants :",
+    "Merci d'aider à améliorer Zendio. Vous pouvez contacter l'auteur via l'un des canaux suivants :",
   schemaResourceSuggestionsChannelsGroupTitle: 'Canaux de retours',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Demandes de fonctionnalités et signalements de bugs',
@@ -1456,7 +1456,7 @@ export const schemaShellMessagesIt = {
   schemaResourceSupportScope3: 'Guida su token API, permessi e connessione.',
   schemaResourceSupportScope4: 'Chiarimenti su privacy, permessi e sicurezza dei dati.',
   schemaResourceSuggestionsDescription:
-    "Grazie per aver aiutato a migliorare All in Ob. Puoi contattare l'autore tramite uno dei seguenti canali:",
+    "Grazie per aver aiutato a migliorare Zendio. Puoi contattare l'autore tramite uno dei seguenti canali:",
   schemaResourceSuggestionsChannelsGroupTitle: 'Canali di feedback',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Richieste di funzionalità e segnalazioni di bug',
@@ -1616,7 +1616,7 @@ export const schemaShellMessagesJa = {
   schemaResourceSupportScope3: 'API トークン、権限、接続設定の案内。',
   schemaResourceSupportScope4: 'プライバシー、権限、データ安全性に関する説明。',
   schemaResourceSuggestionsDescription:
-    'All in Ob を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
+    'Zendio を良くするためのアイデアを歓迎します。以下の方法からご連絡ください。',
   schemaResourceSuggestionsChannelsGroupTitle: 'フィードバックチャネル',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: '機能要望とバグ報告',
@@ -1773,7 +1773,7 @@ export const schemaShellMessagesKo = {
   schemaResourceSupportScope3: 'API 토큰, 권한, 연결 설정 안내.',
   schemaResourceSupportScope4: '개인정보, 권한, 데이터 안전성 관련 설명.',
   schemaResourceSuggestionsDescription:
-    'All in Ob 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
+    'Zendio 개선에 도움을 주셔서 감사합니다. 다음 채널 중 하나를 통해 작성자에게 연락할 수 있습니다:',
   schemaResourceSuggestionsChannelsGroupTitle: '피드백 채널',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: '기능 요청 및 버그 보고',
@@ -1942,7 +1942,7 @@ export const schemaShellMessagesPtBr = {
   schemaResourceSupportScope4:
     'Esclarecimentos sobre privacidade, permissões e segurança de dados.',
   schemaResourceSuggestionsDescription:
-    'Obrigado por ajudar a melhorar o All in Ob. Você pode contatar o autor através de qualquer um dos seguintes canais:',
+    'Obrigado por ajudar a melhorar o Zendio. Você pode contatar o autor através de qualquer um dos seguintes canais:',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canais de feedback',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Solicitações de recursos e relatos de bugs',
@@ -2108,7 +2108,7 @@ export const schemaShellMessagesRu = {
   schemaResourceSupportScope4:
     'Разъяснения по конфиденциальности, разрешениям и безопасности данных.',
   schemaResourceSuggestionsDescription:
-    'Спасибо за помощь в улучшении All in Ob. Вы можете связаться с автором через любой из следующих каналов:',
+    'Спасибо за помощь в улучшении Zendio. Вы можете связаться с автором через любой из следующих каналов:',
   schemaResourceSuggestionsChannelsGroupTitle: 'Каналы обратной связи',
   schemaResourceSuggestionsGithubTitle: 'GitHub Issue',
   schemaResourceSuggestionsGithubDescription: 'Запросы функций и сообщения об ошибках',

@@ -1,10 +1,10 @@
-# All-in-Obsidian 权限使用说明
+# Zendio 权限使用说明
 
 公开访问版本：https://github.com/Lefeaker/AllinOB
 
 最后更新：2025-02-14
 
-本文档用于 Chrome Web Store 审核与用户透明披露，说明 All-in-Obsidian Chrome 扩展（版本 0.1.0）在 `manifest.json` 中声明的权限及其使用场景。所有权限仅在用户触发相关功能时生效，并遵循最小授权原则。
+本文档用于 Chrome Web Store 审核与用户透明披露，说明 Zendio Chrome 扩展（版本 0.1.0）在 `manifest.json` 中声明的权限及其使用场景。所有权限仅在用户触发相关功能时生效，并遵循最小授权原则。
 
 ## Host 权限
 
