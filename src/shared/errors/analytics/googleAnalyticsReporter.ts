@@ -9,7 +9,11 @@ import { ErrorReporter, AppError } from '../types';
 import { parseErrorCode } from '../errorCodes';
 import { sanitizeErrorForAnalytics } from './dataSanitizer';
 import { DEFAULT_ANALYTICS_CONFIG, type AnalyticsConfig } from './analyticsConfig';
-import { sendAnalyticsTransportEvent } from '../../analytics';
+import {
+  createAnalyticsEventQueue,
+  sendAnalyticsTransportEvent,
+  type AnalyticsEventQueue
+} from '../../analytics';
 import { getService } from '../../di';
 import { TOKENS } from '../../di/tokens';
 import type { PlatformServices } from '@platform/types';
@@ -22,6 +26,8 @@ export interface GoogleAnalyticsConfig extends Pick<
   debugMode?: boolean;
   sessionId?: string;
   clientId?: string;
+  reportingInterval?: number;
+  batchSize?: number;
 }
 
 // GA4 事件参数接口
@@ -40,6 +46,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   private clientId: string;
   private sessionId: string;
   private extensionVersion: string;
+  private eventQueue: AnalyticsEventQueue;
   private browserInfo: { name?: string; version?: string } = {};
 
   constructor(config: GoogleAnalyticsConfig) {
@@ -51,9 +58,18 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       transportMode: config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
       ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
       clientId: this.clientId,
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
+      reportingInterval: config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      batchSize: config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
     };
     this.extensionVersion = this.getExtensionVersion();
+    this.eventQueue = createAnalyticsEventQueue({
+      getConfig: () => this.createTransportConfig(),
+      send: (eventName, params, transportConfig) =>
+        sendAnalyticsTransportEvent(eventName, params, transportConfig, {
+          extensionVersion: this.extensionVersion
+        })
+    });
     this.initializeBrowserInfo();
   }
 
@@ -65,19 +81,18 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     try {
       const sanitizedError = sanitizeErrorForAnalytics(error);
       const eventParams = this.createErrorEventParams(sanitizedError);
-      const result = await sendAnalyticsTransportEvent(
-        'extension_error',
-        eventParams,
-        this.createTransportConfig(),
-        { extensionVersion: this.extensionVersion }
-      );
+      const enqueued = this.eventQueue.enqueue('extension_error', eventParams);
+      if (!enqueued) {
+        return;
+      }
+      const result = await this.eventQueue.flush();
 
-      if (result.status === 'failed') {
+      if (result.failed > 0) {
         console.warn('[GA Reporter] Analytics transport failed:', result);
         return;
       }
 
-      if (this.config.debugMode) {
+      if (this.config.debugMode && result.sent > 0) {
         console.log('[GA Reporter] Error reported:', {
           code: eventParams.error_code,
           domain: eventParams.error_domain,
@@ -200,9 +215,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       ...(this.config.proxyEndpoint ? { proxyEndpoint: this.config.proxyEndpoint } : {}),
       clientId: this.clientId,
       sessionId: this.sessionId,
-      reportingInterval: DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      reportingInterval:
+        this.config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
       maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
-      batchSize: DEFAULT_ANALYTICS_CONFIG.batchSize
+      batchSize: this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
     };
   }
 

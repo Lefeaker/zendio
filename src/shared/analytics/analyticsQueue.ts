@@ -104,6 +104,7 @@ export function createAnalyticsEventQueue(
 
     clear() {
       entries = [];
+      lastFlushAt = 0;
     },
 
     size() {
@@ -119,6 +120,9 @@ export function createAnalyticsEventQueue(
 function hasConsentForEvent(config: AnalyticsConfig, eventName: AnalyticsEventName): boolean {
   if (!config.enabled) {
     return false;
+  }
+  if (!config.userConsent) {
+    return true;
   }
   if (eventName === 'extension_error') {
     return config.userConsent?.errorReporting === true;

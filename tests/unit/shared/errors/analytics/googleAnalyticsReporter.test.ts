@@ -25,9 +25,13 @@ vi.mock('../../../../../src/shared/di', () => ({ getService: getServiceMock }));
 vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({
   sanitizeErrorForAnalytics: sanitizeErrorForAnalyticsMock
 }));
-vi.mock('../../../../../src/shared/analytics', () => ({
-  sendAnalyticsTransportEvent: sendAnalyticsTransportEventMock
-}));
+vi.mock('../../../../../src/shared/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../../src/shared/analytics')>();
+  return {
+    ...actual,
+    sendAnalyticsTransportEvent: sendAnalyticsTransportEventMock
+  };
+});
 
 describe('GoogleAnalyticsReporter', () => {
   const fetchMock = vi.fn();
@@ -143,6 +147,68 @@ describe('GoogleAnalyticsReporter', () => {
     reporter.updateConfig({ enabled: false });
     expect(reporter.isEnabled()).toBe(false);
     reporter.renewSession();
+  });
+
+  it('queues repeated extension errors according to reporting interval and batch size', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(300000);
+      const { GoogleAnalyticsReporter } =
+        await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+      const reporter = new GoogleAnalyticsReporter({
+        enabled: true,
+        measurementId: 'G-123',
+        transportMode: 'proxy',
+        proxyEndpoint: 'https://analytics.example.test/ga4',
+        reportingInterval: 60000,
+        batchSize: 1,
+        clientId: 'client',
+        sessionId: 'session'
+      });
+
+      await reporter.report({
+        code: 'REST_NETWORK_TIMEOUT',
+        domain: 'background',
+        severity: ErrorSeverity.CRITICAL,
+        recoverable: true,
+        message: 'first',
+        timestamp: Date.now()
+      });
+      await reporter.report({
+        code: 'REST_NETWORK_UNAVAILABLE',
+        domain: 'background',
+        severity: ErrorSeverity.WARNING,
+        recoverable: true,
+        message: 'second',
+        timestamp: Date.now()
+      });
+
+      expect(sendAnalyticsTransportEventMock).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(361000);
+      await reporter.report({
+        code: 'REST_REQUEST_ABORTED',
+        domain: 'background',
+        severity: ErrorSeverity.INFO,
+        recoverable: true,
+        message: 'third',
+        timestamp: Date.now()
+      });
+
+      expect(sendAnalyticsTransportEventMock).toHaveBeenCalledTimes(2);
+      expect(sendAnalyticsTransportEventMock.mock.calls[1]?.[1]).toEqual(
+        expect.objectContaining({
+          error_code: 'REST_NETWORK_UNAVAILABLE'
+        })
+      );
+      expect(sendAnalyticsTransportEventMock.mock.calls[1]?.[1]).not.toEqual(
+        expect.objectContaining({
+          error_code: 'REST_REQUEST_ABORTED'
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('swallows transport failures and falls back when manifest lookup fails', async () => {
