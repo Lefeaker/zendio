@@ -1,5 +1,6 @@
 import type { VideoPanelCallbacks, VideoPanelTexts } from './application/videoPanelModel';
 import type { VideoSessionViewFactory } from './application/videoSessionView';
+import type { VideoSessionView } from './application/videoSessionView';
 import { VideoPanelPresenter } from './videoPanelPresenter';
 import type { VideoHintState } from './videoHintManager';
 import { VideoHintManager } from './videoHintManager';
@@ -22,6 +23,8 @@ export class VideoSessionDomController {
   private panelPresenter: VideoPanelPresenter | null = null;
   private panel = null as ReturnType<VideoSessionViewFactory['createView']> | null;
   private listeners: VideoSessionDomListenerHandlers | null = null;
+  private commentDrafts: Record<string, string> = {};
+  private stopCommentDraftWatcher: (() => void) | null = null;
 
   constructor(
     private readonly doc: Document,
@@ -91,7 +94,11 @@ export class VideoSessionDomController {
     }
     this.panelPresenter = new VideoPanelPresenter(this.panel);
     this.panelPresenter.updateTexts(texts);
-    this.panelPresenter.render({ timestamps: [], fragments: [] });
+    this.panelPresenter.render({
+      timestamps: [],
+      fragments: [],
+      commentDrafts: this.commentDrafts
+    });
   }
 
   updateTexts(texts: VideoPanelTexts): void {
@@ -111,7 +118,53 @@ export class VideoSessionDomController {
     }
 
     const groups = partitionVideoPanelCaptures(state.captures, getFragmentElement);
-    return this.panelPresenter.render(groups);
+    return this.panelPresenter.render({
+      ...groups,
+      commentDrafts: this.commentDrafts
+    });
+  }
+
+  setCommentDrafts(drafts: Record<string, string>): void {
+    this.commentDrafts = { ...drafts };
+  }
+
+  readCommentDrafts(): Record<string, string> {
+    const next = { ...this.commentDrafts };
+    this.getPanelShadowRoot()
+      ?.querySelectorAll<HTMLInputElement>('[data-capture-input]')
+      .forEach((input) => {
+        const id = input.dataset.captureInput;
+        if (!id) {
+          return;
+        }
+        if (input.value) {
+          next[id] = input.value;
+          return;
+        }
+        delete next[id];
+      });
+    this.commentDrafts = next;
+    return { ...next };
+  }
+
+  watchCommentDrafts(onChange: (drafts: Record<string, string>) => void): void {
+    this.stopCommentDraftWatcher?.();
+    const shadow = this.getPanelShadowRoot();
+    if (!shadow) {
+      return;
+    }
+    const handleInput = (event: Event) => {
+      const target = event.target instanceof HTMLInputElement ? event.target : null;
+      if (!target?.matches('[data-capture-input]')) {
+        return;
+      }
+      onChange(this.readCommentDrafts());
+    };
+    shadow.addEventListener('input', handleInput, true);
+    this.stopCommentDraftWatcher = () => {
+      shadow.removeEventListener('input', handleInput, true);
+      this.stopCommentDraftWatcher = null;
+    };
   }
 
   applyHint(
@@ -173,9 +226,16 @@ export class VideoSessionDomController {
   }
 
   destroy(): void {
+    this.stopCommentDraftWatcher?.();
     this.removeInteractionHandlers();
     this.panel?.destroy();
     this.panel = null;
     this.panelPresenter = null;
+  }
+
+  private getPanelShadowRoot(): ShadowRoot | null {
+    const panel = this.panel as (VideoSessionView & { element?: HTMLElement }) | null;
+    const element = panel?.element;
+    return element?.shadowRoot ?? null;
   }
 }

@@ -12,6 +12,7 @@ export interface StoredVideoTimestampEntry {
   comment: string;
   url: string;
   createdAt: number;
+  screenshotRequested?: boolean;
   screenshot?: VideoCaptureScreenshot;
 }
 
@@ -45,6 +46,19 @@ export interface DeserializeContext {
   fallbackUrl: string;
 }
 
+type VideoTimestampCaptureWithScreenshotIntent = VideoTimestampCapture & {
+  screenshotRequested?: boolean;
+};
+
+function resolveScreenshotRequested(
+  capture: VideoTimestampCapture | StoredVideoTimestampEntry | VideoTimestampCaptureWithScreenshotIntent
+): boolean {
+  return Boolean(
+    capture.screenshot ||
+      (capture as { screenshotRequested?: boolean }).screenshotRequested
+  );
+}
+
 export function deserializeStoredCaptures(
   entries: StoredVideoCaptureEntry[],
   ctx: DeserializeContext
@@ -69,14 +83,14 @@ export function deserializeStoredCaptures(
       return capture;
     }
     const timestampEntry = entry as StoredVideoTimestampEntry;
-    const capture: VideoTimestampCapture = {
+    const capture: VideoTimestampCaptureWithScreenshotIntent = {
       kind: 'timestamp',
       id: timestampEntry.id,
       timeSec: timestampEntry.timeSec ?? 0,
       comment: timestampEntry.comment ?? '',
       url: timestampEntry.url ?? ctx.fallbackUrl,
       createdAt: timestampEntry.createdAt ?? Date.now(),
-      ...(timestampEntry.screenshot ? { screenshot: timestampEntry.screenshot } : {})
+      ...(resolveScreenshotRequested(timestampEntry) ? { screenshotRequested: true } : {})
     };
     return capture;
   });
@@ -99,14 +113,15 @@ export function serializeCaptures(captures: VideoCapture[]): StoredVideoCaptureE
       }
       return fragmentEntry;
     }
+    const timestamp = capture as VideoTimestampCaptureWithScreenshotIntent;
     const timestampEntry: StoredVideoTimestampEntry = {
       kind: 'timestamp',
-      id: capture.id,
-      timeSec: capture.timeSec,
-      comment: capture.comment,
-      url: capture.url,
-      createdAt: capture.createdAt,
-      ...(capture.screenshot ? { screenshot: capture.screenshot } : {})
+      id: timestamp.id,
+      timeSec: timestamp.timeSec,
+      comment: timestamp.comment,
+      url: timestamp.url,
+      createdAt: timestamp.createdAt,
+      ...(resolveScreenshotRequested(timestamp) ? { screenshotRequested: true } : {})
     };
     return timestampEntry;
   });

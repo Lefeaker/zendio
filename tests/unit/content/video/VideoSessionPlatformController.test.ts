@@ -102,7 +102,8 @@ describe('VideoSessionPlatformController', () => {
 
     await expect(setup.controller.refreshContext()).resolves.toEqual({
       hintState: 'noVideo',
-      shouldScheduleFragmentRestore: false
+      shouldScheduleFragmentRestore: false,
+      restoreSource: 'none'
     });
     expect(setup.state.captures).toEqual([]);
 
@@ -126,7 +127,8 @@ describe('VideoSessionPlatformController', () => {
 
     await expect(setup.controller.refreshContext()).resolves.toEqual({
       hintState: 'ready',
-      shouldScheduleFragmentRestore: false
+      shouldScheduleFragmentRestore: false,
+      restoreSource: 'none'
     });
     expect(setup.loadStoredCaptureData).not.toHaveBeenCalled();
 
@@ -157,7 +159,8 @@ describe('VideoSessionPlatformController', () => {
 
     await expect(setup.controller.refreshContext()).resolves.toEqual({
       hintState: 'ready',
-      shouldScheduleFragmentRestore: true
+      shouldScheduleFragmentRestore: true,
+      restoreSource: 'legacy'
     });
     expect(setup.state.videoTitle).toBe('Restored Title');
     expect(setup.state.canonicalUrl).toBe('https://www.bilibili.com/video/BV1changed');

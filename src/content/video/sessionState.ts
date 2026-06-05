@@ -9,6 +9,7 @@ import type { VideoHintContext } from './videoHintManager';
 
 export class VideoSessionState {
   captures: VideoCapture[] = [];
+  commentDrafts: Record<string, string> = {};
   videoElement: HTMLVideoElement | null = null;
   storageKey: string | null = null;
   videoTitle = '';
