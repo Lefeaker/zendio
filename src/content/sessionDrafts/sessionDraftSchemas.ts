@@ -1,0 +1,191 @@
+import { z } from 'zod';
+import {
+  createSessionDraftPageKey,
+  createSessionDraftStorageKey
+} from './sessionDraftKeys';
+import {
+  SESSION_DRAFT_SCHEMA_VERSION,
+  type SessionDraftEnvelope,
+  type SessionDraftIndex,
+  type SessionDraftIndexEntry
+} from './sessionDraftTypes';
+
+const TimestampSchema = z.number().int().nonnegative().finite();
+const textEncoder = new TextEncoder();
+
+export const SessionDraftModeSchema = z.enum(['reader', 'video']);
+export const SessionDraftStatusSchema = z.enum(['active', 'restorable']);
+export const SessionCommentDraftSnapshotSchema = z.record(z.string(), z.string());
+
+export const ReaderSessionDraftPayloadSchema = z
+  .object({
+    commentDrafts: SessionCommentDraftSnapshotSchema.optional()
+  })
+  .passthrough();
+
+export const VideoSessionDraftPayloadSchema = z
+  .object({
+    commentDrafts: SessionCommentDraftSnapshotSchema.optional()
+  })
+  .passthrough();
+
+export const SessionDraftEnvelopeMetadataSchema = z.object({
+  schemaVersion: z.literal(SESSION_DRAFT_SCHEMA_VERSION),
+  draftId: z.string().min(1),
+  pageKey: z.string().min(1),
+  pageUrl: z.string().url(),
+  pageTitle: z.string(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+  expiresAt: TimestampSchema,
+  status: SessionDraftStatusSchema
+});
+
+export const ReaderSessionDraftEnvelopeSchema = SessionDraftEnvelopeMetadataSchema.extend({
+  mode: z.literal('reader'),
+  payload: ReaderSessionDraftPayloadSchema
+});
+
+export const VideoSessionDraftEnvelopeSchema = SessionDraftEnvelopeMetadataSchema.extend({
+  mode: z.literal('video'),
+  payload: VideoSessionDraftPayloadSchema
+});
+
+export const SessionDraftEnvelopeSchema = z.discriminatedUnion('mode', [
+  ReaderSessionDraftEnvelopeSchema,
+  VideoSessionDraftEnvelopeSchema
+]);
+
+export const SessionDraftIndexEntrySchema = z.object({
+  key: z.string().min(1),
+  draftId: z.string().min(1),
+  mode: SessionDraftModeSchema,
+  pageKey: z.string().min(1),
+  updatedAt: TimestampSchema,
+  expiresAt: TimestampSchema,
+  status: SessionDraftStatusSchema
+});
+
+export const SessionDraftIndexSchema = z.object({
+  schemaVersion: z.literal(SESSION_DRAFT_SCHEMA_VERSION),
+  entries: z.array(SessionDraftIndexEntrySchema)
+});
+
+export function createSessionDraftIndex(entries: SessionDraftIndexEntry[] = []): SessionDraftIndex {
+  return {
+    schemaVersion: SESSION_DRAFT_SCHEMA_VERSION,
+    entries
+  };
+}
+
+export function createSessionDraftIndexEntry(
+  envelope: SessionDraftEnvelope
+): SessionDraftIndexEntry {
+  return {
+    key: createSessionDraftStorageKey({
+      mode: envelope.mode,
+      pageKey: envelope.pageKey,
+      draftId: envelope.draftId
+    }),
+    draftId: envelope.draftId,
+    mode: envelope.mode,
+    pageKey: envelope.pageKey,
+    updatedAt: envelope.updatedAt,
+    expiresAt: envelope.expiresAt,
+    status: envelope.status
+  };
+}
+
+export function measureSessionDraftValueBytes(value: unknown): number {
+  const serialized = JSON.stringify(value);
+  return serialized ? textEncoder.encode(serialized).length : 0;
+}
+
+export function containsDisallowedSessionDraftPayloadValue(
+  value: unknown,
+  seen = new Set<unknown>()
+): boolean {
+  if (typeof value === 'string') {
+    return value.toLowerCase().includes('data:image/');
+  }
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  if (seen.has(value)) {
+    return false;
+  }
+  seen.add(value);
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+    return true;
+  }
+  if (typeof Blob !== 'undefined' && value instanceof Blob) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsDisallowedSessionDraftPayloadValue(entry, seen));
+  }
+  return Object.values(value).some((entry) =>
+    containsDisallowedSessionDraftPayloadValue(entry, seen)
+  );
+}
+
+export function normalizeSessionDraftEnvelopeForSave(
+  envelope: SessionDraftEnvelope,
+  ttlMs: number
+): SessionDraftEnvelope {
+  const parsed = SessionDraftEnvelopeSchema.parse(envelope);
+  const pageKey = createSessionDraftPageKey(parsed.mode, parsed.pageUrl);
+  return {
+    ...parsed,
+    pageKey,
+    expiresAt: parsed.expiresAt > parsed.updatedAt ? parsed.expiresAt : parsed.updatedAt + ttlMs
+  };
+}
+
+export function pruneSessionDraftIndexEntries(
+  entries: SessionDraftIndexEntry[],
+  now: number,
+  maxEntries: number
+): { entries: SessionDraftIndexEntry[]; removedKeys: string[]; dirty: boolean } {
+  const sorted = [...entries].sort((left, right) => right.updatedAt - left.updatedAt);
+  const unique: SessionDraftIndexEntry[] = [];
+  const removedKeys: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const entry of sorted) {
+    if (seenKeys.has(entry.key)) {
+      continue;
+    }
+    seenKeys.add(entry.key);
+    unique.push(entry);
+  }
+
+  const retained = unique.filter((entry) => {
+    if (entry.expiresAt <= now) {
+      removedKeys.push(entry.key);
+      return false;
+    }
+    return true;
+  });
+  const next = [...retained].sort((left, right) => left.updatedAt - right.updatedAt);
+
+  for (let index = 0; index < next.length && next.length > maxEntries; ) {
+    if (next[index]?.status === 'active') {
+      index += 1;
+      continue;
+    }
+    removedKeys.push(next[index]!.key);
+    next.splice(index, 1);
+  }
+  while (next.length > maxEntries) {
+    removedKeys.push(next[0]!.key);
+    next.shift();
+  }
+
+  next.sort((left, right) => right.updatedAt - left.updatedAt);
+  return {
+    entries: next,
+    removedKeys: Array.from(new Set(removedKeys)),
+    dirty: removedKeys.length > 0 || next.length !== entries.length
+  };
+}

@@ -1,0 +1,91 @@
+export const SESSION_DRAFT_SCHEMA_VERSION = 1 as const;
+export const DEFAULT_SESSION_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_DRAFT_MAX_ENTRIES = 100;
+export const SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 * 1024;
+
+export type SessionDraftMode = 'reader' | 'video';
+export type SessionDraftStatus = 'active' | 'restorable';
+export type SessionCommentDraftSnapshot = Record<string, string>;
+
+export interface SessionDraftPayloadBase {
+  commentDrafts?: SessionCommentDraftSnapshot;
+  [key: string]: unknown;
+}
+
+export interface ReaderSessionDraftPayload extends SessionDraftPayloadBase {}
+
+export interface VideoSessionDraftPayload extends SessionDraftPayloadBase {}
+
+interface SessionDraftEnvelopeBase<
+  TMode extends SessionDraftMode,
+  TPayload extends SessionDraftPayloadBase
+> {
+  schemaVersion: typeof SESSION_DRAFT_SCHEMA_VERSION;
+  draftId: string;
+  mode: TMode;
+  pageKey: string;
+  pageUrl: string;
+  pageTitle: string;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number;
+  status: SessionDraftStatus;
+  payload: TPayload;
+}
+
+export type ReaderSessionDraftEnvelope = SessionDraftEnvelopeBase<
+  'reader',
+  ReaderSessionDraftPayload
+>;
+
+export type VideoSessionDraftEnvelope = SessionDraftEnvelopeBase<
+  'video',
+  VideoSessionDraftPayload
+>;
+
+export type SessionDraftEnvelope = ReaderSessionDraftEnvelope | VideoSessionDraftEnvelope;
+
+export interface SessionDraftIndexEntry {
+  key: string;
+  draftId: string;
+  mode: SessionDraftMode;
+  pageKey: string;
+  updatedAt: number;
+  expiresAt: number;
+  status: SessionDraftStatus;
+}
+
+export interface SessionDraftIndex {
+  schemaVersion: typeof SESSION_DRAFT_SCHEMA_VERSION;
+  entries: SessionDraftIndexEntry[];
+}
+
+export interface SessionDraftRepositoryOptions {
+  ttlMs?: number;
+  maxEntries?: number;
+  maxEnvelopeBytes?: number;
+}
+
+export type SessionDraftRemovalTarget = string | { key: string };
+
+export interface SessionDraftRepository {
+  loadLatest(mode: SessionDraftMode, pageUrl: string, now?: number): Promise<SessionDraftEnvelope | null>;
+  save(envelope: SessionDraftEnvelope): Promise<void>;
+  remove(target: SessionDraftRemovalTarget): Promise<void>;
+  listCandidates(mode: SessionDraftMode, pageUrl: string, now?: number): Promise<SessionDraftEnvelope[]>;
+  pruneExpired(now?: number): Promise<void>;
+}
+
+type MaybePromise<T> = T | Promise<T>;
+
+export interface SessionDraftPersisterOptions<TEnvelope extends SessionDraftEnvelope = SessionDraftEnvelope> {
+  repository: Pick<SessionDraftRepository, 'save'>;
+  buildEnvelope: () => MaybePromise<TEnvelope | null>;
+  delayMs?: number;
+}
+
+export interface SessionDraftPersister {
+  scheduleSave(): Promise<void>;
+  flushNow(): Promise<void>;
+  dispose(options?: { flush?: boolean }): Promise<void>;
+}

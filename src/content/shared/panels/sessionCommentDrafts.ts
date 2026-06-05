@@ -3,6 +3,8 @@ export interface SessionCommentDraftItem {
   comment: string;
 }
 
+export type SessionCommentDraftSnapshot = Record<string, string>;
+
 export type SessionCommentDraftedItem<T extends SessionCommentDraftItem> = T & {
   draft?: string;
 };
@@ -13,6 +15,7 @@ interface SessionCommentDraftControllerOptions<T extends SessionCommentDraftItem
   getItems: () => T[];
   getRoot: () => ParentNode | null;
   submitDraft: (id: string, draft: string) => void | Promise<void>;
+  onChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
 
 export class SessionCommentDraftStore {
@@ -26,29 +29,53 @@ export class SessionCommentDraftStore {
     return this.drafts.size > 0;
   }
 
-  set(id: string, draft: string, canonicalComment: string): void {
+  set(id: string, draft: string, canonicalComment: string): boolean {
     if (draft === canonicalComment) {
-      this.drafts.delete(id);
-      return;
+      return this.drafts.delete(id);
     }
+    const previous = this.drafts.get(id);
     this.drafts.set(id, draft);
+    return previous !== draft;
   }
 
-  clear(id: string | null | undefined): void {
+  clear(id: string | null | undefined): boolean {
     if (!id) {
-      return;
+      return false;
     }
-    this.drafts.delete(id);
+    return this.drafts.delete(id);
   }
 
-  reconcile(items: SessionCommentDraftItem[]): void {
+  reconcile(items: SessionCommentDraftItem[]): boolean {
     const commentsById = new Map(items.map((item) => [item.id, item.comment]));
+    let changed = false;
     for (const [id, draft] of this.drafts) {
       const comment = commentsById.get(id);
       if (comment === undefined || draft === comment) {
-        this.drafts.delete(id);
+        changed = this.drafts.delete(id) || changed;
       }
     }
+    return changed;
+  }
+
+  snapshot(): SessionCommentDraftSnapshot {
+    return Object.fromEntries(this.drafts.entries());
+  }
+
+  hydrate(drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>): boolean {
+    const nextEntries = drafts instanceof Map ? Array.from(drafts.entries()) : Object.entries(drafts);
+    const next = new Map<string, string>();
+    for (const [id, draft] of nextEntries) {
+      if (!id) {
+        continue;
+      }
+      next.set(id, draft);
+    }
+    const previous = this.snapshot();
+    this.drafts.clear();
+    for (const [id, draft] of next.entries()) {
+      this.drafts.set(id, draft);
+    }
+    return JSON.stringify(previous) !== JSON.stringify(this.snapshot());
   }
 }
 
@@ -57,21 +84,36 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   constructor(private readonly options: SessionCommentDraftControllerOptions<T>) {}
 
-  remember(id: string, value: string): void {
-    this.store.set(id, value, this.findCanonicalComment(id));
+  remember(id: string, value: string, options: { notify?: boolean } = {}): void {
+    if (this.store.set(id, value, this.findCanonicalComment(id)) && options.notify !== false) {
+      this.notifyChange();
+    }
   }
 
   clear(id: string | null | undefined): void {
-    this.store.clear(id);
+    if (this.store.clear(id)) {
+      this.notifyChange();
+    }
   }
 
   reconcile(items: T[]): void {
-    this.store.reconcile(items);
+    if (this.store.reconcile(items)) {
+      this.notifyChange();
+    }
   }
 
   withDraft(item: T): SessionCommentDraftedItem<T> {
     const draft = this.store.get(item.id);
     return draft === undefined ? item : { ...item, draft };
+  }
+
+  snapshot(): SessionCommentDraftSnapshot {
+    this.captureRenderedInputs();
+    return this.store.snapshot();
+  }
+
+  hydrate(drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>): void {
+    this.store.hydrate(drafts);
   }
 
   bindInput(input: HTMLInputElement | null | undefined, id: string): void {
@@ -92,15 +134,17 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
       .forEach((input) => {
         const id = input.dataset[this.options.datasetKey];
         if (id) {
-          this.remember(id, input.value);
+          this.remember(id, input.value, { notify: false });
         }
       });
   }
 
   async submit(id: string, value: string): Promise<void> {
-    this.remember(id, value);
+    this.remember(id, value, { notify: false });
     await this.options.submitDraft(id, value);
-    this.store.clear(id);
+    if (this.store.clear(id)) {
+      this.notifyChange();
+    }
   }
 
   runAfterFlush(action: () => void | Promise<void>): Promise<void> {
@@ -117,13 +161,17 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   private async flush(): Promise<void> {
     this.captureRenderedInputs();
+    let changed = false;
     for (const item of this.options.getItems()) {
       const draft = this.store.get(item.id);
       if (draft === undefined) {
         continue;
       }
       await this.options.submitDraft(item.id, draft);
-      this.store.clear(item.id);
+      changed = this.store.clear(item.id) || changed;
+    }
+    if (changed) {
+      this.notifyChange();
     }
   }
 
@@ -141,5 +189,9 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     void task.catch((error) => {
       console.warn('[SessionCommentDrafts] Failed to submit session comment draft:', error);
     });
+  }
+
+  private notifyChange(): void {
+    this.options.onChange?.(this.store.snapshot());
   }
 }
