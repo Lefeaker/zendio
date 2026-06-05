@@ -154,7 +154,6 @@ export function pruneSessionDraftIndexEntries(
 
   for (const entry of sorted) {
     if (seenKeys.has(entry.key)) {
-      removedKeys.push(entry.key);
       continue;
     }
     seenKeys.add(entry.key);

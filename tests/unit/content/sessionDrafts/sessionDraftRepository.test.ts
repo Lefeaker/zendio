@@ -245,6 +245,34 @@ describe('sessionDraftRepository', () => {
     await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({ entries: [] });
   });
 
+  it('dedupes duplicate index rows without deleting the retained envelope key', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('reader', {
+      draftId: 'duplicate-row',
+      updatedAt: BASE_TIME + 450
+    });
+    const entry = createIndexEntry(envelope);
+
+    await storage.setMany({
+      [entry.key]: envelope,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [entry, { ...entry }]
+      }
+    });
+
+    await expect(repository.loadLatest('reader', envelope.pageUrl, BASE_TIME + 451)).resolves.toMatchObject({
+      draftId: 'duplicate-row'
+    });
+    await expect(storage.get(entry.key)).resolves.toMatchObject({
+      draftId: 'duplicate-row'
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: [expect.objectContaining({ key: entry.key, draftId: 'duplicate-row' })]
+    });
+  });
+
   it('rejects oversized envelopes before writing to storage', async () => {
     const storage = createMemoryStorageArea();
     const setSpy = vi.spyOn(storage, 'set');
