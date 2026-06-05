@@ -13,7 +13,10 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
-import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
+import {
+  SessionCommentDraftController,
+  type SessionCommentDraftSnapshot
+} from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
@@ -22,6 +25,7 @@ interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
   texts: ReaderPanelTexts;
   resolveAssetUrl?: (path: string) => string;
+  onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
 
 export class ReaderDialogPanel implements UiMountable<
@@ -53,7 +57,8 @@ export class ReaderDialogPanel implements UiMountable<
     inputSelector: '[data-highlight-input]',
     getItems: () => this.highlights,
     getRoot: () => this.renderRoot.shadowRoot,
-    submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft)
+    submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft),
+    onChange: (drafts) => this.options.onCommentDraftChange?.(drafts)
   });
   private pendingNoteFocusHighlightId: string | null = null;
 
@@ -155,6 +160,15 @@ export class ReaderDialogPanel implements UiMountable<
   stopEditing(): void {
     this.commentDrafts.clear(this.editingHighlightId);
     this.editingHighlightId = null;
+    this.rerender({ captureDrafts: false });
+  }
+
+  snapshotCommentDrafts(): SessionCommentDraftSnapshot {
+    return this.commentDrafts.snapshot();
+  }
+
+  hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
+    this.commentDrafts.hydrate(drafts);
     this.rerender({ captureDrafts: false });
   }
 

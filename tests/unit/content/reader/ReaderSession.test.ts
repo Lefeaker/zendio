@@ -10,10 +10,14 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '@content/reader/application/readerPanelModel';
-import type { ReaderSessionView } from '@content/reader/application/readerSessionView';
+import type {
+  ReaderSessionView,
+  ReaderSessionViewOptions
+} from '@content/reader/application/readerSessionView';
 import { ReaderPanelCoordinator } from '@content/reader/panelCoordinator';
 import { ReaderSession } from '@content/reader/session';
 import type { ReaderSessionDependencies } from '@content/reader/session';
+import { buildReaderSessionDraftEnvelope } from '@content/reader/sessionDrafts';
 import { ReaderSessionLifecycle } from '@content/reader/sessionLifecycle';
 import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
 import { ReaderSessionExporter } from '@content/reader/services/exporter';
@@ -29,6 +33,9 @@ import {
   isReaderSessionActive,
   registerReaderSession
 } from '@content/runtime/contentSessionRegistry';
+import { createSessionDraftRepository } from '@content/sessionDrafts';
+import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
+import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { getTestRestUrls } from '../../../fixtures/configTestHelpers';
 
@@ -43,12 +50,16 @@ type TestView = ReaderSessionView & {
   updateTexts: Mock<(...args: [texts: ReaderPanelTexts]) => void>;
   updateDestination: Mock<(...args: [destination: unknown]) => void>;
   setHighlights: Mock<(...args: [highlights: ReaderPanelHighlight[]]) => void>;
+  snapshotCommentDrafts: Mock<(...args: []) => SessionCommentDraftSnapshot>;
+  hydrateCommentDrafts: Mock<(...args: [drafts: SessionCommentDraftSnapshot]) => void>;
   stopEditing: Mock<(...args: []) => void>;
   isEditing: Mock<(...args: []) => boolean>;
   destroy: Mock<(...args: []) => void>;
+  currentDrafts: SessionCommentDraftSnapshot;
 };
 
 function createView(): TestView {
+  let currentDrafts: SessionCommentDraftSnapshot = {};
   return {
     element: document.createElement('div'),
     updateCount: vi.fn(),
@@ -56,9 +67,19 @@ function createView(): TestView {
     updateTexts: vi.fn(),
     updateDestination: vi.fn(),
     setHighlights: vi.fn(),
+    snapshotCommentDrafts: vi.fn(() => ({ ...currentDrafts })),
+    hydrateCommentDrafts: vi.fn((drafts: SessionCommentDraftSnapshot) => {
+      currentDrafts = { ...drafts };
+    }),
     stopEditing: vi.fn(),
     isEditing: vi.fn(() => false),
-    destroy: vi.fn()
+    destroy: vi.fn(),
+    get currentDrafts() {
+      return currentDrafts;
+    },
+    set currentDrafts(drafts: SessionCommentDraftSnapshot) {
+      currentDrafts = drafts;
+    }
   };
 }
 
@@ -156,6 +177,7 @@ function createSessionContext() {
   document.body.innerHTML = '<article><p id="content">Hello reader session world.</p></article>';
   const view = createView();
   let callbacks: ReaderPanelCallbacks | undefined;
+  let viewOptions: ReaderSessionViewOptions | undefined;
   const readerConfigListener = vi.fn();
   const getReadingConfig = vi.fn().mockResolvedValue({
     exportMode: 'highlights',
@@ -174,6 +196,8 @@ function createSessionContext() {
   const messaging = {
     send: vi.fn().mockResolvedValue(undefined)
   };
+  const syncStorageArea = createMemoryStorageArea();
+  const localStorageArea = createMemoryStorageArea();
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
@@ -237,10 +261,13 @@ function createSessionContext() {
 
   const dependencies: ReaderSessionDependencies = {
     viewFactory: {
-      createView: vi.fn<ReaderSessionDependencies['viewFactory']['createView']>((nextCallbacks) => {
+      createView: vi.fn<ReaderSessionDependencies['viewFactory']['createView']>(
+        (nextCallbacks, _texts, nextViewOptions) => {
         callbacks = nextCallbacks;
+        viewOptions = nextViewOptions;
         return view;
-      })
+        }
+      )
     },
     optionsRepository: {
       get: vi.fn().mockResolvedValue(
@@ -281,26 +308,8 @@ function createSessionContext() {
       onChange: vi.fn(() => () => undefined)
     },
     storage: {
-      sync: {
-        get: vi.fn(),
-        set: vi.fn(),
-        getMany: vi.fn(),
-        setMany: vi.fn(),
-        remove: vi.fn(),
-        clear: vi.fn(),
-        watchKey: vi.fn(() => () => undefined),
-        watchAll: vi.fn(() => () => undefined)
-      },
-      local: {
-        get: vi.fn(),
-        set: vi.fn(),
-        getMany: vi.fn(),
-        setMany: vi.fn(),
-        remove: vi.fn(),
-        clear: vi.fn(),
-        watchKey: vi.fn(() => () => undefined),
-        watchAll: vi.fn(() => () => undefined)
-      }
+      sync: syncStorageArea,
+      local: localStorageArea
     },
     messaging,
     readerRepository: {
@@ -335,6 +344,8 @@ function createSessionContext() {
   return {
     session,
     view,
+    storageLocal: localStorageArea,
+    draftRepository: createSessionDraftRepository(localStorageArea),
     clipPrompt,
     messaging,
     environment,
@@ -346,8 +357,36 @@ function createSessionContext() {
     dispatchClipResult,
     showSupportProgress,
     getCallbacks: () => callbacks,
+    emitCommentDraftChange: (drafts: SessionCommentDraftSnapshot) => {
+      view.currentDrafts = { ...drafts };
+      viewOptions?.onCommentDraftChange?.({ ...drafts });
+    },
     emitReadingConfig: readerConfigListener
   };
+}
+
+function createPersistedHighlightRecord(
+  overrides: Partial<ReaderHighlightRecord> = {}
+): ReaderHighlightRecord {
+  const wrapper = document.createElement('mark');
+  wrapper.className = 'aiob-reader-highlight';
+  wrapper.dataset.readerHighlightId = overrides.id ?? 'saved-highlight';
+  wrapper.textContent = overrides.selectedText ?? 'Saved highlight';
+  return {
+    id: overrides.id ?? 'saved-highlight',
+    selectedHtml: overrides.selectedHtml ?? '<mark>Saved highlight</mark>',
+    selectedText: overrides.selectedText ?? 'Saved highlight',
+    comment: overrides.comment ?? '',
+    fragmentUrl: overrides.fragmentUrl ?? '#saved-highlight',
+    wrapper,
+    wrapperSegments: overrides.wrapperSegments ?? [wrapper],
+    createdAt: overrides.createdAt ?? 123
+  };
+}
+
+async function flushDraftPersistence(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(250);
+  await Promise.resolve();
 }
 
 describe('ReaderSession', () => {
@@ -418,6 +457,97 @@ describe('ReaderSession', () => {
         label: 'Research Vault'
       })
     );
+  });
+
+  it('restores stored highlights, comment drafts, and destination from the latest reader draft', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+    const context = createSessionContext();
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-1',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Restored article',
+      destination: { kind: 'vault', vaultId: 'research' },
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'saved-1',
+          selectedText: 'Hello reader session world.',
+          selectedHtml: '<mark>Hello reader session world.</mark>',
+          comment: 'remember this',
+          fragmentUrl: '#saved-1',
+          createdAt: 15
+        })
+      ],
+      commentDrafts: {
+        'saved-1': 'unsaved note'
+      },
+      status: 'restorable'
+    });
+    if (!envelope) {
+      throw new Error('expected restorable reader envelope');
+    }
+    await context.draftRepository.save(envelope);
+
+    await context.session.initialize();
+
+    expect(
+      (context.session as unknown as { __testHighlights: ReaderHighlightRecord[] }).__testHighlights
+    ).toEqual([
+      expect.objectContaining({
+        id: 'saved-1',
+        selectedText: 'Hello reader session world.',
+        comment: 'remember this',
+        createdAt: 15
+      })
+    ]);
+    expect(context.view.currentDrafts).toEqual({
+      'saved-1': 'unsaved note'
+    });
+    expect(context.view.updateDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
+
+    await flushDraftPersistence();
+
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      draftId: 'reader-draft-1',
+      status: 'active'
+    });
+  });
+
+  it('flushes a restorable reader draft on pagehide after prior mutation-time saves', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
+    await flushDraftPersistence();
+
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      status: 'restorable'
+    });
   });
 
   it('destroy delegates to cancel cleanup and resets mounted state', async () => {
@@ -622,6 +752,7 @@ describe('ReaderSession', () => {
   });
 
   it('finish exports markdown and cleans up the session', async () => {
+    vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
 
@@ -653,16 +784,17 @@ describe('ReaderSession', () => {
         wrapper
       }
     ]);
+    context.emitCommentDraftChange({});
+    await flushDraftPersistence();
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
       throw new Error('panel callbacks missing');
     }
 
-    void callbacks.onFinish();
-    await vi.waitFor(() => {
-      expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
-    });
+    await callbacks.onFinish();
+    expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    await flushDraftPersistence();
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 10,
       label: '正在准备阅读导出'
@@ -681,6 +813,9 @@ describe('ReaderSession', () => {
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
     expect(isReaderSessionActive(document)).toBe(false);
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toBeNull();
   });
 
   it('tracks exported reader sessions with canonical destination and duration bucket only', async () => {
@@ -746,6 +881,7 @@ describe('ReaderSession', () => {
   });
 
   it('tracks failed exports without swallowing the existing failure behavior', async () => {
+    vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
     context.dispatchClipResult.mockRejectedValueOnce(new Error('boom'));
@@ -788,6 +924,7 @@ describe('ReaderSession', () => {
     }
 
     await callbacks.onSelectDestination('downloads');
+    await flushDraftPersistence();
     await callbacks.onFinish();
 
     const failedEvent = getTelemetryMessages(context).find(
@@ -804,6 +941,11 @@ describe('ReaderSession', () => {
     expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
     expect(context.view.destroy).not.toHaveBeenCalled();
     expect(isReaderSessionActive(document)).toBe(true);
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      status: 'active'
+    });
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
   });
 
@@ -863,6 +1005,14 @@ describe('ReaderSession', () => {
 
     const context = createSessionContext();
     await context.session.initialize();
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
+    await flushDraftPersistence();
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -871,6 +1021,8 @@ describe('ReaderSession', () => {
 
     vi.setSystemTime(new Date('2026-06-05T00:00:35.000Z'));
     callbacks.onCancel();
+    await Promise.resolve();
+    await Promise.resolve();
 
     const cancelledEvent = getTelemetryMessages(context).find(
       (message) => message.event === 'reader_session_cancelled'
@@ -883,10 +1035,34 @@ describe('ReaderSession', () => {
       }
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
+    await vi.waitFor(async () => {
+      expect(
+        await context.draftRepository.loadLatest('reader', 'https://example.com/article')
+      ).toBeNull();
+    });
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
   });
 
+  it('does not create a durable reader draft when the session stays empty', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks?.onSelectDestination) {
+      throw new Error('destination callback missing');
+    }
+
+    await callbacks.onSelectDestination('downloads');
+    await flushDraftPersistence();
+
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toBeNull();
+  });
+
   it('never sends raw reader content or off-catalog params in telemetry payloads', async () => {
+    vi.useFakeTimers();
     document.title = 'Private Title';
     const context = createSessionContext();
     await context.session.initialize();
@@ -904,6 +1080,16 @@ describe('ReaderSession', () => {
       selectedHtml: '<mark>Private Quote</mark>',
       selectedText: 'Private Quote'
     });
+    const [restoredHighlight] = (
+      context.session as { __testHighlights: Array<{ id: string }> }
+    ).__testHighlights;
+    if (!restoredHighlight) {
+      throw new Error('reader highlight missing');
+    }
+    context.emitCommentDraftChange({
+      [restoredHighlight.id]: 'Private Draft'
+    });
+    await flushDraftPersistence();
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -920,6 +1106,7 @@ describe('ReaderSession', () => {
     const serialized = JSON.stringify(telemetryMessages);
 
     expect(serialized).not.toContain('Private Quote');
+    expect(serialized).not.toContain('Private Draft');
     expect(serialized).not.toContain('<mark>Private Quote</mark>');
     expect(serialized).not.toContain('https://example.com/article');
     expect(serialized).not.toContain('Private Title');

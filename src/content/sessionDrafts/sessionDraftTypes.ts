@@ -1,3 +1,5 @@
+import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+
 export const SESSION_DRAFT_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_SESSION_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const SESSION_DRAFT_MAX_ENTRIES = 100;
@@ -12,7 +14,22 @@ export interface SessionDraftPayloadBase {
   [key: string]: unknown;
 }
 
-export interface ReaderSessionDraftPayload extends SessionDraftPayloadBase {}
+export interface ReaderSessionDraftHighlightPayload {
+  id: string;
+  selectedHtml: string;
+  selectedText: string;
+  comment: string;
+  fragmentUrl: string;
+  createdAt: number;
+}
+
+export interface ReaderSessionDraftPayload extends SessionDraftPayloadBase {
+  mode?: 'reader';
+  url?: string;
+  title?: string;
+  destination?: ExportDestinationMetadata;
+  highlights?: ReaderSessionDraftHighlightPayload[];
+}
 
 export interface VideoSessionDraftPayload extends SessionDraftPayloadBase {}
 
