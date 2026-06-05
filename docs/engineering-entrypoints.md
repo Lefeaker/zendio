@@ -100,9 +100,9 @@ credentials and manual confirmation.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，fresh warning count 为 `127`，当前 gate 输出为 `Warning 总量下降 5 条`，baseline file 尚未同步收紧。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA gap-fix integration 合入后的 fresh warning count 为 `125`，当前 gate 输出为 `Warning 总量下降 7 条`，baseline file 尚未同步收紧。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`94`）与 unsafe type warnings。
+- 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
 - `npm run lint:type-any`：扫描当前 GA 集成树 `1036` files；overall 为 `any: 0`、`unknown: 1064`、assertions `1736`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/576/596/5/0`；tests 为 `0/488/1140/36/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
