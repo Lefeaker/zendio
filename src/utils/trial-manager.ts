@@ -193,14 +193,14 @@ export async function showExpirationNotice(): Promise<void> {
     await maybeCreateNotification(ports, {
       type: 'basic',
       iconUrl: 'icons/icon-48.png',
-      title: 'AiiinOB 试用版已过期',
-      message: '感谢您试用 AiiinOB！试用期已结束，请联系开发者获取正式版本。'
+      title: 'Zendio 试用版已过期',
+      message: '感谢您试用 Zendio！试用期已结束，请联系开发者获取正式版本。'
     });
   } else if (status.isExpiringSoon) {
     await maybeCreateNotification(ports, {
       type: 'basic',
       iconUrl: 'icons/icon-48.png',
-      title: 'AiiinOB 试用版即将过期',
+      title: 'Zendio 试用版即将过期',
       message: `试用版将在 ${formatRemainingTime(status)} 后过期，请及时联系开发者。`
     });
   }

@@ -397,7 +397,7 @@ it('routes options-domain errors through the notification bridge as user-facing 
   expect(lastCall?.[1]).toMatchObject({
     channel: 'system.user',
     severity: 'error',
-    title: 'All-in-Obsidian — Error',
+    title: 'Zendio - Error',
     message: 'Cannot save settings',
     contextMessage: 'persist exploded',
     requireInteraction: true,
@@ -486,7 +486,7 @@ it('routes generic info errors through the notification bridge as non-blocking s
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.info',
     severity: 'info',
-    title: 'All-in-Obsidian — Info',
+    title: 'Zendio - Info',
     message: 'Informational only',
     requireInteraction: false
   });
@@ -685,7 +685,7 @@ it('routes generic warning errors through system warning channel without context
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.warning',
     severity: 'warning',
-    title: 'All-in-Obsidian — Warning',
+    title: 'Zendio - Warning',
     message: 'Same text',
     requireInteraction: false
   });
@@ -801,7 +801,7 @@ it('keeps generic info notifications non-interactive and preserves distinct cont
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.info',
     severity: 'info',
-    title: 'All-in-Obsidian — Info',
+    title: 'Zendio - Info',
     message: 'friendly info',
     contextMessage: 'debug detail',
     requireInteraction: false
@@ -854,7 +854,7 @@ it('routes i18n warning errors through the user-facing channel without context d
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.user',
     severity: 'warning',
-    title: 'All-in-Obsidian — Warning',
+    title: 'Zendio - Warning',
     message: 'Visible warning',
     requireInteraction: false
   });

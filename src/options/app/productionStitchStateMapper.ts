@@ -478,7 +478,7 @@ export function createProductionContent(
     ...base,
     brand: {
       ...base.brand,
-      title: 'All in Ob',
+      title: 'Zendio',
       subtitle: resolveExtensionVersionLabel()
     },
     surfaceLinks: [],

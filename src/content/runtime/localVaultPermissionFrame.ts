@@ -36,7 +36,7 @@ function render(
   doc.body.innerHTML = `
     <main class="permission-card">
       <div class="permission-heading">
-        <span class="permission-kicker">All in Ob</span>
+        <span class="permission-kicker">Zendio</span>
         <h1>允许写入本地仓库目录</h1>
       </div>
       <p class="permission-copy">

@@ -25,7 +25,7 @@ function hero(title: string): PreviewContent['overview']['hero'] {
 function createRuntimeContent(): PreviewContent {
   return {
     brand: {
-      title: 'All in Obsidian',
+      title: 'Zendio',
       subtitle: '',
       logo: ''
     },

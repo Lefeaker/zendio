@@ -128,7 +128,7 @@ describe('production Stitch state mapper', () => {
     const content = createProductionContent(previewContent, draft);
     const state = applyOptionsToState(createInitialStitchState(content), draft, content);
 
-    expect(content.brand.title).toBe('All in Ob');
+    expect(content.brand.title).toBe('Zendio');
     expect(content.surfaceLinks).toEqual([]);
     expect(state.aiUserName).toBe('Tester');
     expect(state.templateValues.articleVideo).toBe(draft.templates.article);
