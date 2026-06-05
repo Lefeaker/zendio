@@ -35,7 +35,9 @@ GA4 definition quota 有上限。先注册会被正式 dashboard 使用的字段
 | `source`                    | 入口来源切片                                                |
 | `step`                      | onboarding 漏斗                                             |
 | `action`                    | onboarding support action、options action 分析              |
+| `outcome`                   | save / export / connection / cleanup 成败切片               |
 | `field`                     | consent 变更字段                                            |
+| `enabled`                   | consent / feature toggle 开关状态                           |
 | `section`                   | options section / action 切片                               |
 | `theme`                     | options theme change 分析                                   |
 | `language`                  | options language 与 i18n overflow 分析                      |
@@ -268,6 +270,8 @@ Video 事件：
 - 关闭 `analytics` 与 `errorReporting`
 - 复做一次 options / clip / reader / video 操作
 - 确认没有新 proxy log / DebugView 事件
+
+真实 GA4 property 的 DebugView 可见性、proxy 端 `api_secret` 注入、Chrome Web Store publish credential，以及真实 Obsidian vault / proxy credential 联调仍属于 owner-only residual checks；执行边界见 [`analytics-configuration-guide.md`](./analytics-configuration-guide.md)。
 
 ## 建议的 owner dashboard 页面
 

@@ -149,6 +149,15 @@ node scripts/setup-error-analytics.js
 
 不成立。当前产品遥测只提供 `duration_bucket`，dashboard 设计必须按 bucket 工作。
 
+## Owner-only residual checks
+
+以下事项在当前 repo 验证通过后仍然属于 owner-only residual risk，不应被表述为已经在本地工程验证中完成：
+
+- `GA4 DebugView`：`directDebug` 本地模式只能证明客户端事件路径和字段形状；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限与 consent-enabled 测试 profile。
+- `Proxy api_secret injection`：只有 owner 控制的 staging/production proxy log 或 server trace 才能证明 `api_secret` 由服务端注入，且没有回流到扩展源码、构建产物或客户端请求参数。
+- `Chrome Web Store credentials`：repo 内只能安全验证 dry-run 与脚本接线；真实上传/发布仍需要 owner 的 Chrome Web Store dashboard credential 与人工确认。
+- `Real Obsidian vault / proxy credentials`：任何涉及真实 local-folder handle、REST API key、vault name、proxy secret 或 owner endpoint 的联调都必须由 owner 在受控环境下执行，且不得回写到 tracked source、fixtures 或 handoff 日志。
+
 ## 最小 release 检查
 
 - build-time env 已注入
