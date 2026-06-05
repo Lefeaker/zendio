@@ -49,7 +49,7 @@ function readVersion() {
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   return {
-    name: manifest.name ?? 'all-in-ob',
+    name: manifest.name ?? 'zendio',
     version: manifest.version ?? 'unknown'
   };
 }

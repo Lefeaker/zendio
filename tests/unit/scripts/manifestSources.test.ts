@@ -17,8 +17,14 @@ describe('manifestSources', () => {
 
   it('builds a firefox manifest with firefox-only overrides', () => {
     const manifest = createBrowserManifest('firefox');
+    const manifestWithSharedFields = manifest as {
+      name?: string;
+      description?: string;
+    };
 
     expect(manifest.action?.default_popup).toBeUndefined();
+    expect(manifestWithSharedFields.name).toBe('__MSG_extName__');
+    expect(manifestWithSharedFields.description).toBe('__MSG_extDescription__');
     expect(manifest.content_scripts).toEqual([
       {
         matches: ['<all_urls>'],
