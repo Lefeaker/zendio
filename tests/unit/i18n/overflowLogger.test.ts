@@ -84,4 +84,26 @@ describe('overflowLogger', () => {
 
     expect(sendMock).toHaveBeenCalledTimes(1);
   });
+
+  it('does not send overflow events when the key looks like a path', async () => {
+    const sendMock = vi.fn(() => Promise.resolve(undefined));
+    resolveRepositoryMock.mockReturnValue({ send: sendMock });
+    const { logTextOverflowEvent } = await import('../../../src/shared/i18n/overflowLogger');
+
+    const element = createElementStub({ budgetKey: '/options/index.html' });
+
+    logTextOverflowEvent(element, {
+      value: 'Too long',
+      usedShort: false,
+      budget: { component: 'label', priority: 'medium', mobile: 6, desktop: 8 },
+      overLimit: true,
+      language: 'en',
+      length: 12,
+      limit: 8
+    });
+
+    await Promise.resolve();
+
+    expect(sendMock).not.toHaveBeenCalled();
+  });
 });

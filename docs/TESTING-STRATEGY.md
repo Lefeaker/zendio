@@ -20,6 +20,7 @@ Use unit tests for:
 
 - repository behavior and error wrapping
 - options store / merger normalization
+- overview privacy consent persistence and privacy-domain view-model behavior
 - section controllers and view-model logic
 - content helpers, presenters, prompt state, dialog orchestration
 
@@ -134,5 +135,6 @@ The current handoff baseline is documented in:
 - [`README.md`](./README.md)
 - [`engineering-entrypoints.md`](./engineering-entrypoints.md)
 - [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)
+- [`privacy-settings-usage.md`](./privacy-settings-usage.md)
 - [`performance-baseline.md`](./performance-baseline.md)
 - [`final-acceptance-report-2026-03-20.md`](./final-acceptance-report-2026-03-20.md)

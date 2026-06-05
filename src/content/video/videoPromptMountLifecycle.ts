@@ -160,10 +160,10 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
     const shouldAbortMount = (): boolean =>
       Boolean(
         promptElement ||
-          options.isPromptSuppressed() ||
-          !options.isPromptEnabled() ||
-          options.isVideoSessionActive() ||
-          options.getWindow() !== options.getWindow().top
+        options.isPromptSuppressed() ||
+        !options.isPromptEnabled() ||
+        options.isVideoSessionActive() ||
+        options.getWindow() !== options.getWindow().top
       );
 
     promptMountTask = (async () => {

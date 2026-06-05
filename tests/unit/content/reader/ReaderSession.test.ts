@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import '../../../setup/globalSetup';
 import type { ClipPromptGateway } from '@content/clipper/application/clipPromptGateway';
@@ -92,6 +92,66 @@ function createSelectionPayload(node: Node) {
   };
 }
 
+const CANONICAL_READER_EVENTS = new Set([
+  'reader_session_started',
+  'reader_highlight_added',
+  'reader_exported',
+  'reader_export_failed',
+  'reader_session_cancelled'
+]);
+const FORBIDDEN_READER_EVENT_NAMES = new Set(['reader_session_exported', 'reader_session_failed']);
+const FORBIDDEN_READER_PARAM_KEYS = new Set([
+  'entry_point',
+  'export_mode',
+  'export_destination',
+  'duration_ms',
+  'outcome',
+  'selectedText',
+  'selectedHtml',
+  'comment',
+  'fragmentUrl',
+  'url',
+  'title',
+  'markdown'
+]);
+
+type TelemetryMessage = {
+  type: 'TRACK_USAGE_EVENT';
+  event: string;
+  params?: Record<string, unknown>;
+};
+
+function getTelemetryMessages(context: { messaging: { send: Mock } }): TelemetryMessage[] {
+  return context.messaging.send.mock.calls.flatMap(([message]) => {
+    if (typeof message !== 'object' || message === null) {
+      return [];
+    }
+    const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
+    if (candidate.type !== 'TRACK_USAGE_EVENT' || typeof candidate.event !== 'string') {
+      return [];
+    }
+    return [
+      {
+        type: 'TRACK_USAGE_EVENT',
+        event: candidate.event,
+        ...(candidate.params && typeof candidate.params === 'object'
+          ? { params: candidate.params as Record<string, unknown> }
+          : {})
+      }
+    ];
+  });
+}
+
+function expectCanonicalReaderTelemetry(messages: TelemetryMessage[]): void {
+  for (const message of messages) {
+    expect(CANONICAL_READER_EVENTS.has(message.event)).toBe(true);
+    expect(FORBIDDEN_READER_EVENT_NAMES.has(message.event)).toBe(false);
+    for (const key of Object.keys(message.params ?? {})) {
+      expect(FORBIDDEN_READER_PARAM_KEYS.has(key)).toBe(false);
+    }
+  }
+}
+
 function createSessionContext() {
   document.body.innerHTML = '<article><p id="content">Hello reader session world.</p></article>';
   const view = createView();
@@ -111,6 +171,9 @@ function createSessionContext() {
   };
   const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
   const showSupportProgress = vi.fn();
+  const messaging = {
+    send: vi.fn().mockResolvedValue(undefined)
+  };
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
@@ -239,9 +302,7 @@ function createSessionContext() {
         watchAll: vi.fn(() => () => undefined)
       }
     },
-    messaging: {
-      send: vi.fn()
-    },
+    messaging,
     readerRepository: {
       getReadingConfig,
       sendReadingClip: vi.fn(),
@@ -275,6 +336,7 @@ function createSessionContext() {
     session,
     view,
     clipPrompt,
+    messaging,
     environment,
     highlightManager,
     readerRepository: {
@@ -291,10 +353,15 @@ function createSessionContext() {
 describe('ReaderSession', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    document.title = '';
     document.documentElement.removeAttribute('data-aiob-reader-active');
     document.body.removeAttribute('data-aiobReaderHighlight');
     document.body.removeAttribute('data-aiobReaderHighlightTheme');
     __resetContentSessionRegistryForTests(document);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('initializes a reader session and mounts the panel view', async () => {
@@ -311,6 +378,20 @@ describe('ReaderSession', () => {
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
     expect(context.view.setHighlights).toHaveBeenLastCalledWith([]);
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
+  });
+
+  it('tracks session start with the unknown source fallback', async () => {
+    const context = createSessionContext();
+
+    await context.session.initialize();
+
+    expect(getTelemetryMessages(context)).toEqual([
+      {
+        type: 'TRACK_USAGE_EVENT',
+        event: 'reader_session_started',
+        params: { source: 'unknown' }
+      }
+    ]);
   });
 
   it('uses the clipper-selected destination for the initial reader path preview', async () => {
@@ -432,6 +513,33 @@ describe('ReaderSession', () => {
     expect(context.clipPrompt.requestSelectionAction).not.toHaveBeenCalled();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(1);
     expect(context.view.setHighlights).toHaveBeenCalled();
+  });
+
+  it('tracks highlight additions with canonical bucket params only', async () => {
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection(createSelectionPayload(content.firstChild));
+
+    const highlightEvent = getTelemetryMessages(context).find(
+      (message) => message.event === 'reader_highlight_added'
+    );
+    expect(highlightEvent).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_highlight_added',
+      params: {
+        selection_length_bucket: 'twenty_one_to_fifty',
+        highlight_count_bucket: 'one'
+      }
+    });
+    expectCanonicalReaderTelemetry(getTelemetryMessages(context));
   });
 
   it('reports selection failures', async () => {
@@ -573,5 +681,255 @@ describe('ReaderSession', () => {
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
     expect(isReaderSessionActive(document)).toBe(false);
+  });
+
+  it('tracks exported reader sessions with canonical destination and duration bucket only', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-export';
+    wrapper.textContent = 'Export me';
+    document.body.appendChild(wrapper);
+    (
+      context.session as {
+        __setTestHighlights(
+          records: Array<{
+            id: string;
+            selectedHtml: string;
+            selectedText: string;
+            comment: string;
+            fragmentUrl: string;
+            wrapper: HTMLElement;
+          }>
+        ): void;
+      }
+    ).__setTestHighlights([
+      {
+        id: 'h-export',
+        selectedHtml: '<mark>Export me</mark>',
+        selectedText: 'Export me',
+        comment: 'note',
+        fragmentUrl: '#export',
+        wrapper
+      }
+    ]);
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+    if (!callbacks.onSelectDestination) {
+      throw new Error('destination callback missing');
+    }
+
+    await callbacks.onSelectDestination('downloads');
+    vi.setSystemTime(new Date('2026-06-05T00:00:01.500Z'));
+    await callbacks.onFinish();
+
+    const exportedEvent = getTelemetryMessages(context).find(
+      (message) => message.event === 'reader_exported'
+    );
+    expect(exportedEvent).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_exported',
+      params: {
+        destination: 'downloads',
+        duration_bucket: '1s_to_2s'
+      }
+    });
+    expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+  });
+
+  it('tracks failed exports without swallowing the existing failure behavior', async () => {
+    const context = createSessionContext();
+    await context.session.initialize();
+    context.dispatchClipResult.mockRejectedValueOnce(new Error('boom'));
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-fail';
+    wrapper.textContent = 'Export me';
+    document.body.appendChild(wrapper);
+    (
+      context.session as {
+        __setTestHighlights(
+          records: Array<{
+            id: string;
+            selectedHtml: string;
+            selectedText: string;
+            comment: string;
+            fragmentUrl: string;
+            wrapper: HTMLElement;
+          }>
+        ): void;
+      }
+    ).__setTestHighlights([
+      {
+        id: 'h-fail',
+        selectedHtml: '<mark>Export me</mark>',
+        selectedText: 'Export me',
+        comment: 'note',
+        fragmentUrl: '#export',
+        wrapper
+      }
+    ]);
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+    if (!callbacks.onSelectDestination) {
+      throw new Error('destination callback missing');
+    }
+
+    await callbacks.onSelectDestination('downloads');
+    await callbacks.onFinish();
+
+    const failedEvent = getTelemetryMessages(context).find(
+      (message) => message.event === 'reader_export_failed'
+    );
+    expect(failedEvent).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_export_failed',
+      params: {
+        destination: 'downloads',
+        failure_category: 'unknown'
+      }
+    });
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(context.view.destroy).not.toHaveBeenCalled();
+    expect(isReaderSessionActive(document)).toBe(true);
+    expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+  });
+
+  it('does not let analytics send failures block export cleanup', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const context = createSessionContext();
+    context.messaging.send.mockRejectedValue(new Error('analytics down'));
+
+    await context.session.initialize();
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-export';
+    wrapper.textContent = 'Export me';
+    document.body.appendChild(wrapper);
+    (
+      context.session as {
+        __setTestHighlights(
+          records: Array<{
+            id: string;
+            selectedHtml: string;
+            selectedText: string;
+            comment: string;
+            fragmentUrl: string;
+            wrapper: HTMLElement;
+          }>
+        ): void;
+      }
+    ).__setTestHighlights([
+      {
+        id: 'h-export',
+        selectedHtml: '<mark>Export me</mark>',
+        selectedText: 'Export me',
+        comment: 'note',
+        fragmentUrl: '#export',
+        wrapper
+      }
+    ]);
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    await callbacks.onFinish();
+
+    expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    expect(context.view.destroy).toHaveBeenCalledTimes(1);
+    expect(isReaderSessionActive(document)).toBe(false);
+    expect(debugSpy).toHaveBeenCalled();
+    debugSpy.mockRestore();
+  });
+
+  it('tracks cancellation with canonical duration bucket only', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    vi.setSystemTime(new Date('2026-06-05T00:00:35.000Z'));
+    callbacks.onCancel();
+
+    const cancelledEvent = getTelemetryMessages(context).find(
+      (message) => message.event === 'reader_session_cancelled'
+    );
+    expect(cancelledEvent).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_session_cancelled',
+      params: {
+        duration_bucket: '30s_to_119s'
+      }
+    });
+    expect(context.view.destroy).toHaveBeenCalledTimes(1);
+    expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+  });
+
+  it('never sends raw reader content or off-catalog params in telemetry payloads', async () => {
+    document.title = 'Private Title';
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!(content?.firstChild instanceof Text)) {
+      throw new Error('content node missing');
+    }
+    content.firstChild.textContent = 'Private Quote';
+
+    await (
+      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+    ).handleSelection({
+      ...createSelectionPayload(content.firstChild),
+      selectedHtml: '<mark>Private Quote</mark>',
+      selectedText: 'Private Quote'
+    });
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+    if (!callbacks.onSelectDestination) {
+      throw new Error('destination callback missing');
+    }
+
+    await callbacks.onSelectDestination('downloads');
+    await callbacks.onFinish();
+
+    const telemetryMessages = getTelemetryMessages(context);
+    const serialized = JSON.stringify(telemetryMessages);
+
+    expect(serialized).not.toContain('Private Quote');
+    expect(serialized).not.toContain('<mark>Private Quote</mark>');
+    expect(serialized).not.toContain('https://example.com/article');
+    expect(serialized).not.toContain('Private Title');
+    expect(serialized).not.toContain('reader_session_exported');
+    expect(serialized).not.toContain('reader_session_failed');
+    expect(serialized).not.toContain('entry_point');
+    expect(serialized).not.toContain('export_mode');
+    expect(serialized).not.toContain('export_destination');
+    expect(serialized).not.toContain('duration_ms');
+    expect(serialized).not.toContain('outcome');
+    expectCanonicalReaderTelemetry(telemetryMessages);
   });
 });

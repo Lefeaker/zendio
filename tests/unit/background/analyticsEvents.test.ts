@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
 
 const initializeAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const refreshAnalyticsConfigMock = vi.hoisted(() => vi.fn());
 const renewSessionMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const getConfigMock = vi.hoisted(() => vi.fn());
 
@@ -15,11 +16,39 @@ type AnalyticsFetch = (input: string, init?: RequestInit) => Promise<AnalyticsFe
 
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
   initializeAnalyticsConfig: initializeAnalyticsConfigMock,
+  refreshAnalyticsConfig: refreshAnalyticsConfigMock,
   getAnalyticsConfigManager: () => ({
     getConfig: getConfigMock,
     renewSession: renewSessionMock
   })
 }));
+
+type AnalyticsConfigSnapshot = {
+  enabled?: boolean;
+  userConsent?: { analytics?: boolean; errorReporting?: boolean };
+  measurementId?: string;
+  transportMode?: 'disabled' | 'proxy' | 'directDebug';
+  proxyEndpoint?: string;
+  clientId?: string;
+  sessionId?: string;
+  debugMode?: boolean;
+};
+
+function createAnalyticsConfig(
+  overrides: Partial<AnalyticsConfigSnapshot> = {}
+): AnalyticsConfigSnapshot {
+  return {
+    enabled: true,
+    userConsent: { analytics: true, errorReporting: false },
+    measurementId: 'G-1234',
+    transportMode: 'proxy',
+    proxyEndpoint: 'https://analytics.example.test/ga4',
+    clientId: 'client-1',
+    sessionId: 'session-1',
+    debugMode: false,
+    ...overrides
+  };
+}
 
 function createRuntimeStub(version = '9.9.9'): RuntimeService {
   return {
@@ -53,33 +82,42 @@ describe('analyticsEvents', () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     vi.stubGlobal('fetch', fetchMock);
+    const initialConfig = createAnalyticsConfig();
+    getConfigMock.mockReturnValue(initialConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(initialConfig);
   });
 
   it('skips tracking without consent or measurement id', async () => {
-    getConfigMock.mockReturnValue({ userConsent: { analytics: false } });
+    const revokedConsentConfig = createAnalyticsConfig({
+      userConsent: { analytics: false, errorReporting: false }
+    });
+    getConfigMock.mockReturnValue(revokedConsentConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(revokedConsentConfig);
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
     await trackUsageEvent('support_dislike_clicked');
     expect(fetchMock).not.toHaveBeenCalled();
 
-    getConfigMock.mockReturnValue({
-      userConsent: { analytics: true },
-      measurementId: 'XXXX1234',
+    const invalidMeasurementConfig = createAnalyticsConfig({
+      measurementId: 'G-XXXXXXXXXX',
       clientId: 'cid'
     });
+    getConfigMock.mockReturnValue(invalidMeasurementConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(invalidMeasurementConfig);
     await trackUsageEvent('support_dislike_clicked');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('sends debug analytics payloads and logs failed renewals gracefully', async () => {
+  it('uses the shared owner debug proxy transport and logs failed renewals gracefully', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    getConfigMock.mockReturnValue({
-      userConsent: { analytics: true },
-      measurementId: 'G-1234',
-      clientId: 'client-1',
+    const directDebugConfig = createAnalyticsConfig({
+      transportMode: 'directDebug',
+      proxyEndpoint: 'https://analytics.example.test/ga4-debug',
       sessionId: undefined,
       debugMode: true
     });
+    getConfigMock.mockReturnValue(directDebugConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(directDebugConfig);
     renewSessionMock.mockRejectedValueOnce(new Error('renew failed'));
     fetchMock.mockResolvedValue({
       ok: true,
@@ -90,9 +128,11 @@ describe('analyticsEvents', () => {
     await trackUsageEvent('support_like_clicked', { variant: 'first' });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('debug/mp/collect?measurement_id=G-1234'),
+      'https://analytics.example.test/ga4-debug',
       expect.objectContaining({ method: 'POST' })
     );
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(String(requestInit?.body)).toContain('"validation_behavior":"ENFORCE_RECOMMENDATIONS"');
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       '[analytics-events] Failed to renew analytics session id:',
       expect.any(Error)
@@ -114,13 +154,12 @@ describe('analyticsEvents', () => {
       }
     });
     const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    getConfigMock.mockReturnValue({
-      userConsent: { analytics: true },
-      measurementId: 'G-1234',
-      clientId: 'client-1',
-      sessionId: 'session-1',
-      debugMode: false
+    const proxyConfig = createAnalyticsConfig({
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/collect'
     });
+    getConfigMock.mockReturnValue(proxyConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(proxyConfig);
     fetchMock.mockResolvedValue({
       ok: true,
       clone: () => ({ text: () => Promise.resolve('') })
@@ -129,7 +168,8 @@ describe('analyticsEvents', () => {
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
     await trackUsageEvent('support_dislike_clicked');
 
-    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(requestUrl).toBe('https://analytics.example.test/collect');
     expect(String(requestInit?.body)).toContain('"extension_version":"2.3.4"');
     expect(globalGetManifestMock).not.toHaveBeenCalled();
 
@@ -137,10 +177,40 @@ describe('analyticsEvents', () => {
     await resetRuntime();
   });
 
+  it('refreshes stored analytics config before future sends so revoked consent is observed', async () => {
+    let cachedConfig = createAnalyticsConfig();
+    let storedConfig = createAnalyticsConfig();
+    getConfigMock.mockImplementation(() => ({ ...cachedConfig }));
+    refreshAnalyticsConfigMock.mockImplementation(() => {
+      cachedConfig = { ...storedConfig };
+      return Promise.resolve({ ...cachedConfig });
+    });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
+    await trackUsageEvent('support_dislike_clicked');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    storedConfig = createAnalyticsConfig({
+      userConsent: { analytics: false, errorReporting: false }
+    });
+    await trackUsageEvent('support_dislike_clicked');
+
+    expect(refreshAnalyticsConfigMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('warns when initialization or request handling fails and can retry afterwards', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     initializeAnalyticsConfigMock.mockRejectedValueOnce(new Error('init failed'));
-    getConfigMock.mockReturnValueOnce({ userConsent: { analytics: false } });
+    getConfigMock.mockReturnValueOnce(
+      createAnalyticsConfig({
+        userConsent: { analytics: false, errorReporting: false }
+      })
+    );
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
     await trackUsageEvent('support_dislike_clicked');
     expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -149,13 +219,12 @@ describe('analyticsEvents', () => {
     );
 
     initializeAnalyticsConfigMock.mockResolvedValueOnce(undefined);
-    getConfigMock.mockReturnValue({
-      userConsent: { analytics: true },
-      measurementId: 'G-1234',
-      clientId: 'client-1',
-      sessionId: 'session-1',
-      debugMode: false
+    const retryConfig = createAnalyticsConfig({
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4'
     });
+    getConfigMock.mockReturnValue(retryConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(retryConfig);
     fetchMock.mockResolvedValue({
       ok: false,
       status: 500,
@@ -163,19 +232,21 @@ describe('analyticsEvents', () => {
       clone: () => ({ text: () => Promise.resolve('broken') })
     });
     await trackUsageEvent('support_dislike_clicked');
-    expect(consoleWarnSpy).toHaveBeenCalledWith('[analytics-events] GA4 request failed: 500 Fail');
+    expect(consoleWarnSpy).toHaveBeenNthCalledWith(
+      2,
+      '[analytics-events] Analytics transport failed: 500'
+    );
     consoleWarnSpy.mockRestore();
   });
 
   it('drops params outside the event allowlist before sending to GA4', async () => {
     await configureRuntime('2.3.4');
-    getConfigMock.mockReturnValue({
-      userConsent: { analytics: true },
-      measurementId: 'G-1234',
-      clientId: 'client-1',
-      sessionId: 'session-1',
-      debugMode: false
+    const proxyConfig = createAnalyticsConfig({
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4'
     });
+    getConfigMock.mockReturnValue(proxyConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(proxyConfig);
     fetchMock.mockResolvedValue({
       ok: true,
       clone: () => ({ text: () => Promise.resolve('') })

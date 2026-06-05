@@ -173,7 +173,11 @@ describe('locale source alignment report', () => {
         loaders: ['en', 'zh-CN'],
         modules: ['en']
       },
-      ['Missing generated locale modules: 1', 'Configured but missing generated locale module', 'zh-CN']
+      [
+        'Missing generated locale modules: 1',
+        'Configured but missing generated locale module',
+        'zh-CN'
+      ]
     );
   });
 

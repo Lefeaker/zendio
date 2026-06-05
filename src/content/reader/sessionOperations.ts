@@ -7,6 +7,12 @@ import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderSessionDependencies } from './sessionTypes';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import {
+  createTrackUsageEventMessage,
+  type TrackUsageEventPayload,
+  type UsageEventParamMap
+} from '@shared/types/analytics';
+import { bucketCount } from '@shared/analytics/featureTimer';
 import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
@@ -23,6 +29,15 @@ interface ReaderSessionOperationContext {
   dependencies: ReaderSessionDependencies;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
 }
+
+type ReaderUsageEventName = Extract<
+  keyof UsageEventParamMap,
+  | 'reader_session_started'
+  | 'reader_highlight_added'
+  | 'reader_exported'
+  | 'reader_export_failed'
+  | 'reader_session_cancelled'
+>;
 
 export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
@@ -119,6 +134,10 @@ export function addReaderHighlightFromRange(
   context.state.highlights.push(highlight);
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+  void trackReaderUsageEvent(context, 'reader_highlight_added', {
+    selection_length_bucket: bucketCount(selectedText.length),
+    highlight_count_bucket: bucketCount(context.state.highlights.length)
+  });
 }
 
 export function ingestExternalReaderHighlight(
@@ -204,9 +223,17 @@ export async function finishReaderSession(
       label: '正在发送到 Obsidian'
     });
     await context.dependencies.dispatchClipResult(payload);
+    void trackReaderUsageEvent(context, 'reader_exported', {
+      destination: resolveReaderExportDestination(exportDestination),
+      duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
+    });
     cleanupReaderSession(context);
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
+    void trackReaderUsageEvent(context, 'reader_export_failed', {
+      destination: resolveReaderExportDestination(context.getExportDestinationMetadata?.()),
+      failure_category: 'unknown'
+    });
     context.dependencies.showSupportProgress?.({
       value: 100,
       label: '发送失败',
@@ -221,6 +248,9 @@ export function cancelReaderSession(context: ReaderSessionOperationContext): voi
   if (context.state.exporting) {
     return;
   }
+  void trackReaderUsageEvent(context, 'reader_session_cancelled', {
+    duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
+  });
   cleanupReaderSession(context);
 }
 
@@ -237,6 +267,8 @@ export function cleanupReaderSession(context: ReaderSessionOperationContext): vo
   clearReaderSession(context.session, context.doc);
   context.state.exporting = false;
   context.state.handlingSelection = false;
+  context.state.analyticsTimer = null;
+  context.state.analyticsSource = 'unknown';
   clearHighlightThemeState(context.doc);
 
   if (context.state.highlightFocusTimeout !== null) {
@@ -339,4 +371,26 @@ function findReaderHighlight(
   id: string
 ): ReaderHighlightRecord | undefined {
   return highlights.find((highlight) => highlight.id === id);
+}
+
+export async function trackReaderUsageEvent<EventName extends ReaderUsageEventName>(
+  context: ReaderSessionOperationContext,
+  event: EventName,
+  params: UsageEventParamMap[EventName]
+): Promise<void> {
+  try {
+    const payload = createTrackUsageEventMessage(event, params);
+    await context.dependencies.messaging.send(payload as TrackUsageEventPayload);
+  } catch (error) {
+    console.debug('[ReaderSession] Failed to send analytics event:', error);
+  }
+}
+
+function resolveReaderExportDestination(
+  metadata: ExportDestinationMetadata | undefined
+): UsageEventParamMap['reader_exported']['destination'] {
+  if (metadata?.kind === 'downloads') {
+    return 'downloads';
+  }
+  return 'unknown';
 }

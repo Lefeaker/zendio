@@ -151,11 +151,7 @@ function pseudoLocalizeSegments(source: string): string {
     const nextTag = source.indexOf('<', cursor);
 
     const nextTokenIndex =
-      nextBrace === -1
-        ? nextTag
-        : nextTag === -1
-          ? nextBrace
-          : Math.min(nextBrace, nextTag);
+      nextBrace === -1 ? nextTag : nextTag === -1 ? nextBrace : Math.min(nextBrace, nextTag);
 
     if (nextTokenIndex === -1) {
       result += transformSegment(source.slice(cursor));

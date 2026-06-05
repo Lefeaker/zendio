@@ -101,14 +101,17 @@ describe('background/bootstrap', () => {
     const mod = await import('../../../src/background/bootstrap');
     mod.ensureBackgroundDependencies(storageMock);
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
     const initialRegisterCalls = registryMock.register.mock.calls.length;
 
     mod.ensureBackgroundDependencies();
     expect(registryMock.register.mock.calls.length).toBe(initialRegisterCalls);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
 
     mod.resetBackgroundDependencies(storageMock);
     expect(registryMock.reset).toHaveBeenCalledTimes(1);
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(2);
   });
 
   it('cleans up tokens and swallows disposal failures', async () => {

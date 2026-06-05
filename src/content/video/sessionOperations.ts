@@ -1,4 +1,18 @@
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
+import { bucketCount, createFeatureTimer } from '../../shared/analytics';
+import type { AnalyticsPlatform, AnalyticsSource } from '../../shared/analytics';
+import { resolveRepository } from '../../shared/di/serviceRegistry';
+import { DI_TOKENS } from '../../shared/di/tokens';
+import type { IMessagingRepository } from '../../shared/repositories';
+import {
+  createTrackUsageEventMessage,
+  type ExportDestination,
+  type FailureCategory,
+  type TrackUsageEventPayload,
+  type UsageEventName,
+  type UsageEventParamMap
+} from '../../shared/types/analytics';
+import type { VideoPlatform } from './utils';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
@@ -55,6 +69,77 @@ export interface VideoSessionOperationContext {
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   resetPlaybackEditLease?: () => void;
+}
+
+function debugVideoAnalyticsFailure(error: unknown): void {
+  console.debug('[VideoSession] Failed to send analytics event:', error);
+}
+
+function mapVideoAnalyticsPlatform(platform: VideoPlatform): AnalyticsPlatform {
+  if (platform === 'youtube' || platform === 'bilibili') {
+    return platform;
+  }
+  return 'unknown';
+}
+
+function resolveVideoExportDestination(
+  exportDestination?: ExportDestinationMetadata
+): ExportDestination {
+  if (exportDestination?.kind === 'downloads') {
+    return 'downloads';
+  }
+  return 'unknown';
+}
+
+function resolveVideoFailureCategory(_error: unknown): FailureCategory {
+  return 'unknown';
+}
+
+async function sendVideoUsageEvent<EventName extends UsageEventName>(
+  dependencies: VideoSessionDependencies,
+  event: EventName,
+  params?: UsageEventParamMap[EventName]
+): Promise<void> {
+  if (dependencies.trackUsageEvent) {
+    await dependencies.trackUsageEvent(event, params);
+    return;
+  }
+
+  const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+  const payload = createTrackUsageEventMessage(event, params);
+  await messaging.send(payload as TrackUsageEventPayload);
+}
+
+function emitVideoUsageEvent<EventName extends UsageEventName>(
+  dependencies: VideoSessionDependencies,
+  event: EventName,
+  params?: UsageEventParamMap[EventName]
+): void {
+  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch(
+    debugVideoAnalyticsFailure
+  );
+}
+
+function resolveVideoSessionDurationBucket(state: VideoSessionState) {
+  return state.analyticsTimer?.durationBucket() ?? createFeatureTimer().durationBucket();
+}
+
+function countVideoScreenshots(state: VideoSessionState): number {
+  return state.captures.filter(
+    (capture): capture is VideoTimestampCapture =>
+      capture.kind === 'timestamp' && capture.screenshot !== undefined
+  ).length;
+}
+
+export function beginVideoSessionAnalytics(
+  context: VideoSessionOperationContext,
+  source: AnalyticsSource = 'unknown'
+): void {
+  context.state.analyticsTimer = createFeatureTimer();
+  emitVideoUsageEvent(context.dependencies, 'video_session_started', {
+    platform: mapVideoAnalyticsPlatform(context.state.platform),
+    source
+  });
 }
 
 export async function handleVideoSessionAddCapture(
@@ -123,6 +208,9 @@ export async function handleVideoSessionAddCapture(
   if (!saved) {
     return null;
   }
+  emitVideoUsageEvent(context.dependencies, 'video_timestamp_added', {
+    capture_count_bucket: bucketCount(context.state.captures.length)
+  });
   context.syncPanel();
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
@@ -195,7 +283,7 @@ export function ingestVideoSessionTextCapture(
   focusVideoSessionCapture(context, capture.id);
   context.applyHint('saving');
   context.dom.beginEditingCapture(capture.id, capture.comment);
-  void saveVideoCaptures(context)
+  const saveTask = saveVideoCaptures(context)
     .then(() => {
       context.syncPanel();
     })
@@ -203,6 +291,10 @@ export function ingestVideoSessionTextCapture(
       console.warn('[VideoSession] Failed to save fragment capture:', error);
       context.applyHint('failure');
     });
+  emitVideoUsageEvent(context.dependencies, 'video_fragment_added', {
+    capture_count_bucket: bucketCount(context.state.captures.length)
+  });
+  void saveTask;
 }
 
 export async function submitVideoSessionCaptureEdit(
@@ -239,7 +331,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   if (removed?.kind === 'fragment' && removed.wrapperId) {
     context.fragmentHighlighter.removeById(removed.wrapperId);
   }
-  void saveVideoCaptures(context)
+  const saveTask = saveVideoCaptures(context)
     .then(() => {
       context.syncPanel();
     })
@@ -247,6 +339,10 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
       console.warn('[VideoSession] Failed to save captures after removal:', error);
       context.applyHint('failure');
     });
+  emitVideoUsageEvent(context.dependencies, 'video_capture_removed', {
+    capture_count_bucket: bucketCount(context.state.captures.length)
+  });
+  void saveTask;
 }
 
 export async function toggleVideoSessionCaptureScreenshot(
@@ -284,6 +380,9 @@ export async function toggleVideoSessionCaptureScreenshot(
   target.screenshot = screenshot;
   context.applyHint('saving');
   await saveVideoCaptures(context);
+  emitVideoUsageEvent(context.dependencies, 'video_screenshot_captured', {
+    screenshot_count_bucket: bucketCount(countVideoScreenshots(context.state))
+  });
   context.syncPanel();
 }
 
@@ -312,6 +411,7 @@ export async function finishVideoSession(
   }
 
   context.updateVideoContext();
+  const exportDestination = context.getExportDestinationMetadata?.();
   context.state.exporting = true;
   context.applyHint('exporting');
   context.dependencies.showSupportProgress?.({
@@ -320,7 +420,6 @@ export async function finishVideoSession(
   });
 
   try {
-    const exportDestination = context.getExportDestinationMetadata?.();
     context.dependencies.showSupportProgress?.({
       value: 34,
       label: '正在生成视频笔记'
@@ -350,6 +449,11 @@ export async function finishVideoSession(
       label: '成功发送到 Obsidian',
       variant: 'success'
     });
+    emitVideoUsageEvent(context.dependencies, 'video_exported', {
+      platform: mapVideoAnalyticsPlatform(context.state.platform),
+      destination: resolveVideoExportDestination(exportDestination),
+      duration_bucket: resolveVideoSessionDurationBucket(context.state)
+    });
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
@@ -357,6 +461,11 @@ export async function finishVideoSession(
       value: 100,
       label: '发送失败',
       variant: 'failure'
+    });
+    emitVideoUsageEvent(context.dependencies, 'video_export_failed', {
+      platform: mapVideoAnalyticsPlatform(context.state.platform),
+      destination: resolveVideoExportDestination(exportDestination),
+      failure_category: resolveVideoFailureCategory(error)
     });
     context.applyHint('failure');
     context.state.exporting = false;
@@ -367,6 +476,10 @@ export function cancelVideoSession(context: VideoSessionOperationContext): void 
   if (context.state.exporting) {
     return;
   }
+  emitVideoUsageEvent(context.dependencies, 'video_session_cancelled', {
+    platform: mapVideoAnalyticsPlatform(context.state.platform),
+    duration_bucket: resolveVideoSessionDurationBucket(context.state)
+  });
   cleanupVideoSession(context);
 }
 
@@ -393,6 +506,7 @@ export function cleanupVideoSession(context: VideoSessionOperationContext): void
   context.state.videoElement = null;
   context.state.exporting = false;
   context.state.saving = false;
+  context.state.analyticsTimer = null;
   context.hintManager.apply('noVideo', { videoAvailable: false, hasCaptures: false });
 
   for (const capture of context.state.captures) {

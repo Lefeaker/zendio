@@ -7,12 +7,14 @@ import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
+import type { IMessagingRepository } from '../shared/repositories/IMessagingRepository';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import type { PlatformServices } from '../platform/types';
 import type { InterfaceTheme } from '../shared/types/options';
+import type { OnboardingTrackingRequest } from './onboardingAnalytics';
 
 let declarativeI18nController: PageI18nController | null = null;
 
@@ -43,6 +45,9 @@ async function applyI18n(): Promise<void> {
 }
 
 interface OnboardingControllerDependencies {
+  messagingRepository?: Pick<IMessagingRepository, 'send'>;
+  now?: () => number;
+  optionsRepository?: Pick<IOptionsRepository, 'get'>;
   storage: StorageService;
   tabs: TabsService;
 }
@@ -118,10 +123,44 @@ function createPreviewDependencies(): OnboardingControllerDependencies {
   };
 }
 
+function hasOptionsRepository(value: unknown): value is Pick<IOptionsRepository, 'get'> {
+  const candidate = value as { get?: unknown } | null;
+  return typeof candidate === 'object' && candidate !== null && typeof candidate.get === 'function';
+}
+
+function hasMessagingRepository(value: unknown): value is Pick<IMessagingRepository, 'send'> {
+  const candidate = value as { send?: unknown } | null;
+  return (
+    typeof candidate === 'object' && candidate !== null && typeof candidate.send === 'function'
+  );
+}
+
+function resolveOptionalOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
+  try {
+    const repository = resolveRepository<unknown>(DI_TOKENS.IOptionsRepository);
+    return hasOptionsRepository(repository) ? repository : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveOptionalMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
+  try {
+    const repository = resolveRepository<unknown>(DI_TOKENS.IMessagingRepository);
+    return hasMessagingRepository(repository) ? repository : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveOnboardingDependencies(): OnboardingControllerDependencies {
   try {
     const platform = getService<PlatformServices>(TOKENS.platformServices);
+    const messagingRepository = resolveOptionalMessagingRepository();
+    const optionsRepository = resolveOptionalOptionsRepository();
     return {
+      ...(messagingRepository ? { messagingRepository } : {}),
+      ...(optionsRepository ? { optionsRepository } : {}),
       storage: platform.storage,
       tabs: platform.tabs
     };
@@ -132,18 +171,24 @@ function resolveOnboardingDependencies(): OnboardingControllerDependencies {
 
 export class OnboardingController {
   private dependencies: OnboardingControllerDependencies | null;
+  private readonly onboardingStartedAt: number;
+  private readonly now: () => number;
+  private startedTracked = false;
 
   constructor(
     private readonly navigationRepo: INavigationRepository,
     dependencies?: OnboardingControllerDependencies
   ) {
     this.dependencies = dependencies ?? null;
+    this.now = dependencies?.now ?? Date.now;
+    this.onboardingStartedAt = this.now();
   }
 
   initialize(): void {
     restoreCompletedSteps();
     updateProgress();
     this.bindEventHandlers();
+    void this.trackOnboardingStarted();
   }
 
   private getDependencies(): OnboardingControllerDependencies {
@@ -151,6 +196,81 @@ export class OnboardingController {
       this.dependencies = resolveOnboardingDependencies();
     }
     return this.dependencies;
+  }
+
+  private getOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
+    const provided = this.dependencies?.optionsRepository;
+    return provided ?? resolveOptionalOptionsRepository();
+  }
+
+  private getMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
+    const provided = this.dependencies?.messagingRepository;
+    return provided ?? resolveOptionalMessagingRepository();
+  }
+
+  private async hasAnalyticsConsent(): Promise<boolean> {
+    const optionsRepository = this.getOptionsRepository();
+    if (!optionsRepository) {
+      return false;
+    }
+
+    try {
+      const options = (await optionsRepository.get()) as {
+        privacyPreferences?: { analytics?: boolean };
+      };
+      return options.privacyPreferences?.analytics === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async sendTrackingRequest(request: OnboardingTrackingRequest): Promise<void> {
+    const messagingRepository = this.getMessagingRepository();
+    if (!messagingRepository || !(await this.hasAnalyticsConsent())) {
+      return;
+    }
+
+    try {
+      const { sendOnboardingTrackingEvent } = await import('./onboardingAnalytics');
+      await sendOnboardingTrackingEvent(messagingRepository, request);
+    } catch {
+      // Ignore analytics failures so onboarding UX stays unaffected.
+    }
+  }
+
+  private async trackOnboardingStarted(): Promise<void> {
+    if (this.startedTracked) {
+      return;
+    }
+    this.startedTracked = true;
+    await this.sendTrackingRequest({ name: 'onboarding_started', source: 'install' });
+  }
+
+  private async trackStepCompleted(stepNumber: number): Promise<void> {
+    await this.sendTrackingRequest({
+      name: 'onboarding_step_completed',
+      stepNumber,
+      durationMs: this.getOnboardingDurationMs()
+    });
+  }
+
+  private async trackStepSkipped(stepNumber: number): Promise<void> {
+    await this.sendTrackingRequest({ name: 'onboarding_skipped', stepNumber });
+  }
+
+  private async trackSupportAction(action: 'contact' | 'feedback' | 'docs'): Promise<void> {
+    await this.sendTrackingRequest({ action, name: 'onboarding_support_action' });
+  }
+
+  private async trackOnboardingCompleted(): Promise<void> {
+    await this.sendTrackingRequest({
+      durationMs: this.getOnboardingDurationMs(),
+      name: 'onboarding_completed'
+    });
+  }
+
+  private getOnboardingDurationMs(): number {
+    return this.now() - this.onboardingStartedAt;
   }
 
   private bindEventHandlers(): void {
@@ -200,14 +320,16 @@ export class OnboardingController {
       await this.navigationRepo.openOptions();
       markStepCompleted(stepNumber);
       updateProgress();
+      await this.trackStepCompleted(stepNumber);
     } catch (error) {
       console.error('[onboarding] Failed to open options page:', error);
     }
   }
 
-  private handleSkipStep(stepNumber: number): void {
+  private async handleSkipStep(stepNumber: number): Promise<void> {
     markStepCompleted(stepNumber);
     updateProgress();
+    await this.trackStepSkipped(stepNumber);
   }
 
   private async handleFeedback(): Promise<void> {
@@ -215,6 +337,8 @@ export class OnboardingController {
       await this.navigationRepo.openExternalLink('https://github.com/Lefeaker/AllinOB/issues');
       markStepCompleted(5);
       updateProgress();
+      await this.trackSupportAction('feedback');
+      await this.trackStepCompleted(5);
     } catch (error) {
       console.error('[onboarding] Failed to open feedback page:', error);
     }
@@ -225,13 +349,16 @@ export class OnboardingController {
       await showSupportModal();
       markStepCompleted(5);
       updateProgress();
+      await this.trackSupportAction('docs');
+      await this.trackStepCompleted(5);
     } catch (error) {
       console.error('[onboarding] Failed to show support options:', error);
     }
   }
 
-  private handleContact(): void {
+  private async handleContact(): Promise<void> {
     showContactModal();
+    await this.trackSupportAction('contact');
   }
 
   private async handleSkipOnboarding(): Promise<void> {
@@ -247,6 +374,7 @@ export class OnboardingController {
   private async completeOnboarding(): Promise<void> {
     try {
       await this.getDependencies().storage.local.set('onboardingCompleted', true);
+      await this.trackOnboardingCompleted();
       console.log('[onboarding] Onboarding marked as completed');
     } catch (error) {
       console.error('[onboarding] Failed to mark onboarding as completed:', error);

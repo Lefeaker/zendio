@@ -1,11 +1,11 @@
 # 运行时观测与手动回归基线
 
-日期：2026-03-20
+日期：2026-06-05
 
 ## 1. 运行时观测
 
 - Analytics / consent / debug mode 统一入口：`src/shared/errors/analytics/*`
-- Options 隐私设置入口：`src/options/components/controls/privacySettings.ts`
+- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` -> `src/ui/domains/privacy/PrivacySettingsView.ts` -> `src/options/app/productionStitchPersistence.ts`
 - transfer payload 已覆盖 consent/debugMode：`src/options/services/analyticsTransfer.ts`
 - 真实浏览器联调 harness：`tmp/runtime-observability-harness.ts`
 
@@ -21,6 +21,7 @@ npm run build:dev
 建议至少覆盖：
 
 - Options production Stitch shell 与导航面板
+- Options 概览页的 `Privacy & Data` consent 卡片
 - onboarding 页面与 chunk 加载
 - Support Prompt / Reader / Video 核心弹层
 - YAML 配置交互

@@ -1,118 +1,217 @@
-# GA4 事件采集参考
+# GA4 Telemetry Reference
 
-> 最后更新：2025-02-15  
-> 维护人：AiiinOB 团队
+最后更新：2026-06-05
 
-本文汇总扩展当前会发送到 Google Analytics 4 (GA4) 的所有事件、字段、含义和触发条件，方便 QA、运营和数据分析使用。
+本文是 AiiinOB 当前 GA 产品遥测与错误遥测的文档真值。
 
-## 1. 数据发送前置条件
+- 事件目录真值：`src/shared/analytics/eventCatalog.ts`
+- 运行时导出契约：`src/shared/types/analytics.ts`
+- 参数清洗真值：`src/shared/analytics/analyticsSanitizers.ts`
+- 错误匿名化真值：`src/shared/errors/analytics/dataSanitizer.ts`
+- 集成分支校验基线：以 `codex/aiiinob-ga-production-telemetry-2026-06-04-integration` 作为当前分支真值；commit 级验证请查看本次 P13 final audit 与该分支的 `git log` / `git show`，不要在本文硬编码当前 HEAD。
 
-- **用户同意**：需要在隐私/分析设置中同时勾选「使用数据分析」与「错误上报」后，AnalyticsConfig 才会启用上报；否则任何事件都会被跳过。参见 `src/shared/errors/analytics/analyticsConfig.ts:174`。
-- **客户端信息**：后台会自动生成 `client_id`、`session_id` 并附带扩展版本、调试模式等信息，事件载荷中都会包含 `extension_version`、`session_id`（若可用）、`engagement_time_msec` 等公共字段。
-- **调试模式**：在开发环境或手动开启 `debugMode` 时，事件会发往 `https://www.google-analytics.com/debug/mp/collect` 并在控制台输出调试信息。
+## 当前传输与同意真值
 
-## 2. 事件总览
+- 扩展默认不发送遥测；是否可发送由用户 consent 和 build-time public analytics config 共同决定。
+- 生产路径是 owner-controlled `proxy` transport。扩展只持有公开的 `measurementId`、`transportMode`、`proxyEndpoint`。
+- `api_secret` 只能存在于服务端 proxy；扩展不得存储、生成、请求、提示填写或发送它。
+- 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
+- `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
+- 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
-| 事件名称                           | 分类       | 触发入口                                   | 主要参数                                             |
-| ---------------------------------- | ---------- | ------------------------------------------ | ---------------------------------------------------- |
-| `extension_error`                  | 错误监控   | 所有调用 `handleError` 的模块              | 错误编码、域、严重度、可恢复性、上下文、浏览器信息等 |
-| `usage_dashboard_increment`        | 功能使用   | 选项页「使用统计看板」数据刷新且出现增量时 | 功能分类、增量值、更新后的累计值                     |
-| `support_like_clicked` 等 7 个事件 | 评价引导   | 支持弹窗的按钮点击或 Toast 展示            | `variant`（视上下文存在）                            |
-| `i18n_text_overflow`               | 多语言适配 | `logTextOverflowEvent` 判定文本溢出时      | 文案键名、语言、组件、预算信息、页面路径             |
+## 共享字段与隐私边界
 
-以下章节对每类事件详述。
+共享 transport 会自动附加：
 
-## 3. 错误监控事件 `extension_error`
+- `engagement_time_msec=1`
+- `extension_version`
+- `session_id`，如果当前会话已建立
+- `debug_mode=true`，仅在 debug mode 打开时
 
-- **触发条件**
-  - 任意模块调用 `handleError`，且用户已同意收集错误。
-  - 错误会经过 `sanitizeErrorForAnalytics` 清洗敏感信息后，由 `GoogleAnalyticsReporter.report` 发送。
-- **公共参数**（均在 `params` 内）：
-  - `error_code`：统一错误码（如 `EXTRACTION_CONTENT_NO_MARKDOWN`）。
-  - `error_domain`：错误域（`extraction` / `rest` / `content` 等）。
-  - `error_category`：按错误码解析得到的大类，例如 `transport`。
-  - `error_severity` / `error_severity_level`：严重度枚举及级别数值。
-  - `error_recoverable`：是否可恢复。
-  - `error_description`：来自标准化错误描述表的简要说明。
-  - `timestamp`：上报时间戳（毫秒）。
-  - `extension_version`：`manifest.json` 中的版本号。
-  - `browser_name` / `browser_version`：运行时浏览器类别及主版本。
-  - `session_id`：本次扩展会话 ID。
-- **可选上下文字段**
-  - `extractor`、`type`、`method`、`component`、`feature`、`action` 等内部调试信息。
-  - `retryCount`、`duration`、`statusCode`、`itemCount` 等运行指标。
-  - `domain`、`protocol`：从出错 URL 中提取的域名及协议。
-  - `stackTrace`：裁剪后的堆栈（仅函数名 + 行号）。
-  - 所有上下文键都会在 `dataSanitizer` 中过滤敏感内容。
-- **代码来源**
-  - `src/shared/errors/analytics/googleAnalyticsReporter.ts:66`
-  - `src/shared/errors/analytics/dataSanitizer.ts`
+产品与错误遥测都不得包含以下内容：
 
-## 4. 使用统计增量 `usage_dashboard_increment`
+- 原始页面正文、用户剪藏内容、阅读高亮正文、视频片段正文
+- Obsidian 文件路径、vault 名称、目录结构、导出后的 markdown 正文
+- 完整 URL、查询参数、认证 token、cookie、密码、密钥、`api_secret`
+- 邮箱、IP、用户名、电话、信用卡号、SSN 等个人信息
+- 原始 `duration_ms`
 
-- **触发条件**
-  - 选项页加载或监听到 `USAGE_STATS_STORAGE_KEY` 变化时，`initializeUsageDashboard` 会刷新数据。
-  - 若任意类别的累计次数较上一次上报有正向增量，则通过后台消息发送事件。
-- **参数**
-  - `category`：枚举值，`ai_chat` / `fragment` / `article`。
-  - `increment`：本次新增次数。
-  - `total_after`：增量应用后的累计次数。
-  - 后台会追加 `extension_version`、`session_id`、`engagement_time_msec=1` 以及 `debug_mode`（若开启）。
-- **去重规则**
-  - `UsageDashboard` 会缓存上一份快照，只有增量为正时才发事件，避免把累计值重复计入 GA4。
-  - 看板卸载时会清空快照，防止页面重载时产生伪增量。
-- **代码来源**
-  - `src/options/components/usageDashboard.ts:195`
-  - `src/background/services/analyticsEvents.ts:46`
+参数约束真值：
 
-## 5. 支持弹窗交互事件
+- 标识符类字段只允许受限字符集，见 `analyticsSanitizers.ts`
+- `operation_id` 只接受 `op_<id>` 形式
+- 枚举字段只允许目录中定义的值
+- 错误上下文会经过 `sanitizeErrorForAnalytics`
 
-这类事件均来自内容脚本 `SupportPrompt`，通过运行时消息发送。
+## Bucket / Enum 真值
 
-| 事件名                                | 触发场景                   | 额外参数                                          |
-| ------------------------------------- | -------------------------- | ------------------------------------------------- |
-| `support_like_clicked`                | 用户点击「喜欢」按钮       | `variant`：`first` / `returning` / `acknowledged` |
-| `support_dislike_clicked`             | 用户点击「不喜欢」按钮     | 无                                                |
-| `support_like_toast_shown`            | 「喜欢」Toast 展示         | `variant` 同上                                    |
-| `support_dislike_toast_shown`         | 「不喜欢」Toast 展示       | 无                                                |
-| `support_dislike_reddit_clicked`      | Toast 中点击 Reddit 链接   | 无                                                |
-| `support_dislike_qr_clicked`          | Toast 中点击「二维码」按钮 | 无                                                |
-| `support_review_link_clicked`         | Toast 中点击商店评价链接   | `variant`：触发时的 Toast 状态                    |
-| `support_review_acknowledged_clicked` | 用户确认已评价             | `variant` 同上                                    |
+### `duration_bucket`
 
-- **后端附加字段**：同样由 `trackUsageEvent` 管道追加 `extension_version`、`session_id`、`engagement_time_msec`，有调试模式时还会包含 `debug_mode=true`。
-- **代码来源**
-  - `src/content/ui/supportPrompt.ts:501` 起
-  - `src/background/listeners/runtimeMessages.ts:69`
+- `under_100ms`
+- `100ms_to_499ms`
+- `500ms_to_999ms`
+- `1s_to_2s`
+- `3s_to_9s`
+- `10s_to_29s`
+- `30s_to_119s`
+- `2m_plus`
 
-## 6. 多语言文本溢出事件 `i18n_text_overflow`
+### `count_bucket`
 
-- **触发条件**
-  - `logTextOverflowEvent` 检测到适配后文本仍然超出预算，且同一元素 + 语言组合尚未上报过（WeakMap 去重）。
-  - 该函数通常由布局/文案预算调试逻辑调用。
-- **参数**
-  - `key`：i18n 键名（或 `data-buget-key` 标识）。
-  - `language`：当前语言代码。
-  - `component` / `priority`：若元素声明了 `data-component` / `data-priority`，会带上。
-  - `length` / `limit`：文本实际长度与预算上限。
-  - `used_short`：是否采用了短文案。
-  - `page`：窗口 `location.pathname`。
-  - 同样包含公共字段 `extension_version`、`session_id` 等。
-- **代码来源**
-  - `src/shared/i18n/overflowLogger.ts`
+- `zero`
+- `one`
+- `two_to_five`
+- `six_to_ten`
+- `eleven_to_twenty`
+- `twenty_one_to_fifty`
+- `fifty_one_plus`
 
-## 7. BigQuery / 报表使用建议
+### Other shared enums
 
-- 在 GA4 的 **配置 → 自定义定义** 中注册上述参数，方便在探索报表中使用。
-- 若需要跨事件做聚合，可以启用 BigQuery 导出：
-  - `usage_dashboard_increment` 的 `increment` 字段求和即可得到全量使用次数。
-  - `extension_error` 可按 `error_domain`、`error_severity` 切片分析。
-- Debug 时可打开 GA4 **实时 / DebugView** 监控事件流，也可以在 DevTools 网络面板搜索 `mp/collect` 请求验证载荷。
+- `storage_target`: `downloads` | `local_folder` | `rest_api` | `unknown`
+- `content_type`: `article` | `selection` | `ai_chat` | `reader` | `video` | `other`
+- `destination`: `downloads` | `local_folder` | `rest_api` | `clipboard` | `unknown`
+- `source`: `menu` | `toolbar` | `shortcut` | `runtime-observability-harness` | `unknown`
+- `platform`: `youtube` | `bilibili` | `chatgpt` | `claude` | `gemini` | `other` | `unknown`
 
-## 8. 后续维护注意事项
+## Active Event Table
 
-- 新增事件时请复用 `trackUsageEvent` 或 `handleError` 管道，并更新本文档。
-- 确认参数类型均为 `string` / `number` / `boolean`（符合 `TrackUsageEventPayload` 限制）。
-- 若事件依赖用户同意，请在 UI 中明确提示并尊重存储的隐私设置。
+说明：
 
-如有疑问或需要新增指标，请在代码库中创建 issue，并同步更新本文档。
+- `Class` 与 `Runtime` 列直接来自当前 `ANALYTICS_EVENT_CATALOG`
+- `Params` 列按 `AnalyticsEventParamMap` 与 sanitizer 允许值整理；带 `?` 的字段为可选
+- 当前 catalog 中大量新事件仍标记为 `future`，但本集成分支已经有对应 emitter；不要把这些行当作“未使用占位”
+
+### Support / Usage / Error
+
+集成分支 emitter 入口：
+
+- `src/content/ui/supportPrompt.ts`
+- `src/content/ui/supportPromptToastLifecycle.ts`
+- `src/shared/i18n/overflowLogger.ts`
+- `src/options/app/usage-dashboard/usageDashboardState.ts`
+- `src/dev/runtimeObservabilityHarness.ts`
+- `src/shared/errors/analytics/googleAnalyticsReporter.ts`
+
+| Event                                 | Params                                                                                                                                                                 | Class      | Runtime |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------- |
+| `support_link_clicked`                | `target`                                                                                                                                                               | `emitted`  | `true`  |
+| `support_like_clicked`                | `variant`                                                                                                                                                              | `emitted`  | `true`  |
+| `support_dislike_clicked`             | none                                                                                                                                                                   | `emitted`  | `true`  |
+| `support_review_link_clicked`         | `variant?`                                                                                                                                                             | `emitted`  | `true`  |
+| `support_review_acknowledged_clicked` | `variant?`                                                                                                                                                             | `emitted`  | `true`  |
+| `support_dislike_reddit_clicked`      | none                                                                                                                                                                   | `emitted`  | `true`  |
+| `support_github_feedback_clicked`     | none                                                                                                                                                                   | `emitted`  | `true`  |
+| `support_like_toast_shown`            | `variant`                                                                                                                                                              | `emitted`  | `true`  |
+| `support_dislike_toast_shown`         | none                                                                                                                                                                   | `emitted`  | `true`  |
+| `i18n_text_overflow`                  | `key`, `language`, `length`, `used_short`, `component?`, `priority?`, `limit?`                                                                                         | `emitted`  | `true`  |
+| `clear_stats`                         | `timestamp`                                                                                                                                                            | `emitted`  | `true`  |
+| `usage_dashboard_increment`           | `category`, `increment`, `total_after`                                                                                                                                 | `emitted`  | `true`  |
+| `runtime_harness_open`                | `source`                                                                                                                                                               | `dev-only` | `true`  |
+| `extension_error`                     | `error_code`, `error_domain`, `error_severity`, `error_recoverable`, `error_category?`, `extension_version?`, `browser_name?`, `browser_version?`, `failure_category?` | `error`    | `false` |
+
+### Onboarding / Privacy / Options
+
+集成分支 emitter 入口：
+
+- `src/onboarding/bootstrap.ts`
+- `src/options/app/bootstrap.ts`
+- `src/options/app/productionStitchShellActionRuntime.ts`
+- `src/options/app/productionStitchPersistence.ts`
+
+| Event                          | Params                                 | Class    | Runtime |
+| ------------------------------ | -------------------------------------- | -------- | ------- |
+| `onboarding_started`           | `source`                               | `future` | `true`  |
+| `onboarding_step_completed`    | `step`, `duration_bucket`              | `future` | `true`  |
+| `onboarding_skipped`           | `step`                                 | `future` | `true`  |
+| `onboarding_support_action`    | `action`                               | `future` | `true`  |
+| `onboarding_completed`         | `duration_bucket`                      | `future` | `true`  |
+| `privacy_consent_changed`      | `field`, `enabled`                     | `future` | `true`  |
+| `analytics_data_cleared`       | `outcome`                              | `future` | `true`  |
+| `options_opened`               | `source`                               | `future` | `true`  |
+| `options_section_viewed`       | `section`                              | `future` | `true`  |
+| `options_action_completed`     | `action`, `outcome`, `section?`        | `future` | `true`  |
+| `options_theme_changed`        | `theme`                                | `future` | `true`  |
+| `options_language_changed`     | `language`                             | `future` | `true`  |
+| `config_export_completed`      | `outcome`                              | `future` | `true`  |
+| `config_import_completed`      | `outcome`, `analytics_payload_present` | `future` | `true`  |
+| `experimental_feature_toggled` | `feature_key`, `enabled`               | `future` | `true`  |
+
+### Clip / Background / Connection / Storage
+
+集成分支 emitter 入口：
+
+- `src/content/runtime/clipFlow.ts`
+- `src/background/application/clipProcessor.ts`
+- `src/options/services/connectionTester.ts`
+- `src/background/pipelines/connectionTest.ts`
+- `src/background/services/obsidianWriter.ts`
+
+| Event                             | Params                                                                        | Class    | Runtime |
+| --------------------------------- | ----------------------------------------------------------------------------- | -------- | ------- |
+| `clip_started`                    | `operation_id`, `source`, `content_type`                                      | `future` | `true`  |
+| `clip_prompt_opened`              | `operation_id`, `content_type`                                                | `future` | `true`  |
+| `clip_prompt_submitted`           | `operation_id`, `content_type`                                                | `future` | `true`  |
+| `clip_prompt_cancelled`           | `operation_id`, `content_type`                                                | `future` | `true`  |
+| `extraction_completed`            | `operation_id`, `content_type`, `duration_bucket`, `attachment_count_bucket?` | `future` | `true`  |
+| `background_stage_completed`      | `operation_id`, `stage`, `duration_bucket`                                    | `future` | `true`  |
+| `clip_save_completed`             | `operation_id`, `storage_target`, `duration_bucket`                           | `future` | `true`  |
+| `clip_save_failed`                | `operation_id`, `storage_target`, `failure_category`                          | `future` | `true`  |
+| `ai_chat_detected`                | `platform`, `message_count_bucket`                                            | `future` | `true`  |
+| `ai_chat_exported`                | `platform`, `message_count_bucket`, `duration_bucket`                         | `future` | `true`  |
+| `connection_test_completed`       | `storage_target`, `outcome`, `duration_bucket`, `failure_category?`           | `future` | `true`  |
+| `local_vault_permission_prompted` | `source`                                                                      | `future` | `true`  |
+| `local_vault_permission_resolved` | `outcome`                                                                     | `future` | `true`  |
+| `vault_write_completed`           | `storage_target`, `duration_bucket`                                           | `future` | `true`  |
+| `vault_write_failed`              | `storage_target`, `failure_category`                                          | `future` | `true`  |
+
+### Reader / Video
+
+集成分支 emitter 入口：
+
+- `src/content/reader/session.ts`
+- `src/content/reader/sessionOperations.ts`
+- `src/content/video/sessionOperations.ts`
+
+| Event                       | Params                                              | Class    | Runtime |
+| --------------------------- | --------------------------------------------------- | -------- | ------- |
+| `reader_session_started`    | `source`                                            | `future` | `true`  |
+| `reader_highlight_added`    | `selection_length_bucket`, `highlight_count_bucket` | `future` | `true`  |
+| `reader_exported`           | `destination`, `duration_bucket`                    | `future` | `true`  |
+| `reader_export_failed`      | `destination`, `failure_category`                   | `future` | `true`  |
+| `reader_session_cancelled`  | `duration_bucket`                                   | `future` | `true`  |
+| `video_session_started`     | `platform`, `source`                                | `future` | `true`  |
+| `video_timestamp_added`     | `capture_count_bucket`                              | `future` | `true`  |
+| `video_fragment_added`      | `capture_count_bucket`                              | `future` | `true`  |
+| `video_screenshot_captured` | `screenshot_count_bucket`                           | `future` | `true`  |
+| `video_capture_removed`     | `capture_count_bucket`                              | `future` | `true`  |
+| `video_exported`            | `platform`, `destination`, `duration_bucket`        | `future` | `true`  |
+| `video_export_failed`       | `platform`, `destination`, `failure_category`       | `future` | `true`  |
+| `video_session_cancelled`   | `platform`, `duration_bucket`                       | `future` | `true`  |
+
+## Catalog-only Rows
+
+这些名字仍然在当前 telemetry source 中存在，但不能当作“当前生产 dashboard 的主统计事件”。
+
+| Event                   | Params                      | Class            | Runtime | Current branch truth                                           |
+| ----------------------- | --------------------------- | ---------------- | ------- | -------------------------------------------------------------- |
+| `video_started`         | `source`                    | `contract-only`  | `true`  | 保留 contract / compatibility row；当前分支没有 active emitter |
+| `extension_installed`   | `source`, `browser_family?` | `future`         | `true`  | catalog 预留行；当前分支没有 active emitter                    |
+| `extension_usage`       | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
+| `extension_performance` | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
+
+另有一条 retired docs-only QR dislike row 被保留在 source 中用于历史分类，不应出现在任何 active 文档、setup 指南或 dashboard 中。
+
+## Dashboard / QA 使用规则
+
+- 只对 `Runtime=true` 且有当前 emitter 的事件建立正式 dashboard。
+- `extension_error` 虽然 `Runtime=false`，仍是正式错误遥测事件；它通过错误 reporter 走 shared transport，不通过 runtime message path。
+- `dev-only` 事件只用于本地 harness / debug proxy / owner DebugView 验证，不进入生产 KPI。
+- `contract-only`、`inventory-only`、docs-only 行不得作为 owner dashboard 的主要维度来源。
+- 任何需要精确时长的分析必须走 proxy / server logs；产品遥测本身只提供 bucket。
+
+## 维护规则
+
+- 新增、删除或重命名事件时，必须先更新 `eventCatalog.ts`，再更新本文档。
+- 任何新增字段都必须先过 sanitizer，再进入 dashboard 文档。
+- 如果 catalog classification 与 runtime reality 有意不完全一致，必须在本文档显式说明，不允许让下游 owner 从旧文档自行猜测。

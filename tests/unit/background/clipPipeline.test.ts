@@ -320,6 +320,38 @@ describe('background clipPipeline', () => {
     expect(processedPayload?.meta?.domain).toBe('resolved.example.com');
   });
 
+  it('injects a background operation id before handing payloads to the processor', async () => {
+    processClipPayloadMock.mockResolvedValue({
+      filePath: 'Articles/foo.md',
+      vaultName: 'Secondary Vault',
+      restVault: 'Secondary',
+      destination: 'vault',
+      storageTarget: 'rest-api',
+      classification: {
+        status: 'success' as const,
+        fallbackReason: undefined,
+        errorDetail: undefined,
+        topics: [],
+        tags: []
+      }
+    });
+
+    const { handleClipResult, dependencies } = await loadPipeline();
+    await handleClipResult(
+      createMessage({
+        meta: {
+          url: 'https://example.com/articles/operation-id-test'
+        }
+      }),
+      undefined,
+      dependencies
+    );
+
+    const processCalls = processClipPayloadMock.mock.calls as Array<[ClipResultMessage['payload']]>;
+    const processedPayload = processCalls[0]?.[0];
+    expect(processedPayload?.meta?.operationId).toMatch(/^op_[a-z0-9]{6,24}$/);
+  });
+
   it('swallows notification dispatch failures without breaking successful processing', async () => {
     processClipPayloadMock.mockResolvedValue({
       filePath: 'Articles/foo.md',

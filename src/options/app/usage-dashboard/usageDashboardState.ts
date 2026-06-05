@@ -1,6 +1,7 @@
 import type { UsageStats, UsageStatsHistoryEntry } from '@shared/types/usage';
 import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '@shared/constants';
 import type { CompleteOptions } from '@shared/types/options';
+import { createTrackUsageEventMessage } from '@shared/types/analytics';
 import type { IMessagingRepository } from '@shared/repositories';
 
 export interface UsageSnapshot {
@@ -93,15 +94,13 @@ export function reportUsageIncrementChanges(args: {
       return;
     }
     void messagingRepo
-      .send({
-        type: 'track',
-        event: 'usage_dashboard_increment',
-        params: {
+      .send(
+        createTrackUsageEventMessage('usage_dashboard_increment', {
           category,
           increment,
           total_after: total
-        }
-      })
+        })
+      )
       .catch((error) => {
         onError?.(error);
       });

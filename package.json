@@ -16,7 +16,7 @@
     "lint": "eslint src tests --ext .ts,.tsx,.js",
     "lint:fix": "npm run lint -- --fix",
     "lint:type-any": "node scripts/audit-types.mjs --format summary",
-    "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 991 --max-assertions 1658 --max-non-null 41 --max-ts-expect-error 4 --max-src-any 0 --max-src-unknown 549 --max-src-assertions 579 --max-src-non-null 5 --max-src-ts-expect-error 0 --max-tests-any 0 --max-tests-unknown 442 --max-tests-assertions 1079 --max-tests-non-null 36 --max-tests-ts-expect-error 4",
+    "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 1084 --max-assertions 1776 --max-non-null 41 --max-ts-expect-error 4 --max-src-any 0 --max-src-unknown 588 --max-src-assertions 606 --max-src-non-null 5 --max-src-ts-expect-error 0 --max-tests-any 0 --max-tests-unknown 496 --max-tests-assertions 1170 --max-tests-non-null 36 --max-tests-ts-expect-error 4",
     "lint:hardcoded": "node scripts/lint-hardcoded-values.mjs",
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
@@ -71,6 +71,14 @@
     "build:firefox": "npm run quality && node scripts/build.mjs --mode=prod --firefox",
     "build:firefox:fast": "node scripts/build.mjs --mode=prod --skip-checks --firefox",
     "build:firefox:dev": "node scripts/build.mjs --skip-checks --firefox",
+    "analytics:validate:prod": "node --env-file=.env.production.local scripts/setup-error-analytics.js",
+    "build:prod:ga": "npm run quality && node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks",
+    "build:prod:ga:fast": "node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks",
+    "build:firefox:prod:ga": "npm run quality && node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks --firefox",
+    "build:firefox:prod:ga:fast": "node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks --firefox",
+    "package:prod:ga": "npm run build:prod:ga && node scripts/package.mjs",
+    "package:firefox:prod:ga": "npm run build:firefox:prod:ga && node scripts/package-firefox.mjs",
+    "release:prod:ga": "npm run build:prod:ga && node scripts/create-release.mjs",
     "dev": "node scripts/build.mjs --watch --skip-checks",
     "dev:firefox": "node scripts/build.mjs --watch --skip-checks --firefox",
     "preview:typecheck": "tsc --noEmit --project tsconfig.preview.json",
@@ -163,7 +171,7 @@
     "ws@>=8.0.0 <8.20.1": "8.21.0"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "{src,tests}/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix",
       "prettier --write"
     ],

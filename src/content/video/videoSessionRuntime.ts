@@ -16,6 +16,7 @@ import {
 import { isVideoSessionActive, registerVideoSession } from '../runtime/contentSessionRegistry';
 import {
   applyVideoSessionHighlightTheme,
+  beginVideoSessionAnalytics,
   cancelVideoSession,
   cleanupVideoSession,
   finishVideoSession,
@@ -270,6 +271,8 @@ export class VideoSession {
       this.cleanup();
       throw error;
     }
+
+    beginVideoSessionAnalytics(this.operationContext);
   }
 
   private handleUrlChange(): void {
