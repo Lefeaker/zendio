@@ -190,4 +190,6 @@ jobs:
           if-no-files-found: error
 
       - name: Package extension artifacts
-        run: npm run package:ci
+        run: |
+          npm run build:fast
+          npm run package:ci
