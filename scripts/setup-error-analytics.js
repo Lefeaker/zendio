@@ -148,6 +148,7 @@ function validatePrivacyWiring() {
   info('Checking privacy and consent wiring');
 
   const persistence = read('src/options/app/productionStitchPersistence.ts');
+  const finalAnalyticsEvent = read('src/options/app/productionStitchFinalAnalyticsEvent.ts');
   const privacyView = read('src/ui/domains/privacy/PrivacySettingsView.ts');
 
   if (persistence.includes("createTrackUsageEventMessage('privacy_consent_changed'")) {
@@ -156,7 +157,11 @@ function validatePrivacyWiring() {
     fail('privacy consent change event wiring is missing');
   }
 
-  if (persistence.includes("createTrackUsageEventMessage('analytics_data_cleared'")) {
+  if (
+    persistence.includes('prepareAnalyticsDataClearedEvent') &&
+    finalAnalyticsEvent.includes("'analytics_data_cleared'") &&
+    finalAnalyticsEvent.includes('sendAnalyticsTransportEvent')
+  ) {
     ok('analytics data cleared event is wired');
   } else {
     fail('analytics data cleared event wiring is missing');

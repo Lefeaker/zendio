@@ -115,7 +115,7 @@ Cloudflare Worker secret `GA4_API_SECRET`.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA gap-fix integration 合入后的 fresh warning count 为 `125`，当前 gate 输出为 `Warning 总量下降 7 条`，baseline file 尚未同步收紧。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA release env close-out 后 fresh warning count 为 `126`，当前 gate 输出为 `Warning 总量下降 6 条`，baseline file 尚未同步收紧。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。

@@ -34,7 +34,7 @@
 
 - 清除 analytics 相关 storage keys
 - 同时关闭 `analytics`、`errorReporting`、`debugMode`
-- 记录 `analytics_data_cleared`，但只有在清理动作完成前仍有 analytics consent 时才会走正常产品遥测路径
+- 清理成功后记录一次 `analytics_data_cleared`；该最终事件只使用清理前已授权的 public GA 配置快照，清理失败时不发送 `completed`
 
 ## 会收集什么
 

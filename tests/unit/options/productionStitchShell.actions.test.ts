@@ -4,12 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const applyAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const sendAnalyticsDataClearedEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const prepareAnalyticsDataClearedEventMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(sendAnalyticsDataClearedEventMock))
+);
 
 vi.mock('@options/services/analyticsTransfer', () => ({
   applyAnalyticsTransferPayload: applyAnalyticsTransferPayloadMock
 }));
 vi.mock('@shared/errors/analytics', () => ({
   updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
+}));
+vi.mock('@options/app/productionStitchFinalAnalyticsEvent', () => ({
+  prepareAnalyticsDataClearedEvent: prepareAnalyticsDataClearedEventMock
 }));
 
 import {
@@ -147,6 +154,8 @@ describe('mountProductionStitchShell actions', () => {
     setupProductionStitchShellTest();
     applyAnalyticsTransferPayloadMock.mockClear();
     updateErrorAnalyticsConfigMock.mockClear();
+    prepareAnalyticsDataClearedEventMock.mockClear();
+    sendAnalyticsDataClearedEventMock.mockClear();
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
@@ -588,18 +597,13 @@ describe('mountProductionStitchShell actions', () => {
       errorReporting: false,
       debugMode: false
     });
-    expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
-      event: 'analytics_data_cleared',
-      params: {
-        outcome: 'completed'
-      }
-    });
-    const clearEventCallOrder = vi.mocked(messagingRepository.send).mock.invocationCallOrder[0];
-    expect(clearEventCallOrder).toBeLessThan(
+    expect(prepareAnalyticsDataClearedEventMock).toHaveBeenCalledTimes(1);
+    expect(sendAnalyticsDataClearedEventMock).toHaveBeenCalledTimes(1);
+    const clearEventCallOrder = sendAnalyticsDataClearedEventMock.mock.invocationCallOrder[0];
+    expect(clearEventCallOrder).toBeGreaterThan(
       analyticsMocks.setAnalyticsConsent.mock.invocationCallOrder[0]
     );
-    expect(clearEventCallOrder).toBeLessThan(
+    expect(clearEventCallOrder).toBeGreaterThan(
       analyticsMocks.clearAllData.mock.invocationCallOrder[0]
     );
   });
@@ -644,6 +648,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(document.body.textContent).toContain('Localized clear error');
+    expect(sendAnalyticsDataClearedEventMock).toHaveBeenCalledTimes(1);
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
       type: 'TRACK_USAGE_EVENT',
       event: 'analytics_data_cleared',

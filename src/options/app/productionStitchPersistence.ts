@@ -24,6 +24,7 @@ import {
 } from '@shared/errors/analytics/analyticsConfig';
 import { updateErrorAnalyticsConfig } from '@shared/errors/analytics';
 import { serializeOptionsFullBackup } from './productionStitchConfigExport';
+import { prepareAnalyticsDataClearedEvent } from './productionStitchFinalAnalyticsEvent';
 import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
@@ -163,6 +164,7 @@ export function createProductionStitchPersistence(
       return;
     }
     try {
+      const sendAnalyticsDataClearedEvent = await prepareAnalyticsDataClearedEvent();
       const nextSnapshot = {
         analytics: false,
         errorReporting: false,
@@ -172,14 +174,10 @@ export function createProductionStitchPersistence(
         optionsRepository: options.optionsRepository
       });
       syncPrivacySnapshotToState(nextSnapshot);
-      await trackUsageEvent(
-        createTrackUsageEventMessage('analytics_data_cleared', {
-          outcome: 'completed'
-        })
-      );
       await setAnalyticsConsent(false, false);
       await getAnalyticsConfigManager().clearAllData();
       await updateErrorAnalyticsConfig(false);
+      await sendAnalyticsDataClearedEvent();
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'allDataCleared',
