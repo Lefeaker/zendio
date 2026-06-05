@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import {
+  createExportDestinationMetadata,
+  parseExportDestinationMetadata,
+  type ExportDestinationMetadata
+} from '@shared/exportDestination';
 import {
   SESSION_DRAFT_SCHEMA_VERSION,
   createSessionDraftPageKey,
@@ -137,11 +141,20 @@ export async function loadLatestReaderSessionDraft(
     return null;
   }
 
+  const destinationSelection = parseExportDestinationMetadata(parsed.data.destination);
+
   return {
     envelope,
     storageKey,
     payload: {
-      ...parsed.data
+      mode: 'reader',
+      url: parsed.data.url,
+      title: parsed.data.title,
+      highlights: parsed.data.highlights,
+      commentDrafts: parsed.data.commentDrafts,
+      ...(destinationSelection
+        ? { destination: createExportDestinationMetadata(destinationSelection) }
+        : {})
     }
   };
 }

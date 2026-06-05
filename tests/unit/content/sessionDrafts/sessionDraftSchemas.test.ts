@@ -3,7 +3,8 @@ import {
   ReaderSessionDraftPayloadSchema,
   SessionDraftEnvelopeSchema,
   SessionDraftIndexSchema,
-  VideoSessionDraftPayloadSchema
+  VideoSessionDraftPayloadSchema,
+  normalizeSessionDraftEnvelopeForSave
 } from '@content/sessionDrafts/sessionDraftSchemas';
 
 describe('sessionDraftSchemas', () => {
@@ -86,6 +87,35 @@ describe('sessionDraftSchemas', () => {
         }
       }).success
     ).toBe(true);
+  });
+
+  it('drops explicitly undefined optional payload fields during envelope normalization', () => {
+    const normalized = normalizeSessionDraftEnvelopeForSave(
+      {
+        schemaVersion: 1,
+        draftId: 'reader-undefined-optionals',
+        mode: 'reader',
+        pageKey: 'stale-key',
+        pageUrl: 'https://example.com/post',
+        pageTitle: 'Reader title',
+        createdAt: 1,
+        updatedAt: 2,
+        expiresAt: 3,
+        status: 'active',
+        payload: {
+          commentDrafts: {
+            'highlight-1': 'Draft note'
+          },
+          mode: undefined,
+          ownerContext: undefined
+        }
+      } as unknown as Parameters<typeof normalizeSessionDraftEnvelopeForSave>[0],
+      1_000
+    );
+
+    expect(normalized.pageKey).not.toBe('stale-key');
+    expect(normalized.payload).not.toHaveProperty('mode');
+    expect(normalized.payload).not.toHaveProperty('ownerContext');
   });
 
   it('validates index entries and rejects unknown schema versions', () => {

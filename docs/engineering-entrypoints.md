@@ -44,7 +44,7 @@
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
-- 2026-06-05 GA production telemetry P13 type-ratchet gap fix 真值：GA release env close-out 当前 `lint:type-any` 实测为扫描 `1041` files，overall `0/1064/1727/41/4`、src `0/576/592/5/0`、tests `0/488/1135/36/4`；`lint:type-any:ratchet` 的 checked-in 上限仍为 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
+- 2026-06-05 session-draft P08 final integration type-ratchet 真值：当前 session-draft integrated tree 的 `lint:type-any` 实测为扫描 `1060` files，overall `0/1124/1812/53/4`、src `0/602/615/7/0`、tests `0/522/1197/46/4`；`lint:type-any:ratchet` 的 checked-in 上限已同步为 overall `0/1124/1812/53/4`、src `0/602/615/7/0`、tests `0/522/1197/46/4`，`any` 与 `ts-expect-error` 继续保持原值。
 
 ## 当前推荐执行顺序
 
@@ -117,13 +117,13 @@ must not call Google debug endpoints directly from the extension.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA release env close-out 后 fresh warning count 为 `126`，当前 gate 输出为 `Warning 总量下降 6 条`，baseline file 尚未同步收紧。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 已同步为 `146`，当前 fresh warning count 为 `146`，gate 输出 `Warning 总量保持在基线 146 条`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
+- 当前 warning 主要规则族：`require-await`（`100`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 GA release env close-out `1041` files；overall 为 `any: 0`、`unknown: 1064`、assertions `1727`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/576/592/5/0`；tests 为 `0/488/1135/36/4`。
+- `npm run lint:type-any`：扫描当前 session-draft integrated tree `1060` files；overall 为 `any: 0`、`unknown: 1124`、assertions `1812`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/602/615/7/0`；tests 为 `0/522/1197/46/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/1124/1812/53/4`、src `0/602/615/7/0`、tests `0/522/1197/46/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 
