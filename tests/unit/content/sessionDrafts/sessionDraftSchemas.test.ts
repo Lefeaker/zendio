@@ -53,13 +53,37 @@ describe('sessionDraftSchemas', () => {
     expect(
       ReaderSessionDraftPayloadSchema.safeParse({
         commentDrafts: { h1: 'Reader draft' },
+        ownerContext: { tabId: 11, frameId: 0 },
         extraField: ['keep']
       }).success
     ).toBe(true);
     expect(
       VideoSessionDraftPayloadSchema.safeParse({
         commentDrafts: { c1: 'Video draft' },
+        ownerContext: { tabId: 22, windowId: 5 },
         restoreIntent: { screenshotRequested: true }
+      }).success
+    ).toBe(true);
+  });
+
+  it('keeps owner context optional so pre-P06 drafts still parse and restore', () => {
+    expect(
+      SessionDraftEnvelopeSchema.safeParse({
+        schemaVersion: 1,
+        draftId: 'reader-pre-p06',
+        mode: 'reader',
+        pageKey: 'reader-key',
+        pageUrl: 'https://example.com/post',
+        pageTitle: 'Reader title',
+        createdAt: 1,
+        updatedAt: 2,
+        expiresAt: 3,
+        status: 'restorable',
+        payload: {
+          commentDrafts: {
+            'highlight-1': 'Draft note'
+          }
+        }
       }).success
     ).toBe(true);
   });
@@ -76,7 +100,12 @@ describe('sessionDraftSchemas', () => {
             pageKey: 'reader-page',
             updatedAt: 2,
             expiresAt: 3,
-            status: 'restorable'
+            status: 'restorable',
+            ownerContext: {
+              tabId: 9,
+              windowId: 2,
+              frameId: 0
+            }
           }
         ]
       }).success

@@ -16,16 +16,37 @@ import {
   pruneSessionDraftIndexEntries
 } from './sessionDraftSchemas';
 import {
+  getCurrentSessionDraftOwnerContext,
+  getSessionDraftEnvelopeOwnerContext,
+  isSameSessionDraftOwnerContext,
+  normalizeSessionDraftOwnerContext
+} from './sessionDraftTabContext';
+import {
   DEFAULT_SESSION_DRAFT_TTL_MS,
   SESSION_DRAFT_MAX_ENTRIES,
   SESSION_DRAFT_MAX_ENVELOPE_BYTES,
   type SessionDraftEnvelope,
   type SessionDraftIndexEntry,
   type SessionDraftMode,
+  type SessionDraftOwnerContext,
   type SessionDraftRepository,
   type SessionDraftRepositoryOptions,
-  type SessionDraftRemovalTarget
+  type SessionDraftRemovalTarget,
+  type SessionDraftSaveOptions,
+  type SessionDraftSelectionOptions
 } from './sessionDraftTypes';
+
+type OwnerContextOptions = SessionDraftSaveOptions | SessionDraftSelectionOptions;
+
+function hasOwnerContextOverride(
+  options: OwnerContextOptions | undefined
+): options is { ownerContext: SessionDraftOwnerContext | null } {
+  return Boolean(options) && Object.prototype.hasOwnProperty.call(options, 'ownerContext');
+}
+
+function isPromiseLike<T>(value: unknown): value is Promise<T> {
+  return Boolean(value && typeof (value as Promise<T>).then === 'function');
+}
 
 export function createSessionDraftRepository(
   area: StorageAreaService,
@@ -34,6 +55,20 @@ export function createSessionDraftRepository(
   const ttlMs = options.ttlMs ?? DEFAULT_SESSION_DRAFT_TTL_MS;
   const maxEntries = options.maxEntries ?? SESSION_DRAFT_MAX_ENTRIES;
   const maxEnvelopeBytes = options.maxEnvelopeBytes ?? SESSION_DRAFT_MAX_ENVELOPE_BYTES;
+  const resolveOwnerContext = options.resolveOwnerContext ?? getCurrentSessionDraftOwnerContext;
+
+  function resolveOperationOwnerContext(
+    operationOptions?: OwnerContextOptions
+  ): SessionDraftOwnerContext | Promise<SessionDraftOwnerContext | null> | null {
+    if (hasOwnerContextOverride(operationOptions)) {
+      return normalizeSessionDraftOwnerContext(operationOptions.ownerContext);
+    }
+    const currentOwnerContext = resolveOwnerContext();
+    if (isPromiseLike<SessionDraftOwnerContext | null | undefined>(currentOwnerContext)) {
+      return currentOwnerContext.then((value) => normalizeSessionDraftOwnerContext(value));
+    }
+    return normalizeSessionDraftOwnerContext(currentOwnerContext);
+  }
 
   async function readIndex(now: number): Promise<{
     entries: SessionDraftIndexEntry[];
@@ -74,39 +109,113 @@ export function createSessionDraftRepository(
     }
   }
 
-  async function listCandidates(
+  function applyOwnerContext(
+    envelope: SessionDraftEnvelope,
+    ownerContext: SessionDraftOwnerContext | null
+  ): SessionDraftEnvelope {
+    const payload = { ...envelope.payload };
+    const existingOwnerContext = getSessionDraftEnvelopeOwnerContext(envelope);
+    const nextOwnerContext = ownerContext ?? existingOwnerContext;
+
+    if (nextOwnerContext) {
+      payload.ownerContext = nextOwnerContext;
+    } else {
+      delete payload.ownerContext;
+    }
+
+    return {
+      ...envelope,
+      payload
+    };
+  }
+
+  async function saveEnvelope(
+    envelope: SessionDraftEnvelope,
+    saveOptions?: SessionDraftSaveOptions
+  ): Promise<SessionDraftEnvelope> {
+    const now = Date.now();
+    const pendingOwnerContext = resolveOperationOwnerContext(saveOptions);
+    const operationOwnerContext = isPromiseLike<SessionDraftOwnerContext | null>(pendingOwnerContext)
+      ? await pendingOwnerContext
+      : pendingOwnerContext;
+    const normalized = normalizeSessionDraftEnvelopeForSave(
+      applyOwnerContext(envelope, operationOwnerContext),
+      ttlMs
+    );
+    ensureEnvelopeAllowed(normalized);
+    const nextEntry = createSessionDraftIndexEntry(normalized);
+
+    const indexState = await readIndex(now);
+    const nextState = pruneSessionDraftIndexEntries(
+      [
+        nextEntry,
+        ...indexState.entries.filter(
+          (entry) =>
+            entry.key !== nextEntry.key &&
+            !(
+              entry.mode === normalized.mode &&
+              entry.pageKey === normalized.pageKey &&
+              entry.draftId === normalized.draftId
+            )
+        )
+      ],
+      now,
+      maxEntries
+    );
+    const storageKey = createSessionDraftStorageKey({
+      mode: normalized.mode,
+      pageKey: normalized.pageKey,
+      draftId: normalized.draftId
+    });
+
+    await area.setMany({
+      [storageKey]: normalized,
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(nextState.entries)
+    });
+
+    const removedKeys = nextState.removedKeys.filter((key) => key !== storageKey);
+    if (removedKeys.length > 0 || indexState.removedKeys.length > 0) {
+      await area.remove(Array.from(new Set([...indexState.removedKeys, ...removedKeys])));
+    }
+
+    return normalized;
+  }
+
+  async function readValidCandidates(
     mode: SessionDraftMode,
     pageUrl: string,
-    now = Date.now()
+    now: number
   ): Promise<SessionDraftEnvelope[]> {
     const pageKey = createSessionDraftPageKey(mode, pageUrl);
     const indexState = await readIndex(now);
-    const candidates = indexState.entries.filter(
+    const candidateEntries = indexState.entries.filter(
       (entry) => entry.mode === mode && entry.pageKey === pageKey
     );
 
-    if (candidates.length === 0) {
+    if (candidateEntries.length === 0) {
       if (indexState.dirty || indexState.removedKeys.length > 0) {
         await persistIndex(indexState.entries, indexState.removedKeys, true);
       }
       return [];
     }
 
-    const stored = await area.getMany<unknown>(candidates.map((entry) => entry.key));
+    const stored = await area.getMany<unknown>(candidateEntries.map((entry) => entry.key));
     const valid: SessionDraftEnvelope[] = [];
     const invalidKeys = [...indexState.removedKeys];
 
-    for (const entry of candidates) {
+    for (const entry of candidateEntries) {
       const raw = stored[entry.key];
       if (raw === undefined || measureSessionDraftValueBytes(raw) > maxEnvelopeBytes) {
         invalidKeys.push(entry.key);
         continue;
       }
+
       const parsed = SessionDraftEnvelopeSchema.safeParse(raw);
       if (!parsed.success || containsDisallowedSessionDraftPayloadValue(parsed.data.payload)) {
         invalidKeys.push(entry.key);
         continue;
       }
+
       const envelope = parsed.data as SessionDraftEnvelope;
       const expectedPageKey = createSessionDraftPageKey(envelope.mode, envelope.pageUrl);
       const expectedKey = createSessionDraftStorageKey({
@@ -114,6 +223,7 @@ export function createSessionDraftRepository(
         pageKey: expectedPageKey,
         draftId: envelope.draftId
       });
+
       if (
         envelope.mode !== mode ||
         envelope.expiresAt <= now ||
@@ -124,6 +234,7 @@ export function createSessionDraftRepository(
         invalidKeys.push(entry.key);
         continue;
       }
+
       valid.push(envelope);
     }
 
@@ -136,50 +247,61 @@ export function createSessionDraftRepository(
     return valid.sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
-  return {
-    async loadLatest(mode, pageUrl, now = Date.now()): Promise<SessionDraftEnvelope | null> {
-      const candidates = await listCandidates(mode, pageUrl, now);
+  function isClaimableWithoutOwnerMatch(envelope: SessionDraftEnvelope): boolean {
+    return (
+      envelope.status === 'restorable' || getSessionDraftEnvelopeOwnerContext(envelope) === null
+    );
+  }
+
+  function pickPreferredCandidate(
+    candidates: SessionDraftEnvelope[],
+    ownerContext: SessionDraftOwnerContext | null
+  ): SessionDraftEnvelope | null {
+    if (candidates.length === 0) {
+      return null;
+    }
+    if (!ownerContext) {
       return candidates[0] ?? null;
+    }
+
+    const sameOwnerCandidate =
+      candidates.find((candidate) =>
+        isSameSessionDraftOwnerContext(getSessionDraftEnvelopeOwnerContext(candidate), ownerContext)
+      ) ?? null;
+    if (sameOwnerCandidate) {
+      return sameOwnerCandidate;
+    }
+
+    return candidates.find((candidate) => isClaimableWithoutOwnerMatch(candidate)) ?? null;
+  }
+
+  async function maybeClaimCandidate(
+    candidate: SessionDraftEnvelope | null,
+    ownerContext: SessionDraftOwnerContext | null
+  ): Promise<SessionDraftEnvelope | null> {
+    if (!candidate || !ownerContext) {
+      return candidate;
+    }
+    if (isSameSessionDraftOwnerContext(getSessionDraftEnvelopeOwnerContext(candidate), ownerContext)) {
+      return candidate;
+    }
+
+    return saveEnvelope(candidate, { ownerContext });
+  }
+
+  return {
+    async loadLatest(mode, pageUrl, now = Date.now(), selectionOptions) {
+      const candidates = await readValidCandidates(mode, pageUrl, now);
+      const pendingOwnerContext = resolveOperationOwnerContext(selectionOptions);
+      const ownerContext = isPromiseLike<SessionDraftOwnerContext | null>(pendingOwnerContext)
+        ? await pendingOwnerContext
+        : pendingOwnerContext;
+      const selected = pickPreferredCandidate(candidates, ownerContext);
+      return maybeClaimCandidate(selected, ownerContext);
     },
 
-    async save(envelope): Promise<void> {
-      const now = Date.now();
-      const normalized = normalizeSessionDraftEnvelopeForSave(envelope, ttlMs);
-      ensureEnvelopeAllowed(normalized);
-      const nextEntry = createSessionDraftIndexEntry(normalized);
-
-      const indexState = await readIndex(now);
-      const nextState = pruneSessionDraftIndexEntries(
-        [
-          nextEntry,
-          ...indexState.entries.filter(
-            (entry) =>
-              entry.key !== nextEntry.key &&
-              !(
-                entry.mode === normalized.mode &&
-                entry.pageKey === normalized.pageKey &&
-                entry.draftId === normalized.draftId
-              )
-          )
-        ],
-        now,
-        maxEntries
-      );
-      const storageKey = createSessionDraftStorageKey({
-        mode: normalized.mode,
-        pageKey: normalized.pageKey,
-        draftId: normalized.draftId
-      });
-
-      await area.setMany({
-        [storageKey]: normalized,
-        [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(nextState.entries)
-      });
-
-      const removedKeys = nextState.removedKeys.filter((key) => key !== storageKey);
-      if (removedKeys.length > 0 || indexState.removedKeys.length > 0) {
-        await area.remove(Array.from(new Set([...indexState.removedKeys, ...removedKeys])));
-      }
+    async save(envelope, saveOptions) {
+      await saveEnvelope(envelope, saveOptions);
     },
 
     async remove(target: SessionDraftRemovalTarget): Promise<void> {
@@ -204,8 +326,21 @@ export function createSessionDraftRepository(
       );
     },
 
-    async listCandidates(mode, pageUrl, now = Date.now()): Promise<SessionDraftEnvelope[]> {
-      return listCandidates(mode, pageUrl, now);
+    async listCandidates(mode, pageUrl, now = Date.now(), selectionOptions) {
+      const candidates = await readValidCandidates(mode, pageUrl, now);
+      const pendingOwnerContext = resolveOperationOwnerContext(selectionOptions);
+      const ownerContext = isPromiseLike<SessionDraftOwnerContext | null>(pendingOwnerContext)
+        ? await pendingOwnerContext
+        : pendingOwnerContext;
+      if (!ownerContext) {
+        return candidates;
+      }
+
+      const selected = await maybeClaimCandidate(
+        pickPreferredCandidate(candidates, ownerContext),
+        ownerContext
+      );
+      return selected ? [selected] : [];
     },
 
     async pruneExpired(now = Date.now()): Promise<void> {

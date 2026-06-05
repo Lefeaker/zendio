@@ -9,8 +9,15 @@ export type SessionDraftMode = 'reader' | 'video';
 export type SessionDraftStatus = 'active' | 'restorable';
 export type SessionCommentDraftSnapshot = Record<string, string>;
 
+export interface SessionDraftOwnerContext {
+  tabId?: number;
+  windowId?: number;
+  frameId?: number;
+}
+
 export interface SessionDraftPayloadBase {
   commentDrafts?: SessionCommentDraftSnapshot;
+  ownerContext?: SessionDraftOwnerContext;
   [key: string]: unknown;
 }
 
@@ -70,6 +77,7 @@ export interface SessionDraftIndexEntry {
   updatedAt: number;
   expiresAt: number;
   status: SessionDraftStatus;
+  ownerContext?: SessionDraftOwnerContext;
 }
 
 export interface SessionDraftIndex {
@@ -81,15 +89,34 @@ export interface SessionDraftRepositoryOptions {
   ttlMs?: number;
   maxEntries?: number;
   maxEnvelopeBytes?: number;
+  resolveOwnerContext?: () => MaybePromise<SessionDraftOwnerContext | null | undefined>;
 }
 
 export type SessionDraftRemovalTarget = string | { key: string };
 
+export interface SessionDraftSelectionOptions {
+  ownerContext?: SessionDraftOwnerContext | null;
+}
+
+export interface SessionDraftSaveOptions {
+  ownerContext?: SessionDraftOwnerContext | null;
+}
+
 export interface SessionDraftRepository {
-  loadLatest(mode: SessionDraftMode, pageUrl: string, now?: number): Promise<SessionDraftEnvelope | null>;
-  save(envelope: SessionDraftEnvelope): Promise<void>;
+  loadLatest(
+    mode: SessionDraftMode,
+    pageUrl: string,
+    now?: number,
+    options?: SessionDraftSelectionOptions
+  ): Promise<SessionDraftEnvelope | null>;
+  save(envelope: SessionDraftEnvelope, options?: SessionDraftSaveOptions): Promise<void>;
   remove(target: SessionDraftRemovalTarget): Promise<void>;
-  listCandidates(mode: SessionDraftMode, pageUrl: string, now?: number): Promise<SessionDraftEnvelope[]>;
+  listCandidates(
+    mode: SessionDraftMode,
+    pageUrl: string,
+    now?: number,
+    options?: SessionDraftSelectionOptions
+  ): Promise<SessionDraftEnvelope[]>;
   pruneExpired(now?: number): Promise<void>;
 }
 

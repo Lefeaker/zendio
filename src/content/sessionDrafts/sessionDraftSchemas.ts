@@ -16,6 +16,16 @@ const textEncoder = new TextEncoder();
 export const SessionDraftModeSchema = z.enum(['reader', 'video']);
 export const SessionDraftStatusSchema = z.enum(['active', 'restorable']);
 export const SessionCommentDraftSnapshotSchema = z.record(z.string(), z.string());
+export const SessionDraftOwnerContextSchema = z
+  .object({
+    tabId: z.number().int().nonnegative().optional(),
+    windowId: z.number().int().nonnegative().optional(),
+    frameId: z.number().int().nonnegative().optional()
+  })
+  .refine(
+    (value) => value.tabId !== undefined || value.windowId !== undefined || value.frameId !== undefined,
+    { message: 'Session draft owner context requires at least one runtime identifier.' }
+  );
 export const ExportDestinationMetadataSchema = z.object({
   kind: z.enum(['vault', 'downloads']),
   vaultId: z.string().optional()
@@ -36,13 +46,15 @@ export const ReaderSessionDraftPayloadSchema = z
     title: z.string().optional(),
     destination: ExportDestinationMetadataSchema.optional(),
     highlights: z.array(ReaderSessionDraftHighlightPayloadSchema).optional(),
-    commentDrafts: SessionCommentDraftSnapshotSchema.optional()
+    commentDrafts: SessionCommentDraftSnapshotSchema.optional(),
+    ownerContext: SessionDraftOwnerContextSchema.optional()
   })
   .passthrough();
 
 export const VideoSessionDraftPayloadSchema = z
   .object({
-    commentDrafts: SessionCommentDraftSnapshotSchema.optional()
+    commentDrafts: SessionCommentDraftSnapshotSchema.optional(),
+    ownerContext: SessionDraftOwnerContextSchema.optional()
   })
   .passthrough();
 
@@ -80,7 +92,8 @@ export const SessionDraftIndexEntrySchema = z.object({
   pageKey: z.string().min(1),
   updatedAt: TimestampSchema,
   expiresAt: TimestampSchema,
-  status: SessionDraftStatusSchema
+  status: SessionDraftStatusSchema,
+  ownerContext: SessionDraftOwnerContextSchema.optional()
 });
 
 export const SessionDraftIndexSchema = z.object({
@@ -109,7 +122,8 @@ export function createSessionDraftIndexEntry(
     pageKey: envelope.pageKey,
     updatedAt: envelope.updatedAt,
     expiresAt: envelope.expiresAt,
-    status: envelope.status
+    status: envelope.status,
+    ...(envelope.payload.ownerContext ? { ownerContext: envelope.payload.ownerContext } : {})
   };
 }
 
