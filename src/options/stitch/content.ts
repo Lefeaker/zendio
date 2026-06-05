@@ -891,7 +891,7 @@ export const previewContent: PreviewContent = {
       dismissLabel: '点击页面其他区域即可关闭',
       likeToast: {
         title: '感谢鼓励！',
-        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 All in Ob。',
+        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 Zendio。',
         actions: ['撰写评论', '我已写过评论']
       },
       dislikeToast: {
