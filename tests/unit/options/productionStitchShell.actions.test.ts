@@ -606,6 +606,9 @@ describe('mountProductionStitchShell actions', () => {
     expect(clearEventCallOrder).toBeGreaterThan(
       analyticsMocks.clearAllData.mock.invocationCallOrder[0]
     );
+    expect(clearEventCallOrder).toBeGreaterThan(
+      updateErrorAnalyticsConfigMock.mock.invocationCallOrder[0]
+    );
   });
 
   it('uses localized privacy clear-all confirmation and visible status messages', async () => {
@@ -656,6 +659,40 @@ describe('mountProductionStitchShell actions', () => {
         outcome: 'failed'
       }
     });
+  });
+
+  it('does not report analytics data cleared when error analytics cleanup fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
+    updateErrorAnalyticsConfigMock.mockRejectedValueOnce(
+      new Error('error analytics cleanup failed')
+    );
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: true,
+          debugMode: true
+        }
+      },
+      messages: {
+        clearDataError: 'Localized clear error'
+      } as never,
+      language: 'en',
+      messagingRepository,
+      optionsRepository
+    } as never);
+
+    findButton('清空全部分析数据').click();
+    await flushPromises();
+
+    expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(false);
+    expect(document.body.textContent).toContain('Localized clear error');
+    expect(sendAnalyticsDataClearedEventMock).not.toHaveBeenCalled();
   });
 
   it('clears usage data through the existing reset action dependencies', async () => {
