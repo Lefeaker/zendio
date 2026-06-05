@@ -29,10 +29,19 @@ export function configureI18nStorage(storage: StorageAreaService | null): void {
   languageStorage = storage;
 }
 
+function getChromeI18nLanguage(): string | undefined {
+  if (typeof chrome === 'undefined' || typeof chrome.i18n?.getUILanguage !== 'function') {
+    return undefined;
+  }
+
+  return chrome.i18n.getUILanguage();
+}
+
 function getRuntimeLanguageService() {
   return createLanguageService({
     storage: languageStorage ? createStorageAdapter(languageStorage) : null,
     getNavigator: () => (typeof navigator === 'undefined' ? undefined : navigator),
+    getChromeI18nLanguage,
     onReadError: async (cause) => {
       await errorHandler.handle(
         i18nErrors.languageLoadFailed(cause, { storageKey: LANGUAGE_STORAGE_KEY }),

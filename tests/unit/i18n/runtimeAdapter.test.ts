@@ -98,6 +98,93 @@ describe('runtime storage and language services', () => {
     expect(onWriteError).not.toHaveBeenCalled();
     expect(storage.set).toHaveBeenCalledWith('language', 'es-ES');
   });
+
+  it('uses the first supported navigator.languages entry when storage has no language', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const { createStorageAdapter } = await import('../../../src/i18n/runtime/storageAdapter');
+    const storage = createStorageArea();
+
+    const service = createLanguageService({
+      storage: createStorageAdapter(storage),
+      getNavigator: () => ({ languages: ['fr-FR', 'ja-JP'], language: 'en-US' })
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('fr');
+  });
+
+  it('continues through navigator.languages when the first entry is unsupported', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const service = createLanguageService({
+      storage: null,
+      getNavigator: () => ({ languages: ['nl-NL', 'fr-FR', 'en-US'], language: 'en-US' })
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('fr');
+  });
+
+  it('uses navigator.language when navigator.languages has no supported entries', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const service = createLanguageService({
+      storage: null,
+      getNavigator: () => ({ languages: ['nl-NL'], language: 'ko-KR' })
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('ko');
+  });
+
+  it('uses Chrome UI language when navigator candidates are unsupported', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const service = createLanguageService({
+      storage: null,
+      getNavigator: () => ({ languages: ['nl-NL'], language: 'sv-SE' }),
+      getChromeI18nLanguage: () => 'ja-JP'
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('ja');
+  });
+
+  it('keeps storage language above automatic language candidates', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const { createStorageAdapter } = await import('../../../src/i18n/runtime/storageAdapter');
+    const storage = createStorageArea({ language: 'de-DE' });
+
+    const service = createLanguageService({
+      storage: createStorageAdapter(storage),
+      getNavigator: () => ({ languages: ['fr-FR'], language: 'ja-JP' }),
+      getChromeI18nLanguage: () => 'ko-KR'
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('de');
+  });
+
+  it('uses automatic language candidates when storage read fails', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const { createStorageAdapter } = await import('../../../src/i18n/runtime/storageAdapter');
+    const storage = createStorageArea();
+    const onReadError = vi.fn(() => Promise.resolve());
+    vi.mocked(storage.get).mockRejectedValueOnce(new Error('sync failed'));
+
+    const service = createLanguageService({
+      storage: createStorageAdapter(storage),
+      getNavigator: () => ({ languages: ['nl-NL', 'fr-FR'], language: 'en-US' }),
+      getChromeI18nLanguage: () => 'ja-JP',
+      onReadError
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe('fr');
+    expect(onReadError).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the default language when all automatic candidates are unsupported', async () => {
+    const { createLanguageService } = await import('../../../src/i18n/runtime/languageService');
+    const service = createLanguageService({
+      storage: null,
+      getNavigator: () => ({ languages: ['nl-NL'], language: 'sv-SE' }),
+      getChromeI18nLanguage: () => 'th-TH'
+    });
+
+    await expect(service.getCurrentLanguage()).resolves.toBe(DEFAULT_LANGUAGE);
+  });
 });
 
 describe('runtime locale and page services', () => {

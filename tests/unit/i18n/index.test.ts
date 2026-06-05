@@ -26,10 +26,18 @@ describe('i18n storage fallbacks', () => {
     await expect(getCurrentLanguage()).resolves.toBe('zh-CN');
   });
 
+  it('uses Chrome UI language when navigator candidates are unsupported', async () => {
+    vi.stubGlobal('navigator', { languages: ['nl-NL'], language: 'sv-SE' });
+    vi.stubGlobal('chrome', { i18n: { getUILanguage: () => 'ja-JP' } });
+    const { configureI18nStorage, getCurrentLanguage } = await import('../../../src/i18n');
+    configureI18nStorage(null);
+
+    await expect(getCurrentLanguage()).resolves.toBe('ja');
+  });
+
   it('reads storage language and persists the resolved language through injected storage', async () => {
-    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } = await import(
-      '../../../src/i18n'
-    );
+    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } =
+      await import('../../../src/i18n');
     configureI18nStorage(harness.storage.sync);
 
     await harness.storage.sync.set('language', 'fr');
@@ -41,9 +49,8 @@ describe('i18n storage fallbacks', () => {
 
   it('falls back to navigator language and reports when storage read fails', async () => {
     vi.stubGlobal('navigator', { language: 'ja-JP' });
-    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } = await import(
-      '../../../src/i18n'
-    );
+    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } =
+      await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
     configureI18nStorage(harness.storage.sync);
     const getSpy = vi
@@ -89,9 +96,8 @@ describe('i18n storage fallbacks', () => {
 
 describe('locale fallback characterization', () => {
   it('resolves alias and default fallback behavior for runtime messages', async () => {
-    const { DEFAULT_RUNTIME_MESSAGES, loadMessagesWithFallback } = await import(
-      '../../../src/i18n/locales'
-    );
+    const { DEFAULT_RUNTIME_MESSAGES, loadMessagesWithFallback } =
+      await import('../../../src/i18n/locales');
 
     const zhAliasMessages = await loadMessagesWithFallback('zh');
     const zhMessages = await loadMessagesWithFallback('zh-CN');
