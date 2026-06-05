@@ -2,12 +2,12 @@
 // @ts-check
 
 /**
- * 测试隐私设置组件的脚本
- * 
+ * 当前隐私与数据设置主链的只读校验脚本
+ *
  * 这个脚本验证：
- * 1. 隐私设置组件是否正确初始化
- * 2. i18n 消息是否完整
- * 3. HTML 结构是否正确
+ * 1. Stitch overview schema 是否仍然承载隐私与数据卡片
+ * 2. privacy domain view / persistence wiring 是否仍然存在
+ * 3. i18n 消息与 options shell 根节点是否完整
  */
 
 const fs = require('fs');
@@ -52,107 +52,148 @@ function readFile(filePath) {
   }
 }
 
-// 检查隐私设置组件
-function checkPrivacySettingsComponent() {
-  info('检查隐私设置组件...');
-  
-  const componentPath = 'src/options/components/controls/privacySettings.ts';
-  const content = readFile(componentPath);
-  
+function checkPrivacyOverviewSchema() {
+  info('检查 overview schema 隐私卡片...');
+
+  const schemaPath = 'src/options/stitch/schema/settings/overview.ts';
+  const content = readFile(schemaPath);
+
   if (!content) {
-    error(`无法读取 ${componentPath}`);
+    error(`无法读取 ${schemaPath}`);
     return false;
   }
 
-  // 检查关键方法
-  const requiredMethods = [
-    'render',
-    'saveSettings',
-    'clearAllData',
-    'getSettings',
-    'shouldShowPrivacyReminder'
+  const requiredSnippets = [
+    "title: '隐私与数据'",
+    "bind: 'privacyAnalytics'",
+    "bind: 'privacyErrorReporting'",
+    "bind: 'privacyDebugMode'",
+    "action: { id: 'overview:clearAnalyticsData' }",
+    "action: { id: 'resource:open', args: ['privacy-policy'] }",
+    "action: { id: 'resource:open', args: ['data-usage'] }"
   ];
 
-  let allMethodsExist = true;
-  requiredMethods.forEach(method => {
-    if (content.includes(`${method}(`)) {
-      success(`方法 ${method} 存在`);
+  let schemaIsValid = true;
+  requiredSnippets.forEach((snippet) => {
+    if (content.includes(snippet)) {
+      success(`overview schema 片段存在：${snippet}`);
     } else {
-      error(`方法 ${method} 不存在`);
-      allMethodsExist = false;
+      error(`overview schema 缺少片段：${snippet}`);
+      schemaIsValid = false;
     }
   });
 
-  // 检查导入
-  const requiredImports = [
-    'getAnalyticsConfigManager',
-    'setAnalyticsConsent',
-    'getOptionsMessages'
-  ];
-
-  requiredImports.forEach(importName => {
-    if (content.includes(importName)) {
-      success(`导入 ${importName} 存在`);
-    } else {
-      error(`导入 ${importName} 不存在`);
-      allMethodsExist = false;
-    }
-  });
-
-  return allMethodsExist;
+  return schemaIsValid;
 }
 
-// 检查 HTML 结构
-function checkHtmlStructure() {
-  info('检查 HTML 结构...');
-  
+function checkPrivacyDomainView() {
+  info('检查 privacy domain view...');
+
+  const viewPath = 'src/ui/domains/privacy/PrivacySettingsView.ts';
+  const content = readFile(viewPath);
+
+  if (!content) {
+    error(`无法读取 ${viewPath}`);
+    return false;
+  }
+
+  const requiredSnippets = [
+    'applyConsentSnapshot(snapshot: PrivacyConsentSnapshot)',
+    'render(): HTMLElement | void',
+    'async saveSettings(',
+    'async getSettings(): Promise<{ analytics: boolean; errorReporting: boolean }>',
+    'async shouldShowPrivacyReminder(): Promise<boolean>'
+  ];
+
+  let allSnippetsExist = true;
+  requiredSnippets.forEach((snippet) => {
+    if (content.includes(snippet)) {
+      success(`privacy domain 片段存在：${snippet}`);
+    } else {
+      error(`privacy domain 缺少片段：${snippet}`);
+      allSnippetsExist = false;
+    }
+  });
+
+  return allSnippetsExist;
+}
+
+function checkOptionsShellHtml() {
+  info('检查 Options shell HTML 根节点...');
+
   const htmlPath = 'src/options/index.html';
   const content = readFile(htmlPath);
-  
+
   if (!content) {
     error(`无法读取 ${htmlPath}`);
     return false;
   }
 
-  // 检查隐私设置容器
-  if (content.includes('privacySettingsContainer')) {
-    success('隐私设置容器存在');
+  if (content.includes('optionsShellRoot')) {
+    success('Options Stitch shell 根节点存在');
   } else {
-    error('隐私设置容器不存在');
-    return false;
-  }
-
-  // 检查隐私设置样式
-  if (content.includes('privacy-section')) {
-    success('隐私设置样式存在');
-  } else if (content.includes('privacy-settings')) {
-    warning('检测到旧版隐私设置样式类名（privacy-settings）');
-  } else {
-    warning('隐私设置样式可能不存在');
-  }
-
-  // 检查隐私设置标题
-  if (content.includes('privacySettingsTitle')) {
-    success('隐私设置标题存在');
-  } else {
-    error('隐私设置标题不存在');
+    error('Options Stitch shell 根节点不存在');
     return false;
   }
 
   return true;
 }
 
+function checkPersistenceIntegration() {
+  info('检查 persistence / telemetry 接线...');
+
+  const persistencePath = 'src/options/app/productionStitchPersistence.ts';
+  const content = readFile(persistencePath);
+
+  if (!content) {
+    error(`无法读取 ${persistencePath}`);
+    return false;
+  }
+
+  const requiredSnippets = [
+    "createTrackUsageEventMessage('privacy_consent_changed'",
+    'enabled: nextSnapshot[field]',
+    "createTrackUsageEventMessage('analytics_data_cleared'",
+    "outcome: 'completed'"
+  ];
+
+  let isValid = true;
+  requiredSnippets.forEach((snippet) => {
+    if (content.includes(snippet)) {
+      success(`persistence 片段存在：${snippet}`);
+    } else {
+      error(`persistence 缺少片段：${snippet}`);
+      isValid = false;
+    }
+  });
+
+  const actionPath = 'src/options/app/actions/privacyConsentAction.ts';
+  const actionContent = readFile(actionPath);
+  if (!actionContent) {
+    error(`无法读取 ${actionPath}`);
+    return false;
+  }
+
+  if (actionContent.includes('privacyPreferences: snapshot')) {
+    success('privacy consent action 会写入 privacyPreferences');
+  } else {
+    error('privacy consent action 未写入 privacyPreferences');
+    isValid = false;
+  }
+
+  return isValid;
+}
+
 // 检查 i18n 消息
 function checkI18nMessages() {
   info('检查 i18n 消息...');
-  
+
   const languages = ['zh-CN', 'en', 'ja'];
   let allMessagesExist = true;
 
-  // 检查消息接口定义
   const messagesPath = 'src/i18n/messages.ts';
   const messagesContent = readFile(messagesPath);
-  
+
   if (!messagesContent) {
     error(`无法读取 ${messagesPath}`);
     return false;
@@ -162,13 +203,13 @@ function checkI18nMessages() {
     'privacySettingsTitle',
     'privacySettingsDescription',
     'privacySettingsNote',
-    'analyticsConsentTitle',
-    'errorReportingConsentTitle',
-    'savePrivacySettings',
-    'clearAllAnalyticsData'
+    'privacyFooterText',
+    'privacyPolicyLink',
+    'privacySettingsSaved',
+    'privacyDataWillBeCleared'
   ];
 
-  requiredMessages.forEach(message => {
+  requiredMessages.forEach((message) => {
     if (messagesContent.includes(`${message}:`)) {
       success(`消息接口 ${message} 存在`);
     } else {
@@ -177,18 +218,17 @@ function checkI18nMessages() {
     }
   });
 
-  // 检查各语言的翻译
-  languages.forEach(lang => {
+  languages.forEach((lang) => {
     const langPath = `src/i18n/locales/${lang}.ts`;
     const langContent = readFile(langPath);
-    
+
     if (!langContent) {
       error(`无法读取 ${langPath}`);
       allMessagesExist = false;
       return;
     }
 
-    requiredMessages.forEach(message => {
+    requiredMessages.forEach((message) => {
       if (langContent.includes(`${message}:`)) {
         success(`${lang} 语言的 ${message} 翻译存在`);
       } else {
@@ -199,45 +239,6 @@ function checkI18nMessages() {
   });
 
   return allMessagesExist;
-}
-
-// 检查 bootstrap 集成
-function checkBootstrapIntegration() {
-  info('检查 bootstrap 集成...');
-  
-  const bootstrapPath = 'src/options/app/bootstrap.ts';
-  const content = readFile(bootstrapPath);
-  
-  if (!content) {
-    error(`无法读取 ${bootstrapPath}`);
-    return false;
-  }
-
-  // 检查导入
-  if (content.includes('PrivacySettings')) {
-    success('PrivacySettings 导入存在');
-  } else {
-    error('PrivacySettings 导入不存在');
-    return false;
-  }
-
-  // 检查初始化函数
-  if (content.includes('initializePrivacySettings')) {
-    success('initializePrivacySettings 函数存在');
-  } else {
-    error('initializePrivacySettings 函数不存在');
-    return false;
-  }
-
-  // 检查函数调用
-  if (content.includes('await initializePrivacySettings()')) {
-    success('initializePrivacySettings 函数调用存在');
-  } else {
-    error('initializePrivacySettings 函数调用不存在');
-    return false;
-  }
-
-  return true;
 }
 
 // 生成测试报告
@@ -263,7 +264,7 @@ function generateTestReport(results) {
   });
 
   if (passedTests === totalTests) {
-    console.log('\n🎉 所有测试通过！隐私设置组件已正确集成。');
+    console.log('\n🎉 所有测试通过！隐私与数据主链校验通过。');
   } else {
     console.log('\n⚠️  部分测试失败，请检查上述问题。');
   }
@@ -271,14 +272,15 @@ function generateTestReport(results) {
 
 // 主函数
 function main() {
-  colorLog('blue', '🧪 隐私设置组件测试');
+  colorLog('blue', '🧪 隐私与数据主链校验');
   console.log('');
 
   const results = {
-    '隐私设置组件': checkPrivacySettingsComponent(),
-    'HTML 结构': checkHtmlStructure(),
-    'i18n 消息': checkI18nMessages(),
-    'Bootstrap 集成': checkBootstrapIntegration()
+    'Overview Schema': checkPrivacyOverviewSchema(),
+    'Privacy Domain View': checkPrivacyDomainView(),
+    'Options Shell HTML': checkOptionsShellHtml(),
+    'Persistence Integration': checkPersistenceIntegration(),
+    'i18n 消息': checkI18nMessages()
   };
 
   generateTestReport(results);
@@ -290,8 +292,9 @@ if (require.main === module) {
 }
 
 module.exports = {
-  checkPrivacySettingsComponent,
-  checkHtmlStructure,
-  checkI18nMessages,
-  checkBootstrapIntegration
+  checkPrivacyOverviewSchema,
+  checkPrivacyDomainView,
+  checkOptionsShellHtml,
+  checkPersistenceIntegration,
+  checkI18nMessages
 };
