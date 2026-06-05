@@ -13,6 +13,7 @@ export interface VideoTimestampCapture {
   url: string;
   comment: string;
   createdAt: number;
+  screenshotRequested?: boolean;
   screenshot?: VideoCaptureScreenshot;
 }
 

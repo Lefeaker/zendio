@@ -75,6 +75,8 @@ describe('videoSessionDrafts', () => {
     ]);
     expect(JSON.stringify(payload)).not.toContain('data:image/');
     expect(JSON.stringify(payload)).not.toContain('video-0m42s.jpg');
+    expect(JSON.stringify(payload)).not.toContain('mimeType');
+    expect(JSON.stringify(payload)).not.toContain('ArrayBuffer');
   });
 
   it('hydrates captures from draft payloads without reviving screenshot attachments', () => {
