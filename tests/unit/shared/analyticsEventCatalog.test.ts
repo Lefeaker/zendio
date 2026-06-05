@@ -74,4 +74,39 @@ describe('analytics event catalog', () => {
     ]);
     expect(ERROR_EVENT_NAMES).toEqual(['extension_error']);
   });
+
+  it('records optional params for events that declare optional analytics fields', () => {
+    expect(ANALYTICS_EVENT_CATALOG.extension_error.optionalParams).toEqual([
+      'error_category',
+      'extension_version',
+      'browser_name',
+      'browser_version',
+      'failure_category'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.support_review_link_clicked.optionalParams).toEqual(['variant']);
+    expect(ANALYTICS_EVENT_CATALOG.support_review_acknowledged_clicked.optionalParams).toEqual([
+      'variant'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.i18n_text_overflow.optionalParams).toEqual([
+      'component',
+      'priority',
+      'limit'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.extension_installed.optionalParams).toEqual(['browser_family']);
+    expect(ANALYTICS_EVENT_CATALOG.options_action_completed.optionalParams).toEqual(['section']);
+    expect(ANALYTICS_EVENT_CATALOG.extraction_completed.optionalParams).toEqual([
+      'attachment_count_bucket'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.connection_test_completed.optionalParams).toEqual([
+      'failure_category'
+    ]);
+  });
+
+  it('keeps required and optional params disjoint for every catalog event', () => {
+    for (const definition of Object.values(ANALYTICS_EVENT_CATALOG)) {
+      expect(
+        definition.optionalParams.filter((param) => definition.requiredParams.includes(param))
+      ).toEqual([]);
+    }
+  });
 });
