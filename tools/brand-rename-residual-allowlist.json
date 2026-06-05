@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "description": "Zendio rename residual allowlist. Every remaining old-brand token must be compatibility, internal, historical, frozen, repo-path, or owner-confirmation debt.",
+  "tokens": [
+    "All-in-Obsidian",
+    "All in Obsidian",
+    "AllInObsidian",
+    "all-in-obsidian",
+    "allinobsidian",
+    "All in Ob",
+    "AIIINOB",
+    "AiiinOB",
+    "__AI2OB",
+    "AI2OB",
+    "ai2ob",
+    "all-in-ob",
+    "allinob"
+  ],
+  "classes": [
+    "compat-retain-extension-identity",
+    "compat-retain-user-data",
+    "compat-alias-env",
+    "internal-runtime-global",
+    "internal-test-global",
+    "internal-dev-preview",
+    "dev-tool-copy",
+    "frozen-reference",
+    "historical-doc",
+    "external-owner-confirmation-required",
+    "repo-path-or-history"
+  ],
+  "ignorePaths": [
+    ".git/**",
+    "build/**",
+    "coverage/**",
+    "dist/**",
+    "node_modules/**",
+    "test-results/**",
+    "tools/brand-rename-residual-allowlist.json",
+    "tools/report-brand-rename-residuals.mjs"
+  ],
+  "rules": [
+    {
+      "id": "license-legal-owner-name",
+      "paths": ["LICENSE"],
+      "class": "external-owner-confirmation-required",
+      "reason": "MIT copyright holder text is legal/owner-controlled and must not be changed without owner confirmation.",
+      "ownerConfirmationRequired": true
+    },
+    {
+      "id": "agent-and-process-repo-identity",
+      "paths": [
+        "AGENTS.md",
+        "docs/development-guidelines.md",
+        "docs/project-stabilization-plan-2026-04-13.md",
+        "docs/目标架构迁移执行方案-2026-03-29.md",
+        "docs/债务.md"
+      ],
+      "class": "repo-path-or-history",
+      "reason": "Workspace/process documents refer to the repository or historical repo branch identity, not current product display copy."
+    },
+    {
+      "id": "external-support-email-and-urls",
+      "paths": ["docs/**", "marketing/chrome-web-store/listing.md", "src/**"],
+      "lineRegex": "allinobsidian|github\\.com/aiiinob/all-in-obsidian|chromewebstore\\.google\\.com/detail/all-in-ob",
+      "class": "external-owner-confirmation-required",
+      "reason": "Support email, support repository URL, and Chrome Web Store item URL are externally owned identifiers retained until owner-confirmed replacements exist.",
+      "ownerConfirmationRequired": true
+    },
+    {
+      "id": "repo-path-examples",
+      "paths": [
+        "docs/**",
+        "src/options/stitch/content.ts",
+        "src/options/stitch/styles/variants/stitch-secondary.css",
+        "scripts/build-preview.mjs",
+        "tests/unit/options/stitchSharedRegistry.test.ts"
+      ],
+      "lineRegex": "AI2OB_Plg/|\\.\\./\\.\\./AiiinOB|`?AiiinOB/|AiiinOB/src|AiiinOB/tests|AiiinOB/docs|AiiinOB/uiguide|^AiiinOB/$",
+      "class": "repo-path-or-history",
+      "reason": "The token is part of a real repository path, worktree path, resource-id path, or historical code path example."
+    },
+    {
+      "id": "firefox-extension-id",
+      "paths": [
+        "scripts/utils/manifestSources.mjs",
+        "public/manifest.firefox.json",
+        "tests/unit/scripts/manifestSources.test.ts"
+      ],
+      "lineRegex": "allinob@aiiin\\.com",
+      "class": "compat-retain-extension-identity",
+      "reason": "Firefox extension ID is a published compatibility identity and must remain stable."
+    },
+    {
+      "id": "local-vault-storage-identities",
+      "paths": [
+        "src/platform/chrome/localVaultCore.ts",
+        "src/background/services/localVaultPermissionPrompts.ts"
+      ],
+      "lineRegex": "ai2ob-local-vault-folders|ai2ob-vault|ai2ob\\.localVaultPermissionPromptSuppressions",
+      "class": "compat-retain-user-data",
+      "reason": "Local Vault database, picker, and suppression storage keys are persisted user-data compatibility identities."
+    },
+    {
+      "id": "env-compat-aliases",
+      "paths": ["scripts/**", "src/**", "tests/**", "tools/report-production-build-graph.mjs"],
+      "lineRegex": "AIIINOB_REST_|AIIINOB_SENTRY_",
+      "class": "compat-alias-env",
+      "reason": "AIIINOB_* environment names are backwards-compatible aliases while Zendio env aliases take precedence."
+    },
+    {
+      "id": "runtime-globals",
+      "paths": ["src/**", "scripts/build.mjs", "tools/report-production-build-graph.mjs"],
+      "lineRegex": "__AIIINOB_|__AI2OB_",
+      "class": "internal-runtime-global",
+      "reason": "Internal runtime globals preserve existing bundle, preview, or test harness contracts and are not user-facing brand copy."
+    },
+    {
+      "id": "preview-fixtures",
+      "paths": [
+        "tests/fixtures/options-preview/**",
+        "tests/visual/utils/**",
+        "scripts/build-preview.mjs"
+      ],
+      "class": "internal-dev-preview",
+      "reason": "Preview harness paths, globals, and frozen fixture fallbacks are internal verification contracts."
+    },
+    {
+      "id": "test-globals-and-fixtures",
+      "paths": ["tests/**"],
+      "class": "internal-test-global",
+      "reason": "Old tokens are test-only globals, env aliases, fake names, fixtures, or compatibility expectations."
+    },
+    {
+      "id": "preview-freeze-allowlist-copy",
+      "paths": ["scripts/preview-freeze-check.mjs"],
+      "class": "frozen-reference",
+      "reason": "Old brand text appears inside historical preview freeze rationale for prior hash approvals, not as live product copy."
+    },
+    {
+      "id": "dev-tools-and-guards",
+      "paths": [
+        "scripts/audit-types.mjs",
+        "scripts/lint-hardcoded-values.mjs",
+        "tools/**",
+        "src/dev/**"
+      ],
+      "class": "dev-tool-copy",
+      "reason": "Old tokens are internal audit labels, regression guards, harness globals, or developer-only messages."
+    },
+    {
+      "id": "source-comments",
+      "paths": ["src/content/video/videoPromptObserver.ts", "src/styles/design-tokens.css"],
+      "class": "dev-tool-copy",
+      "reason": "Residual old token is a source comment/design-token label, not runtime user-facing copy."
+    },
+    {
+      "id": "archive-docs",
+      "paths": ["docs/archive/**"],
+      "class": "historical-doc",
+      "reason": "docs/archive is explicitly historical per docs/archive/README.md and source-of-truth-index.md."
+    },
+    {
+      "id": "reference-fixtures",
+      "paths": ["docs/reference-fixtures/**"],
+      "class": "frozen-reference",
+      "reason": "Reference fixtures preserve historical HTML/source snapshots for regression comparison."
+    },
+    {
+      "id": "historical-feature-docs",
+      "paths": [
+        "docs/en/branding/**",
+        "docs/en/testing/**",
+        "docs/zh-cn/chinese-ai-platform/**",
+        "docs/zh-cn/clipper/**",
+        "docs/zh-cn/release-notes/**",
+        "docs/release-readiness-handoff-2026-05-20.md",
+        "docs/privacy-settings-usage.md",
+        "docs/multilingual-weekly-maintenance.md",
+        "docs/ci-workflow-setup.md",
+        "docs/structure/duoyuyan.md"
+      ],
+      "class": "historical-doc",
+      "reason": "These older feature, testing, release, or branding documents are not listed as current truth in docs/source-of-truth-index.md; P10 delegated them to exact P11 classification rather than broad edits."
+    },
+    {
+      "id": "repo-history-docs",
+      "paths": [
+        "docs/bilibili-comment-shadow-dom-fix.md",
+        "docs/chrome-api-decoupling-guide.md",
+        "docs/ai-chat-parser-extraction-and-sync-strategy.md",
+        "docs/google-analytics-dashboard-setup.md",
+        "docs/error-analytics-system-overview.md",
+        "docs/en/guides/QUICKSTART.md",
+        "docs/zh-cn/guides/快速使用指南.md"
+      ],
+      "class": "repo-path-or-history",
+      "reason": "Residual old token is a repository path, code path, historical handoff path, or repo-scoped architecture label."
+    }
+  ]
+}
