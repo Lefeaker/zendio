@@ -1,6 +1,6 @@
 # Google Analytics 4 错误监控仪表板设置指南
 
-本文档提供了为 AiiinOB 扩展设置 Google Analytics 4 错误监控仪表板的完整指南。
+本文档提供了为 Zendio 扩展设置 Google Analytics 4 错误监控仪表板的完整指南。
 
 ## 目录
 
@@ -130,7 +130,7 @@ export const GA4_CONFIG = {
 
 ```json
 {
-  "dashboard_name": "AiiinOB 错误监控",
+  "dashboard_name": "Zendio 错误监控",
   "widgets": [
     {
       "type": "scorecard",
@@ -294,4 +294,4 @@ export const GA4_CONFIG = {
 4. **文档更新**：及时更新错误代码文档和处理指南
 5. **团队培训**：确保团队成员了解如何使用仪表板
 
-通过遵循本指南，您可以建立一个全面的错误监控系统，帮助快速发现和解决 AiiinOB 扩展中的问题，提升用户体验。
+通过遵循本指南，您可以建立一个全面的错误监控系统，帮助快速发现和解决 Zendio 扩展中的问题，提升用户体验。
