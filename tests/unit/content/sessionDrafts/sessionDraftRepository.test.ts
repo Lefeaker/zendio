@@ -8,11 +8,15 @@ import {
 import type {
   SessionDraftEnvelope,
   SessionDraftIndexEntry,
-  SessionDraftMode
+  SessionDraftMode,
+  SessionDraftOwnerContext
 } from '@content/sessionDrafts/sessionDraftTypes';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 
 const BASE_TIME = 2_000_000_000_000;
+const OWNER_A: SessionDraftOwnerContext = { tabId: 11, windowId: 1, frameId: 0 };
+const OWNER_B: SessionDraftOwnerContext = { tabId: 22, windowId: 2, frameId: 0 };
+const OWNER_C: SessionDraftOwnerContext = { tabId: 33, windowId: 3, frameId: 0 };
 
 function createEnvelope(
   mode: SessionDraftMode,
@@ -57,7 +61,8 @@ function createIndexEntry(envelope: SessionDraftEnvelope): SessionDraftIndexEntr
     pageKey: envelope.pageKey,
     updatedAt: envelope.updatedAt,
     expiresAt: envelope.expiresAt,
-    status: envelope.status
+    status: envelope.status,
+    ...(envelope.payload.ownerContext ? { ownerContext: envelope.payload.ownerContext } : {})
   };
 }
 
@@ -378,6 +383,134 @@ describe('sessionDraftRepository', () => {
     });
     await expect(repository.loadLatest('reader', second.pageUrl, BASE_TIME + 602)).resolves.toMatchObject({
       pageUrl: second.pageUrl
+    });
+  });
+
+  it('prefers the same-owner draft over a newer restorable draft from another tab context', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/shared';
+    const sameOwner = createEnvelope('reader', {
+      draftId: 'same-owner',
+      pageUrl,
+      updatedAt: BASE_TIME + 700,
+      status: 'restorable'
+    });
+    const newerOtherOwner = createEnvelope('reader', {
+      draftId: 'newer-other-owner',
+      pageUrl,
+      updatedAt: BASE_TIME + 701,
+      status: 'restorable'
+    });
+
+    await repository.save(sameOwner, { ownerContext: OWNER_A });
+    await repository.save(newerOtherOwner, { ownerContext: OWNER_B });
+
+    await expect(repository.loadLatest('reader', pageUrl, BASE_TIME + 702, { ownerContext: OWNER_A })).resolves.toMatchObject({
+      draftId: 'same-owner',
+      payload: {
+        ownerContext: OWNER_A
+      }
+    });
+  });
+
+  it('claims the newest restorable page-key draft when no owner matches the current tab context', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/restartable';
+    const older = createEnvelope('reader', {
+      draftId: 'older-restorable',
+      pageUrl,
+      updatedAt: BASE_TIME + 710,
+      status: 'restorable'
+    });
+    const newer = createEnvelope('reader', {
+      draftId: 'newer-restorable',
+      pageUrl,
+      updatedAt: BASE_TIME + 711,
+      status: 'restorable'
+    });
+
+    await repository.save(older, { ownerContext: OWNER_A });
+    await repository.save(newer, { ownerContext: OWNER_B });
+
+    const selected = await repository.loadLatest('reader', pageUrl, BASE_TIME + 712, {
+      ownerContext: OWNER_C
+    });
+
+    expect(selected).toMatchObject({
+      draftId: 'newer-restorable',
+      payload: {
+        ownerContext: OWNER_C
+      }
+    });
+
+    const selectedKey = createSessionDraftStorageKey({
+      mode: 'reader',
+      pageKey: createSessionDraftPageKey('reader', pageUrl),
+      draftId: 'newer-restorable'
+    });
+    await expect(storage.get(selectedKey)).resolves.toMatchObject({
+      payload: {
+        ownerContext: OWNER_C
+      }
+    });
+  });
+
+  it('keeps same-url active drafts separated by owner context instead of collapsing them', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/multi-tab';
+    const first = createEnvelope('reader', {
+      draftId: 'active-a',
+      pageUrl,
+      updatedAt: BASE_TIME + 720,
+      status: 'active'
+    });
+    const second = createEnvelope('reader', {
+      draftId: 'active-b',
+      pageUrl,
+      updatedAt: BASE_TIME + 721,
+      status: 'active'
+    });
+
+    await repository.save(first, { ownerContext: OWNER_A });
+    await repository.save(second, { ownerContext: OWNER_B });
+
+    await expect(repository.listCandidates('reader', pageUrl, BASE_TIME + 722, { ownerContext: OWNER_A })).resolves.toMatchObject([
+      { draftId: 'active-a', payload: { ownerContext: OWNER_A } }
+    ]);
+    await expect(repository.listCandidates('reader', pageUrl, BASE_TIME + 722, { ownerContext: OWNER_B })).resolves.toMatchObject([
+      { draftId: 'active-b', payload: { ownerContext: OWNER_B } }
+    ]);
+    await expect(repository.listCandidates('reader', pageUrl, BASE_TIME + 722, { ownerContext: OWNER_C })).resolves.toEqual([]);
+  });
+
+  it('restores the latest page-key draft when tab context is unavailable after restart', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/restart';
+    const older = createEnvelope('reader', {
+      draftId: 'restart-older',
+      pageUrl,
+      updatedAt: BASE_TIME + 730,
+      status: 'restorable'
+    });
+    const newer = createEnvelope('reader', {
+      draftId: 'restart-newer',
+      pageUrl,
+      updatedAt: BASE_TIME + 731,
+      status: 'restorable'
+    });
+
+    await repository.save(older, { ownerContext: OWNER_A });
+    await repository.save(newer, { ownerContext: OWNER_B });
+
+    await expect(repository.loadLatest('reader', pageUrl, BASE_TIME + 732, { ownerContext: null })).resolves.toMatchObject({
+      draftId: 'restart-newer',
+      payload: {
+        ownerContext: OWNER_B
+      }
     });
   });
 });

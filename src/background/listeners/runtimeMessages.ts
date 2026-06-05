@@ -38,10 +38,21 @@ const OpenOptionsPageMessageSchema = z.object({
   section: z.string().optional()
 });
 
+const GetTabContextMessageSchema = z.object({
+  type: z.literal('AIIOB_GET_TAB_CONTEXT')
+});
+
 type OpenOptionsPageMessage = z.infer<typeof OpenOptionsPageMessageSchema>;
+type GetTabContextMessage = z.infer<typeof GetTabContextMessageSchema>;
+type RuntimeMessageSender = { tabId?: number; frameId?: number; windowId?: number };
+type RuntimeTabContextPayload = Record<string, MessagePayload>;
 
 function isOpenOptionsPageMessage(message: unknown): message is OpenOptionsPageMessage {
   return OpenOptionsPageMessageSchema.safeParse(message).success;
+}
+
+function isGetTabContextMessage(message: unknown): message is GetTabContextMessage {
+  return GetTabContextMessageSchema.safeParse(message).success;
 }
 
 function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
@@ -130,11 +141,12 @@ export interface RuntimeMessageListenerDependencies {
   messaging: Pick<MessagingService, 'addListener'>;
   clipPipeline: ClipPipelineDependencies;
   openOptionsPage(section?: string): Promise<void>;
+  getTabContext(sender: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
 }
 
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
-  tabs: Pick<TabsService, 'create' | 'sendMessage'>,
+  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage'>,
   runtime: Pick<RuntimeService, 'getURL'>
 ): RuntimeMessageListenerDependencies {
   return {
@@ -145,6 +157,26 @@ export function createRuntimeMessageListenerDependencies(
       const normalizedSection = section?.trim();
       const url = normalizedSection ? `${optionsUrl}#${normalizedSection}` : optionsUrl;
       await tabs.create({ url });
+    },
+    async getTabContext(sender) {
+      const tabId = typeof sender.tabId === 'number' ? sender.tabId : undefined;
+      const frameId = typeof sender.frameId === 'number' ? sender.frameId : undefined;
+      let windowId = typeof sender.windowId === 'number' ? sender.windowId : undefined;
+
+      if (windowId === undefined && tabId !== undefined) {
+        try {
+          windowId = (await tabs.get(tabId))?.windowId;
+        } catch {
+          windowId = undefined;
+        }
+      }
+
+      return {
+        success: true,
+        ...(tabId !== undefined ? { tabId } : {}),
+        ...(windowId !== undefined ? { windowId } : {}),
+        ...(frameId !== undefined ? { frameId } : {})
+      };
     }
   };
 }
@@ -171,6 +203,10 @@ export function registerRuntimeMessageListener(
     if (isTrackUsageEventMessage(message)) {
       await trackUsageEvent(message.event, message.params);
       return;
+    }
+
+    if (isGetTabContextMessage(message)) {
+      return dependencies.getTabContext(sender as RuntimeMessageSender);
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {
