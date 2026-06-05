@@ -135,7 +135,7 @@ export const previewContent: PreviewContent = {
     ],
     vaults: [
       {
-        name: 'AllInObsidian',
+        name: 'Zendio',
         https: 'https://127.0.0.1:27124/',
         http: 'http://127.0.0.1:27123/',
         key: 'sk-demo-demo-demo',

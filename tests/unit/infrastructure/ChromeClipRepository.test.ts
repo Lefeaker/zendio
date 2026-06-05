@@ -18,7 +18,7 @@ const createOptionsSnapshot = (): CompleteOptions =>
       baseUrl: 'https://obsidian.example/',
       httpsUrl: 'https://obsidian.example/',
       httpUrl: 'http://obsidian.example/',
-      vault: 'AllInObsidian',
+      vault: 'Zendio',
       apiKey: 'test-key'
     },
     templates: {

@@ -23,7 +23,7 @@ describe('configProvider', () => {
       expect(restDefaults.httpsPort).toBe(27124);
       expect(restDefaults.httpHost).toBe('127.0.0.1');
       expect(restDefaults.httpPort).toBe(27123);
-      expect(restDefaults.vault).toBe('AllInObsidian');
+      expect(restDefaults.vault).toBe('Zendio');
     });
 
     it('applies overrides correctly', () => {
