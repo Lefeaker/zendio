@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveAdaptiveText } from '@shared/i18n/textAdaptation';
 import { createI18nResource } from '../../../src/i18n/resource';
 import type { Messages } from '../../../src/i18n/messages';
-import en from '../../../src/i18n/locales/en';
+import en from '../../../src/i18n/generated/locales/en.generated';
 
 function createMessages(overrides: Partial<Messages>): Messages {
   return {

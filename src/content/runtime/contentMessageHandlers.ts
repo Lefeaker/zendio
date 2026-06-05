@@ -1,4 +1,6 @@
 import { isAppError } from '../../shared/errors';
+import { queueNextClipAnalyticsSource } from './clipFlow';
+import type { ClipAnalyticsSource } from './clipFlowTypes';
 import type {
   LocalVaultPermissionPromptMessage,
   LocalVaultPermissionPromptResponse
@@ -95,6 +97,7 @@ export function handleContentAction(
     return startVideoMode(context);
   }
   if (action === 'clipSelection') {
+    queueNextClipAnalyticsSource(deriveClipAnalyticsSource(message) ?? 'unknown');
     context.setClipMode('selection');
     context.runClip();
     return createSuccessPayload();
@@ -109,11 +112,46 @@ export function handleContentAction(
     if (context.window !== context.window.top) {
       return createFailurePayload('Ignored in child frame', { ignored: true });
     }
+    queueNextClipAnalyticsSource(deriveClipAnalyticsSource(message) ?? 'unknown');
     context.setClipMode('full');
     context.runClip();
     return createSuccessPayload();
   }
   return;
+}
+
+const CLIP_ANALYTICS_SOURCES = new Set<ClipAnalyticsSource>([
+  'menu',
+  'toolbar',
+  'shortcut',
+  'unknown'
+]);
+
+export function deriveClipAnalyticsSource(
+  message: Record<string, unknown>
+): ClipAnalyticsSource | null {
+  const action = message.action;
+  if (action !== 'clipFull' && action !== 'clipSelection') {
+    return null;
+  }
+
+  const explicitSource = message.analyticsSource;
+  if (
+    typeof explicitSource === 'string' &&
+    CLIP_ANALYTICS_SOURCES.has(explicitSource as ClipAnalyticsSource)
+  ) {
+    return explicitSource as ClipAnalyticsSource;
+  }
+
+  if (typeof message.tabId === 'number' || typeof message.frameId === 'number') {
+    return 'menu';
+  }
+
+  if (action === 'clipFull') {
+    return 'toolbar';
+  }
+
+  return 'unknown';
 }
 
 function createSuccessPayload(extra: Record<string, MessagePayload> = {}): MessagePayload {

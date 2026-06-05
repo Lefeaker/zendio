@@ -1,5 +1,6 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
+import { createTrackUsageEventMessage } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 
 export interface ResetUsageStatsDependencies {
@@ -20,9 +21,7 @@ export async function resetUsageStatsAction(
   for (const key of storageKeys) {
     await dependencies.storage.local.set(key, stats);
   }
-  await dependencies.messagingRepository.send({
-    type: 'track',
-    event: 'clear_stats',
-    params: { timestamp: now() }
-  });
+  await dependencies.messagingRepository.send(
+    createTrackUsageEventMessage('clear_stats', { timestamp: now() })
+  );
 }

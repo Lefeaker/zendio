@@ -38,7 +38,7 @@
 - [ ] 商店名称（≤45 字符）与短描述（≤132 字符）：突出核心价值，建议中英文各一份。
 - [ ] 长描述（≤2000 字符）：结构建议包含痛点、主要功能、权限说明、隐私承诺、更新亮点；可复用 `README.md` 中的 “Feature Highlights” 与 “Latest Enhancements”。
 - [ ] 权限说明：将 `README.md` 里的权限表转换为自然语言段落，填入后台 “Required Permissions Justification”。
-- [ ] 本地化：如需多语言展示，在 `/_locales/<lang>/messages.json` 中补充 `appName`、`appShortName`、`appDesc` 等字段，并在 `manifest.json` 中配置 `default_locale`。
+- [ ] 本地化：如需多语言展示，修改 `src/i18n/catalog/messages/<lang>/static.json` 中的 WebExtension static 文案，随后运行 `npm run i18n:catalog:generate`、`npm run i18n:catalog:check`、`npm run i18n:lint`、`npm run audit:locales:report`；`public/_locales/**` 是生成产物，不手写。
 
 ## 阶段 4：功能与质量验证
 

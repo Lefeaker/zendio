@@ -120,8 +120,14 @@
     },
     {
       "id": "env-compat-aliases",
-      "paths": ["scripts/**", "src/**", "tests/**", "tools/report-production-build-graph.mjs"],
-      "lineRegex": "AIIINOB_REST_|AIIINOB_SENTRY_",
+      "paths": [
+        "docs/**",
+        "scripts/**",
+        "src/**",
+        "tests/**",
+        "tools/report-production-build-graph.mjs"
+      ],
+      "lineRegex": "AIIINOB_REST_|AIIINOB_SENTRY_|AIIINOB_GA_",
       "class": "compat-alias-env",
       "reason": "AIIINOB_* environment names are backwards-compatible aliases while Zendio env aliases take precedence."
     },

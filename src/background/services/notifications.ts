@@ -1,4 +1,4 @@
-import { getMessages, formatMessage } from '../../i18n';
+import { getMessages, formatMessage } from '@i18n';
 import { APP_ICON_PATH } from '../../shared/constants';
 import type { NotificationOptions as PlatformNotificationOptions } from '../../platform/interfaces/notifications';
 import type { PlatformServices } from '../../platform/types';

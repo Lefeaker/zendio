@@ -1,6 +1,5 @@
 import type { StorageAreaService } from '../platform/interfaces/storage';
 import {
-  AVAILABLE_LANGUAGES,
   DEFAULT_LANGUAGE,
   DEFAULT_RUNTIME_MESSAGES,
   Language,
@@ -8,73 +7,65 @@ import {
   loadMessagesWithFallback,
   Messages
 } from './locales';
-import { LANGUAGE_CONFIG, resolveLanguage, getLanguageFallbackChain } from './config';
-import { createDomBindingAdapter } from './adapters/domBindingAdapter';
-import { createPageI18nController, type PageI18nController } from './pageController';
+import { AVAILABLE_LANGUAGES } from './config';
+import type { PageI18nController } from './pageController';
 import type { I18nBindingAdapter } from './types';
 import { errorHandler, i18nErrors } from '../shared/errors';
-import { formatWithICU } from './messageFormatter';
+import { createLanguageService, LANGUAGE_STORAGE_KEY } from './runtime/languageService';
+import { createPageRuntime } from './runtime/pageRuntime';
+import { createStorageAdapter } from './runtime/storageAdapter';
 
 export { createPageI18nController } from './pageController';
 export type { PageI18nController } from './pageController';
 export type { I18nBinder, I18nBindingAdapter, I18nBindingHandle, I18nResource } from './types';
 export type { Messages, Language } from './locales';
-export { DEFAULT_LANGUAGE };
+export { DEFAULT_LANGUAGE, DEFAULT_RUNTIME_MESSAGES };
 export { resolveLanguage } from './config';
+export { formatMessage } from './messageFormatter';
 
-/**
- * Get the current language from storage
- */
-const LANGUAGE_STORAGE_KEY = 'language';
 let languageStorage: StorageAreaService | null = null;
 
 export function configureI18nStorage(storage: StorageAreaService | null): void {
   languageStorage = storage;
 }
 
-function resolveFromNavigator(): Language {
-  if (typeof navigator === 'undefined') {
-    return DEFAULT_LANGUAGE;
+function getChromeI18nLanguage(): string | undefined {
+  if (typeof chrome === 'undefined' || typeof chrome.i18n?.getUILanguage !== 'function') {
+    return undefined;
   }
-  return resolveLanguage(navigator.language);
+
+  return chrome.i18n.getUILanguage();
+}
+
+function getRuntimeLanguageService() {
+  return createLanguageService({
+    storage: languageStorage ? createStorageAdapter(languageStorage) : null,
+    getNavigator: () => (typeof navigator === 'undefined' ? undefined : navigator),
+    getChromeI18nLanguage,
+    onReadError: async (cause) => {
+      await errorHandler.handle(
+        i18nErrors.languageLoadFailed(cause, { storageKey: LANGUAGE_STORAGE_KEY }),
+        { suppressNotifications: false }
+      );
+    },
+    onWriteError: async (language, cause) => {
+      await errorHandler.handle(
+        i18nErrors.languagePersistFailed(language, cause, { storageKey: LANGUAGE_STORAGE_KEY }),
+        { suppressNotifications: false }
+      );
+    }
+  });
 }
 
 export async function getCurrentLanguage(): Promise<Language> {
-  if (!languageStorage) {
-    return resolveFromNavigator();
-  }
-
-  try {
-    const value = await languageStorage.get<string>(LANGUAGE_STORAGE_KEY);
-    if (value) {
-      return resolveLanguage(value);
-    }
-    return resolveFromNavigator();
-  } catch (cause) {
-    await errorHandler.handle(
-      i18nErrors.languageLoadFailed(cause, { storageKey: LANGUAGE_STORAGE_KEY }),
-      { suppressNotifications: false }
-    );
-    return resolveFromNavigator();
-  }
+  return getRuntimeLanguageService().getCurrentLanguage();
 }
 
 /**
  * Set the current language
  */
 export async function setCurrentLanguage(language: Language): Promise<void> {
-  if (!languageStorage) {
-    return;
-  }
-
-  try {
-    await languageStorage.set(LANGUAGE_STORAGE_KEY, resolveLanguage(language));
-  } catch (cause) {
-    await errorHandler.handle(
-      i18nErrors.languagePersistFailed(language, cause, { storageKey: LANGUAGE_STORAGE_KEY }),
-      { suppressNotifications: false }
-    );
-  }
+  await getRuntimeLanguageService().setCurrentLanguage(language);
 }
 
 /**
@@ -128,34 +119,24 @@ export function getAvailableLanguages(): Array<{
 /**
  * Load locale module and update document metadata.
  */
-export function loadLocale(language?: string): Promise<Messages> {
-  const chain = getLanguageFallbackChain(language);
-  const resolved = chain[0] ?? DEFAULT_LANGUAGE;
+let pageRuntime: ReturnType<typeof createPageRuntime> | null = null;
 
-  if (typeof document !== 'undefined') {
-    const dir = (LANGUAGE_CONFIG[resolved] ?? LANGUAGE_CONFIG[DEFAULT_LANGUAGE])?.dir ?? 'ltr';
-    document.documentElement.setAttribute('lang', resolved);
-    document.documentElement.setAttribute('dir', dir);
+function getPageRuntime(): ReturnType<typeof createPageRuntime> {
+  if (!pageRuntime) {
+    pageRuntime = createPageRuntime({
+      loadLocaleDefinition,
+      defaultRuntimeMessages: DEFAULT_RUNTIME_MESSAGES,
+      getMessagesForLanguage: (language) => getMessagesForLanguage(language),
+      getCurrentLanguage: () => getCurrentLanguage(),
+      setCurrentLanguage: (language) => setCurrentLanguage(language)
+    });
   }
 
-  return loadLocaleDefinition(resolved)
-    .then((locale) => locale.runtime)
-    .catch(() => DEFAULT_RUNTIME_MESSAGES);
+  return pageRuntime;
 }
 
-/**
- * Format a message with placeholders
- * Example: formatMessage("Hello {name}!", { name: "World" }) => "Hello World!"
- */
-export function formatMessage(
-  template: string,
-  params: Record<string, string | number | boolean | Date | null | undefined> = {},
-  language?: string
-): string {
-  return formatWithICU(template, {
-    values: params,
-    ...(language !== undefined && { language })
-  });
+export function loadLocale(language?: string): Promise<Messages> {
+  return getPageRuntime().loadLocale(language);
 }
 
 export interface PageI18nControllerOptions {
@@ -165,12 +146,5 @@ export interface PageI18nControllerOptions {
 export function createDefaultPageI18nController(
   options: PageI18nControllerOptions = {}
 ): PageI18nController {
-  const bindingAdapter = options.bindingAdapter ?? createDomBindingAdapter();
-  return createPageI18nController({
-    bindingAdapter,
-    defaultLanguage: DEFAULT_LANGUAGE,
-    loadMessages: (language) => getMessagesForLanguage(language),
-    getCurrentLanguage,
-    setCurrentLanguage
-  });
+  return getPageRuntime().createDefaultPageI18nController(options);
 }

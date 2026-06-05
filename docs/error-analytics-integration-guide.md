@@ -1,384 +1,127 @@
-# 错误分析系统集成指南
+# Error Analytics Integration Guide
 
-本指南详细说明如何在 Zendio 项目中集成和使用统一的错误码方案配合 Google Analytics 进行错误日志收集。
+最后更新：2026-06-05
 
-## 概述
+本文面向 owner / release 维护者，说明当前错误遥测如何接入 GA4 proxy 流。
 
-我们的错误分析系统提供：
+## 当前错误遥测真值
 
-1. **统一错误码方案** - 标准化的错误分类和命名
-2. **Google Analytics 集成** - 自动收集匿名错误数据
-3. **隐私保护** - 完全匿名化的数据处理
-4. **用户控制** - 用户可选择是否参与数据收集
+- 错误事件名固定为 `extension_error`
+- 错误事件通过 `GoogleAnalyticsReporter` 发送
+- 与产品事件共享 transport contract
+- 生产推荐走 owner proxy
+- `errorReporting` consent 关闭时，不应发送错误事件
+- 扩展内不保存服务端 credential
 
-## 系统架构
+关键源码：
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   应用错误      │───▶│   错误处理器     │───▶│  错误报告器     │
-│   (AppError)    │    │ (ErrorHandler)   │    │ (ErrorReporter) │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │   控制台日志     │    │ Google Analytics│
-                       │   通知系统       │    │   (匿名数据)    │
-                       └──────────────────┘    └─────────────────┘
-```
+- `src/shared/errors/analytics/googleAnalyticsReporter.ts`
+- `src/shared/errors/analytics/dataSanitizer.ts`
+- `src/shared/errors/analytics/analyticsConfig.ts`
+- `src/shared/analytics/analyticsTransport.ts`
 
-## 快速开始
+## 集成步骤
 
-### 1. 配置 Google Analytics
+### 1. 配置 public build analytics 参数
 
-#### 1.1 创建 GA4 属性
-
-1. 访问 [Google Analytics](https://analytics.google.com/)
-2. 创建新的 GA4 属性
-3. 获取 **Measurement ID**（格式：G-XXXXXXXXXX）
-
-#### 1.2 设置配置文件
-
-1. **默认文件**：
-   `src/shared/errors/analytics/analyticsConfig.ts` 已提交为非敏感 disabled default，clean checkout 不需要复制本地 ignored 文件。
-
-2. **发布/本地配置注入**：
-   `src/shared/errors/analytics/analyticsConfig.ts` 是 tracked placeholder-only 文件，必须保持非敏感默认值：
-
-   ```typescript
-   export const GA4_CONFIG = {
-     MEASUREMENT_ID: 'G-XXXXXXXXXX'
-     // ... 其他配置保持不变
-   };
-   ```
-
-   不要在 tracked 文件里写入真实 GA4 Measurement ID。真实 ID 只能通过 owner 发布流程注入，或开发者本地未提交覆盖用于验证。
-
-3. **安全说明**：
-   - 仓库内 `analyticsConfig.ts` 不得写入真实 GA4 Measurement ID
-   - 真实 Measurement ID 必须通过 owner 发布流程或本地未提交修改处理
-   - 每个开发者可以保留自己的本地配置，但不得提交
-
-### 2. 初始化错误分析系统
-
-在扩展的主入口文件中初始化系统：
-
-```typescript
-// src/background/index.ts
-import { initializeErrorAnalytics } from '../shared/errors/analytics';
-
-// 在扩展启动时初始化
-async function initializeExtension() {
-  try {
-    // 初始化错误分析系统
-    await initializeErrorAnalytics();
-
-    // 其他初始化代码...
-  } catch (error) {
-    console.error('Extension initialization failed:', error);
-  }
-}
-
-initializeExtension();
+```bash
+export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
+export AIIINOB_GA_TRANSPORT_MODE=proxy
+export AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
-### 3. 集成隐私控制
+### 2. 在 server-side proxy 持有 forwarding credential
 
-在选项页面中集成隐私设置组件：
+要求：
 
-```typescript
-// src/options/index.ts
-import { PrivacySettings } from './components/controls/privacySettings';
+- server 端自行持有 `api_secret`
+- 扩展只发送匿名 payload 给 owner proxy
+- proxy 转发前可做 allowlist、rate limit、logging、payload validation
 
-async function initializeOptionsPage() {
-  // 初始化隐私设置
-  const privacyContainer = document.getElementById('privacySettingsContainer');
-  if (privacyContainer) {
-    const privacySettings = new PrivacySettings(privacyContainer);
-    await privacySettings.render();
-  }
-}
+### 3. 保持错误匿名化链路开启
 
-initializeOptionsPage();
+当前 reporter 会在发送前执行：
+
+- `sanitizeErrorForAnalytics`
+- safe-context 提取
+- 浏览器类型 / 主版本提取
+- transport-level payload 构建
+
+这意味着 owner 应看到的是匿名错误元数据，而不是原始用户内容。
+
+### 4. 验证 consent gating
+
+验证顺序：
+
+1. 打开 `analytics`，关闭 `errorReporting`
+2. 触发一次受控错误
+3. proxy / debug proxy / DebugView 不应收到 `extension_error`
+4. 再打开 `errorReporting`
+5. 重试同样错误
+6. 此时才应收到 `extension_error`
+
+### 5. 运行只读 setup 校验
+
+```bash
+node scripts/setup-error-analytics.js
 ```
 
-### 4. 使用标准化错误码
+该脚本不会生成本地配置文件，也不会写入 tracked source。
 
-更新现有的错误定义以使用新的标准化错误码：
+## Error payload contract
 
-```typescript
-// 旧的错误定义
-export const oldErrors = {
-  extractionFailed(): AppError {
-    return {
-      code: 'EXTRACTION_FAILED', // 旧的错误码
-      domain: 'extraction'
-      // ...
-    };
-  }
-};
+### 必填字段
 
-// 新的错误定义
-import { STANDARDIZED_ERROR_CODES } from '../errorCodes';
+- `error_code`
+- `error_domain`
+- `error_severity`
+- `error_recoverable`
 
-export const newErrors = {
-  extractionFailed(): AppError {
-    return {
-      code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN, // 标准化错误码
-      domain: 'extraction'
-      // ...
-    };
-  }
-};
-```
+### 允许的补充字段
 
-## 错误码规范
+- `error_category`
+- `extension_version`
+- `browser_name`
+- `browser_version`
+- `failure_category`
 
-### 命名规范
+当前 error telemetry reference 详见 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)。
 
-错误码采用以下格式：`{DOMAIN}_{CATEGORY}_{SPECIFIC_ERROR}`
+## 隐私边界
 
-- **DOMAIN**: 功能域（如 EXTRACTION, REST, CHROME_API）
-- **CATEGORY**: 错误类别（如 CONTENT, NETWORK, PERMISSION）
-- **SPECIFIC_ERROR**: 具体错误（如 NO_MARKDOWN, REQUEST_FAILED）
+错误事件不应包含：
 
-### 示例错误码
+- 完整 URL / 查询参数
+- 文件系统路径、vault 名称
+- 正文、markdown、聊天文本、用户输入正文
+- 账号、邮箱、IP、cookie、token、密码
+- 客户端侧服务端 credential
 
-```typescript
-// 内容提取错误
-EXTRACTION_CONTENT_NO_MARKDOWN; // 内容提取未产生 Markdown
-EXTRACTION_SELECTION_NO_SELECTION; // 未找到有效选区
-EXTRACTION_CONTENT_UNSUPPORTED; // 不支持的内容类型
+stack trace 也会被裁剪，只保留有限的函数名 / 行号信息。
 
-// 网络请求错误
-REST_NETWORK_REQUEST_FAILED; // 网络请求失败
-REST_NETWORK_TIMEOUT; // 请求超时
-REST_VALIDATION_UNEXPECTED_RESPONSE; // 意外的响应格式
+## 本地与生产验证方式
 
-// Chrome API 错误
-CHROME_API_PERMISSION_DENIED; // 权限被拒绝
-CHROME_API_RUNTIME_ERROR; // 运行时错误
-CHROME_API_STORAGE_ACCESS_DENIED; // 存储访问被拒绝
-```
+### 本地
 
-### 创建新错误码
+- `directDebug` 可用于 owner debug proxy 验证
+- 只在开发验证中使用；扩展仍只发往配置的 proxy endpoint，不直连 Google debug endpoint
 
-使用 `generateErrorCode` 函数创建新的错误码：
+### 生产 / staging
 
-```typescript
-import { generateErrorCode } from '../errorCodes';
+- 以 proxy log 为准
+- 检查 `extension_error` 的 response code、版本、错误域、严重度
+- 检查 payload 中无隐私泄露
 
-// 生成新的错误码
-const newErrorCode = generateErrorCode('content', 'RENDERING', 'UI_FAILED');
-// 结果: 'CONTENT_RENDERING_UI_FAILED'
-```
+## 常见误区
 
-## 数据隐私保护
+### “错误遥测是独立配置，不需要共享 transport”
 
-### 自动匿名化
+不是。错误遥测与产品遥测共享 analytics transport contract，只是 consent gate 不同。
 
-系统会自动清理以下敏感信息：
+### “error reporter 可以直接读取服务端 credential”
 
-- 邮箱地址 → `[EMAIL_REDACTED]`
-- IP 地址 → `[IP_REDACTED]`
-- 用户名 → `[USERNAME_REDACTED]`
-- 文件路径 → `[PATH_REDACTED]`
-- URL 参数 → `[PARAM_REDACTED]`
+不是。client-side 只读 public config。
 
-### 验证匿名化
+### “只要 proxy 通了，就说明隐私边界正确”
 
-可以使用验证函数检查数据是否已充分匿名化：
-
-```typescript
-import { validateSanitization, generateSanitizationReport } from '../analytics/dataSanitizer';
-
-const originalError = {
-  /* 包含敏感信息的错误 */
-};
-const sanitizedError = sanitizeErrorForAnalytics(originalError);
-
-// 验证匿名化
-const validation = validateSanitization(sanitizedError);
-if (!validation.isValid) {
-  console.warn('Sanitization issues:', validation.issues);
-}
-
-// 生成报告
-const report = generateSanitizationReport(originalError, sanitizedError);
-console.log('Data reduction:', report.reductionPercentage + '%');
-```
-
-## 用户同意管理
-
-### 设置用户同意
-
-```typescript
-import { setAnalyticsConsent } from '../analytics/analyticsConfig';
-
-// 用户同意分析和错误报告
-await setAnalyticsConsent(true, true);
-
-// 用户只同意错误报告，不同意分析
-await setAnalyticsConsent(false, true);
-
-// 用户拒绝所有数据收集
-await setAnalyticsConsent(false, false);
-```
-
-### 检查同意状态
-
-```typescript
-import { getAnalyticsConfigManager } from '../analytics/analyticsConfig';
-
-const configManager = getAnalyticsConfigManager();
-const consent = await configManager.getUserConsent();
-
-if (consent?.errorReporting) {
-  console.log('User has consented to error reporting');
-}
-```
-
-## 监控和调试
-
-### 检查系统状态
-
-```typescript
-import { getErrorAnalyticsStatus } from '../analytics';
-
-const status = getErrorAnalyticsStatus();
-console.log('Analytics Status:', {
-  enabled: status.enabled,
-  hasReporter: status.hasReporter,
-  configLoaded: status.configLoaded
-});
-```
-
-### 调试模式
-
-在开发环境中启用调试模式：
-
-```typescript
-import { getAnalyticsConfigManager } from '../analytics/analyticsConfig';
-
-const configManager = getAnalyticsConfigManager();
-await configManager.updateConfig({
-  debugMode: true // 启用调试模式
-});
-```
-
-### 测试错误报告
-
-在开发环境中测试错误报告：
-
-```typescript
-import { reportTestError } from '../analytics';
-
-// 发送测试错误（仅在开发模式下工作）
-await reportTestError();
-```
-
-## 最佳实践
-
-### 1. 错误处理
-
-```typescript
-// ✅ 好的做法：使用标准化错误码和丰富的上下文
-import { STANDARDIZED_ERROR_CODES } from '../errorCodes';
-
-try {
-  await someOperation();
-} catch (error) {
-  await handleError({
-    code: STANDARDIZED_ERROR_CODES.REST_NETWORK_REQUEST_FAILED,
-    domain: 'rest',
-    message: 'Failed to connect to Obsidian API',
-    severity: 'error',
-    recoverable: true,
-    userMessage: '连接 Obsidian 失败，请检查网络设置',
-    context: {
-      url: sanitizeUrl(apiUrl),
-      method: 'POST',
-      retryCount: 3,
-      timestamp: Date.now()
-    },
-    cause: error
-  });
-}
-```
-
-### 2. 上下文信息
-
-```typescript
-// ✅ 提供有用的上下文，但避免敏感信息
-context: {
-  operation: 'clip_article',
-  contentType: 'text/html',
-  contentLength: 1024,
-  extractorUsed: 'readability',
-  timestamp: Date.now()
-}
-
-// ❌ 避免包含敏感信息
-context: {
-  userEmail: 'user@example.com',    // 敏感信息
-  fullUrl: 'https://site.com/user/123', // 可能包含用户ID
-  apiKey: 'secret123'               // 敏感凭据
-}
-```
-
-### 3. 错误恢复
-
-```typescript
-// ✅ 标记错误是否可恢复
-{
-  code: STANDARDIZED_ERROR_CODES.REST_NETWORK_TIMEOUT,
-  recoverable: true,  // 网络超时通常可以重试
-  // ...
-}
-
-{
-  code: STANDARDIZED_ERROR_CODES.CHROME_API_PERMISSION_DENIED,
-  recoverable: false, // 权限问题需要用户手动解决
-  // ...
-}
-```
-
-## 故障排除
-
-### 常见问题
-
-1. **错误未出现在 GA4 中**
-   - 检查 owner release 注入或本地未提交覆盖中的 Measurement ID
-   - 确认用户已同意错误报告
-   - 查看浏览器控制台是否有网络错误
-
-2. **数据格式错误**
-   - 确认 GA4 中已创建相应的自定义维度
-   - 检查事件参数名称是否匹配
-
-3. **隐私设置不生效**
-   - 确认隐私设置组件已正确初始化
-   - 检查存储权限是否正常
-
-### 调试工具
-
-- 使用 GA4 的 DebugView 查看实时事件
-- 启用扩展的调试模式查看详细日志
-- 使用浏览器开发者工具检查网络请求
-
-## 更新和维护
-
-### 添加新错误类型
-
-1. 在 `errorCodes.ts` 中添加新的错误码常量
-2. 在 `ERROR_CODE_DESCRIPTIONS` 中添加描述
-3. 更新相关的错误工厂函数
-4. 在 GA4 中创建对应的自定义维度（如需要）
-
-### 版本升级
-
-1. 保持 tracked `analyticsConfig.ts` 为 placeholder-only，并通过 owner release 注入或本地未提交覆盖验证真实 Measurement ID
-2. 运行数据迁移脚本（如有）
-3. 测试新版本的错误报告功能
-4. 更新文档和用户指南
-
-通过遵循本指南，你可以成功集成和使用 Zendio 的错误分析系统，获得全面的错误监控和用户隐私保护。
+不是。还必须验证匿名化、字段 allowlist 与 consent gating。

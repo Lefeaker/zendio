@@ -70,6 +70,15 @@ function buildOnboardingDom(): void {
   `;
 }
 
+async function waitForSentMessage(
+  send: (message: unknown) => unknown,
+  message: unknown
+): Promise<void> {
+  await vi.waitFor(() => {
+    expect(send).toHaveBeenCalledWith(message);
+  });
+}
+
 describe('onboarding bootstrap', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -79,6 +88,7 @@ describe('onboarding bootstrap', () => {
       configurable: true,
       value: vi.fn()
     });
+    vi.spyOn(window, 'open').mockImplementation(() => null);
     vi.spyOn(window, 'matchMedia').mockReturnValue({
       matches: false,
       addEventListener: vi.fn(),
@@ -136,6 +146,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
     expect(navigationRepo.openOptions).toHaveBeenCalledTimes(1);
 
     document
@@ -158,6 +169,264 @@ describe('onboarding bootstrap', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(storageSet).toHaveBeenCalledWith('onboardingCompleted', true);
+  });
+
+  it('emits catalog-safe onboarding lifecycle telemetry for consented users', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    const navigationRepo = {
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    };
+    let now = 0;
+    const messagingRepository = {
+      send: vi.fn(() => Promise.resolve(undefined))
+    };
+    const optionsRepository = {
+      get: vi.fn(() =>
+        Promise.resolve({
+          privacyPreferences: {
+            analytics: true
+          }
+        })
+      )
+    };
+    const controller = new OnboardingController(
+      navigationRepo as never,
+      {
+        storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
+        tabs: {
+          getCurrent: vi.fn(() => Promise.resolve({ id: 42 })),
+          remove: vi.fn(() => Promise.resolve(undefined))
+        },
+        messagingRepository,
+        now: () => now,
+        optionsRepository
+      } as never
+    );
+
+    controller.initialize();
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_started',
+      params: { source: 'install' }
+    });
+
+    now = 150;
+    document
+      .getElementById('configureApiBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_step_completed',
+      params: {
+        step: 'welcome',
+        duration_bucket: '100ms_to_499ms'
+      }
+    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_step_completed',
+      params: {
+        step: 'welcome',
+        duration_ms: 150,
+        step_index: 1
+      }
+    });
+
+    now = 400;
+    document
+      .getElementById('skipStep2Btn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_skipped',
+      params: {
+        step: 'vault'
+      }
+    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_step_completed',
+      params: {
+        step: 'vault',
+        duration_bucket: '100ms_to_499ms'
+      }
+    });
+
+    now = 3_500;
+    document
+      .getElementById('supportLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_support_action',
+      params: {
+        action: 'docs'
+      }
+    });
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_step_completed',
+      params: {
+        step: 'finish',
+        duration_bucket: '3s_to_9s'
+      }
+    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_support_action',
+      params: {
+        action: 'docs',
+        url: 'https://ko-fi.com/xiannian'
+      }
+    });
+
+    now = 4_500;
+    document
+      .getElementById('skipOnboardingBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_completed',
+      params: {
+        duration_bucket: '3s_to_9s'
+      }
+    });
+  });
+
+  it('emits feedback/contact support actions without changing base contact completion semantics', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    const messagingRepository = {
+      send: vi.fn(() => Promise.resolve(undefined))
+    };
+    const optionsRepository = {
+      get: vi.fn(() =>
+        Promise.resolve({
+          privacyPreferences: {
+            analytics: true
+          }
+        })
+      )
+    };
+    const controller = new OnboardingController(
+      {
+        openVault: vi.fn(() => Promise.resolve(undefined)),
+        openOptions: vi.fn(() => Promise.resolve(undefined)),
+        openExternalLink: vi.fn(() => Promise.resolve(undefined))
+      } as never,
+      {
+        storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
+        tabs: {
+          getCurrent: vi.fn(() => Promise.resolve(undefined)),
+          remove: vi.fn(() => Promise.resolve(undefined))
+        },
+        messagingRepository,
+        now: () => 3_200,
+        optionsRepository
+      } as never
+    );
+
+    controller.initialize();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    localStorage.removeItem('onboardingCompletedSteps');
+
+    document
+      .getElementById('contactLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.open).toHaveBeenCalledWith(
+      'https://github.com/Lefeaker/AllinOB',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_support_action',
+      params: {
+        action: 'contact'
+      }
+    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_step_completed',
+      params: {
+        step: 'finish',
+        duration_bucket: '3s_to_9s'
+      }
+    });
+
+    document
+      .getElementById('suggestionsLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'onboarding_support_action',
+      params: {
+        action: 'feedback'
+      }
+    });
+    expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
+  });
+
+  it('does not emit onboarding telemetry before analytics consent exists', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    const messagingRepository = {
+      send: vi.fn(() => Promise.resolve(undefined))
+    };
+    const optionsRepository = {
+      get: vi.fn(() =>
+        Promise.resolve({
+          privacyPreferences: {
+            analytics: false
+          }
+        })
+      )
+    };
+    const controller = new OnboardingController(
+      {
+        openVault: vi.fn(() => Promise.resolve(undefined)),
+        openOptions: vi.fn(() => Promise.resolve(undefined)),
+        openExternalLink: vi.fn(() => Promise.resolve(undefined))
+      } as never,
+      {
+        storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
+        tabs: {
+          getCurrent: vi.fn(() => Promise.resolve(undefined)),
+          remove: vi.fn(() => Promise.resolve(undefined))
+        },
+        messagingRepository,
+        now: () => 0,
+        optionsRepository
+      } as never
+    );
+
+    controller.initialize();
+    await Promise.resolve();
+    document
+      .getElementById('configureApiBtn')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(messagingRepository.send).not.toHaveBeenCalled();
   });
 
   it('bootstraps controller from resolved dependencies', async () => {

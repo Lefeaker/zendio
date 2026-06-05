@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import { getElementById, getOptionalElementById } from '../utils/dom';
 import { OptionsValidationError } from '../services/validation';
 import { ConfigTransferError } from '../services/configTransfer';

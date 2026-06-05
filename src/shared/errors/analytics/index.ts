@@ -73,6 +73,8 @@ export async function initializeErrorAnalytics(
         measurementId: config.measurementId,
         enabled: config.enabled,
         debugMode: config.debugMode,
+        transportMode: config.transportMode,
+        ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
         ...(config.clientId !== undefined && { clientId: config.clientId }),
         ...(config.sessionId !== undefined && { sessionId: config.sessionId })
       });

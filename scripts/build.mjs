@@ -24,6 +24,10 @@ function resolveSentryEnv(name, fallback = '') {
   return resolveEnvAlias(`ZENDIO_SENTRY_${name}`, `AIIINOB_SENTRY_${name}`, fallback);
 }
 
+function resolveGaEnv(name, fallback = '') {
+  return resolveEnvAlias(`ZENDIO_GA_${name}`, `AIIINOB_GA_${name}`, fallback);
+}
+
 // 运行质量检查（仅在生产模式且未跳过检查时）
 if (prod && !skipChecks && !watch) {
   console.log('🔍 运行质量检查...');
@@ -74,7 +78,13 @@ const sharedBuildOptions = {
       resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
     __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
-    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false'
+    __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
+    __ZENDIO_GA_MEASUREMENT_ID__: JSON.stringify(resolveGaEnv('MEASUREMENT_ID')),
+    __ZENDIO_GA_TRANSPORT_MODE__: JSON.stringify(resolveGaEnv('TRANSPORT_MODE')),
+    __ZENDIO_GA_PROXY_ENDPOINT__: JSON.stringify(resolveGaEnv('PROXY_ENDPOINT')),
+    __AIIINOB_GA_MEASUREMENT_ID__: JSON.stringify(resolveGaEnv('MEASUREMENT_ID')),
+    __AIIINOB_GA_TRANSPORT_MODE__: JSON.stringify(resolveGaEnv('TRANSPORT_MODE')),
+    __AIIINOB_GA_PROXY_ENDPOINT__: JSON.stringify(resolveGaEnv('PROXY_ENDPOINT'))
   },
   charset: 'utf8',
   loader: {

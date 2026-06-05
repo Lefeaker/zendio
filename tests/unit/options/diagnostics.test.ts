@@ -46,17 +46,11 @@ const getOptionsControllerMock = vi.hoisted(() =>
 const getOptionsMessagesMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ portConflictDetected: 'Port conflict: {ports}' }))
 );
-const formatMessageMock = vi.hoisted(() =>
-  vi.fn((template: string, values: Record<string, string>) =>
-    template.replace('{ports}', values.ports)
-  )
-);
 
 vi.mock('../../../src/options/app/optionsControllerContext', () => ({
   getOptionsController: getOptionsControllerMock
 }));
 vi.mock('@options/app/i18nContext', () => ({ getOptionsMessages: getOptionsMessagesMock }));
-vi.mock('../../../src/i18n', () => ({ formatMessage: formatMessageMock }));
 vi.mock('@shared/di/serviceRegistry', () => ({
   resolveRepository: () => ({ get: repoGetMock, set: repoSetMock })
 }));
@@ -154,11 +148,43 @@ describe('diagnostics', () => {
 
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(loadRawMock).toHaveBeenCalled();
-    expect(formatMessageMock).toHaveBeenCalledWith('Port conflict: {ports}', {
-      ports: LOCAL_CONFLICT_PORT
-    });
     expect(output).toContain(`Port conflict: ${LOCAL_CONFLICT_PORT}`);
     expect(output).toContain('映射条目数量: 1');
+  });
+
+  it('keeps missing placeholders unchanged in diagnostics port-conflict formatting', async () => {
+    const { buildDiagnosticsReport } = await import('@options/components/diagnostics');
+
+    const report = buildDiagnosticsReport(
+      {
+        rest: {
+          httpsUrl: LOCAL_HTTPS_URL,
+          httpUrl: LOCAL_HTTP_URL,
+          apiKey: 'key'
+        },
+        templates: {
+          article: 'Articles/{title}.md',
+          fragment: 'Fragments/{title}.md',
+          ai: 'AI/{title}.md'
+        },
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'v1',
+              name: 'One',
+              enabled: true,
+              httpsUrl: LOCAL_HTTPS_URL,
+              apiKey: 'k1'
+            },
+            { id: 'v2', name: 'Two', enabled: true, httpUrl: LOCAL_HTTP_CONFLICT_URL, apiKey: 'k2' }
+          ],
+          rules: []
+        }
+      } as unknown as StoredOptions,
+      { portConflictDetected: 'Port conflict: {ports} / {missing}' }
+    );
+
+    expect(report).toContain(`Port conflict: ${LOCAL_CONFLICT_PORT} / {missing}`);
   });
 
   it('falls back to repository get when controller is unavailable and surfaces complete diagnostic statuses', async () => {

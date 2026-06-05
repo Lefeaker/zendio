@@ -1,10 +1,11 @@
 # 工程文档入口
 
-最后更新：2026-05-29
+最后更新：2026-06-05
 
 ## 当前真值入口
 
 - [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - [`performance-baseline.md`](./performance-baseline.md)
 - [`source-of-truth-index.md`](./source-of-truth-index.md)
 - [`non-production-code-ownership.md`](./non-production-code-ownership.md)
@@ -27,9 +28,13 @@
 ## 当前口径
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
-- `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `11` warning-only findings
+- `lint:type-any` 当前 GA/i18n PR merge 口径为扫描 `1071` files，实测 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 保持 `0`，`non-null` 与 `ts-expect-error` 上限未放宽
+- `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
+- i18n 当前由 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 驱动生成 `src/i18n/generated/**` 与 `public/_locales/**`；root `_locales/**` 已退役，不再作为 compatibility duplicate 保留
+- Chrome ZIP 与 Firefox XPI 在 package 脚本中会解包后执行 release-surface 审计，最终包不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - `audit:build:report` 使用 2026-05-24 M2.5 复核后的预算真值
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；`audit:non-production-source:check` 是 hard gate
+- GA production release public config 由 ignored `.env.production.local` 注入；owner 命令见 [`engineering-entrypoints.md`](./engineering-entrypoints.md) 与 [`analytics-configuration-guide.md`](./analytics-configuration-guide.md)
 - `M4` 已按重定义口径通过：当前分支保留已验真的 retained set，原始规模预算已下沉到 backlog
 - 当前交付归属统一落到 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 

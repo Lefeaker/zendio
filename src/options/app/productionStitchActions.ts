@@ -60,6 +60,9 @@ export interface ProductionStitchActionContext {
   syncModifierControls(): void;
   syncPreviewThemeControls(): void;
   syncRoutingRulesToDraft(): void;
+  trackExperimentalFeatureToggle?(featureKey: string, enabled: boolean): void;
+  trackLanguageChanged?(language: Language): void;
+  trackThemeChanged?(theme: InterfaceTheme): void;
   updateClassifierField(field: string, value: unknown): void;
   updateDraftPath(path: string, value: unknown): void;
   updateVaultField(index: number, field: string, value: unknown): void;
@@ -83,6 +86,7 @@ export function createProductionStitchActions(
       );
       context.persistThemePreference(theme);
       context.syncPreviewThemeControls();
+      context.trackThemeChanged?.(theme);
     },
     'preview:setLanguage': ({ value, mutate: update }) => {
       const nextLanguage = String(value || context.getCurrentLanguage()) as Language;
@@ -103,6 +107,7 @@ export function createProductionStitchActions(
           });
         }
         context.render();
+        context.trackLanguageChanged?.(nextLanguage);
       })();
     },
     'resource:close': () => {
@@ -221,6 +226,10 @@ export function createProductionStitchActions(
     },
     'experimental:setPageSummaryEnabled': () => {
       updateExperimentalBoolean(context.getDraft(), context.getState(), 'pageSummaryEnabled');
+      context.trackExperimentalFeatureToggle?.(
+        'page_summary_enabled',
+        context.getState().pageSummaryEnabled
+      );
     },
     'experimental:setReadingOverlaySummaryEnabled': () => {
       updateExperimentalBoolean(
@@ -228,12 +237,20 @@ export function createProductionStitchActions(
         context.getState(),
         'readingOverlaySummaryEnabled'
       );
+      context.trackExperimentalFeatureToggle?.(
+        'reading_overlay_summary_enabled',
+        context.getState().readingOverlaySummaryEnabled
+      );
     },
     'experimental:setSubtitleTranslationEnabled': () => {
       updateExperimentalBoolean(
         context.getDraft(),
         context.getState(),
         'subtitleTranslationEnabled'
+      );
+      context.trackExperimentalFeatureToggle?.(
+        'subtitle_translation_enabled',
+        context.getState().subtitleTranslationEnabled
       );
     },
     'experimental:setSubtitleTargetLanguage': () => {

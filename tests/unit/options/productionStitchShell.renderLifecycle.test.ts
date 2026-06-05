@@ -649,12 +649,18 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {
     const controller = createController();
+    const messagingRepository = createMessaging();
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
-      language: 'en'
+      language: 'en',
+      messagingRepository: messagingRepository as never
     });
+
+    findButton('隐私政策').click();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
+    document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
     findButton('Plugin Setup').click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup Guide');
@@ -665,6 +671,27 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(
       document.querySelector('[data-nav-panel="storage"]')?.classList.contains('is-active')
     ).toBe(true);
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_action_completed',
+      params: {
+        action: 'resource_open',
+        outcome: 'completed',
+        section: 'privacy'
+      }
+    });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_section_viewed',
+      params: {
+        section: 'storage'
+      }
+    });
+
+    const emittedEvents = (messagingRepository.send.mock.calls as unknown as Array<[unknown]>).map(
+      ([message]) => (message as { event?: string } | undefined)?.event
+    );
+    expect(emittedEvents).not.toContain('options_resource_viewed');
   });
 
   it('does not expose future classifier controls in the release options shell', () => {

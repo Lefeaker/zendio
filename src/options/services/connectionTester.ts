@@ -2,6 +2,12 @@ import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
 import type { IMessagingRepository } from '../../shared/repositories';
+import {
+  createTrackUsageEventMessage,
+  type DurationBucket,
+  type FailureCategory,
+  type StorageTarget
+} from '../../shared/types/analytics';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { errorHandler, isAppError, optionsErrors } from '../../shared/errors';
@@ -26,6 +32,10 @@ interface VaultConnectionTestMessage {
 }
 
 type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessage;
+type PermissionPromptSource = 'clip' | 'options';
+type PermissionPromptOutcome = 'completed' | 'failed' | 'cancelled';
+type ConnectionTestOutcome = 'completed' | 'failed';
+type AnalyticsMessagingRepository = Pick<IMessagingRepository, 'send'>;
 
 let overrideMessagingRepo: IMessagingRepository | null = null;
 
@@ -204,6 +214,56 @@ export function __resetConnectionTesterStateForTests(): void {
   overrideMessagingRepo = null;
 }
 
+export function emitLocalVaultPermissionPrompted(
+  messagingRepository: AnalyticsMessagingRepository,
+  source: PermissionPromptSource
+): void {
+  sendUsageEvent(
+    messagingRepository,
+    createTrackUsageEventMessage('local_vault_permission_prompted', { source })
+  );
+}
+
+export function emitLocalVaultPermissionResolved(
+  messagingRepository: AnalyticsMessagingRepository,
+  outcome: PermissionPromptOutcome
+): void {
+  sendUsageEvent(
+    messagingRepository,
+    createTrackUsageEventMessage('local_vault_permission_resolved', { outcome })
+  );
+}
+
+export function emitConnectionTestCompleted(
+  messagingRepository: AnalyticsMessagingRepository,
+  args: {
+    storageTarget: StorageTarget;
+    outcome: ConnectionTestOutcome;
+    startedAt: number;
+    failureCategory?: FailureCategory;
+  }
+): void {
+  const durationBucket = toDurationBucket(Date.now() - args.startedAt);
+  sendUsageEvent(
+    messagingRepository,
+    createTrackUsageEventMessage('connection_test_completed', {
+      storage_target: args.storageTarget,
+      outcome: args.outcome,
+      duration_bucket: durationBucket,
+      ...(args.failureCategory ? { failure_category: args.failureCategory } : {})
+    })
+  );
+}
+
+export function classifyPermissionPromptErrorOutcome(error: unknown): 'failed' | 'cancelled' {
+  const detail = error instanceof Error ? `${error.name} ${error.message}` : String(error);
+  const normalized = detail.toLowerCase();
+  if (normalized.includes('abort') || normalized.includes('cancel')) {
+    return 'cancelled';
+  }
+  return 'failed';
+}
+
 function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
   const sanitized: Partial<RestOptions> = {};
 
@@ -230,4 +290,38 @@ function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
   }
 
   return sanitized;
+}
+
+function toDurationBucket(durationMs: number): DurationBucket {
+  if (durationMs < 100) {
+    return 'under_100ms';
+  }
+  if (durationMs < 500) {
+    return '100ms_to_499ms';
+  }
+  if (durationMs < 1000) {
+    return '500ms_to_999ms';
+  }
+  if (durationMs < 3000) {
+    return '1s_to_2s';
+  }
+  if (durationMs < 10000) {
+    return '3s_to_9s';
+  }
+  if (durationMs < 30000) {
+    return '10s_to_29s';
+  }
+  if (durationMs < 120000) {
+    return '30s_to_119s';
+  }
+  return '2m_plus';
+}
+
+function sendUsageEvent(
+  messagingRepository: AnalyticsMessagingRepository,
+  message: ReturnType<typeof createTrackUsageEventMessage>
+): void {
+  void Promise.resolve(messagingRepository.send(message)).catch((error) => {
+    console.warn('[Options] Failed to send storage analytics event:', error);
+  });
 }

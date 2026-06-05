@@ -21,6 +21,7 @@
     }
   },
   "include": [
+    "src/env.d.ts",
     "src/shared/**/*",
     "src/platform/**/*",
     "src/background/**/*",

@@ -30,6 +30,9 @@ const shellRefreshOptionsMock = vi.hoisted(() => vi.fn());
 const shellCollectDraftMock = vi.hoisted(() => vi.fn(() => ({ rest: {} })));
 const shellSetMessagesMock = vi.hoisted(() => vi.fn());
 const controllerDisposeMock = vi.hoisted(() => vi.fn());
+const messagingSendMock = vi.hoisted(() =>
+  vi.fn<(...args: [unknown]) => Promise<void>>(() => Promise.resolve(undefined))
+);
 const controllerLoadInitialStateMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ rest: { vault: 'Demo' } }))
 );
@@ -128,7 +131,8 @@ describe('options bootstrap', () => {
       onChange: vi.fn(() => () => undefined)
     }));
     repositoryContainer.registerSingleton(DI_TOKENS.IMessagingRepository, () => ({
-      send: vi.fn()
+      send: messagingSendMock,
+      onMessage: vi.fn(() => () => undefined)
     }));
   });
 
@@ -188,5 +192,31 @@ describe('options bootstrap', () => {
       key: 'yamlConfigMigrated',
       text: 'Migrated'
     });
+  });
+
+  it('emits canonical options open telemetry after the Stitch shell mounts', async () => {
+    await bootstrapOptionsApp();
+
+    expect(messagingSendMock).toHaveBeenNthCalledWith(1, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_opened',
+      params: {
+        source: 'unknown'
+      }
+    });
+    expect(messagingSendMock).toHaveBeenNthCalledWith(2, {
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_section_viewed',
+      params: {
+        section: 'overview'
+      }
+    });
+
+    const emittedEvents = (messagingSendMock.mock.calls as Array<[unknown]>).map(
+      ([message]) => (message as { event?: string } | undefined)?.event
+    );
+    expect(emittedEvents).not.toEqual(
+      expect.arrayContaining(['theme_changed', 'language_changed', 'options_resource_viewed'])
+    );
   });
 });

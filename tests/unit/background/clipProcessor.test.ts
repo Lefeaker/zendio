@@ -11,6 +11,9 @@ const writeAttachmentMock = vi.fn();
 const createWriteSessionMock = vi.fn();
 const recordUsageMock = vi.fn();
 const downloadMock = vi.fn();
+type TrackUsageEventMock = (eventName: string, params?: Record<string, unknown>) => Promise<void>;
+type TrackUsageEventCall = Parameters<TrackUsageEventMock>;
+const trackUsageEventMock = vi.fn<TrackUsageEventMock>();
 const getServiceMock = vi.hoisted(() =>
   vi.fn(() => ({
     downloads: {
@@ -47,9 +50,33 @@ vi.mock('../../../src/background/services/usageStats', () => ({
   recordClipUsage: recordUsageMock
 }));
 
+vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  trackUsageEvent: trackUsageEventMock
+}));
+
 vi.mock('../../../src/shared/di', () => ({
   getService: getServiceMock
 }));
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'classification_fallback_reason',
+  'classification_status',
+  'classification_type',
+  'createdAt',
+  'duration_ms',
+  'error_code',
+  'fallback_reason',
+  'filePath',
+  'localFolderName',
+  'markdown',
+  'messages',
+  'model',
+  'notePath',
+  'restVault',
+  'title',
+  'url',
+  'vaultName'
+]);
 
 describe('clipProcessor', () => {
   beforeEach(() => {
@@ -63,6 +90,7 @@ describe('clipProcessor', () => {
     createWriteSessionMock.mockReset();
     recordUsageMock.mockReset();
     downloadMock.mockReset();
+    trackUsageEventMock.mockReset();
     getServiceMock.mockReset();
     getServiceMock.mockReturnValue({
       downloads: {
@@ -74,6 +102,7 @@ describe('clipProcessor', () => {
       writeMarkdown: writeMarkdownMock,
       writeAttachment: writeAttachmentMock
     });
+    trackUsageEventMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -88,6 +117,32 @@ describe('clipProcessor', () => {
       meta: { url: 'https://example.com' },
       ...overrides
     };
+  }
+
+  function expectAnalyticsEvent(
+    call: TrackUsageEventCall | undefined,
+    expectedEvent: string,
+    expectedParams: Record<string, unknown>,
+    allowedKeys: string[]
+  ): void {
+    expect(call).toBeDefined();
+    const [eventName, params = {}] = call ?? [];
+    expect(eventName).toBe(expectedEvent);
+    expect(params).toMatchObject(expectedParams);
+    expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+    Object.keys(params).forEach((key) => {
+      expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+    });
+  }
+
+  function expectNoSensitiveValues(
+    params: Record<string, unknown> | undefined,
+    fragments: string[]
+  ): void {
+    const serialized = JSON.stringify(params ?? {});
+    fragments.forEach((fragment) => {
+      expect(serialized).not.toContain(fragment);
+    });
   }
 
   it('writes markdown and returns processing results', async () => {
@@ -257,6 +312,323 @@ describe('clipProcessor', () => {
       storageTarget: 'downloads',
       classification: classificationResult
     });
+  });
+
+  it('emits privacy-safe stage and ai chat analytics for successful vault saves', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: { name: 'Private Vault' },
+      restConfig: {
+        baseUrl: 'https://vault',
+        vault: 'RemoteVault',
+        apiKey: 'key',
+        localFolderId: 'folder-main',
+        localFolderName: 'LocalPrivate'
+      },
+      context: {}
+    });
+    createWriteSessionMock.mockResolvedValue({
+      target: { storageTarget: 'local-folder', localFolderName: 'LocalPrivate' },
+      writeMarkdown: writeMarkdownMock,
+      writeAttachment: writeAttachmentMock
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'ai_chat',
+      ai_platform: 'copilot',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Private/Top Secret Chat.md');
+    writeMarkdownMock.mockResolvedValue(undefined);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        markdown: 'assistant secret reply',
+        title: 'Top Secret Chat',
+        type: 'ai_chat',
+        meta: {
+          url: 'https://chatgpt.com/c/secret-thread',
+          model: 'gpt-secret-model',
+          platform: 'copilot',
+          messageCount: 7,
+          operationId: 'op_abc123def'
+        }
+      })
+    );
+
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
+      'ai_chat_detected',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'clip_save_completed',
+      'ai_chat_exported'
+    ]);
+
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'ai_chat_detected',
+      {
+        platform: 'other',
+        message_count_bucket: 'six_to_ten'
+      },
+      ['message_count_bucket', 'platform']
+    );
+
+    const stageCalls = trackUsageEventMock.mock.calls.filter(
+      ([eventName]) => eventName === 'background_stage_completed'
+    );
+    expect(stageCalls).toHaveLength(4);
+    expectAnalyticsEvent(
+      stageCalls[0],
+      'background_stage_completed',
+      {
+        operation_id: 'op_abc123def',
+        stage: 'classify',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+    expectAnalyticsEvent(
+      stageCalls[1],
+      'background_stage_completed',
+      {
+        operation_id: 'op_abc123def',
+        stage: 'route',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+    expectAnalyticsEvent(
+      stageCalls[2],
+      'background_stage_completed',
+      {
+        operation_id: 'op_abc123def',
+        stage: 'write_markdown',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+    expectAnalyticsEvent(
+      stageCalls[3],
+      'background_stage_completed',
+      {
+        operation_id: 'op_abc123def',
+        stage: 'record_usage',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[5],
+      'clip_save_completed',
+      {
+        operation_id: 'op_abc123def',
+        storage_target: 'local_folder',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'storage_target']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[6],
+      'ai_chat_exported',
+      {
+        platform: 'other',
+        message_count_bucket: 'six_to_ten',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'message_count_bucket', 'platform']
+    );
+
+    trackUsageEventMock.mock.calls.forEach(([, params]) => {
+      expectNoSensitiveValues(params as Record<string, unknown> | undefined, [
+        'Top Secret Chat',
+        'assistant secret reply',
+        'https://chatgpt.com/c/secret-thread',
+        'gpt-secret-model',
+        'Private Vault',
+        'RemoteVault',
+        'LocalPrivate'
+      ]);
+    });
+  });
+
+  it('emits privacy-safe analytics for downloads saves with attachment writes', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Private/downloads-secret.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        markdown: 'private clip markdown',
+        title: 'Downloads Secret',
+        type: 'video',
+        meta: {
+          url: 'https://example.com/private',
+          exportDestination: { kind: 'downloads' },
+          operationId: 'op_download7',
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'frame-1.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'clip_save_completed'
+    ]);
+
+    const stageCalls = trackUsageEventMock.mock.calls.filter(
+      ([eventName]) => eventName === 'background_stage_completed'
+    );
+    expect(stageCalls).toHaveLength(5);
+    expectAnalyticsEvent(
+      stageCalls[2],
+      'background_stage_completed',
+      {
+        operation_id: 'op_download7',
+        stage: 'write_attachments',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[5],
+      'clip_save_completed',
+      {
+        operation_id: 'op_download7',
+        storage_target: 'downloads',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'storage_target']
+    );
+
+    trackUsageEventMock.mock.calls.forEach(([, params]) => {
+      expectNoSensitiveValues(params, [
+        'Downloads Secret',
+        'private clip markdown',
+        'https://example.com/private',
+        'downloads-secret.md'
+      ]);
+    });
+  });
+
+  it('emits clip_save_failed with safe params and rethrows download failures', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Private/failure-note.md');
+    const downloadError = new Error('download failed');
+    downloadMock.mockRejectedValue(downloadError);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await expect(
+      processClipPayload(
+        createPayload({
+          markdown: 'private failing markdown',
+          title: 'Failure Secret',
+          meta: {
+            url: 'https://example.com/failure',
+            exportDestination: { kind: 'downloads' },
+            operationId: 'op_fail1234'
+          }
+        })
+      )
+    ).rejects.toThrow('download failed');
+
+    const failedCall = trackUsageEventMock.mock.calls.at(-1);
+    expectAnalyticsEvent(
+      failedCall,
+      'clip_save_failed',
+      {
+        operation_id: 'op_fail1234',
+        storage_target: 'downloads',
+        failure_category: 'write'
+      },
+      ['failure_category', 'operation_id', 'storage_target']
+    );
+    expectNoSensitiveValues(failedCall?.[1], [
+      'Failure Secret',
+      'private failing markdown',
+      'https://example.com/failure',
+      'failure-note.md'
+    ]);
+  });
+
+  it('does not let analytics send failures change successful processing', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: null,
+      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      context: {}
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Articles/resilient.md');
+    writeMarkdownMock.mockResolvedValue(undefined);
+    recordUsageMock.mockResolvedValue(undefined);
+    trackUsageEventMock.mockRejectedValue(new Error('analytics unavailable'));
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await expect(processClipPayload(createPayload())).resolves.toMatchObject({
+      destination: 'vault',
+      storageTarget: 'rest-api'
+    });
+
+    expect(trackUsageEventMock).toHaveBeenCalled();
+    expect(writeMarkdownMock).toHaveBeenCalled();
+    expect(recordUsageMock).toHaveBeenCalled();
   });
 
   it.each([

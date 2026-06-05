@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ANALYTICS_EVENT_CATALOG,
+  CONTRACT_ONLY_EVENT_NAMES,
   isTrackUsageEventMessage,
   sanitizeUsageEventParams
 } from '../../../src/shared/types/analytics';
@@ -47,6 +49,83 @@ describe('usage telemetry contract', () => {
         type: 'TRACK_USAGE_EVENT',
         event: 'support_like_clicked',
         params: { variant: { value: 'first' } }
+      })
+    ).toBe(false);
+  });
+
+  it('keeps legacy track messages accepted for current runtime events', () => {
+    expect(
+      isTrackUsageEventMessage({
+        type: 'track',
+        event: 'support_dislike_clicked'
+      })
+    ).toBe(true);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'track',
+        event: 'usage_dashboard_increment',
+        params: { category: 'ai_chat', increment: 1, total_after: 5 }
+      })
+    ).toBe(true);
+  });
+
+  it('classifies contract-only video_started without claiming a production emitter', () => {
+    expect(CONTRACT_ONLY_EVENT_NAMES).toEqual(['video_started']);
+    expect(ANALYTICS_EVENT_CATALOG.video_started.classification).toBe('contract-only');
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'video_started',
+        params: { source: 'menu' }
+      })
+    ).toBe(true);
+  });
+
+  it('accepts sanitized runtime product-event messages', () => {
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'clip_started',
+        params: {
+          operation_id: 'op_abcdef',
+          source: 'toolbar',
+          content_type: 'article'
+        }
+      })
+    ).toBe(true);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'reader_session_started',
+        params: { source: 'unknown' }
+      })
+    ).toBe(true);
+  });
+
+  it('rejects unsafe runtime product-event params', () => {
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'clip_started',
+        params: {
+          operation_id: 'op_abcdef',
+          source: 'toolbar',
+          content_type: 'article',
+          url: 'https://example.com/private'
+        }
+      })
+    ).toBe(false);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'video_session_started',
+        params: {
+          platform: 'youtube',
+          source: 'popup-button'
+        }
       })
     ).toBe(false);
   });

@@ -12,6 +12,7 @@ import type { ReaderSelectionController } from './services/selectionController';
 import type { ReaderEnvironmentController } from './environmentController';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ReadingSessionOptions } from '../../shared/types/options';
+import { createFeatureTimer } from '../../shared/analytics/featureTimer';
 import {
   clearReaderSession,
   isReaderSessionActive,
@@ -30,7 +31,8 @@ import {
   handleReaderSessionSelection,
   ingestExternalReaderHighlight,
   removeReaderHighlight,
-  submitReaderHighlightEdit
+  submitReaderHighlightEdit,
+  trackReaderUsageEvent
 } from './sessionOperations';
 
 export type { ReaderSessionDependencies } from './sessionTypes';
@@ -190,13 +192,19 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
+      this.state.analyticsTimer = createFeatureTimer();
+      this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
       await this.refreshDestinationPreview();
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
+      void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
+        source: this.state.analyticsSource
+      });
       this.bootstrapHighlights(initialHighlights);
       this.panelCoordinator.refreshHint(this.state.highlights.length);
     } catch (error) {
+      this.state.analyticsTimer = null;
       clearReaderSession(this, this.doc);
       throw error;
     }

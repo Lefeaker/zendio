@@ -3,12 +3,13 @@ import {
   createDefaultPageI18nController,
   type Language,
   type PageI18nController
-} from '../../i18n';
+} from '@i18n';
 import { configureAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
 import { configureGlobalStateManagerStorage } from '../../shared/state/globalStateManager';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
+import { createTrackUsageEventMessage } from '../../shared/types/analytics';
 import type { StoredOptions } from '../../shared/types/options';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { showStatusMessage } from '../components/messages';
@@ -112,6 +113,26 @@ function initializeOptionsController(): OptionsController {
   return controller;
 }
 
+async function trackInitialOptionsTelemetry(): Promise<void> {
+  try {
+    const messagingRepository = resolveRepository<IMessagingRepository>(
+      DI_TOKENS.IMessagingRepository
+    );
+    await messagingRepository.send(
+      createTrackUsageEventMessage('options_opened', {
+        source: 'unknown'
+      })
+    );
+    await messagingRepository.send(
+      createTrackUsageEventMessage('options_section_viewed', {
+        section: 'overview'
+      })
+    );
+  } catch {
+    // Telemetry is best-effort and must not block options bootstrap.
+  }
+}
+
 export async function bootstrapOptionsApp(
   dependencies?: Partial<OptionsAppBootstrapDependencies>
 ): Promise<void> {
@@ -152,6 +173,7 @@ export async function bootstrapOptionsApp(
   });
 
   await applyOptionsSnapshot(stored);
+  await trackInitialOptionsTelemetry();
 }
 
 async function applyOptionsSnapshot(options: StoredOptions): Promise<void> {

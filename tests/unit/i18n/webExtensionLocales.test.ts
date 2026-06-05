@@ -1,6 +1,7 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RELEASE_LANGUAGE_ORDER } from '../../../src/i18n/catalog/languages';
 import { getConfiguredLanguageCodes, getWebExtensionLocaleFolder } from '../../../src/i18n/config';
 
 const root = process.cwd();
@@ -24,21 +25,15 @@ describe('WebExtension locale folders', () => {
     }
   });
 
-  it('keeps root locale folders identical to the public release source', async () => {
-    const publicFolders = (await readdir(publicLocalesDir)).sort();
-    const rootFolders = (await readdir(rootLocalesDir)).sort();
+  it('keeps a public locale folder for every release locale code', async () => {
+    const publicFolders = new Set(await readdir(publicLocalesDir));
 
-    expect(rootFolders).toEqual(publicFolders);
-
-    for (const folder of publicFolders) {
-      const publicMessages: unknown = JSON.parse(
-        await readFile(join(publicLocalesDir, folder, 'messages.json'), 'utf8')
-      );
-      const rootMessages: unknown = JSON.parse(
-        await readFile(join(rootLocalesDir, folder, 'messages.json'), 'utf8')
-      );
-
-      expect(rootMessages).toEqual(publicMessages);
+    for (const code of RELEASE_LANGUAGE_ORDER) {
+      expect(publicFolders.has(getWebExtensionLocaleFolder(code))).toBe(true);
     }
+  });
+
+  it('does not keep a root locale compatibility duplicate', async () => {
+    await expect(readdir(rootLocalesDir)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

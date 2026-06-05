@@ -7,6 +7,7 @@ import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
+import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics';
 import {
   __resetContentSessionRegistryForTests,
   isVideoSessionActive,
@@ -195,6 +196,7 @@ function createView(): TestView {
 
 function createDependencies(videoConfig: unknown = null): VideoSessionDependencies {
   const showSupportProgress = vi.fn();
+  const trackUsageEvent = vi.fn(() => Promise.resolve(undefined));
   return {
     viewFactory: {
       createView: vi.fn(() => createView())
@@ -232,7 +234,8 @@ function createDependencies(videoConfig: unknown = null): VideoSessionDependenci
         watchKey: vi.fn(() => () => {})
       }
     },
-    showSupportProgress
+    showSupportProgress,
+    trackUsageEvent
   } as unknown as VideoSessionDependencies;
 }
 
@@ -256,6 +259,29 @@ function requireVideoElement(): HTMLVideoElement {
     throw new Error('video fixture did not mount');
   }
   return video;
+}
+
+function getTrackUsageEventMock(
+  deps: VideoSessionDependencies
+): Mock<
+  <EventName extends UsageEventName>(
+    event: EventName,
+    params?: UsageEventParamMap[EventName]
+  ) => Promise<void>
+> {
+  return deps.trackUsageEvent as ReturnType<typeof vi.fn>;
+}
+
+function expectNoForbiddenAnalyticsKeys(params: Record<string, unknown> | undefined): void {
+  const keys = Object.keys(params ?? {});
+  expect(keys).not.toContain('timestamp_count_bucket');
+  expect(keys).not.toContain('fragment_count_bucket');
+  expect(keys).not.toContain('has_comment');
+  expect(keys).not.toContain('screenshot_requested');
+  expect(keys).not.toContain('capture_kind');
+  expect(keys).not.toContain('action');
+  expect(keys).not.toContain('duration_ms');
+  expect(keys).not.toContain('outcome');
 }
 
 describe('VideoSession', () => {
@@ -302,6 +328,49 @@ describe('VideoSession', () => {
     );
 
     sessionApi.cleanup();
+  });
+
+  it('emits canonical start and cancel analytics with an unknown source fallback', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return createView();
+    });
+    const session = new VideoSession(document, deps);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(1, 'video_session_started', {
+      platform: 'bilibili',
+      source: 'unknown'
+    });
+    expect(JSON.stringify(trackUsageEvent.mock.calls.at(0)?.[1] ?? {})).not.toContain(
+      'Video Title'
+    );
+
+    vi.setSystemTime(new Date('2026-03-14T10:00:05Z'));
+    requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(2, 'video_session_cancelled', {
+      platform: 'bilibili',
+      duration_bucket: '3s_to_9s'
+    });
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(0)?.[1] as Record<string, unknown>
+    );
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(1)?.[1] as Record<string, unknown>
+    );
+    expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName)).toEqual([
+      'video_session_started',
+      'video_session_cancelled'
+    ]);
+
+    vi.useRealTimers();
   });
 
   it('adds a timestamp capture, persists it, and opens edit mode', async () => {
@@ -899,6 +968,111 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('emits only canonical capture analytics events without privacy-sensitive params', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: vi.fn(() => 'data:image/jpeg;base64,private-frame'),
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+
+    await session.start();
+
+    const video = requireVideoElement();
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+
+    await session.addCurrentTimestamp('button');
+    session.ingestTextCapture('<p>Private fragment</p>', 'Private fragment', 'Private comment');
+    const timestampId = sessionApi.state.captures.find(
+      (capture) => capture.kind === 'timestamp'
+    )?.id;
+    const fragmentId = (
+      sessionApi.state.captures as Array<{
+        kind: 'timestamp' | 'fragment';
+        id: string;
+      }>
+    ).find((capture) => capture.kind === 'fragment')?.id;
+    if (!timestampId || !fragmentId) {
+      throw new Error('expected timestamp and fragment captures');
+    }
+
+    await sessionApi.toggleCaptureScreenshot(timestampId);
+    await sessionApi.toggleCaptureScreenshot(timestampId);
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(fragmentId);
+
+    expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName)).toEqual([
+      'video_session_started',
+      'video_timestamp_added',
+      'video_fragment_added',
+      'video_screenshot_captured',
+      'video_capture_removed'
+    ]);
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(2, 'video_timestamp_added', {
+      capture_count_bucket: 'one'
+    });
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(3, 'video_fragment_added', {
+      capture_count_bucket: 'two_to_five'
+    });
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(4, 'video_screenshot_captured', {
+      screenshot_count_bucket: 'one'
+    });
+    expect(trackUsageEvent).toHaveBeenNthCalledWith(5, 'video_capture_removed', {
+      capture_count_bucket: 'one'
+    });
+
+    const analyticsPayload = trackUsageEvent.mock.calls
+      .map(([, params]) => JSON.stringify(params ?? {}))
+      .join('\n');
+    expect(analyticsPayload).not.toContain('Private fragment');
+    expect(analyticsPayload).not.toContain('Private comment');
+    expect(analyticsPayload).not.toContain('data:image/jpeg;base64,private-frame');
+    expect(analyticsPayload).not.toContain('https://video.example');
+    expect(
+      trackUsageEvent.mock.calls.some(
+        ([eventName]) => String(eventName) === 'video_screenshot_toggled'
+      )
+    ).toBe(false);
+    expect(
+      trackUsageEvent.mock.calls.some(
+        ([eventName]) => String(eventName) === 'video_session_exported'
+      )
+    ).toBe(false);
+    expect(
+      trackUsageEvent.mock.calls.some(([eventName]) => String(eventName) === 'video_session_failed')
+    ).toBe(false);
+    trackUsageEvent.mock.calls.forEach(([, params]) => {
+      expectNoForbiddenAnalyticsKeys(params as Record<string, unknown> | undefined);
+    });
+
+    createElementSpy.mockRestore();
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
   it('exports through the exporter and cleans up on success', async () => {
     const dependencies = createDependencies();
     const session = new VideoSession(document, dependencies);
@@ -945,6 +1119,44 @@ describe('VideoSession', () => {
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
+  it('emits canonical export success analytics without leaking private fields', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 12,
+        comment: 'private export note',
+        url: 'https://video.example/watch?t=12',
+        createdAt: 1
+      }
+    ];
+    vi.setSystemTime(new Date('2026-03-14T10:00:06Z'));
+
+    await sessionApi.finish();
+
+    expect(trackUsageEvent).toHaveBeenLastCalledWith('video_exported', {
+      platform: 'bilibili',
+      destination: 'downloads',
+      duration_bucket: '3s_to_9s'
+    });
+    expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
+      'private export note'
+    );
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    );
+
+    vi.useRealTimers();
+  });
+
   it('keeps the session alive when export fails', async () => {
     exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
       success: boolean;
@@ -978,6 +1190,49 @@ describe('VideoSession', () => {
     expect(isVideoSessionActive(document)).toBe(true);
 
     sessionApi.cleanup();
+  });
+
+  it('emits canonical export failure analytics with an unknown failure bucket', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
+      success: boolean;
+      error: string;
+    });
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 12,
+        comment: 'private export note',
+        url: 'https://video.example/watch?t=12',
+        createdAt: 1
+      }
+    ];
+    vi.setSystemTime(new Date('2026-03-14T10:00:06Z'));
+
+    await sessionApi.finish();
+
+    expect(trackUsageEvent).toHaveBeenLastCalledWith('video_export_failed', {
+      platform: 'bilibili',
+      destination: 'downloads',
+      failure_category: 'unknown'
+    });
+    expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
+      'private export note'
+    );
+    expectNoForbiddenAnalyticsKeys(
+      trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
   });
 
   it('keeps the session alive when the exporter returns an invalid empty response', async () => {

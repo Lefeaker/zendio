@@ -1,6 +1,10 @@
 import { configProvider } from '../shared/config/provider';
-import { pseudoLocalizeString } from './pseudoLocalization';
 import type { Language } from './locales';
+import {
+  DYNAMIC_MESSAGE_KEYS,
+  type DynamicMessageTemplates,
+  getDynamicMessageTemplates
+} from './catalog/dynamicTemplates';
 
 type RestDefaults = ReturnType<typeof configProvider.getRestDefaults>;
 
@@ -10,98 +14,31 @@ interface DynamicMessages {
   vaultNamePlaceholder: string;
 }
 
-const DYNAMIC_MESSAGE_KEYS: readonly (keyof DynamicMessages)[] = [
-  'httpsUrlHint',
-  'httpUrlHint',
-  'vaultNamePlaceholder'
-] as const;
-
-type DynamicMessageFactory = (defaults: RestDefaults) => DynamicMessages;
-
-const englishDynamicFactory: DynamicMessageFactory = (defaults) => ({
-  httpsUrlHint: `Usually port ${defaults.httpsPort}, for secure connections`,
-  httpUrlHint: `Usually port ${defaults.httpPort}, as fallback connection`,
-  vaultNamePlaceholder: defaults.vault
-});
-
-const dynamicMessageFactories: Partial<Record<Language, DynamicMessageFactory>> = {
-  'zh-CN': (defaults) => ({
-    httpsUrlHint: `通常端口为 ${defaults.httpsPort}，适用于安全连接`,
-    httpUrlHint: `通常端口为 ${defaults.httpPort}，作为备用连接`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  en: englishDynamicFactory,
-  ja: (defaults) => ({
-    httpsUrlHint: `通常はポート ${defaults.httpsPort}、セキュア接続用`,
-    httpUrlHint: `通常はポート ${defaults.httpPort}、フォールバック接続用`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  de: (defaults) => ({
-    httpsUrlHint: `Normalerweise Port ${defaults.httpsPort}, für sichere Verbindungen`,
-    httpUrlHint: `Normalerweise Port ${defaults.httpPort}, als Fallback-Verbindung`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  fr: (defaults) => ({
-    httpsUrlHint: `Généralement port ${defaults.httpsPort}, pour les connexions sécurisées`,
-    httpUrlHint: `Généralement port ${defaults.httpPort}, comme connexion de secours`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  'es-ES': (defaults) => ({
-    httpsUrlHint: `Normalmente puerto ${defaults.httpsPort}, para conexiones seguras`,
-    httpUrlHint: `Normalmente puerto ${defaults.httpPort}, como conexión de respaldo`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  'es-419': (defaults) => ({
-    httpsUrlHint: `Usualmente puerto ${defaults.httpsPort}, para conexiones seguras`,
-    httpUrlHint: `Usualmente puerto ${defaults.httpPort}, como conexión de respaldo`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  it: (defaults) => ({
-    httpsUrlHint: `Solitamente porta ${defaults.httpsPort}, per connessioni sicure`,
-    httpUrlHint: `Solitamente porta ${defaults.httpPort}, per connessioni di backup`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  ko: (defaults) => ({
-    httpsUrlHint: `일반적으로 포트 ${defaults.httpsPort}, 보안 연결용`,
-    httpUrlHint: `일반적으로 포트 ${defaults.httpPort}, 백업 연결용`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  'pt-BR': (defaults) => ({
-    httpsUrlHint: `Geralmente porta ${defaults.httpsPort}, para conexões seguras`,
-    httpUrlHint: `Geralmente porta ${defaults.httpPort}, como conexão de fallback`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  ru: (defaults) => ({
-    httpsUrlHint: `Обычно порт ${defaults.httpsPort}, для безопасных соединений`,
-    httpUrlHint: `Обычно порт ${defaults.httpPort}, как резервное соединение`,
-    vaultNamePlaceholder: defaults.vault
-  }),
-  'zh-TW': (defaults) => ({
-    httpsUrlHint: `通常是埠 ${defaults.httpsPort}，用於安全連接`,
-    httpUrlHint: `通常是埠 ${defaults.httpPort}，用於備用連接`,
-    vaultNamePlaceholder: defaults.vault
-  })
-};
-
-if (process.env.NODE_ENV !== 'production') {
-  dynamicMessageFactories['qps-ploc'] = (defaults) => {
-    const base = englishDynamicFactory(defaults);
-    return {
-      httpsUrlHint: pseudoLocalizeString(base.httpsUrlHint),
-      httpUrlHint: pseudoLocalizeString(base.httpUrlHint),
-      vaultNamePlaceholder: pseudoLocalizeString(base.vaultNamePlaceholder)
-    };
-  };
+function interpolateDynamicTemplate(
+  template: string,
+  values: Record<string, string | number | undefined>
+): string {
+  return template.replace(/\{(\w+)\}/g, (match, token: string) => {
+    const value = values[token];
+    return value === undefined ? match : String(value);
+  });
 }
 
-const FALLBACK_LANGUAGE: Language = 'zh-CN';
+function formatDynamicMessageTemplates(
+  templates: DynamicMessageTemplates,
+  defaults: RestDefaults
+): DynamicMessages {
+  const values = {
+    httpsPort: defaults.httpsPort,
+    httpPort: defaults.httpPort,
+    vault: defaults.vault
+  };
 
-function resolveDynamicMessageFactory(language: Language): DynamicMessageFactory {
-  return (
-    dynamicMessageFactories[language] ??
-    dynamicMessageFactories[FALLBACK_LANGUAGE] ??
-    englishDynamicFactory
-  );
+  return {
+    httpsUrlHint: interpolateDynamicTemplate(templates.httpsUrlHint, values),
+    httpUrlHint: interpolateDynamicTemplate(templates.httpUrlHint, values),
+    vaultNamePlaceholder: interpolateDynamicTemplate(templates.vaultNamePlaceholder, values)
+  };
 }
 
 /**
@@ -109,8 +46,8 @@ function resolveDynamicMessageFactory(language: Language): DynamicMessageFactory
  */
 export function generateDynamicMessages(language: Language): DynamicMessages {
   const restDefaults = configProvider.getRestDefaults();
-  const factory = resolveDynamicMessageFactory(language);
-  return factory(restDefaults);
+  const templates = getDynamicMessageTemplates(language);
+  return formatDynamicMessageTemplates(templates, restDefaults);
 }
 
 /**

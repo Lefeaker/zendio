@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createContentMessageRouter } from '@content/runtime/contentMessageRouter';
+import { deriveClipAnalyticsSource } from '@content/runtime/contentMessageHandlers';
 import { SHOW_LOCAL_VAULT_PERMISSION_PROMPT, SHOW_SUPPORT_PROMPT } from '@shared/types/clip';
 
 function createRouter(overrides: Partial<Parameters<typeof createContentMessageRouter>[0]> = {}) {
@@ -224,5 +225,21 @@ describe('contentMessageRouter', () => {
     expect(localVaultPermissionPrompt.request).not.toHaveBeenCalled();
     expect(setClipMode).not.toHaveBeenCalled();
     expect(runClip).not.toHaveBeenCalled();
+  });
+
+  it('derives truthful analytics source values for clip actions', () => {
+    expect(deriveClipAnalyticsSource({ action: 'clipFull' })).toBe('toolbar');
+    expect(deriveClipAnalyticsSource({ action: 'clipFull', tabId: 21, frameId: 0 })).toBe('menu');
+    expect(deriveClipAnalyticsSource({ action: 'clipSelection', tabId: 56, frameId: 0 })).toBe(
+      'menu'
+    );
+    expect(deriveClipAnalyticsSource({ action: 'clipSelection' })).toBe('unknown');
+    expect(deriveClipAnalyticsSource({ action: 'clipFull', analyticsSource: 'unknown' })).toBe(
+      'unknown'
+    );
+    expect(deriveClipAnalyticsSource({ action: 'clipFull', analyticsSource: 'popup-button' })).toBe(
+      'toolbar'
+    );
+    expect(deriveClipAnalyticsSource({ action: 'startVideoMode' })).toBeNull();
   });
 });
