@@ -15,8 +15,8 @@ import type {
 } from '@content/video/application/videoPanelModel';
 
 const VIDEO_PREVIEW_ABSENT_ACTIONS = new Set(['video:add', 'video:save', 'video:delete']);
-const CLIPPER_ICON_PATH = 'icons/60x60/allinob_icon_clipt.png';
-const READER_ICON_PATH = 'icons/60x60/allinob_icon_readingt.png';
+const CLIPPER_ICON_PATH = 'icons/60x60/zendio_icon_clipt.png';
+const READER_ICON_PATH = 'icons/60x60/zendio_icon_readingt.png';
 
 function hero(title: string): PreviewContent['overview']['hero'] {
   return { title, description: '', pills: [] };

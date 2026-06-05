@@ -642,7 +642,7 @@ export const previewContent: PreviewContent = {
         pills: ['Clip Selection', 'Reader Entry', 'Video Entry', 'Shortcuts'],
         icon: 'content_cut'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_clipt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_clipt.png',
       labels: {
         title: 'Clip Selection',
         selectionPreview: 'Selection Preview',
@@ -702,7 +702,7 @@ export const previewContent: PreviewContent = {
         pills: ['Non-modal Panel', 'Highlight List', 'Inline Comment Edit', 'AI Summary Slot'],
         icon: 'auto_stories'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_readingt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_readingt.png',
       labels: {
         title: '阅读模式',
         subtitle: 'Reading session',
