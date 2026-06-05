@@ -28,7 +28,7 @@
 ## 当前口径
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
-- `lint:type-any:ratchet` 当前 GA 集成树口径为扫描 `1036` files，overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`；`any` 保持 `0`，`non-null` 与 `ts-expect-error` 上限未放宽
+- `lint:type-any` 当前 GA release env close-out 口径为扫描 `1041` files，实测 overall `0/1064/1727/41/4`、src `0/576/592/5/0`、tests `0/488/1135/36/4`；`lint:type-any:ratchet` 仍守住 checked-in 上限 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，`any` 保持 `0`，`non-null` 与 `ts-expect-error` 上限未放宽
 - `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
 - `audit:build:report` 使用 2026-05-24 M2.5 复核后的预算真值
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；`audit:non-production-source:check` 是 hard gate

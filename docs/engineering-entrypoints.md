@@ -44,7 +44,7 @@
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
-- 2026-06-05 GA production telemetry P13 type-ratchet gap fix 真值：GA 集成树当前 `lint:type-any` 实测为扫描 `1036` files，overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`；本次同步只刷新 `unknown` / `assertions` current truth，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
+- 2026-06-05 GA production telemetry P13 type-ratchet gap fix 真值：GA release env close-out 当前 `lint:type-any` 实测为扫描 `1041` files，overall `0/1064/1727/41/4`、src `0/576/592/5/0`、tests `0/488/1135/36/4`；`lint:type-any:ratchet` 的 checked-in 上限仍为 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
 
 ## 当前推荐执行顺序
 
@@ -119,7 +119,7 @@ Cloudflare Worker secret `GA4_API_SECRET`.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 GA 集成树 `1036` files；overall 为 `any: 0`、`unknown: 1064`、assertions `1736`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/576/596/5/0`；tests 为 `0/488/1140/36/4`。
+- `npm run lint:type-any`：扫描当前 GA release env close-out `1041` files；overall 为 `any: 0`、`unknown: 1064`、assertions `1727`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/576/592/5/0`；tests 为 `0/488/1135/36/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
 - `npm run lint:type-any:ratchet`：同时守住 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
@@ -152,10 +152,10 @@ Cloudflare Worker secret `GA4_API_SECRET`.
 2026-06-05 GA production telemetry P13 final build truth:
 
 - `quality` 与 `verify:preflight` 在 Node `v20.20.2` 下通过
-- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,246` bytes；raw stop gate `56,320`）
+- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,170` bytes；raw stop gate `56,320`）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
-- chunks: `108`
+- chunks: `109`
 - GA content/onboarding telemetry now lives behind lazy `clipFlowAnalytics-*` / `onboardingAnalytics-*` chunks so entry bundles remain within the existing release gates.
 
 ## 核心命令

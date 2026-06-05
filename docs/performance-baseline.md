@@ -42,11 +42,11 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,246` bytes；距离 `56,320` raw-byte stop gate 还有 `74` bytes）
+- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,170` bytes；距离 `56,320` raw-byte stop gate 还有 `150` bytes）
 - `build/dist/options/index.js`: `997 B`
 - `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
-- 总 chunk 数：`108`
-- `chunks/runtimeEntry-*.js`: `303.4 KB`
+- 总 chunk 数：`109`
+- `chunks/runtimeEntry-*.js`: `304.3 KB`
 - `chunks/videoSessionControllers-*.js`: `80.9 KB`
 - `chunks/qps-ploc-*.js`: `57.5 KB`（raw `58,906` bytes）
 - `chunks/videoLazyRuntime-*.js`: `44.7 KB`
@@ -115,7 +115,7 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 guarded line budget；2026-06-05 GA production telemetry P13 final gap fix 复核后当前 trackedSourceFiles=`673`、动态发现 `99` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 全部 `src` >250 LOC 文件均有 guarded line budget；2026-06-05 GA release env close-out 复核后当前 trackedSourceFiles=`675`、动态发现 `98` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
 - 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`stitch/types.ts <= 743`、`i18n/locales/fr.ts <= 697`。
 - 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 391`、`videoControlBarButton.ts <= 386`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 254`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`analyticsConfig.ts <= 369`、`analyticsConfig.template.ts <= 364`、`googleAnalyticsReporter.ts <= 301`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 586` were not loosened.
