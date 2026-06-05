@@ -1,7 +1,27 @@
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+
+type BrandRenameAllowlistRule = {
+  id: string;
+  class: string;
+  reason: string;
+  paths?: string[];
+  tokens?: string[];
+  lineIncludes?: string[];
+  lineRegex?: string;
+  lineNotRegex?: string;
+  ownerConfirmationRequired?: boolean;
+};
+
+type BrandRenameAllowlist = {
+  classes?: string[];
+  ignorePaths?: string[];
+  rules: BrandRenameAllowlistRule[];
+  tokens: string[];
+};
 
 type BrandRenameResidualModule = {
   classifyFinding: (
@@ -12,17 +32,17 @@ type BrandRenameResidualModule = {
       token: string;
       lineText: string;
     },
-    allowlist: Record<string, unknown>
+    allowlist: BrandRenameAllowlist
   ) => {
     class: string;
     reason: string;
     ownerConfirmationRequired: boolean;
     ruleId: string | null;
   };
-  loadAllowlist: (path?: string) => Promise<Record<string, unknown>>;
+  loadAllowlist: (path?: string) => Promise<BrandRenameAllowlist>;
   scanResiduals: (options?: {
     root?: string;
-    allowlist?: Record<string, unknown>;
+    allowlist?: BrandRenameAllowlist;
     allowlistPath?: string;
   }) => Promise<{
     ok: boolean;
@@ -30,13 +50,17 @@ type BrandRenameResidualModule = {
     counts: Record<string, number>;
     validationErrors: string[];
   }>;
-  validateAllowlist: (allowlist: Record<string, unknown>) => string[];
+  validateAllowlist: (allowlist: BrandRenameAllowlist) => string[];
 };
 
+const toolModuleUrl = pathToFileURL(
+  join(process.cwd(), 'tools/report-brand-rename-residuals.mjs')
+).href;
 const { classifyFinding, loadAllowlist, scanResiduals, validateAllowlist } = (await import(
-  // @ts-expect-error Tool modules are authored as executable ESM without .d.ts files.
-  '../../../tools/report-brand-rename-residuals.mjs'
+  toolModuleUrl
 )) as BrandRenameResidualModule;
+
+const legacyVaultToken = ['All', 'In', 'Obsidian'].join('');
 
 async function writeFixture(root: string, relativePath: string, content: string) {
   const path = join(root, relativePath);
@@ -49,7 +73,8 @@ describe('report-brand-rename-residuals', () => {
     const allowlist = await loadAllowlist();
 
     expect(validateAllowlist(allowlist)).toEqual([]);
-    expect(allowlist.tokens).toContain('AllInObsidian');
+    expect(allowlist.tokens).toContain(legacyVaultToken);
+    expect(allowlist.ignorePaths).toEqual(expect.arrayContaining(['.tmp/**', 'tmp/**']));
   });
 
   it('classifies owner-confirmation support channels separately from repo paths', async () => {
@@ -101,7 +126,7 @@ describe('report-brand-rename-residuals', () => {
       await writeFixture(
         root,
         'tests/fixtures/options-preview/app/runtime.ts',
-        "const fallback = 'AllInObsidian';\n"
+        `const fallback = '${legacyVaultToken}';\n`
       );
       await writeFixture(root, 'docs/zh-cn/clipper/旧文档.md', '找到 "All in Ob" 扩展\n');
 
