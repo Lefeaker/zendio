@@ -6,6 +6,19 @@ const TOKENS = vi.hoisted(() => ({
   globalStateManager: Symbol('globalStateManager'),
   usageStatsStore: Symbol('usageStatsStore')
 }));
+type AnalyticsWatchConfig = {
+  enabled: boolean;
+  userConsent?: {
+    analytics?: boolean;
+    errorReporting?: boolean;
+  };
+};
+const analyticsConfigWatchState = vi.hoisted(
+  (): {
+    onRefresh?: (config: AnalyticsWatchConfig) => void;
+  } => ({})
+);
+const stopWatchingAnalyticsConfigMock = vi.hoisted(() => vi.fn());
 const registryState = vi.hoisted(() => ({ tokens: new Set<symbol>() }));
 const registryMock = vi.hoisted(() => ({
   register: vi.fn((token: symbol) => {
@@ -23,6 +36,13 @@ const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() 
 const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
+const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
+  vi.fn((onRefresh: (config: AnalyticsWatchConfig) => void) => {
+    analyticsConfigWatchState.onRefresh = onRefresh;
+    return stopWatchingAnalyticsConfigMock;
+  })
+);
+const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
@@ -43,10 +63,15 @@ vi.mock('../../../src/shared/errors/errorHandler', () => ({
   createErrorHandler: createErrorHandlerMock
 }));
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
-  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock
+  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock,
+  watchAnalyticsConfigStorage: watchAnalyticsConfigStorageMock
 }));
 vi.mock('../../../src/shared/errors/analytics', () => ({
   initializeErrorAnalytics: initializeErrorAnalyticsMock
+}));
+vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  clearQueuedUsageAnalyticsEventsIfConsentRevoked:
+    clearQueuedUsageAnalyticsEventsIfConsentRevokedMock
 }));
 vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
   registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
@@ -68,6 +93,7 @@ describe('background/bootstrap', () => {
     vi.resetModules();
     vi.clearAllMocks();
     registryState.tokens.clear();
+    analyticsConfigWatchState.onRefresh = undefined;
   });
 
   it('bootstraps background dependencies and reports initialized state', async () => {
@@ -78,6 +104,7 @@ describe('background/bootstrap', () => {
     expect(configureAnalyticsConfigManagerMock).toHaveBeenCalledWith(storageMock);
     expect(configureI18nStorageMock).toHaveBeenCalledWith(storageMock.sync);
     expect(configureUsageStatsStorageMock).toHaveBeenCalledWith(storageMock);
+    expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(1);
     expect(registryMock.register).toHaveBeenCalledWith(TOKENS.errorHandler, expect.any(Function));
     expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -97,6 +124,22 @@ describe('background/bootstrap', () => {
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
   });
 
+  it('clears queued usage analytics when analytics storage changes revoke consent', async () => {
+    const mod = await import('../../../src/background/bootstrap');
+    mod.bootstrapBackgroundDependencies(storageMock);
+
+    expect(analyticsConfigWatchState.onRefresh).toBeTypeOf('function');
+    analyticsConfigWatchState.onRefresh?.({
+      enabled: false,
+      userConsent: { analytics: false, errorReporting: false }
+    });
+
+    expect(clearQueuedUsageAnalyticsEventsIfConsentRevokedMock).toHaveBeenCalledWith({
+      enabled: false,
+      userConsent: { analytics: false, errorReporting: false }
+    });
+  });
+
   it('ensures once, resets, and re-registers background dependencies', async () => {
     const mod = await import('../../../src/background/bootstrap');
     mod.ensureBackgroundDependencies(storageMock);
@@ -112,6 +155,7 @@ describe('background/bootstrap', () => {
     expect(registryMock.reset).toHaveBeenCalledTimes(1);
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(2);
+    expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(2);
   });
 
   it('cleans up tokens and swallows disposal failures', async () => {
@@ -124,6 +168,7 @@ describe('background/bootstrap', () => {
       throw new Error('dispose failed');
     });
     mod.cleanupBackgroundDependencies();
+    expect(stopWatchingAnalyticsConfigMock).toHaveBeenCalledTimes(1);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[Background] Error during dependency cleanup:',
       expect.any(Error)

@@ -32,6 +32,8 @@ type AnalyticsConfigSnapshot = {
   clientId?: string;
   sessionId?: string;
   debugMode?: boolean;
+  reportingInterval?: number;
+  batchSize?: number;
 };
 
 function createAnalyticsConfig(
@@ -46,6 +48,8 @@ function createAnalyticsConfig(
     clientId: 'client-1',
     sessionId: 'session-1',
     debugMode: false,
+    reportingInterval: 30000,
+    batchSize: 10,
     ...overrides
   };
 }
@@ -80,6 +84,7 @@ describe('analyticsEvents', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    fetchMock.mockReset();
     vi.unstubAllGlobals();
     vi.stubGlobal('fetch', fetchMock);
     const initialConfig = createAnalyticsConfig();
@@ -201,6 +206,89 @@ describe('analyticsEvents', () => {
 
     expect(refreshAnalyticsConfigMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends usage events through the configured queue interval and batch size', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(100000);
+      const queuedConfig = createAnalyticsConfig({
+        reportingInterval: 60000,
+        batchSize: 1
+      });
+      getConfigMock.mockReturnValue(queuedConfig);
+      refreshAnalyticsConfigMock.mockResolvedValue(queuedConfig);
+      fetchMock.mockResolvedValue({
+        ok: true,
+        clone: () => ({ text: () => Promise.resolve('') })
+      });
+
+      const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
+      await trackUsageEvent('support_like_clicked', { variant: 'first' });
+      await trackUsageEvent('support_dislike_clicked');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      vi.setSystemTime(161000);
+      await trackUsageEvent('support_review_link_clicked', { variant: 'returning' });
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [, requestInit] = fetchMock.mock.calls[1] ?? [];
+      expect(String(requestInit?.body)).toContain('"name":"support_dislike_clicked"');
+      expect(String(requestInit?.body)).not.toContain('"name":"support_review_link_clicked"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears queued usage events when analytics consent is revoked before a later restore', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(200000);
+      let storedConfig = createAnalyticsConfig({
+        reportingInterval: 60000,
+        batchSize: 1
+      });
+      let cachedConfig = storedConfig;
+      getConfigMock.mockImplementation(() => cachedConfig);
+      refreshAnalyticsConfigMock.mockImplementation(() => {
+        cachedConfig = storedConfig;
+        return Promise.resolve(cachedConfig);
+      });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        clone: () => ({ text: () => Promise.resolve('') })
+      });
+
+      const { clearQueuedUsageAnalyticsEventsIfConsentRevoked, trackUsageEvent } =
+        await import('../../../src/background/services/analyticsEvents');
+      await trackUsageEvent('support_like_clicked', { variant: 'first' });
+      await trackUsageEvent('support_dislike_clicked');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const revokedConfig = createAnalyticsConfig({
+        userConsent: { analytics: false, errorReporting: false },
+        reportingInterval: 60000,
+        batchSize: 1
+      });
+      storedConfig = revokedConfig;
+      clearQueuedUsageAnalyticsEventsIfConsentRevoked(revokedConfig);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      storedConfig = createAnalyticsConfig({
+        reportingInterval: 60000,
+        batchSize: 1
+      });
+      vi.setSystemTime(201000);
+      await trackUsageEvent('support_github_feedback_clicked');
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [, requestInit] = fetchMock.mock.calls[1] ?? [];
+      expect(String(requestInit?.body)).toContain('"name":"support_github_feedback_clicked"');
+      expect(String(requestInit?.body)).not.toContain('"name":"support_dislike_clicked"');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('warns when initialization or request handling fails and can retry afterwards', async () => {
