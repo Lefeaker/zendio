@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import { build } from 'esbuild';
+import { join } from 'node:path';
 import {
   generateDynamicMessages,
   getDynamicMessage,
   updateDynamicMessages
 } from '../../../src/i18n/dynamicMessages';
+import { DYNAMIC_MESSAGE_TEMPLATES } from '../../../src/i18n/catalog/dynamicTemplates';
+import { createPageI18nController } from '../../../src/i18n/pageController';
 import type { Language } from '../../../src/i18n/locales';
+import { pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
 
 // Mock the configProvider
 vi.mock('../../../src/shared/config/provider', () => ({
@@ -17,6 +22,24 @@ vi.mock('../../../src/shared/config/provider', () => ({
     })
   }
 }));
+
+async function buildProductionBundle(entryPoint: string): Promise<string> {
+  const result = await build({
+    entryPoints: [join(process.cwd(), entryPoint)],
+    bundle: true,
+    write: false,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    minify: true,
+    logLevel: 'silent',
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production')
+    }
+  });
+
+  return result.outputFiles[0].text;
+}
 
 describe('dynamicMessages', () => {
   describe('generateDynamicMessages', () => {
@@ -52,19 +75,41 @@ describe('dynamicMessages', () => {
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
     });
 
-    it('generates pseudo-localized messages for qps-ploc', () => {
+    it('keeps qps-ploc coverage dev-only via pseudo-localized English templates', () => {
       const messages = generateDynamicMessages('qps-ploc');
 
-      expect(messages.httpsUrlHint).toMatch(/^\[.+·\d+\]$/);
-      expect(messages.httpsUrlHint).toContain('27124');
-      expect(messages.vaultNamePlaceholder).toMatch(/^\[.+·\d+\]$/);
+      expect(messages.httpsUrlHint).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.httpsUrlHint).replace(
+          '{httpsPort}',
+          '27124'
+        )
+      );
+      expect(messages.httpUrlHint).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.httpUrlHint).replace(
+          '{httpPort}',
+          '27123'
+        )
+      );
+      expect(messages.vaultNamePlaceholder).toBe(
+        pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.vaultNamePlaceholder).replace(
+          '{vault}',
+          'TestVault'
+        )
+      );
     });
 
-    it('falls back to Chinese for unsupported languages', () => {
+    it('omits pseudo locale identifiers from production dynamic message bundles', async () => {
+      const bundle = await buildProductionBundle('src/i18n/dynamicMessages.ts');
+
+      expect(bundle).not.toContain('qps-ploc');
+      expect(bundle).not.toContain('qps_ploc');
+    });
+
+    it('falls back to English for unsupported languages', () => {
       const messages = generateDynamicMessages('xx' as Language);
 
-      expect(messages.httpsUrlHint).toBe('通常端口为 27124，适用于安全连接');
-      expect(messages.httpUrlHint).toBe('通常端口为 27123，作为备用连接');
+      expect(messages.httpsUrlHint).toBe('Usually port 27124, for secure connections');
+      expect(messages.httpUrlHint).toBe('Usually port 27123, as fallback connection');
       expect(messages.vaultNamePlaceholder).toBe('TestVault');
     });
   });
@@ -181,6 +226,83 @@ describe('dynamicMessages', () => {
         'input[id*="vault"], input[placeholder*="Vault"]'
       );
       expect(mockInput.placeholder).toBe('TestVault');
+    });
+
+    it('still updates dynamic DOM nodes after pageController language changes', async () => {
+      const httpsElement = {
+        selector: '[data-i18n="httpsUrlHint"]',
+        textContent: ''
+      };
+      const httpElement = {
+        selector: '[data-i18n="httpUrlHint"]',
+        textContent: ''
+      };
+
+      class MockHTMLInputElement implements MockInputElement {
+        value = '';
+        placeholder = '';
+      }
+
+      const vaultInput = new MockHTMLInputElement();
+
+      const documentStub: DocumentStub = {
+        querySelector: vi.fn((selector: string) => {
+          if (selector === '[data-i18n="httpsUrlHint"]') {
+            return httpsElement;
+          }
+          if (selector === '[data-i18n="httpUrlHint"]') {
+            return httpElement;
+          }
+          return null;
+        }),
+        querySelectorAll: vi.fn((selector: string) => {
+          if (selector === 'input[id*="vault"], input[placeholder*="Vault"]') {
+            return [vaultInput];
+          }
+          return [];
+        })
+      };
+
+      vi.stubGlobal('HTMLInputElement', MockHTMLInputElement);
+      installDocumentStub(documentStub);
+
+      const controller = createPageI18nController({
+        bindingAdapter: {
+          bindText: vi.fn(),
+          bindAttribute: vi.fn(),
+          bindHtml: vi.fn(),
+          refresh: vi.fn(),
+          clear: vi.fn()
+        },
+        defaultLanguage: 'zh-CN',
+        loadMessages: (language) =>
+          Promise.resolve({
+            extensionName: language === 'zh-CN' ? 'All in Ob' : 'All in Ob',
+            httpsUrlHint:
+              language === 'zh-CN'
+                ? '通常端口为 27124，适用于安全连接'
+                : 'Usually port 27124, for secure connections',
+            httpUrlHint:
+              language === 'zh-CN'
+                ? '通常端口为 27123，作为备用连接'
+                : 'Usually port 27123, as fallback connection',
+            vaultNamePlaceholder: 'YourVault'
+          } as never),
+        getCurrentLanguage: () => Promise.resolve('zh-CN'),
+        setCurrentLanguage: vi.fn()
+      });
+
+      await controller.load();
+      const root = {
+        querySelectorAll: () => [] as unknown as NodeListOf<HTMLElement>
+      } as unknown as ParentNode;
+
+      controller.mount(root);
+      await controller.changeLanguage('en');
+
+      expect(httpsElement.textContent).toBe('Usually port 27124, for secure connections');
+      expect(httpElement.textContent).toBe('Usually port 27123, as fallback connection');
+      expect(vaultInput.placeholder).toBe('TestVault');
     });
   });
 });

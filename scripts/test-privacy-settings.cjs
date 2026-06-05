@@ -149,8 +149,8 @@ function checkI18nMessages() {
   const languages = ['zh-CN', 'en', 'ja'];
   let allMessagesExist = true;
 
-  // 检查消息接口定义
-  const messagesPath = 'src/i18n/messages.ts';
+  // 检查生成后的消息接口定义
+  const messagesPath = 'src/i18n/generated/messages.generated.ts';
   const messagesContent = readFile(messagesPath);
   
   if (!messagesContent) {
@@ -172,14 +172,14 @@ function checkI18nMessages() {
     if (messagesContent.includes(`${message}:`)) {
       success(`消息接口 ${message} 存在`);
     } else {
-      error(`消息接口 ${message} 不存在`);
+      error(`生成消息接口 ${message} 不存在`);
       allMessagesExist = false;
     }
   });
 
-  // 检查各语言的翻译
+  // 检查各语言 catalog runtime 源
   languages.forEach(lang => {
-    const langPath = `src/i18n/locales/${lang}.ts`;
+    const langPath = `src/i18n/catalog/messages/${lang}/runtime.json`;
     const langContent = readFile(langPath);
     
     if (!langContent) {

@@ -3,7 +3,19 @@
 import { describe, it, expect } from 'vitest';
 import { createDomBindingAdapter } from '../../../src/i18n/adapters/domBindingAdapter';
 import { createI18nResource } from '../../../src/i18n/resource';
-import { loadLocaleMessages } from '../../../src/i18n/locales';
+import { loadLocaleMessages, type Messages } from '../../../src/i18n/locales';
+
+async function createEnglishResource(overrides: Partial<Messages> = {}) {
+  const enMessages = await loadLocaleMessages('en');
+  return createI18nResource({
+    language: 'en',
+    messages: {
+      ...enMessages,
+      ...overrides
+    },
+    fallbackChain: [enMessages]
+  });
+}
 
 describe('domBindingAdapter', () => {
   it('binds elements and updates on refresh', async () => {
@@ -62,5 +74,29 @@ describe('domBindingAdapter', () => {
     textHandle.dispose();
     placeholderHandle.dispose();
     adapter.clear();
+  });
+
+  it('keeps placeholder title value and aria-label attribute bindings compatible', async () => {
+    const adapter = createDomBindingAdapter();
+    const input = document.createElement('input');
+    const titleElement = document.createElement('button');
+    const textarea = document.createElement('textarea');
+
+    adapter.bindAttribute(input, 'placeholder', 'domainMappingDomainPlaceholder');
+    adapter.bindAttribute(input, 'value', 'extensionName');
+    adapter.bindAttribute(titleElement, 'title', 'extensionName');
+    adapter.bindAttribute(textarea, 'aria-label', 'commentLabel');
+
+    const resource = await createEnglishResource();
+    adapter.refresh(resource);
+
+    expect(input.placeholder).toBe(resource.messages.domainMappingDomainPlaceholder);
+    expect(input.getAttribute('placeholder')).toBe(
+      resource.messages.domainMappingDomainPlaceholder
+    );
+    expect(input.value).toBe(resource.messages.extensionName);
+    expect(input.getAttribute('value')).toBe(resource.messages.extensionName);
+    expect(titleElement.title).toBe(resource.messages.extensionName);
+    expect(textarea.getAttribute('aria-label')).toBe(resource.messages.commentLabel);
   });
 });

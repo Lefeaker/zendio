@@ -1,4 +1,4 @@
-import type { Messages, PageI18nController } from '../../i18n';
+import type { Messages, PageI18nController } from '@i18n';
 import type { FragmentClipperOptions } from '../../shared/types/options';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';

@@ -106,8 +106,9 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 exact current-line budget；2026-06-03 video-mode structural repair 后当前动态发现 `93` 个热点路径，注册 `94` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
-- 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`yaml-config-editor/view.ts <= 746`、`stitch/types.ts <= 743`。
+- 全部当前 `src` >250 LOC 文件均有 exact current-line budget；2026-06-05 M07 schema shell split 后当前动态发现 `96` 个热点路径，注册 `98` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
+- 当前 top line budgets：`localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`、`stitch/content.ts <= 906`，以及 generated locale modules 中的 `fr.generated.ts <= 785`、`es-419.generated.ts <= 777`、`es-ES.generated.ts <= 777`、`de.generated.ts <= 776`。
+- M12 current truth：`src/i18n/messages.ts` 已缩为 generated type shim，`src/i18n/schemaShellMessages.ts` 与手写 `src/i18n/locales/*.ts` 已删除；generated i18n 热点预算为 `localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`，并新增 `src/i18n/generated/locales/*.generated.ts` exact current-line budgets。
 - 当前业务/运行时重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 491`、`videoSessionRuntime.ts <= 432`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 746` were not loosened.
 

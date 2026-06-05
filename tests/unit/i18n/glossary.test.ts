@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateGlossary, GLOSSARY_RULES } from '../../../src/i18n/glossary';
-import zhCN from '../../../src/i18n/locales/zh-CN';
+import zhCN from '../../../src/i18n/generated/locales/zh-CN.generated';
 
 function flattenMessages(
   record: unknown,

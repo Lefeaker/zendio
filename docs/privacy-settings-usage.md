@@ -113,8 +113,9 @@ AiiinOB/
 │   ├── dataSanitizer.ts               # 数据匿名化工具
 │   └── index.ts                       # 统一导出
 ├── src/i18n/
-│   ├── messages.ts                    # 消息接口定义
-│   └── locales/                       # 多语言翻译
+│   ├── catalog/messages/              # runtime/static/schema catalog source
+│   ├── generated/                     # generated locale modules and registries
+│   └── runtime/                       # runtime locale loading
 └── docs/
     ├── error-analytics-integration-guide.md
     ├── google-analytics-dashboard-setup.md

@@ -109,7 +109,7 @@
    - `clipPipeline` / `processClipPayload` 扩展 payload 结构。
    - `restClient` 支持批量写入：先写图片，再写 Markdown（或反之）。
 5. **配置与本地化**
-   - Options UI、新增 schema 字段、`_locales/*` 文案。
+   - Options UI、新增 schema 字段、`src/i18n/catalog/messages/<lang>/schema.json` / `static.json` 文案，并重新生成 catalog artifacts。
    - 更新 `docs/zh-cn/设置页面使用指南.md` 等指南。
 6. **测试**
    - 单元测试：截图请求协议（mock background）、序列化迁移、导出 Markdown 链接正确性。

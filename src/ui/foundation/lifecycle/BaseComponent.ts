@@ -1,4 +1,4 @@
-import type { Messages } from '@i18n/messages';
+import type { Messages } from '@i18n';
 
 /**
  * Shared UI base component used by ui/domains and legacy Options classes during migration.

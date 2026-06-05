@@ -1,4 +1,4 @@
-import type { Language } from '../../i18n/locales';
+import type { Language } from '@i18n';
 import type { TextBudget } from './budgets';
 
 export interface AdaptiveTextResult {

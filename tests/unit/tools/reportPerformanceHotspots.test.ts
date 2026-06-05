@@ -32,10 +32,11 @@ describe('report-performance-hotspots', () => {
       encoding: 'utf8'
     });
 
-    expect(output).toContain('src/i18n/schemaShellMessages.ts');
+    expect(output).toContain('src/i18n/generated/schemaMessages.generated.ts');
     expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
     expect(output).toContain('src/options/app/productionStitchShellMount.ts');
     expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
+    expect(output).not.toContain('src/i18n/schemaShellMessages.ts: lines=');
   });
 
   it('fails when a newly discovered >250 LOC src file has no registered budget', () => {
@@ -100,7 +101,37 @@ describe('report-performance-hotspots', () => {
         }
       );
 
-      expect(output).toContain('dynamic hotspot coverage: trackedSourceFiles=1');
+      expect(output).toContain('dynamic hotspot coverage: sourceFiles=1');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('includes untracked current src files in hotspot coverage truth', () => {
+    const root = createFixtureRepo({
+      'src/currentSmallFile.ts': createSourceWithLines(20)
+    });
+    const budgetPath = join(root, 'budgets.json');
+    writeFileSync(join(root, 'src/generatedLargeFile.ts'), createSourceWithLines(251), 'utf8');
+    writeFileSync(
+      budgetPath,
+      JSON.stringify({
+        'src/generatedLargeFile.ts': 251
+      })
+    );
+
+    try {
+      const output = execFileSync(
+        process.execPath,
+        [toolPath, '--root', root, '--budget-json', budgetPath],
+        {
+          encoding: 'utf8',
+          stdio: 'pipe'
+        }
+      );
+
+      expect(output).toContain('src/generatedLargeFile.ts: lines=251');
+      expect(output).toContain('dynamic hotspot coverage: sourceFiles=2');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

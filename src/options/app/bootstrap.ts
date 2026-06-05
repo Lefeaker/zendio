@@ -3,7 +3,7 @@ import {
   createDefaultPageI18nController,
   type Language,
   type PageI18nController
-} from '../../i18n';
+} from '@i18n';
 import { configureAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
 import { configureGlobalStateManagerStorage } from '../../shared/state/globalStateManager';
 import { DI_TOKENS } from '../../shared/di/tokens';

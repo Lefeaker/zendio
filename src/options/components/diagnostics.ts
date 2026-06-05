@@ -1,5 +1,4 @@
 import { getElementById } from '../utils/dom';
-import { formatMessage } from '../../i18n';
 import type { VaultConfig, RoutingRule } from '../../shared/types';
 import type {
   StoredOptions,
@@ -14,6 +13,16 @@ import { configProvider } from '../../shared/config/provider';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IOptionsRepository } from '../../shared/repositories';
+
+function interpolateDiagnosticsTemplate(
+  template: string,
+  values: Record<string, string | number | undefined>
+): string {
+  return template.replace(/\{(\w+)\}/g, (match, token: string) => {
+    const value = values[token];
+    return value === undefined ? match : String(value);
+  });
+}
 
 function isEmptyOptions(options: StoredOptions | null | undefined): boolean {
   return !options || Object.keys(options).length === 0;
@@ -229,7 +238,7 @@ export function buildDiagnosticsReport(
   const portConflicts = findDuplicatePorts(portEntries);
   if (portConflicts.length > 0) {
     const template = msgs?.portConflictDetected ?? '⚠️ 检测到端口冲突: {ports}';
-    report += `${formatMessage(template, { ports: portConflicts.join(', ') })}\n`;
+    report += `${interpolateDiagnosticsTemplate(template, { ports: portConflicts.join(', ') })}\n`;
   } else {
     report += '✅ 仓库端口配置正常\n';
   }

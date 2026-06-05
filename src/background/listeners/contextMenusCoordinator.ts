@@ -1,4 +1,4 @@
-import { getMessages } from '../../i18n';
+import { getMessages } from '@i18n';
 import { getOptions } from '../store';
 import { notifyInjectionFailure } from '../services/notifications';
 import { PlatformError } from '../../platform/errors';
