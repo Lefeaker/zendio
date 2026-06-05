@@ -27,6 +27,33 @@ AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。
 
+当前生产 owner public config 已准备在 ignored local file：
+
+```bash
+.env.production.local
+```
+
+该文件不进入 git，当前值为：
+
+```bash
+AIIINOB_GA_MEASUREMENT_ID=G-3V2CHL13TC
+AIIINOB_GA_TRANSPORT_MODE=proxy
+AIIINOB_GA_PROXY_ENDPOINT=https://zendio.sxnian.com/api/ga4
+```
+
+生产构建与打包优先使用已封装脚本：
+
+```bash
+npm run analytics:validate:prod
+npm run package:prod:ga
+```
+
+Firefox 包使用：
+
+```bash
+npm run package:firefox:prod:ga
+```
+
 ## 生产 owner 配置步骤
 
 ### 1. 创建 GA4 property / data stream
@@ -57,12 +84,11 @@ proxy 至少应满足：
 ### 3. 在 release 环境注入 public config
 
 ```bash
-export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
-export AIIINOB_GA_TRANSPORT_MODE=proxy
-export AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
+npm run analytics:validate:prod
+npm run package:prod:ga
 ```
 
-然后执行正常 build / release 流程。
+默认生产配置由 `.env.production.local` 注入。临时覆盖仍可使用 shell `export`，但不得把 owner release 值写回 tracked source。
 
 ### 4. 保持 tracked config 非敏感
 
@@ -124,6 +150,12 @@ unset AIIINOB_GA_PROXY_ENDPOINT
 
 ```bash
 node scripts/setup-error-analytics.js
+```
+
+验证当前生产 `.env.production.local`：
+
+```bash
+npm run analytics:validate:prod
 ```
 
 该脚本当前只做以下事情：

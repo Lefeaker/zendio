@@ -32,6 +32,7 @@
 - `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
 - `audit:build:report` 使用 2026-05-24 M2.5 复核后的预算真值
 - `audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；`audit:non-production-source:check` 是 hard gate
+- GA production release public config 由 ignored `.env.production.local` 注入；owner 命令见 [`engineering-entrypoints.md`](./engineering-entrypoints.md) 与 [`analytics-configuration-guide.md`](./analytics-configuration-guide.md)
 - `M4` 已按重定义口径通过：当前分支保留已验真的 retained set，原始规模预算已下沉到 backlog
 - 当前交付归属统一落到 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 

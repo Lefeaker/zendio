@@ -95,6 +95,21 @@ acceptable when a surrounding standalone quality gate has already passed.
 `npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
 credentials and manual confirmation.
 
+GA production release public config is loaded from ignored
+`.env.production.local`. The reusable owner commands are:
+
+```bash
+npm run analytics:validate:prod
+npm run build:prod:ga
+npm run package:prod:ga
+npm run package:firefox:prod:ga
+npm run release:prod:ga
+```
+
+The file must only contain public build config (`measurementId`,
+`transportMode`, `proxyEndpoint`). GA `api_secret` remains server-only in the
+Cloudflare Worker secret `GA4_API_SECRET`.
+
 ## 当前 Lint / Type 债务真值
 
 2026-05-29 post-remediation governance truth:
