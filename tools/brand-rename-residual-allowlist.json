@@ -34,8 +34,10 @@
     "build/**",
     "coverage/**",
     "dist/**",
+    ".tmp/**",
     "node_modules/**",
     "test-results/**",
+    "tmp/**",
     "tools/brand-rename-residual-allowlist.json",
     "tools/report-brand-rename-residuals.mjs"
   ],
