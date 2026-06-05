@@ -362,7 +362,8 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
-  it('hydrates the latest video draft on first start instead of skipping restore after storage-key bootstrap', async () => {
+  it('recaptures requested screenshots from restored drafts once the video frame becomes available', async () => {
+    vi.useFakeTimers();
     const deps = createDependencies();
     const repository = createSessionDraftRepository(deps.storage.local);
     const envelope = createVideoSessionDraftEnvelope({
@@ -410,14 +411,87 @@ describe('VideoSession', () => {
     await repository.save(envelope);
     const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation((tagName: string) => {
+        if (tagName.toLowerCase() === 'canvas') {
+          Object.defineProperty(canvas, 'getContext', {
+            value: vi.fn(() => ({ drawImage })),
+            configurable: true
+          });
+          Object.defineProperty(canvas, 'toDataURL', {
+            value: vi.fn(() => 'data:image/jpeg;base64,restored-frame'),
+            configurable: true
+          });
+          return canvas;
+        }
+        return Document.prototype.createElement.call(document, tagName);
+      });
+    const video = requireVideoElement();
+    let currentTime = 8;
+    let paused = false;
+    let readyState = 0;
+    let videoWidth = 0;
+    let videoHeight = 0;
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+        video.dispatchEvent(new Event('seeked'));
+      },
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      get: () => paused,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      get: () => readyState,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', {
+      get: () => videoWidth,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoHeight', {
+      get: () => videoHeight,
+      configurable: true
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
 
     await session.start();
 
+    expect(sessionApi.state.captures[0]).toMatchObject({
+      kind: 'timestamp',
+      id: 'ts-1',
+      screenshotRequested: true
+    });
+    expect((sessionApi.state.captures[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+
+    readyState = 4;
+    videoWidth = 640;
+    videoHeight = 360;
+    video.dispatchEvent(new Event('loadedmetadata'));
+    await vi.runAllTimersAsync();
+
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
     expect(sessionApi.state.captures).toEqual([
       expect.objectContaining({
         kind: 'timestamp',
         id: 'ts-1',
-        screenshotRequested: true
+        screenshotRequested: true,
+        screenshot: expect.objectContaining({
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,restored-frame'
+        })
       }),
       expect.objectContaining({
         kind: 'fragment',
@@ -425,11 +499,15 @@ describe('VideoSession', () => {
         selectedText: 'Quoted text'
       })
     ]);
-    expect((sessionApi.state.captures[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    expect(currentTime).toBe(8);
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
     expect(sessionApi.state.commentDrafts).toEqual({ 'ts-1': 'draft note' });
     expect(loadStoredCaptureDataMock).not.toHaveBeenCalled();
 
+    createElementSpy.mockRestore();
     sessionApi.cleanup();
+    vi.useRealTimers();
   });
 
   it('removes the current video draft after successful export but keeps it after export failure', async () => {
@@ -1077,6 +1155,7 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
+      screenshotRequested: true,
       screenshot: {
         mimeType: 'image/jpeg',
         dataUrl: 'data:image/jpeg;base64,frame'
@@ -1119,14 +1198,34 @@ describe('VideoSession', () => {
     await session.start();
 
     const video = requireVideoElement();
-    const currentTimeSetSpy = vi.fn();
+    let currentTime = 8;
+    let paused = false;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+      video.dispatchEvent(new Event('seeked'));
+    });
     Object.defineProperty(video, 'currentTime', {
-      get: () => 8,
+      get: () => currentTime,
       set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      get: () => paused,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      value: 4,
       configurable: true
     });
     Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
     sessionApi.state.captures = [
       {
         kind: 'timestamp',
@@ -1141,10 +1240,13 @@ describe('VideoSession', () => {
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
 
     expect(video.currentTime).toBe(8);
-    expect(currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(currentTimeSetSpy.mock.calls.map(([value]) => value)).toEqual([42, 8]);
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).toHaveBeenCalledTimes(1);
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
     expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
     expect(sessionApi.state.captures[0]).toMatchObject({
+      screenshotRequested: true,
       screenshot: {
         dataUrl: 'data:image/jpeg;base64,toggled-frame'
       }
@@ -1160,6 +1262,7 @@ describe('VideoSession', () => {
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
 
     expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
     const toggledOffCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
       | Array<{ hasScreenshot?: boolean }>
       | undefined;
@@ -1317,6 +1420,64 @@ describe('VideoSession', () => {
       variant: 'success'
     });
     expect(cleanupSpy).toHaveBeenCalled();
+  });
+
+  it('exports only already-live screenshots and does not seek or recapture missing requested screenshots', async () => {
+    const dependencies = createDependencies();
+    const session = new VideoSession(document, dependencies);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    const video = requireVideoElement();
+    let currentTime = 8;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: '',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1,
+        screenshotRequested: true
+      }
+    ];
+
+    await sessionApi.finish();
+
+    const lastExportCall = exportMock.mock.calls.at(-1);
+    expect(lastExportCall).toBeDefined();
+    if (!lastExportCall) {
+      throw new Error('expected exporter to be called');
+    }
+    const exportArgs = (lastExportCall as unknown[])[0];
+    expect(exportArgs).toEqual(
+      expect.objectContaining({
+        captures: [expect.objectContaining({ id: 'timestamp-1', screenshotRequested: true })]
+      })
+    );
+    expect(
+      (
+        exportArgs as unknown as {
+          captures?: Array<{ screenshot?: unknown }>;
+        }
+      )?.captures?.[0]?.screenshot
+    ).toBeUndefined();
+    expect(currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(playSpy).not.toHaveBeenCalled();
   });
 
   it('emits canonical export success analytics without leaking private fields', async () => {

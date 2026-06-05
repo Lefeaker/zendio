@@ -9,12 +9,6 @@ import {
   type VideoSessionDraftPayload
 } from '../sessionDrafts';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import {
-  deserializeStoredCaptures,
-  serializeCaptures,
-  type DeserializeContext,
-  type StoredVideoCaptureEntry
-} from './captureStorage';
 import type { VideoCapture } from './types';
 import type { VideoPlatform } from './utils';
 
@@ -112,15 +106,15 @@ export function buildVideoSessionDraftPayload(
     videoTitle: args.videoTitle,
     ...(args.destination ? { destination: args.destination } : {}),
     commentDrafts: args.commentDrafts,
-    captures: serializeCaptures(args.captures) as VideoSessionDraftCaptureDraft[]
+    captures: args.captures.map(serializeVideoDraftCapture)
   };
 }
 
 export function deserializeVideoDraftCaptures(
   captures: VideoSessionDraftCaptureDraft[] | undefined,
-  ctx: DeserializeContext
+  ctx: { fallbackUrl: string }
 ): VideoCapture[] {
-  return deserializeStoredCaptures((captures ?? []) as StoredVideoCaptureEntry[], ctx);
+  return (captures ?? []).map((capture) => deserializeVideoDraftCapture(capture, ctx.fallbackUrl));
 }
 
 export function hydrateVideoSessionDraft(
@@ -168,4 +162,59 @@ export function pickVideoSessionDraftCandidate(
     return null;
   }
   return restorable[0] ?? null;
+}
+
+function serializeVideoDraftCapture(capture: VideoCapture): VideoSessionDraftCaptureDraft {
+  if (capture.kind === 'fragment') {
+    return {
+      kind: 'fragment',
+      id: capture.id,
+      timeSec: capture.timeSec,
+      comment: capture.comment,
+      selectedText: capture.selectedText,
+      selectedHtml: capture.selectedHtml,
+      fragmentUrl: capture.fragmentUrl,
+      createdAt: capture.createdAt,
+      ...(capture.wrapperId !== undefined ? { wrapperId: capture.wrapperId } : {})
+    };
+  }
+
+  return {
+    kind: 'timestamp',
+    id: capture.id,
+    timeSec: capture.timeSec,
+    url: capture.url,
+    comment: capture.comment,
+    createdAt: capture.createdAt,
+    ...((capture.screenshotRequested || capture.screenshot) && { screenshotRequested: true })
+  };
+}
+
+function deserializeVideoDraftCapture(
+  capture: VideoSessionDraftCaptureDraft,
+  fallbackUrl: string
+): VideoCapture {
+  if (capture.kind === 'fragment') {
+    return {
+      kind: 'fragment',
+      id: capture.id,
+      timeSec: capture.timeSec,
+      comment: capture.comment,
+      selectedText: capture.selectedText,
+      selectedHtml: capture.selectedHtml,
+      fragmentUrl: capture.fragmentUrl,
+      createdAt: capture.createdAt,
+      ...(capture.wrapperId !== undefined ? { wrapperId: capture.wrapperId } : {})
+    };
+  }
+
+  return {
+    kind: 'timestamp',
+    id: capture.id,
+    timeSec: capture.timeSec,
+    url: capture.url || fallbackUrl,
+    comment: capture.comment,
+    createdAt: capture.createdAt,
+    ...(capture.screenshotRequested ? { screenshotRequested: true } : {})
+  };
 }

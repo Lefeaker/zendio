@@ -73,6 +73,11 @@ import {
   pickVideoSessionDraftCandidate,
   type VideoSessionDraftPayloadShape
 } from './sessionDrafts';
+import {
+  hasRequestedTimestampScreenshot,
+  restoreRequestedTimestampScreenshots
+} from './screenshotIntent';
+import type { VideoTimestampCapture } from './types';
 
 type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -108,6 +113,7 @@ export class VideoSession {
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
   private controllersReadyPromise: Promise<void> | null = null;
+  private screenshotRecapturePromise: Promise<void> | null = null;
 
   private get operationContext() {
     const context = createVideoSessionOperationContext({
@@ -331,6 +337,9 @@ export class VideoSession {
       resolveHintState: (videoAvailable, captureCount) =>
         resolveVideoHintState(videoAvailable, captureCount)
     });
+    if (element) {
+      void this.scheduleRequestedScreenshotRecapture();
+    }
   }
 
   private async refreshContext(): Promise<void> {
@@ -459,6 +468,7 @@ export class VideoSession {
     this.destinationState.applyMetadata(hydrated.destination);
     this.restoredDraftKey = createVideoSessionDraftStorageKey(draft.pageUrl, draft.draftId);
     this.legacyCaptureStorageKey = null;
+    void this.scheduleRequestedScreenshotRecapture();
     return true;
   }
 
@@ -520,6 +530,45 @@ export class VideoSession {
     }
     this.restoredDraftKey = null;
     this.legacyCaptureStorageKey = null;
+  }
+
+  private async scheduleRequestedScreenshotRecapture(): Promise<void> {
+    if (this.screenshotRecapturePromise || !this.hasPendingRequestedScreenshotCaptures()) {
+      return;
+    }
+
+    const video = this.state.videoElement ?? this.doc.querySelector('video');
+    if (!(video instanceof HTMLVideoElement)) {
+      return;
+    }
+
+    this.screenshotRecapturePromise = restoreRequestedTimestampScreenshots({
+      captures: this.state.captures.filter(
+        (capture): capture is VideoTimestampCapture =>
+          capture.kind === 'timestamp' &&
+          hasRequestedTimestampScreenshot(capture) &&
+          !capture.screenshot
+      ),
+      video
+    })
+      .catch((error) => {
+        console.warn('[VideoSession] Failed to recapture restored screenshots:', error);
+      })
+      .finally(() => {
+        this.screenshotRecapturePromise = null;
+        this.syncPanel();
+      });
+
+    await this.screenshotRecapturePromise;
+  }
+
+  private hasPendingRequestedScreenshotCaptures(): boolean {
+    return this.state.captures.some(
+      (capture): capture is VideoTimestampCapture =>
+        capture.kind === 'timestamp' &&
+        hasRequestedTimestampScreenshot(capture) &&
+        !capture.screenshot
+    );
   }
 
   private createDestinationPayload(): ClipPayload {

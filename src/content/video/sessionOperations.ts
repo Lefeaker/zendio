@@ -33,12 +33,17 @@ import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighli
 import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
 import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
 import {
   createVideoTimestampCapture,
   saveVideoTimestampCaptureOrRollback
 } from './videoTimestampCaptureTransaction';
+import {
+  clearRequestedTimestampScreenshot,
+  hasRequestedTimestampScreenshot,
+  restoreRequestedTimestampScreenshots,
+  setRequestedTimestampScreenshot
+} from './screenshotIntent';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -365,34 +370,39 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
 
-  if (target.screenshot) {
-    delete target.screenshot;
+  if (hasRequestedTimestampScreenshot(target)) {
+    clearRequestedTimestampScreenshot(target);
     context.applyHint('saving');
     await saveVideoCaptures(context);
     context.syncPanel();
     return;
   }
 
+  setRequestedTimestampScreenshot(target, null);
   context.updateVideoContext();
   const video = context.state.videoElement ?? context.findVideoElement();
   if (!video) {
+    await saveVideoCaptures(context);
+    context.syncPanel();
     context.applyHint('noVideo');
     return;
   }
 
-  const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
-  if (!screenshot) {
+  await restoreRequestedTimestampScreenshots({
+    captures: [target],
+    video
+  });
+  const capturedScreenshot = target.screenshot;
+  await saveVideoCaptures(context);
+  context.syncPanel();
+  if (!capturedScreenshot) {
     context.applyHint('failure');
     return;
   }
 
-  target.screenshot = screenshot;
-  context.applyHint('saving');
-  await saveVideoCaptures(context);
   emitVideoUsageEvent(context.dependencies, 'video_screenshot_captured', {
     screenshot_count_bucket: bucketCount(countVideoScreenshots(context.state))
   });
-  context.syncPanel();
 }
 
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
