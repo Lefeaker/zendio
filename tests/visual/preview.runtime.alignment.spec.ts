@@ -812,13 +812,17 @@ test.describe('Stitch runtime surface alignment', () => {
     const timestampBox = await timestamp.boundingBox();
     const fragmentBox = await fragment.boundingBox();
     const chipBox = await timestamp.locator('.session-item-marker-time').boundingBox();
+    const indexBox = await fragment.locator('.session-item-marker-index').boundingBox();
     const dotBox = await timestamp.locator('.video-screenshot-toggle').boundingBox();
     const inputBox = await timestamp.locator('.session-item-comment-input').boundingBox();
-    if (!timestampBox || !fragmentBox || !chipBox || !dotBox || !inputBox) {
+    if (!timestampBox || !fragmentBox || !chipBox || !indexBox || !dotBox || !inputBox) {
       throw new Error('Missing video timestamp geometry targets');
     }
+    const centerX = (box: NonNullable<Awaited<ReturnType<typeof timestamp.boundingBox>>>) =>
+      box.x + box.width / 2;
     const centerY = (box: NonNullable<Awaited<ReturnType<typeof timestamp.boundingBox>>>) =>
       box.y + box.height / 2;
+    expect(Math.abs(centerX(chipBox) - centerX(indexBox))).toBeLessThanOrEqual(1);
     expect(Math.abs(centerY(chipBox) - centerY(dotBox))).toBeLessThanOrEqual(1);
     expect(Math.abs(centerY(chipBox) - centerY(inputBox))).toBeLessThanOrEqual(1);
     expect(fragmentBox.y - (timestampBox.y + timestampBox.height)).toBeCloseTo(1, 0);
