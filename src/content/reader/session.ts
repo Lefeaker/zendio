@@ -284,15 +284,6 @@ export class ReaderSession {
   private async hydrateStoredDraft(
     initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
   ): Promise<boolean> {
-    const bootHighlights = initialHighlights
-      ? Array.isArray(initialHighlights)
-        ? initialHighlights
-        : [initialHighlights]
-      : [];
-    if (bootHighlights.length > 0) {
-      return false;
-    }
-
     try {
       const loadedDraft = await loadLatestReaderSessionDraft(this.draftRepository, this.url);
       if (!loadedDraft) {

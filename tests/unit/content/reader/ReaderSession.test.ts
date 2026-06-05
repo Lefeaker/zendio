@@ -524,6 +524,106 @@ describe('ReaderSession', () => {
     });
   });
 
+  it('restores the latest reader draft before appending a new initial highlight', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+    const context = createSessionContext();
+    const content = document.getElementById('content')?.firstChild;
+    if (!content) {
+      throw new Error('content missing');
+    }
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-1',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Restored article',
+      destination: { kind: 'vault', vaultId: 'research' },
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'saved-1',
+          selectedText: 'Hello reader session world.',
+          selectedHtml: '<mark>Hello reader session world.</mark>',
+          comment: 'remember this',
+          fragmentUrl: '#saved-1',
+          createdAt: 15
+        })
+      ],
+      commentDrafts: {
+        'saved-1': 'unsaved note'
+      },
+      status: 'restorable'
+    });
+    if (!envelope) {
+      throw new Error('expected restorable reader envelope');
+    }
+    await context.draftRepository.save(envelope);
+
+    const range = document.createRange();
+    range.setStart(content, 6);
+    range.setEnd(content, 20);
+
+    await context.session.initialize({
+      range,
+      selectedHtml: '<mark>reader session</mark>',
+      selectedText: 'reader session',
+      comment: 'fresh note',
+      destination: { kind: 'downloads' }
+    });
+
+    expect(
+      (context.session as unknown as { __testHighlights: ReaderHighlightRecord[] }).__testHighlights
+    ).toEqual([
+      expect.objectContaining({
+        id: 'saved-1',
+        selectedText: 'Hello reader session world.',
+        comment: 'remember this',
+        createdAt: 15
+      }),
+      expect.objectContaining({
+        selectedText: 'reader session',
+        comment: 'fresh note'
+      })
+    ]);
+    expect(context.view.currentDrafts).toEqual({
+      'saved-1': 'unsaved note'
+    });
+    expect(context.view.updateDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
+
+    await flushDraftPersistence();
+
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      draftId: 'reader-draft-1',
+      status: 'active',
+      payload: expect.objectContaining({
+        destination: { kind: 'vault', vaultId: 'research' },
+        commentDrafts: {
+          'saved-1': 'unsaved note'
+        },
+        highlights: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'saved-1',
+            selectedText: 'Hello reader session world.',
+            comment: 'remember this'
+          }),
+          expect.objectContaining({
+            selectedText: 'reader session',
+            comment: 'fresh note'
+          })
+        ])
+      })
+    });
+  });
+
   it('flushes a restorable reader draft on pagehide after prior mutation-time saves', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
