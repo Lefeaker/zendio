@@ -16,21 +16,27 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
-  - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、locale files 三方一致
+  - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
+  - Chrome ZIP 与 Firefox XPI package 脚本会解包最终产物并通过 `tools/audit-release-archive.mjs` 复用 release-surface 审计
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` errors / `8` warnings，warning-only 不阻塞该 hard gate
+  - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
+  - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
+  - `public/_locales/**` 是当前 catalog-owned WebExtension static source；root `_locales/**` 已退役并删除，不参与 production build/package ownership
 - `npm run verify:preflight`
   - 显式包含 `verify:runtime`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `i18n:catalog:check`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
   - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
+  - `Verify generated i18n catalog artifacts are up to date` 显式运行 `npm run i18n:catalog:check`
   - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
   - `Enforce hardcoded config guard` 显式运行 `npm run lint:hardcoded`
@@ -44,7 +50,9 @@
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；`npm audit --audit-level=low` 当前 green 但未接入 `quality`
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
-- 2026-06-05 GA production telemetry P13 type-ratchet gap fix 真值：GA release env close-out 当前 `lint:type-any` 实测为扫描 `1041` files，overall `0/1064/1727/41/4`、src `0/576/592/5/0`、tests `0/488/1135/36/4`；`lint:type-any:ratchet` 的 checked-in 上限仍为 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
+- 2026-06-03 video-mode structural repair 真值：P01-P06 合入后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/971/1616/41/4`、src `0/537/565/5/0`、tests `0/434/1051/36/4`；本次同步只反映新增视频/哔哩哔哩测试夹具的 current truth，同时收紧 overall assertions/non-null 与 src unknown/assertion 上限。
+- 2026-06-04 i18n-v2 M11 type-ratchet 真值：M02-M10 accepted i18n generated source/test expansion 后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/991/1658/41/4`、src `0/549/579/5/0`、tests `0/442/1079/36/4`；M11 自身新增 gate test 不增加 type-debt 计数，`any` 与 `ts-expect-error` 上限未放宽。
+- 2026-06-05 GA / i18n PR merge type-ratchet 真值：两个 PR 合并后的当前 `lint:type-any` 实测为扫描 `1071` files，overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
 
 ## 当前推荐执行顺序
 
@@ -117,13 +125,13 @@ must not call Google debug endpoints directly from the extension.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA release env close-out 后 fresh warning count 为 `126`，当前 gate 输出为 `Warning 总量下降 6 条`，baseline file 尚未同步收紧。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA/i18n PR merge 后 fresh warning count 为 `125`，当前 gate 输出为 `Warning 总量下降 7 条`，baseline file 尚未同步收紧。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 GA release env close-out `1041` files；overall 为 `any: 0`、`unknown: 1064`、assertions `1727`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/576/592/5/0`；tests 为 `0/488/1135/36/4`。
+- `npm run lint:type-any`：扫描当前 GA/i18n PR merge 树 `1071` files；overall 为 `any: 0`、`unknown: 1084`、assertions `1776`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/588/606/5/0`；tests 为 `0/496/1170/36/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/1064/1736/41/4`、src `0/576/596/5/0`、tests `0/488/1140/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 

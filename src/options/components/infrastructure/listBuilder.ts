@@ -6,7 +6,7 @@ import {
   type BoundElement,
   type LocalizedContent
 } from '../../utils/localizedText';
-import type { Messages } from '@i18n/locales';
+import type { Messages } from '@i18n';
 import {
   queryAllFormControlElements,
   queryHTMLElement,

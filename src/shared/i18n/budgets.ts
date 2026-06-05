@@ -1,4 +1,4 @@
-import { LANGUAGE_CONFIG, resolveLanguage, type LangCode } from '../../i18n/config';
+import { LANGUAGE_CONFIG, resolveLanguage, type LangCode } from '@i18n/config';
 
 export type TextBudgetPriority = 'high' | 'medium' | 'low';
 

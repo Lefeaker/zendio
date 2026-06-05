@@ -84,6 +84,31 @@
    - 本地 debug proxy 模式没有新 proxy 事件；如该 proxy 接入 GA，也没有 DebugView 新事件
    - 控制台不会出现 sent telemetry log
 
+当前相关实现结构：
+
+```
+AiiinOB/
+├── src/options/stitch/schema/settings/
+│   └── overview.ts                     # 隐私与数据卡片 schema
+├── src/ui/domains/privacy/
+│   └── PrivacySettingsView.ts          # privacy domain view
+├── src/options/app/
+│   └── productionStitchPersistence.ts  # consent / clear-data persistence wiring
+├── src/shared/errors/analytics/
+│   ├── analyticsConfig.ts              # GA4 配置管理
+│   ├── googleAnalyticsReporter.ts      # GA4 错误报告器
+│   ├── dataSanitizer.ts               # 数据匿名化工具
+│   └── index.ts                       # 统一导出
+├── src/i18n/
+│   ├── catalog/messages/              # runtime/static/schema catalog source
+│   ├── generated/                     # generated locale modules and registries
+│   └── runtime/                       # runtime locale loading
+└── docs/
+    ├── error-analytics-integration-guide.md
+    ├── google-analytics-dashboard-setup.md
+    └── privacy-settings-usage.md      # 本文档
+```
+
 如果需要重置本地状态，使用“清空全部分析数据”。
 
 ## 如何证明 “error 只在 errorReporting on 时发送”

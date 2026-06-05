@@ -6,7 +6,7 @@ import {
   getMessages,
   type Messages,
   configureI18nStorage
-} from '../../i18n';
+} from '@i18n';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';

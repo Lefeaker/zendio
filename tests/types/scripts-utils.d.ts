@@ -10,3 +10,9 @@ declare module '../../../scripts/utils/manifestSources.mjs' {
 
   export function createBrowserManifest(target: BrowserManifestTarget): Record<string, unknown>;
 }
+
+declare module '../../../scripts/utils/i18nRichHtmlPolicy.mjs' {
+  export function validateRichHtmlCatalogMessages(
+    localeMessages: Record<string, Record<string, string>>
+  ): string[];
+}

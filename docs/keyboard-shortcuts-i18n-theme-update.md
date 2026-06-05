@@ -11,7 +11,7 @@
 
 ### 新增的国际化键
 
-在 `src/i18n/messages.ts` 中添加了以下新键：
+在 catalog source 中添加 key 后，由 `npm run i18n:catalog:generate` 写入 `src/i18n/generated/messages.generated.ts`：
 
 ```typescript
 // Fragment clipper keyboard shortcuts
@@ -27,7 +27,7 @@ clipperShortcutHintEscape: string;
 
 ### 多语言翻译
 
-#### 中文 (`src/i18n/locales/zh-CN.ts`)
+#### 中文 (`src/i18n/catalog/messages/zh-CN/runtime.json`)
 
 ```typescript
 fragmentKeyboardShortcutsLabel: '启用剪藏对话框快捷键',
@@ -38,7 +38,7 @@ clipperShortcutHintModifierEnter: '直接剪藏',
 clipperShortcutHintEscape: '取消',
 ```
 
-#### 英文 (`src/i18n/locales/en.ts`)
+#### 英文 (`src/i18n/catalog/messages/en/runtime.json`)
 
 ```typescript
 fragmentKeyboardShortcutsLabel: 'Enable clipper dialog keyboard shortcuts',
@@ -49,7 +49,7 @@ clipperShortcutHintModifierEnter: 'Clip directly',
 clipperShortcutHintEscape: 'Cancel',
 ```
 
-#### 日文 (`src/i18n/locales/ja.ts`)
+#### 日文 (`src/i18n/catalog/messages/ja/runtime.json`)
 
 ```typescript
 fragmentKeyboardShortcutsLabel: 'クリッパーダイアログのキーボードショートカットを有効にする',

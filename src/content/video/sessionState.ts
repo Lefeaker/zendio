@@ -1,4 +1,4 @@
-import type { PageI18nController } from '../../i18n';
+import type { PageI18nController } from '@i18n';
 import type { FeatureTimer } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { FragmentClipperOptions } from '../../shared/types/options';

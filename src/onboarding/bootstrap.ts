@@ -2,7 +2,7 @@ import {
   createDefaultPageI18nController,
   type PageI18nController,
   configureI18nStorage
-} from '../i18n';
+} from '@i18n';
 import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';

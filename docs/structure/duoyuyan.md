@@ -1,11 +1,13 @@
-结论先说：你的重构方向是对的（拆分语言文件、集中键集合、基于配置生成类型与清单、未知语种回退）。如果你要扩到 10+ 语言，建议在“Chrome 扩展的原生 i18n + 运行时 i18n”两条线都打通，并把“键完整性、复数/变量插值、RTL、区域回退、生成 \_locales/”一次性纳入。下面给出一套可落地的补强清单与关键代码骨架。
+> 状态：历史设计草案。当前 i18n v2 真值以 `docs/source-of-truth-index.md`、`docs/engineering-entrypoints.md` 与 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 为准；不要按本文恢复旧的 `messages.ts` 手写入口或 root `_locales` 目录。
+
+结论先说：你的重构方向是对的（拆分语言文件、集中键集合、基于配置生成类型与清单、未知语种回退）。如果你要扩到 10+ 语言，建议在“Chrome 扩展的原生 i18n + 运行时 i18n”两条线都打通，并把“键完整性、复数/变量插值、RTL、区域回退、生成 public WebExtension `_locales/`”一次性纳入。下面给出一套可落地的补强清单与关键代码骨架。
 
 ⸻
 
 需要补强的 10 点（按优先级）1. 双通道 i18n 结构
 • 静态（Chrome 原生）：面向 manifest.json、action 标题、contextMenus 等，用 \_locales/_/messages.json + chrome.i18n.getMessage()。
 • 运行时（你的 TS 模块）：面向 UI/业务文案，用 typed messages + 插值/复数。
-✅ 关键：用脚本从 TS 源自动生成 \_locales/_/messages.json，避免双维护。2. 标准化语言代码 & 回退链（BCP-47）
+✅ 关键：用 catalog generator 从 `src/i18n/catalog/messages/<lang>/static.json` 自动生成 `public/\_locales/_/messages.json`，避免双维护。2. 标准化语言代码 & 回退链（BCP-47）
 • 统一使用 en, zh-CN, zh-TW, es-ES/es-419, pt-BR, ru, ja, de, fr, ko, it…
 • 回退算法：userChoice → navigator.language → base(lang)（如 es-419 → es）→ DEFAULT_LANGUAGE（建议 en）。3. Typed keys “以英文为准”
 • type Messages = typeof en; 其它语言 satisfies Messages，编译期报缺失/多余键。
@@ -31,19 +33,22 @@ c) 危险 HTML（可选规则，禁止 <script> 等）。9. 伪本地化（Pseud
 参考目录结构（在你现有基础上微调）
 
 src/i18n/
-messages.ts # 键集合/工具类型（以 en 为准）
-index.ts # t()、loadLocale()、formatter 工具
-dynamicMessages.ts # 仍保留，但改为 MessageFormat 工厂
+index.ts # getMessages()、loadLocale()、formatter 工具
 config.ts # LANGUAGE*CONFIG（code/label/dir/aliases）
-locales/
-en.ts
-zh-CN.ts
-ja.ts
+catalog/messages/
+en/runtime.json
+en/static.json
+en/schema.json
+zh-CN/runtime.json
+...
+generated/locales/
+en.generated.ts
+zh-CN.generated.ts
 ...
 scripts/
-gen-locales.ts # 从 src/i18n/locales/* 生成 \_locales/\_/messages.json
+i18n:catalog:generate # 从 catalog/messages/* 生成 generated locale modules 与 public/\_locales
 lint-i18n.ts # 键/占位符/HTML 校验
-\_locales/ # 由脚本生成（不要手改）
+public/\_locales/ # 由 catalog generator 生成（不要手改）
 en/messages.json
 zh_CN/messages.json
 ja/messages.json
@@ -80,25 +85,21 @@ ko: { label: '한국어', dir: 'ltr' },
 it: { label: 'Italiano', dir: 'ltr' },
 };
 
-2. 以英文为准的类型锚
+2. 以英文 catalog 为准的生成锚
 
-// src/i18n/locales/en.ts
-export const en = {
-common: {
-ok: 'OK',
-cancel: 'Cancel',
-loading: 'Loading…'
-},
-helloUser: 'Hello, {name}!',
-notesCount: 'You have {n, plural, one {# note} other {# notes}}.'
-} as const;
-export type Messages = typeof en;
+// src/i18n/catalog/messages/en/runtime.json
+{
+"commonOk": "OK",
+"commonCancel": "Cancel",
+"loading": "Loading...",
+"helloUser": "Hello, {name}!"
+}
 
-// src/i18n/messages.ts
-export type { Messages } from './locales/en';
-
-// 强制其它语言满足 Messages
-export type LocaleModule = { default: Messages };
+// 运行 npm run i18n:catalog:generate 后生成：
+// - src/i18n/generated/messages.generated.ts
+// - src/i18n/generated/locales/en.generated.ts
+// - src/i18n/generated/localeRegistry.generated.ts
+// 其它语言由 catalog validator 与 i18n lint 强制键集合、占位符和 HTML 策略一致。
 
 3. 动态加载 + t()
 
@@ -111,7 +112,7 @@ let messages: any = null;
 export async function loadLocale(langLike?: string) {
 const resolved = resolveLang(langLike);
 currentLang = resolved;
-messages = (await import(`./locales/${resolved}.ts`)).default;
+messages = await loadMessagesWithFallback(resolved);
 document.documentElement.setAttribute('lang', resolved);
 document.documentElement.setAttribute('dir', LANGUAGE_CONFIG[resolved].dir);
 }
@@ -134,79 +135,33 @@ return formatICU(val, vars); // 用 messageformat/formatjs 的轻量运行时
 
 运行时格式化可选用 @formatjs/icu-messageformat-parser + 一个轻量执行器，或你现有的 dynamicMessages.ts 工厂。
 
-4. 生成 \_locales/\*/messages.json 脚本（简化版）
+4. 生成 public/\_locales/\*/messages.json
 
-// scripts/gen-locales.ts (node)
-import fs from 'node:fs/promises';
-import path from 'node:path';
+当前仓库已经落地 catalog generator。不要新增手写生成脚本，也不要直接编辑 `public/_locales/**`。修改静态 WebExtension 文案时：
 
-const OUT = path.resolve('\_locales');
+1. 编辑 `src/i18n/catalog/messages/<lang>/static.json`
+2. 运行 `npm run i18n:catalog:generate`
+3. 运行 `npm run i18n:catalog:check`
+4. 运行 `npm run i18n:lint`
+5. 运行 `npm run audit:locales:report`
 
-const STATIC_KEYS = {
-extName: 'AiiinOB – Obsidian Helper',
-extDesc: 'Enhance your Obsidian workflow in Chrome.',
-menuCapture: 'Capture to Obsidian'
-} as const;
-
-const MAP: Record<string, string> = {
-'zh-CN': 'zh_CN',
-'zh-TW': 'zh_TW',
-'pt-BR': 'pt_BR',
-'es-ES': 'es',
-'es-419': 'es_419'
-};
-
-async function run() {
-const localesDir = path.resolve('src/i18n/locales');
-const files = await fs.readdir(localesDir);
-await fs.mkdir(OUT, { recursive: true });
-
-for (const f of files) {
-if (!f.endsWith('.ts')) continue;
-const code = f.replace(/\.ts$/, '');
-const chromeCode = MAP[code] ?? code;
-
-    // 这里只导出静态键：避免把 ICU 串硬塞进 Chrome 消息（Chrome 不支持复数）
-    const msgs = await toChromeMessages(code, STATIC_KEYS);
-
-    const dir = path.join(OUT, chromeCode);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, 'messages.json'), JSON.stringify(msgs, null, 2), 'utf8');
-
-}
-}
-
-async function toChromeMessages(code: string, statics: Record<string, string>) {
-// 实际生产建议读取每种语言自己的静态区（如 locales/<lang>.static.ts）
-// 这里示例直接用英语键作为 key，其他语言你可在各自文件放对应翻译
-const mod = await import(path.resolve(`../src/i18n/locales/${code}.ts`));
-const dict: Record<string, any> = {};
-for (const [k, enValue] of Object.entries(statics)) {
-const v = mod.default?.static?.[k] ?? enValue; // 各语言可选的 static 字段
-dict[k] = { message: v };
-}
-return dict;
-}
-
-run().catch(e => { console.error(e); process.exit(1); });
-
-小技巧：在每个语言文件里新增一个 static 分区只存用于 Chrome 原生 i18n 的少量键（不含复数/占位符），脚本就能稳定生成。
+`public/_locales/**` 是 generator 输出并随仓库跟踪；root `_locales/**` 已删除，不再作为兼容副本保留。
 
 5. 校验脚本要点（思路）
-   • 读取 en.ts 作为基准，深度遍历对象键；
+   • 读取 `src/i18n/catalog/messages/en/{runtime,static,schema}.json` 作为基准，深度遍历对象键；
    • 逐语言比对缺失/冗余键；
    • 用正则抓 {var} 和 $1 占位符，对齐数量与命名；
-   • CI 中 npm run i18n:check 失败即拒绝合并。
+   • CI 中 `npm run i18n:catalog:check` / `npm run i18n:lint` 失败即拒绝合并。
 
 ⸻
 
 你的方案里，值得肯定 & 建议微调
 
 👍 已做对的
-• 拆分 locales/<lang>.ts、集中 Messages 类型、未知语种回退——正确且可扩展。
+• 拆分 catalog source、集中 generated Messages 类型、未知语种回退——正确且可扩展。
 • LANGUAGE_CONFIG 自动生成 Language 联合类型 & 可用语言清单——减少漏改。
 
-🔧 建议微调 1. 把“区域别名/书写方向/显示名”也纳入 LANGUAGE_CONFIG（上文示例有）。2. 运行时插值统一走 ICU，避免字符串拼接。3. 回退逻辑增加“区域→基础”（如 es-MX → es-419/es）。4. 把 \_locales 的生成脚本正式加入 repo（你在“后续建议”里已提到，这一步很关键）。5. 为 service worker 单独打包瘦身版 i18n（只含 t() + 当前语言字典，避免冷启动慢）。6. 增加 Pseudo-loc 做 UI 容错（长文本、RTL 预演）。
+🔧 建议微调 1. 把“区域别名/书写方向/显示名”也纳入 LANGUAGE_CONFIG（上文示例有）。2. 运行时插值统一走 ICU，避免字符串拼接。3. 回退逻辑增加“区域→基础”（如 es-MX → es-419/es）。4. `public/_locales/**` 的生成脚本已正式接入 repo；继续保持 catalog source → generated artifacts 的单向所有权。5. 为 service worker 单独打包瘦身版 i18n（只含当前语言字典，避免冷启动慢）。6. 增加 Pseudo-loc 做 UI 容错（长文本、RTL 预演）。
 
 ⸻
 
@@ -220,10 +175,10 @@ run().catch(e => { console.error(e); process.exit(1); });
 
 最后给你一份落地清单
 • 增补 LANGUAGE_CONFIG：dir/aliases/label。
-• 在 en.ts 上锚定 Messages，其它语言 satisfies Messages。
+• 在 English catalog source 上锚定 generated Messages，其它语言由 catalog check / lint 校验。
 • 引入 ICU 运行时（或你的 factory 支持 ICU 语法）。
 • 添加 resolveLang() 回退算法与 loadLocale()。
-• 新建 scripts/gen-locales.ts + scripts/lint-i18n.ts，接入 CI。
-• 给 manifest/title/menu 提供 static 键域，并由脚本生成 \_locales/\*/messages.json。
+• 维护现有 `npm run i18n:catalog:generate` + `npm run i18n:lint`，确保 generator 与 lint 继续接入 CI。
+• 给 manifest/title/menu 提供 static 键域，并由 catalog generator 生成 `public/_locales/*/messages.json`。
 • chrome.storage.sync 存语言首选项；UI 提供“跟随系统/手动选择”。
 • 加 qps-ploc 伪本地化与 RTL 预案。

@@ -13,7 +13,7 @@ import {
   createGlobalStateManager
 } from '../shared/state/globalStateManager';
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
-import { configureI18nStorage } from '../i18n';
+import { configureI18nStorage } from '@i18n';
 import type { StorageService } from '../platform/interfaces/storage';
 
 let backgroundDependencyStorage: StorageService | null = null;

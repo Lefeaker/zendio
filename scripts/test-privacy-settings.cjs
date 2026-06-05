@@ -42,6 +42,10 @@ function info(message) {
   colorLog('blue', `ℹ️  ${message}`);
 }
 
+function hasMessageKey(content, key) {
+  return content.includes(`${key}:`) || content.includes(`"${key}":`);
+}
+
 // 读取文件内容
 function readFile(filePath) {
   const fullPath = path.join(__dirname, '..', filePath);
@@ -153,7 +157,7 @@ function checkPersistenceIntegration() {
   const requiredSnippets = [
     "createTrackUsageEventMessage('privacy_consent_changed'",
     'enabled: nextSnapshot[field]',
-    "createTrackUsageEventMessage('analytics_data_cleared'",
+    'prepareAnalyticsDataClearedEvent()',
     "outcome: 'completed'"
   ];
 
@@ -181,6 +185,23 @@ function checkPersistenceIntegration() {
     isValid = false;
   }
 
+  const finalEventPath = 'src/options/app/productionStitchFinalAnalyticsEvent.ts';
+  const finalEventContent = readFile(finalEventPath);
+  if (!finalEventContent) {
+    error(`无法读取 ${finalEventPath}`);
+    return false;
+  }
+
+  if (
+    finalEventContent.includes("'analytics_data_cleared'") &&
+    finalEventContent.includes("outcome: 'completed'")
+  ) {
+    success('analytics_data_cleared final event helper 存在');
+  } else {
+    error('analytics_data_cleared final event helper 不完整');
+    isValid = false;
+  }
+
   return isValid;
 }
 
@@ -191,7 +212,8 @@ function checkI18nMessages() {
   const languages = ['zh-CN', 'en', 'ja'];
   let allMessagesExist = true;
 
-  const messagesPath = 'src/i18n/messages.ts';
+  // 检查生成后的消息接口定义
+  const messagesPath = 'src/i18n/generated/messages.generated.ts';
   const messagesContent = readFile(messagesPath);
 
   if (!messagesContent) {
@@ -210,16 +232,17 @@ function checkI18nMessages() {
   ];
 
   requiredMessages.forEach((message) => {
-    if (messagesContent.includes(`${message}:`)) {
+    if (hasMessageKey(messagesContent, message)) {
       success(`消息接口 ${message} 存在`);
     } else {
-      error(`消息接口 ${message} 不存在`);
+      error(`生成消息接口 ${message} 不存在`);
       allMessagesExist = false;
     }
   });
 
+  // 检查各语言 catalog runtime 源
   languages.forEach((lang) => {
-    const langPath = `src/i18n/locales/${lang}.ts`;
+    const langPath = `src/i18n/catalog/messages/${lang}/runtime.json`;
     const langContent = readFile(langPath);
 
     if (!langContent) {
@@ -229,7 +252,7 @@ function checkI18nMessages() {
     }
 
     requiredMessages.forEach((message) => {
-      if (langContent.includes(`${message}:`)) {
+      if (hasMessageKey(langContent, message)) {
         success(`${lang} 语言的 ${message} 翻译存在`);
       } else {
         error(`${lang} 语言的 ${message} 翻译不存在`);

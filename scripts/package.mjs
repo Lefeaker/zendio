@@ -3,6 +3,7 @@ import { join, resolve } from 'path';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
+import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 /**
  * 获取试用天数参数
@@ -87,6 +88,7 @@ async function packageExtension() {
     // 创建 zip 文件
     console.log('🔨 正在创建 zip 文件...');
     await zipDirectory('build/dist', zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+    await auditReleaseArchive(zipPath);
 
     console.log('✅ 打包完成！');
     console.log('');

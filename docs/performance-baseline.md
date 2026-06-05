@@ -115,10 +115,11 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部 `src` >250 LOC 文件均有 guarded line budget；2026-06-05 GA release env close-out 复核后当前 trackedSourceFiles=`675`、动态发现 `98` 个热点路径，注册 `100` 个 line budgets，完整列表见 `tools/report-performance-hotspots.mjs`。
-- 当前 top line budgets：`schemaShellMessages.ts <= 2133`、`stitch/content.ts <= 906`、`i18n/messages.ts <= 752`、`stitch/types.ts <= 743`、`i18n/locales/fr.ts <= 697`。
-- 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 586`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 391`、`videoControlBarButton.ts <= 386`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 254`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`analyticsConfig.ts <= 369`、`analyticsConfig.template.ts <= 364`、`googleAnalyticsReporter.ts <= 301`。
-- 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets such as `yaml-config-editor/view.ts <= 586` were not loosened.
+- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-05 GA release env 与 i18n catalog merge 后当前 trackedSourceFiles=`693`、动态发现 `99` 个热点路径，注册 `102` 个 line budgets，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 当前 top line budgets：`localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`、`stitch/content.ts <= 906`，以及 generated locale modules 中的 `fr.generated.ts <= 785`、`es-419.generated.ts <= 777`、`es-ES.generated.ts <= 777`、`de.generated.ts <= 776`。
+- M12 current truth：`src/i18n/messages.ts` 已缩为 generated type shim，`src/i18n/schemaShellMessages.ts` 与手写 `src/i18n/locales/*.ts` 已删除；generated i18n 热点预算为 `localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`，并新增 `src/i18n/generated/locales/*.generated.ts` exact current-line budgets。
+- 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 746`、`sessionOperations.ts <= 587`、`videoSessionRuntime.ts <= 434`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`analyticsConfig.ts <= 369`、`analyticsConfig.template.ts <= 364`、`googleAnalyticsReporter.ts <= 320`。
+- 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
 
 本轮有效收口结果：
 
@@ -148,7 +149,7 @@ npm run audit:performance:report
 
 ## 4. 债务备注
 
-- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-06-01 Plan 03 native YAML retirement 后 checked-in baseline 仍为 `132` 条，而 2026-06-05 GA release env close-out 后 fresh warning count 已下降到 `126`。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
+- `tools/baselines/lint-warnings.json` 基线仍记录历史 warning 债务；2026-06-01 Plan 03 native YAML retirement 后 checked-in baseline 仍为 `132` 条，而 2026-06-05 GA/i18n PR merge 后 fresh warning count 已下降到 `125`。`lint:warnings-report` 仍会重写该 baseline，只能在有意同步 warning truth 时运行。
 - Firefox build path 已在 2026-05-18 stabilization 中通过 `npm run build:firefox`；Firefox browser smoke 仍不是本轮强制浏览器收口范围。
 - 2026-05-24 M2.5 budget ratchet 使用 Node.js `v20.20.2` / npm `10.8.2`，并先以 standalone `audit:build:report` / `audit:performance:report` 验证新预算，再接入 `quality` / `verify:preflight`。
 - 2026-05-22 review gap patch 已确认 M6.2 retained low-reuse retirement 是安全 no-op：没有新增 delete-approved path，低复用 retained/source compatibility 仍是后续债务，不应表述为已完成退役。

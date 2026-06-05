@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
 import { attachDragHandlers, createPromptElement, updatePromptLabels } from './videoPromptRenderer';
 import {
@@ -160,10 +160,10 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
     const shouldAbortMount = (): boolean =>
       Boolean(
         promptElement ||
-          options.isPromptSuppressed() ||
-          !options.isPromptEnabled() ||
-          options.isVideoSessionActive() ||
-          options.getWindow() !== options.getWindow().top
+        options.isPromptSuppressed() ||
+        !options.isPromptEnabled() ||
+        options.isVideoSessionActive() ||
+        options.getWindow() !== options.getWindow().top
       );
 
     promptMountTask = (async () => {

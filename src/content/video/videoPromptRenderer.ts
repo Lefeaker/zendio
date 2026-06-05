@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import { createVideoFloatingPromptSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import type { VideoPromptRuntimeTheme } from './videoPromptDependencies';

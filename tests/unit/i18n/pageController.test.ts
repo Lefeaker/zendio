@@ -7,11 +7,13 @@ import type { Language, Messages } from '../../../src/i18n/locales';
 const messages: Partial<Record<Language, Messages>> & Record<'en' | 'zh-CN', Messages> = {
   en: {
     extensionName: 'All-in-Obsidian',
-    domainMappingDomainPlaceholder: 'example.com'
+    domainMappingDomainPlaceholder: 'example.com',
+    commentLabel: 'Comment'
   } as Messages,
   'zh-CN': {
     extensionName: 'All-in-Obsidian',
-    domainMappingDomainPlaceholder: '示例.中国'
+    domainMappingDomainPlaceholder: '示例.中国',
+    commentLabel: '评论'
   } as Messages
 };
 
@@ -171,5 +173,35 @@ describe('pageController', () => {
     expect(bindingAdapter.refreshMock).toHaveBeenCalledTimes(2);
     const resource = controller.getCurrentResource();
     expect(resource?.language).toBe('en');
+  });
+
+  it('scans declarative aria-label bindings on mount', async () => {
+    const controller = createPageI18nController({
+      bindingAdapter,
+      defaultLanguage: 'zh-CN',
+      loadMessages: (language) => Promise.resolve(messages[language] ?? messages['zh-CN']),
+      getCurrentLanguage: () => Promise.resolve('zh-CN')
+    });
+
+    await controller.load();
+
+    const ariaNode = createElementStub();
+    ariaNode.setAttribute('data-i18n-aria-label', 'commentLabel');
+    const root = {
+      querySelectorAll: (selector: string) => {
+        if (selector === '[data-i18n-aria-label]') {
+          return [ariaNode] as unknown as NodeListOf<HTMLElement>;
+        }
+        return [] as unknown as NodeListOf<HTMLElement>;
+      }
+    } as unknown as ParentNode;
+
+    controller.mount(root);
+
+    expect(bindingAdapter.bindAttrMock).toHaveBeenCalledWith(
+      ariaNode,
+      'aria-label',
+      'commentLabel'
+    );
   });
 });

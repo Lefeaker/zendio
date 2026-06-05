@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -6,7 +5,6 @@ import { build } from 'esbuild';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
-const LOCALES_DIR = path.join(ROOT, 'src/i18n/locales');
 const LENGTH_RATIO_THRESHOLD = 1.3;
 
 function stripPlaceholders(value) {
@@ -37,13 +35,19 @@ async function bundleModule(filePath) {
   return import(dataUrl);
 }
 
-async function loadLocaleDefinition(code) {
-  const modulePath = path.join(LOCALES_DIR, `${code}.ts`);
+async function loadLocaleApi() {
+  const modulePath = path.join(ROOT, 'src/i18n/locales.ts');
   const mod = await bundleModule(modulePath);
-  if (!mod.default) {
-    throw new Error(`Locale module ${code} does not export a default definition.`);
+  if (typeof mod.getLocaleCodes !== 'function' || typeof mod.loadLocaleMessages !== 'function') {
+    throw new Error('Failed to load locale API from src/i18n/locales.ts');
   }
-  return mod.default;
+  return mod;
+}
+
+async function loadLocaleDefinition(localeApi, code) {
+  return {
+    runtime: await localeApi.loadLocaleMessages(code)
+  };
 }
 
 async function loadBudgets() {
@@ -80,14 +84,14 @@ function flattenMessages(record, prefix = '', output = {}) {
 }
 
 async function main() {
-  const entries = await fs.readdir(LOCALES_DIR);
-  const localeCodes = entries.filter((file) => file.endsWith('.ts')).map((file) => file.replace(/\.ts$/, ''));
+  const localeApi = await loadLocaleApi();
+  const localeCodes = localeApi.getLocaleCodes();
 
   if (!localeCodes.includes('en')) {
     throw new Error('Missing baseline locale "en".');
   }
 
-  const baseline = await loadLocaleDefinition('en');
+  const baseline = await loadLocaleDefinition(localeApi, 'en');
   const baselineMessages = flattenMessages(baseline.runtime);
 
   const localeMap = new Map();
@@ -95,7 +99,7 @@ async function main() {
 
   for (const code of localeCodes) {
     if (code === 'en') continue;
-    const current = await loadLocaleDefinition(code);
+    const current = await loadLocaleDefinition(localeApi, code);
     localeMap.set(code, flattenMessages(current.runtime));
   }
 

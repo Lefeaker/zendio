@@ -2,7 +2,14 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2021", "DOM"],
-    "types": ["node", "vitest/globals", "jsdom", "chrome", "firefox-webext-browser", "@playwright/test"],
+    "types": [
+      "node",
+      "vitest/globals",
+      "jsdom",
+      "chrome",
+      "firefox-webext-browser",
+      "@playwright/test"
+    ],
     "baseUrl": "./",
     "paths": {
       "@shared/*": ["src/shared/*"],
@@ -15,6 +22,16 @@
       "@third-party/*": ["src/third_party/*"]
     }
   },
-  "include": ["tests/**/*.ts", "tests/types/**/*.d.ts", "scripts/**/*.d.ts", "src/**/*.ts", "src/**/*.tsx", "tools/validate-text-budgets.ts", "src/env.d.ts"],
+  "include": [
+    "tests/**/*.ts",
+    "tests/types/**/*.d.ts",
+    "scripts/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tools/validate-text-budgets.ts",
+    "tools/generate-i18n-catalog.ts",
+    "tools/i18n/**/*.ts",
+    "src/env.d.ts"
+  ],
   "exclude": ["build", "node_modules"]
 }

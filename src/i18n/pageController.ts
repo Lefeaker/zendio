@@ -82,6 +82,13 @@ function scanStaticBindings(root: ParentNode, binder: I18nBinder): Array<I18nBin
     }
   });
 
+  root.querySelectorAll<HTMLElement>('[data-i18n-aria-label]').forEach((element) => {
+    const key = element.getAttribute('data-i18n-aria-label');
+    if (isMessageKey(key)) {
+      handles.push(binder.bindAttr(element, 'aria-label', key));
+    }
+  });
+
   return handles;
 }
 

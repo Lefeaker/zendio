@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '@i18n';
 import type { VideoOptions } from '../../shared/types/options';
 import { detectVideoIdentity } from './utils';
 import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';

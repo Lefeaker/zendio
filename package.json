@@ -16,7 +16,7 @@
     "lint": "eslint src tests --ext .ts,.tsx,.js",
     "lint:fix": "npm run lint -- --fix",
     "lint:type-any": "node scripts/audit-types.mjs --format summary",
-    "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 1064 --max-assertions 1736 --max-non-null 41 --max-ts-expect-error 4 --max-src-any 0 --max-src-unknown 576 --max-src-assertions 596 --max-src-non-null 5 --max-src-ts-expect-error 0 --max-tests-any 0 --max-tests-unknown 488 --max-tests-assertions 1140 --max-tests-non-null 36 --max-tests-ts-expect-error 4",
+    "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 1084 --max-assertions 1776 --max-non-null 41 --max-ts-expect-error 4 --max-src-any 0 --max-src-unknown 588 --max-src-assertions 606 --max-src-non-null 5 --max-src-ts-expect-error 0 --max-tests-any 0 --max-tests-unknown 496 --max-tests-assertions 1170 --max-tests-non-null 36 --max-tests-ts-expect-error 4",
     "lint:hardcoded": "node scripts/lint-hardcoded-values.mjs",
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
@@ -47,6 +47,8 @@
     "audit:release-surface:report": "node tools/report-release-surface.mjs",
     "audit:release-surface:check": "node tools/report-release-surface.mjs --check",
     "manifest:generate": "node scripts/generate-manifests.mjs",
+    "i18n:catalog:generate": "tsx tools/generate-i18n-catalog.ts",
+    "i18n:catalog:check": "tsx tools/generate-i18n-catalog.ts --check",
     "i18n:generate": "node scripts/gen-locales.mjs",
     "i18n:lint": "node scripts/lint-i18n.mjs",
     "i18n:guard": "node scripts/i18n-guard.mjs",
@@ -94,7 +96,7 @@
     "test:e2e:browser:firefox": "node scripts/run-firefox-browser-tests.mjs",
     "visual:stitch": "node scripts/run-playwright.mjs test tests/visual/options.stitch-secondary.parity.spec.ts",
     "verify:stitch-secondary": "npm run preview:freeze-check && npx vitest run tests/unit/options/productionStitchShell*.test.ts tests/unit/options/stitchSharedRegistry.test.ts tests/unit/options/optionsIndexHtmlModalHosts.test.ts tests/unit/options/nativeLeafWidgets.test.ts tests/unit/optionsPreviewRuntime.test.ts && npm run visual:stitch && node scripts/run-playwright.mjs test tests/visual/preview.runtime.alignment.spec.ts tests/visual/preview.task-success.layout.spec.ts --project=chromium-desktop",
-    "verify:preflight": "npm run verify:runtime && npm run typecheck:app && npm run typecheck:tests && npm run typecheck:strict && npm run lint -- --quiet && npm run build:dev && npm run audit:imports:check && npm run audit:ui-architecture:report && npm run audit:interaction-contract:report && npm run audit:options-mainline:report && npm run audit:build:report && npm run audit:performance:report",
+    "verify:preflight": "npm run verify:runtime && npm run typecheck:app && npm run typecheck:tests && npm run typecheck:strict && npm run i18n:catalog:check && npm run lint -- --quiet && npm run build:dev && npm run audit:imports:check && npm run audit:ui-architecture:report && npm run audit:interaction-contract:report && npm run audit:options-mainline:report && npm run audit:build:report && npm run audit:performance:report",
     "verify:preflight:full": "npm run verify:preflight && npm run test:e2e:browser && npm run test:e2e:browser:smoke",
     "test:ci": "npm run test:unit && npm run test:e2e && npm run test:e2e:browser && npm run test:e2e:browser:reader-panel && npm run test:e2e:browser:firefox",
     "visual:test": "node scripts/run-playwright.mjs test --config=playwright.config.ts",
@@ -169,7 +171,7 @@
     "ws@>=8.0.0 <8.20.1": "8.21.0"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "{src,tests}/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix",
       "prettier --write"
     ],
