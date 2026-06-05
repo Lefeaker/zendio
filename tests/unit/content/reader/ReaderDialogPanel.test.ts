@@ -178,6 +178,31 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('hydrates saved highlight note drafts without submitting them', () => {
+    const callbacks = createReaderPanelCallbacks();
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks
+    });
+    panel.mount(document.body);
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+
+    panel.hydrateCommentDrafts({
+      'h-1': 'restored draft'
+    });
+
+    expect(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-highlight-input="h-1"]')
+        ?.value
+    ).toBe('restored draft');
+    expect(panel.snapshotCommentDrafts()).toEqual({
+      'h-1': 'restored draft'
+    });
+    expect(callbacks.onSubmitHighlightEdit).not.toHaveBeenCalled();
+
+    panel.destroy();
+  });
+
   it('flushes unsaved highlight note drafts before finishing', async () => {
     const callbacks = createReaderPanelCallbacks();
     const panel = new ReaderDialogPanel({

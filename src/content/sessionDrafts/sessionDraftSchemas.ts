@@ -16,9 +16,26 @@ const textEncoder = new TextEncoder();
 export const SessionDraftModeSchema = z.enum(['reader', 'video']);
 export const SessionDraftStatusSchema = z.enum(['active', 'restorable']);
 export const SessionCommentDraftSnapshotSchema = z.record(z.string(), z.string());
+export const ExportDestinationMetadataSchema = z.object({
+  kind: z.enum(['vault', 'downloads']),
+  vaultId: z.string().optional()
+});
+export const ReaderSessionDraftHighlightPayloadSchema = z.object({
+  id: z.string().min(1),
+  selectedHtml: z.string(),
+  selectedText: z.string(),
+  comment: z.string(),
+  fragmentUrl: z.string(),
+  createdAt: TimestampSchema
+});
 
 export const ReaderSessionDraftPayloadSchema = z
   .object({
+    mode: z.literal('reader').optional(),
+    url: z.string().url().optional(),
+    title: z.string().optional(),
+    destination: ExportDestinationMetadataSchema.optional(),
+    highlights: z.array(ReaderSessionDraftHighlightPayloadSchema).optional(),
     commentDrafts: SessionCommentDraftSnapshotSchema.optional()
   })
   .passthrough();
