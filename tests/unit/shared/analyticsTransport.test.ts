@@ -103,7 +103,7 @@ describe('analytics transport', () => {
     expect(String(requestInit?.body)).not.toMatch(forbiddenSecretFieldPattern);
   });
 
-  it('uses direct GA debug endpoint only in directDebug mode', async () => {
+  it('uses the owner debug proxy endpoint only in directDebug mode', async () => {
     const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
     fetchMock.mockResolvedValue({
       ok: true,
@@ -113,16 +113,26 @@ describe('analytics transport', () => {
     const result = await sendAnalyticsTransportEvent(
       'support_dislike_clicked',
       {},
-      { ...baseConfig, transportMode: 'directDebug', proxyEndpoint: undefined, debugMode: true },
+      {
+        ...baseConfig,
+        transportMode: 'directDebug',
+        proxyEndpoint: 'https://analytics.example.test/ga4-debug',
+        debugMode: true
+      },
       { fetch: fetchMock, now: () => 42 }
     );
 
     expect(result.status).toBe('sent');
     expect(result.transportMode).toBe('directDebug');
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://www.google-analytics.com/debug/mp/collect?measurement_id=G-ABCD1234',
+      'https://analytics.example.test/ga4-debug',
       expect.objectContaining({ method: 'POST' })
     );
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(String(requestUrl)).not.toContain('google-analytics.com');
+    expect(String(requestInit?.body)).toContain('"measurement_id":"G-ABCD1234"');
+    expect(String(requestInit?.body)).toContain('"validation_behavior":"ENFORCE_RECOMMENDATIONS"');
+    expect(String(requestInit?.body)).not.toMatch(forbiddenSecretFieldPattern);
   });
 
   it('skips disabled, invalid endpoint, and invalid measurement id states', async () => {
@@ -165,6 +175,19 @@ describe('analytics transport', () => {
       status: 'skipped',
       reason: 'invalid_proxy_endpoint',
       transportMode: 'proxy'
+    });
+
+    await expect(
+      sendAnalyticsTransportEvent(
+        'support_dislike_clicked',
+        {},
+        { ...baseConfig, transportMode: 'directDebug', proxyEndpoint: undefined },
+        { fetch: fetchMock }
+      )
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'invalid_proxy_endpoint',
+      transportMode: 'directDebug'
     });
 
     await expect(

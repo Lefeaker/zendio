@@ -16,7 +16,7 @@
 - 生产路径是 owner-controlled `proxy` transport。扩展只持有公开的 `measurementId`、`transportMode`、`proxyEndpoint`。
 - `api_secret` 只能存在于服务端 proxy；扩展不得存储、生成、请求、提示填写或发送它。
 - 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
-- `directDebug` 仅用于本地验证与 DebugView，不是生产 release 默认路径。
+- `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
 - 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
 ## 共享字段与隐私边界
@@ -206,7 +206,7 @@
 
 - 只对 `Runtime=true` 且有当前 emitter 的事件建立正式 dashboard。
 - `extension_error` 虽然 `Runtime=false`，仍是正式错误遥测事件；它通过错误 reporter 走 shared transport，不通过 runtime message path。
-- `dev-only` 事件只用于本地 harness / DebugView 验证，不进入生产 KPI。
+- `dev-only` 事件只用于本地 harness / debug proxy / owner DebugView 验证，不进入生产 KPI。
 - `contract-only`、`inventory-only`、docs-only 行不得作为 owner dashboard 的主要维度来源。
 - 任何需要精确时长的分析必须走 proxy / server logs；产品遥测本身只提供 bucket。
 

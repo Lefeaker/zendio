@@ -109,6 +109,8 @@ npm run release:prod:ga
 The file must only contain public build config (`measurementId`,
 `transportMode`, `proxyEndpoint`). GA `api_secret` remains server-only in the
 Cloudflare Worker secret `GA4_API_SECRET`.
+`directDebug` is also proxy-backed: it requires an owner debug proxy endpoint and
+must not call Google debug endpoints directly from the extension.
 
 ## 当前 Lint / Type 债务真值
 

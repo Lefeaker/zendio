@@ -290,7 +290,7 @@ const runtime: Messages = {
   privacySettingsNote: '控制数据收集和错误报告',
   analyticsDebugTitle: '调试模式',
   analyticsDebugDescription:
-    '开启后，事件会发送到 GA4 DebugView 并在控制台输出请求详情，仅用于排查问题。',
+    '开启后，事件会通过配置的调试代理发送，并在控制台输出请求详情，仅用于排查问题。',
   analyticsDebugDisabledHint: '需先启用“使用分析”和“错误报告”才能打开调试模式。',
   analyticsDebugEnabled: '调试模式已开启，请及时关闭以免影响正式统计。',
   analyticsDebugDisabled: '调试模式已关闭。',

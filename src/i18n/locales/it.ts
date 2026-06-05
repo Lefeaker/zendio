@@ -310,7 +310,7 @@ const runtime: Messages = {
   privacySettingsNote: 'Gestisci raccolta dati e segnalazione errori',
   analyticsDebugTitle: 'Modalità debug',
   analyticsDebugDescription:
-    'Quando abilitata, invia eventi a GA4 DebugView e registra dettagli richieste nella console. Usa solo per risoluzione problemi.',
+    'Quando abilitata, gli eventi passano dal proxy di debug configurato e i dettagli richieste vengono registrati nella console. Usa solo per risoluzione problemi.',
   analyticsDebugDisabledHint:
     'Abilita sia "Analisi utilizzo" che "Segnalazione errori" prima di abilitare la modalità debug.',
   analyticsDebugEnabled: 'Modalità debug abilitata. Ricorda di disabilitarla dopo il debug.',

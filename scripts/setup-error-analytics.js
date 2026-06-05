@@ -87,6 +87,7 @@ function validateTrackedConfig() {
   const config = read('src/shared/errors/analytics/analyticsConfig.ts');
   const reporter = read('src/shared/errors/analytics/googleAnalyticsReporter.ts');
   const environment = read('src/shared/analytics/analyticsEnvironment.ts');
+  const transport = read('src/shared/analytics/analyticsTransport.ts');
 
   if (/\bAPI_SECRET\b/.test(config) || /\bapiSecret\b/.test(config)) {
     fail('tracked analytics config still contains a client-side secret field');
@@ -122,6 +123,19 @@ function validateTrackedConfig() {
     ok('error reporter still uses shared analytics transport');
   } else {
     fail('error reporter no longer uses the shared analytics transport');
+  }
+
+  const forbiddenDirectDebugEndpoint = 'google-analytics.com/' + 'debug/mp/collect';
+  if (transport.includes(forbiddenDirectDebugEndpoint)) {
+    fail('directDebug transport must not call Google debug endpoints from the extension');
+  } else {
+    ok('directDebug transport stays owner-proxy-backed');
+  }
+
+  if (transport.includes("validation_behavior: 'ENFORCE_RECOMMENDATIONS'")) {
+    ok('directDebug transport marks debug validation intent for the owner proxy');
+  } else {
+    fail('directDebug transport is missing debug validation intent');
   }
 }
 
@@ -215,14 +229,10 @@ function validateEnvironmentVariables() {
     } catch {
       fail(`proxy endpoint is not a valid URL: ${proxyEndpoint}`);
     }
-  } else if (transportMode === 'proxy') {
-    fail('proxy transport requires AIIINOB_GA_PROXY_ENDPOINT');
+  } else if (transportMode === 'proxy' || transportMode === 'directDebug') {
+    fail(`${transportMode} transport requires AIIINOB_GA_PROXY_ENDPOINT`);
   } else {
     warn('AIIINOB_GA_PROXY_ENDPOINT is unset');
-  }
-
-  if (transportMode === 'directDebug' && proxyEndpoint) {
-    warn('proxy endpoint is ignored when transport mode is directDebug');
   }
 }
 

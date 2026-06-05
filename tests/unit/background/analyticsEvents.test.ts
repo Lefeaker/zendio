@@ -107,12 +107,12 @@ describe('analyticsEvents', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('uses the shared direct debug transport and logs failed renewals gracefully', async () => {
+  it('uses the shared owner debug proxy transport and logs failed renewals gracefully', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const directDebugConfig = createAnalyticsConfig({
       transportMode: 'directDebug',
-      proxyEndpoint: undefined,
+      proxyEndpoint: 'https://analytics.example.test/ga4-debug',
       sessionId: undefined,
       debugMode: true
     });
@@ -128,9 +128,11 @@ describe('analyticsEvents', () => {
     await trackUsageEvent('support_like_clicked', { variant: 'first' });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('debug/mp/collect?measurement_id=G-1234'),
+      'https://analytics.example.test/ga4-debug',
       expect.objectContaining({ method: 'POST' })
     );
+    const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+    expect(String(requestInit?.body)).toContain('"validation_behavior":"ENFORCE_RECOMMENDATIONS"');
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       '[analytics-events] Failed to renew analytics session id:',
       expect.any(Error)

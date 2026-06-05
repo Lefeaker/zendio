@@ -311,7 +311,7 @@ const runtime: Messages = {
   privacySettingsNote: 'Controla la recolección de datos y reporte de errores',
   analyticsDebugTitle: 'Modo depuración',
   analyticsDebugDescription:
-    'Cuando está habilitado enviamos eventos a GA4 DebugView y registramos detalles de solicitud en la consola. Usar solo durante resolución de problemas.',
+    'Cuando está habilitado, los eventos pasan por el proxy de depuración configurado y registramos detalles de solicitud en la consola. Usar solo durante resolución de problemas.',
   analyticsDebugDisabledHint:
     'Habilita tanto "Analíticas de uso" como "Reporte de errores" antes de activar el modo depuración.',
   analyticsDebugEnabled:

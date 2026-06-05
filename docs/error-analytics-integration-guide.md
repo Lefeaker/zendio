@@ -55,7 +55,7 @@ export AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 1. 打开 `analytics`，关闭 `errorReporting`
 2. 触发一次受控错误
-3. proxy / DebugView 不应收到 `extension_error`
+3. proxy / debug proxy / DebugView 不应收到 `extension_error`
 4. 再打开 `errorReporting`
 5. 重试同样错误
 6. 此时才应收到 `extension_error`
@@ -103,8 +103,8 @@ stack trace 也会被裁剪，只保留有限的函数名 / 行号信息。
 
 ### 本地
 
-- `directDebug` 可用于 DebugView
-- 只在开发验证中使用
+- `directDebug` 可用于 owner debug proxy 验证
+- 只在开发验证中使用；扩展仍只发往配置的 proxy endpoint，不直连 Google debug endpoint
 
 ### 生产 / staging
 

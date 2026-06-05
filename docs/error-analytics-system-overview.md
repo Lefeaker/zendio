@@ -62,7 +62,7 @@
 职责：
 
 - 构建 GA payload
-- 按 `proxy` / `directDebug` 发送
+- 按 `proxy` / owner debug proxy (`directDebug`) 发送
 - 对 payload 做最终合法性判断
 
 ## 数据流
@@ -71,7 +71,7 @@
 2. runtime 初始化 analytics config manager
 3. 用户在隐私设置中授予或撤销 consent
 4. 错误发生时 reporter 构建匿名 `extension_error`
-5. transport 根据 mode 发往 owner proxy 或本地 debug path
+5. transport 根据 mode 发往 owner proxy 或 owner debug proxy path
 
 ## 当前边界条件
 

@@ -311,7 +311,7 @@ const runtime: Messages = {
   privacySettingsNote: 'Datensammlung und Fehlerberichterstattung verwalten',
   analyticsDebugTitle: 'Debug-Modus',
   analyticsDebugDescription:
-    'Wenn aktiviert, senden wir Ereignisse an GA4 DebugView und protokollieren Anfrage-Details in der Konsole. Nur zur Fehlerbehebung verwenden.',
+    'Wenn aktiviert, laufen Ereignisse über den konfigurierten Debug-Proxy und Anfrage-Details werden in der Konsole protokolliert. Nur zur Fehlerbehebung verwenden.',
   analyticsDebugDisabledHint:
     'Aktivieren Sie sowohl "Nutzungsanalytik" als auch "Fehlerberichterstattung", bevor Sie den Debug-Modus aktivieren.',
   analyticsDebugEnabled:

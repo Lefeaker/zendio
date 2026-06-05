@@ -251,11 +251,12 @@ Video 事件：
 
 ### DebugView validation
 
-仅本地使用 `directDebug`：
+仅本地使用 `directDebug`，并配置 owner debug proxy endpoint：
 
 - 打开 consent
 - 触发一个 options 事件、一个 clip 事件、一个错误事件
-- 确认 DebugView 中看到事件名与自定义字段
+- 确认请求只发往 owner debug proxy
+- 确认 debug proxy 服务端注入 `api_secret` 后，DebugView 中看到事件名与自定义字段
 
 ### Proxy log validation
 
@@ -269,7 +270,7 @@ Video 事件：
 
 - 关闭 `analytics` 与 `errorReporting`
 - 复做一次 options / clip / reader / video 操作
-- 确认没有新 proxy log / DebugView 事件
+- 确认没有新 proxy log / debug proxy / DebugView 事件
 
 真实 GA4 property 的 DebugView 可见性、proxy 端 `api_secret` 注入、Chrome Web Store publish credential，以及真实 Obsidian vault / proxy credential 联调仍属于 owner-only residual checks；执行边界见 [`analytics-configuration-guide.md`](./analytics-configuration-guide.md)。
 

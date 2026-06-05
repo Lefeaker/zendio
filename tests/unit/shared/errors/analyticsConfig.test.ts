@@ -119,7 +119,7 @@ describe('analyticsConfig', () => {
     );
   });
 
-  it('does not retain proxy endpoint when stored config switches away from proxy mode', async () => {
+  it('retains the public proxy endpoint when stored config uses proxy-backed directDebug mode', async () => {
     vi.stubGlobal('__AIIINOB_GA_MEASUREMENT_ID__', 'G-BUILD1234');
     vi.stubGlobal('__AIIINOB_GA_TRANSPORT_MODE__', 'proxy');
     vi.stubGlobal('__AIIINOB_GA_PROXY_ENDPOINT__', 'https://analytics.example.test/collect');
@@ -136,9 +136,9 @@ describe('analyticsConfig', () => {
     const config = manager.getConfig();
     expect(config).toMatchObject({
       transportMode: 'directDebug',
-      debugMode: true
+      debugMode: true,
+      proxyEndpoint: 'https://analytics.example.test/collect'
     });
-    expect(config.proxyEndpoint).toBeUndefined();
   });
 
   it('preserves an existing analytics session id across consecutive initializations', async () => {
@@ -198,6 +198,7 @@ describe('analyticsConfig', () => {
     await storage.local.set('analytics_config', {
       measurementId: 'G-REFRESH002',
       transportMode: 'directDebug',
+      proxyEndpoint: 'https://debug.example.test/collect',
       debugMode: true
     });
 
@@ -205,7 +206,7 @@ describe('analyticsConfig', () => {
 
     expect(config.measurementId).toBe('G-REFRESH002');
     expect(config.transportMode).toBe('directDebug');
-    expect(config.proxyEndpoint).toBeUndefined();
+    expect(config.proxyEndpoint).toBe('https://debug.example.test/collect');
     expect(config.debugMode).toBe(true);
     expect(config.enabled).toBe(true);
     expect(config.userConsent).toMatchObject({

@@ -147,23 +147,22 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
   }
 
   const requestFetch: AnalyticsTransportFetch = options.fetch ?? globalThis.fetch;
-  if (transportMode === 'proxy') {
+  if (transportMode === 'proxy' || transportMode === 'directDebug') {
     const proxyEndpoint = normalizeProxyEndpoint(config.proxyEndpoint);
     if (!proxyEndpoint) {
       return { status: 'skipped', reason: 'invalid_proxy_endpoint', transportMode };
     }
-    return postAnalyticsPayload(proxyEndpoint, payload, transportMode, requestFetch);
+    const proxyPayload =
+      transportMode === 'directDebug'
+        ? {
+            ...payload,
+            validation_behavior: 'ENFORCE_RECOMMENDATIONS'
+          }
+        : payload;
+    return postAnalyticsPayload(proxyEndpoint, proxyPayload, transportMode, requestFetch);
   }
 
-  const endpoint = `https://www.google-analytics.com/debug/mp/collect?measurement_id=${encodeURIComponent(
-    config.measurementId
-  )}`;
-  const directPayload: Omit<AnalyticsTransportPayload, 'measurement_id'> = {
-    client_id: payload.client_id,
-    events: payload.events,
-    timestamp_micros: payload.timestamp_micros
-  };
-  return postAnalyticsPayload(endpoint, directPayload, transportMode, requestFetch);
+  return { status: 'skipped', reason: 'transport_disabled', transportMode };
 }
 
 function hasAnalyticsTransportConsent(config: AnalyticsConfig): boolean {

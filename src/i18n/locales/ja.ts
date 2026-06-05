@@ -309,7 +309,7 @@ const runtime: Messages = {
   privacySettingsNote: 'データ収集とエラー報告の制御',
   analyticsDebugTitle: 'デバッグモード',
   analyticsDebugDescription:
-    '有効にすると GA4 DebugView へイベントを送信し、コンソールにリクエスト詳細を出力します。問題調査時のみ利用してください。',
+    '有効にすると、イベントは設定済みのデバッグプロキシ経由で送信され、コンソールにリクエスト詳細を出力します。問題調査時のみ利用してください。',
   analyticsDebugDisabledHint:
     '「利用状況の分析」と「エラー報告」を有効にしてからデバッグモードをオンにできます。',
   analyticsDebugEnabled: 'デバッグモードを有効にしました。調査が終わったら必ずオフにしてください。',

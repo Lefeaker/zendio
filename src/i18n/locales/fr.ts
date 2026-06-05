@@ -312,7 +312,7 @@ const runtime: Messages = {
   privacySettingsNote: "Gérer la collecte de données et le rapport d'erreurs",
   analyticsDebugTitle: 'Mode débogage',
   analyticsDebugDescription:
-    'Quand activé, nous envoyons des événements vers GA4 DebugView et enregistrons les détails de requête dans la console. À utiliser uniquement pour le dépannage.',
+    'Quand activé, les événements passent par le proxy de débogage configuré et les détails de requête sont enregistrés dans la console. À utiliser uniquement pour le dépannage.',
   analyticsDebugDisabledHint:
     'Activez à la fois "Analyses d\'utilisation" et "Rapport d\'erreurs" avant d\'activer le mode débogage.',
   analyticsDebugEnabled: "Mode débogage activé. N'oubliez pas de le désactiver après le débogage.",

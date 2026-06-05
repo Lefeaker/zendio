@@ -303,7 +303,7 @@ const runtime: Messages = {
   privacySettingsNote: 'Control data collection and error reporting',
   analyticsDebugTitle: 'Debug mode',
   analyticsDebugDescription:
-    'When enabled we send events to GA4 DebugView and log request details in the console. Use only while troubleshooting.',
+    'When enabled, events go through the configured debug proxy and request details are logged in the console. Use only while troubleshooting.',
   analyticsDebugDisabledHint:
     'Enable both “Usage analytics” and “Error reporting” before turning on debug mode.',
   analyticsDebugEnabled: 'Debug mode enabled. Remember to switch it off once you finish debugging.',

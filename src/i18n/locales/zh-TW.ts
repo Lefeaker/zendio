@@ -288,7 +288,7 @@ const runtime: Messages = {
   privacySettingsNote: '管理資料收集和錯誤報告',
   analyticsDebugTitle: '除錯模式',
   analyticsDebugDescription:
-    '啟用時，向 GA4 DebugView 發送事件並在控制台記錄請求詳情。僅用於故障排除。',
+    '啟用時，事件會透過設定的除錯代理傳送，並在控制台記錄請求詳情。僅用於故障排除。',
   analyticsDebugDisabledHint: '在啟用除錯模式前，請先啟用「使用分析」和「錯誤報告」。',
   analyticsDebugEnabled: '除錯模式已啟用。記得在除錯後停用。',
   analyticsDebugDisabled: '除錯模式已停用。',

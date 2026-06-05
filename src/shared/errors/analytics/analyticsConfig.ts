@@ -330,7 +330,7 @@ function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): Analy
     ? (normalizeAnalyticsTransportMode(storedConfig.transportMode, 'disabled') ?? 'disabled')
     : DEFAULT_ANALYTICS_CONFIG.transportMode;
   const proxyEndpoint =
-    transportMode === 'proxy'
+    transportMode === 'proxy' || transportMode === 'directDebug'
       ? Object.prototype.hasOwnProperty.call(storedConfig, 'proxyEndpoint')
         ? normalizeProxyEndpoint(storedConfig.proxyEndpoint)
         : DEFAULT_ANALYTICS_CONFIG.proxyEndpoint

@@ -300,7 +300,7 @@ const runtime: Messages = {
   privacySettingsNote: '데이터 수집 및 오류 보고 관리',
   analyticsDebugTitle: '디버그 모드',
   analyticsDebugDescription:
-    '활성화되면 GA4 DebugView로 이벤트를 보내고 콘솔에 요청 세부사항을 기록합니다. 문제 해결 시에만 사용하세요.',
+    '활성화되면 이벤트가 구성된 디버그 프록시를 통해 전송되고 콘솔에 요청 세부사항이 기록됩니다. 문제 해결 시에만 사용하세요.',
   analyticsDebugDisabledHint:
     '디버그 모드를 활성화하기 전에 "사용 분석"과 "오류 보고"를 모두 활성화하세요.',
   analyticsDebugEnabled: '디버그 모드가 활성화되었습니다. 디버깅 후 비활성화하는 것을 잊지 마세요.',

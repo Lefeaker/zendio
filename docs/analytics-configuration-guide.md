@@ -114,15 +114,17 @@ export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4
 
 ### DebugView 验证
 
-只在本地使用：
+只在本地使用，并且仍然通过 owner-controlled debug proxy：
 
 ```bash
 export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
 export AIIINOB_GA_TRANSPORT_MODE=directDebug
-unset AIIINOB_GA_PROXY_ENDPOINT
+export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
 ```
 
 `directDebug` 只用于开发验证，不应作为生产发布默认值。
+扩展不会直连 Google `debug/mp/collect`，也不会持有 `api_secret`。
+debug proxy 需要由 owner 服务端注入 `api_secret`，并按需转发到 GA validation / DebugView。
 
 ## Consent 验证清单
 
@@ -133,7 +135,7 @@ unset AIIINOB_GA_PROXY_ENDPOINT
 3. 执行一次 options 操作、剪藏、reader 或 video 流程。
 4. 确认：
    - 没有发往 owner proxy 的请求
-   - local debug 模式下没有 DebugView 新事件
+   - local debug proxy 模式下没有 proxy log / DebugView 新事件
    - “清空全部分析数据”后 analytics storage keys 被移除
 
 ### 验证“consent on 后按类型发事件”
@@ -185,7 +187,7 @@ npm run analytics:validate:prod
 
 以下事项在当前 repo 验证通过后仍然属于 owner-only residual risk，不应被表述为已经在本地工程验证中完成：
 
-- `GA4 DebugView`：`directDebug` 本地模式只能证明客户端事件路径和字段形状；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限与 consent-enabled 测试 profile。
+- `GA4 DebugView`：本地 debug proxy 模式只能证明客户端事件路径、字段形状和 proxy 请求；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限、debug proxy 服务端 `api_secret` 注入，以及 consent-enabled 测试 profile。
 - `Proxy api_secret injection`：只有 owner 控制的 staging/production proxy log 或 server trace 才能证明 `api_secret` 由服务端注入，且没有回流到扩展源码、构建产物或客户端请求参数。
 - `Chrome Web Store credentials`：repo 内只能安全验证 dry-run 与脚本接线；真实上传/发布仍需要 owner 的 Chrome Web Store dashboard credential 与人工确认。
 - `Real Obsidian vault / proxy credentials`：任何涉及真实 local-folder handle、REST API key、vault name、proxy secret 或 owner endpoint 的联调都必须由 owner 在受控环境下执行，且不得回写到 tracked source、fixtures 或 handoff 日志。

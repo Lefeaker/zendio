@@ -81,7 +81,7 @@
    - 触发一次连接测试
 3. 同时检查：
    - owner proxy 没有接收到新事件
-   - 本地 `directDebug` 模式没有 DebugView 新事件
+   - 本地 debug proxy 模式没有新 proxy 事件；如该 proxy 接入 GA，也没有 DebugView 新事件
    - 控制台不会出现 sent telemetry log
 
 如果需要重置本地状态，使用“清空全部分析数据”。
