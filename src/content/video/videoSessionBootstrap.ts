@@ -70,9 +70,6 @@ export async function finalizeVideoSessionStart(args: {
   });
   args.applyHint('noVideo');
 
-  args.platformController.updateVideoContext();
-  args.platformController.syncPlatformAdapter();
-  args.state.videoTitle = args.platformController.extractVideoTitle();
   await args.refreshContext();
 
   args.lifecycle.start();

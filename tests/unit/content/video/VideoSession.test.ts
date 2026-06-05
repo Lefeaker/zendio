@@ -2,11 +2,22 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import {
+  SESSION_DRAFT_INDEX_KEY,
+  createSessionDraftStorageKey
+} from '@content/sessionDrafts/sessionDraftKeys';
+import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
+import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
+import type { SessionDraftIndex } from '@content/sessionDrafts/sessionDraftTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
+import {
+  buildVideoSessionDraftPayload,
+  createVideoSessionDraftEnvelope
+} from '@content/video/sessionDrafts';
 import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics';
 import {
   __resetContentSessionRegistryForTests,
@@ -164,20 +175,25 @@ type SessionTestApi = {
     }
   ) => Promise<void>;
   finish: () => Promise<void>;
-  state: {
+    state: {
     captures: Array<{
-      kind: 'timestamp';
+      kind: 'timestamp' | 'fragment';
       id: string;
-      timeSec: number;
       comment: string;
-      url: string;
       createdAt: number;
+      timeSec?: number;
+      url?: string;
+      selectedText?: string;
+      selectedHtml?: string;
+      fragmentUrl?: string;
+      screenshotRequested?: boolean;
       screenshot?: {
         fileName: string;
         mimeType: 'image/jpeg';
         dataUrl: string;
       };
     }>;
+    commentDrafts?: Record<string, string>;
   };
 };
 
@@ -197,6 +213,26 @@ function createView(): TestView {
 function createDependencies(videoConfig: unknown = null): VideoSessionDependencies {
   const showSupportProgress = vi.fn();
   const trackUsageEvent = vi.fn(() => Promise.resolve(undefined));
+  const localArea = createMemoryStorageArea();
+  const syncArea = createMemoryStorageArea();
+  const local = {
+    ...localArea,
+    get: vi.fn(localArea.get),
+    set: vi.fn(localArea.set),
+    getMany: vi.fn(localArea.getMany),
+    setMany: vi.fn(localArea.setMany),
+    remove: vi.fn(localArea.remove),
+    clear: vi.fn(localArea.clear)
+  };
+  const sync = {
+    ...syncArea,
+    get: vi.fn(syncArea.get),
+    set: vi.fn(syncArea.set),
+    getMany: vi.fn(syncArea.getMany),
+    setMany: vi.fn(syncArea.setMany),
+    remove: vi.fn(syncArea.remove),
+    clear: vi.fn(syncArea.clear)
+  };
   return {
     viewFactory: {
       createView: vi.fn(() => createView())
@@ -215,28 +251,24 @@ function createDependencies(videoConfig: unknown = null): VideoSessionDependenci
       onConfigChange: vi.fn(() => () => {})
     },
     storage: {
-      local: {
-        get: vi.fn(() => Promise.resolve({})),
-        set: vi.fn(() => Promise.resolve(undefined)),
-        remove: vi.fn(() => Promise.resolve(undefined)),
-        clear: vi.fn(() => Promise.resolve(undefined)),
-        getBytesInUse: vi.fn(() => Promise.resolve(0)),
-        watch: vi.fn(() => () => {}),
-        watchKey: vi.fn(() => () => {})
-      },
-      sync: {
-        get: vi.fn(() => Promise.resolve({})),
-        set: vi.fn(() => Promise.resolve(undefined)),
-        remove: vi.fn(() => Promise.resolve(undefined)),
-        clear: vi.fn(() => Promise.resolve(undefined)),
-        getBytesInUse: vi.fn(() => Promise.resolve(0)),
-        watch: vi.fn(() => () => {}),
-        watchKey: vi.fn(() => () => {})
-      }
+      local,
+      sync
     },
     showSupportProgress,
     trackUsageEvent
   } as unknown as VideoSessionDependencies;
+}
+
+async function listVideoDraftCandidates(
+  deps: VideoSessionDependencies,
+  pageUrl = document.location.href
+) {
+  const repository = createSessionDraftRepository(deps.storage.local);
+  return repository.listCandidates('video', pageUrl);
+}
+
+async function readDraftIndex(deps: VideoSessionDependencies): Promise<SessionDraftIndex | undefined> {
+  return deps.storage.local.get<SessionDraftIndex>(SESSION_DRAFT_INDEX_KEY);
 }
 
 function requireMountedPanelCallbacks(callbacks: VideoPanelCallbacks | null): VideoPanelCallbacks {
@@ -330,6 +362,179 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
+  it('hydrates the latest video draft on first start instead of skipping restore after storage-key bootstrap', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-start-1',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshot: {
+              id: 'shot-1',
+              fileName: 'video-0m42s.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,frame',
+              capturedAt: 2_000_000_000_101
+            }
+          },
+          {
+            kind: 'fragment',
+            id: 'frag-1',
+            timeSec: 45,
+            comment: 'Restored fragment',
+            selectedText: 'Quoted text',
+            selectedHtml: '<p>Quoted text</p>',
+            fragmentUrl: 'https://video.example/watch#:~:text=Quoted%20text',
+            createdAt: 2_000_000_000_102
+          }
+        ],
+        commentDrafts: { 'ts-1': 'draft note' },
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    expect(sessionApi.state.captures).toEqual([
+      expect.objectContaining({
+        kind: 'timestamp',
+        id: 'ts-1',
+        screenshotRequested: true
+      }),
+      expect.objectContaining({
+        kind: 'fragment',
+        id: 'frag-1',
+        selectedText: 'Quoted text'
+      })
+    ]);
+    expect((sessionApi.state.captures[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    expect(sessionApi.state.commentDrafts).toEqual({ 'ts-1': 'draft note' });
+    expect(loadStoredCaptureDataMock).not.toHaveBeenCalled();
+
+    sessionApi.cleanup();
+  });
+
+  it('removes the current video draft after successful export but keeps it after export failure', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+
+    const video = requireVideoElement();
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    await sessionApi.handleAddCapture();
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(await listVideoDraftCandidates(deps)).toHaveLength(1);
+
+    exportMock.mockResolvedValueOnce({ success: true });
+    await sessionApi.finish();
+
+    expect(await listVideoDraftCandidates(deps)).toHaveLength(0);
+
+    const failureDeps = createDependencies();
+    const failureSession = new VideoSession(document, failureDeps);
+    const failureApi = failureSession as unknown as SessionTestApi;
+    await failureSession.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', { value: 44, configurable: true });
+    await failureApi.handleAddCapture();
+    await vi.advanceTimersByTimeAsync(200);
+    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as never);
+
+    await failureApi.finish();
+
+    expect(await listVideoDraftCandidates(failureDeps)).toHaveLength(1);
+
+    failureApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('removes only the current exact video draft key on cancel when same-page drafts coexist', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return createView();
+    });
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const existing = createVideoSessionDraftEnvelope({
+      draftId: 'existing-draft',
+      pageUrl: document.location.href,
+      pageTitle: 'Existing title',
+      updatedAt: 2_000_000_000_050,
+      status: 'active',
+      payload: buildVideoSessionDraftPayload({
+        captures: [],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Existing title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(existing);
+    const session = new VideoSession(document, deps);
+    const sessionApi = session as unknown as SessionTestApi;
+
+    await session.start();
+    const video = requireVideoElement();
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    await sessionApi.handleAddCapture();
+    await vi.advanceTimersByTimeAsync(200);
+    const beforeCancel = await listVideoDraftCandidates(deps);
+    expect(beforeCancel).toHaveLength(2);
+
+    requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const afterCancel = await listVideoDraftCandidates(deps);
+    expect(afterCancel).toHaveLength(1);
+    expect(afterCancel[0]?.draftId).toBe('existing-draft');
+    expect(
+      createSessionDraftStorageKey({
+        mode: 'video',
+        pageKey: afterCancel[0]!.pageKey,
+        draftId: afterCancel[0]!.draftId
+      })
+    ).toBe(
+      createSessionDraftStorageKey({
+        mode: 'video',
+        pageKey: existing.pageKey,
+        draftId: existing.draftId
+      })
+    );
+    expect(await readDraftIndex(deps)).toMatchObject({
+      entries: [expect.objectContaining({ draftId: 'existing-draft' })]
+    });
+
+    vi.useRealTimers();
+  });
+
   it('emits canonical start and cancel analytics with an unknown source fallback', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -388,7 +593,8 @@ describe('VideoSession', () => {
 
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
-    expect(saveCaptureDataMock).toHaveBeenCalledTimes(1);
+    expect(await listVideoDraftCandidates(deps)).toHaveLength(1);
+    expect(saveCaptureDataMock).not.toHaveBeenCalled();
     expect(view?.beginEditingCapture).toHaveBeenCalledWith(
       expect.stringContaining('aiob-video-'),
       ''
@@ -433,13 +639,13 @@ describe('VideoSession', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const saveGate: { resolve?: () => void } = {};
-    saveCaptureDataMock.mockImplementationOnce(
+    const deps = createDependencies();
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
       () =>
-        new Promise<undefined>((resolve) => {
-          saveGate.resolve = () => resolve(undefined);
+        new Promise<void>((resolve) => {
+          saveGate.resolve = () => resolve();
         })
     );
-    const deps = createDependencies();
     const session = new VideoSession(document, deps);
     const sessionApi = session as unknown as SessionTestApi;
 
@@ -451,12 +657,11 @@ describe('VideoSession', () => {
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const addPromise = sessionApi.handleAddCapture('note-input');
 
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
-    expect(saveCaptureDataMock).toHaveBeenCalledTimes(1);
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(view?.beginEditingCapture).not.toHaveBeenCalled();
 
@@ -479,8 +684,8 @@ describe('VideoSession', () => {
   it('rolls back an add-note capture and playback lease when saving fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    saveCaptureDataMock.mockRejectedValueOnce(new Error('save failed'));
     const deps = createDependencies();
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
@@ -511,7 +716,7 @@ describe('VideoSession', () => {
 
     await session.addCurrentTimestamp('note-input');
 
-    expect(saveCaptureDataMock).toHaveBeenCalledTimes(1);
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
     expect(view.setCaptures.mock.calls.at(-1)?.[0]).toEqual([]);
     expect(view.beginEditingCapture).not.toHaveBeenCalled();
     expect(view.stopEditing).toHaveBeenCalled();
@@ -743,14 +948,15 @@ describe('VideoSession', () => {
     }
 
     const submitGate: { resolve?: () => void } = {};
-    saveCaptureDataMock.mockImplementationOnce(
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
       () =>
-        new Promise<undefined>((resolve) => {
-          submitGate.resolve = () => resolve(undefined);
+        new Promise<void>((resolve) => {
+          submitGate.resolve = () => resolve();
         })
     );
     const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
     const submitPromise = requirePromise(callbacks.onSubmitCaptureEdit(captureId, 'panel note'));
+    await vi.advanceTimersByTimeAsync(0);
 
     paused = false;
     video.dispatchEvent(new Event('play'));
