@@ -132,6 +132,19 @@ describe('analytics transport', () => {
       sendAnalyticsTransportEvent(
         'support_dislike_clicked',
         {},
+        { ...baseConfig, enabled: false },
+        { fetch: fetchMock }
+      )
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'config_disabled',
+      transportMode: 'proxy'
+    });
+
+    await expect(
+      sendAnalyticsTransportEvent(
+        'support_dislike_clicked',
+        {},
         { ...baseConfig, transportMode: 'disabled' },
         { fetch: fetchMock }
       )
@@ -164,6 +177,33 @@ describe('analytics transport', () => {
     ).resolves.toEqual({
       status: 'skipped',
       reason: 'invalid_measurement_id',
+      transportMode: 'proxy'
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('skips configs that do not have analytics or error-reporting consent', async () => {
+    const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
+
+    await expect(
+      sendAnalyticsTransportEvent(
+        'support_dislike_clicked',
+        {},
+        {
+          ...baseConfig,
+          userConsent: {
+            analytics: false,
+            errorReporting: false,
+            timestamp: 100,
+            version: '1.0'
+          }
+        },
+        { fetch: fetchMock }
+      )
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'missing_user_consent',
       transportMode: 'proxy'
     });
 

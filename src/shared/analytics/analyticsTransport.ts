@@ -27,6 +27,8 @@ export interface AnalyticsTransportPayload {
 }
 
 export type AnalyticsTransportSkipReason =
+  | 'config_disabled'
+  | 'missing_user_consent'
   | 'transport_disabled'
   | 'invalid_measurement_id'
   | 'missing_client_id'
@@ -115,6 +117,14 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
   options: AnalyticsTransportOptions = {}
 ): Promise<AnalyticsTransportResult> {
   const transportMode = normalizeAnalyticsTransportMode(config.transportMode) ?? 'disabled';
+  if (!config.enabled) {
+    return { status: 'skipped', reason: 'config_disabled', transportMode };
+  }
+
+  if (!hasAnalyticsTransportConsent(config)) {
+    return { status: 'skipped', reason: 'missing_user_consent', transportMode };
+  }
+
   if (transportMode === 'disabled') {
     return { status: 'skipped', reason: 'transport_disabled', transportMode };
   }
@@ -154,6 +164,14 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
     timestamp_micros: payload.timestamp_micros
   };
   return postAnalyticsPayload(endpoint, directPayload, transportMode, requestFetch);
+}
+
+function hasAnalyticsTransportConsent(config: AnalyticsConfig): boolean {
+  const consent = config.userConsent;
+  if (!consent) {
+    return true;
+  }
+  return Boolean(consent.analytics || consent.errorReporting);
 }
 
 async function postAnalyticsPayload(

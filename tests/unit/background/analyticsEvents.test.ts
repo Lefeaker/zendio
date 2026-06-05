@@ -24,6 +24,7 @@ vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
 }));
 
 type AnalyticsConfigSnapshot = {
+  enabled?: boolean;
   userConsent?: { analytics?: boolean; errorReporting?: boolean };
   measurementId?: string;
   transportMode?: 'disabled' | 'proxy' | 'directDebug';
@@ -37,6 +38,7 @@ function createAnalyticsConfig(
   overrides: Partial<AnalyticsConfigSnapshot> = {}
 ): AnalyticsConfigSnapshot {
   return {
+    enabled: true,
     userConsent: { analytics: true, errorReporting: false },
     measurementId: 'G-1234',
     transportMode: 'proxy',
