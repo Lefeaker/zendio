@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ReaderSessionDraftPayloadSchema,
+  SessionDraftEnvelopeSchema,
+  SessionDraftIndexSchema,
+  VideoSessionDraftPayloadSchema
+} from '@content/sessionDrafts/sessionDraftSchemas';
+
+describe('sessionDraftSchemas', () => {
+  it('parses reader and video envelopes through mode discrimination', () => {
+    const readerEnvelope = {
+      schemaVersion: 1,
+      draftId: 'reader-1',
+      mode: 'reader',
+      pageKey: 'reader-key',
+      pageUrl: 'https://example.com/post#:~:text=Alpha',
+      pageTitle: 'Reader title',
+      createdAt: 1,
+      updatedAt: 2,
+      expiresAt: 3,
+      status: 'active',
+      payload: {
+        commentDrafts: {
+          'highlight-1': 'Draft note'
+        },
+        selectedIds: ['highlight-1']
+      }
+    };
+    const videoEnvelope = {
+      ...readerEnvelope,
+      draftId: 'video-1',
+      mode: 'video',
+      pageUrl: 'https://video.example/watch?v=1',
+      payload: {
+        commentDrafts: {
+          'capture-1': 'Capture note'
+        },
+        timestampIds: ['capture-1']
+      }
+    };
+
+    expect(SessionDraftEnvelopeSchema.safeParse(readerEnvelope).success).toBe(true);
+    expect(SessionDraftEnvelopeSchema.safeParse(videoEnvelope).success).toBe(true);
+    expect(
+      SessionDraftEnvelopeSchema.safeParse({
+        ...readerEnvelope,
+        schemaVersion: 2
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts payload extension points with comment drafts and passthrough fields', () => {
+    expect(
+      ReaderSessionDraftPayloadSchema.safeParse({
+        commentDrafts: { h1: 'Reader draft' },
+        extraField: ['keep']
+      }).success
+    ).toBe(true);
+    expect(
+      VideoSessionDraftPayloadSchema.safeParse({
+        commentDrafts: { c1: 'Video draft' },
+        restoreIntent: { screenshotRequested: true }
+      }).success
+    ).toBe(true);
+  });
+
+  it('validates index entries and rejects unknown schema versions', () => {
+    expect(
+      SessionDraftIndexSchema.safeParse({
+        schemaVersion: 1,
+        entries: [
+          {
+            key: 'aiob.sessionDraft.v1.reader.page.draft',
+            draftId: 'reader-1',
+            mode: 'reader',
+            pageKey: 'reader-page',
+            updatedAt: 2,
+            expiresAt: 3,
+            status: 'restorable'
+          }
+        ]
+      }).success
+    ).toBe(true);
+    expect(
+      SessionDraftIndexSchema.safeParse({
+        schemaVersion: 9,
+        entries: []
+      }).success
+    ).toBe(false);
+  });
+});
