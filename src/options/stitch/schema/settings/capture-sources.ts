@@ -1,5 +1,5 @@
 import type { SettingsSchema } from '../../types';
-import { element, emptyState, grid } from '../builders/primitives';
+import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
 import { boundInput, boundSwitch } from '../builders/controls';
 
@@ -73,37 +73,44 @@ const schema: SettingsSchema = {
               kind: 'card',
               title: 'Video Prompt & Entry',
               description: '配置视频站点控制栏笔记入口。',
-              actions: [
-                element('div', { className: 'video-entry-toggle' }, [
-                  element('span', { text: '在视频网站显示笔记按钮' }),
-                  boundSwitch({
-                    bind: 'videoFloatingPromptEnabled',
-                    compact: true,
-                    stateText: (current) =>
-                      current.state.videoFloatingPromptEnabled ? '已开启' : '已关闭',
-                    onChange: {
-                      id: 'options:updateField',
-                      args: ['video.floatingPromptEnabled'],
-                      valueFrom: 'target.checked'
-                    }
-                  })
-                ]),
-                element('div', { className: 'video-entry-toggle' }, [
-                  element('span', { text: '编辑批注时自动暂停视频播放' }),
-                  boundSwitch({
-                    bind: 'videoCommentEditorAutoPause',
-                    compact: true,
-                    stateText: (current) =>
-                      current.state.videoCommentEditorAutoPause ? '已开启' : '已关闭',
-                    onChange: {
-                      id: 'options:updateField',
-                      args: ['video.commentEditorAutoPause'],
-                      valueFrom: 'target.checked'
-                    }
-                  })
-                ])
-              ],
               body: [
+                {
+                  kind: 'rows',
+                  items: [
+                    {
+                      kind: 'row',
+                      title: '在视频网站显示笔记按钮',
+                      description: '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。',
+                      control: boundSwitch({
+                        bind: 'videoFloatingPromptEnabled',
+                        compact: true,
+                        stateText: (current) =>
+                          current.state.videoFloatingPromptEnabled ? '已开启' : '已关闭',
+                        onChange: {
+                          id: 'options:updateField',
+                          args: ['video.floatingPromptEnabled'],
+                          valueFrom: 'target.checked'
+                        }
+                      })
+                    },
+                    {
+                      kind: 'row',
+                      title: '编辑批注时自动暂停视频播放',
+                      description: '开启后在视频模式里编辑时间戳批注时会暂停当前视频。',
+                      control: boundSwitch({
+                        bind: 'videoCommentEditorAutoPause',
+                        compact: true,
+                        stateText: (current) =>
+                          current.state.videoCommentEditorAutoPause ? '已开启' : '已关闭',
+                        onChange: {
+                          id: 'options:updateField',
+                          args: ['video.commentEditorAutoPause'],
+                          valueFrom: 'target.checked'
+                        }
+                      })
+                    }
+                  ]
+                },
                 emptyState(
                   '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。灰色圆点表示该时间戳尚未保存截图，绿色圆点表示该时间戳已有截图。'
                 )

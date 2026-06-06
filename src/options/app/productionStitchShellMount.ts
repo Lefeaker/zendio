@@ -211,6 +211,7 @@ export function mountProductionStitchShellFromDependencies({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
         mountRoot,
         buttonPressScrollGuard,

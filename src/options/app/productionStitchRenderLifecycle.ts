@@ -39,6 +39,7 @@ interface ProductionStitchRenderLifecycleOptions {
 
 export interface ProductionStitchRenderLifecycle {
   applySystemThemePreferenceChange: () => void;
+  cleanup: () => void;
   openResource: (resourceId: string) => void;
   render: () => void;
   renderActiveResourceModal: () => void;
@@ -56,6 +57,8 @@ export function createProductionStitchRenderLifecycle(
     mountRoot,
     getState: () => options.getState()
   });
+
+  mountRoot.addEventListener('click', dismissLocalFolderDeleteOnOutsideClick);
 
   function getState(): PreviewStoreState {
     return options.getState();
@@ -188,13 +191,28 @@ export function createProductionStitchRenderLifecycle(
     const section = mountRoot.querySelector<HTMLElement>(`[data-panel-id="${panelId}"]`);
     if (main && section) {
       const top = Math.max(section.offsetTop - 12, 0);
-      if (typeof main.scrollTo === 'function') {
-        main.scrollTo({ top, behavior: 'smooth' });
-      } else {
-        main.scrollTop = top;
-      }
+      setScrollTopImmediately(main, top);
     }
     syncActiveLinks();
+  }
+
+  function dismissLocalFolderDeleteOnOutsideClick(event: MouseEvent): void {
+    const state = getState();
+    if (
+      state.activeLocalFolderVaultIndex === null ||
+      state.activeLocalFolderVaultIndex === undefined
+    ) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Element && target.closest('.local-folder-cell')) {
+      return;
+    }
+    options.setState({
+      ...state,
+      activeLocalFolderVaultIndex: null
+    });
+    render();
   }
 
   function bindScrollSync(main: HTMLElement): void {
@@ -235,6 +253,7 @@ export function createProductionStitchRenderLifecycle(
 
   return {
     applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
+    cleanup: () => mountRoot.removeEventListener('click', dismissLocalFolderDeleteOnOutsideClick),
     openResource,
     render,
     renderActiveResourceModal,

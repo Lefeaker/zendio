@@ -11,6 +11,7 @@ import {
   findInputByValue,
   flushPromises,
   input,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
@@ -318,7 +319,7 @@ describe('mountProductionStitchShell storage', () => {
     );
 
     const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('清除');
+    expect(refreshedVaultList.textContent).not.toContain('删除本地目录');
     const selectedFolderButton = Array.from(
       refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
     ).find((button) => button.textContent?.trim() === 'Local Vault');
@@ -329,16 +330,30 @@ describe('mountProductionStitchShell storage', () => {
     await flushPromises();
 
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
-    const popover =
-      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-popover');
-    expect(popover).toBeTruthy();
-    expect(popover?.classList.contains('is-bubble')).toBe(true);
-    expect(popover?.textContent?.trim()).toBe('删除本地目录');
-    expect(popover?.textContent).not.toContain('取消');
-    expect(popover?.textContent).not.toContain('Local Vault');
-    expect(popover?.querySelectorAll('button')).toHaveLength(1);
+    const confirmingCell =
+      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-cell');
+    expect(confirmingCell?.querySelector('.local-folder-popover')).toBeNull();
+    expect(confirmingCell?.textContent?.trim()).toBe('删除本地目录');
 
-    const deleteButton = popover?.querySelector<HTMLButtonElement>('button');
+    const restoredByOutsideClick = queryRequired<HTMLElement>('.main');
+    restoredByOutsideClick.click();
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('删除本地目录');
+    expect(
+      Array.from(findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')).some(
+        (button) => button.textContent?.trim() === 'Local Vault'
+      )
+    ).toBe(true);
+
+    const restoredFolderButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    restoredFolderButton?.click();
+    await flushPromises();
+
+    const deleteButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
     deleteButton?.click();
     await flushPromises();

@@ -60,6 +60,7 @@ export function createProductionStitchRenderDelegates(
   return {
     applySystemThemePreferenceChange: () =>
       getRenderLifecycle()?.applySystemThemePreferenceChange(),
+    cleanup: () => getRenderLifecycle()?.cleanup(),
     openResource: (resourceId) => getRenderLifecycle()?.openResource(resourceId),
     render: () => getRenderLifecycle()?.render(),
     renderActiveResourceModal: () => getRenderLifecycle()?.renderActiveResourceModal(),
