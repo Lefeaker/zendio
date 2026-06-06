@@ -23,6 +23,11 @@ const getServiceMock = vi.hoisted(() =>
 );
 
 const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
+const screenshotAttachmentDefaults = {
+  locationTemplate: './assets/${noteFileName}',
+  fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+  markdownUrlFormat: ''
+} as const;
 
 vi.mock('../../../src/background/store', () => ({
   getOptions: getOptionsMock
@@ -678,7 +683,14 @@ describe('clipProcessor', () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,
       domainMappings: {},
-      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      video: {
+        screenshotAttachment: {
+          locationTemplate: 'attachments/video/${noteFileName}',
+          fileNameTemplate: '${originalAttachmentFileName}',
+          markdownUrlFormat: ''
+        }
+      }
     });
     const classificationResult = {
       type: 'video',
@@ -695,6 +707,7 @@ describe('clipProcessor', () => {
       await import('../../../src/background/application/clipProcessor');
     await processClipPayload(
       createPayload({
+        type: 'video',
         markdown:
           '# video\n![Screenshot](aiob-attachment:shot-1)\n![Screenshot](aiob-attachment:shot-2)',
         meta: {
@@ -731,7 +744,7 @@ describe('clipProcessor', () => {
     expect(downloadMock).toHaveBeenNthCalledWith(3, {
       filename: 'video-note.md',
       content:
-        '# video\n![Screenshot](video-note/file-20260509194226985.jpg)\n![Screenshot](video-note/file-20260509194227986.jpg)',
+        '# video\n![Screenshot](attachments/video/video-note/file-20260509194226985.jpg)\n![Screenshot](attachments/video/video-note/file-20260509194227986.jpg)',
       mimeType: 'text/markdown;charset=utf-8'
     });
   });
@@ -801,7 +814,14 @@ describe('clipProcessor', () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,
       domainMappings: {},
-      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      video: {
+        screenshotAttachment: {
+          locationTemplate: './attachments/${noteFileName}',
+          fileNameTemplate: '${originalAttachmentFileName}',
+          markdownUrlFormat: ''
+        }
+      }
     });
     selectVaultMock.mockReturnValue({
       vault: null,
@@ -824,6 +844,7 @@ describe('clipProcessor', () => {
       await import('../../../src/background/application/clipProcessor');
     await processClipPayload(
       createPayload({
+        type: 'video',
         markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
         meta: {
           url: 'https://youtube.com/watch?v=1',
@@ -840,13 +861,13 @@ describe('clipProcessor', () => {
     );
 
     expect(writeAttachmentMock).toHaveBeenCalledWith(
-      'Reading/公众号/2026/2026-05-05/assets/test/file-20260509194226985.jpg',
+      'Reading/公众号/2026/2026-05-05/attachments/test/file-20260509194226985.jpg',
       'data:image/jpeg;base64,aaa',
       'image/jpeg'
     );
     expect(writeMarkdownMock).toHaveBeenCalledWith(
       'Reading/公众号/2026/2026-05-05/test.md',
-      '# video\n![Screenshot](assets/test/file-20260509194226985.jpg)'
+      '# video\n![Screenshot](attachments/test/file-20260509194226985.jpg)'
     );
   });
 
