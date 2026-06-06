@@ -10,14 +10,35 @@ import type { ClipResultMessage } from '../../shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../shared/types/options';
 
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
-// prettier-ignore
-type ClipAttachment = { id: string; fileName: string; mimeType: string; dataUrl: string; capturedAt?: number };
-// prettier-ignore
-export type PreparedClipAttachment = { id: string; fileName: string; mimeType: string; dataUrl: string; outputPath: string; markdownPath: string; markdownUrl: string };
-// prettier-ignore
-export type PreparedClipAttachments = { markdown: string; attachments: PreparedClipAttachment[] };
-// prettier-ignore
-type PrepareVideoClipAttachmentsOptions = { payload: ClipPayload; notePath: string; destination: 'vault' | 'downloads'; screenshotAttachmentOptions?: VideoScreenshotAttachmentOptions };
+type ClipAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  capturedAt?: number;
+};
+
+export type PreparedClipAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  outputPath: string;
+  markdownPath: string;
+  markdownUrl: string;
+};
+
+export type PreparedClipAttachments = {
+  markdown: string;
+  attachments: PreparedClipAttachment[];
+};
+
+type PrepareVideoClipAttachmentsOptions = {
+  payload: ClipPayload;
+  notePath: string;
+  destination: 'vault' | 'downloads';
+  screenshotAttachmentOptions?: VideoScreenshotAttachmentOptions;
+};
 const FILE_STEM_TIMESTAMP_PATTERN = /^file-(\d{17})$/u;
 export function prepareVideoClipAttachments({
   payload,

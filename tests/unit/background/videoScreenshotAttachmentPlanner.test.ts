@@ -137,6 +137,33 @@ describe('prepareVideoClipAttachments', () => {
     ]);
   });
 
+  it('falls back to the computed markdown path when markdownUrlFormat resolves to a full embed', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+
+    const result = prepareVideoClipAttachments({
+      payload: createPayload(),
+      notePath: 'Videos/Test.md',
+      destination: 'vault',
+      screenshotAttachmentOptions: {
+        locationTemplate: './attachments/${noteFileName}',
+        fileNameTemplate: '${originalAttachmentFileName}',
+        markdownUrlFormat: '![Screenshot](${generatedAttachmentFilePath})'
+      }
+    });
+
+    expect(result.markdown).toBe(
+      '# video\n![Screenshot](attachments/Test/file-20260606112233444.jpg)'
+    );
+    expect(result.attachments).toEqual([
+      expect.objectContaining({
+        outputPath: 'Videos/attachments/Test/file-20260606112233444.jpg',
+        markdownPath: 'attachments/Test/file-20260606112233444.jpg',
+        markdownUrl: 'attachments/Test/file-20260606112233444.jpg'
+      })
+    ]);
+  });
+
   it('falls back to the legacy-compatible default when the template is malformed', async () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
