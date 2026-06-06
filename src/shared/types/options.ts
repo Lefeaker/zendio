@@ -56,7 +56,19 @@ export interface VideoOptions {
   promptShortcut: string;
   controlBarAutoPause: boolean;
   controlBarScreenshot: boolean;
+  commentEditorAutoPause: boolean;
   promptPosition?: { x: number; y: number };
+  screenshotAttachment: VideoScreenshotAttachmentOptions;
+}
+
+export interface VideoScreenshotAttachmentOptions {
+  locationTemplate: string;
+  fileNameTemplate: string;
+  markdownUrlFormat: string;
+}
+
+export interface StoredVideoOptions extends Omit<Partial<VideoOptions>, 'screenshotAttachment'> {
+  screenshotAttachment?: Partial<VideoScreenshotAttachmentOptions>;
 }
 
 export interface FragmentClipperOptions {
@@ -108,7 +120,7 @@ export interface StoredOptions {
   deepResearch?: Partial<DeepResearchOptions>;
   fragmentClipper?: Partial<FragmentClipperOptions>;
   readingSession?: Partial<ReadingSessionOptions>;
-  video?: Partial<VideoOptions>;
+  video?: StoredVideoOptions;
   classifier?: Partial<ClassifierOptions>;
   experimentalAi?: Partial<ExperimentalAiOptions>;
   pageSummary?: Partial<PageSummaryOptions>;

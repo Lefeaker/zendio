@@ -6,7 +6,9 @@ import type {
   ReadingSessionOptions,
   DeepResearchOptions,
   AiChatOptions,
+  StoredVideoOptions,
   VideoOptions,
+  VideoScreenshotAttachmentOptions,
   ReaderHighlightTheme,
   RestOptions,
   ExperimentalAiOptions,
@@ -160,7 +162,17 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
       base.controlBarScreenshot ??
       legacy.controlBarCaptureScreenshotEnabled ??
       defaults?.controlBarScreenshot ??
-      true
+      true,
+    commentEditorAutoPause:
+      base.commentEditorAutoPause ?? defaults?.commentEditorAutoPause ?? false,
+    screenshotAttachment: mergeVideoScreenshotAttachmentOptions(base.screenshotAttachment, {
+      locationTemplate:
+        defaults?.screenshotAttachment.locationTemplate ?? './assets/${noteFileName}',
+      fileNameTemplate:
+        defaults?.screenshotAttachment.fileNameTemplate ??
+        "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+      markdownUrlFormat: defaults?.screenshotAttachment.markdownUrlFormat ?? ''
+    })
   };
   const promptPosition = base.promptPosition ?? defaults?.promptPosition;
   if (promptPosition) {
@@ -170,6 +182,37 @@ function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | unde
     };
   }
   return merged;
+}
+
+function normalizeVideoTemplateValue(
+  value: string | undefined,
+  fallback: string,
+  options: { allowBlank?: boolean } = {}
+): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return options.allowBlank ? '' : fallback;
+}
+
+function mergeVideoScreenshotAttachmentOptions(
+  source: StoredVideoOptions['screenshotAttachment'] | undefined,
+  defaults: VideoScreenshotAttachmentOptions
+): VideoScreenshotAttachmentOptions {
+  const base = source ?? {};
+  return {
+    locationTemplate: normalizeVideoTemplateValue(base.locationTemplate, defaults.locationTemplate),
+    fileNameTemplate: normalizeVideoTemplateValue(base.fileNameTemplate, defaults.fileNameTemplate),
+    markdownUrlFormat: normalizeVideoTemplateValue(
+      base.markdownUrlFormat,
+      defaults.markdownUrlFormat,
+      { allowBlank: true }
+    )
+  };
 }
 
 function mergeExperimentalAiOptions(

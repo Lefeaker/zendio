@@ -16,7 +16,13 @@ const DEFAULT_VIDEO_OPTIONS: VideoOptions = clone(
     promptButtonLabel: '开启视频笔记',
     promptShortcut: 'Alt+V',
     controlBarAutoPause: true,
-    controlBarScreenshot: true
+    controlBarScreenshot: true,
+    commentEditorAutoPause: false,
+    screenshotAttachment: {
+      locationTemplate: './assets/${noteFileName}',
+      fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+      markdownUrlFormat: ''
+    }
   }
 );
 

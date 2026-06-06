@@ -17,11 +17,20 @@
   color: var(--text);
   font-size: var(--font-size-sm);
   font-weight: 700;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
 }
 
 .video-entry-toggle .switch-line {
   flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+
+.video-entry-toggle-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: center;
 }
 
 .group {

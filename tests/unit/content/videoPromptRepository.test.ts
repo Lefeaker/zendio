@@ -67,7 +67,13 @@ describe('VideoPrompt repository integration helpers', () => {
       promptButtonLabel: 'Start capture',
       promptShortcut: 'Alt+V',
       controlBarAutoPause: true,
-      controlBarScreenshot: true
+      controlBarScreenshot: true,
+      commentEditorAutoPause: false,
+      screenshotAttachment: {
+        locationTemplate: './assets/${noteFileName}',
+        fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+        markdownUrlFormat: ''
+      }
     });
     savePromptPositionMock = createVideoRepoMock<'savePromptPosition'>();
     savePromptPositionMock.mockResolvedValue(undefined);
@@ -150,6 +156,12 @@ describe('VideoPrompt repository integration helpers', () => {
       promptShortcut: 'Shift+V',
       controlBarAutoPause: true,
       controlBarScreenshot: true,
+      commentEditorAutoPause: false,
+      screenshotAttachment: {
+        locationTemplate: './assets/${noteFileName}',
+        fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+        markdownUrlFormat: ''
+      },
       promptPosition: { x: 90, y: 140 }
     };
     configCallbacks.forEach((callback) => callback(newConfig));

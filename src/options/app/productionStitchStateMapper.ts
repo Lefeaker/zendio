@@ -87,6 +87,11 @@ export function createInitialStitchState(appData: PreviewContent): PreviewStoreS
     classifierApiKey: '',
     classifierTaxonomyText: '',
     videoFloatingPromptEnabled: true,
+    videoCommentEditorAutoPause: false,
+    videoScreenshotAttachmentLocationTemplate: './assets/${noteFileName}',
+    videoScreenshotAttachmentFileNameTemplate:
+      "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+    videoScreenshotAttachmentMarkdownUrlFormat: '',
     fragmentUseFootnoteFormat: true,
     fragmentCaptureContext: true,
     fragmentContextLength: 200,
@@ -448,6 +453,11 @@ export function applyOptionsToState(
     classifierApiKey: options.classifier.apiKey,
     classifierTaxonomyText: JSON.stringify(options.classifier.taxonomy, null, 2),
     videoFloatingPromptEnabled: options.video.floatingPromptEnabled,
+    videoCommentEditorAutoPause: options.video.commentEditorAutoPause,
+    videoScreenshotAttachmentLocationTemplate: options.video.screenshotAttachment.locationTemplate,
+    videoScreenshotAttachmentFileNameTemplate: options.video.screenshotAttachment.fileNameTemplate,
+    videoScreenshotAttachmentMarkdownUrlFormat:
+      options.video.screenshotAttachment.markdownUrlFormat,
     fragmentUseFootnoteFormat: options.fragmentClipper.useFootnoteFormat,
     fragmentCaptureContext: options.fragmentClipper.captureContext,
     fragmentContextLength: options.fragmentClipper.contextLength,

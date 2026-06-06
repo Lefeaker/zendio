@@ -85,10 +85,18 @@ export const VideoOptionsSchema = z.object({
   promptShortcut: z.string().min(1),
   controlBarAutoPause: z.boolean().optional(),
   controlBarScreenshot: z.boolean().optional(),
+  commentEditorAutoPause: z.boolean().optional(),
   promptPosition: z
     .object({
       x: z.number(),
       y: z.number()
+    })
+    .optional(),
+  screenshotAttachment: z
+    .object({
+      locationTemplate: z.string().optional(),
+      fileNameTemplate: z.string().optional(),
+      markdownUrlFormat: z.string().optional()
     })
     .optional()
 });

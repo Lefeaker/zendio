@@ -381,6 +381,10 @@ export interface PreviewStoreState {
   classifierApiKey?: string;
   classifierTaxonomyText?: string;
   videoFloatingPromptEnabled?: boolean;
+  videoCommentEditorAutoPause?: boolean;
+  videoScreenshotAttachmentLocationTemplate?: string;
+  videoScreenshotAttachmentFileNameTemplate?: string;
+  videoScreenshotAttachmentMarkdownUrlFormat?: string;
   fragmentUseFootnoteFormat?: boolean;
   fragmentCaptureContext?: boolean;
   fragmentContextLength?: number;

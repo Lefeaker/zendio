@@ -186,12 +186,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(420);
   });
 
-  it('renders Video Prompt & Entry with the note-button switch in the card header', () => {
+  it('renders Video Prompt & Entry switches in one horizontal body row', () => {
     const controller = createController();
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
-        video: { floatingPromptEnabled: true }
+        video: { floatingPromptEnabled: true, commentEditorAutoPause: true }
       },
       messages: null,
       language: 'en'
@@ -199,12 +199,106 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     const card = findCardByTitle('Video Prompt & Entry');
     const header = card.querySelector<HTMLElement>('.card-header');
-    const toolbar = header?.querySelector<HTMLElement>('.toolbar');
-    expect(toolbar?.textContent).toContain('在视频网站显示笔记按钮');
-    expect(toolbar?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(header?.textContent).not.toContain('在视频网站显示笔记按钮');
+    expect(header?.textContent).not.toContain('编辑批注时自动暂停视频播放');
+
+    const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
+    const entryRow = requireElement(
+      rows.find(
+        (row) =>
+          row.textContent?.includes('在视频网站显示笔记按钮') &&
+          row.textContent.includes('编辑批注时自动暂停视频播放')
+      ),
+      'video entry switches row'
+    );
+    const [promptCheckbox, autoPauseCheckbox] = Array.from(
+      entryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    );
+    expect(promptCheckbox).toBeDefined();
+    expect(autoPauseCheckbox).toBeDefined();
+    expect(promptCheckbox.checked).toBe(true);
+    expect(autoPauseCheckbox.checked).toBe(true);
     expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
     expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
-    expect(card.querySelector('.row')?.textContent ?? '').not.toContain('在视频网站显示笔记按钮');
+
+    autoPauseCheckbox.checked = false;
+    autoPauseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(mounted.collectDraft().video.commentEditorAutoPause).toBe(false);
+    expect(mounted.collectDraft().video.controlBarAutoPause).toBe(true);
+  });
+
+  it('renders video screenshot attachment path settings and guidance inside the video card', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        video: {
+          screenshotAttachment: {
+            locationTemplate: 'VideoShots/${noteFileName}',
+            markdownUrlFormat: '![[${fileName}]]'
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const videoCard = findCardByTitle('Video Prompt & Entry');
+    expect(videoCard.textContent).toContain('附件路径配置');
+    expect(videoCard.textContent).toContain('附件位置模板');
+    expect(videoCard.textContent).toContain('附件文件名模板');
+    expect(videoCard.textContent).toContain('Markdown URL 格式');
+    expect(videoCard.textContent).toContain('Custom Attachment Location');
+    expect(videoCard.textContent).toContain('保持 Obsidian 内该插件配置与此处一致');
+    expect(
+      videoCard.querySelector<HTMLAnchorElement>(
+        'a[href="https://github.com/mnaoumov/obsidian-custom-attachment-location"]'
+      )?.textContent
+    ).toBe('Custom Attachment Location');
+
+    const rows = Array.from(videoCard.querySelectorAll<HTMLElement>('.row'));
+    const locationInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(
+        rows.find((row) => row.textContent?.includes('附件位置模板')),
+        '附件位置模板 row'
+      )
+    );
+    const fileNameInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(
+        rows.find((row) => row.textContent?.includes('附件文件名模板')),
+        '附件文件名模板 row'
+      )
+    );
+    const markdownInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(
+        rows.find((row) => row.textContent?.includes('Markdown URL 格式')),
+        'Markdown URL 格式 row'
+      )
+    );
+
+    expect(locationInput.value).toBe('VideoShots/${noteFileName}');
+    expect(fileNameInput.value).toBe("file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg");
+    expect(markdownInput.value).toBe('![[${fileName}]]');
+
+    locationInput.value = 'Assets/${noteFileName}';
+    locationInput.dispatchEvent(new Event('input', { bubbles: true }));
+    fileNameInput.value = 'capture-${title}.jpg';
+    fileNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    markdownInput.value = '![](${attachmentUrl})';
+    markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(mounted.collectDraft().video.screenshotAttachment).toEqual({
+      locationTemplate: 'Assets/${noteFileName}',
+      fileNameTemplate: 'capture-${title}.jpg',
+      markdownUrlFormat: '![](${attachmentUrl})'
+    });
+
+    expect(findCardByTitle('Path Templates').textContent).not.toContain(
+      'Custom Attachment Location'
+    );
   });
 
   it('opens onboarding through the production onboarding page path', () => {
@@ -415,16 +509,28 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(text).not.toContain('提示文案与快捷键');
     expect(text).not.toContain('promptPosition');
     expect(text).toContain('在视频网站显示笔记按钮');
+    expect(text).toContain('编辑批注时自动暂停视频播放');
 
-    const videoSwitch = queryRequired<HTMLInputElement>(
-      '.card-header input[type="checkbox"]',
-      findCardByTitle('Video Prompt & Entry')
+    const videoCard = findCardByTitle('Video Prompt & Entry');
+    const videoSwitchRow = requireElement(
+      Array.from(videoCard.querySelectorAll<HTMLElement>('.row')).find(
+        (row) =>
+          row.textContent?.includes('在视频网站显示笔记按钮') &&
+          row.textContent.includes('编辑批注时自动暂停视频播放')
+      ),
+      'video entry switches row'
+    );
+    const [videoSwitch, commentEditorAutoPauseSwitch] = Array.from(
+      videoSwitchRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     );
     videoSwitch.checked = false;
     videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    commentEditorAutoPauseSwitch.checked = true;
+    commentEditorAutoPauseSwitch.dispatchEvent(new Event('change', { bubbles: true }));
 
     const draft = mounted.collectDraft();
     expect(draft.video.floatingPromptEnabled).toBe(false);
+    expect(draft.video.commentEditorAutoPause).toBe(true);
     expect(draft.aiChat.includeTimestamps).toBe(true);
     expect(draft.deepResearch.pureMode).toBe(true);
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
