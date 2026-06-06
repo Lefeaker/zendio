@@ -1,11 +1,10 @@
 import type { CompleteOptions } from '@shared/types/options';
 import type { PreviewStoreState } from '@options/stitch/types';
-
-export function updateVideoDraftPath(
+export function updateVideoDraftPath<T>(
   draft: CompleteOptions,
   state: PreviewStoreState,
   path: string,
-  value: unknown
+  value: T
 ): boolean {
   switch (path) {
     case 'video.floatingPromptEnabled':

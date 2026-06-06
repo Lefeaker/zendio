@@ -16,6 +16,14 @@ const screenshotAttachmentSettings = {
 };
 
 describe('options transfer normalizer', () => {
+  function getScreenshotAttachment(normalized: StoredOptions) {
+    if (!normalized.video?.screenshotAttachment) {
+      throw new Error('Expected screenshot attachment settings to be present');
+    }
+
+    return normalized.video.screenshotAttachment;
+  }
+
   it('fills newly added fields with defaults when missing', () => {
     const normalized = normalizeOptionsForTransfer({});
     expect(normalized.readingSession?.highlightTheme).toBe('gradient');
@@ -59,12 +67,6 @@ describe('options transfer normalizer', () => {
         promptButtonLabel: 'Start Video Notes',
         promptShortcut: 'cmd+shift+v',
         screenshotAttachment: screenshotAttachmentSettings
-      } as StoredOptions['video'] & {
-        screenshotAttachment: {
-          locationTemplate: string;
-          fileNameTemplate: string;
-          markdownUrlFormat: string;
-        };
       }
     };
     const normalized = normalizeOptionsForTransfer(stored);
@@ -72,13 +74,7 @@ describe('options transfer normalizer', () => {
     expect(normalized.readingSession?.exportMode).toBe('full');
     expect(normalized.video?.promptButtonLabel).toBe('Start Video Notes');
     expect(normalized.video?.promptShortcut).toBe('CMD+SHIFT+V');
-    expect(
-      (
-        normalized.video as
-          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
-          | undefined
-      )?.screenshotAttachment
-    ).toEqual(screenshotAttachmentSettings);
+    expect(getScreenshotAttachment(normalized)).toEqual(screenshotAttachmentSettings);
     expect(normalized.vaultRouter?.vaults[0].rules?.[0].pattern).toBe('example.com');
   });
 
@@ -118,8 +114,8 @@ describe('options transfer normalizer', () => {
     expect(normalized.pageSummary?.enabled).toBe(true);
     expect(normalized.readingOverlaySummary?.enabled).toBe(true);
     expect(normalized.subtitleTranslation?.targetLanguage).toBe('ja');
-    expect((normalized as Record<string, unknown>).customKey).toBeUndefined();
-    expect((normalized as Record<string, unknown>).cloudSyncToken).toBeUndefined();
+    expect(normalized.customKey).toBeUndefined();
+    expect(normalized.cloudSyncToken).toBeUndefined();
   });
 
   it('redacts sensitive fields in portable mode', () => {
@@ -163,12 +159,6 @@ describe('options transfer normalizer', () => {
           promptButtonLabel: 'Video notes',
           promptShortcut: 'alt+v',
           screenshotAttachment: screenshotAttachmentSettings
-        } as StoredOptions['video'] & {
-          screenshotAttachment: {
-            locationTemplate: string;
-            fileNameTemplate: string;
-            markdownUrlFormat: string;
-          };
         }
       },
       { mode: 'portable' }
@@ -178,13 +168,7 @@ describe('options transfer normalizer', () => {
     expect(normalized.classifier?.apiKey).toBe('');
     expect(normalized.experimentalAi?.apiKey).toBe('');
     expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('');
-    expect(
-      (
-        normalized.video as
-          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
-          | undefined
-      )?.screenshotAttachment
-    ).toEqual(screenshotAttachmentSettings);
+    expect(getScreenshotAttachment(normalized)).toEqual(screenshotAttachmentSettings);
   });
 
   it('preserves sensitive fields in explicit fullBackup mode without preserving unknown keys', () => {
@@ -233,14 +217,8 @@ describe('options transfer normalizer', () => {
     expect(normalized.classifier?.apiKey).toBe('CLASSIFIER_SECRET_TOKEN');
     expect(normalized.experimentalAi?.apiKey).toBe('EXPERIMENTAL_SECRET_TOKEN');
     expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
-    expect(
-      (
-        normalized.video as
-          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
-          | undefined
-      )?.screenshotAttachment
-    ).toEqual(screenshotAttachmentSettings);
-    expect((normalized as Record<string, unknown>).customKey).toBeUndefined();
+    expect(getScreenshotAttachment(normalized)).toEqual(screenshotAttachmentSettings);
+    expect(normalized.customKey).toBeUndefined();
   });
 
   it('merges video screenshot attachment defaults for partial stored config exports', () => {
@@ -255,13 +233,7 @@ describe('options transfer normalizer', () => {
     expect(normalized.video?.floatingPromptEnabled).toBe(true);
     expect(normalized.video?.promptButtonLabel).toBe('开启视频笔记');
     expect(normalized.video?.promptShortcut).toBe('Alt+V');
-    expect(
-      (
-        normalized.video as
-          | { screenshotAttachment?: typeof defaultScreenshotAttachmentSettings }
-          | undefined
-      )?.screenshotAttachment
-    ).toEqual({
+    expect(getScreenshotAttachment(normalized)).toEqual({
       ...defaultScreenshotAttachmentSettings,
       locationTemplate: './attachments/${noteFileName}'
     });

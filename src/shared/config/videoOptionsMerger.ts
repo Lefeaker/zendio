@@ -1,12 +1,13 @@
-import type { StoredOptions, VideoOptions, VideoScreenshotAttachmentOptions } from '../types';
+import type {
+  StoredOptions,
+  StoredVideoOptions,
+  VideoOptions,
+  VideoScreenshotAttachmentOptions
+} from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function normalizeTemplateValue(
-  value: unknown,
+  value: string | undefined,
   fallback: string,
   options: { allowBlank: boolean } = { allowBlank: false }
 ): string {
@@ -23,10 +24,10 @@ function normalizeTemplateValue(
 }
 
 function mergeScreenshotAttachmentOptions(
-  source: unknown,
+  source: StoredVideoOptions['screenshotAttachment'],
   defaults: VideoScreenshotAttachmentOptions
 ): VideoScreenshotAttachmentOptions {
-  const base = isPlainObject(source) ? source : {};
+  const base = source ?? {};
 
   return {
     locationTemplate: normalizeTemplateValue(base.locationTemplate, defaults.locationTemplate),

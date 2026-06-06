@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ClipPayload } from '../../../src/shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../../src/shared/types/options';
 
 const screenshotAttachmentDefaults: VideoScreenshotAttachmentOptions = {
@@ -13,9 +14,9 @@ const baseAttachment = {
   fileName: 'file-20260606112233444.jpg',
   mimeType: 'image/jpeg',
   dataUrl: 'data:image/jpeg;base64,aaa'
-} as const;
+};
 
-function createPayload(overrides: Partial<Record<string, unknown>> = {}) {
+function createPayload(overrides: Partial<ClipPayload> = {}): ClipPayload {
   return {
     markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
     title: 'Video Note',

@@ -13,9 +13,9 @@ import {
   toTemplateValues
 } from '@options/app/productionStitchStateMapper';
 import { applyTemplateStateToDraft } from '@options/app/productionStitchShellState';
-import type { CompleteOptions } from '@shared/types/options';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 
-function options(overrides: Partial<CompleteOptions> = {}): CompleteOptions {
+function options(overrides: StoredOptions | Partial<CompleteOptions> = {}): CompleteOptions {
   return mergeOptions(overrides) as CompleteOptions;
 }
 
@@ -142,7 +142,7 @@ describe('production Stitch state mapper', () => {
           markdownUrlFormat: '![[${fileName}]]'
         }
       }
-    } as Partial<CompleteOptions>);
+    });
     const content = createProductionContent(previewContent, draft);
     const initialState = createInitialStitchState(content);
     const state = applyOptionsToState(initialState, draft, content);

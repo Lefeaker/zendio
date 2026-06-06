@@ -13,6 +13,14 @@ const screenshotAttachmentDefaults = {
 };
 
 describe('shared optionsMerger', () => {
+  function getScreenshotAttachment(result: ReturnType<typeof mergeOptions>) {
+    if (!result.video) {
+      throw new Error('Expected merged video options to be present');
+    }
+
+    return result.video.screenshotAttachment;
+  }
+
   it('returns defaults when no stored options provided', () => {
     const result = mergeOptions(undefined);
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
@@ -134,9 +142,7 @@ describe('shared optionsMerger', () => {
   it('fills video screenshot attachment defaults when stored options are missing', () => {
     const result = mergeOptions(undefined);
 
-    expect(
-      (result.video as { screenshotAttachment?: unknown } | undefined)?.screenshotAttachment
-    ).toEqual(screenshotAttachmentDefaults);
+    expect(getScreenshotAttachment(result)).toEqual(screenshotAttachmentDefaults);
   });
 
   it('merges partial video screenshot attachment fields with defaults', () => {
@@ -145,19 +151,10 @@ describe('shared optionsMerger', () => {
         screenshotAttachment: {
           locationTemplate: ' video/${noteFileName} '
         }
-      } as StoredOptions['video'] & {
-        screenshotAttachment: {
-          locationTemplate?: string;
-          fileNameTemplate?: string;
-          markdownUrlFormat?: string;
-        };
       }
     });
 
-    expect(
-      (result.video as { screenshotAttachment?: Record<string, string> } | undefined)
-        ?.screenshotAttachment
-    ).toEqual({
+    expect(getScreenshotAttachment(result)).toEqual({
       locationTemplate: 'video/${noteFileName}',
       fileNameTemplate: screenshotAttachmentDefaults.fileNameTemplate,
       markdownUrlFormat: screenshotAttachmentDefaults.markdownUrlFormat
@@ -172,19 +169,10 @@ describe('shared optionsMerger', () => {
           fileNameTemplate: '   ',
           markdownUrlFormat: '   '
         }
-      } as StoredOptions['video'] & {
-        screenshotAttachment: {
-          locationTemplate?: string;
-          fileNameTemplate?: string;
-          markdownUrlFormat?: string;
-        };
       }
     });
 
-    expect(
-      (result.video as { screenshotAttachment?: Record<string, string> } | undefined)
-        ?.screenshotAttachment
-    ).toEqual(screenshotAttachmentDefaults);
+    expect(getScreenshotAttachment(result)).toEqual(screenshotAttachmentDefaults);
   });
 
   it('merges experimental options with defaults', () => {

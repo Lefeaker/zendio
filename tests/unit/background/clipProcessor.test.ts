@@ -23,11 +23,6 @@ const getServiceMock = vi.hoisted(() =>
 );
 
 const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
-const screenshotAttachmentDefaults = {
-  locationTemplate: './assets/${noteFileName}',
-  fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
-  markdownUrlFormat: ''
-} as const;
 
 vi.mock('../../../src/background/store', () => ({
   getOptions: getOptionsMock

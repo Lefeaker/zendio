@@ -6,9 +6,9 @@ import {
   resolveVideoScreenshotAttachmentTemplate
 } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
 import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
-import type { ClipResultMessage } from '../../shared/types';
+import { isObjectRecord } from '../../shared/guards';
+import type { ClipMeta, ClipResultMessage } from '../../shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../shared/types/options';
-
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
 type ClipAttachment = {
   id: string;
@@ -156,11 +156,11 @@ function replaceAttachmentMarkers(markdown: string, attachments: PreparedClipAtt
     markdown
   );
 }
-function parseClipAttachments(value: unknown): ClipAttachment[] {
+function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item): ClipAttachment[] => {
-    if (typeof item !== 'object' || item === null) return [];
-    const candidate = item as Partial<ClipAttachment>;
+    if (!isObjectRecord(item)) return [];
+    const candidate = item;
     if (
       typeof candidate.id !== 'string' ||
       typeof candidate.fileName !== 'string' ||
@@ -219,7 +219,7 @@ function parseCapturedAtFromFileName(fileName: string): number | null {
   const capturedAt = new Date(year, month - 1, day, hour, minute, second, millisecond).getTime();
   return Number.isFinite(capturedAt) ? capturedAt : null;
 }
-function parseCapturedAtFromMeta(value: unknown): number | null {
+function parseCapturedAtFromMeta(value: ClipMeta['createdAt']): number | null {
   if (typeof value !== 'string' || value.trim().length === 0) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
