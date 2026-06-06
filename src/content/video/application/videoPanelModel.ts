@@ -12,6 +12,7 @@ export interface VideoPanelCallbacks {
   onCaptureEditorFocus?: (id: string) => void;
   onCaptureEditorBlur?: (id: string, scope: 'inside-panel' | 'outside-panel') => void;
   onCaptureEditorCancel?: (id: string) => void;
+  onCommentDraftChange?: (drafts: Record<string, string>) => void;
 }
 
 export interface VideoPanelCapture {

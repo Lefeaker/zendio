@@ -38,6 +38,14 @@ class VideoPanelViewAdapter implements VideoSessionView {
     this.panel.stopEditing();
   }
 
+  snapshotCommentDrafts(): Record<string, string> {
+    return this.panel.snapshotCommentDrafts();
+  }
+
+  hydrateCommentDrafts(drafts: Record<string, string>): void {
+    this.panel.hydrateCommentDrafts(drafts);
+  }
+
   collapse(): void {
     this.panel.collapse();
   }
