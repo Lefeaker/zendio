@@ -304,6 +304,59 @@ function requireVideoElement(): HTMLVideoElement {
   return video;
 }
 
+function createPreparationVideoHarness(
+  options: {
+    currentTime?: number;
+    videoWidth?: number;
+    videoHeight?: number;
+    sourceUrl?: string;
+  } = {}
+) {
+  const video = document.createElement('video');
+  let currentTime = options.currentTime ?? 0;
+  let videoWidth = options.videoWidth ?? 640;
+  let videoHeight = options.videoHeight ?? 360;
+  let sourceUrl = options.sourceUrl ?? 'https://cdn.example/video.mp4';
+  const currentTimeSetSpy = vi.fn((value: number) => {
+    currentTime = value;
+    video.dispatchEvent(new Event('seeked'));
+  });
+
+  Object.defineProperty(video, 'currentTime', {
+    get: () => currentTime,
+    set: currentTimeSetSpy,
+    configurable: true
+  });
+  Object.defineProperty(video, 'videoWidth', {
+    get: () => videoWidth,
+    configurable: true
+  });
+  Object.defineProperty(video, 'videoHeight', {
+    get: () => videoHeight,
+    configurable: true
+  });
+  Object.defineProperty(video, 'currentSrc', {
+    get: () => sourceUrl,
+    configurable: true
+  });
+  Object.defineProperty(video, 'src', {
+    get: () => sourceUrl,
+    set: (value: string) => {
+      sourceUrl = value;
+    },
+    configurable: true
+  });
+
+  return {
+    video,
+    currentTimeSetSpy,
+    setDimensions: (width: number, height: number) => {
+      videoWidth = width;
+      videoHeight = height;
+    }
+  };
+}
+
 function getTrackUsageEventMock(
   deps: VideoSessionDependencies
 ): Mock<
@@ -374,9 +427,8 @@ describe('VideoSession', () => {
   });
 
   it.each(['restorable', 'active'] as const)(
-    'recaptures requested screenshots from restored %s drafts once the video frame becomes available',
+    'prepares requested screenshots from restored %s drafts without touching visible playback',
     async (status) => {
-      vi.useFakeTimers();
       const deps = createDependencies();
       const repository = createSessionDraftRepository(deps.storage.local);
       const envelope = createVideoSessionDraftEnvelope({
@@ -426,9 +478,16 @@ describe('VideoSession', () => {
       const sessionApi = session as unknown as SessionTestApi;
       const canvas = document.createElement('canvas');
       const drawImage = vi.fn();
+      const hiddenVideo = createPreparationVideoHarness({
+        currentTime: 0,
+        sourceUrl: 'https://cdn.example/video.mp4'
+      });
       const createElementSpy = vi
         .spyOn(document, 'createElement')
         .mockImplementation((tagName: string) => {
+          if (tagName.toLowerCase() === 'video') {
+            return hiddenVideo.video;
+          }
           if (tagName.toLowerCase() === 'canvas') {
             Object.defineProperty(canvas, 'getContext', {
               value: vi.fn(() => ({ drawImage })),
@@ -445,15 +504,12 @@ describe('VideoSession', () => {
       const video = requireVideoElement();
       let currentTime = 8;
       let paused = false;
-      let readyState = 0;
-      let videoWidth = 0;
-      let videoHeight = 0;
+      const currentTimeSetSpy = vi.fn((value: number) => {
+        currentTime = value;
+      });
       Object.defineProperty(video, 'currentTime', {
         get: () => currentTime,
-        set: (value: number) => {
-          currentTime = value;
-          video.dispatchEvent(new Event('seeked'));
-        },
+        set: currentTimeSetSpy,
         configurable: true
       });
       Object.defineProperty(video, 'paused', {
@@ -461,15 +517,23 @@ describe('VideoSession', () => {
         configurable: true
       });
       Object.defineProperty(video, 'readyState', {
-        get: () => readyState,
+        value: 4,
         configurable: true
       });
       Object.defineProperty(video, 'videoWidth', {
-        get: () => videoWidth,
+        value: 640,
         configurable: true
       });
       Object.defineProperty(video, 'videoHeight', {
-        get: () => videoHeight,
+        value: 360,
+        configurable: true
+      });
+      Object.defineProperty(video, 'currentSrc', {
+        value: 'https://cdn.example/video.mp4',
+        configurable: true
+      });
+      Object.defineProperty(video, 'src', {
+        value: 'https://cdn.example/video.mp4',
         configurable: true
       });
       const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
@@ -482,23 +546,11 @@ describe('VideoSession', () => {
 
       try {
         await session.start();
+        await Promise.resolve();
+        await Promise.resolve();
 
-        expect(sessionApi.state.captures[0]).toMatchObject({
-          kind: 'timestamp',
-          id: 'ts-1',
-          screenshotRequested: true
-        });
-        expect(
-          (sessionApi.state.captures[0] as { screenshot?: unknown }).screenshot
-        ).toBeUndefined();
-
-        readyState = 4;
-        videoWidth = 640;
-        videoHeight = 360;
-        video.dispatchEvent(new Event('loadedmetadata'));
-        await vi.runAllTimersAsync();
-
-        expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+        expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
+        expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
         expect(sessionApi.state.captures).toEqual([
           expect.objectContaining({
             kind: 'timestamp',
@@ -516,14 +568,14 @@ describe('VideoSession', () => {
           })
         ]);
         expect(currentTime).toBe(8);
-        expect(pauseSpy).toHaveBeenCalledTimes(1);
-        expect(playSpy).toHaveBeenCalledTimes(1);
+        expect(currentTimeSetSpy).not.toHaveBeenCalled();
+        expect(pauseSpy).not.toHaveBeenCalled();
+        expect(playSpy).not.toHaveBeenCalled();
         expect(sessionApi.state.commentDrafts).toEqual({ 'ts-1': 'draft note' });
         expect(loadStoredCaptureDataMock).not.toHaveBeenCalled();
       } finally {
         createElementSpy.mockRestore();
         sessionApi.cleanup();
-        vi.useRealTimers();
       }
     }
   );
@@ -1446,9 +1498,23 @@ describe('VideoSession', () => {
     await session.start();
 
     const video = requireVideoElement();
-    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    let currentTime = 42;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      value: false,
+      configurable: true
+    });
     Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
 
     await session.addCurrentTimestamp('button');
     session.ingestTextCapture('<p>Private fragment</p>', 'Private fragment', 'Private comment');
@@ -1484,7 +1550,10 @@ describe('VideoSession', () => {
     expect(trackUsageEvent).toHaveBeenNthCalledWith(4, 'video_capture_removed', {
       capture_count_bucket: 'one'
     });
-    expect(drawImage).not.toHaveBeenCalled();
+    expect(currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(playSpy).not.toHaveBeenCalled();
+    expect(drawImage).toHaveBeenCalledTimes(1);
 
     const analyticsPayload = trackUsageEvent.mock.calls
       .map(([, params]) => JSON.stringify(params ?? {}))
