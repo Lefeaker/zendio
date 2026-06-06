@@ -65,8 +65,8 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'Fragment modifier single-select and Vault guidance refresh adds the modifier conflict guidance, Storage/Reading plugin support notes, and structured local-folder/HTTPS/HTTP Vault List connection results with HTTPS certificate trust links while preserving the Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // Zendio 0.2.0: hash refreshed after hiding misleading controls and repairing Options UI interactions.
-      rightSha256: '8810183e2fbcdf97331c5a9e10a34907622bb2686ae78a61167655f64cf6c17c'
+      // Zendio 0.2.0: hash refreshed after Options UI closeout, modifier simplification, and Vault channel result guidance.
+      rightSha256: '7181db49090ac3c35a443e2579ef4a46a92f24f6df564e6377acfb6c4c5571ce'
     }
   ]
 ]);
