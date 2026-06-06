@@ -1,43 +1,104 @@
-import type { SettingsSchema } from '../../types';
+import type { SchemaContext, SettingsSchema } from '../../types';
+import type { SchemaMessageKey } from '../i18n';
 import { codeOutputBox, infoBox } from '../builders/chrome';
 
+function translate(
+  key: SchemaMessageKey,
+  fallback: string,
+  translateFn?: SchemaContext['t']
+): string {
+  return translateFn?.(key, fallback) ?? fallback;
+}
+
+function resolveMaintenanceLogTitle(current: SchemaContext): string {
+  const log = current.appData.maintenanceLog.trim();
+  const copySuccess = translate(
+    'copyConfigSuccess',
+    '✅ Configuration copied to clipboard',
+    current.t
+  );
+  const importSuccess = translate(
+    'importSuccess',
+    '✅ Configuration imported and saved',
+    current.t
+  );
+  const repairSuccess = translate('configFixed', '✅ Configuration fixed and saved', current.t);
+
+  if (
+    log === copySuccess ||
+    log === importSuccess ||
+    log.startsWith('Copy failed:') ||
+    log.startsWith('Import failed:')
+  ) {
+    return translate(
+      'schemaMaintenanceTransferLastActionNoticeTitle',
+      'Last transfer action',
+      current.t
+    );
+  }
+
+  if (log.startsWith(repairSuccess)) {
+    return translate('schemaMaintenanceRepairLogTitle', 'Repair Configuration', current.t);
+  }
+
+  return translate('diagnosisResultTitle', 'Diagnosis Results', current.t);
+}
+
 const schema: SettingsSchema = {
-  createView() {
+  createView(ctx) {
+    const t = ctx.t;
+
     return {
       id: 'maintenance',
       kind: 'page',
       hero: {
-        title: 'Maintenance',
-        description: '管理配置迁移、诊断和修复动作。',
+        title: translate('schemaMaintenanceTitle', 'Maintenance', t),
+        description: translate(
+          'schemaMaintenanceHeroDescription',
+          'Transfer configuration and run diagnostics.',
+          t
+        ),
         pills: ['Transfer', 'Diagnosis', 'Repair']
       },
       children: [
         {
           kind: 'group',
-          title: 'Transfer',
+          title: translate('schemaMaintenanceTransferGroupTitle', 'Transfer', t),
           children: [
             {
               kind: 'card',
-              title: 'Configuration Transfer',
-              description: '在浏览器之间复制和导入配置。',
+              title: translate(
+                'schemaMaintenanceConfigurationTransferTitle',
+                'Configuration Transfer',
+                t
+              ),
+              description: translate(
+                'schemaMaintenanceConfigurationTransferDescription',
+                'Copy and import configuration between browsers.',
+                t
+              ),
               actions: [
                 {
                   kind: 'button',
-                  label: '复制配置',
+                  label: translate('schemaMaintenanceTransferCopyButton', 'Copy Configuration', t),
                   variant: 'primary',
                   action: { id: 'maintenance:copyConfig' }
                 },
                 {
                   kind: 'button',
-                  label: '导入并保存',
+                  label: translate('schemaMaintenanceTransferImportButton', 'Import and Save', t),
                   variant: 'secondary',
                   action: { id: 'maintenance:importConfig' }
                 }
               ],
               body: [
                 infoBox(
-                  '迁移方式',
-                  '复制会导出当前配置；导入会读取剪贴板中的配置 JSON，校验后保存。'
+                  translate('schemaMaintenanceTransferHelperTitle', 'Transfer Method', t),
+                  translate(
+                    'schemaMaintenanceTransferHelperDescription',
+                    'Copy exports the current configuration. Import reads configuration JSON from the clipboard, validates it, and saves it.',
+                    t
+                  )
                 )
               ]
             }
@@ -45,38 +106,49 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: 'Diagnosis',
+          title: translate('schemaMaintenanceDiagnosisGroupTitle', 'Diagnosis', t),
           children: [
             {
               kind: 'card',
-              title: 'Configuration Diagnosis',
-              description: '检查连接、模板、路由和采集配置。',
+              title: translate('diagnosisTitle', 'Configuration Diagnosis', t),
+              description: translate(
+                'schemaMaintenanceConfigurationDiagnosisDescription',
+                'Check connections, templates, routing, and capture settings.',
+                t
+              ),
               actions: [
                 {
                   kind: 'button',
-                  label: '诊断配置',
+                  label: translate('schemaMaintenanceDiagnosisButton', 'Diagnose Configuration', t),
                   variant: 'primary',
                   action: { id: 'maintenance:diagnose' }
                 },
                 {
                   kind: 'button',
-                  label: '修复配置',
+                  label: translate('schemaMaintenanceFixButton', 'Fix Configuration', t),
                   variant: 'warning',
                   action: { id: 'maintenance:repair' }
                 },
                 {
                   kind: 'button',
-                  label: '重新加载',
+                  label: translate('schemaMaintenanceReloadButton', 'Reload', t),
                   variant: 'ghost',
                   action: { id: 'maintenance:reload' }
                 }
               ],
               body: [
                 infoBox(
-                  '诊断范围',
-                  'REST API、路径模板、域名映射、多仓路由、Fragment 上下文参数和 Video prompt 都应在报告里可见。'
+                  translate('schemaMaintenanceDiagnosisScopeTitle', 'Diagnosis Scope', t),
+                  translate(
+                    'schemaMaintenanceDiagnosisScopeDescription',
+                    'REST API, path templates, domain mappings, multi-vault routing, fragment context settings, and video prompts should all appear in the report.',
+                    t
+                  )
                 ),
-                codeOutputBox((current) => current.appData.maintenanceLog)
+                infoBox(
+                  (current) => resolveMaintenanceLogTitle(current),
+                  codeOutputBox((current) => current.appData.maintenanceLog)
+                )
               ]
             }
           ]

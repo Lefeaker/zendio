@@ -184,7 +184,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
     const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
@@ -194,10 +194,10 @@ describe('mountProductionStitchShell actions', () => {
     expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
-    findButton('诊断配置').click();
+    findButton('Diagnose Configuration').click();
     expect(document.body.textContent).toContain('domainMappings');
 
-    findButton('重新加载').click();
+    findButton('Reload').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(loadRaw).toHaveBeenCalledTimes(1);
     expect(findInputByValue('Reloaded')).toBeTruthy();
@@ -229,14 +229,14 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    const copyButton = findButton('复制配置');
+    const copyButton = findButton('Copy Configuration');
     copyButton.click();
     expect(copyButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
     expect(document.body.textContent).toContain('Copied config');
     expect(copyButton.hasAttribute('aria-busy')).toBe(false);
 
-    const importButton = findButton('导入并保存');
+    const importButton = findButton('Import and Save');
     importButton.click();
     expect(importButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
@@ -269,7 +269,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    const importButton = findButton('导入并保存');
+    const importButton = findButton('Import and Save');
     importButton.click();
     expect(importButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
@@ -389,14 +389,14 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(execCommand).toHaveBeenCalledWith('copy');
     expect(document.body.textContent).toContain('Copied config');
 
     execCommand.mockReturnValue(false);
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(document.body.textContent).toContain('Copy failed');
@@ -430,7 +430,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('诊断配置').click();
+    findButton('Diagnose Configuration').click();
 
     expect(document.body.textContent).toContain('未配置 API Key');
     expect(document.body.textContent).toContain('片段剪藏配置');
@@ -761,7 +761,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
@@ -776,7 +776,7 @@ describe('mountProductionStitchShell actions', () => {
 
     vi.mocked(messagingRepository.send).mockClear();
     writeText.mockRejectedValueOnce(new Error('clipboard denied'));
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
@@ -816,7 +816,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
@@ -874,7 +874,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
@@ -921,7 +921,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledTimes(1);
@@ -960,7 +960,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('修复配置').click();
+    findButton('Fix Configuration').click();
     await flushPromises();
 
     const repaired = mounted.collectDraft();
