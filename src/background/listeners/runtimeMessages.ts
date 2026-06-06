@@ -102,6 +102,12 @@ function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
   if (result.error !== undefined) {
     payload.error = result.error;
   }
+  if (result.channels !== undefined) {
+    payload.channels = result.channels as unknown as MessagePayload;
+  }
+  if (result.vaults !== undefined) {
+    payload.vaults = result.vaults as unknown as MessagePayload;
+  }
 
   return payload;
 }
