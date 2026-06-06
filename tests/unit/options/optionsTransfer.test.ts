@@ -4,6 +4,11 @@ import type { StoredOptions } from '@shared/types';
 import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
+const defaultScreenshotAttachmentSettings = {
+  locationTemplate: './assets/${noteFileName}',
+  fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+  markdownUrlFormat: ''
+};
 const screenshotAttachmentSettings = {
   locationTemplate: 'Assets/${noteFileName}',
   fileNameTemplate: "shot-${date:{momentJsFormat:'YYYYMMDD'}}.jpg",
@@ -216,6 +221,9 @@ describe('options transfer normalizer', () => {
           ],
           defaultVaultId: 'main'
         },
+        video: {
+          screenshotAttachment: screenshotAttachmentSettings
+        },
         customKey: { hello: 'world' }
       },
       { mode: 'fullBackup' }
@@ -225,7 +233,38 @@ describe('options transfer normalizer', () => {
     expect(normalized.classifier?.apiKey).toBe('CLASSIFIER_SECRET_TOKEN');
     expect(normalized.experimentalAi?.apiKey).toBe('EXPERIMENTAL_SECRET_TOKEN');
     expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
+    expect(
+      (
+        normalized.video as
+          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
+          | undefined
+      )?.screenshotAttachment
+    ).toEqual(screenshotAttachmentSettings);
     expect((normalized as Record<string, unknown>).customKey).toBeUndefined();
+  });
+
+  it('merges video screenshot attachment defaults for partial stored config exports', () => {
+    const normalized = normalizeOptionsForTransfer({
+      video: {
+        screenshotAttachment: {
+          locationTemplate: './attachments/${noteFileName}'
+        }
+      }
+    });
+
+    expect(normalized.video?.floatingPromptEnabled).toBe(true);
+    expect(normalized.video?.promptButtonLabel).toBe('开启视频笔记');
+    expect(normalized.video?.promptShortcut).toBe('Alt+V');
+    expect(
+      (
+        normalized.video as
+          | { screenshotAttachment?: typeof defaultScreenshotAttachmentSettings }
+          | undefined
+      )?.screenshotAttachment
+    ).toEqual({
+      ...defaultScreenshotAttachmentSettings,
+      locationTemplate: './attachments/${noteFileName}'
+    });
   });
 
   it('includes sanitized yaml config overrides in transfer payload', () => {

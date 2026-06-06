@@ -13,6 +13,7 @@
 - 架构边界：[`architecture-boundaries.md`](./architecture-boundaries.md)
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
+- 视频截图附件模板：[`video-screenshot-attachment-location.md`](./video-screenshot-attachment-location.md)
 - 长期维护 backlog：[`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
 - 2026-05-20 release readiness handoff：[`release-readiness-handoff-2026-05-20.md`](./release-readiness-handoff-2026-05-20.md)
 
