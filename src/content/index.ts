@@ -4,6 +4,7 @@ import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
+  isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
 } from './runtime/contentSessionRegistry';
@@ -17,8 +18,10 @@ import {
   createLazyReaderSessionFactory,
   createLazySupportPrompt,
   createLazyVideoSessionFactory,
+  isVideoPromptCandidateUrl,
   initializeVideoPromptOnDemand
 } from './runtime/contentLazyRuntime';
+import { startSessionDraftAutoRestore } from './runtime/sessionDraftAutoRestore';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
@@ -141,9 +144,21 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
+  const stopSessionDraftAutoRestore = startSessionDraftAutoRestore({
+    document,
+    window,
+    storage: platform.storage,
+    currentUrl: () => window.location.href,
+    createReaderSession: () => createReaderSession(document, window.location.href),
+    createVideoSession: () => createVideoSession(document),
+    isReaderSessionActive: () => isReaderSessionActive(document),
+    isVideoSessionActive: () => isVideoSessionActive(document),
+    isVideoCandidateUrl: isVideoPromptCandidateUrl
+  });
   window.addEventListener(
     'pagehide',
     () => {
+      stopSessionDraftAutoRestore();
       stopRuntimeThemeSync();
       runtime.stop();
     },
