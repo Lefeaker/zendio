@@ -105,6 +105,48 @@ describe('resolveVideoScreenshotAttachmentTemplate', () => {
     );
   });
 
+  it('falls back to markdownPath when markdownUrlFormat uses an unsupported token', () => {
+    const result = resolveVideoScreenshotAttachmentTemplate(
+      {
+        locationTemplate: './assets/${noteFileName}',
+        fileNameTemplate: '${originalAttachmentFileName}',
+        markdownUrlFormat: '${unknownToken}'
+      },
+      BASE_CONTEXT
+    );
+
+    expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
+    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.usedFallback).toBe(true);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('markdownUrlFormat'),
+        expect.stringContaining('unknownToken')
+      ])
+    );
+  });
+
+  it('falls back to markdownPath when markdownUrlFormat resolves to a full embed', () => {
+    const result = resolveVideoScreenshotAttachmentTemplate(
+      {
+        locationTemplate: './assets/${noteFileName}',
+        fileNameTemplate: '${originalAttachmentFileName}',
+        markdownUrlFormat: '![Screenshot](${generatedAttachmentFilePath})'
+      },
+      BASE_CONTEXT
+    );
+
+    expect(result.markdownPath).toBe('assets/My Clip/file-20260606112233444.jpg');
+    expect(result.markdownUrl).toBe(result.markdownPath);
+    expect(result.usedFallback).toBe(true);
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('markdownUrlFormat'),
+        expect.stringContaining('full embed')
+      ])
+    );
+  });
+
   it('supports padded and unpadded moment-like date tokens with single or double quotes', () => {
     const result = resolveVideoScreenshotAttachmentTemplate(
       {

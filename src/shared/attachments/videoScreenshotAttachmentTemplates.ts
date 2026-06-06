@@ -188,13 +188,19 @@ function resolveMarkdownUrlFormat(
       usedFallback: false
     };
   }
-
-  return withTemplateFallback(
-    'markdownUrlFormat',
-    trimmedTemplate,
-    DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_MARKDOWN_URL_FORMAT,
-    (value) => renderMarkdownUrlFormat(value, fallbackMarkdownPath, context)
-  );
+  try {
+    return {
+      value: renderMarkdownUrlFormat(trimmedTemplate, fallbackMarkdownPath, context),
+      usedFallback: false
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Unknown template error.';
+    return {
+      value: fallbackMarkdownPath,
+      warning: `markdownUrlFormat fell back to default template: ${reason}`,
+      usedFallback: true
+    };
+  }
 }
 
 function withTemplateFallback(
