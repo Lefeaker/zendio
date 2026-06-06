@@ -784,7 +784,7 @@ describe('mountProductionStitchShell storage', () => {
     const certificateLink = notice?.querySelector<HTMLAnchorElement>(
       `a[href="${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt"]`
     );
-    expect(certificateLink?.textContent).toBe('下载并信任该证书');
+    expect(certificateLink?.textContent).toBe('Download and trust this certificate');
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'connection_test_completed',

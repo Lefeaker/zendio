@@ -3,30 +3,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Messages } from '@i18n';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { GENERATED_RELEASE_LOCALE_REGISTRY } from '@i18n/generated/localeRegistry.generated';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { runVaultListConnectionTest } from '@options/app/vaultConnectionTests';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import {
   asOptionsController,
   createController,
+  createMessaging,
   findButton,
   findCardByTitle,
+  flushPromises,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 
 const STORAGE_SENTINEL_MESSAGES = {
   ...DEFAULT_RUNTIME_MESSAGES,
+  routingRulesTitle: 'Routing Rules Sentinel',
   schemaStorageConnectionNoticeTitle: 'Connection Notice Title Sentinel',
+  schemaStorageCertificateDownloadTrustLink: 'Certificate Link Sentinel',
   schemaStorageConnectionNotRun: 'Connection Not Run Sentinel',
   schemaStorageConnectionUrlNotConfigured: 'Missing {label} URL Sentinel',
+  schemaStorageRoutingActionsColumnLabel: 'Routing Actions Column Sentinel',
+  schemaStorageRoutingEnabledColumnLabel: 'Routing Enabled Column Sentinel',
+  schemaStorageRoutingPatternColumnLabel: 'Routing Pattern Column Sentinel',
+  schemaStorageRoutingPriorityColumnLabel: 'Routing Priority Column Sentinel',
+  schemaStorageRoutingTargetVaultColumnLabel: 'Routing Target Column Sentinel',
   schemaStorageLocalFolderChooseAction: 'Choose Folder Sentinel',
   schemaStorageLocalFolderLabel: 'Local Folder Label Sentinel',
   schemaStorageLocalFolderNotConfigured: 'Local Folder Missing Sentinel',
   schemaStorageNoEnabledVaults: 'No Enabled Vaults Sentinel',
   schemaStorageRoutingTipBody: 'Routing Tip Body Sentinel',
   schemaStorageRoutingTipTitle: 'Routing Tip Title Sentinel',
+  schemaStorageRoutingTypeColumnLabel: 'Routing Type Column Sentinel',
   schemaStorageTestConnectionButton: 'Test Connection Sentinel',
+  schemaStorageVaultActionsColumnLabel: 'Vault Actions Column Sentinel',
+  schemaStorageVaultApiKeyColumnLabel: 'Vault API Key Column Sentinel',
+  schemaStorageVaultEnabledColumnLabel: 'Vault Enabled Column Sentinel',
+  schemaStorageVaultHttpsUrlColumnLabel: 'Vault HTTPS Column Sentinel',
+  schemaStorageVaultHttpUrlColumnLabel: 'Vault HTTP Column Sentinel',
   schemaStorageVaultListTitle: 'Vault List Sentinel',
+  schemaStorageVaultLocalFolderColumnLabel: 'Vault Local Folder Column Sentinel',
+  schemaStorageVaultNameColumnLabel: 'Vault Name Column Sentinel',
   schemaStorageVaultsGroupTitle: 'Vault Group Sentinel'
 } satisfies Messages;
 
@@ -44,11 +62,34 @@ describe('mountProductionStitchShell storage i18n', () => {
     } as never);
 
     expect(document.body.textContent).toContain('Vault Group Sentinel');
-    expect(findCardByTitle('Vault List Sentinel')).toBeTruthy();
+    const vaultList = findCardByTitle('Vault List Sentinel');
     expect(findButton('Test Connection Sentinel')).toBeTruthy();
     expect(findButton('Choose Folder Sentinel')).toBeTruthy();
     expect(document.body.textContent).toContain('Routing Tip Title Sentinel');
     expect(document.body.textContent).toContain('Routing Tip Body Sentinel');
+    expect(
+      Array.from(vaultList.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
+    ).toEqual([
+      'Vault Enabled Column Sentinel',
+      'Vault Name Column Sentinel',
+      'Vault Local Folder Column Sentinel',
+      'Vault HTTPS Column Sentinel',
+      'Vault HTTP Column Sentinel',
+      'Vault API Key Column Sentinel',
+      'Vault Actions Column Sentinel'
+    ]);
+
+    const routingCard = findCardByTitle('Routing Rules Sentinel');
+    expect(
+      Array.from(routingCard.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
+    ).toEqual([
+      'Routing Enabled Column Sentinel',
+      'Routing Type Column Sentinel',
+      'Routing Pattern Column Sentinel',
+      'Routing Target Column Sentinel',
+      'Routing Priority Column Sentinel',
+      'Routing Actions Column Sentinel'
+    ]);
   });
 
   it('resolves localized storage fallback messages without Chinese defaults', async () => {
@@ -122,5 +163,66 @@ describe('mountProductionStitchShell storage i18n', () => {
       message: 'No Enabled Vaults Sentinel',
       error: 'No Enabled Vaults Sentinel'
     });
+  });
+
+  it('renders the localized certificate link copy from messages', async () => {
+    const controller = createController();
+    const messagingRepository = createMessaging({
+      success: false,
+      status: 401,
+      message: 'Research Vault partial',
+      error: 'HTTPS: network error: request failed',
+      channels: [
+        {
+          channel: 'localFolder',
+          label: 'Local Folder Label Sentinel',
+          configured: true,
+          success: true,
+          message: 'Local Folder ready'
+        },
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: 'https://localhost:27124',
+          certificateUrl: 'https://localhost:27124/obsidian-local-rest-api.crt'
+        }
+      ]
+    });
+    const originalLinkLabel =
+      GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink;
+    GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink =
+      'Certificate Link Sentinel';
+
+    try {
+      mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: {
+          rest: {
+            vault: 'Research Vault',
+            httpsUrl: 'https://localhost:27124',
+            apiKey: 'bad-token'
+          }
+        },
+        messages: STORAGE_SENTINEL_MESSAGES,
+        language: 'en',
+        messagingRepository
+      } as never);
+
+      findButton('Test Connection Sentinel').click();
+      await flushPromises();
+      await flushPromises();
+
+      const certificateLink = document.querySelector<HTMLAnchorElement>(
+        'a[href="https://localhost:27124/obsidian-local-rest-api.crt"]'
+      );
+      expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
+    } finally {
+      GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink =
+        originalLinkLabel;
+    }
   });
 });

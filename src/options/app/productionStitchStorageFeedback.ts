@@ -1,3 +1,5 @@
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { GENERATED_RELEASE_LOCALE_REGISTRY } from '@i18n/generated/localeRegistry.generated';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type {
   ProductionStitchStorageControllerOptions,
@@ -14,8 +16,24 @@ export function createProductionStitchStorageFeedback(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageFeedback {
+  function resolveCurrentMessages(): Messages {
+    const language = options.getState().previewLanguage;
+    return GENERATED_RELEASE_LOCALE_REGISTRY[
+      language as keyof typeof GENERATED_RELEASE_LOCALE_REGISTRY
+    ]
+      ? (GENERATED_RELEASE_LOCALE_REGISTRY[
+          language as keyof typeof GENERATED_RELEASE_LOCALE_REGISTRY
+        ] as Messages)
+      : DEFAULT_RUNTIME_MESSAGES;
+  }
+
+  function getMessage(messages: Messages | null, key: keyof Messages, fallback: string): string {
+    const value = messages?.[key];
+    return typeof value === 'string' && value.length > 0 ? value : fallback;
+  }
+
   function applyConnectionNotice(result: ConnectionTestResult): void {
-    const notice = buildConnectionNotice(result);
+    const notice = buildConnectionNotice(result, resolveCurrentMessages(), getMessage);
     options.setConnectionNotice({
       title: '',
       body: notice.body,
@@ -42,13 +60,19 @@ export function createProductionStitchStorageFeedback(
   };
 }
 
-function buildConnectionNotice(result: ConnectionTestResult): {
+function buildConnectionNotice(
+  result: ConnectionTestResult,
+  messages: Messages | null,
+  getMessage: (messages: Messages | null, key: keyof Messages, fallback: string) => string
+): {
   body: string;
   html?: string;
   variant: 'success' | 'warning' | 'danger';
 } {
   const body = result.message || result.error || '';
-  const html = result.vaults?.length ? renderVaultConnectionResults(result) : undefined;
+  const html = result.vaults?.length
+    ? renderVaultConnectionResults(result, messages, getMessage)
+    : undefined;
   return {
     body,
     ...(html ? { html } : {}),
@@ -63,13 +87,24 @@ function hasAnyChannelSuccess(result: ConnectionTestResult): boolean {
   );
 }
 
-function renderVaultConnectionResults(result: ConnectionTestResult): string {
+function renderVaultConnectionResults(
+  result: ConnectionTestResult,
+  messages: Messages | null,
+  getMessage: (messages: Messages | null, key: keyof Messages, fallback: string) => string
+): string {
+  const certificateLinkLabel = getMessage(
+    messages,
+    'schemaStorageCertificateDownloadTrustLink',
+    'Download and trust this certificate'
+  );
   return `<div class="vault-connection-results">${(result.vaults ?? [])
     .map((vault) => {
       const channelRows = vault.channels.map((channel) => {
         const emoji = channel.success ? '✅' : '❌';
         const certificateLink = channel.certificateUrl
-          ? ` <a href="${escapeAttribute(channel.certificateUrl)}" target="_blank" rel="noopener noreferrer">下载并信任该证书</a>`
+          ? ` <a href="${escapeAttribute(channel.certificateUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+              certificateLinkLabel
+            )}</a>`
           : '';
         return `<li><span class="vault-connection-channel">${emoji} ${escapeHtml(
           channel.label

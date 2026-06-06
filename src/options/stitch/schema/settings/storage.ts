@@ -51,13 +51,13 @@ const schema: SettingsSchema = {
                 {
                   kind: 'table',
                   columns: [
-                    'Enabled',
-                    'Vault',
-                    'Local Folder',
-                    'HTTPS URL',
-                    'HTTP URL',
-                    'API Key',
-                    'Actions'
+                    t('schemaStorageVaultEnabledColumnLabel', 'Enabled'),
+                    t('schemaStorageVaultNameColumnLabel', 'Vault'),
+                    t('schemaStorageVaultLocalFolderColumnLabel', 'Local Folder'),
+                    t('schemaStorageVaultHttpsUrlColumnLabel', 'HTTPS URL'),
+                    t('schemaStorageVaultHttpUrlColumnLabel', 'HTTP URL'),
+                    t('schemaStorageVaultApiKeyColumnLabel', 'API Key'),
+                    t('schemaStorageVaultActionsColumnLabel', 'Actions')
                   ],
                   rows: (current) =>
                     current.appData.storage.vaults.map((vault, index) =>
@@ -143,7 +143,14 @@ const schema: SettingsSchema = {
                 },
                 {
                   kind: 'table',
-                  columns: ['Enabled', 'Type', 'Pattern', 'Target Vault', 'Priority', 'Actions'],
+                  columns: [
+                    t('schemaStorageRoutingEnabledColumnLabel', 'Enabled'),
+                    t('schemaStorageRoutingTypeColumnLabel', 'Type'),
+                    t('schemaStorageRoutingPatternColumnLabel', 'Pattern'),
+                    t('schemaStorageRoutingTargetVaultColumnLabel', 'Target Vault'),
+                    t('schemaStorageRoutingPriorityColumnLabel', 'Priority'),
+                    t('schemaStorageRoutingActionsColumnLabel', 'Actions')
+                  ],
                   rows: (current) =>
                     current.state.routingRules.map((rule, index) =>
                       routingRuleRow(rule, index, current)
