@@ -308,7 +308,11 @@ export class VideoSession {
               this.commentEditorPlayback.releaseCommentEditorLease(id);
             }
           },
-          onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false)
+          onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false),
+          onCommentDraftChange: (drafts) => {
+            this.setCommentDrafts(drafts);
+            void this.scheduleDraftSave();
+          }
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
         applyHint: (state) => this.applyHint(state),
@@ -391,15 +395,12 @@ export class VideoSession {
 
   private bindDraftPersistence(): void {
     this.stopDraftPersistence?.();
-    this.dom.watchCommentDrafts((drafts) => {
-      this.setCommentDrafts(drafts);
-      void this.scheduleDraftSave();
-    });
     const view = this.doc.defaultView;
     if (!view) {
       return;
     }
     const flush = () => {
+      this.setCommentDrafts(this.dom.readCommentDrafts());
       void this.flushDraftNow('restorable');
     };
     view.addEventListener('pagehide', flush, { passive: true });

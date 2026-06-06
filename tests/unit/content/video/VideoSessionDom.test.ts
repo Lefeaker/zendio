@@ -9,6 +9,9 @@ import { VideoHintManager } from '@content/video/videoHintManager';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 
 type TestView = VideoSessionView & {
+  element?: HTMLElement;
+  snapshotCommentDrafts?: Mock<NonNullable<VideoSessionView['snapshotCommentDrafts']>>;
+  hydrateCommentDrafts?: Mock<NonNullable<VideoSessionView['hydrateCommentDrafts']>>;
   updateCount: Mock<VideoSessionView['updateCount']>;
   setCaptures: Mock<VideoSessionView['setCaptures']>;
   updateHint: Mock<VideoSessionView['updateHint']>;
@@ -19,8 +22,21 @@ type TestView = VideoSessionView & {
   destroy: Mock<VideoSessionView['destroy']>;
 };
 
-function createView(): TestView {
+function createView(
+  overrides: {
+    element?: HTMLElement;
+    snapshotCommentDrafts?: Mock<NonNullable<VideoSessionView['snapshotCommentDrafts']>>;
+    hydrateCommentDrafts?: Mock<NonNullable<VideoSessionView['hydrateCommentDrafts']>>;
+  } = {}
+): TestView {
   return {
+    ...(overrides.element ? { element: overrides.element } : {}),
+    ...(overrides.snapshotCommentDrafts
+      ? { snapshotCommentDrafts: overrides.snapshotCommentDrafts }
+      : {}),
+    ...(overrides.hydrateCommentDrafts
+      ? { hydrateCommentDrafts: overrides.hydrateCommentDrafts }
+      : {}),
     updateCount: vi.fn<VideoSessionView['updateCount']>(),
     setCaptures: vi.fn<VideoSessionView['setCaptures']>(),
     updateHint: vi.fn<VideoSessionView['updateHint']>(),
@@ -144,5 +160,57 @@ describe('VideoSessionDomController', () => {
     expect(view.collapse.mock.invocationCallOrder[0]).toBeLessThan(
       view.setCaptures.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
+  });
+
+  it('keeps unrelated draft state when another rendered capture input changes', () => {
+    const host = document.createElement('div');
+    const shadow = host.attachShadow({ mode: 'open' });
+    const captureOneInput = document.createElement('input');
+    captureOneInput.dataset.captureInput = 'capture-1';
+    captureOneInput.setAttribute('data-capture-input', 'capture-1');
+    captureOneInput.value = 'capture 1 live edit';
+    const captureFiveInput = document.createElement('input');
+    captureFiveInput.dataset.captureInput = 'capture-5';
+    captureFiveInput.setAttribute('data-capture-input', 'capture-5');
+    captureFiveInput.value = 'Capture 5 saved preview...';
+    shadow.append(captureOneInput, captureFiveInput);
+
+    const view = createView({
+      element: host,
+      snapshotCommentDrafts: vi.fn(() => ({
+        'capture-1': captureOneInput.value,
+        'capture-5': 'Capture 5 full draft that must survive another input event.'
+      }))
+    });
+    const controller = new VideoSessionDomController(
+      document,
+      { createView: vi.fn(() => view) },
+      new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
+    );
+    const onChange = vi.fn();
+
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel
+    );
+    controller.setCommentDrafts({
+      'capture-5': 'Capture 5 full draft that must survive another input event.'
+    });
+    controller.watchCommentDrafts(onChange);
+
+    captureOneInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      'capture-1': 'capture 1 live edit',
+      'capture-5': 'Capture 5 full draft that must survive another input event.'
+    });
   });
 });
