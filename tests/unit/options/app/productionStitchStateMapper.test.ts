@@ -13,9 +13,9 @@ import {
   toTemplateValues
 } from '@options/app/productionStitchStateMapper';
 import { applyTemplateStateToDraft } from '@options/app/productionStitchShellState';
-import type { CompleteOptions } from '@shared/types/options';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 
-function options(overrides: Partial<CompleteOptions> = {}): CompleteOptions {
+function options(overrides: StoredOptions | Partial<CompleteOptions> = {}): CompleteOptions {
   return mergeOptions(overrides) as CompleteOptions;
 }
 
@@ -132,6 +132,31 @@ describe('production Stitch state mapper', () => {
     expect(content.surfaceLinks).toEqual([]);
     expect(state.aiUserName).toBe('Tester');
     expect(state.templateValues.articleVideo).toBe(draft.templates.article);
+  });
+
+  it('maps video screenshot attachment state and keeps merged defaults for partial stored options', () => {
+    const draft = options({
+      video: {
+        screenshotAttachment: {
+          locationTemplate: 'VideoShots/${noteFileName}',
+          markdownUrlFormat: '![[${fileName}]]'
+        }
+      }
+    });
+    const content = createProductionContent(previewContent, draft);
+    const initialState = createInitialStitchState(content);
+    const state = applyOptionsToState(initialState, draft, content);
+
+    expect(initialState.videoScreenshotAttachmentLocationTemplate).toBe('./assets/${noteFileName}');
+    expect(initialState.videoScreenshotAttachmentFileNameTemplate).toBe(
+      "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg"
+    );
+    expect(initialState.videoScreenshotAttachmentMarkdownUrlFormat).toBe('');
+    expect(state.videoScreenshotAttachmentLocationTemplate).toBe('VideoShots/${noteFileName}');
+    expect(state.videoScreenshotAttachmentFileNameTemplate).toBe(
+      "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg"
+    );
+    expect(state.videoScreenshotAttachmentMarkdownUrlFormat).toBe('![[${fileName}]]');
   });
 
   it('resolves extension version from platform runtime instead of direct chrome globals', () => {

@@ -6,8 +6,21 @@ import type { FragmentModifierKey, ReaderHighlightTheme } from '@shared/types/op
 
 const defaultReadingSession = DEFAULT_OPTIONS.readingSession!;
 const defaultFragmentClipper = DEFAULT_OPTIONS.fragmentClipper!;
+const screenshotAttachmentDefaults = {
+  locationTemplate: './assets/${noteFileName}',
+  fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+  markdownUrlFormat: ''
+};
 
 describe('shared optionsMerger', () => {
+  function getScreenshotAttachment(result: ReturnType<typeof mergeOptions>) {
+    if (!result.video) {
+      throw new Error('Expected merged video options to be present');
+    }
+
+    return result.video.screenshotAttachment;
+  }
+
   it('returns defaults when no stored options provided', () => {
     const result = mergeOptions(undefined);
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
@@ -126,6 +139,42 @@ describe('shared optionsMerger', () => {
     );
   });
 
+  it('fills video screenshot attachment defaults when stored options are missing', () => {
+    const result = mergeOptions(undefined);
+
+    expect(getScreenshotAttachment(result)).toEqual(screenshotAttachmentDefaults);
+  });
+
+  it('merges partial video screenshot attachment fields with defaults', () => {
+    const result = mergeOptions({
+      video: {
+        screenshotAttachment: {
+          locationTemplate: ' video/${noteFileName} '
+        }
+      }
+    });
+
+    expect(getScreenshotAttachment(result)).toEqual({
+      locationTemplate: 'video/${noteFileName}',
+      fileNameTemplate: screenshotAttachmentDefaults.fileNameTemplate,
+      markdownUrlFormat: screenshotAttachmentDefaults.markdownUrlFormat
+    });
+  });
+
+  it('falls back for blank location and filename while keeping blank markdown format', () => {
+    const result = mergeOptions({
+      video: {
+        screenshotAttachment: {
+          locationTemplate: '   ',
+          fileNameTemplate: '   ',
+          markdownUrlFormat: '   '
+        }
+      }
+    });
+
+    expect(getScreenshotAttachment(result)).toEqual(screenshotAttachmentDefaults);
+  });
+
   it('merges experimental options with defaults', () => {
     const stored: StoredOptions = {
       experimentalAi: {
@@ -232,6 +281,10 @@ describe('shared optionsMerger', () => {
     expect(result.video?.controlBarScreenshot).toBe(false);
     expect(result.video?.commentEditorAutoPause).toBe(true);
     expect(result.video?.promptPosition).toEqual({ x: 0, y: 12 });
+    expect(
+      (result.video as { screenshotAttachment?: Record<string, string> } | undefined)
+        ?.screenshotAttachment
+    ).toEqual(screenshotAttachmentDefaults);
     expect(result.experimentalAi?.provider).toBe(
       DEFAULT_OPTIONS.experimentalAi?.provider ?? 'compatible'
     );

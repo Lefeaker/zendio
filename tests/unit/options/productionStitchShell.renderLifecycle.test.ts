@@ -7,6 +7,7 @@ import {
   createMessaging,
   findButton,
   findCardByTitle,
+  findCheckboxInText,
   findInputByValue,
   findYamlRowByField,
   flushPromises,
@@ -215,6 +216,74 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     );
     expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
     expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
+  });
+
+  it('renders video screenshot attachment inputs, hydrates merged values, and preserves string writes', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        video: {
+          floatingPromptEnabled: false,
+          commentEditorAutoPause: false,
+          screenshotAttachment: {
+            locationTemplate: 'VideoShots/${noteFileName}',
+            markdownUrlFormat: '![[${fileName}]]'
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    const card = findCardByTitle('Video Prompt & Entry');
+    const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
+    const locationRow = rows.find((row) => row.textContent?.includes('附件位置模板'));
+    const fileNameRow = rows.find((row) => row.textContent?.includes('附件文件名模板'));
+    const markdownRow = rows.find((row) => row.textContent?.includes('Markdown URL 格式'));
+
+    const locationInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(locationRow, '附件位置模板 row')
+    );
+    const fileNameInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(fileNameRow, '附件文件名模板 row')
+    );
+    const markdownInput = queryRequired<HTMLInputElement>(
+      'input',
+      requireElement(markdownRow, 'Markdown URL 格式 row')
+    );
+
+    expect(locationInput.value).toBe('VideoShots/${noteFileName}');
+    expect(fileNameInput.value).toBe("file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg");
+    expect(markdownInput.value).toBe('![[${fileName}]]');
+
+    locationInput.value = 'Assets/${noteFileName}';
+    locationInput.dispatchEvent(new Event('input', { bubbles: true }));
+    fileNameInput.value = 'capture-${title}.jpg';
+    fileNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    markdownInput.value = '![](${attachmentUrl})';
+    markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const promptCheckbox = findCheckboxInText('在视频网站显示笔记按钮');
+    const autoPauseCheckbox = findCheckboxInText('编辑批注时自动暂停视频播放');
+    promptCheckbox.checked = true;
+    promptCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    autoPauseCheckbox.checked = true;
+    autoPauseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(mounted.collectDraft().video).toEqual(
+      expect.objectContaining({
+        floatingPromptEnabled: true,
+        commentEditorAutoPause: true,
+        screenshotAttachment: {
+          locationTemplate: 'Assets/${noteFileName}',
+          fileNameTemplate: 'capture-${title}.jpg',
+          markdownUrlFormat: '![](${attachmentUrl})'
+        }
+      })
+    );
   });
 
   it('opens onboarding through the production onboarding page path', () => {

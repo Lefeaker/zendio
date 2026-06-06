@@ -50,6 +50,12 @@ export interface ReadingSessionOptions {
   highlightTheme: ReaderHighlightTheme;
 }
 
+export interface VideoScreenshotAttachmentOptions {
+  locationTemplate: string;
+  fileNameTemplate: string;
+  markdownUrlFormat: string;
+}
+
 export interface VideoOptions {
   floatingPromptEnabled: boolean;
   promptButtonLabel: string;
@@ -58,6 +64,11 @@ export interface VideoOptions {
   controlBarScreenshot: boolean;
   commentEditorAutoPause: boolean;
   promptPosition?: { x: number; y: number };
+  screenshotAttachment: VideoScreenshotAttachmentOptions;
+}
+
+export interface StoredVideoOptions extends Omit<Partial<VideoOptions>, 'screenshotAttachment'> {
+  screenshotAttachment?: Partial<VideoScreenshotAttachmentOptions>;
 }
 
 export interface FragmentClipperOptions {
@@ -109,7 +120,7 @@ export interface StoredOptions {
   deepResearch?: Partial<DeepResearchOptions>;
   fragmentClipper?: Partial<FragmentClipperOptions>;
   readingSession?: Partial<ReadingSessionOptions>;
-  video?: Partial<VideoOptions>;
+  video?: StoredVideoOptions;
   classifier?: Partial<ClassifierOptions>;
   experimentalAi?: Partial<ExperimentalAiOptions>;
   pageSummary?: Partial<PageSummaryOptions>;

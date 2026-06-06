@@ -27,12 +27,12 @@ import {
   parseExportDestinationMetadata,
   toDownloadsFilename
 } from '../../shared/exportDestination';
-import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
 import { isAppError, normalizeToAppError } from '../../shared/errors';
 import type { AppError } from '../../shared/errors';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
+import { prepareVideoClipAttachments } from './videoScreenshotAttachmentPlanner';
 
 export interface ClipProcessingResult {
   filePath: string;
@@ -58,23 +58,6 @@ export interface ClipProcessingHooks {
   requestLocalVaultPermission?: (
     request: LocalVaultPermissionPromptRequest
   ) => Promise<LocalVaultPermissionPromptResult>;
-}
-
-interface ClipAttachment {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  dataUrl: string;
-}
-
-interface ResolvedClipAttachment extends ClipAttachment {
-  outputPath: string;
-  markdownPath: string;
-}
-
-interface PreparedClipPayload {
-  markdown: string;
-  attachments: ResolvedClipAttachment[];
 }
 
 type BackgroundStage = UsageEventParamMap['background_stage_completed']['stage'];
@@ -147,13 +130,27 @@ export async function processClipPayload(
           destination: 'downloads' as const,
           filePath: filename,
           restVault: '',
-          prepared: prepareClipAttachments(payload, filename, 'downloads')
+          prepared: prepareVideoClipAttachments({
+            payload,
+            notePath: filename,
+            destination: 'downloads',
+            ...(options.video?.screenshotAttachment
+              ? { screenshotAttachmentOptions: options.video.screenshotAttachment }
+              : {})
+          })
         };
       }
 
       hooks.onProgress?.({ value: 56, label: '正在选择 Obsidian 仓库' });
       const { vault, restConfig } = selectVaultForClip(options, payload);
-      const prepared = prepareClipAttachments(payload, filePath, 'vault');
+      const prepared = prepareVideoClipAttachments({
+        payload,
+        notePath: filePath,
+        destination: 'vault',
+        ...(options.video?.screenshotAttachment
+          ? { screenshotAttachmentOptions: options.video.screenshotAttachment }
+          : {})
+      });
       const writeSession = await createVaultWriteSession(restConfig, {
         ...(hooks.requestLocalVaultPermission
           ? { requestLocalVaultPermission: hooks.requestLocalVaultPermission }
@@ -310,80 +307,6 @@ export async function processClipPayload(
   }
 }
 
-function prepareClipAttachments(
-  payload: ClipPayload,
-  notePath: string,
-  destination: 'vault' | 'downloads'
-): PreparedClipPayload {
-  const attachments = parseClipAttachments(payload.meta?.attachments);
-  if (attachments.length === 0) {
-    return { markdown: payload.markdown, attachments: [] };
-  }
-
-  const noteName = getFileStem(notePath);
-  const noteDirectory = getDirectoryName(notePath);
-  const resolvedAttachments = attachments.map((attachment) => {
-    const fileName = sanitizeAttachmentFileName(attachment.fileName);
-    if (destination === 'downloads') {
-      const shouldUseFolder = attachments.length > 1;
-      const markdownPath = shouldUseFolder ? `${noteName}/${fileName}` : fileName;
-      return {
-        ...attachment,
-        fileName,
-        outputPath: markdownPath,
-        markdownPath
-      };
-    }
-
-    const markdownPath = `assets/${noteName}/${fileName}`;
-    return {
-      ...attachment,
-      fileName,
-      outputPath: joinPath(noteDirectory, markdownPath),
-      markdownPath
-    };
-  });
-
-  const markdown = resolvedAttachments.reduce((current, attachment) => {
-    const marker = `aiob-attachment:${attachment.id}`;
-    return current.split(marker).join(attachment.markdownPath);
-  }, payload.markdown);
-
-  return {
-    markdown,
-    attachments: resolvedAttachments
-  };
-}
-
-function parseClipAttachments(value: unknown): ClipAttachment[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.flatMap((item): ClipAttachment[] => {
-    if (typeof item !== 'object' || item === null) {
-      return [];
-    }
-    const candidate = item as Partial<ClipAttachment>;
-    if (
-      typeof candidate.id !== 'string' ||
-      typeof candidate.fileName !== 'string' ||
-      typeof candidate.mimeType !== 'string' ||
-      typeof candidate.dataUrl !== 'string' ||
-      !candidate.dataUrl.startsWith(`data:${candidate.mimeType};base64,`)
-    ) {
-      return [];
-    }
-    return [
-      {
-        id: candidate.id,
-        fileName: candidate.fileName,
-        mimeType: candidate.mimeType,
-        dataUrl: candidate.dataUrl
-      }
-    ];
-  });
-}
-
 function resolveBackgroundOperationId(payload: ClipPayload): string {
   const meta = payload.meta;
   const candidate =
@@ -475,27 +398,4 @@ function trackClipTelemetryEvent<EventName extends ClipTelemetryEventName>(
   void Promise.resolve()
     .then(() => trackUsageEvent(eventName, params))
     .catch(() => undefined);
-}
-
-function getFileStem(filePath: string): string {
-  const fileName = filePath.split(/[\\/]/u).filter(Boolean).at(-1) ?? 'note.md';
-  const withoutExtension = fileName.replace(/\.[^.]+$/u, '');
-  return sanitizeDownloadsPathSegment(withoutExtension, 'note');
-}
-
-function getDirectoryName(filePath: string): string {
-  return filePath.split(/[\\/]/u).filter(Boolean).slice(0, -1).join('/');
-}
-
-function joinPath(...segments: string[]): string {
-  return segments
-    .flatMap((segment) => segment.split(/[\\/]/u))
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join('/');
-}
-
-function sanitizeAttachmentFileName(fileName: string): string {
-  const safeName = fileName.split(/[\\/]/u).filter(Boolean).at(-1);
-  return sanitizeDownloadsPathSegment(safeName, 'attachment.jpg');
 }

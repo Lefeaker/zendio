@@ -239,7 +239,7 @@ export function updateDraftPath(
   path: string,
   value: unknown
 ): void {
-  if (updateVideoDraftPath(draft, state, path, Boolean(value))) {
+  if (updateVideoDraftPath(draft, state, path, value)) {
     return;
   }
   switch (path) {

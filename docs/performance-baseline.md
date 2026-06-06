@@ -28,6 +28,8 @@ npm run audit:build:report
 
 2026-06-06 session-draft current-main reintegration 复核重新采集 `quality`、`verify:preflight`、`build:fast`、`build:dev`、`audit:build:report`、`audit:performance:report`、Chrome `build` / release audit 与 Firefox `build:firefox` / release audit。当前 build/hotspot/line-budget 数值以该次采集为当前真值；reader/video session draft integration 新增的 hotspot owner 已补齐 exact current-line budgets，既有 runtime/message hotspots 也已同步到当前行数。
 
+2026-06-06 video screenshot attachment verification 复核重新采集 `audit:performance:report`。本轮仅补齐 feature-owned hotspot line budgets：`src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；同步后当前 audit 输出为 trackedSourceFiles=`706`、hotspotsOver250=`104`、registeredLineBudgets=`107`。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -104,6 +106,7 @@ npm run audit:performance:report
 - `src/content/reader/session.ts`: `563` 行
 - `src/options/stitch/schema/builders/surfaces.ts`: `558` 行
 - `src/onboarding/bootstrap.ts`: `557` 行
+- `src/shared/attachments/videoScreenshotAttachmentTemplates.ts`: `523` 行
 - `src/content/clipper/components/clipperDialogController.ts`: `511` 行
 - `src/options/app/productionStitchStateMapper.ts`: `509` 行
 - `src/content/reader/services/highlightManager.ts`: `505` 行
@@ -119,12 +122,14 @@ npm run audit:performance:report
 - `src/shared/errors/analytics/analyticsConfig.ts`: `369` 行
 - `src/shared/errors/analytics/analyticsConfig.template.ts`: `364` 行
 - `src/background/listeners/runtimeMessages.ts`: `350` 行
+- `src/background/application/videoScreenshotAttachmentPlanner.ts`: `269` 行
 - `src/content/video/sessionPlatformController.ts`: `260` 行
 - `src/shared/errors/analytics/googleAnalyticsReporter.ts`: `317` 行
 
 当前 hotspot line budget 口径：
 
 - 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-06 session-draft current-main reintegration 后当前 trackedSourceFiles=`703`、动态发现 `102` 个热点路径，注册 `105` 个 line budgets，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 2026-06-06 video screenshot attachment verification 当前补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`，同步后当前 audit 输出为 trackedSourceFiles=`706`、hotspotsOver250=`104`、registeredLineBudgets=`107`。
 - 当前 top line budgets：`localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`、`stitch/content.ts <= 906`，以及 generated locale modules 中的 `fr.generated.ts <= 785`、`es-419.generated.ts <= 777`、`es-ES.generated.ts <= 777`、`de.generated.ts <= 776`。
 - M12 current truth：`src/i18n/messages.ts` 已缩为 generated type shim，`src/i18n/schemaShellMessages.ts` 与手写 `src/i18n/locales/*.ts` 已删除；generated i18n 热点预算为 `localeRegistry.generated.ts <= 8899`、`schemaMessages.generated.ts <= 2173`、`messages.generated.ts <= 1312`，并新增 `src/i18n/generated/locales/*.generated.ts` exact current-line budgets。
 - 当前业务/运行时/GA 重点 budgets：`yaml-config-editor/view.ts <= 746`、`video/sessionOperations.ts <= 611`、`videoSessionRuntime.ts <= 691`、`VideoDialogPanel.ts <= 407`、`videoControlBarButton.ts <= 395`、`sessionDraftRepository.ts <= 394`、`runtimeMessages.ts <= 350`、`reader/sessionDrafts.ts <= 333`、`bilibiliRichText.ts <= 302`、`bilibiliPlatformObserver.ts <= 292`、`markdownBuilder.ts <= 288`、`PrivacySettingsView.ts <= 255`、`productionStitchShellMount.ts <= 254`、`yaml-config-editor/rowModel.ts <= 254`、`eventCatalog.ts <= 485`、`analyticsSanitizers.ts <= 456`、`analyticsConfig.ts <= 369`、`analyticsConfig.template.ts <= 364`、`googleAnalyticsReporter.ts <= 320`。
