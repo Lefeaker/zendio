@@ -75,6 +75,18 @@ export interface ProductionStitchActionContext {
 export function createProductionStitchActions(
   context: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
+  const setModifierKey = (value: unknown): void => {
+    const draft = context.getDraft();
+    const state = context.getState();
+    const key = normalizeFragmentModifierKey(value);
+    state.modifierKeys = [key];
+    state.fragmentModifierEnabled = true;
+    draft.fragmentClipper.selectionModifierEnabled = true;
+    draft.fragmentClipper.selectionModifierKeys = [key];
+    context.scheduleDraftSave();
+    context.syncModifierControls();
+  };
+
   return {
     ...createProductionRoutingActions(context),
     ...createProductionStorageActions(context),
@@ -101,15 +113,10 @@ export function createProductionStitchActions(
         { silent: true }
       );
       void (async () => {
-        if (context.changeLanguage) {
-          const nextResource = await context.changeLanguage(nextLanguage);
-          context.setLanguageResource(nextResource);
-        } else {
-          context.setLanguageResource({
-            messages: context.getMessages(),
-            language: nextLanguage
-          });
-        }
+        const nextResource = context.changeLanguage
+          ? await context.changeLanguage(nextLanguage)
+          : { messages: context.getMessages(), language: nextLanguage };
+        context.setLanguageResource(nextResource);
         context.render();
         context.trackLanguageChanged?.(nextLanguage);
       })();
@@ -202,26 +209,7 @@ export function createProductionStitchActions(
       context.syncModifierControls();
     },
     'modifier:setKey': ({ value }) => {
-      const draft = context.getDraft();
-      const state = context.getState();
-      const key = normalizeFragmentModifierKey(value);
-      state.modifierKeys = [key];
-      state.fragmentModifierEnabled = true;
-      draft.fragmentClipper.selectionModifierEnabled = true;
-      draft.fragmentClipper.selectionModifierKeys = [key];
-      context.scheduleDraftSave();
-      context.syncModifierControls();
-    },
-    'modifier:toggleKey': ({ value }) => {
-      const draft = context.getDraft();
-      const state = context.getState();
-      const key = normalizeFragmentModifierKey(value);
-      state.modifierKeys = [key];
-      state.fragmentModifierEnabled = true;
-      draft.fragmentClipper.selectionModifierEnabled = true;
-      draft.fragmentClipper.selectionModifierKeys = [key];
-      context.scheduleDraftSave();
-      context.syncModifierControls();
+      setModifierKey(value);
     },
     'options:updateField': ({ args, value }) => {
       context.updateDraftPath(String(args[0] ?? ''), value);

@@ -69,6 +69,30 @@ describe('mountProductionStitchShell storage', () => {
     expect(toggle?.disabled).toBe(true);
   });
 
+  it('shows storage and reading mode plugin guidance in the option cards', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    } as never);
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.textContent).toContain('推荐优先使用 Local Folder 通道');
+    const restLink = vaultList.querySelector<HTMLAnchorElement>(
+      'a[href="https://github.com/coddingtonbear/obsidian-local-rest-api"]'
+    );
+    expect(restLink?.textContent).toBe('Local REST API with MCP');
+
+    const readingExport = findCardByTitle('Reading Export');
+    expect(readingExport.textContent).toContain('存储内容高亮与 Obsidian 插件');
+    const highlightsLink = readingExport.querySelector<HTMLAnchorElement>(
+      'a[href="https://github.com/trevware/obsidian-sidebar-highlights"]'
+    );
+    expect(highlightsLink?.textContent).toBe('Sidebar Highlights');
+  });
+
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
     const controller = createController();
     const storage = createStorage();
@@ -660,20 +684,39 @@ describe('mountProductionStitchShell storage', () => {
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
     const controller = createController();
-    const messagingRepository = {
-      send: vi.fn((message: { type?: string }) => {
-        if (message.type === 'TEST_VAULT_CONNECTION') {
-          return Promise.resolve({
-            success: false,
-            status: 401,
-            message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
-            error: '本地目录需要重新授权：LocalFolder'
-          });
+    const messagingRepository = createMessaging({
+      success: false,
+      status: 401,
+      message: 'Research Vault partial',
+      error: 'HTTPS: network error: request failed',
+      channels: [
+        {
+          channel: 'localFolder',
+          label: '本地目录',
+          configured: true,
+          success: true,
+          message: '本地目录可用：LocalFolder'
+        },
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: LOCAL_HTTPS_URL,
+          certificateUrl: `${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt`
+        },
+        {
+          channel: 'http',
+          label: 'HTTP',
+          configured: true,
+          success: true,
+          message: 'HTTP 连接成功',
+          url: LOCAL_HTTP_URL
         }
-        return Promise.resolve(undefined);
-      }),
-      onMessage: vi.fn(() => () => {})
-    };
+      ]
+    });
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -730,7 +773,17 @@ describe('mountProductionStitchShell storage', () => {
     expect(vi.mocked(messagingRepository.send)).not.toHaveBeenCalledWith(
       expect.objectContaining({ vaultId: 'disabled' })
     );
-    expect(document.body.textContent).toContain('本地目录需要重新授权：LocalFolder');
+    const vaultList = findCardByTitle('Vault List');
+    const notice = vaultList.querySelector<HTMLElement>('.notice');
+    expect(notice?.className).toContain('warning');
+    expect(notice?.textContent).toContain('Research Vault');
+    expect(notice?.textContent).toContain('✅ 本地目录');
+    expect(notice?.textContent).toContain('❌ HTTPS');
+    expect(notice?.textContent).toContain('✅ HTTP');
+    const certificateLink = notice?.querySelector<HTMLAnchorElement>(
+      `a[href="${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt"]`
+    );
+    expect(certificateLink?.textContent).toBe('下载并信任该证书');
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'connection_test_completed',

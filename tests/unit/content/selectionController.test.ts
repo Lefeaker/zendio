@@ -151,7 +151,7 @@ describe('content selectionController service', () => {
       contextLength: 200,
       contextMode: 'chars',
       selectionModifierEnabled: false,
-      selectionModifierKeys: [],
+      selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     });
   });

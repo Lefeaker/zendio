@@ -13,6 +13,10 @@ import type {
   FailureCategory as AnalyticsFailureCategory,
   StorageTarget
 } from '../../shared/types/analytics';
+import {
+  executeVaultStorageTargetTest,
+  type ConnectionTestConfig
+} from './vaultConnectionChannels';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 type ConnectionTestSummary = {
@@ -89,17 +93,6 @@ interface UrlCandidate {
   protocol: string;
 }
 
-interface ConnectionTestConfig {
-  baseUrl: string;
-  httpsUrl?: string;
-  httpUrl?: string;
-  apiKey: string;
-  vault: string;
-  label?: string;
-  localFolderId?: string;
-  localFolderName?: string;
-}
-
 export async function handleConnectionTest(
   restDraft?: Partial<RestOptions>
 ): Promise<ConnectionTestResult> {
@@ -148,7 +141,7 @@ export async function handleVaultConnectionTest(
     const vault = resolveVaultConfig(message, activeVaults);
     const httpsUrl = sanitizeUrl(vault.httpsUrl);
     const httpUrl = sanitizeUrl(vault.httpUrl);
-    if (!httpsUrl && !httpUrl) {
+    if (!httpsUrl && !httpUrl && !vault.localFolderId) {
       throw new Error('未配置可用的地址');
     }
 
@@ -168,9 +161,15 @@ export async function handleVaultConnectionTest(
         ...(vault.localFolderName ? { localFolderName: vault.localFolderName } : {})
       };
 
-      const summary = await executeStorageTargetTest(config);
-      trackConnectionTestCompleted(summary, startedAt);
-      return summary.result;
+      const result = await executeVaultStorageTargetTest(config);
+      trackConnectionTestCompleted(
+        summarizeVaultStorageTargetTest(
+          result,
+          vault.localFolderId ? 'local_folder' : 'rest_api'
+        ),
+        startedAt
+      );
+      return result;
     } catch (error) {
       const summary = buildFailureSummary(
         error,
@@ -483,6 +482,48 @@ function formatCategoryMessage(category: FailureCategory, detail?: string): stri
     return `${category}: ${detail}`;
   }
   return category;
+}
+
+function summarizeVaultStorageTargetTest(
+  result: ConnectionTestResult,
+  storageTarget: StorageTarget
+): ConnectionTestSummary {
+  return {
+    result,
+    storageTarget,
+    ...(!result.success ? { failureCategory: inferChannelFailureCategory(result) } : {})
+  };
+}
+
+function inferChannelFailureCategory(result: ConnectionTestResult): AnalyticsFailureCategory {
+  const channels = result.channels ?? [];
+  const failedConfiguredChannels = channels.filter(
+    (channel) => channel.configured && !channel.success
+  );
+  const failedLocalFolder = failedConfiguredChannels.find(
+    (channel) => channel.channel === 'localFolder'
+  );
+  const failureText = [
+    result.error,
+    result.message,
+    ...failedConfiguredChannels.flatMap((channel) => [channel.error, channel.message])
+  ]
+    .filter((message): message is string => typeof message === 'string' && message.length > 0)
+    .join('\n')
+    .toLowerCase();
+
+  if (failedLocalFolder) {
+    return failureText.includes('unsupported') || failureText.includes('不支持')
+      ? 'unsupported'
+      : 'permission';
+  }
+  if (failureText.includes('未配置') || failureText.includes('config error')) {
+    return 'validation';
+  }
+  if (failureText.includes('timeout')) {
+    return 'timeout';
+  }
+  return 'connection';
 }
 
 function buildFailureSummary(

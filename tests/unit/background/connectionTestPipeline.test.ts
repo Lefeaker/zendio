@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getRestDefaults } from '../../utils/restDefaults';
+import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 
 const REST_DEFAULTS = getRestDefaults();
 const DEFAULT_ROOT_URL = withTrailingSlash(
@@ -7,6 +8,13 @@ const DEFAULT_ROOT_URL = withTrailingSlash(
 );
 const DRAFT_HTTPS_URL = `https://draft.example:${REST_DEFAULTS.httpsPort}/`;
 const BODY_STREAM_REUSE_ERROR = ['Body', 'is', 'unusable'].join(' ');
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/+$/, '');
+const LOCAL_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/+$/, '');
+const LOCAL_CERTIFICATE_URL = new URL(
+  '/obsidian-local-rest-api.crt',
+  LOCAL_REST_URLS.httpsUrl
+).toString();
 
 const getOptionsMock = vi.fn();
 const queryPermissionMock = vi.fn();
@@ -286,6 +294,95 @@ describe('connectionTest pipeline', () => {
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(withTrailingSlash('https://api.example.com'));
     expect(getAuthorizationHeader(init)).toBe('Bearer secret');
+  });
+
+  it('returns separate local folder, HTTPS, and HTTP channel results for vault tests', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    fetchMock
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' })
+      )
+      .mockResolvedValueOnce(createResponse('OK', { status: 200 }));
+    queryPermissionMock.mockResolvedValue('granted');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-split',
+      vault: {
+        id: 'vault-split',
+        name: 'Split Vault',
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
+        vault: 'Split',
+        apiKey: 'secret',
+        localFolderId: 'folder-split',
+        localFolderName: 'SplitFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.channels).toEqual([
+      expect.objectContaining({
+        channel: 'localFolder',
+        configured: true,
+        success: true,
+        message: '本地目录可用：SplitFolder'
+      }),
+      expect.objectContaining({
+        channel: 'https',
+        configured: true,
+        success: false,
+        url: LOCAL_HTTPS_URL,
+        certificateUrl: LOCAL_CERTIFICATE_URL
+      }),
+      expect.objectContaining({
+        channel: 'http',
+        configured: true,
+        success: true,
+        url: LOCAL_HTTP_URL
+      })
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows vault tests to pass through the local folder channel without REST URLs', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    queryPermissionMock.mockResolvedValue('granted');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local-only',
+      vault: {
+        id: 'vault-local-only',
+        name: 'Local Only',
+        httpsUrl: '',
+        httpUrl: '',
+        vault: 'LocalOnly',
+        apiKey: '',
+        localFolderId: 'folder-local-only',
+        localFolderName: 'LocalOnlyFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.channels).toEqual([
+      expect.objectContaining({ channel: 'localFolder', success: true }),
+      expect.objectContaining({ channel: 'https', configured: false, success: false }),
+      expect.objectContaining({ channel: 'http', configured: false, success: false })
+    ]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('includes local folder permission in a vault connection test when configured', async () => {

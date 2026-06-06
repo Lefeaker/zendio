@@ -11,6 +11,7 @@ import {
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { errorHandler, isAppError, optionsErrors } from '../../shared/errors';
+import { validateChannelResult } from './connectionChannelResponseValidation';
 
 type TestState = 'idle' | 'pending';
 type TestKey = string;
@@ -189,6 +190,12 @@ function validateResponse(response: unknown, context: ConnectionContext): Connec
       response
     });
   }
+  if (candidate.channels !== undefined && !Array.isArray(candidate.channels)) {
+    throw optionsErrors.responseInvalid('Field "channels" must be an array.', {
+      ...context,
+      response
+    });
+  }
 
   const result: ConnectionTestResult = {
     success: candidate.success,
@@ -203,6 +210,11 @@ function validateResponse(response: unknown, context: ConnectionContext): Connec
   }
   if (candidate.error !== undefined) {
     result.error = candidate.error;
+  }
+  if (candidate.channels !== undefined) {
+    result.channels = candidate.channels.map((channel, index) =>
+      validateChannelResult(channel, context, index)
+    );
   }
 
   return result;

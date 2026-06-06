@@ -64,7 +64,11 @@ const schema: SettingsSchema = {
                       ])
                     }
                   ]
-                }
+                },
+                htmlParagraph(
+                  '存储内容高亮与 Obsidian 插件 <a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a> 配合使用更佳。',
+                  'option-support-note'
+                )
               ]
             }
           ]
