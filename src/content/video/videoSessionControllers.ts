@@ -43,6 +43,8 @@ export function createVideoSessionControllers(args: {
     selectedText: string;
     range?: Range | null;
   }) => void;
+  restoreDraftState?: () => Promise<boolean>;
+  onLegacyRestore?: (storageKey: string) => void;
   findVideoElement: () => HTMLVideoElement | null;
   handleUrlChange: () => void;
   handleVideoElementChange: (element: HTMLVideoElement | null) => void;
@@ -57,6 +59,8 @@ export function createVideoSessionControllers(args: {
     isRangeInsideUi,
     ensureCaptureHighlight,
     onSelectionAccepted,
+    restoreDraftState,
+    onLegacyRestore,
     findVideoElement,
     handleUrlChange,
     handleVideoElementChange
@@ -123,7 +127,9 @@ export function createVideoSessionControllers(args: {
     state,
     createPlatformContext,
     onAdapterChange: (adapter) => fragmentHighlightCoordinator.updateAdapter(adapter),
-    ensureCaptureHighlight
+    ensureCaptureHighlight,
+    ...(restoreDraftState ? { restoreDraftState } : {}),
+    ...(onLegacyRestore ? { onLegacyRestore } : {})
   });
   const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
 

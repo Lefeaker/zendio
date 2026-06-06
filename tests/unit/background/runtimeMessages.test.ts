@@ -53,7 +53,12 @@ vi.mock('../../../src/shared/errors', () => ({
 }));
 
 describe('runtime message listener', () => {
-  let listener: ((message: unknown, sender: { tabId?: number }) => Promise<unknown>) | undefined;
+  let listener:
+    | ((
+        message: unknown,
+        sender: { tabId?: number; frameId?: number; windowId?: number }
+      ) => Promise<unknown>)
+    | undefined;
 
   beforeEach(() => {
     vi.resetModules();
@@ -70,7 +75,19 @@ describe('runtime message listener', () => {
     return {
       messaging: { addListener: addListenerMock },
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
-      openOptionsPage: vi.fn(() => Promise.resolve(undefined))
+      openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
+      getTabContext: vi.fn(
+        async (sender: { tabId?: number; frameId?: number; windowId?: number }) => ({
+          success: true as const,
+          ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
+          ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
+          ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
+        })
+      ),
+      isTabContextActive: vi.fn(async (ownerContext: { tabId?: number }) => ({
+        success: true as const,
+        active: ownerContext.tabId === 12
+      }))
     };
   }
 
@@ -137,6 +154,75 @@ describe('runtime message listener', () => {
       expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('returns sender tab context metadata for content-side owner resolution', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.({ type: 'AIIOB_GET_TAB_CONTEXT' }, { tabId: 12, windowId: 4, frameId: 0 })
+    ).resolves.toEqual({
+      success: true,
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
+    expect(dependencies.getTabContext).toHaveBeenCalledWith({
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
+  });
+
+  it('returns success with omitted tab fields when sender metadata is unavailable', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(listener?.({ type: 'AIIOB_GET_TAB_CONTEXT' }, {})).resolves.toEqual({
+      success: true
+    });
+  });
+
+  it('reports whether a stored session draft owner tab is still active', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.(
+        {
+          type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE',
+          ownerContext: { tabId: 12, windowId: 4, frameId: 0 }
+        },
+        {}
+      )
+    ).resolves.toEqual({
+      success: true,
+      active: true
+    });
+    await expect(
+      listener?.(
+        {
+          type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE',
+          ownerContext: { tabId: 99, windowId: 4, frameId: 0 }
+        },
+        {}
+      )
+    ).resolves.toEqual({
+      success: true,
+      active: false
+    });
+    expect(dependencies.isTabContextActive).toHaveBeenCalledWith({
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
   });
 
   it('strips unknown clip result payload fields before forwarding to the clip pipeline', async () => {

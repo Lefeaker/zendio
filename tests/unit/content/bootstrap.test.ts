@@ -31,7 +31,12 @@ const createErrorHandlerMock = vi.hoisted(() =>
 );
 const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'global-state' })));
 const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
-const createPopupCoordinatorMock = vi.hoisted(() => vi.fn(() => ({ closeAll: vi.fn() })));
+const createPopupCoordinatorMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    closeAll: vi.fn(),
+    closeTransient: vi.fn()
+  }))
+);
 const clipperInitializeMock = vi.hoisted(() => vi.fn());
 const panelInitializeMock = vi.hoisted(() => vi.fn());
 const getPlatformServicesMock = vi.hoisted(() => vi.fn(() => ({ kind: 'platform-services' })));
@@ -180,8 +185,8 @@ describe('content/bootstrap', () => {
     context.dispose();
   });
 
-  it('exposes services, closes popups during page visibility changes, and disposes on beforeunload', async () => {
-    const dialogRegistry = { closeAll: vi.fn() };
+  it('exposes services, transient-closes popups during page visibility changes, and disposes on beforeunload', async () => {
+    const dialogRegistry = { closeAll: vi.fn(), closeTransient: vi.fn() };
     const customToken = Symbol('custom');
     scopedRegistryMock.has.mockImplementation((token?: symbol) => token === TOKENS.dialogRegistry);
     scopedRegistryMock.resolve.mockImplementation((token: symbol) => {
@@ -211,8 +216,14 @@ describe('content/bootstrap', () => {
 
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
+
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
+    expect(dialogRegistry.closeTransient).toHaveBeenCalledTimes(1);
+    expect(dialogRegistry.closeAll).not.toHaveBeenCalled();
+
     window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
-    expect(dialogRegistry.closeAll).toHaveBeenCalledTimes(2);
+    expect(dialogRegistry.closeTransient).toHaveBeenCalledTimes(2);
+    expect(dialogRegistry.closeAll).not.toHaveBeenCalled();
     expect(context.disposed).toBe(false);
 
     window.dispatchEvent(new Event('beforeunload'));

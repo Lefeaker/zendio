@@ -7,11 +7,8 @@ export function handleVideoSessionUrlChange(args: {
   platformController: VideoSessionPlatformController;
   state: VideoSessionState;
   refreshContext: () => Promise<void>;
-}): void {
-  args.platformController.updateVideoContext();
-  args.platformController.syncPlatformAdapter();
-  args.state.videoTitle = args.platformController.extractVideoTitle();
-  void args.refreshContext();
+}): Promise<void> {
+  return args.refreshContext();
 }
 
 export function handleVideoSessionVideoElementChange(args: {
@@ -39,7 +36,7 @@ export async function refreshVideoSessionContext(args: {
   applyHint: (state: VideoHintState) => void;
   syncPanel: () => void;
   fragmentHighlightCoordinator: FragmentHighlightCoordinator;
-}): Promise<void> {
+}) {
   const result = await args.platformController.refreshContext();
   args.applyHint(result.hintState);
   args.syncPanel();
@@ -47,4 +44,5 @@ export async function refreshVideoSessionContext(args: {
   if (result.shouldScheduleFragmentRestore) {
     args.fragmentHighlightCoordinator.scheduleRestore();
   }
+  return result;
 }

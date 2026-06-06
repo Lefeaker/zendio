@@ -28,6 +28,9 @@ interface ReaderSessionOperationContext {
   lifecycle: ReaderSessionLifecycle;
   dependencies: ReaderSessionDependencies;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  onDraftMutation?: () => void;
+  disposeDraftPersistence?: () => Promise<void>;
+  clearPersistedDraft?: () => Promise<void>;
 }
 
 type ReaderUsageEventName = Extract<
@@ -134,6 +137,7 @@ export function addReaderHighlightFromRange(
   context.state.highlights.push(highlight);
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+  context.onDraftMutation?.();
   void trackReaderUsageEvent(context, 'reader_highlight_added', {
     selection_length_bucket: bucketCount(selectedText.length),
     highlight_count_bucket: bucketCount(context.state.highlights.length)
@@ -228,6 +232,8 @@ export async function finishReaderSession(
       duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
     });
     cleanupReaderSession(context);
+    await context.disposeDraftPersistence?.();
+    await context.clearPersistedDraft?.();
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
     void trackReaderUsageEvent(context, 'reader_export_failed', {
@@ -252,6 +258,12 @@ export function cancelReaderSession(context: ReaderSessionOperationContext): voi
     duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
   });
   cleanupReaderSession(context);
+  void context
+    .disposeDraftPersistence?.()
+    .then(() => context.clearPersistedDraft?.())
+    .catch((error) => {
+      console.warn('[ReaderSession] Failed to clear session draft after cancel:', error);
+    });
 }
 
 export function cleanupReaderSession(context: ReaderSessionOperationContext): void {
@@ -309,6 +321,7 @@ export function removeReaderHighlight(context: ReaderSessionOperationContext, id
     context.state.highlights.length ? 'panel' : 'noHighlights',
     context.state.highlights.length
   );
+  context.onDraftMutation?.();
 }
 
 export function submitReaderHighlightEdit(
@@ -330,6 +343,7 @@ export function submitReaderHighlightEdit(
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
   context.panelCoordinator.stopEditing();
+  context.onDraftMutation?.();
 }
 
 function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
@@ -337,13 +351,14 @@ function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
   context.panelCoordinator.updateHighlights(context.state.highlights);
 }
 
-function createDetachedReaderHighlight(
+export function createDetachedReaderHighlight(
   doc: Document,
   id: string,
   selectedHtml: string,
   selectedText: string,
   comment: string,
-  fragmentUrl: string
+  fragmentUrl: string,
+  createdAt = Date.now()
 ): ReaderHighlightRecord {
   const wrapper = doc.createElement('mark');
   wrapper.className = 'aiob-reader-highlight';
@@ -362,7 +377,7 @@ function createDetachedReaderHighlight(
     fragmentUrl,
     wrapper,
     wrapperSegments: [wrapper],
-    createdAt: Date.now()
+    createdAt
   };
 }
 

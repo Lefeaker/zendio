@@ -82,11 +82,13 @@ export class ContentScriptContext {
   private cleanupGlobalErrorBoundary: (() => void) | null = null;
   private readonly handleVisibilityChange = (): void => {
     if (document.hidden) {
-      this.closeActivePopups();
+      this.closeActivePopups({ transient: true });
     }
   };
-  private readonly handlePageHide = (): void => {
-    this.closeActivePopups();
+  private readonly handlePageHide = (event: PageTransitionEvent): void => {
+    if (event.persisted) {
+      this.closeActivePopups({ transient: true });
+    }
   };
 
   constructor(storage?: StorageService) {
@@ -189,11 +191,16 @@ export class ContentScriptContext {
     this.dispose();
   };
 
-  private closeActivePopups(): void {
+  private closeActivePopups(options: { transient?: boolean } = {}): void {
     try {
-      this.scopedRegistry
-        .resolve<ReturnType<typeof createPopupCoordinator>>(TOKENS.dialogRegistry)
-        .closeAll();
+      const popupCoordinator = this.scopedRegistry.resolve<
+        ReturnType<typeof createPopupCoordinator>
+      >(TOKENS.dialogRegistry);
+      if (options.transient) {
+        popupCoordinator.closeTransient();
+        return;
+      }
+      popupCoordinator.closeAll();
     } catch (error) {
       console.warn('[ContentScript] Failed to close active popups:', error);
     }

@@ -19,6 +19,7 @@ class FakeReaderView implements ReaderSessionView {
   lastHint = '';
   lastTexts: ReaderPanelTexts | null = null;
   lastHighlights: ReaderPanelHighlight[] = [];
+  currentDrafts: Record<string, string> = {};
   editing = false;
   destroyed = false;
 
@@ -36,6 +37,14 @@ class FakeReaderView implements ReaderSessionView {
 
   setHighlights(highlights: ReaderPanelHighlight[]): void {
     this.lastHighlights = highlights;
+  }
+
+  snapshotCommentDrafts(): Record<string, string> {
+    return { ...this.currentDrafts };
+  }
+
+  hydrateCommentDrafts(drafts: Record<string, string>): void {
+    this.currentDrafts = { ...drafts };
   }
 
   stopEditing(): void {
@@ -135,5 +144,25 @@ describe('ReaderPanelCoordinator', () => {
     expect(view.lastHint).toBe(DEFAULT_SESSION_MESSAGES.panel.hint);
     coordinator.stopEditing();
     expect(view.editing).toBe(false);
+  });
+
+  it('forwards comment draft snapshot and hydrate operations to the view', () => {
+    const coordinator = new ReaderPanelCoordinator({
+      viewFactory,
+      callbacks,
+      reconstructText: (highlight) => highlight.selectedText
+    });
+
+    coordinator.mount(DEFAULT_SESSION_MESSAGES);
+    coordinator.hydrateCommentDrafts({
+      a: 'restored draft'
+    });
+
+    expect(view.currentDrafts).toEqual({
+      a: 'restored draft'
+    });
+    expect(coordinator.snapshotCommentDrafts()).toEqual({
+      a: 'restored draft'
+    });
   });
 });
