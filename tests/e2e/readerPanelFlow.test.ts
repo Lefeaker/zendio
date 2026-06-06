@@ -668,7 +668,7 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
   );
 
   testWithExtension(
-    'restores a stored reader draft on a real page, appends the fresh selection, and clears the draft on export',
+    'auto-restores a stored reader draft on page entry, appends the fresh selection, and clears the draft on export',
     async ({ page, context, extensionPage }, testInfo) => {
       await seedOptions(extensionPage, testInfo);
       await installReaderExportCaptureListener(extensionPage, testInfo);
@@ -725,6 +725,37 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
         findCurrentTabId(extensionPage, page.url())
       );
       await injectContentRuntime(extensionPage, tabId, testInfo);
+
+      await runStage(testInfo, 'wait reader draft auto-restore panel', async () => {
+        await expect(page.locator('[data-stitch-surface="reader"]')).toHaveCount(1, {
+          timeout: 10000
+        });
+        await expect(page.locator('[data-role="export-btn"]')).toBeVisible();
+      });
+
+      await expect
+        .poll(
+          async () => {
+            const inputValues = await page
+              .locator('[data-stitch-surface="reader"] input[data-highlight-input]')
+              .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+            return {
+              highlightCount: await page
+                .locator('[data-stitch-surface="reader"] article[data-highlight-id]')
+                .count(),
+              inputHasDraft: inputValues.includes(unsavedDraft)
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'reader draft did not auto-restore on page entry'
+          }
+        )
+        .toEqual({
+          highlightCount: 1,
+          inputHasDraft: true
+        });
+
       await openReaderFromSelection(
         page,
         extensionPage,
