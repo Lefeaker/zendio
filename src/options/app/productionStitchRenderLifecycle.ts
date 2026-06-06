@@ -13,6 +13,7 @@ import type { Language } from '@i18n';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
+import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
 
 interface ProductionStitchRenderWidgetHost {
   createWidgetFactory(widgetType: string): unknown;
@@ -58,7 +59,8 @@ export function createProductionStitchRenderLifecycle(
     getState: () => options.getState()
   });
 
-  mountRoot.addEventListener('click', dismissLocalFolderDeleteOnOutsideClick);
+  const setState = (state: PreviewStoreState): void => options.setState(state);
+  const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, render);
 
   function getState(): PreviewStoreState {
     return options.getState();
@@ -196,25 +198,6 @@ export function createProductionStitchRenderLifecycle(
     syncActiveLinks();
   }
 
-  function dismissLocalFolderDeleteOnOutsideClick(event: MouseEvent): void {
-    const state = getState();
-    if (
-      state.activeLocalFolderVaultIndex === null ||
-      state.activeLocalFolderVaultIndex === undefined
-    ) {
-      return;
-    }
-    const target = event.target;
-    if (target instanceof Element && target.closest('.local-folder-cell')) {
-      return;
-    }
-    options.setState({
-      ...state,
-      activeLocalFolderVaultIndex: null
-    });
-    render();
-  }
-
   function bindScrollSync(main: HTMLElement): void {
     main.addEventListener(
       'scroll',
@@ -253,7 +236,7 @@ export function createProductionStitchRenderLifecycle(
 
   return {
     applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
-    cleanup: () => mountRoot.removeEventListener('click', dismissLocalFolderDeleteOnOutsideClick),
+    cleanup: () => folderDismissal.cleanup(),
     openResource,
     render,
     renderActiveResourceModal,
