@@ -19,8 +19,6 @@ import {
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
 
-type Harness = ReturnType<typeof createHarness>;
-
 function createHarness(initialUrl: string) {
   document.body.innerHTML = '<main id="app">content</main>';
   Object.defineProperty(document, 'visibilityState', {
