@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "啟用修飾鍵進行保存/閱讀",
   "fragmentModifierToggleDescription": "按住選定的修飾鍵並拖曳選取文字將自動開啟剪藏對話框或閱讀高亮。",
   "fragmentModifierKeysLabel": "選擇修飾鍵",
-  "fragmentModifierKeysDescription": "所有選中的修飾鍵必須一起按下才能啟動自動操作。",
+  "fragmentModifierKeysDescription": "一次只能選擇一個輔助鍵；Shift 是預設選項。",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "启用辅助键触发剪藏/阅读",
   "fragmentModifierToggleDescription": "按住所选的辅助键并拖动鼠标选择文本时，将自动打开剪藏窗口或阅读模式高亮。",
   "fragmentModifierKeysLabel": "辅助键设置",
-  "fragmentModifierKeysDescription": "需要同时按下所有勾选的辅助键才会触发自动操作。",
+  "fragmentModifierKeysDescription": "一次只能选择一个辅助键；Shift 是默认选项。",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

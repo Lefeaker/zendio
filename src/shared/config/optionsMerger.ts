@@ -66,11 +66,15 @@ function mergeFragmentClipperOptions(
   const rawKeys = Array.isArray(base.selectionModifierKeys)
     ? base.selectionModifierKeys
     : (defaults?.selectionModifierKeys ?? []);
-  const selectionModifierKeys = rawKeys.filter(
+  const normalizedModifierKeys = rawKeys.filter(
     (key): key is FragmentClipperOptions['selectionModifierKeys'][number] => {
       return key === 'alt' || key === 'meta' || key === 'ctrl' || key === 'shift';
     }
   );
+  const selectionModifierKeys =
+    normalizedModifierKeys.length > 0
+      ? [normalizedModifierKeys[0]]
+      : [...(defaults?.selectionModifierKeys ?? ['shift'])];
 
   return {
     useFootnoteFormat: base.useFootnoteFormat ?? defaults?.useFootnoteFormat ?? true,

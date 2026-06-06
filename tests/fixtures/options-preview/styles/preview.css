@@ -1381,7 +1381,7 @@ html[data-preview-theme='dark'] .slider::before {
 }
 
 .modifier-key-inline {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -1393,6 +1393,18 @@ html[data-preview-theme='dark'] .slider::before {
 .modifier-key-inline .chip {
   min-height: var(--control-height-md);
   padding: 0 var(--space-4);
+}
+
+.modifier-key-warning {
+  flex: 1 0 100%;
+  margin: calc(-1 * var(--space-1)) 0 0;
+  color: var(--warning);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-copy);
+}
+
+.modifier-key-warning:empty {
+  display: none;
 }
 
 .interface-inline-grid {

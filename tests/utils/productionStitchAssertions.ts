@@ -37,7 +37,7 @@ export function createSchemaContext(): SchemaContext {
       experimentalAiConfig: { ...previewContent.experimental.aiDefaults },
       highlightTheme: 'yellow',
       fragmentModifierEnabled: true,
-      modifierKeys: ['alt'],
+      modifierKeys: ['shift'],
       yamlFieldStates: {},
       routingRules: [...previewContent.storage.routingRules],
       templateValues: { ...previewContent.output.templateDefaults },

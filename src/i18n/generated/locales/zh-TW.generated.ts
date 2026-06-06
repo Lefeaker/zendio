@@ -155,7 +155,7 @@ const runtime = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '所有選中的修飾鍵必須一起按下才能啟動自動操作。',
+  fragmentModifierKeysDescription: '一次只能選擇一個輔助鍵；Shift 是預設選項。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '選擇修飾鍵',
   fragmentModifierToggleDescription:

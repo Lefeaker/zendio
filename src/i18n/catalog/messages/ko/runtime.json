@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "저장/읽기를 위한 수정키 활성화 사용",
   "fragmentModifierToggleDescription": "선택된 수정키를 누르고 드래그하여 텍스트를 선택하면 클리퍼 대화상자나 읽기 하이라이트가 자동으로 열립니다.",
   "fragmentModifierKeysLabel": "수정키 선택",
-  "fragmentModifierKeysDescription": "체크된 모든 수정키를 함께 눌러야 자동 작업이 활성화됩니다.",
+  "fragmentModifierKeysDescription": "수정키는 하나만 선택할 수 있으며 Shift가 기본값입니다.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

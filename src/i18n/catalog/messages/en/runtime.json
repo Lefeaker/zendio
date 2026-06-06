@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Enable modifier key trigger for clipping/reading",
   "fragmentModifierToggleDescription": "When you hold the chosen modifier keys and drag to select text, the clipper dialog or reading highlight will open automatically.",
   "fragmentModifierKeysLabel": "Modifier key selection",
-  "fragmentModifierKeysDescription": "All checked modifier keys must be held down together to trigger the automatic action.",
+  "fragmentModifierKeysDescription": "Only one modifier key can be selected; Shift is the default option.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

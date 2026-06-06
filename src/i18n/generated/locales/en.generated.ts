@@ -168,7 +168,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'All checked modifier keys must be held down together to trigger the automatic action.',
+    'Only one modifier key can be selected; Shift is the default option.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Modifier key selection',
   fragmentModifierToggleDescription:

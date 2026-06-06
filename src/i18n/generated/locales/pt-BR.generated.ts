@@ -174,7 +174,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Todas as teclas modificadoras marcadas devem ser mantidas juntas para ativar a ação automática.',
+    'Apenas uma tecla modificadora pode ser selecionada; Shift é a opção padrão.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Seleção de tecla modificadora',
   fragmentModifierToggleDescription:

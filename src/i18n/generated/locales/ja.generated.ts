@@ -171,8 +171,7 @@ const runtime = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription:
-    '自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。',
+  fragmentModifierKeysDescription: '修飾キーは1つだけ選択できます。Shift が既定です。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '修飾キーの設定',
   fragmentModifierToggleDescription:

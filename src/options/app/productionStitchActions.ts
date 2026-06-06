@@ -5,7 +5,11 @@ import type { CompleteOptions, InterfaceTheme } from '@shared/types/options';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { VaultRouterConfig } from '@shared/types/vault';
-import { optionsFromModifierLabels, persistTheme } from './productionStitchStateMapper';
+import { persistTheme } from './productionStitchStateMapper';
+import {
+  normalizeFragmentModifierKey,
+  normalizeFragmentModifierKeys
+} from './fragmentModifierOptions';
 import {
   createProductionDomainActions,
   createProductionRoutingActions,
@@ -187,28 +191,35 @@ export function createProductionStitchActions(
       const draft = context.getDraft();
       const state = context.getState();
       const enabled = Boolean(value);
+      const selectedKeys = normalizeFragmentModifierKeys(
+        state.modifierKeys.length ? state.modifierKeys : draft.fragmentClipper.selectionModifierKeys
+      );
       draft.fragmentClipper.selectionModifierEnabled = enabled;
+      draft.fragmentClipper.selectionModifierKeys = selectedKeys;
       state.fragmentModifierEnabled = enabled;
-      if (!enabled) {
-        draft.fragmentClipper.selectionModifierKeys = [];
-        state.modifierKeys = [];
-      } else if (!state.modifierKeys.length) {
-        state.modifierKeys = ['Alt'];
-        draft.fragmentClipper.selectionModifierKeys = ['alt'];
-      }
+      state.modifierKeys = selectedKeys;
+      context.scheduleDraftSave();
+      context.syncModifierControls();
+    },
+    'modifier:setKey': ({ value }) => {
+      const draft = context.getDraft();
+      const state = context.getState();
+      const key = normalizeFragmentModifierKey(value);
+      state.modifierKeys = [key];
+      state.fragmentModifierEnabled = true;
+      draft.fragmentClipper.selectionModifierEnabled = true;
+      draft.fragmentClipper.selectionModifierKeys = [key];
       context.scheduleDraftSave();
       context.syncModifierControls();
     },
     'modifier:toggleKey': ({ value }) => {
       const draft = context.getDraft();
       const state = context.getState();
-      const key = String(value ?? '');
-      state.modifierKeys = state.modifierKeys.includes(key)
-        ? state.modifierKeys.filter((item) => item !== key)
-        : [...state.modifierKeys, key];
-      state.fragmentModifierEnabled = state.modifierKeys.length > 0;
-      draft.fragmentClipper.selectionModifierEnabled = state.fragmentModifierEnabled;
-      draft.fragmentClipper.selectionModifierKeys = optionsFromModifierLabels(state.modifierKeys);
+      const key = normalizeFragmentModifierKey(value);
+      state.modifierKeys = [key];
+      state.fragmentModifierEnabled = true;
+      draft.fragmentClipper.selectionModifierEnabled = true;
+      draft.fragmentClipper.selectionModifierKeys = [key];
       context.scheduleDraftSave();
       context.syncModifierControls();
     },

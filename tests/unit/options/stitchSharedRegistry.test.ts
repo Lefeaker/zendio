@@ -50,7 +50,7 @@ function createPreviewState(): PreviewStoreState {
     fragmentContextMode: 'chars',
     fragmentKeyboardShortcutsEnabled: true,
     fragmentModifierEnabled: true,
-    modifierKeys: ['Alt'],
+    modifierKeys: ['shift'],
     yamlFieldStates: {},
     routingRules: [],
     templateValues: { ...previewContent.output.templateDefaults },

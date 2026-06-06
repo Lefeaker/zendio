@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Habilitar ativação por tecla modificadora para salvar/ler",
   "fragmentModifierToggleDescription": "Quando você mantém as teclas modificadoras selecionadas e arrasta para selecionar texto, o diálogo do clipper ou destaque de leitura abrirá automaticamente.",
   "fragmentModifierKeysLabel": "Seleção de tecla modificadora",
-  "fragmentModifierKeysDescription": "Todas as teclas modificadoras marcadas devem ser mantidas juntas para ativar a ação automática.",
+  "fragmentModifierKeysDescription": "Apenas uma tecla modificadora pode ser selecionada; Shift é a opção padrão.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

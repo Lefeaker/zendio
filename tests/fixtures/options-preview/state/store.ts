@@ -38,7 +38,7 @@ export function createInitialState(appData: PreviewContent): PreviewStoreState {
     fragmentContextMode: 'chars',
     fragmentKeyboardShortcutsEnabled: true,
     fragmentModifierEnabled: true,
-    modifierKeys: ['Alt'],
+    modifierKeys: ['shift'],
     yamlFieldStates: createYamlFieldStates(appData),
     routingRules: appData.storage.routingRules.map((rule) => ({ ...rule })),
     templateValues: { ...appData.output.templateDefaults },

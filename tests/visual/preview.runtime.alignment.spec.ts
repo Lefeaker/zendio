@@ -110,6 +110,43 @@ async function clickAction(page: import('@playwright/test').Page, actionId: stri
   await page.locator(`button[data-action-id="${actionId}"]`).first().click();
 }
 
+async function selectArticleTextWithShift(
+  page: import('@playwright/test').Page,
+  selector: string
+): Promise<void> {
+  await page.evaluate((targetSelector) => {
+    const target = document.querySelector<HTMLElement>(targetSelector);
+    if (!target) {
+      throw new Error(`missing selectable target: ${targetSelector}`);
+    }
+    const rect = target.getBoundingClientRect();
+    const eventInit: MouseEventInit = {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: rect.left + Math.min(24, rect.width / 4),
+      clientY: rect.top + Math.min(18, rect.height / 2),
+      shiftKey: true
+    };
+
+    target.dispatchEvent(new MouseEvent('mousedown', eventInit));
+
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    target.dispatchEvent(
+      new MouseEvent('mouseup', {
+        ...eventInit,
+        clientX: rect.left + Math.min(340, rect.width - 12)
+      })
+    );
+  }, selector);
+}
+
 async function expectBottomRightRuntimeSurface(
   page: import('@playwright/test').Page,
   surface: import('@playwright/test').Locator
@@ -598,16 +635,7 @@ test.describe('Stitch runtime surface alignment', () => {
 
     const highlights = page.locator('[data-stitch-surface="reader"] article[data-highlight-id]');
     const beforeCount = await highlights.count();
-    await page.mouse.move(articleRect.x + 24, articleRect.y + 18);
-    await page.mouse.down();
-    await page.mouse.move(
-      articleRect.x + Math.min(340, articleRect.width - 12),
-      articleRect.y + 18,
-      {
-        steps: 8
-      }
-    );
-    await page.mouse.up();
+    await selectArticleTextWithShift(page, '#reader-article p');
 
     await expect(highlights).toHaveCount(beforeCount + 1, { timeout: 10000 });
     const latestPageHighlight = page.locator('mark.aiob-reader-highlight').last();
@@ -791,16 +819,7 @@ test.describe('Stitch runtime surface alignment', () => {
 
     const captures = page.locator('[data-stitch-surface="video"] article[data-capture-id]');
     const beforeCount = await captures.count();
-    await page.mouse.move(articleRect.x + 24, articleRect.y + 18);
-    await page.mouse.down();
-    await page.mouse.move(
-      articleRect.x + Math.min(340, articleRect.width - 12),
-      articleRect.y + 18,
-      {
-        steps: 8
-      }
-    );
-    await page.mouse.up();
+    await selectArticleTextWithShift(page, '#reader-article p');
 
     await expect(captures).toHaveCount(beforeCount + 1, { timeout: 10000 });
     const timestamp = page

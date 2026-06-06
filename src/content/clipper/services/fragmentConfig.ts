@@ -71,9 +71,12 @@ export function normalizeModifierKeys(
   value: unknown
 ): FragmentClipperOptions['selectionModifierKeys'] {
   if (!Array.isArray(value)) {
-    return [];
+    return [...DEFAULT_FRAGMENT_CONFIG.selectionModifierKeys];
   }
-  return value.filter(isValidModifierKey);
+  const normalized = value.filter(isValidModifierKey);
+  return normalized.length > 0
+    ? [normalized[0]]
+    : [...DEFAULT_FRAGMENT_CONFIG.selectionModifierKeys];
 }
 
 export async function loadFragmentConfig(

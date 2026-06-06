@@ -175,7 +175,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Все отмеченные клавиши-модификаторы должны удерживаться вместе для активации автоматического действия.',
+    'Можно выбрать только одну клавишу-модификатор; Shift используется по умолчанию.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Выбор клавиши-модификатора',
   fragmentModifierToggleDescription:

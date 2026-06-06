@@ -42,14 +42,14 @@ describe('fragmentConfig helpers', () => {
     expect(allowed).toBe(true);
   });
 
-  it('normalizes modifier key arrays', () => {
+  it('normalizes modifier key arrays to a single selection', () => {
     const normalized = normalizeModifierKeys(['meta', 'ctrl', 'Cmd', 'ALT']);
-    expect(normalized).toEqual(['meta', 'ctrl']);
+    expect(normalized).toEqual(['meta']);
   });
 
   it('provides a stable default fragment config', () => {
-    expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierEnabled).toBe(false);
-    expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierKeys).toEqual([]);
+    expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierEnabled).toBe(true);
+    expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierKeys).toEqual(['shift']);
   });
 
   it('syncs and resets modifier state', () => {
