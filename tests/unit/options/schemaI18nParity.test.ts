@@ -121,6 +121,9 @@ describe('schema i18n parity', () => {
     const representativeKeys = [
       'schemaRuntimeUiGroupTitle',
       'schemaStorageConnectionNotRun',
+      'schemaStorageVaultEnabledColumnLabel',
+      'schemaStorageRoutingActionsColumnLabel',
+      'schemaStorageCertificateDownloadTrustLink',
       'schemaCaptureBehaviorModifierConflictSystem',
       'schemaOutputTemplateHelperText',
       'schemaResourcePrivacyLocalConfigTitle',
