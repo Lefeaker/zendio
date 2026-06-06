@@ -1,6 +1,7 @@
-import type { Language } from '@i18n';
+import type { Language, Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
 import { previewContent } from '@options/stitch/content';
+import { createSchemaTranslator } from '@options/stitch/schema/i18n';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import {
   createProductionContent,
@@ -24,6 +25,7 @@ export function createProductionStitchAppData(
 export function createProductionStitchSchemaContext(options: {
   appData: PreviewContent;
   language: Language;
+  messages: Messages | null;
   state: PreviewStoreState;
 }): SchemaContext {
   const localizedAppData = localizeStitchContent(options.appData, options.language);
@@ -37,7 +39,10 @@ export function createProductionStitchSchemaContext(options: {
         logo: '../icons/bannerlogo-128.png'
       }
     },
-    state: options.state
+    language: options.language,
+    messages: options.messages,
+    state: options.state,
+    t: createSchemaTranslator(options.messages)
   };
 }
 

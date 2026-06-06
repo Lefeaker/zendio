@@ -74,6 +74,7 @@ export function mountProductionStitchShellFromDependencies({
     return createProductionStitchSchemaContext({
       appData,
       language: currentLanguage,
+      messages: currentMessages,
       state
     });
   }
