@@ -41,7 +41,6 @@ import {
 import {
   clearRequestedTimestampScreenshot,
   hasRequestedTimestampScreenshot,
-  restoreRequestedTimestampScreenshots,
   setRequestedTimestampScreenshot
 } from './screenshotIntent';
 
@@ -74,6 +73,7 @@ export interface VideoSessionOperationContext {
   scheduleDraftSave?: () => Promise<void>;
   flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
   removeDraft?: () => Promise<void>;
+  prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   resetPlaybackEditLease?: () => void;
@@ -130,13 +130,6 @@ function emitVideoUsageEvent<EventName extends UsageEventName>(
 
 function resolveVideoSessionDurationBucket(state: VideoSessionState) {
   return state.analyticsTimer?.durationBucket() ?? createFeatureTimer().durationBucket();
-}
-
-function countVideoScreenshots(state: VideoSessionState): number {
-  return state.captures.filter(
-    (capture): capture is VideoTimestampCapture =>
-      capture.kind === 'timestamp' && capture.screenshot !== undefined
-  ).length;
 }
 
 export function beginVideoSessionAnalytics(
@@ -379,29 +372,15 @@ export async function toggleVideoSessionCaptureScreenshot(
   }
 
   setRequestedTimestampScreenshot(target, null);
-  context.updateVideoContext();
-  const video = context.state.videoElement ?? context.findVideoElement();
-  if (!video) {
-    await saveVideoCaptures(context);
-    context.syncPanel();
-    context.applyHint('noVideo');
-    return;
-  }
-
-  await restoreRequestedTimestampScreenshots({
-    captures: [target],
-    video
-  });
-  const capturedScreenshot = target.screenshot;
-  await saveVideoCaptures(context);
+  context.applyHint('saving');
+  const saveHint = await saveVideoCaptures(context);
   context.syncPanel();
-  if (!capturedScreenshot) {
-    context.applyHint('failure');
+  if (saveHint === 'failure') {
     return;
   }
 
-  emitVideoUsageEvent(context.dependencies, 'video_screenshot_captured', {
-    screenshot_count_bucket: bucketCount(countVideoScreenshots(context.state))
+  void Promise.resolve(context.prepareRequestedScreenshot?.(id)).catch((error) => {
+    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
   });
 }
 
