@@ -16,18 +16,27 @@ const AI_PLATFORM_LINKS: Record<string, string> = {
 export function themeSegmentedSwitch(): NodeSchema {
   return {
     kind: 'segmentedNav',
-    items: (current) =>
-      current.state.previewLanguage === 'en'
-        ? [
-            { label: 'System', value: 'system' },
-            { label: 'Dark', value: 'dark' },
-            { label: 'Light', value: 'light' }
-          ]
-        : [
-            { label: '跟随系统', value: 'system' },
-            { label: '暗色', value: 'dark' },
-            { label: '亮色', value: 'light' }
-          ],
+    items: (current) => {
+      const fallback =
+        current.state.previewLanguage === 'en'
+          ? { system: 'System', dark: 'Dark', light: 'Light' }
+          : { system: '跟随系统', dark: '暗色', light: '亮色' };
+
+      return [
+        {
+          label: current.t?.('schemaOverviewThemeSystemOption', fallback.system) ?? fallback.system,
+          value: 'system'
+        },
+        {
+          label: current.t?.('schemaOverviewThemeDarkOption', fallback.dark) ?? fallback.dark,
+          value: 'dark'
+        },
+        {
+          label: current.t?.('schemaOverviewThemeLightOption', fallback.light) ?? fallback.light,
+          value: 'light'
+        }
+      ];
+    },
     bind: 'interfaceThemePreference',
     action: { id: 'preview:setTheme' }
   };
