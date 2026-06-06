@@ -87,7 +87,6 @@ function prepareConfiguredVideoAttachments(
   payload: ClipPayload,
   options: VideoScreenshotAttachmentOptions
 ): PreparedClipAttachment[] {
-  const noteName = getFileStem(notePath);
   const occurrences = new Map<string, number>();
   const prepared = attachments.map((attachment, index) => {
     const baseResolved = resolveVideoScreenshotAttachmentTemplate(options, {
@@ -96,10 +95,7 @@ function prepareConfiguredVideoAttachments(
       capturedAt: resolveAttachmentCapturedAt(payload, attachment, index),
       attachmentIndex: index + 1
     });
-    const key =
-      destination === 'vault'
-        ? baseResolved.generatedAttachmentFilePath
-        : getDownloadPath(noteName, baseResolved.generatedFileName, attachments.length);
+    const key = baseResolved.generatedAttachmentFilePath;
     const occurrence = (occurrences.get(key) ?? 0) + 1;
     occurrences.set(key, occurrence);
     return {
@@ -115,10 +111,7 @@ function prepareConfiguredVideoAttachments(
     fileName: resolved.generatedFileName,
     mimeType: attachment.mimeType,
     dataUrl: attachment.dataUrl,
-    outputPath:
-      destination === 'downloads'
-        ? getDownloadPath(noteName, resolved.generatedFileName, attachments.length)
-        : resolved.outputPath,
+    outputPath: resolved.outputPath,
     markdownPath: resolved.markdownPath,
     markdownUrl: resolved.markdownUrl
   }));

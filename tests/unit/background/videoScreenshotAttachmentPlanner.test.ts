@@ -306,7 +306,7 @@ describe('prepareVideoClipAttachments', () => {
     });
   });
 
-  it('keeps download filenames safe while applying configured markdown paths', async () => {
+  it('keeps configured downloads paths aligned with the markdown path', async () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
 
@@ -326,7 +326,7 @@ describe('prepareVideoClipAttachments', () => {
     );
     expect(result.attachments).toEqual([
       expect.objectContaining({
-        outputPath: 'file-20260606112233444.jpg',
+        outputPath: 'attachments/video/video-note/file-20260606112233444.jpg',
         markdownPath: 'attachments/video/video-note/file-20260606112233444.jpg',
         markdownUrl: 'attachments/video/video-note/file-20260606112233444.jpg'
       })

@@ -60,10 +60,10 @@ When the export target is browser downloads instead of an Obsidian vault:
 
 - The real download path stays browser-safe and reduced to the generated file name,
   or `<sanitized-note-name>/<generated-file-name>` when multiple screenshots are
-  exported together.
-- A custom `locationTemplate` does not change the browser download destination.
-  It only changes the Markdown path or URL written into the note when the template
-  resolves cleanly.
+  exported together when the default download behavior is used.
+- A custom `locationTemplate` changes both the browser download filename and the
+  Markdown path when the template resolves cleanly, so the downloaded attachment
+  path stays aligned with the link written into the note.
 - If custom template resolution falls back during a downloads export, the exporter
   reverts to the legacy-compatible downloads path behavior and still completes the
   export.

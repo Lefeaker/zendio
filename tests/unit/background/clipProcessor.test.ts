@@ -727,12 +727,12 @@ describe('clipProcessor', () => {
     );
 
     expect(downloadMock).toHaveBeenNthCalledWith(1, {
-      filename: 'video-note/file-20260509194226985.jpg',
+      filename: 'attachments/video/video-note/file-20260509194226985.jpg',
       url: 'data:image/jpeg;base64,aaa',
       mimeType: 'image/jpeg'
     });
     expect(downloadMock).toHaveBeenNthCalledWith(2, {
-      filename: 'video-note/file-20260509194227986.jpg',
+      filename: 'attachments/video/video-note/file-20260509194227986.jpg',
       url: 'data:image/jpeg;base64,bbb',
       mimeType: 'image/jpeg'
     });
