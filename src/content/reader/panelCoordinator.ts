@@ -6,11 +6,13 @@ import type { ReaderSessionMessages, ReaderHintState } from './sessionMessages';
 import { DEFAULT_SESSION_MESSAGES } from './sessionMessages';
 import { ReaderPanelPresenter } from './panelPresenter';
 import { ReaderHintManager } from './hintManager';
+import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 
 export interface ReaderPanelCoordinatorOptions {
   viewFactory: ReaderSessionViewFactory;
   callbacks: ReaderPanelCallbacks;
   reconstructText: (highlight: ReaderHighlightRecord) => string;
+  onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
 
 export class ReaderPanelCoordinator {
@@ -27,7 +29,11 @@ export class ReaderPanelCoordinator {
       return;
     }
     this.messages = messages;
-    this.view = this.options.viewFactory.createView(this.options.callbacks, messages.panel);
+    this.view = this.options.viewFactory.createView(this.options.callbacks, messages.panel, {
+      ...(this.options.onCommentDraftChange
+        ? { onCommentDraftChange: this.options.onCommentDraftChange }
+        : {})
+    });
     this.presenter = new ReaderPanelPresenter(this.view, {
       reconstructText: (highlight) => this.options.reconstructText(highlight)
     });
@@ -54,6 +60,14 @@ export class ReaderPanelCoordinator {
 
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.view?.updateDestination?.(destination);
+  }
+
+  snapshotCommentDrafts(): SessionCommentDraftSnapshot {
+    return this.view?.snapshotCommentDrafts?.() ?? {};
+  }
+
+  hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
+    this.view?.hydrateCommentDrafts?.(drafts);
   }
 
   getElement(): HTMLElement | null {

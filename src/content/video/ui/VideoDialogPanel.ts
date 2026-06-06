@@ -32,7 +32,7 @@ export class VideoDialogPanel implements UiMountable<
   | undefined,
   HTMLElement
 > {
-  readonly popupLifecycle = { preserveOnTransientClose: true };
+  readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
 
   private renderRoot: HTMLElement;
   private readonly popupCoordinator: PopupCoordinator | null;

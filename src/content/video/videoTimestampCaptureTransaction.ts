@@ -1,4 +1,5 @@
 import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
+import { setRequestedTimestampScreenshot } from './screenshotIntent';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoTimestampCapture } from './types';
 
@@ -25,19 +26,22 @@ interface VideoTimestampCaptureTransactionContext {
 export function createVideoTimestampCapture(
   input: VideoTimestampCaptureInput
 ): VideoTimestampCapture {
-  const screenshot = input.captureScreenshot
-    ? captureVideoFrameScreenshot(input.video, input.currentTime)
-    : null;
   const now = Date.now();
-  return {
+  const capture: VideoTimestampCapture = {
     kind: 'timestamp',
     id: `aiob-video-${now}-${Math.random().toString(16).slice(2)}`,
     timeSec: input.currentTime,
     comment: input.comment?.trim() ?? '',
     url: input.shareUrl,
-    createdAt: now,
-    ...(screenshot ? { screenshot } : {})
+    createdAt: now
   };
+  if (input.captureScreenshot) {
+    setRequestedTimestampScreenshot(
+      capture,
+      captureVideoFrameScreenshot(input.video, input.currentTime)
+    );
+  }
+  return capture;
 }
 
 export async function saveVideoTimestampCaptureOrRollback(

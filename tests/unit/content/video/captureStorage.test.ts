@@ -39,16 +39,29 @@ describe('captureStorage', () => {
 
     expect(serialized[0]).toMatchObject({
       kind: 'timestamp',
-      screenshot: {
-        fileName: 'video-0m12s-screenshot.png',
-        dataUrl: 'data:image/jpeg;base64,shot'
-      }
+      screenshotRequested: true
     });
+    expect(serialized[0]).not.toHaveProperty('screenshot');
     expect(serialized[1]).toMatchObject({ kind: 'fragment', wrapperId: 'wrap-1' });
 
     const restored = deserializeStoredCaptures(
       [
         serialized[0],
+        {
+          kind: 'timestamp',
+          id: 'legacy-ts',
+          timeSec: 15,
+          comment: 'legacy',
+          url: 'https://legacy.example/watch?t=15',
+          createdAt: now + 1,
+          screenshot: {
+            id: 'legacy-shot',
+            fileName: 'legacy.jpg',
+            mimeType: 'image/jpeg',
+            dataUrl: 'data:image/jpeg;base64,legacy',
+            capturedAt: now + 1
+          }
+        },
         {
           kind: 'fragment',
           id: 'fg-2',
@@ -65,12 +78,16 @@ describe('captureStorage', () => {
     expect(restored[0]).toMatchObject({
       kind: 'timestamp',
       url: 'https://video.example?t=12',
-      screenshot: {
-        fileName: 'video-0m12s-screenshot.png',
-        dataUrl: 'data:image/jpeg;base64,shot'
-      }
+      screenshotRequested: true
     });
-    expect(restored[1]).toMatchObject({ kind: 'fragment', selectedHtml: '', fragmentUrl: '' });
+    expect((restored[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    expect(restored[1]).toMatchObject({
+      kind: 'timestamp',
+      url: 'https://legacy.example/watch?t=15',
+      screenshotRequested: true
+    });
+    expect((restored[1] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    expect(restored[2]).toMatchObject({ kind: 'fragment', selectedHtml: '', fragmentUrl: '' });
   });
 
   it('delegates load and save to the provided storage namespace', async () => {

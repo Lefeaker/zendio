@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-05
+最后更新：2026-06-06
 
 ## 推荐运行环境
 
@@ -53,6 +53,7 @@
 - 2026-06-03 video-mode structural repair 真值：P01-P06 合入后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/971/1616/41/4`、src `0/537/565/5/0`、tests `0/434/1051/36/4`；本次同步只反映新增视频/哔哩哔哩测试夹具的 current truth，同时收紧 overall assertions/non-null 与 src unknown/assertion 上限。
 - 2026-06-04 i18n-v2 M11 type-ratchet 真值：M02-M10 accepted i18n generated source/test expansion 后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/991/1658/41/4`、src `0/549/579/5/0`、tests `0/442/1079/36/4`；M11 自身新增 gate test 不增加 type-debt 计数，`any` 与 `ts-expect-error` 上限未放宽。
 - 2026-06-05 GA / i18n PR merge type-ratchet 真值：两个 PR 合并后的当前 `lint:type-any` 实测为扫描 `1071` files，overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
+- 2026-06-06 session-draft current-main reintegration type-ratchet 真值：session draft integration 重新基于当前 `origin/main` 合入并补齐 active video draft restore 回退后，`lint:type-any` 实测扫描 `1091` files，overall `0/1132/1845/53/4`、src `0/612/626/7/0`、tests `0/520/1219/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`，不得用 tests 下降抵消 src 增长。
 
 ## 当前推荐执行顺序
 
@@ -125,13 +126,13 @@ must not call Google debug endpoints directly from the extension.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；checked-in baseline 仍为 `132`，2026-06-05 GA/i18n PR merge 后 fresh warning count 为 `125`，当前 gate 输出为 `Warning 总量下降 7 条`，baseline file 尚未同步收紧。
+- `npm run lint:warnings-guard`：通过；2026-06-06 session-draft current-main reintegration 已有意同步 checked-in baseline 为 `148`，当前 gate 输出为 `Warning 总量保持在基线 148 条`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`93`）与 unsafe type warnings。
+- 当前 warning 主要规则族：`require-await`（`102`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 GA/i18n PR merge 树 `1071` files；overall 为 `any: 0`、`unknown: 1084`、assertions `1776`、non-null assertions `41`、`ts-expect-error: 4`；src 为 `0/588/606/5/0`；tests 为 `0/496/1170/36/4`。
+- `npm run lint:type-any`：扫描当前 session-draft current-main reintegration 树 `1091` files；overall 为 `any: 0`、`unknown: 1132`、assertions `1845`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/612/626/7/0`；tests 为 `0/520/1219/46/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/1132/1845/53/4`、src `0/612/626/7/0`、tests `0/520/1219/46/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 
@@ -167,6 +168,15 @@ must not call Google debug endpoints directly from the extension.
 - `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
 - chunks: `109`
 - GA content/onboarding telemetry now lives behind lazy `clipFlowAnalytics-*` / `onboardingAnalytics-*` chunks so entry bundles remain within the existing release gates.
+
+2026-06-06 session-draft current-main reintegration build truth:
+
+- `quality`、`verify:preflight`、Chrome `build`、Firefox `build:firefox`、release surface audits 与 Chrome/Firefox Local Vault release audits 在 Node `v20.20.2` 下通过
+- dev `build/dist/content/runtime.js`: `54.9 KB`（raw `56,170` bytes；raw stop gate `56,320`）
+- dev chunks: `110`
+- Chrome production fast `build/dist/content/runtime.js`: `47.6 KB`
+- Chrome production fast chunks: `91`
+- 详细 build/hotspot 数值以 [`performance-baseline.md`](./performance-baseline.md) 为准
 
 ## 核心命令
 

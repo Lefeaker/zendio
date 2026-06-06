@@ -24,6 +24,8 @@ export interface VideoSessionPlatformControllerDependencies {
   createPlatformContext(): VideoPlatformContext;
   onAdapterChange(adapter: VideoPlatformAdapter | null): void;
   ensureCaptureHighlight(capture: VideoFragmentCapture): void;
+  restoreDraftState?(): Promise<boolean>;
+  onLegacyRestore?(storageKey: string): void;
   detectVideoIdentity?: typeof detectVideoIdentity;
   createVideoPlatformAdapter?: typeof createVideoPlatformAdapter;
   loadStoredCaptureData?: typeof loadStoredCaptureData;
@@ -35,6 +37,7 @@ export interface VideoSessionPlatformControllerDependencies {
 export interface RefreshContextResult {
   hintState: VideoHintState;
   shouldScheduleFragmentRestore: boolean;
+  restoreSource: 'draft' | 'legacy' | 'none';
 }
 
 export class VideoSessionPlatformController {
@@ -133,45 +136,55 @@ export class VideoSessionPlatformController {
 
     if (!currentKey) {
       this.deps.state.captures = [];
-      return { hintState: 'noVideo', shouldScheduleFragmentRestore: false };
+      this.deps.state.videoTitle = this.extractVideoTitle();
+      return { hintState: 'noVideo', shouldScheduleFragmentRestore: false, restoreSource: 'none' };
     }
 
     if (currentKey === previousKey) {
       return {
         hintState: this.deps.state.captures.length ? 'ready' : 'noCaptures',
-        shouldScheduleFragmentRestore: false
+        shouldScheduleFragmentRestore: false,
+        restoreSource: 'none'
       };
     }
 
     try {
-      const raw = await this.loadCaptureData(this.deps.storage, currentKey);
-      if (raw?.entries?.length) {
-        const fallbackUrl =
-          raw.url ||
-          this.deps.state.canonicalUrl ||
-          this.deps.state.videoUrl ||
-          this.deps.doc.location.href;
-        this.deps.state.captures = this.deserializeCaptures(raw.entries, { fallbackUrl });
+      let restoreSource: RefreshContextResult['restoreSource'] = 'none';
+      this.deps.state.videoTitle = '';
 
-        for (const capture of this.deps.state.captures) {
-          if (capture.kind === 'fragment') {
-            const newWrapperId = this.deps.state.platformAdapter?.restoreHighlight(capture);
-            if (newWrapperId !== undefined) {
-              capture.wrapperId = newWrapperId;
-            }
-          }
-        }
+      const restoredDraft = (await this.deps.restoreDraftState?.()) ?? false;
+      if (restoredDraft) {
+        restoreSource = 'draft';
       } else {
-        this.deps.state.captures = [];
+        const raw = await this.loadCaptureData(this.deps.storage, currentKey);
+        if (raw?.entries?.length) {
+          const fallbackUrl =
+            raw.url ||
+            this.deps.state.canonicalUrl ||
+            this.deps.state.videoUrl ||
+            this.deps.doc.location.href;
+          this.deps.state.captures = this.deserializeCaptures(raw.entries, { fallbackUrl });
+          this.deps.state.videoTitle = raw.title ? raw.title : '';
+          if (raw.url) {
+            this.deps.state.canonicalUrl = raw.url;
+          }
+          this.deps.onLegacyRestore?.(currentKey);
+          restoreSource = 'legacy';
+        } else {
+          this.deps.state.captures = [];
+        }
       }
 
-      this.deps.state.videoTitle = raw?.title ? raw.title : this.extractVideoTitle();
-      if (raw?.url) {
-        this.deps.state.canonicalUrl = raw.url;
+      if (!this.deps.state.videoTitle) {
+        this.deps.state.videoTitle = this.extractVideoTitle();
       }
 
       for (const capture of this.deps.state.captures) {
         if (capture.kind === 'fragment') {
+          const newWrapperId = this.deps.state.platformAdapter?.restoreHighlight(capture);
+          if (newWrapperId !== undefined) {
+            capture.wrapperId = newWrapperId;
+          }
           this.deps.ensureCaptureHighlight(capture);
         }
       }
@@ -180,12 +193,13 @@ export class VideoSessionPlatformController {
         hintState: this.deps.state.captures.length ? 'ready' : 'noCaptures',
         shouldScheduleFragmentRestore: this.deps.state.captures.some(
           (capture) => capture.kind === 'fragment'
-        )
+        ),
+        restoreSource
       };
     } catch (error) {
       console.warn('[VideoSession] Failed to load stored captures:', error);
       this.deps.state.captures = [];
-      return { hintState: 'failure', shouldScheduleFragmentRestore: false };
+      return { hintState: 'failure', shouldScheduleFragmentRestore: false, restoreSource: 'none' };
     }
   }
 

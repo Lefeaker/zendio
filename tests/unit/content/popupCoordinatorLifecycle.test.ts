@@ -276,12 +276,12 @@ describe('content popup coordinator lifecycle', () => {
     };
   }
 
-  function expectReaderAndVideoClosed(reader: ReaderDialogPanel, video: VideoDialogPanel): void {
-    expect(reader.element.hidden).toBe(true);
-    expect(video.element.hidden).toBe(true);
+  function expectReaderAndVideoVisible(reader: ReaderDialogPanel, video: VideoDialogPanel): void {
+    expect(reader.element.hidden).toBe(false);
+    expect(video.element.hidden).toBe(false);
   }
 
-  it('closes clipper, reader, video, and support popups on visibilitychange', async () => {
+  it('transient-closes clipper and support prompt while preserving reader and video panels on visibilitychange', async () => {
     const { reader, video, popupCoordinator } = await openAllPopups();
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeTruthy();
@@ -300,18 +300,18 @@ describe('content popup coordinator lifecycle', () => {
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
-    expectReaderAndVideoClosed(reader, video);
-    expect(popupCoordinator.getActive()).toBeNull();
+    expectReaderAndVideoVisible(reader, video);
+    expect(popupCoordinator.getActive()).toBe(video);
   });
 
-  it('closes clipper, reader, video, and support popups on pagehide', async () => {
+  it('transient-closes clipper and support prompt while preserving reader and video panels on bfcache pagehide', async () => {
     const { reader, video, popupCoordinator } = await openAllPopups();
 
-    window.dispatchEvent(new Event('pagehide'));
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
-    expectReaderAndVideoClosed(reader, video);
-    expect(popupCoordinator.getActive()).toBeNull();
+    expectReaderAndVideoVisible(reader, video);
+    expect(popupCoordinator.getActive()).toBe(video);
   });
 });

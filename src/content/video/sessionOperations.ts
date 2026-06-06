@@ -33,12 +33,17 @@ import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighli
 import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
 import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
 import {
   createVideoTimestampCapture,
   saveVideoTimestampCaptureOrRollback
 } from './videoTimestampCaptureTransaction';
+import {
+  clearRequestedTimestampScreenshot,
+  hasRequestedTimestampScreenshot,
+  restoreRequestedTimestampScreenshots,
+  setRequestedTimestampScreenshot
+} from './screenshotIntent';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -66,6 +71,9 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  scheduleDraftSave?: () => Promise<void>;
+  flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
+  removeDraft?: () => Promise<void>;
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   resetPlaybackEditLease?: () => void;
@@ -307,11 +315,16 @@ export async function submitVideoSessionCaptureEdit(
     return;
   }
   const previousComment = target.comment;
+  const previousDraft = context.state.commentDrafts[id];
+  delete context.state.commentDrafts[id];
   target.comment = comment.trim();
   context.applyHint('saving');
   const saveHint = await saveVideoCaptures(context);
   if (saveHint === 'failure') {
     target.comment = previousComment;
+    if (previousDraft !== undefined) {
+      context.state.commentDrafts[id] = previousDraft;
+    }
     context.syncPanel();
     context.applyHint('failure');
     return;
@@ -326,6 +339,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   if (index === -1) {
     return;
   }
+  delete context.state.commentDrafts[id];
   const [removed] = context.state.captures.splice(index, 1);
   context.releasePlaybackEditLease?.(id, false);
   if (removed?.kind === 'fragment' && removed.wrapperId) {
@@ -356,34 +370,39 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
 
-  if (target.screenshot) {
-    delete target.screenshot;
+  if (hasRequestedTimestampScreenshot(target)) {
+    clearRequestedTimestampScreenshot(target);
     context.applyHint('saving');
     await saveVideoCaptures(context);
     context.syncPanel();
     return;
   }
 
+  setRequestedTimestampScreenshot(target, null);
   context.updateVideoContext();
   const video = context.state.videoElement ?? context.findVideoElement();
   if (!video) {
+    await saveVideoCaptures(context);
+    context.syncPanel();
     context.applyHint('noVideo');
     return;
   }
 
-  const screenshot = captureVideoFrameScreenshot(video, target.timeSec);
-  if (!screenshot) {
+  await restoreRequestedTimestampScreenshots({
+    captures: [target],
+    video
+  });
+  const capturedScreenshot = target.screenshot;
+  await saveVideoCaptures(context);
+  context.syncPanel();
+  if (!capturedScreenshot) {
     context.applyHint('failure');
     return;
   }
 
-  target.screenshot = screenshot;
-  context.applyHint('saving');
-  await saveVideoCaptures(context);
   emitVideoUsageEvent(context.dependencies, 'video_screenshot_captured', {
     screenshot_count_bucket: bucketCount(countVideoScreenshots(context.state))
   });
-  context.syncPanel();
 }
 
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
@@ -454,6 +473,7 @@ export async function finishVideoSession(
       destination: resolveVideoExportDestination(exportDestination),
       duration_bucket: resolveVideoSessionDurationBucket(context.state)
     });
+    await context.removeDraft?.();
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
@@ -472,7 +492,7 @@ export async function finishVideoSession(
   }
 }
 
-export function cancelVideoSession(context: VideoSessionOperationContext): void {
+export async function cancelVideoSession(context: VideoSessionOperationContext): Promise<void> {
   if (context.state.exporting) {
     return;
   }
@@ -480,6 +500,7 @@ export function cancelVideoSession(context: VideoSessionOperationContext): void 
     platform: mapVideoAnalyticsPlatform(context.state.platform),
     duration_bucket: resolveVideoSessionDurationBucket(context.state)
   });
+  await context.removeDraft?.();
   cleanupVideoSession(context);
 }
 
@@ -507,6 +528,7 @@ export function cleanupVideoSession(context: VideoSessionOperationContext): void
   context.state.exporting = false;
   context.state.saving = false;
   context.state.analyticsTimer = null;
+  context.state.commentDrafts = {};
   context.hintManager.apply('noVideo', { videoAvailable: false, hasCaptures: false });
 
   for (const capture of context.state.captures) {
@@ -578,7 +600,9 @@ export function watchVideoSessionHighlightTheme(
 async function saveVideoCaptures(
   context: VideoSessionOperationContext
 ): Promise<VideoHintState | null> {
-  const hintState = await context.platformController.saveCaptures();
+  const hintState = context.flushDraftNow
+    ? await context.flushDraftNow('active')
+    : await context.platformController.saveCaptures();
   if (hintState) {
     context.applyHint(hintState);
   }
