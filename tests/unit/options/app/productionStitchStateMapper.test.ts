@@ -134,6 +134,31 @@ describe('production Stitch state mapper', () => {
     expect(state.templateValues.articleVideo).toBe(draft.templates.article);
   });
 
+  it('maps video screenshot attachment state and keeps merged defaults for partial stored options', () => {
+    const draft = options({
+      video: {
+        screenshotAttachment: {
+          locationTemplate: 'VideoShots/${noteFileName}',
+          markdownUrlFormat: '![[${fileName}]]'
+        }
+      }
+    } as Partial<CompleteOptions>);
+    const content = createProductionContent(previewContent, draft);
+    const initialState = createInitialStitchState(content);
+    const state = applyOptionsToState(initialState, draft, content);
+
+    expect(initialState.videoScreenshotAttachmentLocationTemplate).toBe('./assets/${noteFileName}');
+    expect(initialState.videoScreenshotAttachmentFileNameTemplate).toBe(
+      "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg"
+    );
+    expect(initialState.videoScreenshotAttachmentMarkdownUrlFormat).toBe('');
+    expect(state.videoScreenshotAttachmentLocationTemplate).toBe('VideoShots/${noteFileName}');
+    expect(state.videoScreenshotAttachmentFileNameTemplate).toBe(
+      "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg"
+    );
+    expect(state.videoScreenshotAttachmentMarkdownUrlFormat).toBe('![[${fileName}]]');
+  });
+
   it('resolves extension version from platform runtime instead of direct chrome globals', () => {
     testPlatformHarness.runtime.getManifest = () => ({ version: '9.8.7' });
     testPlatformHarness.configure();

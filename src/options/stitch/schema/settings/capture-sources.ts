@@ -108,6 +108,49 @@ const schema: SettingsSchema = {
                           valueFrom: 'target.checked'
                         }
                       })
+                    },
+                    {
+                      kind: 'row',
+                      title: '附件位置模板',
+                      description: '例如 `./assets/${noteFileName}`，用于截图附件保存目录。',
+                      control: boundInput({
+                        bind: 'videoScreenshotAttachmentLocationTemplate',
+                        mono: true,
+                        onInput: {
+                          id: 'options:updateField',
+                          args: ['video.screenshotAttachment.locationTemplate'],
+                          valueFrom: 'target.value'
+                        }
+                      })
+                    },
+                    {
+                      kind: 'row',
+                      title: '附件文件名模板',
+                      description:
+                        "例如 `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`，用于截图文件名。",
+                      control: boundInput({
+                        bind: 'videoScreenshotAttachmentFileNameTemplate',
+                        mono: true,
+                        onInput: {
+                          id: 'options:updateField',
+                          args: ['video.screenshotAttachment.fileNameTemplate'],
+                          valueFrom: 'target.value'
+                        }
+                      })
+                    },
+                    {
+                      kind: 'row',
+                      title: 'Markdown URL 格式',
+                      description: '留空时使用默认写法，可按当前导出链路填写 Markdown 链接模板。',
+                      control: boundInput({
+                        bind: 'videoScreenshotAttachmentMarkdownUrlFormat',
+                        mono: true,
+                        onInput: {
+                          id: 'options:updateField',
+                          args: ['video.screenshotAttachment.markdownUrlFormat'],
+                          valueFrom: 'target.value'
+                        }
+                      })
                     }
                   ]
                 },
