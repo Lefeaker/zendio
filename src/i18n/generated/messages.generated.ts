@@ -514,6 +514,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaSidebarSettingsGroupTitle',
   'schemaStorageAddRuleButton',
   'schemaStorageAddVaultButton',
+  'schemaStorageCertificateDownloadTrustLink',
   'schemaStorageConnectionNoticeTitle',
   'schemaStorageConnectionNotRun',
   'schemaStorageConnectionUrlNotConfigured',
@@ -532,13 +533,26 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaStorageLocalFolderReauthorizeTitle',
   'schemaStorageLocalFolderRecommendation',
   'schemaStorageNoEnabledVaults',
+  'schemaStorageRoutingActionsColumnLabel',
+  'schemaStorageRoutingEnabledColumnLabel',
   'schemaStorageRoutingGroupTitle',
+  'schemaStorageRoutingPatternColumnLabel',
+  'schemaStorageRoutingPriorityColumnLabel',
+  'schemaStorageRoutingTargetVaultColumnLabel',
   'schemaStorageRoutingTipBody',
   'schemaStorageRoutingTipTitle',
+  'schemaStorageRoutingTypeColumnLabel',
   'schemaStorageTestConnectionButton',
   'schemaStorageTitle',
+  'schemaStorageVaultActionsColumnLabel',
+  'schemaStorageVaultApiKeyColumnLabel',
+  'schemaStorageVaultEnabledColumnLabel',
+  'schemaStorageVaultHttpsUrlColumnLabel',
+  'schemaStorageVaultHttpUrlColumnLabel',
   'schemaStorageVaultListDescription',
   'schemaStorageVaultListTitle',
+  'schemaStorageVaultLocalFolderColumnLabel',
+  'schemaStorageVaultNameColumnLabel',
   'schemaStorageVaultsGroupTitle',
   'schemaYamlFilterAiChatLabel',
   'schemaYamlFilterAllLabel',
@@ -1292,6 +1306,7 @@ export interface GeneratedMessages {
   schemaSidebarSettingsGroupTitle: string;
   schemaStorageAddRuleButton: string;
   schemaStorageAddVaultButton: string;
+  schemaStorageCertificateDownloadTrustLink: string;
   schemaStorageConnectionNoticeTitle: string;
   schemaStorageConnectionNotRun: string;
   schemaStorageConnectionUrlNotConfigured: string;
@@ -1310,13 +1325,26 @@ export interface GeneratedMessages {
   schemaStorageLocalFolderReauthorizeTitle: string;
   schemaStorageLocalFolderRecommendation: string;
   schemaStorageNoEnabledVaults: string;
+  schemaStorageRoutingActionsColumnLabel: string;
+  schemaStorageRoutingEnabledColumnLabel: string;
   schemaStorageRoutingGroupTitle: string;
+  schemaStorageRoutingPatternColumnLabel: string;
+  schemaStorageRoutingPriorityColumnLabel: string;
+  schemaStorageRoutingTargetVaultColumnLabel: string;
   schemaStorageRoutingTipBody: string;
   schemaStorageRoutingTipTitle: string;
+  schemaStorageRoutingTypeColumnLabel: string;
   schemaStorageTestConnectionButton: string;
   schemaStorageTitle: string;
+  schemaStorageVaultActionsColumnLabel: string;
+  schemaStorageVaultApiKeyColumnLabel: string;
+  schemaStorageVaultEnabledColumnLabel: string;
+  schemaStorageVaultHttpsUrlColumnLabel: string;
+  schemaStorageVaultHttpUrlColumnLabel: string;
   schemaStorageVaultListDescription: string;
   schemaStorageVaultListTitle: string;
+  schemaStorageVaultLocalFolderColumnLabel: string;
+  schemaStorageVaultNameColumnLabel: string;
   schemaStorageVaultsGroupTitle: string;
   schemaYamlFilterAiChatLabel: string;
   schemaYamlFilterAllLabel: string;
