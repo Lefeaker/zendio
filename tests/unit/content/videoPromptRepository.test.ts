@@ -17,6 +17,12 @@ type VideoRepoMock<K extends keyof IVideoRepository> = Mock<
 const createVideoRepoMock = <K extends keyof IVideoRepository>() =>
   vi.fn<(...args: Parameters<IVideoRepository[K]>) => ReturnType<IVideoRepository[K]>>();
 
+const screenshotAttachmentDefaults = {
+  locationTemplate: './assets/${noteFileName}',
+  fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+  markdownUrlFormat: ''
+};
+
 const {
   setDependenciesForTests,
   resetDependenciesForTests,
@@ -68,7 +74,8 @@ describe('VideoPrompt repository integration helpers', () => {
       promptShortcut: 'Alt+V',
       controlBarAutoPause: true,
       controlBarScreenshot: true,
-      commentEditorAutoPause: false
+      commentEditorAutoPause: false,
+      screenshotAttachment: screenshotAttachmentDefaults
     });
     savePromptPositionMock = createVideoRepoMock<'savePromptPosition'>();
     savePromptPositionMock.mockResolvedValue(undefined);
@@ -152,6 +159,7 @@ describe('VideoPrompt repository integration helpers', () => {
       controlBarAutoPause: true,
       controlBarScreenshot: true,
       commentEditorAutoPause: false,
+      screenshotAttachment: screenshotAttachmentDefaults,
       promptPosition: { x: 90, y: 140 }
     };
     configCallbacks.forEach((callback) => callback(newConfig));

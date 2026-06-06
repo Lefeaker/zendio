@@ -1,5 +1,41 @@
-import type { StoredOptions, VideoOptions } from '../types';
+import type { StoredOptions, VideoOptions, VideoScreenshotAttachmentOptions } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeTemplateValue(
+  value: unknown,
+  fallback: string,
+  options: { allowBlank: boolean } = { allowBlank: false }
+): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+
+  return options.allowBlank ? '' : fallback;
+}
+
+function mergeScreenshotAttachmentOptions(
+  source: unknown,
+  defaults: VideoScreenshotAttachmentOptions
+): VideoScreenshotAttachmentOptions {
+  const base = isPlainObject(source) ? source : {};
+
+  return {
+    locationTemplate: normalizeTemplateValue(base.locationTemplate, defaults.locationTemplate),
+    fileNameTemplate: normalizeTemplateValue(base.fileNameTemplate, defaults.fileNameTemplate),
+    markdownUrlFormat: normalizeTemplateValue(base.markdownUrlFormat, defaults.markdownUrlFormat, {
+      allowBlank: true
+    })
+  };
+}
 
 export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | undefined {
   const defaults = DEFAULT_OPTIONS.video;
@@ -32,7 +68,16 @@ export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions
       legacy.controlBarCaptureScreenshotEnabled ??
       defaults?.controlBarScreenshot ??
       true,
-    commentEditorAutoPause: base.commentEditorAutoPause ?? defaults?.commentEditorAutoPause ?? false
+    commentEditorAutoPause:
+      base.commentEditorAutoPause ?? defaults?.commentEditorAutoPause ?? false,
+    screenshotAttachment: mergeScreenshotAttachmentOptions(base.screenshotAttachment, {
+      locationTemplate:
+        defaults?.screenshotAttachment.locationTemplate ?? './assets/${noteFileName}',
+      fileNameTemplate:
+        defaults?.screenshotAttachment.fileNameTemplate ??
+        "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+      markdownUrlFormat: defaults?.screenshotAttachment.markdownUrlFormat ?? ''
+    })
   };
   const promptPosition = base.promptPosition ?? defaults?.promptPosition;
   if (promptPosition) {

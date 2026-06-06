@@ -4,6 +4,11 @@ import type { StoredOptions } from '@shared/types';
 import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
+const screenshotAttachmentSettings = {
+  locationTemplate: 'Assets/${noteFileName}',
+  fileNameTemplate: "shot-${date:{momentJsFormat:'YYYYMMDD'}}.jpg",
+  markdownUrlFormat: '../${generatedAttachmentFilePath}'
+};
 
 describe('options transfer normalizer', () => {
   it('fills newly added fields with defaults when missing', () => {
@@ -47,7 +52,14 @@ describe('options transfer normalizer', () => {
       video: {
         floatingPromptEnabled: false,
         promptButtonLabel: 'Start Video Notes',
-        promptShortcut: 'cmd+shift+v'
+        promptShortcut: 'cmd+shift+v',
+        screenshotAttachment: screenshotAttachmentSettings
+      } as StoredOptions['video'] & {
+        screenshotAttachment: {
+          locationTemplate: string;
+          fileNameTemplate: string;
+          markdownUrlFormat: string;
+        };
       }
     };
     const normalized = normalizeOptionsForTransfer(stored);
@@ -55,6 +67,13 @@ describe('options transfer normalizer', () => {
     expect(normalized.readingSession?.exportMode).toBe('full');
     expect(normalized.video?.promptButtonLabel).toBe('Start Video Notes');
     expect(normalized.video?.promptShortcut).toBe('CMD+SHIFT+V');
+    expect(
+      (
+        normalized.video as
+          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
+          | undefined
+      )?.screenshotAttachment
+    ).toEqual(screenshotAttachmentSettings);
     expect(normalized.vaultRouter?.vaults[0].rules?.[0].pattern).toBe('example.com');
   });
 
@@ -133,6 +152,18 @@ describe('options transfer normalizer', () => {
             }
           ],
           defaultVaultId: 'main'
+        },
+        video: {
+          floatingPromptEnabled: true,
+          promptButtonLabel: 'Video notes',
+          promptShortcut: 'alt+v',
+          screenshotAttachment: screenshotAttachmentSettings
+        } as StoredOptions['video'] & {
+          screenshotAttachment: {
+            locationTemplate: string;
+            fileNameTemplate: string;
+            markdownUrlFormat: string;
+          };
         }
       },
       { mode: 'portable' }
@@ -142,6 +173,13 @@ describe('options transfer normalizer', () => {
     expect(normalized.classifier?.apiKey).toBe('');
     expect(normalized.experimentalAi?.apiKey).toBe('');
     expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('');
+    expect(
+      (
+        normalized.video as
+          | { screenshotAttachment?: typeof screenshotAttachmentSettings }
+          | undefined
+      )?.screenshotAttachment
+    ).toEqual(screenshotAttachmentSettings);
   });
 
   it('preserves sensitive fields in explicit fullBackup mode without preserving unknown keys', () => {
