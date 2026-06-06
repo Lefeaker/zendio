@@ -75,7 +75,8 @@ import {
 } from './sessionDrafts';
 import {
   hasRequestedTimestampScreenshot,
-  restoreRequestedTimestampScreenshots
+  restoreRequestedTimestampScreenshots,
+  setRequestedTimestampScreenshot
 } from './screenshotIntent';
 import type { VideoTimestampCapture } from './types';
 
@@ -114,6 +115,10 @@ export class VideoSession {
   private stopDraftPersistence: (() => void) | null = null;
   private controllersReadyPromise: Promise<void> | null = null;
   private screenshotRecapturePromise: Promise<void> | null = null;
+  private readonly requestedScreenshotCache = new Map<
+    string,
+    NonNullable<VideoTimestampCapture['screenshot']>
+  >();
 
   private get operationContext() {
     const context = createVideoSessionOperationContext({
@@ -143,7 +148,8 @@ export class VideoSession {
       getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(this.doc, node),
       highlightFragmentText: (text: string) =>
         highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
-      getExportDestinationMetadata: () => this.destinationState.metadata
+      getExportDestinationMetadata: () => this.destinationState.metadata,
+      prepareRequestedScreenshot: (captureId: string) => this.prepareRequestedScreenshot(captureId)
     });
 
     return Object.assign(context, {
@@ -623,7 +629,39 @@ export class VideoSession {
   }
 
   async toggleCaptureScreenshot(id: string): Promise<void> {
+    this.cacheRequestedScreenshot(id);
     await toggleVideoSessionCaptureScreenshot(this.operationContext, id);
+  }
+
+  private cacheRequestedScreenshot(id: string): void {
+    const capture = this.findTimestampCapture(id);
+    if (capture?.screenshot) {
+      this.requestedScreenshotCache.set(id, capture.screenshot);
+    }
+  }
+
+  private prepareRequestedScreenshot(id: string): void {
+    const capture = this.findTimestampCapture(id);
+    if (!capture || !hasRequestedTimestampScreenshot(capture) || capture.screenshot) {
+      return;
+    }
+
+    const cachedScreenshot = this.requestedScreenshotCache.get(id);
+    if (!cachedScreenshot) {
+      return;
+    }
+
+    setRequestedTimestampScreenshot(capture, cachedScreenshot);
+    this.syncPanel();
+  }
+
+  private findTimestampCapture(id: string): VideoTimestampCapture | null {
+    return (
+      this.state.captures.find(
+        (capture): capture is VideoTimestampCapture =>
+          capture.kind === 'timestamp' && capture.id === id
+      ) ?? null
+    );
   }
 
   private async handleAddCapture(
@@ -685,6 +723,7 @@ export class VideoSession {
     this.stopDraftPersistence?.();
     void this.draftPersister.dispose();
     this.commentEditorPlayback.dispose();
+    this.requestedScreenshotCache.clear();
     cleanupVideoSession(this.operationContext);
   }
 }
