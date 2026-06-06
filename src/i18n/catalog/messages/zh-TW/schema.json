@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "設定閱讀模式與片段剪藏的行為。",
   "schemaCaptureBehaviorReadingGroupTitle": "閱讀模式",
   "schemaCaptureBehaviorFragmentGroupTitle": "片段剪藏",
-  "schemaOutputHeroDescription": "管理模板、網域命名、YAML 欄位與相關預設。",
+  "schemaOutputHeroDescription": "管理模板、網域命名與 YAML 欄位。",
   "schemaOutputTemplatesGroupTitle": "模板",
   "schemaOutputDomainMappingsGroupTitle": "網域命名",
   "schemaOutputYamlGroupTitle": "YAML 結構",

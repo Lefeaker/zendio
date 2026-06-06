@@ -11,10 +11,17 @@ import {
   findInputByValue,
   flushPromises,
   input,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import {
+  applyOutputPresetToDraft,
+  createInitialDraft
+} from '@options/app/productionStitchShellState';
+import { createInitialStitchState } from '@options/app/productionStitchStateMapper';
+import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
@@ -222,7 +229,7 @@ describe('mountProductionStitchShell storage', () => {
     expect(scheduleDraftSave).toHaveBeenCalledTimes(1);
   });
 
-  it('persists storage root and vault table edits through collectDraft', () => {
+  it('preserves the hidden storage root while persisting vault table edits through collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -240,11 +247,10 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    input('Inbox/', 'Clips/Articles/');
     input('Research Vault', 'Notes Vault');
 
     const collected = mounted.collectDraft();
-    expect(collected.rest.rootDir).toBe('Clips/Articles/');
+    expect(collected.rest.rootDir).toBe('Inbox/');
     expect(collected.rest.vault).toBe('Notes Vault');
     expect(collected.vaultRouter?.vaults?.[0]).toEqual(
       expect.objectContaining({
@@ -313,7 +319,7 @@ describe('mountProductionStitchShell storage', () => {
     );
 
     const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('清除');
+    expect(refreshedVaultList.textContent).not.toContain('删除本地目录');
     const selectedFolderButton = Array.from(
       refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
     ).find((button) => button.textContent?.trim() === 'Local Vault');
@@ -324,16 +330,30 @@ describe('mountProductionStitchShell storage', () => {
     await flushPromises();
 
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
-    const popover =
-      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-popover');
-    expect(popover).toBeTruthy();
-    expect(popover?.classList.contains('is-bubble')).toBe(true);
-    expect(popover?.textContent?.trim()).toBe('删除本地目录');
-    expect(popover?.textContent).not.toContain('取消');
-    expect(popover?.textContent).not.toContain('Local Vault');
-    expect(popover?.querySelectorAll('button')).toHaveLength(1);
+    const confirmingCell =
+      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-cell');
+    expect(confirmingCell?.querySelector('.local-folder-popover')).toBeNull();
+    expect(confirmingCell?.textContent?.trim()).toBe('删除本地目录');
 
-    const deleteButton = popover?.querySelector<HTMLButtonElement>('button');
+    const restoredByOutsideClick = queryRequired<HTMLElement>('.main');
+    restoredByOutsideClick.click();
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('删除本地目录');
+    expect(
+      Array.from(findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')).some(
+        (button) => button.textContent?.trim() === 'Local Vault'
+      )
+    ).toBe(true);
+
+    const restoredFolderButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    restoredFolderButton?.click();
+    await flushPromises();
+
+    const deleteButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
     deleteButton?.click();
     await flushPromises();
@@ -361,10 +381,11 @@ describe('mountProductionStitchShell storage', () => {
     );
   });
 
-  it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
+  it('still allows clearing a selected local folder when Chrome returns prompt', async () => {
     const controller = createController();
     const messagingRepository = createMessaging(undefined);
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
+    const removeDirectory = vi.fn(() => Promise.resolve());
     registerService(
       TOKENS.platformServices,
       () =>
@@ -372,12 +393,12 @@ describe('mountProductionStitchShell storage', () => {
           fileSystemAccess: {
             chooseDirectory: vi.fn(),
             ensurePermission,
-            removeDirectory: vi.fn()
+            removeDirectory
           }
         }) as never
     );
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
@@ -423,7 +444,20 @@ describe('mountProductionStitchShell storage', () => {
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
     const vaultList = findCardByTitle('Vault List');
     expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
+    const deleteButton = Array.from(
+      vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
+    expect(deleteButton).toBeTruthy();
     expect(document.body.textContent).toContain('本地目录需要重新授权');
+    deleteButton?.click();
+    await flushPromises();
+
+    const cleared = mounted.collectDraft();
+    expect(cleared.rest.localFolderId).toBeUndefined();
+    expect(cleared.rest.localFolderName).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
+    expect(removeDirectory).toHaveBeenCalledWith('folder-main');
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'local_vault_permission_prompted',
@@ -579,44 +613,49 @@ describe('mountProductionStitchShell storage', () => {
     expect(duplicateInputs).toHaveLength(1);
   });
 
-  it('applies output presets to templates, YAML configuration, and domain mappings', () => {
-    const controller = createController();
-    const mounted = mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: {
-        templates: {
-          article: 'Old/{title}.md',
-          fragment: 'Old/Fragment.md',
-          reading: 'Old/Reading.md',
-          ai: 'Old/AI.md'
-        },
-        domainMappings: {
-          'old.example': 'old'
-        },
-        yamlConfig: null
+  it('keeps hidden output presets logic wired to templates, YAML configuration, and domain mappings', () => {
+    const draft = createInitialDraft({
+      templates: {
+        article: 'Old/{title}.md',
+        fragment: 'Old/Fragment.md',
+        reading: 'Old/Reading.md',
+        ai: 'Old/AI.md'
       },
-      messages: null,
-      language: 'en'
+      domainMappings: {
+        'old.example': 'old'
+      },
+      yamlConfig: null
+    });
+    const state = createInitialStitchState(previewContent);
+    const setDomainMappingRows = vi.fn();
+    const scheduleDraftSave = vi.fn();
+
+    applyOutputPresetToDraft({
+      draft,
+      state,
+      setDomainMappingRows,
+      refreshAppData: vi.fn(),
+      scheduleDraftSave,
+      render: vi.fn(),
+      name: 'Research'
     });
 
-    findButton('Apply Research').click();
-
-    const collected = mounted.collectDraft();
-    expect(collected.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
-    expect(collected.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
-    expect(collected.domainMappings).toEqual(
+    expect(draft.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
+    expect(draft.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+    expect(draft.domainMappings).toEqual(
       expect.objectContaining({
         'arxiv.org': 'Arxiv',
         'mp.weixin.qq.com': '公众号'
       })
     );
-    expect(collected.yamlConfig?.contentTypes?.article?.customFields).toEqual(
+    expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'status', enabled: true }),
         expect.objectContaining({ name: 'workspace', enabled: true })
       ])
     );
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+    expect(setDomainMappingRows).toHaveBeenCalledWith(Object.entries(draft.domainMappings));
+    expect(scheduleDraftSave).toHaveBeenCalled();
   });
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {

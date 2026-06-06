@@ -344,7 +344,7 @@ const runtime = {
   schemaNavOverviewHint: '使用統計、語言與隱私',
   schemaNavStorageHint: '倉庫與路由',
   schemaOutputDomainMappingsGroupTitle: '網域命名',
-  schemaOutputHeroDescription: '管理模板、網域命名、YAML 欄位與相關預設。',
+  schemaOutputHeroDescription: '管理模板、網域命名與 YAML 欄位。',
   schemaOutputTemplatesGroupTitle: '模板',
   schemaOutputTitle: '輸出與中繼資料',
   schemaOutputYamlGroupTitle: 'YAML 結構',

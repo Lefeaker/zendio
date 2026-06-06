@@ -112,6 +112,9 @@ export function createProductionStitchStorageSubscriptions(
       return;
     }
 
+    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
+    options.render();
+
     try {
       emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const permission = await getService<PlatformServices>(
@@ -127,7 +130,6 @@ export function createProductionStitchStorageSubscriptions(
           body: `Chrome 已将“${vault.localFolderName ?? vault.name ?? vault.vault}”的本地目录权限恢复为待授权状态。请再次点击该目录并在浏览器权限提示中允许读写；未授权前发送会回退 REST API。`,
           variant: 'warning'
         });
-        state.activeLocalFolderVaultIndex = null;
         options.refreshAppData();
         options.render();
         return;
@@ -148,13 +150,11 @@ export function createProductionStitchStorageSubscriptions(
         body: 'Chrome 暂时无法恢复这个本地目录权限。请重新选择目录，或继续使用 REST API。',
         variant: 'warning'
       });
-      state.activeLocalFolderVaultIndex = null;
       options.refreshAppData();
       options.render();
       return;
     }
 
-    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
     options.refreshAppData();
     options.render();
   }

@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Comportement du mode lecture et de la capture de fragments.",
   "schemaCaptureBehaviorReadingGroupTitle": "Mode lecture",
   "schemaCaptureBehaviorFragmentGroupTitle": "Capture de fragments",
-  "schemaOutputHeroDescription": "Modèles, noms de domaine, champs YAML et préréglages.",
+  "schemaOutputHeroDescription": "Modèles, noms de domaine et champs YAML.",
   "schemaOutputTemplatesGroupTitle": "Modèles",
   "schemaOutputDomainMappingsGroupTitle": "Noms de domaine",
   "schemaOutputYamlGroupTitle": "Schéma YAML",

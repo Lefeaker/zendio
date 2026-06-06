@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "読書モードとフラグメントクリップの動作を設定します。",
   "schemaCaptureBehaviorReadingGroupTitle": "読書モード",
   "schemaCaptureBehaviorFragmentGroupTitle": "フラグメントクリップ",
-  "schemaOutputHeroDescription": "テンプレート、ドメイン命名、YAML フィールド、プリセットを管理します。",
+  "schemaOutputHeroDescription": "テンプレート、ドメイン命名、YAML フィールドを管理します。",
   "schemaOutputTemplatesGroupTitle": "テンプレート",
   "schemaOutputDomainMappingsGroupTitle": "ドメイン命名",
   "schemaOutputYamlGroupTitle": "YAML スキーマ",

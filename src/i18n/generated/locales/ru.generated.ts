@@ -380,7 +380,7 @@ const runtime = {
   schemaNavOverviewHint: 'Использование, язык и конфиденциальность',
   schemaNavStorageHint: 'Хранилища и маршрутизация',
   schemaOutputDomainMappingsGroupTitle: 'Имена доменов',
-  schemaOutputHeroDescription: 'Шаблоны, имена доменов, поля YAML и пресеты.',
+  schemaOutputHeroDescription: 'Шаблоны, имена доменов и поля YAML.',
   schemaOutputTemplatesGroupTitle: 'Шаблоны',
   schemaOutputTitle: 'Вывод и метаданные',
   schemaOutputYamlGroupTitle: 'Схема YAML',

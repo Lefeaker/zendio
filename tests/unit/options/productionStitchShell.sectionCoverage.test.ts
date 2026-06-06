@@ -49,7 +49,6 @@ describe('production Stitch shell section coverage', () => {
       'URL Pattern',
       'Templates',
       'Articles/{domain}/{yyyy}/{slug}.md',
-      'Presets',
       'YAML Schema',
       'YAML configured',
       'article / clipper / video / ai_chat',
@@ -66,6 +65,13 @@ describe('production Stitch shell section coverage', () => {
       'Timestamp Notes',
       'YouTube / Bilibili'
     );
+
+    const outputView = getSettingsView('output', createSchemaContext());
+    const outputViewText = JSON.stringify(outputView);
+    expect(outputViewText).not.toContain('Presets');
+    expect(outputViewText).not.toContain('Apply Minimal');
+    expect(outputViewText).not.toContain('Apply Research');
+    expect(outputViewText).not.toContain('Apply Conversation');
   });
 
   it('maps retired non-REST option domains into production Stitch state', () => {

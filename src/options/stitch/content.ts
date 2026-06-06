@@ -86,7 +86,7 @@ export const previewContent: PreviewContent = {
     {
       id: 'output',
       label: 'Output & Metadata',
-      hint: '路径模板、映射、YAML、预设',
+      hint: '路径模板、映射、YAML',
       icon: 'output'
     },
     {
@@ -125,7 +125,7 @@ export const previewContent: PreviewContent = {
     hero: {
       title: 'Storage',
       description: '管理 Vault 列表、连接参数和路由规则。',
-      pills: ['Vault List', 'Advanced Connection', 'Routing Engine'],
+      pills: ['Vault List', 'Routing Engine'],
       icon: 'storage'
     },
     routingTypeOptions: [
@@ -211,8 +211,8 @@ export const previewContent: PreviewContent = {
   output: {
     hero: {
       title: 'Output & Metadata',
-      description: '配置输出路径、域名命名、YAML 字段和预设。',
-      pills: ['Templates', 'Domain Naming', 'YAML Schema', 'Presets'],
+      description: '配置输出路径、域名命名和 YAML 字段。',
+      pills: ['Templates', 'Domain Naming', 'YAML Schema'],
       icon: 'output'
     },
     templateDefaults: {

@@ -372,8 +372,7 @@ const runtime = {
   schemaNavOverviewHint: '利用状況・言語・プライバシー',
   schemaNavStorageHint: 'Vault とルーティング',
   schemaOutputDomainMappingsGroupTitle: 'ドメイン命名',
-  schemaOutputHeroDescription:
-    'テンプレート、ドメイン命名、YAML フィールド、プリセットを管理します。',
+  schemaOutputHeroDescription: 'テンプレート、ドメイン命名、YAML フィールドを管理します。',
   schemaOutputTemplatesGroupTitle: 'テンプレート',
   schemaOutputTitle: '出力とメタデータ',
   schemaOutputYamlGroupTitle: 'YAML スキーマ',

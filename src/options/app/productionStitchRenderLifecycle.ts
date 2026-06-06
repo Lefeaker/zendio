@@ -13,6 +13,7 @@ import type { Language } from '@i18n';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
+import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
 
 interface ProductionStitchRenderWidgetHost {
   createWidgetFactory(widgetType: string): unknown;
@@ -39,6 +40,7 @@ interface ProductionStitchRenderLifecycleOptions {
 
 export interface ProductionStitchRenderLifecycle {
   applySystemThemePreferenceChange: () => void;
+  cleanup: () => void;
   openResource: (resourceId: string) => void;
   render: () => void;
   renderActiveResourceModal: () => void;
@@ -56,6 +58,9 @@ export function createProductionStitchRenderLifecycle(
     mountRoot,
     getState: () => options.getState()
   });
+
+  const setState = (state: PreviewStoreState): void => options.setState(state);
+  const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, render);
 
   function getState(): PreviewStoreState {
     return options.getState();
@@ -188,11 +193,7 @@ export function createProductionStitchRenderLifecycle(
     const section = mountRoot.querySelector<HTMLElement>(`[data-panel-id="${panelId}"]`);
     if (main && section) {
       const top = Math.max(section.offsetTop - 12, 0);
-      if (typeof main.scrollTo === 'function') {
-        main.scrollTo({ top, behavior: 'smooth' });
-      } else {
-        main.scrollTop = top;
-      }
+      setScrollTopImmediately(main, top);
     }
     syncActiveLinks();
   }
@@ -235,6 +236,7 @@ export function createProductionStitchRenderLifecycle(
 
   return {
     applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
+    cleanup: () => folderDismissal.cleanup(),
     openResource,
     render,
     renderActiveResourceModal,

@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';
 import { previewContent } from '@options/stitch/content';
@@ -25,7 +25,12 @@ describe('storage settings', () => {
       'maintenance'
     );
     expect(getSettingsView('overview', createSchemaContext())).toBeTruthy();
-    expectProductionText('Vault List', 'Advanced Connection', 'Routing Engine');
+    expectProductionText('Vault List', 'Routing Engine');
+
+    const storageView = getSettingsView('storage', createSchemaContext());
+    const storageViewText = JSON.stringify(storageView);
+    expect(storageViewText).not.toContain('Advanced Connection Schema');
+    expect(storageViewText).not.toContain('rootDir');
   });
 
   it('maps REST storage options into production Stitch vault content', () => {

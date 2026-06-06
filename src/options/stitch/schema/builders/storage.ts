@@ -96,30 +96,39 @@ function localFolderCell(vault: VaultRecord, index: number, current: SchemaConte
   const folderTitle = vault.localFolderName
     ? `${vault.localFolderName}\nChrome File System Access 不暴露完整本地路径。`
     : '选择本地目录';
+  const buttonLabel =
+    hasFolder && isConfirming ? '删除本地目录' : vault.localFolderName || '选择目录';
+  const buttonAction =
+    hasFolder && isConfirming ? 'storage:deleteLocalFolder' : 'storage:activateLocalFolder';
 
   return element('div', { className: 'local-folder-cell' }, [
     element(
       'button',
       {
-        className: `btn secondary local-folder-trigger${hasFolder ? ' is-selected' : ''}`,
+        className: [
+          'btn',
+          hasFolder && isConfirming ? 'danger' : 'secondary',
+          'local-folder-trigger',
+          hasFolder && !isConfirming ? 'is-selected' : '',
+          hasFolder && isConfirming ? 'is-delete' : ''
+        ]
+          .filter(Boolean)
+          .join(' '),
         type: 'button',
-        title: folderTitle,
-        ariaLabel: hasFolder ? `${vault.localFolderName}，点击管理本地目录` : '选择本地目录',
+        title: hasFolder && isConfirming ? '删除本地目录' : folderTitle,
+        ariaLabel:
+          hasFolder && isConfirming
+            ? '删除本地目录'
+            : hasFolder
+              ? `${vault.localFolderName}，点击管理本地目录`
+              : '选择本地目录',
         onClick: {
-          id: 'storage:activateLocalFolder',
+          id: buttonAction,
           args: [index]
         }
       },
-      [vault.localFolderName || '选择目录']
-    ),
-    hasFolder && isConfirming
-      ? element('div', { className: 'local-folder-popover is-bubble', role: 'dialog' }, [
-          buttonNode('删除本地目录', 'danger', {
-            id: 'storage:deleteLocalFolder',
-            args: [index]
-          })
-        ])
-      : null
+      [buttonLabel]
+    )
   ]);
 }
 

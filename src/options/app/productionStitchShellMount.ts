@@ -181,7 +181,6 @@ export function mountProductionStitchShellFromDependencies({
   function dispatch(actionId: string, args: unknown[] = [], value?: unknown, event?: Event): void {
     actionRuntime.dispatch(actionId, args, value, event);
   }
-
   const schemaRenderer = createProductionStitchShellSchemaRenderer({
     createSchemaContext,
     dispatch,
@@ -211,6 +210,7 @@ export function mountProductionStitchShellFromDependencies({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
         mountRoot,
         buttonPressScrollGuard,

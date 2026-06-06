@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Comportamiento del modo lectura y del recorte de fragmentos.",
   "schemaCaptureBehaviorReadingGroupTitle": "Modo Lectura",
   "schemaCaptureBehaviorFragmentGroupTitle": "Recorte de fragmentos",
-  "schemaOutputHeroDescription": "Plantillas, nombres de dominio, campos YAML y ajustes predefinidos.",
+  "schemaOutputHeroDescription": "Plantillas, nombres de dominio y campos YAML.",
   "schemaOutputTemplatesGroupTitle": "Plantillas",
   "schemaOutputDomainMappingsGroupTitle": "Nombres de dominio",
   "schemaOutputYamlGroupTitle": "Esquema YAML",

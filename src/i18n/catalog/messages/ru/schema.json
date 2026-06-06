@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Поведение режима чтения и захвата фрагментов.",
   "schemaCaptureBehaviorReadingGroupTitle": "Режим чтения",
   "schemaCaptureBehaviorFragmentGroupTitle": "Захват фрагментов",
-  "schemaOutputHeroDescription": "Шаблоны, имена доменов, поля YAML и пресеты.",
+  "schemaOutputHeroDescription": "Шаблоны, имена доменов и поля YAML.",
   "schemaOutputTemplatesGroupTitle": "Шаблоны",
   "schemaOutputDomainMappingsGroupTitle": "Имена доменов",
   "schemaOutputYamlGroupTitle": "Схема YAML",

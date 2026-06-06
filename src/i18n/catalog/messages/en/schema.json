@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Reading session and fragment clipping behaviors.",
   "schemaCaptureBehaviorReadingGroupTitle": "Reading Mode",
   "schemaCaptureBehaviorFragmentGroupTitle": "Fragment Clipper",
-  "schemaOutputHeroDescription": "Templates, domain naming, YAML fields, and presets.",
+  "schemaOutputHeroDescription": "Templates, domain naming, and YAML fields.",
   "schemaOutputTemplatesGroupTitle": "Templates",
   "schemaOutputDomainMappingsGroupTitle": "Domain Naming",
   "schemaOutputYamlGroupTitle": "YAML Schema",

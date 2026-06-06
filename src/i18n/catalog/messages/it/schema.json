@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Comportamento della modalità lettura e del clipping dei frammenti.",
   "schemaCaptureBehaviorReadingGroupTitle": "Modalità lettura",
   "schemaCaptureBehaviorFragmentGroupTitle": "Clipping frammenti",
-  "schemaOutputHeroDescription": "Template, nomi di dominio, campi YAML e preimpostazioni.",
+  "schemaOutputHeroDescription": "Template, nomi di dominio e campi YAML.",
   "schemaOutputTemplatesGroupTitle": "Template",
   "schemaOutputDomainMappingsGroupTitle": "Nomi dominio",
   "schemaOutputYamlGroupTitle": "Schema YAML",
