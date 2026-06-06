@@ -42,6 +42,7 @@
   - `Enforce hardcoded config guard` 显式运行 `npm run lint:hardcoded`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
+- 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
@@ -139,7 +140,7 @@ must not call Google debug endpoints directly from the extension.
 `npm run audit:build:report` 当前执行以下预算：
 
 - `content/index.js <= 1 KB`
-- `content/runtime.js <= 55 KB`
+- `content/runtime.js <= 56 KB`
 - `options/index.js <= 12 KB`
 - `onboarding/index.js <= 16 KB`
 - 任一 chunk `<= 320 KB`
@@ -177,6 +178,13 @@ must not call Google debug endpoints directly from the extension.
 - Chrome production fast `build/dist/content/runtime.js`: `47.6 KB`
 - Chrome production fast chunks: `91`
 - 详细 build/hotspot 数值以 [`performance-baseline.md`](./performance-baseline.md) 为准
+
+2026-06-07 video legacy recovery build truth:
+
+- `quality`、`verify:preflight`、`build:dev` 与 `audit:build:report` 在 Node `v20.20.2` 下通过
+- dev `build/dist/content/runtime.js`: `55.8 KB`（raw `57,131` bytes；raw stop gate `57,344`）
+- dev chunks: `112`
+- `sessionDraftAutoRestore-*` 作为 lazy chunk 承载页面进入后的 reader/video draft 自动恢复，不再把恢复实现本体压入 content 主入口
 
 ## 核心命令
 

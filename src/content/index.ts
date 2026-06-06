@@ -21,7 +21,6 @@ import {
   isVideoPromptCandidateUrl,
   initializeVideoPromptOnDemand
 } from './runtime/contentLazyRuntime';
-import { startSessionDraftAutoRestore } from './runtime/sessionDraftAutoRestore';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
@@ -144,21 +143,33 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
-  const stopSessionDraftAutoRestore = startSessionDraftAutoRestore({
-    document,
-    window,
-    storage: platform.storage,
-    currentUrl: () => window.location.href,
-    createReaderSession: () => createReaderSession(document, window.location.href),
-    createVideoSession: () => createVideoSession(document),
-    isReaderSessionActive: () => isReaderSessionActive(document),
-    isVideoSessionActive: () => isVideoSessionActive(document),
-    isVideoCandidateUrl: isVideoPromptCandidateUrl
-  });
+  let runtimeStopped = false;
+  let stopSessionDraftAutoRestore: (() => void) | null = null;
+  void import('./runtime/sessionDraftAutoRestore')
+    .then(({ startSessionDraftAutoRestore }) => {
+      if (runtimeStopped) {
+        return;
+      }
+      stopSessionDraftAutoRestore = startSessionDraftAutoRestore({
+        document,
+        window,
+        storage: platform.storage,
+        currentUrl: () => window.location.href,
+        createReaderSession: () => createReaderSession(document, window.location.href),
+        createVideoSession: () => createVideoSession(document),
+        isReaderSessionActive: () => isReaderSessionActive(document),
+        isVideoSessionActive: () => isVideoSessionActive(document),
+        isVideoCandidateUrl: isVideoPromptCandidateUrl
+      });
+    })
+    .catch((error) => {
+      console.warn('[content] Failed to start session draft auto-restore:', error);
+    });
   window.addEventListener(
     'pagehide',
     () => {
-      stopSessionDraftAutoRestore();
+      runtimeStopped = true;
+      stopSessionDraftAutoRestore?.();
       stopRuntimeThemeSync();
       runtime.stop();
     },

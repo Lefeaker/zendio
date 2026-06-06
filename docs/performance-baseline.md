@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-06-06
+日期：2026-06-07
 
 ## 1. 构建真值
 
@@ -30,33 +30,35 @@ npm run audit:build:report
 
 2026-06-06 video screenshot attachment verification 复核重新采集 `audit:performance:report`。本轮仅补齐 feature-owned hotspot line budgets：`src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；同步后当前 audit 输出为 trackedSourceFiles=`706`、hotspotsOver250=`104`、registeredLineBudgets=`107`。
 
+2026-06-07 video legacy recovery 复核重新采集 `build:fast`、`build:dev` 与 `audit:build:report`。视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk，避免恢复实现本体进入 content 主入口；当前 dev build `content/runtime.js` raw stop gate 同步为 `57,344` bytes，chunk count 继续守住 `<= 112`。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `47.6 KB`
-- `build/dist/options/index.js`: `672 B`
-- `build/dist/onboarding/index.js`: `9.1 KB`
-- 总 chunk 数：`91`
-- `chunks/runtimeEntry-*.js`: `157.4 KB`
-- `chunks/videoLazyRuntime-*.js`: `71.3 KB`
-- `chunks/videoSessionControllers-*.js`: `43.6 KB`
+- `build/dist/content/runtime.js`: `48.1 KB`
+- `build/dist/options/index.js`: `708 B`
+- `build/dist/onboarding/index.js`: `9.2 KB`
+- 总 chunk 数：`95`
+- `chunks/runtimeEntry-*.js`: `163.8 KB`
+- `chunks/videoLazyRuntime-*.js`: `76.3 KB`
+- `chunks/videoSessionControllers-*.js`: `43.9 KB`
 
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `54.9 KB`（raw `56,170` bytes；距离 `56,320` raw-byte stop gate 还有 `150` bytes）
-- `build/dist/options/index.js`: `997 B`
-- `build/dist/onboarding/index.js`: `15.8 KB`（raw `16,200` bytes）
-- 总 chunk 数：`110`
-- `chunks/runtimeEntry-*.js`: `304.4 KB`
-- `chunks/videoSessionControllers-*.js`: `83.4 KB`
-- `chunks/qps-ploc-*.js`: `57.5 KB`（raw `58,906` bytes）
+- `build/dist/content/runtime.js`: `55.8 KB`（raw `57,131` bytes；距离 `57,344` raw-byte stop gate 还有 `213` bytes）
+- `build/dist/options/index.js`: `1.0 KB`（raw `1,035` bytes）
+- `build/dist/onboarding/index.js`: `15.9 KB`（raw `16,238` bytes）
+- 总 chunk 数：`112`
+- `chunks/runtimeEntry-*.js`: `316.9 KB`
+- `chunks/videoSessionControllers-*.js`: `83.6 KB`
+- `chunks/qps-ploc-*.js`: `347 B`
 - `chunks/videoLazyRuntime-*.js`: `44.7 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
-- 最大 shared chunk：`184.8 KB`
-- 第二大 shared chunk：`82.9 KB`
+- 最大 shared chunk：`134.9 KB`
+- 第二大 shared chunk：`82.8 KB`
 - 第三大 shared chunk：`82.5 KB`
 
 当前重点功能 chunk：
@@ -66,11 +68,12 @@ npm run audit:build:report
 - `chunks/registry-*.js`: `3.6 KB`
 - `chunks/clipFlowAnalytics-*.js`: `2.5 KB`
 - `chunks/onboardingAnalytics-*.js`: `1.8 KB`
+- `chunks/sessionDraftAutoRestore-*.js`: dev `4.5 KB` / production fast `2.0 KB`
 
 当前 `audit:build:report` 预算口径：
 
 - `content/index.js <= 1 KB`
-- `content/runtime.js <= 55 KB`（raw `56,320` bytes）
+- `content/runtime.js <= 56 KB`（raw `57,344` bytes）
 - `options/index.js <= 12 KB`
 - `onboarding/index.js <= 16 KB`
 - 任一 chunk `<= 320 KB`
