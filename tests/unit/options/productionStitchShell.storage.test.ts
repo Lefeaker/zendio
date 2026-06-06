@@ -381,10 +381,11 @@ describe('mountProductionStitchShell storage', () => {
     );
   });
 
-  it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
+  it('still allows clearing a selected local folder when Chrome returns prompt', async () => {
     const controller = createController();
     const messagingRepository = createMessaging(undefined);
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
+    const removeDirectory = vi.fn(() => Promise.resolve());
     registerService(
       TOKENS.platformServices,
       () =>
@@ -392,12 +393,12 @@ describe('mountProductionStitchShell storage', () => {
           fileSystemAccess: {
             chooseDirectory: vi.fn(),
             ensurePermission,
-            removeDirectory: vi.fn()
+            removeDirectory
           }
         }) as never
     );
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
@@ -443,7 +444,20 @@ describe('mountProductionStitchShell storage', () => {
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
     const vaultList = findCardByTitle('Vault List');
     expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
+    const deleteButton = Array.from(
+      vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
+    expect(deleteButton).toBeTruthy();
     expect(document.body.textContent).toContain('本地目录需要重新授权');
+    deleteButton?.click();
+    await flushPromises();
+
+    const cleared = mounted.collectDraft();
+    expect(cleared.rest.localFolderId).toBeUndefined();
+    expect(cleared.rest.localFolderName).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
+    expect(removeDirectory).toHaveBeenCalledWith('folder-main');
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'local_vault_permission_prompted',
