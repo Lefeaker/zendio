@@ -2,154 +2,89 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
-  restoreRequestedTimestampScreenshots,
-  type RestoreRequestedTimestampScreenshotsArgs
+  clearRequestedTimestampScreenshot,
+  hasRequestedTimestampScreenshot,
+  setRequestedTimestampScreenshot
 } from '@content/video/screenshotIntent';
+import { captureVideoFrameScreenshot } from '@content/video/videoFrameScreenshot';
 import type { VideoTimestampCapture } from '@content/video/types';
 
-function createTimestampCapture(
-  id: string,
-  timeSec: number
-): VideoTimestampCapture & { screenshotRequested: boolean } {
+function createTimestampCapture(): VideoTimestampCapture {
   return {
     kind: 'timestamp',
-    id,
-    timeSec,
-    url: `https://video.example/watch?t=${timeSec}`,
+    id: 'ts-1',
+    timeSec: 42,
+    url: 'https://video.example/watch?t=42',
     comment: '',
-    createdAt: timeSec,
-    screenshotRequested: true
+    createdAt: 1
   };
 }
 
-function createVideoHarness(
-  options: {
-    currentTime?: number;
-    paused?: boolean;
-    readyState?: number;
-    videoWidth?: number;
-    videoHeight?: number;
-  } = {}
-) {
-  const video = document.createElement('video');
-  let currentTime = options.currentTime ?? 0;
-  let paused = options.paused ?? false;
-  let readyState = options.readyState ?? 4;
-  let videoWidth = options.videoWidth ?? 640;
-  let videoHeight = options.videoHeight ?? 360;
-  const currentTimeSetSpy = vi.fn((value: number) => {
-    currentTime = value;
-    video.dispatchEvent(new Event('seeked'));
+describe('captureVideoFrameScreenshot', () => {
+  it('captures a jpeg screenshot from the current video frame', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: vi.fn(() => 'data:image/jpeg;base64,frame'),
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+
+    const screenshot = captureVideoFrameScreenshot(video, 42, Date.now());
+
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
+    expect(screenshot).toMatchObject({
+      mimeType: 'image/jpeg',
+      dataUrl: 'data:image/jpeg;base64,frame'
+    });
+    expect(screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
+
+    createElementSpy.mockRestore();
+    vi.useRealTimers();
   });
 
-  Object.defineProperty(video, 'currentTime', {
-    get: () => currentTime,
-    set: currentTimeSetSpy,
-    configurable: true
-  });
-  Object.defineProperty(video, 'paused', {
-    get: () => paused,
-    configurable: true
-  });
-  Object.defineProperty(video, 'readyState', {
-    get: () => readyState,
-    configurable: true
-  });
-  Object.defineProperty(video, 'videoWidth', {
-    get: () => videoWidth,
-    configurable: true
-  });
-  Object.defineProperty(video, 'videoHeight', {
-    get: () => videoHeight,
-    configurable: true
+  it('returns null when the video does not expose a usable frame', () => {
+    const video = document.createElement('video');
+    Object.defineProperty(video, 'videoWidth', { value: 0, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 0, configurable: true });
+
+    expect(captureVideoFrameScreenshot(video, 42)).toBeNull();
   });
 
-  const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
-    paused = true;
-  });
-  const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
-    paused = false;
-    return Promise.resolve();
-  });
+  it('tracks screenshot intent separately from transient screenshot bytes', () => {
+    const capture = createTimestampCapture();
 
-  return {
-    video,
-    pauseSpy,
-    playSpy,
-    currentTimeSetSpy,
-    getCurrentTime: () => currentTime,
-    setReadyState: (value: number) => {
-      readyState = value;
-    },
-    setDimensions: (width: number, height: number) => {
-      videoWidth = width;
-      videoHeight = height;
-    }
-  };
-}
+    expect(hasRequestedTimestampScreenshot(capture)).toBe(false);
 
-describe('screenshotIntent', () => {
-  it('recaptures requested screenshots sequentially and restores playback position/state', async () => {
-    const harness = createVideoHarness({ currentTime: 8, paused: false });
-    const captureFrame = vi
-      .fn<NonNullable<RestoreRequestedTimestampScreenshotsArgs['captureFrame']>>()
-      .mockImplementation((_video, timeSec) => ({
-        id: `shot-${timeSec}`,
-        fileName: `file-${timeSec}.jpg`,
-        mimeType: 'image/jpeg',
-        dataUrl: `data:image/jpeg;base64,frame-${timeSec}`,
-        capturedAt: timeSec
-      }));
-    const captures = [createTimestampCapture('ts-1', 42), createTimestampCapture('ts-2', 50)];
-
-    await restoreRequestedTimestampScreenshots({
-      captures,
-      video: harness.video,
-      captureFrame,
-      timeoutMs: 25
+    setRequestedTimestampScreenshot(capture, {
+      id: 'shot-1',
+      fileName: 'file-42.jpg',
+      mimeType: 'image/jpeg',
+      dataUrl: 'data:image/jpeg;base64,frame',
+      capturedAt: 1
     });
 
-    expect(captureFrame.mock.calls.map(([, timeSec]) => timeSec)).toEqual([42, 50]);
-    expect(harness.currentTimeSetSpy.mock.calls.map(([value]) => value)).toEqual([42, 50, 8]);
-    expect(harness.pauseSpy).toHaveBeenCalledTimes(1);
-    expect(harness.playSpy).toHaveBeenCalledTimes(1);
-    expect(harness.getCurrentTime()).toBe(8);
-    expect(captures).toEqual([
-      expect.objectContaining({
-        id: 'ts-1',
-        screenshotRequested: true,
-        screenshot: expect.objectContaining({ id: 'shot-42' })
-      }),
-      expect.objectContaining({
-        id: 'ts-2',
-        screenshotRequested: true,
-        screenshot: expect.objectContaining({ id: 'shot-50' })
-      })
-    ]);
-  });
+    expect(hasRequestedTimestampScreenshot(capture)).toBe(true);
+    expect(capture.screenshot).toMatchObject({ id: 'shot-1' });
 
-  it('keeps screenshot intent when recapture fails and preserves paused playback state', async () => {
-    const harness = createVideoHarness({ currentTime: 12, paused: true });
-    const captureFrame = vi
-      .fn<NonNullable<RestoreRequestedTimestampScreenshotsArgs['captureFrame']>>()
-      .mockReturnValue(null);
-    const capture = createTimestampCapture('ts-1', 42);
+    clearRequestedTimestampScreenshot(capture);
 
-    await restoreRequestedTimestampScreenshots({
-      captures: [capture],
-      video: harness.video,
-      captureFrame,
-      timeoutMs: 25
-    });
-
-    expect(captureFrame).toHaveBeenCalledWith(harness.video, 42);
-    expect(capture).toMatchObject({
-      id: 'ts-1',
-      screenshotRequested: true
-    });
+    expect(hasRequestedTimestampScreenshot(capture)).toBe(false);
+    expect(capture).not.toHaveProperty('screenshotRequested');
     expect(capture).not.toHaveProperty('screenshot');
-    expect(harness.pauseSpy).not.toHaveBeenCalled();
-    expect(harness.playSpy).not.toHaveBeenCalled();
-    expect(harness.getCurrentTime()).toBe(12);
   });
 });
