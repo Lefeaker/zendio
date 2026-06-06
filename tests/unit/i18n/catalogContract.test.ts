@@ -109,6 +109,9 @@ describe('i18n catalog contract', () => {
     expect(SCHEMA_MESSAGE_KEYS.every((key) => key.startsWith('schema'))).toBe(true);
     expect(SCHEMA_MESSAGE_KEYS.every((key) => RUNTIME_MESSAGE_KEYS.includes(key))).toBe(true);
     expect(isSchemaMessageKey('schemaOverviewTitle')).toBe(true);
+    expect(isSchemaMessageKey('schemaRuntimeUiGroupTitle')).toBe(true);
+    expect(isSchemaMessageKey('schemaStorageConnectionNotRun')).toBe(true);
+    expect(isSchemaMessageKey('schemaRuntimeSurfaceSaveToLabel')).toBe(true);
     expect(isSchemaMessageKey('settingsTitle')).toBe(false);
   });
 

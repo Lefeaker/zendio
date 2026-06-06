@@ -325,17 +325,55 @@ const runtime = {
   schemaAiPlatformKimiName: 'Kimi',
   schemaAiPlatformMonicaName: 'Monica',
   schemaAiPlatformTongyiName: 'Tongyi',
+  schemaCaptureBehaviorCaptureContextTitle: 'Capturar contexto',
+  schemaCaptureBehaviorContextLengthFieldLabel: 'Comprimento do contexto',
+  schemaCaptureBehaviorContextModeCharsOption: 'Caracteres',
+  schemaCaptureBehaviorContextModeFieldLabel: 'Unidade do contexto',
+  schemaCaptureBehaviorContextModeSentencesOption: 'Frases',
   schemaCaptureBehaviorFragmentGroupTitle: 'Recorte de fragmentos',
   schemaCaptureBehaviorHeroDescription:
     'Comportamento do modo de leitura e do recorte de fragmentos.',
+  schemaCaptureBehaviorModifierConflictBrowser:
+    '{label} pode entrar em conflito com atalhos do navegador ou da página. Se ficar instável, use Shift.',
+  schemaCaptureBehaviorModifierConflictSystem:
+    '{label} pode entrar em conflito com atalhos do sistema, do navegador ou da página. Se ficar instável, use Shift.',
   schemaCaptureBehaviorReadingGroupTitle: 'Modo de leitura',
+  schemaCaptureBehaviorSidebarHighlightsNote:
+    'Os destaques salvos funcionam melhor com o plugin Obsidian Sidebar Highlights.',
   schemaCaptureBehaviorTitle: 'Comportamento de captura',
   schemaCaptureSourcesAiChatGroupTitle: 'Chat IA',
+  schemaCaptureSourcesAiConversationDescription:
+    'Configure a cobertura das fontes e o comportamento visual das exportações de chat com IA.',
+  schemaCaptureSourcesAiConversationTitle: 'Captura de conversas de IA',
+  schemaCaptureSourcesAiSupportedPlatformsBadge: '8 plataformas compatíveis',
+  schemaCaptureSourcesAutoPauseDescription:
+    'Quando ativado, o vídeo atual é pausado enquanto você edita uma nota com marca de tempo no Modo de vídeo.',
+  schemaCaptureSourcesAutoPauseTitle: 'Pausar o vídeo ao editar notas',
   schemaCaptureSourcesDeepResearchGroupTitle: 'Deep Research',
   schemaCaptureSourcesHeroDescription:
     'Configure o comportamento de captura específico de cada fonte.',
+  schemaCaptureSourcesMarkdownUrlDescription:
+    'Deixe em branco para usar o formato padrão ou informe um modelo de link Markdown para o fluxo de exportação atual.',
+  schemaCaptureSourcesMarkdownUrlTitle: 'Formato de URL Markdown',
+  schemaCaptureSourcesPreviewFieldLabel: 'Pré-visualização',
+  schemaCaptureSourcesScreenshotFilenameDescription:
+    "Por exemplo `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`. Isso define os nomes dos arquivos de captura.",
+  schemaCaptureSourcesScreenshotFilenameTitle: 'Modelo de nome do anexo',
+  schemaCaptureSourcesScreenshotLocationDescription:
+    'Por exemplo `./assets/${noteFileName}`. Isso define onde os anexos de captura são salvos.',
+  schemaCaptureSourcesScreenshotLocationTitle: 'Modelo de localização do anexo',
+  schemaCaptureSourcesSupportedPlatformsDescription:
+    'Os sites de IA compatíveis aparecem aqui para confirmar rapidamente a cobertura.',
   schemaCaptureSourcesTitle: 'Fontes de captura',
+  schemaCaptureSourcesUserDisplayNameDescription:
+    'Controle o nome exibido das mensagens do usuário nas conversas com IA exportadas.',
+  schemaCaptureSourcesUserDisplayNamePreview: 'É exibido por padrão como `{label}`.',
   schemaCaptureSourcesVideoGroupTitle: 'Vídeo',
+  schemaCaptureSourcesVideoPromptEntryDescription:
+    'Configure a entrada de notas mostrada nos players de vídeo compatíveis.',
+  schemaCaptureSourcesVideoPromptEntryTitle: 'Aviso e entrada de vídeo',
+  schemaCaptureSourcesVideoPromptHelper:
+    'Pontos cinza significam que ainda não há captura salva para esse timestamp. Pontos verdes significam que uma captura já está anexada.',
   schemaCommonDisabledState: 'Desativado',
   schemaCommonEnabledState: 'Ativado',
   schemaCommonFieldColumnLabel: 'Field',
@@ -361,14 +399,26 @@ const runtime = {
     'Mostrar uma entrada de tradução de legendas no modo de vídeo.',
   schemaExperimentalSubtitleToggleTitle: 'Ativar tradução de legendas em páginas de vídeo',
   schemaExperimentalTitle: 'Experimental',
+  schemaMaintenanceConfigurationDiagnosisDescription:
+    'Verifique conexões, modelos, roteamento e configurações de captura.',
+  schemaMaintenanceConfigurationTransferDescription:
+    'Copie e importe a configuração entre navegadores.',
+  schemaMaintenanceConfigurationTransferTitle: 'Transferência de configuração',
   schemaMaintenanceDiagnosisButton: 'Diagnosticar configuração',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnóstico',
+  schemaMaintenanceDiagnosisScopeDescription:
+    'REST API, modelos de caminho, mapeamentos de domínio, roteamento multi-vault, configurações de contexto de fragmento e prompts de vídeo devem aparecer no relatório.',
+  schemaMaintenanceDiagnosisScopeTitle: 'Escopo do diagnóstico',
   schemaMaintenanceFixButton: 'Corrigir configuração',
   schemaMaintenanceHeroDescription: 'Transferir a configuração e executar diagnósticos.',
   schemaMaintenanceReloadButton: 'Recarregar',
+  schemaMaintenanceRepairLogTitle: 'Reparar configuração',
   schemaMaintenanceTitle: 'Manutenção',
   schemaMaintenanceTransferCopyButton: 'Copiar configuração',
   schemaMaintenanceTransferGroupTitle: 'Transferência',
+  schemaMaintenanceTransferHelperDescription:
+    'Copiar exporta a configuração atual. Importar lê o JSON da configuração da área de transferência, valida e salva.',
+  schemaMaintenanceTransferHelperTitle: 'Método de transferência',
   schemaMaintenanceTransferImportButton: 'Importar e salvar',
   schemaMaintenanceTransferLastActionNoticeTitle: 'Última ação de transferência',
   schemaMaintenanceTransferLogCopySuccess: 'cópia concluída',
@@ -380,25 +430,64 @@ const runtime = {
   schemaNavOutputHint: 'Modelos, mapeamentos e YAML',
   schemaNavOverviewHint: 'Uso, idioma e privacidade',
   schemaNavStorageHint: 'Cofres e roteamento',
+  schemaOutputAddMappingButton: 'Adicionar mapeamento',
+  schemaOutputDomainColumnLabel: 'Domínio',
   schemaOutputDomainMappingsGroupTitle: 'Nomes de domínio',
+  schemaOutputDomainNotesColumnLabel: 'Notas',
+  schemaOutputDomainOverrideLabel: 'Sobrescrever domínio',
+  schemaOutputFolderAliasColumnLabel: 'Apelido da pasta',
   schemaOutputHeroDescription: 'Modelos, nomes de domínio e campos YAML.',
+  schemaOutputPathTemplatesDescription:
+    'Configure os caminhos de salvamento de cada fluxo de exportação.',
+  schemaOutputTemplateHelperText:
+    'Foque um campo de caminho acima e depois clique em um token abaixo para inseri-lo rapidamente.',
   schemaOutputTemplatesGroupTitle: 'Modelos',
   schemaOutputTitle: 'Saída e metadados',
   schemaOutputYamlGroupTitle: 'Esquema YAML',
+  schemaOutputYamlHelperText:
+    'Use o editor estruturado acima como o único lugar para gerenciar campos, alternâncias por tipo de conteúdo, campos personalizados e sobrescritas de domínio.',
+  schemaOutputYamlPreviewSummaryLabel: 'Pré-visualização',
+  schemaOverviewClearUsageDataButton: 'Limpar dados de uso',
+  schemaOverviewDebugModeAvailableState: 'Pronto',
+  schemaOverviewDebugModeDevOnlyBadge: 'Somente dev',
+  schemaOverviewDebugModePrerequisiteState: 'Pré-requisitos necessários',
   schemaOverviewHeroDescription:
     'Visão geral de uso, idioma da interface e controles de privacidade.',
   schemaOverviewInterfaceGroupTitle: 'Interface',
   schemaOverviewLanguageRowDescription:
     'Trocar o idioma recarrega o texto formal das configurações.',
   schemaOverviewLanguageRowTitle: 'Idioma da interface',
+  schemaOverviewOpenDiagnosisButton: 'Abrir diagnóstico',
   schemaOverviewPrivacyGroupTitle: 'Privacidade e dados',
+  schemaOverviewPrivacyReferenceTitle: 'O que esses dados significam',
+  schemaOverviewThemeDarkOption: 'Escuro',
+  schemaOverviewThemeLightOption: 'Claro',
+  schemaOverviewThemeRowTitle: 'Tema da interface',
+  schemaOverviewThemeSystemOption: 'Sistema',
   schemaOverviewTitle: 'Visão geral',
   schemaOverviewUsageGroupTitle: 'Visão geral de uso',
   schemaReadingPathModeArticleLabel: 'Mesmo caminho que o artigo',
   schemaReadingPathModeCustomLabel: 'Caminho personalizado',
   schemaReadingPathModeFragmentLabel: 'Mesmo caminho que o fragmento',
+  schemaRendererHighlightExamplePrefix: 'As notas exportadas podem ficar assim: ',
+  schemaRendererHighlightExampleSuffix: ' para revisá-las com facilidade depois.',
+  schemaRendererHighlightExampleText: 'trechos destacados',
+  schemaRendererResourceOpenAction: 'Abrir',
+  schemaRendererResourcePendingBadge: 'Pendente',
+  schemaResourceChangelogDescription:
+    'Este modal destaca as atualizações mais recentes publicadas no changelog do projeto.',
   schemaResourceChangelogHint: 'Atualizações recentes',
   schemaResourceChangelogTitle: 'Registro de mudanças',
+  schemaResourceChangelogV010Bullet1: 'Foi lançado o fluxo básico de recorte de páginas web.',
+  schemaResourceChangelogV010Bullet2: 'Integração com a Obsidian Local REST API.',
+  schemaResourceChangelogV010Bullet3:
+    'Foi adicionado suporte a modelos de caminho, mapeamento de domínio e exportação de chats com IA em várias plataformas.',
+  schemaResourceChangelogV020Bullet1:
+    'Foram adicionados campos de URL duplos para configurar separadamente os endpoints HTTPS e HTTP.',
+  schemaResourceChangelogV020Bullet2:
+    'Quando o endpoint ativo falha, a extensão agora tenta novamente em outros protocolos e portas.',
+  schemaResourceChangelogV020Bullet3:
+    'Os testes de conexão e a saída de logs foram ampliados para facilitar o diagnóstico.',
   schemaResourceContactChannelsGroupTitle: 'Canais públicos',
   schemaResourceContactDescription:
     'Se você aprecia este produto ou quer se conectar, <br>sinta-se à vontade para entrar em contato no <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a>.<br>O autor está atualmente procurando trabalho—obrigado por espalhar a palavra!',
@@ -413,7 +502,20 @@ const runtime = {
   schemaResourceContactWechatDescription: 'Lefeaker',
   schemaResourceContactWechatNote: 'Informe de onde você veio.',
   schemaResourceContactWechatTitle: 'WeChat',
+  schemaResourceDataUsageAnonymousUsageBody:
+    'Os totais do Usage Dashboard são calculados a partir de contadores locais para que você revise rapidamente a atividade dos recursos.',
+  schemaResourceDataUsageAnonymousUsageTitle: 'Contagens anônimas de uso',
+  schemaResourceDataUsageConfigMigrationBody:
+    'As ferramentas de copiar/importar leem o JSON da configuração da área de transferência, validam localmente e salvam o resultado mesclado.',
+  schemaResourceDataUsageConfigMigrationTitle: 'Migração de configuração',
+  schemaResourceDataUsageDescription:
+    'Entenda como métricas de uso, relatórios de erro e recursos de transferência de configuração usam dados locais ou anônimos.',
+  schemaResourceDataUsageTitle: 'Uso de dados',
+  schemaResourceOnboardingDescription:
+    'Este conteúdo espelha o fluxo atual de onboarding em vez de texto provisório.',
+  schemaResourceOnboardingGuideFlowTitle: 'Fluxo do guia',
   schemaResourceOnboardingHint: 'Abrir guia de introdução',
+  schemaResourceOnboardingStepsTitle: 'Etapas de onboarding',
   schemaResourceOnboardingTitle: 'Introdução',
   schemaResourcePluginSetupChecklist1:
     'O Obsidian está em execução e o Local REST API está ativado.',
@@ -441,6 +543,12 @@ const runtime = {
   schemaResourcePluginSetupStep5:
     'Execute o teste de conexão antes de salvar mais regras de roteamento.',
   schemaResourcePluginSetupTitle: 'Configuração do plugin',
+  schemaResourcePrivacyLocalConfigBody:
+    'Nomes de vault, regras de roteamento, modelos e configuração importada permanecem no perfil atual do navegador, a menos que você os exporte manualmente.',
+  schemaResourcePrivacyLocalConfigTitle: 'Configuração local',
+  schemaResourcePrivacyPolicyDescription:
+    'Veja quais dados a extensão processa, o que ela nunca coleta e como desativar os recursos relacionados.',
+  schemaResourcePrivacyPolicyTitle: 'Política de privacidade',
   schemaResourcesGroupTitle: 'Recursos',
   schemaResourceSuggestionsChannelsGroupTitle: 'Canais de feedback',
   schemaResourceSuggestionsDescription:
@@ -473,10 +581,64 @@ const runtime = {
     'Esclarecimentos sobre privacidade, permissões e segurança de dados.',
   schemaResourceSupportScopeGroupTitle: 'Escopo de suporte',
   schemaResourceSupportTitle: 'Apoio',
+  schemaRuntimeAiSummaryBadge: 'Resumo de IA',
+  schemaRuntimeClipperDescription:
+    'O diálogo que aparece depois que o usuário seleciona texto em uma página web.',
+  schemaRuntimeClipperHint: 'Janela de seleção em páginas da web',
+  schemaRuntimeClipperTitle: 'Diálogo de recorte',
+  schemaRuntimeReaderDescription:
+    'Painel flutuante de leitura com listas reais de destaques e edição de notas em linha.',
+  schemaRuntimeReaderHint: 'Painel flutuante de leitura',
+  schemaRuntimeReaderTitle: 'Modo de leitura',
+  schemaRuntimeSurfaceConfigureVaultLabel: 'Configurar vault',
+  schemaRuntimeSurfaceSaveToLabel: 'Salvar em',
+  schemaRuntimeTaskSuccessDescription: 'Aviso de sucesso exibido quando o salvamento termina.',
+  schemaRuntimeTaskSuccessHint: 'Aviso de sucesso e modal de feedback',
+  schemaRuntimeTaskSuccessTitle: 'Tarefa concluída',
+  schemaRuntimeUiGroupTitle: 'Interface em tempo real',
+  schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar screenshot',
+  schemaRuntimeVideoDescription:
+    'Painel de notas de vídeo baseado em timestamps, fragmentos capturados e comentários.',
+  schemaRuntimeVideoFloatingPromptHint: 'Bolha de entrada em páginas de vídeo',
+  schemaRuntimeVideoFloatingPromptTitle: 'Aviso flutuante de vídeo',
+  schemaRuntimeVideoHint: 'Painel de captura de vídeo',
+  schemaRuntimeVideoRemoveScreenshotLabel: 'Remover screenshot',
+  schemaRuntimeVideoTitle: 'Modo de vídeo',
   schemaSidebarSettingsGroupTitle: 'Configurações',
+  schemaStorageAddRuleButton: 'Adicionar regra',
+  schemaStorageAddVaultButton: 'Adicionar vault',
+  schemaStorageConnectionNoticeTitle: 'Resultado do teste de conexão',
+  schemaStorageConnectionNotRun: 'O teste de conexão ainda não foi executado.',
+  schemaStorageConnectionUrlNotConfigured: 'Nenhuma URL de {label} configurada',
   schemaStorageHeroDescription: 'Gerencie conexões do cofre e regras de roteamento.',
+  schemaStorageLocalFolderAuthorizeWarningBody:
+    'Não foi possível autorizar uma pasta local. Esse recurso é compatível com Chromium. Até a permissão ser concedida, o Zendio continuará usando a REST API.',
+  schemaStorageLocalFolderAuthorizeWarningTitle: 'Pasta local',
+  schemaStorageLocalFolderChooseAction: 'Escolher pasta local',
+  schemaStorageLocalFolderDeleteAction: 'Excluir pasta local',
+  schemaStorageLocalFolderLabel: 'Pasta local',
+  schemaStorageLocalFolderManageAction: 'Gerenciar pasta local',
+  schemaStorageLocalFolderNotConfigured: 'Pasta local não configurada',
+  schemaStorageLocalFolderPermissionConfirmedBody:
+    '"{vaultName}" está pronto para gravações locais.',
+  schemaStorageLocalFolderPermissionConfirmedTitle: 'Permissão da pasta local confirmada',
+  schemaStorageLocalFolderReauthorizeBody:
+    'O Chrome redefiniu a permissão da pasta local de "{vaultName}". Clique na pasta novamente e permita leitura e gravação no aviso do navegador. Até lá, o envio voltará para a REST API.',
+  schemaStorageLocalFolderReauthorizeFallbackBody:
+    'O Chrome não conseguiu restaurar agora essa permissão da pasta local. Selecione a pasta novamente ou continue com a REST API.',
+  schemaStorageLocalFolderReauthorizeTitle: 'A pasta local precisa de permissão novamente',
+  schemaStorageLocalFolderRecommendation:
+    'Recomendamos usar Local Folder primeiro. O acesso à REST API é fornecido pelo plugin Obsidian Local REST API with MCP.',
+  schemaStorageNoEnabledVaults: 'Não há vaults habilitados disponíveis para teste.',
   schemaStorageRoutingGroupTitle: 'Motor de roteamento',
+  schemaStorageRoutingTipBody:
+    'Regras com prioridade mais alta correspondem primeiro. Cada regra pode ser editada em linha sem precisar ser excluída.',
+  schemaStorageRoutingTipTitle: 'Dicas de roteamento',
+  schemaStorageTestConnectionButton: 'Testar conexão',
   schemaStorageTitle: 'Armazenamento',
+  schemaStorageVaultListDescription:
+    'A primeira linha é o vault padrão. As demais linhas são vaults adicionais.',
+  schemaStorageVaultListTitle: 'Lista de vaults',
   schemaStorageVaultsGroupTitle: 'Cofres',
   schemaYamlFilterAiChatLabel: 'Chat IA',
   schemaYamlFilterAllLabel: 'All',

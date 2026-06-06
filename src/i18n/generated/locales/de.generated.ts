@@ -330,15 +330,53 @@ const runtime = {
   schemaAiPlatformKimiName: 'Kimi',
   schemaAiPlatformMonicaName: 'Monica',
   schemaAiPlatformTongyiName: 'Tongyi',
+  schemaCaptureBehaviorCaptureContextTitle: 'Kontext erfassen',
+  schemaCaptureBehaviorContextLengthFieldLabel: 'Kontextlänge',
+  schemaCaptureBehaviorContextModeCharsOption: 'Zeichen',
+  schemaCaptureBehaviorContextModeFieldLabel: 'Kontexteinheit',
+  schemaCaptureBehaviorContextModeSentencesOption: 'Sätze',
   schemaCaptureBehaviorFragmentGroupTitle: 'Fragment-Clipping',
   schemaCaptureBehaviorHeroDescription: 'Verhalten für Lesemodus und Fragment-Clipping.',
+  schemaCaptureBehaviorModifierConflictBrowser:
+    '{label} kann mit Browser- oder Seitentastenkürzeln kollidieren. Verwenden Sie bei instabilem Verhalten Shift.',
+  schemaCaptureBehaviorModifierConflictSystem:
+    '{label} kann mit System-, Browser- oder Seitentastenkürzeln kollidieren. Verwenden Sie bei instabilem Verhalten Shift.',
   schemaCaptureBehaviorReadingGroupTitle: 'Lesemodus',
+  schemaCaptureBehaviorSidebarHighlightsNote:
+    'Gespeicherte Hervorhebungen funktionieren am besten mit dem Obsidian-Plugin Sidebar Highlights.',
   schemaCaptureBehaviorTitle: 'Erfassungsverhalten',
   schemaCaptureSourcesAiChatGroupTitle: 'KI-Chat',
+  schemaCaptureSourcesAiConversationDescription:
+    'Konfigurieren Sie Abdeckung und Anzeigeverhalten für KI-Chat-Exporte.',
+  schemaCaptureSourcesAiConversationTitle: 'KI-Gesprächserfassung',
+  schemaCaptureSourcesAiSupportedPlatformsBadge: '8 unterstützte Plattformen',
+  schemaCaptureSourcesAutoPauseDescription:
+    'Wenn aktiviert, pausiert das aktuelle Video, während Sie in Video Mode eine Zeitstempel-Notiz bearbeiten.',
+  schemaCaptureSourcesAutoPauseTitle: 'Video beim Bearbeiten von Notizen pausieren',
   schemaCaptureSourcesDeepResearchGroupTitle: 'Deep Research',
   schemaCaptureSourcesHeroDescription: 'Konfigurieren Sie quellspezifische Erfassungsverhalten.',
+  schemaCaptureSourcesMarkdownUrlDescription:
+    'Leer lassen, um das Standardformat zu verwenden, oder eine Markdown-Linkvorlage für den aktuellen Exportfluss angeben.',
+  schemaCaptureSourcesMarkdownUrlTitle: 'Markdown-URL-Format',
+  schemaCaptureSourcesPreviewFieldLabel: 'Vorschau',
+  schemaCaptureSourcesScreenshotFilenameDescription:
+    "Zum Beispiel `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`. Damit werden Screenshot-Dateinamen festgelegt.",
+  schemaCaptureSourcesScreenshotFilenameTitle: 'Vorlage für Dateinamen von Anhängen',
+  schemaCaptureSourcesScreenshotLocationDescription:
+    'Zum Beispiel `./assets/${noteFileName}`. Damit wird festgelegt, wo Screenshot-Anhänge gespeichert werden.',
+  schemaCaptureSourcesScreenshotLocationTitle: 'Vorlage für den Speicherort von Anhängen',
+  schemaCaptureSourcesSupportedPlatformsDescription:
+    'Hier werden unterstützte KI-Websites angezeigt, damit die Abdeckung schnell überprüft werden kann.',
   schemaCaptureSourcesTitle: 'Erfassungsquellen',
+  schemaCaptureSourcesUserDisplayNameDescription:
+    'Steuern Sie den Anzeigenamen für Benutzernachrichten in exportierten KI-Gesprächen.',
+  schemaCaptureSourcesUserDisplayNamePreview: 'Wird standardmäßig als `{label}` angezeigt.',
   schemaCaptureSourcesVideoGroupTitle: 'Video',
+  schemaCaptureSourcesVideoPromptEntryDescription:
+    'Konfigurieren Sie den Notizeinstieg, der in unterstützten Videoplayern angezeigt wird.',
+  schemaCaptureSourcesVideoPromptEntryTitle: 'Videohinweis und Einstieg',
+  schemaCaptureSourcesVideoPromptHelper:
+    'Graue Punkte bedeuten, dass für diesen Zeitstempel noch kein Screenshot gespeichert wurde. Grüne Punkte bedeuten, dass bereits ein Screenshot angehängt ist.',
   schemaCommonDisabledState: 'Deaktiviert',
   schemaCommonEnabledState: 'Aktiviert',
   schemaCommonFieldColumnLabel: 'Field',
@@ -366,14 +404,26 @@ const runtime = {
     'Zeigen Sie im Videomodus einen Einstieg für Untertitelübersetzung an.',
   schemaExperimentalSubtitleToggleTitle: 'Untertitelübersetzung auf Videoseiten aktivieren',
   schemaExperimentalTitle: 'Experimentell',
+  schemaMaintenanceConfigurationDiagnosisDescription:
+    'Prüfen Sie Verbindungen, Vorlagen, Routing und Erfassungseinstellungen.',
+  schemaMaintenanceConfigurationTransferDescription:
+    'Konfiguration zwischen Browsern kopieren und importieren.',
+  schemaMaintenanceConfigurationTransferTitle: 'Konfigurationsübertragung',
   schemaMaintenanceDiagnosisButton: 'Konfiguration diagnostizieren',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnose',
+  schemaMaintenanceDiagnosisScopeDescription:
+    'REST API, Pfadvorlagen, Domain-Zuordnungen, Multi-Vault-Routing, Fragment-Kontexteinstellungen und Video-Prompts sollten alle im Bericht erscheinen.',
+  schemaMaintenanceDiagnosisScopeTitle: 'Diagnoseumfang',
   schemaMaintenanceFixButton: 'Konfiguration reparieren',
   schemaMaintenanceHeroDescription: 'Konfiguration übertragen und Diagnose ausführen.',
   schemaMaintenanceReloadButton: 'Neu laden',
+  schemaMaintenanceRepairLogTitle: 'Konfiguration reparieren',
   schemaMaintenanceTitle: 'Wartung',
   schemaMaintenanceTransferCopyButton: 'Konfiguration kopieren',
   schemaMaintenanceTransferGroupTitle: 'Transfer',
+  schemaMaintenanceTransferHelperDescription:
+    'Kopieren exportiert die aktuelle Konfiguration. Importieren liest Konfigurations-JSON aus der Zwischenablage, prüft sie und speichert sie.',
+  schemaMaintenanceTransferHelperTitle: 'Übertragungsmethode',
   schemaMaintenanceTransferImportButton: 'Importieren und speichern',
   schemaMaintenanceTransferLastActionNoticeTitle: 'Letzte Transferaktion',
   schemaMaintenanceTransferLogCopySuccess: 'Kopieren abgeschlossen',
@@ -385,24 +435,62 @@ const runtime = {
   schemaNavOutputHint: 'Vorlagen, Zuordnungen und YAML',
   schemaNavOverviewHint: 'Nutzung, Sprache und Datenschutz',
   schemaNavStorageHint: 'Tresore und Routing',
+  schemaOutputAddMappingButton: 'Zuordnung hinzufügen',
+  schemaOutputDomainColumnLabel: 'Domain',
   schemaOutputDomainMappingsGroupTitle: 'Domain-Namen',
+  schemaOutputDomainNotesColumnLabel: 'Notizen',
+  schemaOutputDomainOverrideLabel: 'Domain-Override',
+  schemaOutputFolderAliasColumnLabel: 'Ordneralias',
   schemaOutputHeroDescription: 'Vorlagen, Domain-Namen und YAML-Felder.',
+  schemaOutputPathTemplatesDescription: 'Konfigurieren Sie Speicherpfade für jeden Exportfluss.',
+  schemaOutputTemplateHelperText:
+    'Fokussieren Sie oben ein Pfadfeld und klicken Sie dann unten auf ein Token, um es schnell einzufügen.',
   schemaOutputTemplatesGroupTitle: 'Vorlagen',
   schemaOutputTitle: 'Ausgabe & Metadaten',
   schemaOutputYamlGroupTitle: 'YAML-Schema',
+  schemaOutputYamlHelperText:
+    'Verwenden Sie den strukturierten Editor oben als zentrale Stelle für Felder, Inhaltstyp-Schalter, benutzerdefinierte Felder und Domain-Overrides.',
+  schemaOutputYamlPreviewSummaryLabel: 'Vorschau',
+  schemaOverviewClearUsageDataButton: 'Nutzungsdaten löschen',
+  schemaOverviewDebugModeAvailableState: 'Bereit',
+  schemaOverviewDebugModeDevOnlyBadge: 'Nur Entwicklung',
+  schemaOverviewDebugModePrerequisiteState: 'Voraussetzungen erforderlich',
   schemaOverviewHeroDescription: 'Nutzungsübersicht, Oberflächensprache und Datenschutzsteuerung.',
   schemaOverviewInterfaceGroupTitle: 'Oberfläche',
   schemaOverviewLanguageRowDescription:
     'Beim Sprachwechsel wird der formale Einstellungstext neu geladen.',
   schemaOverviewLanguageRowTitle: 'Oberflächensprache',
+  schemaOverviewOpenDiagnosisButton: 'Diagnose öffnen',
   schemaOverviewPrivacyGroupTitle: 'Datenschutz und Daten',
+  schemaOverviewPrivacyReferenceTitle: 'Was diese Daten bedeuten',
+  schemaOverviewThemeDarkOption: 'Dunkel',
+  schemaOverviewThemeLightOption: 'Hell',
+  schemaOverviewThemeRowTitle: 'Oberflächendesign',
+  schemaOverviewThemeSystemOption: 'System',
   schemaOverviewTitle: 'Übersicht',
   schemaOverviewUsageGroupTitle: 'Nutzungsübersicht',
   schemaReadingPathModeArticleLabel: 'Gleicher Pfad wie Artikel',
   schemaReadingPathModeCustomLabel: 'Benutzerdefinierter Pfad',
   schemaReadingPathModeFragmentLabel: 'Gleicher Pfad wie Fragment',
+  schemaRendererHighlightExamplePrefix: 'Exportierte Notizen können so aussehen: ',
+  schemaRendererHighlightExampleSuffix: ', damit sie später leichter wiederzufinden sind.',
+  schemaRendererHighlightExampleText: 'hervorgehobene Passagen',
+  schemaRendererResourceOpenAction: 'Öffnen',
+  schemaRendererResourcePendingBadge: 'Ausstehend',
+  schemaResourceChangelogDescription:
+    'Dieses Modal zeigt die wichtigsten zuletzt veröffentlichten Änderungen aus dem Projekt-Changelog.',
   schemaResourceChangelogHint: 'Neueste Aktualisierungen',
   schemaResourceChangelogTitle: 'Änderungsprotokoll',
+  schemaResourceChangelogV010Bullet1: 'Der grundlegende Web-Clipping-Ablauf wurde veröffentlicht.',
+  schemaResourceChangelogV010Bullet2: 'Obsidian Local REST API wurde integriert.',
+  schemaResourceChangelogV010Bullet3:
+    'Unterstützung für Pfadvorlagen, Domain-Mapping und den Export von KI-Chats über mehrere Plattformen wurde hinzugefügt.',
+  schemaResourceChangelogV020Bullet1:
+    'Es wurden zwei URL-Felder hinzugefügt, damit HTTPS- und HTTP-Endpunkte getrennt konfiguriert werden können.',
+  schemaResourceChangelogV020Bullet2:
+    'Wenn der aktive Endpunkt fehlschlägt, versucht die Erweiterung nun automatisch andere Protokolle und Ports.',
+  schemaResourceChangelogV020Bullet3:
+    'Verbindungstests und Protokollausgaben wurden erweitert, damit die Fehlersuche klarer wird.',
   schemaResourceContactChannelsGroupTitle: 'Öffentliche Kanäle',
   schemaResourceContactDescription:
     'Wenn Sie dieses Produkt schätzen oder sich verbinden möchten, <br>zögern Sie nicht, auf <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">reddit</a> Kontakt aufzunehmen.<br>Der Autor sucht derzeit nach Arbeit—danke fürs Weitererzählen!',
@@ -417,7 +505,20 @@ const runtime = {
   schemaResourceContactWechatDescription: 'Lefeaker',
   schemaResourceContactWechatNote: 'Bitte erwähnen Sie, woher Sie kommen.',
   schemaResourceContactWechatTitle: 'WeChat',
+  schemaResourceDataUsageAnonymousUsageBody:
+    'Die Summen im Usage Dashboard werden aus lokalen Zählern berechnet, damit Sie die Nutzung einzelner Funktionen schnell prüfen können.',
+  schemaResourceDataUsageAnonymousUsageTitle: 'Anonyme Nutzungszähler',
+  schemaResourceDataUsageConfigMigrationBody:
+    'Die Werkzeuge zum Kopieren und Importieren lesen Konfigurations-JSON aus der Zwischenablage, validieren sie lokal und speichern das zusammengeführte Ergebnis.',
+  schemaResourceDataUsageConfigMigrationTitle: 'Konfigurationsmigration',
+  schemaResourceDataUsageDescription:
+    'Erfahren Sie, wie Nutzungsmetriken, Fehlerberichte und Konfigurationsübertragungen lokale oder anonyme Daten verwenden.',
+  schemaResourceDataUsageTitle: 'Datennutzung',
+  schemaResourceOnboardingDescription:
+    'Dieser Inhalt spiegelt den aktuellen Onboarding-Ablauf wider und ist kein Platzhalter mehr.',
+  schemaResourceOnboardingGuideFlowTitle: 'Ablauf der Anleitung',
   schemaResourceOnboardingHint: 'Einführungsanleitung öffnen',
+  schemaResourceOnboardingStepsTitle: 'Onboarding-Schritte',
   schemaResourceOnboardingTitle: 'Einführung',
   schemaResourcePluginSetupChecklist1: 'Obsidian läuft und Local REST API ist aktiviert.',
   schemaResourcePluginSetupChecklist2:
@@ -448,6 +549,12 @@ const runtime = {
   schemaResourcePluginSetupStep5:
     'Führen Sie den Verbindungstest aus, bevor Sie weitere Routing-Regeln speichern.',
   schemaResourcePluginSetupTitle: 'Plugin-Einrichtung',
+  schemaResourcePrivacyLocalConfigBody:
+    'Vault-Namen, Routing-Regeln, Vorlagen und importierte Konfigurationen bleiben im aktuellen Browserprofil, sofern Sie sie nicht selbst exportieren.',
+  schemaResourcePrivacyLocalConfigTitle: 'Lokale Konfiguration',
+  schemaResourcePrivacyPolicyDescription:
+    'Erfahren Sie, welche Daten die Erweiterung verarbeitet, welche sie niemals erfasst und wie sich die entsprechenden Funktionen deaktivieren lassen.',
+  schemaResourcePrivacyPolicyTitle: 'Datenschutzerklärung',
   schemaResourcesGroupTitle: 'Ressourcen',
   schemaResourceSuggestionsChannelsGroupTitle: 'Feedback-Kanäle',
   schemaResourceSuggestionsDescription:
@@ -478,10 +585,64 @@ const runtime = {
   schemaResourceSupportScope4: 'Hinweise zu Datenschutz, Berechtigungen und Datensicherheit.',
   schemaResourceSupportScopeGroupTitle: 'Unterstützungsumfang',
   schemaResourceSupportTitle: 'Unterstützung',
+  schemaRuntimeAiSummaryBadge: 'KI-Zusammenfassung',
+  schemaRuntimeClipperDescription:
+    'Der Dialog, den Nutzer nach dem Markieren von Text auf einer Webseite sehen.',
+  schemaRuntimeClipperHint: 'Auswahldialog auf Webseiten',
+  schemaRuntimeClipperTitle: 'Clipper-Dialog',
+  schemaRuntimeReaderDescription:
+    'Schwebendes Lesepanel mit echten Hervorhebungslisten und Inline-Notizbearbeitung.',
+  schemaRuntimeReaderHint: 'Schwebendes Lesepanel',
+  schemaRuntimeReaderTitle: 'Lesemodus',
+  schemaRuntimeSurfaceConfigureVaultLabel: 'Vault konfigurieren',
+  schemaRuntimeSurfaceSaveToLabel: 'Speichern in',
+  schemaRuntimeTaskSuccessDescription: 'Erfolgshinweis, der nach dem Speichern angezeigt wird.',
+  schemaRuntimeTaskSuccessHint: 'Erfolgshinweis und Feedback-Modal',
+  schemaRuntimeTaskSuccessTitle: 'Erfolgreich abgeschlossen',
+  schemaRuntimeUiGroupTitle: 'Laufzeitoberfläche',
+  schemaRuntimeVideoCaptureScreenshotLabel: 'Screenshot aufnehmen',
+  schemaRuntimeVideoDescription:
+    'Videonotiz-Panel rund um Zeitmarken, erfasste Fragmente und Kommentare.',
+  schemaRuntimeVideoFloatingPromptHint: 'Einstiegsblase auf Videoseiten',
+  schemaRuntimeVideoFloatingPromptTitle: 'Schwebender Videohinweis',
+  schemaRuntimeVideoHint: 'Videonotiz-Panel',
+  schemaRuntimeVideoRemoveScreenshotLabel: 'Screenshot entfernen',
+  schemaRuntimeVideoTitle: 'Videomodus',
   schemaSidebarSettingsGroupTitle: 'Einstellungen',
+  schemaStorageAddRuleButton: 'Regel hinzufügen',
+  schemaStorageAddVaultButton: 'Vault hinzufügen',
+  schemaStorageConnectionNoticeTitle: 'Ergebnis des Verbindungstests',
+  schemaStorageConnectionNotRun: 'Der Verbindungstest wurde noch nicht ausgeführt.',
+  schemaStorageConnectionUrlNotConfigured: 'Keine {label}-URL konfiguriert',
   schemaStorageHeroDescription: 'Verwalten Sie Tresorverbindungen und Routing-Regeln.',
+  schemaStorageLocalFolderAuthorizeWarningBody:
+    'Der lokale Ordner konnte nicht autorisiert werden. Diese Funktion wird von Chromium unterstützt. Bis die Berechtigung erteilt wird, verwendet Zendio weiterhin die REST API.',
+  schemaStorageLocalFolderAuthorizeWarningTitle: 'Lokaler Ordner',
+  schemaStorageLocalFolderChooseAction: 'Lokalen Ordner auswählen',
+  schemaStorageLocalFolderDeleteAction: 'Lokalen Ordner löschen',
+  schemaStorageLocalFolderLabel: 'Lokaler Ordner',
+  schemaStorageLocalFolderManageAction: 'Lokalen Ordner verwalten',
+  schemaStorageLocalFolderNotConfigured: 'Lokaler Ordner nicht konfiguriert',
+  schemaStorageLocalFolderPermissionConfirmedBody:
+    '"{vaultName}" ist für lokale Schreibvorgänge bereit.',
+  schemaStorageLocalFolderPermissionConfirmedTitle: 'Berechtigung für lokalen Ordner bestätigt',
+  schemaStorageLocalFolderReauthorizeBody:
+    'Chrome hat die Berechtigung für den lokalen Ordner "{vaultName}" zurückgesetzt. Klicken Sie den Ordner erneut an und erlauben Sie Lese-/Schreibzugriff im Browserdialog. Bis dahin wird auf die REST API zurückgegriffen.',
+  schemaStorageLocalFolderReauthorizeFallbackBody:
+    'Chrome konnte diese Berechtigung für den lokalen Ordner momentan nicht wiederherstellen. Wählen Sie den Ordner erneut aus oder verwenden Sie weiterhin die REST API.',
+  schemaStorageLocalFolderReauthorizeTitle: 'Lokaler Ordner benötigt erneut eine Berechtigung',
+  schemaStorageLocalFolderRecommendation:
+    'Local Folder wird zuerst empfohlen. Der REST-API-Zugriff wird durch das Obsidian-Plugin Local REST API with MCP bereitgestellt.',
+  schemaStorageNoEnabledVaults: 'Es sind keine aktivierten Vaults zum Testen verfügbar.',
   schemaStorageRoutingGroupTitle: 'Routing-Engine',
+  schemaStorageRoutingTipBody:
+    'Regeln mit höherer Priorität werden zuerst abgeglichen. Jede Regel kann inline bearbeitet werden, ohne sie vorher zu löschen.',
+  schemaStorageRoutingTipTitle: 'Routing-Hinweise',
+  schemaStorageTestConnectionButton: 'Verbindung testen',
   schemaStorageTitle: 'Speicher',
+  schemaStorageVaultListDescription:
+    'Die erste Zeile ist der Standard-Vault. Die übrigen Zeilen sind zusätzliche Vaults.',
+  schemaStorageVaultListTitle: 'Vault-Liste',
   schemaStorageVaultsGroupTitle: 'Tresore',
   schemaYamlFilterAiChatLabel: 'KI-Chat',
   schemaYamlFilterAllLabel: 'All',
