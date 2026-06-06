@@ -4,7 +4,7 @@ import { optionsErrors } from '../../shared/errors';
 type ConnectionContext = Parameters<typeof optionsErrors.connectionInProgress>[0];
 
 export function validateChannelResult(
-  channel: unknown,
+  channel: Partial<ConnectionChannelResult> | null | undefined,
   context: ConnectionContext,
   index: number
 ): ConnectionChannelResult {
@@ -15,49 +15,48 @@ export function validateChannelResult(
     });
   }
 
-  const candidate = channel as Partial<ConnectionChannelResult>;
-  if (!isConnectionChannel(candidate.channel)) {
+  if (!isConnectionChannel(channel.channel)) {
     throw optionsErrors.responseInvalid(`Channel ${index} has an invalid channel id.`, {
       ...context,
       response: channel
     });
   }
   if (
-    typeof candidate.label !== 'string' ||
-    typeof candidate.configured !== 'boolean' ||
-    typeof candidate.success !== 'boolean' ||
-    typeof candidate.message !== 'string'
+    typeof channel.label !== 'string' ||
+    typeof channel.configured !== 'boolean' ||
+    typeof channel.success !== 'boolean' ||
+    typeof channel.message !== 'string'
   ) {
     throw optionsErrors.responseInvalid(`Channel ${index} is missing required fields.`, {
       ...context,
       response: channel
     });
   }
-  if (candidate.url !== undefined && typeof candidate.url !== 'string') {
+  if (channel.url !== undefined && typeof channel.url !== 'string') {
     throw optionsErrors.responseInvalid(`Channel ${index} field "url" must be a string.`, {
       ...context,
       response: channel
     });
   }
-  if (candidate.status !== undefined && typeof candidate.status !== 'number') {
+  if (channel.status !== undefined && typeof channel.status !== 'number') {
     throw optionsErrors.responseInvalid(`Channel ${index} field "status" must be a number.`, {
       ...context,
       response: channel
     });
   }
-  if (candidate.response !== undefined && typeof candidate.response !== 'string') {
+  if (channel.response !== undefined && typeof channel.response !== 'string') {
     throw optionsErrors.responseInvalid(`Channel ${index} field "response" must be a string.`, {
       ...context,
       response: channel
     });
   }
-  if (candidate.error !== undefined && typeof candidate.error !== 'string') {
+  if (channel.error !== undefined && typeof channel.error !== 'string') {
     throw optionsErrors.responseInvalid(`Channel ${index} field "error" must be a string.`, {
       ...context,
       response: channel
     });
   }
-  if (candidate.certificateUrl !== undefined && typeof candidate.certificateUrl !== 'string') {
+  if (channel.certificateUrl !== undefined && typeof channel.certificateUrl !== 'string') {
     throw optionsErrors.responseInvalid(
       `Channel ${index} field "certificateUrl" must be a string.`,
       {
@@ -68,19 +67,19 @@ export function validateChannelResult(
   }
 
   return {
-    channel: candidate.channel,
-    label: candidate.label,
-    configured: candidate.configured,
-    success: candidate.success,
-    message: candidate.message,
-    ...(candidate.url !== undefined ? { url: candidate.url } : {}),
-    ...(candidate.status !== undefined ? { status: candidate.status } : {}),
-    ...(candidate.response !== undefined ? { response: candidate.response } : {}),
-    ...(candidate.error !== undefined ? { error: candidate.error } : {}),
-    ...(candidate.certificateUrl !== undefined ? { certificateUrl: candidate.certificateUrl } : {})
+    channel: channel.channel,
+    label: channel.label,
+    configured: channel.configured,
+    success: channel.success,
+    message: channel.message,
+    ...(channel.url !== undefined ? { url: channel.url } : {}),
+    ...(channel.status !== undefined ? { status: channel.status } : {}),
+    ...(channel.response !== undefined ? { response: channel.response } : {}),
+    ...(channel.error !== undefined ? { error: channel.error } : {}),
+    ...(channel.certificateUrl !== undefined ? { certificateUrl: channel.certificateUrl } : {})
   };
 }
 
-function isConnectionChannel(channel: unknown): channel is ConnectionChannel {
+function isConnectionChannel(channel: string | undefined): channel is ConnectionChannel {
   return channel === 'localFolder' || channel === 'https' || channel === 'http';
 }

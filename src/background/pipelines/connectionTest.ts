@@ -13,10 +13,8 @@ import type {
   StorageTarget
 } from '../../shared/types/analytics';
 import { bucketDurationMs } from '../../shared/analytics/featureTimer';
-import {
-  executeVaultStorageTargetTest,
-  type ConnectionTestConfig
-} from './vaultConnectionChannels';
+import { executeVaultStorageTargetTest } from './vaultConnectionChannels';
+import type { ConnectionTestConfig } from './vaultConnectionTypes';
 import { summarizeVaultStorageTargetTest } from './connectionTestAnalytics';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';

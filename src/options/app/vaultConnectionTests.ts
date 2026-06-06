@@ -1,19 +1,40 @@
-import type { IMessagingRepository } from '@shared/repositories';
 import type {
   ConnectionChannelResult,
   ConnectionTestResult,
   VaultConnectionTestResult
 } from '@shared/types/connection';
 import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
+import type { RestOptions } from '@shared/types/options';
+import type { TrackUsageEventPayload } from '@shared/types/analytics';
 import {
   emitConnectionTestCompleted,
   requestVaultConnectionTest
 } from '@options/services/connectionTester';
 import { isAppError } from '@shared/errors';
 
+interface ConnectionTestMessage {
+  type: 'TEST_CONNECTION';
+  rest?: Partial<RestOptions>;
+}
+
+interface VaultConnectionTestMessage {
+  type: 'TEST_VAULT_CONNECTION';
+  vaultId: string;
+  vault: VaultConfig;
+}
+
+type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessage;
+
+interface VaultListMessagingRepository {
+  send(
+    message: RuntimeConnectionMessage
+  ): Promise<Partial<ConnectionTestResult> | null | undefined>;
+  send(message: TrackUsageEventPayload): void;
+}
+
 export async function runVaultListConnectionTest(
   router: VaultRouterConfig,
-  messagingRepository: Pick<IMessagingRepository, 'send'>
+  messagingRepository: VaultListMessagingRepository
 ): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
   const vaults = router.vaults.filter((vault, index) => {
@@ -37,10 +58,7 @@ export async function runVaultListConnectionTest(
   const results = await Promise.all(
     vaults.map(async (vault) => {
       try {
-        const result = await requestVaultConnectionTest(
-          vault,
-          messagingRepository as IMessagingRepository
-        );
+        const result = await requestVaultConnectionTest(vault, messagingRepository);
         return toVaultConnectionResult(vault, result);
       } catch (error) {
         const message = formatConnectionError(error);

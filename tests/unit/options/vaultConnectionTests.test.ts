@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runVaultListConnectionTest } from '@options/app/vaultConnectionTests';
-import type { IMessagingRepository } from '@shared/repositories';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
@@ -12,6 +11,15 @@ const LOCAL_CERTIFICATE_URL = new URL(
   '/obsidian-local-rest-api.crt',
   LOCAL_REST_URLS.httpsUrl
 ).toString();
+
+type AnalyticsParams = Record<string, string | number | boolean>;
+type TestMessage = {
+  type?: string;
+  vaultId?: string;
+  event?: string;
+  params?: AnalyticsParams;
+};
+type AnalyticsCall = [TestMessage];
 
 function createRouter(vaults: VaultRouterConfig['vaults']): VaultRouterConfig {
   return {
@@ -53,9 +61,14 @@ function createChannelResult(args: {
 
 describe('runVaultListConnectionTest', () => {
   it('returns an actionable failure when no vaults are available', async () => {
-    const send = vi.fn();
+    const send = vi.fn((message: TestMessage): Promise<ConnectionTestResult> => {
+      return Promise.resolve({
+        success: true,
+        message: message.event ?? 'event recorded'
+      });
+    });
 
-    const result = await runVaultListConnectionTest(createRouter([]), { send } as never);
+    const result = await runVaultListConnectionTest(createRouter([]), { send });
 
     expect(result).toEqual({
       success: false,
@@ -76,7 +89,7 @@ describe('runVaultListConnectionTest', () => {
 
   it('aggregates successful enabled vault results', async () => {
     const send = vi.fn(
-      (message: { vaultId: string }): Promise<ConnectionTestResult> =>
+      (message: TestMessage): Promise<ConnectionTestResult> =>
         Promise.resolve({
           success: true,
           message: `${message.vaultId} ok`,
@@ -112,40 +125,42 @@ describe('runVaultListConnectionTest', () => {
       createVault('disabled', 'Disabled', false)
     ]);
 
-    const result = await runVaultListConnectionTest(router, {
-      send
-    } as unknown as IMessagingRepository);
+    const result = await runVaultListConnectionTest(router, { send });
 
     expect(result.success).toBe(true);
     expect(result.message).toBe('research ok\n\narchive ok');
-    expect(result.vaults).toEqual([
-      expect.objectContaining({
+    expect(
+      result.vaults?.map((vault) => ({
+        vaultId: vault.vaultId,
+        vaultName: vault.vaultName,
+        success: vault.success
+      }))
+    ).toEqual([
+      {
         vaultId: 'research',
         vaultName: 'Research',
-        success: true,
-        channels: expect.arrayContaining([
-          expect.objectContaining({ channel: 'https', success: true })
-        ]) as unknown
-      }),
-      expect.objectContaining({
+        success: true
+      },
+      {
         vaultId: 'archive',
         vaultName: 'Archive',
-        success: true,
-        channels: expect.arrayContaining([
-          expect.objectContaining({ channel: 'https', success: true })
-        ]) as unknown
-      })
+        success: true
+      }
     ]);
-    const connectionCalls = send.mock.calls.filter((call) => {
-      const message = call[0] as { type?: string; vaultId?: string } | undefined;
-      return message?.type === 'TEST_VAULT_CONNECTION';
+    expect(
+      result.vaults?.every((vault) =>
+        vault.channels.some((channel) => channel.channel === 'https' && channel.success)
+      )
+    ).toBe(true);
+    const connectionCalls = send.mock.calls.filter(([message]) => {
+      return message.type === 'TEST_VAULT_CONNECTION';
     });
     expect(connectionCalls).toHaveLength(2);
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ vaultId: 'disabled' }));
   });
 
   it('reports partial failures without hiding successful vaults', async () => {
-    const send = vi.fn((message: { vaultId: string }): Promise<ConnectionTestResult> => {
+    const send = vi.fn((message: TestMessage): Promise<ConnectionTestResult> => {
       if (message.vaultId === 'archive') {
         return Promise.reject(new Error('network denied'));
       }
@@ -159,9 +174,7 @@ describe('runVaultListConnectionTest', () => {
       createVault('archive', 'Archive')
     ]);
 
-    const result = await runVaultListConnectionTest(router, {
-      send
-    } as unknown as IMessagingRepository);
+    const result = await runVaultListConnectionTest(router, { send });
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('research ok');
@@ -181,7 +194,7 @@ describe('runVaultListConnectionTest', () => {
 
   it('preserves per-channel results including the HTTPS certificate action', async () => {
     const send = vi.fn(
-      (message: { vaultId: string }): Promise<ConnectionTestResult> =>
+      (message: TestMessage): Promise<ConnectionTestResult> =>
         Promise.resolve({
           success: false,
           message: `${message.vaultId} partial`,
@@ -221,9 +234,7 @@ describe('runVaultListConnectionTest', () => {
     research.httpsUrl = LOCAL_HTTPS_URL;
     research.httpUrl = LOCAL_HTTP_URL;
 
-    const result = await runVaultListConnectionTest(createRouter([research]), {
-      send
-    } as unknown as IMessagingRepository);
+    const result = await runVaultListConnectionTest(createRouter([research]), { send });
 
     expect(result.success).toBe(false);
     expect(result.vaults).toEqual([
@@ -267,23 +278,18 @@ const FORBIDDEN_ANALYTICS_KEYS = new Set([
 ]);
 
 function expectAnalyticsMessage(
-  calls: unknown[][],
+  calls: AnalyticsCall[],
   expectedEvent: string,
-  expectedParams: Record<string, unknown>,
+  expectedParams: AnalyticsParams,
   allowedKeys: string[]
 ): void {
-  const analyticsCall = calls.find((call) => {
-    const message = call[0] as { type?: string; event?: string } | undefined;
-    return message?.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+  const analyticsCall = calls.find(([message]) => {
+    return message.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
   });
   expect(analyticsCall).toBeDefined();
-  const message = analyticsCall?.[0] as {
-    event: string;
-    params?: Record<string, unknown>;
-    type: 'TRACK_USAGE_EVENT';
-  };
-  expect(message.params).toEqual(expect.objectContaining(expectedParams));
-  const params = message.params ?? {};
+  const message = analyticsCall?.[0];
+  expect(message?.params).toEqual(expect.objectContaining(expectedParams));
+  const params = message?.params ?? {};
   expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
   Object.keys(params).forEach((key) => {
     expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);

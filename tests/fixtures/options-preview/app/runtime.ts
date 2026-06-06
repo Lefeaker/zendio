@@ -247,7 +247,8 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
         applyHighlightThemeToDom(theme);
       },
       'modifier:setKey': ({ args, value, mutate: update }) => {
-        const key = normalizeFragmentModifierKey(value ?? args[0]);
+        const rawKey = typeof value === 'string' ? value : args[0];
+        const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
         update(
           (state) => {
             state.fragmentModifierEnabled = true;
@@ -258,7 +259,8 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
         rerenderPanel('capture-behavior');
       },
       'modifier:toggleKey': ({ args, value, mutate: update }) => {
-        const key = normalizeFragmentModifierKey(value ?? args[0]);
+        const rawKey = typeof value === 'string' ? value : args[0];
+        const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
         update(
           (state) => {
             state.fragmentModifierEnabled = true;

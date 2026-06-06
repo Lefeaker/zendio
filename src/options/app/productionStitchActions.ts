@@ -75,7 +75,7 @@ export interface ProductionStitchActionContext {
 export function createProductionStitchActions(
   context: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
-  const setModifierKey = (value: unknown): void => {
+  const setModifierKey = (value: string | undefined): void => {
     const draft = context.getDraft();
     const state = context.getState();
     const key = normalizeFragmentModifierKey(value);
@@ -209,7 +209,7 @@ export function createProductionStitchActions(
       context.syncModifierControls();
     },
     'modifier:setKey': ({ value }) => {
-      setModifierKey(value);
+      setModifierKey(typeof value === 'string' ? value : undefined);
     },
     'options:updateField': ({ args, value }) => {
       context.updateDraftPath(String(args[0] ?? ''), value);

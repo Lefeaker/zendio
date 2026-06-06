@@ -3,7 +3,7 @@ import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
 import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
-import type { ConnectionTestConfig } from './vaultConnectionChannels';
+import type { ConnectionTestConfig } from './vaultConnectionTypes';
 import { sanitizeSnippet } from './vaultConnectionChannelUtils';
 
 export async function executeLocalFolderChannelTest(

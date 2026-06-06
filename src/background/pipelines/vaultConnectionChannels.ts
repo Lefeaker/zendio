@@ -1,5 +1,6 @@
 import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
 import { isLocalAddress } from '../utils/restCandidates';
+import type { ConnectionTestConfig } from './vaultConnectionTypes';
 import {
   deriveExternalCategory,
   formatCategoryMessage,
@@ -10,17 +11,6 @@ import {
   type FailureCategory
 } from './vaultConnectionChannelUtils';
 import { executeLocalFolderChannelTest } from './vaultLocalFolderChannel';
-
-export interface ConnectionTestConfig {
-  baseUrl: string;
-  httpsUrl?: string;
-  httpUrl?: string;
-  apiKey: string;
-  vault: string;
-  label?: string;
-  localFolderId?: string;
-  localFolderName?: string;
-}
 
 export async function executeVaultStorageTargetTest(
   config: ConnectionTestConfig

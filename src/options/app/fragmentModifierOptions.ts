@@ -14,9 +14,9 @@ interface NavigatorWithUserAgentData extends Navigator {
   };
 }
 
-const VALID_FRAGMENT_MODIFIER_KEYS = new Set<FragmentModifierKey>(['alt', 'meta', 'ctrl', 'shift']);
+const VALID_FRAGMENT_MODIFIER_KEYS = new Set<string>(['alt', 'meta', 'ctrl', 'shift']);
 
-const LEGACY_FRAGMENT_MODIFIER_LABELS = {
+const LEGACY_FRAGMENT_MODIFIER_LABELS: Readonly<Record<string, FragmentModifierKey>> = {
   Alt: 'alt',
   Option: 'alt',
   Command: 'meta',
@@ -25,7 +25,7 @@ const LEGACY_FRAGMENT_MODIFIER_LABELS = {
   Ctrl: 'ctrl',
   Control: 'ctrl',
   Shift: 'shift'
-} as const;
+};
 
 function currentPlatformLabel(): string {
   if (typeof navigator === 'undefined') {
@@ -43,25 +43,20 @@ export function platformCommandModifierKey(isApple = isApplePlatform()): Fragmen
   return isApple ? 'meta' : 'ctrl';
 }
 
-function isFragmentModifierKey(value: unknown): value is FragmentModifierKey {
-  return (
-    typeof value === 'string' && VALID_FRAGMENT_MODIFIER_KEYS.has(value as FragmentModifierKey)
-  );
+function isFragmentModifierKey(value: string | undefined): value is FragmentModifierKey {
+  return value !== undefined && VALID_FRAGMENT_MODIFIER_KEYS.has(value);
 }
 
-function coerceFragmentModifierValue(value: unknown): unknown {
-  return typeof value === 'string'
-    ? (LEGACY_FRAGMENT_MODIFIER_LABELS[value as keyof typeof LEGACY_FRAGMENT_MODIFIER_LABELS] ??
-        value)
-    : value;
+function coerceFragmentModifierValue(value: string | undefined): string | undefined {
+  return value === undefined ? undefined : (LEGACY_FRAGMENT_MODIFIER_LABELS[value] ?? value);
 }
 
-function isKnownFragmentModifierValue(value: unknown): boolean {
+function isKnownFragmentModifierValue(value: string): boolean {
   return isFragmentModifierKey(coerceFragmentModifierValue(value));
 }
 
 export function normalizeFragmentModifierKey(
-  value: unknown,
+  value: string | undefined,
   isApple = isApplePlatform()
 ): FragmentModifierKey {
   const normalizedValue = coerceFragmentModifierValue(value);
@@ -75,7 +70,7 @@ export function normalizeFragmentModifierKey(
 }
 
 export function normalizeFragmentModifierKeys(
-  values: readonly unknown[] | undefined,
+  values: readonly string[] | undefined,
   isApple = isApplePlatform()
 ): FragmentModifierKey[] {
   const first = values?.find(isKnownFragmentModifierValue);
@@ -94,7 +89,7 @@ export function fragmentModifierChoices(isApple = isApplePlatform()): FragmentMo
 }
 
 export function fragmentModifierChipItems(
-  selectedKeys: readonly unknown[],
+  selectedKeys: readonly string[],
   isApple = isApplePlatform()
 ): ChipItem[] {
   const selectedKey = normalizeFragmentModifierKeys(selectedKeys, isApple)[0];
@@ -106,7 +101,7 @@ export function fragmentModifierChipItems(
 }
 
 export function fragmentModifierConflictWarning(
-  selectedKey: unknown,
+  selectedKey: string | undefined,
   isApple = isApplePlatform()
 ): string {
   const key = normalizeFragmentModifierKey(selectedKey, isApple);
