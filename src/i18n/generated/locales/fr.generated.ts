@@ -177,7 +177,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    "Toutes les touches modificatrices cochées doivent être maintenues ensemble pour activer l'action automatique.",
+    'Une seule touche modificatrice peut être sélectionnée ; Shift est l’option par défaut.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Sélection de touche modificatrice',
   fragmentModifierToggleDescription:

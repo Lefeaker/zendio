@@ -3,7 +3,6 @@ import type {
   StateBinding as SharedStateBinding
 } from '@options/schema-runtime';
 import type { PreviewVideoStoreState } from './videoStateTypes';
-
 export interface HeroData {
   title: string;
   description: string;
@@ -313,6 +312,7 @@ export interface PreviewContent {
     connectionNotice?: {
       title: string;
       body: string;
+      html?: string;
       variant: 'info' | 'warning' | 'danger' | 'success';
     };
   };

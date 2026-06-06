@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "修飾キーで自動クリップ/読書を有効にする",
   "fragmentModifierToggleDescription": "選択した修飾キーを押しながらテキストをドラッグすると、クリッパーダイアログや読書モードのハイライトが自動的に開きます。",
   "fragmentModifierKeysLabel": "修飾キーの設定",
-  "fragmentModifierKeysDescription": "自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。",
+  "fragmentModifierKeysDescription": "修飾キーは1つだけ選択できます。Shift が既定です。",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

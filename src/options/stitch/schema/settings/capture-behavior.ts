@@ -1,6 +1,10 @@
 import type { SettingsSchema } from '../../types';
 import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
+import {
+  fragmentModifierChipItems,
+  fragmentModifierStateWarning
+} from '@options/app/fragmentModifierOptions';
 
 const schema: SettingsSchema = {
   createView(ctx) {
@@ -60,7 +64,11 @@ const schema: SettingsSchema = {
                       ])
                     }
                   ]
-                }
+                },
+                htmlParagraph(
+                  '存储内容高亮与 Obsidian 插件 <a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a> 配合使用更佳。',
+                  'option-support-note'
+                )
               ]
             }
           ]
@@ -132,7 +140,7 @@ const schema: SettingsSchema = {
                       title: '启用辅助键触发',
                       description: '选择用于触发自动剪藏或阅读高亮的辅助键。',
                       control: stack(
-                        [
+                        (current) => [
                           boundSwitch({
                             bind: 'fragmentModifierEnabled',
                             compact: true,
@@ -143,16 +151,13 @@ const schema: SettingsSchema = {
                           }),
                           {
                             kind: 'chips',
-                            items: (current) =>
-                              ['Alt', 'Cmd / Meta', 'Ctrl', 'Shift'].map((key) => ({
-                                label: key,
-                                value: key,
-                                pressed:
-                                  current.state.fragmentModifierEnabled &&
-                                  current.state.modifierKeys.includes(key)
-                              })),
-                            action: { id: 'modifier:toggleKey' }
-                          }
+                            items: fragmentModifierChipItems(current.state.modifierKeys),
+                            action: { id: 'modifier:setKey' }
+                          },
+                          paragraph(
+                            fragmentModifierStateWarning(current.state),
+                            'modifier-key-warning'
+                          )
                         ],
                         'switch-line modifier-key-inline'
                       )

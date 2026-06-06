@@ -166,7 +166,7 @@ const runtime = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '체크된 모든 수정키를 함께 눌러야 자동 작업이 활성화됩니다.',
+  fragmentModifierKeysDescription: '수정키는 하나만 선택할 수 있으며 Shift가 기본값입니다.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '수정키 선택',
   fragmentModifierToggleDescription:

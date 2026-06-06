@@ -215,8 +215,8 @@ describe('configProvider', () => {
       expect(fragmentDefaults.captureContext).toBe(false);
       expect(fragmentDefaults.contextLength).toBe(200);
       expect(fragmentDefaults.contextMode).toBe('chars');
-      expect(fragmentDefaults.selectionModifierEnabled).toBe(false);
-      expect(Array.isArray(fragmentDefaults.selectionModifierKeys)).toBe(true);
+      expect(fragmentDefaults.selectionModifierEnabled).toBe(true);
+      expect(fragmentDefaults.selectionModifierKeys).toEqual(['shift']);
     });
   });
 

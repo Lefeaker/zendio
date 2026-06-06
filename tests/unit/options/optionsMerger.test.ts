@@ -74,7 +74,7 @@ describe('shared optionsMerger', () => {
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
   });
 
-  it('normalizes fragment modifier keys', () => {
+  it('normalizes fragment modifier keys to a single selection', () => {
     const stored: StoredOptions = {
       fragmentClipper: {
         selectionModifierEnabled: true,
@@ -84,7 +84,7 @@ describe('shared optionsMerger', () => {
 
     const result = mergeOptions(stored);
     expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
-    expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['meta', 'ctrl']);
+    expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['meta']);
   });
 
   it('merges reading session highlight theme when valid', () => {

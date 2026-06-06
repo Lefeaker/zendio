@@ -5,7 +5,11 @@ import type { CompleteOptions, InterfaceTheme } from '@shared/types/options';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { VaultRouterConfig } from '@shared/types/vault';
-import { optionsFromModifierLabels, persistTheme } from './productionStitchStateMapper';
+import { persistTheme } from './productionStitchStateMapper';
+import {
+  normalizeFragmentModifierKey,
+  normalizeFragmentModifierKeys
+} from './fragmentModifierOptions';
 import {
   createProductionDomainActions,
   createProductionRoutingActions,
@@ -71,6 +75,18 @@ export interface ProductionStitchActionContext {
 export function createProductionStitchActions(
   context: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
+  const setModifierKey = (value: string | undefined): void => {
+    const draft = context.getDraft();
+    const state = context.getState();
+    const key = normalizeFragmentModifierKey(value);
+    state.modifierKeys = [key];
+    state.fragmentModifierEnabled = true;
+    draft.fragmentClipper.selectionModifierEnabled = true;
+    draft.fragmentClipper.selectionModifierKeys = [key];
+    context.scheduleDraftSave();
+    context.syncModifierControls();
+  };
+
   return {
     ...createProductionRoutingActions(context),
     ...createProductionStorageActions(context),
@@ -97,15 +113,10 @@ export function createProductionStitchActions(
         { silent: true }
       );
       void (async () => {
-        if (context.changeLanguage) {
-          const nextResource = await context.changeLanguage(nextLanguage);
-          context.setLanguageResource(nextResource);
-        } else {
-          context.setLanguageResource({
-            messages: context.getMessages(),
-            language: nextLanguage
-          });
-        }
+        const nextResource = context.changeLanguage
+          ? await context.changeLanguage(nextLanguage)
+          : { messages: context.getMessages(), language: nextLanguage };
+        context.setLanguageResource(nextResource);
         context.render();
         context.trackLanguageChanged?.(nextLanguage);
       })();
@@ -187,30 +198,18 @@ export function createProductionStitchActions(
       const draft = context.getDraft();
       const state = context.getState();
       const enabled = Boolean(value);
+      const selectedKeys = normalizeFragmentModifierKeys(
+        state.modifierKeys.length ? state.modifierKeys : draft.fragmentClipper.selectionModifierKeys
+      );
       draft.fragmentClipper.selectionModifierEnabled = enabled;
+      draft.fragmentClipper.selectionModifierKeys = selectedKeys;
       state.fragmentModifierEnabled = enabled;
-      if (!enabled) {
-        draft.fragmentClipper.selectionModifierKeys = [];
-        state.modifierKeys = [];
-      } else if (!state.modifierKeys.length) {
-        state.modifierKeys = ['Alt'];
-        draft.fragmentClipper.selectionModifierKeys = ['alt'];
-      }
+      state.modifierKeys = selectedKeys;
       context.scheduleDraftSave();
       context.syncModifierControls();
     },
-    'modifier:toggleKey': ({ value }) => {
-      const draft = context.getDraft();
-      const state = context.getState();
-      const key = String(value ?? '');
-      state.modifierKeys = state.modifierKeys.includes(key)
-        ? state.modifierKeys.filter((item) => item !== key)
-        : [...state.modifierKeys, key];
-      state.fragmentModifierEnabled = state.modifierKeys.length > 0;
-      draft.fragmentClipper.selectionModifierEnabled = state.fragmentModifierEnabled;
-      draft.fragmentClipper.selectionModifierKeys = optionsFromModifierLabels(state.modifierKeys);
-      context.scheduleDraftSave();
-      context.syncModifierControls();
+    'modifier:setKey': ({ value }) => {
+      setModifierKey(typeof value === 'string' ? value : undefined);
     },
     'options:updateField': ({ args, value }) => {
       context.updateDraftPath(String(args[0] ?? ''), value);

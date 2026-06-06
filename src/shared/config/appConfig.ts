@@ -38,8 +38,8 @@ const DEFAULT_FRAGMENT_CLIPPER: FragmentClipperOptions = {
   captureContext: false,
   contextLength: 200,
   contextMode: 'chars',
-  selectionModifierEnabled: false,
-  selectionModifierKeys: [],
+  selectionModifierEnabled: true,
+  selectionModifierKeys: ['shift'],
   keyboardShortcutsEnabled: true
 };
 

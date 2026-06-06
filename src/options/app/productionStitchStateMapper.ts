@@ -11,22 +11,9 @@ import type {
   RoutingRule,
   VaultRecord
 } from '@options/stitch/types';
+import { normalizeFragmentModifierKeys } from './fragmentModifierOptions';
 
 export { resolveExtensionVersionLabel } from './productionStitchVersion';
-
-const MODIFIER_LABEL_TO_OPTION = {
-  Alt: 'alt',
-  'Cmd / Meta': 'meta',
-  Ctrl: 'ctrl',
-  Shift: 'shift'
-} as const;
-
-const MODIFIER_OPTION_TO_LABEL = {
-  alt: 'Alt',
-  meta: 'Cmd / Meta',
-  ctrl: 'Ctrl',
-  shift: 'Shift'
-} as const;
 
 export const RUNTIME_SURFACE_RESOURCE_IDS = new Set(['clipper', 'reader', 'video', 'task-success']);
 export const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
@@ -98,7 +85,7 @@ export function createInitialStitchState(appData: PreviewContent): PreviewStoreS
     fragmentContextMode: 'chars',
     fragmentKeyboardShortcutsEnabled: true,
     fragmentModifierEnabled: true,
-    modifierKeys: ['Alt'],
+    modifierKeys: ['shift'],
     activeLocalFolderVaultIndex: null,
     yamlFieldStates: createYamlFieldStates(appData),
     routingRules: appData.storage.routingRules.map((rule) => ({ ...rule })),
@@ -407,18 +394,8 @@ export function resolveReadingPathMode(options: CompleteOptions): string {
   return 'custom';
 }
 
-function labelsFromModifierOptions(keys: readonly string[]): string[] {
-  return keys
-    .map((key) => MODIFIER_OPTION_TO_LABEL[key as keyof typeof MODIFIER_OPTION_TO_LABEL])
-    .filter((value) => Boolean(value));
-}
-
-export function optionsFromModifierLabels(
-  labels: readonly string[]
-): Array<'alt' | 'meta' | 'ctrl' | 'shift'> {
-  return labels
-    .map((label) => MODIFIER_LABEL_TO_OPTION[label as keyof typeof MODIFIER_LABEL_TO_OPTION])
-    .filter((value): value is 'alt' | 'meta' | 'ctrl' | 'shift' => Boolean(value));
+function modifierKeysFromOptions(keys: readonly string[]): string[] {
+  return normalizeFragmentModifierKeys(keys);
 }
 
 export function applyOptionsToState(
@@ -464,7 +441,7 @@ export function applyOptionsToState(
     fragmentContextMode: options.fragmentClipper.contextMode,
     fragmentKeyboardShortcutsEnabled: options.fragmentClipper.keyboardShortcutsEnabled,
     fragmentModifierEnabled: options.fragmentClipper.selectionModifierEnabled,
-    modifierKeys: labelsFromModifierOptions(options.fragmentClipper.selectionModifierKeys),
+    modifierKeys: modifierKeysFromOptions(options.fragmentClipper.selectionModifierKeys),
     routingRules: toRoutingRules(options),
     templateValues: toTemplateValues(options),
     readingPathMode: resolveReadingPathMode(options),

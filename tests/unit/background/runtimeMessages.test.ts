@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
 const handleClipResultMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const handleConnectionTestMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ success: true, message: 'ok' }))
+  vi.fn<() => Promise<ConnectionTestResult>>(() =>
+    Promise.resolve({ success: true, message: 'ok' })
+  )
 );
 const handleVaultConnectionTestMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ success: true, message: 'ok' }))
+  vi.fn<() => Promise<ConnectionTestResult>>(() =>
+    Promise.resolve({ success: true, message: 'ok' })
+  )
 );
 const notifyExtractionErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const trackUsageEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -111,6 +116,70 @@ describe('runtime message listener', () => {
 
     expect(connection).toEqual({ success: false, error: 'offline', message: '连接失败: offline' });
     expect(vault).toEqual({ success: false, error: 'vault down', message: '连接失败: vault down' });
+  });
+
+  it('preserves vault connection channel results across the runtime listener boundary', async () => {
+    handleVaultConnectionTestMock.mockResolvedValueOnce({
+      success: false,
+      message: '[Research] 连接失败',
+      error: 'network error: request failed',
+      channels: [
+        {
+          channel: 'localFolder',
+          label: '本地目录',
+          configured: true,
+          success: true,
+          message: '本地目录可用：Research'
+        },
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: 'https://vault.example',
+          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
+        },
+        {
+          channel: 'http',
+          label: 'HTTP',
+          configured: true,
+          success: true,
+          message: 'REST API HTTP 连接成功，状态码: 200',
+          status: 200,
+          url: 'http://vault.example'
+        }
+      ]
+    });
+
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const response = await listener?.(
+      {
+        type: 'TEST_VAULT_CONNECTION',
+        vaultId: 'research',
+        vault: { id: 'research', name: 'Research' }
+      },
+      {}
+    );
+
+    expect(response).toEqual({
+      success: false,
+      message: '[Research] 连接失败',
+      error: 'network error: request failed',
+      channels: [
+        expect.objectContaining({ channel: 'localFolder', success: true }),
+        expect.objectContaining({
+          channel: 'https',
+          success: false,
+          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
+        }),
+        expect.objectContaining({ channel: 'http', success: true, status: 200 })
+      ]
+    });
   });
 
   it('normalizes clip errors and swallows extraction notification dispatch failures', async () => {

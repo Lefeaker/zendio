@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Abilita tasti modificatori per salvare/leggere",
   "fragmentModifierToggleDescription": "Tenere premuti i tasti modificatori selezionati e trascinare per selezionare il testo aprirà automaticamente il dialogo clipper o l'evidenziazione di lettura.",
   "fragmentModifierKeysLabel": "Seleziona tasti modificatori",
-  "fragmentModifierKeysDescription": "Tutti i tasti modificatori selezionati devono essere premuti insieme per attivare l'azione automatica.",
+  "fragmentModifierKeysDescription": "È possibile selezionare un solo tasto modificatore; Shift è l'opzione predefinita.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

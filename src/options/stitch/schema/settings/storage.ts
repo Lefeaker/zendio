@@ -1,4 +1,5 @@
 import type { SettingsSchema } from '../../types';
+import { element, htmlParagraph } from '../builders/primitives';
 import { routingRuleRow, vaultRow } from '../builders/storage';
 
 const schema: SettingsSchema = {
@@ -56,10 +57,22 @@ const schema: SettingsSchema = {
                   kind: 'notice',
                   title: (current) =>
                     current.appData.storage.connectionNotice?.title ?? '连接测试结果',
-                  body: (current) =>
-                    current.appData.storage.connectionNotice?.body ?? '尚未运行连接测试。',
+                  body: (current) => {
+                    const notice = current.appData.storage.connectionNotice;
+                    if (notice?.html) {
+                      return element('div', {
+                        className: 'vault-connection-notice-body',
+                        html: notice.html
+                      });
+                    }
+                    return notice?.body ?? '尚未运行连接测试。';
+                  },
                   variant: (current) => current.appData.storage.connectionNotice?.variant ?? 'info'
-                }
+                },
+                htmlParagraph(
+                  '推荐优先使用 Local Folder 通道；REST API 功能由 Obsidian 插件 <a href="https://github.com/coddingtonbear/obsidian-local-rest-api" target="_blank" rel="noopener noreferrer">Local REST API with MCP</a> 支持。',
+                  'option-support-note'
+                )
               ]
             }
           ]

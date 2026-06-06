@@ -186,7 +186,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_EN: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'All checked modifier keys must be held down together to trigger the automatic action.',
+    'Only one modifier key can be selected; Shift is the default option.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Modifier key selection',
   fragmentModifierToggleDescription:
@@ -902,7 +902,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_CN: GeneratedMessages = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '需要同时按下所有勾选的辅助键才会触发自动操作。',
+  fragmentModifierKeysDescription: '一次只能选择一个辅助键；Shift 是默认选项。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '辅助键设置',
   fragmentModifierToggleDescription:
@@ -1596,8 +1596,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_JA: GeneratedMessages = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription:
-    '自動操作を発動するには、選択したすべての修飾キーを同時に押す必要があります。',
+  fragmentModifierKeysDescription: '修飾キーは1つだけ選択できます。Shift が既定です。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '修飾キーの設定',
   fragmentModifierToggleDescription:
@@ -2330,7 +2329,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_DE: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Alle markierten Modifikatortasten müssen zusammen gehalten werden, um die automatische Aktion zu aktivieren.',
+    'Es kann nur eine Modifikatortaste ausgewählt werden; Shift ist die Standardoption.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Modifikatortasten-Auswahl',
   fragmentModifierToggleDescription:
@@ -3088,7 +3087,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_FR: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    "Toutes les touches modificatrices cochées doivent être maintenues ensemble pour activer l'action automatique.",
+    'Une seule touche modificatrice peut être sélectionnée ; Shift est l’option par défaut.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Sélection de touche modificatrice',
   fragmentModifierToggleDescription:
@@ -3856,7 +3855,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_ES: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Comando',
   fragmentModifierKeysDescription:
-    'Todas las teclas modificadoras marcadas deben mantenerse presionadas juntas para activar la acción automática.',
+    'Solo se puede seleccionar una tecla modificadora; Shift es la opción predeterminada.',
   fragmentModifierKeyShift: 'Mayús',
   fragmentModifierKeysLabel: 'Selección de tecla modificadora',
   fragmentModifierToggleDescription:
@@ -4615,7 +4614,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_419: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Comando',
   fragmentModifierKeysDescription:
-    'Todas las teclas modificadoras marcadas deben mantenerse presionadas juntas para activar la acción automática.',
+    'Solo se puede seleccionar una tecla modificadora; Shift es la opción predeterminada.',
   fragmentModifierKeyShift: 'Mayús',
   fragmentModifierKeysLabel: 'Selección de tecla modificadora',
   fragmentModifierToggleDescription:
@@ -5372,7 +5371,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_IT: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    "Tutti i tasti modificatori selezionati devono essere premuti insieme per attivare l'azione automatica.",
+    "È possibile selezionare un solo tasto modificatore; Shift è l'opzione predefinita.",
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Seleziona tasti modificatori',
   fragmentModifierToggleDescription:
@@ -6116,7 +6115,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_KO: GeneratedMessages = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '체크된 모든 수정키를 함께 눌러야 자동 작업이 활성화됩니다.',
+  fragmentModifierKeysDescription: '수정키는 하나만 선택할 수 있으며 Shift가 기본값입니다.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '수정키 선택',
   fragmentModifierToggleDescription:
@@ -6840,7 +6839,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_PT_BR: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Todas as teclas modificadoras marcadas devem ser mantidas juntas para ativar a ação automática.',
+    'Apenas uma tecla modificadora pode ser selecionada; Shift é a opção padrão.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Seleção de tecla modificadora',
   fragmentModifierToggleDescription:
@@ -7593,7 +7592,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_RU: GeneratedMessages = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Все отмеченные клавиши-модификаторы должны удерживаться вместе для активации автоматического действия.',
+    'Можно выбрать только одну клавишу-модификатор; Shift используется по умолчанию.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Выбор клавиши-модификатора',
   fragmentModifierToggleDescription:
@@ -8324,7 +8323,7 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_TW: GeneratedMessages = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '所有選中的修飾鍵必須一起按下才能啟動自動操作。',
+  fragmentModifierKeysDescription: '一次只能選擇一個輔助鍵；Shift 是預設選項。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '選擇修飾鍵',
   fragmentModifierToggleDescription:

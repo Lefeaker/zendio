@@ -156,7 +156,7 @@ const runtime = {
   fragmentModifierKeyAlt: 'Option / Alt',
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
-  fragmentModifierKeysDescription: '需要同时按下所有勾选的辅助键才会触发自动操作。',
+  fragmentModifierKeysDescription: '一次只能选择一个辅助键；Shift 是默认选项。',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: '辅助键设置',
   fragmentModifierToggleDescription:

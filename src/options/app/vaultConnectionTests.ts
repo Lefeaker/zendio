@@ -1,15 +1,40 @@
-import type { IMessagingRepository } from '@shared/repositories';
-import type { ConnectionTestResult } from '@shared/types/connection';
-import type { VaultRouterConfig } from '@shared/types/vault';
+import type {
+  ConnectionChannelResult,
+  ConnectionTestResult,
+  VaultConnectionTestResult
+} from '@shared/types/connection';
+import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
+import type { RestOptions } from '@shared/types/options';
+import type { TrackUsageEventPayload } from '@shared/types/analytics';
 import {
   emitConnectionTestCompleted,
   requestVaultConnectionTest
 } from '@options/services/connectionTester';
 import { isAppError } from '@shared/errors';
 
+interface ConnectionTestMessage {
+  type: 'TEST_CONNECTION';
+  rest?: Partial<RestOptions>;
+}
+
+interface VaultConnectionTestMessage {
+  type: 'TEST_VAULT_CONNECTION';
+  vaultId: string;
+  vault: VaultConfig;
+}
+
+type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessage;
+
+interface VaultListMessagingRepository {
+  send(
+    message: RuntimeConnectionMessage
+  ): Promise<Partial<ConnectionTestResult> | null | undefined>;
+  send(message: TrackUsageEventPayload): void;
+}
+
 export async function runVaultListConnectionTest(
   router: VaultRouterConfig,
-  messagingRepository: Pick<IMessagingRepository, 'send'>
+  messagingRepository: VaultListMessagingRepository
 ): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
   const vaults = router.vaults.filter((vault, index) => {
@@ -33,22 +58,31 @@ export async function runVaultListConnectionTest(
   const results = await Promise.all(
     vaults.map(async (vault) => {
       try {
-        return await requestVaultConnectionTest(vault, messagingRepository as IMessagingRepository);
+        const result = await requestVaultConnectionTest(vault, messagingRepository);
+        return toVaultConnectionResult(vault, result);
       } catch (error) {
         const message = formatConnectionError(error);
         return {
           success: false,
           message: `[${vault.name || vault.vault || vault.id}] ${message}`,
-          error: message
-        } satisfies ConnectionTestResult;
+          error: message,
+          vault: toVaultConnectionResult(vault, {
+            success: false,
+            message: `[${vault.name || vault.vault || vault.id}] ${message}`,
+            error: message,
+            channels: buildFallbackChannels(vault, message)
+          })
+        };
       }
     })
   );
 
-  const failures = results.filter((result) => !result.success);
+  const vaultResults = results.map((result) => ('vault' in result ? result.vault : result));
+  const failures = vaultResults.filter((result) => !result.success);
   const result = {
     success: failures.length === 0,
-    message: results.map((result) => result.message || result.error || '').join('\n\n'),
+    message: vaultResults.map((result) => result.message || result.error || '').join('\n\n'),
+    vaults: vaultResults,
     ...(failures.length
       ? {
           error: failures
@@ -65,6 +99,72 @@ export async function runVaultListConnectionTest(
     ...(failures.length ? { failureCategory: 'unknown' as const } : {})
   });
   return result;
+}
+
+function toVaultConnectionResult(
+  vault: VaultConfig,
+  result: ConnectionTestResult
+): VaultConnectionTestResult {
+  return {
+    vaultId: vault.id,
+    vaultName: vault.name || vault.vault || vault.id,
+    success: result.success,
+    message: result.message,
+    ...(result.error ? { error: result.error } : {}),
+    channels: normalizeChannelResults(vault, result)
+  };
+}
+
+function normalizeChannelResults(
+  vault: VaultConfig,
+  result: ConnectionTestResult
+): ConnectionChannelResult[] {
+  if (result.channels?.length) {
+    return result.channels;
+  }
+  return buildFallbackChannels(vault, result.error || result.message);
+}
+
+function buildFallbackChannels(vault: VaultConfig, message: string): ConnectionChannelResult[] {
+  return [
+    buildFallbackChannel('localFolder', '本地目录', Boolean(vault.localFolderId), message),
+    buildFallbackChannel(
+      'https',
+      'HTTPS',
+      Boolean(vault.httpsUrl?.trim()),
+      message,
+      vault.httpsUrl
+    ),
+    buildFallbackChannel('http', 'HTTP', Boolean(vault.httpUrl?.trim()), message, vault.httpUrl)
+  ];
+}
+
+function buildFallbackChannel(
+  channel: 'localFolder' | 'https' | 'http',
+  label: string,
+  configured: boolean,
+  message: string,
+  url?: string
+): ConnectionChannelResult {
+  if (!configured) {
+    return {
+      channel,
+      label,
+      configured: false,
+      success: false,
+      message: channel === 'localFolder' ? '未配置本地目录' : `未配置 ${label} URL`
+    };
+  }
+
+  return {
+    channel,
+    label,
+    configured: true,
+    success: false,
+    message,
+    error: message,
+    ...(url ? { url } : {})
+  };
 }
 
 function formatConnectionError(error: unknown): string {

@@ -554,8 +554,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
   });
 
-  it('updates fragment modifier chips without remounting the options shell', () => {
+  it('updates fragment modifier selection without remounting the options shell', () => {
     const controller = createController();
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'Win32'
+    });
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -569,19 +573,22 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const main = queryRequired<HTMLElement>('.main');
-    const altChip = requireElement(
-      Array.from(document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')).find(
-        (button) => button.textContent?.trim() === 'Alt'
-      ),
-      'Alt modifier chip'
+    const altChip = queryRequired<HTMLButtonElement>(
+      '.modifier-key-inline .chip[data-value="alt"]'
     );
+    const shiftChip = queryRequired<HTMLButtonElement>(
+      '.modifier-key-inline .chip[data-value="shift"]'
+    );
+    expect(document.body.textContent).toContain('Alt 可能与系统、浏览器或网页快捷键冲突');
 
-    altChip.click();
+    shiftChip.click();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(altChip.getAttribute('aria-pressed')).toBe('false');
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(false);
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual([]);
+    expect(shiftChip.getAttribute('aria-pressed')).toBe('true');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(true);
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
+    expect(document.body.textContent).not.toContain('快捷键冲突');
   });
 
   it('keeps YAML widget interactions scoped away from the options shell render tree', () => {

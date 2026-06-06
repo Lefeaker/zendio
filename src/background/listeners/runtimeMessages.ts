@@ -4,6 +4,7 @@ import {
   type ClipPipelineDependencies
 } from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
+import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyExtractionError } from '../services/notifications';
 import { z } from 'zod';
 import {
@@ -27,7 +28,6 @@ import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
 import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
 
@@ -85,25 +85,6 @@ function isGetTabContextMessage(message: unknown): message is GetTabContextMessa
 
 function isTabContextActiveMessage(message: unknown): message is IsTabContextActiveMessage {
   return IsTabContextActiveMessageSchema.safeParse(message).success;
-}
-
-function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
-  const payload: Record<string, MessagePayload> = {
-    success: result.success,
-    message: result.message
-  };
-
-  if (result.status !== undefined) {
-    payload.status = result.status;
-  }
-  if (result.response !== undefined) {
-    payload.response = result.response;
-  }
-  if (result.error !== undefined) {
-    payload.error = result.error;
-  }
-
-  return payload;
 }
 
 function isRepositoryContentMessage(

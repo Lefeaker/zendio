@@ -4,13 +4,14 @@ import type { RestOptions } from '../../shared/types/options';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
   createTrackUsageEventMessage,
-  type DurationBucket,
   type FailureCategory,
   type StorageTarget
 } from '../../shared/types/analytics';
+import { bucketDurationMs } from '../../shared/analytics/featureTimer';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { errorHandler, isAppError, optionsErrors } from '../../shared/errors';
+import { validateChannelResult } from './connectionChannelResponseValidation';
 
 type TestState = 'idle' | 'pending';
 type TestKey = string;
@@ -35,7 +36,13 @@ type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessa
 type PermissionPromptSource = 'clip' | 'options';
 type PermissionPromptOutcome = 'completed' | 'failed' | 'cancelled';
 type ConnectionTestOutcome = 'completed' | 'failed';
-type AnalyticsMessagingRepository = Pick<IMessagingRepository, 'send'>;
+type TrackUsageMessage = ReturnType<typeof createTrackUsageEventMessage>;
+type AnalyticsMessagingRepository = { send(message: TrackUsageMessage): void };
+interface ConnectionMessagingRepository {
+  send(
+    message: RuntimeConnectionMessage
+  ): Promise<Partial<ConnectionTestResult> | null | undefined>;
+}
 
 let overrideMessagingRepo: IMessagingRepository | null = null;
 
@@ -43,14 +50,18 @@ export function setConnectionTesterMessagingRepository(repo: IMessagingRepositor
   overrideMessagingRepo = repo;
 }
 
-function resolveMessagingRepository(provided?: IMessagingRepository): IMessagingRepository {
+function resolveMessagingRepository(
+  provided?: ConnectionMessagingRepository
+): ConnectionMessagingRepository {
   if (provided) {
     return provided;
   }
-  if (overrideMessagingRepo) {
-    return overrideMessagingRepo;
-  }
-  return resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+  const repo =
+    overrideMessagingRepo ??
+    resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+  return {
+    send: (message) => repo.send<Partial<ConnectionTestResult> | null | undefined>(message)
+  };
 }
 
 export function isConnectionTestRunning(): boolean {
@@ -63,7 +74,7 @@ export function isVaultConnectionTestRunning(vaultId: string): boolean {
 
 export async function requestConnectionTest(
   restDraft?: Partial<RestOptions>,
-  messagingRepo?: IMessagingRepository
+  messagingRepo?: ConnectionMessagingRepository
 ): Promise<ConnectionTestResult> {
   const message: ConnectionTestMessage = { type: 'TEST_CONNECTION' };
 
@@ -84,7 +95,7 @@ export async function requestConnectionTest(
 
 export async function requestVaultConnectionTest(
   vault: VaultConfig,
-  messagingRepo?: IMessagingRepository
+  messagingRepo?: ConnectionMessagingRepository
 ): Promise<ConnectionTestResult> {
   if (!vault?.id) {
     const error = optionsErrors.invalidVaultConfig({
@@ -127,7 +138,7 @@ async function requestTest(
   message: RuntimeConnectionMessage,
   key: TestKey,
   context: ConnectionContext,
-  messagingRepo?: IMessagingRepository
+  messagingRepo?: ConnectionMessagingRepository
 ): Promise<ConnectionTestResult> {
   if (isTestRunning(key)) {
     const error = optionsErrors.connectionInProgress(context);
@@ -139,7 +150,7 @@ async function requestTest(
 
   try {
     const repo = resolveMessagingRepository(messagingRepo);
-    const response = await repo.send<ConnectionTestResult>(message);
+    const response = await repo.send(message);
     return validateResponse(response, context);
   } catch (error) {
     const appError = isAppError(error)
@@ -155,7 +166,10 @@ async function requestTest(
   }
 }
 
-function validateResponse(response: unknown, context: ConnectionContext): ConnectionTestResult {
+function validateResponse(
+  response: Partial<ConnectionTestResult> | null | undefined,
+  context: ConnectionContext
+): ConnectionTestResult {
   if (!response || typeof response !== 'object') {
     throw optionsErrors.responseInvalid('Response payload is not an object.', {
       ...context,
@@ -163,46 +177,56 @@ function validateResponse(response: unknown, context: ConnectionContext): Connec
     });
   }
 
-  const candidate = response as Partial<ConnectionTestResult>;
-  if (typeof candidate.success !== 'boolean' || typeof candidate.message !== 'string') {
+  if (typeof response.success !== 'boolean' || typeof response.message !== 'string') {
     throw optionsErrors.responseInvalid('Missing required fields.', {
       ...context,
       response
     });
   }
 
-  if (candidate.status !== undefined && typeof candidate.status !== 'number') {
+  if (response.status !== undefined && typeof response.status !== 'number') {
     throw optionsErrors.responseInvalid('Field "status" must be a number.', {
       ...context,
       response
     });
   }
-  if (candidate.response !== undefined && typeof candidate.response !== 'string') {
+  if (response.response !== undefined && typeof response.response !== 'string') {
     throw optionsErrors.responseInvalid('Field "response" must be a string.', {
       ...context,
       response
     });
   }
-  if (candidate.error !== undefined && typeof candidate.error !== 'string') {
+  if (response.error !== undefined && typeof response.error !== 'string') {
     throw optionsErrors.responseInvalid('Field "error" must be a string.', {
+      ...context,
+      response
+    });
+  }
+  if (response.channels !== undefined && !Array.isArray(response.channels)) {
+    throw optionsErrors.responseInvalid('Field "channels" must be an array.', {
       ...context,
       response
     });
   }
 
   const result: ConnectionTestResult = {
-    success: candidate.success,
-    message: candidate.message
+    success: response.success,
+    message: response.message
   };
 
-  if (candidate.status !== undefined) {
-    result.status = candidate.status;
+  if (response.status !== undefined) {
+    result.status = response.status;
   }
-  if (candidate.response !== undefined) {
-    result.response = candidate.response;
+  if (response.response !== undefined) {
+    result.response = response.response;
   }
-  if (candidate.error !== undefined) {
-    result.error = candidate.error;
+  if (response.error !== undefined) {
+    result.error = response.error;
+  }
+  if (response.channels !== undefined) {
+    result.channels = response.channels.map((channel, index) =>
+      validateChannelResult(channel, context, index)
+    );
   }
 
   return result;
@@ -243,7 +267,7 @@ export function emitConnectionTestCompleted(
     failureCategory?: FailureCategory;
   }
 ): void {
-  const durationBucket = toDurationBucket(Date.now() - args.startedAt);
+  const durationBucket = bucketDurationMs(Date.now() - args.startedAt);
   sendUsageEvent(
     messagingRepository,
     createTrackUsageEventMessage('connection_test_completed', {
@@ -292,34 +316,9 @@ function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
   return sanitized;
 }
 
-function toDurationBucket(durationMs: number): DurationBucket {
-  if (durationMs < 100) {
-    return 'under_100ms';
-  }
-  if (durationMs < 500) {
-    return '100ms_to_499ms';
-  }
-  if (durationMs < 1000) {
-    return '500ms_to_999ms';
-  }
-  if (durationMs < 3000) {
-    return '1s_to_2s';
-  }
-  if (durationMs < 10000) {
-    return '3s_to_9s';
-  }
-  if (durationMs < 30000) {
-    return '10s_to_29s';
-  }
-  if (durationMs < 120000) {
-    return '30s_to_119s';
-  }
-  return '2m_plus';
-}
-
 function sendUsageEvent(
   messagingRepository: AnalyticsMessagingRepository,
-  message: ReturnType<typeof createTrackUsageEventMessage>
+  message: TrackUsageMessage
 ): void {
   void Promise.resolve(messagingRepository.send(message)).catch((error) => {
     console.warn('[Options] Failed to send storage analytics event:', error);

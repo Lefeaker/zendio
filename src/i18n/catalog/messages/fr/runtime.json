@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Activer l'activation par touche modificatrice pour sauvegarder/lire",
   "fragmentModifierToggleDescription": "Quand vous maintenez les touches modificatrices sélectionnées et faites glisser pour sélectionner du texte, le dialogue clipper ou le surlignage de lecture s'ouvrira automatiquement.",
   "fragmentModifierKeysLabel": "Sélection de touche modificatrice",
-  "fragmentModifierKeysDescription": "Toutes les touches modificatrices cochées doivent être maintenues ensemble pour activer l'action automatique.",
+  "fragmentModifierKeysDescription": "Une seule touche modificatrice peut être sélectionnée ; Shift est l’option par défaut.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

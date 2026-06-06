@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Modifikatortasten-Aktivierung für Speichern/Lesen aktivieren",
   "fragmentModifierToggleDescription": "Wenn Sie die ausgewählten Modifikatortasten gedrückt halten und ziehen, um Text auszuwählen, öffnet sich automatisch der Clipper-Dialog oder die Lese-Hervorhebung.",
   "fragmentModifierKeysLabel": "Modifikatortasten-Auswahl",
-  "fragmentModifierKeysDescription": "Alle markierten Modifikatortasten müssen zusammen gehalten werden, um die automatische Aktion zu aktivieren.",
+  "fragmentModifierKeysDescription": "Es kann nur eine Modifikatortaste ausgewählt werden; Shift ist die Standardoption.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

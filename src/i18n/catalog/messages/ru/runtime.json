@@ -150,7 +150,7 @@
   "fragmentModifierToggleLabel": "Включить активацию клавишей-модификатором для сохранения/чтения",
   "fragmentModifierToggleDescription": "Когда вы удерживаете выбранные клавиши-модификаторы и перетаскиваете для выделения текста, диалог клиппера или выделение чтения откроется автоматически.",
   "fragmentModifierKeysLabel": "Выбор клавиши-модификатора",
-  "fragmentModifierKeysDescription": "Все отмеченные клавиши-модификаторы должны удерживаться вместе для активации автоматического действия.",
+  "fragmentModifierKeysDescription": "Можно выбрать только одну клавишу-модификатор; Shift используется по умолчанию.",
   "fragmentModifierKeyAlt": "Option / Alt",
   "fragmentModifierKeyMeta": "Command",
   "fragmentModifierKeyCtrl": "Control",

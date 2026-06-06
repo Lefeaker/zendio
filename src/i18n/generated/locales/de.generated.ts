@@ -178,7 +178,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    'Alle markierten Modifikatortasten müssen zusammen gehalten werden, um die automatische Aktion zu aktivieren.',
+    'Es kann nur eine Modifikatortaste ausgewählt werden; Shift ist die Standardoption.',
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Modifikatortasten-Auswahl',
   fragmentModifierToggleDescription:

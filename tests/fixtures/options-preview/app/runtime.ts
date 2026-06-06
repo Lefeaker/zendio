@@ -20,6 +20,10 @@ import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widge
 import type { WidgetMountContract } from '@options/schema-runtime/contracts';
 import type { PreviewStoreState, SchemaContext, ViewSchema } from '@options/stitch/types';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
+import {
+  normalizeFragmentModifierKey,
+  normalizeFragmentModifierKeys
+} from '@options/app/fragmentModifierOptions';
 
 interface PreviewRuntimeOptions {
   rootId: string;
@@ -242,17 +246,25 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
         );
         applyHighlightThemeToDom(theme);
       },
-      'modifier:toggleKey': ({ args, value, mutate: update }) => {
-        const key = String(value ?? args[0] ?? '');
+      'modifier:setKey': ({ args, value, mutate: update }) => {
+        const rawKey = typeof value === 'string' ? value : args[0];
+        const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
         update(
           (state) => {
-            if (!key) {
-              return;
-            }
             state.fragmentModifierEnabled = true;
-            state.modifierKeys = state.modifierKeys.includes(key)
-              ? state.modifierKeys.filter((item) => item !== key)
-              : [...state.modifierKeys, key];
+            state.modifierKeys = [key];
+          },
+          { silent: true }
+        );
+        rerenderPanel('capture-behavior');
+      },
+      'modifier:toggleKey': ({ args, value, mutate: update }) => {
+        const rawKey = typeof value === 'string' ? value : args[0];
+        const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
+        update(
+          (state) => {
+            state.fragmentModifierEnabled = true;
+            state.modifierKeys = [key];
           },
           { silent: true }
         );
@@ -263,11 +275,7 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
         update(
           (state) => {
             state.fragmentModifierEnabled = enabled;
-            if (!enabled) {
-              state.modifierKeys = [];
-            } else if (!state.modifierKeys.length) {
-              state.modifierKeys = ['Alt'];
-            }
+            state.modifierKeys = normalizeFragmentModifierKeys(state.modifierKeys);
           },
           { silent: true }
         );

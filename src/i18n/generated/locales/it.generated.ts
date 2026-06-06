@@ -175,7 +175,7 @@ const runtime = {
   fragmentModifierKeyCtrl: 'Control',
   fragmentModifierKeyMeta: 'Command',
   fragmentModifierKeysDescription:
-    "Tutti i tasti modificatori selezionati devono essere premuti insieme per attivare l'azione automatica.",
+    "È possibile selezionare un solo tasto modificatore; Shift è l'opzione predefinita.",
   fragmentModifierKeyShift: 'Shift',
   fragmentModifierKeysLabel: 'Seleziona tasti modificatori',
   fragmentModifierToggleDescription:
