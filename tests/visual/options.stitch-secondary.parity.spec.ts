@@ -378,14 +378,12 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     await expectNoLegacyOptionsShell(page);
     const production = await collectStitchContract(page);
 
-    for (const label of [
-      'Apply Minimal',
-      'Apply Research',
-      'Apply Conversation',
-      '隐私政策',
-      '数据用途说明'
-    ]) {
+    for (const label of ['隐私政策', '数据用途说明']) {
       expect(production.interactionInventory.enabledButtonLabels).toContain(label);
+    }
+    for (const label of ['Apply Minimal', 'Apply Research', 'Apply Conversation']) {
+      expect(production.interactionInventory.enabledButtonLabels).not.toContain(label);
+      expect(production.interactionInventory.disabledButtonLabels).not.toContain(label);
     }
     expect(production.interactionInventory.disabledButtonLabels).not.toEqual(
       expect.arrayContaining([
@@ -393,7 +391,6 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
         'Off',
         '+ Add field',
         '+ Add domain rule',
-        'Apply Research',
         '隐私政策',
         '数据用途说明'
       ])
@@ -404,7 +401,6 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
         'Off',
         '+ Add field',
         '+ Add domain rule',
-        'Apply Research',
         '隐私政策',
         '数据用途说明'
       ])

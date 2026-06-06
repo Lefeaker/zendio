@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "Verhalten für Lesemodus und Fragment-Clipping.",
   "schemaCaptureBehaviorReadingGroupTitle": "Lesemodus",
   "schemaCaptureBehaviorFragmentGroupTitle": "Fragment-Clipping",
-  "schemaOutputHeroDescription": "Vorlagen, Domain-Namen, YAML-Felder und Voreinstellungen.",
+  "schemaOutputHeroDescription": "Vorlagen, Domain-Namen und YAML-Felder.",
   "schemaOutputTemplatesGroupTitle": "Vorlagen",
   "schemaOutputDomainMappingsGroupTitle": "Domain-Namen",
   "schemaOutputYamlGroupTitle": "YAML-Schema",

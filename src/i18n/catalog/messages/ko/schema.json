@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "읽기 모드와 조각 클리핑의 동작을 설정하세요.",
   "schemaCaptureBehaviorReadingGroupTitle": "읽기 모드",
   "schemaCaptureBehaviorFragmentGroupTitle": "조각 클리핑",
-  "schemaOutputHeroDescription": "템플릿, 도메인 이름, YAML 필드와 프리셋을 관리하세요.",
+  "schemaOutputHeroDescription": "템플릿, 도메인 이름과 YAML 필드를 관리하세요.",
   "schemaOutputTemplatesGroupTitle": "템플릿",
   "schemaOutputDomainMappingsGroupTitle": "도메인 이름",
   "schemaOutputYamlGroupTitle": "YAML 스키마",

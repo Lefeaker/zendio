@@ -1,5 +1,4 @@
 import type { SettingsSchema } from '../../types';
-import { emptyState, grid } from '../builders/primitives';
 import { routingRuleRow, vaultRow } from '../builders/storage';
 
 const schema: SettingsSchema = {
@@ -48,35 +47,11 @@ const schema: SettingsSchema = {
                       vaultRow(vault, index, current)
                     )
                 },
-                {
-                  kind: 'details',
-                  summary: 'Advanced Connection Schema',
-                  open: true,
-                  bodyClassName: 'stack',
-                  children: [
-                    grid(
-                      2,
-                      [
-                        {
-                          kind: 'field',
-                          label: 'rootDir',
-                          control: {
-                            kind: 'input',
-                            value: (current) => current.appData.storage.rootDir ?? '',
-                            mono: true,
-                            onInput: { id: 'storage:updateRootDir', valueFrom: 'target.value' }
-                          }
-                        },
-                        {
-                          kind: 'field',
-                          label: 'Status',
-                          control: emptyState('可选。用于指定默认根目录。')
-                        }
-                      ],
-                      'field-grid-2'
-                    )
-                  ]
-                },
+                /*
+                 * Zendio 0.2.0: hide Advanced Connection Schema from Options.
+                 * rootDir is persisted but is not wired into the actual export/write
+                 * path, so exposing it would present a misleading release control.
+                 */
                 {
                   kind: 'notice',
                   title: (current) =>

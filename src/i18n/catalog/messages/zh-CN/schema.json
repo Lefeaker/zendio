@@ -59,7 +59,7 @@
   "schemaCaptureBehaviorHeroDescription": "配置阅读模式与片段剪藏的行为。",
   "schemaCaptureBehaviorReadingGroupTitle": "阅读模式",
   "schemaCaptureBehaviorFragmentGroupTitle": "片段剪藏",
-  "schemaOutputHeroDescription": "管理模板、域名命名、YAML 字段与相关预设。",
+  "schemaOutputHeroDescription": "管理模板、域名命名与 YAML 字段。",
   "schemaOutputTemplatesGroupTitle": "模板",
   "schemaOutputDomainMappingsGroupTitle": "域名命名",
   "schemaOutputYamlGroupTitle": "YAML 结构",

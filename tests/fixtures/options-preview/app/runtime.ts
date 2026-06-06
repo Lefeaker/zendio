@@ -903,7 +903,8 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
           storage: '仓库列表、连接参数、路由',
           'capture-sources': 'AI、Deep Research、Video',
           'capture-behavior': 'Reading、Fragment 行为与导出',
-          output: '路径模板、映射、YAML、预设',
+          // Zendio 0.2.0: presets are hidden because they overwrite config without an approved user flow.
+          output: '路径模板、映射、YAML',
           experimental: 'AI 总结、字幕翻译',
           maintenance: 'Transfer、Diagnosis、修复'
         } as Record<string, string>

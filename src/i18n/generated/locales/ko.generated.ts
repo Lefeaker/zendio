@@ -364,7 +364,7 @@ const runtime = {
   schemaNavOverviewHint: '사용 현황, 언어, 개인정보',
   schemaNavStorageHint: '볼트와 라우팅',
   schemaOutputDomainMappingsGroupTitle: '도메인 이름',
-  schemaOutputHeroDescription: '템플릿, 도메인 이름, YAML 필드와 프리셋을 관리하세요.',
+  schemaOutputHeroDescription: '템플릿, 도메인 이름과 YAML 필드를 관리하세요.',
   schemaOutputTemplatesGroupTitle: '템플릿',
   schemaOutputTitle: '출력 및 메타데이터',
   schemaOutputYamlGroupTitle: 'YAML 스키마',

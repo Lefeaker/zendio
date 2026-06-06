@@ -15,6 +15,12 @@ import {
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import {
+  applyOutputPresetToDraft,
+  createInitialDraft
+} from '@options/app/productionStitchShellState';
+import { createInitialStitchState } from '@options/app/productionStitchStateMapper';
+import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
@@ -222,7 +228,7 @@ describe('mountProductionStitchShell storage', () => {
     expect(scheduleDraftSave).toHaveBeenCalledTimes(1);
   });
 
-  it('persists storage root and vault table edits through collectDraft', () => {
+  it('preserves the hidden storage root while persisting vault table edits through collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -240,11 +246,10 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    input('Inbox/', 'Clips/Articles/');
     input('Research Vault', 'Notes Vault');
 
     const collected = mounted.collectDraft();
-    expect(collected.rest.rootDir).toBe('Clips/Articles/');
+    expect(collected.rest.rootDir).toBe('Inbox/');
     expect(collected.rest.vault).toBe('Notes Vault');
     expect(collected.vaultRouter?.vaults?.[0]).toEqual(
       expect.objectContaining({
@@ -579,44 +584,49 @@ describe('mountProductionStitchShell storage', () => {
     expect(duplicateInputs).toHaveLength(1);
   });
 
-  it('applies output presets to templates, YAML configuration, and domain mappings', () => {
-    const controller = createController();
-    const mounted = mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: {
-        templates: {
-          article: 'Old/{title}.md',
-          fragment: 'Old/Fragment.md',
-          reading: 'Old/Reading.md',
-          ai: 'Old/AI.md'
-        },
-        domainMappings: {
-          'old.example': 'old'
-        },
-        yamlConfig: null
+  it('keeps hidden output presets logic wired to templates, YAML configuration, and domain mappings', () => {
+    const draft = createInitialDraft({
+      templates: {
+        article: 'Old/{title}.md',
+        fragment: 'Old/Fragment.md',
+        reading: 'Old/Reading.md',
+        ai: 'Old/AI.md'
       },
-      messages: null,
-      language: 'en'
+      domainMappings: {
+        'old.example': 'old'
+      },
+      yamlConfig: null
+    });
+    const state = createInitialStitchState(previewContent);
+    const setDomainMappingRows = vi.fn();
+    const scheduleDraftSave = vi.fn();
+
+    applyOutputPresetToDraft({
+      draft,
+      state,
+      setDomainMappingRows,
+      refreshAppData: vi.fn(),
+      scheduleDraftSave,
+      render: vi.fn(),
+      name: 'Research'
     });
 
-    findButton('Apply Research').click();
-
-    const collected = mounted.collectDraft();
-    expect(collected.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
-    expect(collected.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
-    expect(collected.domainMappings).toEqual(
+    expect(draft.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
+    expect(draft.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+    expect(draft.domainMappings).toEqual(
       expect.objectContaining({
         'arxiv.org': 'Arxiv',
         'mp.weixin.qq.com': '公众号'
       })
     );
-    expect(collected.yamlConfig?.contentTypes?.article?.customFields).toEqual(
+    expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'status', enabled: true }),
         expect.objectContaining({ name: 'workspace', enabled: true })
       ])
     );
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+    expect(setDomainMappingRows).toHaveBeenCalledWith(Object.entries(draft.domainMappings));
+    expect(scheduleDraftSave).toHaveBeenCalled();
   });
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {

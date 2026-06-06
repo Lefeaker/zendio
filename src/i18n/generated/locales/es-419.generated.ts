@@ -386,8 +386,7 @@ const runtime = {
   schemaNavOverviewHint: 'Uso, idioma y privacidad',
   schemaNavStorageHint: 'Bóvedas y enrutamiento',
   schemaOutputDomainMappingsGroupTitle: 'Nombres de dominio',
-  schemaOutputHeroDescription:
-    'Plantillas, nombres de dominio, campos YAML y ajustes predefinidos.',
+  schemaOutputHeroDescription: 'Plantillas, nombres de dominio y campos YAML.',
   schemaOutputTemplatesGroupTitle: 'Plantillas',
   schemaOutputTitle: 'Salida y metadatos',
   schemaOutputYamlGroupTitle: 'Esquema YAML',
