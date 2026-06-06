@@ -17,7 +17,7 @@ export function createProductionStitchStorageFeedback(
   function applyConnectionNotice(result: ConnectionTestResult): void {
     const notice = buildConnectionNotice(result);
     options.setConnectionNotice({
-      title: '连接测试结果',
+      title: '',
       body: notice.body,
       ...(notice.html ? { html: notice.html } : {}),
       variant: notice.variant
@@ -26,9 +26,13 @@ export function createProductionStitchStorageFeedback(
   }
 
   async function runVaultListConnectionTest(): Promise<ConnectionTestResult> {
+    const messages = await import('@i18n').then(({ getMessagesForLanguage }) =>
+      getMessagesForLanguage(options.getState().previewLanguage)
+    );
     return runVaultListConnectionTestHelper(
       load.ensureVaultRouter(),
-      options.getMessagingRepository()
+      options.getMessagingRepository(),
+      messages
     );
   }
 
@@ -43,8 +47,7 @@ function buildConnectionNotice(result: ConnectionTestResult): {
   html?: string;
   variant: 'success' | 'warning' | 'danger';
 } {
-  const body =
-    result.message || result.error || (result.success ? '连接测试成功。' : '连接测试失败。');
+  const body = result.message || result.error || '';
   const html = result.vaults?.length ? renderVaultConnectionResults(result) : undefined;
   return {
     body,

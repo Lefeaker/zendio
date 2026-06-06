@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';
 import { previewContent } from '@options/stitch/content';
 import { createProductionContent } from '@options/app/productionStitchStateMapper';
+import { createSchemaTranslator } from '@options/stitch/schema/i18n';
 import {
   createSchemaContext,
   expectProductionText,
@@ -13,6 +15,14 @@ import { getRestDefaults } from '../../../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCALHOST_BASE_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
+const STORAGE_SENTINEL_MESSAGES = {
+  ...DEFAULT_RUNTIME_MESSAGES,
+  schemaStorageRoutingTipBody: 'Schema Routing Tip Body Sentinel',
+  schemaStorageRoutingTipTitle: 'Schema Routing Tip Title Sentinel',
+  schemaStorageTestConnectionButton: 'Schema Test Connection Sentinel',
+  schemaStorageVaultListTitle: 'Schema Vault List Sentinel',
+  schemaStorageVaultsGroupTitle: 'Schema Vault Group Sentinel'
+};
 
 describe('storage settings', () => {
   it('is represented by production Stitch content and schemas', () => {
@@ -59,5 +69,23 @@ describe('storage settings', () => {
         isDefault: true
       })
     );
+  });
+
+  it('uses schema message overrides for storage section labels', () => {
+    const context = createSchemaContext();
+    const translatedContext = {
+      ...context,
+      messages: STORAGE_SENTINEL_MESSAGES,
+      t: createSchemaTranslator(STORAGE_SENTINEL_MESSAGES)
+    };
+
+    const storageView = getSettingsView('storage', translatedContext);
+    const storageViewText = JSON.stringify(storageView);
+
+    expect(storageViewText).toContain('Schema Vault Group Sentinel');
+    expect(storageViewText).toContain('Schema Vault List Sentinel');
+    expect(storageViewText).toContain('Schema Test Connection Sentinel');
+    expect(storageViewText).toContain('Schema Routing Tip Title Sentinel');
+    expect(storageViewText).toContain('Schema Routing Tip Body Sentinel');
   });
 });

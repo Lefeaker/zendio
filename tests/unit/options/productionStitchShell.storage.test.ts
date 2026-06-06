@@ -472,7 +472,7 @@ describe('mountProductionStitchShell storage', () => {
       vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
     ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
-    expect(document.body.textContent).toContain('本地目录需要重新授权');
+    expect(document.body.textContent).toContain('Local Folder needs permission again');
     deleteButton?.click();
     await flushPromises();
 
@@ -759,6 +759,7 @@ describe('mountProductionStitchShell storage', () => {
     } as never);
 
     findButton('测试连接').click();
+    await flushPromises();
     await flushPromises();
 
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
