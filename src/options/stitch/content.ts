@@ -1,3 +1,4 @@
+import { createReleaseLanguageOptions } from './languageOptions';
 import type { PreviewContent } from './types';
 
 const usageHistoryValues = [
@@ -111,14 +112,7 @@ export const previewContent: PreviewContent = {
     ],
     history: usageHistory
   },
-  languageOptions: [
-    { value: 'zh-CN', label: '简体中文' },
-    { value: 'en', label: 'English' },
-    { value: 'de', label: 'Deutsch' },
-    { value: 'ja', label: '日本語' },
-    { value: 'ko', label: '한국어' },
-    { value: 'es', label: 'Español' }
-  ],
+  languageOptions: createReleaseLanguageOptions(),
   privacyCollected: ['错误类型与调用位置', '浏览器 / 扩展版本', '异常发生时间', '匿名功能使用次数'],
   privacyExcluded: ['个人身份信息', '页面正文与剪藏内容', '私密 URL 清单', '密码、API 密钥明文'],
   storage: {

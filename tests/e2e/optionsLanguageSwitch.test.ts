@@ -1,11 +1,14 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { MountedProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { Language } from '@i18n';
 import { e2ePlatformHarness } from './setup';
+
+const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
 
 function createController(): OptionsController {
   return {
@@ -25,14 +28,21 @@ function createController(): OptionsController {
 }
 
 function findLanguageSelect(): HTMLSelectElement {
+  const getOptionValues = (select: HTMLSelectElement) =>
+    Array.from(select.options).map((option) => option.value);
+
   const select = Array.from(document.querySelectorAll<HTMLSelectElement>('select')).find(
     (candidate) =>
-      Array.from(candidate.options).some((option) => option.value === 'en') &&
-      Array.from(candidate.options).some((option) => option.value === 'zh-CN')
+      EXPECTED_LANGUAGE_VALUES.every((value) => getOptionValues(candidate).includes(value))
   );
   if (!select) {
     throw new Error('production language select missing');
   }
+
+  const values = getOptionValues(select);
+  expect(values).toEqual(EXPECTED_LANGUAGE_VALUES);
+  expect(values).not.toContain('es');
+  expect(values).not.toContain('qps-ploc');
   return select;
 }
 
