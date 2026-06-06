@@ -86,7 +86,7 @@ export function createProductionStitchRenderLifecycle(
       brand: context.appData.brand,
       settingsTitle: '',
       resourcesTitle: '',
-      runtimeTitle: options.getCurrentLanguage() === 'en' ? 'Runtime UI' : '运行时界面',
+      runtimeTitle: context.t?.('schemaRuntimeUiGroupTitle', 'Runtime UI') ?? 'Runtime UI',
       navItems: context.appData.nav,
       sidebarLinks: context.appData.sidebarLinks,
       surfaceLinks: context.appData.surfaceLinks,
