@@ -1,13 +1,13 @@
 import { DEFAULT_DOMAIN_MAPPINGS } from '../constants';
 import { DEFAULT_CLASSIFIER_TAXONOMY_MIGRATED } from './taxonomyMigration';
-import type { OptionsState } from '../types';
+import type { CompleteOptions } from '../types';
 import { getDefaultFragmentClipper, getDefaultRestOptions, getDefaultTemplates } from './appConfig';
 
 const REST_DEFAULTS = getDefaultRestOptions();
 const TEMPLATE_DEFAULTS = getDefaultTemplates();
 const FRAGMENT_DEFAULTS = getDefaultFragmentClipper();
 
-export const DEFAULT_OPTIONS: OptionsState = {
+export const DEFAULT_OPTIONS: CompleteOptions = {
   interfaceTheme: 'system',
   rest: {
     baseUrl: REST_DEFAULTS.baseUrl,
@@ -57,7 +57,12 @@ export const DEFAULT_OPTIONS: OptionsState = {
     promptShortcut: 'Alt+V',
     controlBarAutoPause: true,
     controlBarScreenshot: true,
-    commentEditorAutoPause: false
+    commentEditorAutoPause: false,
+    screenshotAttachment: {
+      locationTemplate: './assets/${noteFileName}',
+      fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
+      markdownUrlFormat: ''
+    }
   },
   experimentalAi: {
     provider: 'compatible',
