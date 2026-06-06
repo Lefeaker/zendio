@@ -43,10 +43,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-nav-panel="overview"]')).toBeTruthy();
     expect(document.querySelector('[data-panel-id="storage"]')).toBeTruthy();
     expect(document.querySelector('.nav-group > .nav-title')).toBeNull();
-    expect(document.querySelector('.sidebar')?.textContent).not.toContain('Runtime UI');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Resources');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Settings');
-    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
+    expect(document.querySelector('.sidebar')?.textContent).toContain('Runtime UI');
+    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeTruthy();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
