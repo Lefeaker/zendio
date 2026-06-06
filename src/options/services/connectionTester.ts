@@ -4,10 +4,10 @@ import type { RestOptions } from '../../shared/types/options';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
   createTrackUsageEventMessage,
-  type DurationBucket,
   type FailureCategory,
   type StorageTarget
 } from '../../shared/types/analytics';
+import { bucketDurationMs } from '../../shared/analytics/featureTimer';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { errorHandler, isAppError, optionsErrors } from '../../shared/errors';
@@ -255,7 +255,7 @@ export function emitConnectionTestCompleted(
     failureCategory?: FailureCategory;
   }
 ): void {
-  const durationBucket = toDurationBucket(Date.now() - args.startedAt);
+  const durationBucket = bucketDurationMs(Date.now() - args.startedAt);
   sendUsageEvent(
     messagingRepository,
     createTrackUsageEventMessage('connection_test_completed', {
@@ -302,31 +302,6 @@ function sanitizeRestDraft(draft: Partial<RestOptions>): Partial<RestOptions> {
   }
 
   return sanitized;
-}
-
-function toDurationBucket(durationMs: number): DurationBucket {
-  if (durationMs < 100) {
-    return 'under_100ms';
-  }
-  if (durationMs < 500) {
-    return '100ms_to_499ms';
-  }
-  if (durationMs < 1000) {
-    return '500ms_to_999ms';
-  }
-  if (durationMs < 3000) {
-    return '1s_to_2s';
-  }
-  if (durationMs < 10000) {
-    return '3s_to_9s';
-  }
-  if (durationMs < 30000) {
-    return '10s_to_29s';
-  }
-  if (durationMs < 120000) {
-    return '30s_to_119s';
-  }
-  return '2m_plus';
 }
 
 function sendUsageEvent(

@@ -93,21 +93,12 @@ function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
     message: result.message
   };
 
-  if (result.status !== undefined) {
-    payload.status = result.status;
-  }
-  if (result.response !== undefined) {
-    payload.response = result.response;
-  }
-  if (result.error !== undefined) {
-    payload.error = result.error;
-  }
-  if (result.channels !== undefined) {
-    payload.channels = result.channels as unknown as MessagePayload;
-  }
-  if (result.vaults !== undefined) {
-    payload.vaults = result.vaults as unknown as MessagePayload;
-  }
+  (['status', 'response', 'error', 'channels', 'vaults'] as const).forEach((key) => {
+    const value = result[key];
+    if (value !== undefined) {
+      payload[key] = value as unknown as MessagePayload;
+    }
+  });
 
   return payload;
 }

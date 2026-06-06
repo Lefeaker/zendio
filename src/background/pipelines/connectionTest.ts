@@ -9,14 +9,15 @@ import type { PlatformServices } from '../../platform/types';
 import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
 import { trackUsageEvent } from '../services/analyticsEvents';
 import type {
-  DurationBucket,
   FailureCategory as AnalyticsFailureCategory,
   StorageTarget
 } from '../../shared/types/analytics';
+import { bucketDurationMs } from '../../shared/analytics/featureTimer';
 import {
   executeVaultStorageTargetTest,
   type ConnectionTestConfig
 } from './vaultConnectionChannels';
+import { summarizeVaultStorageTargetTest } from './connectionTestAnalytics';
 
 type FailureCategory = 'HTTP error' | 'network error' | 'config error';
 type ConnectionTestSummary = {
@@ -163,10 +164,7 @@ export async function handleVaultConnectionTest(
 
       const result = await executeVaultStorageTargetTest(config);
       trackConnectionTestCompleted(
-        summarizeVaultStorageTargetTest(
-          result,
-          vault.localFolderId ? 'local_folder' : 'rest_api'
-        ),
+        summarizeVaultStorageTargetTest(result, vault.localFolderId ? 'local_folder' : 'rest_api'),
         startedAt
       );
       return result;
@@ -484,48 +482,6 @@ function formatCategoryMessage(category: FailureCategory, detail?: string): stri
   return category;
 }
 
-function summarizeVaultStorageTargetTest(
-  result: ConnectionTestResult,
-  storageTarget: StorageTarget
-): ConnectionTestSummary {
-  return {
-    result,
-    storageTarget,
-    ...(!result.success ? { failureCategory: inferChannelFailureCategory(result) } : {})
-  };
-}
-
-function inferChannelFailureCategory(result: ConnectionTestResult): AnalyticsFailureCategory {
-  const channels = result.channels ?? [];
-  const failedConfiguredChannels = channels.filter(
-    (channel) => channel.configured && !channel.success
-  );
-  const failedLocalFolder = failedConfiguredChannels.find(
-    (channel) => channel.channel === 'localFolder'
-  );
-  const failureText = [
-    result.error,
-    result.message,
-    ...failedConfiguredChannels.flatMap((channel) => [channel.error, channel.message])
-  ]
-    .filter((message): message is string => typeof message === 'string' && message.length > 0)
-    .join('\n')
-    .toLowerCase();
-
-  if (failedLocalFolder) {
-    return failureText.includes('unsupported') || failureText.includes('不支持')
-      ? 'unsupported'
-      : 'permission';
-  }
-  if (failureText.includes('未配置') || failureText.includes('config error')) {
-    return 'validation';
-  }
-  if (failureText.includes('timeout')) {
-    return 'timeout';
-  }
-  return 'connection';
-}
-
 function buildFailureSummary(
   error: unknown,
   label: string | undefined,
@@ -575,7 +531,7 @@ function trackConnectionTestCompleted(summary: ConnectionTestSummary, startedAt:
   void trackUsageEvent('connection_test_completed', {
     storage_target: summary.storageTarget,
     outcome: summary.result.success ? 'completed' : 'failed',
-    duration_bucket: toDurationBucket(Date.now() - startedAt),
+    duration_bucket: bucketDurationMs(Date.now() - startedAt),
     ...(summary.failureCategory ? { failure_category: summary.failureCategory } : {})
   });
 }
@@ -585,29 +541,4 @@ function toAnalyticsFailureCategory(category: FailureCategory): AnalyticsFailure
     return 'validation';
   }
   return 'connection';
-}
-
-function toDurationBucket(durationMs: number): DurationBucket {
-  if (durationMs < 100) {
-    return 'under_100ms';
-  }
-  if (durationMs < 500) {
-    return '100ms_to_499ms';
-  }
-  if (durationMs < 1000) {
-    return '500ms_to_999ms';
-  }
-  if (durationMs < 3000) {
-    return '1s_to_2s';
-  }
-  if (durationMs < 10000) {
-    return '3s_to_9s';
-  }
-  if (durationMs < 30000) {
-    return '10s_to_29s';
-  }
-  if (durationMs < 120000) {
-    return '30s_to_119s';
-  }
-  return '2m_plus';
 }
