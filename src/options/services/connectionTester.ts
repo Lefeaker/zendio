@@ -37,9 +37,7 @@ type PermissionPromptSource = 'clip' | 'options';
 type PermissionPromptOutcome = 'completed' | 'failed' | 'cancelled';
 type ConnectionTestOutcome = 'completed' | 'failed';
 type TrackUsageMessage = ReturnType<typeof createTrackUsageEventMessage>;
-interface AnalyticsMessagingRepository {
-  send(message: TrackUsageMessage): void;
-}
+type AnalyticsMessagingRepository = { send(message: TrackUsageMessage): void };
 interface ConnectionMessagingRepository {
   send(
     message: RuntimeConnectionMessage
