@@ -99,7 +99,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 265],
   ['src/options/utils/localizedText.ts', 264],
-  ['src/options/app/productionStitchRenderLifecycle.ts', 263],
   ['src/options/services/connectionTestRunner.ts', 262],
   ['src/content/video/sessionPlatformController.ts', 260],
   ['src/content/runtime/contentMessageHandlers.ts', 259],
