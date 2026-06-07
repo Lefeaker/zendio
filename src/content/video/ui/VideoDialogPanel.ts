@@ -165,9 +165,13 @@ export class VideoDialogPanel implements UiMountable<
     );
   }
 
-  stopEditing(): void {
-    this.commentDrafts.clear(this.editingCaptureId);
-    this.editingCaptureId = null;
+  stopEditing(captureId?: string): void {
+    this.commentDrafts.captureRenderedInputs();
+    const idToClear = captureId ?? this.editingCaptureId;
+    this.commentDrafts.clear(idToClear);
+    if (!captureId || this.editingCaptureId === captureId) {
+      this.editingCaptureId = null;
+    }
     this.rerender({ captureDrafts: false });
   }
 

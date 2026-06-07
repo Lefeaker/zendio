@@ -70,6 +70,7 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  syncCommentDrafts?: () => Record<string, string>;
   scheduleDraftSave?: () => Promise<void>;
   flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
   removeDraft?: () => Promise<void>;
@@ -158,6 +159,7 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
 
   const video = context.state.videoElement ?? context.findVideoElement();
@@ -216,7 +218,7 @@ export async function handleVideoSessionAddCapture(
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
   } else {
-    context.dom.stopEditing();
+    context.dom.stopEditing(capture.id);
   }
   if (options.resumePlayback && typeof video.play === 'function') {
     void Promise.resolve(video.play()).catch(() => undefined);
@@ -231,6 +233,7 @@ export function ingestVideoSessionTextCapture(
   comment: string,
   selectionRange?: Range
 ): void {
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
   const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
   if (!normalizedText) {
@@ -307,6 +310,7 @@ export async function submitVideoSessionCaptureEdit(
   if (!target) {
     return;
   }
+  context.syncCommentDrafts?.();
   const previousComment = target.comment;
   const previousDraft = context.state.commentDrafts[id];
   delete context.state.commentDrafts[id];
@@ -323,7 +327,7 @@ export async function submitVideoSessionCaptureEdit(
     return;
   }
   context.releasePlaybackEditLease?.(id, true);
-  context.dom.stopEditing();
+  context.dom.stopEditing(id);
   context.syncPanel();
 }
 
@@ -332,6 +336,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   if (index === -1) {
     return;
   }
+  context.syncCommentDrafts?.();
   delete context.state.commentDrafts[id];
   const [removed] = context.state.captures.splice(index, 1);
   context.releasePlaybackEditLease?.(id, false);
@@ -362,6 +367,7 @@ export async function toggleVideoSessionCaptureScreenshot(
   if (!target) {
     return;
   }
+  context.syncCommentDrafts?.();
 
   if (hasRequestedTimestampScreenshot(target)) {
     clearRequestedTimestampScreenshot(target);
@@ -408,6 +414,7 @@ export async function finishVideoSession(
     return;
   }
 
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
   const exportDestination = context.getExportDestinationMetadata?.();
   context.state.exporting = true;

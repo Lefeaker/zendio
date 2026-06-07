@@ -34,8 +34,8 @@ class VideoPanelViewAdapter implements VideoSessionView {
     this.panel.beginEditingCapture(captureId, comment);
   }
 
-  stopEditing(): void {
-    this.panel.stopEditing();
+  stopEditing(captureId?: string): void {
+    this.panel.stopEditing(captureId);
   }
 
   snapshotCommentDrafts(): Record<string, string> {
