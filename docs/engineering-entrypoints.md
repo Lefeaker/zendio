@@ -55,6 +55,7 @@
 - 2026-06-04 i18n-v2 M11 type-ratchet 真值：M02-M10 accepted i18n generated source/test expansion 后，`lint:type-any:ratchet` 已按当前实测同步为 overall `0/991/1658/41/4`、src `0/549/579/5/0`、tests `0/442/1079/36/4`；M11 自身新增 gate test 不增加 type-debt 计数，`any` 与 `ts-expect-error` 上限未放宽。
 - 2026-06-05 GA / i18n PR merge type-ratchet 真值：两个 PR 合并后的当前 `lint:type-any` 实测为扫描 `1071` files，overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
 - 2026-06-06 session-draft current-main reintegration type-ratchet 真值：session draft integration 重新基于当前 `origin/main` 合入并补齐 active video draft restore 回退后，`lint:type-any` 实测扫描 `1091` files，overall `0/1132/1845/53/4`、src `0/612/626/7/0`、tests `0/520/1219/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`，不得用 tests 下降抵消 src 增长。
+- 2026-06-07 video legacy recovery type-ratchet 真值：当前集成树 `lint:type-any` 实测扫描 `1111` files，overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`。
 
 ## 当前推荐执行顺序
 
@@ -127,13 +128,13 @@ must not call Google debug endpoints directly from the extension.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；2026-06-06 session-draft current-main reintegration 已有意同步 checked-in baseline 为 `148`，当前 gate 输出为 `Warning 总量保持在基线 148 条`。
+- `npm run lint:warnings-guard`：通过；2026-06-07 video legacy recovery 集成树已同步 checked-in baseline 为 `147`，当前 gate 输出为 `Warning 总量保持在基线 147 条`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 主要规则族：`require-await`（`102`）与 unsafe type warnings。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 session-draft current-main reintegration 树 `1091` files；overall 为 `any: 0`、`unknown: 1132`、assertions `1845`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/612/626/7/0`；tests 为 `0/520/1219/46/4`。
+- `npm run lint:type-any`：扫描当前 video legacy recovery 集成树 `1111` files；overall 为 `any: 0`、`unknown: 1125`、assertions `1838`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/612/622/7/0`；tests 为 `0/513/1216/46/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/1132/1845/53/4`、src `0/612/626/7/0`、tests `0/520/1219/46/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：同时守住 overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
 
 ## 当前构建预算真值
 
@@ -181,9 +182,10 @@ must not call Google debug endpoints directly from the extension.
 
 2026-06-07 video legacy recovery build truth:
 
-- `quality`、`verify:preflight`、`build:dev` 与 `audit:build:report` 在 Node `v20.20.2` 下通过
-- dev `build/dist/content/runtime.js`: `55.8 KB`（raw `57,131` bytes；raw stop gate `57,344`）
+- `quality`、`verify:preflight`、Chrome `build`、Firefox `build:firefox`、`build:dev` 与 `audit:build:report` 在 Node `v20.20.2` 下通过
+- dev `build/dist/content/runtime.js`: `56.0 KB`（raw `57,344` bytes；raw stop gate `57,344`）
 - dev chunks: `112`
+- performance coverage: trackedSourceFiles=`717`、hotspotsOver250=`105`、registeredLineBudgets=`108`
 - `sessionDraftAutoRestore-*` 作为 lazy chunk 承载页面进入后的 reader/video draft 自动恢复，不再把恢复实现本体压入 content 主入口
 
 ## 核心命令

@@ -27,6 +27,7 @@ import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 import { startRuntimeThemeSync } from './stitch/runtimeTheme';
 import type { SupportProgressUpdate } from './runtime/supportProgress';
+import { startLazyDraftRestore } from './runtime/sessionDraftAutoRestoreBootstrap';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -143,33 +144,27 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
-  let runtimeStopped = false;
-  let stopSessionDraftAutoRestore: (() => void) | null = null;
-  void import('./runtime/sessionDraftAutoRestore')
-    .then(({ startSessionDraftAutoRestore }) => {
-      if (runtimeStopped) {
-        return;
-      }
-      stopSessionDraftAutoRestore = startSessionDraftAutoRestore({
-        document,
-        window,
-        storage: platform.storage,
-        currentUrl: () => window.location.href,
-        createReaderSession: () => createReaderSession(document, window.location.href),
-        createVideoSession: () => createVideoSession(document),
-        isReaderSessionActive: () => isReaderSessionActive(document),
-        isVideoSessionActive: () => isVideoSessionActive(document),
-        isVideoCandidateUrl: isVideoPromptCandidateUrl
-      });
-    })
-    .catch((error) => {
+  const stopDraftRestore = startLazyDraftRestore(
+    () => import('./runtime/sessionDraftAutoRestore'),
+    {
+      document,
+      window,
+      storage: platform.storage,
+      currentUrl: () => window.location.href,
+      createReaderSession: () => createReaderSession(document, window.location.href),
+      createVideoSession: () => createVideoSession(document),
+      isReaderSessionActive: () => isReaderSessionActive(document),
+      isVideoSessionActive: () => isVideoSessionActive(document),
+      isVideoCandidateUrl: isVideoPromptCandidateUrl
+    },
+    (error) => {
       console.warn('[content] Failed to start session draft auto-restore:', error);
-    });
+    }
+  );
   window.addEventListener(
     'pagehide',
     () => {
-      runtimeStopped = true;
-      stopSessionDraftAutoRestore?.();
+      stopDraftRestore();
       stopRuntimeThemeSync();
       runtime.stop();
     },
