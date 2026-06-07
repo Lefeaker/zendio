@@ -14,15 +14,13 @@ import {
 import { previewContent } from '@options/stitch/content';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { getFooterView, getResourceView } from '@options/stitch/schema/registry';
-import type { PreviewContent } from '@options/stitch/types';
 import { previewUi } from '@options/stitch/ui/components';
 import { el } from '@options/stitch/ui/dom';
-import { mergeOptions } from '@shared/config/optionsMerger';
-import type { CompleteOptions } from '@shared/types/options';
 import { createSchemaContext as createBaseSchemaContext } from '../../utils/productionStitchAssertions';
 import { expectNoChineseSettingsCopy } from '../../utils/optionsI18nTextAssertions';
 import {
   asOptionsController,
+  createCompleteOptions,
   createController,
   findButton,
   flushPromises,
@@ -37,23 +35,19 @@ const SETTINGS_PANEL_IDS = [
   'capture-behavior',
   'output',
   'maintenance'
-] as const;
+];
 
-const RESOURCE_MODAL_IDS = [
-  'plugin-setup',
-  'support',
-  'suggestions',
-  'contact',
-  'changelog'
-] as const;
+const RESOURCE_MODAL_IDS = ['plugin-setup', 'support', 'suggestions', 'contact', 'changelog'];
 
-const RUNTIME_SURFACE_IDS = [
+type RuntimeSurfaceId = 'clipper' | 'reader' | 'video' | 'video-floating-prompt' | 'task-success';
+
+const RUNTIME_SURFACE_IDS: RuntimeSurfaceId[] = [
   'clipper',
   'reader',
   'video',
   'video-floating-prompt',
   'task-success'
-] as const;
+];
 
 const SURFACE_INITIAL_OPTIONS = {
   rest: {
@@ -61,7 +55,24 @@ const SURFACE_INITIAL_OPTIONS = {
   }
 };
 
-type RuntimeSurfaceId = (typeof RUNTIME_SURFACE_IDS)[number];
+const RESOURCE_LINKS: Array<{ label: string; resourceId: string }> = [
+  { label: DEFAULT_RUNTIME_MESSAGES.privacyPolicyLink, resourceId: 'privacy-policy' },
+  { label: DEFAULT_RUNTIME_MESSAGES.dataUsageLink, resourceId: 'data-usage' }
+];
+
+function renderRequiredElement(
+  rendered: ReturnType<typeof renderPreviewView>,
+  description: string
+): HTMLElement {
+  if (!(rendered instanceof HTMLElement)) {
+    throw new Error(`Missing rendered ${description}.`);
+  }
+  return rendered;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function createEnglishSchemaContext() {
   const base = createBaseSchemaContext();
@@ -79,17 +90,19 @@ function createEnglishSchemaContext() {
 function renderOnboardingPage(): HTMLElement {
   const context = createEnglishSchemaContext();
   const view = getResourceView('onboarding', context);
-  expect(view).toBeTruthy();
+  if (!view) {
+    throw new Error('Missing onboarding preview view.');
+  }
 
-  const rendered = renderPreviewView(view!, {
-    ...context,
-    el,
-    ui: previewUi,
-    dispatch: vi.fn()
-  } satisfies RendererContext);
-
-  expect(rendered).toBeTruthy();
-  return rendered!;
+  return renderRequiredElement(
+    renderPreviewView(view, {
+      ...context,
+      el,
+      ui: previewUi,
+      dispatch: vi.fn()
+    } satisfies RendererContext),
+    'onboarding preview'
+  );
 }
 
 function renderRuntimeSurface(surfaceId: RuntimeSurfaceId): HTMLElement {
@@ -102,12 +115,12 @@ function renderRuntimeSurface(surfaceId: RuntimeSurfaceId): HTMLElement {
 
   queryRequired<HTMLElement>(`[data-footer-panel="${surfaceId}"]`);
 
-  const draft = mergeOptions(SURFACE_INITIAL_OPTIONS) as CompleteOptions;
+  const draft = createCompleteOptions(SURFACE_INITIAL_OPTIONS);
   const appData = structuredClone(
     createProductionStitchAppData(draft, {
       maintenanceLog: previewContent.maintenanceLog
     })
-  ) as PreviewContent;
+  );
 
   const state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
   state.previewLanguage = 'en';
@@ -120,18 +133,21 @@ function renderRuntimeSurface(surfaceId: RuntimeSurfaceId): HTMLElement {
   });
 
   const view = getFooterView(surfaceId, context);
-  expect(view).toBeTruthy();
+  if (!view) {
+    throw new Error(`Missing runtime surface view: ${surfaceId}.`);
+  }
 
-  const rendered = renderPreviewView(view!, {
-    ...context,
-    el,
-    ui: previewUi,
-    dispatch: vi.fn()
-  } satisfies RendererContext);
-
-  expect(rendered).toBeTruthy();
-  document.body.append(rendered!);
-  return rendered!;
+  const rendered = renderRequiredElement(
+    renderPreviewView(view, {
+      ...context,
+      el,
+      ui: previewUi,
+      dispatch: vi.fn()
+    } satisfies RendererContext),
+    `runtime surface ${surfaceId}`
+  );
+  document.body.append(rendered);
+  return rendered;
 }
 
 describe('mountProductionStitchShell English residual coverage', () => {
@@ -153,7 +169,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
       try {
         expectNoChineseSettingsCopy(queryRequired<HTMLElement>(`[data-panel-id="${panelId}"]`));
       } catch (error) {
-        failures.push(`Panel ${panelId}: ${(error as Error).message}`);
+        failures.push(`Panel ${panelId}: ${getErrorMessage(error)}`);
       }
     }
 
@@ -184,17 +200,14 @@ describe('mountProductionStitchShell English residual coverage', () => {
       try {
         expectNoChineseSettingsCopy(modal);
       } catch (error) {
-        failures.push(`Resource ${resourceId}: ${(error as Error).message}`);
+        failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
 
       modal.click();
       await flushPromises();
     }
 
-    for (const [label, resourceId] of [
-      [DEFAULT_RUNTIME_MESSAGES.privacyPolicyLink, 'privacy-policy'],
-      [DEFAULT_RUNTIME_MESSAGES.dataUsageLink, 'data-usage']
-    ] as const) {
+    for (const { label, resourceId } of RESOURCE_LINKS) {
       findButton(label).click();
       await flushPromises();
 
@@ -202,7 +215,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
       try {
         expectNoChineseSettingsCopy(modal);
       } catch (error) {
-        failures.push(`Resource ${resourceId}: ${(error as Error).message}`);
+        failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
 
       modal.click();
@@ -223,7 +236,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
         surface = renderRuntimeSurface(surfaceId);
         expectNoChineseSettingsCopy(surface);
       } catch (error) {
-        failures.push(`Surface ${surfaceId}: ${(error as Error).message}`);
+        failures.push(`Surface ${surfaceId}: ${getErrorMessage(error)}`);
       } finally {
         surface?.remove();
       }

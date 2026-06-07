@@ -1,11 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { mergeOptions, optionsMerger } from '@shared/config/optionsMerger';
-import type { StoredOptions, ReadingSessionOptions } from '@shared/types';
-import type { FragmentModifierKey, ReaderHighlightTheme } from '@shared/types/options';
+import type { StoredOptions } from '@shared/types';
 
-const defaultReadingSession = DEFAULT_OPTIONS.readingSession!;
-const defaultFragmentClipper = DEFAULT_OPTIONS.fragmentClipper!;
+function requireDefaultOption<T>(value: T | undefined, label: string): T {
+  if (value === undefined) {
+    throw new Error(`Missing default option: ${label}`);
+  }
+  return value;
+}
+
+function parseStoredOptions(text: string): StoredOptions {
+  return JSON.parse(text) as StoredOptions;
+}
+
+const defaultReadingSession = requireDefaultOption(DEFAULT_OPTIONS.readingSession, 'readingSession');
+const defaultFragmentClipper = requireDefaultOption(
+  DEFAULT_OPTIONS.fragmentClipper,
+  'fragmentClipper'
+);
 const screenshotAttachmentDefaults = {
   locationTemplate: './assets/${noteFileName}',
   fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
@@ -75,12 +88,9 @@ describe('shared optionsMerger', () => {
   });
 
   it('normalizes fragment modifier keys to a single selection', () => {
-    const stored: StoredOptions = {
-      fragmentClipper: {
-        selectionModifierEnabled: true,
-        selectionModifierKeys: ['meta', 'ctrl', 'cmd', 'Alt'] as unknown as FragmentModifierKey[]
-      }
-    };
+    const stored = parseStoredOptions(
+      '{"fragmentClipper":{"selectionModifierEnabled":true,"selectionModifierKeys":["meta","ctrl","cmd","Alt"]}}'
+    );
 
     const result = mergeOptions(stored);
     expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
@@ -92,7 +102,7 @@ describe('shared optionsMerger', () => {
       readingSession: {
         exportMode: 'full',
         highlightTheme: 'neonOrange'
-      } as Partial<ReadingSessionOptions>
+      }
     };
 
     const result = mergeOptions(stored);
@@ -101,11 +111,7 @@ describe('shared optionsMerger', () => {
   });
 
   it('falls back to default highlight theme when invalid', () => {
-    const stored: StoredOptions = {
-      readingSession: {
-        highlightTheme: 'invalid-color' as unknown as ReaderHighlightTheme
-      } as Partial<ReadingSessionOptions>
-    };
+    const stored = parseStoredOptions('{"readingSession":{"highlightTheme":"invalid-color"}}');
 
     const result = mergeOptions(stored);
     expect(result.readingSession?.highlightTheme).toBe(defaultReadingSession.highlightTheme);
@@ -206,25 +212,29 @@ describe('shared optionsMerger', () => {
   });
 
   it('preserves optional rest fields, legacy template fallbacks, and unknown extensions', () => {
-    const result = mergeOptions({
-      interfaceTheme: 'unexpected' as StoredOptions['interfaceTheme'],
-      rest: {
-        baseUrl: '',
-        vault: '',
-        apiKey: '',
-        httpsUrl: '',
-        httpUrl: 'http://stored.example/',
-        rootDir: 'Root',
-        localFolderId: '',
-        localFolderName: 'Local Folder'
-      },
-      templates: {
-        clipper: 'Legacy/{title}.md'
-      } as StoredOptions['templates'],
-      domainMappings: { 'example.com': 'Examples' },
-      yamlConfig: { fields: [] },
-      customExtension: { enabled: true }
-    } as StoredOptions & { customExtension: { enabled: boolean } });
+    const result = mergeOptions(
+      parseStoredOptions(
+        JSON.stringify({
+          interfaceTheme: 'unexpected',
+          rest: {
+            baseUrl: '',
+            vault: '',
+            apiKey: '',
+            httpsUrl: '',
+            httpUrl: 'http://stored.example/',
+            rootDir: 'Root',
+            localFolderId: '',
+            localFolderName: 'Local Folder'
+          },
+          templates: {
+            clipper: 'Legacy/{title}.md'
+          },
+          domainMappings: { 'example.com': 'Examples' },
+          yamlConfig: { fields: [] },
+          customExtension: { enabled: true }
+        })
+      )
+    );
 
     expect(result.interfaceTheme).toBe(DEFAULT_OPTIONS.interfaceTheme ?? 'system');
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
@@ -239,36 +249,38 @@ describe('shared optionsMerger', () => {
     expect(result.templates.reading).toBe('Legacy/{title}.md');
     expect(result.domainMappings).toEqual({ 'example.com': 'Examples' });
     expect(result.yamlConfig).toEqual({ fields: [] });
-    expect(
-      (result as typeof result & { customExtension: { enabled: boolean } }).customExtension
-    ).toEqual({
+    expect(Reflect.get(result, 'customExtension')).toEqual({
       enabled: true
     });
   });
 
   it('normalizes blank optional feature values through documented fallbacks', () => {
-    const result = mergeOptions({
-      aiChat: { includeTimestamps: true, userName: '' },
-      video: {
-        floatingPromptEnabled: false,
-        promptButtonLabel: '   ',
-        promptShortcut: '',
-        controlBarAutoPauseEnabled: false,
-        controlBarCaptureScreenshotEnabled: false,
-        commentEditorAutoPause: true,
-        promptPosition: { x: Number.NaN, y: 12 }
-      } as StoredOptions['video'],
-      experimentalAi: {
-        provider: '',
-        model: '   ',
-        apiUrl: '',
-        apiKey: '  custom-key  '
-      },
-      subtitleTranslation: {
-        enabled: true,
-        targetLanguage: ''
-      }
-    });
+    const result = mergeOptions(
+      parseStoredOptions(
+        JSON.stringify({
+          aiChat: { includeTimestamps: true, userName: '' },
+          video: {
+            floatingPromptEnabled: false,
+            promptButtonLabel: '   ',
+            promptShortcut: '',
+            controlBarAutoPauseEnabled: false,
+            controlBarCaptureScreenshotEnabled: false,
+            commentEditorAutoPause: true,
+            promptPosition: { x: 'NaN', y: 12 }
+          },
+          experimentalAi: {
+            provider: '',
+            model: '   ',
+            apiUrl: '',
+            apiKey: '  custom-key  '
+          },
+          subtitleTranslation: {
+            enabled: true,
+            targetLanguage: ''
+          }
+        })
+      )
+    );
 
     expect(result.aiChat?.userName).toBe(DEFAULT_OPTIONS.aiChat?.userName ?? 'USER');
     expect(result.aiChat?.includeTimestamps).toBe(true);
@@ -281,10 +293,7 @@ describe('shared optionsMerger', () => {
     expect(result.video?.controlBarScreenshot).toBe(false);
     expect(result.video?.commentEditorAutoPause).toBe(true);
     expect(result.video?.promptPosition).toEqual({ x: 0, y: 12 });
-    expect(
-      (result.video as { screenshotAttachment?: Record<string, string> } | undefined)
-        ?.screenshotAttachment
-    ).toEqual(screenshotAttachmentDefaults);
+    expect(getScreenshotAttachment(result)).toEqual(screenshotAttachmentDefaults);
     expect(result.experimentalAi?.provider).toBe(
       DEFAULT_OPTIONS.experimentalAi?.provider ?? 'compatible'
     );
