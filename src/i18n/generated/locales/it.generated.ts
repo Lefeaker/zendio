@@ -410,6 +410,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Trasferimento configurazione',
   schemaMaintenanceDiagnosisButton: 'Diagnostica configurazione',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnosi',
+  schemaMaintenanceDiagnosisResultLog:
+    'Risultato della diagnosi\n========\n✅ La connessione HTTPS del vault predefinito è attiva\n✅ È abilitato almeno un vault aggiuntivo\n✅ Le priorità delle regole di instradamento non sono in conflitto\n✅ La configurazione YAML di article / clipper / video / ai_chat viene analizzata correttamente\n⚠️ fragment.contextLength = 200 è un valore ragionevole, ma conviene continuare a monitorare le prestazioni nelle sessioni di modalità Lettura più pesanti\nℹ️ I riepiloghi pagina con IA, i riepiloghi nella parte alta della modalità Lettura e la traduzione dei sottotitoli sono ancora in pianificazione e non sono stati inclusi in questo controllo di connettività\nℹ️ video.floatingPromptEnabled controlla se il pulsante delle note viene mostrato nella barra di controllo dei siti video',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, modelli di percorso, mappature di dominio, instradamento multi-vault, impostazioni di contesto dei frammenti e prompt video devono tutti apparire nel report.',
   schemaMaintenanceDiagnosisScopeTitle: 'Ambito della diagnosi',
@@ -588,9 +590,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     "La finestra che l'utente vede dopo aver selezionato testo in una pagina web.",
   schemaRuntimeClipperHint: 'Dialogo di selezione nelle pagine web',
+  schemaRuntimeClipperSelectedText:
+    "Ciò che conta davvero non è l'informazione in sé, ma il legame tra quell'informazione e ciò che sai già. Solo quando questi legami vengono scritti il tuo io futuro può rientrare nel filo di pensiero originale.",
   schemaRuntimeClipperTitle: 'Finestra di clip',
   schemaRuntimeReaderDescription:
     'Pannello di lettura flottante con vere liste di evidenziazioni e modifica note in linea.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    "Ciò che conta davvero non è l'informazione in sé, ma il legame tra quell'informazione e ciò che sai già.",
+  schemaRuntimeReaderHighlightThreeFullText:
+    "Un'evidenziazione è solo un'ancora; ciò che aiuta davvero la memoria è il giudizio che scrivi accanto. Il valore della modalità Lettura sta proprio nel trasformare questo passaggio da gesto mentale a output strutturato.",
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    "Il valore di un'informazione non sta nell'essere stata salvata, ma nel poter essere capita di nuovo in futuro.",
   schemaRuntimeReaderHint: 'Pannello di lettura flottante',
   schemaRuntimeReaderTitle: 'Modalità lettura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configura vault',
@@ -603,6 +613,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Operazione riuscita',
   schemaRuntimeUiGroupTitle: 'Interfaccia runtime',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Cattura screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'A creare comprensione è il giudizio che esprimi mentre guardi. Il timestamp ti riporta solo a quel momento; la spiegazione continua a venire dal commento e dal contesto.',
   schemaRuntimeVideoDescription:
     'Pannello di note video basato su timestamp, frammenti acquisiti e commenti.',
   schemaRuntimeVideoFloatingPromptHint: 'Bolla di avvio sulle pagine video',

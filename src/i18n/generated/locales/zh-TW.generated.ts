@@ -363,6 +363,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: '設定遷移',
   schemaMaintenanceDiagnosisButton: '診斷設定',
   schemaMaintenanceDiagnosisGroupTitle: '診斷',
+  schemaMaintenanceDiagnosisResultLog:
+    '診斷結果\n========\n✅ 預設 vault 的 HTTPS 連線正常\n✅ 至少有一個附加 vault 處於啟用狀態\n✅ 路由規則優先順序沒有衝突\n✅ article / clipper / video / ai_chat YAML 設定都可成功解析\n⚠️ fragment.contextLength = 200 屬於合理值，但建議在較重的閱讀模式場景持續觀察效能\nℹ️ AI 頁面摘要、閱讀模式頂部摘要與字幕翻譯仍在規劃中，尚未納入本次連通性檢查\nℹ️ video.floatingPromptEnabled 控制影片網站控制列是否顯示筆記按鈕',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、路徑模板、網域映射、多倉路由、Fragment 上下文參數與 Video prompt 都應出現在報告中。',
   schemaMaintenanceDiagnosisScopeTitle: '診斷範圍',
@@ -523,8 +525,14 @@ const runtime = {
   schemaRuntimeAiSummaryBadge: 'AI 摘要',
   schemaRuntimeClipperDescription: '使用者在網頁上選取文字後首先看到的剪藏浮窗。',
   schemaRuntimeClipperHint: '網頁選取文字後的剪藏浮窗',
+  schemaRuntimeClipperSelectedText:
+    '真正重要的不是資訊本身，而是資訊與既有知識之間的連結。只有當這些連結被寫下來時，未來的自己才有機會重新回到當時的思路。',
   schemaRuntimeClipperTitle: '剪藏對話框',
   schemaRuntimeReaderDescription: '閱讀模式浮動面板，保留真實的高亮列表與行內註記編輯節奏。',
+  schemaRuntimeReaderHighlightOneExcerpt: '真正重要的不是資訊本身，而是資訊與既有知識之間的連結。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '高亮本身只是錨點，真正幫助記憶的是你在旁邊寫下的那一句判斷。閱讀模式的價值，也正在於把這一步從腦內動作變成結構化輸出。',
+  schemaRuntimeReaderHighlightTwoExcerpt: '資訊的價值，不在於被存下，而在於能否在未來被重新理解。',
   schemaRuntimeReaderHint: '閱讀模式浮動面板',
   schemaRuntimeReaderTitle: '閱讀模式',
   schemaRuntimeSurfaceConfigureVaultLabel: '設定倉庫',
@@ -536,6 +544,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: '任務成功',
   schemaRuntimeUiGroupTitle: '執行時介面',
   schemaRuntimeVideoCaptureScreenshotLabel: '擷取截圖',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '真正形成理解的，是你在觀看當下做出的那一次判斷。時間點只負責幫你回去，解釋權仍然來自評論與上下文。',
   schemaRuntimeVideoDescription: '圍繞時間戳、片段與註記建立影片筆記的面板。',
   schemaRuntimeVideoFloatingPromptHint: '影片頁面的啟動提示浮層',
   schemaRuntimeVideoFloatingPromptTitle: '影片浮動提示',

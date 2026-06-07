@@ -30,6 +30,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   ...DEFAULT_RUNTIME_MESSAGES,
   schemaRuntimeClipperTitle: 'Clipper Dialog Sentinel',
   schemaRuntimeClipperDescription: 'Clipper Description Sentinel',
+  schemaRuntimeClipperSelectedText: 'Clipper Selected Text Sentinel',
   clipSelection: 'Clip Selection Sentinel',
   addToReaderButton: 'Reader Entry Sentinel',
   clipSelectionVideo: 'Video Entry Sentinel',
@@ -38,6 +39,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configure Vault Sentinel',
   schemaRuntimeReaderTitle: 'Reader Mode Sentinel',
   schemaRuntimeReaderDescription: 'Reader Description Sentinel',
+  schemaRuntimeReaderHighlightOneExcerpt: 'Reader Highlight One Excerpt Sentinel',
+  schemaRuntimeReaderHighlightThreeFullText: 'Reader Highlight Three Full Text Sentinel',
   readerPanelTitle: 'Reader Panel Title Sentinel',
   readerPanelStatus: 'Reader Status Sentinel',
   readerPanelCounter: 'Reader Counter Sentinel {count}',
@@ -47,6 +50,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   readerPanelCancel: 'Reader Cancel Sentinel',
   schemaRuntimeVideoTitle: 'Video Mode Sentinel',
   schemaRuntimeVideoDescription: 'Video Description Sentinel',
+  schemaRuntimeVideoCaptureTwoFullText: 'Video Capture Two Full Text Sentinel',
   videoPanelTitle: 'Video Panel Title Sentinel',
   videoPanelStatus: 'Video Status Sentinel',
   videoPanelCounter: 'Video Counter Sentinel {count}',
@@ -156,9 +160,11 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(clipper.textContent).toContain('Reader Entry Sentinel');
     expect(clipper.textContent).toContain('Video Entry Sentinel');
     expect(clipper.textContent).toContain('Clip Selection Sentinel');
+    expect(clipper.textContent).toContain('Clipper Selected Text Sentinel');
     expect(clipper.textContent).toContain('Save To Sentinel');
     expect(clipper.textContent).toContain('Configure Vault Sentinel');
     expect(clipper.textContent).not.toContain('用户在网页上选中文本后首先看到的剪藏浮窗');
+    expect(clipper.textContent).not.toContain('真正重要的不是信息本身');
   });
 
   it('renders the reader preview from English schema and runtime messages', () => {
@@ -188,6 +194,9 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
         reader
       ).getAttribute('aria-label')
     ).toBe('Reader Delete Sentinel');
+    expect(reader.textContent).toContain('Reader Highlight One Excerpt Sentinel');
+    expect(reader.textContent).toContain('Reader Highlight Three Full Text Sentinel');
+    expect(reader.textContent).not.toContain('真正重要的不是信息本身');
     expect(reader.textContent).toContain('Reader Finish Sentinel');
     expect(reader.textContent).toContain('Reader Cancel Sentinel');
   });
@@ -229,6 +238,8 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
         video
       ).getAttribute('aria-label')
     ).toBe('Capture Screenshot Sentinel');
+    expect(video.textContent).toContain('Video Capture Two Full Text Sentinel');
+    expect(video.textContent).not.toContain('真正形成理解的，是你在观看当下做出的那一次判断');
     expect(video.textContent).toContain('Video Finish Sentinel');
     expect(video.textContent).toContain('Video Cancel Sentinel');
   });

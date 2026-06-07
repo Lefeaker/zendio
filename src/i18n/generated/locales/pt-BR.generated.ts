@@ -406,6 +406,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Transferência de configuração',
   schemaMaintenanceDiagnosisButton: 'Diagnosticar configuração',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnóstico',
+  schemaMaintenanceDiagnosisResultLog:
+    'Resultado do diagnóstico\n========\n✅ A conexão HTTPS do vault padrão está saudável\n✅ Pelo menos um vault adicional está habilitado\n✅ As prioridades das regras de roteamento não entram em conflito\n✅ A configuração YAML de article / clipper / video / ai_chat é analisada corretamente\n⚠️ fragment.contextLength = 200 é um valor razoável, mas convém acompanhar o desempenho em sessões mais pesadas do modo de leitura\nℹ️ Resumos de página com IA, resumos no topo do modo de leitura e tradução de legendas ainda estão em planejamento e não foram incluídos nesta verificação de conectividade\nℹ️ video.floatingPromptEnabled controla se o botão de notas aparece na barra de controle dos sites de vídeo',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, modelos de caminho, mapeamentos de domínio, roteamento multi-vault, configurações de contexto de fragmento e prompts de vídeo devem aparecer no relatório.',
   schemaMaintenanceDiagnosisScopeTitle: 'Escopo do diagnóstico',
@@ -585,9 +587,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     'O diálogo que aparece depois que o usuário seleciona texto em uma página web.',
   schemaRuntimeClipperHint: 'Janela de seleção em páginas da web',
+  schemaRuntimeClipperSelectedText:
+    'O que realmente importa não é a informação em si, mas a ligação entre essa informação e o que você já sabe. Só quando essas ligações são escritas o seu eu do futuro consegue voltar ao raciocínio original.',
   schemaRuntimeClipperTitle: 'Diálogo de recorte',
   schemaRuntimeReaderDescription:
     'Painel flutuante de leitura com listas reais de destaques e edição de notas em linha.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'O que realmente importa não é a informação em si, mas a ligação entre essa informação e o que você já sabe.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Um destaque é apenas uma âncora; o que realmente ajuda a memória é o julgamento que você escreve ao lado. O valor do modo de leitura está justamente em transformar esse passo de uma ação mental em uma saída estruturada.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'O valor da informação não está no fato de ela ter sido salva, mas em poder ser compreendida novamente no futuro.',
   schemaRuntimeReaderHint: 'Painel flutuante de leitura',
   schemaRuntimeReaderTitle: 'Modo de leitura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurar vault',
@@ -600,6 +610,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Tarefa concluída',
   schemaRuntimeUiGroupTitle: 'Interface em tempo real',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'O que forma a compreensão é o julgamento que você faz enquanto assiste. O timestamp só ajuda você a voltar a esse momento; a explicação continua vindo do comentário e do contexto.',
   schemaRuntimeVideoDescription:
     'Painel de notas de vídeo baseado em timestamps, fragmentos capturados e comentários.',
   schemaRuntimeVideoFloatingPromptHint: 'Bolha de entrada em páginas de vídeo',

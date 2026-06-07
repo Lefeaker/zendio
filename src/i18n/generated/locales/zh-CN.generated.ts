@@ -367,6 +367,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: '配置迁移',
   schemaMaintenanceDiagnosisButton: '诊断配置',
   schemaMaintenanceDiagnosisGroupTitle: '诊断',
+  schemaMaintenanceDiagnosisResultLog:
+    '诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.floatingPromptEnabled 控制视频网站控制栏笔记按钮显示',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、路径模板、域名映射、多仓路由、Fragment 上下文参数和 Video prompt 都应在报告中可见。',
   schemaMaintenanceDiagnosisScopeTitle: '诊断范围',
@@ -526,8 +528,14 @@ const runtime = {
   schemaRuntimeAiSummaryBadge: 'AI 总结',
   schemaRuntimeClipperDescription: '用户在网页上选中文本后首先看到的剪藏浮窗。',
   schemaRuntimeClipperHint: '网页选中文本后的剪藏浮窗',
+  schemaRuntimeClipperSelectedText:
+    '真正重要的不是信息本身，而是信息和已有知识之间的连接。只有在连接被写下来的时候，未来的自己才有机会重新进入当时的思路。',
   schemaRuntimeClipperTitle: '剪藏对话框',
   schemaRuntimeReaderDescription: '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。',
+  schemaRuntimeReaderHighlightOneExcerpt: '真正重要的不是信息本身，而是信息和已有知识之间的连接。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '高亮本身只是锚点，真正帮助记忆的是你在边上的那一句判断。阅读模式的价值也正在于把这一步从脑内动作变成结构化输出。',
+  schemaRuntimeReaderHighlightTwoExcerpt: '信息的价值，不在于被存下，而在于能否在未来被重新理解。',
   schemaRuntimeReaderHint: '阅读模式悬浮面板',
   schemaRuntimeReaderTitle: '阅读模式',
   schemaRuntimeSurfaceConfigureVaultLabel: '配置仓库',
@@ -539,6 +547,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: '任务成功',
   schemaRuntimeUiGroupTitle: '运行时界面',
   schemaRuntimeVideoCaptureScreenshotLabel: '截取截图',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '真正形成理解的，是你在观看当下做出的那一次判断。时间点只负责帮你回去，解释权仍然来自评论和上下文。',
   schemaRuntimeVideoDescription: '围绕时间点、片段和批注建立视频笔记的面板。',
   schemaRuntimeVideoFloatingPromptHint: '视频页面的启动提示浮层',
   schemaRuntimeVideoFloatingPromptTitle: '视频浮动提示',

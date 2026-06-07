@@ -414,6 +414,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Transfert de configuration',
   schemaMaintenanceDiagnosisButton: 'Diagnostiquer la configuration',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnostic',
+  schemaMaintenanceDiagnosisResultLog:
+    "Résultats du diagnostic\n========\n✅ La connexion HTTPS du vault par défaut fonctionne correctement\n✅ Au moins un vault supplémentaire est activé\n✅ Les priorités des règles de routage ne se chevauchent pas\n✅ La configuration YAML de article / clipper / video / ai_chat est entièrement analysable\n⚠️ fragment.contextLength = 200 est une valeur raisonnable, mais il faut surveiller les performances dans les sessions de mode Lecture plus lourdes\nℹ️ Les résumés de page par IA, les résumés en haut du mode Lecture et la traduction des sous-titres sont encore au stade de planification et n'ont pas été inclus dans cette vérification de connectivité\nℹ️ video.floatingPromptEnabled contrôle l'affichage du bouton de notes dans la barre de contrôle des sites vidéo",
   schemaMaintenanceDiagnosisScopeDescription:
     'L’API REST, les modèles de chemin, les mappages de domaine, le routage multi-vault, les paramètres de contexte de fragment et les invites vidéo doivent tous apparaître dans le rapport.',
   schemaMaintenanceDiagnosisScopeTitle: 'Portée du diagnostic',
@@ -595,9 +597,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     "La fenêtre que l'utilisateur voit après avoir sélectionné du texte sur une page web.",
   schemaRuntimeClipperHint: 'Fenêtre de sélection sur les pages web',
+  schemaRuntimeClipperSelectedText:
+    "Ce qui compte vraiment, ce n'est pas l'information en elle-même, mais les liens entre cette information et ce que vous savez déjà. Ce n'est qu'en écrivant ces liens que votre futur vous pourra retrouver le cheminement de pensée du moment.",
   schemaRuntimeClipperTitle: 'Fenêtre de capture',
   schemaRuntimeReaderDescription:
     'Panneau de lecture flottant avec de vraies listes de surlignages et une édition de notes en ligne.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    "Ce qui compte vraiment, ce n'est pas l'information elle-même, mais les liens entre cette information et ce que vous savez déjà.",
+  schemaRuntimeReaderHighlightThreeFullText:
+    "Un surlignage n'est qu'une ancre ; ce qui aide vraiment la mémoire, c'est le jugement que vous écrivez à côté. La valeur du mode Lecture est justement de transformer cette étape, d'un geste mental, en sortie structurée.",
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    "La valeur d'une information ne tient pas au fait qu'elle a été sauvegardée, mais au fait qu'elle puisse être comprise de nouveau plus tard.",
   schemaRuntimeReaderHint: 'Panneau flottant de lecture',
   schemaRuntimeReaderTitle: 'Mode lecture',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurer le vault',
@@ -611,6 +621,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Tâche réussie',
   schemaRuntimeUiGroupTitle: "Interface d'exécution",
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturer une image',
+  schemaRuntimeVideoCaptureTwoFullText:
+    "Ce qui produit la compréhension, c'est le jugement que vous formulez au moment du visionnage. L'horodatage ne sert qu'à vous ramener à ce passage ; l'explication vient toujours du commentaire et du contexte.",
   schemaRuntimeVideoDescription:
     'Panneau de notes vidéo structuré autour des horodatages, des fragments capturés et des commentaires.',
   schemaRuntimeVideoFloatingPromptHint: "Bulle d'entrée sur les pages vidéo",

@@ -27,7 +27,9 @@ describe('mountProductionStitchShell maintenance i18n', () => {
         schemaMaintenanceDiagnosisButton: 'Diagnose Configuration Sentinel',
         schemaMaintenanceFixButton: 'Fix Configuration Sentinel',
         schemaMaintenanceReloadButton: 'Reload Sentinel',
-        schemaMaintenanceTransferLastActionNoticeTitle: 'Last Transfer Action Sentinel'
+        schemaMaintenanceTransferLastActionNoticeTitle: 'Last Transfer Action Sentinel',
+        schemaMaintenanceDiagnosisResultLog:
+          'Diagnosis Log Sentinel\\n========\\nLine One Sentinel\\nLine Two Sentinel'
       },
       language: 'en'
     });
@@ -40,6 +42,8 @@ describe('mountProductionStitchShell maintenance i18n', () => {
     expect(findButton('Diagnose Configuration Sentinel')).toBeTruthy();
     expect(findButton('Fix Configuration Sentinel')).toBeTruthy();
     expect(findButton('Reload Sentinel')).toBeTruthy();
+    expect(document.body.textContent).toContain('Diagnosis Log Sentinel');
+    expect(document.body.textContent).toContain('Line One Sentinel');
 
     findButton('Copy Configuration Sentinel').click();
     await flushPromises();

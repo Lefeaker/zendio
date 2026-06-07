@@ -405,6 +405,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Перенос конфигурации',
   schemaMaintenanceDiagnosisButton: 'Диагностировать конфигурацию',
   schemaMaintenanceDiagnosisGroupTitle: 'Диагностика',
+  schemaMaintenanceDiagnosisResultLog:
+    'Результаты диагностики\n========\n✅ HTTPS-подключение основного vault работает нормально\n✅ Включён как минимум один дополнительный vault\n✅ Приоритеты правил маршрутизации не конфликтуют\n✅ YAML-конфигурация для article / clipper / video / ai_chat полностью разбирается\n⚠️ Значение fragment.contextLength = 200 выглядит разумно, но в более тяжёлых сессиях Reader Mode стоит продолжать наблюдать за производительностью\nℹ️ Сводки страниц от ИИ, сводки в верхней части Reader Mode и перевод субтитров всё ещё находятся в планах и не были включены в эту проверку связности\nℹ️ video.floatingPromptEnabled управляет тем, показывается ли кнопка заметок в панели управления видеосайтов',
   schemaMaintenanceDiagnosisScopeDescription:
     'В отчёте должны отображаться REST API, шаблоны путей, сопоставления доменов, маршрутизация по нескольким хранилищам, параметры контекста фрагментов и video prompts.',
   schemaMaintenanceDiagnosisScopeTitle: 'Область диагностики',
@@ -581,9 +583,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     'Окно, которое пользователь видит после выделения текста на веб-странице.',
   schemaRuntimeClipperHint: 'Диалог после выделения текста на веб-странице',
+  schemaRuntimeClipperSelectedText:
+    'По-настоящему важно не сама информация, а связь между этой информацией и тем, что вы уже знаете. Только когда эти связи записаны, ваше будущее «я» сможет снова войти в тот ход мысли.',
   schemaRuntimeClipperTitle: 'Окно сохранения фрагмента',
   schemaRuntimeReaderDescription:
     'Плавающая панель чтения с реальными списками выделений и встроенным редактированием заметок.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'По-настоящему важно не сама информация, а связь между этой информацией и тем, что вы уже знаете.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Выделение — это лишь якорь; по-настоящему памяти помогает то суждение, которое вы записываете рядом. Ценность режима чтения как раз в том, что он переводит этот шаг из мысленного действия в структурированный результат.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'Ценность информации не в том, что она сохранена, а в том, что её можно снова понять позже.',
   schemaRuntimeReaderHint: 'Плавающая панель чтения',
   schemaRuntimeReaderTitle: 'Режим чтения',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Настроить хранилище',
@@ -597,6 +607,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Задача выполнена',
   schemaRuntimeUiGroupTitle: 'Интерфейс во время работы',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Сделать скриншот',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'Понимание формируется благодаря суждению, которое вы выносите прямо во время просмотра. Таймкод лишь возвращает вас к нужному моменту; объяснение по-прежнему рождается из комментария и окружающего контекста.',
   schemaRuntimeVideoDescription:
     'Панель видеозаметок, построенная вокруг отметок времени, захваченных фрагментов и комментариев.',
   schemaRuntimeVideoFloatingPromptHint: 'Пузырь запуска на видеостраницах',

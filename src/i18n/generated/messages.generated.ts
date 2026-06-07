@@ -346,6 +346,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaMaintenanceConfigurationTransferTitle',
   'schemaMaintenanceDiagnosisButton',
   'schemaMaintenanceDiagnosisGroupTitle',
+  'schemaMaintenanceDiagnosisResultLog',
   'schemaMaintenanceDiagnosisScopeDescription',
   'schemaMaintenanceDiagnosisScopeTitle',
   'schemaMaintenanceFixButton',
@@ -494,8 +495,12 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaRuntimeAiSummaryBadge',
   'schemaRuntimeClipperDescription',
   'schemaRuntimeClipperHint',
+  'schemaRuntimeClipperSelectedText',
   'schemaRuntimeClipperTitle',
   'schemaRuntimeReaderDescription',
+  'schemaRuntimeReaderHighlightOneExcerpt',
+  'schemaRuntimeReaderHighlightThreeFullText',
+  'schemaRuntimeReaderHighlightTwoExcerpt',
   'schemaRuntimeReaderHint',
   'schemaRuntimeReaderTitle',
   'schemaRuntimeSurfaceConfigureVaultLabel',
@@ -507,6 +512,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaRuntimeTaskSuccessTitle',
   'schemaRuntimeUiGroupTitle',
   'schemaRuntimeVideoCaptureScreenshotLabel',
+  'schemaRuntimeVideoCaptureTwoFullText',
   'schemaRuntimeVideoDescription',
   'schemaRuntimeVideoFloatingPromptHint',
   'schemaRuntimeVideoFloatingPromptTitle',
@@ -1140,6 +1146,7 @@ export interface GeneratedMessages {
   schemaMaintenanceConfigurationTransferTitle: string;
   schemaMaintenanceDiagnosisButton: string;
   schemaMaintenanceDiagnosisGroupTitle: string;
+  schemaMaintenanceDiagnosisResultLog: string;
   schemaMaintenanceDiagnosisScopeDescription: string;
   schemaMaintenanceDiagnosisScopeTitle: string;
   schemaMaintenanceFixButton: string;
@@ -1288,8 +1295,12 @@ export interface GeneratedMessages {
   schemaRuntimeAiSummaryBadge: string;
   schemaRuntimeClipperDescription: string;
   schemaRuntimeClipperHint: string;
+  schemaRuntimeClipperSelectedText: string;
   schemaRuntimeClipperTitle: string;
   schemaRuntimeReaderDescription: string;
+  schemaRuntimeReaderHighlightOneExcerpt: string;
+  schemaRuntimeReaderHighlightThreeFullText: string;
+  schemaRuntimeReaderHighlightTwoExcerpt: string;
   schemaRuntimeReaderHint: string;
   schemaRuntimeReaderTitle: string;
   schemaRuntimeSurfaceConfigureVaultLabel: string;
@@ -1301,6 +1312,7 @@ export interface GeneratedMessages {
   schemaRuntimeTaskSuccessTitle: string;
   schemaRuntimeUiGroupTitle: string;
   schemaRuntimeVideoCaptureScreenshotLabel: string;
+  schemaRuntimeVideoCaptureTwoFullText: string;
   schemaRuntimeVideoDescription: string;
   schemaRuntimeVideoFloatingPromptHint: string;
   schemaRuntimeVideoFloatingPromptTitle: string;

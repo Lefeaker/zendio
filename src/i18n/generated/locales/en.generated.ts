@@ -396,6 +396,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Configuration Transfer',
   schemaMaintenanceDiagnosisButton: 'Diagnose Configuration',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnosis',
+  schemaMaintenanceDiagnosisResultLog:
+    'Diagnosis Results\n========\n✅ Default vault HTTPS connection is healthy\n✅ At least one additional vault is enabled\n✅ Routing rule priorities do not conflict\n✅ article / clipper / video / ai_chat YAML configuration all parses successfully\n⚠️ fragment.contextLength = 200 is reasonable, but monitor performance in heavier Reader Mode sessions\nℹ️ AI page summaries, Reader Mode top summaries, and subtitle translation are still planned and were not included in this connectivity check\nℹ️ video.floatingPromptEnabled controls whether the note button appears in the video-site control bar',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, path templates, domain mappings, multi-vault routing, fragment context settings, and video prompts should all appear in the report.',
   schemaMaintenanceDiagnosisScopeTitle: 'Diagnosis Scope',
@@ -565,9 +567,17 @@ const runtime = {
   schemaRuntimeAiSummaryBadge: 'AI Summary',
   schemaRuntimeClipperDescription: 'Dialog users see after selecting text on a webpage.',
   schemaRuntimeClipperHint: 'Selection dialog on webpages',
+  schemaRuntimeClipperSelectedText:
+    'What matters most is not the information itself, but the links between that information and what you already know. Only when those links are written down can your future self re-enter the original train of thought.',
   schemaRuntimeClipperTitle: 'Clipper Dialog',
   schemaRuntimeReaderDescription:
     'Floating reader panel with real highlight lists and inline note editing.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'What matters most is not the information itself, but the links between that information and what you already know.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'A highlight is only an anchor; what really helps memory is the judgment you write beside it. The value of Reader Mode is turning that step from a mental action into structured output.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'The value of information is not that it was stored, but that it can be understood again in the future.',
   schemaRuntimeReaderHint: 'Floating reader panel',
   schemaRuntimeReaderTitle: 'Reader Mode',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configure vault',
@@ -580,6 +590,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Task Success',
   schemaRuntimeUiGroupTitle: 'Runtime UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capture screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'What creates understanding is the judgment you make while watching. The timestamp only helps you return to the moment; the explanation still comes from your note and the surrounding context.',
   schemaRuntimeVideoDescription:
     'Video note panel built around timestamps, captured fragments, and comments.',
   schemaRuntimeVideoFloatingPromptHint: 'Entry bubble on video pages',

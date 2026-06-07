@@ -414,6 +414,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_EN: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Configuration Transfer',
   schemaMaintenanceDiagnosisButton: 'Diagnose Configuration',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnosis',
+  schemaMaintenanceDiagnosisResultLog:
+    'Diagnosis Results\n========\n✅ Default vault HTTPS connection is healthy\n✅ At least one additional vault is enabled\n✅ Routing rule priorities do not conflict\n✅ article / clipper / video / ai_chat YAML configuration all parses successfully\n⚠️ fragment.contextLength = 200 is reasonable, but monitor performance in heavier Reader Mode sessions\nℹ️ AI page summaries, Reader Mode top summaries, and subtitle translation are still planned and were not included in this connectivity check\nℹ️ video.floatingPromptEnabled controls whether the note button appears in the video-site control bar',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, path templates, domain mappings, multi-vault routing, fragment context settings, and video prompts should all appear in the report.',
   schemaMaintenanceDiagnosisScopeTitle: 'Diagnosis Scope',
@@ -583,9 +585,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_EN: GeneratedMessages = {
   schemaRuntimeAiSummaryBadge: 'AI Summary',
   schemaRuntimeClipperDescription: 'Dialog users see after selecting text on a webpage.',
   schemaRuntimeClipperHint: 'Selection dialog on webpages',
+  schemaRuntimeClipperSelectedText:
+    'What matters most is not the information itself, but the links between that information and what you already know. Only when those links are written down can your future self re-enter the original train of thought.',
   schemaRuntimeClipperTitle: 'Clipper Dialog',
   schemaRuntimeReaderDescription:
     'Floating reader panel with real highlight lists and inline note editing.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'What matters most is not the information itself, but the links between that information and what you already know.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'A highlight is only an anchor; what really helps memory is the judgment you write beside it. The value of Reader Mode is turning that step from a mental action into structured output.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'The value of information is not that it was stored, but that it can be understood again in the future.',
   schemaRuntimeReaderHint: 'Floating reader panel',
   schemaRuntimeReaderTitle: 'Reader Mode',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configure vault',
@@ -598,6 +608,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_EN: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Task Success',
   schemaRuntimeUiGroupTitle: 'Runtime UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capture screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'What creates understanding is the judgment you make while watching. The timestamp only helps you return to the moment; the explanation still comes from your note and the surrounding context.',
   schemaRuntimeVideoDescription:
     'Video note panel built around timestamps, captured fragments, and comments.',
   schemaRuntimeVideoFloatingPromptHint: 'Entry bubble on video pages',
@@ -1289,6 +1301,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_CN: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: '配置迁移',
   schemaMaintenanceDiagnosisButton: '诊断配置',
   schemaMaintenanceDiagnosisGroupTitle: '诊断',
+  schemaMaintenanceDiagnosisResultLog:
+    '诊断结果\n========\n✅ 默认仓库 HTTPS 连接正常\n✅ 至少一个附加仓库处于启用状态\n✅ 路由规则优先级无冲突\n✅ article / clipper / video / ai_chat YAML 配置均可解析\n⚠️ fragment.contextLength = 200，值合理，但建议在阅读模式较重场景做性能观察\nℹ️ AI 页面总结、阅读模式顶部总结与字幕翻译仍处于规划阶段，尚未参与本次模型连通性检查\nℹ️ video.floatingPromptEnabled 控制视频网站控制栏笔记按钮显示',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、路径模板、域名映射、多仓路由、Fragment 上下文参数和 Video prompt 都应在报告中可见。',
   schemaMaintenanceDiagnosisScopeTitle: '诊断范围',
@@ -1448,8 +1462,14 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_CN: GeneratedMessages = {
   schemaRuntimeAiSummaryBadge: 'AI 总结',
   schemaRuntimeClipperDescription: '用户在网页上选中文本后首先看到的剪藏浮窗。',
   schemaRuntimeClipperHint: '网页选中文本后的剪藏浮窗',
+  schemaRuntimeClipperSelectedText:
+    '真正重要的不是信息本身，而是信息和已有知识之间的连接。只有在连接被写下来的时候，未来的自己才有机会重新进入当时的思路。',
   schemaRuntimeClipperTitle: '剪藏对话框',
   schemaRuntimeReaderDescription: '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。',
+  schemaRuntimeReaderHighlightOneExcerpt: '真正重要的不是信息本身，而是信息和已有知识之间的连接。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '高亮本身只是锚点，真正帮助记忆的是你在边上的那一句判断。阅读模式的价值也正在于把这一步从脑内动作变成结构化输出。',
+  schemaRuntimeReaderHighlightTwoExcerpt: '信息的价值，不在于被存下，而在于能否在未来被重新理解。',
   schemaRuntimeReaderHint: '阅读模式悬浮面板',
   schemaRuntimeReaderTitle: '阅读模式',
   schemaRuntimeSurfaceConfigureVaultLabel: '配置仓库',
@@ -1461,6 +1481,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_CN: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: '任务成功',
   schemaRuntimeUiGroupTitle: '运行时界面',
   schemaRuntimeVideoCaptureScreenshotLabel: '截取截图',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '真正形成理解的，是你在观看当下做出的那一次判断。时间点只负责帮你回去，解释权仍然来自评论和上下文。',
   schemaRuntimeVideoDescription: '围绕时间点、片段和批注建立视频笔记的面板。',
   schemaRuntimeVideoFloatingPromptHint: '视频页面的启动提示浮层',
   schemaRuntimeVideoFloatingPromptTitle: '视频浮动提示',
@@ -2154,6 +2176,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_JA: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: '設定の移行',
   schemaMaintenanceDiagnosisButton: '設定を診断',
   schemaMaintenanceDiagnosisGroupTitle: '診断',
+  schemaMaintenanceDiagnosisResultLog:
+    '診断結果\n========\n✅ 既定の vault の HTTPS 接続は正常です\n✅ 少なくとも 1 つの追加 vault が有効です\n✅ ルーティングルールの優先順位に競合はありません\n✅ article / clipper / video / ai_chat の YAML 設定はすべて正しく解析できます\n⚠️ fragment.contextLength = 200 は妥当ですが、Reader Mode を重く使う場面では性能を継続して観察してください\nℹ️ AI ページ要約、Reader Mode 上部の要約、字幕翻訳はまだ計画段階であり、今回の接続性チェックには含まれていません\nℹ️ video.floatingPromptEnabled は動画サイトのコントロールバーにノートボタンを表示するかどうかを制御します',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、パステンプレート、ドメインマッピング、複数 Vault ルーティング、Fragment の文脈設定、Video prompt はすべてレポートに含まれるべきです。',
   schemaMaintenanceDiagnosisScopeTitle: '診断範囲',
@@ -2326,9 +2350,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_JA: GeneratedMessages = {
   schemaRuntimeAiSummaryBadge: 'AI 要約',
   schemaRuntimeClipperDescription: 'Webページでテキストを選択した直後に表示されるダイアログです。',
   schemaRuntimeClipperHint: 'Webページで選択した後に開くダイアログ',
+  schemaRuntimeClipperSelectedText:
+    '本当に重要なのは情報そのものではなく、その情報と自分の既存知識のあいだに生まれるつながりだ。そうしたつながりを書き留めてはじめて、未来の自分が当時の思考にもう一度入り直せる。',
   schemaRuntimeClipperTitle: 'クリップダイアログ',
   schemaRuntimeReaderDescription:
     '実際のハイライト一覧とインライン注釈編集を保つフローティング読書パネルです。',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    '本当に重要なのは情報そのものではなく、その情報と既存知識のあいだにあるつながりだ。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'ハイライトは単なる錨にすぎず、本当に記憶を助けるのは、その横に書き添える一言の判断だ。Reader Mode の価値も、その一歩を頭の中の作業から構造化された出力へ変えるところにある。',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    '情報の価値は、保存されたことではなく、未来にもう一度理解できることにある。',
   schemaRuntimeReaderHint: 'フローティング読書パネル',
   schemaRuntimeReaderTitle: 'リーダーモード',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Vault を設定',
@@ -2341,6 +2373,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_JA: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'タスク成功',
   schemaRuntimeUiGroupTitle: 'ランタイム UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'スクリーンショットを撮る',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '理解を形づくるのは、視聴しているその瞬間に自分が下す判断だ。タイムスタンプはその場面へ戻る手がかりにすぎず、説明は依然としてコメントと前後の文脈から生まれる。',
   schemaRuntimeVideoDescription:
     'タイムスタンプ、取得した断片、コメントを軸に動画ノートを作るパネルです。',
   schemaRuntimeVideoFloatingPromptHint: '動画ページの起動バブル',
@@ -3071,6 +3105,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_DE: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Konfigurationsübertragung',
   schemaMaintenanceDiagnosisButton: 'Konfiguration diagnostizieren',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnose',
+  schemaMaintenanceDiagnosisResultLog:
+    'Diagnoseergebnis\n========\n✅ Die HTTPS-Verbindung des Standard-Vaults ist in Ordnung\n✅ Mindestens ein zusätzlicher Vault ist aktiviert\n✅ Bei den Prioritäten der Routing-Regeln gibt es keine Konflikte\n✅ Die YAML-Konfiguration für article / clipper / video / ai_chat lässt sich vollständig parsen\n⚠️ fragment.contextLength = 200 ist sinnvoll, aber die Leistung sollte in schwereren Reader-Mode-Sitzungen weiter beobachtet werden\nℹ️ KI-Seitenzusammenfassungen, Zusammenfassungen im Kopf des Reader Mode und Untertitelübersetzung sind noch geplant und wurden in diese Konnektivitätsprüfung nicht einbezogen\nℹ️ video.floatingPromptEnabled steuert, ob die Notizschaltfläche in der Steuerleiste von Videoseiten angezeigt wird',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, Pfadvorlagen, Domain-Zuordnungen, Multi-Vault-Routing, Fragment-Kontexteinstellungen und Video-Prompts sollten alle im Bericht erscheinen.',
   schemaMaintenanceDiagnosisScopeTitle: 'Diagnoseumfang',
@@ -3249,9 +3285,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_DE: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     'Der Dialog, den Nutzer nach dem Markieren von Text auf einer Webseite sehen.',
   schemaRuntimeClipperHint: 'Auswahldialog auf Webseiten',
+  schemaRuntimeClipperSelectedText:
+    'Entscheidend ist nicht die Information selbst, sondern die Verbindung zwischen dieser Information und dem, was du bereits weißt. Erst wenn diese Verbindungen festgehalten werden, kann dein zukünftiges Ich den damaligen Gedankengang wieder betreten.',
   schemaRuntimeClipperTitle: 'Clipper-Dialog',
   schemaRuntimeReaderDescription:
     'Schwebendes Lesepanel mit echten Hervorhebungslisten und Inline-Notizbearbeitung.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'Entscheidend ist nicht die Information selbst, sondern die Verbindung zwischen dieser Information und dem, was du bereits weißt.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Eine Markierung ist nur ein Anker; wirklich beim Erinnern hilft das Urteil, das du daneben notierst. Der Wert des Reader Mode besteht genau darin, diesen Schritt aus dem Kopf in eine strukturierte Ausgabe zu überführen.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'Der Wert von Information liegt nicht darin, dass sie gespeichert wurde, sondern darin, dass sie später erneut verstanden werden kann.',
   schemaRuntimeReaderHint: 'Schwebendes Lesepanel',
   schemaRuntimeReaderTitle: 'Lesemodus',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Vault konfigurieren',
@@ -3264,6 +3308,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_DE: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Erfolgreich abgeschlossen',
   schemaRuntimeUiGroupTitle: 'Laufzeitoberfläche',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Screenshot aufnehmen',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'Verständnis entsteht durch das Urteil, das du im Moment des Anschauens fällst. Der Zeitstempel bringt dich nur zu dieser Stelle zurück; die Erklärung kommt weiterhin aus dem Kommentar und dem umgebenden Kontext.',
   schemaRuntimeVideoDescription:
     'Videonotiz-Panel rund um Zeitmarken, erfasste Fragmente und Kommentare.',
   schemaRuntimeVideoFloatingPromptHint: 'Einstiegsblase auf Videoseiten',
@@ -4011,6 +4057,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_FR: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Transfert de configuration',
   schemaMaintenanceDiagnosisButton: 'Diagnostiquer la configuration',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnostic',
+  schemaMaintenanceDiagnosisResultLog:
+    "Résultats du diagnostic\n========\n✅ La connexion HTTPS du vault par défaut fonctionne correctement\n✅ Au moins un vault supplémentaire est activé\n✅ Les priorités des règles de routage ne se chevauchent pas\n✅ La configuration YAML de article / clipper / video / ai_chat est entièrement analysable\n⚠️ fragment.contextLength = 200 est une valeur raisonnable, mais il faut surveiller les performances dans les sessions de mode Lecture plus lourdes\nℹ️ Les résumés de page par IA, les résumés en haut du mode Lecture et la traduction des sous-titres sont encore au stade de planification et n'ont pas été inclus dans cette vérification de connectivité\nℹ️ video.floatingPromptEnabled contrôle l'affichage du bouton de notes dans la barre de contrôle des sites vidéo",
   schemaMaintenanceDiagnosisScopeDescription:
     'L’API REST, les modèles de chemin, les mappages de domaine, le routage multi-vault, les paramètres de contexte de fragment et les invites vidéo doivent tous apparaître dans le rapport.',
   schemaMaintenanceDiagnosisScopeTitle: 'Portée du diagnostic',
@@ -4192,9 +4240,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_FR: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     "La fenêtre que l'utilisateur voit après avoir sélectionné du texte sur une page web.",
   schemaRuntimeClipperHint: 'Fenêtre de sélection sur les pages web',
+  schemaRuntimeClipperSelectedText:
+    "Ce qui compte vraiment, ce n'est pas l'information en elle-même, mais les liens entre cette information et ce que vous savez déjà. Ce n'est qu'en écrivant ces liens que votre futur vous pourra retrouver le cheminement de pensée du moment.",
   schemaRuntimeClipperTitle: 'Fenêtre de capture',
   schemaRuntimeReaderDescription:
     'Panneau de lecture flottant avec de vraies listes de surlignages et une édition de notes en ligne.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    "Ce qui compte vraiment, ce n'est pas l'information elle-même, mais les liens entre cette information et ce que vous savez déjà.",
+  schemaRuntimeReaderHighlightThreeFullText:
+    "Un surlignage n'est qu'une ancre ; ce qui aide vraiment la mémoire, c'est le jugement que vous écrivez à côté. La valeur du mode Lecture est justement de transformer cette étape, d'un geste mental, en sortie structurée.",
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    "La valeur d'une information ne tient pas au fait qu'elle a été sauvegardée, mais au fait qu'elle puisse être comprise de nouveau plus tard.",
   schemaRuntimeReaderHint: 'Panneau flottant de lecture',
   schemaRuntimeReaderTitle: 'Mode lecture',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurer le vault',
@@ -4208,6 +4264,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_FR: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Tâche réussie',
   schemaRuntimeUiGroupTitle: "Interface d'exécution",
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturer une image',
+  schemaRuntimeVideoCaptureTwoFullText:
+    "Ce qui produit la compréhension, c'est le jugement que vous formulez au moment du visionnage. L'horodatage ne sert qu'à vous ramener à ce passage ; l'explication vient toujours du commentaire et du contexte.",
   schemaRuntimeVideoDescription:
     'Panneau de notes vidéo structuré autour des horodatages, des fragments capturés et des commentaires.',
   schemaRuntimeVideoFloatingPromptHint: "Bulle d'entrée sur les pages vidéo",
@@ -4956,6 +5014,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_ES: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Transferencia de configuración',
   schemaMaintenanceDiagnosisButton: 'Diagnosticar Configuración',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnóstico',
+  schemaMaintenanceDiagnosisResultLog:
+    'Resultados del diagnóstico\n========\n✅ La conexión HTTPS del vault predeterminado funciona correctamente\n✅ Al menos un vault adicional está habilitado\n✅ Las prioridades de las reglas de enrutado no entran en conflicto\n✅ La configuración YAML de article / clipper / video / ai_chat se analiza correctamente\n⚠️ fragment.contextLength = 200 es un valor razonable, pero conviene vigilar el rendimiento en sesiones de modo lectura más pesadas\nℹ️ Los resúmenes de página con IA, los resúmenes de la parte superior del modo lectura y la traducción de subtítulos siguen en fase de planificación y no se incluyeron en esta comprobación de conectividad\nℹ️ video.floatingPromptEnabled controla si el botón de notas aparece en la barra de control de los sitios de vídeo',
   schemaMaintenanceDiagnosisScopeDescription:
     'La REST API, las plantillas de ruta, los mapeos de dominio, el enrutado multi-vault, los ajustes de contexto de fragmento y los avisos de vídeo deben aparecer en el informe.',
   schemaMaintenanceDiagnosisScopeTitle: 'Alcance del diagnóstico',
@@ -5135,9 +5195,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_ES: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     'El diálogo que ve el usuario después de seleccionar texto en una página web.',
   schemaRuntimeClipperHint: 'Diálogo de selección en páginas web',
+  schemaRuntimeClipperSelectedText:
+    'Lo realmente importante no es la información en sí, sino la conexión entre esa información y lo que ya sabes. Solo cuando esas conexiones se escriben tu yo futuro puede volver a entrar en el razonamiento original.',
   schemaRuntimeClipperTitle: 'Diálogo de captura',
   schemaRuntimeReaderDescription:
     'Panel flotante de lectura con listas reales de resaltados y edición de notas en línea.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'Lo realmente importante no es la información en sí, sino la conexión entre esa información y lo que ya sabes.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Un subrayado es solo un ancla; lo que de verdad ayuda a recordar es el juicio que escribes al lado. El valor del modo lectura está precisamente en convertir ese paso de un gesto mental en una salida estructurada.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'El valor de la información no está en que se haya guardado, sino en que pueda volver a entenderse en el futuro.',
   schemaRuntimeReaderHint: 'Panel flotante de lectura',
   schemaRuntimeReaderTitle: 'Modo lectura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurar vault',
@@ -5150,6 +5218,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_ES: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Tarea completada',
   schemaRuntimeUiGroupTitle: 'Interfaz en ejecución',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar pantalla',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'La comprensión se forma con el juicio que haces mientras ves el vídeo. La marca de tiempo solo te ayuda a volver a ese momento; la explicación sigue viniendo del comentario y del contexto.',
   schemaRuntimeVideoDescription:
     'Panel de notas de vídeo centrado en marcas de tiempo, fragmentos capturados y comentarios.',
   schemaRuntimeVideoFloatingPromptHint: 'Burbuja de acceso en páginas de vídeo',
@@ -5894,6 +5964,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_419: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Transferencia de configuración',
   schemaMaintenanceDiagnosisButton: 'Diagnosticar Configuración',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnóstico',
+  schemaMaintenanceDiagnosisResultLog:
+    'Resultados del diagnóstico\n========\n✅ La conexión HTTPS del vault predeterminado funciona correctamente\n✅ Al menos un vault adicional está habilitado\n✅ Las prioridades de las reglas de enrutado no entran en conflicto\n✅ La configuración YAML de article / clipper / video / ai_chat se analiza correctamente\n⚠️ fragment.contextLength = 200 es un valor razonable, pero conviene vigilar el rendimiento en sesiones de modo lectura más pesadas\nℹ️ Los resúmenes de página con IA, los resúmenes de la parte superior del modo lectura y la traducción de subtítulos siguen en planificación y no se incluyeron en esta comprobación de conectividad\nℹ️ video.floatingPromptEnabled controla si el botón de notas aparece en la barra de control de los sitios de video',
   schemaMaintenanceDiagnosisScopeDescription:
     'La REST API, las plantillas de ruta, los mapeos de dominio, el enrutamiento multi-vault, los ajustes de contexto de fragmento y los avisos de video deben aparecer en el informe.',
   schemaMaintenanceDiagnosisScopeTitle: 'Alcance del diagnóstico',
@@ -6073,9 +6145,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_419: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     'El diálogo que ve el usuario después de seleccionar texto en una página web.',
   schemaRuntimeClipperHint: 'Diálogo de selección en páginas web',
+  schemaRuntimeClipperSelectedText:
+    'Lo realmente importante no es la información en sí, sino la conexión entre esa información y lo que ya sabes. Solo cuando esas conexiones se escriben tu yo futuro puede volver a entrar en el razonamiento original.',
   schemaRuntimeClipperTitle: 'Diálogo de captura',
   schemaRuntimeReaderDescription:
     'Panel flotante de lectura con listas reales de resaltados y edición de notas en línea.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'Lo realmente importante no es la información en sí, sino la conexión entre esa información y lo que ya sabes.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Un subrayado es solo un ancla; lo que de verdad ayuda a recordar es el juicio que escribes al lado. El valor del modo lectura está precisamente en convertir ese paso de una acción mental en una salida estructurada.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'El valor de la información no está en que se haya guardado, sino en que pueda volver a entenderse en el futuro.',
   schemaRuntimeReaderHint: 'Panel flotante de lectura',
   schemaRuntimeReaderTitle: 'Modo lectura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurar vault',
@@ -6088,6 +6168,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_419: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Tarea completada',
   schemaRuntimeUiGroupTitle: 'Interfaz en ejecución',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar pantalla',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'La comprensión se forma con el juicio que haces mientras ves el video. La marca de tiempo solo te ayuda a volver a ese momento; la explicación sigue viniendo del comentario y del contexto.',
   schemaRuntimeVideoDescription:
     'Panel de notas de video centrado en marcas de tiempo, fragmentos capturados y comentarios.',
   schemaRuntimeVideoFloatingPromptHint: 'Burbuja de acceso en páginas de video',
@@ -6831,6 +6913,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_IT: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Trasferimento configurazione',
   schemaMaintenanceDiagnosisButton: 'Diagnostica configurazione',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnosi',
+  schemaMaintenanceDiagnosisResultLog:
+    'Risultato della diagnosi\n========\n✅ La connessione HTTPS del vault predefinito è attiva\n✅ È abilitato almeno un vault aggiuntivo\n✅ Le priorità delle regole di instradamento non sono in conflitto\n✅ La configurazione YAML di article / clipper / video / ai_chat viene analizzata correttamente\n⚠️ fragment.contextLength = 200 è un valore ragionevole, ma conviene continuare a monitorare le prestazioni nelle sessioni di modalità Lettura più pesanti\nℹ️ I riepiloghi pagina con IA, i riepiloghi nella parte alta della modalità Lettura e la traduzione dei sottotitoli sono ancora in pianificazione e non sono stati inclusi in questo controllo di connettività\nℹ️ video.floatingPromptEnabled controlla se il pulsante delle note viene mostrato nella barra di controllo dei siti video',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, modelli di percorso, mappature di dominio, instradamento multi-vault, impostazioni di contesto dei frammenti e prompt video devono tutti apparire nel report.',
   schemaMaintenanceDiagnosisScopeTitle: 'Ambito della diagnosi',
@@ -7009,9 +7093,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_IT: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     "La finestra che l'utente vede dopo aver selezionato testo in una pagina web.",
   schemaRuntimeClipperHint: 'Dialogo di selezione nelle pagine web',
+  schemaRuntimeClipperSelectedText:
+    "Ciò che conta davvero non è l'informazione in sé, ma il legame tra quell'informazione e ciò che sai già. Solo quando questi legami vengono scritti il tuo io futuro può rientrare nel filo di pensiero originale.",
   schemaRuntimeClipperTitle: 'Finestra di clip',
   schemaRuntimeReaderDescription:
     'Pannello di lettura flottante con vere liste di evidenziazioni e modifica note in linea.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    "Ciò che conta davvero non è l'informazione in sé, ma il legame tra quell'informazione e ciò che sai già.",
+  schemaRuntimeReaderHighlightThreeFullText:
+    "Un'evidenziazione è solo un'ancora; ciò che aiuta davvero la memoria è il giudizio che scrivi accanto. Il valore della modalità Lettura sta proprio nel trasformare questo passaggio da gesto mentale a output strutturato.",
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    "Il valore di un'informazione non sta nell'essere stata salvata, ma nel poter essere capita di nuovo in futuro.",
   schemaRuntimeReaderHint: 'Pannello di lettura flottante',
   schemaRuntimeReaderTitle: 'Modalità lettura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configura vault',
@@ -7024,6 +7116,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_IT: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Operazione riuscita',
   schemaRuntimeUiGroupTitle: 'Interfaccia runtime',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Cattura screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'A creare comprensione è il giudizio che esprimi mentre guardi. Il timestamp ti riporta solo a quel momento; la spiegazione continua a venire dal commento e dal contesto.',
   schemaRuntimeVideoDescription:
     'Pannello di note video basato su timestamp, frammenti acquisiti e commenti.',
   schemaRuntimeVideoFloatingPromptHint: 'Bolla di avvio sulle pagine video',
@@ -7742,6 +7836,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_KO: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: '설정 이전',
   schemaMaintenanceDiagnosisButton: '구성 진단',
   schemaMaintenanceDiagnosisGroupTitle: '진단',
+  schemaMaintenanceDiagnosisResultLog:
+    '진단 결과\n========\n✅ 기본 vault의 HTTPS 연결이 정상입니다\n✅ 하나 이상의 추가 vault가 활성화되어 있습니다\n✅ 라우팅 규칙 우선순위가 서로 충돌하지 않습니다\n✅ article / clipper / video / ai_chat YAML 구성이 모두 정상적으로 파싱됩니다\n⚠️ fragment.contextLength = 200은 합리적인 값이지만, 더 무거운 Reader Mode 세션에서는 성능을 계속 관찰해야 합니다\nℹ️ AI 페이지 요약, Reader Mode 상단 요약, 자막 번역은 아직 계획 단계이며 이번 연결성 점검에는 포함되지 않았습니다\nℹ️ video.floatingPromptEnabled는 비디오 사이트 컨트롤 바에 노트 버튼을 표시할지 제어합니다',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, 경로 템플릿, 도메인 매핑, 다중 볼트 라우팅, Fragment 문맥 설정, Video prompt가 모두 보고서에 나타나야 합니다.',
   schemaMaintenanceDiagnosisScopeTitle: '진단 범위',
@@ -7913,9 +8009,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_KO: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     '웹페이지에서 텍스트를 선택한 직후 사용자에게 보이는 대화상자입니다.',
   schemaRuntimeClipperHint: '웹페이지 선택 후 열리는 대화상자',
+  schemaRuntimeClipperSelectedText:
+    '정말 중요한 것은 정보 그 자체가 아니라 그 정보와 이미 알고 있는 지식 사이의 연결이다. 그 연결을 글로 남겨야만 미래의 내가 그때의 사고 흐름으로 다시 들어갈 수 있다.',
   schemaRuntimeClipperTitle: '클리퍼 대화상자',
   schemaRuntimeReaderDescription:
     '실제 하이라이트 목록과 인라인 메모 편집을 유지하는 읽기 모드 플로팅 패널입니다.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    '정말 중요한 것은 정보 그 자체가 아니라 그 정보와 이미 알고 있는 지식 사이의 연결이다.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '하이라이트는 단지 앵커일 뿐이고, 기억을 진짜로 돕는 것은 옆에 적어 두는 한 줄 판단이다. Reader Mode의 가치는 이 단계를 머릿속 동작에서 구조화된 출력으로 바꿔 준다는 데 있다.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    '정보의 가치는 저장되었다는 사실이 아니라, 나중에 다시 이해할 수 있느냐에 있다.',
   schemaRuntimeReaderHint: '읽기 모드 플로팅 패널',
   schemaRuntimeReaderTitle: '읽기 모드',
   schemaRuntimeSurfaceConfigureVaultLabel: '볼트 설정',
@@ -7928,6 +8032,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_KO: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: '작업 완료',
   schemaRuntimeUiGroupTitle: '런타임 UI',
   schemaRuntimeVideoCaptureScreenshotLabel: '스크린샷 찍기',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '이해를 만드는 것은 시청하는 순간에 내리는 판단이다. 타임스탬프는 그 장면으로 다시 돌아가게 해 줄 뿐이고, 설명은 여전히 코멘트와 주변 맥락에서 나온다.',
   schemaRuntimeVideoDescription:
     '타임스탬프, 캡처한 조각, 메모를 중심으로 구성된 비디오 노트 패널입니다.',
   schemaRuntimeVideoFloatingPromptHint: '비디오 페이지 진입 버블',
@@ -8652,6 +8758,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_PT_BR: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Transferência de configuração',
   schemaMaintenanceDiagnosisButton: 'Diagnosticar configuração',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnóstico',
+  schemaMaintenanceDiagnosisResultLog:
+    'Resultado do diagnóstico\n========\n✅ A conexão HTTPS do vault padrão está saudável\n✅ Pelo menos um vault adicional está habilitado\n✅ As prioridades das regras de roteamento não entram em conflito\n✅ A configuração YAML de article / clipper / video / ai_chat é analisada corretamente\n⚠️ fragment.contextLength = 200 é um valor razoável, mas convém acompanhar o desempenho em sessões mais pesadas do modo de leitura\nℹ️ Resumos de página com IA, resumos no topo do modo de leitura e tradução de legendas ainda estão em planejamento e não foram incluídos nesta verificação de conectividade\nℹ️ video.floatingPromptEnabled controla se o botão de notas aparece na barra de controle dos sites de vídeo',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, modelos de caminho, mapeamentos de domínio, roteamento multi-vault, configurações de contexto de fragmento e prompts de vídeo devem aparecer no relatório.',
   schemaMaintenanceDiagnosisScopeTitle: 'Escopo do diagnóstico',
@@ -8831,9 +8939,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_PT_BR: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     'O diálogo que aparece depois que o usuário seleciona texto em uma página web.',
   schemaRuntimeClipperHint: 'Janela de seleção em páginas da web',
+  schemaRuntimeClipperSelectedText:
+    'O que realmente importa não é a informação em si, mas a ligação entre essa informação e o que você já sabe. Só quando essas ligações são escritas o seu eu do futuro consegue voltar ao raciocínio original.',
   schemaRuntimeClipperTitle: 'Diálogo de recorte',
   schemaRuntimeReaderDescription:
     'Painel flutuante de leitura com listas reais de destaques e edição de notas em linha.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'O que realmente importa não é a informação em si, mas a ligação entre essa informação e o que você já sabe.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Um destaque é apenas uma âncora; o que realmente ajuda a memória é o julgamento que você escreve ao lado. O valor do modo de leitura está justamente em transformar esse passo de uma ação mental em uma saída estruturada.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'O valor da informação não está no fato de ela ter sido salva, mas em poder ser compreendida novamente no futuro.',
   schemaRuntimeReaderHint: 'Painel flutuante de leitura',
   schemaRuntimeReaderTitle: 'Modo de leitura',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configurar vault',
@@ -8846,6 +8962,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_PT_BR: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Tarefa concluída',
   schemaRuntimeUiGroupTitle: 'Interface em tempo real',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar screenshot',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'O que forma a compreensão é o julgamento que você faz enquanto assiste. O timestamp só ajuda você a voltar a esse momento; a explicação continua vindo do comentário e do contexto.',
   schemaRuntimeVideoDescription:
     'Painel de notas de vídeo baseado em timestamps, fragmentos capturados e comentários.',
   schemaRuntimeVideoFloatingPromptHint: 'Bolha de entrada em páginas de vídeo',
@@ -9582,6 +9700,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_RU: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: 'Перенос конфигурации',
   schemaMaintenanceDiagnosisButton: 'Диагностировать конфигурацию',
   schemaMaintenanceDiagnosisGroupTitle: 'Диагностика',
+  schemaMaintenanceDiagnosisResultLog:
+    'Результаты диагностики\n========\n✅ HTTPS-подключение основного vault работает нормально\n✅ Включён как минимум один дополнительный vault\n✅ Приоритеты правил маршрутизации не конфликтуют\n✅ YAML-конфигурация для article / clipper / video / ai_chat полностью разбирается\n⚠️ Значение fragment.contextLength = 200 выглядит разумно, но в более тяжёлых сессиях Reader Mode стоит продолжать наблюдать за производительностью\nℹ️ Сводки страниц от ИИ, сводки в верхней части Reader Mode и перевод субтитров всё ещё находятся в планах и не были включены в эту проверку связности\nℹ️ video.floatingPromptEnabled управляет тем, показывается ли кнопка заметок в панели управления видеосайтов',
   schemaMaintenanceDiagnosisScopeDescription:
     'В отчёте должны отображаться REST API, шаблоны путей, сопоставления доменов, маршрутизация по нескольким хранилищам, параметры контекста фрагментов и video prompts.',
   schemaMaintenanceDiagnosisScopeTitle: 'Область диагностики',
@@ -9758,9 +9878,17 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_RU: GeneratedMessages = {
   schemaRuntimeClipperDescription:
     'Окно, которое пользователь видит после выделения текста на веб-странице.',
   schemaRuntimeClipperHint: 'Диалог после выделения текста на веб-странице',
+  schemaRuntimeClipperSelectedText:
+    'По-настоящему важно не сама информация, а связь между этой информацией и тем, что вы уже знаете. Только когда эти связи записаны, ваше будущее «я» сможет снова войти в тот ход мысли.',
   schemaRuntimeClipperTitle: 'Окно сохранения фрагмента',
   schemaRuntimeReaderDescription:
     'Плавающая панель чтения с реальными списками выделений и встроенным редактированием заметок.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'По-настоящему важно не сама информация, а связь между этой информацией и тем, что вы уже знаете.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Выделение — это лишь якорь; по-настоящему памяти помогает то суждение, которое вы записываете рядом. Ценность режима чтения как раз в том, что он переводит этот шаг из мысленного действия в структурированный результат.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'Ценность информации не в том, что она сохранена, а в том, что её можно снова понять позже.',
   schemaRuntimeReaderHint: 'Плавающая панель чтения',
   schemaRuntimeReaderTitle: 'Режим чтения',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Настроить хранилище',
@@ -9774,6 +9902,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_RU: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: 'Задача выполнена',
   schemaRuntimeUiGroupTitle: 'Интерфейс во время работы',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Сделать скриншот',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'Понимание формируется благодаря суждению, которое вы выносите прямо во время просмотра. Таймкод лишь возвращает вас к нужному моменту; объяснение по-прежнему рождается из комментария и окружающего контекста.',
   schemaRuntimeVideoDescription:
     'Панель видеозаметок, построенная вокруг отметок времени, захваченных фрагментов и комментариев.',
   schemaRuntimeVideoFloatingPromptHint: 'Пузырь запуска на видеостраницах',
@@ -10469,6 +10599,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_TW: GeneratedMessages = {
   schemaMaintenanceConfigurationTransferTitle: '設定遷移',
   schemaMaintenanceDiagnosisButton: '診斷設定',
   schemaMaintenanceDiagnosisGroupTitle: '診斷',
+  schemaMaintenanceDiagnosisResultLog:
+    '診斷結果\n========\n✅ 預設 vault 的 HTTPS 連線正常\n✅ 至少有一個附加 vault 處於啟用狀態\n✅ 路由規則優先順序沒有衝突\n✅ article / clipper / video / ai_chat YAML 設定都可成功解析\n⚠️ fragment.contextLength = 200 屬於合理值，但建議在較重的閱讀模式場景持續觀察效能\nℹ️ AI 頁面摘要、閱讀模式頂部摘要與字幕翻譯仍在規劃中，尚未納入本次連通性檢查\nℹ️ video.floatingPromptEnabled 控制影片網站控制列是否顯示筆記按鈕',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、路徑模板、網域映射、多倉路由、Fragment 上下文參數與 Video prompt 都應出現在報告中。',
   schemaMaintenanceDiagnosisScopeTitle: '診斷範圍',
@@ -10629,8 +10761,14 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_TW: GeneratedMessages = {
   schemaRuntimeAiSummaryBadge: 'AI 摘要',
   schemaRuntimeClipperDescription: '使用者在網頁上選取文字後首先看到的剪藏浮窗。',
   schemaRuntimeClipperHint: '網頁選取文字後的剪藏浮窗',
+  schemaRuntimeClipperSelectedText:
+    '真正重要的不是資訊本身，而是資訊與既有知識之間的連結。只有當這些連結被寫下來時，未來的自己才有機會重新回到當時的思路。',
   schemaRuntimeClipperTitle: '剪藏對話框',
   schemaRuntimeReaderDescription: '閱讀模式浮動面板，保留真實的高亮列表與行內註記編輯節奏。',
+  schemaRuntimeReaderHighlightOneExcerpt: '真正重要的不是資訊本身，而是資訊與既有知識之間的連結。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '高亮本身只是錨點，真正幫助記憶的是你在旁邊寫下的那一句判斷。閱讀模式的價值，也正在於把這一步從腦內動作變成結構化輸出。',
+  schemaRuntimeReaderHighlightTwoExcerpt: '資訊的價值，不在於被存下，而在於能否在未來被重新理解。',
   schemaRuntimeReaderHint: '閱讀模式浮動面板',
   schemaRuntimeReaderTitle: '閱讀模式',
   schemaRuntimeSurfaceConfigureVaultLabel: '設定倉庫',
@@ -10642,6 +10780,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_TW: GeneratedMessages = {
   schemaRuntimeTaskSuccessTitle: '任務成功',
   schemaRuntimeUiGroupTitle: '執行時介面',
   schemaRuntimeVideoCaptureScreenshotLabel: '擷取截圖',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '真正形成理解的，是你在觀看當下做出的那一次判斷。時間點只負責幫你回去，解釋權仍然來自評論與上下文。',
   schemaRuntimeVideoDescription: '圍繞時間戳、片段與註記建立影片筆記的面板。',
   schemaRuntimeVideoFloatingPromptHint: '影片頁面的啟動提示浮層',
   schemaRuntimeVideoFloatingPromptTitle: '影片浮動提示',

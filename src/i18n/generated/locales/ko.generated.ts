@@ -388,6 +388,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: '설정 이전',
   schemaMaintenanceDiagnosisButton: '구성 진단',
   schemaMaintenanceDiagnosisGroupTitle: '진단',
+  schemaMaintenanceDiagnosisResultLog:
+    '진단 결과\n========\n✅ 기본 vault의 HTTPS 연결이 정상입니다\n✅ 하나 이상의 추가 vault가 활성화되어 있습니다\n✅ 라우팅 규칙 우선순위가 서로 충돌하지 않습니다\n✅ article / clipper / video / ai_chat YAML 구성이 모두 정상적으로 파싱됩니다\n⚠️ fragment.contextLength = 200은 합리적인 값이지만, 더 무거운 Reader Mode 세션에서는 성능을 계속 관찰해야 합니다\nℹ️ AI 페이지 요약, Reader Mode 상단 요약, 자막 번역은 아직 계획 단계이며 이번 연결성 점검에는 포함되지 않았습니다\nℹ️ video.floatingPromptEnabled는 비디오 사이트 컨트롤 바에 노트 버튼을 표시할지 제어합니다',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, 경로 템플릿, 도메인 매핑, 다중 볼트 라우팅, Fragment 문맥 설정, Video prompt가 모두 보고서에 나타나야 합니다.',
   schemaMaintenanceDiagnosisScopeTitle: '진단 범위',
@@ -559,9 +561,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     '웹페이지에서 텍스트를 선택한 직후 사용자에게 보이는 대화상자입니다.',
   schemaRuntimeClipperHint: '웹페이지 선택 후 열리는 대화상자',
+  schemaRuntimeClipperSelectedText:
+    '정말 중요한 것은 정보 그 자체가 아니라 그 정보와 이미 알고 있는 지식 사이의 연결이다. 그 연결을 글로 남겨야만 미래의 내가 그때의 사고 흐름으로 다시 들어갈 수 있다.',
   schemaRuntimeClipperTitle: '클리퍼 대화상자',
   schemaRuntimeReaderDescription:
     '실제 하이라이트 목록과 인라인 메모 편집을 유지하는 읽기 모드 플로팅 패널입니다.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    '정말 중요한 것은 정보 그 자체가 아니라 그 정보와 이미 알고 있는 지식 사이의 연결이다.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    '하이라이트는 단지 앵커일 뿐이고, 기억을 진짜로 돕는 것은 옆에 적어 두는 한 줄 판단이다. Reader Mode의 가치는 이 단계를 머릿속 동작에서 구조화된 출력으로 바꿔 준다는 데 있다.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    '정보의 가치는 저장되었다는 사실이 아니라, 나중에 다시 이해할 수 있느냐에 있다.',
   schemaRuntimeReaderHint: '읽기 모드 플로팅 패널',
   schemaRuntimeReaderTitle: '읽기 모드',
   schemaRuntimeSurfaceConfigureVaultLabel: '볼트 설정',
@@ -574,6 +584,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: '작업 완료',
   schemaRuntimeUiGroupTitle: '런타임 UI',
   schemaRuntimeVideoCaptureScreenshotLabel: '스크린샷 찍기',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '이해를 만드는 것은 시청하는 순간에 내리는 판단이다. 타임스탬프는 그 장면으로 다시 돌아가게 해 줄 뿐이고, 설명은 여전히 코멘트와 주변 맥락에서 나온다.',
   schemaRuntimeVideoDescription:
     '타임스탬프, 캡처한 조각, 메모를 중심으로 구성된 비디오 노트 패널입니다.',
   schemaRuntimeVideoFloatingPromptHint: '비디오 페이지 진입 버블',

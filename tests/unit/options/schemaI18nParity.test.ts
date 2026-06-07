@@ -126,8 +126,13 @@ describe('schema i18n parity', () => {
       'schemaStorageCertificateDownloadTrustLink',
       'schemaCaptureBehaviorModifierConflictSystem',
       'schemaOutputTemplateHelperText',
+      'schemaMaintenanceDiagnosisResultLog',
       'schemaResourcePrivacyLocalConfigTitle',
-      'schemaRuntimeSurfaceSaveToLabel'
+      'schemaRuntimeClipperSelectedText',
+      'schemaRuntimeReaderHighlightOneExcerpt',
+      'schemaRuntimeReaderHighlightThreeFullText',
+      'schemaRuntimeSurfaceSaveToLabel',
+      'schemaRuntimeVideoCaptureTwoFullText'
     ] as const;
 
     for (const key of representativeKeys) {

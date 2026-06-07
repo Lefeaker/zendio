@@ -395,6 +395,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: '設定の移行',
   schemaMaintenanceDiagnosisButton: '設定を診断',
   schemaMaintenanceDiagnosisGroupTitle: '診断',
+  schemaMaintenanceDiagnosisResultLog:
+    '診断結果\n========\n✅ 既定の vault の HTTPS 接続は正常です\n✅ 少なくとも 1 つの追加 vault が有効です\n✅ ルーティングルールの優先順位に競合はありません\n✅ article / clipper / video / ai_chat の YAML 設定はすべて正しく解析できます\n⚠️ fragment.contextLength = 200 は妥当ですが、Reader Mode を重く使う場面では性能を継続して観察してください\nℹ️ AI ページ要約、Reader Mode 上部の要約、字幕翻訳はまだ計画段階であり、今回の接続性チェックには含まれていません\nℹ️ video.floatingPromptEnabled は動画サイトのコントロールバーにノートボタンを表示するかどうかを制御します',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API、パステンプレート、ドメインマッピング、複数 Vault ルーティング、Fragment の文脈設定、Video prompt はすべてレポートに含まれるべきです。',
   schemaMaintenanceDiagnosisScopeTitle: '診断範囲',
@@ -567,9 +569,17 @@ const runtime = {
   schemaRuntimeAiSummaryBadge: 'AI 要約',
   schemaRuntimeClipperDescription: 'Webページでテキストを選択した直後に表示されるダイアログです。',
   schemaRuntimeClipperHint: 'Webページで選択した後に開くダイアログ',
+  schemaRuntimeClipperSelectedText:
+    '本当に重要なのは情報そのものではなく、その情報と自分の既存知識のあいだに生まれるつながりだ。そうしたつながりを書き留めてはじめて、未来の自分が当時の思考にもう一度入り直せる。',
   schemaRuntimeClipperTitle: 'クリップダイアログ',
   schemaRuntimeReaderDescription:
     '実際のハイライト一覧とインライン注釈編集を保つフローティング読書パネルです。',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    '本当に重要なのは情報そのものではなく、その情報と既存知識のあいだにあるつながりだ。',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'ハイライトは単なる錨にすぎず、本当に記憶を助けるのは、その横に書き添える一言の判断だ。Reader Mode の価値も、その一歩を頭の中の作業から構造化された出力へ変えるところにある。',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    '情報の価値は、保存されたことではなく、未来にもう一度理解できることにある。',
   schemaRuntimeReaderHint: 'フローティング読書パネル',
   schemaRuntimeReaderTitle: 'リーダーモード',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Vault を設定',
@@ -582,6 +592,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'タスク成功',
   schemaRuntimeUiGroupTitle: 'ランタイム UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'スクリーンショットを撮る',
+  schemaRuntimeVideoCaptureTwoFullText:
+    '理解を形づくるのは、視聴しているその瞬間に自分が下す判断だ。タイムスタンプはその場面へ戻る手がかりにすぎず、説明は依然としてコメントと前後の文脈から生まれる。',
   schemaRuntimeVideoDescription:
     'タイムスタンプ、取得した断片、コメントを軸に動画ノートを作るパネルです。',
   schemaRuntimeVideoFloatingPromptHint: '動画ページの起動バブル',

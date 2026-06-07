@@ -76,6 +76,68 @@ function localizeNavItems(
   });
 }
 
+function localizeClipperSurface(
+  surface: PreviewContent['surfaces']['clipper'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['clipper'] {
+  return {
+    ...surface,
+    selectedText: t('schemaRuntimeClipperSelectedText', surface.selectedText)
+  };
+}
+
+function localizeReaderSurface(
+  surface: PreviewContent['surfaces']['reader'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['reader'] {
+  return {
+    ...surface,
+    highlights: surface.highlights.map((highlight, index) => {
+      if (index === 0) {
+        return {
+          ...highlight,
+          excerpt: t('schemaRuntimeReaderHighlightOneExcerpt', highlight.excerpt)
+        };
+      }
+
+      if (index === 1) {
+        return {
+          ...highlight,
+          excerpt: t('schemaRuntimeReaderHighlightTwoExcerpt', highlight.excerpt)
+        };
+      }
+
+      if (index === 2) {
+        return {
+          ...highlight,
+          fullText: t('schemaRuntimeReaderHighlightThreeFullText', highlight.fullText)
+        };
+      }
+
+      return highlight;
+    })
+  };
+}
+
+function localizeVideoSurface(
+  surface: PreviewContent['surfaces']['video'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['video'] {
+  return {
+    ...surface,
+    captures: surface.captures.map((capture, index) => {
+      if (index === 1 && capture.fullText) {
+        return {
+          ...capture,
+          fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText)
+        };
+      }
+
+      return capture;
+    })
+  };
+}
+
 export function localizeStitchContent(
   content: PreviewContent,
   options: { language: Language; messages: Messages | null }
@@ -114,6 +176,16 @@ export function localizeStitchContent(
       SURFACE_LABEL_KEYS,
       SURFACE_HINT_KEYS,
       t
-    )
+    ),
+    surfaces: {
+      ...content.surfaces,
+      clipper: localizeClipperSurface(content.surfaces.clipper, t),
+      reader: localizeReaderSurface(content.surfaces.reader, t),
+      video: localizeVideoSurface(content.surfaces.video, t)
+    },
+    maintenanceLog:
+      content.maintenanceLog === previewContent.maintenanceLog
+        ? t('schemaMaintenanceDiagnosisResultLog', content.maintenanceLog)
+        : content.maintenanceLog
   };
 }

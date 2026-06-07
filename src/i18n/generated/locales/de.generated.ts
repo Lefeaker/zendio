@@ -411,6 +411,8 @@ const runtime = {
   schemaMaintenanceConfigurationTransferTitle: 'Konfigurationsübertragung',
   schemaMaintenanceDiagnosisButton: 'Konfiguration diagnostizieren',
   schemaMaintenanceDiagnosisGroupTitle: 'Diagnose',
+  schemaMaintenanceDiagnosisResultLog:
+    'Diagnoseergebnis\n========\n✅ Die HTTPS-Verbindung des Standard-Vaults ist in Ordnung\n✅ Mindestens ein zusätzlicher Vault ist aktiviert\n✅ Bei den Prioritäten der Routing-Regeln gibt es keine Konflikte\n✅ Die YAML-Konfiguration für article / clipper / video / ai_chat lässt sich vollständig parsen\n⚠️ fragment.contextLength = 200 ist sinnvoll, aber die Leistung sollte in schwereren Reader-Mode-Sitzungen weiter beobachtet werden\nℹ️ KI-Seitenzusammenfassungen, Zusammenfassungen im Kopf des Reader Mode und Untertitelübersetzung sind noch geplant und wurden in diese Konnektivitätsprüfung nicht einbezogen\nℹ️ video.floatingPromptEnabled steuert, ob die Notizschaltfläche in der Steuerleiste von Videoseiten angezeigt wird',
   schemaMaintenanceDiagnosisScopeDescription:
     'REST API, Pfadvorlagen, Domain-Zuordnungen, Multi-Vault-Routing, Fragment-Kontexteinstellungen und Video-Prompts sollten alle im Bericht erscheinen.',
   schemaMaintenanceDiagnosisScopeTitle: 'Diagnoseumfang',
@@ -589,9 +591,17 @@ const runtime = {
   schemaRuntimeClipperDescription:
     'Der Dialog, den Nutzer nach dem Markieren von Text auf einer Webseite sehen.',
   schemaRuntimeClipperHint: 'Auswahldialog auf Webseiten',
+  schemaRuntimeClipperSelectedText:
+    'Entscheidend ist nicht die Information selbst, sondern die Verbindung zwischen dieser Information und dem, was du bereits weißt. Erst wenn diese Verbindungen festgehalten werden, kann dein zukünftiges Ich den damaligen Gedankengang wieder betreten.',
   schemaRuntimeClipperTitle: 'Clipper-Dialog',
   schemaRuntimeReaderDescription:
     'Schwebendes Lesepanel mit echten Hervorhebungslisten und Inline-Notizbearbeitung.',
+  schemaRuntimeReaderHighlightOneExcerpt:
+    'Entscheidend ist nicht die Information selbst, sondern die Verbindung zwischen dieser Information und dem, was du bereits weißt.',
+  schemaRuntimeReaderHighlightThreeFullText:
+    'Eine Markierung ist nur ein Anker; wirklich beim Erinnern hilft das Urteil, das du daneben notierst. Der Wert des Reader Mode besteht genau darin, diesen Schritt aus dem Kopf in eine strukturierte Ausgabe zu überführen.',
+  schemaRuntimeReaderHighlightTwoExcerpt:
+    'Der Wert von Information liegt nicht darin, dass sie gespeichert wurde, sondern darin, dass sie später erneut verstanden werden kann.',
   schemaRuntimeReaderHint: 'Schwebendes Lesepanel',
   schemaRuntimeReaderTitle: 'Lesemodus',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Vault konfigurieren',
@@ -604,6 +614,8 @@ const runtime = {
   schemaRuntimeTaskSuccessTitle: 'Erfolgreich abgeschlossen',
   schemaRuntimeUiGroupTitle: 'Laufzeitoberfläche',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Screenshot aufnehmen',
+  schemaRuntimeVideoCaptureTwoFullText:
+    'Verständnis entsteht durch das Urteil, das du im Moment des Anschauens fällst. Der Zeitstempel bringt dich nur zu dieser Stelle zurück; die Erklärung kommt weiterhin aus dem Kommentar und dem umgebenden Kontext.',
   schemaRuntimeVideoDescription:
     'Videonotiz-Panel rund um Zeitmarken, erfasste Fragmente und Kommentare.',
   schemaRuntimeVideoFloatingPromptHint: 'Einstiegsblase auf Videoseiten',
