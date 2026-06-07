@@ -285,15 +285,41 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaAiPlatformKimiName',
   'schemaAiPlatformMonicaName',
   'schemaAiPlatformTongyiName',
+  'schemaCaptureBehaviorCaptureContextTitle',
+  'schemaCaptureBehaviorContextLengthFieldLabel',
+  'schemaCaptureBehaviorContextModeCharsOption',
+  'schemaCaptureBehaviorContextModeFieldLabel',
+  'schemaCaptureBehaviorContextModeSentencesOption',
   'schemaCaptureBehaviorFragmentGroupTitle',
   'schemaCaptureBehaviorHeroDescription',
+  'schemaCaptureBehaviorModifierConflictBrowser',
+  'schemaCaptureBehaviorModifierConflictSystem',
   'schemaCaptureBehaviorReadingGroupTitle',
+  'schemaCaptureBehaviorSidebarHighlightsNote',
   'schemaCaptureBehaviorTitle',
   'schemaCaptureSourcesAiChatGroupTitle',
+  'schemaCaptureSourcesAiConversationDescription',
+  'schemaCaptureSourcesAiConversationTitle',
+  'schemaCaptureSourcesAiSupportedPlatformsBadge',
+  'schemaCaptureSourcesAutoPauseDescription',
+  'schemaCaptureSourcesAutoPauseTitle',
   'schemaCaptureSourcesDeepResearchGroupTitle',
   'schemaCaptureSourcesHeroDescription',
+  'schemaCaptureSourcesMarkdownUrlDescription',
+  'schemaCaptureSourcesMarkdownUrlTitle',
+  'schemaCaptureSourcesPreviewFieldLabel',
+  'schemaCaptureSourcesScreenshotFilenameDescription',
+  'schemaCaptureSourcesScreenshotFilenameTitle',
+  'schemaCaptureSourcesScreenshotLocationDescription',
+  'schemaCaptureSourcesScreenshotLocationTitle',
+  'schemaCaptureSourcesSupportedPlatformsDescription',
   'schemaCaptureSourcesTitle',
+  'schemaCaptureSourcesUserDisplayNameDescription',
+  'schemaCaptureSourcesUserDisplayNamePreview',
   'schemaCaptureSourcesVideoGroupTitle',
+  'schemaCaptureSourcesVideoPromptEntryDescription',
+  'schemaCaptureSourcesVideoPromptEntryTitle',
+  'schemaCaptureSourcesVideoPromptHelper',
   'schemaCommonDisabledState',
   'schemaCommonEnabledState',
   'schemaCommonFieldColumnLabel',
@@ -315,14 +341,22 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaExperimentalSubtitleToggleDescription',
   'schemaExperimentalSubtitleToggleTitle',
   'schemaExperimentalTitle',
+  'schemaMaintenanceConfigurationDiagnosisDescription',
+  'schemaMaintenanceConfigurationTransferDescription',
+  'schemaMaintenanceConfigurationTransferTitle',
   'schemaMaintenanceDiagnosisButton',
   'schemaMaintenanceDiagnosisGroupTitle',
+  'schemaMaintenanceDiagnosisScopeDescription',
+  'schemaMaintenanceDiagnosisScopeTitle',
   'schemaMaintenanceFixButton',
   'schemaMaintenanceHeroDescription',
   'schemaMaintenanceReloadButton',
+  'schemaMaintenanceRepairLogTitle',
   'schemaMaintenanceTitle',
   'schemaMaintenanceTransferCopyButton',
   'schemaMaintenanceTransferGroupTitle',
+  'schemaMaintenanceTransferHelperDescription',
+  'schemaMaintenanceTransferHelperTitle',
   'schemaMaintenanceTransferImportButton',
   'schemaMaintenanceTransferLastActionNoticeTitle',
   'schemaMaintenanceTransferLogCopySuccess',
@@ -334,23 +368,54 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaNavOutputHint',
   'schemaNavOverviewHint',
   'schemaNavStorageHint',
+  'schemaOutputAddMappingButton',
+  'schemaOutputDomainColumnLabel',
   'schemaOutputDomainMappingsGroupTitle',
+  'schemaOutputDomainNotesColumnLabel',
+  'schemaOutputDomainOverrideLabel',
+  'schemaOutputFolderAliasColumnLabel',
   'schemaOutputHeroDescription',
+  'schemaOutputPathTemplatesDescription',
+  'schemaOutputTemplateHelperText',
   'schemaOutputTemplatesGroupTitle',
   'schemaOutputTitle',
   'schemaOutputYamlGroupTitle',
+  'schemaOutputYamlHelperText',
+  'schemaOutputYamlPreviewSummaryLabel',
+  'schemaOverviewClearUsageDataButton',
+  'schemaOverviewDebugModeAvailableState',
+  'schemaOverviewDebugModeDevOnlyBadge',
+  'schemaOverviewDebugModePrerequisiteState',
   'schemaOverviewHeroDescription',
   'schemaOverviewInterfaceGroupTitle',
   'schemaOverviewLanguageRowDescription',
   'schemaOverviewLanguageRowTitle',
+  'schemaOverviewOpenDiagnosisButton',
   'schemaOverviewPrivacyGroupTitle',
+  'schemaOverviewPrivacyReferenceTitle',
+  'schemaOverviewThemeDarkOption',
+  'schemaOverviewThemeLightOption',
+  'schemaOverviewThemeRowTitle',
+  'schemaOverviewThemeSystemOption',
   'schemaOverviewTitle',
   'schemaOverviewUsageGroupTitle',
   'schemaReadingPathModeArticleLabel',
   'schemaReadingPathModeCustomLabel',
   'schemaReadingPathModeFragmentLabel',
+  'schemaRendererHighlightExamplePrefix',
+  'schemaRendererHighlightExampleSuffix',
+  'schemaRendererHighlightExampleText',
+  'schemaRendererResourceOpenAction',
+  'schemaRendererResourcePendingBadge',
+  'schemaResourceChangelogDescription',
   'schemaResourceChangelogHint',
   'schemaResourceChangelogTitle',
+  'schemaResourceChangelogV010Bullet1',
+  'schemaResourceChangelogV010Bullet2',
+  'schemaResourceChangelogV010Bullet3',
+  'schemaResourceChangelogV020Bullet1',
+  'schemaResourceChangelogV020Bullet2',
+  'schemaResourceChangelogV020Bullet3',
   'schemaResourceContactChannelsGroupTitle',
   'schemaResourceContactDescription',
   'schemaResourceContactEmailDescription',
@@ -364,7 +429,16 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourceContactWechatDescription',
   'schemaResourceContactWechatNote',
   'schemaResourceContactWechatTitle',
+  'schemaResourceDataUsageAnonymousUsageBody',
+  'schemaResourceDataUsageAnonymousUsageTitle',
+  'schemaResourceDataUsageConfigMigrationBody',
+  'schemaResourceDataUsageConfigMigrationTitle',
+  'schemaResourceDataUsageDescription',
+  'schemaResourceDataUsageTitle',
+  'schemaResourceOnboardingDescription',
+  'schemaResourceOnboardingGuideFlowTitle',
   'schemaResourceOnboardingHint',
+  'schemaResourceOnboardingStepsTitle',
   'schemaResourceOnboardingTitle',
   'schemaResourcePluginSetupChecklist1',
   'schemaResourcePluginSetupChecklist2',
@@ -387,6 +461,10 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourcePluginSetupStep4',
   'schemaResourcePluginSetupStep5',
   'schemaResourcePluginSetupTitle',
+  'schemaResourcePrivacyLocalConfigBody',
+  'schemaResourcePrivacyLocalConfigTitle',
+  'schemaResourcePrivacyPolicyDescription',
+  'schemaResourcePrivacyPolicyTitle',
   'schemaResourcesGroupTitle',
   'schemaResourceSuggestionsChannelsGroupTitle',
   'schemaResourceSuggestionsDescription',
@@ -413,10 +491,70 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourceSupportScope4',
   'schemaResourceSupportScopeGroupTitle',
   'schemaResourceSupportTitle',
+  'schemaRuntimeAiSummaryBadge',
+  'schemaRuntimeClipperDescription',
+  'schemaRuntimeClipperHint',
+  'schemaRuntimeClipperTitle',
+  'schemaRuntimeReaderDescription',
+  'schemaRuntimeReaderHint',
+  'schemaRuntimeReaderTitle',
+  'schemaRuntimeSurfaceConfigureVaultLabel',
+  'schemaRuntimeSurfaceSaveToLabel',
+  'schemaRuntimeTaskSuccessDescription',
+  'schemaRuntimeTaskSuccessHint',
+  'schemaRuntimeTaskSuccessProgressAriaLabel',
+  'schemaRuntimeTaskSuccessStatusDetail',
+  'schemaRuntimeTaskSuccessTitle',
+  'schemaRuntimeUiGroupTitle',
+  'schemaRuntimeVideoCaptureScreenshotLabel',
+  'schemaRuntimeVideoDescription',
+  'schemaRuntimeVideoFloatingPromptHint',
+  'schemaRuntimeVideoFloatingPromptTitle',
+  'schemaRuntimeVideoHint',
+  'schemaRuntimeVideoRemoveScreenshotLabel',
+  'schemaRuntimeVideoTitle',
   'schemaSidebarSettingsGroupTitle',
+  'schemaStorageAddRuleButton',
+  'schemaStorageAddVaultButton',
+  'schemaStorageCertificateDownloadTrustLink',
+  'schemaStorageConnectionNoticeTitle',
+  'schemaStorageConnectionNotRun',
+  'schemaStorageConnectionUrlNotConfigured',
   'schemaStorageHeroDescription',
+  'schemaStorageLocalFolderAuthorizeWarningBody',
+  'schemaStorageLocalFolderAuthorizeWarningTitle',
+  'schemaStorageLocalFolderChooseAction',
+  'schemaStorageLocalFolderDeleteAction',
+  'schemaStorageLocalFolderLabel',
+  'schemaStorageLocalFolderManageAction',
+  'schemaStorageLocalFolderNotConfigured',
+  'schemaStorageLocalFolderPermissionConfirmedBody',
+  'schemaStorageLocalFolderPermissionConfirmedTitle',
+  'schemaStorageLocalFolderReauthorizeBody',
+  'schemaStorageLocalFolderReauthorizeFallbackBody',
+  'schemaStorageLocalFolderReauthorizeTitle',
+  'schemaStorageLocalFolderRecommendation',
+  'schemaStorageNoEnabledVaults',
+  'schemaStorageRoutingActionsColumnLabel',
+  'schemaStorageRoutingEnabledColumnLabel',
   'schemaStorageRoutingGroupTitle',
+  'schemaStorageRoutingPatternColumnLabel',
+  'schemaStorageRoutingPriorityColumnLabel',
+  'schemaStorageRoutingTargetVaultColumnLabel',
+  'schemaStorageRoutingTipBody',
+  'schemaStorageRoutingTipTitle',
+  'schemaStorageRoutingTypeColumnLabel',
+  'schemaStorageTestConnectionButton',
   'schemaStorageTitle',
+  'schemaStorageVaultActionsColumnLabel',
+  'schemaStorageVaultApiKeyColumnLabel',
+  'schemaStorageVaultEnabledColumnLabel',
+  'schemaStorageVaultHttpsUrlColumnLabel',
+  'schemaStorageVaultHttpUrlColumnLabel',
+  'schemaStorageVaultListDescription',
+  'schemaStorageVaultListTitle',
+  'schemaStorageVaultLocalFolderColumnLabel',
+  'schemaStorageVaultNameColumnLabel',
   'schemaStorageVaultsGroupTitle',
   'schemaYamlFilterAiChatLabel',
   'schemaYamlFilterAllLabel',
@@ -941,15 +1079,41 @@ export interface GeneratedMessages {
   schemaAiPlatformKimiName: string;
   schemaAiPlatformMonicaName: string;
   schemaAiPlatformTongyiName: string;
+  schemaCaptureBehaviorCaptureContextTitle: string;
+  schemaCaptureBehaviorContextLengthFieldLabel: string;
+  schemaCaptureBehaviorContextModeCharsOption: string;
+  schemaCaptureBehaviorContextModeFieldLabel: string;
+  schemaCaptureBehaviorContextModeSentencesOption: string;
   schemaCaptureBehaviorFragmentGroupTitle: string;
   schemaCaptureBehaviorHeroDescription: string;
+  schemaCaptureBehaviorModifierConflictBrowser: string;
+  schemaCaptureBehaviorModifierConflictSystem: string;
   schemaCaptureBehaviorReadingGroupTitle: string;
+  schemaCaptureBehaviorSidebarHighlightsNote: string;
   schemaCaptureBehaviorTitle: string;
   schemaCaptureSourcesAiChatGroupTitle: string;
+  schemaCaptureSourcesAiConversationDescription: string;
+  schemaCaptureSourcesAiConversationTitle: string;
+  schemaCaptureSourcesAiSupportedPlatformsBadge: string;
+  schemaCaptureSourcesAutoPauseDescription: string;
+  schemaCaptureSourcesAutoPauseTitle: string;
   schemaCaptureSourcesDeepResearchGroupTitle: string;
   schemaCaptureSourcesHeroDescription: string;
+  schemaCaptureSourcesMarkdownUrlDescription: string;
+  schemaCaptureSourcesMarkdownUrlTitle: string;
+  schemaCaptureSourcesPreviewFieldLabel: string;
+  schemaCaptureSourcesScreenshotFilenameDescription: string;
+  schemaCaptureSourcesScreenshotFilenameTitle: string;
+  schemaCaptureSourcesScreenshotLocationDescription: string;
+  schemaCaptureSourcesScreenshotLocationTitle: string;
+  schemaCaptureSourcesSupportedPlatformsDescription: string;
   schemaCaptureSourcesTitle: string;
+  schemaCaptureSourcesUserDisplayNameDescription: string;
+  schemaCaptureSourcesUserDisplayNamePreview: string;
   schemaCaptureSourcesVideoGroupTitle: string;
+  schemaCaptureSourcesVideoPromptEntryDescription: string;
+  schemaCaptureSourcesVideoPromptEntryTitle: string;
+  schemaCaptureSourcesVideoPromptHelper: string;
   schemaCommonDisabledState: string;
   schemaCommonEnabledState: string;
   schemaCommonFieldColumnLabel: string;
@@ -971,14 +1135,22 @@ export interface GeneratedMessages {
   schemaExperimentalSubtitleToggleDescription: string;
   schemaExperimentalSubtitleToggleTitle: string;
   schemaExperimentalTitle: string;
+  schemaMaintenanceConfigurationDiagnosisDescription: string;
+  schemaMaintenanceConfigurationTransferDescription: string;
+  schemaMaintenanceConfigurationTransferTitle: string;
   schemaMaintenanceDiagnosisButton: string;
   schemaMaintenanceDiagnosisGroupTitle: string;
+  schemaMaintenanceDiagnosisScopeDescription: string;
+  schemaMaintenanceDiagnosisScopeTitle: string;
   schemaMaintenanceFixButton: string;
   schemaMaintenanceHeroDescription: string;
   schemaMaintenanceReloadButton: string;
+  schemaMaintenanceRepairLogTitle: string;
   schemaMaintenanceTitle: string;
   schemaMaintenanceTransferCopyButton: string;
   schemaMaintenanceTransferGroupTitle: string;
+  schemaMaintenanceTransferHelperDescription: string;
+  schemaMaintenanceTransferHelperTitle: string;
   schemaMaintenanceTransferImportButton: string;
   schemaMaintenanceTransferLastActionNoticeTitle: string;
   schemaMaintenanceTransferLogCopySuccess: string;
@@ -990,23 +1162,54 @@ export interface GeneratedMessages {
   schemaNavOutputHint: string;
   schemaNavOverviewHint: string;
   schemaNavStorageHint: string;
+  schemaOutputAddMappingButton: string;
+  schemaOutputDomainColumnLabel: string;
   schemaOutputDomainMappingsGroupTitle: string;
+  schemaOutputDomainNotesColumnLabel: string;
+  schemaOutputDomainOverrideLabel: string;
+  schemaOutputFolderAliasColumnLabel: string;
   schemaOutputHeroDescription: string;
+  schemaOutputPathTemplatesDescription: string;
+  schemaOutputTemplateHelperText: string;
   schemaOutputTemplatesGroupTitle: string;
   schemaOutputTitle: string;
   schemaOutputYamlGroupTitle: string;
+  schemaOutputYamlHelperText: string;
+  schemaOutputYamlPreviewSummaryLabel: string;
+  schemaOverviewClearUsageDataButton: string;
+  schemaOverviewDebugModeAvailableState: string;
+  schemaOverviewDebugModeDevOnlyBadge: string;
+  schemaOverviewDebugModePrerequisiteState: string;
   schemaOverviewHeroDescription: string;
   schemaOverviewInterfaceGroupTitle: string;
   schemaOverviewLanguageRowDescription: string;
   schemaOverviewLanguageRowTitle: string;
+  schemaOverviewOpenDiagnosisButton: string;
   schemaOverviewPrivacyGroupTitle: string;
+  schemaOverviewPrivacyReferenceTitle: string;
+  schemaOverviewThemeDarkOption: string;
+  schemaOverviewThemeLightOption: string;
+  schemaOverviewThemeRowTitle: string;
+  schemaOverviewThemeSystemOption: string;
   schemaOverviewTitle: string;
   schemaOverviewUsageGroupTitle: string;
   schemaReadingPathModeArticleLabel: string;
   schemaReadingPathModeCustomLabel: string;
   schemaReadingPathModeFragmentLabel: string;
+  schemaRendererHighlightExamplePrefix: string;
+  schemaRendererHighlightExampleSuffix: string;
+  schemaRendererHighlightExampleText: string;
+  schemaRendererResourceOpenAction: string;
+  schemaRendererResourcePendingBadge: string;
+  schemaResourceChangelogDescription: string;
   schemaResourceChangelogHint: string;
   schemaResourceChangelogTitle: string;
+  schemaResourceChangelogV010Bullet1: string;
+  schemaResourceChangelogV010Bullet2: string;
+  schemaResourceChangelogV010Bullet3: string;
+  schemaResourceChangelogV020Bullet1: string;
+  schemaResourceChangelogV020Bullet2: string;
+  schemaResourceChangelogV020Bullet3: string;
   schemaResourceContactChannelsGroupTitle: string;
   schemaResourceContactDescription: string;
   schemaResourceContactEmailDescription: string;
@@ -1020,7 +1223,16 @@ export interface GeneratedMessages {
   schemaResourceContactWechatDescription: string;
   schemaResourceContactWechatNote: string;
   schemaResourceContactWechatTitle: string;
+  schemaResourceDataUsageAnonymousUsageBody: string;
+  schemaResourceDataUsageAnonymousUsageTitle: string;
+  schemaResourceDataUsageConfigMigrationBody: string;
+  schemaResourceDataUsageConfigMigrationTitle: string;
+  schemaResourceDataUsageDescription: string;
+  schemaResourceDataUsageTitle: string;
+  schemaResourceOnboardingDescription: string;
+  schemaResourceOnboardingGuideFlowTitle: string;
   schemaResourceOnboardingHint: string;
+  schemaResourceOnboardingStepsTitle: string;
   schemaResourceOnboardingTitle: string;
   schemaResourcePluginSetupChecklist1: string;
   schemaResourcePluginSetupChecklist2: string;
@@ -1043,6 +1255,10 @@ export interface GeneratedMessages {
   schemaResourcePluginSetupStep4: string;
   schemaResourcePluginSetupStep5: string;
   schemaResourcePluginSetupTitle: string;
+  schemaResourcePrivacyLocalConfigBody: string;
+  schemaResourcePrivacyLocalConfigTitle: string;
+  schemaResourcePrivacyPolicyDescription: string;
+  schemaResourcePrivacyPolicyTitle: string;
   schemaResourcesGroupTitle: string;
   schemaResourceSuggestionsChannelsGroupTitle: string;
   schemaResourceSuggestionsDescription: string;
@@ -1069,10 +1285,70 @@ export interface GeneratedMessages {
   schemaResourceSupportScope4: string;
   schemaResourceSupportScopeGroupTitle: string;
   schemaResourceSupportTitle: string;
+  schemaRuntimeAiSummaryBadge: string;
+  schemaRuntimeClipperDescription: string;
+  schemaRuntimeClipperHint: string;
+  schemaRuntimeClipperTitle: string;
+  schemaRuntimeReaderDescription: string;
+  schemaRuntimeReaderHint: string;
+  schemaRuntimeReaderTitle: string;
+  schemaRuntimeSurfaceConfigureVaultLabel: string;
+  schemaRuntimeSurfaceSaveToLabel: string;
+  schemaRuntimeTaskSuccessDescription: string;
+  schemaRuntimeTaskSuccessHint: string;
+  schemaRuntimeTaskSuccessProgressAriaLabel: string;
+  schemaRuntimeTaskSuccessStatusDetail: string;
+  schemaRuntimeTaskSuccessTitle: string;
+  schemaRuntimeUiGroupTitle: string;
+  schemaRuntimeVideoCaptureScreenshotLabel: string;
+  schemaRuntimeVideoDescription: string;
+  schemaRuntimeVideoFloatingPromptHint: string;
+  schemaRuntimeVideoFloatingPromptTitle: string;
+  schemaRuntimeVideoHint: string;
+  schemaRuntimeVideoRemoveScreenshotLabel: string;
+  schemaRuntimeVideoTitle: string;
   schemaSidebarSettingsGroupTitle: string;
+  schemaStorageAddRuleButton: string;
+  schemaStorageAddVaultButton: string;
+  schemaStorageCertificateDownloadTrustLink: string;
+  schemaStorageConnectionNoticeTitle: string;
+  schemaStorageConnectionNotRun: string;
+  schemaStorageConnectionUrlNotConfigured: string;
   schemaStorageHeroDescription: string;
+  schemaStorageLocalFolderAuthorizeWarningBody: string;
+  schemaStorageLocalFolderAuthorizeWarningTitle: string;
+  schemaStorageLocalFolderChooseAction: string;
+  schemaStorageLocalFolderDeleteAction: string;
+  schemaStorageLocalFolderLabel: string;
+  schemaStorageLocalFolderManageAction: string;
+  schemaStorageLocalFolderNotConfigured: string;
+  schemaStorageLocalFolderPermissionConfirmedBody: string;
+  schemaStorageLocalFolderPermissionConfirmedTitle: string;
+  schemaStorageLocalFolderReauthorizeBody: string;
+  schemaStorageLocalFolderReauthorizeFallbackBody: string;
+  schemaStorageLocalFolderReauthorizeTitle: string;
+  schemaStorageLocalFolderRecommendation: string;
+  schemaStorageNoEnabledVaults: string;
+  schemaStorageRoutingActionsColumnLabel: string;
+  schemaStorageRoutingEnabledColumnLabel: string;
   schemaStorageRoutingGroupTitle: string;
+  schemaStorageRoutingPatternColumnLabel: string;
+  schemaStorageRoutingPriorityColumnLabel: string;
+  schemaStorageRoutingTargetVaultColumnLabel: string;
+  schemaStorageRoutingTipBody: string;
+  schemaStorageRoutingTipTitle: string;
+  schemaStorageRoutingTypeColumnLabel: string;
+  schemaStorageTestConnectionButton: string;
   schemaStorageTitle: string;
+  schemaStorageVaultActionsColumnLabel: string;
+  schemaStorageVaultApiKeyColumnLabel: string;
+  schemaStorageVaultEnabledColumnLabel: string;
+  schemaStorageVaultHttpsUrlColumnLabel: string;
+  schemaStorageVaultHttpUrlColumnLabel: string;
+  schemaStorageVaultListDescription: string;
+  schemaStorageVaultListTitle: string;
+  schemaStorageVaultLocalFolderColumnLabel: string;
+  schemaStorageVaultNameColumnLabel: string;
   schemaStorageVaultsGroupTitle: string;
   schemaYamlFilterAiChatLabel: string;
   schemaYamlFilterAllLabel: string;

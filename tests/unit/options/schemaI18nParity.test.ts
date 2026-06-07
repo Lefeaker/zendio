@@ -117,6 +117,29 @@ describe('schema i18n parity', () => {
     }
   });
 
+  it('publishes representative new schema keys to both shell and runtime locale maps', () => {
+    const representativeKeys = [
+      'schemaRuntimeUiGroupTitle',
+      'schemaStorageConnectionNotRun',
+      'schemaStorageVaultEnabledColumnLabel',
+      'schemaStorageRoutingActionsColumnLabel',
+      'schemaStorageCertificateDownloadTrustLink',
+      'schemaCaptureBehaviorModifierConflictSystem',
+      'schemaOutputTemplateHelperText',
+      'schemaResourcePrivacyLocalConfigTitle',
+      'schemaRuntimeSurfaceSaveToLabel'
+    ] as const;
+
+    for (const key of representativeKeys) {
+      expect(schemaShellMessagesEnglish[key]).toBeTypeOf('string');
+      expect(schemaShellMessagesEn[key]).toBe(schemaShellMessagesEnglish[key]);
+      expect(en.runtime[key]).toBe(schemaShellMessagesEnglish[key]);
+
+      expect(schemaShellMessagesZhHans[key]).toBeTypeOf('string');
+      expect(zhCN.runtime[key]).toBe(schemaShellMessagesZhHans[key]);
+    }
+  });
+
   it('keeps Stitch registry free of previous schema-shell hardcoded sentences', () => {
     const source = readFileSync(
       resolve(process.cwd(), 'src/options/stitch/schema/registry.ts'),
