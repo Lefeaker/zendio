@@ -1,3 +1,4 @@
+import { configProvider } from '@shared/config';
 import type { ResourceSchema } from '../../types';
 import { stepCard, stepGrid } from '../builders/resources';
 
@@ -7,6 +8,9 @@ const schema: ResourceSchema = {
   createView(ctx) {
     const hero = ctx.appData.resources.onboarding.hero;
     const shouldLocalize = Boolean(ctx.messages);
+    const restDefaults = configProvider.getRestDefaults();
+    const defaultHttpsUrl = restDefaults.httpsUrl.replace(/\/$/, '');
+    const defaultHttpUrl = restDefaults.httpUrl.replace(/\/$/, '');
     return {
       id: 'onboarding',
       kind: 'standalone-page',
@@ -71,12 +75,12 @@ const schema: ResourceSchema = {
                           ) ?? 'Enable "Non-encrypted (HTTP) Server" in the plugin settings',
                           ctx.t?.(
                             'step1Detail3',
-                            'Note the HTTPS URL (usually https://127.0.0.1:27124)'
-                          ) ?? 'Note the HTTPS URL (usually https://127.0.0.1:27124)',
+                            `Note the HTTPS URL (usually ${defaultHttpsUrl})`
+                          ) ?? `Note the HTTPS URL (usually ${defaultHttpsUrl})`,
                           ctx.t?.(
                             'step1Detail4',
-                            'Note the HTTP URL (usually http://127.0.0.1:27123)'
-                          ) ?? 'Note the HTTP URL (usually http://127.0.0.1:27123)',
+                            `Note the HTTP URL (usually ${defaultHttpUrl})`
+                          ) ?? `Note the HTTP URL (usually ${defaultHttpUrl})`,
                           ctx.t?.(
                             'step1Detail5',
                             'Record your Obsidian vault name and copy the Local REST API key'

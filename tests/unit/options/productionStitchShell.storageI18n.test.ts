@@ -7,6 +7,7 @@ import { GENERATED_RELEASE_LOCALE_REGISTRY } from '@i18n/generated/localeRegistr
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { runVaultListConnectionTest } from '@options/app/vaultConnectionTests';
 import type { VaultRouterConfig } from '@shared/types/vault';
+import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 import {
   asOptionsController,
   createController,
@@ -16,6 +17,10 @@ import {
   flushPromises,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
+
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
+const LOCAL_CERTIFICATE_URL = `${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt`;
 
 const STORAGE_SENTINEL_MESSAGES = {
   ...DEFAULT_RUNTIME_MESSAGES,
@@ -187,8 +192,8 @@ describe('mountProductionStitchShell storage i18n', () => {
           success: false,
           message: 'network error: request failed',
           error: 'network error: request failed',
-          url: 'https://localhost:27124',
-          certificateUrl: 'https://localhost:27124/obsidian-local-rest-api.crt'
+          url: LOCAL_HTTPS_URL,
+          certificateUrl: LOCAL_CERTIFICATE_URL
         }
       ]
     });
@@ -203,7 +208,7 @@ describe('mountProductionStitchShell storage i18n', () => {
         initialOptions: {
           rest: {
             vault: 'Research Vault',
-            httpsUrl: 'https://localhost:27124',
+            httpsUrl: LOCAL_HTTPS_URL,
             apiKey: 'bad-token'
           }
         },
@@ -217,7 +222,7 @@ describe('mountProductionStitchShell storage i18n', () => {
       await flushPromises();
 
       const certificateLink = document.querySelector<HTMLAnchorElement>(
-        'a[href="https://localhost:27124/obsidian-local-rest-api.crt"]'
+        `a[href="${LOCAL_CERTIFICATE_URL}"]`
       );
       expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
     } finally {
