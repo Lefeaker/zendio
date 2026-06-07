@@ -382,17 +382,15 @@ export function videoCaptureItem(
     );
   }
 
-  const displayText = capture.editing
-    ? (capture.fullText ?? capture.summary)
-    : (capture.commentPreview ?? capture.comment ?? '');
+  const inputValue = capture.draft ?? capture.comment ?? '';
 
   return sessionItemCard(
     videoTimestampMarker(capture, screenshotLabels),
-    displayText,
-    capture.commentPreview,
     '',
+    undefined,
+    inputValue,
     capture.editing,
-    capture.draft ?? capture.comment ?? '',
+    inputValue,
     labels.notePlaceholder,
     null,
     { captureId: capture.id, captureKind: 'timestamp' },

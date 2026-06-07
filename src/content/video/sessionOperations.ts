@@ -41,7 +41,6 @@ import {
 import {
   clearRequestedTimestampScreenshot,
   hasRequestedTimestampScreenshot,
-  restoreRequestedTimestampScreenshots,
   setRequestedTimestampScreenshot
 } from './screenshotIntent';
 
@@ -71,9 +70,11 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  syncCommentDrafts?: () => Record<string, string>;
   scheduleDraftSave?: () => Promise<void>;
   flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
   removeDraft?: () => Promise<void>;
+  prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   resetPlaybackEditLease?: () => void;
@@ -132,13 +133,6 @@ function resolveVideoSessionDurationBucket(state: VideoSessionState) {
   return state.analyticsTimer?.durationBucket() ?? createFeatureTimer().durationBucket();
 }
 
-function countVideoScreenshots(state: VideoSessionState): number {
-  return state.captures.filter(
-    (capture): capture is VideoTimestampCapture =>
-      capture.kind === 'timestamp' && capture.screenshot !== undefined
-  ).length;
-}
-
 export function beginVideoSessionAnalytics(
   context: VideoSessionOperationContext,
   source: AnalyticsSource = 'unknown'
@@ -165,6 +159,7 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
 
   const video = context.state.videoElement ?? context.findVideoElement();
@@ -223,7 +218,7 @@ export async function handleVideoSessionAddCapture(
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
   } else {
-    context.dom.stopEditing();
+    context.dom.stopEditing(capture.id);
   }
   if (options.resumePlayback && typeof video.play === 'function') {
     void Promise.resolve(video.play()).catch(() => undefined);
@@ -238,6 +233,7 @@ export function ingestVideoSessionTextCapture(
   comment: string,
   selectionRange?: Range
 ): void {
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
   const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
   if (!normalizedText) {
@@ -314,6 +310,7 @@ export async function submitVideoSessionCaptureEdit(
   if (!target) {
     return;
   }
+  context.syncCommentDrafts?.();
   const previousComment = target.comment;
   const previousDraft = context.state.commentDrafts[id];
   delete context.state.commentDrafts[id];
@@ -330,7 +327,7 @@ export async function submitVideoSessionCaptureEdit(
     return;
   }
   context.releasePlaybackEditLease?.(id, true);
-  context.dom.stopEditing();
+  context.dom.stopEditing(id);
   context.syncPanel();
 }
 
@@ -339,6 +336,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   if (index === -1) {
     return;
   }
+  context.syncCommentDrafts?.();
   delete context.state.commentDrafts[id];
   const [removed] = context.state.captures.splice(index, 1);
   context.releasePlaybackEditLease?.(id, false);
@@ -369,6 +367,7 @@ export async function toggleVideoSessionCaptureScreenshot(
   if (!target) {
     return;
   }
+  context.syncCommentDrafts?.();
 
   if (hasRequestedTimestampScreenshot(target)) {
     clearRequestedTimestampScreenshot(target);
@@ -379,29 +378,15 @@ export async function toggleVideoSessionCaptureScreenshot(
   }
 
   setRequestedTimestampScreenshot(target, null);
-  context.updateVideoContext();
-  const video = context.state.videoElement ?? context.findVideoElement();
-  if (!video) {
-    await saveVideoCaptures(context);
-    context.syncPanel();
-    context.applyHint('noVideo');
-    return;
-  }
-
-  await restoreRequestedTimestampScreenshots({
-    captures: [target],
-    video
-  });
-  const capturedScreenshot = target.screenshot;
-  await saveVideoCaptures(context);
+  context.applyHint('saving');
+  const saveHint = await saveVideoCaptures(context);
   context.syncPanel();
-  if (!capturedScreenshot) {
-    context.applyHint('failure');
+  if (saveHint === 'failure') {
     return;
   }
 
-  emitVideoUsageEvent(context.dependencies, 'video_screenshot_captured', {
-    screenshot_count_bucket: bucketCount(countVideoScreenshots(context.state))
+  void Promise.resolve(context.prepareRequestedScreenshot?.(id)).catch((error) => {
+    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
   });
 }
 
@@ -429,6 +414,7 @@ export async function finishVideoSession(
     return;
   }
 
+  context.syncCommentDrafts?.();
   context.updateVideoContext();
   const exportDestination = context.getExportDestinationMetadata?.();
   context.state.exporting = true;

@@ -4,6 +4,7 @@ import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
+  isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
 } from './runtime/contentSessionRegistry';
@@ -17,6 +18,7 @@ import {
   createLazyReaderSessionFactory,
   createLazySupportPrompt,
   createLazyVideoSessionFactory,
+  isVideoPromptCandidateUrl,
   initializeVideoPromptOnDemand
 } from './runtime/contentLazyRuntime';
 import { resolveRepository } from '../shared/di/serviceRegistry';
@@ -25,6 +27,7 @@ import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 import { startRuntimeThemeSync } from './stitch/runtimeTheme';
 import type { SupportProgressUpdate } from './runtime/supportProgress';
+import { startLazyDraftRestore } from './runtime/sessionDraftAutoRestoreBootstrap';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -141,9 +144,27 @@ function initializeClipperRuntime(): void {
       })
   });
   runtime.start();
+  const stopDraftRestore = startLazyDraftRestore(
+    () => import('./runtime/sessionDraftAutoRestore'),
+    {
+      document,
+      window,
+      storage: platform.storage,
+      currentUrl: () => window.location.href,
+      createReaderSession: () => createReaderSession(document, window.location.href),
+      createVideoSession: () => createVideoSession(document),
+      isReaderSessionActive: () => isReaderSessionActive(document),
+      isVideoSessionActive: () => isVideoSessionActive(document),
+      isVideoCandidateUrl: isVideoPromptCandidateUrl
+    },
+    (error) => {
+      console.warn('[content] Failed to start session draft auto-restore:', error);
+    }
+  );
   window.addEventListener(
     'pagehide',
     () => {
+      stopDraftRestore();
       stopRuntimeThemeSync();
       runtime.stop();
     },

@@ -25,7 +25,7 @@ export interface ReaderSessionAdapter {
     selectedText: string,
     comment: string
   ): void;
-  start(initialHighlight: ReaderBootstrapHighlight): Promise<void>;
+  start(initialHighlight?: ReaderBootstrapHighlight): Promise<void>;
 }
 
 export interface VideoSessionAdapter {

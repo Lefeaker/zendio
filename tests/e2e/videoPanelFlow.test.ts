@@ -46,6 +46,7 @@ type VideoDraftEntry = {
   pageUrl: string | null;
   captureCount: number;
   requestedScreenshotCount: number;
+  captureComments: string[];
   commentDrafts: Record<string, string>;
   json: string;
 };
@@ -66,6 +67,10 @@ type ExportedVideoClip = {
     dataUrl?: string;
   }>;
 } | null;
+
+type StartVideoModeResponse = {
+  success: boolean;
+};
 
 const testWithExtension = test.extend<{
   context: BrowserContext;
@@ -104,13 +109,13 @@ const testWithExtension = test.extend<{
     await use(background);
   },
   extensionPage: async ({ context, background }, use, testInfo) => {
-    const extensionId = await runStage(testInfo, 'resolve extension id', async () => {
+    const extensionId = await runStage(testInfo, 'resolve extension id', () => {
       const backgroundUrl = background.url();
       const resolved = backgroundUrl.split('/')[2];
       if (!resolved) {
         throw new Error(`Unable to parse extension id from ${backgroundUrl}`);
       }
-      return resolved;
+      return Promise.resolve(resolved);
     });
     const page = await runStage(testInfo, 'open extension harness page', () => context.newPage());
     await runStage(testInfo, 'goto extension harness page', () =>
@@ -433,11 +438,21 @@ async function startVideoMode(
   tabId: number,
   testInfo: TestInfo
 ): Promise<void> {
-  const result = await runStage(testInfo, `start video mode for tab ${tabId}`, async () => {
-    return extensionPage.evaluate(async (targetTabId) => {
-      return await chrome.tabs.sendMessage(targetTabId, { action: 'startVideoMode' });
-    }, tabId);
-  });
+  const result = await runStage<StartVideoModeResponse>(
+    testInfo,
+    `start video mode for tab ${tabId}`,
+    () =>
+      extensionPage.evaluate(async (targetTabId): Promise<StartVideoModeResponse> => {
+        const response: unknown = await chrome.tabs.sendMessage(targetTabId, {
+          action: 'startVideoMode'
+        });
+        if (response && typeof response === 'object' && 'success' in response) {
+          const success = (response as { success?: unknown }).success === true;
+          return { success };
+        }
+        return { success: false };
+      }, tabId)
+  );
 
   expect(result).toMatchObject({ success: true });
 }
@@ -508,6 +523,15 @@ async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEnt
           const captures = Array.isArray(envelope.payload?.captures)
             ? envelope.payload.captures
             : [];
+          const captureComments = captures
+            .map((capture) =>
+              typeof capture === 'object' &&
+              capture !== null &&
+              typeof (capture as { comment?: unknown }).comment === 'string'
+                ? (capture as { comment: string }).comment
+                : ''
+            )
+            .filter((comment) => comment.length > 0);
           const rawDrafts = envelope.payload?.commentDrafts;
           const commentDrafts =
             rawDrafts && typeof rawDrafts === 'object'
@@ -527,6 +551,7 @@ async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEnt
                 capture !== null &&
                 capture.screenshotRequested === true
             ).length,
+            captureComments,
             commentDrafts,
             json
           };
@@ -664,17 +689,32 @@ testWithExtension.describe('Video Panel browser flow', () => {
 
         const firstCapture = page.locator('[data-role="capture-item"]').first();
         const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+        await resetVideoProbe(extensionPage, tabId, testInfo);
         await runStage(testInfo, 'toggle screenshot intent', async () => {
           await screenshotToggle.click();
           await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
         });
 
         await expect
-          .poll(() => readVideoProbe(extensionPage, tabId).then((probe) => probe.toDataUrlCalls), {
-            timeout: 10000,
-            message: 'initial screenshot capture did not occur'
-          })
-          .toBeGreaterThan(0);
+          .poll(
+            () =>
+              readVideoProbe(extensionPage, tabId).then((probe) => ({
+                toDataUrlCalls: probe.toDataUrlCalls,
+                currentTimeWrites: probe.currentTimeWrites,
+                pauseCalls: probe.pauseCalls,
+                playCalls: probe.playCalls
+              })),
+            {
+              timeout: 10000,
+              message: 'initial screenshot toggle disturbed visible playback'
+            }
+          )
+          .toEqual({
+            toDataUrlCalls: 1,
+            currentTimeWrites: 0,
+            pauseCalls: 0,
+            playCalls: 0
+          });
 
         await expect
           .poll(
@@ -712,15 +752,20 @@ testWithExtension.describe('Video Panel browser flow', () => {
         const reloadedTabId = await runStage(testInfo, 'resolve reloaded tab id', () =>
           findCurrentTabId(extensionPage, page.url())
         );
-        await injectContentRuntime(extensionPage, reloadedTabId, testInfo);
         await installVideoProbe(extensionPage, reloadedTabId, testInfo);
+        await injectContentRuntime(extensionPage, reloadedTabId, testInfo);
         await runStage(testInfo, 'wait reloaded video control bar button', async () => {
           await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1, {
             timeout: 10000
           });
         });
 
-        await startVideoMode(extensionPage, reloadedTabId, testInfo);
+        await runStage(testInfo, 'wait video draft auto-restore panel', async () => {
+          await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(1, {
+            timeout: 10000
+          });
+          await expect(page.locator('[data-role="finish-btn"]')).toBeVisible();
+        });
         await expandVideoPanel(page);
         await expect(page.locator('[data-role="capture-item"]')).toHaveCount(2);
         await expect(
@@ -733,14 +778,15 @@ testWithExtension.describe('Video Panel browser flow', () => {
           .poll(
             () =>
               readVideoProbe(extensionPage, reloadedTabId).then((probe) => ({
-                toDataUrlCalls: probe.toDataUrlCalls
+                toDataUrlCalls: probe.toDataUrlCalls,
+                currentTimeWrites: probe.currentTimeWrites
               })),
             {
               timeout: 10000,
               message: 'restore-time screenshot recapture did not run'
             }
           )
-          .toEqual({ toDataUrlCalls: 1 });
+          .toEqual({ toDataUrlCalls: 1, currentTimeWrites: 0 });
 
         await resetVideoProbe(extensionPage, reloadedTabId, testInfo);
         const finishButton = page.locator('[data-role="finish-btn"]');
@@ -788,6 +834,133 @@ testWithExtension.describe('Video Panel browser flow', () => {
           .toBe(0);
       } finally {
         await runStage(testInfo, 'close video fixture page', () => page.close());
+      }
+    }
+  );
+
+  testWithExtension(
+    'keeps the sixth timestamp draft stable across edits, add, toggle, and visibility restore',
+    async ({ context, extensionPage }, testInfo) => {
+      await seedOptions(extensionPage, testInfo);
+
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        testInfo,
+        `${YOUTUBE_URL}-eight-timestamps`,
+        youtubeFixtureHtml()
+      );
+
+      try {
+        await installVideoProbe(extensionPage, tabId, testInfo);
+        await startVideoMode(extensionPage, tabId, testInfo);
+        await expandVideoPanel(page);
+
+        const addButton = page.locator('[data-role="add-btn"]');
+        await runStage(testInfo, 'add eight timestamp captures', async () => {
+          for (let index = 0; index < 8; index += 1) {
+            await addButton.click();
+            await expect(page.locator('[data-role="capture-item"]')).toHaveCount(index + 1);
+          }
+        });
+
+        let captureInputs = page.locator('[data-capture-input]');
+        await expect(captureInputs).toHaveCount(8);
+
+        const stableDraft =
+          'Capture six browser draft that must survive unrelated timestamp operations.';
+        await runStage(testInfo, 'fill sixth timestamp draft', async () => {
+          await captureInputs.nth(5).fill(stableDraft);
+          await expect(captureInputs.nth(5)).toHaveValue(stableDraft);
+        });
+
+        await runStage(testInfo, 'edit earlier timestamp drafts', async () => {
+          await captureInputs.nth(0).fill('first timestamp edit');
+          await captureInputs.nth(1).fill('second timestamp edit');
+          await expect(captureInputs.nth(5)).toHaveValue(stableDraft);
+        });
+
+        await runStage(testInfo, 'add one more timestamp', async () => {
+          await addButton.click();
+          captureInputs = page.locator('[data-capture-input]');
+          await expect(captureInputs).toHaveCount(9);
+          await expect(captureInputs.nth(5)).toHaveValue(stableDraft);
+        });
+
+        const firstToggle = page
+          .locator('[data-role="capture-item"]')
+          .first()
+          .locator('[data-action-id="video:toggle-screenshot"]');
+        await resetVideoProbe(extensionPage, tabId, testInfo);
+        await runStage(testInfo, 'toggle first timestamp screenshot', async () => {
+          await firstToggle.click();
+          await expect(firstToggle).toHaveAttribute('data-screenshot-state', 'on');
+        });
+
+        await expect(captureInputs.nth(5)).toHaveValue(stableDraft);
+        await expect
+          .poll(
+            () =>
+              readVideoProbe(extensionPage, tabId).then((probe) => ({
+                currentTimeWrites: probe.currentTimeWrites
+              })),
+            {
+              timeout: 10000,
+              message: 'screenshot toggle sought the visible video'
+            }
+          )
+          .toEqual({ currentTimeWrites: 0 });
+
+        await simulateVisibilityRoundTrip(extensionPage, tabId, testInfo);
+        captureInputs = page.locator('[data-capture-input]');
+        await expect(captureInputs).toHaveCount(9);
+        await expect(captureInputs.nth(5)).toHaveValue(stableDraft);
+        await expect
+          .poll(
+            async () => {
+              const entries = await readVideoDraftEntries(extensionPage);
+              const stableEntry =
+                entries.find(
+                  (entry) =>
+                    entry.captureComments.includes(stableDraft) ||
+                    Object.values(entry.commentDrafts).includes(stableDraft)
+                ) ?? null;
+              if (!stableEntry) {
+                return null;
+              }
+              return {
+                captureCount: stableEntry.captureCount,
+                requestedScreenshotCount: stableEntry.requestedScreenshotCount,
+                stableDraftOccurrences:
+                  stableEntry.captureComments.filter((comment) => comment === stableDraft).length +
+                  Object.values(stableEntry.commentDrafts).filter((draft) => draft === stableDraft)
+                    .length
+              };
+            },
+            {
+              timeout: 10000,
+              message: 'video draft storage lost the stable sixth draft'
+            }
+          )
+          .toEqual({
+            captureCount: 9,
+            requestedScreenshotCount: 1,
+            stableDraftOccurrences: 1
+          });
+        await expect
+          .poll(
+            () =>
+              readVideoProbe(extensionPage, tabId).then((probe) => ({
+                currentTimeWrites: probe.currentTimeWrites
+              })),
+            {
+              timeout: 10000,
+              message: 'visibility round trip sought the visible video'
+            }
+          )
+          .toEqual({ currentTimeWrites: 0 });
+      } finally {
+        await runStage(testInfo, 'close eight timestamp fixture page', () => page.close());
       }
     }
   );

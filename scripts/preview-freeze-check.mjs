@@ -64,11 +64,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'Zendio 0.2.0 hides Advanced Connection Schema and Output Presets from Options, refreshing the generated preview JS hash while preserving the frozen reference and underlying storage/preset logic. The Options UI closeout refreshes the generated preview JS hash after changing Local Folder deletion from a popover to an in-place delete state, moving Video Prompt & Entry switches into body rows, and making sidebar navigation set the main scroller immediately while preserving the frozen reference and Stitch runtime contract.',
         'Fragment modifier single-select and Vault guidance refresh adds the modifier conflict guidance, Storage/Reading plugin support notes, and structured local-folder/HTTPS/HTTP Vault List connection results with HTTPS certificate trust links while preserving the Stitch runtime contract.',
         'The accepted video screenshot attachment location follow-up refreshes the generated preview JS hash after adding the Options controls, nested video screenshot attachment state wiring, and screenshot attachment copy needed for the feature while preserving the frozen reference and Stitch runtime contract. The final integration ratchet repair refreshes the generated preview JS hash after removing accepted feature-local unknown/cast debt and restoring the planner hotspot line budget without changing the frozen reference or Stitch runtime contract.',
-        'The PR #26 main sync refreshes the generated preview JS hash after combining the accepted video screenshot attachment location controls with the Options fragment modifier and Vault guidance runtime while preserving the frozen reference and Stitch runtime contract. The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.'
+        'The PR #26 main sync refreshes the generated preview JS hash after combining the accepted video screenshot attachment location controls with the Options fragment modifier and Vault guidance runtime while preserving the frozen reference and Stitch runtime contract.',
+        'The video legacy recovery integration refreshes the generated preview JS hash after making video timestamp note inputs use the stable draft/comment value authority and preserving the screenshot-toggle-before-timestamp runtime contract without changing the frozen reference or Stitch runtime contract.',
+        'The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // P14 final integration: hash refreshed after final i18n integration, orphan cleanup, and lint-only runtime wiring repairs.
-      rightSha256: '2986fe504a2c4b83855b01bffd7967b5b37f915475630ae39bb52aeb7aa79486'
+      // P14/main merge: video legacy recovery plus final Options i18n integration.
+      rightSha256: 'd9377308860f74ac8bdc2de7785956cc93721664b4e6338d11b38f5a544926c7'
     }
   ]
 ]);
