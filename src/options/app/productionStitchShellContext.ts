@@ -28,7 +28,10 @@ export function createProductionStitchSchemaContext(options: {
   messages: Messages | null;
   state: PreviewStoreState;
 }): SchemaContext {
-  const localizedAppData = localizeStitchContent(options.appData, options.language);
+  const localizedAppData = localizeStitchContent(options.appData, {
+    language: options.language,
+    messages: options.messages
+  });
   return {
     appData: {
       ...localizedAppData,

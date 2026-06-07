@@ -1,70 +1,119 @@
+import type { Language, Messages } from '@i18n';
+import { previewContent } from '@options/stitch/content';
+import {
+  createSchemaTranslator,
+  type SchemaMessageKey,
+  type SchemaTranslator
+} from '@options/stitch/schema/i18n';
 import type { PreviewContent } from '@options/stitch/types';
 
-export function localizeStitchContent(content: PreviewContent, language: string): PreviewContent {
-  const useChinese = language !== 'en';
-  if (!useChinese) {
-    return content;
-  }
+const NAV_LABEL_KEYS = {
+  overview: 'schemaOverviewTitle',
+  storage: 'schemaStorageTitle',
+  'capture-sources': 'schemaCaptureSourcesTitle',
+  'capture-behavior': 'schemaCaptureBehaviorTitle',
+  output: 'schemaOutputTitle',
+  maintenance: 'schemaMaintenanceTitle'
+} satisfies Record<string, SchemaMessageKey>;
 
-  const navLabels: Record<string, string> = {
-    overview: '总览',
-    storage: '仓库',
-    'capture-sources': '采集来源',
-    'capture-behavior': '采集行为',
-    output: '输出与元数据',
-    maintenance: '维护'
-  };
-  const resourceLabels: Record<string, string> = {
-    onboarding: '首次引导',
-    'plugin-setup': '插件设置',
-    support: '支持',
-    suggestions: '建议',
-    contact: '联系',
-    changelog: '更新日志'
-  };
-  const surfaceLabels: Record<string, string> = {
-    clipper: '剪藏弹窗',
-    reader: '阅读模式',
-    video: '视频模式',
-    'video-floating-prompt': '视频启动提示',
-    'task-success': '任务完成'
-  };
+const NAV_HINT_KEYS = {
+  overview: 'schemaNavOverviewHint',
+  storage: 'schemaNavStorageHint',
+  'capture-sources': 'schemaNavCaptureSourcesHint',
+  'capture-behavior': 'schemaNavCaptureBehaviorHint',
+  output: 'schemaNavOutputHint',
+  maintenance: 'schemaNavMaintenanceHint'
+} satisfies Record<string, SchemaMessageKey>;
+
+const SIDEBAR_LABEL_KEYS = {
+  onboarding: 'schemaResourceOnboardingTitle',
+  'plugin-setup': 'schemaResourcePluginSetupTitle',
+  support: 'schemaResourceSupportTitle',
+  suggestions: 'schemaResourceSuggestionsTitle',
+  contact: 'schemaResourceContactTitle',
+  changelog: 'schemaResourceChangelogTitle'
+} satisfies Record<string, SchemaMessageKey>;
+
+const SIDEBAR_HINT_KEYS = {
+  onboarding: 'schemaResourceOnboardingHint',
+  'plugin-setup': 'schemaResourcePluginSetupHint',
+  support: 'schemaResourceSupportHint',
+  suggestions: 'schemaResourceSuggestionsHint',
+  contact: 'schemaResourceContactHint',
+  changelog: 'schemaResourceChangelogHint'
+} satisfies Record<string, SchemaMessageKey>;
+
+const SURFACE_LABEL_KEYS = {
+  clipper: 'schemaRuntimeClipperTitle',
+  reader: 'schemaRuntimeReaderTitle',
+  video: 'schemaRuntimeVideoTitle',
+  'video-floating-prompt': 'schemaRuntimeVideoFloatingPromptTitle',
+  'task-success': 'schemaRuntimeTaskSuccessTitle'
+} satisfies Record<string, SchemaMessageKey>;
+
+const SURFACE_HINT_KEYS = {
+  clipper: 'schemaRuntimeClipperHint',
+  reader: 'schemaRuntimeReaderHint',
+  video: 'schemaRuntimeVideoHint',
+  'video-floating-prompt': 'schemaRuntimeVideoFloatingPromptHint',
+  'task-success': 'schemaRuntimeTaskSuccessHint'
+} satisfies Record<string, SchemaMessageKey>;
+
+function localizeNavItems(
+  items: PreviewContent['nav'],
+  labelKeys: Partial<Record<string, SchemaMessageKey>>,
+  hintKeys: Partial<Record<string, SchemaMessageKey>>,
+  t: SchemaTranslator
+): PreviewContent['nav'] {
+  return items.map((item) => {
+    const labelKey = labelKeys[item.id];
+    const hintKey = hintKeys[item.id];
+    return {
+      ...item,
+      label: labelKey ? t(labelKey, item.label) : item.label,
+      hint: hintKey ? t(hintKey, item.hint) : item.hint
+    };
+  });
+}
+
+export function localizeStitchContent(
+  content: PreviewContent,
+  options: { language: Language; messages: Messages | null }
+): PreviewContent {
+  const t = createSchemaTranslator(options.messages);
 
   return {
     ...content,
-    brand: {
-      ...content.brand,
-      title: 'Zendio'
-    },
     rendererLabels: {
       ...content.rendererLabels,
-      resourceOpenAction: '打开',
-      highlightExamplePrefix: '导出后的示例会像这样 ',
-      highlightExampleText: '标出重点内容',
-      highlightExampleSuffix: '，方便回看。'
+      resourcePendingBadge: t(
+        'schemaRendererResourcePendingBadge',
+        content.rendererLabels.resourcePendingBadge
+      ),
+      resourceOpenAction: t(
+        'schemaRendererResourceOpenAction',
+        content.rendererLabels.resourceOpenAction
+      ),
+      highlightExamplePrefix: t(
+        'schemaRendererHighlightExamplePrefix',
+        content.rendererLabels.highlightExamplePrefix
+      ),
+      highlightExampleText: t(
+        'schemaRendererHighlightExampleText',
+        content.rendererLabels.highlightExampleText
+      ),
+      highlightExampleSuffix: t(
+        'schemaRendererHighlightExampleSuffix',
+        content.rendererLabels.highlightExampleSuffix
+      )
     },
-    nav: content.nav.map((item) => ({
-      ...item,
-      label: navLabels[item.id] ?? item.label
-    })),
-    sidebarLinks: content.sidebarLinks.map((item) => ({
-      ...item,
-      label: resourceLabels[item.id] ?? item.label
-    })),
-    surfaceLinks: content.surfaceLinks.map((item) => ({
-      ...item,
-      label: surfaceLabels[item.id] ?? item.label
-    })),
-    overview: { ...content.overview, hero: { ...content.overview.hero, title: '总览' } },
-    storage: { ...content.storage, hero: { ...content.storage.hero, title: '仓库' } },
-    captureSources: {
-      ...content.captureSources,
-      hero: { ...content.captureSources.hero, title: '采集来源' }
-    },
-    captureBehavior: {
-      ...content.captureBehavior,
-      hero: { ...content.captureBehavior.hero, title: '采集行为' }
-    },
-    output: { ...content.output, hero: { ...content.output.hero, title: '输出与元数据' } }
+    nav: localizeNavItems(content.nav, NAV_LABEL_KEYS, NAV_HINT_KEYS, t),
+    sidebarLinks: localizeNavItems(content.sidebarLinks, SIDEBAR_LABEL_KEYS, SIDEBAR_HINT_KEYS, t),
+    surfaceLinks: localizeNavItems(
+      content.surfaceLinks.length > 0 ? content.surfaceLinks : previewContent.surfaceLinks,
+      SURFACE_LABEL_KEYS,
+      SURFACE_HINT_KEYS,
+      t
+    )
   };
 }
