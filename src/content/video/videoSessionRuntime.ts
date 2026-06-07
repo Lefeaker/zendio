@@ -81,6 +81,13 @@ import {
   createVideoScreenshotPreparationQueue,
   type VideoScreenshotPreparationQueue
 } from './videoScreenshotPreparationQueue';
+import {
+  applyVideoSessionCommentDrafts,
+  bindVideoSessionDraftPersistence,
+  flushVideoSessionDraftNow,
+  syncVideoSessionCommentDraftsFromDom
+} from './videoSessionDraftSync';
+import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import type { VideoTimestampCapture } from './types';
 
 type VideoSessionAddCaptureOptions = {
@@ -157,7 +164,7 @@ export class VideoSession {
     });
 
     return Object.assign(context, {
-      syncCommentDrafts: () => this.syncCommentDraftsFromDom(),
+      syncCommentDrafts: () => syncVideoSessionCommentDraftsFromDom(this.state, this.dom),
       scheduleDraftSave: () => this.scheduleDraftSave(),
       flushDraftNow: (status?: 'active' | 'restorable') => this.flushDraftNow(status),
       removeDraft: () => this.removeDraft(),
@@ -322,7 +329,7 @@ export class VideoSession {
           },
           onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false),
           onCommentDraftChange: (drafts) => {
-            this.applyCommentDrafts(drafts);
+            applyVideoSessionCommentDrafts(this.state, drafts);
             void this.scheduleDraftSave();
           }
         },
@@ -371,7 +378,7 @@ export class VideoSession {
     });
     this.activeDraftPageUrl = this.doc.location.href;
     if (result.restoreSource === 'legacy') {
-      this.applyCommentDrafts({}, { hydrateDom: true });
+      applyVideoSessionCommentDrafts(this.state, {}, { hydrateDom: true, dom: this.dom });
       void this.scheduleDraftSave();
       this.requestedScreenshotPreparationQueue?.requestAll();
       await this.refreshDestinationPreview();
@@ -380,7 +387,7 @@ export class VideoSession {
     if (result.restoreSource === 'none') {
       this.restoredDraftKey = null;
       if (!this.state.captures.length) {
-        this.applyCommentDrafts({}, { hydrateDom: true });
+        applyVideoSessionCommentDrafts(this.state, {}, { hydrateDom: true, dom: this.dom });
       }
     }
     this.requestedScreenshotPreparationQueue?.requestAll();
@@ -402,7 +409,7 @@ export class VideoSession {
   private async selectDestination(id: string): Promise<void> {
     this.destinationState.select(id);
     await this.refreshDestinationPreview();
-    this.syncCommentDraftsFromDom();
+    syncVideoSessionCommentDraftsFromDom(this.state, this.dom);
     await this.scheduleDraftSave();
   }
 
@@ -415,11 +422,9 @@ export class VideoSession {
     const flush = () => {
       void this.flushDraftNow('restorable');
     };
-    view.addEventListener('pagehide', flush, { passive: true });
-    view.addEventListener('beforeunload', flush, true);
+    const stop = bindVideoSessionDraftPersistence(view, flush);
     this.stopDraftPersistence = () => {
-      view.removeEventListener('pagehide', flush);
-      view.removeEventListener('beforeunload', flush, true);
+      stop();
       this.stopDraftPersistence = null;
     };
   }
@@ -455,22 +460,6 @@ export class VideoSession {
     });
   }
 
-  private applyCommentDrafts(
-    drafts: Record<string, string>,
-    options: { hydrateDom?: boolean } = {}
-  ): void {
-    this.state.commentDrafts = { ...drafts };
-    if (options.hydrateDom) {
-      this.dom?.setCommentDrafts(this.state.commentDrafts);
-    }
-  }
-
-  private syncCommentDraftsFromDom(): Record<string, string> {
-    const drafts = this.dom.readCommentDrafts();
-    this.applyCommentDrafts(drafts);
-    return { ...this.state.commentDrafts };
-  }
-
   private async restoreDraftState(): Promise<boolean> {
     const candidates = (await this.draftRepository.listCandidates(
       'video',
@@ -487,7 +476,10 @@ export class VideoSession {
       this.doc.location.href
     );
     this.state.captures = hydrated.captures;
-    this.applyCommentDrafts(hydrated.commentDrafts, { hydrateDom: true });
+    applyVideoSessionCommentDrafts(this.state, hydrated.commentDrafts, {
+      hydrateDom: true,
+      dom: this.dom
+    });
     this.state.platform = hydrated.platform;
     this.state.videoId = hydrated.videoId;
     this.state.videoUrl = hydrated.videoUrl || this.doc.location.href;
@@ -502,7 +494,7 @@ export class VideoSession {
 
   private handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    this.applyCommentDrafts({}, { hydrateDom: true });
+    applyVideoSessionCommentDrafts(this.state, {}, { hydrateDom: true, dom: this.dom });
   }
 
   private async scheduleDraftSave(): Promise<void> {
@@ -519,18 +511,15 @@ export class VideoSession {
   ): Promise<VideoHintState | null> {
     this.pendingDraftStatus = status;
     try {
-      if (!this.isCleaningUp) {
-        this.syncCommentDraftsFromDom();
-      }
-      if (!this.buildDraftEnvelope()) {
-        await this.removeDraft();
-        return this.state.captures.length ? 'ready' : 'noCaptures';
-      }
-      const pending = this.draftPersister.scheduleSave();
-      await this.draftPersister.flushNow();
-      await pending;
-      await this.clearSupersededDurableSources();
-      return this.state.captures.length ? 'ready' : 'noCaptures';
+      return await flushVideoSessionDraftNow({
+        state: this.state,
+        isCleaningUp: this.isCleaningUp,
+        syncCommentDrafts: () => syncVideoSessionCommentDraftsFromDom(this.state, this.dom),
+        buildDraftEnvelope: () => this.buildDraftEnvelope(),
+        removeDraft: () => this.removeDraft(),
+        draftPersister: this.draftPersister,
+        clearSupersededDurableSources: () => this.clearSupersededDurableSources()
+      });
     } catch {
       return 'failure';
     } finally {
@@ -575,29 +564,7 @@ export class VideoSession {
   }
 
   private createDestinationPayload(): ClipPayload {
-    const pageUrl = this.state.canonicalUrl || this.state.videoUrl || this.doc.location.href;
-    const parsedUrl = this.parseUrl(pageUrl);
-    const title = this.state.videoTitle || this.doc.title || parsedUrl?.hostname || 'Video Capture';
-    return {
-      markdown: title,
-      title,
-      type: 'video',
-      meta: {
-        url: pageUrl,
-        sourceUrl: this.state.videoUrl || pageUrl,
-        videoUrl: this.state.videoUrl || pageUrl,
-        platform: this.state.platform,
-        ...(parsedUrl?.hostname ? { domain: parsedUrl.hostname } : {})
-      }
-    };
-  }
-
-  private parseUrl(url: string): URL | null {
-    try {
-      return new URL(url);
-    } catch {
-      return null;
-    }
+    return createVideoSessionDestinationPayload(this.state, this.doc.location.href, this.doc.title);
   }
 
   ingestTextCapture(
