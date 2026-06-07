@@ -91,6 +91,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV010Bullet1: 'Changelog v0.1.0 Bullet 1 Sentinel',
   schemaResourceChangelogV010Bullet2: 'Changelog v0.1.0 Bullet 2 Sentinel',
   schemaResourceChangelogV010Bullet3: 'Changelog v0.1.0 Bullet 3 Sentinel',
+  privacyPolicyLink: 'Privacy Policy Link Sentinel',
   schemaResourcePrivacyPolicyTitle: 'Privacy Policy Title Sentinel',
   schemaResourcePrivacyPolicyDescription: 'Privacy Policy Description Sentinel',
   errorReportingNotCollectedTitle: 'Privacy Not Collected Sentinel',
@@ -104,6 +105,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   errorReportingConsentDescription: 'Privacy Error Reporting Description Sentinel',
   schemaResourcePrivacyLocalConfigTitle: 'Privacy Local Config Title Sentinel',
   schemaResourcePrivacyLocalConfigBody: 'Privacy Local Config Body Sentinel',
+  dataUsageLink: 'Data Usage Link Sentinel',
   schemaResourceDataUsageTitle: 'Data Usage Title Sentinel',
   schemaResourceDataUsageDescription: 'Data Usage Description Sentinel',
   schemaResourceDataUsageAnonymousUsageTitle: 'Data Usage Anonymous Title Sentinel',
@@ -310,7 +312,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       language: 'en'
     });
 
-    const privacyPolicy = await openResource('隐私政策');
+    const privacyPolicy = await openResource('Privacy Policy Link Sentinel');
     expectText(
       privacyPolicy,
       'Privacy Policy Title Sentinel',
@@ -328,7 +330,7 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectNoText(privacyPolicy, '页面正文与剪藏内容');
     await closeResource();
 
-    const dataUsage = await openResource('数据用途说明');
+    const dataUsage = await openResource('Data Usage Link Sentinel');
     expectText(
       dataUsage,
       'Data Usage Title Sentinel',
