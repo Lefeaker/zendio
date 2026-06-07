@@ -1,5 +1,5 @@
 import type { SettingsSchema } from '../../types';
-import { element, grid, stack } from '../builders/primitives';
+import { stack } from '../builders/primitives';
 import { boundInput } from '../builders/controls';
 import { sectionHelper } from '../builders/chrome';
 import { buttonCell, textCell } from '../builders/table';
@@ -160,36 +160,38 @@ const schema: SettingsSchema = {
               ]
             }
           ]
-        },
-        {
-          kind: 'group',
-          title: 'Presets',
-          children: [
-            {
-              kind: 'card',
-              title: 'Output Presets',
-              description:
-                'Presets 不只切换样式，而应同时作用于模板、YAML 字段集和 domain overrides。',
-              body: [
-                grid(3, (current) =>
-                  current.appData.output.presets.map(([title, description]) => ({
-                    kind: 'miniCard',
-                    title,
-                    content: [
-                      element('p', { text: description }),
-                      {
-                        kind: 'button',
-                        label: `Apply ${title}`,
-                        variant: 'secondary',
-                        action: { id: 'output:applyPreset', args: [title] }
-                      }
-                    ]
-                  }))
-                )
-              ]
-            }
-          ]
         }
+        // Presets remain wired in the production action layer, but the production Options UI
+        // intentionally hides this frontend section for now.
+        // {
+        //   kind: 'group',
+        //   title: 'Presets',
+        //   children: [
+        //     {
+        //       kind: 'card',
+        //       title: 'Output Presets',
+        //       description:
+        //         'Presets 不只切换样式，而应同时作用于模板、YAML 字段集和 domain overrides。',
+        //       body: [
+        //         grid(3, (current) =>
+        //           current.appData.output.presets.map(([title, description]) => ({
+        //             kind: 'miniCard',
+        //             title,
+        //             content: [
+        //               element('p', { text: description }),
+        //               {
+        //                 kind: 'button',
+        //                 label: `Apply ${title}`,
+        //                 variant: 'secondary',
+        //                 action: { id: 'output:applyPreset', args: [title] }
+        //               }
+        //             ]
+        //           }))
+        //         )
+        //       ]
+        //     }
+        //   ]
+        // }
       ]
     };
   }

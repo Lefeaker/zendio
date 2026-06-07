@@ -543,9 +543,9 @@ describe('mountProductionStitchShell storage', () => {
     expect(duplicateInputs).toHaveLength(1);
   });
 
-  it('applies output presets to templates, YAML configuration, and domain mappings', () => {
+  it('hides output preset controls from the production options shell', () => {
     const controller = createController();
-    const mounted = mountProductionStitchShell({
+    mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         templates: {
@@ -563,24 +563,10 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    findButton('Apply Research').click();
-
-    const collected = mounted.collectDraft();
-    expect(collected.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
-    expect(collected.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
-    expect(collected.domainMappings).toEqual(
-      expect.objectContaining({
-        'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号'
-      })
-    );
-    expect(collected.yamlConfig?.contentTypes?.article?.customFields).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: 'status', enabled: true }),
-        expect.objectContaining({ name: 'workspace', enabled: true })
-      ])
-    );
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain('Output Presets');
+    expect(document.body.textContent).not.toContain('Apply Minimal');
+    expect(document.body.textContent).not.toContain('Apply Research');
+    expect(document.body.textContent).not.toContain('Apply Conversation');
   });
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
