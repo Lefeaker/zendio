@@ -73,7 +73,10 @@ import {
   pickVideoSessionDraftCandidate,
   type VideoSessionDraftPayloadShape
 } from './sessionDrafts';
-import { hasRequestedTimestampScreenshot, setRequestedTimestampScreenshot } from './screenshotIntent';
+import {
+  hasRequestedTimestampScreenshot,
+  setRequestedTimestampScreenshot
+} from './screenshotIntent';
 import {
   createVideoScreenshotPreparationQueue,
   type VideoScreenshotPreparationQueue
@@ -115,6 +118,7 @@ export class VideoSession {
   private stopDraftPersistence: (() => void) | null = null;
   private controllersReadyPromise: Promise<void> | null = null;
   private requestedScreenshotPreparationQueue: VideoScreenshotPreparationQueue | null = null;
+  private isCleaningUp = false;
   private readonly requestedScreenshotCache = new Map<
     string,
     NonNullable<VideoTimestampCapture['screenshot']>
@@ -153,6 +157,7 @@ export class VideoSession {
     });
 
     return Object.assign(context, {
+      syncCommentDrafts: () => this.syncCommentDraftsFromDom(),
       scheduleDraftSave: () => this.scheduleDraftSave(),
       flushDraftNow: (status?: 'active' | 'restorable') => this.flushDraftNow(status),
       removeDraft: () => this.removeDraft(),
@@ -246,6 +251,7 @@ export class VideoSession {
 
   async start(options: { initialCollapsed?: boolean } = {}): Promise<void> {
     await this.ensureControllers();
+    this.isCleaningUp = false;
 
     if (isVideoSessionActive(this.doc)) {
       this.applyHint('ready');
@@ -316,7 +322,7 @@ export class VideoSession {
           },
           onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false),
           onCommentDraftChange: (drafts) => {
-            this.setCommentDrafts(drafts);
+            this.applyCommentDrafts(drafts);
             void this.scheduleDraftSave();
           }
         },
@@ -365,7 +371,7 @@ export class VideoSession {
     });
     this.activeDraftPageUrl = this.doc.location.href;
     if (result.restoreSource === 'legacy') {
-      this.setCommentDrafts({});
+      this.applyCommentDrafts({}, { hydrateDom: true });
       void this.scheduleDraftSave();
       this.requestedScreenshotPreparationQueue?.requestAll();
       await this.refreshDestinationPreview();
@@ -374,7 +380,7 @@ export class VideoSession {
     if (result.restoreSource === 'none') {
       this.restoredDraftKey = null;
       if (!this.state.captures.length) {
-        this.setCommentDrafts({});
+        this.applyCommentDrafts({}, { hydrateDom: true });
       }
     }
     this.requestedScreenshotPreparationQueue?.requestAll();
@@ -396,6 +402,7 @@ export class VideoSession {
   private async selectDestination(id: string): Promise<void> {
     this.destinationState.select(id);
     await this.refreshDestinationPreview();
+    this.syncCommentDraftsFromDom();
     await this.scheduleDraftSave();
   }
 
@@ -406,7 +413,6 @@ export class VideoSession {
       return;
     }
     const flush = () => {
-      this.setCommentDrafts(this.dom.readCommentDrafts());
       void this.flushDraftNow('restorable');
     };
     view.addEventListener('pagehide', flush, { passive: true });
@@ -449,9 +455,20 @@ export class VideoSession {
     });
   }
 
-  private setCommentDrafts(drafts: Record<string, string>): void {
+  private applyCommentDrafts(
+    drafts: Record<string, string>,
+    options: { hydrateDom?: boolean } = {}
+  ): void {
     this.state.commentDrafts = { ...drafts };
-    this.dom?.setCommentDrafts(this.state.commentDrafts);
+    if (options.hydrateDom) {
+      this.dom?.setCommentDrafts(this.state.commentDrafts);
+    }
+  }
+
+  private syncCommentDraftsFromDom(): Record<string, string> {
+    const drafts = this.dom.readCommentDrafts();
+    this.applyCommentDrafts(drafts);
+    return { ...this.state.commentDrafts };
   }
 
   private async restoreDraftState(): Promise<boolean> {
@@ -470,7 +487,7 @@ export class VideoSession {
       this.doc.location.href
     );
     this.state.captures = hydrated.captures;
-    this.setCommentDrafts(hydrated.commentDrafts);
+    this.applyCommentDrafts(hydrated.commentDrafts, { hydrateDom: true });
     this.state.platform = hydrated.platform;
     this.state.videoId = hydrated.videoId;
     this.state.videoUrl = hydrated.videoUrl || this.doc.location.href;
@@ -485,7 +502,7 @@ export class VideoSession {
 
   private handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    this.setCommentDrafts({});
+    this.applyCommentDrafts({}, { hydrateDom: true });
   }
 
   private async scheduleDraftSave(): Promise<void> {
@@ -502,6 +519,9 @@ export class VideoSession {
   ): Promise<VideoHintState | null> {
     this.pendingDraftStatus = status;
     try {
+      if (!this.isCleaningUp) {
+        this.syncCommentDraftsFromDom();
+      }
       if (!this.buildDraftEnvelope()) {
         await this.removeDraft();
         return this.state.captures.length ? 'ready' : 'noCaptures';
@@ -695,6 +715,7 @@ export class VideoSession {
   }
 
   private cleanup(): void {
+    this.isCleaningUp = true;
     this.requestedScreenshotPreparationQueue?.dispose();
     this.requestedScreenshotPreparationQueue = null;
     this.stopDraftPersistence?.();
