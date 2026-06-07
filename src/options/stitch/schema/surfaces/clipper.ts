@@ -17,24 +17,51 @@ const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
     const surface = ctx.appData.surfaces.clipper;
+    const t = ctx.t;
+    const destinationLabels = {
+      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
+      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+    };
+    const actions = surface.actions.map((action) => ({
+      ...action,
+      label:
+        action.id === 'reader'
+          ? (t?.('addToReaderButton', action.label) ?? action.label)
+          : action.id === 'video'
+            ? (t?.('clipSelectionVideo', action.label) ?? action.label)
+            : action.id === 'clip'
+              ? (t?.('clipSelection', action.label) ?? action.label)
+              : action.label
+    }));
 
     return {
       id: 'clipper',
       kind: 'modal',
-      title: 'Clipper Dialog',
-      description: '用户在网页上选中文本后首先看到的剪藏浮窗。',
+      title: t?.('schemaRuntimeClipperTitle', 'Clipper Dialog') ?? 'Clipper Dialog',
+      description:
+        t?.('schemaRuntimeClipperDescription', '用户在网页上选中文本后首先看到的剪藏浮窗。') ??
+        '用户在网页上选中文本后首先看到的剪藏浮窗。',
       surfacePlacement: 'dialog',
       surfaceSkin: 'clipper',
       children: [
         div('resource-modal-stack', [
           surfaceStage([
             clipperShell([
-              clipperHeader(surface.labels.title, null, surface.iconUrl),
+              clipperHeader(
+                t?.('clipSelection', surface.labels.title) ?? surface.labels.title,
+                null,
+                surface.iconUrl
+              ),
               surfaceBody(classNames.clipper.body, [
                 selectionPreviewBox(surface.labels.selectionPreview, surface.selectedText),
-                commentEditorBlock(surface.labels.commentLabel, surface.commentPlaceholder),
-                exportDestinationRow(surface.destination) ?? sourceMetaRow(surface.source),
-                clipperActionBar(surface.actions)
+                commentEditorBlock(
+                  surface.labels.commentLabel,
+                  t?.('commentPlaceholder', surface.commentPlaceholder) ??
+                    surface.commentPlaceholder
+                ),
+                exportDestinationRow(surface.destination, destinationLabels) ??
+                  sourceMetaRow(surface.source),
+                clipperActionBar(actions)
               ])
             ])
           ])
