@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-06
+最后更新：2026-06-07
 
 ## 正式入口
 
@@ -35,7 +35,7 @@
 - GA production release public config 真值：owner 本机使用 ignored `.env.production.local` 注入 `AIIINOB_GA_MEASUREMENT_ID`、`AIIINOB_GA_TRANSPORT_MODE`、`AIIINOB_GA_PROXY_ENDPOINT`；复用命令为 `analytics:validate:prod`、`build:prod:ga`、`package:prod:ga`、`package:firefox:prod:ga`、`release:prod:ga`。GA `api_secret` 仍只允许存在于 Cloudflare Worker secret `GA4_API_SECRET`；`directDebug` 也必须经 owner debug proxy，不允许扩展直连 Google debug endpoint。
 - 2026-05-20 release readiness historical truth：Node `v20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`；当时 `npm audit --audit-level=low` 的 `26` vulnerabilities 仅作为历史 release handoff 证据保留
 - 2026-05-29 Plan 10 D3 dependency-audit current truth：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 与 `npm audit --audit-level=low` 均为 `0` vulnerabilities；production runtime release gate 与 dev/release toolchain audit 均为 green
-- 2026-06-01 Plan 09 governance current truth：`lint:hardcoded` standalone green with `0` errors / `8` warnings and is wired into both `quality` and CI; `audit:platform-boundary:report` is still report-only with `148` findings and unresolved `shared-runtime-helper` review items, so it is not a hard gate; `npm audit --audit-level=low` is green but not wired into `quality`
+- 2026-06-01 Plan 09 governance current truth：`lint:hardcoded` standalone green with `0` errors / `6` warnings and is wired into both `quality` and CI; `audit:platform-boundary:report` is still report-only with `148` findings and unresolved `shared-runtime-helper` review items, so it is not a hard gate; `npm audit --audit-level=low` is green but not wired into `quality`
 - 2026-05-29 Plan 11 G4 preflight current truth：`audit:imports:check` 当前 green，输出 `No deep relative imports found.`；`verify:preflight` 已通过 import-boundary hard check
 - 2026-06-04 i18n-v2 M11 type-ratchet truth：M02-M10 accepted i18n generated source/test expansion 后，`lint:type-any:ratchet` 当前守住 overall `0/991/1658/41/4`、src `0/549/579/5/0`、tests `0/442/1079/36/4`；本次只同步 current truth，M11 自身新增 gate test 不增加 type-debt 计数，且没有放宽 `any` 或 `ts-expect-error` 上限
 - 2026-06-05 GA / i18n PR merge type-ratchet truth：当前合并树 `lint:type-any` 扫描 `1071` files，实测 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；本次只同步 current truth，没有放宽 `any` 或 `ts-expect-error` 上限，`non-null` 上限继续保持 overall `41` / src `5` / tests `36`
