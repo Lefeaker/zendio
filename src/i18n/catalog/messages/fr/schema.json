@@ -224,6 +224,8 @@
   "schemaRuntimeSurfaceSaveToLabel": "Enregistrer dans",
   "schemaRuntimeTaskSuccessDescription": "Invite de réussite affichée après la fin de l'enregistrement.",
   "schemaRuntimeTaskSuccessHint": "Invite de réussite et fenêtre de retour",
+  "schemaRuntimeTaskSuccessProgressAriaLabel": "Progression de l'envoi",
+  "schemaRuntimeTaskSuccessStatusDetail": "Le contenu a été enregistré selon le routage actuel du coffre, et la classification est terminée.",
   "schemaRuntimeTaskSuccessTitle": "Tâche réussie",
   "schemaRuntimeUiGroupTitle": "Interface d'exécution",
   "schemaRuntimeVideoCaptureScreenshotLabel": "Capturer une image",

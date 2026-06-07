@@ -568,6 +568,9 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: '저장 위치',
   schemaRuntimeTaskSuccessDescription: '저장이 끝난 뒤 표시되는 성공 안내입니다.',
   schemaRuntimeTaskSuccessHint: '성공 안내와 피드백 모달',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '전송 진행률',
+  schemaRuntimeTaskSuccessStatusDetail:
+    '콘텐츠는 현재 볼트 라우팅에 따라 저장되었고 분류가 완료되었습니다.',
   schemaRuntimeTaskSuccessTitle: '작업 완료',
   schemaRuntimeUiGroupTitle: '런타임 UI',
   schemaRuntimeVideoCaptureScreenshotLabel: '스크린샷 찍기',

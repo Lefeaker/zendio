@@ -502,6 +502,8 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaRuntimeSurfaceSaveToLabel',
   'schemaRuntimeTaskSuccessDescription',
   'schemaRuntimeTaskSuccessHint',
+  'schemaRuntimeTaskSuccessProgressAriaLabel',
+  'schemaRuntimeTaskSuccessStatusDetail',
   'schemaRuntimeTaskSuccessTitle',
   'schemaRuntimeUiGroupTitle',
   'schemaRuntimeVideoCaptureScreenshotLabel',
@@ -1294,6 +1296,8 @@ export interface GeneratedMessages {
   schemaRuntimeSurfaceSaveToLabel: string;
   schemaRuntimeTaskSuccessDescription: string;
   schemaRuntimeTaskSuccessHint: string;
+  schemaRuntimeTaskSuccessProgressAriaLabel: string;
+  schemaRuntimeTaskSuccessStatusDetail: string;
   schemaRuntimeTaskSuccessTitle: string;
   schemaRuntimeUiGroupTitle: string;
   schemaRuntimeVideoCaptureScreenshotLabel: string;

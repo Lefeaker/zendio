@@ -594,6 +594,9 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: 'Salvar em',
   schemaRuntimeTaskSuccessDescription: 'Aviso de sucesso exibido quando o salvamento termina.',
   schemaRuntimeTaskSuccessHint: 'Aviso de sucesso e modal de feedback',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Progresso do envio',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'O conteúdo foi salvo usando o roteamento atual do cofre, e a classificação foi concluída.',
   schemaRuntimeTaskSuccessTitle: 'Tarefa concluída',
   schemaRuntimeUiGroupTitle: 'Interface em tempo real',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar screenshot',

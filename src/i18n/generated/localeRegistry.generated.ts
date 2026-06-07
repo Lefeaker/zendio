@@ -592,6 +592,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_EN: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Save to',
   schemaRuntimeTaskSuccessDescription: 'Success prompt shown after a save finishes.',
   schemaRuntimeTaskSuccessHint: 'Success prompt and feedback modal',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Send progress',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Content was saved using the current vault routing, and classification is complete.',
   schemaRuntimeTaskSuccessTitle: 'Task Success',
   schemaRuntimeUiGroupTitle: 'Runtime UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capture screenshot',
@@ -1453,6 +1456,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_CN: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: '保存到',
   schemaRuntimeTaskSuccessDescription: '保存完成后显示的成功提示层。',
   schemaRuntimeTaskSuccessHint: '任务完成后的成功提示与反馈弹窗',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '发送进度',
+  schemaRuntimeTaskSuccessStatusDetail: '内容已按当前仓库路由写入，分类结果同步完成。',
   schemaRuntimeTaskSuccessTitle: '任务成功',
   schemaRuntimeUiGroupTitle: '运行时界面',
   schemaRuntimeVideoCaptureScreenshotLabel: '截取截图',
@@ -2330,6 +2335,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_JA: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: '保存先',
   schemaRuntimeTaskSuccessDescription: '保存完了後に表示される成功プロンプトです。',
   schemaRuntimeTaskSuccessHint: '成功通知とフィードバックモーダル',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '送信の進行状況',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'コンテンツは現在のVaultルーティングで保存され、分類は完了しています。',
   schemaRuntimeTaskSuccessTitle: 'タスク成功',
   schemaRuntimeUiGroupTitle: 'ランタイム UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'スクリーンショットを撮る',
@@ -3250,6 +3258,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_DE: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Speichern in',
   schemaRuntimeTaskSuccessDescription: 'Erfolgshinweis, der nach dem Speichern angezeigt wird.',
   schemaRuntimeTaskSuccessHint: 'Erfolgshinweis und Feedback-Modal',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Sendefortschritt',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Der Inhalt wurde mit der aktuellen Vault-Zuordnung gespeichert, und die Klassifizierung ist abgeschlossen.',
   schemaRuntimeTaskSuccessTitle: 'Erfolgreich abgeschlossen',
   schemaRuntimeUiGroupTitle: 'Laufzeitoberfläche',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Screenshot aufnehmen',
@@ -4191,6 +4202,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_FR: GeneratedMessages = {
   schemaRuntimeTaskSuccessDescription:
     "Invite de réussite affichée après la fin de l'enregistrement.",
   schemaRuntimeTaskSuccessHint: 'Invite de réussite et fenêtre de retour',
+  schemaRuntimeTaskSuccessProgressAriaLabel: "Progression de l'envoi",
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Le contenu a été enregistré selon le routage actuel du coffre, et la classification est terminée.',
   schemaRuntimeTaskSuccessTitle: 'Tâche réussie',
   schemaRuntimeUiGroupTitle: "Interface d'exécution",
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturer une image',
@@ -5130,6 +5144,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_ES: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Guardar en',
   schemaRuntimeTaskSuccessDescription: 'Aviso de éxito mostrado cuando termina el guardado.',
   schemaRuntimeTaskSuccessHint: 'Aviso de éxito y modal de comentarios',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Progreso del envío',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'El contenido se guardó según el enrutado actual de la bóveda y la clasificación ya se completó.',
   schemaRuntimeTaskSuccessTitle: 'Tarea completada',
   schemaRuntimeUiGroupTitle: 'Interfaz en ejecución',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar pantalla',
@@ -6065,6 +6082,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ES_419: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Guardar en',
   schemaRuntimeTaskSuccessDescription: 'Aviso de éxito mostrado cuando termina el guardado.',
   schemaRuntimeTaskSuccessHint: 'Aviso de éxito y modal de comentarios',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Progreso del envío',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'El contenido se guardó según el ruteo actual de la bóveda y la clasificación ya se completó.',
   schemaRuntimeTaskSuccessTitle: 'Tarea completada',
   schemaRuntimeUiGroupTitle: 'Interfaz en ejecución',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar pantalla',
@@ -6998,6 +7018,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_IT: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Salva in',
   schemaRuntimeTaskSuccessDescription: 'Prompt di successo mostrato al termine del salvataggio.',
   schemaRuntimeTaskSuccessHint: 'Prompt di successo e finestra feedback',
+  schemaRuntimeTaskSuccessProgressAriaLabel: "Avanzamento dell'invio",
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Il contenuto è stato salvato usando il routing corrente del vault e la classificazione è stata completata.',
   schemaRuntimeTaskSuccessTitle: 'Operazione riuscita',
   schemaRuntimeUiGroupTitle: 'Interfaccia runtime',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Cattura screenshot',
@@ -7899,6 +7922,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_KO: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: '저장 위치',
   schemaRuntimeTaskSuccessDescription: '저장이 끝난 뒤 표시되는 성공 안내입니다.',
   schemaRuntimeTaskSuccessHint: '성공 안내와 피드백 모달',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '전송 진행률',
+  schemaRuntimeTaskSuccessStatusDetail:
+    '콘텐츠는 현재 볼트 라우팅에 따라 저장되었고 분류가 완료되었습니다.',
   schemaRuntimeTaskSuccessTitle: '작업 완료',
   schemaRuntimeUiGroupTitle: '런타임 UI',
   schemaRuntimeVideoCaptureScreenshotLabel: '스크린샷 찍기',
@@ -8814,6 +8840,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_PT_BR: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: 'Salvar em',
   schemaRuntimeTaskSuccessDescription: 'Aviso de sucesso exibido quando o salvamento termina.',
   schemaRuntimeTaskSuccessHint: 'Aviso de sucesso e modal de feedback',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Progresso do envio',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'O conteúdo foi salvo usando o roteamento atual do cofre, e a classificação foi concluída.',
   schemaRuntimeTaskSuccessTitle: 'Tarefa concluída',
   schemaRuntimeUiGroupTitle: 'Interface em tempo real',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar screenshot',
@@ -9739,6 +9768,9 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_RU: GeneratedMessages = {
   schemaRuntimeTaskSuccessDescription:
     'Сообщение об успехе, которое показывается после завершения сохранения.',
   schemaRuntimeTaskSuccessHint: 'Окно успеха и обратной связи',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Ход отправки',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Содержимое сохранено по текущему маршруту хранилища, и классификация завершена.',
   schemaRuntimeTaskSuccessTitle: 'Задача выполнена',
   schemaRuntimeUiGroupTitle: 'Интерфейс во время работы',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Сделать скриншот',
@@ -10605,6 +10637,8 @@ export const GENERATED_RELEASE_LOCALE_MESSAGES_ZH_TW: GeneratedMessages = {
   schemaRuntimeSurfaceSaveToLabel: '儲存到',
   schemaRuntimeTaskSuccessDescription: '儲存完成後顯示的成功提示層。',
   schemaRuntimeTaskSuccessHint: '任務完成後的成功提示與回饋視窗',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '發送進度',
+  schemaRuntimeTaskSuccessStatusDetail: '內容已依目前倉庫路由寫入，分類結果已同步完成。',
   schemaRuntimeTaskSuccessTitle: '任務成功',
   schemaRuntimeUiGroupTitle: '執行時介面',
   schemaRuntimeVideoCaptureScreenshotLabel: '擷取截圖',

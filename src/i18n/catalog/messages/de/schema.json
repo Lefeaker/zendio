@@ -224,6 +224,8 @@
   "schemaRuntimeSurfaceSaveToLabel": "Speichern in",
   "schemaRuntimeTaskSuccessDescription": "Erfolgshinweis, der nach dem Speichern angezeigt wird.",
   "schemaRuntimeTaskSuccessHint": "Erfolgshinweis und Feedback-Modal",
+  "schemaRuntimeTaskSuccessProgressAriaLabel": "Sendefortschritt",
+  "schemaRuntimeTaskSuccessStatusDetail": "Der Inhalt wurde mit der aktuellen Vault-Zuordnung gespeichert, und die Klassifizierung ist abgeschlossen.",
   "schemaRuntimeTaskSuccessTitle": "Erfolgreich abgeschlossen",
   "schemaRuntimeUiGroupTitle": "Laufzeitoberfläche",
   "schemaRuntimeVideoCaptureScreenshotLabel": "Screenshot aufnehmen",

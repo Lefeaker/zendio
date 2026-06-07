@@ -599,6 +599,9 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: 'Guardar en',
   schemaRuntimeTaskSuccessDescription: 'Aviso de éxito mostrado cuando termina el guardado.',
   schemaRuntimeTaskSuccessHint: 'Aviso de éxito y modal de comentarios',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Progreso del envío',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'El contenido se guardó según el ruteo actual de la bóveda y la clasificación ya se completó.',
   schemaRuntimeTaskSuccessTitle: 'Tarea completada',
   schemaRuntimeUiGroupTitle: 'Interfaz en ejecución',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Capturar pantalla',

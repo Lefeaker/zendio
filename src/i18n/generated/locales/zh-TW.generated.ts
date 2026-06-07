@@ -531,6 +531,8 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: '儲存到',
   schemaRuntimeTaskSuccessDescription: '儲存完成後顯示的成功提示層。',
   schemaRuntimeTaskSuccessHint: '任務完成後的成功提示與回饋視窗',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '發送進度',
+  schemaRuntimeTaskSuccessStatusDetail: '內容已依目前倉庫路由寫入，分類結果已同步完成。',
   schemaRuntimeTaskSuccessTitle: '任務成功',
   schemaRuntimeUiGroupTitle: '執行時介面',
   schemaRuntimeVideoCaptureScreenshotLabel: '擷取截圖',

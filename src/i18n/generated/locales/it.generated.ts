@@ -597,6 +597,9 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: 'Salva in',
   schemaRuntimeTaskSuccessDescription: 'Prompt di successo mostrato al termine del salvataggio.',
   schemaRuntimeTaskSuccessHint: 'Prompt di successo e finestra feedback',
+  schemaRuntimeTaskSuccessProgressAriaLabel: "Avanzamento dell'invio",
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Il contenuto è stato salvato usando il routing corrente del vault e la classificazione è stata completata.',
   schemaRuntimeTaskSuccessTitle: 'Operazione riuscita',
   schemaRuntimeUiGroupTitle: 'Interfaccia runtime',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Cattura screenshot',

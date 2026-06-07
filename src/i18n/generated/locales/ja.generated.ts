@@ -576,6 +576,9 @@ const runtime = {
   schemaRuntimeSurfaceSaveToLabel: '保存先',
   schemaRuntimeTaskSuccessDescription: '保存完了後に表示される成功プロンプトです。',
   schemaRuntimeTaskSuccessHint: '成功通知とフィードバックモーダル',
+  schemaRuntimeTaskSuccessProgressAriaLabel: '送信の進行状況',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'コンテンツは現在のVaultルーティングで保存され、分類は完了しています。',
   schemaRuntimeTaskSuccessTitle: 'タスク成功',
   schemaRuntimeUiGroupTitle: 'ランタイム UI',
   schemaRuntimeVideoCaptureScreenshotLabel: 'スクリーンショットを撮る',

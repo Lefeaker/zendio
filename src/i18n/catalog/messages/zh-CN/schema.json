@@ -224,6 +224,8 @@
   "schemaRuntimeSurfaceSaveToLabel": "保存到",
   "schemaRuntimeTaskSuccessDescription": "保存完成后显示的成功提示层。",
   "schemaRuntimeTaskSuccessHint": "任务完成后的成功提示与反馈弹窗",
+  "schemaRuntimeTaskSuccessProgressAriaLabel": "发送进度",
+  "schemaRuntimeTaskSuccessStatusDetail": "内容已按当前仓库路由写入，分类结果同步完成。",
   "schemaRuntimeTaskSuccessTitle": "任务成功",
   "schemaRuntimeUiGroupTitle": "运行时界面",
   "schemaRuntimeVideoCaptureScreenshotLabel": "截取截图",

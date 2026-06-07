@@ -591,6 +591,9 @@ const runtime = {
   schemaRuntimeTaskSuccessDescription:
     'Сообщение об успехе, которое показывается после завершения сохранения.',
   schemaRuntimeTaskSuccessHint: 'Окно успеха и обратной связи',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Ход отправки',
+  schemaRuntimeTaskSuccessStatusDetail:
+    'Содержимое сохранено по текущему маршруту хранилища, и классификация завершена.',
   schemaRuntimeTaskSuccessTitle: 'Задача выполнена',
   schemaRuntimeUiGroupTitle: 'Интерфейс во время работы',
   schemaRuntimeVideoCaptureScreenshotLabel: 'Сделать скриншот',
