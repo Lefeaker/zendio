@@ -9,6 +9,12 @@ export type SessionCommentDraftedItem<T extends SessionCommentDraftItem> = T & {
   draft?: string;
 };
 
+function isSessionCommentDraftMap(
+  drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>
+): drafts is ReadonlyMap<string, string> {
+  return 'entries' in drafts && typeof drafts.entries === 'function';
+}
+
 interface SessionCommentDraftControllerOptions<T extends SessionCommentDraftItem> {
   datasetKey: string;
   inputSelector: string;
@@ -69,10 +75,9 @@ export class SessionCommentDraftStore {
   }
 
   hydrate(drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>): boolean {
-    const nextEntries =
-      drafts instanceof Map ? Array.from(drafts.entries()) : Object.entries(drafts);
     const next = new Map<string, string>();
-    for (const [id, draft] of nextEntries) {
+    const entries = isSessionCommentDraftMap(drafts) ? drafts.entries() : Object.entries(drafts);
+    for (const [id, draft] of entries) {
       if (!id) {
         continue;
       }
