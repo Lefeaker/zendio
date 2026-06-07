@@ -2,6 +2,8 @@ import type {
   ActionDescriptor as SharedActionDescriptor,
   StateBinding as SharedStateBinding
 } from '@options/schema-runtime';
+import type { Messages } from '@i18n';
+import type { SchemaTranslator } from './schema/i18n';
 import type { PreviewVideoStoreState } from './videoStateTypes';
 export interface HeroData {
   title: string;
@@ -401,6 +403,10 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
+  // Keep P01 backward-compatible with existing preview/runtime fixtures outside this milestone.
+  language?: string;
+  messages?: Messages | null;
+  t?: SchemaTranslator;
 }
 
 export type DynamicValue<T> = T | ((ctx: SchemaContext) => T);

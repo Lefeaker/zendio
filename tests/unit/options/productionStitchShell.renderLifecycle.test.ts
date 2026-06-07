@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import * as productionStitchShellContextModule from '@options/app/productionStitchShellContext';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asOptionsController,
@@ -71,8 +73,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
   });
 
-  it('setMessages keeps the rendered version subtitle and cleanup clears the root', () => {
+  it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
     const controller = createController();
+    const schemaContextSpy = vi.spyOn(
+      productionStitchShellContextModule,
+      'createProductionStitchSchemaContext'
+    );
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
@@ -80,8 +86,19 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'zh-CN'
     });
 
-    mounted.setMessages({ extensionSubtitle: 'Production Shell' } as never, 'en');
+    mounted.setMessages(
+      {
+        ...DEFAULT_RUNTIME_MESSAGES,
+        schemaOverviewTitle: 'Overview From Messages',
+        extensionSubtitle: 'Production Shell'
+      },
+      'en'
+    );
 
+    const recreatedContext = schemaContextSpy.mock.results.at(-1)?.value;
+    expect(recreatedContext?.language).toBe('en');
+    expect(recreatedContext?.messages?.schemaOverviewTitle).toBe('Overview From Messages');
+    expect(recreatedContext?.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
 
     mounted.cleanup();
