@@ -201,7 +201,14 @@ export function sourceMetaRow(source: ClipperSurfaceSource): NodeSchema {
 }
 
 export function exportDestinationRow(
-  destination?: ExportDestinationSurfacePreview
+  destination?: ExportDestinationSurfacePreview,
+  labels: {
+    saveToLabel: string;
+    configureVaultLabel: string;
+  } = {
+    saveToLabel: '保存到',
+    configureVaultLabel: '配置仓库'
+  }
 ): NodeSchema | null {
   if (!destination) {
     return null;
@@ -211,7 +218,7 @@ export function exportDestinationRow(
     element('details', { className: 'export-destination-menu' }, [
       element('summary', { className: 'export-destination-summary' }, [
         div('export-destination-copy', [
-          element('span', { className: 'export-destination-eyebrow', text: '保存到' }),
+          element('span', { className: 'export-destination-eyebrow', text: labels.saveToLabel }),
           element('strong', { className: 'export-destination-label', text: destination.label }),
           element('span', { className: 'export-destination-path', text: destination.path })
         ])
@@ -243,7 +250,7 @@ export function exportDestinationRow(
     !destination.hasConfiguredVault && destination.setupUrl
       ? element('a', {
           className: 'export-destination-setup-link',
-          text: '配置仓库',
+          text: labels.configureVaultLabel,
           href: destination.setupUrl,
           target: '_blank',
           rel: 'noopener noreferrer'
@@ -282,13 +289,22 @@ function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): Nod
   ]);
 }
 
-function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
+function videoTimestampMarker(
+  capture: VideoSurfaceCapture,
+  screenshotLabels: {
+    capture: string;
+    remove: string;
+  } = {
+    capture: 'Capture screenshot',
+    remove: 'Remove screenshot'
+  }
+): NodeSchema {
   const hasScreenshot = Boolean(capture.hasScreenshot);
   return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
     element('button', {
       className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
       type: 'button',
-      ariaLabel: hasScreenshot ? 'Remove screenshot' : 'Capture screenshot',
+      ariaLabel: hasScreenshot ? screenshotLabels.remove : screenshotLabels.capture,
       dataset: {
         actionId: 'video:toggle-screenshot',
         captureId: capture.id,
@@ -426,7 +442,11 @@ export function readerHighlightItem(
 
 export function videoCaptureItem(
   capture: VideoSurfaceCapture,
-  labels: RuntimeSessionLabels
+  labels: RuntimeSessionLabels,
+  screenshotLabels?: {
+    capture: string;
+    remove: string;
+  }
 ): NodeSchema {
   if (capture.kind === 'fragment') {
     const selectionText = capture.fullText ?? capture.summary;
@@ -468,7 +488,7 @@ export function videoCaptureItem(
     : (capture.commentPreview ?? capture.comment ?? '');
 
   return sessionItemCard(
-    videoTimestampMarker(capture),
+    videoTimestampMarker(capture, screenshotLabels),
     displayText,
     capture.commentPreview,
     '',
@@ -541,11 +561,15 @@ export function sessionFooterBar(
   counter: string,
   actions: SurfaceAction[],
   linked?: NodeSchema | null,
-  destination?: ExportDestinationSurfacePreview
+  destination?: ExportDestinationSurfacePreview,
+  destinationLabels?: {
+    saveToLabel: string;
+    configureVaultLabel: string;
+  }
 ): NodeSchema {
   return div(classNames.session.footerBar, [
     linked ?? null,
-    exportDestinationRow(destination),
+    exportDestinationRow(destination, destinationLabels),
     surfaceFooter([
       div(classNames.session.footerCounter, [counter]),
       div(
