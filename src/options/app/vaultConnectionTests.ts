@@ -1,3 +1,4 @@
+import { formatMessage, type Messages } from '@i18n';
 import type {
   ConnectionChannelResult,
   ConnectionTestResult,
@@ -32,19 +33,36 @@ interface VaultListMessagingRepository {
   send(message: TrackUsageEventPayload): void;
 }
 
+function getStorageMessage(
+  messages: Messages | null,
+  key: keyof Messages,
+  fallback: string,
+  values: Record<string, string | number | boolean> = {}
+): string {
+  const value = messages?.[key];
+  const template = typeof value === 'string' && value.length > 0 ? value : fallback;
+  return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
+}
+
 export async function runVaultListConnectionTest(
   router: VaultRouterConfig,
-  messagingRepository: VaultListMessagingRepository
+  messagingRepository: VaultListMessagingRepository,
+  messages: Messages | null = null
 ): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
   const vaults = router.vaults.filter((vault, index) => {
     return index === 0 || vault.isDefault || vault.enabled !== false;
   });
   if (vaults.length === 0) {
+    const message = getStorageMessage(
+      messages,
+      'schemaStorageNoEnabledVaults',
+      'No enabled vaults are available for testing.'
+    );
     const result = {
       success: false,
-      message: '没有可测试的启用仓库。',
-      error: '没有可测试的启用仓库。'
+      message,
+      error: message
     } satisfies ConnectionTestResult;
     emitConnectionTestCompleted(messagingRepository, {
       storageTarget: 'unknown',
@@ -59,19 +77,23 @@ export async function runVaultListConnectionTest(
     vaults.map(async (vault) => {
       try {
         const result = await requestVaultConnectionTest(vault, messagingRepository);
-        return toVaultConnectionResult(vault, result);
+        return toVaultConnectionResult(vault, result, messages);
       } catch (error) {
         const message = formatConnectionError(error);
         return {
           success: false,
           message: `[${vault.name || vault.vault || vault.id}] ${message}`,
           error: message,
-          vault: toVaultConnectionResult(vault, {
-            success: false,
-            message: `[${vault.name || vault.vault || vault.id}] ${message}`,
-            error: message,
-            channels: buildFallbackChannels(vault, message)
-          })
+          vault: toVaultConnectionResult(
+            vault,
+            {
+              success: false,
+              message: `[${vault.name || vault.vault || vault.id}] ${message}`,
+              error: message,
+              channels: buildFallbackChannels(vault, message, messages)
+            },
+            messages
+          )
         };
       }
     })
@@ -103,7 +125,8 @@ export async function runVaultListConnectionTest(
 
 function toVaultConnectionResult(
   vault: VaultConfig,
-  result: ConnectionTestResult
+  result: ConnectionTestResult,
+  messages: Messages | null = null
 ): VaultConnectionTestResult {
   return {
     vaultId: vault.id,
@@ -111,31 +134,51 @@ function toVaultConnectionResult(
     success: result.success,
     message: result.message,
     ...(result.error ? { error: result.error } : {}),
-    channels: normalizeChannelResults(vault, result)
+    channels: normalizeChannelResults(vault, result, messages)
   };
 }
 
 function normalizeChannelResults(
   vault: VaultConfig,
-  result: ConnectionTestResult
+  result: ConnectionTestResult,
+  messages: Messages | null = null
 ): ConnectionChannelResult[] {
   if (result.channels?.length) {
     return result.channels;
   }
-  return buildFallbackChannels(vault, result.error || result.message);
+  return buildFallbackChannels(vault, result.error || result.message, messages);
 }
 
-function buildFallbackChannels(vault: VaultConfig, message: string): ConnectionChannelResult[] {
+function buildFallbackChannels(
+  vault: VaultConfig,
+  message: string,
+  messages: Messages | null = null
+): ConnectionChannelResult[] {
   return [
-    buildFallbackChannel('localFolder', '本地目录', Boolean(vault.localFolderId), message),
+    buildFallbackChannel(
+      'localFolder',
+      getStorageMessage(messages, 'schemaStorageLocalFolderLabel', 'Local Folder'),
+      Boolean(vault.localFolderId),
+      message,
+      undefined,
+      messages
+    ),
     buildFallbackChannel(
       'https',
       'HTTPS',
       Boolean(vault.httpsUrl?.trim()),
       message,
-      vault.httpsUrl
+      vault.httpsUrl,
+      messages
     ),
-    buildFallbackChannel('http', 'HTTP', Boolean(vault.httpUrl?.trim()), message, vault.httpUrl)
+    buildFallbackChannel(
+      'http',
+      'HTTP',
+      Boolean(vault.httpUrl?.trim()),
+      message,
+      vault.httpUrl,
+      messages
+    )
   ];
 }
 
@@ -144,7 +187,8 @@ function buildFallbackChannel(
   label: string,
   configured: boolean,
   message: string,
-  url?: string
+  url?: string,
+  messages: Messages | null = null
 ): ConnectionChannelResult {
   if (!configured) {
     return {
@@ -152,7 +196,19 @@ function buildFallbackChannel(
       label,
       configured: false,
       success: false,
-      message: channel === 'localFolder' ? '未配置本地目录' : `未配置 ${label} URL`
+      message:
+        channel === 'localFolder'
+          ? getStorageMessage(
+              messages,
+              'schemaStorageLocalFolderNotConfigured',
+              'Local Folder not configured'
+            )
+          : getStorageMessage(
+              messages,
+              'schemaStorageConnectionUrlNotConfigured',
+              'No {label} URL configured',
+              { label }
+            )
     };
   }
 

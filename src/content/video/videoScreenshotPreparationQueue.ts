@@ -1,4 +1,7 @@
-import { hasRequestedTimestampScreenshot, setRequestedTimestampScreenshot } from './screenshotIntent';
+import {
+  hasRequestedTimestampScreenshot,
+  setRequestedTimestampScreenshot
+} from './screenshotIntent';
 import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
 import type { VideoTimestampCapture } from './types';
 
@@ -157,10 +160,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     this.inFlightDuplicateIds.add(captureId);
-    void this.attemptHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId)
-      .finally(() => {
-        this.inFlightDuplicateIds.delete(captureId);
-      });
+    void this.attemptHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId).finally(() => {
+      this.inFlightDuplicateIds.delete(captureId);
+    });
   }
 
   private async attemptHiddenDuplicateCapture(
@@ -211,10 +213,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   }
 
   private findPendingCapture(id: string): VideoTimestampCapture | null {
-    return (
-      this.listPendingCaptures().find((capture) => capture.id === id) ??
-      null
-    );
+    return this.listPendingCaptures().find((capture) => capture.id === id) ?? null;
   }
 
   private listPendingCaptures(): VideoTimestampCapture[] {

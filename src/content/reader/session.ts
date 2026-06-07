@@ -1,10 +1,8 @@
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { DEFAULT_FRAGMENT_CONFIG } from '../clipper/services/fragmentConfig';
-import { ADD_HIGHLIGHT_EVENT } from './constants';
 import { handleReaderKeydown, isNodeInsideReaderUi } from './sessionDom';
 import { ReaderSessionState, resolveReadingConfig } from './sessionState';
-import type { ReaderBootstrapHighlight } from './types';
-import type { ExternalHighlightPayload } from './types';
+import type { ExternalHighlightPayload, ReaderBootstrapHighlight } from './types';
 import type { ReaderSelectionPayload } from './services/selectionController';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderPanelCoordinator } from './panelCoordinator';
@@ -47,6 +45,8 @@ import {
   loadLatestReaderSessionDraft,
   restoreReaderSessionDraftHighlights
 } from './sessionDrafts';
+
+const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
 export type { ReaderSessionDependencies } from './sessionTypes';
 

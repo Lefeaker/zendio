@@ -9,7 +9,6 @@ import { configureGlobalStateManagerStorage } from '../../shared/state/globalSta
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
-import { createTrackUsageEventMessage } from '../../shared/types/analytics';
 import type { StoredOptions } from '../../shared/types/options';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { showStatusMessage } from '../components/messages';
@@ -26,6 +25,7 @@ import {
   mountProductionStitchShell,
   type MountedProductionStitchShell
 } from './productionStitchShell';
+import { trackInitialOptionsTelemetry } from './productionStitchTelemetry';
 
 export interface OptionsAppBootstrapDependencies {
   storage: StorageService;
@@ -113,26 +113,6 @@ function initializeOptionsController(): OptionsController {
   return controller;
 }
 
-async function trackInitialOptionsTelemetry(): Promise<void> {
-  try {
-    const messagingRepository = resolveRepository<IMessagingRepository>(
-      DI_TOKENS.IMessagingRepository
-    );
-    await messagingRepository.send(
-      createTrackUsageEventMessage('options_opened', {
-        source: 'unknown'
-      })
-    );
-    await messagingRepository.send(
-      createTrackUsageEventMessage('options_section_viewed', {
-        section: 'overview'
-      })
-    );
-  } catch {
-    // Telemetry is best-effort and must not block options bootstrap.
-  }
-}
-
 export async function bootstrapOptionsApp(
   dependencies?: Partial<OptionsAppBootstrapDependencies>
 ): Promise<void> {
@@ -149,10 +129,16 @@ export async function bootstrapOptionsApp(
   const resource = i18nController.getCurrentResource();
   const controller = initializeOptionsController();
   const stored = await controller.loadInitialState();
+  const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
+    await import('./productionStitchAssets');
 
   mountedShell = mountProductionStitchShell({
     controller,
     initialOptions: stored,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView,
+    previewContent,
     messages: resource?.messages ?? null,
     language: (resource?.language ?? 'zh-CN') as Language,
     storage,

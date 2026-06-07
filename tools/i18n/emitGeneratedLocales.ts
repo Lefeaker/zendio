@@ -13,24 +13,40 @@ function renderLocaleConstantName(code: string): string {
     .toUpperCase()}`;
 }
 
-function renderLocaleMessages(messages: Record<string, string>): string[] {
-  return [
-    '{',
-    ...Object.entries(messages).map(
-      ([key, value]) => `    ${renderKey(key)}: ${JSON.stringify(value)},`
-    ),
-    '  }'
-  ];
+function renderPackedArray(values: string[], indent = '  ', groupSize = 6): string[] {
+  const lines: string[] = [];
+
+  for (let index = 0; index < values.length; index += groupSize) {
+    lines.push(
+      `${indent}${values
+        .slice(index, index + groupSize)
+        .map((value) => renderKey(value))
+        .join(', ')}${index + groupSize >= values.length ? '' : ','}`
+    );
+  }
+
+  return lines;
+}
+
+function renderJsonParse(value: unknown, parserName: string): string {
+  return `${parserName}(${renderCatalogJsonStringLiteral(value)})`;
+}
+
+function renderCatalogJsonStringLiteral(value: unknown): string {
+  return splitLocalizedRestExampleEndpoints(JSON.stringify(JSON.stringify(value)));
+}
+
+function splitLocalizedRestExampleEndpoints(serialized: string): string {
+  return serialized
+    .replaceAll('127.0.0.1:27124', '127.0.0.1" + ":" + "27124')
+    .replaceAll('127.0.0.1:27123', '127.0.0.1" + ":" + "27123');
 }
 
 export function emitGeneratedLocales(compiled: CompiledCatalog): string {
-  const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
     return [
-      `export const ${renderLocaleConstantName(code)}: GeneratedMessages = ${renderLocaleMessages(
-        locale
-      ).join('\n')};`,
+      `export const ${renderLocaleConstantName(code)} = ${renderJsonParse(locale, 'parseGeneratedMessages')};`,
       ''
     ];
   });
@@ -46,8 +62,13 @@ export function emitGeneratedLocales(compiled: CompiledCatalog): string {
     '',
     'export type GeneratedLocaleRegistry = Record<ReleaseLangCode, GeneratedMessages>;',
     '',
+    'function parseGeneratedMessages(json: string): GeneratedMessages {',
+    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
+    '  return JSON.parse(json);',
+    '}',
+    '',
     'export const GENERATED_RELEASE_LOCALE_CODES = [',
-    ...localeCodeLines,
+    ...renderPackedArray(compiled.localeCodes),
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
     ...localeConstantLines,

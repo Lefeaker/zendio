@@ -1,5 +1,4 @@
 import { normalizeUsageStats } from '@shared/constants';
-import { previewContent } from '@options/stitch/content';
 import { prepareUsageHistory } from '@options/stitch/usageHistory';
 import { resolveExtensionVersionLabel } from './productionStitchVersion';
 import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
@@ -367,10 +366,13 @@ function usageHistoryLabel(date: string): string {
   return date;
 }
 
-function usageStatsToOverview(usageStats: UsageStats): PreviewContent['overview'] {
+function usageStatsToOverview(
+  overview: PreviewContent['overview'],
+  usageStats: UsageStats
+): PreviewContent['overview'] {
   const total = usageStats.aiChatSaves + usageStats.fragmentSaves + usageStats.articleSaves;
   return {
-    ...previewContent.overview,
+    ...overview,
     stats: [
       { label: 'Total saved', value: total },
       { label: 'AI conversations', value: usageStats.aiChatSaves },
@@ -467,7 +469,7 @@ export function createProductionContent(
       subtitle: resolveExtensionVersionLabel()
     },
     surfaceLinks: [],
-    overview: usageStatsToOverview(usageStats),
+    overview: usageStatsToOverview(base.overview, usageStats),
     storage: {
       ...base.storage,
       vaults: toVaultRecord(options),

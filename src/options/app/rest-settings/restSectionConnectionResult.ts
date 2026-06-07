@@ -1,10 +1,11 @@
+import type { Messages } from '@i18n';
 import { UiAlert as DaisyAlert } from '@ui/primitives/alert';
 import { DaisyCard } from '@ui/primitives/card';
 import type { ConnectionResultType } from '@options/services/connectionTestRunner';
 
-interface RestConnectionResultMessagesLike {
-  testConnectionButton?: string;
-}
+type RestConnectionResultMessagesLike = Partial<
+  Pick<Messages, 'schemaStorageConnectionNoticeTitle' | 'testConnectionButton'>
+>;
 
 export function buildRestConnectionResult(
   createElement: typeof document.createElement,
@@ -15,7 +16,10 @@ export function buildRestConnectionResult(
   cardHost.className = 'mt-2';
   const card = new DaisyCard(cardHost);
   card.render({
-    title: messages?.testConnectionButton ?? '连接测试结果',
+    title:
+      messages?.schemaStorageConnectionNoticeTitle ??
+      messages?.testConnectionButton ??
+      'Connection Test Result',
     body: connectionResultHost
   });
   return cardHost;

@@ -1,7 +1,6 @@
 import { getLanguageFallbackChain, type LangCode } from '../config';
 import type { ReleaseLangCode } from './languages';
 import { isReleaseLanguage, PSEUDO_LOCALE_CODE, PSEUDO_LOCALE_ENABLED } from './languages';
-import { buildPseudoDynamicMessageTemplates } from './pseudoLocale';
 import type { DynamicMessageKey, DynamicMessageTemplates } from './dynamicTypes';
 
 export type { DynamicMessageKey, DynamicMessageTemplates } from './dynamicTypes';
@@ -77,8 +76,75 @@ export const DYNAMIC_MESSAGE_TEMPLATES: Record<ReleaseLangCode, DynamicMessageTe
 
 const ENGLISH_DYNAMIC_MESSAGE_TEMPLATES = DYNAMIC_MESSAGE_TEMPLATES.en;
 
+const PSEUDO_ACCENT_MAP: Record<string, string> = {
+  a: 'à',
+  b: 'ƀ',
+  c: 'ç',
+  d: 'ď',
+  e: 'è',
+  f: 'ƒ',
+  g: 'ğ',
+  h: 'ĥ',
+  i: 'ì',
+  j: 'ĵ',
+  k: 'ķ',
+  l: 'ľ',
+  m: 'ṁ',
+  n: 'ñ',
+  o: 'ò',
+  p: 'ṕ',
+  q: 'ʠ',
+  r: 'ř',
+  s: 'š',
+  t: 'ť',
+  u: 'ù',
+  v: 'ṽ',
+  w: 'ŵ',
+  x: 'ẋ',
+  y: 'ý',
+  z: 'ž'
+};
+
+function pseudoLocalizeTemplate(template: string): string {
+  let result = '';
+  let inToken = false;
+
+  for (const char of template) {
+    if (char === '{') {
+      inToken = true;
+      result += char;
+      continue;
+    }
+    if (char === '}') {
+      inToken = false;
+      result += char;
+      continue;
+    }
+    if (inToken) {
+      result += char;
+      continue;
+    }
+
+    const lowercase = char.toLowerCase();
+    const mapped = PSEUDO_ACCENT_MAP[lowercase];
+    const transformed = mapped ? (char === lowercase ? mapped : mapped.toUpperCase()) : char;
+    result += transformed;
+    if (/[aeiou]/i.test(char)) {
+      result += 'ː';
+    }
+  }
+
+  return result.trim() ? `[${result}·${template.length}]` : result;
+}
+
 function createPseudoDynamicMessageTemplates(): DynamicMessageTemplates {
-  return buildPseudoDynamicMessageTemplates(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES);
+  return {
+    httpsUrlHint: pseudoLocalizeTemplate(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpsUrlHint),
+    httpUrlHint: pseudoLocalizeTemplate(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpUrlHint),
+    vaultNamePlaceholder: pseudoLocalizeTemplate(
+      ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.vaultNamePlaceholder
+    )
+  };
 }
 
 const pseudoDynamicMessageTemplates = PSEUDO_LOCALE_ENABLED

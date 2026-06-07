@@ -1,5 +1,7 @@
+import { formatMessage, type Messages } from '@i18n';
 import type { FragmentModifierKey } from '@shared/types/options';
 import type { ChipItem, PreviewStoreState } from '@options/stitch/types';
+import { getMessage } from './productionStitchPersistenceUi';
 
 export const DEFAULT_FRAGMENT_MODIFIER_KEY: FragmentModifierKey = 'shift';
 
@@ -13,6 +15,8 @@ interface NavigatorWithUserAgentData extends Navigator {
     platform?: string;
   };
 }
+
+type ModifierMessagesOrPlatform = Messages | null | boolean | undefined;
 
 const VALID_FRAGMENT_MODIFIER_KEYS = new Set<string>(['alt', 'meta', 'ctrl', 'shift']);
 
@@ -55,6 +59,38 @@ function isKnownFragmentModifierValue(value: string): boolean {
   return isFragmentModifierKey(coerceFragmentModifierValue(value));
 }
 
+function resolveModifierLocalization(
+  messagesOrIsApple?: ModifierMessagesOrPlatform,
+  maybeIsApple?: boolean
+): { isApple: boolean; messages: Messages | null } {
+  if (typeof messagesOrIsApple === 'boolean') {
+    return { isApple: messagesOrIsApple, messages: null };
+  }
+
+  return {
+    isApple: maybeIsApple ?? isApplePlatform(),
+    messages: messagesOrIsApple ?? null
+  };
+}
+
+function localizedModifierKeyLabel(
+  key: FragmentModifierKey,
+  messages: Messages | null,
+  isApple: boolean
+): string {
+  switch (key) {
+    case 'meta':
+      return getMessage(messages, 'fragmentModifierKeyMeta', 'Cmd');
+    case 'ctrl':
+      return getMessage(messages, 'fragmentModifierKeyCtrl', 'Ctrl');
+    case 'alt':
+      return getMessage(messages, 'fragmentModifierKeyAlt', isApple ? 'Option' : 'Alt');
+    case 'shift':
+    default:
+      return getMessage(messages, 'fragmentModifierKeyShift', 'Shift');
+  }
+}
+
 export function normalizeFragmentModifierKey(
   value: string | undefined,
   isApple = isApplePlatform()
@@ -77,23 +113,28 @@ export function normalizeFragmentModifierKeys(
   return [normalizeFragmentModifierKey(first, isApple)];
 }
 
-export function fragmentModifierChoices(isApple = isApplePlatform()): FragmentModifierChoice[] {
+export function fragmentModifierChoices(
+  isApple = isApplePlatform(),
+  messages: Messages | null = null
+): FragmentModifierChoice[] {
   return [
-    { value: 'shift', label: 'Shift' },
+    { value: 'shift', label: localizedModifierKeyLabel('shift', messages, isApple) },
     {
       value: platformCommandModifierKey(isApple),
-      label: isApple ? 'Cmd' : 'Ctrl'
+      label: localizedModifierKeyLabel(platformCommandModifierKey(isApple), messages, isApple)
     },
-    { value: 'alt', label: isApple ? 'Option' : 'Alt' }
+    { value: 'alt', label: localizedModifierKeyLabel('alt', messages, isApple) }
   ];
 }
 
 export function fragmentModifierChipItems(
   selectedKeys: readonly string[],
-  isApple = isApplePlatform()
+  messagesOrIsApple?: ModifierMessagesOrPlatform,
+  maybeIsApple?: boolean
 ): ChipItem[] {
+  const { isApple, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
   const selectedKey = normalizeFragmentModifierKeys(selectedKeys, isApple)[0];
-  return fragmentModifierChoices(isApple).map((choice) => ({
+  return fragmentModifierChoices(isApple, messages).map((choice) => ({
     value: choice.value,
     label: choice.label,
     pressed: choice.value === selectedKey
@@ -102,23 +143,41 @@ export function fragmentModifierChipItems(
 
 export function fragmentModifierConflictWarning(
   selectedKey: string | undefined,
-  isApple = isApplePlatform()
+  messagesOrIsApple?: ModifierMessagesOrPlatform,
+  maybeIsApple?: boolean
 ): string {
+  const { isApple, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
   const key = normalizeFragmentModifierKey(selectedKey, isApple);
   if (key === 'shift') {
     return '';
   }
   if (key === 'alt') {
-    const label = isApple ? 'Option' : 'Alt';
-    return `${label} 可能与系统、浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。`;
+    return formatMessage(
+      getMessage(
+        messages,
+        'schemaCaptureBehaviorModifierConflictSystem',
+        '{label} 可能与系统、浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。'
+      ),
+      { label: localizedModifierKeyLabel('alt', messages, isApple) }
+    );
   }
-  const label = isApple ? 'Cmd' : 'Ctrl';
-  return `${label} 可能与浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。`;
+  return formatMessage(
+    getMessage(
+      messages,
+      'schemaCaptureBehaviorModifierConflictBrowser',
+      '{label} 可能与浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。'
+    ),
+    { label: localizedModifierKeyLabel(key, messages, isApple) }
+  );
 }
 
-export function fragmentModifierStateWarning(state: PreviewStoreState): string {
+export function fragmentModifierStateWarning(
+  state: PreviewStoreState,
+  messagesOrIsApple?: ModifierMessagesOrPlatform,
+  maybeIsApple?: boolean
+): string {
   if (!state.fragmentModifierEnabled) {
     return '';
   }
-  return fragmentModifierConflictWarning(state.modifierKeys[0]);
+  return fragmentModifierConflictWarning(state.modifierKeys[0], messagesOrIsApple, maybeIsApple);
 }

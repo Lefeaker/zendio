@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import * as productionStitchShellContextModule from '@options/app/productionStitchShellContext';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asOptionsController,
@@ -41,10 +43,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-nav-panel="overview"]')).toBeTruthy();
     expect(document.querySelector('[data-panel-id="storage"]')).toBeTruthy();
     expect(document.querySelector('.nav-group > .nav-title')).toBeNull();
-    expect(document.querySelector('.sidebar')?.textContent).not.toContain('Runtime UI');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Resources');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Settings');
-    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
+    expect(document.querySelector('.sidebar')?.textContent).toContain('Runtime UI');
+    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeTruthy();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
@@ -71,8 +73,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
   });
 
-  it('setMessages keeps the rendered version subtitle and cleanup clears the root', () => {
+  it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
     const controller = createController();
+    const schemaContextSpy = vi.spyOn(
+      productionStitchShellContextModule,
+      'createProductionStitchSchemaContext'
+    );
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
@@ -80,8 +86,24 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'zh-CN'
     });
 
-    mounted.setMessages({ extensionSubtitle: 'Production Shell' } as never, 'en');
+    mounted.setMessages(
+      {
+        ...DEFAULT_RUNTIME_MESSAGES,
+        schemaOverviewTitle: 'Overview From Messages',
+        extensionSubtitle: 'Production Shell'
+      },
+      'en'
+    );
 
+    const recreatedContextInput = schemaContextSpy.mock.calls.at(-1)?.[0];
+    if (!recreatedContextInput) {
+      throw new Error('Expected schema context recreation call.');
+    }
+    const recreatedContext =
+      productionStitchShellContextModule.createProductionStitchSchemaContext(recreatedContextInput);
+    expect(recreatedContext.language).toBe('en');
+    expect(recreatedContext.messages?.schemaOverviewTitle).toBe('Overview From Messages');
+    expect(recreatedContext.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
 
     mounted.cleanup();

@@ -7,22 +7,32 @@ function renderKey(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-export function emitGeneratedTypes(compiled: CompiledCatalog): string {
-  const keyLines = compiled.messageKeys.map((key) => `  ${renderKey(key)},`);
-  const interfaceLines = compiled.messageKeys.map((key) => `  ${renderKey(key)}: string;`);
+function renderPackedArray(values: string[], indent = '  ', groupSize = 6): string[] {
+  const lines: string[] = [];
 
+  for (let index = 0; index < values.length; index += groupSize) {
+    lines.push(
+      `${indent}${values
+        .slice(index, index + groupSize)
+        .map((value) => renderKey(value))
+        .join(', ')}${index + groupSize >= values.length ? '' : ','}`
+    );
+  }
+
+  return lines;
+}
+
+export function emitGeneratedTypes(compiled: CompiledCatalog): string {
   return [
     FILE_HEADER,
     '',
     'export const GENERATED_MESSAGE_KEYS = [',
-    ...keyLines,
+    ...renderPackedArray(compiled.messageKeys),
     '] as const;',
     '',
     'export type GeneratedMessageKey = (typeof GENERATED_MESSAGE_KEYS)[number];',
     '',
-    'export interface GeneratedMessages {',
-    ...interfaceLines,
-    '}',
+    'export type GeneratedMessages = Record<GeneratedMessageKey, string>;',
     ''
   ].join('\n');
 }

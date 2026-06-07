@@ -151,7 +151,10 @@ describe('videoScreenshotPreparationQueue', () => {
       currentTime: 8,
       sourceUrl: 'https://cdn.example/video.mp4'
     });
-    const hidden = createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName.toLowerCase() === 'video') {
         return hidden.video;
@@ -256,7 +259,10 @@ describe('videoScreenshotPreparationQueue', () => {
       currentTime: 8,
       sourceUrl: 'https://cdn.example/video.mp4'
     });
-    const hidden = createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName.toLowerCase() === 'video') {
         return hidden.video;

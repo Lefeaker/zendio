@@ -28,25 +28,40 @@ function renderSchemaConstantName(code: string): string {
     .toUpperCase()}`;
 }
 
-function renderLocaleMessages(messages: Record<string, string>): string[] {
-  return [
-    '{',
-    ...Object.entries(messages).map(
-      ([key, value]) => `    ${renderKey(key)}: ${JSON.stringify(value)},`
-    ),
-    '  }'
-  ];
+function renderPackedArray(values: string[], indent = '  ', groupSize = 6): string[] {
+  const lines: string[] = [];
+
+  for (let index = 0; index < values.length; index += groupSize) {
+    lines.push(
+      `${indent}${values
+        .slice(index, index + groupSize)
+        .map((value) => renderKey(value))
+        .join(', ')}${index + groupSize >= values.length ? '' : ','}`
+    );
+  }
+
+  return lines;
+}
+
+function renderJsonParse(value: unknown, parserName: string): string {
+  return `${parserName}(${renderCatalogJsonStringLiteral(value)})`;
+}
+
+function renderCatalogJsonStringLiteral(value: unknown): string {
+  return splitLocalizedRestExampleEndpoints(JSON.stringify(JSON.stringify(value)));
+}
+
+function splitLocalizedRestExampleEndpoints(serialized: string): string {
+  return serialized
+    .replaceAll('127.0.0.1:27124', '127.0.0.1" + ":" + "27124')
+    .replaceAll('127.0.0.1:27123', '127.0.0.1" + ":" + "27123');
 }
 
 export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
-  const schemaKeyLines = compiled.messageKeys.map((key) => `  ${renderKey(key)},`);
-  const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
     return [
-      `export const ${renderSchemaConstantName(code)}: GeneratedSchemaMessages = ${renderLocaleMessages(
-        locale
-      ).join('\n')};`,
+      `export const ${renderSchemaConstantName(code)} = ${renderJsonParse(locale, 'parseGeneratedSchemaMessages')};`,
       ''
     ];
   });
@@ -68,12 +83,17 @@ export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
     '',
     'export type GeneratedSchemaMessages = Record<SchemaMessageKey, string>;',
     '',
+    'function parseGeneratedSchemaMessages(json: string): GeneratedSchemaMessages {',
+    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
+    '  return JSON.parse(json);',
+    '}',
+    '',
     'export const GENERATED_SCHEMA_MESSAGE_KEYS = [',
-    ...schemaKeyLines,
+    ...renderPackedArray(compiled.messageKeys),
     '] as const satisfies readonly SchemaMessageKey[];',
     '',
     'export const GENERATED_RELEASE_SCHEMA_MESSAGE_CODES = [',
-    ...localeCodeLines,
+    ...renderPackedArray(compiled.localeCodes),
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
     ...localeConstantLines,

@@ -3,7 +3,13 @@
 import { vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { OptionsController } from '@options/app/optionsController';
-import type { CompleteOptions } from '@shared/types/options';
+import {
+  getFooterMeta,
+  getFooterView,
+  getSettingsView,
+  previewContent
+} from '@options/app/productionStitchAssets';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { ensureWindowLocalStorage } from '../../utils/localStorage';
 
 const analyticsMocks = vi.hoisted(() => ({
@@ -50,6 +56,29 @@ export type TestOptionsController = ReturnType<typeof createController>;
 
 export function asOptionsController(controller: TestOptionsController): OptionsController {
   return controller as unknown as OptionsController;
+}
+
+function isCompleteOptions(merged: ReturnType<typeof mergeOptions>): merged is CompleteOptions {
+  return Boolean(
+    merged.aiChat &&
+    merged.deepResearch &&
+    merged.fragmentClipper &&
+    merged.readingSession &&
+    merged.video &&
+    merged.classifier &&
+    merged.experimentalAi &&
+    merged.pageSummary &&
+    merged.readingOverlaySummary &&
+    merged.subtitleTranslation
+  );
+}
+
+export function createCompleteOptions(stored?: StoredOptions | null): CompleteOptions {
+  const merged = mergeOptions(stored);
+  if (!isCompleteOptions(merged)) {
+    throw new Error('Expected mergeOptions to produce a complete options fixture.');
+  }
+  return merged;
 }
 
 export function findButton(label: string): HTMLButtonElement {
@@ -152,7 +181,7 @@ export function createStorage() {
 
 export function createRepository() {
   return {
-    get: vi.fn(() => Promise.resolve(mergeOptions(null) as CompleteOptions)),
+    get: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
     set: vi.fn(() => Promise.resolve()),
     onChange: vi.fn(() => () => {})
   };
@@ -206,7 +235,7 @@ export function installSmoothMainScrollSimulation(): () => void {
       Object.defineProperty(HTMLElement.prototype, 'scrollTop', original);
       return;
     }
-    delete (HTMLElement.prototype as unknown as { scrollTop?: number }).scrollTop;
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop');
   };
 }
 
@@ -214,6 +243,14 @@ export function setupProductionStitchShellTest(): void {
   document.documentElement.removeAttribute('data-theme');
   ensureWindowLocalStorage().clear();
   document.body.innerHTML = '<div id="optionsShellRoot"></div>';
+  Object.assign(globalThis, {
+    __AIIINOB_TEST_STITCH_ASSETS__: {
+      previewContent,
+      getFooterMeta,
+      getFooterView,
+      getSettingsView
+    }
+  });
   Object.values(analyticsMocks).forEach((mock) => mock.mockClear());
   analyticsMocks.getConfig.mockReturnValue({ debugMode: false });
   analyticsMocks.getUserConsent.mockResolvedValue({ analytics: false, errorReporting: false });

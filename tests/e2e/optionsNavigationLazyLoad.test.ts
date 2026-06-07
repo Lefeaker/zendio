@@ -1,6 +1,12 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  getFooterMeta,
+  getFooterView,
+  getSettingsView,
+  previewContent
+} from '@options/app/productionStitchAssets';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { MountedProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
@@ -38,6 +44,10 @@ describe('production options navigation e2e', () => {
     mounted = mountProductionStitchShell({
       controller: createController(),
       initialOptions: null,
+      previewContent,
+      getFooterMeta,
+      getFooterView,
+      getSettingsView,
       messages: null,
       language: 'en'
     });

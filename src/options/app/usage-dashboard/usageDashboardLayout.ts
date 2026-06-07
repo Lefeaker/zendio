@@ -47,7 +47,7 @@ export function buildUsageDashboardLayout(args: {
   const total = buildMetricCard({
     createElement,
     id: 'usageTotalCount',
-    labelText: messages?.usageTotalLabel ?? 'Total saved'
+    labelText: messages?.usageTotalLabel ?? 'Total Saves'
   });
   elements.totalValue = total.value;
   stats.append(total.card);
@@ -55,7 +55,7 @@ export function buildUsageDashboardLayout(args: {
   const ai = buildMetricCard({
     createElement,
     id: 'usageAiCount',
-    labelText: messages?.usageAiLabel ?? 'AI conversations'
+    labelText: messages?.usageAiLabel ?? 'AI Conversations'
   });
   elements.aiValue = ai.value;
   stats.append(ai.card);
@@ -63,7 +63,7 @@ export function buildUsageDashboardLayout(args: {
   const fragment = buildMetricCard({
     createElement,
     id: 'usageFragmentCount',
-    labelText: messages?.usageFragmentLabel ?? 'Reading + Video + Fragment'
+    labelText: messages?.usageFragmentLabel ?? 'Reading + Video + Fragments'
   });
   elements.fragmentValue = fragment.value;
   stats.append(fragment.card);
@@ -95,7 +95,7 @@ export function buildUsageDashboardLayout(args: {
   );
   const resetHost = createElement('div');
   const resetButton = new DaisyButton(resetHost).render({
-    label: '清除使用数据',
+    label: messages?.schemaOverviewClearUsageDataButton ?? 'Clear Usage Data',
     variant: 'secondary',
     size: 'sm',
     iconName: 'Trash2',

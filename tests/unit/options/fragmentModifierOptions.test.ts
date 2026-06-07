@@ -1,3 +1,4 @@
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import { describe, expect, it } from 'vitest';
 import {
   fragmentModifierChipItems,
@@ -5,6 +6,18 @@ import {
   fragmentModifierConflictWarning,
   normalizeFragmentModifierKeys
 } from '@options/app/fragmentModifierOptions';
+
+const ENGLISH_SENTINEL_MESSAGES: Messages = {
+  ...DEFAULT_RUNTIME_MESSAGES,
+  fragmentModifierKeyShift: 'Shift Sentinel',
+  fragmentModifierKeyMeta: 'Cmd Sentinel',
+  fragmentModifierKeyCtrl: 'Ctrl Sentinel',
+  fragmentModifierKeyAlt: 'Alt Sentinel',
+  schemaCaptureBehaviorModifierConflictBrowser:
+    'Browser warning sentinel for {label}',
+  schemaCaptureBehaviorModifierConflictSystem:
+    'System warning sentinel for {label}'
+};
 
 describe('fragment modifier Options helpers', () => {
   it('renders three platform-specific single-select choices', () => {
@@ -30,19 +43,25 @@ describe('fragment modifier Options helpers', () => {
   });
 
   it('marks exactly one chip as selected', () => {
-    const chips = fragmentModifierChipItems(['meta'], false);
+    const chips = fragmentModifierChipItems(['meta'], ENGLISH_SENTINEL_MESSAGES, false);
 
     expect(chips).toEqual([
-      { value: 'shift', label: 'Shift', pressed: false },
-      { value: 'ctrl', label: 'Ctrl', pressed: true },
-      { value: 'alt', label: 'Alt', pressed: false }
+      { value: 'shift', label: 'Shift Sentinel', pressed: false },
+      { value: 'ctrl', label: 'Ctrl Sentinel', pressed: true },
+      { value: 'alt', label: 'Alt Sentinel', pressed: false }
     ]);
   });
 
   it('warns only for modifier choices with shortcut collision risk', () => {
-    expect(fragmentModifierConflictWarning('shift', false)).toBe('');
-    expect(fragmentModifierConflictWarning('ctrl', false)).toContain('Ctrl 可能');
-    expect(fragmentModifierConflictWarning('meta', true)).toContain('Cmd 可能');
-    expect(fragmentModifierConflictWarning('alt', true)).toContain('Option 可能');
+    expect(fragmentModifierConflictWarning('shift', null, false)).toBe('');
+    expect(fragmentModifierConflictWarning('ctrl', ENGLISH_SENTINEL_MESSAGES, false)).toBe(
+      'Browser warning sentinel for Ctrl Sentinel'
+    );
+    expect(fragmentModifierConflictWarning('meta', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
+      'Browser warning sentinel for Cmd Sentinel'
+    );
+    expect(fragmentModifierConflictWarning('alt', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
+      'System warning sentinel for Alt Sentinel'
+    );
   });
 });

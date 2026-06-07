@@ -14,6 +14,8 @@ export function vaultRow(
   index: number,
   current: SchemaContext
 ): TableRowSchema {
+  const t = current.t ?? ((_key, fallback: string) => fallback);
+
   return {
     cells: [
       switchCell(
@@ -83,21 +85,30 @@ export function vaultRow(
       },
       {
         node: vault.isDefault
-          ? state('默认')
-          : buttonNode('删除', 'secondary', { id: 'storage:removeVault', args: [index] })
+          ? state(t('defaultVaultBadge', '默认'))
+          : buttonNode(t('deleteVaultButton', '删除'), 'secondary', {
+              id: 'storage:removeVault',
+              args: [index]
+            })
       }
     ]
   };
 }
 
 function localFolderCell(vault: VaultRecord, index: number, current: SchemaContext): NodeSchema {
+  const t = current.t ?? ((_key, fallback: string) => fallback);
   const hasFolder = Boolean(vault.localFolderId);
   const isConfirming = current.state.activeLocalFolderVaultIndex === index;
+  const chooseLocalFolderLabel = t('schemaStorageLocalFolderChooseAction', '选择目录');
+  const deleteLocalFolderLabel = t('schemaStorageLocalFolderDeleteAction', '删除本地目录');
+  const manageLocalFolderLabel = t('schemaStorageLocalFolderManageAction', '管理本地目录');
   const folderTitle = vault.localFolderName
-    ? `${vault.localFolderName}\nChrome File System Access 不暴露完整本地路径。`
-    : '选择本地目录';
+    ? `${vault.localFolderName}\n${manageLocalFolderLabel}`
+    : chooseLocalFolderLabel;
   const buttonLabel =
-    hasFolder && isConfirming ? '删除本地目录' : vault.localFolderName || '选择目录';
+    hasFolder && isConfirming
+      ? deleteLocalFolderLabel
+      : vault.localFolderName || chooseLocalFolderLabel;
   const buttonAction =
     hasFolder && isConfirming ? 'storage:deleteLocalFolder' : 'storage:activateLocalFolder';
 
@@ -115,13 +126,13 @@ function localFolderCell(vault: VaultRecord, index: number, current: SchemaConte
           .filter(Boolean)
           .join(' '),
         type: 'button',
-        title: hasFolder && isConfirming ? '删除本地目录' : folderTitle,
+        title: hasFolder && isConfirming ? deleteLocalFolderLabel : folderTitle,
         ariaLabel:
           hasFolder && isConfirming
-            ? '删除本地目录'
+            ? deleteLocalFolderLabel
             : hasFolder
-              ? `${vault.localFolderName}，点击管理本地目录`
-              : '选择本地目录',
+              ? `${vault.localFolderName}, ${manageLocalFolderLabel}`
+              : chooseLocalFolderLabel,
         onClick: {
           id: buttonAction,
           args: [index]
@@ -132,10 +143,21 @@ function localFolderCell(vault: VaultRecord, index: number, current: SchemaConte
   ]);
 }
 
-export function routingField(index: number, field: keyof RoutingRule, value: string): NodeSchema {
+export function routingField(
+  index: number,
+  field: keyof RoutingRule,
+  value: string,
+  current: SchemaContext
+): NodeSchema {
+  const t = current.t ?? ((_key, fallback: string) => fallback);
+
   return routingBoundInput(index, field, value, {
     mono: true,
-    ...(field === 'pattern' ? { placeholder: '输入域名、关键词或 URL pattern' } : {})
+    ...(field === 'pattern'
+      ? {
+          placeholder: t('rulePatternPlaceholder', '输入域名、关键词或 URL pattern')
+        }
+      : {})
   });
 }
 
@@ -160,6 +182,8 @@ export function routingRuleRow(
   index: number,
   current: SchemaContext
 ): TableRowSchema {
+  const t = current.t ?? ((_key, fallback: string) => fallback);
+
   return {
     cells: [
       switchCell(
@@ -181,7 +205,7 @@ export function routingRuleRow(
           current.appData.storage.routingTypeOptions
         )
       },
-      { node: routingField(index, 'pattern', rule.pattern) },
+      { node: routingField(index, 'pattern', rule.pattern, current) },
       {
         node: routingBoundSelect(
           index,
@@ -191,7 +215,10 @@ export function routingRuleRow(
         )
       },
       { node: routingPriorityInput(index, rule.priority) },
-      buttonCell('删除', 'secondary', { id: 'routing:remove', args: [index] })
+      buttonCell(t('deleteRuleButton', '删除'), 'secondary', {
+        id: 'routing:remove',
+        args: [index]
+      })
     ]
   };
 }

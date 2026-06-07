@@ -2,12 +2,14 @@ import type { IMessagingRepository } from '@shared/repositories';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
 import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
+import type { Messages } from '@i18n';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 
 export interface ProductionStitchStorageControllerOptions {
   getConnectionNotice(): PreviewContent['storage']['connectionNotice'] | undefined;
   getDraft(): CompleteOptions;
   getMessagingRepository(): Pick<IMessagingRepository, 'send' | 'onMessage'>;
+  getMessages?(): Messages | null;
   getState(): PreviewStoreState;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice'] | undefined): void;
   refreshAppData(): void;

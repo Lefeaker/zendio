@@ -72,8 +72,8 @@ describe('runVaultListConnectionTest', () => {
 
     expect(result).toEqual({
       success: false,
-      message: '没有可测试的启用仓库。',
-      error: '没有可测试的启用仓库。'
+      message: 'No enabled vaults are available for testing.',
+      error: 'No enabled vaults are available for testing.'
     });
     expectAnalyticsMessage(
       send.mock.calls,

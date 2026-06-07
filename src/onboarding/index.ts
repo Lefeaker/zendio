@@ -1,4 +1,3 @@
-import { bootstrapPage } from '../options/app/routing';
 import { registerFallbackRepositories, registerRepositories } from '../shared/di/serviceRegistry';
 import { registerService, TOKENS } from '../shared/di';
 import { getPlatformServices } from '../platform';
@@ -18,4 +17,13 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   registerFallbackRepositories();
 }
 
-bootstrapPage('onboarding', bootstrapOnboardingApp);
+if ((document.body?.dataset.route ?? 'options') === 'onboarding') {
+  const run = () => {
+    void bootstrapOnboardingApp();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run, { once: true });
+  } else {
+    run();
+  }
+}

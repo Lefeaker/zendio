@@ -1,6 +1,6 @@
-import type { Language } from '@i18n';
+import type { Language, Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
-import { previewContent } from '@options/stitch/content';
+import { createSchemaTranslator } from '@options/stitch/schema/i18n';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import {
   createProductionContent,
@@ -8,13 +8,44 @@ import {
 } from './productionStitchStateMapper';
 import { localizeStitchContent } from './productionStitchLocalization';
 
-export function createProductionStitchAppData(
-  draft: CompleteOptions,
-  options: {
-    connectionNotice?: PreviewContent['storage']['connectionNotice'];
-    maintenanceLog: PreviewContent['maintenanceLog'];
+type ProductionStitchAppDataOptions = {
+  connectionNotice?: PreviewContent['storage']['connectionNotice'];
+  maintenanceLog: PreviewContent['maintenanceLog'];
+};
+
+function isPreviewContent(value: unknown): value is PreviewContent {
+  return typeof value === 'object' && value !== null && 'brand' in value && 'nav' in value;
+}
+
+function resolveDefaultPreviewContent(): PreviewContent {
+  const globalAssets = (
+    globalThis as typeof globalThis & {
+      __AIIINOB_TEST_STITCH_ASSETS__?: { previewContent: PreviewContent };
+    }
+  ).__AIIINOB_TEST_STITCH_ASSETS__;
+
+  if (globalAssets?.previewContent) {
+    return globalAssets.previewContent;
   }
+
+  throw new Error('[Options] Preview content is required to create production stitch app data.');
+}
+
+export function createProductionStitchAppData(
+  previewContentOrDraft: PreviewContent | CompleteOptions,
+  draftOrOptions: CompleteOptions | ProductionStitchAppDataOptions,
+  maybeOptions?: ProductionStitchAppDataOptions
 ): PreviewContent {
+  const previewContent = isPreviewContent(previewContentOrDraft)
+    ? previewContentOrDraft
+    : resolveDefaultPreviewContent();
+  const draft = isPreviewContent(previewContentOrDraft)
+    ? (draftOrOptions as CompleteOptions)
+    : previewContentOrDraft;
+  const options = isPreviewContent(previewContentOrDraft)
+    ? (maybeOptions as ProductionStitchAppDataOptions)
+    : (draftOrOptions as ProductionStitchAppDataOptions);
+
   return createProductionContent(previewContent, draft, {
     ...(options.connectionNotice ? { connectionNotice: options.connectionNotice } : {}),
     maintenanceLog: options.maintenanceLog
@@ -23,10 +54,16 @@ export function createProductionStitchAppData(
 
 export function createProductionStitchSchemaContext(options: {
   appData: PreviewContent;
+  previewContent?: PreviewContent;
   language: Language;
+  messages: Messages | null;
   state: PreviewStoreState;
 }): SchemaContext {
-  const localizedAppData = localizeStitchContent(options.appData, options.language);
+  const localizedAppData = localizeStitchContent(options.appData, {
+    language: options.language,
+    messages: options.messages,
+    previewContent: options.previewContent ?? options.appData
+  });
   return {
     appData: {
       ...localizedAppData,
@@ -37,7 +74,10 @@ export function createProductionStitchSchemaContext(options: {
         logo: '../icons/bannerlogo-128.png'
       }
     },
-    state: options.state
+    language: options.language,
+    messages: options.messages,
+    state: options.state,
+    t: createSchemaTranslator(options.messages)
   };
 }
 

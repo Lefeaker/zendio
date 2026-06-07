@@ -14,6 +14,18 @@ import {
 import { CATALOG_DOMAIN_NAMES, isCatalogDomain } from '../../../src/i18n/catalog/domains';
 import { RUNTIME_MESSAGE_KEYS, isRuntimeMessageKey } from '../../../src/i18n/catalog/keys';
 import { SCHEMA_MESSAGE_KEYS, isSchemaMessageKey } from '../../../src/i18n/catalog/schemaKeys';
+import {
+  getPseudoLocaleCatalogSource,
+  getReleaseRuntimeCatalogSource
+} from '../../../src/i18n/catalog/source';
+import { GENERATED_MESSAGE_KEYS } from '../../../src/i18n/generated/messages.generated';
+import { GENERATED_RELEASE_STATIC_REGISTRY } from '../../../src/i18n/generated/staticRegistry.generated';
+import {
+  DEFAULT_RUNTIME_MESSAGES,
+  DEFAULT_STATIC_MESSAGES,
+  getLocaleCodes,
+  hasLocaleLoader
+} from '../../../src/i18n/locales';
 import type { Messages } from '../../../src/i18n/messages';
 import {
   AVAILABLE_LANGUAGE_ORDER,
@@ -104,11 +116,54 @@ describe('i18n catalog contract', () => {
     expect(isRuntimeMessageKey('extName')).toBe(false);
   });
 
+  it('keeps generated runtime and static catalog sources aligned with release languages', () => {
+    expect(GENERATED_MESSAGE_KEYS).toEqual(RUNTIME_MESSAGE_KEYS);
+    expect(DEFAULT_RUNTIME_MESSAGES.settingsTitle).toBe('Settings');
+    expect(DEFAULT_STATIC_MESSAGES.extName).toBe('Zendio');
+    expect(getLocaleCodes()).toEqual(getConfiguredLanguageCodes());
+    expect(hasLocaleLoader('en')).toBe(true);
+    expect(hasLocaleLoader(PSEUDO_LOCALE_CODE)).toBe(true);
+    expect(hasLocaleLoader('es')).toBe(false);
+
+    const releaseCatalogs = getReleaseRuntimeCatalogSource();
+    expect(releaseCatalogs.map((catalog) => catalog.language)).toEqual(RELEASE_LANGUAGE_ORDER);
+
+    for (const catalog of releaseCatalogs) {
+      if (!isReleaseLanguage(catalog.language) || catalog.static === undefined) {
+        throw new Error(`Unexpected release catalog shape for ${catalog.language}`);
+      }
+      const staticMessages = catalog.static;
+      const staticDescription = staticMessages.extDescription;
+      if (staticDescription === undefined) {
+        throw new Error(`Missing static description for ${catalog.language}`);
+      }
+
+      expect(Object.keys(catalog.runtime).sort()).toEqual([...GENERATED_MESSAGE_KEYS].sort());
+      expect(staticMessages).toEqual(GENERATED_RELEASE_STATIC_REGISTRY[catalog.language]);
+      expect(staticMessages.extName).toBe('Zendio');
+      expect(staticDescription.length).toBeGreaterThan(20);
+    }
+
+    const pseudoCatalog = getPseudoLocaleCatalogSource();
+    if (pseudoCatalog.static === undefined) {
+      throw new Error('Unexpected pseudo catalog shape');
+    }
+    expect(pseudoCatalog.language).toBe(PSEUDO_LOCALE_CODE);
+    expect(Object.keys(pseudoCatalog.runtime).sort()).toEqual([...GENERATED_MESSAGE_KEYS].sort());
+    expect(pseudoCatalog.static.extName).toContain('Ž');
+    expect(pseudoCatalog.static.extDescription).toContain('À');
+  });
+
   it('tracks schema-only runtime keys as a dedicated catalog subset', () => {
     expect(SCHEMA_MESSAGE_KEYS.length).toBeGreaterThan(0);
     expect(SCHEMA_MESSAGE_KEYS.every((key) => key.startsWith('schema'))).toBe(true);
     expect(SCHEMA_MESSAGE_KEYS.every((key) => RUNTIME_MESSAGE_KEYS.includes(key))).toBe(true);
     expect(isSchemaMessageKey('schemaOverviewTitle')).toBe(true);
+    expect(isSchemaMessageKey('schemaRuntimeUiGroupTitle')).toBe(true);
+    expect(isSchemaMessageKey('schemaStorageConnectionNotRun')).toBe(true);
+    expect(isSchemaMessageKey('schemaStorageVaultEnabledColumnLabel')).toBe(true);
+    expect(isSchemaMessageKey('schemaStorageCertificateDownloadTrustLink')).toBe(true);
+    expect(isSchemaMessageKey('schemaRuntimeSurfaceSaveToLabel')).toBe(true);
     expect(isSchemaMessageKey('settingsTitle')).toBe(false);
   });
 

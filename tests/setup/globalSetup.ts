@@ -132,6 +132,17 @@ beforeEach(() => {
   registerTestRepositories();
 });
 
+beforeEach(async () => {
+  const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
+    await import('../../src/options/app/productionStitchAssets');
+  (globalThis as typeof globalThis & Record<string, unknown>).__AIIINOB_TEST_STITCH_ASSETS__ = {
+    previewContent,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView
+  };
+});
+
 afterEach(() => {
   harness.reset();
   repositoryContainer.reset();

@@ -5,7 +5,6 @@ import {
 import type { SelectionPromptLifecycleHandlers } from '../../runtime/clipFlowTypes';
 import type { ReaderBootstrapHighlight } from '../../reader/types';
 import type { ClipPromptGateway } from '../application/clipPromptGateway';
-import { ADD_HIGHLIGHT_EVENT } from '../../reader/constants';
 import { loadFragmentConfig } from './fragmentConfig';
 import { detectVideoIdentity } from '../../video/utils';
 import { isValidVideoPlayPage } from '../../video/videoPromptObserver';
@@ -16,6 +15,8 @@ import {
   isReaderSessionActive,
   isVideoSessionActive
 } from '../../runtime/contentSessionRegistry';
+
+const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
 export interface ReaderSessionAdapter {
   ingestExternalHighlight(

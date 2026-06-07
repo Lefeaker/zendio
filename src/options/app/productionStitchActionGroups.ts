@@ -1,5 +1,6 @@
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
+import type { Messages } from '@i18n';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
 import type { VaultRouterConfig } from '@shared/types/vault';
@@ -9,6 +10,7 @@ type ProductionStitchActions = ActionRegistry<PreviewStoreState, PreviewContent>
 interface ProductionStitchActionGroupContext {
   getAppData(): PreviewContent;
   getDraft(): CompleteOptions;
+  getMessages(): Messages | null;
   getState(): PreviewStoreState;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   activateVaultLocalFolder(index: number): Promise<void>;
@@ -138,7 +140,8 @@ export function createProductionStorageActions(
           context.applyConnectionNotice(await context.runVaultListConnectionTest());
         } catch (error) {
           context.setConnectionNotice({
-            title: '连接测试结果',
+            title:
+              context.getMessages()?.schemaStorageConnectionNoticeTitle ?? 'Connection Test Result',
             body: error instanceof Error ? error.message : String(error),
             variant: 'danger'
           });

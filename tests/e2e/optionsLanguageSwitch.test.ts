@@ -1,11 +1,44 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
+import en from '@i18n/generated/locales/en.generated';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { MountedProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
 import type { Language } from '@i18n';
 import { e2ePlatformHarness } from './setup';
+import { getLanguageSelectValues } from '../utils/optionsI18nTextAssertions';
+
+async function installProductionStitchTestAssets(): Promise<void> {
+  const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
+    await import('@options/app/productionStitchAssets');
+  (
+    globalThis as typeof globalThis & {
+      __AIIINOB_TEST_STITCH_ASSETS__?: {
+        previewContent: typeof previewContent;
+        getFooterMeta: typeof getFooterMeta;
+        getFooterView: typeof getFooterView;
+        getSettingsView: typeof getSettingsView;
+      };
+    }
+  ).__AIIINOB_TEST_STITCH_ASSETS__ = {
+    previewContent,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView
+  };
+}
+
+const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
+const POST_SWITCH_PANEL_EXPECTATIONS = [
+  { panelId: 'overview', text: en.runtime.schemaOverviewTitle },
+  { panelId: 'storage', text: en.runtime.schemaStorageVaultListTitle },
+  { panelId: 'capture-sources', text: en.runtime.schemaCaptureSourcesAiChatGroupTitle },
+  { panelId: 'capture-behavior', text: en.runtime.schemaCaptureBehaviorReadingGroupTitle },
+  { panelId: 'output', text: en.runtime.schemaOutputTemplatesGroupTitle },
+  { panelId: 'maintenance', text: en.runtime.schemaMaintenanceTransferGroupTitle }
+] as const;
 
 function createController(): OptionsController {
   return {
@@ -26,13 +59,22 @@ function createController(): OptionsController {
 
 function findLanguageSelect(): HTMLSelectElement {
   const select = Array.from(document.querySelectorAll<HTMLSelectElement>('select')).find(
-    (candidate) =>
-      Array.from(candidate.options).some((option) => option.value === 'en') &&
-      Array.from(candidate.options).some((option) => option.value === 'zh-CN')
+    (candidate) => {
+      const values = Array.from(candidate.options).map((option) => option.value);
+      return (
+        values.length === EXPECTED_LANGUAGE_VALUES.length &&
+        values.every((value, index) => value === EXPECTED_LANGUAGE_VALUES[index])
+      );
+    }
   );
   if (!select) {
     throw new Error('production language select missing');
   }
+
+  const values = Array.from(select.options).map((option) => option.value);
+  expect(values).toEqual(EXPECTED_LANGUAGE_VALUES);
+  expect(values).not.toContain('es');
+  expect(values).not.toContain('qps-ploc');
   return select;
 }
 
@@ -43,6 +85,21 @@ async function flushAsyncLanguageChange(): Promise<void> {
   });
 }
 
+async function openPanel(panelId: (typeof POST_SWITCH_PANEL_EXPECTATIONS)[number]['panelId']) {
+  const button = document.querySelector<HTMLButtonElement>(`[data-nav-panel="${panelId}"]`);
+  if (!button) {
+    throw new Error(`Missing panel button: ${panelId}`);
+  }
+  button.click();
+  await flushAsyncLanguageChange();
+
+  const panel = document.querySelector<HTMLElement>(`[data-panel-id="${panelId}"]`);
+  if (!panel) {
+    throw new Error(`Missing panel body: ${panelId}`);
+  }
+  return panel;
+}
+
 describe('options language switching e2e', () => {
   let mounted: MountedProductionStitchShell | null = null;
 
@@ -50,12 +107,15 @@ describe('options language switching e2e', () => {
     e2ePlatformHarness.reset();
     e2ePlatformHarness.configure();
     await e2ePlatformHarness.storage.sync.set('language', 'zh-CN');
+    await installProductionStitchTestAssets();
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
   });
 
   afterEach(() => {
     mounted?.cleanup();
     mounted = null;
+    delete (globalThis as typeof globalThis & { __AIIINOB_TEST_STITCH_ASSETS__?: unknown })
+      .__AIIINOB_TEST_STITCH_ASSETS__;
     document.body.innerHTML = '';
     e2ePlatformHarness.reset();
   });
@@ -71,11 +131,15 @@ describe('options language switching e2e', () => {
       changeLanguage: async (language) => {
         languageChanges.push(language);
         await e2ePlatformHarness.storage.sync.set('language', language);
-        return { messages: null, language };
+        return {
+          messages: language === 'en' ? en.runtime : null,
+          language
+        };
       }
     });
 
-    expect(document.querySelector('[data-nav-panel="overview"]')?.textContent).toContain('总览');
+    await expect(e2ePlatformHarness.storage.sync.get<string>('language')).resolves.toBe('zh-CN');
+    expect(getLanguageSelectValues(document)).toEqual(EXPECTED_LANGUAGE_VALUES);
 
     const select = findLanguageSelect();
     expect(select.value).toBe('zh-CN');
@@ -87,8 +151,11 @@ describe('options language switching e2e', () => {
     expect(languageChanges).toEqual(['en']);
     await expect(e2ePlatformHarness.storage.sync.get<string>('language')).resolves.toBe('en');
     expect(findLanguageSelect().value).toBe('en');
-    expect(document.querySelector('[data-nav-panel="overview"]')?.textContent).toContain(
-      'Overview'
-    );
+    expect(getLanguageSelectValues(document)).toEqual(EXPECTED_LANGUAGE_VALUES);
+
+    for (const { panelId, text } of POST_SWITCH_PANEL_EXPECTATIONS) {
+      const panel = await openPanel(panelId);
+      expect(panel.textContent).toContain(text);
+    }
   });
 });

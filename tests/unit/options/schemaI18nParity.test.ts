@@ -117,6 +117,50 @@ describe('schema i18n parity', () => {
     }
   });
 
+  it('publishes representative P03-P13 schema keys to both shell and runtime locale maps', () => {
+    const representativeKeys = [
+      'schemaRendererResourceOpenAction',
+      'schemaNavOverviewHint',
+      'schemaRuntimeUiGroupTitle',
+      'schemaOverviewLanguageRowTitle',
+      'schemaOverviewClearUsageDataButton',
+      'schemaStorageConnectionNotRun',
+      'schemaStorageVaultEnabledColumnLabel',
+      'schemaStorageRoutingActionsColumnLabel',
+      'schemaStorageCertificateDownloadTrustLink',
+      'schemaCaptureSourcesAiChatGroupTitle',
+      'schemaCaptureSourcesScreenshotLocationTitle',
+      'schemaCaptureBehaviorReadingGroupTitle',
+      'schemaCaptureBehaviorModifierConflictSystem',
+      'schemaOutputTemplatesGroupTitle',
+      'schemaOutputTemplateHelperText',
+      'schemaOutputYamlGroupTitle',
+      'schemaMaintenanceTransferGroupTitle',
+      'schemaMaintenanceDiagnosisButton',
+      'schemaMaintenanceDiagnosisResultLog',
+      'schemaResourcePluginSetupGoToStorageButton',
+      'schemaResourceSupportScopeGroupTitle',
+      'schemaResourcePrivacyLocalConfigTitle',
+      'schemaRuntimeClipperSelectedText',
+      'schemaRuntimeReaderHighlightOneExcerpt',
+      'schemaRuntimeReaderHighlightTwoExcerpt',
+      'schemaRuntimeReaderHighlightThreeFullText',
+      'schemaRuntimeSurfaceSaveToLabel',
+      'schemaRuntimeTaskSuccessTitle',
+      'schemaRuntimeVideoCaptureTwoFullText',
+      'schemaRuntimeVideoFloatingPromptTitle'
+    ] as const;
+
+    for (const key of representativeKeys) {
+      expect(schemaShellMessagesEnglish[key]).toBeTypeOf('string');
+      expect(schemaShellMessagesEn[key]).toBe(schemaShellMessagesEnglish[key]);
+      expect(en.runtime[key]).toBe(schemaShellMessagesEnglish[key]);
+
+      expect(schemaShellMessagesZhHans[key]).toBeTypeOf('string');
+      expect(zhCN.runtime[key]).toBe(schemaShellMessagesZhHans[key]);
+    }
+  });
+
   it('keeps Stitch registry free of previous schema-shell hardcoded sentences', () => {
     const source = readFileSync(
       resolve(process.cwd(), 'src/options/stitch/schema/registry.ts'),

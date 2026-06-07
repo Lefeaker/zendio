@@ -10,6 +10,7 @@
 
 - 正式 Options UI 启动链是 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
 - `src/options/stitch/*` 是 preview 与 production 共享的 Stitch Secondary schema、renderer、class slots、content 与 CSS 真值。
+- 当前 production Stitch 可见文案真值通过 `SchemaContext.messages` / `SchemaContext.t` 消费 catalog-backed `Messages`；Settings panel、resource modal、runtime surface 与 shell fallback 不得再依赖中文 preview copy 作为 English fallback。
 - Legacy Options section/form compatibility source and old layout source have been retired; remaining old modal/controller code is compatibility-only and must not be reconnected to the production startup chain.
 - 旧 Options preview 源树已经迁为 `tests/fixtures/options-preview/**` 验证夹具；不要把 retired preview 源树重新接入生产启动链。
 - 旧 widgets and other retained compatibility source are not current implementation guidance unless `audit:non-production-source:report` gives an exact production/import/test/script/public/verification owner; deletion must satisfy Non-Production Code 3.0 six-owner proof and pass `audit:non-production-source:check`.
@@ -164,7 +165,9 @@ src/options/
   - 不得为了让生产功能工作而把 retired compatibility source 重新连回正式启动链。
 
 - **多语言适配**
-  - 文案统一由 `setMessages()` 或 `data-i18n` 驱动，参照 `docs/options-multilingual-adaptation-guide.md` 进行整改。
+  - production Stitch schema/body copy 统一由当前语言资源的 `Messages` 驱动：schema/builders 优先走 `SchemaContext.t(key, fallback)`，shell/runtime helper 使用当前 `Messages`，静态模板再通过 `setMessages()` 或 `data-i18n` 绑定。
+  - Options production language selector 当前真值固定为 12 个 release human UI locales，顺序与 `RELEASE_LANGUAGE_ORDER` 一致：`en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；production 不得暴露 `es` 或 `qps-ploc`，唯一允许保留 native language labels 的位置是语言选择器 option 文本。
+  - 参照 `docs/options-multilingual-adaptation-guide.md` 维护 English residual 规则与必跑验证命令。
   - 切勿在 Section 内直接写死字符串或手动读取 `_locales`。
 
 - **运行时清理**
@@ -226,7 +229,7 @@ src/options/
 
 - **导航/面板切换异常**：从 Stitch schema registry、`productionStitchShell.ts` 与 production render lifecycle 排查，不要恢复旧 layout shell。
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
-- **文案未更新**：运行 `ensureDeclarativeI18nController()` 后调用 `section.setMessages(messages)`；对于静态模板应检查 `data-i18n` 是否配置正确。
+- **文案未更新**：先确认 schema/builders 是否通过 `SchemaContext.t()` 或当前 `Messages` 取值，再检查 `ensureDeclarativeI18nController()`、`section.setMessages(messages)` 与静态模板 `data-i18n` 绑定是否完整。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
 - **Stitch 样式未生效**：确认页面或 runtime surface 是否加载 `stitch.css` 与 `stitch-secondary.css`，并检查是否遗漏对应 schema slot 或 renderer class。
 

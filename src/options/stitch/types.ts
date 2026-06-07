@@ -2,6 +2,8 @@ import type {
   ActionDescriptor as SharedActionDescriptor,
   StateBinding as SharedStateBinding
 } from '@options/schema-runtime';
+import type { Messages } from '@i18n';
+import type { SchemaTranslator } from './schema/i18n';
 import type { PreviewVideoStoreState } from './videoStateTypes';
 export interface HeroData {
   title: string;
@@ -176,11 +178,7 @@ export interface VideoSurfaceCapture {
   editing?: boolean;
 }
 
-export interface ToastPreview {
-  title: string;
-  detail: string;
-  actions?: string[];
-}
+export type ToastPreview = { title: string; detail: string; actions?: string[] };
 
 export interface PreviewSurfaces {
   clipper: {
@@ -401,6 +399,9 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
+  language?: string;
+  messages?: Messages | null;
+  t?: SchemaTranslator;
 }
 
 export type DynamicValue<T> = T | ((ctx: SchemaContext) => T);
@@ -731,12 +732,10 @@ export interface ViewSchema {
   children?: NodeSchema[];
 }
 
-export interface ResourceSchema {
+export type ResourceSchema = {
   openMode: 'modal' | 'page';
   href?: string;
   createView: (ctx: SchemaContext) => ViewSchema;
-}
+};
 
-export interface SettingsSchema {
-  createView: (ctx: SchemaContext) => ViewSchema;
-}
+export type SettingsSchema = { createView: (ctx: SchemaContext) => ViewSchema };

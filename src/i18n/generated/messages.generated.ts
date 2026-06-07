@@ -285,15 +285,41 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaAiPlatformKimiName',
   'schemaAiPlatformMonicaName',
   'schemaAiPlatformTongyiName',
+  'schemaCaptureBehaviorCaptureContextTitle',
+  'schemaCaptureBehaviorContextLengthFieldLabel',
+  'schemaCaptureBehaviorContextModeCharsOption',
+  'schemaCaptureBehaviorContextModeFieldLabel',
+  'schemaCaptureBehaviorContextModeSentencesOption',
   'schemaCaptureBehaviorFragmentGroupTitle',
   'schemaCaptureBehaviorHeroDescription',
+  'schemaCaptureBehaviorModifierConflictBrowser',
+  'schemaCaptureBehaviorModifierConflictSystem',
   'schemaCaptureBehaviorReadingGroupTitle',
+  'schemaCaptureBehaviorSidebarHighlightsNote',
   'schemaCaptureBehaviorTitle',
   'schemaCaptureSourcesAiChatGroupTitle',
+  'schemaCaptureSourcesAiConversationDescription',
+  'schemaCaptureSourcesAiConversationTitle',
+  'schemaCaptureSourcesAiSupportedPlatformsBadge',
+  'schemaCaptureSourcesAutoPauseDescription',
+  'schemaCaptureSourcesAutoPauseTitle',
   'schemaCaptureSourcesDeepResearchGroupTitle',
   'schemaCaptureSourcesHeroDescription',
+  'schemaCaptureSourcesMarkdownUrlDescription',
+  'schemaCaptureSourcesMarkdownUrlTitle',
+  'schemaCaptureSourcesPreviewFieldLabel',
+  'schemaCaptureSourcesScreenshotFilenameDescription',
+  'schemaCaptureSourcesScreenshotFilenameTitle',
+  'schemaCaptureSourcesScreenshotLocationDescription',
+  'schemaCaptureSourcesScreenshotLocationTitle',
+  'schemaCaptureSourcesSupportedPlatformsDescription',
   'schemaCaptureSourcesTitle',
+  'schemaCaptureSourcesUserDisplayNameDescription',
+  'schemaCaptureSourcesUserDisplayNamePreview',
   'schemaCaptureSourcesVideoGroupTitle',
+  'schemaCaptureSourcesVideoPromptEntryDescription',
+  'schemaCaptureSourcesVideoPromptEntryTitle',
+  'schemaCaptureSourcesVideoPromptHelper',
   'schemaCommonDisabledState',
   'schemaCommonEnabledState',
   'schemaCommonFieldColumnLabel',
@@ -315,14 +341,23 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaExperimentalSubtitleToggleDescription',
   'schemaExperimentalSubtitleToggleTitle',
   'schemaExperimentalTitle',
+  'schemaMaintenanceConfigurationDiagnosisDescription',
+  'schemaMaintenanceConfigurationTransferDescription',
+  'schemaMaintenanceConfigurationTransferTitle',
   'schemaMaintenanceDiagnosisButton',
   'schemaMaintenanceDiagnosisGroupTitle',
+  'schemaMaintenanceDiagnosisResultLog',
+  'schemaMaintenanceDiagnosisScopeDescription',
+  'schemaMaintenanceDiagnosisScopeTitle',
   'schemaMaintenanceFixButton',
   'schemaMaintenanceHeroDescription',
   'schemaMaintenanceReloadButton',
+  'schemaMaintenanceRepairLogTitle',
   'schemaMaintenanceTitle',
   'schemaMaintenanceTransferCopyButton',
   'schemaMaintenanceTransferGroupTitle',
+  'schemaMaintenanceTransferHelperDescription',
+  'schemaMaintenanceTransferHelperTitle',
   'schemaMaintenanceTransferImportButton',
   'schemaMaintenanceTransferLastActionNoticeTitle',
   'schemaMaintenanceTransferLogCopySuccess',
@@ -334,23 +369,54 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaNavOutputHint',
   'schemaNavOverviewHint',
   'schemaNavStorageHint',
+  'schemaOutputAddMappingButton',
+  'schemaOutputDomainColumnLabel',
   'schemaOutputDomainMappingsGroupTitle',
+  'schemaOutputDomainNotesColumnLabel',
+  'schemaOutputDomainOverrideLabel',
+  'schemaOutputFolderAliasColumnLabel',
   'schemaOutputHeroDescription',
+  'schemaOutputPathTemplatesDescription',
+  'schemaOutputTemplateHelperText',
   'schemaOutputTemplatesGroupTitle',
   'schemaOutputTitle',
   'schemaOutputYamlGroupTitle',
+  'schemaOutputYamlHelperText',
+  'schemaOutputYamlPreviewSummaryLabel',
+  'schemaOverviewClearUsageDataButton',
+  'schemaOverviewDebugModeAvailableState',
+  'schemaOverviewDebugModeDevOnlyBadge',
+  'schemaOverviewDebugModePrerequisiteState',
   'schemaOverviewHeroDescription',
   'schemaOverviewInterfaceGroupTitle',
   'schemaOverviewLanguageRowDescription',
   'schemaOverviewLanguageRowTitle',
+  'schemaOverviewOpenDiagnosisButton',
   'schemaOverviewPrivacyGroupTitle',
+  'schemaOverviewPrivacyReferenceTitle',
+  'schemaOverviewThemeDarkOption',
+  'schemaOverviewThemeLightOption',
+  'schemaOverviewThemeRowTitle',
+  'schemaOverviewThemeSystemOption',
   'schemaOverviewTitle',
   'schemaOverviewUsageGroupTitle',
   'schemaReadingPathModeArticleLabel',
   'schemaReadingPathModeCustomLabel',
   'schemaReadingPathModeFragmentLabel',
+  'schemaRendererHighlightExamplePrefix',
+  'schemaRendererHighlightExampleSuffix',
+  'schemaRendererHighlightExampleText',
+  'schemaRendererResourceOpenAction',
+  'schemaRendererResourcePendingBadge',
+  'schemaResourceChangelogDescription',
   'schemaResourceChangelogHint',
   'schemaResourceChangelogTitle',
+  'schemaResourceChangelogV010Bullet1',
+  'schemaResourceChangelogV010Bullet2',
+  'schemaResourceChangelogV010Bullet3',
+  'schemaResourceChangelogV020Bullet1',
+  'schemaResourceChangelogV020Bullet2',
+  'schemaResourceChangelogV020Bullet3',
   'schemaResourceContactChannelsGroupTitle',
   'schemaResourceContactDescription',
   'schemaResourceContactEmailDescription',
@@ -364,7 +430,16 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourceContactWechatDescription',
   'schemaResourceContactWechatNote',
   'schemaResourceContactWechatTitle',
+  'schemaResourceDataUsageAnonymousUsageBody',
+  'schemaResourceDataUsageAnonymousUsageTitle',
+  'schemaResourceDataUsageConfigMigrationBody',
+  'schemaResourceDataUsageConfigMigrationTitle',
+  'schemaResourceDataUsageDescription',
+  'schemaResourceDataUsageTitle',
+  'schemaResourceOnboardingDescription',
+  'schemaResourceOnboardingGuideFlowTitle',
   'schemaResourceOnboardingHint',
+  'schemaResourceOnboardingStepsTitle',
   'schemaResourceOnboardingTitle',
   'schemaResourcePluginSetupChecklist1',
   'schemaResourcePluginSetupChecklist2',
@@ -387,6 +462,10 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourcePluginSetupStep4',
   'schemaResourcePluginSetupStep5',
   'schemaResourcePluginSetupTitle',
+  'schemaResourcePrivacyLocalConfigBody',
+  'schemaResourcePrivacyLocalConfigTitle',
+  'schemaResourcePrivacyPolicyDescription',
+  'schemaResourcePrivacyPolicyTitle',
   'schemaResourcesGroupTitle',
   'schemaResourceSuggestionsChannelsGroupTitle',
   'schemaResourceSuggestionsDescription',
@@ -413,10 +492,75 @@ export const GENERATED_MESSAGE_KEYS = [
   'schemaResourceSupportScope4',
   'schemaResourceSupportScopeGroupTitle',
   'schemaResourceSupportTitle',
+  'schemaRuntimeAiSummaryBadge',
+  'schemaRuntimeClipperDescription',
+  'schemaRuntimeClipperHint',
+  'schemaRuntimeClipperSelectedText',
+  'schemaRuntimeClipperTitle',
+  'schemaRuntimeReaderDescription',
+  'schemaRuntimeReaderHighlightOneExcerpt',
+  'schemaRuntimeReaderHighlightThreeFullText',
+  'schemaRuntimeReaderHighlightTwoExcerpt',
+  'schemaRuntimeReaderHint',
+  'schemaRuntimeReaderTitle',
+  'schemaRuntimeSurfaceConfigureVaultLabel',
+  'schemaRuntimeSurfaceSaveToLabel',
+  'schemaRuntimeTaskSuccessDescription',
+  'schemaRuntimeTaskSuccessHint',
+  'schemaRuntimeTaskSuccessProgressAriaLabel',
+  'schemaRuntimeTaskSuccessStatusDetail',
+  'schemaRuntimeTaskSuccessTitle',
+  'schemaRuntimeUiGroupTitle',
+  'schemaRuntimeVideoCaptureScreenshotLabel',
+  'schemaRuntimeVideoCaptureTwoFullText',
+  'schemaRuntimeVideoDescription',
+  'schemaRuntimeVideoFloatingPromptHint',
+  'schemaRuntimeVideoFloatingPromptTitle',
+  'schemaRuntimeVideoHint',
+  'schemaRuntimeVideoRemoveScreenshotLabel',
+  'schemaRuntimeVideoTitle',
   'schemaSidebarSettingsGroupTitle',
+  'schemaStorageAddRuleButton',
+  'schemaStorageAddVaultButton',
+  'schemaStorageCertificateDownloadTrustLink',
+  'schemaStorageConnectionNoticeTitle',
+  'schemaStorageConnectionNotRun',
+  'schemaStorageConnectionUrlNotConfigured',
   'schemaStorageHeroDescription',
+  'schemaStorageLocalFolderAuthorizeWarningBody',
+  'schemaStorageLocalFolderAuthorizeWarningTitle',
+  'schemaStorageLocalFolderChooseAction',
+  'schemaStorageLocalFolderDeleteAction',
+  'schemaStorageLocalFolderLabel',
+  'schemaStorageLocalFolderManageAction',
+  'schemaStorageLocalFolderNotConfigured',
+  'schemaStorageLocalFolderPermissionConfirmedBody',
+  'schemaStorageLocalFolderPermissionConfirmedTitle',
+  'schemaStorageLocalFolderReauthorizeBody',
+  'schemaStorageLocalFolderReauthorizeFallbackBody',
+  'schemaStorageLocalFolderReauthorizeTitle',
+  'schemaStorageLocalFolderRecommendation',
+  'schemaStorageNoEnabledVaults',
+  'schemaStorageRoutingActionsColumnLabel',
+  'schemaStorageRoutingEnabledColumnLabel',
   'schemaStorageRoutingGroupTitle',
+  'schemaStorageRoutingPatternColumnLabel',
+  'schemaStorageRoutingPriorityColumnLabel',
+  'schemaStorageRoutingTargetVaultColumnLabel',
+  'schemaStorageRoutingTipBody',
+  'schemaStorageRoutingTipTitle',
+  'schemaStorageRoutingTypeColumnLabel',
+  'schemaStorageTestConnectionButton',
   'schemaStorageTitle',
+  'schemaStorageVaultActionsColumnLabel',
+  'schemaStorageVaultApiKeyColumnLabel',
+  'schemaStorageVaultEnabledColumnLabel',
+  'schemaStorageVaultHttpsUrlColumnLabel',
+  'schemaStorageVaultHttpUrlColumnLabel',
+  'schemaStorageVaultListDescription',
+  'schemaStorageVaultListTitle',
+  'schemaStorageVaultLocalFolderColumnLabel',
+  'schemaStorageVaultNameColumnLabel',
   'schemaStorageVaultsGroupTitle',
   'schemaYamlFilterAiChatLabel',
   'schemaYamlFilterAllLabel',
@@ -656,656 +800,4 @@ export const GENERATED_MESSAGE_KEYS = [
 
 export type GeneratedMessageKey = (typeof GENERATED_MESSAGE_KEYS)[number];
 
-export interface GeneratedMessages {
-  additionalVaultHttpsHint: string;
-  additionalVaultsHint: string;
-  additionalVaultsTitle: string;
-  addMappingButton: string;
-  addRuleButton: string;
-  addToReaderButton: string;
-  addVaultButton: string;
-  aiChatConfigHint: string;
-  aiChatConfigTitle: string;
-  aiSummaryTimestamp: string;
-  aiSummaryUserName: string;
-  aiSupportedPlatformsToggle: string;
-  aiTemplateHint: string;
-  aiTemplateLabel: string;
-  allDataCleared: string;
-  analyticsConsentDescription: string;
-  analyticsConsentTitle: string;
-  analyticsDebugDescription: string;
-  analyticsDebugDisabled: string;
-  analyticsDebugDisabledHint: string;
-  analyticsDebugEnabled: string;
-  analyticsDebugTitle: string;
-  apiConfigHint: string;
-  apiConfigTitle: string;
-  apiKeyHint: string;
-  apiKeyLabel: string;
-  apiKeyPlaceholder: string;
-  articleTemplateHint: string;
-  articleTemplateLabel: string;
-  availableVariables: string;
-  cancelButton: string;
-  cancelButton_short: string;
-  captureContextLabel: string;
-  changelogModalTitle: string;
-  classificationFallbackDefaultReason: string;
-  classificationFallbackMessage: string;
-  classificationFallbackTitle: string;
-  classifierConfigHint: string;
-  classifierConfigTitle: string;
-  classifierUnstableNotice: string;
-  clearAllAnalyticsData: string;
-  clearDataError: string;
-  clipboardReadUnavailable: string;
-  clipboardUnavailable: string;
-  clipButton: string;
-  clipButton_short: string;
-  clipDialogInstructions: string;
-  clipDialogTitle: string;
-  clipFailed: string;
-  clipFullPage: string;
-  clipperCommentEditCompleted: string;
-  clipperShortcutDoubleEnter: string;
-  clipperShortcutEsc: string;
-  clipperShortcutHintDoubleEnter: string;
-  clipperShortcutHintEscape: string;
-  clipperShortcutHintModifierEnter: string;
-  clipperShortcutModifierEnter: string;
-  clipperShortcutSetupLink: string;
-  clipSelection: string;
-  clipSelectionVideo: string;
-  clipSuccess: string;
-  clipSuccessDownloads: string;
-  clipSuccessLocalFolder: string;
-  clipSuccessRestApi: string;
-  clipSuccessRestFallback: string;
-  commentLabel: string;
-  commentPlaceholder: string;
-  completeOnboarding: string;
-  configFixed: string;
-  configTransferHint: string;
-  configTransferNote: string;
-  configTransferTitle: string;
-  confirmClearAllData: string;
-  connectionFailed: string;
-  connectionFailureHintCheckApiKey: string;
-  connectionFailureHintCheckService: string;
-  connectionFailureHintCheckVault: string;
-  connectionFailureHintGeneric: string;
-  connectionFailureHintsTitle: string;
-  connectionSuccessShort: string;
-  connectionTesting: string;
-  contactModalCloseButton: string;
-  contactModalDescription: string;
-  contactModalTitle: string;
-  contextMenuVideoMode: string;
-  copyConfigButton: string;
-  copyConfigSuccess: string;
-  dataUsageLink: string;
-  deepResearchConfigHint: string;
-  deepResearchConfigTitle: string;
-  defaultVaultBadge: string;
-  deleteRuleButton: string;
-  deleteRuleDialogTitle: string;
-  deleteVaultButton: string;
-  deleteVaultConfirm: string;
-  deleteVaultDialogTitle: string;
-  diagnoseButton: string;
-  diagnosisDescription: string;
-  diagnosisResultTitle: string;
-  diagnosisSummaryHint: string;
-  diagnosisTitle: string;
-  domainLabel: string;
-  domainMappingDeleteButton: string;
-  domainMappingDomainPlaceholder: string;
-  domainMappingHint: string;
-  domainMappingNamePlaceholder: string;
-  domainMappingTitle: string;
-  editRuleButton: string;
-  emptyImportError: string;
-  enableClassifierLabel: string;
-  endpointLabel: string;
-  endpointPlaceholder: string;
-  errorReportingCollectedBrowser: string;
-  errorReportingCollectedError: string;
-  errorReportingCollectedExtension: string;
-  errorReportingCollectedTimestamp: string;
-  errorReportingCollectedTitle: string;
-  errorReportingConsentDescription: string;
-  errorReportingConsentTitle: string;
-  errorReportingDetailsTitle: string;
-  errorReportingNotCollectedContent: string;
-  errorReportingNotCollectedPasswords: string;
-  errorReportingNotCollectedPersonal: string;
-  errorReportingNotCollectedTitle: string;
-  errorReportingNotCollectedUrls: string;
-  extensionName: string;
-  extensionSubtitle: string;
-  extractionFailed: string;
-  featureUnstableNote: string;
-  featureUntestedNote: string;
-  fixButton: string;
-  fixFailed: string;
-  folderNameLabel: string;
-  footerContactLink: string;
-  footerSuggestionsLink: string;
-  footerSupportLink: string;
-  fragmentCaptureContextHint: string;
-  fragmentConfigHint: string;
-  fragmentConfigTitle: string;
-  fragmentContextHighlightExampleContent: string;
-  fragmentContextHighlightExampleTitle: string;
-  fragmentFootnoteExampleComment: string;
-  fragmentFootnoteExampleContent: string;
-  fragmentFootnoteExampleTitle: string;
-  fragmentKeyboardShortcutsHint: string;
-  fragmentKeyboardShortcutsLabel: string;
-  fragmentModifierKeyAlt: string;
-  fragmentModifierKeyCtrl: string;
-  fragmentModifierKeyMeta: string;
-  fragmentModifierKeysDescription: string;
-  fragmentModifierKeyShift: string;
-  fragmentModifierKeysLabel: string;
-  fragmentModifierToggleDescription: string;
-  fragmentModifierToggleLabel: string;
-  fragmentSummaryFootnotes: string;
-  fragmentSummaryModifierKeys: string;
-  fragmentTemplateHint: string;
-  fragmentTemplateLabel: string;
-  fragmentUseFootnoteHint: string;
-  fragmentUseFootnoteLabel: string;
-  httpsUrlHint: string;
-  httpsUrlLabel: string;
-  httpUrlHint: string;
-  httpUrlLabel: string;
-  importConfigButton: string;
-  importParseFailed: string;
-  importSuccess: string;
-  includeTimestampsHint: string;
-  includeTimestampsLabel: string;
-  infoDialogConfirm: string;
-  infoDialogTitle: string;
-  invalidTaxonomy: string;
-  languageHint: string;
-  languageLabel: string;
-  languageSettings: string;
-  languageSummaryAvailable: string;
-  languageSummaryCurrent: string;
-  legacyPanelMissingForm: string;
-  legacyPanelToggleLabel: string;
-  modelLabel: string;
-  modelPlaceholder: string;
-  multipleReportsInfo: string;
-  multiVaultNameHint: string;
-  multiVaultNameLabel: string;
-  multiVaultNamePlaceholder: string;
-  onboardingCompleted: string;
-  onboardingCompletedMessage: string;
-  onboardingFooterNote: string;
-  onboardingLinkText: string;
-  onboardingSubtitle: string;
-  onboardingTitle: string;
-  onboardingWelcomeMessage: string;
-  openReaderButton: string;
-  openVideoModeButton: string;
-  portConflictDetected: string;
-  privacyDataWillBeCleared: string;
-  privacyFooterText: string;
-  privacyPolicyLink: string;
-  privacySettingsDescription: string;
-  privacySettingsError: string;
-  privacySettingsNote: string;
-  privacySettingsSaved: string;
-  privacySettingsTitle: string;
-  providerLabel: string;
-  pureModeHint: string;
-  pureModeLabel: string;
-  readerHighlightCancelLabel: string;
-  readerHighlightDeleteLabel: string;
-  readerHighlightEditLabel: string;
-  readerHighlightEditPlaceholder: string;
-  readerHighlightFocusLabel: string;
-  readerHighlightNoComment: string;
-  readerHighlightSaveLabel: string;
-  readerHintExporting: string;
-  readerHintFailure: string;
-  readerHintNoHighlights: string;
-  readerHintSelectionFailure: string;
-  readerPanelCancel: string;
-  readerPanelCounter: string;
-  readerPanelCounterZero: string;
-  readerPanelFinish: string;
-  readerPanelHint: string;
-  readerPanelStatus: string;
-  readerPanelTitle: string;
-  readerStart: string;
-  readingConfigHint: string;
-  readingConfigTitle: string;
-  readingExportModeDescription: string;
-  readingExportModeFull: string;
-  readingExportModeHighlights: string;
-  readingExportModeLabel: string;
-  readingHighlightThemeDescription: string;
-  readingHighlightThemeGradient: string;
-  readingHighlightThemeLabel: string;
-  readingHighlightThemeNeonGreen: string;
-  readingHighlightThemeNeonOrange: string;
-  readingHighlightThemeNeonYellow: string;
-  readingHighlightThemePurple: string;
-  readingSummaryMode: string;
-  readingSummaryTheme: string;
-  readingTemplateHint: string;
-  readingTemplateLabel: string;
-  readingTemplateOptionArticle: string;
-  readingTemplateOptionCustom: string;
-  readingTemplateOptionFragment: string;
-  reloadButton: string;
-  reloadPrompt: string;
-  restSummaryAdditionalVaults: string;
-  routingRulesHint: string;
-  routingRulesPriorityNote: string;
-  routingRulesTitle: string;
-  routingSummaryDefaultVault: string;
-  routingSummaryEnabledRules: string;
-  routingSummaryRules: string;
-  routingSummaryVaults: string;
-  ruleAddVaultPrompt: string;
-  ruleDeleteConfirm: string;
-  ruleDescriptionHint: string;
-  ruleDescriptionLabel: string;
-  ruleDescriptionPlaceholder: string;
-  ruleEmptyPlaceholder: string;
-  ruleEnabledLabel: string;
-  ruleNoVaultOption: string;
-  rulePatternLabel: string;
-  rulePatternPlaceholder: string;
-  rulePriorityHint: string;
-  rulePriorityLabel: string;
-  ruleTargetVaultLabel: string;
-  ruleTypeDomain: string;
-  ruleTypeKeyword: string;
-  ruleTypeLabel: string;
-  ruleTypeUrlPattern: string;
-  saveButton: string;
-  saveFailed: string;
-  savePrivacySettings: string;
-  saveSuccess: string;
-  schemaAiPlatformChatGptName: string;
-  schemaAiPlatformClaudeName: string;
-  schemaAiPlatformDeepSeekName: string;
-  schemaAiPlatformDoubaoName: string;
-  schemaAiPlatformGeminiName: string;
-  schemaAiPlatformKimiName: string;
-  schemaAiPlatformMonicaName: string;
-  schemaAiPlatformTongyiName: string;
-  schemaCaptureBehaviorFragmentGroupTitle: string;
-  schemaCaptureBehaviorHeroDescription: string;
-  schemaCaptureBehaviorReadingGroupTitle: string;
-  schemaCaptureBehaviorTitle: string;
-  schemaCaptureSourcesAiChatGroupTitle: string;
-  schemaCaptureSourcesDeepResearchGroupTitle: string;
-  schemaCaptureSourcesHeroDescription: string;
-  schemaCaptureSourcesTitle: string;
-  schemaCaptureSourcesVideoGroupTitle: string;
-  schemaCommonDisabledState: string;
-  schemaCommonEnabledState: string;
-  schemaCommonFieldColumnLabel: string;
-  schemaCommonValueColumnLabel: string;
-  schemaExperimentalAiServiceGroupTitle: string;
-  schemaExperimentalApiKeyFieldLabel: string;
-  schemaExperimentalApiUrlFieldLabel: string;
-  schemaExperimentalHeroDescription: string;
-  schemaExperimentalModelFieldLabel: string;
-  schemaExperimentalPageSummaryGroupTitle: string;
-  schemaExperimentalPageSummaryToggleDescription: string;
-  schemaExperimentalPageSummaryToggleTitle: string;
-  schemaExperimentalProviderFieldLabel: string;
-  schemaExperimentalReadingOverlayToggleDescription: string;
-  schemaExperimentalReadingOverlayToggleTitle: string;
-  schemaExperimentalSubtitleGroupTitle: string;
-  schemaExperimentalSubtitleTargetRowDescription: string;
-  schemaExperimentalSubtitleTargetRowTitle: string;
-  schemaExperimentalSubtitleToggleDescription: string;
-  schemaExperimentalSubtitleToggleTitle: string;
-  schemaExperimentalTitle: string;
-  schemaMaintenanceDiagnosisButton: string;
-  schemaMaintenanceDiagnosisGroupTitle: string;
-  schemaMaintenanceFixButton: string;
-  schemaMaintenanceHeroDescription: string;
-  schemaMaintenanceReloadButton: string;
-  schemaMaintenanceTitle: string;
-  schemaMaintenanceTransferCopyButton: string;
-  schemaMaintenanceTransferGroupTitle: string;
-  schemaMaintenanceTransferImportButton: string;
-  schemaMaintenanceTransferLastActionNoticeTitle: string;
-  schemaMaintenanceTransferLogCopySuccess: string;
-  schemaMaintenanceTransferLogImportSuccess: string;
-  schemaNavCaptureBehaviorHint: string;
-  schemaNavCaptureSourcesHint: string;
-  schemaNavExperimentalHint: string;
-  schemaNavMaintenanceHint: string;
-  schemaNavOutputHint: string;
-  schemaNavOverviewHint: string;
-  schemaNavStorageHint: string;
-  schemaOutputDomainMappingsGroupTitle: string;
-  schemaOutputHeroDescription: string;
-  schemaOutputTemplatesGroupTitle: string;
-  schemaOutputTitle: string;
-  schemaOutputYamlGroupTitle: string;
-  schemaOverviewHeroDescription: string;
-  schemaOverviewInterfaceGroupTitle: string;
-  schemaOverviewLanguageRowDescription: string;
-  schemaOverviewLanguageRowTitle: string;
-  schemaOverviewPrivacyGroupTitle: string;
-  schemaOverviewTitle: string;
-  schemaOverviewUsageGroupTitle: string;
-  schemaReadingPathModeArticleLabel: string;
-  schemaReadingPathModeCustomLabel: string;
-  schemaReadingPathModeFragmentLabel: string;
-  schemaResourceChangelogHint: string;
-  schemaResourceChangelogTitle: string;
-  schemaResourceContactChannelsGroupTitle: string;
-  schemaResourceContactDescription: string;
-  schemaResourceContactEmailDescription: string;
-  schemaResourceContactEmailTitle: string;
-  schemaResourceContactGithubDescription: string;
-  schemaResourceContactGithubTitle: string;
-  schemaResourceContactHint: string;
-  schemaResourceContactRedditDescription: string;
-  schemaResourceContactRedditTitle: string;
-  schemaResourceContactTitle: string;
-  schemaResourceContactWechatDescription: string;
-  schemaResourceContactWechatNote: string;
-  schemaResourceContactWechatTitle: string;
-  schemaResourceOnboardingHint: string;
-  schemaResourceOnboardingTitle: string;
-  schemaResourcePluginSetupChecklist1: string;
-  schemaResourcePluginSetupChecklist2: string;
-  schemaResourcePluginSetupChecklist3: string;
-  schemaResourcePluginSetupChecklist4: string;
-  schemaResourcePluginSetupChecklist5: string;
-  schemaResourcePluginSetupChecklistGroupTitle: string;
-  schemaResourcePluginSetupDescription: string;
-  schemaResourcePluginSetupFieldApiKey: string;
-  schemaResourcePluginSetupFieldHttpsUrl: string;
-  schemaResourcePluginSetupFieldHttpUrl: string;
-  schemaResourcePluginSetupFieldVault: string;
-  schemaResourcePluginSetupGoToStorageButton: string;
-  schemaResourcePluginSetupHint: string;
-  schemaResourcePluginSetupRecommendedValuesGroupTitle: string;
-  schemaResourcePluginSetupSetupFlowGroupTitle: string;
-  schemaResourcePluginSetupStep1: string;
-  schemaResourcePluginSetupStep2: string;
-  schemaResourcePluginSetupStep3: string;
-  schemaResourcePluginSetupStep4: string;
-  schemaResourcePluginSetupStep5: string;
-  schemaResourcePluginSetupTitle: string;
-  schemaResourcesGroupTitle: string;
-  schemaResourceSuggestionsChannelsGroupTitle: string;
-  schemaResourceSuggestionsDescription: string;
-  schemaResourceSuggestionsGithubDescription: string;
-  schemaResourceSuggestionsGithubTitle: string;
-  schemaResourceSuggestionsHint: string;
-  schemaResourceSuggestionsRedditDescription: string;
-  schemaResourceSuggestionsRedditTitle: string;
-  schemaResourceSuggestionsTitle: string;
-  schemaResourceSuggestionsXiaohongshuDescription: string;
-  schemaResourceSuggestionsXiaohongshuTitle: string;
-  schemaResourceSupportAfdianDescription: string;
-  schemaResourceSupportAfdianTitle: string;
-  schemaResourceSupportChannelsGroupTitle: string;
-  schemaResourceSupportDescription: string;
-  schemaResourceSupportEmailDescription: string;
-  schemaResourceSupportEmailTitle: string;
-  schemaResourceSupportHint: string;
-  schemaResourceSupportKoFiDescription: string;
-  schemaResourceSupportKoFiTitle: string;
-  schemaResourceSupportScope1: string;
-  schemaResourceSupportScope2: string;
-  schemaResourceSupportScope3: string;
-  schemaResourceSupportScope4: string;
-  schemaResourceSupportScopeGroupTitle: string;
-  schemaResourceSupportTitle: string;
-  schemaSidebarSettingsGroupTitle: string;
-  schemaStorageHeroDescription: string;
-  schemaStorageRoutingGroupTitle: string;
-  schemaStorageTitle: string;
-  schemaStorageVaultsGroupTitle: string;
-  schemaYamlFilterAiChatLabel: string;
-  schemaYamlFilterAllLabel: string;
-  schemaYamlFilterArticleLabel: string;
-  schemaYamlFilterClipperLabel: string;
-  schemaYamlFilterVideoLabel: string;
-  scriptInjectionFailed: string;
-  settingsTitle: string;
-  skipOnboarding: string;
-  step1ActionPrimary: string;
-  step1ActionSecondary: string;
-  step1Description: string;
-  step1Detail1: string;
-  step1Detail2: string;
-  step1Detail3: string;
-  step1Detail4: string;
-  step1Detail5: string;
-  step1Detail6: string;
-  step1Title: string;
-  step2ActionPrimary: string;
-  step2ActionSecondary: string;
-  step2Description: string;
-  step2Detail1: string;
-  step2Detail2: string;
-  step2Detail3: string;
-  step2Detail4: string;
-  step2Title: string;
-  step3ActionPrimary: string;
-  step3ActionSecondary: string;
-  step3Description: string;
-  step3Section1Detail1: string;
-  step3Section1Detail2: string;
-  step3Section1Title: string;
-  step3Section2Detail1: string;
-  step3Section2Detail2: string;
-  step3Section2Detail3: string;
-  step3Section2Detail4: string;
-  step3Section2Detail5: string;
-  step3Section2Detail6: string;
-  step3Section2Title: string;
-  step3Section3Detail1: string;
-  step3Section3Detail2: string;
-  step3Section3Detail3: string;
-  step3Section3Detail4: string;
-  step3Section3Title: string;
-  step3Title: string;
-  step4ActionPrimary: string;
-  step4ActionSecondary: string;
-  step4Description: string;
-  step4Detail1: string;
-  step4Detail2: string;
-  step4Detail3: string;
-  step4Detail4: string;
-  step4Title: string;
-  step5ActionPrimary: string;
-  step5ActionSecondary: string;
-  step5Description: string;
-  step5Detail1: string;
-  step5Detail2: string;
-  step5Detail3: string;
-  step5Title: string;
-  suggestionsModalDescription: string;
-  suggestionsModalGithub: string;
-  suggestionsModalQrPlaceholder: string;
-  suggestionsModalReddit: string;
-  suggestionsModalTitle: string;
-  suggestionsModalXiaohongshu: string;
-  supportLinkAfdian: string;
-  supportLinkKofi: string;
-  supportModalDescription: string;
-  supportModalTitle: string;
-  supportPromptAfdianDescription: string;
-  supportPromptAfdianTitle: string;
-  supportPromptDialogLabel: string;
-  supportPromptDislikeLabel: string;
-  supportPromptDislikeQrLinkLabel: string;
-  supportPromptDislikeQrPlaceholder: string;
-  supportPromptDislikeRedditLinkLabel: string;
-  supportPromptDislikeToastTitle: string;
-  supportPromptDismiss: string;
-  supportPromptFeedbackGroupLabel: string;
-  supportPromptGithubDescription: string;
-  supportPromptGithubTitle: string;
-  supportPromptKoFiDescription: string;
-  supportPromptKoFiTitle: string;
-  supportPromptLikeLabel: string;
-  supportPromptLikeThankYou: string;
-  supportPromptReviewAcknowledgedLabel: string;
-  supportPromptReviewLinkLabel: string;
-  supportPromptStatusFailure: string;
-  supportPromptStatusFailureWithReason: string;
-  supportPromptStatusSuccess: string;
-  supportPromptStatusSuccessWithVault: string;
-  supportPromptStatusWarning: string;
-  supportPromptStatusWarningWithReason: string;
-  supportPromptTitle: string;
-  taxonomyHint: string;
-  taxonomyLabel: string;
-  templateConfigHint: string;
-  templateConfigTitle: string;
-  templatesAutoSaved: string;
-  templatesSummaryAi: string;
-  templatesSummaryArticle: string;
-  templatesSummaryDomainMappings: string;
-  templatesSummaryFragment: string;
-  templatesSummaryReading: string;
-  templateVariableNote: string;
-  testConnectionButton: string;
-  testConnectionButton_short: string;
-  transferSummaryCopy: string;
-  transferSummaryImport: string;
-  usageAiLabel: string;
-  usageArticleLabel: string;
-  usageDashboardSubtitle: string;
-  usageDashboardTitle: string;
-  usageFragmentLabel: string;
-  usageTotalLabel: string;
-  userNameHint: string;
-  userNameLabel: string;
-  userNamePlaceholder: string;
-  vaultNameHint: string;
-  vaultNameLabel: string;
-  vaultNamePlaceholder: string;
-  vaultRulesTitle: string;
-  versionNumber: string;
-  videoCaptureCancelLabel: string;
-  videoCaptureDeleteLabel: string;
-  videoCaptureEditLabel: string;
-  videoCaptureEditPlaceholder: string;
-  videoCaptureFocusLabel: string;
-  videoCaptureNoComment: string;
-  videoCaptureSaveLabel: string;
-  videoConfigHint: string;
-  videoConfigTitle: string;
-  videoEnableButton: string;
-  videoFloatingPromptHint: string;
-  videoFloatingPromptLabel: string;
-  videoFragmentSectionTitle: string;
-  videoHintExporting: string;
-  videoHintFailure: string;
-  videoHintNoCaptures: string;
-  videoHintNoVideo: string;
-  videoHintReady: string;
-  videoHintSaving: string;
-  videoPanelAdd: string;
-  videoPanelCancel: string;
-  videoPanelCounter: string;
-  videoPanelCounterZero: string;
-  videoPanelFinish: string;
-  videoPanelHint: string;
-  videoPanelStatus: string;
-  videoPanelTitle: string;
-  videoPlatformBilibiliDescription: string;
-  videoPlatformBilibiliName: string;
-  videoPlatformSupportedBadge: string;
-  videoPlatformYoutubeDescription: string;
-  videoPlatformYoutubeName: string;
-  videoPromptAction: string;
-  videoPromptCustomizationTitle: string;
-  videoPromptDescription: string;
-  videoPromptDismiss: string;
-  videoPromptLabelHint: string;
-  videoPromptLabelPlaceholder: string;
-  videoPromptLabelTitle: string;
-  videoPromptShortcutHint: string;
-  videoPromptShortcutPlaceholder: string;
-  videoPromptShortcutTitle: string;
-  videoPromptTitle: string;
-  videoSaveConfigButton: string;
-  videoSummaryFloatingPrompt: string;
-  videoSupportedPlatformsTitle: string;
-  videoTimestampSectionTitle: string;
-  yamlConfigAutoSaved: string;
-  yamlConfigHint: string;
-  yamlConfigMigrated: string;
-  yamlConfigNote: string;
-  yamlConfigPlaceholder: string;
-  yamlConfigTitle: string;
-  yamlCustomGroupLabel: string;
-  yamlDefaultGroupLabel: string;
-  yamlDomainAddField: string;
-  yamlDomainAddRule: string;
-  yamlDomainContentTypeLabel: string;
-  yamlDomainEmpty: string;
-  yamlDomainErrorDomainDuplicate: string;
-  yamlDomainErrorDomainRequired: string;
-  yamlDomainErrorFieldDuplicate: string;
-  yamlDomainErrorFieldRequired: string;
-  yamlDomainErrorFieldUnsupported: string;
-  yamlDomainErrorValueInvalid: string;
-  yamlDomainErrorValuePathInvalid: string;
-  yamlDomainFieldArrayHint: string;
-  yamlDomainFieldArrayPlaceholder: string;
-  yamlDomainFieldArrayPreviewEmpty: string;
-  yamlDomainFieldEmpty: string;
-  yamlDomainFieldEnabled: string;
-  yamlDomainFieldRemove: string;
-  yamlDomainFieldValuePlaceholder: string;
-  yamlDomainHint: string;
-  yamlDomainPlaceholder: string;
-  yamlDomainRemoveRule: string;
-  yamlDomainTitle: string;
-  yamlDomainValuePathLabel: string;
-  yamlDomainValuePathPlaceholder: string;
-  yamlDomainWarningUnresolved: string;
-  yamlFieldActionsLabel: string;
-  yamlFieldAddButton: string;
-  yamlFieldAdvancedHideLabel: string;
-  yamlFieldAdvancedShowLabel: string;
-  yamlFieldAiLabel: string;
-  yamlFieldArrayHint: string;
-  yamlFieldArrayPlaceholder: string;
-  yamlFieldArrayPreviewEmpty: string;
-  yamlFieldArticleLabel: string;
-  yamlFieldAvailabilityNote: string;
-  yamlFieldClipperLabel: string;
-  yamlFieldCustomNamePlaceholder: string;
-  yamlFieldDefaultPlaceholder: string;
-  yamlFieldDefaultValueLabel: string;
-  yamlFieldDeleteButton: string;
-  yamlFieldErrorNameDuplicate: string;
-  yamlFieldErrorNamePattern: string;
-  yamlFieldErrorNameRequired: string;
-  yamlFieldErrorValueInvalid: string;
-  yamlFieldErrorValuePathInvalid: string;
-  yamlFieldNameLabel: string;
-  yamlFieldSaveBlockedWarning: string;
-  yamlFieldTypeLabel: string;
-  yamlFieldValuePathExamples: string;
-  yamlFieldValuePathExamplesTitle: string;
-  yamlFieldValuePathHint: string;
-  yamlFieldValuePathLabel: string;
-  yamlFieldValuePathPlaceholder: string;
-  yamlFieldVideoLabel: string;
-  yamlFilterAllLabel: string;
-}
+export type GeneratedMessages = Record<GeneratedMessageKey, string>;
