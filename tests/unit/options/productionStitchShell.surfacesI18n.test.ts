@@ -61,6 +61,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   videoPromptDismiss: 'Video Prompt Dismiss Sentinel',
   schemaRuntimeTaskSuccessTitle: 'Task Success Sentinel',
   schemaRuntimeTaskSuccessDescription: 'Task Success Description Sentinel',
+  schemaRuntimeTaskSuccessProgressAriaLabel: 'Task Progress Aria Sentinel',
+  schemaRuntimeTaskSuccessStatusDetail: 'Task Status Detail Sentinel',
   supportPromptTitle: 'Support Prompt Title Sentinel',
   supportPromptKoFiTitle: 'Ko-fi Title Sentinel',
   supportPromptKoFiDescription: 'Ko-fi Description Sentinel',
@@ -264,6 +266,12 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(taskSuccess.querySelector('.task-header-status')?.textContent).toBe(
       'Task Status Sentinel Research Vault'
     );
+    expect(
+      queryRequired<HTMLElement>('[role="progressbar"]', taskSuccess).getAttribute('aria-label')
+    ).toBe('Task Progress Aria Sentinel');
+    expect(taskSuccess.querySelector('.task-status-detail')?.textContent).toBe(
+      'Task Status Detail Sentinel'
+    );
     expect(taskSuccess.textContent).toContain('Ko-fi Title Sentinel');
     expect(taskSuccess.textContent).toContain('Ko-fi Description Sentinel');
     expect(taskSuccess.textContent).toContain('Afdian Title Sentinel');
@@ -271,5 +279,7 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(taskSuccess.textContent).toContain('Like Label Sentinel');
     expect(taskSuccess.textContent).toContain('Dislike Label Sentinel');
     expect(taskSuccess.textContent).toContain('Task Dismiss Sentinel');
+    expect(taskSuccess.textContent).not.toContain('整页内容已按当前仓库路由写入');
+    expect(taskSuccess.textContent).not.toContain('Articles/Research/2026');
   });
 });

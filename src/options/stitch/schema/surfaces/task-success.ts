@@ -23,6 +23,12 @@ const schema: ResourceSchema = {
       ctx.t?.('supportPromptDislikeLabel', surface.dislikeLabel) ?? surface.dislikeLabel;
     const dismissLabel =
       ctx.t?.('supportPromptDismiss', surface.dismissLabel) ?? surface.dismissLabel;
+    const statusDetail = surface.statusDetail
+      ? (ctx.t?.('schemaRuntimeTaskSuccessStatusDetail', surface.statusDetail) ??
+        surface.statusDetail)
+      : null;
+    const progressAriaLabel =
+      ctx.t?.('schemaRuntimeTaskSuccessProgressAriaLabel', 'Send progress') ?? 'Send progress';
 
     return {
       id: 'task-success',
@@ -43,15 +49,15 @@ const schema: ResourceSchema = {
                 ]),
                 div('task-status-copy', [
                   element('span', { className: 'task-header-status', text: statusMessage }),
-                  surface.statusDetail
+                  statusDetail
                     ? element('span', {
                         className: 'task-status-detail',
-                        text: surface.statusDetail
+                        text: statusDetail
                       })
                     : null
                 ])
               ]),
-              taskProgress(surface.progress),
+              taskProgress(surface.progress, progressAriaLabel),
               surfaceBody('task-success-body', [
                 supportStrip(supportLinks),
                 div('task-feedback-card', [
@@ -75,7 +81,10 @@ const schema: ResourceSchema = {
   }
 };
 
-function taskProgress(progress: { value: number; variant: string } | undefined): NodeSchema {
+function taskProgress(
+  progress: { value: number; variant: string } | undefined,
+  ariaLabel: string
+): NodeSchema {
   const value = Math.max(0, Math.min(100, Number(progress?.value ?? 0)));
   const variant = progress?.variant ?? 'progress';
   return div('task-progress-shell', [
@@ -84,7 +93,7 @@ function taskProgress(progress: { value: number; variant: string } | undefined):
       {
         className: `task-progress-track is-${variant}`,
         role: 'progressbar',
-        ariaLabel: '发送进度',
+        ariaLabel,
         dataset: { role: 'task-progress' },
         style: { '--task-progress-value': `${value}%` }
       },
