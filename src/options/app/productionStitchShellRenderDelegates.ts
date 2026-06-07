@@ -9,7 +9,7 @@ import type {
   ViewSchema
 } from '@options/stitch/types';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
-import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycle';
+import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
 
 interface ProductionStitchShellSchemaRendererOptions {
   createSchemaContext(): SchemaContext;

@@ -7,52 +7,28 @@ import {
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
-import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
-import type { Language } from '@i18n';
+import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
 import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
-
-interface ProductionStitchRenderWidgetHost {
-  createWidgetFactory(widgetType: string): unknown;
-  destroyWidgets(): void;
-  flushDirtyWidgets(): void;
-  mountWidget(widgetType: string, host: HTMLElement): void;
-}
-
-interface ProductionStitchSchemaRenderer {
-  renderView(view: never): HTMLElement;
-}
-
-interface ProductionStitchRenderLifecycleOptions {
-  mountRoot: HTMLElement;
-  getAppData(): PreviewContent;
-  getCurrentLanguage(): Language;
-  getState(): PreviewStoreState;
-  setState(state: PreviewStoreState): void;
-  createSchemaContext(): SchemaContext;
-  dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
-  schemaRenderer: ProductionStitchSchemaRenderer;
-  widgetHost: ProductionStitchRenderWidgetHost;
-}
-
-export interface ProductionStitchRenderLifecycle {
-  applySystemThemePreferenceChange: () => void;
-  cleanup: () => void;
-  openResource: (resourceId: string) => void;
-  render: () => void;
-  renderActiveResourceModal: () => void;
-  scrollToPanel: (panelId: string) => void;
-  syncHighlightThemeControls: () => void;
-  syncModifierControls: () => void;
-  syncPreviewThemeControls: () => void;
-}
+import type {
+  ProductionStitchRenderLifecycle,
+  ProductionStitchRenderLifecycleOptions,
+  ProductionStitchTestAssets
+} from './productionStitchRenderLifecycleTypes';
 
 export function createProductionStitchRenderLifecycle(
   options: ProductionStitchRenderLifecycleOptions
 ): ProductionStitchRenderLifecycle {
+  const testAssets = (
+    globalThis as typeof globalThis & {
+      __AIIINOB_TEST_STITCH_ASSETS__?: ProductionStitchTestAssets;
+    }
+  ).__AIIINOB_TEST_STITCH_ASSETS__;
+  const getFooterMeta = options.getFooterMeta ?? testAssets?.getFooterMeta ?? (() => null);
+  const getFooterView = options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
+  const getSettingsView = options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
   const { mountRoot } = options;
   const controls = createProductionStitchRenderControls({
     mountRoot,

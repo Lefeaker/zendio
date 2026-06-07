@@ -178,11 +178,7 @@ export interface VideoSurfaceCapture {
   editing?: boolean;
 }
 
-export interface ToastPreview {
-  title: string;
-  detail: string;
-  actions?: string[];
-}
+export type ToastPreview = { title: string; detail: string; actions?: string[] };
 
 export interface PreviewSurfaces {
   clipper: {
@@ -403,7 +399,6 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
-  // Keep P01 backward-compatible with existing preview/runtime fixtures outside this milestone.
   language?: string;
   messages?: Messages | null;
   t?: SchemaTranslator;
@@ -737,12 +732,10 @@ export interface ViewSchema {
   children?: NodeSchema[];
 }
 
-export interface ResourceSchema {
+export type ResourceSchema = {
   openMode: 'modal' | 'page';
   href?: string;
   createView: (ctx: SchemaContext) => ViewSchema;
-}
+};
 
-export interface SettingsSchema {
-  createView: (ctx: SchemaContext) => ViewSchema;
-}
+export type SettingsSchema = { createView: (ctx: SchemaContext) => ViewSchema };

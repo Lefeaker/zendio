@@ -1,4 +1,3 @@
-import { mergeOptions } from '@shared/config/optionsMerger';
 import { configProvider } from '@shared/config/provider';
 import {
   DEFAULT_USAGE_STATS,
@@ -13,17 +12,14 @@ import type { UsageStats } from '@shared/types/usage';
 import type { Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
-import {
-  parseConfigInput,
-  readConfigTextFromClipboard,
-  writeToClipboard
-} from '@options/services/configTransfer';
+import { writeToClipboard } from '@options/services/configTransfer';
 import {
   getAnalyticsConfigManager,
   setAnalyticsConsent
 } from '@shared/errors/analytics/analyticsConfig';
 import { updateErrorAnalyticsConfig } from '@shared/errors/analytics';
 import { serializeOptionsFullBackup } from './productionStitchConfigExport';
+import { readImportedConfigurationFromClipboard } from './productionStitchConfigImport';
 import { prepareAnalyticsDataClearedEvent } from './productionStitchFinalAnalyticsEvent';
 import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
@@ -240,25 +236,10 @@ export function createProductionStitchPersistence(
     }
   }
 
-  async function readImportedConfigurationFromClipboard(): Promise<{
-    analytics: Awaited<ReturnType<typeof parseConfigInput>>['analytics'];
-    analyticsPayloadPresent: boolean;
-    imported: CompleteOptions;
-    version: Awaited<ReturnType<typeof parseConfigInput>>['version'];
-  }> {
-    const parsed = parseConfigInput(await readConfigTextFromClipboard());
-    return {
-      analytics: parsed.analytics,
-      analyticsPayloadPresent: parsed.analytics !== undefined,
-      imported: mergeOptions(parsed.options) as CompleteOptions,
-      version: parsed.version
-    };
-  }
-
   async function importConfigurationFromClipboard(configuration: {
-    analytics: Awaited<ReturnType<typeof parseConfigInput>>['analytics'];
+    analytics: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['analytics'];
     imported: CompleteOptions;
-    version: Awaited<ReturnType<typeof parseConfigInput>>['version'];
+    version: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['version'];
   }): Promise<void> {
     await options.controller.applyImportedConfig(configuration.imported);
     options.setDraft(configuration.imported);

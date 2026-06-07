@@ -13,24 +13,30 @@ function renderLocaleConstantName(code: string): string {
     .toUpperCase()}`;
 }
 
-function renderLocaleMessages(messages: Record<string, string>): string[] {
-  return [
-    '{',
-    ...Object.entries(messages).map(
-      ([key, value]) => `    ${renderKey(key)}: ${JSON.stringify(value)},`
-    ),
-    '  }'
-  ];
+function renderPackedArray(values: string[], indent = '  ', groupSize = 6): string[] {
+  const lines: string[] = [];
+
+  for (let index = 0; index < values.length; index += groupSize) {
+    lines.push(
+      `${indent}${values
+        .slice(index, index + groupSize)
+        .map((value) => renderKey(value))
+        .join(', ')}${index + groupSize >= values.length ? '' : ','}`
+    );
+  }
+
+  return lines;
+}
+
+function renderJsonParse(value: unknown, typeName: string): string {
+  return `JSON.parse(${JSON.stringify(JSON.stringify(value))}) as ${typeName}`;
 }
 
 export function emitGeneratedLocales(compiled: CompiledCatalog): string {
-  const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
     return [
-      `export const ${renderLocaleConstantName(code)}: GeneratedMessages = ${renderLocaleMessages(
-        locale
-      ).join('\n')};`,
+      `export const ${renderLocaleConstantName(code)} = ${renderJsonParse(locale, 'GeneratedMessages')};`,
       ''
     ];
   });
@@ -47,7 +53,7 @@ export function emitGeneratedLocales(compiled: CompiledCatalog): string {
     'export type GeneratedLocaleRegistry = Record<ReleaseLangCode, GeneratedMessages>;',
     '',
     'export const GENERATED_RELEASE_LOCALE_CODES = [',
-    ...localeCodeLines,
+    ...renderPackedArray(compiled.localeCodes),
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
     ...localeConstantLines,

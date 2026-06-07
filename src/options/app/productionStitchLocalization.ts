@@ -1,5 +1,4 @@
 import type { Language, Messages } from '@i18n';
-import { previewContent } from '@options/stitch/content';
 import {
   createSchemaTranslator,
   type SchemaMessageKey,
@@ -140,9 +139,10 @@ function localizeVideoSurface(
 
 export function localizeStitchContent(
   content: PreviewContent,
-  options: { language: Language; messages: Messages | null }
+  options: { language: Language; messages: Messages | null; previewContent?: PreviewContent }
 ): PreviewContent {
   const t = createSchemaTranslator(options.messages);
+  const previewContent = options.previewContent ?? content;
 
   return {
     ...content,

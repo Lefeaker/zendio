@@ -1,5 +1,4 @@
 import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
-import { GENERATED_RELEASE_LOCALE_REGISTRY } from '@i18n/generated/localeRegistry.generated';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type {
   ProductionStitchStorageControllerOptions,
@@ -17,14 +16,7 @@ export function createProductionStitchStorageFeedback(
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageFeedback {
   function resolveCurrentMessages(): Messages {
-    const language = options.getState().previewLanguage;
-    return GENERATED_RELEASE_LOCALE_REGISTRY[
-      language as keyof typeof GENERATED_RELEASE_LOCALE_REGISTRY
-    ]
-      ? (GENERATED_RELEASE_LOCALE_REGISTRY[
-          language as keyof typeof GENERATED_RELEASE_LOCALE_REGISTRY
-        ] as Messages)
-      : DEFAULT_RUNTIME_MESSAGES;
+    return options.getMessages?.() ?? DEFAULT_RUNTIME_MESSAGES;
   }
 
   function getMessage(messages: Messages | null, key: keyof Messages, fallback: string): string {

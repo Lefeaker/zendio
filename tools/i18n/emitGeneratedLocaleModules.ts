@@ -7,14 +7,8 @@ function renderKey(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-function renderMessages(messages: Record<string, string>, indent = '  '): string[] {
-  return [
-    '{',
-    ...Object.entries(messages).map(
-      ([key, value]) => `${indent}${renderKey(key)}: ${JSON.stringify(value)},`
-    ),
-    '}'
-  ];
+function renderJsonParse(value: unknown, typeName: string): string {
+  return `JSON.parse(${JSON.stringify(JSON.stringify(value))}) as ${typeName}`;
 }
 
 function readStaticMessages(compiled: CompiledCatalog, code: string): Record<string, string> {
@@ -39,9 +33,9 @@ function renderLocaleModule(compiled: CompiledCatalog, code: string): string {
     '',
     "import type { LocaleDefinition } from '../../localeDefinition';",
     '',
-    `const runtime = ${renderMessages(compiled.locales[code]).join('\n')};`,
+    `const runtime = ${renderJsonParse(compiled.locales[code], "LocaleDefinition['runtime']")};`,
     '',
-    `const staticMessages = ${renderMessages(readStaticMessages(compiled, code)).join('\n')};`,
+    `const staticMessages = ${renderJsonParse(readStaticMessages(compiled, code), "LocaleDefinition['static']")};`,
     '',
     'const locale: LocaleDefinition = {',
     '  runtime,',

@@ -28,25 +28,30 @@ function renderSchemaConstantName(code: string): string {
     .toUpperCase()}`;
 }
 
-function renderLocaleMessages(messages: Record<string, string>): string[] {
-  return [
-    '{',
-    ...Object.entries(messages).map(
-      ([key, value]) => `    ${renderKey(key)}: ${JSON.stringify(value)},`
-    ),
-    '  }'
-  ];
+function renderPackedArray(values: string[], indent = '  ', groupSize = 6): string[] {
+  const lines: string[] = [];
+
+  for (let index = 0; index < values.length; index += groupSize) {
+    lines.push(
+      `${indent}${values
+        .slice(index, index + groupSize)
+        .map((value) => renderKey(value))
+        .join(', ')}${index + groupSize >= values.length ? '' : ','}`
+    );
+  }
+
+  return lines;
+}
+
+function renderJsonParse(value: unknown, typeName: string): string {
+  return `JSON.parse(${JSON.stringify(JSON.stringify(value))}) as ${typeName}`;
 }
 
 export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
-  const schemaKeyLines = compiled.messageKeys.map((key) => `  ${renderKey(key)},`);
-  const localeCodeLines = compiled.localeCodes.map((code) => `  ${renderKey(code)},`);
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
     return [
-      `export const ${renderSchemaConstantName(code)}: GeneratedSchemaMessages = ${renderLocaleMessages(
-        locale
-      ).join('\n')};`,
+      `export const ${renderSchemaConstantName(code)} = ${renderJsonParse(locale, 'GeneratedSchemaMessages')};`,
       ''
     ];
   });
@@ -69,11 +74,11 @@ export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
     'export type GeneratedSchemaMessages = Record<SchemaMessageKey, string>;',
     '',
     'export const GENERATED_SCHEMA_MESSAGE_KEYS = [',
-    ...schemaKeyLines,
+    ...renderPackedArray(compiled.messageKeys),
     '] as const satisfies readonly SchemaMessageKey[];',
     '',
     'export const GENERATED_RELEASE_SCHEMA_MESSAGE_CODES = [',
-    ...localeCodeLines,
+    ...renderPackedArray(compiled.localeCodes),
     '] as const satisfies readonly ReleaseLangCode[];',
     '',
     ...localeConstantLines,
