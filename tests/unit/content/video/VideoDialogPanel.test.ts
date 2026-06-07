@@ -52,6 +52,19 @@ function createCapture(overrides: Partial<VideoPanelCapture> = {}): VideoPanelCa
   };
 }
 
+function createCaptures(count: number): VideoPanelCapture[] {
+  return Array.from({ length: count }, (_, index) =>
+    createCapture({
+      id: `capture-${index + 1}`,
+      index: index + 1,
+      timeLabel: `0${index}:0${index}`,
+      comment: `saved note ${index + 1}`,
+      commentPreview: `saved note ${index + 1}`,
+      hasScreenshot: false
+    })
+  );
+}
+
 function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -338,15 +351,7 @@ describe('VideoDialogPanel', () => {
   it('stops only the requested capture editor when another capture remains active', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
-    panel.setCaptures(
-      Array.from({ length: 6 }, (_, index) =>
-        createCapture({
-          id: `capture-${index + 1}`,
-          index: index + 1,
-          timeLabel: `0${index}:0${index}`
-        })
-      )
-    );
+    panel.setCaptures(createCaptures(6));
     panel.beginEditingCapture('capture-6', '');
     await Promise.resolve();
 
@@ -363,6 +368,31 @@ describe('VideoDialogPanel', () => {
 
     panel.destroy();
   });
+
+  it.each([1, 2, 5, 6, 7, 8, 12])(
+    'preserves active draft at the last capture across unrelated rerenders for %i captures',
+    async (count) => {
+      const panel = new VideoDialogPanel({ callbacks, texts });
+      panel.show();
+      panel.setCaptures(createCaptures(count));
+      const activeId = `capture-${count}`;
+      panel.beginEditingCapture(activeId, '');
+      await Promise.resolve();
+
+      const draft = `draft for ${activeId}`;
+      const activeInput = requireCaptureInput(panel, activeId);
+      activeInput.value = draft;
+      activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+      panel.updateHint('Saving');
+      panel.setCaptures(createCaptures(count).map((capture) => ({ ...capture })));
+
+      expect(requireCaptureInput(panel, activeId).value).toBe(draft);
+      expect(panel.snapshotCommentDrafts()).toMatchObject({ [activeId]: draft });
+
+      panel.destroy();
+    }
+  );
 
   it('keeps later timestamp drafts stable across six-capture rerenders and screenshot refreshes', async () => {
     const longComment =

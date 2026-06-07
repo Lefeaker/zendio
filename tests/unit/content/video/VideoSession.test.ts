@@ -330,6 +330,14 @@ function seedTimestampCaptures(sessionApi: SessionTestApi, count: number): strin
   return sessionApi.state.captures.map((capture) => capture.id);
 }
 
+function pickUnrelatedCaptureId(ids: string[], activeId: string): string {
+  const unrelatedId = ids.find((id) => id !== activeId);
+  if (!unrelatedId) {
+    throw new Error(`Unable to find unrelated capture for ${activeId}`);
+  }
+  return unrelatedId;
+}
+
 async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
   const candidates = (await listVideoDraftCandidates(deps)) as Array<{
     updatedAt: number;
@@ -685,67 +693,74 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it.each([
-    [
-      'toggle screenshot',
-      async (
-        api: SessionTestApi,
+  const draftMutationCases = [
+    {
+      label: 'submit another capture',
+      act: async (
+        _api: SessionTestApi,
         ids: string[],
+        activeId: string,
         _session: VideoSession,
-        _callbacks: VideoPanelCallbacks
+        callbacks: VideoPanelCallbacks
       ) => {
-        await api.toggleCaptureScreenshot(ids[0]!);
+        const unrelatedId = pickUnrelatedCaptureId(ids, activeId);
+        await requirePromise(callbacks.onSubmitCaptureEdit(unrelatedId, 'edited comment'));
       }
-    ],
-    [
-      'add timestamp',
-      async (
+    },
+    {
+      label: 'add timestamp',
+      act: async (
         api: SessionTestApi,
         _ids: string[],
+        _activeId: string,
         _session: VideoSession,
         _callbacks: VideoPanelCallbacks
       ) => {
         await api.addCurrentTimestamp('button', { beginEditing: false });
       }
-    ],
-    [
-      'ingest fragment',
-      async (
+    },
+    {
+      label: 'toggle screenshot',
+      act: async (
+        api: SessionTestApi,
+        ids: string[],
+        activeId: string,
+        _session: VideoSession,
+        _callbacks: VideoPanelCallbacks
+      ) => {
+        await api.toggleCaptureScreenshot(pickUnrelatedCaptureId(ids, activeId));
+      }
+    },
+    {
+      label: 'ingest fragment',
+      act: async (
         _api: SessionTestApi,
         _ids: string[],
+        _activeId: string,
         session: VideoSession,
         _callbacks: VideoPanelCallbacks
       ) => {
         session.ingestTextCapture('<p>Selected text</p>', 'Selected text', 'fragment note');
       }
-    ],
-    [
-      'delete another capture',
-      async (
+    },
+    {
+      label: 'delete another capture',
+      act: async (
         _api: SessionTestApi,
         ids: string[],
+        activeId: string,
         _session: VideoSession,
         callbacks: VideoPanelCallbacks
       ) => {
-        callbacks.onDeleteCapture(ids[1]!);
+        callbacks.onDeleteCapture(pickUnrelatedCaptureId(ids, activeId));
       }
-    ],
-    [
-      'submit capture edit',
-      async (
-        _api: SessionTestApi,
-        ids: string[],
-        _session: VideoSession,
-        callbacks: VideoPanelCallbacks
-      ) => {
-        await requirePromise(callbacks.onSubmitCaptureEdit(ids[0]!, 'edited comment'));
-      }
-    ],
-    [
-      'select destination',
-      async (
+    },
+    {
+      label: 'select destination',
+      act: async (
         _api: SessionTestApi,
         _ids: string[],
+        _activeId: string,
         _session: VideoSession,
         callbacks: VideoPanelCallbacks
       ) => {
@@ -756,47 +771,76 @@ describe('VideoSession', () => {
         await vi.advanceTimersByTimeAsync(200);
         await selectPromise;
       }
-    ]
-  ])('syncs live sixth draft before %s', async (_label, act) => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const sixthDraft = 'sixth draft that must survive runtime mutation';
-    const view = createView({
-      snapshotCommentDrafts: vi.fn(() => ({ 'timestamp-6': sixthDraft }))
-    });
-    let mountedCallbacks: VideoPanelCallbacks | null = null;
-    const deps = createDependencies();
-    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
-      mountedCallbacks = callbacks;
-      return view;
-    });
-    const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    }
+  ] as const;
 
-    await session.start();
-    const ids = seedTimestampCaptures(sessionApi, 6);
-    sessionApi.state.commentDrafts = {
-      'timestamp-6': 'stale draft that should be replaced'
-    };
-    Object.defineProperty(requireVideoElement(), 'currentTime', {
-      value: 99,
-      configurable: true
-    });
+  const activeDraftCases = [
+    { label: 'first', activeIndex: 1 },
+    { label: 'middle', activeIndex: 4 },
+    { label: 'sixth', activeIndex: 6 },
+    { label: 'last', activeIndex: 8 }
+  ] as const;
 
-    await act(sessionApi, ids, session, requireMountedPanelCallbacks(mountedCallbacks));
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(200);
+  it.each(
+    draftMutationCases.flatMap((mutationCase) =>
+      activeDraftCases.map(
+        (activeCase) =>
+          [activeCase.label, mutationCase.label, activeCase.activeIndex, mutationCase.act] as const
+      )
+    )
+  )(
+    'syncs the %s active draft before %s',
+    async (_activeLabel, _mutationLabel, activeIndex, act) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+      const activeId = `timestamp-${activeIndex}`;
+      const activeDraft = `${activeId} draft that must survive runtime mutation`;
+      const snapshotCommentDrafts = vi.fn(() => ({ [activeId]: activeDraft }));
+      const view = createView({ snapshotCommentDrafts });
+      let mountedCallbacks: VideoPanelCallbacks | null = null;
+      const deps = createDependencies();
+      deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+        mountedCallbacks = callbacks;
+        return view;
+      });
+      const session = new VideoSession(document, deps);
+      const sessionApi = session as unknown as SessionTestApi;
 
-    expect(sessionApi.state.commentDrafts).toMatchObject({
-      'timestamp-6': sixthDraft
-    });
-    expect((await readLatestVideoDraftCandidate(deps))?.payload.commentDrafts).toMatchObject({
-      'timestamp-6': sixthDraft
-    });
+      await session.start();
+      const ids = seedTimestampCaptures(sessionApi, 8);
+      sessionApi.state.commentDrafts = {
+        [activeId]: 'stale draft that should be replaced'
+      };
+      snapshotCommentDrafts.mockClear();
+      Object.defineProperty(requireVideoElement(), 'currentTime', {
+        value: 99,
+        configurable: true
+      });
 
-    sessionApi.cleanup();
-    vi.useRealTimers();
-  });
+      await act(sessionApi, ids, activeId, session, requireMountedPanelCallbacks(mountedCallbacks));
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(sessionApi.state.commentDrafts).toMatchObject({
+        [activeId]: activeDraft
+      });
+      expect(snapshotCommentDrafts).toHaveBeenCalled();
+      await expect(listVideoDraftCandidates(deps)).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              commentDrafts: expect.objectContaining({
+                [activeId]: activeDraft
+              })
+            })
+          })
+        ])
+      );
+
+      sessionApi.cleanup();
+      vi.useRealTimers();
+    }
+  );
 
   it('syncs live sixth draft before pagehide flush persists a restorable draft', async () => {
     vi.useFakeTimers();
