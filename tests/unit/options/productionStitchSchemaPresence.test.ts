@@ -17,7 +17,20 @@ describe('production Stitch schema presence', () => {
       'maintenance'
     );
     expect(getSettingsView('overview', createSchemaContext())).toBeTruthy();
-    expectProductionText('简体中文', 'English', 'Deutsch');
+    expectProductionText(
+      'English',
+      '简体中文',
+      '日本語',
+      'Deutsch',
+      'Français',
+      'Español (España)',
+      'Español (Latinoamérica)',
+      'Italiano',
+      '한국어',
+      'Português (Brasil)',
+      'Русский',
+      '繁體中文'
+    );
   });
 
   it('keeps production navigation represented by production Stitch content and schemas', () => {
