@@ -1,5 +1,11 @@
 import { normalizeToAppError } from '../../shared/errors';
-import type { ClipFlowHandlers, ClipFlowResult, InitClipFlowOptions } from './clipFlowTypes';
+import type { ClipAnalyticsSession } from './clipFlowAnalytics';
+import type {
+  ClipAnalyticsSource,
+  ClipFlowHandlers,
+  ClipFlowResult,
+  InitClipFlowOptions
+} from './clipFlowTypes';
 import {
   handleAutoSelectionClip,
   handleModifierKey,
@@ -13,9 +19,15 @@ export type {
   VideoSelectionController
 } from './clipFlowTypes';
 
+let queuedClipAnalyticsSource: ClipAnalyticsSource | null = null;
+
+export function queueNextClipAnalyticsSource(source: ClipAnalyticsSource): void {
+  queuedClipAnalyticsSource = source;
+}
+
 export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   const {
-    document,
+    document: doc,
     messaging,
     runtimeState,
     selectionTracker,
@@ -26,26 +38,38 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
 
   async function handleClip(): Promise<void> {
     const url = location.href;
-    const doc = document;
     const clipMode = runtimeState.getClipMode();
+    const source = queuedClipAnalyticsSource ?? 'unknown';
+    queuedClipAnalyticsSource = null;
+    let analytics: ClipAnalyticsSession | undefined;
+    try {
+      const { createClipAnalyticsSession } = await import('./clipFlowAnalytics');
+      analytics = createClipAnalyticsSession({ clipMode, document: doc, messaging, source, url });
+    } catch {
+      // Analytics must not block clipping if the lazy telemetry chunk cannot load.
+    }
     if (clipMode !== 'selection') {
       showSupportProgress?.({
         value: 8,
         label: '正在准备网页剪藏'
       });
     }
+    analytics?.emitStarted();
+
     try {
       let result: ClipFlowResult | undefined;
 
       if (clipMode === 'selection') {
         const { prepareSelectionClip } = await import('./clipFlowSelection');
+        const promptLifecycle = analytics?.createSelectionPromptLifecycle();
         result = await prepareSelectionClip(
           doc,
           url,
           runtimeState,
           selectionTracker,
           selectionController,
-          showSupportProgress
+          showSupportProgress,
+          promptLifecycle
         );
         if (!result) {
           return;
@@ -53,6 +77,8 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       } else {
         result = await extractorRegistry.extract({ url, document: doc });
       }
+
+      analytics?.emitExtractionCompleted(result);
 
       const { sendClipResult } = await import('./clipFlowDispatch');
       await sendClipResult(messaging, result, url);
@@ -79,7 +105,18 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
   return {
     handleClip,
     handleAutoSelectionClip: (event) =>
-      handleAutoSelectionClip(document, runtimeState, selectionTracker, handleClip, event),
+      handleAutoSelectionClip(
+        doc,
+        runtimeState,
+        selectionTracker,
+        () => {
+          queueNextClipAnalyticsSource(
+            runtimeState.isSelectionModifierActive() ? 'shortcut' : 'unknown'
+          );
+          return handleClip();
+        },
+        event
+      ),
     handleModifierKey: (event) => handleModifierKey(runtimeState, event),
     handleWindowBlur: () => handleWindowBlur(runtimeState),
     handlePrimaryMouseDown: (event) => handlePrimaryMouseDown(runtimeState, event),

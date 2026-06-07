@@ -14,6 +14,10 @@ const applyHostPermissions = applyRestHostPermissions as (manifest: {
 };
 
 const ENV_KEYS = [
+  'ZENDIO_REST_HTTPS_HOST',
+  'ZENDIO_REST_HTTPS_PORT',
+  'ZENDIO_REST_HTTP_HOST',
+  'ZENDIO_REST_HTTP_PORT',
   'AIIINOB_REST_HTTPS_HOST',
   'AIIINOB_REST_HTTPS_PORT',
   'AIIINOB_REST_HTTP_HOST',
@@ -87,5 +91,47 @@ describe('manifestHosts utilities', () => {
         'http://clipper.example.com:8080/*'
       ])
     );
+  });
+
+  it('applies Zendio REST environment aliases', () => {
+    process.env.ZENDIO_REST_HTTPS_HOST = 'zendio.example.com';
+    process.env.ZENDIO_REST_HTTP_HOST = 'zendio-http.example.com';
+    process.env.ZENDIO_REST_HTTPS_PORT = '9443';
+    process.env.ZENDIO_REST_HTTP_PORT = '9080';
+
+    expect(resolveHostPermissions()).toEqual([
+      'https://zendio.example.com:9443/*',
+      'http://zendio-http.example.com:9080/*'
+    ]);
+  });
+
+  it('prefers Zendio REST aliases over AiiinOB compatibility variables', () => {
+    process.env.AIIINOB_REST_HTTPS_HOST = 'old.example.com';
+    process.env.AIIINOB_REST_HTTP_HOST = 'old-http.example.com';
+    process.env.AIIINOB_REST_HTTPS_PORT = '8443';
+    process.env.AIIINOB_REST_HTTP_PORT = '8080';
+    process.env.ZENDIO_REST_HTTPS_HOST = 'new.example.com';
+    process.env.ZENDIO_REST_HTTP_HOST = 'new-http.example.com';
+    process.env.ZENDIO_REST_HTTPS_PORT = '9443';
+    process.env.ZENDIO_REST_HTTP_PORT = '9080';
+
+    expect(resolveHostPermissions()).toEqual([
+      'https://new.example.com:9443/*',
+      'http://new-http.example.com:9080/*'
+    ]);
+  });
+
+  it('falls back to default ports when Zendio REST aliases provide invalid ports', () => {
+    process.env.AIIINOB_REST_HTTPS_PORT = '8443';
+    process.env.AIIINOB_REST_HTTP_PORT = '8080';
+    process.env.ZENDIO_REST_HTTPS_HOST = 'zendio.example.com';
+    process.env.ZENDIO_REST_HTTP_HOST = 'zendio-http.example.com';
+    process.env.ZENDIO_REST_HTTPS_PORT = 'invalid';
+    process.env.ZENDIO_REST_HTTP_PORT = 'NaN';
+
+    expect(resolveHostPermissions()).toEqual([
+      'https://zendio.example.com:27124/*',
+      'http://zendio-http.example.com:27123/*'
+    ]);
   });
 });

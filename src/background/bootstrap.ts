@@ -5,7 +5,10 @@
 
 import { registry, TOKENS } from '../shared/di';
 import { createErrorHandler } from '../shared/errors/errorHandler';
-import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
+import {
+  configureAnalyticsConfigManager,
+  watchAnalyticsConfigStorage
+} from '../shared/errors/analytics/analyticsConfig';
 import { initializeErrorAnalytics } from '../shared/errors/analytics';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
 import {
@@ -13,11 +16,13 @@ import {
   createGlobalStateManager
 } from '../shared/state/globalStateManager';
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
-import { configureI18nStorage } from '../i18n';
+import { clearQueuedUsageAnalyticsEventsIfConsentRevoked } from './services/analyticsEvents';
+import { configureI18nStorage } from '@i18n';
 import type { StorageService } from '../platform/interfaces/storage';
 
 let backgroundDependencyStorage: StorageService | null = null;
 let cleanupBackgroundErrorBoundary: (() => void) | null = null;
+let cleanupAnalyticsConfigStorageWatch: (() => void) | null = null;
 
 export function configureBackgroundDependencyStorage(storage: StorageService): void {
   backgroundDependencyStorage = storage;
@@ -47,6 +52,11 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
   configureGlobalStateManagerStorage(resolvedStorage);
   configureI18nStorage(resolvedStorage.sync);
   configureUsageStatsStorage(resolvedStorage);
+
+  cleanupAnalyticsConfigStorageWatch?.();
+  cleanupAnalyticsConfigStorageWatch = watchAnalyticsConfigStorage((config) => {
+    clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
+  });
 
   // 注册错误处理器
   const errorHandler = createErrorHandler();
@@ -92,6 +102,11 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
 export function cleanupBackgroundDependencies(): void {
   console.log('[Background] Cleaning up dependencies...');
 
+  cleanupBackgroundErrorBoundary?.();
+  cleanupBackgroundErrorBoundary = null;
+  cleanupAnalyticsConfigStorageWatch?.();
+  cleanupAnalyticsConfigStorageWatch = null;
+
   try {
     // 释放使用统计存储
     if (registry.has(TOKENS.usageStatsStore)) {
@@ -107,9 +122,6 @@ export function cleanupBackgroundDependencies(): void {
     if (registry.has(TOKENS.errorHandler)) {
       registry.dispose(TOKENS.errorHandler);
     }
-
-    cleanupBackgroundErrorBoundary?.();
-    cleanupBackgroundErrorBoundary = null;
 
     console.log('[Background] Dependencies cleaned up successfully');
   } catch (error) {

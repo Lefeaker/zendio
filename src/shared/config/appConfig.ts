@@ -38,8 +38,8 @@ const DEFAULT_FRAGMENT_CLIPPER: FragmentClipperOptions = {
   captureContext: false,
   contextLength: 200,
   contextMode: 'chars',
-  selectionModifierEnabled: false,
-  selectionModifierKeys: [],
+  selectionModifierEnabled: true,
+  selectionModifierKeys: ['shift'],
   keyboardShortcutsEnabled: true
 };
 
@@ -57,7 +57,7 @@ export const CLIPPER_DEFAULTS: ClipperDefaults = Object.freeze({
     httpHost: '127.0.0.1',
     httpPort: 27123,
     basePath: '',
-    vaultName: 'AllInObsidian',
+    vaultName: 'Zendio',
     apiKey: ''
   } satisfies RestDefaults,
   templates: DEFAULT_TEMPLATES,

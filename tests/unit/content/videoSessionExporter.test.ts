@@ -191,6 +191,58 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload?.attachments).toEqual(payload.meta.attachments);
   });
 
+  it('omits missing requested screenshots without attachments or recapture work', async () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+
+    const payload = exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshotRequested: true
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    expect(payload.markdown).not.toContain('![Screenshot]');
+    expect(payload.meta).not.toHaveProperty('attachments');
+
+    await exporter.export({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshotRequested: true
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    const [clipPayload] = sendVideoClipMock.mock.calls.at(-1) ?? [];
+    expect(clipPayload?.attachments).toBeUndefined();
+    expect(clipPayload?.content).not.toContain('![Screenshot]');
+  });
+
   it('separates video timestamp entries with blank lines and nests screenshots under each item', () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const messages: VideoSessionMessages = {

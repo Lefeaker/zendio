@@ -1,6 +1,6 @@
 # Chrome 扩展上架全流程指南
 
-> 目标：指导 AiiinOB 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
+> 目标：指导 Zendio 团队完成 Chrome Web Store 上架，全流程覆盖账号、素材、构建、审核和上线后的维护事项，可作为每次发布的检查清单。
 
 ## 阶段 0：立项与责任人
 
@@ -38,7 +38,7 @@
 - [ ] 商店名称（≤45 字符）与短描述（≤132 字符）：突出核心价值，建议中英文各一份。
 - [ ] 长描述（≤2000 字符）：结构建议包含痛点、主要功能、权限说明、隐私承诺、更新亮点；可复用 `README.md` 中的 “Feature Highlights” 与 “Latest Enhancements”。
 - [ ] 权限说明：将 `README.md` 里的权限表转换为自然语言段落，填入后台 “Required Permissions Justification”。
-- [ ] 本地化：如需多语言展示，在 `/_locales/<lang>/messages.json` 中补充 `appName`、`appShortName`、`appDesc` 等字段，并在 `manifest.json` 中配置 `default_locale`。
+- [ ] 本地化：如需多语言展示，修改 `src/i18n/catalog/messages/<lang>/static.json` 中的 WebExtension static 文案，随后运行 `npm run i18n:catalog:generate`、`npm run i18n:catalog:check`、`npm run i18n:lint`、`npm run audit:locales:report`；`public/_locales/**` 是生成产物，不手写。
 
 ## 阶段 4：功能与质量验证
 
@@ -53,7 +53,7 @@
 
 ## 阶段 5：提交审核
 
-- [ ] 使用 `zip -r all-in-ob-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
+- [ ] 使用 `zip -r zendio-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
 - [ ] 真实发布前由 owner 手动确认 zip 路径、版本号、权限问卷和 CWS credentials。真实发布命令为 `npm run release:chrome:publish -- --zip <release.zip>`；禁止依赖当前目录唯一 zip 的自动选择。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
@@ -91,7 +91,7 @@
 
 ## 附录：建议的资料清单
 
-- 发布压缩包：`releases/all-in-ob-vX.Y.Z.zip`
+- 发布压缩包：`releases/zendio-vX.Y.Z.zip`
 - 构建产物校验记录（截图或命令行输出）
 - 测试结果文档（可放在 `docs/structure/` 或 issue 链接）
 - 隐私政策链接与备份 PDF

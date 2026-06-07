@@ -4,6 +4,7 @@ import {
   type ClipPipelineDependencies
 } from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
+import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyExtractionError } from '../services/notifications';
 import { z } from 'zod';
 import {
@@ -27,7 +28,6 @@ import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
 import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
 
@@ -38,29 +38,53 @@ const OpenOptionsPageMessageSchema = z.object({
   section: z.string().optional()
 });
 
+const GetTabContextMessageSchema = z.object({
+  type: z.literal('AIIOB_GET_TAB_CONTEXT')
+});
+const RuntimeOwnerContextSchema = z
+  .object({
+    tabId: z.number().int().nonnegative().optional(),
+    windowId: z.number().int().nonnegative().optional(),
+    frameId: z.number().int().nonnegative().optional()
+  })
+  .refine(
+    (value) =>
+      value.tabId !== undefined || value.windowId !== undefined || value.frameId !== undefined
+  );
+const IsTabContextActiveMessageSchema = z.object({
+  type: z.literal('AIIOB_IS_TAB_CONTEXT_ACTIVE'),
+  ownerContext: RuntimeOwnerContextSchema
+});
+
 type OpenOptionsPageMessage = z.infer<typeof OpenOptionsPageMessageSchema>;
+type GetTabContextMessage = z.infer<typeof GetTabContextMessageSchema>;
+type IsTabContextActiveMessage = z.infer<typeof IsTabContextActiveMessageSchema>;
+type RuntimeMessageSender = { tabId?: number; frameId?: number; windowId?: number };
+type RuntimeMessageSenderInput = {
+  tabId?: number | undefined;
+  frameId?: number | undefined;
+  windowId?: number | undefined;
+};
+type RuntimeTabContextPayload = Record<string, MessagePayload>;
+
+function toRuntimeMessageSender(value: RuntimeMessageSenderInput): RuntimeMessageSender {
+  return {
+    ...(typeof value.tabId === 'number' ? { tabId: value.tabId } : {}),
+    ...(typeof value.frameId === 'number' ? { frameId: value.frameId } : {}),
+    ...(typeof value.windowId === 'number' ? { windowId: value.windowId } : {})
+  };
+}
 
 function isOpenOptionsPageMessage(message: unknown): message is OpenOptionsPageMessage {
   return OpenOptionsPageMessageSchema.safeParse(message).success;
 }
 
-function toConnectionTestPayload(result: ConnectionTestResult): MessagePayload {
-  const payload: Record<string, MessagePayload> = {
-    success: result.success,
-    message: result.message
-  };
+function isGetTabContextMessage(message: unknown): message is GetTabContextMessage {
+  return GetTabContextMessageSchema.safeParse(message).success;
+}
 
-  if (result.status !== undefined) {
-    payload.status = result.status;
-  }
-  if (result.response !== undefined) {
-    payload.response = result.response;
-  }
-  if (result.error !== undefined) {
-    payload.error = result.error;
-  }
-
-  return payload;
+function isTabContextActiveMessage(message: unknown): message is IsTabContextActiveMessage {
+  return IsTabContextActiveMessageSchema.safeParse(message).success;
 }
 
 function isRepositoryContentMessage(
@@ -130,11 +154,13 @@ export interface RuntimeMessageListenerDependencies {
   messaging: Pick<MessagingService, 'addListener'>;
   clipPipeline: ClipPipelineDependencies;
   openOptionsPage(section?: string): Promise<void>;
+  getTabContext(sender: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
+  isTabContextActive(ownerContext: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
 }
 
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
-  tabs: Pick<TabsService, 'create' | 'sendMessage'>,
+  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage'>,
   runtime: Pick<RuntimeService, 'getURL'>
 ): RuntimeMessageListenerDependencies {
   return {
@@ -145,6 +171,44 @@ export function createRuntimeMessageListenerDependencies(
       const normalizedSection = section?.trim();
       const url = normalizedSection ? `${optionsUrl}#${normalizedSection}` : optionsUrl;
       await tabs.create({ url });
+    },
+    async getTabContext(sender) {
+      const tabId = typeof sender.tabId === 'number' ? sender.tabId : undefined;
+      const frameId = typeof sender.frameId === 'number' ? sender.frameId : undefined;
+      let windowId = typeof sender.windowId === 'number' ? sender.windowId : undefined;
+
+      if (windowId === undefined && tabId !== undefined) {
+        try {
+          windowId = (await tabs.get(tabId))?.windowId;
+        } catch {
+          windowId = undefined;
+        }
+      }
+
+      return {
+        success: true,
+        ...(tabId !== undefined ? { tabId } : {}),
+        ...(windowId !== undefined ? { windowId } : {}),
+        ...(frameId !== undefined ? { frameId } : {})
+      };
+    },
+    async isTabContextActive(ownerContext) {
+      const tabId = typeof ownerContext.tabId === 'number' ? ownerContext.tabId : undefined;
+      if (tabId === undefined) {
+        return { success: true, active: false };
+      }
+
+      try {
+        const tab = await tabs.get(tabId);
+        const expectedWindowId =
+          typeof ownerContext.windowId === 'number' ? ownerContext.windowId : undefined;
+        const active =
+          tab !== undefined &&
+          (expectedWindowId === undefined || tab.windowId === expectedWindowId);
+        return { success: true, active };
+      } catch {
+        return { success: true, active: false };
+      }
     }
   };
 }
@@ -171,6 +235,14 @@ export function registerRuntimeMessageListener(
     if (isTrackUsageEventMessage(message)) {
       await trackUsageEvent(message.event, message.params);
       return;
+    }
+
+    if (isGetTabContextMessage(message)) {
+      return dependencies.getTabContext(sender as RuntimeMessageSender);
+    }
+
+    if (isTabContextActiveMessage(message)) {
+      return dependencies.isTabContextActive(toRuntimeMessageSender(message.ownerContext));
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {

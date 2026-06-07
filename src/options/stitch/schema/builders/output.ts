@@ -1,17 +1,50 @@
 import type { NodeSchema, SchemaContext, YamlDomainRule } from '../../types';
+import type { SchemaMessageKey } from '../i18n';
 import { code, div, element, stack } from './primitives';
 import { classNames } from './classNames';
 import { codeOutputBox, sectionHelper } from './chrome';
 import { templateBoundInput } from './controls';
 
+function translate(
+  current: Pick<SchemaContext, 't'>,
+  key: SchemaMessageKey,
+  fallback: string
+): string {
+  return current.t ? current.t(key, fallback) : fallback;
+}
+
+function localizeYamlFilterLabel(current: SchemaContext, value: string, fallback: string): string {
+  switch (value) {
+    case 'all':
+      return translate(current, 'schemaYamlFilterAllLabel', fallback);
+    case 'article':
+      return translate(current, 'schemaYamlFilterArticleLabel', fallback);
+    case 'clipper':
+      return translate(current, 'schemaYamlFilterClipperLabel', fallback);
+    case 'video':
+      return translate(current, 'schemaYamlFilterVideoLabel', fallback);
+    case 'ai_chat':
+      return translate(current, 'schemaYamlFilterAiChatLabel', fallback);
+    default:
+      return fallback;
+  }
+}
+
 export function templateInput(field: string): NodeSchema {
   return templateBoundInput(field);
 }
 
-export function templateTokenBlock(): NodeSchema {
+export function templateTokenBlock(
+  helperText:
+    | string
+    | number
+    | ((
+        ctx: SchemaContext
+      ) => string | number) = '将鼠标放到上方任一路径输入框，再点击下方字段快速插入。'
+): NodeSchema {
   return stack(
     [
-      sectionHelper('将鼠标放到上方任一路径输入框，再点击下方字段快速插入。', 'template-helper'),
+      sectionHelper(helperText, 'template-helper'),
       {
         kind: 'tokenRow',
         tokens: (current: SchemaContext) => current.appData.output.tokens,
@@ -40,7 +73,7 @@ export function yamlFilterTabs(): NodeSchema {
           ]
             .filter(Boolean)
             .join(' '),
-          text: filter.label,
+          text: localizeYamlFilterLabel(current, filter.value, filter.label),
           onClick: { id: 'yaml:setFilter', args: [filter.value] }
         })
       )
@@ -74,10 +107,18 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
       { kind: 'badge', label: rule.typeLabel },
       { kind: 'pill', label: rule.domain }
     ]),
-    element('strong', { text: 'Domain Override' }),
+    element('strong', {
+      text: (current: SchemaContext) =>
+        translate(current, 'schemaOutputDomainOverrideLabel', 'Domain Override')
+    }),
     {
       kind: 'table',
-      columns: ['Field', 'Enabled', 'Value Path', 'Default'],
+      columns: (current: SchemaContext) => [
+        translate(current, 'yamlFieldNameLabel', 'Field'),
+        translate(current, 'yamlDomainFieldEnabled', 'Enabled'),
+        translate(current, 'yamlFieldValuePathLabel', 'Value Path'),
+        translate(current, 'yamlFieldDefaultValueLabel', 'Default')
+      ],
       rows: rule.rows.map((row) => ({
         cells: [
           { node: code(row[0]) },
@@ -95,10 +136,12 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
   ]);
 }
 
-export function yamlPreviewBlock(): NodeSchema {
+export function yamlPreviewBlock(
+  summary: string | ((ctx: SchemaContext) => string) = 'Preview'
+): NodeSchema {
   return {
     kind: 'details',
-    summary: 'Preview',
+    summary,
     className: 'u-mt-block',
     children: [
       codeOutputBox(

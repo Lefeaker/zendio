@@ -5,9 +5,29 @@ import { ensureVideoControlBarButton } from '@content/video/videoControlBarButto
 import { toControlBarCaptureOptions } from '@content/video/videoPromptControlBarAdapter';
 import { createVideoPromptControlTargetLifecycle } from '@content/video/videoPromptControlTargetLifecycle';
 
+function queryRequired<T extends Element>(selector: string, root: ParentNode = document): T {
+  const element = root.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing element: ${selector}`);
+  }
+  return element;
+}
+
+function clickControlBarButton(): void {
+  queryRequired<HTMLButtonElement>('.aiob-video-control-bar-button').click();
+}
+
+function getPopoverNoteInput(): { popover: HTMLElement; input: HTMLInputElement } {
+  const popover = queryRequired<HTMLElement>('.aiob-video-control-bar-popover');
+  return {
+    popover,
+    input: queryRequired<HTMLInputElement>('.aiob-video-control-bar-popover__note-input', popover)
+  };
+}
+
 function mountYoutubeControls(): HTMLElement {
   document.body.innerHTML = '<div class="ytp-right-controls"></div>';
-  return document.querySelector<HTMLElement>('.ytp-right-controls')!;
+  return queryRequired<HTMLElement>('.ytp-right-controls');
 }
 
 function mountControlledVideo(initiallyPaused: boolean): {
@@ -95,12 +115,9 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
 
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover');
-    const input = popover?.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    );
+    const { popover, input } = getPopoverNoteInput();
     expect(popover).toBeTruthy();
     expect(popover?.textContent).not.toContain('开启视频笔记');
     expect(popover?.textContent).not.toContain('添加视频笔记');
@@ -132,11 +149,8 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
-    const input = popover.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    )!;
+    clickControlBarButton();
+    const { input } = getPopoverNoteInput();
     input.value = 'important timestamp';
     const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
@@ -180,11 +194,8 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction: vi.fn()
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
-    const input = popover.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    )!;
+    clickControlBarButton();
+    const { input } = getPopoverNoteInput();
 
     for (const key of ['l', ' ', 'm']) {
       input.value = key;
@@ -218,17 +229,14 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction: vi.fn()
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     const hostCaptureKeydown = vi.fn();
     const hostCaptureKeyup = vi.fn();
     const hostCaptureKeypress = vi.fn();
     document.addEventListener('keydown', hostCaptureKeydown, true);
     document.addEventListener('keyup', hostCaptureKeyup, true);
     document.addEventListener('keypress', hostCaptureKeypress, true);
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
-    const input = popover.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    )!;
+    const { input } = getPopoverNoteInput();
 
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, composed: true }));
     input.dispatchEvent(new KeyboardEvent('keypress', { key: 'l', bubbles: true, composed: true }));
@@ -265,11 +273,8 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
-    const input = popover.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    )!;
+    clickControlBarButton();
+    const { input } = getPopoverNoteInput();
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
       bubbles: true,
@@ -313,17 +318,14 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction: vi.fn()
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     const hostCaptureKeydown = vi.fn();
     const hostCaptureKeyup = vi.fn();
     const hostCaptureKeypress = vi.fn();
     document.addEventListener('keydown', hostCaptureKeydown, true);
     document.addEventListener('keyup', hostCaptureKeyup, true);
     document.addEventListener('keypress', hostCaptureKeypress, true);
-    const popover = document.querySelector<HTMLElement>('.aiob-video-control-bar-popover')!;
-    const input = popover.querySelector<HTMLInputElement>(
-      '.aiob-video-control-bar-popover__note-input'
-    )!;
+    const { input } = getPopoverNoteInput();
 
     input.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true })
@@ -362,7 +364,7 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction
     });
 
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     expect(document.querySelector('.aiob-video-control-bar-popover')).toBeTruthy();
 
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
@@ -393,9 +395,9 @@ describe('ensureVideoControlBarButton', () => {
       onPrimaryAction
     });
 
-    const button = document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button');
-    button?.click();
-    button?.click();
+    const button = queryRequired<HTMLButtonElement>('.aiob-video-control-bar-button');
+    button.click();
+    button.click();
 
     expect(document.querySelector('.aiob-video-control-bar-popover')).toBeNull();
     expect(onPopoverDismiss).toHaveBeenCalledTimes(1);
@@ -415,7 +417,7 @@ describe('ensureVideoControlBarButton', () => {
     const { pauseSpy, playSpy } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
 
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).not.toHaveBeenCalled();
@@ -430,9 +432,9 @@ describe('ensureVideoControlBarButton', () => {
     const { video, pauseSpy, playSpy, setPaused } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    const button = document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button');
-    button?.click();
-    button?.click();
+    const button = queryRequired<HTMLButtonElement>('.aiob-video-control-bar-button');
+    button.click();
+    button.click();
 
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalledTimes(1);
@@ -448,7 +450,7 @@ describe('ensureVideoControlBarButton', () => {
     const { pauseSpy, playSpy } = mountControlledVideo(true);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
 
     expect(pauseSpy).not.toHaveBeenCalled();
@@ -460,7 +462,7 @@ describe('ensureVideoControlBarButton', () => {
     const { video, pauseSpy, setPaused } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     setPaused(false);
     video.dispatchEvent(new Event('play'));
 
@@ -491,10 +493,10 @@ describe('ensureVideoControlBarButton', () => {
     const { pauseSpy, playSpy } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
-    const input = document.querySelector<HTMLInputElement>(
+    clickControlBarButton();
+    const input = queryRequired<HTMLInputElement>(
       '[data-aiob-video-control-bar-note-input="true"]'
-    )!;
+    );
     input.value = 'submit note';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
@@ -540,7 +542,7 @@ describe('ensureVideoControlBarButton', () => {
     const { video, pauseSpy, playSpy, setPaused } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     const input = document.querySelector<HTMLInputElement>(
       '[data-aiob-video-control-bar-note-input="true"]'
     );
@@ -571,7 +573,7 @@ describe('ensureVideoControlBarButton', () => {
     const { pauseSpy, playSpy } = mountControlledVideo(false);
 
     lifecycle.syncButton();
-    document.querySelector<HTMLButtonElement>('.aiob-video-control-bar-button')?.click();
+    clickControlBarButton();
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
 
     expect(pauseSpy).not.toHaveBeenCalled();

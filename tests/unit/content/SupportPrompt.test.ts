@@ -49,8 +49,8 @@ const getContentI18nResourceMock = vi.hoisted(() =>
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
-      supportPromptDialogLabel: 'Support All in Ob',
-      supportPromptTitle: 'Support All in Ob',
+      supportPromptDialogLabel: 'Support Zendio',
+      supportPromptTitle: 'Support Zendio',
       supportPromptKoFiTitle: 'Ko-fi',
       supportPromptKoFiDescription: 'Buy me a coffee',
       supportPromptAfdianTitle: 'Afdian',
@@ -287,7 +287,7 @@ describe('SupportPrompt', () => {
     await flushMicrotasks();
 
     expect(messagingSendMock).toHaveBeenCalledWith({
-      type: 'track',
+      type: 'TRACK_USAGE_EVENT',
       event: 'support_link_clicked',
       params: { target: 'ko-fi' }
     });

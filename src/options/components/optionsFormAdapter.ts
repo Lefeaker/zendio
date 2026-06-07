@@ -35,12 +35,7 @@ const DEFAULT_VIDEO = DEFAULT_OPTIONS.video ?? {
   promptShortcut: '',
   controlBarAutoPause: true,
   controlBarScreenshot: true,
-  commentEditorAutoPause: false,
-  screenshotAttachment: {
-    locationTemplate: './assets/${noteFileName}',
-    fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
-    markdownUrlFormat: ''
-  }
+  commentEditorAutoPause: false
 };
 const DEFAULT_FRAGMENT_CLIPPER = DEFAULT_OPTIONS.fragmentClipper ?? {
   useFootnoteFormat: false,

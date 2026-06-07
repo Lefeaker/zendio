@@ -111,7 +111,11 @@ function renderRequests(): void {
 
 async function enableReporting(): Promise<void> {
   await setAnalyticsConsent(true, true);
-  await getAnalyticsConfigManager().updateConfig({ debugMode: true });
+  await getAnalyticsConfigManager().updateConfig({
+    debugMode: true,
+    transportMode: 'directDebug',
+    measurementId: 'G-HARNESS1234'
+  });
   await initializeErrorAnalytics(errorHandler);
   const currentStatus = getErrorAnalyticsStatus();
   setStatus(

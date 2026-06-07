@@ -11,10 +11,17 @@ import {
   findInputByValue,
   flushPromises,
   input,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import {
+  applyOutputPresetToDraft,
+  createInitialDraft
+} from '@options/app/productionStitchShellState';
+import { createInitialStitchState } from '@options/app/productionStitchStateMapper';
+import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
@@ -60,6 +67,30 @@ describe('mountProductionStitchShell storage', () => {
     const toggle = defaultRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
     expect(toggle?.checked).toBe(true);
     expect(toggle?.disabled).toBe(true);
+  });
+
+  it('shows storage and reading mode plugin guidance in the option cards', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    } as never);
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.textContent).toContain('推荐优先使用 Local Folder 通道');
+    const restLink = vaultList.querySelector<HTMLAnchorElement>(
+      'a[href="https://github.com/coddingtonbear/obsidian-local-rest-api"]'
+    );
+    expect(restLink?.textContent).toBe('Local REST API with MCP');
+
+    const readingExport = findCardByTitle('Reading Export');
+    expect(readingExport.textContent).toContain('存储内容高亮与 Obsidian 插件');
+    const highlightsLink = readingExport.querySelector<HTMLAnchorElement>(
+      'a[href="https://github.com/trevware/obsidian-sidebar-highlights"]'
+    );
+    expect(highlightsLink?.textContent).toBe('Sidebar Highlights');
   });
 
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
@@ -222,7 +253,7 @@ describe('mountProductionStitchShell storage', () => {
     expect(scheduleDraftSave).toHaveBeenCalledTimes(1);
   });
 
-  it('persists storage root and vault table edits through collectDraft', () => {
+  it('preserves the hidden storage root while persisting vault table edits through collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -240,11 +271,10 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    input('Inbox/', 'Clips/Articles/');
     input('Research Vault', 'Notes Vault');
 
     const collected = mounted.collectDraft();
-    expect(collected.rest.rootDir).toBe('Clips/Articles/');
+    expect(collected.rest.rootDir).toBe('Inbox/');
     expect(collected.rest.vault).toBe('Notes Vault');
     expect(collected.vaultRouter?.vaults?.[0]).toEqual(
       expect.objectContaining({
@@ -256,6 +286,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders and persists Chromium local folders in the production Vault List', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging(undefined);
     const chooseDirectory = vi.fn(() =>
       Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
     );
@@ -284,8 +315,9 @@ describe('mountProductionStitchShell storage', () => {
         }
       },
       messages: null,
-      language: 'en'
-    });
+      language: 'en',
+      messagingRepository
+    } as never);
 
     const vaultList = findCardByTitle('Vault List');
     expect(
@@ -311,7 +343,7 @@ describe('mountProductionStitchShell storage', () => {
     );
 
     const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('清除');
+    expect(refreshedVaultList.textContent).not.toContain('删除本地目录');
     const selectedFolderButton = Array.from(
       refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
     ).find((button) => button.textContent?.trim() === 'Local Vault');
@@ -322,16 +354,30 @@ describe('mountProductionStitchShell storage', () => {
     await flushPromises();
 
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
-    const popover =
-      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-popover');
-    expect(popover).toBeTruthy();
-    expect(popover?.classList.contains('is-bubble')).toBe(true);
-    expect(popover?.textContent?.trim()).toBe('删除本地目录');
-    expect(popover?.textContent).not.toContain('取消');
-    expect(popover?.textContent).not.toContain('Local Vault');
-    expect(popover?.querySelectorAll('button')).toHaveLength(1);
+    const confirmingCell =
+      findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-cell');
+    expect(confirmingCell?.querySelector('.local-folder-popover')).toBeNull();
+    expect(confirmingCell?.textContent?.trim()).toBe('删除本地目录');
 
-    const deleteButton = popover?.querySelector<HTMLButtonElement>('button');
+    const restoredByOutsideClick = queryRequired<HTMLElement>('.main');
+    restoredByOutsideClick.click();
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('删除本地目录');
+    expect(
+      Array.from(findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')).some(
+        (button) => button.textContent?.trim() === 'Local Vault'
+      )
+    ).toBe(true);
+
+    const restoredFolderButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+    ).find((button) => button.textContent?.trim() === 'Local Vault');
+    restoredFolderButton?.click();
+    await flushPromises();
+
+    const deleteButton = Array.from(
+      findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
     deleteButton?.click();
     await flushPromises();
@@ -341,11 +387,29 @@ describe('mountProductionStitchShell storage', () => {
     expect(cleared.rest.localFolderName).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_prompted',
+      {
+        source: 'options'
+      },
+      ['source']
+    );
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_resolved',
+      {
+        outcome: 'completed'
+      },
+      ['outcome']
+    );
   });
 
-  it('surfaces a local folder reauthorization warning when Chrome returns prompt', async () => {
+  it('still allows clearing a selected local folder when Chrome returns prompt', async () => {
     const controller = createController();
+    const messagingRepository = createMessaging(undefined);
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
+    const removeDirectory = vi.fn(() => Promise.resolve());
     registerService(
       TOKENS.platformServices,
       () =>
@@ -353,12 +417,12 @@ describe('mountProductionStitchShell storage', () => {
           fileSystemAccess: {
             chooseDirectory: vi.fn(),
             ensurePermission,
-            removeDirectory: vi.fn()
+            removeDirectory
           }
         }) as never
     );
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         rest: {
@@ -390,8 +454,9 @@ describe('mountProductionStitchShell storage', () => {
         }
       } as Partial<CompleteOptions>,
       messages: null,
-      language: 'en'
-    });
+      language: 'en',
+      messagingRepository
+    } as never);
 
     const selectedFolderButton = Array.from(
       findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
@@ -403,7 +468,36 @@ describe('mountProductionStitchShell storage', () => {
     expect(ensurePermission).toHaveBeenCalledWith('folder-main');
     const vaultList = findCardByTitle('Vault List');
     expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
-    expect(document.body.textContent).toContain('本地目录需要重新授权');
+    const deleteButton = Array.from(
+      vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
+    ).find((button) => button.textContent?.trim() === '删除本地目录');
+    expect(deleteButton).toBeTruthy();
+    expect(document.body.textContent).toContain('Local Folder needs permission again');
+    deleteButton?.click();
+    await flushPromises();
+
+    const cleared = mounted.collectDraft();
+    expect(cleared.rest.localFolderId).toBeUndefined();
+    expect(cleared.rest.localFolderName).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
+    expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
+    expect(removeDirectory).toHaveBeenCalledWith('folder-main');
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_prompted',
+      {
+        source: 'options'
+      },
+      ['source']
+    );
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'local_vault_permission_resolved',
+      {
+        outcome: 'failed'
+      },
+      ['outcome']
+    );
   });
 
   it('persists domain mapping edits and delete actions', () => {
@@ -543,30 +637,49 @@ describe('mountProductionStitchShell storage', () => {
     expect(duplicateInputs).toHaveLength(1);
   });
 
-  it('hides output preset controls from the production options shell', () => {
-    const controller = createController();
-    mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: {
-        templates: {
-          article: 'Old/{title}.md',
-          fragment: 'Old/Fragment.md',
-          reading: 'Old/Reading.md',
-          ai: 'Old/AI.md'
-        },
-        domainMappings: {
-          'old.example': 'old'
-        },
-        yamlConfig: null
+  it('keeps hidden output presets logic wired to templates, YAML configuration, and domain mappings', () => {
+    const draft = createInitialDraft({
+      templates: {
+        article: 'Old/{title}.md',
+        fragment: 'Old/Fragment.md',
+        reading: 'Old/Reading.md',
+        ai: 'Old/AI.md'
       },
-      messages: null,
-      language: 'en'
+      domainMappings: {
+        'old.example': 'old'
+      },
+      yamlConfig: null
+    });
+    const state = createInitialStitchState(previewContent);
+    const setDomainMappingRows = vi.fn();
+    const scheduleDraftSave = vi.fn();
+
+    applyOutputPresetToDraft({
+      draft,
+      state,
+      setDomainMappingRows,
+      refreshAppData: vi.fn(),
+      scheduleDraftSave,
+      render: vi.fn(),
+      name: 'Research'
     });
 
-    expect(document.body.textContent).not.toContain('Output Presets');
-    expect(document.body.textContent).not.toContain('Apply Minimal');
-    expect(document.body.textContent).not.toContain('Apply Research');
-    expect(document.body.textContent).not.toContain('Apply Conversation');
+    expect(draft.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
+    expect(draft.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+    expect(draft.domainMappings).toEqual(
+      expect.objectContaining({
+        'arxiv.org': 'Arxiv',
+        'mp.weixin.qq.com': '公众号'
+      })
+    );
+    expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'status', enabled: true }),
+        expect.objectContaining({ name: 'workspace', enabled: true })
+      ])
+    );
+    expect(setDomainMappingRows).toHaveBeenCalledWith(Object.entries(draft.domainMappings));
+    expect(scheduleDraftSave).toHaveBeenCalled();
   });
 
   it('runs background vault tests for every enabled Vault List row and renders the result', async () => {
@@ -574,8 +687,35 @@ describe('mountProductionStitchShell storage', () => {
     const messagingRepository = createMessaging({
       success: false,
       status: 401,
-      message: 'REST API ok\n本地目录需要重新授权：LocalFolder',
-      error: '本地目录需要重新授权：LocalFolder'
+      message: 'Research Vault partial',
+      error: 'HTTPS: network error: request failed',
+      channels: [
+        {
+          channel: 'localFolder',
+          label: '本地目录',
+          configured: true,
+          success: true,
+          message: '本地目录可用：LocalFolder'
+        },
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: LOCAL_HTTPS_URL,
+          certificateUrl: `${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt`
+        },
+        {
+          channel: 'http',
+          label: 'HTTP',
+          configured: true,
+          success: true,
+          message: 'HTTP 连接成功',
+          url: LOCAL_HTTP_URL
+        }
+      ]
     });
     mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -620,6 +760,7 @@ describe('mountProductionStitchShell storage', () => {
 
     findButton('测试连接').click();
     await flushPromises();
+    await flushPromises();
 
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
       type: 'TEST_VAULT_CONNECTION',
@@ -633,6 +774,72 @@ describe('mountProductionStitchShell storage', () => {
     expect(vi.mocked(messagingRepository.send)).not.toHaveBeenCalledWith(
       expect.objectContaining({ vaultId: 'disabled' })
     );
-    expect(document.body.textContent).toContain('本地目录需要重新授权：LocalFolder');
+    const vaultList = findCardByTitle('Vault List');
+    const notice = vaultList.querySelector<HTMLElement>('.notice');
+    expect(notice?.className).toContain('warning');
+    expect(notice?.textContent).toContain('Research Vault');
+    expect(notice?.textContent).toContain('✅ 本地目录');
+    expect(notice?.textContent).toContain('❌ HTTPS');
+    expect(notice?.textContent).toContain('✅ HTTP');
+    const certificateLink = notice?.querySelector<HTMLAnchorElement>(
+      `a[href="${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt"]`
+    );
+    expect(certificateLink?.textContent).toBe('Download and trust this certificate');
+    expectAnalyticsMessage(
+      vi.mocked(messagingRepository.send).mock.calls,
+      'connection_test_completed',
+      {
+        failure_category: 'unknown',
+        outcome: 'failed',
+        storage_target: 'unknown'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 });
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'apiKey',
+  'baseUrl',
+  'duration_ms',
+  'endpoint',
+  'fallback_reason',
+  'failure_count_bucket',
+  'filePath',
+  'folderId',
+  'folderName',
+  'localFolderName',
+  'noteName',
+  'permission_state',
+  'response',
+  'responseBody',
+  'success_count_bucket',
+  'test_scope',
+  'vault',
+  'vaultName',
+  'vault_count_bucket'
+]);
+
+function expectAnalyticsMessage(
+  calls: unknown[][],
+  expectedEvent: string,
+  expectedParams: Record<string, unknown>,
+  allowedKeys: string[]
+): void {
+  const analyticsCall = calls.find((call) => {
+    const message = call[0] as { type?: string; event?: string } | undefined;
+    return message?.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+  });
+  expect(analyticsCall).toBeDefined();
+  const message = analyticsCall?.[0] as {
+    event: string;
+    params?: Record<string, unknown>;
+    type: 'TRACK_USAGE_EVENT';
+  };
+  expect(message.params).toEqual(expect.objectContaining(expectedParams));
+  const params = message.params ?? {};
+  expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+  Object.keys(params).forEach((key) => {
+    expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+  });
+}

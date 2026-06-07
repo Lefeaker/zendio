@@ -7,55 +7,39 @@ import {
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
-import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
-import type { Language } from '@i18n';
+import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
-
-interface ProductionStitchRenderWidgetHost {
-  createWidgetFactory(widgetType: string): unknown;
-  destroyWidgets(): void;
-  flushDirtyWidgets(): void;
-  mountWidget(widgetType: string, host: HTMLElement): void;
-}
-
-interface ProductionStitchSchemaRenderer {
-  renderView(view: never): HTMLElement;
-}
-
-interface ProductionStitchRenderLifecycleOptions {
-  mountRoot: HTMLElement;
-  getAppData(): PreviewContent;
-  getCurrentLanguage(): Language;
-  getState(): PreviewStoreState;
-  setState(state: PreviewStoreState): void;
-  createSchemaContext(): SchemaContext;
-  dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
-  schemaRenderer: ProductionStitchSchemaRenderer;
-  widgetHost: ProductionStitchRenderWidgetHost;
-}
-
-export interface ProductionStitchRenderLifecycle {
-  applySystemThemePreferenceChange: () => void;
-  openResource: (resourceId: string) => void;
-  render: () => void;
-  renderActiveResourceModal: () => void;
-  scrollToPanel: (panelId: string) => void;
-  syncHighlightThemeControls: () => void;
-  syncModifierControls: () => void;
-  syncPreviewThemeControls: () => void;
-}
+import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
+import type {
+  ProductionStitchRenderLifecycle,
+  ProductionStitchRenderLifecycleOptions,
+  ProductionStitchTestAssets
+} from './productionStitchRenderLifecycleTypes';
 
 export function createProductionStitchRenderLifecycle(
   options: ProductionStitchRenderLifecycleOptions
 ): ProductionStitchRenderLifecycle {
+  const testAssets = (
+    globalThis as typeof globalThis & {
+      __AIIINOB_TEST_STITCH_ASSETS__?: ProductionStitchTestAssets;
+    }
+  ).__AIIINOB_TEST_STITCH_ASSETS__;
+  const getFooterMeta: NonNullable<ProductionStitchRenderLifecycleOptions['getFooterMeta']> =
+    options.getFooterMeta ?? testAssets?.getFooterMeta ?? (() => null);
+  const getFooterView: NonNullable<ProductionStitchRenderLifecycleOptions['getFooterView']> =
+    options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
+  const getSettingsView: NonNullable<ProductionStitchRenderLifecycleOptions['getSettingsView']> =
+    options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
   const { mountRoot } = options;
   const controls = createProductionStitchRenderControls({
     mountRoot,
     getState: () => options.getState()
   });
+
+  const setState = (state: PreviewStoreState): void => options.setState(state);
+  const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, render);
 
   function getState(): PreviewStoreState {
     return options.getState();
@@ -81,7 +65,7 @@ export function createProductionStitchRenderLifecycle(
       brand: context.appData.brand,
       settingsTitle: '',
       resourcesTitle: '',
-      runtimeTitle: options.getCurrentLanguage() === 'en' ? 'Runtime UI' : '运行时界面',
+      runtimeTitle: context.t?.('schemaRuntimeUiGroupTitle', 'Runtime UI') ?? 'Runtime UI',
       navItems: context.appData.nav,
       sidebarLinks: context.appData.sidebarLinks,
       surfaceLinks: context.appData.surfaceLinks,
@@ -188,11 +172,7 @@ export function createProductionStitchRenderLifecycle(
     const section = mountRoot.querySelector<HTMLElement>(`[data-panel-id="${panelId}"]`);
     if (main && section) {
       const top = Math.max(section.offsetTop - 12, 0);
-      if (typeof main.scrollTo === 'function') {
-        main.scrollTo({ top, behavior: 'smooth' });
-      } else {
-        main.scrollTop = top;
-      }
+      setScrollTopImmediately(main, top);
     }
     syncActiveLinks();
   }
@@ -235,6 +215,7 @@ export function createProductionStitchRenderLifecycle(
 
   return {
     applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
+    cleanup: () => folderDismissal.cleanup(),
     openResource,
     render,
     renderActiveResourceModal,

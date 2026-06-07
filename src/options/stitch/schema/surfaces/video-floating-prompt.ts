@@ -5,7 +5,9 @@ const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
     const prompt = ctx.appData.surfaces.videoFloatingPrompt;
-    const readableLabel = prompt.shortcut ? `${prompt.label} · ${prompt.shortcut}` : prompt.label;
+    const label = ctx.t?.('videoPromptAction', prompt.label) ?? prompt.label;
+    const dismissLabel = ctx.t?.('videoPromptDismiss', prompt.dismissLabel) ?? prompt.dismissLabel;
+    const readableLabel = prompt.shortcut ? `${label} · ${prompt.shortcut}` : label;
 
     return {
       id: 'video-floating-prompt',
@@ -20,7 +22,7 @@ const schema: ResourceSchema = {
           {
             className: 'video-floating-prompt__bubble',
             type: 'button',
-            ariaLabel: prompt.label,
+            ariaLabel: label,
             dataset: {
               role: 'video-floating-prompt-bubble',
               ignoreClick: 'false'
@@ -37,7 +39,7 @@ const schema: ResourceSchema = {
               text: readableLabel,
               dataset: {
                 role: 'video-floating-prompt-hint',
-                baseTitle: prompt.label
+                baseTitle: label
               }
             })
           ]
@@ -46,7 +48,7 @@ const schema: ResourceSchema = {
           className: 'video-floating-prompt__close',
           type: 'button',
           text: '×',
-          ariaLabel: prompt.dismissLabel,
+          ariaLabel: dismissLabel,
           onClick: { id: 'video-floating-prompt:dismiss' }
         })
       ]

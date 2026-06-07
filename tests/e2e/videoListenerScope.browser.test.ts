@@ -13,6 +13,7 @@ const EXTENSION_PATH = path.resolve(__dirname, '../../build/dist');
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=browserListenerScope';
 const YOUTUBE_PAUSED_URL = 'https://www.youtube.com/watch?v=browserListenerScopePaused';
 const BILIBILI_URL = 'https://www.bilibili.com/video/BV1browser/';
+const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
 
 type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
@@ -54,6 +55,7 @@ type StoredOptionsFixture = {
     floatingPromptEnabled: boolean;
     promptButtonLabel: string;
     promptShortcut: string;
+    commentEditorAutoPause: boolean;
   };
   fragmentClipper: {
     useFootnoteFormat: boolean;
@@ -114,7 +116,8 @@ function createOptionsFixture(
     video: {
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
-      promptShortcut: 'Alt+V'
+      promptShortcut: 'Alt+V',
+      commentEditorAutoPause: false
     },
     fragmentClipper: {
       useFootnoteFormat: true,
@@ -138,9 +141,14 @@ async function seedOptions(
   extensionPage: Page,
   options: StoredOptionsFixture = createOptionsFixture()
 ): Promise<void> {
+  await extensionPage.evaluate(async (storageKeyPrefix) => {
+    const storage = await chrome.storage.local.get(null);
+    const keys = Object.keys(storage).filter((key) => key.startsWith(storageKeyPrefix));
+    if (keys.length > 0) {
+      await chrome.storage.local.remove(keys);
+    }
+  }, SESSION_DRAFT_STORAGE_PREFIX);
   await extensionPage.evaluate(async (storedOptions) => {
-    await chrome.storage.sync.clear();
-    await chrome.storage.local.clear();
     await chrome.storage.sync.set({ options: storedOptions });
   }, options);
 }

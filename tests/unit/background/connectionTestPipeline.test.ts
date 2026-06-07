@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getRestDefaults } from '../../utils/restDefaults';
+import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 
 const REST_DEFAULTS = getRestDefaults();
 const DEFAULT_ROOT_URL = withTrailingSlash(
@@ -7,12 +8,23 @@ const DEFAULT_ROOT_URL = withTrailingSlash(
 );
 const DRAFT_HTTPS_URL = `https://draft.example:${REST_DEFAULTS.httpsPort}/`;
 const BODY_STREAM_REUSE_ERROR = ['Body', 'is', 'unusable'].join(' ');
+const LOCAL_REST_URLS = getTestRestUrls('localhost');
+const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/+$/, '');
+const LOCAL_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/+$/, '');
+const LOCAL_CERTIFICATE_URL = new URL(
+  '/obsidian-local-rest-api.crt',
+  LOCAL_REST_URLS.httpsUrl
+).toString();
 
 const getOptionsMock = vi.fn();
 const queryPermissionMock = vi.fn();
+const trackUsageEventMock = vi.fn();
 
 vi.mock('../../../src/background/store', () => ({
   getOptions: getOptionsMock
+}));
+vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  trackUsageEvent: trackUsageEventMock
 }));
 
 vi.mock('../../../src/shared/di', () => ({
@@ -31,6 +43,7 @@ describe('connectionTest pipeline', () => {
     vi.resetModules();
     getOptionsMock.mockReset();
     queryPermissionMock.mockReset();
+    trackUsageEventMock.mockReset();
     queryPermissionMock.mockResolvedValue('missing');
   });
 
@@ -42,9 +55,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns success when first candidate passes', async () => {
-    const { handleConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(
       createOptions({
@@ -63,12 +75,20 @@ describe('connectionTest pipeline', () => {
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(getDefaultRootUrl());
     expect(getAuthorizationHeader(init)).toBe('Bearer token');
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        outcome: 'completed',
+        storage_target: 'rest_api'
+      },
+      ['duration_bucket', 'outcome', 'storage_target']
+    );
   });
 
   it('tries multiple candidates until success', async () => {
-    const { handleConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(
       createOptions({
@@ -91,9 +111,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('applies draft overrides when testing default REST configuration', async () => {
-    const { handleConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(
       createOptions({
@@ -118,9 +137,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns failure summary when all candidates fail', async () => {
-    const { handleConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(
       createOptions({
@@ -142,9 +160,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('returns failure when server responds with non-2xx status', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -178,9 +195,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails when vault name does not exist on server', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -214,9 +230,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails fast when API key is missing', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -240,12 +255,21 @@ describe('connectionTest pipeline', () => {
     expect(result.message).toContain('config error');
     expect(result.message).toContain('未配置 API Key');
     expect(fetchMock).not.toHaveBeenCalled();
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        failure_category: 'validation',
+        outcome: 'failed',
+        storage_target: 'rest_api'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 
   it('tests vault connection using provided config without saving first', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -272,10 +296,98 @@ describe('connectionTest pipeline', () => {
     expect(getAuthorizationHeader(init)).toBe('Bearer secret');
   });
 
+  it('returns separate local folder, HTTPS, and HTTP channel results for vault tests', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    fetchMock
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Failed to fetch'), { message: 'Failed to fetch' })
+      )
+      .mockResolvedValueOnce(createResponse('OK', { status: 200 }));
+    queryPermissionMock.mockResolvedValue('granted');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-split',
+      vault: {
+        id: 'vault-split',
+        name: 'Split Vault',
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
+        vault: 'Split',
+        apiKey: 'secret',
+        localFolderId: 'folder-split',
+        localFolderName: 'SplitFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.channels).toEqual([
+      expect.objectContaining({
+        channel: 'localFolder',
+        configured: true,
+        success: true,
+        message: '本地目录可用：SplitFolder'
+      }),
+      expect.objectContaining({
+        channel: 'https',
+        configured: true,
+        success: false,
+        url: LOCAL_HTTPS_URL,
+        certificateUrl: LOCAL_CERTIFICATE_URL
+      }),
+      expect.objectContaining({
+        channel: 'http',
+        configured: true,
+        success: true,
+        url: LOCAL_HTTP_URL
+      })
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows vault tests to pass through the local folder channel without REST URLs', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+
+    const fetchMock = setFetchMock();
+    queryPermissionMock.mockResolvedValue('granted');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local-only',
+      vault: {
+        id: 'vault-local-only',
+        name: 'Local Only',
+        httpsUrl: '',
+        httpUrl: '',
+        vault: 'LocalOnly',
+        apiKey: '',
+        localFolderId: 'folder-local-only',
+        localFolderName: 'LocalOnlyFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.channels).toEqual([
+      expect.objectContaining({ channel: 'localFolder', success: true }),
+      expect.objectContaining({ channel: 'https', configured: false, success: false }),
+      expect.objectContaining({ channel: 'http', configured: false, success: false })
+    ]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('includes local folder permission in a vault connection test when configured', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -305,12 +417,20 @@ describe('connectionTest pipeline', () => {
     expect(result.message).toContain('本地目录可用：LocalFolder');
     expect(queryPermissionMock).toHaveBeenCalledWith('folder-local');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        outcome: 'completed',
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'outcome', 'storage_target']
+    );
   });
 
   it('fails a vault connection test when the configured local folder needs reauthorization', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -338,12 +458,21 @@ describe('connectionTest pipeline', () => {
     expect(result.message).toContain('REST API');
     expect(result.message).toContain('本地目录需要重新授权：LocalFolder');
     expect(result.error).toContain('本地目录需要重新授权：LocalFolder');
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        failure_category: 'permission',
+        outcome: 'failed',
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
   });
 
   it('tests vault connection using stored configuration when payload has no vault', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(
       createOptions(
@@ -379,9 +508,8 @@ describe('connectionTest pipeline', () => {
   });
 
   it('fails when additional vault is missing URLs', async () => {
-    const { handleVaultConnectionTest } = await import(
-      '../../../src/background/pipelines/connectionTest'
-    );
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
 
     getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
 
@@ -489,4 +617,41 @@ function isHeaderRecord(headers: HeadersInit): headers is Record<string, string>
     !Array.isArray(headers) &&
     !(headers instanceof Headers)
   );
+}
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'apiKey',
+  'baseUrl',
+  'duration_ms',
+  'endpoint',
+  'fallback_reason',
+  'failure_count_bucket',
+  'filePath',
+  'folderId',
+  'folderName',
+  'localFolderName',
+  'noteName',
+  'permission_state',
+  'response',
+  'responseBody',
+  'success_count_bucket',
+  'test_scope',
+  'vault',
+  'vaultName',
+  'vault_count_bucket'
+]);
+
+function expectAnalyticsEvent(
+  call: unknown[],
+  expectedEvent: string,
+  expectedParams: Record<string, unknown>,
+  allowedKeys: string[]
+): void {
+  expect(call[0]).toBe(expectedEvent);
+  expect(call[1]).toEqual(expect.objectContaining(expectedParams));
+  const params = call[1] as Record<string, unknown>;
+  expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+  Object.keys(params).forEach((key) => {
+    expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+  });
 }

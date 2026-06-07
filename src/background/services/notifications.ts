@@ -1,4 +1,4 @@
-import { getMessages, formatMessage } from '../../i18n';
+import { getMessages, formatMessage } from '@i18n';
 import { APP_ICON_PATH } from '../../shared/constants';
 import type { NotificationOptions as PlatformNotificationOptions } from '../../platform/interfaces/notifications';
 import type { PlatformServices } from '../../platform/types';
@@ -57,11 +57,11 @@ const ERROR_SEVERITY_TO_NOTIFICATION: Record<ErrorSeverity, NotificationSeverity
 };
 
 const SEVERITY_TITLE_MAP: Record<NotificationSeverity, string> = {
-  success: 'All-in-Obsidian — Success',
-  info: 'All-in-Obsidian — Info',
-  warning: 'All-in-Obsidian — Warning',
-  error: 'All-in-Obsidian — Error',
-  critical: 'All-in-Obsidian — Critical'
+  success: 'Zendio - Success',
+  info: 'Zendio - Info',
+  warning: 'Zendio - Warning',
+  error: 'Zendio - Error',
+  critical: 'Zendio - Critical'
 };
 
 export { NOTIFICATION_CHANNELS };

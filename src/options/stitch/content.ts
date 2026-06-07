@@ -1,3 +1,4 @@
+import { createReleaseLanguageOptions } from './languageOptions';
 import type { PreviewContent } from './types';
 
 const usageHistoryValues = [
@@ -17,7 +18,7 @@ const usageHistory = usageHistoryValues.map((value, index) => {
 
 export const previewContent: PreviewContent = {
   brand: {
-    title: 'All in Ob',
+    title: 'Zendio',
     subtitle: 'Component Preview',
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
@@ -86,7 +87,7 @@ export const previewContent: PreviewContent = {
     {
       id: 'output',
       label: 'Output & Metadata',
-      hint: '路径模板、映射、YAML、预设',
+      hint: '路径模板、映射、YAML',
       icon: 'output'
     },
     {
@@ -111,21 +112,14 @@ export const previewContent: PreviewContent = {
     ],
     history: usageHistory
   },
-  languageOptions: [
-    { value: 'zh-CN', label: '简体中文' },
-    { value: 'en', label: 'English' },
-    { value: 'de', label: 'Deutsch' },
-    { value: 'ja', label: '日本語' },
-    { value: 'ko', label: '한국어' },
-    { value: 'es', label: 'Español' }
-  ],
+  languageOptions: createReleaseLanguageOptions(),
   privacyCollected: ['错误类型与调用位置', '浏览器 / 扩展版本', '异常发生时间', '匿名功能使用次数'],
   privacyExcluded: ['个人身份信息', '页面正文与剪藏内容', '私密 URL 清单', '密码、API 密钥明文'],
   storage: {
     hero: {
       title: 'Storage',
       description: '管理 Vault 列表、连接参数和路由规则。',
-      pills: ['Vault List', 'Advanced Connection', 'Routing Engine'],
+      pills: ['Vault List', 'Routing Engine'],
       icon: 'storage'
     },
     routingTypeOptions: [
@@ -135,7 +129,7 @@ export const previewContent: PreviewContent = {
     ],
     vaults: [
       {
-        name: 'AllInObsidian',
+        name: 'Zendio',
         https: 'https://127.0.0.1:27124/',
         http: 'http://127.0.0.1:27123/',
         key: 'sk-demo-demo-demo',
@@ -211,8 +205,8 @@ export const previewContent: PreviewContent = {
   output: {
     hero: {
       title: 'Output & Metadata',
-      description: '配置输出路径、域名命名、YAML 字段和预设。',
-      pills: ['Templates', 'Domain Naming', 'YAML Schema', 'Presets'],
+      description: '配置输出路径、域名命名和 YAML 字段。',
+      pills: ['Templates', 'Domain Naming', 'YAML Schema'],
       icon: 'output'
     },
     templateDefaults: {
@@ -649,7 +643,7 @@ export const previewContent: PreviewContent = {
         pills: ['Clip Selection', 'Reader Entry', 'Video Entry', 'Shortcuts'],
         icon: 'content_cut'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_clipt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_clipt.png',
       labels: {
         title: 'Clip Selection',
         selectionPreview: 'Selection Preview',
@@ -709,7 +703,7 @@ export const previewContent: PreviewContent = {
         pills: ['Non-modal Panel', 'Highlight List', 'Inline Comment Edit', 'AI Summary Slot'],
         icon: 'auto_stories'
       },
-      iconUrl: '../../AiiinOB/public/icons/60x60/allinob_icon_readingt.png',
+      iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_readingt.png',
       labels: {
         title: '阅读模式',
         subtitle: 'Reading session',
@@ -888,17 +882,14 @@ export const previewContent: PreviewContent = {
       status: 'success',
       statusMessage: '成功发送到 Research Vault',
       statusDetail: '整页内容已按当前仓库路由写入 `Articles/Research/2026/`，分类结果同步完成。',
-      progress: {
-        value: 100,
-        variant: 'success'
-      },
+      progress: { value: 100, variant: 'success' },
       feedbackLabel: '快速反馈',
       likeLabel: '赞一个',
       dislikeLabel: '倒赞',
       dismissLabel: '点击页面其他区域即可关闭',
       likeToast: {
         title: '感谢鼓励！',
-        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 All in Ob。',
+        detail: '如果你愿意，欢迎写一条评论，帮助更多用户发现 Zendio。',
         actions: ['撰写评论', '我已写过评论']
       },
       dislikeToast: {

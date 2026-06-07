@@ -11,6 +11,12 @@ import type {
 } from '../../types';
 import { buttonNode, div, element, span, strong } from './primitives';
 import { classNames } from './classNames';
+import {
+  sessionItemCard,
+  sessionItemCloseButton,
+  sessionItemMarker,
+  videoTimestampMarker
+} from './surfaceSessionItems';
 
 export function surfaceStage(children: NodeSchema[]): NodeSchema {
   return element('div', { className: classNames.surface.stage }, children);
@@ -201,7 +207,14 @@ export function sourceMetaRow(source: ClipperSurfaceSource): NodeSchema {
 }
 
 export function exportDestinationRow(
-  destination?: ExportDestinationSurfacePreview
+  destination?: ExportDestinationSurfacePreview,
+  labels: {
+    saveToLabel: string;
+    configureVaultLabel: string;
+  } = {
+    saveToLabel: '保存到',
+    configureVaultLabel: '配置仓库'
+  }
 ): NodeSchema | null {
   if (!destination) {
     return null;
@@ -211,7 +224,7 @@ export function exportDestinationRow(
     element('details', { className: 'export-destination-menu' }, [
       element('summary', { className: 'export-destination-summary' }, [
         div('export-destination-copy', [
-          element('span', { className: 'export-destination-eyebrow', text: '保存到' }),
+          element('span', { className: 'export-destination-eyebrow', text: labels.saveToLabel }),
           element('strong', { className: 'export-destination-label', text: destination.label }),
           element('span', { className: 'export-destination-path', text: destination.path })
         ])
@@ -243,7 +256,7 @@ export function exportDestinationRow(
     !destination.hasConfiguredVault && destination.setupUrl
       ? element('a', {
           className: 'export-destination-setup-link',
-          text: '配置仓库',
+          text: labels.configureVaultLabel,
           href: destination.setupUrl,
           target: '_blank',
           rel: 'noopener noreferrer'
@@ -271,104 +284,6 @@ export function clipperActionBar(actions: SurfaceAction[]): NodeSchema {
       )
     )
   ]);
-}
-
-function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): NodeSchema {
-  return div(classNames.session.marker, [
-    element('span', {
-      className: kind === 'time' ? classNames.session.markerTime : classNames.session.markerIndex,
-      text: label
-    })
-  ]);
-}
-
-function videoTimestampMarker(capture: VideoSurfaceCapture): NodeSchema {
-  const hasScreenshot = Boolean(capture.hasScreenshot);
-  return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
-    element('button', {
-      className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
-      type: 'button',
-      ariaLabel: hasScreenshot ? 'Remove screenshot' : 'Capture screenshot',
-      dataset: {
-        actionId: 'video:toggle-screenshot',
-        captureId: capture.id,
-        screenshotState: hasScreenshot ? 'on' : 'off'
-      },
-      onClick: { id: 'video:toggle-screenshot' }
-    }),
-    element('span', {
-      className: classNames.session.markerTime,
-      text: capture.markerLabel ?? capture.summary
-    })
-  ]);
-}
-
-function sessionItemCloseButton(
-  label: string,
-  actionId: 'reader:delete' | 'video:delete',
-  dataset: Record<string, string>
-): NodeSchema {
-  return element('button', {
-    className: classNames.session.itemCloseTrigger,
-    type: 'button',
-    text: '×',
-    ariaLabel: label,
-    dataset: { actionId, ...dataset },
-    onClick: { id: actionId }
-  });
-}
-
-function sessionItemCard(
-  marker: NodeSchema,
-  text: string,
-  commentPreview: string | undefined,
-  fallbackComment: string,
-  editing: boolean | undefined,
-  editorValue: string,
-  editorPlaceholder: string,
-  meta: NodeChild | NodeChild[] | string | null,
-  dataset?: Record<string, string>,
-  actions?: NodeSchema,
-  editorKind: 'input' | 'textarea' = 'textarea',
-  trailingAction?: NodeSchema
-): NodeSchema {
-  const inputValue = editing ? editorValue : text || commentPreview || fallbackComment;
-  const editorDataset = dataset?.captureId ? { dataset: { captureInput: dataset.captureId } } : {};
-  const editor: NodeSchema =
-    editorKind === 'input'
-      ? {
-          kind: 'input',
-          className: classNames.session.commentInput,
-          type: 'text',
-          value: inputValue,
-          placeholder: editorPlaceholder,
-          ...editorDataset
-        }
-      : {
-          kind: 'textarea',
-          className: classNames.session.commentInput,
-          value: inputValue,
-          placeholder: editorPlaceholder,
-          ...editorDataset
-        };
-
-  return element(
-    'article',
-    { className: classNames.session.item, ...(dataset ? { dataset } : {}) },
-    [
-      marker,
-      div(classNames.session.content, [
-        editor,
-        meta
-          ? typeof meta === 'string'
-            ? div(classNames.session.metaRow, [meta])
-            : div(classNames.session.metaRow, Array.isArray(meta) ? meta : [meta])
-          : null,
-        actions ?? null
-      ]),
-      trailingAction ?? null
-    ]
-  );
 }
 
 export function sessionStatusStrip(
@@ -426,7 +341,11 @@ export function readerHighlightItem(
 
 export function videoCaptureItem(
   capture: VideoSurfaceCapture,
-  labels: RuntimeSessionLabels
+  labels: RuntimeSessionLabels,
+  screenshotLabels?: {
+    capture: string;
+    remove: string;
+  }
 ): NodeSchema {
   if (capture.kind === 'fragment') {
     const selectionText = capture.fullText ?? capture.summary;
@@ -468,7 +387,7 @@ export function videoCaptureItem(
     : (capture.commentPreview ?? capture.comment ?? '');
 
   return sessionItemCard(
-    videoTimestampMarker(capture),
+    videoTimestampMarker(capture, screenshotLabels),
     displayText,
     capture.commentPreview,
     '',
@@ -541,11 +460,15 @@ export function sessionFooterBar(
   counter: string,
   actions: SurfaceAction[],
   linked?: NodeSchema | null,
-  destination?: ExportDestinationSurfacePreview
+  destination?: ExportDestinationSurfacePreview,
+  destinationLabels?: {
+    saveToLabel: string;
+    configureVaultLabel: string;
+  }
 ): NodeSchema {
   return div(classNames.session.footerBar, [
     linked ?? null,
-    exportDestinationRow(destination),
+    exportDestinationRow(destination, destinationLabels),
     surfaceFooter([
       div(classNames.session.footerCounter, [counter]),
       div(

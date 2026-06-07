@@ -12,7 +12,7 @@ import {
   resolveReadingPathMode,
   toTemplateValues
 } from './productionStitchStateMapper';
-import { updateVideoDraftPath } from './productionStitchVideoState';
+import { updateVideoDraftPath } from './productionStitchVideoDraftState';
 
 export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
   let snapshot = mergeOptions(null) as CompleteOptions;
@@ -239,19 +239,9 @@ export function updateDraftPath(
   path: string,
   value: unknown
 ): void {
-  const fieldValue =
-    value === null ||
-    value === undefined ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-      ? value
-      : undefined;
-
-  if (updateVideoDraftPath(draft, state, path, fieldValue)) {
+  if (updateVideoDraftPath(draft, state, path, value)) {
     return;
   }
-
   switch (path) {
     case 'aiChat.userName':
       draft.aiChat.userName = String(value ?? '');

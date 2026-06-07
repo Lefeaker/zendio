@@ -82,7 +82,7 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
   const titleIcon = document.createElement('img');
   titleIcon.className = 'clipper-dialog-icon';
   titleIcon.alt = '';
-  titleIcon.src = resolveAssetUrl('icons/allinob_icon_commentt.png');
+  titleIcon.src = resolveAssetUrl('icons/zendio_icon_commentt.png');
 
   const titleLabel = document.createElement('span');
   bindings.applyText(titleLabel, 'clipDialogTitle', getFallback('clipDialogTitle'), binder);

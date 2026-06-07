@@ -80,17 +80,21 @@ const storage: StorageService = {
 const configuredInterfaceTheme =
   new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
+const HARNESS_VIDEO_OPTIONS = {
+  floatingPromptEnabled: true,
+  promptButtonLabel: '开启视频笔记',
+  promptShortcut: 'Alt+V',
+  controlBarAutoPause: true,
+  controlBarScreenshot: true,
+  commentEditorAutoPause: false
+};
 
 const optionsRepository = {
   get() {
     return Promise.resolve({
       interfaceTheme: configuredInterfaceTheme,
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' },
-      video: {
-        floatingPromptEnabled: true,
-        promptButtonLabel: '开启视频笔记',
-        promptShortcut: 'Alt+V'
-      }
+      video: HARNESS_VIDEO_OPTIONS
     });
   },
   async set() {},
@@ -239,13 +243,7 @@ async function startVideoSession(): Promise<void> {
     optionsRepository: optionsRepository as never,
     videoRepository: {
       getVideoConfig() {
-        return Promise.resolve({
-          floatingPromptEnabled: true,
-          promptButtonLabel: '开启视频笔记',
-          promptShortcut: 'Alt+V',
-          controlBarAutoPause: true,
-          controlBarScreenshot: true
-        });
+        return Promise.resolve(HARNESS_VIDEO_OPTIONS);
       },
       async savePromptPosition() {},
       async saveControlBarPreferences() {},

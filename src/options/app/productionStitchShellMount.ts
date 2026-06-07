@@ -1,21 +1,7 @@
-import { previewContent } from '@options/stitch/content';
-import type { PreviewContent, SchemaContext } from '@options/stitch/types';
-import {
-  applyOptionsToState,
-  createInitialStitchState,
-  createThemeMediaQuery,
-  persistTheme,
-  resolveStoredTheme,
-  resolveThemePreference
-} from './productionStitchStateMapper';
+import { createThemeMediaQuery } from './productionStitchStateMapper';
 import { installButtonPressScrollGuard } from './productionStitchScrollGuard';
+import { createProductionStitchRenderLifecycle } from './productionStitchRenderLifecycle';
 import {
-  createProductionStitchRenderLifecycle,
-  type ProductionStitchRenderLifecycle
-} from './productionStitchRenderLifecycle';
-import {
-  createInitialDraft,
-  resolveDefaultDomainMappingRows,
   resolveMessagingRepositoryFallback,
   resolveOptionsRepositoryFallback,
   resolveRoot
@@ -26,9 +12,7 @@ import type {
 } from './productionStitchShellTypes';
 import { cleanupProductionStitchShell } from './productionStitchShellTeardown';
 import {
-  createProductionStitchAppData,
   createProductionStitchMutator,
-  createProductionStitchSchemaContext,
   resolveProductionDomainEntries,
   syncProductionDomainEntries
 } from './productionStitchShellContext';
@@ -37,12 +21,19 @@ import {
   createProductionStitchRenderDelegates,
   createProductionStitchShellSchemaRenderer
 } from './productionStitchShellRenderDelegates';
+import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
 import { createProductionStitchShellRuntimeServices } from './productionStitchShellRuntimeServices';
+import { resolveProductionStitchAssets } from './productionStitchShellAssetResolver';
+import { createProductionStitchShellMutableState } from './productionStitchShellMutableState';
 
 export function mountProductionStitchShellFromDependencies({
   root,
   controller,
   initialOptions = null,
+  getFooterMeta,
+  getFooterView,
+  getSettingsView,
+  previewContent,
   language,
   messages = null,
   changeLanguage,
@@ -51,46 +42,62 @@ export function mountProductionStitchShellFromDependencies({
   storage,
   now
 }: ProductionStitchShellDependencies): MountedProductionStitchShell {
+  const stitchAssets = resolveProductionStitchAssets({
+    previewContent,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView
+  });
   const mountRoot = resolveRoot(root);
   const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
-  let draft = createInitialDraft(initialOptions);
-
-  let currentLanguage = language;
-  let currentMessages = messages;
-  let connectionNotice: PreviewContent['storage']['connectionNotice'] | undefined;
-  let maintenanceLog = previewContent.maintenanceLog;
-  let domainMappingRows: Array<[string, string]> = resolveDefaultDomainMappingRows(draft);
-  let appData = createProductionStitchAppData(draft, { maintenanceLog });
-  let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
-  state.interfaceThemePreference = resolveThemePreference(draft);
-  state.previewTheme = resolveStoredTheme(draft);
-  state.previewLanguage = currentLanguage;
-  state.previewTheme = persistTheme(state.interfaceThemePreference);
+  const shellState = createProductionStitchShellMutableState({
+    initialOptions,
+    previewContent: stitchAssets.previewContent,
+    language,
+    messages
+  });
   const themeMediaQuery = createThemeMediaQuery();
-
-  function createSchemaContext(): SchemaContext {
-    return createProductionStitchSchemaContext({
-      appData,
-      language: currentLanguage,
-      state
-    });
-  }
-
-  function refreshAppData(): void {
-    appData = createProductionStitchAppData(draft, {
-      ...(connectionNotice ? { connectionNotice } : {}),
-      maintenanceLog
-    });
-    state.maintenanceLog = maintenanceLog;
-  }
 
   let renderLifecycle: ProductionStitchRenderLifecycle | null = null;
   const renderDelegates = createProductionStitchRenderDelegates(() => renderLifecycle);
+  const getAppData = () => shellState.getAppData();
+  const getConnectionNotice = () => shellState.getConnectionNotice();
+  const getCurrentLanguage = () => shellState.getCurrentLanguage();
+  const getCurrentMessages = () => shellState.getCurrentMessages();
+  const getDomainMappingRows = () => shellState.getDomainMappingRows();
+  const getDraft = () => shellState.getDraft();
+  const getState = () => shellState.getState();
+  const setAppData = (...args: Parameters<typeof shellState.setAppData>) =>
+    shellState.setAppData(...args);
+  const setConnectionNotice = (...args: Parameters<typeof shellState.setConnectionNotice>) =>
+    shellState.setConnectionNotice(...args);
+  const setDraft = (...args: Parameters<typeof shellState.setDraft>) =>
+    shellState.setDraft(...args);
+  const setDomainMappingRows = (...args: Parameters<typeof shellState.setDomainMappingRows>) =>
+    shellState.setDomainMappingRows(...args);
+  const setLanguageResource = (...args: Parameters<typeof shellState.setLanguageResource>) =>
+    shellState.setLanguageResource(...args);
+  const setMaintenanceLog = (...args: Parameters<typeof shellState.setMaintenanceLog>) =>
+    shellState.setMaintenanceLog(...args);
+  const setState = (...args: Parameters<typeof shellState.setState>) =>
+    shellState.setState(...args);
+  const createSchemaContext = () => shellState.createSchemaContext();
+  const refreshAppData = () => shellState.refreshAppData();
+  const render = () => renderDelegates.render();
+  const applySystemThemePreferenceChange = () => renderDelegates.applySystemThemePreferenceChange();
+  const renderActiveResourceModal = () => renderDelegates.renderActiveResourceModal();
+  const scrollToPanel = (...args: Parameters<typeof renderDelegates.scrollToPanel>) =>
+    renderDelegates.scrollToPanel(...args);
+  const syncHighlightThemeControls = () => renderDelegates.syncHighlightThemeControls();
+  const syncModifierControls = () => renderDelegates.syncModifierControls();
+  const syncPreviewThemeControls = () => renderDelegates.syncPreviewThemeControls();
+  const openResource = (...args: Parameters<typeof renderDelegates.openResource>) =>
+    renderDelegates.openResource(...args);
   const mutate = createProductionStitchMutator({
-    getState: () => state,
-    render: renderDelegates.render
+    getState,
+    render
   });
 
   const { persistence, storageController, widgetHost } = createProductionStitchShellRuntimeServices(
@@ -100,31 +107,19 @@ export function mountProductionStitchShellFromDependencies({
       messagingRepository: resolvedMessagingRepository,
       ...(storage ? { storage } : {}),
       ...(now ? { now } : {}),
-      getAppData: () => appData,
-      getCurrentMessages: () => currentMessages,
-      getDraft: () => draft,
-      getState: () => state,
-      setAppData: (nextAppData) => {
-        appData = nextAppData;
-      },
-      setConnectionNotice: (notice) => {
-        connectionNotice = notice;
-      },
-      setDraft: (nextDraft) => {
-        draft = nextDraft;
-      },
-      setDomainMappingRows: (entries) => {
-        domainMappingRows = entries;
-      },
-      setMaintenanceLog: (log) => {
-        maintenanceLog = log;
-      },
-      setState: (nextState) => {
-        state = nextState;
-      },
-      getConnectionNotice: () => connectionNotice,
+      getAppData,
+      getCurrentMessages,
+      getDraft,
+      getState,
+      setAppData,
+      setConnectionNotice,
+      setDraft,
+      setDomainMappingRows,
+      setMaintenanceLog,
+      setState,
+      getConnectionNotice,
       refreshAppData,
-      render: renderDelegates.render,
+      render,
       scheduleDraftSave
     }
   );
@@ -135,44 +130,32 @@ export function mountProductionStitchShellFromDependencies({
     controller,
     optionsRepository: resolvedOptionsRepository,
     ...(changeLanguage ? { changeLanguage } : {}),
-    getAppData: () => appData,
-    getCurrentLanguage: () => currentLanguage,
-    getCurrentMessages: () => currentMessages,
-    getDraft: () => draft,
-    getState: () => state,
-    setConnectionNotice: (notice) => {
-      connectionNotice = notice;
-    },
-    setDomainMappingRows: (entries) => {
-      domainMappingRows = entries;
-    },
-    setLanguageResource: (resource) => {
-      currentMessages = resource.messages;
-      currentLanguage = resource.language;
-      state.previewLanguage = resource.language;
-    },
-    setMaintenanceLog: (log) => {
-      maintenanceLog = log;
-    },
-    setState: (nextState) => {
-      state = nextState;
-    },
+    getAppData,
+    getCurrentLanguage,
+    getCurrentMessages,
+    getDraft,
+    getState,
+    setConnectionNotice,
+    setDomainMappingRows,
+    setLanguageResource,
+    setMaintenanceLog,
+    setState,
     createSchemaContext,
     mutate,
-    currentDomainEntries: () => resolveProductionDomainEntries(domainMappingRows),
+    currentDomainEntries: () => resolveProductionDomainEntries(getDomainMappingRows()),
     refreshAppData,
     refreshOptions: (options) => mounted.refreshOptions(options),
-    render: renderDelegates.render,
-    renderActiveResourceModal: renderDelegates.renderActiveResourceModal,
+    render,
+    renderActiveResourceModal,
     scheduleDraftSave,
-    scrollToPanel: renderDelegates.scrollToPanel,
+    scrollToPanel,
     syncDomainEntries: (entries) => {
-      domainMappingRows = syncProductionDomainEntries(draft, entries);
+      setDomainMappingRows(syncProductionDomainEntries(getDraft(), entries));
     },
-    syncHighlightThemeControls: renderDelegates.syncHighlightThemeControls,
-    syncModifierControls: renderDelegates.syncModifierControls,
-    syncPreviewThemeControls: renderDelegates.syncPreviewThemeControls,
-    openResource: renderDelegates.openResource,
+    syncHighlightThemeControls,
+    syncModifierControls,
+    syncPreviewThemeControls,
+    openResource,
     persistence,
     storageController,
     widgetHost
@@ -181,23 +164,23 @@ export function mountProductionStitchShellFromDependencies({
   function dispatch(actionId: string, args: unknown[] = [], value?: unknown, event?: Event): void {
     actionRuntime.dispatch(actionId, args, value, event);
   }
-
   const schemaRenderer = createProductionStitchShellSchemaRenderer({
     createSchemaContext,
     dispatch,
     mutate,
-    render: renderDelegates.render,
+    render,
     widgetHost
   });
 
   renderLifecycle = createProductionStitchRenderLifecycle({
+    getFooterMeta: stitchAssets.getFooterMeta,
+    getFooterView: stitchAssets.getFooterView,
     mountRoot,
-    getAppData: () => appData,
-    getCurrentLanguage: () => currentLanguage,
-    getState: () => state,
-    setState: (nextState) => {
-      state = nextState;
-    },
+    getAppData,
+    getCurrentLanguage,
+    getSettingsView: stitchAssets.getSettingsView,
+    getState,
+    setState,
     createSchemaContext,
     dispatch,
     schemaRenderer,
@@ -205,17 +188,18 @@ export function mountProductionStitchShellFromDependencies({
   });
 
   function scheduleDraftSave(): void {
-    refreshAppData();
+    shellState.refreshAppData();
     controller.scheduleAutoSave(() => mounted.collectDraft());
   }
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
         mountRoot,
         buttonPressScrollGuard,
         themeMediaQuery,
-        applySystemThemePreferenceChange: renderDelegates.applySystemThemePreferenceChange,
+        applySystemThemePreferenceChange,
         schemaRenderer,
         widgetHost
       });
@@ -224,30 +208,22 @@ export function mountProductionStitchShellFromDependencies({
       return widgetHost.collectDraftWithWidgets();
     },
     refreshOptions(options = null) {
-      draft = createInitialDraft(options);
-      domainMappingRows = resolveDefaultDomainMappingRows(draft);
+      shellState.resetOptions(options);
       widgetHost.resetDirty();
-      refreshAppData();
-      state = applyOptionsToState(state, draft, appData);
-      state.interfaceThemePreference = resolveThemePreference(draft);
-      state.previewTheme = resolveStoredTheme(draft);
-      state.previewTheme = persistTheme(state.interfaceThemePreference);
       renderDelegates.render();
     },
     setMessages(nextMessages, nextLanguage) {
-      currentMessages = nextMessages;
-      currentLanguage = nextLanguage;
-      state = {
-        ...state,
-        previewLanguage: nextLanguage
-      };
+      shellState.setLanguageResource({
+        messages: nextMessages,
+        language: nextLanguage
+      });
       renderDelegates.render();
     }
   };
 
-  themeMediaQuery.addEventListener?.('change', renderDelegates.applySystemThemePreferenceChange);
+  themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
 
-  renderDelegates.render();
+  render();
   void persistence.loadUsageStatsFromStorage();
   return mounted;
 }

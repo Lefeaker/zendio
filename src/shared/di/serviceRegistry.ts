@@ -347,19 +347,11 @@ function createFallbackNavigationRepository(): INavigationRepository {
 function createFallbackVideoRepository(): IVideoRepository {
   return {
     async getVideoConfig() {
-      return {
-        floatingPromptEnabled: true,
-        promptButtonLabel: '开启视频笔记',
-        promptShortcut: 'Alt+V',
-        controlBarAutoPause: true,
-        controlBarScreenshot: true,
-        commentEditorAutoPause: false,
-        screenshotAttachment: {
-          locationTemplate: './assets/${noteFileName}',
-          fileNameTemplate: "file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg",
-          markdownUrlFormat: ''
-        }
-      };
+      const videoOptions = mergeOptions(null).video;
+      if (!videoOptions) {
+        throw new Error('Default video options are unavailable.');
+      }
+      return videoOptions;
     },
     async savePromptPosition() {},
     async saveControlBarPreferences() {},

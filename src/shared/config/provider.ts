@@ -241,10 +241,7 @@ export function createConfigProvider(input: {
 }
 
 function parsePort(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const parsed = Number.parseInt(value, 10);
+  const parsed = value ? Number.parseInt(value, 10) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
@@ -254,9 +251,11 @@ interface GlobalEnvSource {
   };
 }
 
-function resolveProcessEnv(): Record<string, string | undefined> | undefined {
-  const globalEnv = globalThis as GlobalEnvSource;
-  return globalEnv.process?.env;
+const resolveProcessEnv = (): Record<string, string | undefined> | undefined =>
+  (globalThis as GlobalEnvSource).process?.env;
+
+function resolveRestEnv(env: Record<string, string | undefined>, name: string): string | undefined {
+  return env[`ZENDIO_REST_${name}`] ?? env[`AIIINOB_REST_${name}`];
 }
 
 export function loadOverrideFromEnv(): ConfigOverrides | undefined {
@@ -268,29 +267,29 @@ export function loadOverrideFromEnv(): ConfigOverrides | undefined {
 
   const restOverride: Partial<RestDefaults> = {};
 
-  if (env.AIIINOB_REST_HTTPS_HOST) {
-    restOverride.httpsHost = env.AIIINOB_REST_HTTPS_HOST;
-  }
-  const httpsPort = parsePort(env.AIIINOB_REST_HTTPS_PORT);
-  if (typeof httpsPort === 'number') {
-    restOverride.httpsPort = httpsPort;
-  }
-  if (env.AIIINOB_REST_HTTP_HOST) {
-    restOverride.httpHost = env.AIIINOB_REST_HTTP_HOST;
-  }
-  const httpPort = parsePort(env.AIIINOB_REST_HTTP_PORT);
-  if (typeof httpPort === 'number') {
-    restOverride.httpPort = httpPort;
-  }
-  if (env.AIIINOB_REST_BASE_PATH) {
-    restOverride.basePath = env.AIIINOB_REST_BASE_PATH;
-  }
-  if (env.AIIINOB_REST_VAULT_NAME) {
-    restOverride.vaultName = env.AIIINOB_REST_VAULT_NAME;
-  }
-  if (env.AIIINOB_REST_API_KEY) {
-    restOverride.apiKey = env.AIIINOB_REST_API_KEY;
-  }
+  const assignStringOverride = (
+    key: 'httpsHost' | 'httpHost' | 'basePath' | 'vaultName' | 'apiKey',
+    name: string
+  ): void => {
+    const value = resolveRestEnv(env, name);
+    if (value) {
+      restOverride[key] = value;
+    }
+  };
+  const assignPortOverride = (key: 'httpsPort' | 'httpPort', name: string): void => {
+    const value = parsePort(resolveRestEnv(env, name));
+    if (typeof value === 'number') {
+      restOverride[key] = value;
+    }
+  };
+
+  assignStringOverride('httpsHost', 'HTTPS_HOST');
+  assignPortOverride('httpsPort', 'HTTPS_PORT');
+  assignStringOverride('httpHost', 'HTTP_HOST');
+  assignPortOverride('httpPort', 'HTTP_PORT');
+  assignStringOverride('basePath', 'BASE_PATH');
+  assignStringOverride('vaultName', 'VAULT_NAME');
+  assignStringOverride('apiKey', 'API_KEY');
 
   const overrides: ConfigOverrides = {};
   if (Object.keys(restOverride).length > 0) {

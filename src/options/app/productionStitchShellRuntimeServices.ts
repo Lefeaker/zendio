@@ -39,6 +39,7 @@ export function createProductionStitchShellRuntimeServices(
     getConnectionNotice: () => options.getConnectionNotice(),
     getDraft: () => options.getDraft(),
     getMessagingRepository: () => messagingRepository,
+    getMessages: () => options.getCurrentMessages(),
     getState: () => options.getState(),
     setConnectionNotice: (notice) => options.setConnectionNotice(notice),
     refreshAppData: () => options.refreshAppData(),

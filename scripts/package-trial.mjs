@@ -50,7 +50,7 @@ function parseArgs() {
  */
 function showHelp() {
   console.log(`
-🔄 AiiinOB 试用版本打包工具
+🔄 Zendio 试用版本打包工具
 
 用法:
   npm run package:trial [选项]

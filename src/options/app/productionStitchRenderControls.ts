@@ -4,6 +4,10 @@ import {
   isHighlightTheme,
   persistTheme
 } from './productionStitchStateMapper';
+import {
+  fragmentModifierStateWarning,
+  normalizeFragmentModifierKeys
+} from './fragmentModifierOptions';
 
 interface RenderControlOptions {
   mountRoot: HTMLElement;
@@ -38,7 +42,7 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
 
   function syncModifierControls(): void {
     const state = options.getState();
-    const activeKeys = new Set(state.modifierKeys);
+    const activeKey = normalizeFragmentModifierKeys(state.modifierKeys)[0];
     mountRoot
       .querySelectorAll<HTMLInputElement>('.modifier-key-inline .switch input[type="checkbox"]')
       .forEach((input) => {
@@ -47,10 +51,15 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
     mountRoot
       .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')
       .forEach((button) => {
-        const isActive =
-          state.fragmentModifierEnabled && activeKeys.has(button.dataset.value ?? '');
+        const isActive = button.dataset.value === activeKey;
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         button.classList.toggle('is-active', isActive);
+        button.closest<HTMLElement>('.chips')?.setAttribute('data-active-value', activeKey);
+      });
+    mountRoot
+      .querySelectorAll<HTMLElement>('.modifier-key-inline .modifier-key-warning')
+      .forEach((node) => {
+        node.textContent = fragmentModifierStateWarning(state);
       });
   }
 

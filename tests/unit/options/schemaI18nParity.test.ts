@@ -1,6 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import de from '@i18n/generated/locales/de.generated';
+import en from '@i18n/generated/locales/en.generated';
+import es419 from '@i18n/generated/locales/es-419.generated';
+import esES from '@i18n/generated/locales/es-ES.generated';
+import fr from '@i18n/generated/locales/fr.generated';
+import itLocale from '@i18n/generated/locales/it.generated';
+import ja from '@i18n/generated/locales/ja.generated';
+import ko from '@i18n/generated/locales/ko.generated';
+import ptBR from '@i18n/generated/locales/pt-BR.generated';
+import ru from '@i18n/generated/locales/ru.generated';
+import zhCN from '@i18n/generated/locales/zh-CN.generated';
+import zhTW from '@i18n/generated/locales/zh-TW.generated';
 import {
   schemaShellMessagesDe,
   schemaShellMessagesEn,
@@ -13,62 +25,27 @@ import {
   schemaShellMessagesKo,
   schemaShellMessagesPtBr,
   schemaShellMessagesRu,
+  schemaShellMessagesZhHans,
   schemaShellMessagesZhHant
-} from '@i18n/schemaShellMessages';
+} from '@i18n/generated/schemaMessages.generated';
 
 describe('schema i18n parity', () => {
-  it('requires formal locales to own schema-shell copy instead of spreading the English block', () => {
-    const localeFiles = [
-      'en.ts',
-      'de.ts',
-      'es-419.ts',
-      'es-ES.ts',
-      'fr.ts',
-      'it.ts',
-      'ja.ts',
-      'ko.ts',
-      'pt-BR.ts',
-      'ru.ts',
-      'zh-CN.ts',
-      'zh-TW.ts'
-    ];
+  it('removes legacy handwritten locale and schema-shell facades', () => {
+    const localesDir = resolve(process.cwd(), 'src/i18n/locales');
+    const localeFiles = existsSync(localesDir)
+      ? readdirSync(localesDir).filter((file) => file.endsWith('.ts'))
+      : [];
 
-    localeFiles.forEach((filename) => {
-      const source = readFileSync(resolve(process.cwd(), 'src/i18n/locales', filename), 'utf8');
-
-      expect(source).not.toMatch(/\bschemaShellMessagesEn\b/);
-      expect(source).not.toContain('...schemaShellMessagesEn');
-    });
-
-    const shellSource = readFileSync(
-      resolve(process.cwd(), 'src/i18n/schemaShellMessages.ts'),
-      'utf8'
-    );
-    const formalSchemaShellExports = [
-      'schemaShellMessagesEnglish',
-      'schemaShellMessagesDe',
-      'schemaShellMessagesEs419',
-      'schemaShellMessagesEsEs',
-      'schemaShellMessagesFr',
-      'schemaShellMessagesIt',
-      'schemaShellMessagesJa',
-      'schemaShellMessagesKo',
-      'schemaShellMessagesPtBr',
-      'schemaShellMessagesRu'
-    ];
-
-    formalSchemaShellExports.forEach((exportName) => {
-      expect(shellSource).not.toContain(`export const ${exportName} = schemaShellMessagesEn;`);
-      expect(shellSource).not.toContain(`export const ${exportName} = { ...schemaShellMessagesEn`);
-    });
-
-    expect(shellSource).not.toContain('...schemaShellMessagesZhHans');
+    expect(localeFiles).toEqual([]);
+    expect(existsSync(resolve(process.cwd(), 'src/i18n/schemaShellMessages.ts'))).toBe(false);
   });
 
-  it('requires formal schema-shell exports to keep the full keyset without collapsing back to English', () => {
-    const englishKeys = Object.keys(schemaShellMessagesEn).sort();
-    const formalShellExports = [
+  it('keeps generated schema catalogs aligned with the English keyset', () => {
+    const englishKeys = Object.keys(schemaShellMessagesEnglish).sort();
+    const generatedShellExports = [
+      schemaShellMessagesEn,
       schemaShellMessagesEnglish,
+      schemaShellMessagesZhHans,
       schemaShellMessagesDe,
       schemaShellMessagesEs419,
       schemaShellMessagesEsEs,
@@ -81,11 +58,12 @@ describe('schema i18n parity', () => {
       schemaShellMessagesZhHant
     ];
 
-    formalShellExports.forEach((shellMessages) => {
+    generatedShellExports.forEach((shellMessages) => {
       expect(Object.keys(shellMessages).sort()).toEqual(englishKeys);
     });
 
     [
+      schemaShellMessagesZhHans,
       schemaShellMessagesDe,
       schemaShellMessagesEs419,
       schemaShellMessagesEsEs,
@@ -97,8 +75,93 @@ describe('schema i18n parity', () => {
       schemaShellMessagesRu,
       schemaShellMessagesZhHant
     ].forEach((shellMessages) => {
-      expect(shellMessages).not.toEqual(schemaShellMessagesEn);
+      expect(shellMessages).not.toEqual(schemaShellMessagesEnglish);
     });
+  });
+
+  it('keeps release runtime locale maps in sync with the generated schema catalogs', () => {
+    const localeSchemas = [
+      en.runtime,
+      schemaShellMessagesEnglish,
+      zhCN.runtime,
+      schemaShellMessagesZhHans,
+      ja.runtime,
+      schemaShellMessagesJa,
+      de.runtime,
+      schemaShellMessagesDe,
+      fr.runtime,
+      schemaShellMessagesFr,
+      esES.runtime,
+      schemaShellMessagesEsEs,
+      es419.runtime,
+      schemaShellMessagesEs419,
+      itLocale.runtime,
+      schemaShellMessagesIt,
+      ko.runtime,
+      schemaShellMessagesKo,
+      ptBR.runtime,
+      schemaShellMessagesPtBr,
+      ru.runtime,
+      schemaShellMessagesRu,
+      zhTW.runtime,
+      schemaShellMessagesZhHant
+    ];
+
+    for (let index = 0; index < localeSchemas.length; index += 2) {
+      const runtime = localeSchemas[index] as Record<string, string>;
+      const schemaMessages = localeSchemas[index + 1] as Record<string, string>;
+
+      for (const [key, value] of Object.entries(schemaMessages)) {
+        expect(runtime[key]).toBe(value);
+      }
+    }
+  });
+
+  it('publishes representative P03-P13 schema keys to both shell and runtime locale maps', () => {
+    const representativeKeys = [
+      'schemaRendererResourceOpenAction',
+      'schemaNavOverviewHint',
+      'schemaRuntimeUiGroupTitle',
+      'schemaOverviewLanguageRowTitle',
+      'schemaOverviewClearUsageDataButton',
+      'schemaStorageConnectionNotRun',
+      'schemaStorageVaultEnabledColumnLabel',
+      'schemaStorageRoutingActionsColumnLabel',
+      'schemaStorageCertificateDownloadTrustLink',
+      'schemaCaptureSourcesAiChatGroupTitle',
+      'schemaCaptureSourcesVideoEntryBehaviorTitle',
+      'schemaCaptureSourcesAttachmentPathGroupTitle',
+      'schemaCaptureSourcesAttachmentGuidanceLink',
+      'schemaCaptureSourcesScreenshotLocationTitle',
+      'schemaCaptureBehaviorReadingGroupTitle',
+      'schemaCaptureBehaviorModifierConflictSystem',
+      'schemaOutputTemplatesGroupTitle',
+      'schemaOutputTemplateHelperText',
+      'schemaOutputYamlGroupTitle',
+      'schemaMaintenanceTransferGroupTitle',
+      'schemaMaintenanceDiagnosisButton',
+      'schemaMaintenanceDiagnosisResultLog',
+      'schemaResourcePluginSetupGoToStorageButton',
+      'schemaResourceSupportScopeGroupTitle',
+      'schemaResourcePrivacyLocalConfigTitle',
+      'schemaRuntimeClipperSelectedText',
+      'schemaRuntimeReaderHighlightOneExcerpt',
+      'schemaRuntimeReaderHighlightTwoExcerpt',
+      'schemaRuntimeReaderHighlightThreeFullText',
+      'schemaRuntimeSurfaceSaveToLabel',
+      'schemaRuntimeTaskSuccessTitle',
+      'schemaRuntimeVideoCaptureTwoFullText',
+      'schemaRuntimeVideoFloatingPromptTitle'
+    ] as const;
+
+    for (const key of representativeKeys) {
+      expect(schemaShellMessagesEnglish[key]).toBeTypeOf('string');
+      expect(schemaShellMessagesEn[key]).toBe(schemaShellMessagesEnglish[key]);
+      expect(en.runtime[key]).toBe(schemaShellMessagesEnglish[key]);
+
+      expect(schemaShellMessagesZhHans[key]).toBeTypeOf('string');
+      expect(zhCN.runtime[key]).toBe(schemaShellMessagesZhHans[key]);
+    }
   });
 
   it('keeps Stitch registry free of previous schema-shell hardcoded sentences', () => {

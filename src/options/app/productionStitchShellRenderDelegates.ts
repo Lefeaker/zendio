@@ -9,7 +9,7 @@ import type {
   ViewSchema
 } from '@options/stitch/types';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
-import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycle';
+import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
 
 interface ProductionStitchShellSchemaRendererOptions {
   createSchemaContext(): SchemaContext;
@@ -60,6 +60,7 @@ export function createProductionStitchRenderDelegates(
   return {
     applySystemThemePreferenceChange: () =>
       getRenderLifecycle()?.applySystemThemePreferenceChange(),
+    cleanup: () => getRenderLifecycle()?.cleanup(),
     openResource: (resourceId) => getRenderLifecycle()?.openResource(resourceId),
     render: () => getRenderLifecycle()?.render(),
     renderActiveResourceModal: () => getRenderLifecycle()?.renderActiveResourceModal(),

@@ -72,4 +72,31 @@ describe('LayoutInspector', () => {
       priority: 'high'
     });
   });
+
+  it('uses aria-label binding keys when reporting overflow', () => {
+    const { dom, inspector } = createElement(
+      '<button data-i18n-aria-label="commentLabel" data-component="button" aria-label="Long label" style="width:80px"></button>'
+    );
+
+    Object.defineProperty(dom.window.HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return 160;
+      }
+    });
+
+    Object.defineProperty(dom.window.HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return 80;
+      }
+    });
+
+    const issues = inspector.inspect('en');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      key: 'commentLabel',
+      issue: 'overflow-x'
+    });
+  });
 });

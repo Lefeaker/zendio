@@ -19,6 +19,31 @@ const THEMES = ['dark', 'light'] as const;
 
 const DYNAMIC_CONTENT_SELECTORS = new Set(['body', '.app', '.content', '.panel-section', '.hero']);
 
+const FOOTER_PANEL_IDS = [
+  'clipper',
+  'reader',
+  'video',
+  'video-floating-prompt',
+  'task-success'
+] as const;
+
+const EXPECTED_RESOURCE_LABELS = [
+  'Onboarding',
+  'Plugin Setup',
+  'Support',
+  'Suggestions',
+  'Contact',
+  'Changelog'
+] as const;
+
+const EXPECTED_PRODUCTION_SURFACE_LABELS = [
+  'Clipper Dialog',
+  'Reader Mode',
+  'Video Mode',
+  'Video Floating Prompt',
+  'Task Success'
+] as const;
+
 const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.card',
   '.card-header',
@@ -33,7 +58,8 @@ const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.notice'
 ]);
 
-const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar']);
+// Text-only copy drift between preview sources and production should not fail structural parity.
+const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar', '.row']);
 
 const EXPECTED_PREVIEW_SURFACE_LABELS: Record<PreviewSourceKind, string[]> = {
   'external-reference': ['Clipper Dialog', 'Reader Mode', 'Video Mode', 'Task Success'],
@@ -54,6 +80,35 @@ const EXPECTED_PREVIEW_SWITCH_LABELS: Record<PreviewSourceKind, string[]> = {
   ],
   'generated-preview': []
 };
+
+const EXPECTED_PREVIEW_SURFACE_PANEL_COUNTS: Record<
+  PreviewSourceKind,
+  Record<(typeof FOOTER_PANEL_IDS)[number], number>
+> = {
+  'external-reference': {
+    clipper: 1,
+    reader: 1,
+    video: 1,
+    'video-floating-prompt': 0,
+    'task-success': 1
+  },
+  'generated-preview': {
+    clipper: 1,
+    reader: 1,
+    video: 1,
+    'video-floating-prompt': 1,
+    'task-success': 1
+  }
+};
+
+const EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS: Record<(typeof FOOTER_PANEL_IDS)[number], number> =
+  {
+    clipper: 1,
+    reader: 1,
+    video: 1,
+    'video-floating-prompt': 1,
+    'task-success': 1
+  };
 
 function normalizeElementSamplesForParity(
   samples: Record<string, StitchElementSample>
@@ -221,6 +276,17 @@ async function exposeYamlDomainEditor(page: import('@playwright/test').Page): Pr
   }
 }
 
+async function expectFooterPanelCounts(
+  page: import('@playwright/test').Page,
+  expectedCounts: Record<(typeof FOOTER_PANEL_IDS)[number], number>
+): Promise<void> {
+  for (const panelId of FOOTER_PANEL_IDS) {
+    await expect(page.locator(`[data-footer-panel="${panelId}"]`), panelId).toHaveCount(
+      expectedCounts[panelId]
+    );
+  }
+}
+
 async function prepareOptionsPage(
   page: import('@playwright/test').Page,
   url: string,
@@ -241,6 +307,14 @@ function expectSharedOptionsParity(
   previewSourceKind: PreviewSourceKind
 ): void {
   const previewReleaseNavLabels = preview.navLabels.filter((label) => label !== 'Experimental');
+  const expectedPreviewModalTitles = [
+    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]
+  ];
+  const expectedProductionModalTitles = [
+    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PRODUCTION_SURFACE_LABELS
+  ];
   expect(production.skin.previewSkin).toBe('stitch-secondary');
   expect(production.skin.previewTheme).toBe(theme);
   expect(preview.skin.previewSkin).toBeNull();
@@ -252,9 +326,12 @@ function expectSharedOptionsParity(
   expect(production.computed.button).toEqual(preview.computed.button);
   expectElementSamplesToMatch(production.elementSamples, preview.elementSamples);
   expect(production.navLabels).toEqual(previewReleaseNavLabels);
-  expect(production.resourceLabels).toEqual(preview.resourceLabels);
-  expect(production.surfaceLabels).toEqual([]);
+  expect(production.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
+  expect(preview.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
+  expect(production.surfaceLabels).toEqual(EXPECTED_PRODUCTION_SURFACE_LABELS);
   expect(preview.surfaceLabels).toEqual(EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]);
+  expect(production.modalResourceTitles).toEqual(expectedProductionModalTitles);
+  expect(preview.modalResourceTitles).toEqual(expectedPreviewModalTitles);
   expect(production.activePanel).toBeTruthy();
   expect(preview.activePanel).toBeTruthy();
   expect(production.hasInlineThemeSegmentedControl).toBe(true);
@@ -313,15 +390,15 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
         await prepareOptionsPage(page, previewUrl, theme);
+        await expectFooterPanelCounts(
+          page,
+          EXPECTED_PREVIEW_SURFACE_PANEL_COUNTS[getPreviewSourceKind()]
+        );
         const preview = await collectStitchContract(page);
 
         await prepareOptionsPage(page, productionUrl, theme);
         await expectNoLegacyOptionsShell(page);
-        await expect(page.locator('[data-footer-panel="clipper"]')).toHaveCount(0);
-        await expect(page.locator('[data-footer-panel="reader"]')).toHaveCount(0);
-        await expect(page.locator('[data-footer-panel="video"]')).toHaveCount(0);
-        await expect(page.locator('[data-footer-panel="video-floating-prompt"]')).toHaveCount(0);
-        await expect(page.locator('[data-footer-panel="task-success"]')).toHaveCount(0);
+        await expectFooterPanelCounts(page, EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS);
         await expect(page.locator('[data-stitch-surface="clipper"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="reader"]')).toHaveCount(0);
         await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(0);
@@ -344,10 +421,15 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
 
     await page.setViewportSize({ width: 1280, height: 720 });
     await prepareOptionsPage(page, previewUrl, 'dark');
+    await expectFooterPanelCounts(
+      page,
+      EXPECTED_PREVIEW_SURFACE_PANEL_COUNTS[getPreviewSourceKind()]
+    );
     const preview = await collectStitchContract(page);
 
     await prepareOptionsPage(page, productionUrl, 'dark');
     await expectNoLegacyOptionsShell(page);
+    await expectFooterPanelCounts(page, EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS);
     const production = await collectStitchContract(page);
     expectSharedOptionsParity(production, preview, 'dark', getPreviewSourceKind());
 
@@ -376,36 +458,31 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     await exposeYamlDomainEditor(page);
     await stabilize(page);
     await expectNoLegacyOptionsShell(page);
+    await expectFooterPanelCounts(page, EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS);
     const production = await collectStitchContract(page);
 
-    for (const label of ['隐私政策', '数据用途说明']) {
+    for (const label of ['Privacy policy', 'Data usage details']) {
       expect(production.interactionInventory.enabledButtonLabels).toContain(label);
     }
-    expect(production.interactionInventory.enabledButtonLabels).not.toEqual(
-      expect.arrayContaining(['Apply Minimal', 'Apply Research', 'Apply Conversation'])
-    );
-    expect(production.interactionInventory.disabledButtonLabels).not.toEqual(
-      expect.arrayContaining([
-        'On',
-        'Off',
-        '+ Add field',
-        '+ Add domain rule',
-        'Apply Research',
-        '隐私政策',
-        '数据用途说明'
-      ])
-    );
-    expect(preview.interactionInventory.disabledButtonLabels).not.toEqual(
-      expect.arrayContaining([
-        'On',
-        'Off',
-        '+ Add field',
-        '+ Add domain rule',
-        'Apply Research',
-        '隐私政策',
-        '数据用途说明'
-      ])
-    );
+    for (const label of EXPECTED_PRODUCTION_SURFACE_LABELS) {
+      expect(production.interactionInventory.enabledButtonLabels).toContain(label);
+    }
+    for (const label of ['Apply Minimal', 'Apply Research', 'Apply Conversation']) {
+      expect(production.interactionInventory.enabledButtonLabels).not.toContain(label);
+      expect(production.interactionInventory.disabledButtonLabels).not.toContain(label);
+    }
+    for (const label of [
+      'Privacy policy',
+      'Data usage details',
+      '+ Add field',
+      '+ Add domain rule'
+    ]) {
+      expect(production.interactionInventory.disabledButtonLabels).not.toContain(label);
+      expect(preview.interactionInventory.disabledButtonLabels).not.toContain(label);
+    }
+    for (const label of ['隐私政策', '数据用途说明']) {
+      expect(production.interactionInventory.enabledButtonLabels).not.toContain(label);
+    }
 
     expect(production.yamlWidget.actionLabels).toEqual(
       expect.arrayContaining(['+ Add field', '+ Add domain rule'])

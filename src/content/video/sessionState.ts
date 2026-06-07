@@ -1,4 +1,5 @@
-import type { PageI18nController } from '../../i18n';
+import type { PageI18nController } from '@i18n';
+import type { FeatureTimer } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { FragmentClipperOptions } from '../../shared/types/options';
 import type { VideoPlatform } from './utils';
@@ -8,6 +9,7 @@ import type { VideoHintContext } from './videoHintManager';
 
 export class VideoSessionState {
   captures: VideoCapture[] = [];
+  commentDrafts: Record<string, string> = {};
   videoElement: HTMLVideoElement | null = null;
   storageKey: string | null = null;
   videoTitle = '';
@@ -24,6 +26,7 @@ export class VideoSessionState {
   platformAdapter: VideoPlatformAdapter | null = null;
   fragmentConfig: FragmentClipperOptions | null = null;
   highlightTheme: ReaderHighlightTheme;
+  analyticsTimer: FeatureTimer | null = null;
 
   constructor(defaultHighlightTheme: ReaderHighlightTheme) {
     this.highlightTheme = defaultHighlightTheme;

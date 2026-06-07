@@ -50,6 +50,12 @@ export interface ReadingSessionOptions {
   highlightTheme: ReaderHighlightTheme;
 }
 
+export interface VideoScreenshotAttachmentOptions {
+  locationTemplate: string;
+  fileNameTemplate: string;
+  markdownUrlFormat: string;
+}
+
 export interface VideoOptions {
   floatingPromptEnabled: boolean;
   promptButtonLabel: string;
@@ -59,12 +65,6 @@ export interface VideoOptions {
   commentEditorAutoPause: boolean;
   promptPosition?: { x: number; y: number };
   screenshotAttachment: VideoScreenshotAttachmentOptions;
-}
-
-export interface VideoScreenshotAttachmentOptions {
-  locationTemplate: string;
-  fileNameTemplate: string;
-  markdownUrlFormat: string;
 }
 
 export interface StoredVideoOptions extends Omit<Partial<VideoOptions>, 'screenshotAttachment'> {

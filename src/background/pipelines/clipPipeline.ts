@@ -3,6 +3,7 @@ import { notifyClipFailure, notifyClipSuccess, notifyClipWarning } from '../serv
 import type { ClipResultMessage } from '../../shared/types';
 import { processClipPayload } from '../application/clipProcessor';
 import type { TabsService } from '../../platform/interfaces/tabs';
+import { createAnalyticsOperationId } from '../../shared/analytics';
 import {
   AppError,
   errorHandler,
@@ -29,6 +30,8 @@ import {
 import type { LocalVaultPermissionPromptRequest } from '../services/obsidianWriter';
 
 export type { ClipPipelineDependencies } from './clipPipelineSupport';
+
+const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
 
 export function createClipPipelineDependencies(
   tabs: Pick<TabsService, 'sendMessage'>
@@ -133,7 +136,7 @@ export async function handleClipResult(
   tabId: number | undefined,
   dependencies: ClipPipelineDependencies
 ): Promise<void> {
-  const payload = normalizeClipPayload(message.payload);
+  const payload = ensureBackgroundOperationId(normalizeClipPayload(message.payload));
 
   if (!payload?.markdown) {
     const error = extractionErrors.noMarkdown(buildFailureContext(payload));
@@ -211,4 +214,31 @@ export async function handleClipResult(
     });
     await handleClipFailure(dependencies, appError, tabId, payload);
   }
+}
+
+function ensureBackgroundOperationId(
+  payload: ClipResultMessage['payload']
+): ClipResultMessage['payload'] {
+  if (!payload) {
+    return payload;
+  }
+
+  if (!payload.meta) {
+    payload.meta = {};
+  }
+
+  const candidate =
+    typeof payload.meta.operationId === 'string'
+      ? payload.meta.operationId
+      : typeof payload.meta.operation_id === 'string'
+        ? payload.meta.operation_id
+        : undefined;
+
+  if (candidate && BACKGROUND_OPERATION_ID_PATTERN.test(candidate)) {
+    payload.meta.operationId = candidate;
+    return payload;
+  }
+
+  payload.meta.operationId = createAnalyticsOperationId();
+  return payload;
 }

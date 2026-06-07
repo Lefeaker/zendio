@@ -1,3 +1,4 @@
+import { formatMessage, getMessagesForLanguage, type Messages } from '@i18n';
 import { getService } from '@shared/di';
 import { TOKENS } from '@shared/di/tokens';
 import type { PlatformServices } from '@platform/types';
@@ -5,6 +6,11 @@ import type {
   ProductionStitchStorageControllerOptions,
   ProductionStitchStorageLoad
 } from './productionStitchStorageTypes';
+import {
+  classifyPermissionPromptErrorOutcome,
+  emitLocalVaultPermissionPrompted,
+  emitLocalVaultPermissionResolved
+} from '@options/services/connectionTester';
 
 export interface ProductionStitchStorageSubscriptions {
   activateVaultLocalFolder(index: number): Promise<void>;
@@ -16,6 +22,25 @@ export function createProductionStitchStorageSubscriptions(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageSubscriptions {
+  async function resolveCurrentMessages(): Promise<Messages | null> {
+    try {
+      return await getMessagesForLanguage(options.getState().previewLanguage);
+    } catch {
+      return null;
+    }
+  }
+
+  function getMessage(
+    messages: Messages | null,
+    key: keyof Messages,
+    fallback: string,
+    values: Record<string, string | number | boolean> = {}
+  ): string {
+    const value = messages?.[key];
+    const template = typeof value === 'string' && value.length > 0 ? value : fallback;
+    return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
+  }
+
   async function removeStoredLocalFolder(folderId: string | undefined): Promise<void> {
     if (!folderId) {
       return;
@@ -38,12 +63,14 @@ export function createProductionStitchStorageSubscriptions(
       return;
     }
     try {
+      emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const previousFolderId = vault.localFolderId;
       const selection = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.chooseDirectory({
         suggestedName: vault.name || vault.vault
       });
+      emitLocalVaultPermissionResolved(options.getMessagingRepository(), 'completed');
       state.activeLocalFolderVaultIndex = null;
       vault.localFolderId = selection.id;
       vault.localFolderName = selection.name;
@@ -57,10 +84,23 @@ export function createProductionStitchStorageSubscriptions(
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
+      const messages = await resolveCurrentMessages();
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        classifyPermissionPromptErrorOutcome(error)
+      );
       console.warn('[Options] Failed to choose local vault folder:', error);
       options.setConnectionNotice({
-        title: '本地目录',
-        body: '无法授权本地目录。Chromium 浏览器支持此功能，未授权时会继续使用 REST API。',
+        title: getMessage(
+          messages,
+          'schemaStorageLocalFolderAuthorizeWarningTitle',
+          'Local Folder'
+        ),
+        body: getMessage(
+          messages,
+          'schemaStorageLocalFolderAuthorizeWarningBody',
+          'Could not authorize a local folder. Chromium supports this feature. Until permission is granted, Zendio continues to use the REST API.'
+        ),
         variant: 'warning'
       });
       options.refreshAppData();
@@ -101,40 +141,77 @@ export function createProductionStitchStorageSubscriptions(
       return;
     }
 
+    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
+    options.render();
+
     try {
+      emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
+      const messages = await resolveCurrentMessages();
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        permission === 'granted' ? 'completed' : 'failed'
+      );
       if (permission !== 'granted') {
         options.setConnectionNotice({
-          title: '本地目录需要重新授权',
-          body: `Chrome 已将“${vault.localFolderName ?? vault.name ?? vault.vault}”的本地目录权限恢复为待授权状态。请再次点击该目录并在浏览器权限提示中允许读写；未授权前发送会回退 REST API。`,
+          title: getMessage(
+            messages,
+            'schemaStorageLocalFolderReauthorizeTitle',
+            'Local Folder needs permission again'
+          ),
+          body: getMessage(
+            messages,
+            'schemaStorageLocalFolderReauthorizeBody',
+            'Chrome reset the local-folder permission for "{vaultName}". Click the folder again and allow read/write access in the browser prompt. Until then, sending falls back to the REST API.',
+            { vaultName: vault.localFolderName ?? vault.name ?? vault.vault }
+          ),
           variant: 'warning'
         });
-        state.activeLocalFolderVaultIndex = null;
         options.refreshAppData();
         options.render();
         return;
       }
       options.setConnectionNotice({
-        title: '本地目录权限已确认',
-        body: `“${vault.localFolderName ?? vault.name ?? vault.vault}”已可用于本地写入。`,
+        title: getMessage(
+          messages,
+          'schemaStorageLocalFolderPermissionConfirmedTitle',
+          'Local Folder permission confirmed'
+        ),
+        body: getMessage(
+          messages,
+          'schemaStorageLocalFolderPermissionConfirmedBody',
+          '"{vaultName}" is ready for local writes.',
+          { vaultName: vault.localFolderName ?? vault.name ?? vault.vault }
+        ),
         variant: 'success'
       });
     } catch (error) {
+      const messages = await resolveCurrentMessages();
+      emitLocalVaultPermissionResolved(
+        options.getMessagingRepository(),
+        classifyPermissionPromptErrorOutcome(error)
+      );
       console.warn('[Options] Failed to refresh local vault folder permission:', error);
       options.setConnectionNotice({
-        title: '本地目录需要重新授权',
-        body: 'Chrome 暂时无法恢复这个本地目录权限。请重新选择目录，或继续使用 REST API。',
+        title: getMessage(
+          messages,
+          'schemaStorageLocalFolderReauthorizeTitle',
+          'Local Folder needs permission again'
+        ),
+        body: getMessage(
+          messages,
+          'schemaStorageLocalFolderReauthorizeFallbackBody',
+          'Chrome could not restore this local-folder permission right now. Re-select the folder or continue with the REST API.'
+        ),
         variant: 'warning'
       });
-      state.activeLocalFolderVaultIndex = null;
       options.refreshAppData();
       options.render();
       return;
     }
 
-    state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
     options.refreshAppData();
     options.render();
   }

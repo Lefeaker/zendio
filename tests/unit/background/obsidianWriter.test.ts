@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getServiceMock = vi.hoisted(() => vi.fn());
 const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const trackUsageEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@shared/di', () => ({
   getService: getServiceMock
@@ -12,6 +13,31 @@ vi.mock('@shared/errors', () => ({
   },
   handleError: handleErrorMock
 }));
+vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  trackUsageEvent: trackUsageEventMock
+}));
+
+const FORBIDDEN_ANALYTICS_KEYS = new Set([
+  'apiKey',
+  'baseUrl',
+  'duration_ms',
+  'endpoint',
+  'fallback_reason',
+  'failure_count_bucket',
+  'filePath',
+  'folderId',
+  'folderName',
+  'localFolderName',
+  'noteName',
+  'permission_state',
+  'response',
+  'responseBody',
+  'success_count_bucket',
+  'test_scope',
+  'vault',
+  'vaultName',
+  'vault_count_bucket'
+]);
 
 describe('obsidianWriter', () => {
   beforeEach(() => {
@@ -23,9 +49,8 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.resolve(undefined));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { writeMarkdownToVault } =
+      await import('../../../src/background/services/obsidianWriter');
     await writeMarkdownToVault(
       {
         baseUrl: 'https://vault.example',
@@ -57,9 +82,8 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.reject(error));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { writeMarkdownToVault } =
+      await import('../../../src/background/services/obsidianWriter');
 
     await expect(
       writeMarkdownToVault(
@@ -93,9 +117,8 @@ describe('obsidianWriter', () => {
     const writeFileMock = vi.fn(() => Promise.resolve(undefined));
     getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
 
-    const { writeMarkdownToVault } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { writeMarkdownToVault } =
+      await import('../../../src/background/services/obsidianWriter');
     await writeMarkdownToVault(
       {
         baseUrl: 'http://fallback.example',
@@ -132,9 +155,8 @@ describe('obsidianWriter', () => {
       }
     });
 
-    const { createVaultWriteSession } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { createVaultWriteSession } =
+      await import('../../../src/background/services/obsidianWriter');
     const session = await createVaultWriteSession({
       baseUrl: 'https://vault.example',
       vault: 'Main',
@@ -170,6 +192,22 @@ describe('obsidianWriter', () => {
       contentType: 'text/markdown; charset=utf-8'
     });
     expect(writeFileMock).not.toHaveBeenCalled();
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'vault_write_completed',
+      {
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'storage_target']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[1],
+      'vault_write_completed',
+      {
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'storage_target']
+    );
   });
 
   it('falls back to REST for the whole session when local preflight is denied', async () => {
@@ -187,9 +225,8 @@ describe('obsidianWriter', () => {
       }
     });
 
-    const { createVaultWriteSession } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { createVaultWriteSession } =
+      await import('../../../src/background/services/obsidianWriter');
     const session = await createVaultWriteSession({
       baseUrl: 'https://vault.example',
       vault: 'Main',
@@ -238,6 +275,30 @@ describe('obsidianWriter', () => {
       '# Hello',
       { contentType: 'text/markdown; charset=utf-8' }
     );
+    expect(trackUsageEventMock).not.toHaveBeenCalledWith(
+      'local_vault_permission_prompted',
+      expect.anything()
+    );
+    expect(trackUsageEventMock).not.toHaveBeenCalledWith(
+      'local_vault_permission_resolved',
+      expect.anything()
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'vault_write_completed',
+      {
+        storage_target: 'rest_api'
+      },
+      ['duration_bucket', 'storage_target']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[1],
+      'vault_write_completed',
+      {
+        storage_target: 'rest_api'
+      },
+      ['duration_bucket', 'storage_target']
+    );
   });
 
   it('fails the session without REST fallback when local writing fails after preflight succeeds', async () => {
@@ -257,9 +318,8 @@ describe('obsidianWriter', () => {
       }
     });
 
-    const { createVaultWriteSession } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { createVaultWriteSession } =
+      await import('../../../src/background/services/obsidianWriter');
     const session = await createVaultWriteSession({
       baseUrl: 'https://vault.example',
       vault: 'Main',
@@ -278,6 +338,23 @@ describe('obsidianWriter', () => {
       userMessage: expect.stringContaining('本地目录写入失败')
     });
     expect(writeFileMock).not.toHaveBeenCalled();
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'vault_write_completed',
+      {
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'storage_target']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[1],
+      'vault_write_failed',
+      {
+        failure_category: 'write',
+        storage_target: 'local_folder'
+      },
+      ['failure_category', 'storage_target']
+    );
   });
 
   it('uses current-page reauthorization when local permission is prompt before writing', async () => {
@@ -300,9 +377,8 @@ describe('obsidianWriter', () => {
       }
     });
 
-    const { createVaultWriteSession } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { createVaultWriteSession } =
+      await import('../../../src/background/services/obsidianWriter');
     const session = await createVaultWriteSession(
       {
         baseUrl: 'https://vault.example',
@@ -332,6 +408,30 @@ describe('obsidianWriter', () => {
       contentType: 'text/markdown; charset=utf-8'
     });
     expect(writeFileMock).not.toHaveBeenCalled();
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'local_vault_permission_prompted',
+      {
+        source: 'clip'
+      },
+      ['source']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[1],
+      'local_vault_permission_resolved',
+      {
+        outcome: 'completed'
+      },
+      ['outcome']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[2],
+      'vault_write_completed',
+      {
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'storage_target']
+    );
   });
 
   it('reports local reauthorization when permission is prompt and REST fallback fails', async () => {
@@ -348,9 +448,8 @@ describe('obsidianWriter', () => {
       }
     });
 
-    const { createVaultWriteSession } = await import(
-      '../../../src/background/services/obsidianWriter'
-    );
+    const { createVaultWriteSession } =
+      await import('../../../src/background/services/obsidianWriter');
     const session = await createVaultWriteSession({
       baseUrl: 'https://vault.example',
       vault: 'Main',
@@ -369,5 +468,104 @@ describe('obsidianWriter', () => {
       userMessage: expect.stringContaining('本地目录需要重新授权')
     });
     expect(writeFileMock).toHaveBeenCalled();
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'vault_write_failed',
+      {
+        failure_category: 'connection',
+        storage_target: 'rest_api'
+      },
+      ['failure_category', 'storage_target']
+    );
+  });
+
+  it.each([
+    ['missing', 'folder-missing'],
+    ['unsupported', 'unsupported']
+  ] as const)(
+    'falls back to REST and emits safe analytics when local preflight is %s',
+    async (permission, fallbackReason) => {
+      const writeFileMock = vi.fn(() => Promise.resolve(undefined));
+      getServiceMock.mockReturnValue({
+        restClient: { writeFile: writeFileMock },
+        fileSystemAccess: {
+          queryPermission: vi.fn(() => Promise.resolve(permission)),
+          ensurePermission: vi.fn(() => Promise.resolve(permission)),
+          writeFile: vi.fn()
+        }
+      });
+
+      const { createVaultWriteSession } =
+        await import('../../../src/background/services/obsidianWriter');
+      const session = await createVaultWriteSession({
+        baseUrl: 'https://vault.example',
+        vault: 'Main',
+        apiKey: 'secret',
+        localFolderId: 'folder-main',
+        localFolderName: 'Main'
+      } as never);
+
+      await session.writeMarkdown('Articles/test.md', '# Hello');
+
+      expect(session.target).toEqual({
+        storageTarget: 'rest-api',
+        localFolderName: 'Main',
+        fallbackReason
+      });
+      expectAnalyticsEvent(
+        trackUsageEventMock.mock.calls[0],
+        'vault_write_completed',
+        {
+          storage_target: 'rest_api'
+        },
+        ['duration_bucket', 'storage_target']
+      );
+    }
+  );
+
+  it('emits safe failure analytics when REST writes fail', async () => {
+    const error = new Error('network failed');
+    const writeFileMock = vi.fn(() => Promise.reject(error));
+    getServiceMock.mockReturnValue({ restClient: { writeFile: writeFileMock } });
+
+    const { writeMarkdownToVault } =
+      await import('../../../src/background/services/obsidianWriter');
+
+    await expect(
+      writeMarkdownToVault(
+        {
+          baseUrl: 'https://vault.example',
+          vault: 'Main',
+          apiKey: 'secret'
+        } as never,
+        'Articles/test.md',
+        '# Hello'
+      )
+    ).rejects.toThrow('network failed');
+
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'vault_write_failed',
+      {
+        failure_category: 'connection',
+        storage_target: 'rest_api'
+      },
+      ['failure_category', 'storage_target']
+    );
   });
 });
+
+function expectAnalyticsEvent(
+  call: unknown[],
+  expectedEvent: string,
+  expectedParams: Record<string, unknown>,
+  allowedKeys: string[]
+): void {
+  expect(call[0]).toBe(expectedEvent);
+  expect(call[1]).toEqual(expect.objectContaining(expectedParams));
+  const params = call[1] as Record<string, unknown>;
+  expect(Object.keys(params).sort()).toEqual([...allowedKeys].sort());
+  Object.keys(params).forEach((key) => {
+    expect(FORBIDDEN_ANALYTICS_KEYS.has(key)).toBe(false);
+  });
+}

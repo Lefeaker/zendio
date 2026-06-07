@@ -228,7 +228,10 @@ describe('trial-manager', () => {
     });
     await showExpirationNotice();
     expect(createNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'AiiinOB 试用版已过期' })
+      expect.objectContaining({
+        title: 'Zendio 试用版已过期',
+        message: '感谢您试用 Zendio！试用期已结束，请联系开发者获取正式版本。'
+      })
     );
 
     createNotificationMock.mockClear();
@@ -242,7 +245,7 @@ describe('trial-manager', () => {
     });
     await showExpirationNotice();
     expect(createNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'AiiinOB 试用版即将过期' })
+      expect.objectContaining({ title: 'Zendio 试用版即将过期' })
     );
   });
 

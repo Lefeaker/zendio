@@ -151,6 +151,10 @@
   margin-inline: auto;
 }
 
+.video-surface-window .video-fragment-session-item-card .session-item-marker {
+  justify-content: center;
+}
+
 .session-item-card[data-capture-kind='timestamp'] {
   align-items: center;
   min-height: var(--session-video-timestamp-row-min-height, 28px);

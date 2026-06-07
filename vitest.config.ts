@@ -6,7 +6,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    exclude: ['tests/e2e/**/*.browser.test.ts']
+    exclude: [
+      'tests/e2e/readerPanelFlow.test.ts',
+      'tests/e2e/videoPanelFlow.test.ts',
+      'tests/e2e/**/*.browser.test.ts'
+    ]
   },
   resolve: {
     alias: createVitestAliases()

@@ -149,11 +149,6 @@ export type ReadonlyVideoOptions = ReadonlyDeep<{
   controlBarAutoPause: boolean;
   controlBarScreenshot: boolean;
   commentEditorAutoPause: boolean;
-  screenshotAttachment: {
-    locationTemplate: string;
-    fileNameTemplate: string;
-    markdownUrlFormat: string;
-  };
 }>;
 
 export type ReadonlyDeepResearchOptions = ReadonlyDeep<{

@@ -1,4 +1,4 @@
-import type { I18nBinder, I18nBindingHandle, Messages } from '../../i18n';
+import type { I18nBinder, I18nBindingHandle, Messages } from '@i18n';
 import {
   getOptionsI18nBinder,
   getOptionsI18nResource,

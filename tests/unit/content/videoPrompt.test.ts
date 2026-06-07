@@ -48,6 +48,7 @@ type VideoOptionsStub = {
   promptPosition: PromptPosition;
   controlBarAutoPause: boolean;
   controlBarScreenshot: boolean;
+  commentEditorAutoPause: boolean;
 };
 
 type StorageChangeSnapshot = {
@@ -369,7 +370,8 @@ function createTestDependencies(): TestDeps & VideoPromptDependencies {
       promptShortcut: 'Ctrl+Shift+V',
       promptPosition: { x: 90, y: 150 },
       controlBarAutoPause: true,
-      controlBarScreenshot: false
+      controlBarScreenshot: false,
+      commentEditorAutoPause: false
     }),
     savePromptPosition: vi.fn<(...args: [PromptPosition]) => Promise<void>>(() =>
       Promise.resolve()
@@ -816,7 +818,8 @@ describe('video prompt', () => {
       promptShortcut: 'Alt+Q',
       promptPosition: { x: 40, y: 80 },
       controlBarAutoPause: true,
-      controlBarScreenshot: false
+      controlBarScreenshot: false,
+      commentEditorAutoPause: false
     };
     deps.emitConfigChange(updatedConfig);
     await flushMicrotasks();
@@ -830,7 +833,8 @@ describe('video prompt', () => {
       promptShortcut: 'None',
       promptPosition: { x: 0, y: 0 },
       controlBarAutoPause: true,
-      controlBarScreenshot: false
+      controlBarScreenshot: false,
+      commentEditorAutoPause: false
     };
     deps.emitConfigChange(disabledConfig);
     await flushMicrotasks();

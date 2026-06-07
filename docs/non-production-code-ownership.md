@@ -75,9 +75,9 @@ Require the check command to exit 0. It fails on:
 
 It does not fail merely because `migrate-import-owner`, `migrate-script-owner`, `migrate-test-owner`, `retain-production`, or `retain-production-facade` inventory remains. The separate report command is stricter for completion audits: unresolved `migrate-test-owner` and `migrate-script-owner` rows must not remain in a completed orchestration.
 
-2026-06-01 report-closure truth: after `audit:production-build-graph:report`,
+2026-06-05 GA/i18n PR merge truth: after `audit:production-build-graph:report`,
 `audit:non-production-source:report` exits 0 with counts
-`migrate-import-owner: 124`, `retain-production: 532`, and
+`migrate-import-owner: 130`, `retain-production: 569`, and
 `retain-production-facade: 17`. The four Plan 09 completion blockers were
 resolved without weakening gates:
 

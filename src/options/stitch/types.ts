@@ -2,7 +2,9 @@ import type {
   ActionDescriptor as SharedActionDescriptor,
   StateBinding as SharedStateBinding
 } from '@options/schema-runtime';
-
+import type { Messages } from '@i18n';
+import type { SchemaTranslator } from './schema/i18n';
+import type { PreviewVideoStoreState } from './videoStateTypes';
 export interface HeroData {
   title: string;
   description: string;
@@ -176,11 +178,7 @@ export interface VideoSurfaceCapture {
   editing?: boolean;
 }
 
-export interface ToastPreview {
-  title: string;
-  detail: string;
-  actions?: string[];
-}
+export type ToastPreview = { title: string; detail: string; actions?: string[] };
 
 export interface PreviewSurfaces {
   clipper: {
@@ -312,6 +310,7 @@ export interface PreviewContent {
     connectionNotice?: {
       title: string;
       body: string;
+      html?: string;
       variant: 'info' | 'warning' | 'danger' | 'success';
     };
   };
@@ -349,7 +348,7 @@ export interface PreviewContent {
   maintenanceLog: string;
 }
 
-export interface PreviewStoreState {
+export interface PreviewStoreState extends PreviewVideoStoreState {
   activePanel: string;
   activeResource: string | null;
   previewTheme: 'dark' | 'light';
@@ -380,11 +379,6 @@ export interface PreviewStoreState {
   classifierModel?: string;
   classifierApiKey?: string;
   classifierTaxonomyText?: string;
-  videoFloatingPromptEnabled?: boolean;
-  videoCommentEditorAutoPause?: boolean;
-  videoScreenshotAttachmentLocationTemplate?: string;
-  videoScreenshotAttachmentFileNameTemplate?: string;
-  videoScreenshotAttachmentMarkdownUrlFormat?: string;
   fragmentUseFootnoteFormat?: boolean;
   fragmentCaptureContext?: boolean;
   fragmentContextLength?: number;
@@ -405,6 +399,9 @@ export interface PreviewStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
+  language?: string;
+  messages?: Messages | null;
+  t?: SchemaTranslator;
 }
 
 export type DynamicValue<T> = T | ((ctx: SchemaContext) => T);
@@ -735,12 +732,10 @@ export interface ViewSchema {
   children?: NodeSchema[];
 }
 
-export interface ResourceSchema {
+export type ResourceSchema = {
   openMode: 'modal' | 'page';
   href?: string;
   createView: (ctx: SchemaContext) => ViewSchema;
-}
+};
 
-export interface SettingsSchema {
-  createView: (ctx: SchemaContext) => ViewSchema;
-}
+export type SettingsSchema = { createView: (ctx: SchemaContext) => ViewSchema };

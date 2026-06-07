@@ -76,6 +76,12 @@ export const ReadingSessionOptionsSchema = z.object({
   highlightTheme: ReaderHighlightThemeSchema
 });
 
+export const VideoScreenshotAttachmentOptionsSchema = z.object({
+  locationTemplate: z.string(),
+  fileNameTemplate: z.string(),
+  markdownUrlFormat: z.string()
+});
+
 /**
  * VideoOptions Schema
  */
@@ -92,13 +98,7 @@ export const VideoOptionsSchema = z.object({
       y: z.number()
     })
     .optional(),
-  screenshotAttachment: z
-    .object({
-      locationTemplate: z.string().optional(),
-      fileNameTemplate: z.string().optional(),
-      markdownUrlFormat: z.string().optional()
-    })
-    .optional()
+  screenshotAttachment: VideoScreenshotAttachmentOptionsSchema
 });
 
 /**
@@ -175,7 +175,11 @@ export const StoredOptionsSchema = z
     deepResearch: DeepResearchOptionsSchema.partial().optional(),
     fragmentClipper: FragmentClipperOptionsSchema.partial().optional(),
     readingSession: ReadingSessionOptionsSchema.partial().optional(),
-    video: VideoOptionsSchema.partial().optional(),
+    video: VideoOptionsSchema.partial()
+      .extend({
+        screenshotAttachment: VideoScreenshotAttachmentOptionsSchema.partial().optional()
+      })
+      .optional(),
     classifier: ClassifierOptionsSchema.partial().optional(),
     experimentalAi: ExperimentalAiOptionsSchema.partial().optional(),
     pageSummary: PageSummaryOptionsSchema.partial().optional(),
@@ -218,6 +222,9 @@ export type FragmentModifierKey = z.infer<typeof FragmentModifierKeySchema>;
 export type ReadingExportMode = z.infer<typeof ReadingExportModeSchema>;
 export type ReaderHighlightTheme = z.infer<typeof ReaderHighlightThemeSchema>;
 export type ReadingSessionOptions = z.infer<typeof ReadingSessionOptionsSchema>;
+export type VideoScreenshotAttachmentOptions = z.infer<
+  typeof VideoScreenshotAttachmentOptionsSchema
+>;
 export type VideoOptions = z.infer<typeof VideoOptionsSchema>;
 export type FragmentClipperOptions = z.infer<typeof FragmentClipperOptionsSchema>;
 export type ClassifierProvider = z.infer<typeof ClassifierProviderSchema>;

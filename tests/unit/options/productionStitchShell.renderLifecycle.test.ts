@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import * as productionStitchShellContextModule from '@options/app/productionStitchShellContext';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asOptionsController,
@@ -33,17 +35,17 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     } as never);
 
     expect(document.querySelector('.sidebar')).toBeTruthy();
-    expect(document.querySelector('.brand-copy strong')?.textContent).toBe('All in Ob');
+    expect(document.querySelector('.brand-copy strong')?.textContent).toBe('Zendio');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
     const brandLogo = document.querySelector<HTMLImageElement>('.brand-mark img');
     expect(brandLogo?.getAttribute('src')).toBe('../icons/bannerlogo-128.png');
     expect(document.querySelector('[data-nav-panel="overview"]')).toBeTruthy();
     expect(document.querySelector('[data-panel-id="storage"]')).toBeTruthy();
     expect(document.querySelector('.nav-group > .nav-title')).toBeNull();
-    expect(document.querySelector('.sidebar')?.textContent).not.toContain('Runtime UI');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Resources');
     expect(document.querySelector('.sidebar')?.textContent).not.toContain('Settings');
-    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
+    expect(document.querySelector('.sidebar')?.textContent).toContain('Runtime UI');
+    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeTruthy();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
@@ -70,8 +72,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
   });
 
-  it('setMessages keeps the rendered version subtitle and cleanup clears the root', () => {
+  it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
     const controller = createController();
+    const schemaContextSpy = vi.spyOn(
+      productionStitchShellContextModule,
+      'createProductionStitchSchemaContext'
+    );
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
@@ -79,8 +85,24 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'zh-CN'
     });
 
-    mounted.setMessages({ extensionSubtitle: 'Production Shell' } as never, 'en');
+    mounted.setMessages(
+      {
+        ...DEFAULT_RUNTIME_MESSAGES,
+        schemaOverviewTitle: 'Overview From Messages',
+        extensionSubtitle: 'Production Shell'
+      },
+      'en'
+    );
 
+    const recreatedContextInput = schemaContextSpy.mock.calls.at(-1)?.[0];
+    if (!recreatedContextInput) {
+      throw new Error('Expected schema context recreation call.');
+    }
+    const recreatedContext =
+      productionStitchShellContextModule.createProductionStitchSchemaContext(recreatedContextInput);
+    expect(recreatedContext.language).toBe('en');
+    expect(recreatedContext.messages?.schemaOverviewTitle).toBe('Overview From Messages');
+    expect(recreatedContext.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
 
     mounted.cleanup();
@@ -186,9 +208,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(420);
   });
 
-  it('renders Video Prompt & Entry switches in one horizontal body row', () => {
+  it('renders Video Prompt & Entry switches in one horizontal body row instead of the card header', () => {
     const controller = createController();
-    const mounted = mountProductionStitchShell({
+    mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         video: { floatingPromptEnabled: true, commentEditorAutoPause: true }
@@ -202,37 +224,30 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(header?.textContent).not.toContain('在视频网站显示笔记按钮');
     expect(header?.textContent).not.toContain('编辑批注时自动暂停视频播放');
 
-    const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
-    const entryRow = requireElement(
-      rows.find(
-        (row) =>
-          row.textContent?.includes('在视频网站显示笔记按钮') &&
-          row.textContent.includes('编辑批注时自动暂停视频播放')
-      ),
-      'video entry switches row'
+    const videoEntryRow = requireElement(
+      card.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
     );
-    const [promptCheckbox, autoPauseCheckbox] = Array.from(
-      entryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
+    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    const [promptSwitch, autoPauseSwitch] = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     );
-    expect(promptCheckbox).toBeDefined();
-    expect(autoPauseCheckbox).toBeDefined();
-    expect(promptCheckbox.checked).toBe(true);
-    expect(autoPauseCheckbox.checked).toBe(true);
+    expect([promptSwitch, autoPauseSwitch]).toHaveLength(2);
+    expect(promptSwitch?.checked).toBe(true);
+    expect(autoPauseSwitch?.checked).toBe(true);
     expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
     expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
-
-    autoPauseCheckbox.checked = false;
-    autoPauseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(mounted.collectDraft().video.commentEditorAutoPause).toBe(false);
-    expect(mounted.collectDraft().video.controlBarAutoPause).toBe(true);
   });
 
-  it('renders video screenshot attachment path settings and guidance inside the video card', () => {
+  it('renders video screenshot attachment inputs, hydrates merged values, and preserves string writes', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
         video: {
+          floatingPromptEnabled: false,
+          commentEditorAutoPause: false,
           screenshotAttachment: {
             locationTemplate: 'VideoShots/${noteFileName}',
             markdownUrlFormat: '![[${fileName}]]'
@@ -243,40 +258,31 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    const videoCard = findCardByTitle('Video Prompt & Entry');
-    expect(videoCard.textContent).toContain('附件路径配置');
-    expect(videoCard.textContent).toContain('附件位置模板');
-    expect(videoCard.textContent).toContain('附件文件名模板');
-    expect(videoCard.textContent).toContain('Markdown URL 格式');
-    expect(videoCard.textContent).toContain('Custom Attachment Location');
-    expect(videoCard.textContent).toContain('保持 Obsidian 内该插件配置与此处一致');
+    const card = findCardByTitle('Video Prompt & Entry');
+    expect(card.textContent).toContain('附件路径配置');
+    expect(card.textContent).toContain('Custom Attachment Location');
     expect(
-      videoCard.querySelector<HTMLAnchorElement>(
+      card.querySelector<HTMLAnchorElement>(
         'a[href="https://github.com/mnaoumov/obsidian-custom-attachment-location"]'
-      )?.textContent
-    ).toBe('Custom Attachment Location');
+      )
+    ).toBeTruthy();
 
-    const rows = Array.from(videoCard.querySelectorAll<HTMLElement>('.row'));
+    const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
+    const locationRow = rows.find((row) => row.textContent?.includes('附件位置模板'));
+    const fileNameRow = rows.find((row) => row.textContent?.includes('附件文件名模板'));
+    const markdownRow = rows.find((row) => row.textContent?.includes('Markdown URL 格式'));
+
     const locationInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(
-        rows.find((row) => row.textContent?.includes('附件位置模板')),
-        '附件位置模板 row'
-      )
+      requireElement(locationRow, '附件位置模板 row')
     );
     const fileNameInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(
-        rows.find((row) => row.textContent?.includes('附件文件名模板')),
-        '附件文件名模板 row'
-      )
+      requireElement(fileNameRow, '附件文件名模板 row')
     );
     const markdownInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(
-        rows.find((row) => row.textContent?.includes('Markdown URL 格式')),
-        'Markdown URL 格式 row'
-      )
+      requireElement(markdownRow, 'Markdown URL 格式 row')
     );
 
     expect(locationInput.value).toBe('VideoShots/${noteFileName}');
@@ -290,14 +296,31 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     markdownInput.value = '![](${attachmentUrl})';
     markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-    expect(mounted.collectDraft().video.screenshotAttachment).toEqual({
-      locationTemplate: 'Assets/${noteFileName}',
-      fileNameTemplate: 'capture-${title}.jpg',
-      markdownUrlFormat: '![](${attachmentUrl})'
-    });
+    const videoEntryRow = requireElement(
+      card.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
+    );
+    const videoEntrySwitches = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    );
+    expect(videoEntrySwitches).toHaveLength(2);
+    const promptCheckbox = requireElement(videoEntrySwitches[0], 'video prompt switch');
+    const autoPauseCheckbox = requireElement(videoEntrySwitches[1], 'video auto-pause switch');
+    promptCheckbox.checked = true;
+    promptCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+    autoPauseCheckbox.checked = true;
+    autoPauseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
 
-    expect(findCardByTitle('Path Templates').textContent).not.toContain(
-      'Custom Attachment Location'
+    expect(mounted.collectDraft().video).toEqual(
+      expect.objectContaining({
+        floatingPromptEnabled: true,
+        commentEditorAutoPause: true,
+        screenshotAttachment: {
+          locationTemplate: 'Assets/${noteFileName}',
+          fileNameTemplate: 'capture-${title}.jpg',
+          markdownUrlFormat: '![](${attachmentUrl})'
+        }
+      })
     );
   });
 
@@ -377,39 +400,33 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     }
   });
 
-  it('keeps sidebar navigation scroll after button scroll guard queued restores', async () => {
+  it('uses an immediate scroll fallback when sidebar navigation targets a panel', () => {
+    const restoreScrollDescriptor = installSmoothMainScrollSimulation();
     const controller = createController();
-    mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: null,
-      messages: null,
-      language: 'en'
-    });
+    try {
+      mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: null,
+        messages: null,
+        language: 'en'
+      });
 
-    const main = queryRequired<HTMLElement>('.main');
-    const storageSection = queryRequired<HTMLElement>('[data-panel-id="storage"]');
-    const storageNav = queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]');
-    Object.defineProperty(storageSection, 'offsetTop', {
-      configurable: true,
-      value: 520
-    });
-    Object.defineProperty(main, 'scrollTo', {
-      configurable: true,
-      value: (options: ScrollToOptions) => {
-        main.scrollTop = Number(options.top ?? 0);
-      }
-    });
-    await Promise.resolve();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-    main.scrollTop = 77;
+      const main = queryRequired<HTMLElement>('.main');
+      const storageSection = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+      Object.defineProperty(storageSection, 'offsetTop', {
+        configurable: true,
+        value: 640
+      });
 
-    storageNav.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-    storageNav.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
+      queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]').click();
 
-    expect(main.scrollTop).toBe(508);
-    expect(storageNav.classList.contains('is-active')).toBe(true);
+      expect(main.scrollTop).toBe(628);
+      expect(
+        queryRequired<HTMLElement>('[data-nav-panel="storage"]').classList.contains('is-active')
+      ).toBe(true);
+    } finally {
+      restoreScrollDescriptor();
+    }
   });
 
   it('does not render the future experimental panel in the release options shell', () => {
@@ -547,16 +564,23 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(text).toContain('编辑批注时自动暂停视频播放');
 
     const videoCard = findCardByTitle('Video Prompt & Entry');
-    const videoSwitchRow = requireElement(
-      Array.from(videoCard.querySelectorAll<HTMLElement>('.row')).find(
-        (row) =>
-          row.textContent?.includes('在视频网站显示笔记按钮') &&
-          row.textContent.includes('编辑批注时自动暂停视频播放')
-      ),
-      'video entry switches row'
+    const videoEntryRow = requireElement(
+      videoCard.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
     );
-    const [videoSwitch, commentEditorAutoPauseSwitch] = Array.from(
-      videoSwitchRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
+    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    const videoEntrySwitches = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    );
+    expect(
+      videoCard.querySelectorAll<HTMLInputElement>('.card-header input[type="checkbox"]')
+    ).toHaveLength(0);
+    expect(videoEntrySwitches).toHaveLength(2);
+    const videoSwitch = requireElement(videoEntrySwitches[0], 'video prompt switch');
+    const commentEditorAutoPauseSwitch = requireElement(
+      videoEntrySwitches[1],
+      'video auto-pause switch'
     );
     videoSwitch.checked = false;
     videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
@@ -571,8 +595,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
   });
 
-  it('updates fragment modifier chips without remounting the options shell', () => {
+  it('updates fragment modifier selection without remounting the options shell', () => {
     const controller = createController();
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'Win32'
+    });
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -586,19 +614,22 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const main = queryRequired<HTMLElement>('.main');
-    const altChip = requireElement(
-      Array.from(document.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')).find(
-        (button) => button.textContent?.trim() === 'Alt'
-      ),
-      'Alt modifier chip'
+    const altChip = queryRequired<HTMLButtonElement>(
+      '.modifier-key-inline .chip[data-value="alt"]'
     );
+    const shiftChip = queryRequired<HTMLButtonElement>(
+      '.modifier-key-inline .chip[data-value="shift"]'
+    );
+    expect(document.body.textContent).toContain('Alt 可能与系统、浏览器或网页快捷键冲突');
 
-    altChip.click();
+    shiftChip.click();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(altChip.getAttribute('aria-pressed')).toBe('false');
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(false);
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual([]);
+    expect(shiftChip.getAttribute('aria-pressed')).toBe('true');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(true);
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
+    expect(document.body.textContent).not.toContain('快捷键冲突');
   });
 
   it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
@@ -784,12 +815,18 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {
     const controller = createController();
+    const messagingRepository = createMessaging();
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
-      language: 'en'
+      language: 'en',
+      messagingRepository: messagingRepository as never
     });
+
+    findButton('隐私政策').click();
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
+    document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
     findButton('Plugin Setup').click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup Guide');
@@ -800,6 +837,27 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(
       document.querySelector('[data-nav-panel="storage"]')?.classList.contains('is-active')
     ).toBe(true);
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_action_completed',
+      params: {
+        action: 'resource_open',
+        outcome: 'completed',
+        section: 'privacy'
+      }
+    });
+    expect(messagingRepository.send).toHaveBeenCalledWith({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'options_section_viewed',
+      params: {
+        section: 'storage'
+      }
+    });
+
+    const emittedEvents = (messagingRepository.send.mock.calls as unknown as Array<[unknown]>).map(
+      ([message]) => (message as { event?: string } | undefined)?.event
+    );
+    expect(emittedEvents).not.toContain('options_resource_viewed');
   });
 
   it('does not expose future classifier controls in the release options shell', () => {

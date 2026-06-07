@@ -20,7 +20,12 @@ const HARDCODED_PATTERNS = [
     pattern: /127\.0\.0\.1:271[23]4?/g,
     message: 'Hardcoded REST endpoint found. Use configProvider.getRestDefaults() instead.',
     severity: 'error',
-    allowedFiles: ['dynamicMessages.test.ts', 'configProvider.test.ts', 'manifestHosts.test.ts', 'ports.test.ts']
+    allowedFiles: [
+      'dynamicMessages.test.ts',
+      'configProvider.test.ts',
+      'manifestHosts.test.ts',
+      'ports.test.ts'
+    ]
   },
   {
     pattern: /['"`]https?:\/\/127\.0\.0\.1:271[23]4?/g,
@@ -32,7 +37,13 @@ const HARDCODED_PATTERNS = [
     pattern: /:\s*271[23]4?\b/g,
     message: 'Hardcoded port number found. Use configProvider.getRestDefaults() instead.',
     severity: 'error',
-    allowedFiles: ['appConfig.ts', 'dynamicMessages.test.ts', 'configProvider.test.ts', 'manifestHosts.test.ts', 'ports.test.ts']
+    allowedFiles: [
+      'appConfig.ts',
+      'dynamicMessages.test.ts',
+      'configProvider.test.ts',
+      'manifestHosts.test.ts',
+      'ports.test.ts'
+    ]
   },
   {
     pattern: /['"`]AllInObsidian['"`]/g,
@@ -55,7 +66,9 @@ const HARDCODED_PATTERNS = [
 ];
 
 const LOCALIZED_REST_EXAMPLE_KEYS = new Set(['step1Detail3', 'step1Detail4']);
-const LOCALIZED_REST_EXAMPLE_FILE_PATTERN = /^i18n\/locales\/[A-Za-z0-9-]+\.ts$/;
+const LOCALIZED_REST_EXAMPLE_FILE_PATTERN =
+  /^i18n\/(?:locales\/[A-Za-z0-9-]+\.ts|catalog\/messages\/[A-Za-z0-9-]+\/runtime\.json|generated\/locales\/[A-Za-z0-9-]+\.generated\.ts)$/;
+const GENERATED_LOCALE_REGISTRY_FILE = 'i18n/generated/localeRegistry.generated.ts';
 const CHANGELOG_REST_EXAMPLE_FILE = 'options/app/changelogContent.ts';
 const STITCH_PREVIEW_REST_EXAMPLE_FILE = 'options/stitch/content.ts';
 const PRODUCT_REST_EXAMPLE_URLS = [
@@ -87,6 +100,11 @@ const ALLOWLIST_RULES = [
     category: 'localized-rest-example-text',
     isAllowed({ relativePath, line }) {
       if (LOCALIZED_REST_EXAMPLE_FILE_PATTERN.test(relativePath)) {
+        const keyMatch = line.match(/^\s*["']?([A-Za-z0-9_]+)["']?:\s*['"`]/);
+        return keyMatch ? LOCALIZED_REST_EXAMPLE_KEYS.has(keyMatch[1]) : false;
+      }
+
+      if (relativePath === GENERATED_LOCALE_REGISTRY_FILE) {
         const keyMatch = line.match(/^\s*([A-Za-z0-9_]+):\s*['"`]/);
         return keyMatch ? LOCALIZED_REST_EXAMPLE_KEYS.has(keyMatch[1]) : false;
       }
@@ -103,7 +121,7 @@ const ALLOWLIST_RULES = [
     isAllowed({ relativePath, line }) {
       return isProductRestExampleLine(relativePath, line);
     }
-  },
+  }
 ];
 
 // Files and directories to exclude from linting
@@ -129,18 +147,18 @@ export class HardcodedValueLinter {
 
   async lintDirectory(dirPath, relativePath = '') {
     const entries = await readdir(dirPath);
-    
+
     for (const entry of entries) {
       const fullPath = join(dirPath, entry);
       const relativeEntryPath = join(relativePath, entry);
-      
+
       // Skip excluded paths
-      if (EXCLUDED_PATHS.some(excluded => relativeEntryPath.includes(excluded))) {
+      if (EXCLUDED_PATHS.some((excluded) => relativeEntryPath.includes(excluded))) {
         continue;
       }
-      
+
       const stats = await stat(fullPath);
-      
+
       if (stats.isDirectory()) {
         await this.lintDirectory(fullPath, relativeEntryPath);
       } else if (stats.isFile() && CHECKED_EXTENSIONS.includes(extname(entry))) {
@@ -153,17 +171,17 @@ export class HardcodedValueLinter {
     try {
       const content = await readFile(filePath, 'utf-8');
       const lines = content.split('\n');
-      
+
       for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
         const line = lines[lineIndex];
         const lineNumber = lineIndex + 1;
-        
+
         for (const { pattern, message, severity, allowedFiles = [] } of HARDCODED_PATTERNS) {
           // Skip if this file is in the allowed list for this pattern
-          if (allowedFiles.some(allowed => relativePath.includes(allowed))) {
+          if (allowedFiles.some((allowed) => relativePath.includes(allowed))) {
             continue;
           }
-          
+
           const matches = line.matchAll(pattern);
           for (const match of matches) {
             const allowlistCategory = this.findAllowlistCategory({
@@ -186,7 +204,7 @@ export class HardcodedValueLinter {
               severity,
               match: match[0]
             };
-            
+
             if (severity === 'error') {
               this.errors.push(issue);
             } else {
@@ -211,14 +229,14 @@ export class HardcodedValueLinter {
 
   printResults() {
     const totalIssues = this.errors.length + this.warnings.length;
-    
+
     if (totalIssues === 0) {
       console.log('✅ No hardcoded configuration values found!');
       return true;
     }
-    
+
     console.log(`\n🔍 Found ${totalIssues} potential hardcoded configuration issues:\n`);
-    
+
     // Print errors
     if (this.errors.length > 0) {
       console.log(`❌ Errors (${this.errors.length}):`);
@@ -229,7 +247,7 @@ export class HardcodedValueLinter {
         console.log('');
       }
     }
-    
+
     // Print warnings
     if (this.warnings.length > 0) {
       console.log(`⚠️  Warnings (${this.warnings.length}):`);
@@ -240,37 +258,39 @@ export class HardcodedValueLinter {
         console.log('');
       }
     }
-    
-    console.log('💡 Tip: Use configProvider.getRestDefaults(), configProvider.getTemplates(), etc. instead of hardcoded values.');
-    
+
+    console.log(
+      '💡 Tip: Use configProvider.getRestDefaults(), configProvider.getTemplates(), etc. instead of hardcoded values.'
+    );
+
     return this.errors.length === 0; // Return true only if no errors (warnings are OK)
   }
 }
 
 async function main() {
   console.log('🔍 Scanning for hardcoded configuration values...\n');
-  
+
   const linter = new HardcodedValueLinter();
-  
+
   // Lint source code
   await linter.lintDirectory(join(projectRoot, 'src'));
-  
+
   // Lint tests (but exclude fixtures and e2e)
   await linter.lintDirectory(join(projectRoot, 'tests/unit'));
-  
+
   const success = linter.printResults();
-  
+
   if (!success) {
     console.log('\n❌ Linting failed due to hardcoded configuration values.');
     console.log('Please replace hardcoded values with configProvider calls.');
     process.exit(1);
   }
-  
+
   console.log('\n✅ Hardcoded value linting passed!');
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(error => {
+  main().catch((error) => {
     console.error('Error running hardcoded value linter:', error);
     process.exit(1);
   });

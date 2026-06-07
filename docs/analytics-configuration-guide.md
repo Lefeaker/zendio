@@ -1,142 +1,201 @@
-# Google Analytics 配置指南
+# Analytics Configuration Guide
 
-## 概述
+最后更新：2026-06-05
 
-AiiinOB 的错误分析系统使用 Google Analytics 4 (GA4) 来收集匿名的错误数据。本指南将帮助你正确配置 GA4 集成。
+本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
-## 为什么只需要 Measurement ID？
+## 当前配置真值
 
-我们简化了配置，只需要 GA4 的 **Measurement ID**，不需要 API Secret。原因如下：
+- tracked `src/shared/errors/analytics/analyticsConfig.ts` 只保留非敏感默认值。
+- 真实 GA 公共配置通过 build-time 注入，不写回 tracked source。
+- 生产默认推荐：
+  - `AIIINOB_GA_TRANSPORT_MODE=proxy`
+  - `AIIINOB_GA_MEASUREMENT_ID=G-...`
+  - `AIIINOB_GA_PROXY_ENDPOINT=https://<owner-endpoint>/...`
+- `api_secret` 只能存在于 server-side proxy。
+- 如果没有 public build config，扩展会保持 `disabled`。
 
-- **简化配置**：减少需要管理的敏感信息
-- **基本功能足够**：对于错误跟踪，Measurement ID 已经足够
-- **安全性**：减少敏感配置信息的暴露风险
-- **易于维护**：开发者只需要一个配置项
+## Build-time Public Config
 
-## 配置步骤
-
-### 1. 创建 Google Analytics 4 属性
-
-1. **访问 Google Analytics**
-   - 打开 [Google Analytics](https://analytics.google.com/)
-   - 使用你的 Google 账号登录
-
-2. **创建新属性**
-   - 点击左下角的"管理"（齿轮图标）
-   - 在"属性"列中点击"创建属性"
-   - 选择"GA4"（Google Analytics 4）
-   - 填写属性名称，例如："AiiinOB Extension Analytics"
-
-3. **获取 Measurement ID**
-   - 创建属性后，进入"管理" → "数据流"
-   - 点击"添加流" → "网站"
-   - 填写网站信息（可以填写扩展的相关信息）
-   - 创建流后，你会看到 **Measurement ID**（格式：G-XXXXXXXXXX）
-
-### 2. 配置扩展
-
-1. **默认配置**
-   `src/shared/errors/analytics/analyticsConfig.ts` 已提交为非敏感默认实现，默认 Measurement ID 为 `G-XXXXXXXXXX` 且 analytics disabled。clean checkout 不需要复制本地 ignored 文件也能完成 typecheck/build。
-
-2. **发布/本地 Measurement ID 注入**
-   `src/shared/errors/analytics/analyticsConfig.ts` 是 tracked placeholder-only 文件，只能保留默认占位值：
-
-   ```typescript
-   MEASUREMENT_ID: 'G-XXXXXXXXXX';
-   ```
-
-   不要把真实 GA4 Measurement ID 写入并提交到该 tracked 文件。真实 ID 只能通过 owner release 注入流程，或开发者本地未提交覆盖进行验证。
-
-3. **发布配置验证**
-   owner release 注入后的有效配置应等价于：
-
-   ```typescript
-   export const GA4_CONFIG = {
-     MEASUREMENT_ID: '<owner-provided Measurement ID>' // owner release 注入示例，禁止提交到 tracked placeholder
-     // 其他配置保持不变...
-   };
-   ```
-
-### 3. 安全性说明
-
-- **默认配置保护**：仓库内的 `analyticsConfig.ts` 只能保存非敏感默认值，不提交真实 GA4 Measurement ID
-- **个人/发布配置**：真实 Measurement ID 必须通过单独 owner 流程注入或在本地修改后保持未提交
-- **模板文件**：`analyticsConfig.template.ts` 是公共模板，可以安全提交
-
-## 测试配置
-
-### 1. 运行测试脚本
+`scripts/build.mjs` 当前注入以下 public build 变量：
 
 ```bash
-node scripts/test-privacy-settings.cjs
+AIIINOB_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+AIIINOB_GA_TRANSPORT_MODE=proxy
+AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
-### 2. 检查扩展选项页面
+这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。
 
-1. 构建并加载扩展
-2. 打开扩展的选项页面
-3. 滚动到"隐私与数据"部分
-4. 确认可以看到完整的隐私设置界面
+当前生产 owner public config 已准备在 ignored local file：
 
-### 3. 验证 GA4 数据接收
-
-1. 在 GA4 中启用"DebugView"
-2. 在扩展中触发一些错误（用于测试）
-3. 检查 GA4 的实时报告是否收到数据
-
-## 常见问题
-
-### Q: 我需要 API Secret 吗？
-
-**A:** 不需要。我们简化了配置，只使用 Measurement ID 就足够了。
-
-### Q: 为什么仓库里有 analyticsConfig.ts？
-
-**A:** 为了保证 clean checkout 可复现。该文件只包含非敏感 disabled default；真实 GA4 Measurement ID 不应提交。
-
-### Q: 如何知道数据是否正确发送到 GA4？
-
-**A:** 可以在 GA4 的"实时"报告中查看，或者启用 DebugView 进行详细调试。
-
-### Q: 可以使用现有的 GA4 属性吗？
-
-**A:** 可以，但建议为扩展创建专门的 GA4 属性，这样数据更清晰，不会与其他项目混合。
-
-### Q: 如何禁用错误分析？
-
-**A:** 用户可以在扩展的选项页面中关闭"使用分析"和"错误报告"选项。
-
-## 高级配置
-
-如果你需要自定义更多非敏感默认配置，tracked `analyticsConfig.ts` 只能保留 placeholder Measurement ID，并可调整以下非敏感选项：
-
-```typescript
-const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
-  enabled: false, // 默认关闭，需要用户同意
-  debugMode: false, // 是否启用调试模式
-  reportingInterval: 30000, // 报告间隔（毫秒）
-  maxErrorsPerSession: 50, // 每个会话最大错误数
-  batchSize: 10 // 批量发送大小
-};
+```bash
+.env.production.local
 ```
 
-## 数据隐私
+该文件不进入 git，当前值为：
 
-我们的系统严格保护用户隐私：
+```bash
+AIIINOB_GA_MEASUREMENT_ID=G-3V2CHL13TC
+AIIINOB_GA_TRANSPORT_MODE=proxy
+AIIINOB_GA_PROXY_ENDPOINT=https://zendio.sxnian.com/api/ga4
+```
 
-- **完全匿名**：不收集任何个人身份信息
-- **数据清理**：自动移除敏感信息（邮箱、IP、密码等）
-- **用户控制**：用户可以选择是否参与数据收集
-- **透明度**：清楚说明收集和不收集的数据类型
-- **合规性**：符合 GDPR、CCPA 等隐私法规
+生产构建与打包优先使用已封装脚本：
 
-## 支持
+```bash
+npm run analytics:validate:prod
+npm run package:prod:ga
+```
 
-如果在配置过程中遇到问题：
+Firefox 包使用：
 
-1. 检查 tracked `analyticsConfig.ts` 是否仍为 placeholder-only
-2. 确认 owner release 注入或本地未提交覆盖中的 Measurement ID 格式正确（G-XXXXXXXXXX）
-3. 运行测试脚本验证集成
-4. 查看浏览器控制台是否有错误信息
+```bash
+npm run package:firefox:prod:ga
+```
 
-配置完成后，你的 AiiinOB 扩展就具备了完整的错误分析能力，可以帮助你更好地了解和改进扩展的稳定性！
+## 生产 owner 配置步骤
+
+### 1. 创建 GA4 property / data stream
+
+- 在 GA4 创建专用 property
+- 创建 web data stream
+- 记录 `Measurement ID`
+
+不要把 server credential 写入扩展代码或文档示例。
+
+### 2. 部署 server-side proxy
+
+proxy 至少应满足：
+
+- 接收扩展发来的匿名事件 payload
+- 仅在服务端持有并使用 `api_secret`
+- 校验允许的 event name / params
+- 记录请求结果、event name、版本、响应码
+- 拒绝 secret-looking public config
+- 不把 `api_secret` 回显给扩展
+
+推荐额外做：
+
+- 对 `measurement_id` 做 allowlist
+- 对 `proxyEndpoint` 仅允许 HTTPS
+- 对异常 payload 做 structured logging
+
+### 3. 在 release 环境注入 public config
+
+```bash
+npm run analytics:validate:prod
+npm run package:prod:ga
+```
+
+默认生产配置由 `.env.production.local` 注入。临时覆盖仍可使用 shell `export`，但不得把 owner release 值写回 tracked source。
+
+### 4. 保持 tracked config 非敏感
+
+以下行为仍然禁止：
+
+- 把真实 `measurementId` 写回 tracked `analyticsConfig.ts`
+- 在扩展源码、构建产物模板、setup 脚本里要求填写 server credential
+- 让扩展直接保存或提示 owner 输入 `api_secret`
+
+## 本地验证模式
+
+### 生产相同行为验证
+
+优先使用 proxy：
+
+```bash
+export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
+export AIIINOB_GA_TRANSPORT_MODE=proxy
+export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4
+```
+
+这能验证真实 consent gating、public config 注入、proxy log 与 request body。
+
+### DebugView 验证
+
+只在本地使用，并且仍然通过 owner-controlled debug proxy：
+
+```bash
+export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
+export AIIINOB_GA_TRANSPORT_MODE=directDebug
+export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
+```
+
+`directDebug` 只用于开发验证，不应作为生产发布默认值。
+扩展不会直连 Google `debug/mp/collect`，也不会持有 `api_secret`。
+debug proxy 需要由 owner 服务端注入 `api_secret`，并按需转发到 GA validation / DebugView。
+
+## Consent 验证清单
+
+### 验证“consent off 不发事件”
+
+1. 安装带 public config 的构建。
+2. 在隐私设置中关闭 `analytics` 与 `errorReporting`。
+3. 执行一次 options 操作、剪藏、reader 或 video 流程。
+4. 确认：
+   - 没有发往 owner proxy 的请求
+   - local debug proxy 模式下没有 proxy log / DebugView 新事件
+   - “清空全部分析数据”后 analytics storage keys 被移除
+
+### 验证“consent on 后按类型发事件”
+
+1. 打开 `analytics`，保留 `errorReporting` 关闭。
+2. 执行 options / clip / reader / video 行为。
+3. 只应看到产品事件，不应看到 `extension_error`。
+4. 再打开 `errorReporting`，触发受控错误或测试错误。
+5. 此时才应看到 `extension_error`。
+
+## 验证工具
+
+运行只读校验脚本：
+
+```bash
+node scripts/setup-error-analytics.js
+```
+
+验证当前生产 `.env.production.local`：
+
+```bash
+npm run analytics:validate:prod
+```
+
+该脚本当前只做以下事情：
+
+- 校验当前 repo 的 public analytics wiring 是否存在
+- 校验 tracked config 未包含 client-side secret
+- 校验当前 privacy / build / transport 关键路径是否仍然存在
+- 校验当前 shell 环境中的 public config 是否自洽
+
+脚本不会改写 tracked source，也不会生成本地 secret 文件。
+
+## 常见误区
+
+### “只要一个 Measurement ID 就能完成生产集成”
+
+不成立。生产推荐路径是 proxy。扩展公开侧确实只持有 `measurementId`、`transportMode`、`proxyEndpoint`，但 server-side forwarding 仍需要服务端 credential。
+
+### “tracked analyticsConfig.ts 可以直接写 owner release 值”
+
+不成立。tracked 文件必须保持非敏感默认值。
+
+### “dashboard 需要 raw duration 才能做漏斗”
+
+不成立。当前产品遥测只提供 `duration_bucket`，dashboard 设计必须按 bucket 工作。
+
+## Owner-only residual checks
+
+以下事项在当前 repo 验证通过后仍然属于 owner-only residual risk，不应被表述为已经在本地工程验证中完成：
+
+- `GA4 DebugView`：本地 debug proxy 模式只能证明客户端事件路径、字段形状和 proxy 请求；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限、debug proxy 服务端 `api_secret` 注入，以及 consent-enabled 测试 profile。
+- `Proxy api_secret injection`：只有 owner 控制的 staging/production proxy log 或 server trace 才能证明 `api_secret` 由服务端注入，且没有回流到扩展源码、构建产物或客户端请求参数。
+- `Chrome Web Store credentials`：repo 内只能安全验证 dry-run 与脚本接线；真实上传/发布仍需要 owner 的 Chrome Web Store dashboard credential 与人工确认。
+- `Real Obsidian vault / proxy credentials`：任何涉及真实 local-folder handle、REST API key、vault name、proxy secret 或 owner endpoint 的联调都必须由 owner 在受控环境下执行，且不得回写到 tracked source、fixtures 或 handoff 日志。
+
+## 最小 release 检查
+
+- build-time env 已注入
+- 扩展网络只访问 owner proxy，不直接依赖生产态 Google endpoint
+- consent off 时无事件
+- consent on 时能看到 options / clip / reader / video / error 事件
+- proxy log 中不出现正文、路径、token、`api_secret` 泄露到客户端侧的迹象

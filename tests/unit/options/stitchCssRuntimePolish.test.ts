@@ -107,6 +107,12 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('min-height: var(--session-video-timestamp-row-min-height, 28px);');
   });
 
+  it('centers video fragment marker chips inside the video marker track', () => {
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.video-fragment-session-item-card\s+\.session-item-marker\s*{[^}]*justify-content:\s*center;/
+    );
+  });
+
   it('applies the tuned clipper content radii and spacing tokens', () => {
     expect(stitchCss).toContain('--clipper-selection-radius: 5px;');
     expect(stitchCss).toContain('--clipper-comment-radius: 4px;');

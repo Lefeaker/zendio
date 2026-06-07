@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
 const handleClipResultMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const handleConnectionTestMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ success: true, message: 'ok' }))
+  vi.fn<() => Promise<ConnectionTestResult>>(() =>
+    Promise.resolve({ success: true, message: 'ok' })
+  )
 );
 const handleVaultConnectionTestMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ success: true, message: 'ok' }))
+  vi.fn<() => Promise<ConnectionTestResult>>(() =>
+    Promise.resolve({ success: true, message: 'ok' })
+  )
 );
 const notifyExtractionErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const trackUsageEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -53,7 +58,12 @@ vi.mock('../../../src/shared/errors', () => ({
 }));
 
 describe('runtime message listener', () => {
-  let listener: ((message: unknown, sender: { tabId?: number }) => Promise<unknown>) | undefined;
+  let listener:
+    | ((
+        message: unknown,
+        sender: { tabId?: number; frameId?: number; windowId?: number }
+      ) => Promise<unknown>)
+    | undefined;
 
   beforeEach(() => {
     vi.resetModules();
@@ -70,7 +80,19 @@ describe('runtime message listener', () => {
     return {
       messaging: { addListener: addListenerMock },
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
-      openOptionsPage: vi.fn(() => Promise.resolve(undefined))
+      openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
+      getTabContext: vi.fn(
+        async (sender: { tabId?: number; frameId?: number; windowId?: number }) => ({
+          success: true as const,
+          ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
+          ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
+          ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
+        })
+      ),
+      isTabContextActive: vi.fn(async (ownerContext: { tabId?: number }) => ({
+        success: true as const,
+        active: ownerContext.tabId === 12
+      }))
     };
   }
 
@@ -94,6 +116,70 @@ describe('runtime message listener', () => {
 
     expect(connection).toEqual({ success: false, error: 'offline', message: '连接失败: offline' });
     expect(vault).toEqual({ success: false, error: 'vault down', message: '连接失败: vault down' });
+  });
+
+  it('preserves vault connection channel results across the runtime listener boundary', async () => {
+    handleVaultConnectionTestMock.mockResolvedValueOnce({
+      success: false,
+      message: '[Research] 连接失败',
+      error: 'network error: request failed',
+      channels: [
+        {
+          channel: 'localFolder',
+          label: '本地目录',
+          configured: true,
+          success: true,
+          message: '本地目录可用：Research'
+        },
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: 'https://vault.example',
+          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
+        },
+        {
+          channel: 'http',
+          label: 'HTTP',
+          configured: true,
+          success: true,
+          message: 'REST API HTTP 连接成功，状态码: 200',
+          status: 200,
+          url: 'http://vault.example'
+        }
+      ]
+    });
+
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const response = await listener?.(
+      {
+        type: 'TEST_VAULT_CONNECTION',
+        vaultId: 'research',
+        vault: { id: 'research', name: 'Research' }
+      },
+      {}
+    );
+
+    expect(response).toEqual({
+      success: false,
+      message: '[Research] 连接失败',
+      error: 'network error: request failed',
+      channels: [
+        expect.objectContaining({ channel: 'localFolder', success: true }),
+        expect.objectContaining({
+          channel: 'https',
+          success: false,
+          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
+        }),
+        expect.objectContaining({ channel: 'http', success: true, status: 200 })
+      ]
+    });
   });
 
   it('normalizes clip errors and swallows extraction notification dispatch failures', async () => {
@@ -137,6 +223,75 @@ describe('runtime message listener', () => {
       expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('returns sender tab context metadata for content-side owner resolution', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.({ type: 'AIIOB_GET_TAB_CONTEXT' }, { tabId: 12, windowId: 4, frameId: 0 })
+    ).resolves.toEqual({
+      success: true,
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
+    expect(dependencies.getTabContext).toHaveBeenCalledWith({
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
+  });
+
+  it('returns success with omitted tab fields when sender metadata is unavailable', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(listener?.({ type: 'AIIOB_GET_TAB_CONTEXT' }, {})).resolves.toEqual({
+      success: true
+    });
+  });
+
+  it('reports whether a stored session draft owner tab is still active', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.(
+        {
+          type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE',
+          ownerContext: { tabId: 12, windowId: 4, frameId: 0 }
+        },
+        {}
+      )
+    ).resolves.toEqual({
+      success: true,
+      active: true
+    });
+    await expect(
+      listener?.(
+        {
+          type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE',
+          ownerContext: { tabId: 99, windowId: 4, frameId: 0 }
+        },
+        {}
+      )
+    ).resolves.toEqual({
+      success: true,
+      active: false
+    });
+    expect(dependencies.isTabContextActive).toHaveBeenCalledWith({
+      tabId: 12,
+      windowId: 4,
+      frameId: 0
+    });
   });
 
   it('strips unknown clip result payload fields before forwarding to the clip pipeline', async () => {

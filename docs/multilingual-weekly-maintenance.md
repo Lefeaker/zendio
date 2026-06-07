@@ -1,7 +1,7 @@
 # AiiinOB 多语言布局每周维护例行
 
 > 版本：v1.0  
-> 最近更新时间：2025-10-19  
+> 最近更新时间：2026-06-05
 > 适用范围：多语言视觉/布局巡检
 
 ## 🎯 目标
@@ -63,7 +63,8 @@
 
 ## 🤝 协同建议
 
-- 短文案变更需更新：`src/i18n/messages.ts`、各语言 `runtime` 文案、`public/_locales` 对应消息
+- 短文案变更只改 catalog source：`src/i18n/catalog/messages/<lang>/runtime.json`、`schema.json` 或 `static.json`；`public/_locales/**` 由 generator 生成，不手写
+- 文案变更后依次运行：`npm run i18n:catalog:generate`、`npm run i18n:catalog:check`、`npm run i18n:lint`、`npm run audit:locales:report`
 - CSS 改动需同步考虑 `TEXT_BUDGETS` 与 `resolveAdaptiveText` 行为
 - 任何视觉回归基线更新都需经过评审，避免误将真实问题当成基线
 

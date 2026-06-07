@@ -6,63 +6,70 @@
  */
 
 import { ErrorReporter, AppError } from '../types';
-import { parseErrorCode, SEVERITY_LEVELS, ERROR_CODE_DESCRIPTIONS } from '../errorCodes';
+import { parseErrorCode } from '../errorCodes';
 import { sanitizeErrorForAnalytics } from './dataSanitizer';
+import { DEFAULT_ANALYTICS_CONFIG, type AnalyticsConfig } from './analyticsConfig';
+import {
+  createAnalyticsEventQueue,
+  sendAnalyticsTransportEvent,
+  type AnalyticsEventQueue
+} from '../../analytics';
 import { getService } from '../../di';
 import { TOKENS } from '../../di/tokens';
 import type { PlatformServices } from '@platform/types';
 
 // GA4 配置接口
-export interface GoogleAnalyticsConfig {
-  measurementId: string;
-  enabled: boolean;
+export interface GoogleAnalyticsConfig extends Pick<
+  AnalyticsConfig,
+  'measurementId' | 'enabled' | 'transportMode' | 'proxyEndpoint'
+> {
   debugMode?: boolean;
   sessionId?: string;
   clientId?: string;
+  reportingInterval?: number;
+  batchSize?: number;
 }
 
 // GA4 事件参数接口
-interface ErrorEventParams {
+type ErrorEventParams = {
   error_code: string;
   error_domain: string;
-  error_category: string;
+  error_category: string | undefined;
   error_severity: string;
-  error_severity_level: number;
   error_recoverable: boolean;
-  error_description: string;
-  extension_version: string;
   browser_name?: string;
   browser_version?: string;
-  timestamp: number;
-  session_id?: string;
-  // 不包含任何可识别用户的信息
-}
-
-// GA4 事件结构
-interface GA4Event {
-  name: string;
-  params: ErrorEventParams;
-}
-
-// GA4 Measurement Protocol 请求体
-interface GA4Request {
-  client_id: string;
-  events: GA4Event[];
-  timestamp_micros?: number;
-}
+} & Record<string, unknown>;
 
 export class GoogleAnalyticsReporter implements ErrorReporter {
   private config: GoogleAnalyticsConfig;
   private clientId: string;
   private sessionId: string;
   private extensionVersion: string;
+  private eventQueue: AnalyticsEventQueue;
   private browserInfo: { name?: string; version?: string } = {};
 
   constructor(config: GoogleAnalyticsConfig) {
-    this.config = config;
     this.clientId = config.clientId || this.generateClientId();
     this.sessionId = config.sessionId || this.generateSessionId();
+    this.config = {
+      ...config,
+      debugMode: config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
+      transportMode: config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
+      ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
+      clientId: this.clientId,
+      sessionId: this.sessionId,
+      reportingInterval: config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      batchSize: config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
+    };
     this.extensionVersion = this.getExtensionVersion();
+    this.eventQueue = createAnalyticsEventQueue({
+      getConfig: () => this.createTransportConfig(),
+      send: (eventName, params, transportConfig) =>
+        sendAnalyticsTransportEvent(eventName, params, transportConfig, {
+          extensionVersion: this.extensionVersion
+        })
+    });
     this.initializeBrowserInfo();
   }
 
@@ -74,14 +81,18 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     try {
       const sanitizedError = sanitizeErrorForAnalytics(error);
       const eventParams = this.createErrorEventParams(sanitizedError);
-      const ga4Event: GA4Event = {
-        name: 'extension_error',
-        params: eventParams
-      };
+      const enqueued = this.eventQueue.enqueue('extension_error', eventParams);
+      if (!enqueued) {
+        return;
+      }
+      const result = await this.eventQueue.flush();
 
-      await this.sendToGA4(ga4Event);
+      if (result.failed > 0) {
+        console.warn('[GA Reporter] Analytics transport failed:', result);
+        return;
+      }
 
-      if (this.config.debugMode) {
+      if (this.config.debugMode && result.sent > 0) {
         console.log('[GA Reporter] Error reported:', {
           code: eventParams.error_code,
           domain: eventParams.error_domain,
@@ -96,9 +107,6 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   private createErrorEventParams(error: AppError): ErrorEventParams {
     const parsedCode = parseErrorCode(error.code);
-    const description =
-      ERROR_CODE_DESCRIPTIONS[error.code as keyof typeof ERROR_CODE_DESCRIPTIONS] ||
-      'Unknown error';
 
     // 提取安全的上下文信息用于错误定位
     const safeContext = this.extractSafeContext(error.context);
@@ -108,14 +116,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       error_domain: error.domain,
       error_category: parsedCode.category,
       error_severity: error.severity,
-      error_severity_level: SEVERITY_LEVELS[error.severity],
       error_recoverable: error.recoverable,
-      error_description: description,
-      extension_version: this.extensionVersion,
-      timestamp: Date.now(),
       ...(this.browserInfo.name !== undefined && { browser_name: this.browserInfo.name }),
       ...(this.browserInfo.version !== undefined && { browser_version: this.browserInfo.version }),
-      ...(this.sessionId !== undefined && { session_id: this.sessionId }),
       // 添加安全的上下文信息
       ...safeContext
     };
@@ -196,40 +199,27 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         // 提取函数名和行号，移除文件路径
         const match = line.match(/at\s+([^(]+)\s*\(.*:(\d+):\d+\)/);
         if (match) {
-          return `at ${match[1]}:${match[2]}`;
+          return `at ${match[1].trim()}:${match[2]}`;
         }
         return line.replace(/https?:\/\/[^\s]+/g, '[URL]');
       })
       .join('\n');
   }
 
-  private async sendToGA4(event: GA4Event): Promise<void> {
-    const request: GA4Request = {
-      client_id: this.clientId,
-      events: [event],
-      timestamp_micros: Date.now() * 1000
+  private createTransportConfig(): AnalyticsConfig {
+    return {
+      enabled: this.config.enabled,
+      debugMode: this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
+      measurementId: this.config.measurementId,
+      transportMode: this.config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
+      ...(this.config.proxyEndpoint ? { proxyEndpoint: this.config.proxyEndpoint } : {}),
+      clientId: this.clientId,
+      sessionId: this.sessionId,
+      reportingInterval:
+        this.config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
+      batchSize: this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
     };
-
-    const url = this.config.debugMode
-      ? `https://www.google-analytics.com/debug/mp/collect?measurement_id=${this.config.measurementId}`
-      : `https://www.google-analytics.com/mp/collect?measurement_id=${this.config.measurementId}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(request)
-    });
-
-    if (!response.ok) {
-      throw new Error(`GA4 request failed: ${response.status} ${response.statusText}`);
-    }
-
-    if (this.config.debugMode) {
-      const responseText = await response.text();
-      console.log('[GA Reporter] GA4 response:', responseText);
-    }
   }
 
   private generateClientId(): string {
@@ -287,6 +277,12 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   // 更新配置
   updateConfig(newConfig: Partial<GoogleAnalyticsConfig>): void {
     this.config = { ...this.config, ...newConfig };
+    if (newConfig.clientId) {
+      this.clientId = newConfig.clientId;
+    }
+    if (newConfig.sessionId) {
+      this.sessionId = newConfig.sessionId;
+    }
   }
 
   // 获取当前配置状态
@@ -302,6 +298,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   // 生成新的会话 ID（用于新的使用会话）
   renewSession(): void {
     this.sessionId = this.generateSessionId();
+    this.config.sessionId = this.sessionId;
   }
 }
 

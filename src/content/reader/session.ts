@@ -1,10 +1,8 @@
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { DEFAULT_FRAGMENT_CONFIG } from '../clipper/services/fragmentConfig';
-import { ADD_HIGHLIGHT_EVENT } from './constants';
 import { handleReaderKeydown, isNodeInsideReaderUi } from './sessionDom';
 import { ReaderSessionState, resolveReadingConfig } from './sessionState';
-import type { ReaderBootstrapHighlight } from './types';
-import type { ExternalHighlightPayload } from './types';
+import type { ExternalHighlightPayload, ReaderBootstrapHighlight } from './types';
 import type { ReaderSelectionPayload } from './services/selectionController';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderPanelCoordinator } from './panelCoordinator';
@@ -12,6 +10,7 @@ import type { ReaderSelectionController } from './services/selectionController';
 import type { ReaderEnvironmentController } from './environmentController';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ReadingSessionOptions } from '../../shared/types/options';
+import { createFeatureTimer } from '../../shared/analytics/featureTimer';
 import {
   clearReaderSession,
   isReaderSessionActive,
@@ -22,6 +21,13 @@ import { ContentExportDestinationState } from '../shared/exportDestinationState'
 import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
 import {
+  createSessionDraftPersister,
+  createSessionDraftRepository,
+  createSessionDraftStorageKey,
+  type SessionDraftPersister,
+  type SessionDraftRepository
+} from '../sessionDrafts';
+import {
   addReaderHighlightFromRange,
   cancelReaderSession,
   finishReaderSession,
@@ -30,8 +36,17 @@ import {
   handleReaderSessionSelection,
   ingestExternalReaderHighlight,
   removeReaderHighlight,
-  submitReaderHighlightEdit
+  submitReaderHighlightEdit,
+  trackReaderUsageEvent
 } from './sessionOperations';
+import {
+  buildReaderSessionDraftEnvelope,
+  createReaderSessionDraftId,
+  loadLatestReaderSessionDraft,
+  restoreReaderSessionDraftHighlights
+} from './sessionDrafts';
+
+const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
 export type { ReaderSessionDependencies } from './sessionTypes';
 
@@ -44,6 +59,12 @@ export class ReaderSession {
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
   private readonly destinationState: ContentExportDestinationState;
+  private readonly draftRepository: SessionDraftRepository;
+  private readonly draftPersister: SessionDraftPersister;
+  private draftId: string | null = null;
+  private draftCreatedAt: number | null = null;
+  private draftStorageKey: string | null = null;
+  private removeDraftLifecycleListeners: (() => void) | null = null;
 
   private get operationContext() {
     return {
@@ -56,7 +77,10 @@ export class ReaderSession {
       panelCoordinator: this.panelCoordinator,
       lifecycle: this.lifecycle,
       dependencies: this.dependencies,
-      getExportDestinationMetadata: () => this.destinationState.metadata
+      getExportDestinationMetadata: () => this.destinationState.metadata,
+      onDraftMutation: () => this.syncDraftPersistence(),
+      disposeDraftPersistence: () => this.disposeDraftPersistence(),
+      clearPersistedDraft: () => this.clearPersistedDraft()
     };
   }
 
@@ -78,7 +102,8 @@ export class ReaderSession {
         onSubmitHighlightEdit: (id, comment) => this.submitHighlightEdit(id, comment),
         onFocusHighlight: (id) => this.focusHighlight(id)
       },
-      reconstructText: (highlight) => this.highlightManager.reconstructText(highlight)
+      reconstructText: (highlight) => this.highlightManager.reconstructText(highlight),
+      onCommentDraftChange: () => this.syncDraftPersistence()
     });
     this.selectionController = this.dependencies.createSelectionController({
       doc: this.doc,
@@ -133,6 +158,11 @@ export class ReaderSession {
       () => this.createDestinationPayload(),
       this.dependencies.optionsPageUrl
     );
+    this.draftRepository = createSessionDraftRepository(this.dependencies.storage.local);
+    this.draftPersister = createSessionDraftPersister({
+      repository: this.draftRepository,
+      buildEnvelope: () => this.buildDraftEnvelope('active')
+    });
   }
 
   async initialize(
@@ -190,13 +220,25 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
+      this.bindDraftLifecycleListeners();
+      this.state.analyticsTimer = createFeatureTimer();
+      this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
+      const loadedDraft = await this.hydrateStoredDraft();
       await this.refreshDestinationPreview();
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
+      void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
+        source: this.state.analyticsSource
+      });
       this.bootstrapHighlights(initialHighlights);
       this.panelCoordinator.refreshHint(this.state.highlights.length);
+      if (loadedDraft) {
+        this.syncDraftPersistence();
+      }
     } catch (error) {
+      this.state.analyticsTimer = null;
+      await this.disposeDraftPersistence();
       clearReaderSession(this, this.doc);
       throw error;
     }
@@ -237,6 +279,32 @@ export class ReaderSession {
       (highlight) => highlight.destination
     )?.destination;
     this.destinationState.applyMetadata(initialDestination);
+  }
+
+  private async hydrateStoredDraft(): Promise<boolean> {
+    try {
+      const loadedDraft = await loadLatestReaderSessionDraft(this.draftRepository, this.url);
+      if (!loadedDraft) {
+        return false;
+      }
+
+      this.draftId = loadedDraft.envelope.draftId;
+      this.draftCreatedAt = loadedDraft.envelope.createdAt;
+      this.draftStorageKey = loadedDraft.storageKey;
+      this.destinationState.applyMetadata(loadedDraft.payload.destination);
+      this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
+      const restored = restoreReaderSessionDraftHighlights({
+        doc: this.doc,
+        highlightManager: this.highlightManager,
+        highlights: loadedDraft.payload.highlights
+      });
+      this.state.highlights = restored.highlights;
+      this.syncHighlightsUi();
+      return true;
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to hydrate stored session draft:', error);
+      return false;
+    }
   }
 
   private async loadReadingConfig(): Promise<ReadingSessionOptions> {
@@ -313,6 +381,7 @@ export class ReaderSession {
   private async selectDestination(id: string): Promise<void> {
     this.destinationState.select(id);
     await this.refreshDestinationPreview();
+    this.syncDraftPersistence();
   }
 
   private createDestinationPayload(): ClipPayload {
@@ -346,6 +415,110 @@ export class ReaderSession {
 
   private cancel(): void {
     cancelReaderSession(this.operationContext);
+  }
+
+  private buildDraftEnvelope(status: 'active' | 'restorable') {
+    const now = Date.now();
+    const draftId = this.draftId ?? createReaderSessionDraftId(now);
+    const createdAt = this.draftCreatedAt ?? now;
+    const pageTitle = this.doc.title || this.parseCurrentUrl()?.hostname || 'Untitled';
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId,
+      createdAt,
+      now,
+      pageUrl: this.url,
+      pageTitle,
+      highlights: this.state.highlights,
+      commentDrafts: this.panelCoordinator.snapshotCommentDrafts(),
+      status,
+      ...(this.destinationState.metadata ? { destination: this.destinationState.metadata } : {})
+    });
+
+    if (!envelope) {
+      return null;
+    }
+
+    this.draftId = draftId;
+    this.draftCreatedAt = createdAt;
+    this.draftStorageKey = createSessionDraftStorageKey({
+      mode: envelope.mode,
+      pageKey: envelope.pageKey,
+      draftId: envelope.draftId
+    });
+    return envelope;
+  }
+
+  private syncDraftPersistence(): void {
+    if (
+      this.state.highlights.length === 0 &&
+      Object.keys(this.panelCoordinator.snapshotCommentDrafts()).length === 0
+    ) {
+      void this.clearPersistedDraft();
+      return;
+    }
+
+    void this.draftPersister.scheduleSave().catch((error) => {
+      console.warn('[ReaderSession] Failed to persist session draft:', error);
+    });
+  }
+
+  private async clearPersistedDraft(): Promise<void> {
+    if (!this.draftStorageKey) {
+      return;
+    }
+
+    try {
+      await this.draftRepository.remove({ key: this.draftStorageKey });
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to remove session draft:', error);
+    } finally {
+      this.draftId = null;
+      this.draftCreatedAt = null;
+      this.draftStorageKey = null;
+    }
+  }
+
+  private bindDraftLifecycleListeners(): void {
+    if (this.removeDraftLifecycleListeners) {
+      return;
+    }
+
+    const onPageHide = () => {
+      void this.flushDraftForRestore();
+    };
+    const onBeforeUnload = () => {
+      void this.flushDraftForRestore();
+    };
+    this.doc.defaultView?.addEventListener('pagehide', onPageHide, { passive: true });
+    this.doc.defaultView?.addEventListener('beforeunload', onBeforeUnload);
+    this.removeDraftLifecycleListeners = () => {
+      this.doc.defaultView?.removeEventListener('pagehide', onPageHide);
+      this.doc.defaultView?.removeEventListener('beforeunload', onBeforeUnload);
+      this.removeDraftLifecycleListeners = null;
+    };
+  }
+
+  private async flushDraftForRestore(): Promise<void> {
+    try {
+      await this.draftPersister.flushNow();
+      const envelope = this.buildDraftEnvelope('restorable');
+      if (!envelope) {
+        await this.clearPersistedDraft();
+        return;
+      }
+      await this.draftRepository.save(envelope);
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to flush restorable session draft:', error);
+    }
+  }
+
+  private async disposeDraftPersistence(): Promise<void> {
+    this.removeDraftLifecycleListeners?.();
+    try {
+      await this.draftPersister.dispose();
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to dispose session draft persister:', error);
+    }
   }
 
   private cleanup(): void {

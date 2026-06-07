@@ -6,6 +6,7 @@ import { BasePanelPresenter } from '../shared/panels/basePanelPresenter';
 interface RenderOptions {
   timestamps: VideoTimestampCapture[];
   fragments: VideoFragmentCapture[];
+  commentDrafts?: Record<string, string>;
 }
 
 export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
@@ -17,10 +18,11 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
     this.view.updateTexts(texts);
   }
 
-  render({ timestamps, fragments }: RenderOptions): number {
+  render({ timestamps, fragments, commentDrafts }: RenderOptions): number {
     const items: VideoPanelCapture[] = [];
 
     for (const capture of timestamps) {
+      const draft = commentDrafts?.[capture.id];
       items.push({
         id: capture.id,
         index: items.length + 1,
@@ -28,13 +30,15 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
         timeLabel: this.formatTime(capture.timeSec),
         timeSeconds: capture.timeSec,
         shareUrl: capture.url,
-        hasScreenshot: Boolean(capture.screenshot),
+        hasScreenshot: Boolean(capture.screenshot || capture.screenshotRequested),
         comment: capture.comment,
-        commentPreview: this.buildCommentPreview(capture.comment)
+        commentPreview: this.buildCommentPreview(capture.comment),
+        ...(draft !== undefined ? { draft } : {})
       });
     }
 
     fragments.forEach((capture, fragmentIndex) => {
+      const draft = commentDrafts?.[capture.id];
       items.push({
         id: capture.id,
         index: fragmentIndex + 1,
@@ -43,7 +47,8 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
         fragmentUrl: capture.fragmentUrl,
         comment: capture.comment,
         commentPreview: this.buildCommentPreview(capture.comment),
-        selectionPreview: capture.selectedText
+        selectionPreview: capture.selectedText,
+        ...(draft !== undefined ? { draft } : {})
       });
     });
 

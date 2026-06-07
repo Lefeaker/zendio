@@ -1,4 +1,4 @@
-import type { Language } from '../../i18n';
+import type { Language } from '@i18n';
 import type { OptionsStateManager } from '../state/StateManager';
 
 interface OptionsActionsDependencies {

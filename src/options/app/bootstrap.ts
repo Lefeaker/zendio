@@ -3,7 +3,7 @@ import {
   createDefaultPageI18nController,
   type Language,
   type PageI18nController
-} from '../../i18n';
+} from '@i18n';
 import { configureAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
 import { configureGlobalStateManagerStorage } from '../../shared/state/globalStateManager';
 import { DI_TOKENS } from '../../shared/di/tokens';
@@ -25,6 +25,7 @@ import {
   mountProductionStitchShell,
   type MountedProductionStitchShell
 } from './productionStitchShell';
+import { trackInitialOptionsTelemetry } from './productionStitchTelemetry';
 
 export interface OptionsAppBootstrapDependencies {
   storage: StorageService;
@@ -128,10 +129,16 @@ export async function bootstrapOptionsApp(
   const resource = i18nController.getCurrentResource();
   const controller = initializeOptionsController();
   const stored = await controller.loadInitialState();
+  const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
+    await import('./productionStitchAssets');
 
   mountedShell = mountProductionStitchShell({
     controller,
     initialOptions: stored,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView,
+    previewContent,
     messages: resource?.messages ?? null,
     language: (resource?.language ?? 'zh-CN') as Language,
     storage,
@@ -152,6 +159,7 @@ export async function bootstrapOptionsApp(
   });
 
   await applyOptionsSnapshot(stored);
+  await trackInitialOptionsTelemetry();
 }
 
 async function applyOptionsSnapshot(options: StoredOptions): Promise<void> {

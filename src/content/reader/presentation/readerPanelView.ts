@@ -4,8 +4,13 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
-import type { ReaderSessionView, ReaderSessionViewFactory } from '../application/readerSessionView';
+import type {
+  ReaderSessionView,
+  ReaderSessionViewFactory,
+  ReaderSessionViewOptions
+} from '../application/readerSessionView';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 
 type ReaderPanelLike = {
   readonly element: HTMLElement;
@@ -14,6 +19,8 @@ type ReaderPanelLike = {
   updateTexts(texts: ReaderPanelTexts): void;
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void;
   setHighlights(highlights: ReaderPanelHighlight[]): void;
+  snapshotCommentDrafts?(): SessionCommentDraftSnapshot;
+  hydrateCommentDrafts?(drafts: SessionCommentDraftSnapshot): void;
   stopEditing(): void;
   isEditing(): boolean;
   destroy(): void;
@@ -50,6 +57,14 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
     this.panel.setHighlights(highlights);
   }
 
+  snapshotCommentDrafts(): SessionCommentDraftSnapshot {
+    return this.panel.snapshotCommentDrafts?.() ?? {};
+  }
+
+  hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
+    this.panel.hydrateCommentDrafts?.(drafts);
+  }
+
   stopEditing(): void {
     this.panel.stopEditing();
   }
@@ -66,10 +81,17 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
 export const createReaderPanelViewFactory = (
   options: ReaderPanelViewFactoryOptions = {}
 ): ReaderSessionViewFactory => ({
-  createView(callbacks: ReaderPanelCallbacks, texts: ReaderPanelTexts): ReaderSessionView {
+  createView(
+    callbacks: ReaderPanelCallbacks,
+    texts: ReaderPanelTexts,
+    viewOptions: ReaderSessionViewOptions = {}
+  ): ReaderSessionView {
     const panel = new ReaderDialogPanel({
       callbacks,
       texts,
+      ...(viewOptions.onCommentDraftChange
+        ? { onCommentDraftChange: viewOptions.onCommentDraftChange }
+        : {}),
       ...(options.resolveAssetUrl ? { resolveAssetUrl: options.resolveAssetUrl } : {})
     });
     panel.show();

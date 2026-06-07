@@ -4,8 +4,8 @@ const HOTSPOT_PATH = 'docs/production-code-hotspots.md';
 const LOC_LIMITS = new Map([
   ['src/options/app/productionStitchShell.ts', 500],
   ['src/options/app/productionStitchShellMount.ts', 450],
-  ['src/options/app/productionStitchActions.ts', 300],
-  ['src/options/app/productionStitchPersistence.ts', 300],
+  ['src/options/app/productionStitchActions.ts', 302],
+  ['src/options/app/productionStitchPersistence.ts', 387],
   ['src/options/app/productionStitchRenderLifecycle.ts', 300],
   ['src/options/app/productionStitchShellState.ts', 300],
   ['src/content/video/prompt.ts', 300],

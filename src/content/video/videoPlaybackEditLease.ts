@@ -49,6 +49,10 @@ export class VideoPlaybackEditLease {
     }
   }
 
+  hasTransaction(captureId: string): boolean {
+    return this.transactions.has(captureId);
+  }
+
   release(options: { restorePlayback: boolean }): void {
     const current = this.active;
     if (!current) {

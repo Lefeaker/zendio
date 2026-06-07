@@ -1,11 +1,16 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import {
+  createInitialStitchState,
+  createProductionContent
+} from '@options/app/productionStitchStateMapper';
 import { createProductionStitchWidgetHost } from '@options/app/productionStitchWidgetHost';
+import { previewContent } from '@options/stitch/content';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
-import { mergeOptions } from '@shared/config/optionsMerger';
-import en from '@i18n/locales/en';
 import type { CompleteOptions } from '@shared/types/options';
+import { createCompleteOptions, queryRequired } from '../productionStitchShell.helpers';
 
 function createMount(
   initialOptions: Partial<CompleteOptions> = {
@@ -24,7 +29,7 @@ function createMount(
 
   adapter.mount(
     container,
-    { options: mergeOptions(initialOptions) as CompleteOptions },
+    { options: createCompleteOptions(initialOptions) },
     {
       notifyDirty,
       reportError: vi.fn()
@@ -66,19 +71,14 @@ describe('YamlConfigEditorWidgetAdapter', () => {
 
   it('keeps the last valid yamlConfig when invalid edits notify dirty metadata', () => {
     const { adapter, container, notifyDirty } = createMount();
-    const scoreRow = Array.from(container.querySelectorAll<HTMLElement>('[data-row-id]')).find(
-      (row) =>
-        Array.from(row.querySelectorAll<HTMLInputElement>('input')).some(
-          (input) => input.value === 'score'
-        )
-    );
-    const defaultValue = scoreRow?.querySelector<HTMLInputElement>(
-      'input[data-yaml-field="defaultValue"]'
+    const scoreRow = findYamlRow(container, 'score');
+    const defaultValue = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      scoreRow
     );
 
-    expect(defaultValue).toBeTruthy();
-    defaultValue!.value = 'not-a-number';
-    defaultValue!.dispatchEvent(new Event('input', { bubbles: true }));
+    defaultValue.value = 'not-a-number';
+    defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(notifyDirty).toHaveBeenLastCalledWith(['yamlConfig'], { invalid: true });
     expect(() => adapter.collect()).not.toThrow();
@@ -100,7 +100,7 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     adapter.mount(
       container,
       {
-        options: mergeOptions({
+        options: createCompleteOptions({
           yamlConfig: {
             contentTypes: {
               article: {
@@ -108,9 +108,9 @@ describe('YamlConfigEditorWidgetAdapter', () => {
               }
             }
           }
-        }) as CompleteOptions,
+        }),
         messages: {
-          ...en.runtime,
+          ...DEFAULT_RUNTIME_MESSAGES,
           yamlFieldArticleLabel: 'Artikel test',
           yamlFieldAddButton: '+ Feld test',
           yamlFieldSaveBlockedWarning: 'YAML test block'
@@ -122,18 +122,13 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     expect(container.textContent).toContain('Artikel test');
     expect(container.textContent).toContain('+ Feld test');
 
-    const scoreRow = Array.from(container.querySelectorAll<HTMLElement>('[data-row-id]')).find(
-      (row) =>
-        Array.from(row.querySelectorAll<HTMLInputElement>('input')).some(
-          (input) => input.value === 'score'
-        )
+    const scoreRow = findYamlRow(container, 'score');
+    const defaultValue = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      scoreRow
     );
-    const defaultValue = scoreRow?.querySelector<HTMLInputElement>(
-      'input[data-yaml-field="defaultValue"]'
-    );
-    expect(defaultValue).toBeTruthy();
-    defaultValue!.value = 'not-a-number';
-    defaultValue!.dispatchEvent(new Event('input', { bubbles: true }));
+    defaultValue.value = 'not-a-number';
+    defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(container.textContent).toContain('YAML test block');
     expect(container.textContent).not.toContain(
@@ -145,25 +140,29 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     const { adapter, container, notifyDirty } = createMount({ yamlConfig: null });
     const statusRow = findYamlRow(container, 'status');
 
-    const articleToggle = statusRow.querySelector<HTMLInputElement>(
-      'input.stitch-yaml-toggle[data-mode="article"]'
+    const articleToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="article"]',
+      statusRow
     );
-    const clipperToggle = statusRow.querySelector<HTMLInputElement>(
-      'input.stitch-yaml-toggle[data-mode="clipper"]'
+    const clipperToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="clipper"]',
+      statusRow
     );
-    const videoToggle = statusRow.querySelector<HTMLInputElement>(
-      'input.stitch-yaml-toggle[data-mode="video"]'
+    const videoToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="video"]',
+      statusRow
     );
-    const aiToggle = statusRow.querySelector<HTMLInputElement>(
-      'input.stitch-yaml-toggle[data-mode="ai_chat"]'
+    const aiToggle = queryRequired<HTMLInputElement>(
+      'input.stitch-yaml-toggle[data-mode="ai_chat"]',
+      statusRow
     );
 
-    expect(articleToggle?.disabled).toBe(false);
-    expect(articleToggle?.checked).toBe(true);
+    expect(articleToggle.disabled).toBe(false);
+    expect(articleToggle.checked).toBe(true);
     for (const toggle of [clipperToggle, videoToggle, aiToggle]) {
-      expect(toggle?.disabled).toBe(true);
-      toggle!.checked = true;
-      toggle!.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(toggle.disabled).toBe(true);
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     const draft = adapter.collect().yamlConfig;
@@ -172,10 +171,11 @@ describe('YamlConfigEditorWidgetAdapter', () => {
   });
 
   it('is the production yaml-config widget factory result', () => {
-    const draft = mergeOptions(null) as CompleteOptions;
+    const draft = createCompleteOptions(null);
+    const state = createInitialStitchState(createProductionContent(previewContent, draft));
     const host = createProductionStitchWidgetHost({
       getDraft: () => draft,
-      getState: () => ({ previewTheme: 'light' }) as never,
+      getState: () => state,
       getMessages: () => null,
       ensureVaultRouter: vi.fn(),
       mergePartialIntoDraft: vi.fn(),

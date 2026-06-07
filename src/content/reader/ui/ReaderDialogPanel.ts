@@ -13,7 +13,10 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
-import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
+import {
+  SessionCommentDraftController,
+  type SessionCommentDraftSnapshot
+} from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
@@ -22,23 +25,21 @@ interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
   texts: ReaderPanelTexts;
   resolveAssetUrl?: (path: string) => string;
+  onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
 
-export class ReaderDialogPanel
-  implements
-    UiMountable<
-      HTMLElement | undefined,
-      | {
-          texts?: ReaderPanelTexts;
-          count?: number;
-          hint?: string;
-          highlights?: ReaderPanelHighlight[];
-        }
-      | undefined,
-      HTMLElement
-    >
-{
-  readonly popupLifecycle = { preserveOnTransientClose: true };
+export class ReaderDialogPanel implements UiMountable<
+  HTMLElement | undefined,
+  | {
+      texts?: ReaderPanelTexts;
+      count?: number;
+      hint?: string;
+      highlights?: ReaderPanelHighlight[];
+    }
+  | undefined,
+  HTMLElement
+> {
+  readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
 
   private renderRoot: HTMLElement;
   private readonly popupCoordinator: PopupCoordinator | null;
@@ -56,7 +57,8 @@ export class ReaderDialogPanel
     inputSelector: '[data-highlight-input]',
     getItems: () => this.highlights,
     getRoot: () => this.renderRoot.shadowRoot,
-    submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft)
+    submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft),
+    onChange: (drafts) => this.options.onCommentDraftChange?.(drafts)
   });
   private pendingNoteFocusHighlightId: string | null = null;
 
@@ -161,6 +163,15 @@ export class ReaderDialogPanel
     this.rerender({ captureDrafts: false });
   }
 
+  snapshotCommentDrafts(): SessionCommentDraftSnapshot {
+    return this.commentDrafts.snapshot();
+  }
+
+  hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
+    this.commentDrafts.hydrate(drafts);
+    this.rerender({ captureDrafts: false });
+  }
+
   isEditing(): boolean {
     const activeElement = this.renderRoot.shadowRoot?.activeElement;
     return (
@@ -205,7 +216,7 @@ export class ReaderDialogPanel
       texts: this.texts,
       highlights: this.highlights.map((highlight) => this.commentDrafts.withDraft(highlight)),
       counter: this.formatCounter(this.highlightCount),
-      iconUrl: this.resolveAssetUrl('icons/60x60/allinob_icon_readingt.png'),
+      iconUrl: this.resolveAssetUrl('icons/60x60/zendio_icon_readingt.png'),
       ...(this.destination ? { destination: this.destination } : {}),
       actions: [
         { id: 'reader:finish', label: this.texts.finish, variant: 'primary' },
@@ -219,8 +230,9 @@ export class ReaderDialogPanel
       surfaceId: 'reader',
       appData: content,
       actions: {
-        'reader:finish': () =>
-          this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish()),
+        'reader:finish': () => {
+          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
+        },
         'reader:cancel': () => this.options.callbacks.onCancel(),
         'export-destination:select': (event) => {
           const id = this.resolveActionId(event, 'destinationId');

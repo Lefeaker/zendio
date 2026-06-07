@@ -1,12 +1,12 @@
 [中文](README.zh-CN.md)｜[日本語](README.ja-JP.md)
 
 <p align="center">
-  <img src="marketing/banner.png" alt="All in Ob Banner" width="600"/>
+  <img src="marketing/banner.png" alt="Zendio Banner" width="600"/>
 </p>
 
 ## Introduction | What & Why
 
-- **One-line pitch**: All in Ob is a browser extension that captures web pages, highlights, comments, and AI chats into structured Markdown notes.
+- **One-line pitch**: Zendio is a browser extension that captures web pages, highlights, comments, and AI chats into structured Markdown notes.
 - **Problems we solve**:
   - Stop copying & pasting web or conversation content by hand
   - Preserve context, annotations, and source links so insights never get lost
@@ -202,7 +202,7 @@ compiled_at: '2024-01-01T14:00:00'
 - Inspiration: [Readwise](https://github.com/readwiseio/obsidian-readwise), [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights), [Dataview](https://github.com/blacksmithgu/obsidian-dataview), [Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - Third-party components: [AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter), [Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper), [Mozilla Readability](https://github.com/mozilla/readability), [Turndown](https://github.com/mixmark-io/turndown)
 - License: MIT (see `LICENSE`)
-- Authors: AiiinOB team — reach out via Issues, PRs, or Discussions
+- Authors: Zendio team — reach out via Issues, PRs, or Discussions
 
 ---
 
