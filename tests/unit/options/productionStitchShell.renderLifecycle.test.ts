@@ -377,6 +377,41 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     }
   });
 
+  it('keeps sidebar navigation scroll after button scroll guard queued restores', async () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    const main = queryRequired<HTMLElement>('.main');
+    const storageSection = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const storageNav = queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]');
+    Object.defineProperty(storageSection, 'offsetTop', {
+      configurable: true,
+      value: 520
+    });
+    Object.defineProperty(main, 'scrollTo', {
+      configurable: true,
+      value: (options: ScrollToOptions) => {
+        main.scrollTop = Number(options.top ?? 0);
+      }
+    });
+    await Promise.resolve();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    main.scrollTop = 77;
+
+    storageNav.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+    storageNav.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(main.scrollTop).toBe(508);
+    expect(storageNav.classList.contains('is-active')).toBe(true);
+  });
+
   it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

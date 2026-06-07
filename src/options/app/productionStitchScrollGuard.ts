@@ -53,6 +53,14 @@ export function shouldPreserveButtonActionScroll(actionId: string): boolean {
   return !actionId.startsWith('navigation:');
 }
 
+function shouldIgnoreButtonScrollGuard(button: Element): boolean {
+  if (button.closest('[data-nav-panel]')) {
+    return true;
+  }
+  const actionId = button.closest<HTMLElement>('[data-action-id]')?.dataset.actionId ?? '';
+  return actionId.startsWith('navigation:');
+}
+
 export function installButtonPressScrollGuard(root: HTMLElement): ButtonPressScrollGuard {
   let lastScroll: OptionsScrollSnapshot | null = null;
   let clearTimer: number | null = null;
@@ -69,7 +77,12 @@ export function installButtonPressScrollGuard(root: HTMLElement): ButtonPressScr
 
   const remember = (event: Event): void => {
     const target = event.target;
-    if (!(target instanceof Element) || !target.closest('button')) {
+    const button = target instanceof Element ? target.closest('button') : null;
+    if (!button) {
+      return;
+    }
+    if (shouldIgnoreButtonScrollGuard(button)) {
+      lastScroll = null;
       return;
     }
     lastScroll = captureOptionsScroll(root);
@@ -79,7 +92,13 @@ export function installButtonPressScrollGuard(root: HTMLElement): ButtonPressScr
     }
   };
 
-  const restoreSoon = (): void => {
+  const restoreSoon = (event: Event): void => {
+    const target = event?.target;
+    const button = target instanceof Element ? target.closest('button') : null;
+    if (button && shouldIgnoreButtonScrollGuard(button)) {
+      lastScroll = null;
+      return;
+    }
     if (!lastScroll) {
       return;
     }
