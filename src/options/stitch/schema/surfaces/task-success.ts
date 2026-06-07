@@ -160,12 +160,15 @@ function localizeSupportLinks(items: SupportChannel[], ctx: SchemaContext): Supp
       return item;
     }
 
+    const subtitle =
+      item.subtitle !== undefined
+        ? (ctx.t?.(keys.subtitle, item.subtitle) ?? item.subtitle)
+        : undefined;
+
     return {
       ...item,
       title: ctx.t?.(keys.title, item.title) ?? item.title,
-      subtitle: item.subtitle
-        ? (ctx.t?.(keys.subtitle, item.subtitle) ?? item.subtitle)
-        : item.subtitle
+      ...(subtitle !== undefined ? { subtitle } : {})
     };
   });
 }

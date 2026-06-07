@@ -38,7 +38,7 @@ const schema: ResourceSchema = {
                         subtitle:
                           ctx.t?.('schemaResourceSupportKoFiDescription', 'Buy me a coffee') ??
                           'Buy me a coffee',
-                        href: koFiHref
+                        ...(koFiHref !== undefined ? { href: koFiHref } : {})
                       },
                       {
                         title: ctx.t?.('schemaResourceSupportAfdianTitle', 'Afdian') ?? 'Afdian',
@@ -47,7 +47,7 @@ const schema: ResourceSchema = {
                             'schemaResourceSupportAfdianDescription',
                             'Support the project in Chinese'
                           ) ?? 'Support the project in Chinese',
-                        href: afdianHref
+                        ...(afdianHref !== undefined ? { href: afdianHref } : {})
                       }
                     ].map((item) => resourceCard(item)),
                     2

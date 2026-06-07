@@ -43,7 +43,7 @@ const schema: ResourceSchema = {
                             'schemaResourceSuggestionsGithubDescription',
                             'Feature requests and bug reports'
                           ) ?? 'Feature requests and bug reports',
-                        href: githubHref
+                        ...(githubHref !== undefined ? { href: githubHref } : {})
                       },
                       {
                         title:
@@ -53,7 +53,7 @@ const schema: ResourceSchema = {
                             'schemaResourceSuggestionsRedditDescription',
                             'Direct public discussion with the author'
                           ) ?? 'Direct public discussion with the author',
-                        href: redditHref
+                        ...(redditHref !== undefined ? { href: redditHref } : {})
                       }
                     ].map((item) => resourceCard(item)),
                     2
