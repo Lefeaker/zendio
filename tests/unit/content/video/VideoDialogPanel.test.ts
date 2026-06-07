@@ -335,6 +335,35 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('stops only the requested capture editor when another capture remains active', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures(
+      Array.from({ length: 6 }, (_, index) =>
+        createCapture({
+          id: `capture-${index + 1}`,
+          index: index + 1,
+          timeLabel: `0${index}:0${index}`
+        })
+      )
+    );
+    panel.beginEditingCapture('capture-6', '');
+    await Promise.resolve();
+
+    const sixthInput = requireCaptureInput(panel, 'capture-6');
+    sixthInput.value = 'sixth draft must stay active';
+    sixthInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.stopEditing('capture-1');
+
+    expect(requireCaptureInput(panel, 'capture-6').value).toBe('sixth draft must stay active');
+    expect(panel.snapshotCommentDrafts()).toEqual({
+      'capture-6': 'sixth draft must stay active'
+    });
+
+    panel.destroy();
+  });
+
   it('keeps later timestamp drafts stable across six-capture rerenders and screenshot refreshes', async () => {
     const longComment =
       'Capture 5 saved comment that should not replace the live draft during video panel rerenders.';

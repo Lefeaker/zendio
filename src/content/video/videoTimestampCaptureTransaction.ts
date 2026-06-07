@@ -16,7 +16,7 @@ interface VideoTimestampCaptureTransactionContext {
     captures: Array<{ id: string }>;
   };
   dom: {
-    stopEditing(): void;
+    stopEditing(captureId?: string): void;
   };
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   syncPanel(): void;
@@ -77,7 +77,7 @@ function rollbackVideoSessionAddCapture(
   if (releasePlaybackLease) {
     context.releasePlaybackEditLease?.(capture.id, true);
   }
-  context.dom.stopEditing();
+  context.dom.stopEditing(capture.id);
   context.syncPanel();
   context.applyHint('failure');
 }

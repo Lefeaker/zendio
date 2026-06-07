@@ -1152,7 +1152,7 @@ describe('VideoSession', () => {
     await submitPromise;
 
     expect(playSpy).toHaveBeenCalledTimes(1);
-    expect(view.stopEditing).toHaveBeenCalled();
+    expect(view.stopEditing).toHaveBeenCalledWith(captureId);
 
     callbacks.onCancel();
     vi.useRealTimers();
