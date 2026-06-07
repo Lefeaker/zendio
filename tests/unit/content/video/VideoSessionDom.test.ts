@@ -213,4 +213,30 @@ describe('VideoSessionDomController', () => {
       'capture-5': 'Capture 5 full draft that must survive another input event.'
     });
   });
+
+  it('forwards scoped stopEditing calls through the view boundary', () => {
+    const view = createView();
+    const controller = new VideoSessionDomController(
+      document,
+      { createView: vi.fn(() => view) },
+      new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
+    );
+
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel
+    );
+
+    controller.stopEditing('capture-1');
+
+    expect(view.stopEditing).toHaveBeenCalledWith('capture-1');
+  });
 });

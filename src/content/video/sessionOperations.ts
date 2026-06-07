@@ -216,7 +216,7 @@ export async function handleVideoSessionAddCapture(
   if (options.beginEditing !== false) {
     context.dom.beginEditingCapture(capture.id, capture.comment);
   } else {
-    context.dom.stopEditing();
+    context.dom.stopEditing(capture.id);
   }
   if (options.resumePlayback && typeof video.play === 'function') {
     void Promise.resolve(video.play()).catch(() => undefined);
@@ -323,7 +323,7 @@ export async function submitVideoSessionCaptureEdit(
     return;
   }
   context.releasePlaybackEditLease?.(id, true);
-  context.dom.stopEditing();
+  context.dom.stopEditing(id);
   context.syncPanel();
 }
 

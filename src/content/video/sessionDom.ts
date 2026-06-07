@@ -173,8 +173,8 @@ export class VideoSessionDomController {
     this.panel?.beginEditingCapture(captureId, comment);
   }
 
-  stopEditing(): void {
-    this.panel?.stopEditing();
+  stopEditing(captureId?: string): void {
+    this.panel?.stopEditing(captureId);
   }
 
   isEventInsidePanel(event: Event): boolean {
