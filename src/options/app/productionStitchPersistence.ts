@@ -283,7 +283,11 @@ export function createProductionStitchPersistence(
         })
       );
       options.setMaintenanceLog(
-        getMessage(options.getCurrentMessages(), 'copyConfigSuccess', '配置已复制到剪贴板！')
+        getMessage(
+          options.getCurrentMessages(),
+          'copyConfigSuccess',
+          '✅ Configuration copied to clipboard'
+        )
       );
     } catch (error) {
       await trackUsageEvent(
@@ -313,7 +317,11 @@ export function createProductionStitchPersistence(
         })
       );
       options.setMaintenanceLog(
-        getMessage(options.getCurrentMessages(), 'importSuccess', '配置已成功导入！')
+        getMessage(
+          options.getCurrentMessages(),
+          'importSuccess',
+          '✅ Configuration imported and saved'
+        )
       );
     } catch (error) {
       await trackUsageEvent(
@@ -335,7 +343,14 @@ export function createProductionStitchPersistence(
     const restDefaults = configProvider.getRestDefaults();
     const templateDefaults = configProvider.getTemplates();
     let baseUrl = draft.rest.baseUrl || draft.rest.httpsUrl || restDefaults.baseUrl;
-    const log: string[] = ['修复配置'];
+    const log: string[] = [
+      getMessage(options.getCurrentMessages(), 'configFixed', '✅ Configuration fixed and saved'),
+      getMessage(
+        options.getCurrentMessages(),
+        'reloadPrompt',
+        'Please reload the page to see the fixed configuration'
+      )
+    ];
 
     if (baseUrl.startsWith('http://') && baseUrl.includes(`:${restDefaults.httpsPort}`)) {
       baseUrl = baseUrl.replace('http://', 'https://');

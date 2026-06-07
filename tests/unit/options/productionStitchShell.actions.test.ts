@@ -32,6 +32,7 @@ import {
   createMessaging,
   createRepository,
   createStorage,
+  findCardByTitle,
   findButton,
   findCheckboxInText,
   findInputByValue,
@@ -39,6 +40,7 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import * as storageControllerModule from '@options/app/productionStitchStorageController';
 import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { Language } from '@i18n';
@@ -50,6 +52,16 @@ const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+function mockStorageConnectionFailure(message: string) {
+  const actualFactory = storageControllerModule.createProductionStitchStorageController;
+  const factorySpy = vi.spyOn(storageControllerModule, 'createProductionStitchStorageController');
+  factorySpy.mockImplementation((options) => ({
+    ...actualFactory(options),
+    runVaultListConnectionTest: vi.fn(() => Promise.reject(new Error(message)))
+  }));
+  return factorySpy;
+}
 
 function createActionRuntimeHarness() {
   const mountRoot = document.createElement('div');
@@ -184,7 +196,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
     const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
@@ -194,13 +206,63 @@ describe('mountProductionStitchShell actions', () => {
     expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
-    findButton('诊断配置').click();
+    findButton('Diagnose Configuration').click();
     expect(document.body.textContent).toContain('domainMappings');
 
-    findButton('重新加载').click();
+    findButton('Reload').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(loadRaw).toHaveBeenCalledTimes(1);
     expect(findInputByValue('Reloaded')).toBeTruthy();
+  });
+
+  it('uses localized storage connection error titles when the storage test action throws', async () => {
+    const controller = createController();
+    const factorySpy = mockStorageConnectionFailure('storage connection failed');
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: {
+        schemaStorageConnectionNoticeTitle: 'Connection Result Sentinel'
+      } as never,
+      language: 'en',
+      messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
+    });
+
+    findButton('测试连接').click();
+    await flushPromises();
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.querySelector('.notice strong')?.textContent?.trim()).toBe(
+      'Connection Result Sentinel'
+    );
+    expect(vaultList.textContent).toContain('storage connection failed');
+
+    factorySpy.mockRestore();
+  });
+
+  it('falls back to the English storage connection error title when messages are missing', async () => {
+    const controller = createController();
+    const factorySpy = mockStorageConnectionFailure('storage connection failed');
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en',
+      messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
+    });
+
+    findButton('测试连接').click();
+    await flushPromises();
+
+    const vaultList = findCardByTitle('Vault List');
+    expect(vaultList.querySelector('.notice strong')?.textContent?.trim()).toBe(
+      'Connection Test Result'
+    );
+    expect(vaultList.textContent).toContain('storage connection failed');
+
+    factorySpy.mockRestore();
   });
 
   it('reports maintenance copy and import success or failure in the Stitch log', async () => {
@@ -229,14 +291,14 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    const copyButton = findButton('复制配置');
+    const copyButton = findButton('Copy Configuration');
     copyButton.click();
     expect(copyButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
     expect(document.body.textContent).toContain('Copied config');
     expect(copyButton.hasAttribute('aria-busy')).toBe(false);
 
-    const importButton = findButton('导入并保存');
+    const importButton = findButton('Import and Save');
     importButton.click();
     expect(importButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
@@ -269,7 +331,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    const importButton = findButton('导入并保存');
+    const importButton = findButton('Import and Save');
     importButton.click();
     expect(importButton.getAttribute('aria-busy')).toBe('true');
     await flushPromises();
@@ -389,14 +451,14 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(execCommand).toHaveBeenCalledWith('copy');
     expect(document.body.textContent).toContain('Copied config');
 
     execCommand.mockReturnValue(false);
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(document.body.textContent).toContain('Copy failed');
@@ -430,7 +492,7 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('诊断配置').click();
+    findButton('Diagnose Configuration').click();
 
     expect(document.body.textContent).toContain('未配置 API Key');
     expect(document.body.textContent).toContain('片段剪藏配置');
@@ -761,7 +823,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
@@ -776,7 +838,7 @@ describe('mountProductionStitchShell actions', () => {
 
     vi.mocked(messagingRepository.send).mockClear();
     writeText.mockRejectedValueOnce(new Error('clipboard denied'));
-    findButton('复制配置').click();
+    findButton('Copy Configuration').click();
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
@@ -816,7 +878,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
@@ -874,7 +936,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
@@ -921,7 +983,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('导入并保存').click();
+    findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledTimes(1);
@@ -960,7 +1022,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('修复配置').click();
+    findButton('Fix Configuration').click();
     await flushPromises();
 
     const repaired = mounted.collectDraft();
