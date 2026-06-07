@@ -472,7 +472,7 @@ describe('mountProductionStitchShell storage', () => {
       vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
     ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
-    expect(document.body.textContent).toContain('本地目录需要重新授权');
+    expect(document.body.textContent).toContain('Local Folder needs permission again');
     deleteButton?.click();
     await flushPromises();
 
@@ -760,6 +760,7 @@ describe('mountProductionStitchShell storage', () => {
 
     findButton('测试连接').click();
     await flushPromises();
+    await flushPromises();
 
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
       type: 'TEST_VAULT_CONNECTION',
@@ -783,7 +784,7 @@ describe('mountProductionStitchShell storage', () => {
     const certificateLink = notice?.querySelector<HTMLAnchorElement>(
       `a[href="${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt"]`
     );
-    expect(certificateLink?.textContent).toBe('下载并信任该证书');
+    expect(certificateLink?.textContent).toBe('Download and trust this certificate');
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'connection_test_completed',
