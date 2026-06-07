@@ -56,6 +56,7 @@
 - 2026-06-05 GA / i18n PR merge type-ratchet 真值：两个 PR 合并后的当前 `lint:type-any` 实测为扫描 `1071` files，overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 继续保持 `0`，`non-null` 与 `ts-expect-error` 上限保持原值。
 - 2026-06-06 session-draft current-main reintegration type-ratchet 真值：session draft integration 重新基于当前 `origin/main` 合入并补齐 active video draft restore 回退后，`lint:type-any` 实测扫描 `1091` files，overall `0/1132/1845/53/4`、src `0/612/626/7/0`、tests `0/520/1219/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`，不得用 tests 下降抵消 src 增长。
 - 2026-06-07 video legacy recovery type-ratchet 真值：当前集成树 `lint:type-any` 实测扫描 `1111` files，overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`。
+- 2026-06-07 video note stability 修复真值：`codex/aiiinob-video-note-stability-2026-06-07-integration` 解决了视频时间戳备注在第 6 个及后续 capture 上因 live draft flush、未 scoped editor stop、runtime mutation 绕过 draft sync 而不稳定的问题；最终行为要求新增时间戳、切换其他时间戳截图状态、勾选评论区文字、删除其他 capture、pagehide/visibility persistence 与 export preparation 均不得丢失任一 timestamp note，且截图状态切换不得 seek/pause/play 可见视频。该集成树已通过 `quality`、`verify:preflight`、`test:unit`、`tests/e2e/videoPanelFlow.test.ts` Chromium desktop、reader-panel browser E2E 与独立 closeout audit；P05/P06 的窄 helper extraction / test hardening 已在 workspace plan 中补充记录。
 
 ## 当前推荐执行顺序
 
@@ -128,13 +129,13 @@ must not call Google debug endpoints directly from the extension.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；2026-06-07 video legacy recovery 集成树已同步 checked-in baseline 为 `147`，当前 gate 输出为 `Warning 总量保持在基线 147 条`。
+- `npm run lint:warnings-guard`：通过；checked-in baseline 为 `147`，当前 video note stability 集成树 fresh warning count 为 `138`，gate 输出为 `Warning 总量下降 9 条（现在 138 条）`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 warning 主要规则族：`require-await`（`102`）与 unsafe type warnings。
+- 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `8` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 video legacy recovery 集成树 `1111` files；overall 为 `any: 0`、`unknown: 1125`、assertions `1838`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/612/622/7/0`；tests 为 `0/513/1216/46/4`。
+- `npm run lint:type-any`：扫描当前 video note stability 集成树 `1113` files；fresh overall 为 `any: 0`、`unknown: 1108`、assertions `1805`、non-null assertions `53`、`ts-expect-error: 4`；src 为 `0/612/622/7/0`；tests 为 `0/496/1183/46/4`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：同时守住 overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`，并已接入 `quality` 作为 type-debt hard gate；tests 下降不得抵消 src 增长。
+- `npm run lint:type-any:ratchet`：当前 checked-in 上限仍守住 overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`，并已接入 `quality` 作为 type-debt hard gate；fresh count 低于 checked-in 上限时，不得把上限误写成当前实测，也不得用 tests 下降抵消 src 增长。
 
 ## 当前构建预算真值
 
