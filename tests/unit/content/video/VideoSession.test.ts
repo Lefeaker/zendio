@@ -13,8 +13,10 @@ import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type {
+  SessionDraftEnvelope,
   SessionDraftIndex,
-  SessionDraftOwnerContext
+  SessionDraftOwnerContext,
+  VideoSessionDraftEnvelope
 } from '@content/sessionDrafts/sessionDraftTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 import {
@@ -202,6 +204,19 @@ type SessionTestApi = {
   };
 };
 
+type DraftMutationAct = (
+  api: SessionTestApi,
+  ids: string[],
+  activeId: string,
+  session: VideoSession,
+  callbacks: VideoPanelCallbacks
+) => void | Promise<void>;
+
+interface DraftMutationCase {
+  label: string;
+  act: DraftMutationAct;
+}
+
 function createView(
   overrides: {
     snapshotCommentDrafts?: Mock<NonNullable<VideoSessionView['snapshotCommentDrafts']>>;
@@ -279,13 +294,17 @@ async function listVideoDraftCandidates(
   deps: VideoSessionDependencies,
   pageUrl = document.location.href,
   ownerContext?: SessionDraftOwnerContext | null
-) {
+): Promise<VideoSessionDraftEnvelope[]> {
   const repository = createSessionDraftRepository(deps.storage.local);
-  return repository.listCandidates(
+  const candidates = await repository.listCandidates(
     'video',
     pageUrl,
     undefined,
     ownerContext === undefined ? undefined : { ownerContext }
+  );
+  return candidates.filter(
+    (candidate: SessionDraftEnvelope): candidate is VideoSessionDraftEnvelope =>
+      candidate.mode === 'video'
   );
 }
 
@@ -317,6 +336,10 @@ function requireVideoElement(): HTMLVideoElement {
   return video;
 }
 
+function toSessionTestApi(session: VideoSession): SessionTestApi {
+  return session as unknown as SessionTestApi;
+}
+
 function seedTimestampCaptures(sessionApi: SessionTestApi, count: number): string[] {
   const now = Date.now();
   sessionApi.state.captures = Array.from({ length: count }, (_, index) => ({
@@ -339,13 +362,7 @@ function pickUnrelatedCaptureId(ids: string[], activeId: string): string {
 }
 
 async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
-  const candidates = (await listVideoDraftCandidates(deps)) as Array<{
-    updatedAt: number;
-    status: 'active' | 'restorable';
-    payload: {
-      commentDrafts?: Record<string, string>;
-    };
-  }>;
+  const candidates = await listVideoDraftCandidates(deps);
   return [...candidates].sort((left, right) => left.updatedAt - right.updatedAt).at(-1) ?? null;
 }
 
@@ -442,7 +459,7 @@ describe('VideoSession', () => {
   it('returns early when a session is already active', async () => {
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     registerVideoSession({ id: 'active' }, document);
 
@@ -455,7 +472,7 @@ describe('VideoSession', () => {
   it('starts, mounts the panel, and registers the session', async () => {
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -520,7 +537,7 @@ describe('VideoSession', () => {
       });
       await repository.save(envelope);
       const session = new VideoSession(document, deps);
-      const sessionApi = session as unknown as SessionTestApi;
+      const sessionApi = toSessionTestApi(session);
       const canvas = document.createElement('canvas');
       const drawImage = vi.fn();
       const hiddenVideo = createPreparationVideoHarness({
@@ -596,22 +613,25 @@ describe('VideoSession', () => {
 
         expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
         expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
-        expect(sessionApi.state.captures).toEqual([
-          expect.objectContaining({
-            kind: 'timestamp',
-            id: 'ts-1',
-            screenshotRequested: true,
-            screenshot: expect.objectContaining({
-              mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,restored-frame'
-            })
-          }),
-          expect.objectContaining({
-            kind: 'fragment',
-            id: 'frag-1',
-            selectedText: 'Quoted text'
-          })
-        ]);
+        expect(sessionApi.state.captures).toHaveLength(2);
+        const [restoredTimestamp, restoredFragment] = sessionApi.state.captures;
+        expect(restoredTimestamp).toMatchObject({
+          kind: 'timestamp',
+          id: 'ts-1',
+          screenshotRequested: true
+        });
+        if (restoredTimestamp?.kind !== 'timestamp') {
+          throw new Error('expected restored timestamp capture');
+        }
+        expect(restoredTimestamp.screenshot).toMatchObject({
+          mimeType: 'image/jpeg',
+          dataUrl: 'data:image/jpeg;base64,restored-frame'
+        });
+        expect(restoredFragment).toMatchObject({
+          kind: 'fragment',
+          id: 'frag-1',
+          selectedText: 'Quoted text'
+        });
         expect(currentTime).toBe(8);
         expect(currentTimeSetSpy).not.toHaveBeenCalled();
         expect(pauseSpy).not.toHaveBeenCalled();
@@ -630,7 +650,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -648,7 +668,7 @@ describe('VideoSession', () => {
 
     const failureDeps = createDependencies();
     const failureSession = new VideoSession(document, failureDeps);
-    const failureApi = failureSession as unknown as SessionTestApi;
+    const failureApi = toSessionTestApi(failureSession);
     await failureSession.start();
     Object.defineProperty(requireVideoElement(), 'currentTime', { value: 44, configurable: true });
     await failureApi.handleAddCapture();
@@ -674,7 +694,7 @@ describe('VideoSession', () => {
       return view;
     });
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
     hydrateCommentDrafts.mockClear();
@@ -693,7 +713,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  const draftMutationCases = [
+  const draftMutationCases: DraftMutationCase[] = [
     {
       label: 'submit another capture',
       act: async (
@@ -733,7 +753,7 @@ describe('VideoSession', () => {
     },
     {
       label: 'ingest fragment',
-      act: async (
+      act: (
         _api: SessionTestApi,
         _ids: string[],
         _activeId: string,
@@ -745,7 +765,7 @@ describe('VideoSession', () => {
     },
     {
       label: 'delete another capture',
-      act: async (
+      act: (
         _api: SessionTestApi,
         ids: string[],
         activeId: string,
@@ -772,7 +792,7 @@ describe('VideoSession', () => {
         await selectPromise;
       }
     }
-  ] as const;
+  ];
 
   const activeDraftCases = [
     { label: 'first', activeIndex: 1 },
@@ -804,7 +824,7 @@ describe('VideoSession', () => {
         return view;
       });
       const session = new VideoSession(document, deps);
-      const sessionApi = session as unknown as SessionTestApi;
+      const sessionApi = toSessionTestApi(session);
 
       await session.start();
       const ids = seedTimestampCaptures(sessionApi, 8);
@@ -825,17 +845,12 @@ describe('VideoSession', () => {
         [activeId]: activeDraft
       });
       expect(snapshotCommentDrafts).toHaveBeenCalled();
-      await expect(listVideoDraftCandidates(deps)).resolves.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            payload: expect.objectContaining({
-              commentDrafts: expect.objectContaining({
-                [activeId]: activeDraft
-              })
-            })
-          })
-        ])
-      );
+      const draftCandidates = await listVideoDraftCandidates(deps);
+      expect(
+        draftCandidates.some(
+          (candidate) => candidate.payload.commentDrafts?.[activeId] === activeDraft
+        )
+      ).toBe(true);
 
       sessionApi.cleanup();
       vi.useRealTimers();
@@ -856,7 +871,7 @@ describe('VideoSession', () => {
         createView: vi.fn(() => view)
       }
     } as VideoSessionDependencies);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
     seedTimestampCaptures(sessionApi, 6);
@@ -897,7 +912,7 @@ describe('VideoSession', () => {
       return view;
     });
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
     seedTimestampCaptures(sessionApi, 6);
@@ -965,7 +980,7 @@ describe('VideoSession', () => {
     });
     await repository.save(existing, { ownerContext: otherOwner });
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     try {
       await session.start();
@@ -1061,7 +1076,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -1092,7 +1107,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -1129,7 +1144,7 @@ describe('VideoSession', () => {
         })
     );
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -1219,7 +1234,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -1511,7 +1526,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
     const createElementSpy = vi
@@ -1581,7 +1596,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
@@ -1677,7 +1692,7 @@ describe('VideoSession', () => {
   it('reuses same-session transient screenshots when a requested screenshot is toggled back on', async () => {
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
@@ -1774,7 +1789,7 @@ describe('VideoSession', () => {
       return view;
     });
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const trackUsageEvent = getTrackUsageEventMock(deps);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
@@ -1885,7 +1900,7 @@ describe('VideoSession', () => {
   it('exports through the exporter and cleans up on success', async () => {
     const dependencies = createDependencies();
     const session = new VideoSession(document, dependencies);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
 
     await session.start();
@@ -1931,7 +1946,7 @@ describe('VideoSession', () => {
   it('exports only already-live screenshots and does not seek or recapture missing requested screenshots', async () => {
     const dependencies = createDependencies();
     const session = new VideoSession(document, dependencies);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
 
@@ -1991,7 +2006,7 @@ describe('VideoSession', () => {
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const trackUsageEvent = getTrackUsageEventMock(deps);
 
     await session.start();
@@ -2031,7 +2046,7 @@ describe('VideoSession', () => {
     });
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
 
     await session.start();
@@ -2068,7 +2083,7 @@ describe('VideoSession', () => {
     });
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const trackUsageEvent = getTrackUsageEventMock(deps);
 
     await session.start();
@@ -2106,7 +2121,7 @@ describe('VideoSession', () => {
     exportMock.mockResolvedValueOnce(null as never);
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
     const applyHintSpy = vi.spyOn(sessionApi, 'applyHint');
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -2147,7 +2162,7 @@ describe('VideoSession', () => {
     deps.optionsRepository.onChange = vi.fn(() => stopOptionsWatcher) as never;
     deps.storage.sync.watchKey = vi.fn(() => stopLanguageWatcher) as never;
     const session = new VideoSession(document, deps);
-    const sessionApi = session as unknown as SessionTestApi;
+    const sessionApi = toSessionTestApi(session);
 
     await session.start();
     sessionApi.cleanup();

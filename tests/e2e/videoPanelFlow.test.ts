@@ -68,6 +68,10 @@ type ExportedVideoClip = {
   }>;
 } | null;
 
+type StartVideoModeResponse = {
+  success: boolean;
+};
+
 const testWithExtension = test.extend<{
   context: BrowserContext;
   background: ServiceWorker;
@@ -105,13 +109,13 @@ const testWithExtension = test.extend<{
     await use(background);
   },
   extensionPage: async ({ context, background }, use, testInfo) => {
-    const extensionId = await runStage(testInfo, 'resolve extension id', async () => {
+    const extensionId = await runStage(testInfo, 'resolve extension id', () => {
       const backgroundUrl = background.url();
       const resolved = backgroundUrl.split('/')[2];
       if (!resolved) {
         throw new Error(`Unable to parse extension id from ${backgroundUrl}`);
       }
-      return resolved;
+      return Promise.resolve(resolved);
     });
     const page = await runStage(testInfo, 'open extension harness page', () => context.newPage());
     await runStage(testInfo, 'goto extension harness page', () =>
@@ -434,11 +438,21 @@ async function startVideoMode(
   tabId: number,
   testInfo: TestInfo
 ): Promise<void> {
-  const result = await runStage(testInfo, `start video mode for tab ${tabId}`, async () => {
-    return extensionPage.evaluate(async (targetTabId) => {
-      return await chrome.tabs.sendMessage(targetTabId, { action: 'startVideoMode' });
-    }, tabId);
-  });
+  const result = await runStage<StartVideoModeResponse>(
+    testInfo,
+    `start video mode for tab ${tabId}`,
+    () =>
+      extensionPage.evaluate(async (targetTabId): Promise<StartVideoModeResponse> => {
+        const response: unknown = await chrome.tabs.sendMessage(targetTabId, {
+          action: 'startVideoMode'
+        });
+        if (response && typeof response === 'object' && 'success' in response) {
+          const success = (response as { success?: unknown }).success === true;
+          return { success };
+        }
+        return { success: false };
+      }, tabId)
+  );
 
   expect(result).toMatchObject({ success: true });
 }

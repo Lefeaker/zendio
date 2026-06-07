@@ -10,7 +10,7 @@ function createController(
   } = {}
 ) {
   const items = overrides.items ?? [{ id: 'capture-1', comment: 'Saved comment' }];
-  const submitDraft = overrides.submitDraft ?? vi.fn(async () => undefined);
+  const submitDraft = overrides.submitDraft ?? vi.fn(() => Promise.resolve(undefined));
   const onChange = overrides.onChange ?? vi.fn();
   const controller = new SessionCommentDraftController({
     datasetKey: 'captureInput',
@@ -64,7 +64,7 @@ describe('SessionCommentDraftController', () => {
 
     controller.remember('capture-1', 'Another draft');
     onChange.mockClear();
-    await controller.runAfterFlush(vi.fn(async () => undefined));
+    await controller.runAfterFlush(vi.fn(() => Promise.resolve(undefined)));
 
     expect(submitDraft).toHaveBeenCalledWith('capture-1', 'Another draft');
     expect(onChange).toHaveBeenLastCalledWith({});
@@ -75,23 +75,27 @@ describe('SessionCommentDraftController', () => {
       { id: 'capture-1', comment: '' },
       { id: 'capture-6', comment: '' }
     ];
-    let controller!: SessionCommentDraftController<(typeof items)[number]>;
-    const submitDraft = vi.fn(async (id: string) => {
+    const controllerRef: {
+      current?: SessionCommentDraftController<(typeof items)[number]>;
+    } = {};
+    const submitDraft = vi.fn((id: string) => {
       if (id === 'capture-1') {
-        controller.clear('capture-6');
+        controllerRef.current?.clear('capture-6');
       }
+      return Promise.resolve(undefined);
     });
-    controller = new SessionCommentDraftController({
+    const controller = new SessionCommentDraftController({
       datasetKey: 'captureInput',
       inputSelector: '[data-capture-input]',
       getItems: () => items,
       getRoot: () => null,
       submitDraft
     });
+    controllerRef.current = controller;
 
     controller.remember('capture-1', 'first draft');
     controller.remember('capture-6', 'sixth draft');
-    await controller.runAfterFlush(vi.fn(async () => undefined));
+    await controller.runAfterFlush(vi.fn(() => Promise.resolve(undefined)));
 
     expect(submitDraft).toHaveBeenCalledWith('capture-1', 'first draft');
     expect(submitDraft).toHaveBeenCalledWith('capture-6', 'sixth draft');
@@ -99,20 +103,24 @@ describe('SessionCommentDraftController', () => {
 
   it('does not clear a newer draft value written during async submit', async () => {
     const items = [{ id: 'capture-6', comment: '' }];
-    let controller!: SessionCommentDraftController<(typeof items)[number]>;
-    const submitDraft = vi.fn(async () => {
-      controller.remember('capture-6', 'newer live draft');
+    const controllerRef: {
+      current?: SessionCommentDraftController<(typeof items)[number]>;
+    } = {};
+    const submitDraft = vi.fn(() => {
+      controllerRef.current?.remember('capture-6', 'newer live draft');
+      return Promise.resolve(undefined);
     });
-    controller = new SessionCommentDraftController({
+    const controller = new SessionCommentDraftController({
       datasetKey: 'captureInput',
       inputSelector: '[data-capture-input]',
       getItems: () => items,
       getRoot: () => null,
       submitDraft
     });
+    controllerRef.current = controller;
 
     controller.remember('capture-6', 'submitted draft');
-    await controller.runAfterFlush(vi.fn(async () => undefined));
+    await controller.runAfterFlush(vi.fn(() => Promise.resolve(undefined)));
 
     expect(submitDraft).toHaveBeenCalledWith('capture-6', 'submitted draft');
     expect(controller.snapshot()).toEqual({ 'capture-6': 'newer live draft' });

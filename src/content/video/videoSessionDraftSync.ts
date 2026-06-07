@@ -1,4 +1,4 @@
-import type { SessionDraftPersister } from '../sessionDrafts';
+import type { SessionDraftPersister, VideoSessionDraftEnvelope } from '../sessionDrafts';
 import type { VideoSessionState } from './sessionState';
 import type { VideoHintState } from './videoHintManager';
 
@@ -49,7 +49,7 @@ export async function flushVideoSessionDraftNow(options: {
   state: VideoSessionState;
   isCleaningUp: boolean;
   syncCommentDrafts: () => void;
-  buildDraftEnvelope: () => unknown | null;
+  buildDraftEnvelope: () => VideoSessionDraftEnvelope | null;
   removeDraft: () => Promise<void>;
   draftPersister: SessionDraftPersister;
   clearSupersededDurableSources: () => Promise<void>;
