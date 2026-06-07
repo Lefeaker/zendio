@@ -51,7 +51,8 @@ export class VideoDialogPanel implements UiMountable<
     inputSelector: '[data-capture-input]',
     getItems: () => this.captures,
     getRoot: () => this.renderRoot.shadowRoot,
-    submitDraft: (id, draft) => this.options.callbacks.onSubmitCaptureEdit(id, draft)
+    submitDraft: (id, draft) => this.options.callbacks.onSubmitCaptureEdit(id, draft),
+    onChange: (drafts) => this.options.callbacks.onCommentDraftChange?.(drafts)
   });
   private keepCollapsedForNextCaptureUpdate = false;
   private suppressCaptureEditorBlur = false;
@@ -168,6 +169,14 @@ export class VideoDialogPanel implements UiMountable<
     this.commentDrafts.clear(this.editingCaptureId);
     this.editingCaptureId = null;
     this.rerender({ captureDrafts: false });
+  }
+
+  snapshotCommentDrafts(): Record<string, string> {
+    return this.commentDrafts.snapshot();
+  }
+
+  hydrateCommentDrafts(drafts: Record<string, string>): void {
+    this.commentDrafts.hydrate(drafts);
   }
 
   collapse(): void {

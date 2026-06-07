@@ -9,6 +9,8 @@ export interface VideoSessionView {
   updateTexts(texts: VideoPanelTexts): void;
   beginEditingCapture(captureId: string, comment: string): void;
   stopEditing(): void;
+  snapshotCommentDrafts?(): Record<string, string>;
+  hydrateCommentDrafts?(drafts: Record<string, string>): void;
   collapse?(): void;
   destroy(): void;
 }

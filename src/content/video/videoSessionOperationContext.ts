@@ -42,6 +42,7 @@ interface CreateVideoSessionOperationContextArgs {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
 }
 
 export function createVideoSessionOperationContext(
@@ -72,6 +73,9 @@ export function createVideoSessionOperationContext(
     ensureCaptureHighlight: args.ensureCaptureHighlight,
     getSelectionForNode: args.getSelectionForNode,
     highlightFragmentText: args.highlightFragmentText,
+    ...(args.prepareRequestedScreenshot
+      ? { prepareRequestedScreenshot: args.prepareRequestedScreenshot }
+      : {}),
     ...(args.getExportDestinationMetadata
       ? { getExportDestinationMetadata: args.getExportDestinationMetadata }
       : {})
