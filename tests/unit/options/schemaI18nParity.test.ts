@@ -117,22 +117,38 @@ describe('schema i18n parity', () => {
     }
   });
 
-  it('publishes representative new schema keys to both shell and runtime locale maps', () => {
+  it('publishes representative P03-P13 schema keys to both shell and runtime locale maps', () => {
     const representativeKeys = [
+      'schemaRendererResourceOpenAction',
+      'schemaNavOverviewHint',
       'schemaRuntimeUiGroupTitle',
+      'schemaOverviewLanguageRowTitle',
+      'schemaOverviewClearUsageDataButton',
       'schemaStorageConnectionNotRun',
       'schemaStorageVaultEnabledColumnLabel',
       'schemaStorageRoutingActionsColumnLabel',
       'schemaStorageCertificateDownloadTrustLink',
+      'schemaCaptureSourcesAiChatGroupTitle',
+      'schemaCaptureSourcesScreenshotLocationTitle',
+      'schemaCaptureBehaviorReadingGroupTitle',
       'schemaCaptureBehaviorModifierConflictSystem',
+      'schemaOutputTemplatesGroupTitle',
       'schemaOutputTemplateHelperText',
+      'schemaOutputYamlGroupTitle',
+      'schemaMaintenanceTransferGroupTitle',
+      'schemaMaintenanceDiagnosisButton',
       'schemaMaintenanceDiagnosisResultLog',
+      'schemaResourcePluginSetupGoToStorageButton',
+      'schemaResourceSupportScopeGroupTitle',
       'schemaResourcePrivacyLocalConfigTitle',
       'schemaRuntimeClipperSelectedText',
       'schemaRuntimeReaderHighlightOneExcerpt',
+      'schemaRuntimeReaderHighlightTwoExcerpt',
       'schemaRuntimeReaderHighlightThreeFullText',
       'schemaRuntimeSurfaceSaveToLabel',
-      'schemaRuntimeVideoCaptureTwoFullText'
+      'schemaRuntimeTaskSuccessTitle',
+      'schemaRuntimeVideoCaptureTwoFullText',
+      'schemaRuntimeVideoFloatingPromptTitle'
     ] as const;
 
     for (const key of representativeKeys) {
