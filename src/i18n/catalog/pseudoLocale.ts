@@ -1,10 +1,10 @@
 import type { LocaleDefinition, LocaleStaticMessages } from '../localeDefinition';
 import type { Messages } from '../messages';
-import { DEFAULT_RUNTIME_MESSAGES, DEFAULT_STATIC_MESSAGES } from '../locales';
+import en from '../generated/locales/en.generated';
 import { pseudoLocalizeMessages, pseudoLocalizeStatic } from '../pseudoLocalization';
 
-const ENGLISH_RUNTIME_MESSAGES = DEFAULT_RUNTIME_MESSAGES;
-const ENGLISH_STATIC_MESSAGES = DEFAULT_STATIC_MESSAGES;
+const ENGLISH_RUNTIME_MESSAGES = en.runtime;
+const ENGLISH_STATIC_MESSAGES = en.static;
 
 export function buildPseudoRuntimeMessages(): Messages {
   return pseudoLocalizeMessages(ENGLISH_RUNTIME_MESSAGES);

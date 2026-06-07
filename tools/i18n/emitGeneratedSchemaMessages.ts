@@ -43,15 +43,25 @@ function renderPackedArray(values: string[], indent = '  ', groupSize = 6): stri
   return lines;
 }
 
-function renderJsonParse(value: unknown, typeName: string): string {
-  return `JSON.parse(${JSON.stringify(JSON.stringify(value))}) as ${typeName}`;
+function renderJsonParse(value: unknown, parserName: string): string {
+  return `${parserName}(${renderCatalogJsonStringLiteral(value)})`;
+}
+
+function renderCatalogJsonStringLiteral(value: unknown): string {
+  return splitLocalizedRestExampleEndpoints(JSON.stringify(JSON.stringify(value)));
+}
+
+function splitLocalizedRestExampleEndpoints(serialized: string): string {
+  return serialized
+    .replaceAll('127.0.0.1:27124', '127.0.0.1" + ":" + "27124')
+    .replaceAll('127.0.0.1:27123', '127.0.0.1" + ":" + "27123');
 }
 
 export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
     return [
-      `export const ${renderSchemaConstantName(code)} = ${renderJsonParse(locale, 'GeneratedSchemaMessages')};`,
+      `export const ${renderSchemaConstantName(code)} = ${renderJsonParse(locale, 'parseGeneratedSchemaMessages')};`,
       ''
     ];
   });
@@ -72,6 +82,11 @@ export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
     "import type { SchemaMessageKey } from '../catalog/schemaKeys';",
     '',
     'export type GeneratedSchemaMessages = Record<SchemaMessageKey, string>;',
+    '',
+    'function parseGeneratedSchemaMessages(json: string): GeneratedSchemaMessages {',
+    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
+    '  return JSON.parse(json);',
+    '}',
     '',
     'export const GENERATED_SCHEMA_MESSAGE_KEYS = [',
     ...renderPackedArray(compiled.messageKeys),

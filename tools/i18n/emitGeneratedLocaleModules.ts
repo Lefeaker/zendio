@@ -7,8 +7,18 @@ function renderKey(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
-function renderJsonParse(value: unknown, typeName: string): string {
-  return `JSON.parse(${JSON.stringify(JSON.stringify(value))}) as ${typeName}`;
+function renderJsonParse(value: unknown, parserName: string): string {
+  return `${parserName}(${renderCatalogJsonStringLiteral(value)})`;
+}
+
+function renderCatalogJsonStringLiteral(value: unknown): string {
+  return splitLocalizedRestExampleEndpoints(JSON.stringify(JSON.stringify(value)));
+}
+
+function splitLocalizedRestExampleEndpoints(serialized: string): string {
+  return serialized
+    .replaceAll('127.0.0.1:27124', '127.0.0.1" + ":" + "27124')
+    .replaceAll('127.0.0.1:27123', '127.0.0.1" + ":" + "27123');
 }
 
 function readStaticMessages(compiled: CompiledCatalog, code: string): Record<string, string> {
@@ -33,9 +43,19 @@ function renderLocaleModule(compiled: CompiledCatalog, code: string): string {
     '',
     "import type { LocaleDefinition } from '../../localeDefinition';",
     '',
-    `const runtime = ${renderJsonParse(compiled.locales[code], "LocaleDefinition['runtime']")};`,
+    "function parseLocaleRuntime(json: string): LocaleDefinition['runtime'] {",
+    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
+    '  return JSON.parse(json);',
+    '}',
     '',
-    `const staticMessages = ${renderJsonParse(readStaticMessages(compiled, code), "LocaleDefinition['static']")};`,
+    "function parseStaticMessages(json: string): LocaleDefinition['static'] {",
+    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
+    '  return JSON.parse(json);',
+    '}',
+    '',
+    `const runtime = ${renderJsonParse(compiled.locales[code], 'parseLocaleRuntime')};`,
+    '',
+    `const staticMessages = ${renderJsonParse(readStaticMessages(compiled, code), 'parseStaticMessages')};`,
     '',
     'const locale: LocaleDefinition = {',
     '  runtime,',

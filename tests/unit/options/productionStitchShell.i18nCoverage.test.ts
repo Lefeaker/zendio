@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, it, vi } from 'vitest';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import {

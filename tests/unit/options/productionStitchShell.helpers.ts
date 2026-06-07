@@ -3,6 +3,12 @@
 import { vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { OptionsController } from '@options/app/optionsController';
+import {
+  getFooterMeta,
+  getFooterView,
+  getSettingsView,
+  previewContent
+} from '@options/app/productionStitchAssets';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { ensureWindowLocalStorage } from '../../utils/localStorage';
 
@@ -55,15 +61,15 @@ export function asOptionsController(controller: TestOptionsController): OptionsC
 function isCompleteOptions(merged: ReturnType<typeof mergeOptions>): merged is CompleteOptions {
   return Boolean(
     merged.aiChat &&
-      merged.deepResearch &&
-      merged.fragmentClipper &&
-      merged.readingSession &&
-      merged.video &&
-      merged.classifier &&
-      merged.experimentalAi &&
-      merged.pageSummary &&
-      merged.readingOverlaySummary &&
-      merged.subtitleTranslation
+    merged.deepResearch &&
+    merged.fragmentClipper &&
+    merged.readingSession &&
+    merged.video &&
+    merged.classifier &&
+    merged.experimentalAi &&
+    merged.pageSummary &&
+    merged.readingOverlaySummary &&
+    merged.subtitleTranslation
   );
 }
 
@@ -237,6 +243,14 @@ export function setupProductionStitchShellTest(): void {
   document.documentElement.removeAttribute('data-theme');
   ensureWindowLocalStorage().clear();
   document.body.innerHTML = '<div id="optionsShellRoot"></div>';
+  Object.assign(globalThis, {
+    __AIIINOB_TEST_STITCH_ASSETS__: {
+      previewContent,
+      getFooterMeta,
+      getFooterView,
+      getSettingsView
+    }
+  });
   Object.values(analyticsMocks).forEach((mock) => mock.mockClear());
   analyticsMocks.getConfig.mockReturnValue({ debugMode: false });
   analyticsMocks.getUserConsent.mockResolvedValue({ analytics: false, errorReporting: false });

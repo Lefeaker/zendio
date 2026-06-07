@@ -19,11 +19,11 @@ export interface ProductionStitchSchemaRenderer {
 
 export interface ProductionStitchRenderLifecycleOptions {
   mountRoot: HTMLElement;
-  getFooterMeta?(id: string): { openMode: 'modal' | 'page'; href?: string } | null;
-  getFooterView?(id: string, ctx: SchemaContext): ViewSchema | null;
+  getFooterMeta?(this: void, id: string): { openMode: 'modal' | 'page'; href?: string } | null;
+  getFooterView?(this: void, id: string, ctx: SchemaContext): ViewSchema | null;
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
-  getSettingsView?(id: string, ctx: SchemaContext): ViewSchema | null;
+  getSettingsView?(this: void, id: string, ctx: SchemaContext): ViewSchema | null;
   getState(): PreviewStoreState;
   setState(state: PreviewStoreState): void;
   createSchemaContext(): SchemaContext;

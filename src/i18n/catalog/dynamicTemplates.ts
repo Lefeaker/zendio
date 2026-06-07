@@ -138,12 +138,13 @@ function pseudoLocalizeTemplate(template: string): string {
 }
 
 function createPseudoDynamicMessageTemplates(): DynamicMessageTemplates {
-  return Object.fromEntries(
-    Object.entries(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES).map(([key, value]) => [
-      key,
-      pseudoLocalizeTemplate(value)
-    ])
-  ) as unknown as DynamicMessageTemplates;
+  return {
+    httpsUrlHint: pseudoLocalizeTemplate(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpsUrlHint),
+    httpUrlHint: pseudoLocalizeTemplate(ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.httpUrlHint),
+    vaultNamePlaceholder: pseudoLocalizeTemplate(
+      ENGLISH_DYNAMIC_MESSAGE_TEMPLATES.vaultNamePlaceholder
+    )
+  };
 }
 
 const pseudoDynamicMessageTemplates = PSEUDO_LOCALE_ENABLED

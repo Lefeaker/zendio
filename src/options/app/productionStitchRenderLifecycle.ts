@@ -26,9 +26,12 @@ export function createProductionStitchRenderLifecycle(
       __AIIINOB_TEST_STITCH_ASSETS__?: ProductionStitchTestAssets;
     }
   ).__AIIINOB_TEST_STITCH_ASSETS__;
-  const getFooterMeta = options.getFooterMeta ?? testAssets?.getFooterMeta ?? (() => null);
-  const getFooterView = options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
-  const getSettingsView = options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
+  const getFooterMeta: NonNullable<ProductionStitchRenderLifecycleOptions['getFooterMeta']> =
+    options.getFooterMeta ?? testAssets?.getFooterMeta ?? (() => null);
+  const getFooterView: NonNullable<ProductionStitchRenderLifecycleOptions['getFooterView']> =
+    options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
+  const getSettingsView: NonNullable<ProductionStitchRenderLifecycleOptions['getSettingsView']> =
+    options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
   const { mountRoot } = options;
   const controls = createProductionStitchRenderControls({
     mountRoot,

@@ -95,10 +95,15 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       'en'
     );
 
-    const recreatedContext = schemaContextSpy.mock.results.at(-1)?.value;
-    expect(recreatedContext?.language).toBe('en');
-    expect(recreatedContext?.messages?.schemaOverviewTitle).toBe('Overview From Messages');
-    expect(recreatedContext?.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
+    const recreatedContextInput = schemaContextSpy.mock.calls.at(-1)?.[0];
+    if (!recreatedContextInput) {
+      throw new Error('Expected schema context recreation call.');
+    }
+    const recreatedContext =
+      productionStitchShellContextModule.createProductionStitchSchemaContext(recreatedContextInput);
+    expect(recreatedContext.language).toBe('en');
+    expect(recreatedContext.messages?.schemaOverviewTitle).toBe('Overview From Messages');
+    expect(recreatedContext.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
 
     mounted.cleanup();

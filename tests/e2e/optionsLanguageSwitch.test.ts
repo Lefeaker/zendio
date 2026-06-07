@@ -10,6 +10,26 @@ import type { Language } from '@i18n';
 import { e2ePlatformHarness } from './setup';
 import { getLanguageSelectValues } from '../utils/optionsI18nTextAssertions';
 
+async function installProductionStitchTestAssets(): Promise<void> {
+  const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
+    await import('@options/app/productionStitchAssets');
+  (
+    globalThis as typeof globalThis & {
+      __AIIINOB_TEST_STITCH_ASSETS__?: {
+        previewContent: typeof previewContent;
+        getFooterMeta: typeof getFooterMeta;
+        getFooterView: typeof getFooterView;
+        getSettingsView: typeof getSettingsView;
+      };
+    }
+  ).__AIIINOB_TEST_STITCH_ASSETS__ = {
+    previewContent,
+    getFooterMeta,
+    getFooterView,
+    getSettingsView
+  };
+}
+
 const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
 const POST_SWITCH_PANEL_EXPECTATIONS = [
   { panelId: 'overview', text: en.runtime.schemaOverviewTitle },
@@ -87,12 +107,15 @@ describe('options language switching e2e', () => {
     e2ePlatformHarness.reset();
     e2ePlatformHarness.configure();
     await e2ePlatformHarness.storage.sync.set('language', 'zh-CN');
+    await installProductionStitchTestAssets();
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
   });
 
   afterEach(() => {
     mounted?.cleanup();
     mounted = null;
+    delete (globalThis as typeof globalThis & { __AIIINOB_TEST_STITCH_ASSETS__?: unknown })
+      .__AIIINOB_TEST_STITCH_ASSETS__;
     document.body.innerHTML = '';
     e2ePlatformHarness.reset();
   });
