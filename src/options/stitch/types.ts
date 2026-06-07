@@ -99,6 +99,7 @@ export interface ChangelogEntry {
   version: string;
   date: string;
   bullets: string[];
+  notes?: Array<{ title: string; items: string[] }>;
 }
 
 export interface SurfaceAction {

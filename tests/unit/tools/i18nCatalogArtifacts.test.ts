@@ -235,6 +235,7 @@ describe('i18n generated artifact drift checks', () => {
     expect(schemaArtifact).toContain(
       'export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES_DE;'
     );
-    expect(schemaArtifact).toContain("schemaOverviewTitle: 'Overview'");
+    expect(schemaArtifact).toContain('parseGeneratedSchemaMessages(');
+    expect(schemaArtifact).toContain('\'{"schemaOverviewTitle":"Overview"}\'');
   });
 });

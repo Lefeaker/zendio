@@ -46,7 +46,11 @@ describe('mountProductionStitchShell capture sources i18n', () => {
       language: 'en'
     });
 
-    queryRequired<HTMLButtonElement>('[data-nav-panel="capture-sources"]').click();
+    const captureSourcesNav = queryRequired<HTMLButtonElement>(
+      '[data-nav-panel="capture-sources"]'
+    );
+    expect(captureSourcesNav.textContent ?? '').not.toContain('Deep Research');
+    captureSourcesNav.click();
     await flushPromises();
 
     const captureSourcesPanel = queryRequired<HTMLElement>('[data-panel-id="capture-sources"]');
