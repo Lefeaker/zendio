@@ -13,7 +13,10 @@ import {
   isTestVaultConnectionMessage
 } from '../../shared/types';
 import { ClipPayloadSchema } from '../../shared/schemas';
-import { isTrackUsageEventMessage } from '../../shared/types/analytics';
+import {
+  isTrackTelemetryEventMessage,
+  isTrackUsageEventMessage
+} from '../../shared/types/analytics';
 import {
   errorHandler,
   isAppError,
@@ -21,6 +24,7 @@ import {
   notificationErrors
 } from '../../shared/errors';
 import { trackUsageEvent } from '../services/analyticsEvents';
+import { trackTelemetryEvent } from '../services/telemetryService';
 import { processClipPayload } from '../application/clipProcessor';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { TabsService } from '../../platform/interfaces/tabs';
@@ -30,6 +34,7 @@ import type { MessagePayload } from '../../platform/interfaces/messaging';
 import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
 import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
+import type { TelemetryEventParamMap } from '../../shared/types/analytics';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
 
@@ -166,8 +171,22 @@ export function registerRuntimeMessageListener(
   dependencies: RuntimeMessageListenerDependencies
 ): void {
   dependencies.messaging.addListener(async (message, sender) => {
-    // Handle analytics messages before clip result messages so the generic
-    // clip branch cannot swallow other payload shapes that also carry `event`.
+    // Handle canonical telemetry messages before clip result messages so the
+    // generic clip branch cannot swallow other payload shapes that also carry `event`.
+    if (isTrackTelemetryEventMessage(message)) {
+      if (message.event === 'extension_error') {
+        await trackTelemetryEvent(
+          'extension_error',
+          message.params as TelemetryEventParamMap['extension_error']
+        );
+        return;
+      }
+
+      await trackTelemetryEvent(message.event, message.params);
+      return;
+    }
+
+    // Keep legacy usage-only compatibility on the runtime boundary.
     if (isTrackUsageEventMessage(message)) {
       await trackUsageEvent(message.event, message.params);
       return;

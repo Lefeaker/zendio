@@ -1,4 +1,9 @@
-import type * as Analytics from '../../shared/types/analytics';
+import {
+  TRACK_TELEMETRY_EVENT,
+  type TrackUsageEventPayload,
+  type UsageEventName,
+  type UsageEventParamMap
+} from '../../shared/types/analytics';
 import type { UiMountable } from '../../ui/hosts/shared/contract';
 import type {
   ReviewPromptState,
@@ -311,16 +316,16 @@ export class SupportPrompt implements UiMountable<
     }
   }
 
-  private async trackUsageEvent<EventName extends Analytics.UsageEventName>(
+  private async trackUsageEvent<EventName extends UsageEventName>(
     name: EventName,
-    params?: Analytics.UsageEventParamMap[EventName]
+    params?: UsageEventParamMap[EventName]
   ): Promise<void> {
     try {
       await this.deps.messaging.send({
-        type: 'track',
+        type: TRACK_TELEMETRY_EVENT,
         event: name,
         ...(params !== undefined && { params })
-      } as Analytics.TrackUsageEventPayload);
+      } as TrackUsageEventPayload);
     } catch (error) {
       console.debug('[support-prompt] Failed to send analytics event:', error);
     }

@@ -271,7 +271,10 @@ describe('SupportPrompt', () => {
     expect(toastShadow.querySelector('[data-role="review-link-btn"]')).toBeTruthy();
     expect(toastShadow.querySelector('[data-role="review-acknowledged-btn"]')).toBeTruthy();
     expect(messagingSendMock).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'support_like_clicked' })
+      expect.objectContaining({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'support_like_clicked'
+      })
     );
   });
 
@@ -287,7 +290,7 @@ describe('SupportPrompt', () => {
     await flushMicrotasks();
 
     expect(messagingSendMock).toHaveBeenCalledWith({
-      type: 'track',
+      type: 'TRACK_TELEMETRY_EVENT',
       event: 'support_link_clicked',
       params: { target: 'ko-fi' }
     });

@@ -1,5 +1,6 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
+import { TRACK_TELEMETRY_EVENT } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 
 export interface ResetUsageStatsDependencies {
@@ -21,7 +22,7 @@ export async function resetUsageStatsAction(
     await dependencies.storage.local.set(key, stats);
   }
   await dependencies.messagingRepository.send({
-    type: 'track',
+    type: TRACK_TELEMETRY_EVENT,
     event: 'clear_stats',
     params: { timestamp: now() }
   });

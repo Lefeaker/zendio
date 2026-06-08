@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isTrackTelemetryEventMessage,
   isAllowedUsageEventName,
   isTrackUsageEventMessage,
   parseUsageEventParams,
@@ -7,6 +8,17 @@ import {
 } from '../../../src/shared/types/analytics';
 
 describe('usage telemetry contract', () => {
+  const extensionErrorParams = {
+    error_code: 'NETWORK_TIMEOUT',
+    error_domain: 'network',
+    error_category: 'transport',
+    error_severity: 'high',
+    error_severity_level: 3,
+    error_recoverable: true,
+    error_description: 'network_timeout',
+    timestamp: 1_717_171_717_171
+  } as const;
+
   it('accepts TRACK_USAGE_EVENT and legacy track messages for current allowlisted usage events', () => {
     expect(
       isTrackUsageEventMessage({
@@ -29,6 +41,22 @@ describe('usage telemetry contract', () => {
         type: 'TRACK_TELEMETRY_EVENT',
         event: 'support_like_clicked',
         params: { variant: 'first' }
+      })
+    ).toBe(true);
+
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'support_like_clicked',
+        params: { variant: 'first' }
+      })
+    ).toBe(true);
+
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: extensionErrorParams
       })
     ).toBe(true);
   });
@@ -67,6 +95,14 @@ describe('usage telemetry contract', () => {
     ).toBe(false);
 
     expect(
+      isTrackTelemetryEventMessage({
+        type: 'track',
+        event: 'extension_error',
+        params: extensionErrorParams
+      })
+    ).toBe(false);
+
+    expect(
       isTrackUsageEventMessage({
         type: 'TRACK_USAGE_EVENT',
         event: 'video_started',
@@ -87,6 +123,25 @@ describe('usage telemetry contract', () => {
         type: 'TRACK_USAGE_EVENT',
         event: 'arbitrary_event',
         params: { source: 'toolbar' }
+      })
+    ).toBe(false);
+
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'arbitrary_event',
+        params: { source: 'toolbar' }
+      })
+    ).toBe(false);
+
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: {
+          ...extensionErrorParams,
+          unexpected: 'field'
+        }
       })
     ).toBe(false);
   });

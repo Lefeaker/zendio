@@ -10,6 +10,7 @@ const handleVaultConnectionTestMock = vi.hoisted(() =>
 );
 const notifyExtractionErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const trackUsageEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const trackTelemetryEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const processClipPayloadMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ filePath: 'Video/example.md' }))
@@ -41,6 +42,9 @@ vi.mock('../../../src/background/services/notifications', () => ({
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
   trackUsageEvent: trackUsageEventMock
+}));
+vi.mock('../../../src/background/services/telemetryService', () => ({
+  trackTelemetryEvent: trackTelemetryEventMock
 }));
 vi.mock('../../../src/background/application/clipProcessor', () => ({
   processClipPayload: processClipPayloadMock
@@ -154,7 +158,49 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
-    expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+    expect(trackTelemetryEventMock).toHaveBeenCalledWith('support_like_clicked', {
+      variant: 'first'
+    });
+    expect(trackUsageEventMock).not.toHaveBeenCalled();
+    expect(handleClipResultMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
+  });
+
+  it('forwards canonical extension_error telemetry before clip-related branches', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: {
+          error_code: 'NETWORK_TIMEOUT',
+          error_domain: 'network',
+          error_category: 'transport',
+          error_severity: 'high',
+          error_severity_level: 3,
+          error_recoverable: true,
+          error_description: 'network_timeout',
+          timestamp: 1_717_171_717_171
+        },
+        data: { markdown: '# clip should not be parsed here' }
+      },
+      { tabId: 12 }
+    );
+
+    expect(trackTelemetryEventMock).toHaveBeenCalledWith('extension_error', {
+      error_code: 'NETWORK_TIMEOUT',
+      error_domain: 'network',
+      error_category: 'transport',
+      error_severity: 'high',
+      error_severity_level: 3,
+      error_recoverable: true,
+      error_description: 'network_timeout',
+      timestamp: 1_717_171_717_171
+    });
+    expect(trackUsageEventMock).not.toHaveBeenCalled();
     expect(handleClipResultMock).not.toHaveBeenCalled();
     expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
@@ -234,8 +280,44 @@ describe('runtime message listener', () => {
       { type: 'TRACK_USAGE_EVENT', event: 'support_like_clicked', params: { variant: ['first'] } },
       { tabId: 12 }
     );
+    await listener?.(
+      {
+        type: 'track',
+        event: 'extension_error',
+        params: {
+          error_code: 'NETWORK_TIMEOUT',
+          error_domain: 'network',
+          error_category: 'transport',
+          error_severity: 'high',
+          error_severity_level: 3,
+          error_recoverable: true,
+          error_description: 'network_timeout',
+          timestamp: 1_717_171_717_171
+        }
+      },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: {
+          error_code: 'NETWORK_TIMEOUT',
+          error_domain: 'network',
+          error_category: 'transport',
+          error_severity: 'high',
+          error_severity_level: 3,
+          error_recoverable: true,
+          error_description: 'network_timeout',
+          timestamp: 1_717_171_717_171,
+          unexpected: 'field'
+        }
+      },
+      { tabId: 12 }
+    );
 
     expect(trackUsageEventMock).not.toHaveBeenCalled();
+    expect(trackTelemetryEventMock).not.toHaveBeenCalled();
   });
 
   it('returns clip results for repository video export messages', async () => {

@@ -3,7 +3,7 @@ import { DI_TOKENS } from '../di/tokens';
 import type { IMessagingRepository } from '../repositories';
 import {
   parseUsageEventParams,
-  TRACK_USAGE_EVENT,
+  TRACK_TELEMETRY_EVENT,
   type TrackUsageEventPayload
 } from '../types/analytics';
 import type { AdaptiveTextResult } from './textAdaptationTypes';
@@ -66,7 +66,7 @@ export function logTextOverflowEvent(element: HTMLElement, result: AdaptiveTextR
   }
 
   const payload: TrackUsageEventPayload = {
-    type: TRACK_USAGE_EVENT,
+    type: TRACK_TELEMETRY_EVENT,
     event: 'i18n_text_overflow',
     params
   };

@@ -1,5 +1,6 @@
 import type { UsageStats, UsageStatsHistoryEntry } from '@shared/types/usage';
 import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '@shared/constants';
+import { TRACK_TELEMETRY_EVENT } from '@shared/types/analytics';
 import type { CompleteOptions } from '@shared/types/options';
 import type { IMessagingRepository } from '@shared/repositories';
 
@@ -94,7 +95,7 @@ export function reportUsageIncrementChanges(args: {
     }
     void messagingRepo
       .send({
-        type: 'track',
+        type: TRACK_TELEMETRY_EVENT,
         event: 'usage_dashboard_increment',
         params: {
           category,

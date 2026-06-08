@@ -48,7 +48,7 @@ describe('overflowLogger', () => {
 
     expect(resolveRepositoryMock).toHaveBeenCalledTimes(1);
     expect(sendMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'TRACK_TELEMETRY_EVENT',
       event: 'i18n_text_overflow',
       params: expect.objectContaining({
         key: 'clipButton',
