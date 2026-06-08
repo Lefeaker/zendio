@@ -1,18 +1,21 @@
 import type { TelemetryCustomDefinitionKind } from './analyticsSanitizers';
 
-export const SUPPORT_LINK_TARGETS = ['ko-fi', 'afdian'] as const;
+const tuple = <const Values extends readonly string[]>(...values: Values) => values;
+const EMPTY_PARAMS = tuple();
+
+export const SUPPORT_LINK_TARGETS = tuple('ko-fi', 'afdian');
 export type SupportLinkTarget = (typeof SUPPORT_LINK_TARGETS)[number];
 
-export const SUPPORT_TOAST_VARIANTS = ['first', 'returning', 'acknowledged'] as const;
+export const SUPPORT_TOAST_VARIANTS = tuple('first', 'returning', 'acknowledged');
 export type SupportToastVariant = (typeof SUPPORT_TOAST_VARIANTS)[number];
 
-export const USAGE_DASHBOARD_CATEGORIES = ['ai_chat', 'fragment', 'article'] as const;
+export const USAGE_DASHBOARD_CATEGORIES = tuple('ai_chat', 'fragment', 'article');
 export type UsageDashboardCategory = (typeof USAGE_DASHBOARD_CATEGORIES)[number];
 
-export const I18N_OVERFLOW_COMPONENTS = ['button', 'label', 'hint', 'title'] as const;
-export const I18N_OVERFLOW_PRIORITIES = ['high', 'medium', 'low'] as const;
-export const RUNTIME_HARNESS_SOURCES = ['runtime-observability-harness'] as const;
-export const VIDEO_EVENT_SOURCES = ['menu'] as const;
+export const I18N_OVERFLOW_COMPONENTS = tuple('button', 'label', 'hint', 'title');
+export const I18N_OVERFLOW_PRIORITIES = tuple('high', 'medium', 'low');
+export const RUNTIME_HARNESS_SOURCES = tuple('runtime-observability-harness');
+export const VIDEO_EVENT_SOURCES = tuple('menu');
 
 export interface UsageEventParamMap {
   support_link_clicked: { target: SupportLinkTarget };
@@ -104,6 +107,10 @@ export type TelemetryEventScope =
   | 'contract-helper'
   | 'retired-contract';
 export type TelemetryConsentKind = 'analytics' | 'errorReporting';
+type TelemetryEventParamName<EventName extends TelemetryEventName> = Extract<
+  keyof TelemetryEventParamMap[EventName],
+  string
+>;
 
 export interface TelemetryEventDefinition<
   EventName extends TelemetryEventName = TelemetryEventName
@@ -111,10 +118,10 @@ export interface TelemetryEventDefinition<
   readonly event: EventName;
   readonly consent: TelemetryConsentKind;
   readonly scope: TelemetryEventScope;
-  readonly requiredParams: ReadonlyArray<keyof TelemetryEventParamMap[EventName]>;
-  readonly allowedParams: ReadonlyArray<keyof TelemetryEventParamMap[EventName]>;
+  readonly requiredParams: ReadonlyArray<TelemetryEventParamName<EventName>>;
+  readonly allowedParams: ReadonlyArray<TelemetryEventParamName<EventName>>;
   readonly gaCustomDefinitionKinds: Partial<
-    Record<keyof TelemetryEventParamMap[EventName], TelemetryCustomDefinitionKind>
+    Record<TelemetryEventParamName<EventName>, TelemetryCustomDefinitionKind>
   >;
   readonly privacyNote: string;
 }
@@ -123,103 +130,125 @@ type TelemetryEventCatalog = {
   readonly [EventName in TelemetryEventName]: TelemetryEventDefinition<EventName>;
 };
 
-export const TELEMETRY_EVENT_CATALOG = {
-  support_link_clicked: {
+function defineTelemetryEvent<EventName extends TelemetryEventName>(
+  definition: TelemetryEventDefinition<EventName>
+): TelemetryEventDefinition<EventName> {
+  return definition;
+}
+
+function defineTelemetryEventCatalog<Catalog extends TelemetryEventCatalog>(
+  catalog: Catalog
+): Catalog {
+  return catalog;
+}
+
+function recordValues<Value>(record: Record<string, Value>): ReadonlyArray<Value> {
+  return Object.values(record);
+}
+
+function getEventNames<EventName extends string>(
+  definitions: ReadonlyArray<{ readonly event: EventName }>
+): ReadonlyArray<EventName> {
+  return definitions.map(({ event }) => event);
+}
+
+export const TELEMETRY_EVENT_CATALOG = defineTelemetryEventCatalog({
+  support_link_clicked: defineTelemetryEvent({
     event: 'support_link_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: ['target'] as const,
-    allowedParams: ['target'] as const,
+    requiredParams: tuple('target'),
+    allowedParams: tuple('target'),
     gaCustomDefinitionKinds: { target: 'dimension' },
     privacyNote: 'Capture only the stable support destination enum.'
-  },
-  support_like_clicked: {
+  }),
+  support_like_clicked: defineTelemetryEvent({
     event: 'support_like_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: ['variant'] as const,
-    allowedParams: ['variant'] as const,
+    requiredParams: tuple('variant'),
+    allowedParams: tuple('variant'),
     gaCustomDefinitionKinds: { variant: 'dimension' },
     privacyNote: 'Capture only the low-cardinality support prompt variant.'
-  },
-  support_dislike_clicked: {
+  }),
+  support_dislike_clicked: defineTelemetryEvent({
     event: 'support_dislike_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: [] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: EMPTY_PARAMS,
     gaCustomDefinitionKinds: {},
     privacyNote: 'Record the click without attaching user text or destinations.'
-  },
-  support_review_link_clicked: {
+  }),
+  support_review_link_clicked: defineTelemetryEvent({
     event: 'support_review_link_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: ['variant'] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: tuple('variant'),
     gaCustomDefinitionKinds: { variant: 'dimension' },
     privacyNote: 'Capture only the support prompt variant when present.'
-  },
-  support_review_acknowledged_clicked: {
+  }),
+  support_review_acknowledged_clicked: defineTelemetryEvent({
     event: 'support_review_acknowledged_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: ['variant'] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: tuple('variant'),
     gaCustomDefinitionKinds: { variant: 'dimension' },
     privacyNote: 'Capture only the support prompt variant when present.'
-  },
-  support_dislike_reddit_clicked: {
+  }),
+  support_dislike_reddit_clicked: defineTelemetryEvent({
     event: 'support_dislike_reddit_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: [] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: EMPTY_PARAMS,
     gaCustomDefinitionKinds: {},
     privacyNote: 'Record the feedback escape hatch without raw URLs.'
-  },
-  support_github_feedback_clicked: {
+  }),
+  support_github_feedback_clicked: defineTelemetryEvent({
     event: 'support_github_feedback_clicked',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: [] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: EMPTY_PARAMS,
     gaCustomDefinitionKinds: {},
     privacyNote: 'Record the GitHub feedback click without raw URLs.'
-  },
-  support_like_toast_shown: {
+  }),
+  support_like_toast_shown: defineTelemetryEvent({
     event: 'support_like_toast_shown',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: ['variant'] as const,
-    allowedParams: ['variant'] as const,
+    requiredParams: tuple('variant'),
+    allowedParams: tuple('variant'),
     gaCustomDefinitionKinds: { variant: 'dimension' },
     privacyNote: 'Capture only the toast presentation variant.'
-  },
-  support_dislike_toast_shown: {
+  }),
+  support_dislike_toast_shown: defineTelemetryEvent({
     event: 'support_dislike_toast_shown',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: [] as const,
-    allowedParams: [] as const,
+    requiredParams: EMPTY_PARAMS,
+    allowedParams: EMPTY_PARAMS,
     gaCustomDefinitionKinds: {},
     privacyNote: 'Record the toast presentation without user-derived payloads.'
-  },
-  clear_stats: {
+  }),
+  clear_stats: defineTelemetryEvent({
     event: 'clear_stats',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: ['timestamp'] as const,
-    allowedParams: ['timestamp'] as const,
+    requiredParams: tuple('timestamp'),
+    allowedParams: tuple('timestamp'),
     gaCustomDefinitionKinds: { timestamp: 'metric' },
     privacyNote: 'Record only the non-negative client timestamp of the reset action.'
-  },
-  i18n_text_overflow: {
+  }),
+  i18n_text_overflow: defineTelemetryEvent({
     event: 'i18n_text_overflow',
     consent: 'analytics',
     scope: 'production',
-    requiredParams: ['key', 'language', 'length', 'used_short'] as const,
-    allowedParams: [
+    requiredParams: tuple('key', 'language', 'length', 'used_short'),
+    allowedParams: tuple(
       'key',
       'language',
       'component',
@@ -227,7 +256,7 @@ export const TELEMETRY_EVENT_CATALOG = {
       'length',
       'limit',
       'used_short'
-    ] as const,
+    ),
     gaCustomDefinitionKinds: {
       key: 'dimension',
       language: 'dimension',
@@ -238,12 +267,12 @@ export const TELEMETRY_EVENT_CATALOG = {
       used_short: 'dimension'
     },
     privacyNote: 'Allow only safe i18n identifiers, locale tags, and bounded layout metrics.'
-  },
-  extension_error: {
+  }),
+  extension_error: defineTelemetryEvent({
     event: 'extension_error',
     consent: 'errorReporting',
     scope: 'production',
-    requiredParams: [
+    requiredParams: tuple(
       'error_code',
       'error_domain',
       'error_category',
@@ -253,8 +282,8 @@ export const TELEMETRY_EVENT_CATALOG = {
       'error_description',
       'extension_version',
       'timestamp'
-    ] as const,
-    allowedParams: [
+    ),
+    allowedParams: tuple(
       'error_code',
       'error_domain',
       'error_category',
@@ -296,7 +325,7 @@ export const TELEMETRY_EVENT_CATALOG = {
       'domain',
       'protocol',
       'stackTrace'
-    ] as const,
+    ),
     gaCustomDefinitionKinds: {
       error_code: 'dimension',
       error_domain: 'dimension',
@@ -342,48 +371,44 @@ export const TELEMETRY_EVENT_CATALOG = {
     },
     privacyNote:
       'Allow only sanitized technical metadata and redacted stack/domain context from the error reporter.'
-  },
-  usage_dashboard_increment: {
+  }),
+  usage_dashboard_increment: defineTelemetryEvent({
     event: 'usage_dashboard_increment',
     consent: 'analytics',
     scope: 'contract-helper',
-    requiredParams: ['category', 'increment', 'total_after'] as const,
-    allowedParams: ['category', 'increment', 'total_after'] as const,
+    requiredParams: tuple('category', 'increment', 'total_after'),
+    allowedParams: tuple('category', 'increment', 'total_after'),
     gaCustomDefinitionKinds: {
       category: 'dimension',
       increment: 'metric',
       total_after: 'metric'
     },
     privacyNote: 'Keep the helper contract typed without promoting it to live production telemetry.'
-  },
-  runtime_harness_open: {
+  }),
+  runtime_harness_open: defineTelemetryEvent({
     event: 'runtime_harness_open',
     consent: 'analytics',
     scope: 'dev-only',
-    requiredParams: ['source'] as const,
-    allowedParams: ['source'] as const,
+    requiredParams: tuple('source'),
+    allowedParams: tuple('source'),
     gaCustomDefinitionKinds: { source: 'dimension' },
     privacyNote: 'Limit the harness signal to the single dev-only source enum.'
-  },
-  video_started: {
+  }),
+  video_started: defineTelemetryEvent({
     event: 'video_started',
     consent: 'analytics',
     scope: 'retired-contract',
-    requiredParams: ['source'] as const,
-    allowedParams: ['source'] as const,
+    requiredParams: tuple('source'),
+    allowedParams: tuple('source'),
     gaCustomDefinitionKinds: { source: 'dimension' },
     privacyNote:
       'Keep the retired contract visible for audit and docs sync while blocking runtime acceptance.'
-  }
-} as const satisfies TelemetryEventCatalog;
+  })
+});
 
-export const TELEMETRY_EVENT_LIST = Object.values(
-  TELEMETRY_EVENT_CATALOG
-) as ReadonlyArray<TelemetryEventDefinition>;
+export const TELEMETRY_EVENT_LIST = recordValues(TELEMETRY_EVENT_CATALOG);
 
-export const TELEMETRY_EVENT_NAMES = TELEMETRY_EVENT_LIST.map(
-  ({ event }) => event
-) as ReadonlyArray<TelemetryEventName>;
+export const TELEMETRY_EVENT_NAMES = getEventNames(TELEMETRY_EVENT_LIST);
 
 export const USAGE_EVENT_CONTRACT_NAMES = TELEMETRY_EVENT_NAMES.filter(
   (eventName): eventName is UsageEventContractName => eventName !== 'extension_error'

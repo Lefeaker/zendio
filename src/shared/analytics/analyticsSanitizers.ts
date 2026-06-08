@@ -1,6 +1,15 @@
 export type AnalyticsPrimitive = string | number | boolean;
 export type TelemetryCustomDefinitionKind = 'dimension' | 'metric';
-export type TelemetryParamSanitizer = (value: unknown) => AnalyticsPrimitive | undefined;
+type UntrustedTelemetryValue = unknown;
+type TelemetryParamDefinitions<ParamName extends string> = Record<
+  ParamName,
+  TelemetryParamDefinition
+>;
+type UntrustedTelemetryRecord = Record<string, UntrustedTelemetryValue>;
+
+export type TelemetryParamSanitizer = (
+  value: UntrustedTelemetryValue
+) => AnalyticsPrimitive | undefined;
 
 export interface TelemetryParamDefinition {
   readonly required?: boolean;
@@ -29,18 +38,18 @@ const SECRET_LIKE_PATTERNS = [
   /\bAIza[0-9A-Za-z_-]{10,}\b/,
   /\beyJ[A-Za-z0-9_-]{10,}\b/,
   /\b(?:api[_-]?key|session[_-]?token|bearer|cookie)\b/i
-] as const;
+] satisfies ReadonlyArray<RegExp>;
 
 export function enumParam<const Value extends string>(
   allowedValues: readonly Value[],
   options: TelemetryParamOptions
 ): TelemetryParamDefinition {
-  const allowedValueSet = new Set<string>(allowedValues);
-
   return {
     ...options,
     sanitize: (value) =>
-      typeof value === 'string' && allowedValueSet.has(value) ? (value as Value) : undefined
+      typeof value === 'string'
+        ? allowedValues.find((allowedValue) => allowedValue === value)
+        : undefined
   };
 }
 
@@ -87,27 +96,23 @@ export function positiveNumberParam(options: NumericParamOptions): TelemetryPara
 }
 
 export function sanitizeTelemetryParams<ParamName extends string>(
-  paramDefinitions: Record<ParamName, TelemetryParamDefinition>,
-  params: unknown
+  paramDefinitions: TelemetryParamDefinitions<ParamName>,
+  params: UntrustedTelemetryValue
 ): Record<string, AnalyticsPrimitive> {
   if (!isPlainRecord(params)) {
     return {};
   }
 
   const sanitized: Record<string, AnalyticsPrimitive> = {};
+  const paramNames = recordKeys(paramDefinitions);
 
-  for (const [key, value] of Object.entries(params)) {
+  for (const key of paramNames) {
+    const value = params[key];
     if (value === undefined) {
       continue;
     }
 
-    const definition = (paramDefinitions as Record<string, TelemetryParamDefinition | undefined>)[
-      key
-    ];
-    if (!definition) {
-      continue;
-    }
-
+    const definition = paramDefinitions[key];
     const nextValue = definition.sanitize(value);
     if (nextValue !== undefined) {
       sanitized[key] = nextValue;
@@ -118,12 +123,11 @@ export function sanitizeTelemetryParams<ParamName extends string>(
 }
 
 export function hasRequiredTelemetryParams<ParamName extends string>(
-  paramDefinitions: Record<ParamName, TelemetryParamDefinition>,
+  paramDefinitions: TelemetryParamDefinitions<ParamName>,
   params: Record<string, AnalyticsPrimitive>
 ): boolean {
-  const definitions = Object.entries(paramDefinitions) as Array<[string, TelemetryParamDefinition]>;
-
-  return definitions.every(([key, definition]) => {
+  return recordKeys(paramDefinitions).every((key) => {
+    const definition = paramDefinitions[key];
     if (!definition.required) {
       return true;
     }
@@ -132,11 +136,15 @@ export function hasRequiredTelemetryParams<ParamName extends string>(
   });
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+function recordKeys<Key extends string>(record: Record<Key, unknown>): Key[] {
+  return Object.keys(record) as Key[];
+}
+
+function isPlainRecord(value: UntrustedTelemetryValue): value is UntrustedTelemetryRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function sanitizeIdentifier(value: unknown, maxLength: number): string | undefined {
+function sanitizeIdentifier(value: UntrustedTelemetryValue, maxLength: number): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -154,7 +162,7 @@ function sanitizeIdentifier(value: unknown, maxLength: number): string | undefin
   return normalized;
 }
 
-function sanitizeLanguage(value: unknown): string | undefined {
+function sanitizeLanguage(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -167,7 +175,10 @@ function sanitizeLanguage(value: unknown): string | undefined {
   return normalized;
 }
 
-function sanitizeNonNegativeNumber(value: unknown, max?: number): number | undefined {
+function sanitizeNonNegativeNumber(
+  value: UntrustedTelemetryValue,
+  max?: number
+): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return undefined;
   }
@@ -179,7 +190,7 @@ function sanitizeNonNegativeNumber(value: unknown, max?: number): number | undef
   return value;
 }
 
-function sanitizePositiveNumber(value: unknown, max?: number): number | undefined {
+function sanitizePositiveNumber(value: UntrustedTelemetryValue, max?: number): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return undefined;
   }

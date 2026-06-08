@@ -1,18 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-type AnalyticsConfigModule = {
-  DEFAULT_ANALYTICS_CONFIG: {
-    measurementId: string;
-    transportMode: 'disabled' | 'relay' | 'directDebug';
-    relayEndpoint?: string;
-  };
-  getAnalyticsBuildConfig: () => {
-    measurementId: string;
-    transportMode: 'disabled' | 'relay' | 'directDebug';
-    relayEndpoint?: string;
-  };
-};
-
 describe('analyticsConfig build environment', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -24,8 +11,7 @@ describe('analyticsConfig build environment', () => {
     vi.stubGlobal('__AIIINOB_GA_RELAY_ENDPOINT__', 'https://relay.example/collect');
     vi.stubGlobal('__AIIINOB_GA_TRANSPORT_MODE__', 'relay');
 
-    const module =
-      (await import('../../../src/shared/errors/analytics/analyticsConfig')) as unknown as AnalyticsConfigModule;
+    const module = await import('../../../src/shared/errors/analytics/analyticsConfig');
 
     expect(module.getAnalyticsBuildConfig()).toEqual({
       measurementId: 'G-1234567890',
@@ -45,15 +31,14 @@ describe('analyticsConfig build environment', () => {
     vi.stubGlobal('__AIIINOB_GA_TRANSPORT_MODE__', 'invalid-mode');
     vi.stubGlobal('__AIIINOB_GA_RELAY_ENDPOINT__', '   ');
 
-    const module =
-      (await import('../../../src/shared/errors/analytics/analyticsConfig')) as unknown as AnalyticsConfigModule;
-    const buildConfig = module.getAnalyticsBuildConfig() as Record<string, unknown>;
+    const module = await import('../../../src/shared/errors/analytics/analyticsConfig');
+    const buildConfig = module.getAnalyticsBuildConfig();
 
     expect(buildConfig).toEqual({
       measurementId: 'G-XXXXXXXXXX',
       transportMode: 'disabled'
     });
-    expect(buildConfig[secretKey]).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(buildConfig, secretKey)).toBe(false);
     expect(Object.values(buildConfig)).not.toContain('server-only');
     expect(module.DEFAULT_ANALYTICS_CONFIG.relayEndpoint).toBeUndefined();
   });

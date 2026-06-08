@@ -1,7 +1,38 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StorageService } from '../../../src/platform/interfaces/storage';
+import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
+
+type TelemetryEmitter = (params: Record<string, unknown>) => Promise<void>;
+
+function createStorageAreaStub(): StorageAreaService {
+  return {
+    get: vi.fn(async <T>() => undefined as T | undefined) as StorageAreaService['get'],
+    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
+    getMany: vi.fn(
+      async <T>() => ({}) as Record<string, T | undefined>
+    ) as StorageAreaService['getMany'],
+    setMany: vi.fn(
+      async <T>(_entries: Record<string, T>) => undefined
+    ) as StorageAreaService['setMany'],
+    remove: vi.fn(async () => undefined) as StorageAreaService['remove'],
+    clear: vi.fn(async () => undefined) as StorageAreaService['clear'],
+    watchKey: vi.fn(() => () => undefined),
+    watchAll: vi.fn(() => () => undefined)
+  };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getEmitTelemetryEvent(call: ReadonlyArray<unknown> | undefined): TelemetryEmitter {
+  const options = call?.[1];
+  if (!isPlainRecord(options) || typeof options.emitTelemetryEvent !== 'function') {
+    throw new Error('Expected initializeErrorAnalytics to receive an emitTelemetryEvent option');
+  }
+  return options.emitTelemetryEvent as TelemetryEmitter;
+}
 
 const addBrowserClassToHtmlMock = vi.hoisted(() => vi.fn());
 const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ kind: 'error-handler' })));
@@ -17,10 +48,12 @@ const getPlatformServicesMock = vi.hoisted(() =>
 const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => vi.fn()));
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
-const storageMock = vi.hoisted(() => ({
-  local: { kind: 'local' },
-  sync: { kind: 'sync' }
-})) as unknown as StorageService;
+const storageMock = vi.hoisted(
+  (): StorageService => ({
+    local: createStorageAreaStub(),
+    sync: createStorageAreaStub()
+  })
+);
 const registryState = vi.hoisted(() => ({ hasPlatform: false }));
 const registryMock = vi.hoisted(() => ({
   has: vi.fn((token?: symbol) =>
@@ -131,15 +164,8 @@ describe('content/bootstrap', () => {
       })
     );
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
-    const initCall = initializeErrorAnalyticsMock.mock.calls[0] as unknown as
-      | [unknown, { emitTelemetryEvent?: (params: Record<string, unknown>) => Promise<void> }]
-      | undefined;
-    const options = initCall?.[1];
-    const emitTelemetryEvent = options?.emitTelemetryEvent as
-      | ((params: Record<string, unknown>) => Promise<void>)
-      | undefined;
-    expect(typeof emitTelemetryEvent).toBe('function');
-    await emitTelemetryEvent?.({ error_code: 'NETWORK_TIMEOUT', timestamp: 1 });
+    const emitTelemetryEvent = getEmitTelemetryEvent(initializeErrorAnalyticsMock.mock.calls[0]);
+    await emitTelemetryEvent({ error_code: 'NETWORK_TIMEOUT', timestamp: 1 });
     expect(messagingSendMock).toHaveBeenCalledWith({
       type: 'TRACK_TELEMETRY_EVENT',
       event: 'extension_error',

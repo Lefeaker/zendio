@@ -80,11 +80,6 @@ export async function trackTelemetryEvent<EventName extends TelemetryEventName>(
     return;
   }
 
-  if (transportMode === 'relay' && !readTrimmedString(config.relayEndpoint)) {
-    logSkipped(eventName, 'missing-relay-endpoint', transportMode);
-    return;
-  }
-
   if (transportMode === 'directDebug' && !config.debugMode) {
     logSkipped(eventName, 'debug-mode-required', transportMode);
     return;
@@ -102,7 +97,12 @@ export async function trackTelemetryEvent<EventName extends TelemetryEventName>(
 
   try {
     if (transportMode === 'relay') {
-      const relayEndpoint = readTrimmedString(config.relayEndpoint)!;
+      const relayEndpoint = readTrimmedString(config.relayEndpoint);
+      if (!relayEndpoint) {
+        logSkipped(eventName, 'missing-relay-endpoint', transportMode);
+        return;
+      }
+
       const response = await fetch(relayEndpoint, {
         method: 'POST',
         headers: {

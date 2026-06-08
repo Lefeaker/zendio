@@ -17,6 +17,7 @@ import {
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StorageService } from '@platform/interfaces/storage';
+import { TRACK_TELEMETRY_EVENT } from '@shared/types/analytics';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -472,7 +473,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'track',
+      type: TRACK_TELEMETRY_EVENT,
       event: 'clear_stats',
       params: { timestamp: 1234 }
     });

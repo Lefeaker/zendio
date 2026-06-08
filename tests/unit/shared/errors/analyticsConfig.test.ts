@@ -1,54 +1,86 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   StorageAreaService,
+  StorageChangeCallback,
   StorageService
 } from '../../../../src/platform/interfaces/storage';
+import type { AnalyticsConfig } from '../../../../src/shared/errors/analytics/analyticsConfig';
 
-function createStorageService(): { storage: StorageService; localStore: Map<string, unknown> } {
-  const localStore = new Map<string, unknown>();
-  const local: StorageAreaService = {
-    get: vi.fn(
-      async <T>(key: string) => localStore.get(key) as T | undefined
-    ) as StorageAreaService['get'],
-    set: vi.fn(async <T>(key: string, value: T) => {
-      localStore.set(key, value);
-    }) as StorageAreaService['set'],
-    getMany: vi.fn(
-      async <T>() => ({}) as Record<string, T | undefined>
-    ) as StorageAreaService['getMany'],
-    setMany: vi.fn(
-      async <T>(_entries: Record<string, T>) => undefined
-    ) as StorageAreaService['setMany'],
-    remove: vi.fn(async (key: string | string[]) => {
-      const keys = Array.isArray(key) ? key : [key];
-      keys.forEach((entry) => localStore.delete(entry));
-    }) as StorageAreaService['remove'],
-    clear: vi.fn(async () => {
-      localStore.clear();
-    }) as StorageAreaService['clear'],
-    watchKey: vi.fn(() => () => undefined) as StorageAreaService['watchKey'],
-    watchAll: vi.fn(() => () => undefined) as StorageAreaService['watchAll']
+type StoredAnalyticsValue = string | number | boolean | object | null | undefined;
+type PersistedAnalyticsConfig = Pick<
+  AnalyticsConfig,
+  | 'batchSize'
+  | 'debugMode'
+  | 'enabled'
+  | 'maxErrorsPerSession'
+  | 'measurementId'
+  | 'relayEndpoint'
+  | 'reportingInterval'
+  | 'transportMode'
+>;
+
+function createWatchKeyStub(): StorageAreaService['watchKey'] {
+  return <T>(_key: string, _callback: StorageChangeCallback<T>) =>
+    () =>
+      undefined;
+}
+
+function createLocalStorageArea(localStore: Map<string, StoredAnalyticsValue>): StorageAreaService {
+  const get: StorageAreaService['get'] = async <T>(key: string) =>
+    localStore.get(key) as T | undefined;
+  const getMany: StorageAreaService['getMany'] = async () => ({});
+  const setMany: StorageAreaService['setMany'] = async () => undefined;
+  const remove: StorageAreaService['remove'] = async (key) => {
+    const keys = Array.isArray(key) ? key : [key];
+    keys.forEach((entry) => localStore.delete(entry));
   };
-
-  const sync: StorageAreaService = {
-    get: vi.fn(async <T>() => undefined as T | undefined) as StorageAreaService['get'],
-    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
-    getMany: vi.fn(
-      async <T>() => ({}) as Record<string, T | undefined>
-    ) as StorageAreaService['getMany'],
-    setMany: vi.fn(
-      async <T>(_entries: Record<string, T>) => undefined
-    ) as StorageAreaService['setMany'],
-    remove: vi.fn(async () => undefined) as StorageAreaService['remove'],
-    clear: vi.fn(async () => undefined) as StorageAreaService['clear'],
-    watchKey: vi.fn(() => () => undefined) as StorageAreaService['watchKey'],
-    watchAll: vi.fn(() => () => undefined) as StorageAreaService['watchAll']
+  const clear: StorageAreaService['clear'] = async () => {
+    localStore.clear();
   };
 
   return {
+    get,
+    set: vi.fn(async <T>(key: string, value: T) => {
+      localStore.set(key, value as StoredAnalyticsValue);
+    }) as StorageAreaService['set'],
+    getMany,
+    setMany,
+    remove,
+    clear,
+    watchKey: createWatchKeyStub(),
+    watchAll: () => () => undefined
+  };
+}
+
+function createReadonlyStorageArea(): StorageAreaService {
+  const get: StorageAreaService['get'] = async () => undefined;
+  const setMany: StorageAreaService['setMany'] = async () => undefined;
+  const getMany: StorageAreaService['getMany'] = async () => ({});
+  const remove: StorageAreaService['remove'] = async () => undefined;
+  const clear: StorageAreaService['clear'] = async () => undefined;
+
+  return {
+    get,
+    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
+    getMany,
+    setMany,
+    remove,
+    clear,
+    watchKey: createWatchKeyStub(),
+    watchAll: () => () => undefined
+  };
+}
+
+function createStorageService(): {
+  storage: StorageService;
+  localStore: Map<string, StoredAnalyticsValue>;
+} {
+  const localStore = new Map<string, StoredAnalyticsValue>();
+
+  return {
     storage: {
-      local,
-      sync
+      local: createLocalStorageArea(localStore),
+      sync: createReadonlyStorageArea()
     },
     localStore
   };
@@ -86,20 +118,11 @@ describe('analyticsConfig', () => {
     await manager.initialize();
 
     const config = manager.getConfig();
-    const defaultConfig = module.DEFAULT_ANALYTICS_CONFIG as {
-      measurementId: string;
-      transportMode?: unknown;
-      relayEndpoint?: unknown;
-    };
-    const storedConfig = (await storage.local.get('analytics_config')) as {
-      debugMode?: boolean;
-      transportMode?: unknown;
-      relayEndpoint?: unknown;
-    };
+    const storedConfig = await storage.local.get<PersistedAnalyticsConfig>('analytics_config');
 
     expect(config.debugMode).toBe(true);
     expect(config.enabled).toBe(true);
-    expect(defaultConfig.measurementId).toBe('G-XXXXXXXXXX');
+    expect(module.DEFAULT_ANALYTICS_CONFIG.measurementId).toBe('G-XXXXXXXXXX');
     expect(config.sessionId).toBe('existing-session');
     expect(config).toMatchObject({
       transportMode: 'disabled'
@@ -157,11 +180,7 @@ describe('analyticsConfig', () => {
     const manager = module.configureAnalyticsConfigManager(storage);
     await manager.initialize();
 
-    const storedConfig = (await storage.local.get('analytics_config')) as {
-      measurementId?: string;
-      relayEndpoint?: string;
-      transportMode?: string;
-    };
+    const storedConfig = await storage.local.get<PersistedAnalyticsConfig>('analytics_config');
 
     expect(manager.getConfig()).toMatchObject({
       measurementId: 'G-1234567890',
@@ -173,7 +192,7 @@ describe('analyticsConfig', () => {
       measurementId: 'G-1234567890',
       transportMode: 'disabled'
     });
-    expect(storedConfig.relayEndpoint).toBeUndefined();
+    expect(storedConfig?.relayEndpoint).toBeUndefined();
   });
 
   it('preserves a non-placeholder stored measurement id over the build default', async () => {

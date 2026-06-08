@@ -44,10 +44,7 @@ describe('configTransfer service', () => {
   });
 
   afterEach(() => {
-    Reflect.deleteProperty(
-      globalThis as typeof globalThis & { navigator?: Navigator },
-      'navigator'
-    );
+    Reflect.deleteProperty(globalThis, 'navigator');
     clipboardMocks = null;
   });
 
@@ -70,7 +67,7 @@ describe('configTransfer service', () => {
       throw new Error('Clipboard writeText mock missing');
     }
     expect(clipboardMocks.writeText).toHaveBeenCalledTimes(1);
-    const maybeWritten: unknown = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
+    const maybeWritten = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
     if (typeof maybeWritten !== 'string') {
       throw new Error('Clipboard contents must be stringified JSON');
     }
@@ -92,8 +89,8 @@ describe('configTransfer service', () => {
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(2);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
-    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
-    expect((parsed.options as Record<string, unknown>).analytics).toBeUndefined();
+    expect(parsed.options).not.toHaveProperty('customKey');
+    expect(parsed.options).not.toHaveProperty('analytics');
     expect(parsed.analytics).toEqual({
       consent: { analytics: true, errorReporting: false },
       debugMode: false
@@ -152,7 +149,7 @@ describe('configTransfer service', () => {
 
     expect(parsed.version).toBe(0);
     expect(parsed.options.yamlConfig?.contentTypes?.article?.fields?.[0]?.enabled).toBe(false);
-    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
+    expect(parsed.options).not.toHaveProperty('customKey');
   });
 
   it('imports known current settings and sensitive fields through the transfer sanitizer', () => {
@@ -224,8 +221,11 @@ describe('configTransfer service', () => {
     try {
       parseConfigInput('   ');
     } catch (error) {
+      if (!(error instanceof ConfigTransferError)) {
+        throw error;
+      }
       expect(error).toBeInstanceOf(ConfigTransferError);
-      expect((error as ConfigTransferError).code).toBe('EMPTY_IMPORT');
+      expect(error.code).toBe('EMPTY_IMPORT');
     }
   });
 
@@ -234,8 +234,11 @@ describe('configTransfer service', () => {
     try {
       parseConfigInput('not json');
     } catch (error) {
+      if (!(error instanceof ConfigTransferError)) {
+        throw error;
+      }
       expect(error).toBeInstanceOf(ConfigTransferError);
-      expect((error as ConfigTransferError).code).toBe('PARSE_FAILED');
+      expect(error.code).toBe('PARSE_FAILED');
     }
   });
 
@@ -304,8 +307,8 @@ describe('configTransfer service', () => {
       },
       debugMode: true
     });
-    expect((parsed.analytics as Record<string, unknown>)?.measurementId).toBeUndefined();
-    expect((parsed.analytics as Record<string, unknown>)?.transportMode).toBeUndefined();
-    expect((parsed.analytics as Record<string, unknown>)?.relayEndpoint).toBeUndefined();
+    expect(parsed.analytics).not.toHaveProperty('measurementId');
+    expect(parsed.analytics).not.toHaveProperty('transportMode');
+    expect(parsed.analytics).not.toHaveProperty('relayEndpoint');
   });
 });

@@ -12,6 +12,8 @@ import { RUNTIME_USAGE_EVENT_NAMES, TELEMETRY_EVENT_CATALOG } from '../analytics
 export const TRACK_USAGE_EVENT = 'TRACK_USAGE_EVENT';
 export const TRACK_TELEMETRY_EVENT = 'TRACK_TELEMETRY_EVENT';
 const LEGACY_TRACK_USAGE_EVENT = 'track';
+type RuntimeMessageValue = unknown;
+type RuntimeMessageRecord = Record<string, RuntimeMessageValue>;
 type ServiceProvidedRuntimeParamName =
   | 'debug_mode'
   | 'engagement_time_msec'
@@ -22,13 +24,14 @@ const CANONICAL_RUNTIME_TELEMETRY_EVENT_NAMES = new Set<string>([
   'extension_error'
 ]);
 const EXTENSION_ERROR_ALLOWED_PARAM_NAMES = new Set<string>(
-  (TELEMETRY_EVENT_CATALOG.extension_error.allowedParams as ReadonlyArray<string>).filter(
+  TELEMETRY_EVENT_CATALOG.extension_error.allowedParams.filter(
     (key) => !isServiceProvidedRuntimeParamName(key)
   )
 );
-const EXTENSION_ERROR_REQUIRED_PARAM_NAMES = (
-  TELEMETRY_EVENT_CATALOG.extension_error.requiredParams as ReadonlyArray<string>
-).filter((key) => !isServiceProvidedRuntimeParamName(key));
+const EXTENSION_ERROR_REQUIRED_PARAM_NAMES =
+  TELEMETRY_EVENT_CATALOG.extension_error.requiredParams.filter(
+    (key) => !isServiceProvidedRuntimeParamName(key)
+  );
 
 export type {
   AnalyticsPrimitive,
@@ -74,48 +77,48 @@ export type TrackTelemetryEventPayload = {
   };
 }[UsageEventName | 'extension_error'];
 
-export function isTrackUsageEventMessage(message: unknown): message is TrackUsageEventPayload {
-  if (typeof message !== 'object' || message === null) {
+export function isTrackUsageEventMessage(
+  message: RuntimeMessageValue
+): message is TrackUsageEventPayload {
+  if (!isPlainRecord(message)) {
     return false;
   }
 
-  const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
   const isSupportedMessageType =
-    candidate.type === TRACK_USAGE_EVENT ||
-    candidate.type === TRACK_TELEMETRY_EVENT ||
-    candidate.type === LEGACY_TRACK_USAGE_EVENT;
-  if (!isSupportedMessageType || !isAllowedUsageEventName(candidate.event)) {
+    message.type === TRACK_USAGE_EVENT ||
+    message.type === TRACK_TELEMETRY_EVENT ||
+    message.type === LEGACY_TRACK_USAGE_EVENT;
+  if (!isSupportedMessageType || !isAllowedUsageEventName(message.event)) {
     return false;
   }
 
-  return hasValidUsageParams(candidate.event, candidate.params);
+  return hasValidUsageParams(message.event, message.params);
 }
 
 export function isTrackTelemetryEventMessage(
-  message: unknown
+  message: RuntimeMessageValue
 ): message is TrackTelemetryEventPayload {
-  if (typeof message !== 'object' || message === null) {
+  if (!isPlainRecord(message)) {
     return false;
   }
 
-  const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
   if (
-    candidate.type !== TRACK_TELEMETRY_EVENT ||
-    !isAllowedCanonicalRuntimeTelemetryEventName(candidate.event)
+    message.type !== TRACK_TELEMETRY_EVENT ||
+    !isAllowedCanonicalRuntimeTelemetryEventName(message.event)
   ) {
     return false;
   }
 
-  if (isAllowedUsageEventName(candidate.event)) {
-    return hasValidUsageParams(candidate.event, candidate.params);
+  if (isAllowedUsageEventName(message.event)) {
+    return hasValidUsageParams(message.event, message.params);
   }
 
-  return hasValidExtensionErrorParams(candidate.params);
+  return hasValidExtensionErrorParams(message.params);
 }
 
 function hasValidUsageParams<EventName extends UsageEventName>(
   eventName: EventName,
-  params: unknown
+  params: RuntimeMessageValue
 ): boolean {
   if (params === undefined || params === null) {
     return hasRequiredUsageEventParams(eventName, {});
@@ -133,7 +136,9 @@ function hasValidUsageParams<EventName extends UsageEventName>(
   );
 }
 
-function hasValidExtensionErrorParams(params: unknown): params is RuntimeExtensionErrorParams {
+function hasValidExtensionErrorParams(
+  params: RuntimeMessageValue
+): params is RuntimeExtensionErrorParams {
   if (!isPlainRecord(params)) {
     return false;
   }
@@ -147,12 +152,12 @@ function hasValidExtensionErrorParams(params: unknown): params is RuntimeExtensi
 }
 
 function isAllowedCanonicalRuntimeTelemetryEventName(
-  eventName: unknown
+  eventName: RuntimeMessageValue
 ): eventName is UsageEventName | 'extension_error' {
   return typeof eventName === 'string' && CANONICAL_RUNTIME_TELEMETRY_EVENT_NAMES.has(eventName);
 }
 
-function isAnalyticsPrimitive(value: unknown): value is AnalyticsPrimitive {
+function isAnalyticsPrimitive(value: RuntimeMessageValue): value is AnalyticsPrimitive {
   return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 }
 
@@ -167,6 +172,6 @@ function isServiceProvidedRuntimeParamName(
   );
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+function isPlainRecord(value: RuntimeMessageValue): value is RuntimeMessageRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

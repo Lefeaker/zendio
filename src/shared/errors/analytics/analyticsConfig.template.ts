@@ -42,6 +42,7 @@ export const GA4_CONFIG = {
 } as const;
 
 export type AnalyticsTransportMode = 'disabled' | 'relay' | 'directDebug';
+type AnalyticsConfigInput = unknown;
 
 interface AnalyticsBuildEnv {
   __AIIINOB_GA_MEASUREMENT_ID__?: string;
@@ -85,9 +86,7 @@ type PersistedAnalyticsConfig = Pick<
   | 'batchSize'
 >;
 
-const analyticsBuildEnv = globalThis as typeof globalThis & AnalyticsBuildEnv;
-
-function readTrimmedString(value: unknown): string | undefined {
+function readTrimmedString(value: AnalyticsConfigInput): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
@@ -95,19 +94,19 @@ function readPublicBuildString(
   key: keyof AnalyticsBuildEnv,
   injectedValue: string | undefined
 ): string | undefined {
-  return readTrimmedString(injectedValue) ?? readTrimmedString(analyticsBuildEnv[key]);
+  return readTrimmedString(injectedValue) ?? readTrimmedString(Reflect.get(globalThis, key));
 }
 
-function normalizeTransportMode(value: unknown): AnalyticsTransportMode {
+function normalizeTransportMode(value: AnalyticsConfigInput): AnalyticsTransportMode {
   return value === 'relay' || value === 'directDebug' || value === 'disabled' ? value : 'disabled';
 }
 
-function normalizeMeasurementId(value: unknown, fallback: string): string {
+function normalizeMeasurementId(value: AnalyticsConfigInput, fallback: string): string {
   const normalized = readTrimmedString(value);
   return normalized && normalized !== GA4_CONFIG.MEASUREMENT_ID ? normalized : fallback;
 }
 
-function normalizeNumber(value: unknown, fallback: number): number {
+function normalizeNumber(value: AnalyticsConfigInput, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
@@ -193,11 +192,13 @@ function buildRuntimeConfig(
     ...(candidate ?? {}),
     enabled: consentEnabled
   });
+  const normalizedClientId = readTrimmedString(clientId);
+  const normalizedSessionId = readTrimmedString(sessionId);
 
   return {
     ...persisted,
-    ...(readTrimmedString(clientId) !== undefined && { clientId: readTrimmedString(clientId)! }),
-    ...(readTrimmedString(sessionId) !== undefined && { sessionId: readTrimmedString(sessionId)! }),
+    ...(normalizedClientId !== undefined && { clientId: normalizedClientId }),
+    ...(normalizedSessionId !== undefined && { sessionId: normalizedSessionId }),
     ...(normalizedConsent ? { userConsent: normalizedConsent } : {})
   };
 }

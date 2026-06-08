@@ -12,6 +12,12 @@ import {
 } from '../types/analytics';
 import { TELEMETRY_EVENT_CATALOG } from './eventCatalog';
 
+type UntrustedTelemetryValue = unknown;
+type UntrustedTelemetryRecord = Record<string, UntrustedTelemetryValue>;
+type AnyTelemetryEventDefinition = {
+  [EventName in TelemetryEventName]: TelemetryEventDefinition<EventName>;
+}[TelemetryEventName];
+
 const SERVICE_PROVIDED_PARAM_KEYS = new Set([
   'debug_mode',
   'engagement_time_msec',
@@ -24,46 +30,39 @@ export type TelemetryValidationReason =
   | 'invalid-params'
   | 'missing-required-params';
 
-export interface ValidatedTelemetryEvent<
-  EventName extends TelemetryEventName = TelemetryEventName
-> {
-  eventName: EventName;
+export interface ValidatedTelemetryEvent {
+  eventName: TelemetryEventName;
   consent: TelemetryConsentKind;
-  definition: TelemetryEventDefinition<EventName>;
+  definition: AnyTelemetryEventDefinition;
   params: Record<string, AnalyticsPrimitive>;
 }
 
-type TelemetryValidationResult<EventName extends TelemetryEventName = TelemetryEventName> =
+type TelemetryValidationResult =
   | {
       ok: true;
-      value: ValidatedTelemetryEvent<EventName>;
+      value: ValidatedTelemetryEvent;
     }
   | {
       ok: false;
       reason: TelemetryValidationReason;
     };
 
-export function validateTelemetryEvent<EventName extends TelemetryEventName>(
-  eventName: EventName,
-  params: TelemetryEventParamMap[EventName] | undefined
-): TelemetryValidationResult<EventName> {
+export function validateTelemetryEvent(
+  eventName: TelemetryEventName,
+  params: TelemetryEventParamMap[TelemetryEventName] | undefined
+): TelemetryValidationResult {
   if (!isTelemetryEventName(eventName)) {
     return { ok: false, reason: 'disallowed-event' };
   }
 
-  const definition = TELEMETRY_EVENT_CATALOG[
-    eventName
-  ] as unknown as TelemetryEventDefinition<EventName>;
+  const definition = getTelemetryEventDefinition(eventName);
 
   if (definition.scope === 'retired-contract') {
     return { ok: false, reason: 'disallowed-event' };
   }
 
   if (isAllowedUsageEventName(eventName)) {
-    const usageParams = validateUsageTelemetryParams(
-      eventName,
-      params as UsageEventParamMap[typeof eventName] | undefined
-    );
+    const usageParams = validateUsageTelemetryParams(eventName, params);
     if (!usageParams.ok) {
       return usageParams;
     }
@@ -103,8 +102,8 @@ export function parseTelemetryValidationResponse(responseText: string | null): {
   }
 
   try {
-    const parsed = JSON.parse(responseText) as { validationMessages?: unknown };
-    if (Array.isArray(parsed.validationMessages)) {
+    const parsed = JSON.parse(responseText);
+    if (hasValidationMessagesArray(parsed)) {
       return {
         validationMessageCount: parsed.validationMessages.length
       };
@@ -118,7 +117,7 @@ export function parseTelemetryValidationResponse(responseText: string | null): {
 
 function validateUsageTelemetryParams<EventName extends UsageEventName>(
   eventName: EventName,
-  params: UsageEventParamMap[EventName] | undefined
+  params: UntrustedTelemetryValue
 ):
   | { ok: true; params: Record<string, AnalyticsPrimitive> }
   | { ok: false; reason: TelemetryValidationReason } {
@@ -144,9 +143,9 @@ function validateUsageTelemetryParams<EventName extends UsageEventName>(
   };
 }
 
-function validateGenericTelemetryParams<EventName extends TelemetryEventName>(
-  definition: TelemetryEventDefinition<EventName>,
-  params: TelemetryEventParamMap[EventName] | undefined
+function validateGenericTelemetryParams(
+  definition: AnyTelemetryEventDefinition,
+  params: TelemetryEventParamMap[TelemetryEventName] | undefined
 ):
   | { ok: true; params: Record<string, AnalyticsPrimitive> }
   | { ok: false; reason: TelemetryValidationReason } {
@@ -193,10 +192,20 @@ function isTelemetryEventName(eventName: unknown): eventName is TelemetryEventNa
   return typeof eventName === 'string' && eventName in TELEMETRY_EVENT_CATALOG;
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+function getTelemetryEventDefinition(eventName: TelemetryEventName) {
+  return TELEMETRY_EVENT_CATALOG[eventName];
+}
+
+function hasValidationMessagesArray(
+  value: UntrustedTelemetryValue
+): value is { validationMessages: ReadonlyArray<UntrustedTelemetryValue> } {
+  return isPlainRecord(value) && Array.isArray(value.validationMessages);
+}
+
+function isPlainRecord(value: UntrustedTelemetryValue): value is UntrustedTelemetryRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isAnalyticsPrimitive(value: unknown): value is AnalyticsPrimitive {
+function isAnalyticsPrimitive(value: UntrustedTelemetryValue): value is AnalyticsPrimitive {
   return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
 }
