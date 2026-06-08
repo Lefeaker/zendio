@@ -37,6 +37,10 @@ const texts: VideoPanelTexts = {
   captureFocusLabel: 'Focus {index}'
 };
 
+function flushPanelPersistence(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function createTimestampCapture(
   overrides: Partial<VideoTimestampCapture> = {}
 ): VideoTimestampCapture {
@@ -115,7 +119,7 @@ describe('Video Panel E2E Flow', () => {
     panel.destroy();
   });
 
-  it('fires finish action from dialog footer', () => {
+  it('fires finish action from dialog footer', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     const finishBtn = panel.element.shadowRoot?.querySelector<HTMLButtonElement>(
       '[data-role="finish-btn"]'
@@ -123,6 +127,7 @@ describe('Video Panel E2E Flow', () => {
 
     expect(finishBtn).toBeTruthy();
     finishBtn?.click();
+    await flushPanelPersistence();
     expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
 
     panel.destroy();
