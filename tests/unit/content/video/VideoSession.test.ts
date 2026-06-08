@@ -193,6 +193,7 @@ type SessionTestApi = {
       selectedText?: string;
       selectedHtml?: string;
       fragmentUrl?: string;
+      wrapperId?: string;
       screenshotRequested?: boolean;
       screenshot?: {
         fileName: string;
@@ -361,6 +362,26 @@ function pickUnrelatedCaptureId(ids: string[], activeId: string): string {
   return unrelatedId;
 }
 
+function createDeferred<T = void>(): {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushMutationWork(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 async function flushMicrotasks(turns = 6): Promise<void> {
   for (let index = 0; index < turns; index += 1) {
     await Promise.resolve();
@@ -452,6 +473,10 @@ describe('VideoSession', () => {
   beforeEach(() => {
     document.body.innerHTML = '<h1>Video Title</h1><video></video>';
     document.title = 'Video Title___哔哩哔哩_bilibili';
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      value: vi.fn(),
+      configurable: true
+    });
     __resetContentSessionRegistryForTests(document);
     vi.clearAllMocks();
     saveCaptureDataMock.mockResolvedValue(undefined);
@@ -1313,6 +1338,118 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('rolls back a fragment capture, highlight wrapper, and editor state when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+    vi.spyOn(
+      session as unknown as { flushDraftNow: () => Promise<'failure'> },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      await deferredSave.promise;
+      return 'failure';
+    });
+
+    const fragmentHost = document.createElement('p');
+    fragmentHost.textContent = 'Selected text that should roll back cleanly';
+    document.body.append(fragmentHost);
+    const textNode = fragmentHost.firstChild;
+    if (!(textNode instanceof Text)) {
+      throw new Error('expected fragment fixture text node');
+    }
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 'Selected text'.length);
+
+    session.ingestTextCapture('<p>Selected text</p>', 'Selected text', 'fragment note', range);
+    await Promise.resolve();
+
+    const captureId = view.beginEditingCapture.mock.calls.at(-1)?.[0];
+    if (typeof captureId !== 'string') {
+      throw new Error('expected fragment editing to start before save');
+    }
+    const wrapperId = `${captureId}-wrapper`;
+
+    expect(sessionApi.state.captures).toHaveLength(1);
+    expect(document.getElementById(wrapperId)).not.toBeNull();
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toHaveLength(1);
+    expect(
+      trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
+    ).toBe(false);
+
+    deferredSave.resolve();
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toEqual([]);
+    expect(document.getElementById(wrapperId)).toBeNull();
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toEqual([]);
+    expect(view.stopEditing).toHaveBeenCalledWith(captureId);
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(
+      trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
+    ).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('updates the panel immediately for fragment adds but emits analytics only after save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+
+    const fragmentHost = document.createElement('p');
+    fragmentHost.textContent = 'Selected text that should save';
+    document.body.append(fragmentHost);
+    const textNode = fragmentHost.firstChild;
+    if (!(textNode instanceof Text)) {
+      throw new Error('expected fragment fixture text node');
+    }
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 'Selected text'.length);
+
+    session.ingestTextCapture('<p>Selected text</p>', 'Selected text', 'fragment note', range);
+    await Promise.resolve();
+
+    expect(sessionApi.state.captures).toHaveLength(1);
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toHaveLength(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    deferredSave.resolve();
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_fragment_added', {
+      capture_count_bucket: 'one'
+    });
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
   it('keeps playback paused while a note editor remains active', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -1793,6 +1930,178 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('rolls back screenshot removal and restores the previous screenshot state when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const previousScreenshot = {
+      fileName: 'file-20260314100000000.jpg',
+      mimeType: 'image/jpeg' as const,
+      dataUrl: 'data:image/jpeg;base64,cached-frame'
+    };
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as { flushDraftNow: () => Promise<'failure'> },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      await deferredSave.promise;
+      return 'failure';
+    });
+
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1,
+        screenshotRequested: true,
+        screenshot: previousScreenshot
+      }
+    ];
+
+    const togglePromise = sessionApi.toggleCaptureScreenshot('timestamp-1');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
+    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    const toggledOffCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean }>
+      | undefined;
+    expect(toggledOffCaptures?.[0]).toMatchObject({ hasScreenshot: false });
+
+    deferredSave.resolve();
+    await togglePromise;
+
+    expect(sessionApi.state.captures[0]).toMatchObject({
+      screenshotRequested: true,
+      screenshot: previousScreenshot
+    });
+    const restoredCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | undefined;
+    expect(restoredCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(restoredCaptures?.[0]?.screenshot).toBeUndefined();
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('rolls back screenshot intent and does not start screenshot preparation when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const toDataURL = vi.fn(() => 'data:image/jpeg;base64,should-not-run');
+    const toBlob = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: toDataURL,
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as { flushDraftNow: () => Promise<'failure'> },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      await deferredSave.promise;
+      return 'failure';
+    });
+
+    const video = requireVideoElement();
+    let currentTime = 8;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+      video.dispatchEvent(new Event('seeked'));
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      value: false,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      value: 4,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: Date.now()
+      }
+    ];
+
+    const togglePromise = sessionApi.toggleCaptureScreenshot('timestamp-1');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ screenshotRequested: true });
+    const toggledOnCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean }>
+      | undefined;
+    expect(toggledOnCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+
+    deferredSave.resolve();
+    await togglePromise;
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
+    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    const rolledBackCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ hasScreenshot?: boolean }>
+      | undefined;
+    expect(rolledBackCaptures?.[0]).toMatchObject({ hasScreenshot: false });
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(pauseSpy).not.toHaveBeenCalled();
+    expect(playSpy).not.toHaveBeenCalled();
+    expect(drawImage).not.toHaveBeenCalled();
+    expect(toBlob).not.toHaveBeenCalled();
+    expect(toDataURL).not.toHaveBeenCalled();
+
+    createElementSpy.mockRestore();
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
   it('reuses same-session transient screenshots when a requested screenshot is toggled back on', async () => {
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
@@ -1951,6 +2260,9 @@ describe('VideoSession', () => {
     await sessionApi.toggleCaptureScreenshot(timestampId);
     await sessionApi.toggleCaptureScreenshot(timestampId);
     requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(fragmentId);
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
 
     expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName)).toEqual([
       'video_session_started',
@@ -1997,6 +2309,173 @@ describe('VideoSession', () => {
     });
 
     createElementSpy.mockRestore();
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('rolls back fragment removal, restores drafts and highlights, and suppresses removal analytics when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+    vi.spyOn(
+      session as unknown as { flushDraftNow: () => Promise<'failure'> },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      await deferredSave.promise;
+      return 'failure';
+    });
+
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-1',
+        timeSec: 10,
+        comment: '',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'fragment',
+        id: 'frag-1',
+        comment: 'fragment note',
+        selectedText: 'Quoted text',
+        selectedHtml: '<p>Quoted text</p>',
+        fragmentUrl: 'https://video.example/watch#:~:text=Quoted%20text',
+        createdAt: 2,
+        wrapperId: 'frag-1-wrapper'
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-2',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 3
+      }
+    ];
+    sessionApi.state.commentDrafts = {
+      'frag-1': 'draft note'
+    };
+    const fragmentWrapper = document.createElement('mark');
+    fragmentWrapper.id = 'frag-1-wrapper';
+    fragmentWrapper.textContent = 'Quoted text';
+    document.body.append(fragmentWrapper);
+
+    const platformAdapter = createVideoPlatformAdapterMock.mock.results.at(-1)?.value as
+      | {
+          restoreHighlight: ReturnType<typeof vi.fn>;
+        }
+      | undefined;
+    if (!platformAdapter) {
+      throw new Error('expected platform adapter to be created');
+    }
+    platformAdapter.restoreHighlight.mockImplementation((capture) => {
+      const wrapper = document.createElement('mark');
+      wrapper.id = `${capture.id}-wrapper`;
+      wrapper.textContent = capture.selectedText;
+      document.body.append(wrapper);
+      return wrapper.id;
+    });
+
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture('frag-1');
+    await Promise.resolve();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['ts-1', 'ts-2']);
+    expect(sessionApi.state.commentDrafts).toEqual({});
+    expect(document.getElementById('frag-1-wrapper')).toBeNull();
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toHaveLength(2);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    deferredSave.resolve();
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual([
+      'ts-1',
+      'frag-1',
+      'ts-2'
+    ]);
+    expect(sessionApi.state.commentDrafts).toEqual({
+      'frag-1': 'draft note'
+    });
+    expect(platformAdapter.restoreHighlight).toHaveBeenCalled();
+    expect(document.getElementById('frag-1-wrapper')).not.toBeNull();
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toHaveLength(3);
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('updates the panel immediately for removals but emits removal analytics only after save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-1',
+        timeSec: 10,
+        comment: '',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-2',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 2
+      }
+    ];
+
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture('ts-1');
+    await Promise.resolve();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['ts-2']);
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toHaveLength(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    deferredSave.resolve();
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_capture_removed', {
+      capture_count_bucket: 'one'
+    });
+
     sessionApi.cleanup();
     vi.useRealTimers();
   });

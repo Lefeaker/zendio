@@ -1,5 +1,4 @@
 import { setRequestedTimestampScreenshot } from './screenshotIntent';
-import type { VideoHintState } from './videoHintManager';
 import type { VideoTimestampCapture } from './types';
 
 interface VideoTimestampCaptureInput {
@@ -40,28 +39,7 @@ export function createVideoTimestampCapture(
   return capture;
 }
 
-export async function saveVideoTimestampCaptureOrRollback(
-  context: VideoTimestampCaptureTransactionContext,
-  capture: VideoTimestampCapture,
-  releasePlaybackLease: boolean,
-  saveCaptures: () => Promise<VideoHintState | null>
-): Promise<boolean> {
-  let saveHint: VideoHintState | null;
-  try {
-    saveHint = await saveCaptures();
-  } catch (error) {
-    console.warn('[VideoSession] Failed to save timestamp capture:', error);
-    rollbackVideoSessionAddCapture(context, capture, releasePlaybackLease);
-    return false;
-  }
-  if (saveHint === 'failure') {
-    rollbackVideoSessionAddCapture(context, capture, releasePlaybackLease);
-    return false;
-  }
-  return true;
-}
-
-function rollbackVideoSessionAddCapture(
+export function rollbackVideoTimestampCaptureMutation(
   context: VideoTimestampCaptureTransactionContext,
   capture: VideoTimestampCapture,
   releasePlaybackLease: boolean

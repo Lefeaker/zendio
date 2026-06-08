@@ -1,17 +1,7 @@
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { bucketCount, createFeatureTimer } from '../../shared/analytics';
 import type { AnalyticsPlatform, AnalyticsSource } from '../../shared/analytics';
-import { resolveRepository } from '../../shared/di/serviceRegistry';
-import { DI_TOKENS } from '../../shared/di/tokens';
-import type { IMessagingRepository } from '../../shared/repositories';
-import {
-  createTrackUsageEventMessage,
-  type ExportDestination,
-  type FailureCategory,
-  type TrackUsageEventPayload,
-  type UsageEventName,
-  type UsageEventParamMap
-} from '../../shared/types/analytics';
+import type { ExportDestination } from '../../shared/types/analytics';
 import type { VideoPlatform } from './utils';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
@@ -36,8 +26,22 @@ import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
 import {
   createVideoTimestampCapture,
-  saveVideoTimestampCaptureOrRollback
+  rollbackVideoTimestampCaptureMutation
 } from './videoTimestampCaptureTransaction';
+import {
+  emitVideoUsageEvent,
+  mapVideoAnalyticsPlatform,
+  requestRequestedScreenshotPreparation,
+  resolveVideoExportDestination,
+  resolveVideoFailureCategory,
+  resolveVideoSessionDurationBucket,
+  restoreRemovedFragmentHighlight,
+  restoreTimestampScreenshotState,
+  rollbackVideoSessionFragmentAdd,
+  runVideoCaptureMutationTransaction,
+  saveVideoSessionCaptures,
+  snapshotTimestampScreenshotState
+} from './videoCaptureMutationTransaction';
 import {
   clearRequestedTimestampScreenshot,
   hasRequestedTimestampScreenshot,
@@ -78,59 +82,6 @@ export interface VideoSessionOperationContext {
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
   resetPlaybackEditLease?: () => void;
-}
-
-function debugVideoAnalyticsFailure(error: unknown): void {
-  console.debug('[VideoSession] Failed to send analytics event:', error);
-}
-
-function mapVideoAnalyticsPlatform(platform: VideoPlatform): AnalyticsPlatform {
-  if (platform === 'youtube' || platform === 'bilibili') {
-    return platform;
-  }
-  return 'unknown';
-}
-
-function resolveVideoExportDestination(
-  exportDestination?: ExportDestinationMetadata
-): ExportDestination {
-  if (exportDestination?.kind === 'downloads') {
-    return 'downloads';
-  }
-  return 'unknown';
-}
-
-function resolveVideoFailureCategory(_error: unknown): FailureCategory {
-  return 'unknown';
-}
-
-async function sendVideoUsageEvent<EventName extends UsageEventName>(
-  dependencies: VideoSessionDependencies,
-  event: EventName,
-  params?: UsageEventParamMap[EventName]
-): Promise<void> {
-  if (dependencies.trackUsageEvent) {
-    await dependencies.trackUsageEvent(event, params);
-    return;
-  }
-
-  const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
-  const payload = createTrackUsageEventMessage(event, params);
-  await messaging.send(payload as TrackUsageEventPayload);
-}
-
-function emitVideoUsageEvent<EventName extends UsageEventName>(
-  dependencies: VideoSessionDependencies,
-  event: EventName,
-  params?: UsageEventParamMap[EventName]
-): void {
-  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch(
-    debugVideoAnalyticsFailure
-  );
-}
-
-function resolveVideoSessionDurationBucket(state: VideoSessionState) {
-  return state.analyticsTimer?.durationBucket() ?? createFeatureTimer().durationBucket();
 }
 
 export function beginVideoSessionAnalytics(
@@ -193,38 +144,48 @@ export async function handleVideoSessionAddCapture(
     captureScreenshot: options.captureScreenshot
   });
 
-  context.state.captures.push(capture);
-  if (shouldLeasePlayback) {
-    context.beginPlaybackEditLease?.(capture.id);
-  }
-  if (options.collapseAfterCapture) {
-    context.dom.collapsePanel();
-  }
-  context.syncPanel();
-  context.applyHint('saving');
-  const saved = await saveVideoTimestampCaptureOrRollback(
-    context,
-    capture,
-    shouldLeasePlayback,
-    () => saveVideoCaptures(context)
-  );
+  const saved = await runVideoCaptureMutationTransaction({
+    apply: () => {
+      context.state.captures.push(capture);
+      if (shouldLeasePlayback) {
+        context.beginPlaybackEditLease?.(capture.id);
+      }
+      if (options.collapseAfterCapture) {
+        context.dom.collapsePanel();
+      }
+      return capture;
+    },
+    afterApply: () => {
+      context.syncPanel();
+      context.applyHint('saving');
+    },
+    save: () => saveVideoSessionCaptures(context),
+    commit: () => {
+      if (hasRequestedTimestampScreenshot(capture) && !capture.screenshot) {
+        requestRequestedScreenshotPreparation(context, capture.id);
+      }
+      emitVideoUsageEvent(context.dependencies, 'video_timestamp_added', {
+        capture_count_bucket: bucketCount(context.state.captures.length)
+      });
+      context.syncPanel();
+      if (options.beginEditing !== false) {
+        context.dom.beginEditingCapture(capture.id, capture.comment);
+      } else {
+        context.dom.stopEditing(capture.id);
+      }
+      if (options.resumePlayback && typeof video.play === 'function') {
+        void Promise.resolve(video.play()).catch(() => undefined);
+      }
+    },
+    rollback: () => {
+      rollbackVideoTimestampCaptureMutation(context, capture, shouldLeasePlayback);
+    },
+    onSaveError: (error) => {
+      console.warn('[VideoSession] Failed to save timestamp capture:', error);
+    }
+  });
   if (!saved) {
     return null;
-  }
-  if (hasRequestedTimestampScreenshot(capture) && !capture.screenshot) {
-    requestRequestedScreenshotPreparation(context, capture.id);
-  }
-  emitVideoUsageEvent(context.dependencies, 'video_timestamp_added', {
-    capture_count_bucket: bucketCount(context.state.captures.length)
-  });
-  context.syncPanel();
-  if (options.beginEditing !== false) {
-    context.dom.beginEditingCapture(capture.id, capture.comment);
-  } else {
-    context.dom.stopEditing(capture.id);
-  }
-  if (options.resumePlayback && typeof video.play === 'function') {
-    void Promise.resolve(video.play()).catch(() => undefined);
   }
   return capture;
 }
@@ -283,23 +244,32 @@ export function ingestVideoSessionTextCapture(
     }
   }
 
-  context.state.captures.push(capture);
-  context.fragmentHighlightCoordinator.ensureStartedForFragments();
-  context.fragmentHighlightCoordinator.scheduleRestore();
-  context.syncPanel();
-  focusVideoSessionCapture(context, capture.id);
-  context.applyHint('saving');
-  context.dom.beginEditingCapture(capture.id, capture.comment);
-  const saveTask = saveVideoCaptures(context)
-    .then(() => {
+  const saveTask = runVideoCaptureMutationTransaction({
+    apply: () => {
+      context.state.captures.push(capture);
+      context.fragmentHighlightCoordinator.ensureStartedForFragments();
+      context.fragmentHighlightCoordinator.scheduleRestore();
+      return capture;
+    },
+    afterApply: () => {
       context.syncPanel();
-    })
-    .catch((error) => {
+      focusVideoSessionCapture(context, capture.id);
+      context.applyHint('saving');
+      context.dom.beginEditingCapture(capture.id, capture.comment);
+    },
+    save: () => saveVideoSessionCaptures(context),
+    commit: () => {
+      context.syncPanel();
+      emitVideoUsageEvent(context.dependencies, 'video_fragment_added', {
+        capture_count_bucket: bucketCount(context.state.captures.length)
+      });
+    },
+    rollback: () => {
+      rollbackVideoSessionFragmentAdd(context, capture);
+    },
+    onSaveError: (error) => {
       console.warn('[VideoSession] Failed to save fragment capture:', error);
-      context.applyHint('failure');
-    });
-  emitVideoUsageEvent(context.dependencies, 'video_fragment_added', {
-    capture_count_bucket: bucketCount(context.state.captures.length)
+    }
   });
   void saveTask;
 }
@@ -319,7 +289,7 @@ export async function submitVideoSessionCaptureEdit(
   delete context.state.commentDrafts[id];
   target.comment = comment.trim();
   context.applyHint('saving');
-  const saveHint = await saveVideoCaptures(context);
+  const saveHint = await saveVideoSessionCaptures(context);
   if (saveHint === 'failure') {
     target.comment = previousComment;
     if (previousDraft !== undefined) {
@@ -339,23 +309,48 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   if (index === -1) {
     return;
   }
+  const previousDraft = context.state.commentDrafts[id];
   context.syncCommentDrafts?.();
-  delete context.state.commentDrafts[id];
-  const [removed] = context.state.captures.splice(index, 1);
-  context.releasePlaybackEditLease?.(id, false);
-  if (removed?.kind === 'fragment' && removed.wrapperId) {
-    context.fragmentHighlighter.removeById(removed.wrapperId);
-  }
-  const saveTask = saveVideoCaptures(context)
-    .then(() => {
+  const syncedDraft = context.state.commentDrafts[id];
+  const draftToRestore = syncedDraft ?? previousDraft;
+  const saveTask = runVideoCaptureMutationTransaction({
+    apply: () => {
+      delete context.state.commentDrafts[id];
+      const [removed] = context.state.captures.splice(index, 1);
+      context.releasePlaybackEditLease?.(id, false);
+      if (removed?.kind === 'fragment' && removed.wrapperId) {
+        context.fragmentHighlighter.removeById(removed.wrapperId);
+      }
+      return { removed, previousDraft: draftToRestore, index };
+    },
+    afterApply: () => {
       context.syncPanel();
-    })
-    .catch((error) => {
-      console.warn('[VideoSession] Failed to save captures after removal:', error);
+      context.applyHint('saving');
+    },
+    save: () => saveVideoSessionCaptures(context),
+    commit: () => {
+      context.syncPanel();
+      emitVideoUsageEvent(context.dependencies, 'video_capture_removed', {
+        capture_count_bucket: bucketCount(context.state.captures.length)
+      });
+    },
+    rollback: ({ removed, previousDraft: draftSnapshot }) => {
+      if (!removed) {
+        context.syncPanel();
+        context.applyHint('failure');
+        return;
+      }
+      context.state.captures.splice(index, 0, removed);
+      if (draftSnapshot !== undefined) {
+        context.state.commentDrafts[id] = draftSnapshot;
+      }
+      restoreRemovedFragmentHighlight(context, removed);
+      context.syncPanel();
       context.applyHint('failure');
-    });
-  emitVideoUsageEvent(context.dependencies, 'video_capture_removed', {
-    capture_count_bucket: bucketCount(context.state.captures.length)
+    },
+    onSaveError: (error) => {
+      console.warn('[VideoSession] Failed to save captures after removal:', error);
+    }
   });
   void saveTask;
 }
@@ -371,24 +366,37 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
   context.syncCommentDrafts?.();
-
-  if (hasRequestedTimestampScreenshot(target)) {
-    clearRequestedTimestampScreenshot(target);
-    context.applyHint('saving');
-    await saveVideoCaptures(context);
-    context.syncPanel();
-    return;
-  }
-
-  setRequestedTimestampScreenshot(target, null);
-  context.applyHint('saving');
-  const saveHint = await saveVideoCaptures(context);
-  context.syncPanel();
-  if (saveHint === 'failure') {
-    return;
-  }
-
-  requestRequestedScreenshotPreparation(context, id);
+  const previousScreenshotState = snapshotTimestampScreenshotState(target);
+  const shouldPrepareScreenshot = !hasRequestedTimestampScreenshot(target);
+  await runVideoCaptureMutationTransaction({
+    apply: () => {
+      if (shouldPrepareScreenshot) {
+        setRequestedTimestampScreenshot(target, null);
+      } else {
+        clearRequestedTimestampScreenshot(target);
+      }
+      return target;
+    },
+    afterApply: () => {
+      context.syncPanel();
+      context.applyHint('saving');
+    },
+    save: () => saveVideoSessionCaptures(context),
+    commit: () => {
+      context.syncPanel();
+      if (shouldPrepareScreenshot) {
+        requestRequestedScreenshotPreparation(context, id);
+      }
+    },
+    rollback: () => {
+      restoreTimestampScreenshotState(target, previousScreenshotState);
+      context.syncPanel();
+      context.applyHint('failure');
+    },
+    onSaveError: (error) => {
+      console.warn('[VideoSession] Failed to save screenshot toggle:', error);
+    }
+  });
 }
 
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
@@ -581,26 +589,5 @@ export function watchVideoSessionHighlightTheme(
     });
   context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange((value) => {
     applyOptions(value as StoredOptions);
-  });
-}
-
-async function saveVideoCaptures(
-  context: VideoSessionOperationContext
-): Promise<VideoHintState | null> {
-  const hintState = context.flushDraftNow
-    ? await context.flushDraftNow('active')
-    : await context.platformController.saveCaptures();
-  if (hintState) {
-    context.applyHint(hintState);
-  }
-  return hintState;
-}
-
-function requestRequestedScreenshotPreparation(
-  context: VideoSessionOperationContext,
-  captureId: string
-): void {
-  void Promise.resolve(context.prepareRequestedScreenshot?.(captureId)).catch((error) => {
-    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
   });
 }
