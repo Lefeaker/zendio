@@ -1,5 +1,6 @@
 import type { VideoPlatformContext } from './baseVideoPlatform';
 import { queryBilibiliShadowHosts } from './bilibiliPlatformSelection';
+import { ScopedTimeoutScheduler } from './scopedTimeoutScheduler';
 import {
   BILIBILI_COMMENT_SHADOW_HOST_SELECTOR,
   isBilibiliCommentRegionNode
@@ -33,12 +34,13 @@ const BILIBILI_DANMAKU_SELECTOR = [
 ].join(',');
 
 export class BilibiliShadowObserver {
+  private disposed = false;
   private fragmentObserver: MutationObserver | null = null;
   private selectionObserver: MutationObserver | null = null;
   private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
   private readonly observedCommentRoots = new Set<ShadowRoot>();
   private readonly pendingShadowHosts = new WeakSet<HTMLElement>();
-  private readonly pendingTimeouts = new Set<number>();
+  private readonly timeoutScheduler = new ScopedTimeoutScheduler(() => this.getView());
   private pendingRefreshHandle: number | null = null;
 
   constructor(
@@ -53,14 +55,17 @@ export class BilibiliShadowObserver {
   ) {}
 
   observeDomChanges(observer: MutationObserver): void {
+    if (this.disposed) return;
     this.fragmentObserver = observer;
   }
 
   ensureObservedRoots(): void {
+    if (this.disposed) return;
     this.observeShadowRoots();
   }
 
   ensureShadowHostObservationForTests(host: Element): void {
+    if (this.disposed) return;
     this.ensureShadowHostObservation(host);
   }
 
@@ -70,6 +75,7 @@ export class BilibiliShadowObserver {
   }
 
   handleMutations(mutations: MutationRecord[]): void {
+    if (this.disposed) return;
     let shouldRefresh = false;
     for (const mutation of mutations) {
       if (mutation.type !== 'childList') {
@@ -93,21 +99,20 @@ export class BilibiliShadowObserver {
   }
 
   dispose(): void {
-    const view = this.document.defaultView ?? window;
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
     this.selectionObserver?.disconnect();
     this.selectionObserver = null;
-    if (this.pendingRefreshHandle !== null) {
-      view.clearTimeout(this.pendingRefreshHandle);
-      this.pendingRefreshHandle = null;
-    }
-    for (const handle of this.pendingTimeouts) {
-      view.clearTimeout(handle);
-    }
-    this.pendingTimeouts.clear();
+    this.timeoutScheduler.clear(this.pendingRefreshHandle);
+    this.pendingRefreshHandle = null;
+    this.timeoutScheduler.clearAll();
     this.fragmentObserver = null;
   }
 
   private observeShadowRoots(): void {
+    if (this.disposed) return;
     try {
       this.ensureSelectionMutationObservation();
       const hosts = queryBilibiliShadowHosts(this.document);
@@ -118,19 +123,24 @@ export class BilibiliShadowObserver {
   }
 
   private scheduleShadowRefresh(): void {
-    if (this.pendingRefreshHandle !== null) {
+    if (this.disposed || this.pendingRefreshHandle !== null) {
       return;
     }
-    const view = this.document.defaultView ?? window;
-    this.pendingRefreshHandle = view.setTimeout(() => {
+    this.pendingRefreshHandle = this.timeoutScheduler.schedule(() => {
       this.pendingRefreshHandle = null;
+      if (this.disposed) {
+        return;
+      }
       this.observeShadowRoots();
+      if (this.disposed) {
+        return;
+      }
       this.context.scheduleFragmentHighlightRestore();
     }, 100);
   }
 
   private ensureShadowHostObservation(host: Element): void {
-    if (!(host instanceof HTMLElement)) {
+    if (this.disposed || !(host instanceof HTMLElement)) {
       return;
     }
     if (isBilibiliDanmakuNode(host)) {
@@ -152,10 +162,13 @@ export class BilibiliShadowObserver {
     }
     this.pendingShadowHosts.add(host);
     const maxAttempts = 20;
-    const view = this.document.defaultView ?? window;
 
     const poll = (attempt: number): void => {
       try {
+        if (this.disposed) {
+          this.pendingShadowHosts.delete(host);
+          return;
+        }
         if (!host.isConnected) {
           this.pendingShadowHosts.delete(host);
           return;
@@ -169,20 +182,30 @@ export class BilibiliShadowObserver {
           this.pendingShadowHosts.delete(host);
           return;
         }
-        const handle = view.setTimeout(() => poll(attempt + 1), 160);
-        this.pendingTimeouts.add(handle);
+        this.timeoutScheduler.schedule(() => {
+          if (this.disposed) {
+            this.pendingShadowHosts.delete(host);
+            return;
+          }
+          poll(attempt + 1);
+        }, 160);
       } catch (error) {
         this.pendingShadowHosts.delete(host);
         console.warn('[BilibiliVideoPlatform] Shadow host polling failed:', error);
       }
     };
 
-    const initialHandle = view.setTimeout(() => poll(0), 120);
-    this.pendingTimeouts.add(initialHandle);
+    this.timeoutScheduler.schedule(() => {
+      if (this.disposed) {
+        this.pendingShadowHosts.delete(host);
+        return;
+      }
+      poll(0);
+    }, 120);
   }
 
   private observeShadowRootRecursive(root: ShadowRoot | null): void {
-    if (!root || this.observedShadowRoots.has(root)) {
+    if (this.disposed || !root || this.observedShadowRoots.has(root)) {
       return;
     }
     this.context.ensureHighlightStyles(root);
@@ -198,7 +221,12 @@ export class BilibiliShadowObserver {
   }
 
   private ensureSelectionMutationObservation(): void {
-    if (this.selectionObserver || typeof MutationObserver === 'undefined' || !this.document.body) {
+    if (
+      this.disposed ||
+      this.selectionObserver ||
+      typeof MutationObserver === 'undefined' ||
+      !this.document.body
+    ) {
       return;
     }
     this.selectionObserver = new MutationObserver((mutations) => this.handleMutations(mutations));
@@ -211,6 +239,10 @@ export class BilibiliShadowObserver {
         this.observedCommentRoots.delete(root);
       }
     }
+  }
+
+  private getView(): Window {
+    return this.document.defaultView ?? window;
   }
 }
 
