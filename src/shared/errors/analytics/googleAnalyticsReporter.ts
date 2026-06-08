@@ -81,7 +81,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   private config: GoogleAnalyticsConfig;
   private sessionId: string;
   private browserInfo: { name?: string; version?: string } = {};
-  private readonly emitTelemetryEvent?: EmitTelemetryEvent;
+  private readonly emitTelemetryEvent: EmitTelemetryEvent | undefined;
 
   constructor(config: GoogleAnalyticsConfig, emitTelemetryEvent?: EmitTelemetryEvent) {
     this.config = config;

@@ -90,11 +90,12 @@ export async function trackTelemetryEvent<EventName extends TelemetryEventName>(
     return;
   }
 
+  const sessionId = readTrimmedString(config.sessionId);
   const eventPayload: TelemetryEventPayload<EventName> = {
     name: eventName,
     params: buildTelemetryEventParams(validation.value.params, {
       extensionVersion: resolveExtensionVersion(),
-      sessionId: readTrimmedString(config.sessionId),
+      ...(sessionId !== undefined && { sessionId }),
       debugMode: config.debugMode
     })
   };

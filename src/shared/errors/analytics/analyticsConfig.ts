@@ -1,5 +1,9 @@
 import type { StorageService } from '@platform/interfaces/storage';
 
+declare const __AIIINOB_GA_MEASUREMENT_ID__: string | undefined;
+declare const __AIIINOB_GA_RELAY_ENDPOINT__: string | undefined;
+declare const __AIIINOB_GA_TRANSPORT_MODE__: string | undefined;
+
 export const GA4_CONFIG = {
   MEASUREMENT_ID: 'G-XXXXXXXXXX',
   EVENT_NAMES: {
