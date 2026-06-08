@@ -13,6 +13,11 @@ export type {
   AnalyticsPrimitive,
   SupportLinkTarget,
   SupportToastVariant,
+  TelemetryConsentKind,
+  TelemetryEventDefinition,
+  TelemetryEventName,
+  TelemetryEventParamMap,
+  TelemetryEventScope,
   UsageDashboardCategory,
   UsageEventName,
   UsageEventParamMap
@@ -54,12 +59,11 @@ export function isTrackUsageEventMessage(message: unknown): message is TrackUsag
     return false;
   }
 
-  const eventName = candidate.event;
-  const sanitizedParams = sanitizeUsageEventParams(eventName, candidate.params);
+  const sanitizedParams = sanitizeUsageEventParams(candidate.event, candidate.params);
   const originalKeys = Object.entries(candidate.params).filter(([, value]) => value !== undefined);
   return (
     originalKeys.length === Object.keys(sanitizedParams).length &&
-    hasRequiredUsageEventParams(eventName, sanitizedParams)
+    hasRequiredUsageEventParams(candidate.event, sanitizedParams)
   );
 }
 
