@@ -155,6 +155,53 @@ describe('mountProductionStitchShell actions', () => {
     expect(importButton.hasAttribute('aria-busy')).toBe(false);
   });
 
+  it('keeps analytics consent and debug state unchanged when option import fails', async () => {
+    const controller = {
+      ...createController(),
+      applyImportedConfig: vi.fn(() => Promise.reject(new Error('option import failed')))
+    };
+    const readText = vi.fn(() =>
+      Promise.resolve(
+        JSON.stringify({
+          options: { aiChat: { userName: 'Imported' } },
+          analytics: {
+            consent: {
+              analytics: true,
+              errorReporting: true
+            },
+            debugMode: true
+          }
+        })
+      )
+    );
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText }
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        aiChat: { userName: 'Before' },
+        privacyPreferences: {
+          analytics: false,
+          errorReporting: false,
+          debugMode: false
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('导入并保存').click();
+    await flushPromises();
+
+    expect(controller.applyImportedConfig).toHaveBeenCalledTimes(1);
+    expect(analyticsMocks.setAnalyticsConsent).not.toHaveBeenCalled();
+    expect(analyticsMocks.updateConfig).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Import failed: Error: option import failed');
+  });
+
   it('uses the transfer clipboard fallback and does not report copy success when fallback fails', async () => {
     const controller = createController();
     Object.defineProperty(navigator, 'clipboard', {

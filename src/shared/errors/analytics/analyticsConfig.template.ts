@@ -2,27 +2,19 @@
  * Analytics 配置模板文件
  *
  * 使用说明：
- * 1. 复制此文件为 analyticsConfig.ts
- * 2. 替换 MEASUREMENT_ID 为你的 Google Analytics 4 Measurement ID
- * 3. 根据需要调整其他配置项
- *
- * 注意：analyticsConfig.ts 文件已被添加到 .gitignore 中，不会被提交到版本控制
+ * 1. 复制此文件为 analyticsConfig.ts（如果你在本地维护独立模板）
+ * 2. 通过公开 build globals 注入 Measurement ID / Relay Endpoint / Transport Mode
+ * 3. 不要在扩展端源码中写入任何 GA secret
  */
 import type { StorageService } from '@platform/interfaces/storage';
 
-// GA4 配置常量
 export const GA4_CONFIG = {
-  // 生产环境配置 - 请替换为你的实际 Measurement ID
-  MEASUREMENT_ID: 'G-XXXXXXXXXX', // 替换为你的 GA4 Measurement ID
-
-  // GA4 事件名称
+  MEASUREMENT_ID: 'G-XXXXXXXXXX',
   EVENT_NAMES: {
     ERROR: 'extension_error',
     USAGE: 'extension_usage',
     PERFORMANCE: 'extension_performance'
-  } as const,
-
-  // 自定义参数名称
+  },
   CUSTOM_PARAMS: {
     ERROR_CODE: 'error_code',
     ERROR_DOMAIN: 'error_domain',
@@ -34,9 +26,7 @@ export const GA4_CONFIG = {
     SESSION_DURATION: 'session_duration',
     FEATURE_USED: 'feature_used',
     PERFORMANCE_METRIC: 'performance_metric'
-  } as const,
-
-  // 存储键名
+  },
   STORAGE_KEYS: {
     USER_CONSENT: 'analytics_user_consent',
     CONFIG: 'analytics_config',
@@ -44,234 +34,343 @@ export const GA4_CONFIG = {
     SESSION_ID: 'analytics_session_id',
     ERROR_QUEUE: 'analytics_error_queue',
     LAST_REPORT_TIME: 'analytics_last_report_time'
-  } as const
+  }
 } as const;
 
-// 用户同意状态
+export type AnalyticsTransportMode = 'disabled' | 'relay' | 'directDebug';
+
+interface AnalyticsBuildEnv {
+  __AIIINOB_GA_MEASUREMENT_ID__?: string;
+  __AIIINOB_GA_RELAY_ENDPOINT__?: string;
+  __AIIINOB_GA_TRANSPORT_MODE__?: string;
+}
+
 export interface UserConsent {
   analytics: boolean;
   errorReporting: boolean;
   timestamp: number;
-  version: string; // 同意条款版本
+  version: string;
 }
 
-// Analytics 配置
-export interface AnalyticsConfig {
+export interface AnalyticsBuildConfig {
+  measurementId: string;
+  transportMode: AnalyticsTransportMode;
+  relayEndpoint?: string;
+}
+
+export interface AnalyticsConfig extends AnalyticsBuildConfig {
   enabled: boolean;
   debugMode: boolean;
-  measurementId: string;
   clientId?: string;
   sessionId?: string;
   userConsent?: UserConsent;
-  reportingInterval: number; // 报告间隔（毫秒）
-  maxErrorsPerSession: number; // 每个会话最大错误报告数
-  batchSize: number; // 批量发送大小
+  reportingInterval: number;
+  maxErrorsPerSession: number;
+  batchSize: number;
 }
 
-// 默认配置
-export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
-  enabled: false, // 默认关闭，需要用户明确同意
-  debugMode: false,
-  measurementId: GA4_CONFIG.MEASUREMENT_ID,
-  reportingInterval: 30000, // 30秒
-  maxErrorsPerSession: 50, // 每个会话最多50个错误
-  batchSize: 10 // 批量发送10个事件
-};
+type PersistedAnalyticsConfig = Pick<
+  AnalyticsConfig,
+  | 'enabled'
+  | 'debugMode'
+  | 'measurementId'
+  | 'transportMode'
+  | 'relayEndpoint'
+  | 'reportingInterval'
+  | 'maxErrorsPerSession'
+  | 'batchSize'
+>;
 
-/**
- * Analytics 配置管理器
- * 负责管理用户同意状态、配置存储和会话管理
- */
+const analyticsBuildEnv = globalThis as typeof globalThis & AnalyticsBuildEnv;
+
+function readTrimmedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readPublicBuildString(
+  key: keyof AnalyticsBuildEnv,
+  injectedValue: string | undefined
+): string | undefined {
+  return readTrimmedString(injectedValue) ?? readTrimmedString(analyticsBuildEnv[key]);
+}
+
+function normalizeTransportMode(value: unknown): AnalyticsTransportMode {
+  return value === 'relay' || value === 'directDebug' || value === 'disabled' ? value : 'disabled';
+}
+
+function normalizeMeasurementId(value: unknown, fallback: string): string {
+  const normalized = readTrimmedString(value);
+  return normalized && normalized !== GA4_CONFIG.MEASUREMENT_ID ? normalized : fallback;
+}
+
+function normalizeNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function cloneUserConsent(consent: UserConsent | undefined): UserConsent | undefined {
+  if (!consent) {
+    return undefined;
+  }
+
+  return {
+    analytics: Boolean(consent.analytics),
+    errorReporting: Boolean(consent.errorReporting),
+    timestamp: normalizeNumber(consent.timestamp, Date.now()),
+    version: readTrimmedString(consent.version) ?? '1.0'
+  };
+}
+
+export function getAnalyticsBuildConfig(): AnalyticsBuildConfig {
+  const measurementId = normalizeMeasurementId(
+    readPublicBuildString(
+      '__AIIINOB_GA_MEASUREMENT_ID__',
+      typeof __AIIINOB_GA_MEASUREMENT_ID__ === 'string' ? __AIIINOB_GA_MEASUREMENT_ID__ : undefined
+    ),
+    GA4_CONFIG.MEASUREMENT_ID
+  );
+  const relayEndpoint = readPublicBuildString(
+    '__AIIINOB_GA_RELAY_ENDPOINT__',
+    typeof __AIIINOB_GA_RELAY_ENDPOINT__ === 'string' ? __AIIINOB_GA_RELAY_ENDPOINT__ : undefined
+  );
+  const transportMode = normalizeTransportMode(
+    readPublicBuildString(
+      '__AIIINOB_GA_TRANSPORT_MODE__',
+      typeof __AIIINOB_GA_TRANSPORT_MODE__ === 'string' ? __AIIINOB_GA_TRANSPORT_MODE__ : undefined
+    )
+  );
+
+  return {
+    measurementId,
+    transportMode,
+    ...(relayEndpoint !== undefined && { relayEndpoint })
+  };
+}
+
+function normalizePersistedAnalyticsConfig(
+  candidate: Partial<AnalyticsConfig> | undefined
+): PersistedAnalyticsConfig {
+  const buildConfig = getAnalyticsBuildConfig();
+  const merged = {
+    enabled: false,
+    debugMode: false,
+    measurementId: buildConfig.measurementId,
+    transportMode: buildConfig.transportMode,
+    relayEndpoint: buildConfig.relayEndpoint,
+    reportingInterval: 30000,
+    maxErrorsPerSession: 50,
+    batchSize: 10,
+    ...(candidate ?? {})
+  };
+
+  const measurementId = normalizeMeasurementId(merged.measurementId, buildConfig.measurementId);
+  const relayEndpoint = readTrimmedString(merged.relayEndpoint);
+
+  return {
+    enabled: Boolean(merged.enabled),
+    debugMode: Boolean(merged.debugMode),
+    measurementId,
+    transportMode: normalizeTransportMode(merged.transportMode),
+    ...(relayEndpoint !== undefined && { relayEndpoint }),
+    reportingInterval: normalizeNumber(merged.reportingInterval, 30000),
+    maxErrorsPerSession: normalizeNumber(merged.maxErrorsPerSession, 50),
+    batchSize: normalizeNumber(merged.batchSize, 10)
+  };
+}
+
+function buildRuntimeConfig(
+  candidate: Partial<AnalyticsConfig> | undefined,
+  userConsent: UserConsent | undefined,
+  clientId: string | undefined,
+  sessionId: string | undefined
+): AnalyticsConfig {
+  const normalizedConsent = cloneUserConsent(userConsent);
+  const consentEnabled = Boolean(normalizedConsent?.analytics || normalizedConsent?.errorReporting);
+  const persisted = normalizePersistedAnalyticsConfig({
+    ...(candidate ?? {}),
+    enabled: consentEnabled
+  });
+
+  return {
+    ...persisted,
+    ...(readTrimmedString(clientId) !== undefined && { clientId: readTrimmedString(clientId)! }),
+    ...(readTrimmedString(sessionId) !== undefined && { sessionId: readTrimmedString(sessionId)! }),
+    ...(normalizedConsent ? { userConsent: normalizedConsent } : {})
+  };
+}
+
+function serializePersistedAnalyticsConfig(config: AnalyticsConfig): PersistedAnalyticsConfig {
+  return normalizePersistedAnalyticsConfig(config);
+}
+
+export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = normalizePersistedAnalyticsConfig({
+  enabled: false
+});
+
 export class AnalyticsConfigManager {
   private config: AnalyticsConfig = { ...DEFAULT_ANALYTICS_CONFIG };
 
   constructor(private readonly storage: StorageService) {}
 
   async initialize(): Promise<void> {
-    await this.initializeConfig();
+    await this.refreshFromStorage();
+    await this.ensureClientId();
+    await this.ensureSessionId();
   }
 
-  /**
-   * 初始化配置
-   */
-  private async initializeConfig(): Promise<void> {
-    try {
-      // 加载存储的配置
-      const storedConfig = await this.storage.local.get<AnalyticsConfig>(
-        GA4_CONFIG.STORAGE_KEYS.CONFIG
-      );
-      if (storedConfig) {
-        this.config = { ...DEFAULT_ANALYTICS_CONFIG, ...storedConfig };
+  async refreshFromStorage(): Promise<void> {
+    const storedConfig = await this.storage.local.get<Partial<AnalyticsConfig>>(
+      GA4_CONFIG.STORAGE_KEYS.CONFIG
+    );
+    const storedConsent = await this.storage.local.get<UserConsent>(
+      GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
+    );
+    const storedClientId = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
+    const storedSessionId = await this.storage.local.get<string>(
+      GA4_CONFIG.STORAGE_KEYS.SESSION_ID
+    );
+
+    this.config = buildRuntimeConfig(storedConfig, storedConsent, storedClientId, storedSessionId);
+
+    if (storedConfig !== undefined) {
+      const normalizedStoredConfig = serializePersistedAnalyticsConfig(this.config);
+      if (JSON.stringify(storedConfig) !== JSON.stringify(normalizedStoredConfig)) {
+        await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, normalizedStoredConfig);
       }
-
-      // 生成或加载客户端 ID
-      await this.ensureClientId();
-
-      // 生成新的会话 ID
-      await this.generateNewSession();
-
-      // 加载用户同意状态
-      await this.loadUserConsent();
-    } catch (error) {
-      console.error('[Analytics Config] Failed to initialize:', error);
     }
   }
 
-  /**
-   * 确保客户端 ID 存在
-   */
-  private async ensureClientId(): Promise<void> {
-    let clientId = this.config.clientId;
-
-    if (!clientId) {
-      const stored = await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID);
-      clientId = stored;
-    }
-
-    if (!clientId) {
-      clientId = this.generateClientId();
-      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
-    }
-
-    this.config.clientId = clientId;
-  }
-
-  /**
-   * 生成新的会话
-   */
-  private async generateNewSession(): Promise<void> {
-    const sessionId = this.generateSessionId();
-    this.config.sessionId = sessionId;
-
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
-  }
-
-  /**
-   * 加载用户同意状态
-   */
-  private async loadUserConsent(): Promise<void> {
-    try {
-      const consent = await this.storage.local.get<UserConsent>(
-        GA4_CONFIG.STORAGE_KEYS.USER_CONSENT
-      );
-      if (consent) {
-        this.config.userConsent = consent;
-        this.config.enabled = consent.analytics || consent.errorReporting;
-      }
-    } catch (error) {
-      console.error('[Analytics Config] Failed to load user consent:', error);
-    }
-  }
-
-  /**
-   * 生成客户端 ID
-   */
-  private generateClientId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 11);
-    return `ext-${timestamp}-${random}`;
-  }
-
-  /**
-   * 生成会话 ID
-   */
-  private generateSessionId(): string {
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 7);
-    return `${timestamp}-${random}`;
-  }
-
-  /**
-   * 获取当前配置
-   */
   getConfig(): AnalyticsConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      ...(this.config.userConsent ? { userConsent: { ...this.config.userConsent } } : {})
+    };
   }
 
-  /**
-   * 更新配置
-   */
   async updateConfig(updates: Partial<AnalyticsConfig>): Promise<void> {
-    this.config = { ...this.config, ...updates };
+    this.config = buildRuntimeConfig(
+      {
+        ...this.config,
+        ...updates
+      },
+      updates.userConsent ?? this.config.userConsent,
+      updates.clientId ?? this.config.clientId,
+      updates.sessionId ?? this.config.sessionId
+    );
     await this.saveConfig();
   }
 
-  /**
-   * 保存配置到存储
-   */
-  private async saveConfig(): Promise<void> {
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, this.config);
-  }
-
-  /**
-   * 设置用户同意状态
-   */
-  async setUserConsent(analytics: boolean, errorReporting: boolean): Promise<void> {
-    const consent: UserConsent = {
-      analytics,
-      errorReporting,
+  async setUserConsent(consent: Omit<UserConsent, 'timestamp' | 'version'>): Promise<void> {
+    const nextConsent: UserConsent = {
+      analytics: consent.analytics,
+      errorReporting: consent.errorReporting,
       timestamp: Date.now(),
       version: '1.0'
     };
 
-    this.config.userConsent = consent;
-    this.config.enabled = analytics || errorReporting;
+    this.config.userConsent = nextConsent;
+    this.config.enabled = nextConsent.analytics || nextConsent.errorReporting;
 
     await Promise.all([
-      this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT, consent),
+      this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT, nextConsent),
       this.saveConfig()
     ]);
   }
 
-  /**
-   * 检查是否有用户同意
-   */
+  async getUserConsent(): Promise<UserConsent | undefined> {
+    const consent = this.config.userConsent;
+    return consent ? { ...consent } : undefined;
+  }
+
+  async renewSession(): Promise<void> {
+    const sessionId = this.generateSessionId();
+    this.config.sessionId = sessionId;
+    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
+  }
+
   hasUserConsent(): boolean {
-    return !!(this.config.userConsent?.analytics || this.config.userConsent?.errorReporting);
+    return Boolean(this.config.userConsent?.analytics || this.config.userConsent?.errorReporting);
   }
 
-  /**
-   * 检查是否同意分析
-   */
   hasAnalyticsConsent(): boolean {
-    return !!this.config.userConsent?.analytics;
+    return Boolean(this.config.userConsent?.analytics);
   }
 
-  /**
-   * 检查是否同意错误报告
-   */
   hasErrorReportingConsent(): boolean {
-    return !!this.config.userConsent?.errorReporting;
+    return Boolean(this.config.userConsent?.errorReporting);
   }
 
-  /**
-   * 获取状态信息（用于调试）
-   */
-  getStatus() {
+  getStatus(): {
+    enabled: boolean;
+    hasConsent: boolean;
+    clientId?: string;
+    sessionId?: string;
+    measurementId: string;
+    transportMode: AnalyticsTransportMode;
+    relayEndpoint?: string;
+    debugMode: boolean;
+    reportingInterval: number;
+    maxErrorsPerSession: number;
+  } {
     return {
       enabled: this.config.enabled,
       hasConsent: this.hasUserConsent(),
-      clientId: this.config.clientId?.substring(0, 10) + '...', // 只显示前10位
-      sessionId: this.config.sessionId?.substring(0, 10) + '...',
+      ...(this.config.clientId ? { clientId: `${this.config.clientId.slice(0, 10)}...` } : {}),
+      ...(this.config.sessionId ? { sessionId: `${this.config.sessionId.slice(0, 10)}...` } : {}),
       measurementId: this.config.measurementId,
+      transportMode: this.config.transportMode,
+      ...(this.config.relayEndpoint ? { relayEndpoint: this.config.relayEndpoint } : {}),
       debugMode: this.config.debugMode,
       reportingInterval: this.config.reportingInterval,
       maxErrorsPerSession: this.config.maxErrorsPerSession
     };
   }
 
-  /**
-   * 清除所有 Analytics 数据
-   */
   async clearAllData(): Promise<void> {
     const keys = Object.values(GA4_CONFIG.STORAGE_KEYS);
     await Promise.all(keys.map((key) => this.storage.local.remove(key)));
-
     this.config = { ...DEFAULT_ANALYTICS_CONFIG };
+  }
+
+  private async ensureClientId(): Promise<void> {
+    const existingClientId =
+      readTrimmedString(this.config.clientId) ??
+      readTrimmedString(await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
+    const clientId = existingClientId ?? this.generateClientId();
+
+    this.config.clientId = clientId;
+    if (!existingClientId) {
+      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID, clientId);
+    }
+  }
+
+  private async ensureSessionId(): Promise<void> {
+    const existingSessionId =
+      readTrimmedString(this.config.sessionId) ??
+      readTrimmedString(await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.SESSION_ID));
+    const sessionId = existingSessionId ?? this.generateSessionId();
+
+    this.config.sessionId = sessionId;
+    if (!existingSessionId) {
+      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
+    }
+  }
+
+  private async saveConfig(): Promise<void> {
+    await this.storage.local.set(
+      GA4_CONFIG.STORAGE_KEYS.CONFIG,
+      serializePersistedAnalyticsConfig(this.config)
+    );
+  }
+
+  private generateClientId(): string {
+    return `ext-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+  }
+
+  private generateSessionId(): string {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 }
 
-// 全局配置管理器实例
 let configManager: AnalyticsConfigManager | null = null;
 let analyticsStorage: StorageService | null = null;
 
@@ -283,9 +382,6 @@ export function configureAnalyticsConfigManager(storage: StorageService): Analyt
   return configManager;
 }
 
-/**
- * 获取配置管理器实例
- */
 export function getAnalyticsConfigManager(): AnalyticsConfigManager {
   if (!configManager) {
     if (!analyticsStorage) {
@@ -296,21 +392,25 @@ export function getAnalyticsConfigManager(): AnalyticsConfigManager {
   return configManager;
 }
 
-/**
- * 设置用户同意状态的便捷函数
- */
+export async function initializeAnalyticsConfig(): Promise<AnalyticsConfig> {
+  const manager = getAnalyticsConfigManager();
+  await manager.initialize();
+  return manager.getConfig();
+}
+
+export function shouldReportErrors(): boolean {
+  const config = getAnalyticsConfigManager().getConfig();
+  return Boolean(config.enabled && config.userConsent?.errorReporting);
+}
+
 export async function setAnalyticsConsent(
   analytics: boolean,
   errorReporting: boolean
 ): Promise<void> {
   const manager = getAnalyticsConfigManager();
-  await manager.setUserConsent(analytics, errorReporting);
+  await manager.setUserConsent({ analytics, errorReporting });
 }
 
-/**
- * 获取当前配置的便捷函数
- */
 export function getAnalyticsConfig(): AnalyticsConfig {
-  const manager = getAnalyticsConfigManager();
-  return manager.getConfig();
+  return getAnalyticsConfigManager().getConfig();
 }

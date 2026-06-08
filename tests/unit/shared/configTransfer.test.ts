@@ -276,4 +276,36 @@ describe('configTransfer service', () => {
     expect(parsed.version).toBe(1);
     expect(parsed.analytics).toBeUndefined();
   });
+
+  it('keeps analytics transfer payload limited to consent and debug mode', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          rest: { baseUrl: 'https://example.com' }
+        },
+        analytics: {
+          consent: {
+            analytics: true,
+            errorReporting: false
+          },
+          debugMode: true,
+          measurementId: 'G-1111111111',
+          transportMode: 'relay',
+          relayEndpoint: 'https://relay.example/collect'
+        }
+      })
+    );
+
+    expect(parsed.analytics).toEqual({
+      consent: {
+        analytics: true,
+        errorReporting: false
+      },
+      debugMode: true
+    });
+    expect((parsed.analytics as Record<string, unknown>)?.measurementId).toBeUndefined();
+    expect((parsed.analytics as Record<string, unknown>)?.transportMode).toBeUndefined();
+    expect((parsed.analytics as Record<string, unknown>)?.relayEndpoint).toBeUndefined();
+  });
 });

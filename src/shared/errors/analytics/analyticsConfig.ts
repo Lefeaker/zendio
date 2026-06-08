@@ -29,6 +29,14 @@ export const GA4_CONFIG = {
   }
 } as const;
 
+export type AnalyticsTransportMode = 'disabled' | 'relay' | 'directDebug';
+
+interface AnalyticsBuildEnv {
+  __AIIINOB_GA_MEASUREMENT_ID__?: string;
+  __AIIINOB_GA_RELAY_ENDPOINT__?: string;
+  __AIIINOB_GA_TRANSPORT_MODE__?: string;
+}
+
 export interface UserConsent {
   analytics: boolean;
   errorReporting: boolean;
@@ -36,10 +44,15 @@ export interface UserConsent {
   version: string;
 }
 
-export interface AnalyticsConfig {
+export interface AnalyticsBuildConfig {
+  measurementId: string;
+  transportMode: AnalyticsTransportMode;
+  relayEndpoint?: string;
+}
+
+export interface AnalyticsConfig extends AnalyticsBuildConfig {
   enabled: boolean;
   debugMode: boolean;
-  measurementId: string;
   clientId?: string;
   sessionId?: string;
   userConsent?: UserConsent;
@@ -48,14 +61,142 @@ export interface AnalyticsConfig {
   batchSize: number;
 }
 
-export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = {
-  enabled: false,
-  debugMode: false,
-  measurementId: GA4_CONFIG.MEASUREMENT_ID,
-  reportingInterval: 30000,
-  maxErrorsPerSession: 50,
-  batchSize: 10
-};
+type PersistedAnalyticsConfig = Pick<
+  AnalyticsConfig,
+  | 'enabled'
+  | 'debugMode'
+  | 'measurementId'
+  | 'transportMode'
+  | 'relayEndpoint'
+  | 'reportingInterval'
+  | 'maxErrorsPerSession'
+  | 'batchSize'
+>;
+
+const analyticsBuildEnv = globalThis as typeof globalThis & AnalyticsBuildEnv;
+
+function readTrimmedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readPublicBuildString(
+  key: keyof AnalyticsBuildEnv,
+  injectedValue: string | undefined
+): string | undefined {
+  return readTrimmedString(injectedValue) ?? readTrimmedString(analyticsBuildEnv[key]);
+}
+
+function normalizeTransportMode(value: unknown): AnalyticsTransportMode {
+  return value === 'relay' || value === 'directDebug' || value === 'disabled' ? value : 'disabled';
+}
+
+function normalizeMeasurementId(value: unknown, fallback: string): string {
+  const normalized = readTrimmedString(value);
+  return normalized && normalized !== GA4_CONFIG.MEASUREMENT_ID ? normalized : fallback;
+}
+
+function normalizeNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function cloneUserConsent(consent: UserConsent | undefined): UserConsent | undefined {
+  if (!consent) {
+    return undefined;
+  }
+
+  return {
+    analytics: Boolean(consent.analytics),
+    errorReporting: Boolean(consent.errorReporting),
+    timestamp: normalizeNumber(consent.timestamp, Date.now()),
+    version: readTrimmedString(consent.version) ?? '1.0'
+  };
+}
+
+export function getAnalyticsBuildConfig(): AnalyticsBuildConfig {
+  const measurementId = normalizeMeasurementId(
+    readPublicBuildString(
+      '__AIIINOB_GA_MEASUREMENT_ID__',
+      typeof __AIIINOB_GA_MEASUREMENT_ID__ === 'string' ? __AIIINOB_GA_MEASUREMENT_ID__ : undefined
+    ),
+    GA4_CONFIG.MEASUREMENT_ID
+  );
+  const relayEndpoint = readPublicBuildString(
+    '__AIIINOB_GA_RELAY_ENDPOINT__',
+    typeof __AIIINOB_GA_RELAY_ENDPOINT__ === 'string' ? __AIIINOB_GA_RELAY_ENDPOINT__ : undefined
+  );
+  const transportMode = normalizeTransportMode(
+    readPublicBuildString(
+      '__AIIINOB_GA_TRANSPORT_MODE__',
+      typeof __AIIINOB_GA_TRANSPORT_MODE__ === 'string' ? __AIIINOB_GA_TRANSPORT_MODE__ : undefined
+    )
+  );
+
+  return {
+    measurementId,
+    transportMode,
+    ...(relayEndpoint !== undefined && { relayEndpoint })
+  };
+}
+
+function normalizePersistedAnalyticsConfig(
+  candidate: Partial<AnalyticsConfig> | undefined
+): PersistedAnalyticsConfig {
+  const buildConfig = getAnalyticsBuildConfig();
+  const merged = {
+    enabled: false,
+    debugMode: false,
+    measurementId: buildConfig.measurementId,
+    transportMode: buildConfig.transportMode,
+    relayEndpoint: buildConfig.relayEndpoint,
+    reportingInterval: 30000,
+    maxErrorsPerSession: 50,
+    batchSize: 10,
+    ...(candidate ?? {})
+  };
+
+  const measurementId = normalizeMeasurementId(merged.measurementId, buildConfig.measurementId);
+  const relayEndpoint = readTrimmedString(merged.relayEndpoint);
+
+  return {
+    enabled: Boolean(merged.enabled),
+    debugMode: Boolean(merged.debugMode),
+    measurementId,
+    transportMode: normalizeTransportMode(merged.transportMode),
+    ...(relayEndpoint !== undefined && { relayEndpoint }),
+    reportingInterval: normalizeNumber(merged.reportingInterval, 30000),
+    maxErrorsPerSession: normalizeNumber(merged.maxErrorsPerSession, 50),
+    batchSize: normalizeNumber(merged.batchSize, 10)
+  };
+}
+
+function buildRuntimeConfig(
+  candidate: Partial<AnalyticsConfig> | undefined,
+  userConsent: UserConsent | undefined,
+  clientId: string | undefined,
+  sessionId: string | undefined
+): AnalyticsConfig {
+  const normalizedConsent = cloneUserConsent(userConsent);
+  const consentEnabled = Boolean(normalizedConsent?.analytics || normalizedConsent?.errorReporting);
+  const persisted = normalizePersistedAnalyticsConfig({
+    ...(candidate ?? {}),
+    enabled: consentEnabled
+  });
+
+  return {
+    ...persisted,
+    ...(readTrimmedString(clientId) !== undefined && { clientId: readTrimmedString(clientId)! }),
+    ...(readTrimmedString(sessionId) !== undefined && { sessionId: readTrimmedString(sessionId)! }),
+    ...(normalizedConsent ? { userConsent: normalizedConsent } : {})
+  };
+}
+
+function serializePersistedAnalyticsConfig(config: AnalyticsConfig): PersistedAnalyticsConfig {
+  return normalizePersistedAnalyticsConfig(config);
+}
+
+export const DEFAULT_ANALYTICS_CONFIG: AnalyticsConfig = normalizePersistedAnalyticsConfig({
+  enabled: false
+});
 
 export class AnalyticsConfigManager {
   private config: AnalyticsConfig = { ...DEFAULT_ANALYTICS_CONFIG };
@@ -65,7 +206,7 @@ export class AnalyticsConfigManager {
   async initialize(): Promise<void> {
     await this.refreshFromStorage();
     await this.ensureClientId();
-    await this.renewSession();
+    await this.ensureSessionId();
   }
 
   async refreshFromStorage(): Promise<void> {
@@ -80,22 +221,14 @@ export class AnalyticsConfigManager {
       GA4_CONFIG.STORAGE_KEYS.SESSION_ID
     );
 
-    this.config = {
-      ...DEFAULT_ANALYTICS_CONFIG,
-      ...(storedConfig ?? {})
-    };
+    this.config = buildRuntimeConfig(storedConfig, storedConsent, storedClientId, storedSessionId);
 
-    if (storedClientId) {
-      this.config.clientId = storedClientId;
+    if (storedConfig !== undefined) {
+      const normalizedStoredConfig = serializePersistedAnalyticsConfig(this.config);
+      if (JSON.stringify(storedConfig) !== JSON.stringify(normalizedStoredConfig)) {
+        await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, normalizedStoredConfig);
+      }
     }
-    if (storedSessionId) {
-      this.config.sessionId = storedSessionId;
-    }
-    if (storedConsent) {
-      this.config.userConsent = storedConsent;
-    }
-
-    this.config.enabled = Boolean(storedConsent?.analytics || storedConsent?.errorReporting);
   }
 
   getConfig(): AnalyticsConfig {
@@ -106,10 +239,15 @@ export class AnalyticsConfigManager {
   }
 
   async updateConfig(updates: Partial<AnalyticsConfig>): Promise<void> {
-    this.config = {
-      ...this.config,
-      ...updates
-    };
+    this.config = buildRuntimeConfig(
+      {
+        ...this.config,
+        ...updates
+      },
+      updates.userConsent ?? this.config.userConsent,
+      updates.clientId ?? this.config.clientId,
+      updates.sessionId ?? this.config.sessionId
+    );
     await this.saveConfig();
   }
 
@@ -159,6 +297,8 @@ export class AnalyticsConfigManager {
     clientId?: string;
     sessionId?: string;
     measurementId: string;
+    transportMode: AnalyticsTransportMode;
+    relayEndpoint?: string;
     debugMode: boolean;
     reportingInterval: number;
     maxErrorsPerSession: number;
@@ -169,6 +309,8 @@ export class AnalyticsConfigManager {
       ...(this.config.clientId ? { clientId: `${this.config.clientId.slice(0, 10)}...` } : {}),
       ...(this.config.sessionId ? { sessionId: `${this.config.sessionId.slice(0, 10)}...` } : {}),
       measurementId: this.config.measurementId,
+      transportMode: this.config.transportMode,
+      ...(this.config.relayEndpoint ? { relayEndpoint: this.config.relayEndpoint } : {}),
       debugMode: this.config.debugMode,
       reportingInterval: this.config.reportingInterval,
       maxErrorsPerSession: this.config.maxErrorsPerSession
@@ -183,8 +325,8 @@ export class AnalyticsConfigManager {
 
   private async ensureClientId(): Promise<void> {
     const existingClientId =
-      this.config.clientId ??
-      (await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
+      readTrimmedString(this.config.clientId) ??
+      readTrimmedString(await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
     const clientId = existingClientId ?? this.generateClientId();
 
     this.config.clientId = clientId;
@@ -193,8 +335,23 @@ export class AnalyticsConfigManager {
     }
   }
 
+  private async ensureSessionId(): Promise<void> {
+    const existingSessionId =
+      readTrimmedString(this.config.sessionId) ??
+      readTrimmedString(await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.SESSION_ID));
+    const sessionId = existingSessionId ?? this.generateSessionId();
+
+    this.config.sessionId = sessionId;
+    if (!existingSessionId) {
+      await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
+    }
+  }
+
   private async saveConfig(): Promise<void> {
-    await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, this.config);
+    await this.storage.local.set(
+      GA4_CONFIG.STORAGE_KEYS.CONFIG,
+      serializePersistedAnalyticsConfig(this.config)
+    );
   }
 
   private generateClientId(): string {

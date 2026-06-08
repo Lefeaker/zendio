@@ -55,6 +55,11 @@ const sharedBuildOptions = {
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
     __DEV__: prod ? 'false' : 'true',
+    __AIIINOB_GA_MEASUREMENT_ID__: JSON.stringify(process.env.AIIINOB_GA_MEASUREMENT_ID ?? ''),
+    __AIIINOB_GA_RELAY_ENDPOINT__: JSON.stringify(process.env.AIIINOB_GA_RELAY_ENDPOINT ?? ''),
+    __AIIINOB_GA_TRANSPORT_MODE__: JSON.stringify(
+      process.env.AIIINOB_GA_TRANSPORT_MODE ?? 'disabled'
+    ),
     __AIIINOB_SENTRY_DSN__: JSON.stringify(process.env.AIIINOB_SENTRY_DSN ?? ''),
     __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
       process.env.AIIINOB_SENTRY_ENVIRONMENT ?? (prod ? 'production' : 'development')

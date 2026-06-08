@@ -201,9 +201,9 @@ export function createProductionStitchPersistence(
 
   async function importConfigurationFromClipboard(): Promise<void> {
     const parsed = parseConfigInput(await readConfigTextFromClipboard());
-    await applyAnalyticsTransferPayload(parsed.analytics);
     const imported = mergeOptions(parsed.options) as CompleteOptions;
     await options.controller.applyImportedConfig(imported);
+    await applyAnalyticsTransferPayload(parsed.analytics);
     options.setDraft(imported);
     options.setMaintenanceLog(JSON.stringify({ imported: true, version: parsed.version }, null, 2));
     options.refreshAppData();
