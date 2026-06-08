@@ -1,4 +1,3 @@
-import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
 import { setRequestedTimestampScreenshot } from './screenshotIntent';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoTimestampCapture } from './types';
@@ -36,10 +35,7 @@ export function createVideoTimestampCapture(
     createdAt: now
   };
   if (input.captureScreenshot) {
-    setRequestedTimestampScreenshot(
-      capture,
-      captureVideoFrameScreenshot(input.video, input.currentTime)
-    );
+    setRequestedTimestampScreenshot(capture, null);
   }
   return capture;
 }

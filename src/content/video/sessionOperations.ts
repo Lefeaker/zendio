@@ -211,6 +211,9 @@ export async function handleVideoSessionAddCapture(
   if (!saved) {
     return null;
   }
+  if (hasRequestedTimestampScreenshot(capture) && !capture.screenshot) {
+    requestRequestedScreenshotPreparation(context, capture.id);
+  }
   emitVideoUsageEvent(context.dependencies, 'video_timestamp_added', {
     capture_count_bucket: bucketCount(context.state.captures.length)
   });
@@ -385,9 +388,7 @@ export async function toggleVideoSessionCaptureScreenshot(
     return;
   }
 
-  void Promise.resolve(context.prepareRequestedScreenshot?.(id)).catch((error) => {
-    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
-  });
+  requestRequestedScreenshotPreparation(context, id);
 }
 
 export function focusVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
@@ -593,4 +594,13 @@ async function saveVideoCaptures(
     context.applyHint(hintState);
   }
   return hintState;
+}
+
+function requestRequestedScreenshotPreparation(
+  context: VideoSessionOperationContext,
+  captureId: string
+): void {
+  void Promise.resolve(context.prepareRequestedScreenshot?.(captureId)).catch((error) => {
+    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
+  });
 }

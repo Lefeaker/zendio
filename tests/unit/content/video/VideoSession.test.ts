@@ -361,6 +361,12 @@ function pickUnrelatedCaptureId(ids: string[], activeId: string): string {
   return unrelatedId;
 }
 
+async function flushMicrotasks(turns = 6): Promise<void> {
+  for (let index = 0; index < turns; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
   const candidates = await listVideoDraftCandidates(deps);
   return [...candidates].sort((left, right) => left.updatedAt - right.updatedAt).at(-1) ?? null;
@@ -555,6 +561,10 @@ describe('VideoSession', () => {
               value: vi.fn(() => ({ drawImage })),
               configurable: true
             });
+            Object.defineProperty(canvas, 'toBlob', {
+              value: undefined,
+              configurable: true
+            });
             Object.defineProperty(canvas, 'toDataURL', {
               value: vi.fn(() => 'data:image/jpeg;base64,restored-frame'),
               configurable: true
@@ -608,8 +618,7 @@ describe('VideoSession', () => {
 
       try {
         await session.start();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushMicrotasks();
 
         expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
         expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
@@ -1229,6 +1238,81 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('does not start screenshot preparation when add-with-screenshot saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const toDataURL = vi.fn(() => 'data:image/jpeg;base64,frame');
+    const toBlob = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: toDataURL,
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+
+    await session.start();
+
+    const video = requireVideoElement();
+    let paused = false;
+    Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
+    Object.defineProperty(video, 'paused', {
+      configurable: true,
+      get: () => paused
+    });
+    Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
+    Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+    view.setCaptures.mockClear();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    await session.addCurrentTimestamp('note-input', {
+      comment: 'captured frame',
+      captureScreenshot: true,
+      pauseVideo: true,
+      beginEditing: false,
+      resumePlayback: true
+    });
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(drawImage).not.toHaveBeenCalled();
+    expect(toBlob).not.toHaveBeenCalled();
+    expect(toDataURL).not.toHaveBeenCalled();
+    expect(view.setCaptures.mock.calls.at(-1)?.[0]).toEqual([]);
+    expect(view.stopEditing).toHaveBeenCalled();
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(pauseSpy).toHaveBeenCalledTimes(1);
+    expect(playSpy).not.toHaveBeenCalled();
+
+    createElementSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
   it('keeps playback paused while a note editor remains active', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -1521,7 +1605,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('captures a current-frame screenshot for control bar note captures', async () => {
+  it('persists screenshot intent before starting background screenshot preparation for control bar note captures', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
@@ -1529,6 +1613,11 @@ describe('VideoSession', () => {
     const sessionApi = toSessionTestApi(session);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
+    const toDataURL = vi.fn(() => 'data:image/jpeg;base64,frame');
+    let resolveToBlob: ((blob: Blob | null) => void) | null = null;
+    const toBlob = vi.fn((callback: (blob: Blob | null) => void) => {
+      resolveToBlob = callback;
+    });
     const createElementSpy = vi
       .spyOn(document, 'createElement')
       .mockImplementation((tagName: string) => {
@@ -1537,8 +1626,12 @@ describe('VideoSession', () => {
             value: vi.fn(() => ({ drawImage })),
             configurable: true
           });
+          Object.defineProperty(canvas, 'toBlob', {
+            value: toBlob,
+            configurable: true
+          });
           Object.defineProperty(canvas, 'toDataURL', {
-            value: vi.fn(() => 'data:image/jpeg;base64,frame'),
+            value: toDataURL,
             configurable: true
           });
           return canvas;
@@ -1554,8 +1647,10 @@ describe('VideoSession', () => {
     Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const playSpy = vi.spyOn(video, 'play').mockImplementation(() => Promise.resolve());
+    const setManyMock = deps.storage.local.setMany as unknown as Mock;
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
+    setManyMock.mockClear();
     view?.setCaptures.mockClear();
     view?.collapse.mockClear();
 
@@ -1570,22 +1665,31 @@ describe('VideoSession', () => {
 
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 640, 360);
-    expect(sessionApi.state.captures[0]?.screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
+    expect(toBlob).toHaveBeenCalledTimes(1);
+    expect(toDataURL).not.toHaveBeenCalled();
+    expect(setManyMock.mock.invocationCallOrder[0]).toBeLessThan(
+      toBlob.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
     expect(sessionApi.state.captures[0]).toMatchObject({
       comment: 'captured frame',
-      screenshotRequested: true,
-      screenshot: {
-        mimeType: 'image/jpeg',
-        dataUrl: 'data:image/jpeg;base64,frame'
-      }
+      screenshotRequested: true
     });
+    expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshot');
     expect(view?.stopEditing).toHaveBeenCalled();
     expect(view?.collapse).toHaveBeenCalledTimes(1);
     expect(view?.collapse.mock.invocationCallOrder[0]).toBeLessThan(
       view?.setCaptures.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
 
+    const completeBackgroundCapture = resolveToBlob as ((blob: Blob | null) => void) | null;
+    if (!completeBackgroundCapture) {
+      throw new Error('expected background screenshot preparation to start');
+    }
+    completeBackgroundCapture(null);
+    await Promise.resolve();
+    await Promise.resolve();
     createElementSpy.mockRestore();
     sessionApi.cleanup();
     vi.useRealTimers();
