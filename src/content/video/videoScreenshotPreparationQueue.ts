@@ -1,4 +1,7 @@
-import { hasRequestedTimestampScreenshot, setRequestedTimestampScreenshot } from './screenshotIntent';
+import {
+  hasRequestedTimestampScreenshot,
+  setRequestedTimestampScreenshot
+} from './screenshotIntent';
 import { captureVideoFrameScreenshotAsync } from './videoFrameScreenshot';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 
@@ -19,7 +22,11 @@ interface CreateVideoScreenshotPreparationQueueArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
-  captureFrame?: (video: HTMLVideoElement, timeSec: number, now?: number) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
+  captureFrame?: (
+    video: HTMLVideoElement,
+    timeSec: number,
+    now?: number
+  ) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
   syncPanel: () => void;
   toleranceSec?: number;
   timeoutMs?: number;
@@ -130,6 +137,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
         this.visibleAttemptedIds.add(capture.id);
       }
       this.inFlightVisibleIds.add(capture.id);
+      let shouldReprocess = false;
       try {
         const screenshot = await this.getCaptureFrame()(visibleVideo, capture.timeSec);
         if (
@@ -137,6 +145,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
           this.resolveVisibleVideo() !== visibleVideo ||
           !this.isTrackedPendingCaptureId(capture.id)
         ) {
+          shouldReprocess = this.shouldReprocessAfterVisibleCaptureDrop(capture.id, visibleVideo);
           continue;
         }
         if (!screenshot) {
@@ -148,6 +157,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
         didUpdate = true;
       } finally {
         this.inFlightVisibleIds.delete(capture.id);
+        if (shouldReprocess) {
+          this.processRequests();
+        }
       }
     }
 
@@ -155,7 +167,11 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.args.syncPanel();
     }
   }
-  private enqueueHiddenDuplicateCapture(sourceVideo: HTMLVideoElement, sourceUrl: string, captureId: string): void {
+  private enqueueHiddenDuplicateCapture(
+    sourceVideo: HTMLVideoElement,
+    sourceUrl: string,
+    captureId: string
+  ): void {
     if (this.disposed || this.inFlightDuplicateIds.has(captureId)) {
       return;
     }
@@ -164,7 +180,11 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.inFlightDuplicateIds.delete(captureId);
     });
   }
-  private async attemptHiddenDuplicateCapture(sourceVideo: HTMLVideoElement, sourceUrl: string, captureId: string): Promise<void> {
+  private async attemptHiddenDuplicateCapture(
+    sourceVideo: HTMLVideoElement,
+    sourceUrl: string,
+    captureId: string
+  ): Promise<void> {
     if (this.disposed || this.resolveVisibleVideo() !== sourceVideo) {
       return;
     }
@@ -208,8 +228,12 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       duplicateVideo.remove();
     }
   }
-  private resolveVisibleVideo(): HTMLVideoElement | null { return this.args.getVisibleVideo() ?? this.visibleVideo; }
-  private findPendingCapture(id: string): VideoTimestampCapture | null { return this.listPendingCaptures().find((capture) => capture.id === id) ?? null; }
+  private resolveVisibleVideo(): HTMLVideoElement | null {
+    return this.args.getVisibleVideo() ?? this.visibleVideo;
+  }
+  private findPendingCapture(id: string): VideoTimestampCapture | null {
+    return this.listPendingCaptures().find((capture) => capture.id === id) ?? null;
+  }
   private listPendingCaptures(): VideoTimestampCapture[] {
     return this.args
       .getCaptures()
@@ -234,44 +258,42 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     this.visibleAttemptedIds.delete(captureId);
     this.inFlightVisibleIds.delete(captureId);
   }
-  private isTrackedPendingCaptureId(captureId: string): boolean { return this.trackedCaptureIds.has(captureId) && Boolean(this.findPendingCapture(captureId)); }
+  private isTrackedPendingCaptureId(captureId: string): boolean {
+    return this.trackedCaptureIds.has(captureId) && Boolean(this.findPendingCapture(captureId));
+  }
   private attachVisibleVideoListeners(): void {
-    if (!this.visibleVideo) {
-      return;
-    }
-    for (const eventName of VISIBLE_TIME_EVENTS) {
-      this.visibleVideo.addEventListener(eventName, this.handleVisibleTimeProgress, true);
-    }
-    for (const eventName of VISIBLE_READY_EVENTS) {
-      this.visibleVideo.addEventListener(eventName, this.handleVisibleFrameReady, true);
-    }
+    this.syncVisibleVideoListeners('addEventListener');
   }
   private detachVisibleVideoListeners(): void {
+    this.syncVisibleVideoListeners('removeEventListener');
+  }
+  private syncVisibleVideoListeners(method: 'addEventListener' | 'removeEventListener'): void {
     if (!this.visibleVideo) {
       return;
     }
     for (const eventName of VISIBLE_TIME_EVENTS) {
-      this.visibleVideo.removeEventListener(eventName, this.handleVisibleTimeProgress, true);
+      this.visibleVideo[method](eventName, this.handleVisibleTimeProgress, true);
     }
     for (const eventName of VISIBLE_READY_EVENTS) {
-      this.visibleVideo.removeEventListener(eventName, this.handleVisibleFrameReady, true);
+      this.visibleVideo[method](eventName, this.handleVisibleFrameReady, true);
     }
   }
-  private getCaptureFrame() { return this.args.captureFrame ?? captureVideoFrameScreenshotAsync; }
-  private getToleranceSec(): number { return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC; }
-  private getTimeoutMs(): number { return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS; }
-  private enqueueHiddenDuplicateFallback(sourceVideo: HTMLVideoElement, captureId: string): void {
-    if (this.disposed || !this.isTrackedPendingCaptureId(captureId)) {
-      return;
-    }
-    const sourceUrl = resolveDuplicableVideoSource(sourceVideo, this.args.doc.location.href);
-    if (!sourceUrl) {
-      return;
-    }
-    this.enqueueHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId);
+  private getCaptureFrame() {
+    return this.args.captureFrame ?? captureVideoFrameScreenshotAsync;
   }
+  private getToleranceSec(): number {
+    return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC;
+  }
+  private getTimeoutMs(): number {
+    return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+  // prettier-ignore
+  private shouldReprocessAfterVisibleCaptureDrop(captureId: string, attemptedVideo: HTMLVideoElement): boolean { return !this.disposed && this.isTrackedPendingCaptureId(captureId) && this.resolveVisibleVideo() !== attemptedVideo; }
+  // prettier-ignore
+  private enqueueHiddenDuplicateFallback(sourceVideo: HTMLVideoElement, captureId: string): void { if (this.disposed || !this.isTrackedPendingCaptureId(captureId)) return; const sourceUrl = resolveDuplicableVideoSource(sourceVideo, this.args.doc.location.href); if (sourceUrl) this.enqueueHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId); }
 }
 
+// prettier-ignore
 export function createVideoScreenshotPreparationQueue(args: CreateVideoScreenshotPreparationQueueArgs): VideoScreenshotPreparationQueue { return new BackgroundVideoScreenshotPreparationQueue(args); }
 
 function configureHiddenDuplicateVideo(
@@ -279,20 +301,24 @@ function configureHiddenDuplicateVideo(
   sourceVideo: HTMLVideoElement,
   sourceUrl: string
 ): void {
-  duplicateVideo.preload = 'auto';
-  duplicateVideo.muted = true;
-  duplicateVideo.defaultMuted = true;
-  duplicateVideo.playsInline = true;
+  Object.assign(duplicateVideo, {
+    preload: 'auto',
+    muted: true,
+    defaultMuted: true,
+    playsInline: true,
+    tabIndex: -1
+  });
   duplicateVideo.setAttribute('playsinline', 'true');
   duplicateVideo.setAttribute('aria-hidden', 'true');
-  duplicateVideo.tabIndex = -1;
-  duplicateVideo.style.position = 'fixed';
-  duplicateVideo.style.left = '-99999px';
-  duplicateVideo.style.top = '0';
-  duplicateVideo.style.width = '1px';
-  duplicateVideo.style.height = '1px';
-  duplicateVideo.style.opacity = '0';
-  duplicateVideo.style.pointerEvents = 'none';
+  Object.assign(duplicateVideo.style, {
+    position: 'fixed',
+    left: '-99999px',
+    top: '0',
+    width: '1px',
+    height: '1px',
+    opacity: '0',
+    pointerEvents: 'none'
+  });
   if (sourceVideo.crossOrigin) {
     duplicateVideo.crossOrigin = sourceVideo.crossOrigin;
   }
@@ -314,48 +340,16 @@ function resolveDuplicableVideoSource(video: HTMLVideoElement, baseUrl: string):
     return null;
   }
 }
-function hasUsableVideoFrame(video: HTMLVideoElement): boolean {
-  const width = Math.floor(video.videoWidth || video.clientWidth || 0);
-  const height = Math.floor(video.videoHeight || video.clientHeight || 0);
-  return width > 0 && height > 0;
-}
-async function waitForUsableVideoFrame(video: HTMLVideoElement, timeoutMs: number): Promise<boolean> {
-  if (hasUsableVideoFrame(video)) {
-    return true;
-  }
-  const view = video.ownerDocument.defaultView ?? window;
-  return new Promise<boolean>((resolve) => {
-    let settled = false;
-    const done = (value: boolean) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      resolve(value);
-    };
-    const cleanup = () => {
-      if (timerId !== null) {
-        view.clearTimeout(timerId);
-      }
-      for (const eventName of HIDDEN_VIDEO_READY_EVENTS) {
-        video.removeEventListener(eventName, handleReady, true);
-      }
-    };
-    const handleReady = () => {
-      if (hasUsableVideoFrame(video)) {
-        done(true);
-      }
-    };
-    const timerId = view.setTimeout(() => done(false), timeoutMs);
+// prettier-ignore
+function hasUsableVideoFrame(video: HTMLVideoElement): boolean { return Math.floor(video.videoWidth || video.clientWidth || 0) > 0 && Math.floor(video.videoHeight || video.clientHeight || 0) > 0; }
+// prettier-ignore
+async function waitForUsableVideoFrame(video: HTMLVideoElement, timeoutMs: number): Promise<boolean> { return waitForVideoCondition(video, timeoutMs, HIDDEN_VIDEO_READY_EVENTS, () => hasUsableVideoFrame(video)); }
 
-    for (const eventName of HIDDEN_VIDEO_READY_EVENTS) {
-      video.addEventListener(eventName, handleReady, true);
-    }
-    handleReady();
-  });
-}
-async function seekHiddenVideo(video: HTMLVideoElement, timeSec: number, timeoutMs: number): Promise<boolean> {
+async function seekHiddenVideo(
+  video: HTMLVideoElement,
+  timeSec: number,
+  timeoutMs: number
+): Promise<boolean> {
   const targetTime = normalizeVideoTime(timeSec);
   if (!Number.isFinite(targetTime) || targetTime < 0) {
     return false;
@@ -363,6 +357,32 @@ async function seekHiddenVideo(video: HTMLVideoElement, timeSec: number, timeout
   if (approximatelyEqual(video.currentTime, targetTime, 0.001)) {
     return true;
   }
+  return waitForVideoCondition(
+    video,
+    timeoutMs,
+    ['seeked'],
+    () => approximatelyEqual(video.currentTime, targetTime, 0.001),
+    () => {
+      try {
+        video.currentTime = targetTime;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  );
+}
+
+function waitForVideoCondition(
+  video: HTMLVideoElement,
+  timeoutMs: number,
+  eventNames: readonly string[],
+  isReady: () => boolean,
+  start?: () => boolean
+): Promise<boolean> {
+  if (isReady()) {
+    return Promise.resolve(true);
+  }
   const view = video.ownerDocument.defaultView ?? window;
   return new Promise<boolean>((resolve) => {
     let settled = false;
@@ -378,18 +398,29 @@ async function seekHiddenVideo(video: HTMLVideoElement, timeSec: number, timeout
       if (timerId !== null) {
         view.clearTimeout(timerId);
       }
-      video.removeEventListener('seeked', handleSeeked, true);
+      for (const eventName of eventNames) {
+        video.removeEventListener(eventName, handleEvent, true);
+      }
     };
-    const handleSeeked = () => done(true);
+    const handleEvent = () => {
+      if (isReady()) {
+        done(true);
+      }
+    };
     const timerId = view.setTimeout(() => done(false), timeoutMs);
-
-    video.addEventListener('seeked', handleSeeked, true);
-    try {
-      video.currentTime = targetTime;
-    } catch {
-      done(false);
+    for (const eventName of eventNames) {
+      video.addEventListener(eventName, handleEvent, true);
     }
+    if (start?.() === false) {
+      done(false);
+      return;
+    }
+    handleEvent();
   });
 }
-function normalizeVideoTime(value: number): number { return Number.isFinite(value) ? value : 0; }
-function approximatelyEqual(left: number, right: number, tolerance: number): boolean { return Math.abs(normalizeVideoTime(left) - normalizeVideoTime(right)) <= tolerance; }
+function normalizeVideoTime(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
+function approximatelyEqual(left: number, right: number, tolerance: number): boolean {
+  return Math.abs(normalizeVideoTime(left) - normalizeVideoTime(right)) <= tolerance;
+}

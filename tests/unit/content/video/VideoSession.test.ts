@@ -361,6 +361,12 @@ function pickUnrelatedCaptureId(ids: string[], activeId: string): string {
   return unrelatedId;
 }
 
+async function flushMicrotasks(turns = 6): Promise<void> {
+  for (let index = 0; index < turns; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
   const candidates = await listVideoDraftCandidates(deps);
   return [...candidates].sort((left, right) => left.updatedAt - right.updatedAt).at(-1) ?? null;
@@ -612,8 +618,7 @@ describe('VideoSession', () => {
 
       try {
         await session.start();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushMicrotasks();
 
         expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
         expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
