@@ -1,10 +1,11 @@
 # Source of Truth 索引
 
-最后更新：2026-06-03
+最后更新：2026-06-09
 
 ## 正式入口
 
 - 工程命令与门禁：[`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- Telemetry contract：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
 - 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
@@ -25,6 +26,7 @@
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤
+- Telemetry 当前真值：production telemetry uses the background telemetry service plus an owner-controlled relay; usage events require analytics consent, `extension_error` requires error-reporting consent, extension source/build output must stay free of GA `api_secret`, and active event names/params are owned by [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - Quality gate 当前真值：`quality` 包含 locale source alignment、hardcoded config 守卫、type/lint ratchet、release surface 与 non-production source hard gate；CI locale source alignment 与 hardcoded config guard 均为 hard gate；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
 - i18n 语言范围当前真值：产品决策标签为 `release-13-languages`；release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`；README、runtime config、locale loaders、`src/i18n/locales/*.ts` 与 WebExtension `_locales` 必须与该范围一致
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`

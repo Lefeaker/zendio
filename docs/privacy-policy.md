@@ -1,98 +1,123 @@
-# All-in-Obsidian Chrome 扩展隐私政策
+# All-in-Obsidian Chrome Extension Privacy Policy
 
-公开访问版本：https://github.com/Lefeaker/AllinOB
+Public project page: https://github.com/Lefeaker/AllinOB
 
-最后更新：2026-05-18
+Last updated: 2026-06-09
 
-欢迎您使用 All-in-Obsidian（以下简称“本扩展”）。本隐私政策旨在帮助您了解我们如何处理与您使用本扩展相关的信息。我们深知隐私与数据安全的重要性，并承诺严格遵守适用法律法规，保护您的数据权益。
+This policy explains how the extension handles local data and optional telemetry.
 
-## 一、适用范围
+## 1. Scope
 
-本隐私政策适用于您在 Chrome 浏览器中安装、使用及更新本扩展的全过程。本扩展为本地运行工具，不依赖云端服务；若未来新增在线功能，我们将在发布前另行告知并征求您的同意。
+This policy applies to installation, use, update, and removal of the extension.
 
-## 二、我们收集和处理的数据
+The extension is local-first. Most features run entirely in the browser and local Obsidian environment. Optional telemetry is sent only when the user enables the relevant consent toggle.
 
-在默认配置下，本扩展仅在本地处理以下信息：
+## 2. Data processed locally
 
-- **剪藏内容**：当您主动执行网页剪藏、AI 解析或同步操作时，本扩展需要读取当前页面内容并在本地内存或临时存储中整理文本、图片、元数据。
-- **账户与配置数据**：包括您在扩展设置中保存的 Obsidian REST API 地址、API Token、导出路径、模板规则等，仅保存在浏览器的扩展存储空间。
-- **本地 Vault 目录授权（可选）**：在 Chromium 浏览器中，您可以主动选择一个本地目录作为 Vault 写入目标。浏览器只向扩展提供被您选择并授权的目录句柄；Chrome File System Access 不暴露完整本地路径。
-- **诊断日志（可选）**：当您开启调试模式时，本扩展可能在本地记录有限的日志信息（如请求时间、状态码、错误堆栈），用于帮助定位问题。日志不会自动上传。
+By default, the extension processes the following information locally:
 
-除上述信息外，我们不会主动收集、跟踪或存储您的浏览历史、Cookie、广告标识符等与核心功能无关的数据。
+- clipped page content, AI-export content, and generated markdown needed to complete the user-requested workflow
+- saved configuration such as Obsidian REST endpoint, local vault settings, export paths, and template preferences
+- optional local diagnostic logs used for debugging by the user
 
-## 三、数据使用目的
+This local processing does not by itself enable telemetry upload.
 
-我们仅将所需信息用于以下目的：
+## 3. Optional telemetry
 
-- 完成网页内容剪藏、格式化和写入 Obsidian 的核心功能。
-- 根据您的指令调用本地 AI 解析或模板渲染能力，提升内容质量与生成效率。
-- 在获得授权的情况下，为您保留必要的配置项，以便下次使用。
-- 在您主动反馈问题时，基于本地日志辅助定位故障。
+When the user enables telemetry consent, the extension may send limited telemetry to an owner-controlled relay.
 
-我们不会出售、出租或将您的数据用于广告投放、用户画像等与产品无关的用途。
+### Usage analytics consent
 
-## 四、Obsidian 本地 REST API 访问说明
+Usage analytics may send bounded product interaction events such as:
 
-- **访问原因**：为实现自动写入、更新和同步 Obsidian Vault，本扩展需要访问运行在 `http://127.0.0.1` 或您自定义端口上的 Obsidian 本地 REST API。
-- **连接方式**：扩展仅在您触发相关功能时发起本地网络请求，不会将内容转发至第三方服务器。
-- **鉴权机制**：您需在扩展设置中手动输入 API Token。该 Token 仅保存在浏览器的扩展存储空间，可随时撤销或更新。
-- **安全限制**：本扩展不会主动扫描本地网络，也不会越权访问与 Obsidian 无关的本地服务。所有请求都在本地回环地址完成。
+- support prompt interactions
+- `clear_stats`
+- `i18n_text_overflow`
 
-## 五、本地 Vault 目录写入说明
+### Error-reporting consent
 
-- **功能性质**：本地目录写入是可选功能，仅在支持 File System Access 的 Chromium 浏览器中可用。Firefox 当前不支持本地目录句柄写入，仍使用 REST API 路径。
-- **授权方式**：用户必须在设置页明确点击并选择目录；扩展不会自行枚举、扫描或选择本地文件夹。
-- **写入范围**：写入仅限于浏览器授权的目录句柄以及扩展根据您的模板生成的相对路径。路径会经过安全校验，拒绝目录穿越。
-- **失败与降级**：当权限缺失、被拒绝、浏览器不支持、预检失败或本地写入失败时，如果已配置 REST API，扩展会回退到 REST API 写入；没有可用回退时会提示重新授权或修复配置。
-- **撤销与清理**：您可以在设置页清除本地目录配置，也可以通过浏览器站点/扩展权限管理撤销文件访问权限。
+Error reporting may send the sanitized `extension_error` event.
 
-## 六、数据保留与删除
+### Telemetry safety rules
 
-- **自动保留策略**：除非为持续提供服务所必需（如保存配置），我们不会持久化存储您的临时数据。剪藏内容会在写入 Obsidian 后立即释放。
-- **自助删除**：您可通过 Chrome 扩展管理界面（`chrome://extensions`）卸载本扩展或清除扩展数据；必要时请同时删除浏览器缓存。
-- **撤销授权**：在 Obsidian 客户端中重置或撤销 REST API Token，可立即阻止本扩展继续通过 REST API 访问。已选择的本地目录可在扩展设置中清除，并可在浏览器权限界面撤销。
-- **联系删除**：若您认为仍有残留数据或需要协助，请使用下方联系方式提交请求，我们将在合理期限内处理。
+- extension source and build output do not contain the GA `api_secret`
+- the relay owns the server-side `api_secret`
+- production logs do not include full event params
+- telemetry is limited to bounded enums, counters, and sanitized technical metadata
 
-## 七、用户权利与选择
+## 4. Data not collected in telemetry
 
-您可随时：
+The active telemetry contract does not intentionally collect:
 
-- 访问并修改扩展设置中的个人配置项；
-- 停用特定权限或功能（如调试日志、自动写入）；
-- 通过浏览器提供的权限管理界面撤销主机权限及通知权限；
-- 清除已保存的本地目录授权记录，改用 REST API 或重新选择目录；
-- 向我们提出关于数据访问、更正、删除或限制处理的要求。
+- page content or selected text
+- markdown bodies
+- vault paths or local filesystem paths
+- raw URLs with query strings
+- authentication tokens, passwords, or secrets
+- personal profile data unrelated to extension diagnostics
 
-## 八、第三方服务与共享
+## 5. Data use purposes
 
-本扩展不与任何第三方共享您的个人数据，也未集成第三方跟踪、广告或分析 SDK。若未来引入第三方服务，我们将提前公告并征得您的明确同意。
+We process data only to:
 
-## 九、数据安全措施
+- complete clipping, export, and local vault workflows requested by the user
+- preserve user settings across sessions
+- diagnose extension stability issues when the user enables error reporting
+- measure bounded product interaction trends when the user enables usage analytics
 
-- 浏览器扩展存储中的敏感字段（如 API Token）采用受限访问方式，仅在功能执行时读取。
-- 所有本地请求均使用 HTTPS（若 Obsidian REST API 提供）或受系统回环保护的 HTTP 通道。
-- 我们遵循最小权限原则设计权限声明，避免扩展在后台运行时访问与功能无关的站点。
-- 本地目录写入依赖浏览器的 File System Access 权限模型，必须由用户交互授权；扩展使用 Chrome offscreen document 完成目录句柄访问，不会扩大到未授权目录。
-- 团队内部仅在获得您授权且为排查问题所必需时，才会请求您手动导出本地日志。
+We do not sell or rent user data for advertising.
 
-## 十、未成年人保护
+## 6. Obsidian local REST API access
 
-本扩展面向具有独立数据处理能力的成年人群体。若我们在不知情的情况下获取了未成年人的信息，将在获悉后尽快删除。如需家长或监护人协助，请通过联系方式与我们联络。
+- the extension may call the local Obsidian REST API only when the user configures it
+- API tokens stay in extension storage and can be changed or revoked by the user
+- requests target the local loopback environment chosen by the user
 
-## 十一、隐私政策的更新
+## 7. Local vault directory access
 
-我们可能根据产品功能或法律要求更新本政策。政策更新后将通过项目文档或扩展内公告提醒您留意，并在版本历史中记录变更时间。如更新涉及重大权利变更，我们会在合理范围内征得您的同意。
+- local vault access is optional and requires explicit user authorization
+- the browser grants only the chosen directory handle
+- users can revoke the permission through the extension or browser permission controls
 
-## 十二、联系我们
+## 8. Third-party processing
 
-如您对本隐私政策或数据处理有任何疑问、建议或投诉，欢迎通过以下方式联系我们：
+Optional telemetry may be forwarded by the owner-controlled relay to Google Analytics 4.
 
-- 电子邮箱：allinobsidian@outlook.com
-- GitHub Issues：<https://github.com/aiiinob/all-in-obsidian/issues>
+Important boundaries:
 
-我们将在收到请求后的 15 个工作日内予以回复，并在法律法规要求的期限内完成处理。
+- the extension sends only the public relay payload
+- the relay, not the extension, keeps the server-side `api_secret`
+- telemetry is sent only after the matching user consent bit is enabled
 
----
+If telemetry consent is disabled, the extension should not send those events.
 
-请在正式发布前再次核对本隐私政策内容，确保与您当前的产品功能、权限范围和合规要求保持一致。
+## 9. Retention and deletion
+
+- local settings remain until the user removes them or uninstalls the extension
+- local vault permissions and local REST configuration can be revoked by the user at any time
+- turning off telemetry consent stops future extension-side telemetry sends
+
+Previously received owner-side telemetry records may remain subject to the owner's analytics retention policy.
+
+## 10. User choices
+
+Users may:
+
+- review and change extension settings
+- enable or disable usage analytics independently from error reporting
+- revoke local vault and host permissions
+- remove stored configuration by clearing extension data or uninstalling the extension
+
+## 11. Security measures
+
+- sensitive local settings are stored only for extension functionality
+- telemetry secrets remain outside extension source and build output
+- permissions follow a least-privilege design
+- sanitization removes or redacts sensitive technical context before error telemetry is emitted
+
+## 12. Contact
+
+For privacy or data-handling questions:
+
+- Email: allinobsidian@outlook.com
+- GitHub Issues: <https://github.com/aiiinob/all-in-obsidian/issues>
