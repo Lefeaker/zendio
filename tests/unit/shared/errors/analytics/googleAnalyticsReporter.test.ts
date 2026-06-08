@@ -17,13 +17,14 @@ vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({
 }));
 
 describe('GoogleAnalyticsReporter', () => {
-  const fetchMock = vi.fn();
+  const emitTelemetryEventMock = vi.fn();
 
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubGlobal('fetch', fetchMock);
-    getServiceMock.mockReturnValue({ runtime: { getManifest: () => manifest } });
+    getServiceMock.mockReturnValue({
+      runtime: { getManifest: () => manifest }
+    });
     Object.defineProperty(window.navigator, 'userAgent', {
       configurable: true,
       value: 'Mozilla/5.0 Chrome/123.0 Safari/537.36'
@@ -31,54 +32,79 @@ describe('GoogleAnalyticsReporter', () => {
   });
 
   it('does nothing when disabled', async () => {
-    const { GoogleAnalyticsReporter } = await import(
-      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
-    );
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
     const reporter = new GoogleAnalyticsReporter({ enabled: false, measurementId: 'G-123' });
     await reporter.report({
-      code: 'NETWORK_TIMEOUT',
-      domain: 'background',
+      code: 'REST_NETWORK_TIMEOUT',
+      domain: 'rest',
       severity: ErrorSeverity.CRITICAL,
       recoverable: true,
       message: 'oops',
       timestamp: Date.now()
     });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(emitTelemetryEventMock).not.toHaveBeenCalled();
   });
 
-  it('sends sanitized error payloads and exposes config helpers', async () => {
+  it('emits sanitized extension_error payloads without service-provided GA params', async () => {
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    fetchMock.mockResolvedValue({ ok: true, text: () => Promise.resolve('{"ok":true}') });
-    const { GoogleAnalyticsReporter } = await import(
-      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const reporter = new GoogleAnalyticsReporter(
+      {
+        enabled: true,
+        measurementId: 'G-123',
+        debugMode: true,
+        clientId: 'client',
+        sessionId: 'session'
+      },
+      emitTelemetryEventMock
     );
-    const reporter = new GoogleAnalyticsReporter({
-      enabled: true,
-      measurementId: 'G-123',
-      debugMode: true,
-      clientId: 'client',
-      sessionId: 'session'
-    });
 
     await reporter.report({
-      code: 'NETWORK_TIMEOUT',
-      domain: 'background',
+      code: 'REST_NETWORK_TIMEOUT',
+      domain: 'rest',
       severity: ErrorSeverity.CRITICAL,
       recoverable: true,
       message: 'oops',
       timestamp: Date.now(),
       context: {
         extractor: 'reader',
+        selectedText: 'do not leak this',
+        markdown: '# do not leak this either',
+        filePath: '/Users/mac/Secrets/private.md',
         url: 'https://example.com/path?token=abc',
-        stack: 'Error\n at fn (https://example.com/file.js:12:8)'
+        stack:
+          'Error\n at fn (file:///Users/mac/private/file.js:12:8)\n at https://example.com/file.js:22:3'
       }
     });
 
     expect(sanitizeErrorForAnalyticsMock).toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('debug/mp/collect?measurement_id=G-123'),
-      expect.objectContaining({ method: 'POST' })
+    expect(emitTelemetryEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error_code: 'REST_NETWORK_TIMEOUT',
+        error_domain: 'rest',
+        error_category: 'NETWORK',
+        error_severity: 'critical',
+        error_severity_level: 4,
+        error_recoverable: true,
+        error_description: 'Network request timeout',
+        browser_name: 'chrome',
+        browser_version: '123',
+        extractor: 'reader',
+        domain: 'example.com',
+        protocol: 'https:',
+        stackTrace: 'Error\nat fn:12\nat anonymous:22'
+      })
     );
+    const emittedParams = emitTelemetryEventMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(emittedParams.extension_version).toBeUndefined();
+    expect(emittedParams.session_id).toBeUndefined();
+    expect(emittedParams.debug_mode).toBeUndefined();
+    expect(emittedParams.engagement_time_msec).toBeUndefined();
+    expect(emittedParams.selectedText).toBeUndefined();
+    expect(emittedParams.markdown).toBeUndefined();
+    expect(emittedParams.filePath).toBeUndefined();
     expect(reporter.getConfig().measurementId).toBe('G-123');
     expect(reporter.isEnabled()).toBe(true);
     reporter.updateConfig({ enabled: false });
@@ -93,20 +119,17 @@ describe('GoogleAnalyticsReporter', () => {
     getServiceMock.mockImplementation(() => {
       throw new Error('missing service');
     });
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Broken',
-      text: () => Promise.resolve('')
-    });
-    const { GoogleAnalyticsReporter } = await import(
-      '../../../../../src/shared/errors/analytics/googleAnalyticsReporter'
+    emitTelemetryEventMock.mockRejectedValue(new Error('transport failed'));
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const reporter = new GoogleAnalyticsReporter(
+      { enabled: true, measurementId: 'G-123' },
+      emitTelemetryEventMock
     );
-    const reporter = new GoogleAnalyticsReporter({ enabled: true, measurementId: 'G-123' });
 
     await reporter.report({
-      code: 'UNKNOWN',
-      domain: 'background',
+      code: 'UNKNOWN_RUNTIME_UNEXPECTED',
+      domain: 'unknown',
       severity: ErrorSeverity.INFO,
       recoverable: false,
       message: 'bad',
@@ -114,5 +137,22 @@ describe('GoogleAnalyticsReporter', () => {
     });
     expect(consoleWarnSpy).toHaveBeenCalled();
     consoleWarnSpy.mockRestore();
+  });
+
+  it('does not emit telemetry when no emitter is injected', async () => {
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const reporter = new GoogleAnalyticsReporter({ enabled: true, measurementId: 'G-123' });
+
+    await reporter.report({
+      code: 'REST_NETWORK_TIMEOUT',
+      domain: 'content',
+      severity: ErrorSeverity.ERROR,
+      recoverable: false,
+      message: 'oops',
+      timestamp: Date.now()
+    });
+
+    expect(emitTelemetryEventMock).not.toHaveBeenCalled();
   });
 });

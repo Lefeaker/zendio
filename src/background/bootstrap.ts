@@ -8,11 +8,13 @@ import { createErrorHandler } from '../shared/errors/errorHandler';
 import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
 import { initializeErrorAnalytics } from '../shared/errors/analytics';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
+import type { TelemetryEventParamMap } from '../shared/types/analytics';
 import {
   configureGlobalStateManagerStorage,
   createGlobalStateManager
 } from '../shared/state/globalStateManager';
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
+import { trackTelemetryEvent } from './services/telemetryService';
 import { configureI18nStorage } from '../i18n';
 import type { StorageService } from '../platform/interfaces/storage';
 
@@ -66,7 +68,14 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
     }
   });
 
-  void initializeErrorAnalytics(errorHandler).catch((error) => {
+  void initializeErrorAnalytics(errorHandler, {
+    emitTelemetryEvent: async (params) => {
+      await trackTelemetryEvent(
+        'extension_error',
+        params as TelemetryEventParamMap['extension_error']
+      );
+    }
+  }).catch((error) => {
     console.warn('[Background] Failed to initialize error analytics:', error);
   });
 

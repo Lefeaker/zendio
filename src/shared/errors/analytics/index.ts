@@ -15,7 +15,7 @@ export * from './sentryReporter';
 export * from './sentryConfig';
 
 // 便捷的初始化和使用函数
-import { createGoogleAnalyticsReporter } from './googleAnalyticsReporter';
+import { createGoogleAnalyticsReporter, type EmitTelemetryEvent } from './googleAnalyticsReporter';
 import { createSentryErrorReporter } from './sentryReporter';
 import { getSentryBuildConfig } from './sentryConfig';
 import {
@@ -31,6 +31,7 @@ type ReporterKey = 'ga' | 'sentry';
 
 interface GlobalReporterRegistry {
   __errorReporterUnregisters?: Partial<Record<ReporterKey, () => void>>;
+  __errorTelemetryEmitter?: EmitTelemetryEvent;
 }
 
 function getReporterRegistry(): Partial<Record<ReporterKey, () => void>> {
@@ -53,6 +54,31 @@ function unregisterReporter(key: ReporterKey): void {
   delete registry[key];
 }
 
+export interface InitializeErrorAnalyticsOptions {
+  emitTelemetryEvent?: EmitTelemetryEvent;
+}
+
+function setStoredTelemetryEmitter(emitter: EmitTelemetryEvent): void {
+  const globalRegistry = globalThis as GlobalReporterRegistry;
+  globalRegistry.__errorTelemetryEmitter = emitter;
+}
+
+function getStoredTelemetryEmitter(): EmitTelemetryEvent | undefined {
+  const globalRegistry = globalThis as GlobalReporterRegistry;
+  return globalRegistry.__errorTelemetryEmitter;
+}
+
+function resolveTelemetryEmitter(
+  options?: InitializeErrorAnalyticsOptions
+): EmitTelemetryEvent | undefined {
+  if (options?.emitTelemetryEvent) {
+    setStoredTelemetryEmitter(options.emitTelemetryEvent);
+    return options.emitTelemetryEvent;
+  }
+
+  return getStoredTelemetryEmitter();
+}
+
 /**
  * 初始化错误分析系统
  *
@@ -62,20 +88,25 @@ function unregisterReporter(key: ReporterKey): void {
  * 3. 注册到错误处理系统
  */
 export async function initializeErrorAnalytics(
-  targetErrorHandler: Pick<ErrorHandler, 'addReporter'> = getErrorHandlerInstance()
+  targetErrorHandler: Pick<ErrorHandler, 'addReporter'> = getErrorHandlerInstance(),
+  options?: InitializeErrorAnalyticsOptions
 ): Promise<void> {
   try {
     // 初始化配置
     const config = await initializeAnalyticsConfig();
+    const emitTelemetryEvent = resolveTelemetryEmitter(options);
 
     if (config.enabled && shouldReportErrors()) {
-      const gaReporter = createGoogleAnalyticsReporter({
-        measurementId: config.measurementId,
-        enabled: config.enabled,
-        debugMode: config.debugMode,
-        ...(config.clientId !== undefined && { clientId: config.clientId }),
-        ...(config.sessionId !== undefined && { sessionId: config.sessionId })
-      });
+      const gaReporter = createGoogleAnalyticsReporter(
+        {
+          measurementId: config.measurementId,
+          enabled: config.enabled,
+          debugMode: config.debugMode,
+          ...(config.clientId !== undefined && { clientId: config.clientId }),
+          ...(config.sessionId !== undefined && { sessionId: config.sessionId })
+        },
+        emitTelemetryEvent
+      );
 
       registerReporter('ga', targetErrorHandler.addReporter(gaReporter));
 
@@ -131,7 +162,12 @@ export async function updateErrorAnalyticsConfig(enabled: boolean): Promise<void
       // 如果启用且之前未初始化，重新初始化
       const registry = getReporterRegistry();
       if (!registry.ga && !registry.sentry) {
-        await initializeErrorAnalytics();
+        const emitTelemetryEvent = getStoredTelemetryEmitter();
+        if (emitTelemetryEvent) {
+          await initializeErrorAnalytics(undefined, { emitTelemetryEvent });
+        } else {
+          await initializeErrorAnalytics();
+        }
       }
     } else {
       // 如果禁用，停用现有的报告器

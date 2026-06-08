@@ -28,6 +28,7 @@ const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
 const createUsageStatsStoreMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => () => undefined));
+const trackTelemetryEventMock = vi.hoisted(() => vi.fn(async () => undefined));
 const storageMock = vi.hoisted(
   () =>
     ({
@@ -47,6 +48,9 @@ vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
 }));
 vi.mock('../../../src/shared/errors/analytics', () => ({
   initializeErrorAnalytics: initializeErrorAnalyticsMock
+}));
+vi.mock('../../../src/background/services/telemetryService', () => ({
+  trackTelemetryEvent: trackTelemetryEventMock
 }));
 vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
   registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
@@ -86,6 +90,19 @@ describe('background/bootstrap', () => {
       })
     );
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
+    const initCall = initializeErrorAnalyticsMock.mock.calls[0] as unknown as
+      | [unknown, { emitTelemetryEvent?: (params: Record<string, unknown>) => Promise<void> }]
+      | undefined;
+    const options = initCall?.[1];
+    const emitTelemetryEvent = options?.emitTelemetryEvent as
+      | ((params: Record<string, unknown>) => Promise<void>)
+      | undefined;
+    expect(typeof emitTelemetryEvent).toBe('function');
+    await emitTelemetryEvent?.({ error_code: 'NETWORK_TIMEOUT', timestamp: 1 });
+    expect(trackTelemetryEventMock).toHaveBeenCalledWith('extension_error', {
+      error_code: 'NETWORK_TIMEOUT',
+      timestamp: 1
+    });
     expect(registryMock.register).toHaveBeenCalledWith(
       TOKENS.globalStateManager,
       createGlobalStateManagerMock

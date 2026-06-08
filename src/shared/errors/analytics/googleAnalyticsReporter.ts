@@ -1,16 +1,14 @@
 /**
  * Google Analytics 错误报告器
  *
- * 将错误信息以匿名化方式发送到 Google Analytics 4
- * 用于收集和分析扩展的错误趋势和稳定性指标
+ * 将错误信息转换为 telemetry producer payload。
+ * 发送路径由注入的 emitter 决定，shared reporter 自身不直接发送 runtime/network 请求。
  */
 
 import { ErrorReporter, AppError } from '../types';
 import { parseErrorCode, SEVERITY_LEVELS, ERROR_CODE_DESCRIPTIONS } from '../errorCodes';
 import { sanitizeErrorForAnalytics } from './dataSanitizer';
-import { getService } from '../../di';
-import { TOKENS } from '../../di/tokens';
-import type { PlatformServices } from '@platform/types';
+import type { RuntimeExtensionErrorParams } from '../../types/analytics';
 
 // GA4 配置接口
 export interface GoogleAnalyticsConfig {
@@ -21,65 +19,86 @@ export interface GoogleAnalyticsConfig {
   clientId?: string;
 }
 
-// GA4 事件参数接口
-interface ErrorEventParams {
-  error_code: string;
-  error_domain: string;
-  error_category: string;
-  error_severity: string;
-  error_severity_level: number;
-  error_recoverable: boolean;
-  error_description: string;
-  extension_version: string;
-  browser_name?: string;
-  browser_version?: string;
-  timestamp: number;
-  session_id?: string;
-  // 不包含任何可识别用户的信息
-}
+export type EmitTelemetryEvent = (params: RuntimeExtensionErrorParams) => Promise<void>;
 
-// GA4 事件结构
-interface GA4Event {
-  name: string;
-  params: ErrorEventParams;
-}
+const SAFE_CONTEXT_STRING_PATTERN = /^[A-Za-z0-9_.:-]{1,80}$/;
+const SAFE_DOMAIN_PATTERN = /^(?=.{1,253}$)[A-Za-z0-9.-]+$/;
+const SAFE_LOCALE_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
+const SAFE_PROTOCOL_PATTERN = /^(?:https?|file|chrome-extension|moz-extension):$/;
+const SAFE_RESOLUTION_PATTERN = /^\d{2,5}x\d{2,5}$/;
+const SAFE_STACK_LABEL_PATTERN = /^[A-Za-z0-9_$.:<-]{1,40}$/;
+const SAFE_BROWSER_NAMES = new Set(['chrome', 'firefox', 'safari', 'edge', 'unknown']);
 
-// GA4 Measurement Protocol 请求体
-interface GA4Request {
-  client_id: string;
-  events: GA4Event[];
-  timestamp_micros?: number;
-}
+const STRING_CONTEXT_KEYS: Array<
+  | 'action'
+  | 'apiVersion'
+  | 'component'
+  | 'connectionType'
+  | 'extensionContext'
+  | 'extractor'
+  | 'feature'
+  | 'platform'
+  | 'step'
+  | 'theme'
+  | 'type'
+> = [
+  'action',
+  'apiVersion',
+  'component',
+  'connectionType',
+  'extensionContext',
+  'extractor',
+  'feature',
+  'platform',
+  'step',
+  'theme',
+  'type'
+];
+
+const NUMBER_CONTEXT_KEYS: Array<
+  | 'batchSize'
+  | 'duration'
+  | 'itemCount'
+  | 'memoryUsage'
+  | 'retryCount'
+  | 'statusCode'
+  | 'tabCount'
+  | 'timeout'
+> = [
+  'batchSize',
+  'duration',
+  'itemCount',
+  'memoryUsage',
+  'retryCount',
+  'statusCode',
+  'tabCount',
+  'timeout'
+];
+
+const BOOLEAN_CONTEXT_KEYS: Array<'cacheHit' | 'isOnline'> = ['cacheHit', 'isOnline'];
 
 export class GoogleAnalyticsReporter implements ErrorReporter {
   private config: GoogleAnalyticsConfig;
-  private clientId: string;
   private sessionId: string;
-  private extensionVersion: string;
   private browserInfo: { name?: string; version?: string } = {};
+  private readonly emitTelemetryEvent?: EmitTelemetryEvent;
 
-  constructor(config: GoogleAnalyticsConfig) {
+  constructor(config: GoogleAnalyticsConfig, emitTelemetryEvent?: EmitTelemetryEvent) {
     this.config = config;
-    this.clientId = config.clientId || this.generateClientId();
     this.sessionId = config.sessionId || this.generateSessionId();
-    this.extensionVersion = this.getExtensionVersion();
+    this.emitTelemetryEvent = emitTelemetryEvent;
     this.initializeBrowserInfo();
   }
 
   async report(error: AppError): Promise<void> {
-    if (!this.config.enabled) {
+    if (!this.config.enabled || !this.emitTelemetryEvent) {
       return;
     }
 
     try {
       const sanitizedError = sanitizeErrorForAnalytics(error);
       const eventParams = this.createErrorEventParams(sanitizedError);
-      const ga4Event: GA4Event = {
-        name: 'extension_error',
-        params: eventParams
-      };
-
-      await this.sendToGA4(ga4Event);
+      await this.emitTelemetryEvent(eventParams);
 
       if (this.config.debugMode) {
         console.log('[GA Reporter] Error reported:', {
@@ -90,11 +109,11 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       }
     } catch (reportingError) {
       // 错误报告失败不应该影响主要功能
-      console.warn('[GA Reporter] Failed to report error:', reportingError);
+      console.warn('[GA Reporter] Failed to emit telemetry event:', reportingError);
     }
   }
 
-  private createErrorEventParams(error: AppError): ErrorEventParams {
+  private createErrorEventParams(error: AppError): RuntimeExtensionErrorParams {
     const parsedCode = parseErrorCode(error.code);
     const description =
       ERROR_CODE_DESCRIPTIONS[error.code as keyof typeof ERROR_CODE_DESCRIPTIONS] ||
@@ -111,11 +130,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       error_severity_level: SEVERITY_LEVELS[error.severity],
       error_recoverable: error.recoverable,
       error_description: description,
-      extension_version: this.extensionVersion,
       timestamp: Date.now(),
       ...(this.browserInfo.name !== undefined && { browser_name: this.browserInfo.name }),
       ...(this.browserInfo.version !== undefined && { browser_version: this.browserInfo.version }),
-      ...(this.sessionId !== undefined && { session_id: this.sessionId }),
       // 添加安全的上下文信息
       ...safeContext
     };
@@ -124,54 +141,70 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   /**
    * 提取安全的上下文信息，用于错误定位但不泄露隐私
    */
-  private extractSafeContext(context?: Record<string, unknown>): Record<string, unknown> {
-    if (!context) return {};
+  private extractSafeContext(
+    context?: Record<string, unknown>
+  ): Partial<RuntimeExtensionErrorParams> {
+    if (!context) {
+      return {};
+    }
 
-    const safeContext: Record<string, unknown> = {};
+    const safeContext: Partial<RuntimeExtensionErrorParams> = {};
 
-    // 安全的技术信息（不包含用户隐私）
-    const safeKeys = [
-      'extractor', // 使用的提取器类型
-      'type', // 内容类型
-      'method', // HTTP 方法
-      'statusCode', // HTTP 状态码
-      'feature', // 使用的功能
-      'step', // 执行步骤
-      'component', // 组件名称
-      'action', // 执行的动作
-      'retryCount', // 重试次数
-      'timeout', // 超时时间
-      'batchSize', // 批处理大小
-      'itemCount', // 项目数量
-      'duration', // 执行时长
-      'memoryUsage', // 内存使用情况
-      'cacheHit', // 缓存命中
-      'apiVersion', // API 版本
-      'userAgent', // 用户代理（仅浏览器类型）
-      'platform', // 平台信息
-      'locale', // 语言设置
-      'theme', // 主题设置
-      'screenResolution', // 屏幕分辨率（用于UI错误定位）
-      'viewportSize', // 视口大小
-      'connectionType', // 连接类型
-      'isOnline', // 在线状态
-      'tabCount', // 标签页数量
-      'extensionContext' // 扩展上下文（background/content/popup）
-    ];
+    for (const key of STRING_CONTEXT_KEYS) {
+      const sanitizedValue = this.sanitizeContextString(context[key]);
+      if (sanitizedValue !== undefined) {
+        safeContext[key] = sanitizedValue;
+      }
+    }
 
-    // 只提取安全的键值对
-    safeKeys.forEach((key) => {
-      if (key in context && context[key] !== undefined) {
+    const method = this.sanitizeHttpMethod(context.method);
+    if (method !== undefined) {
+      safeContext.method = method;
+    }
+
+    const locale = this.sanitizeLocale(context.locale);
+    if (locale !== undefined) {
+      safeContext.locale = locale;
+    }
+
+    const screenResolution = this.sanitizeResolution(context.screenResolution);
+    if (screenResolution !== undefined) {
+      safeContext.screenResolution = screenResolution;
+    }
+
+    const viewportSize = this.sanitizeResolution(context.viewportSize);
+    if (viewportSize !== undefined) {
+      safeContext.viewportSize = viewportSize;
+    }
+
+    for (const key of NUMBER_CONTEXT_KEYS) {
+      const sanitizedValue = this.sanitizeContextNumber(
+        context[key],
+        key === 'statusCode' ? 999 : 1_000_000_000
+      );
+      if (sanitizedValue !== undefined) {
+        safeContext[key] = sanitizedValue;
+      }
+    }
+
+    for (const key of BOOLEAN_CONTEXT_KEYS) {
+      if (typeof context[key] === 'boolean') {
         safeContext[key] = context[key];
       }
-    });
+    }
 
     // 特殊处理：URL 域名（不包含路径和参数）
     if (context.url && typeof context.url === 'string') {
       try {
         const url = new URL(context.url);
-        safeContext.domain = url.hostname;
-        safeContext.protocol = url.protocol;
+        const domain = this.sanitizeDomain(url.hostname);
+        const protocol = this.sanitizeProtocol(url.protocol);
+        if (domain !== undefined) {
+          safeContext.domain = domain;
+        }
+        if (protocol !== undefined) {
+          safeContext.protocol = protocol;
+        }
       } catch {
         // 忽略无效 URL
       }
@@ -179,7 +212,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
     // 特殊处理：错误堆栈（仅保留函数名和行号，移除文件路径）
     if (context.stack && typeof context.stack === 'string') {
-      safeContext.stackTrace = this.sanitizeStackTrace(context.stack);
+      const stackTrace = this.sanitizeStackTrace(context.stack);
+      if (stackTrace !== undefined) {
+        safeContext.stackTrace = stackTrace;
+      }
     }
 
     return safeContext;
@@ -188,53 +224,43 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   /**
    * 清理堆栈跟踪，只保留函数名和行号
    */
-  private sanitizeStackTrace(stack: string): string {
-    return stack
+  private sanitizeStackTrace(stack: string): string | undefined {
+    const sanitizedFrames = stack
       .split('\n')
       .slice(0, 5) // 只保留前5行
-      .map((line) => {
-        // 提取函数名和行号，移除文件路径
-        const match = line.match(/at\s+([^(]+)\s*\(.*:(\d+):\d+\)/);
-        if (match) {
-          return `at ${match[1]}:${match[2]}`;
-        }
-        return line.replace(/https?:\/\/[^\s]+/g, '[URL]');
-      })
-      .join('\n');
+      .map((line, index) => this.sanitizeStackFrame(line, index))
+      .filter((line): line is string => line !== undefined);
+
+    return sanitizedFrames.length > 0 ? sanitizedFrames.join('\n') : undefined;
   }
 
-  private async sendToGA4(event: GA4Event): Promise<void> {
-    const request: GA4Request = {
-      client_id: this.clientId,
-      events: [event],
-      timestamp_micros: Date.now() * 1000
-    };
-
-    const url = this.config.debugMode
-      ? `https://www.google-analytics.com/debug/mp/collect?measurement_id=${this.config.measurementId}`
-      : `https://www.google-analytics.com/mp/collect?measurement_id=${this.config.measurementId}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(request)
-    });
-
-    if (!response.ok) {
-      throw new Error(`GA4 request failed: ${response.status} ${response.statusText}`);
+  private sanitizeStackFrame(line: string, index: number): string | undefined {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return undefined;
     }
 
-    if (this.config.debugMode) {
-      const responseText = await response.text();
-      console.log('[GA Reporter] GA4 response:', responseText);
+    if (!trimmed.startsWith('at ')) {
+      return index === 0 ? 'Error' : '[stack-frame-redacted]';
     }
+
+    const namedFrame = trimmed.match(/^at\s+([^(]+?)\s*\((?:.*):(\d+):\d+\)$/);
+    if (namedFrame) {
+      const label = this.sanitizeStackLabel(namedFrame[1]);
+      return `at ${label}:${namedFrame[2]}`;
+    }
+
+    const anonymousFrame = trimmed.match(/^at\s+(?:.*[\\/])?([^/\\()]+):(\d+):\d+$/);
+    if (anonymousFrame) {
+      return `at anonymous:${anonymousFrame[2]}`;
+    }
+
+    return '[stack-frame-redacted]';
   }
 
-  private generateClientId(): string {
-    // 生成符合 GA4 要求的客户端 ID（不包含个人信息）
-    return 'ext-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 9);
+  private sanitizeStackLabel(value: string): string {
+    const normalized = value.trim().replace(/\s+/g, '_');
+    return SAFE_STACK_LABEL_PATTERN.test(normalized) ? normalized : 'anonymous';
   }
 
   private generateSessionId(): string {
@@ -242,17 +268,62 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
   }
 
-  private getExtensionVersion(): string {
-    try {
-      const platform = getService<PlatformServices>(TOKENS.platformServices);
-      if (platform?.runtime?.getManifest) {
-        const manifest = platform.runtime.getManifest();
-        return manifest?.version ?? 'unknown';
-      }
-    } catch (error) {
-      console.warn('[GA Reporter] Failed to resolve extension version:', error);
+  private sanitizeContextString(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
     }
-    return 'unknown';
+
+    const normalized = value.trim();
+    return SAFE_CONTEXT_STRING_PATTERN.test(normalized) ? normalized : undefined;
+  }
+
+  private sanitizeHttpMethod(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    return /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(normalized) ? normalized : undefined;
+  }
+
+  private sanitizeLocale(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim();
+    return SAFE_LOCALE_PATTERN.test(normalized) ? normalized : undefined;
+  }
+
+  private sanitizeResolution(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim();
+    return SAFE_RESOLUTION_PATTERN.test(normalized) ? normalized : undefined;
+  }
+
+  private sanitizeContextNumber(value: unknown, max: number): number | undefined {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) {
+      return undefined;
+    }
+
+    return value;
+  }
+
+  private sanitizeDomain(value: string): string | undefined {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || !SAFE_DOMAIN_PATTERN.test(normalized)) {
+      return undefined;
+    }
+
+    return normalized;
+  }
+
+  private sanitizeProtocol(value: string): string | undefined {
+    const normalized = value.trim().toLowerCase();
+    return SAFE_PROTOCOL_PATTERN.test(normalized) ? normalized : undefined;
   }
 
   private initializeBrowserInfo(): void {
@@ -270,6 +341,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         } else if (userAgent.includes('Edge')) {
           this.browserInfo.name = 'edge';
         } else {
+          this.browserInfo.name = 'unknown';
+        }
+
+        if (this.browserInfo.name && !SAFE_BROWSER_NAMES.has(this.browserInfo.name)) {
           this.browserInfo.name = 'unknown';
         }
 
@@ -307,9 +382,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
 // 工厂函数
 export function createGoogleAnalyticsReporter(
-  config: GoogleAnalyticsConfig
+  config: GoogleAnalyticsConfig,
+  emitTelemetryEvent?: EmitTelemetryEvent
 ): GoogleAnalyticsReporter {
-  return new GoogleAnalyticsReporter(config);
+  return new GoogleAnalyticsReporter(config, emitTelemetryEvent);
 }
 
 // 默认配置

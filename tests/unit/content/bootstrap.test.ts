@@ -10,7 +10,10 @@ const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
 const createPopupCoordinatorMock = vi.hoisted(() => vi.fn(() => ({ closeAll: vi.fn() })));
 const clipperInitializeMock = vi.hoisted(() => vi.fn());
 const panelInitializeMock = vi.hoisted(() => vi.fn());
-const getPlatformServicesMock = vi.hoisted(() => vi.fn(() => ({ kind: 'platform-services' })));
+const messagingSendMock = vi.hoisted(() => vi.fn(async () => undefined));
+const getPlatformServicesMock = vi.hoisted(() =>
+  vi.fn(() => ({ kind: 'platform-services', messaging: { send: messagingSendMock } }))
+);
 const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => vi.fn()));
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
@@ -23,6 +26,12 @@ const registryMock = vi.hoisted(() => ({
   has: vi.fn((token?: symbol) =>
     token?.description === 'platformServices' ? registryState.hasPlatform : false
   ),
+  resolve: vi.fn((token?: symbol) => {
+    if (token?.description === 'platformServices') {
+      return getPlatformServicesMock();
+    }
+    return null;
+  }),
   register: vi.fn((token: symbol) => {
     if (token.description === 'platformServices') {
       registryState.hasPlatform = true;
@@ -93,9 +102,8 @@ describe('content/bootstrap', () => {
   });
 
   it('bootstraps scoped services and style managers on context construction', async () => {
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -123,6 +131,20 @@ describe('content/bootstrap', () => {
       })
     );
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);
+    const initCall = initializeErrorAnalyticsMock.mock.calls[0] as unknown as
+      | [unknown, { emitTelemetryEvent?: (params: Record<string, unknown>) => Promise<void> }]
+      | undefined;
+    const options = initCall?.[1];
+    const emitTelemetryEvent = options?.emitTelemetryEvent as
+      | ((params: Record<string, unknown>) => Promise<void>)
+      | undefined;
+    expect(typeof emitTelemetryEvent).toBe('function');
+    await emitTelemetryEvent?.({ error_code: 'NETWORK_TIMEOUT', timestamp: 1 });
+    expect(messagingSendMock).toHaveBeenCalledWith({
+      type: 'TRACK_TELEMETRY_EVENT',
+      event: 'extension_error',
+      params: { error_code: 'NETWORK_TIMEOUT', timestamp: 1 }
+    });
     expect(scopedRegistryMock.register).toHaveBeenCalledWith(
       TOKENS.globalStateManager,
       createGlobalStateManagerMock
@@ -152,9 +174,8 @@ describe('content/bootstrap', () => {
       return null;
     });
 
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -202,9 +223,8 @@ describe('content/bootstrap', () => {
   });
 
   it('requires explicit storage configuration before bootstrap', async () => {
-    const { ContentScriptContext, __setContentBootstrapLoadersForTests } = await import(
-      '../../../src/content/bootstrap'
-    );
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock

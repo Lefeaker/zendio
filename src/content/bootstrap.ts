@@ -4,6 +4,7 @@
  */
 
 import { createScopedRegistry, registry, TOKENS, type ScopedServiceRegistry } from '../shared/di';
+import { TRACK_TELEMETRY_EVENT, type RuntimeExtensionErrorParams } from '../shared/types/analytics';
 import { createErrorHandler } from '../shared/errors/errorHandler';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
 import { configureAnalyticsConfigManager } from '../shared/errors/analytics/analyticsConfig';
@@ -15,6 +16,7 @@ import {
 import { createPopupCoordinator } from './runtime/popupCoordinator';
 import { addBrowserClassToHtml } from '../shared/utils/browserDetection';
 import type { StorageService } from '../platform/interfaces/storage';
+import type { PlatformServices } from '../platform/types';
 
 type PlatformModule = { getPlatformServices: () => unknown };
 type ContentStyleManagers = {
@@ -56,6 +58,15 @@ function resolveContentBootstrapStorage(storage?: StorageService): StorageServic
   }
 
   return contentBootstrapStorage;
+}
+
+async function emitContentErrorTelemetry(params: RuntimeExtensionErrorParams): Promise<void> {
+  const platformServices = registry.resolve<PlatformServices>(TOKENS.platformServices);
+  await platformServices.messaging.send({
+    type: TRACK_TELEMETRY_EVENT,
+    event: 'extension_error',
+    params
+  });
 }
 
 export function __setContentBootstrapLoadersForTests(
@@ -195,7 +206,9 @@ export class ContentScriptContext {
       },
       target: window
     });
-    void initializeErrorAnalytics(errorHandler).catch((error) => {
+    void initializeErrorAnalytics(errorHandler, {
+      emitTelemetryEvent: emitContentErrorTelemetry
+    }).catch((error) => {
       console.warn('[ContentScript] Failed to initialize error analytics:', error);
     });
 
