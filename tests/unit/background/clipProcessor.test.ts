@@ -805,6 +805,76 @@ describe('clipProcessor', () => {
     });
   });
 
+  it('falls back to legacy-safe downloads attachments when a custom video template is malformed', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      video: {
+        screenshotAttachment: {
+          locationTemplate: 'attachments/video/${noteFileName}',
+          fileNameTemplate: "file-${date:{format:'YYYYMMDD'}}.jpg",
+          markdownUrlFormat:
+            'obsidian://vault/${generatedAttachmentFilePath}?file=${generatedAttachmentFileName}'
+        }
+      }
+    });
+    const classificationResult = {
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('folder/.hidden.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        type: 'video',
+        markdown:
+          '# video\n![Screenshot](aiob-attachment:shot-1)\n![Screenshot](aiob-attachment:shot-2)',
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          exportDestination: { kind: 'downloads' },
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: '../escape.jpg',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            },
+            {
+              id: 'shot-2',
+              fileName: '..',
+              mimeType: 'image/jpeg',
+              dataUrl: 'data:image/jpeg;base64,bbb'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(downloadMock).toHaveBeenNthCalledWith(1, {
+      filename: '.hidden/escape.jpg',
+      url: 'data:image/jpeg;base64,aaa',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(2, {
+      filename: '.hidden/attachment.jpg',
+      url: 'data:image/jpeg;base64,bbb',
+      mimeType: 'image/jpeg'
+    });
+    expect(downloadMock).toHaveBeenNthCalledWith(3, {
+      filename: '.hidden.md',
+      content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+  });
+
   it('writes video screenshots to the Obsidian custom attachment location', async () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,
