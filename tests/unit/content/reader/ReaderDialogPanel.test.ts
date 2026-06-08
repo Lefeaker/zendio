@@ -197,8 +197,7 @@ describe('ReaderDialogPanel', () => {
     input.value = 'finish draft';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPanelPersistence();
 
     expect(callbacks.onSubmitHighlightEdit).toHaveBeenCalledWith('h-1', 'finish draft');
     expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
@@ -272,9 +271,8 @@ describe('ReaderDialogPanel', () => {
   });
 
   it('focuses reader controls through the shared content dialog focus helper', async () => {
-    const { focusContentDialogElement } = await import(
-      '../../../../src/ui/hosts/content/contentDialogFocus'
-    );
+    const { focusContentDialogElement } =
+      await import('../../../../src/ui/hosts/content/contentDialogFocus');
     const panel = new ReaderDialogPanel({
       texts: createReaderPanelTexts(),
       callbacks: createReaderPanelCallbacks()
