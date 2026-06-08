@@ -29,6 +29,14 @@ function createScreenshot(timeSec: number): VideoCaptureScreenshot {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 function createVideoHarness(
   options: {
     currentTime?: number;
@@ -105,7 +113,7 @@ function createVideoHarness(
   };
 }
 
-async function flushAsyncWork(turns = 4): Promise<void> {
+async function flushAsyncWork(turns = 8): Promise<void> {
   for (let index = 0; index < turns; index += 1) {
     await Promise.resolve();
   }
@@ -115,7 +123,7 @@ describe('videoScreenshotPreparationQueue', () => {
   it('captures immediately when the visible video is already near the requested time without writing currentTime', async () => {
     const captures = [createTimestampCapture('ts-1', 42)];
     const visible = createVideoHarness({ currentTime: 42.1 });
-    const captureFrame = vi.fn((video: HTMLVideoElement, timeSec: number) => {
+    const captureFrame = vi.fn(async (video: HTMLVideoElement, timeSec: number) => {
       expect(video).toBe(visible.video);
       return createScreenshot(timeSec);
     });
@@ -161,7 +169,7 @@ describe('videoScreenshotPreparationQueue', () => {
       }
       return Document.prototype.createElement.call(document, tagName);
     });
-    const captureFrame = vi.fn((video: HTMLVideoElement, timeSec: number) => {
+    const captureFrame = vi.fn(async (video: HTMLVideoElement, timeSec: number) => {
       expect(video).toBe(hidden.video);
       return createScreenshot(timeSec);
     });
@@ -224,7 +232,7 @@ describe('videoScreenshotPreparationQueue', () => {
       currentTime: 8,
       sourceUrl: 'blob:https://video.example/runtime'
     });
-    const captureFrame = vi.fn((_video: HTMLVideoElement, timeSec: number) =>
+    const captureFrame = vi.fn(async (_video: HTMLVideoElement, timeSec: number) =>
       createScreenshot(timeSec)
     );
     const syncPanel = vi.fn();
@@ -273,7 +281,7 @@ describe('videoScreenshotPreparationQueue', () => {
       doc: document,
       getCaptures: () => captures,
       getVisibleVideo: () => visible.video,
-      captureFrame: vi.fn(() => null),
+      captureFrame: vi.fn(async () => null),
       syncPanel: vi.fn()
     });
 
@@ -289,6 +297,88 @@ describe('videoScreenshotPreparationQueue', () => {
     expect(document.body.contains(hidden.video)).toBe(false);
 
     queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
+  it('does not apply an async visible-video screenshot after the visible element changes', async () => {
+    const capture = createTimestampCapture('ts-1', 42);
+    const captures = [capture];
+    const visible = createVideoHarness({ currentTime: 42 });
+    const replacement = createVideoHarness({ currentTime: 42 });
+    const deferred = createDeferred<VideoCaptureScreenshot | null>();
+    const syncPanel = vi.fn();
+    let currentVisible: HTMLVideoElement | null = visible.video;
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => currentVisible,
+      captureFrame: vi.fn(() => deferred.promise),
+      syncPanel
+    });
+
+    document.body.append(visible.video);
+    document.body.append(replacement.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    currentVisible = replacement.video;
+    queue.handleVideoElementChange(replacement.video);
+    deferred.resolve(createScreenshot(42));
+    await flushAsyncWork();
+
+    expect(capture).toMatchObject({ screenshotRequested: true });
+    expect(capture.screenshot).toBeUndefined();
+    expect(syncPanel).not.toHaveBeenCalled();
+
+    queue.dispose();
+  });
+
+  it('does not apply an async hidden-duplicate screenshot after the capture is removed and the queue is disposed', async () => {
+    const capture = createTimestampCapture('ts-1', 42);
+    const captures = [capture];
+    const visible = createVideoHarness({
+      currentTime: 8,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const deferred = createDeferred<VideoCaptureScreenshot | null>();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hidden.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const syncPanel = vi.fn();
+    const captureFrame = vi.fn(() => deferred.promise);
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame,
+      syncPanel
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(captureFrame).toHaveBeenCalledWith(hidden.video, 42);
+
+    captures.splice(0, 1);
+    queue.dispose();
+    deferred.resolve(createScreenshot(42));
+    await flushAsyncWork();
+
+    expect(capture).toMatchObject({ screenshotRequested: true });
+    expect(capture.screenshot).toBeUndefined();
+    expect(syncPanel).not.toHaveBeenCalled();
+    expect(document.body.contains(hidden.video)).toBe(false);
+
     createElementSpy.mockRestore();
   });
 });

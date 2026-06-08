@@ -1,9 +1,6 @@
-import {
-  hasRequestedTimestampScreenshot,
-  setRequestedTimestampScreenshot
-} from './screenshotIntent';
-import { captureVideoFrameScreenshot } from './videoFrameScreenshot';
-import type { VideoTimestampCapture } from './types';
+import { hasRequestedTimestampScreenshot, setRequestedTimestampScreenshot } from './screenshotIntent';
+import { captureVideoFrameScreenshotAsync } from './videoFrameScreenshot';
+import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 
 const DEFAULT_TOLERANCE_SEC = 0.25;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
@@ -22,7 +19,7 @@ interface CreateVideoScreenshotPreparationQueueArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
-  captureFrame?: typeof captureVideoFrameScreenshot;
+  captureFrame?: (video: HTMLVideoElement, timeSec: number, now?: number) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
   syncPanel: () => void;
   toleranceSec?: number;
   timeoutMs?: number;
@@ -33,18 +30,11 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   private disposed = false;
   private readonly trackedCaptureIds = new Set<string>();
   private readonly visibleAttemptedIds = new Set<string>();
+  private readonly inFlightVisibleIds = new Set<string>();
   private readonly inFlightDuplicateIds = new Set<string>();
-
-  private readonly handleVisibleTimeProgress = () => {
-    this.captureFromVisibleVideo('time');
-  };
-
-  private readonly handleVisibleFrameReady = () => {
-    this.captureFromVisibleVideo('ready');
-  };
-
+  private readonly handleVisibleTimeProgress = () => void this.captureFromVisibleVideo('time');
+  private readonly handleVisibleFrameReady = () => void this.captureFromVisibleVideo('ready');
   constructor(private readonly args: CreateVideoScreenshotPreparationQueueArgs) {}
-
   request(captureId: string): void {
     if (this.disposed) {
       return;
@@ -57,7 +47,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     this.trackedCaptureIds.add(capture.id);
     this.processRequests();
   }
-
   requestAll(): void {
     if (this.disposed) {
       return;
@@ -68,7 +57,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     this.pruneTrackedCaptures();
     this.processRequests();
   }
-
   handleVideoElementChange(video: HTMLVideoElement | null): void {
     if (this.disposed) {
       return;
@@ -81,7 +69,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     this.processRequests();
   }
-
   dispose(): void {
     if (this.disposed) {
       return;
@@ -91,9 +78,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     this.visibleVideo = null;
     this.trackedCaptureIds.clear();
     this.visibleAttemptedIds.clear();
+    this.inFlightVisibleIds.clear();
     this.inFlightDuplicateIds.clear();
   }
-
   private processRequests(): void {
     if (this.disposed) {
       return;
@@ -102,7 +89,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (this.trackedCaptureIds.size === 0) {
       return;
     }
-    this.captureFromVisibleVideo('manual');
+    void this.captureFromVisibleVideo('manual');
     const visibleVideo = this.resolveVisibleVideo();
     if (!visibleVideo) {
       return;
@@ -112,11 +99,13 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     for (const capture of this.listTrackedPendingCaptures()) {
+      if (this.inFlightVisibleIds.has(capture.id)) {
+        continue;
+      }
       this.enqueueHiddenDuplicateCapture(visibleVideo, sourceUrl, capture.id);
     }
   }
-
-  private captureFromVisibleVideo(reason: 'manual' | 'ready' | 'time'): void {
+  private async captureFromVisibleVideo(reason: 'manual' | 'ready' | 'time'): Promise<void> {
     if (this.disposed) {
       return;
     }
@@ -134,28 +123,39 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       if (reason === 'time' && this.visibleAttemptedIds.has(capture.id)) {
         continue;
       }
+      if (this.inFlightVisibleIds.has(capture.id)) {
+        continue;
+      }
       if (reason === 'time') {
         this.visibleAttemptedIds.add(capture.id);
       }
-      const screenshot = this.getCaptureFrame()(visibleVideo, capture.timeSec);
-      if (!screenshot) {
-        continue;
+      this.inFlightVisibleIds.add(capture.id);
+      try {
+        const screenshot = await this.getCaptureFrame()(visibleVideo, capture.timeSec);
+        if (
+          this.disposed ||
+          this.resolveVisibleVideo() !== visibleVideo ||
+          !this.isTrackedPendingCaptureId(capture.id)
+        ) {
+          continue;
+        }
+        if (!screenshot) {
+          this.enqueueHiddenDuplicateFallback(visibleVideo, capture.id);
+          continue;
+        }
+        setRequestedTimestampScreenshot(capture, screenshot);
+        this.clearTrackedCapture(capture.id);
+        didUpdate = true;
+      } finally {
+        this.inFlightVisibleIds.delete(capture.id);
       }
-      setRequestedTimestampScreenshot(capture, screenshot);
-      this.clearTrackedCapture(capture.id);
-      didUpdate = true;
     }
 
     if (didUpdate) {
       this.args.syncPanel();
     }
   }
-
-  private enqueueHiddenDuplicateCapture(
-    sourceVideo: HTMLVideoElement,
-    sourceUrl: string,
-    captureId: string
-  ): void {
+  private enqueueHiddenDuplicateCapture(sourceVideo: HTMLVideoElement, sourceUrl: string, captureId: string): void {
     if (this.disposed || this.inFlightDuplicateIds.has(captureId)) {
       return;
     }
@@ -164,12 +164,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.inFlightDuplicateIds.delete(captureId);
     });
   }
-
-  private async attemptHiddenDuplicateCapture(
-    sourceVideo: HTMLVideoElement,
-    sourceUrl: string,
-    captureId: string
-  ): Promise<void> {
+  private async attemptHiddenDuplicateCapture(sourceVideo: HTMLVideoElement, sourceUrl: string, captureId: string): Promise<void> {
     if (this.disposed || this.resolveVisibleVideo() !== sourceVideo) {
       return;
     }
@@ -194,7 +189,13 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       if (!(await waitForUsableVideoFrame(duplicateVideo, this.getTimeoutMs()))) {
         return;
       }
-      const screenshot = this.getCaptureFrame()(duplicateVideo, capture.timeSec);
+      if (this.disposed || !this.isTrackedPendingCaptureId(capture.id)) {
+        return;
+      }
+      const screenshot = await this.getCaptureFrame()(duplicateVideo, capture.timeSec);
+      if (this.disposed || !this.isTrackedPendingCaptureId(capture.id)) {
+        return;
+      }
       if (!screenshot) {
         return;
       }
@@ -207,28 +208,19 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       duplicateVideo.remove();
     }
   }
-
-  private resolveVisibleVideo(): HTMLVideoElement | null {
-    return this.args.getVisibleVideo() ?? this.visibleVideo;
-  }
-
-  private findPendingCapture(id: string): VideoTimestampCapture | null {
-    return this.listPendingCaptures().find((capture) => capture.id === id) ?? null;
-  }
-
+  private resolveVisibleVideo(): HTMLVideoElement | null { return this.args.getVisibleVideo() ?? this.visibleVideo; }
+  private findPendingCapture(id: string): VideoTimestampCapture | null { return this.listPendingCaptures().find((capture) => capture.id === id) ?? null; }
   private listPendingCaptures(): VideoTimestampCapture[] {
     return this.args
       .getCaptures()
       .filter((capture) => hasRequestedTimestampScreenshot(capture) && !capture.screenshot);
   }
-
   private listTrackedPendingCaptures(): VideoTimestampCapture[] {
     const pendingById = new Map(this.listPendingCaptures().map((capture) => [capture.id, capture]));
     return Array.from(this.trackedCaptureIds)
       .map((id) => pendingById.get(id) ?? null)
       .filter((capture): capture is VideoTimestampCapture => capture !== null);
   }
-
   private pruneTrackedCaptures(): void {
     const pendingIds = new Set(this.listPendingCaptures().map((capture) => capture.id));
     for (const captureId of Array.from(this.trackedCaptureIds)) {
@@ -237,16 +229,12 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       }
     }
   }
-
   private clearTrackedCapture(captureId: string): void {
     this.trackedCaptureIds.delete(captureId);
     this.visibleAttemptedIds.delete(captureId);
+    this.inFlightVisibleIds.delete(captureId);
   }
-
-  private isTrackedPendingCaptureId(captureId: string): boolean {
-    return this.trackedCaptureIds.has(captureId) && Boolean(this.findPendingCapture(captureId));
-  }
-
+  private isTrackedPendingCaptureId(captureId: string): boolean { return this.trackedCaptureIds.has(captureId) && Boolean(this.findPendingCapture(captureId)); }
   private attachVisibleVideoListeners(): void {
     if (!this.visibleVideo) {
       return;
@@ -258,7 +246,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.visibleVideo.addEventListener(eventName, this.handleVisibleFrameReady, true);
     }
   }
-
   private detachVisibleVideoListeners(): void {
     if (!this.visibleVideo) {
       return;
@@ -270,25 +257,22 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.visibleVideo.removeEventListener(eventName, this.handleVisibleFrameReady, true);
     }
   }
-
-  private getCaptureFrame() {
-    return this.args.captureFrame ?? captureVideoFrameScreenshot;
-  }
-
-  private getToleranceSec(): number {
-    return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC;
-  }
-
-  private getTimeoutMs(): number {
-    return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
+  private getCaptureFrame() { return this.args.captureFrame ?? captureVideoFrameScreenshotAsync; }
+  private getToleranceSec(): number { return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC; }
+  private getTimeoutMs(): number { return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS; }
+  private enqueueHiddenDuplicateFallback(sourceVideo: HTMLVideoElement, captureId: string): void {
+    if (this.disposed || !this.isTrackedPendingCaptureId(captureId)) {
+      return;
+    }
+    const sourceUrl = resolveDuplicableVideoSource(sourceVideo, this.args.doc.location.href);
+    if (!sourceUrl) {
+      return;
+    }
+    this.enqueueHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId);
   }
 }
 
-export function createVideoScreenshotPreparationQueue(
-  args: CreateVideoScreenshotPreparationQueueArgs
-): VideoScreenshotPreparationQueue {
-  return new BackgroundVideoScreenshotPreparationQueue(args);
-}
+export function createVideoScreenshotPreparationQueue(args: CreateVideoScreenshotPreparationQueueArgs): VideoScreenshotPreparationQueue { return new BackgroundVideoScreenshotPreparationQueue(args); }
 
 function configureHiddenDuplicateVideo(
   duplicateVideo: HTMLVideoElement,
@@ -330,17 +314,12 @@ function resolveDuplicableVideoSource(video: HTMLVideoElement, baseUrl: string):
     return null;
   }
 }
-
 function hasUsableVideoFrame(video: HTMLVideoElement): boolean {
   const width = Math.floor(video.videoWidth || video.clientWidth || 0);
   const height = Math.floor(video.videoHeight || video.clientHeight || 0);
   return width > 0 && height > 0;
 }
-
-async function waitForUsableVideoFrame(
-  video: HTMLVideoElement,
-  timeoutMs: number
-): Promise<boolean> {
+async function waitForUsableVideoFrame(video: HTMLVideoElement, timeoutMs: number): Promise<boolean> {
   if (hasUsableVideoFrame(video)) {
     return true;
   }
@@ -376,12 +355,7 @@ async function waitForUsableVideoFrame(
     handleReady();
   });
 }
-
-async function seekHiddenVideo(
-  video: HTMLVideoElement,
-  timeSec: number,
-  timeoutMs: number
-): Promise<boolean> {
+async function seekHiddenVideo(video: HTMLVideoElement, timeSec: number, timeoutMs: number): Promise<boolean> {
   const targetTime = normalizeVideoTime(timeSec);
   if (!Number.isFinite(targetTime) || targetTime < 0) {
     return false;
@@ -417,11 +391,5 @@ async function seekHiddenVideo(
     }
   });
 }
-
-function normalizeVideoTime(value: number): number {
-  return Number.isFinite(value) ? value : 0;
-}
-
-function approximatelyEqual(left: number, right: number, tolerance: number): boolean {
-  return Math.abs(normalizeVideoTime(left) - normalizeVideoTime(right)) <= tolerance;
-}
+function normalizeVideoTime(value: number): number { return Number.isFinite(value) ? value : 0; }
+function approximatelyEqual(left: number, right: number, tolerance: number): boolean { return Math.abs(normalizeVideoTime(left) - normalizeVideoTime(right)) <= tolerance; }
