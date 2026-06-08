@@ -111,12 +111,58 @@ export function restoreRemovedFragmentHighlight(
   context.fragmentHighlightCoordinator.scheduleRestore();
 }
 
-export function snapshotTimestampScreenshotState(capture: VideoTimestampCapture): {
+interface TimestampScreenshotStateSnapshot {
   hasScreenshotRequested: boolean;
   screenshotRequested: VideoTimestampCapture['screenshotRequested'];
   hasScreenshot: boolean;
   screenshot: VideoTimestampCapture['screenshot'];
-} {
+}
+
+function restoreTimestampScreenshotRequestedProperty(
+  capture: VideoTimestampCapture,
+  snapshot: TimestampScreenshotStateSnapshot
+): void {
+  if (!snapshot.hasScreenshotRequested) {
+    delete capture.screenshotRequested;
+    return;
+  }
+  if (snapshot.screenshotRequested !== undefined) {
+    capture.screenshotRequested = snapshot.screenshotRequested;
+    return;
+  }
+  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
+  Object.defineProperty(capture, 'screenshotRequested', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: undefined
+  });
+}
+
+function restoreTimestampScreenshotProperty(
+  capture: VideoTimestampCapture,
+  snapshot: TimestampScreenshotStateSnapshot
+): void {
+  if (!snapshot.hasScreenshot) {
+    delete capture.screenshot;
+    return;
+  }
+  if (snapshot.screenshot !== undefined) {
+    capture.screenshot = snapshot.screenshot;
+    return;
+  }
+  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
+  Object.defineProperty(capture, 'screenshot', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: undefined
+  });
+}
+
+export function snapshotTimestampScreenshotState(
+  capture: VideoTimestampCapture
+): TimestampScreenshotStateSnapshot {
   return {
     hasScreenshotRequested: Object.prototype.hasOwnProperty.call(capture, 'screenshotRequested'),
     screenshotRequested: capture.screenshotRequested,
@@ -129,16 +175,8 @@ export function restoreTimestampScreenshotState(
   capture: VideoTimestampCapture,
   snapshot: ReturnType<typeof snapshotTimestampScreenshotState>
 ): void {
-  if (snapshot.hasScreenshotRequested) {
-    capture.screenshotRequested = snapshot.screenshotRequested;
-  } else {
-    delete capture.screenshotRequested;
-  }
-  if (snapshot.hasScreenshot) {
-    capture.screenshot = snapshot.screenshot;
-  } else {
-    delete capture.screenshot;
-  }
+  restoreTimestampScreenshotRequestedProperty(capture, snapshot);
+  restoreTimestampScreenshotProperty(capture, snapshot);
 }
 
 function debugVideoAnalyticsFailure(error: unknown): void {
