@@ -1,9 +1,9 @@
 {
-  "totalWarnings": 148,
+  "totalWarnings": 147,
   "ruleCounts": {
     "@typescript-eslint/require-await": 102,
     "@typescript-eslint/no-unsafe-argument": 4,
-    "@typescript-eslint/no-unsafe-assignment": 30,
+    "@typescript-eslint/no-unsafe-assignment": 29,
     "@typescript-eslint/no-unsafe-return": 8,
     "@typescript-eslint/no-unsafe-member-access": 3,
     "@typescript-eslint/no-unsafe-call": 1
@@ -35,13 +35,13 @@
       "file": "src/content/shared/panels/sessionCommentDrafts.ts",
       "warnings": [
         {
-          "line": 71,
+          "line": 72,
           "column": 16,
           "ruleId": "@typescript-eslint/no-unsafe-argument",
           "message": "Unsafe argument of type `any` assigned to a parameter of type `string`."
         },
         {
-          "line": 71,
+          "line": 72,
           "column": 20,
           "ruleId": "@typescript-eslint/no-unsafe-argument",
           "message": "Unsafe argument of type `any` assigned to a parameter of type `string`."
@@ -240,19 +240,19 @@
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 483,
+          "line": 481,
           "column": 13,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."
         },
         {
-          "line": 484,
+          "line": 482,
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-return",
           "message": "Unsafe return of a value of type `Promise<any>`."
         },
         {
-          "line": 485,
+          "line": 483,
           "column": 11,
           "ruleId": "@typescript-eslint/no-unsafe-return",
           "message": "Unsafe return of a value of type `any`."
@@ -263,25 +263,25 @@
       "file": "tests/e2e/videoPanelFlow.test.ts",
       "warnings": [
         {
-          "line": 104,
+          "line": 107,
           "column": 83,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 431,
+          "line": 436,
           "column": 9,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."
         },
         {
-          "line": 432,
+          "line": 437,
           "column": 5,
           "ruleId": "@typescript-eslint/no-unsafe-return",
           "message": "Unsafe return of a value of type `Promise<any>`."
         },
         {
-          "line": 433,
+          "line": 438,
           "column": 7,
           "ruleId": "@typescript-eslint/no-unsafe-return",
           "message": "Unsafe return of a value of type `any`."
@@ -525,13 +525,13 @@
       "file": "tests/unit/background/runtimeMessages.test.ts",
       "warnings": [
         {
-          "line": 79,
-          "column": 100,
+          "line": 85,
+          "column": 81,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 85,
+          "line": 92,
           "column": 74,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
@@ -844,14 +844,14 @@
       "file": "tests/unit/content/sessionDrafts/sessionDraftRepository.test.ts",
       "warnings": [
         {
-          "line": 463,
+          "line": 473,
           "column": 44,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 493,
-          "column": 87,
+          "line": 506,
+          "column": 54,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         }
@@ -861,13 +861,13 @@
       "file": "tests/unit/content/shared/sessionCommentDrafts.test.ts",
       "warnings": [
         {
-          "line": 11,
+          "line": 13,
           "column": 63,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
         },
         {
-          "line": 65,
+          "line": 67,
           "column": 51,
           "ruleId": "@typescript-eslint/require-await",
           "message": "Async arrow function has no 'await' expression."
@@ -875,17 +875,11 @@
       ]
     },
     {
-      "file": "tests/unit/content/video/videoFrameScreenshot.test.ts",
+      "file": "tests/unit/content/video/videoScreenshotPreparationQueue.test.ts",
       "warnings": [
         {
-          "line": 119,
-          "column": 9,
-          "ruleId": "@typescript-eslint/no-unsafe-assignment",
-          "message": "Unsafe assignment of an `any` value."
-        },
-        {
-          "line": 124,
-          "column": 9,
+          "line": 141,
+          "column": 7,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."
         }
@@ -895,7 +889,7 @@
       "file": "tests/unit/content/video/VideoSession.test.ts",
       "warnings": [
         {
-          "line": 503,
+          "line": 559,
           "column": 13,
           "ruleId": "@typescript-eslint/no-unsafe-assignment",
           "message": "Unsafe assignment of an `any` value."

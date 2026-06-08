@@ -52,8 +52,31 @@ function createCapture(overrides: Partial<VideoPanelCapture> = {}): VideoPanelCa
   };
 }
 
+function createCaptures(count: number): VideoPanelCapture[] {
+  return Array.from({ length: count }, (_, index) =>
+    createCapture({
+      id: `capture-${index + 1}`,
+      index: index + 1,
+      timeLabel: `0${index}:0${index}`,
+      comment: `saved note ${index + 1}`,
+      commentPreview: `saved note ${index + 1}`,
+      hasScreenshot: false
+    })
+  );
+}
+
 function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function requireCaptureInput(panel: VideoDialogPanel, id: string): HTMLInputElement {
+  const input =
+    panel.element.shadowRoot?.querySelector<HTMLInputElement>(`[data-capture-input="${id}"]`) ??
+    null;
+  if (!input) {
+    throw new Error(`capture input missing: ${id}`);
+  }
+  return input;
 }
 
 describe('VideoDialogPanel', () => {
@@ -321,6 +344,111 @@ describe('VideoDialogPanel', () => {
       panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-capture-input="capture-2"]')
         ?.value
     ).toBe('second capture draft');
+
+    panel.destroy();
+  });
+
+  it('stops only the requested capture editor when another capture remains active', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures(createCaptures(6));
+    panel.beginEditingCapture('capture-6', '');
+    await Promise.resolve();
+
+    const sixthInput = requireCaptureInput(panel, 'capture-6');
+    sixthInput.value = 'sixth draft must stay active';
+    sixthInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.stopEditing('capture-1');
+
+    expect(requireCaptureInput(panel, 'capture-6').value).toBe('sixth draft must stay active');
+    expect(panel.snapshotCommentDrafts()).toEqual({
+      'capture-6': 'sixth draft must stay active'
+    });
+
+    panel.destroy();
+  });
+
+  it.each([1, 2, 5, 6, 7, 8, 12])(
+    'preserves active draft at the last capture across unrelated rerenders for %i captures',
+    async (count) => {
+      const panel = new VideoDialogPanel({ callbacks, texts });
+      panel.show();
+      panel.setCaptures(createCaptures(count));
+      const activeId = `capture-${count}`;
+      panel.beginEditingCapture(activeId, '');
+      await Promise.resolve();
+
+      const draft = `draft for ${activeId}`;
+      const activeInput = requireCaptureInput(panel, activeId);
+      activeInput.value = draft;
+      activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+      panel.updateHint('Saving');
+      panel.setCaptures(createCaptures(count).map((capture) => ({ ...capture })));
+
+      expect(requireCaptureInput(panel, activeId).value).toBe(draft);
+      expect(panel.snapshotCommentDrafts()).toMatchObject({ [activeId]: draft });
+
+      panel.destroy();
+    }
+  );
+
+  it('keeps later timestamp drafts stable across six-capture rerenders and screenshot refreshes', async () => {
+    const longComment =
+      'Capture 5 saved comment that should not replace the live draft during video panel rerenders.';
+    const truncatedPreview = 'Capture 5 saved comment that should not replace the live draft...';
+    const captures = Array.from({ length: 6 }, (_, index) =>
+      createCapture({
+        id: `capture-${index + 1}`,
+        index: index + 1,
+        timeLabel: `0${index}:0${index}`,
+        comment: index === 4 ? longComment : `saved note ${index + 1}`,
+        commentPreview: index === 4 ? truncatedPreview : `saved note ${index + 1}`,
+        hasScreenshot: false
+      })
+    );
+    let nextCaptures = captures.map((capture) => ({ ...capture }));
+    let panel: VideoDialogPanel | null = null;
+    const panelCallbacks: VideoPanelCallbacks = {
+      ...callbacks,
+      onToggleScreenshot: vi.fn((id: string) => {
+        nextCaptures = nextCaptures.map((capture) =>
+          capture.id === id ? { ...capture, hasScreenshot: !capture.hasScreenshot } : capture
+        );
+        panel?.setCaptures(nextCaptures);
+      })
+    };
+
+    panel = new VideoDialogPanel({ callbacks: panelCallbacks, texts });
+    panel.show();
+    panel.setCaptures(nextCaptures);
+
+    const draftValue =
+      'Capture 5 full draft note that must survive editing another timestamp and all rerenders.';
+    const captureFiveInput = requireCaptureInput(panel, 'capture-5');
+    captureFiveInput.value = draftValue;
+    captureFiveInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const captureOneInput = requireCaptureInput(panel, 'capture-1');
+    captureOneInput.value = 'capture 1 live edit';
+    captureOneInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    panel.updateHint('Saving');
+    expect(requireCaptureInput(panel, 'capture-5').value).toBe(draftValue);
+
+    panel.setCaptures(nextCaptures.map((capture) => ({ ...capture })));
+    expect(requireCaptureInput(panel, 'capture-5').value).toBe(draftValue);
+
+    panel.element.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        '[data-capture-id="capture-1"] [data-action-id="video:toggle-screenshot"]'
+      )
+      ?.click();
+    await flushPanelPersistence();
+
+    expect(panelCallbacks.onToggleScreenshot).toHaveBeenCalledWith('capture-1');
+    expect(requireCaptureInput(panel, 'capture-5').value).toBe(draftValue);
 
     panel.destroy();
   });

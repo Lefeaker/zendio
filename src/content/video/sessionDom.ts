@@ -89,6 +89,7 @@ export class VideoSessionDomController {
     options: { initialCollapsed?: boolean } = {}
   ): void {
     this.panel = this.viewFactory.createView(callbacks, texts, options);
+    this.panel.hydrateCommentDrafts?.(this.commentDrafts);
     if (options.initialCollapsed) {
       this.panel.collapse?.();
     }
@@ -126,23 +127,11 @@ export class VideoSessionDomController {
 
   setCommentDrafts(drafts: Record<string, string>): void {
     this.commentDrafts = { ...drafts };
+    this.panel?.hydrateCommentDrafts?.(this.commentDrafts);
   }
 
   readCommentDrafts(): Record<string, string> {
-    const next = { ...this.commentDrafts };
-    this.getPanelShadowRoot()
-      ?.querySelectorAll<HTMLInputElement>('[data-capture-input]')
-      .forEach((input) => {
-        const id = input.dataset.captureInput;
-        if (!id) {
-          return;
-        }
-        if (input.value) {
-          next[id] = input.value;
-          return;
-        }
-        delete next[id];
-      });
+    const next = this.panel?.snapshotCommentDrafts?.() ?? this.mergeRenderedCommentDrafts();
     this.commentDrafts = next;
     return { ...next };
   }
@@ -184,8 +173,8 @@ export class VideoSessionDomController {
     this.panel?.beginEditingCapture(captureId, comment);
   }
 
-  stopEditing(): void {
-    this.panel?.stopEditing();
+  stopEditing(captureId?: string): void {
+    this.panel?.stopEditing(captureId);
   }
 
   isEventInsidePanel(event: Event): boolean {
@@ -231,6 +220,19 @@ export class VideoSessionDomController {
     this.panel?.destroy();
     this.panel = null;
     this.panelPresenter = null;
+  }
+
+  private mergeRenderedCommentDrafts(): Record<string, string> {
+    const next = { ...this.commentDrafts };
+    this.getPanelShadowRoot()
+      ?.querySelectorAll<HTMLInputElement>('[data-capture-input]')
+      .forEach((input) => {
+        const id = input.dataset.captureInput;
+        if (id) {
+          next[id] = input.value;
+        }
+      });
+    return next;
   }
 
   private getPanelShadowRoot(): ShadowRoot | null {

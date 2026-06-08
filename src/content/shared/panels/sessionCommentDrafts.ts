@@ -9,6 +9,12 @@ export type SessionCommentDraftedItem<T extends SessionCommentDraftItem> = T & {
   draft?: string;
 };
 
+function isSessionCommentDraftMap(
+  drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>
+): drafts is ReadonlyMap<string, string> {
+  return 'entries' in drafts && typeof drafts.entries === 'function';
+}
+
 interface SessionCommentDraftControllerOptions<T extends SessionCommentDraftItem> {
   datasetKey: string;
   inputSelector: string;
@@ -45,6 +51,13 @@ export class SessionCommentDraftStore {
     return this.drafts.delete(id);
   }
 
+  clearIfCurrent(id: string | null | undefined, expectedDraft: string): boolean {
+    if (!id || this.drafts.get(id) !== expectedDraft) {
+      return false;
+    }
+    return this.drafts.delete(id);
+  }
+
   reconcile(items: SessionCommentDraftItem[]): boolean {
     const commentsById = new Map(items.map((item) => [item.id, item.comment]));
     let changed = false;
@@ -62,10 +75,9 @@ export class SessionCommentDraftStore {
   }
 
   hydrate(drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>): boolean {
-    const nextEntries =
-      drafts instanceof Map ? Array.from(drafts.entries()) : Object.entries(drafts);
     const next = new Map<string, string>();
-    for (const [id, draft] of nextEntries) {
+    const entries = isSessionCommentDraftMap(drafts) ? drafts.entries() : Object.entries(drafts);
+    for (const [id, draft] of entries) {
       if (!id) {
         continue;
       }
@@ -143,7 +155,7 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
   async submit(id: string, value: string): Promise<void> {
     this.remember(id, value, { notify: false });
     await this.options.submitDraft(id, value);
-    if (this.store.clear(id)) {
+    if (this.store.clearIfCurrent(id, value)) {
       this.notifyChange();
     }
   }
@@ -162,14 +174,12 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
 
   private async flush(): Promise<void> {
     this.captureRenderedInputs();
+    const validIds = new Set(this.options.getItems().map((item) => item.id));
+    const pending = Object.entries(this.store.snapshot()).filter(([id]) => validIds.has(id));
     let changed = false;
-    for (const item of this.options.getItems()) {
-      const draft = this.store.get(item.id);
-      if (draft === undefined) {
-        continue;
-      }
-      await this.options.submitDraft(item.id, draft);
-      changed = this.store.clear(item.id) || changed;
+    for (const [id, draft] of pending) {
+      await this.options.submitDraft(id, draft);
+      changed = this.store.clearIfCurrent(id, draft) || changed;
     }
     if (changed) {
       this.notifyChange();
