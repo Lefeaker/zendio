@@ -7,6 +7,7 @@ import {
 } from './analyticsContract';
 
 export const TRACK_USAGE_EVENT = 'TRACK_USAGE_EVENT';
+export const TRACK_TELEMETRY_EVENT = 'TRACK_TELEMETRY_EVENT';
 const LEGACY_TRACK_USAGE_EVENT = 'track';
 
 export type {
@@ -33,7 +34,7 @@ export type AnalyticsEventParams = UsageEventParamMap[UsageEventName];
 
 export type TrackUsageEventPayload = {
   [EventName in UsageEventName]: {
-    type: typeof TRACK_USAGE_EVENT | typeof LEGACY_TRACK_USAGE_EVENT;
+    type: typeof TRACK_USAGE_EVENT | typeof TRACK_TELEMETRY_EVENT | typeof LEGACY_TRACK_USAGE_EVENT;
     event: EventName;
     params?: UsageEventParamMap[EventName];
   };
@@ -46,7 +47,9 @@ export function isTrackUsageEventMessage(message: unknown): message is TrackUsag
 
   const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
   const isSupportedMessageType =
-    candidate.type === TRACK_USAGE_EVENT || candidate.type === LEGACY_TRACK_USAGE_EVENT;
+    candidate.type === TRACK_USAGE_EVENT ||
+    candidate.type === TRACK_TELEMETRY_EVENT ||
+    candidate.type === LEGACY_TRACK_USAGE_EVENT;
   if (!isSupportedMessageType || !isAllowedUsageEventName(candidate.event)) {
     return false;
   }

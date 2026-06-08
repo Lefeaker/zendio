@@ -139,6 +139,26 @@ describe('runtime message listener', () => {
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
   });
 
+  it('accepts canonical telemetry usage messages before clip-related branches', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'support_like_clicked',
+        params: { variant: 'first' },
+        data: { markdown: '# clip should not be parsed here' }
+      },
+      { tabId: 12 }
+    );
+
+    expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+    expect(handleClipResultMock).not.toHaveBeenCalled();
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
+  });
+
   it('strips unknown clip result payload fields before forwarding to the clip pipeline', async () => {
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');

@@ -23,6 +23,14 @@ describe('usage telemetry contract', () => {
         params: { timestamp: 1_717_171_717_171 }
       })
     ).toBe(true);
+
+    expect(
+      isTrackUsageEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'support_like_clicked',
+        params: { variant: 'first' }
+      })
+    ).toBe(true);
   });
 
   it('rejects retired and unknown runtime usage events', () => {
