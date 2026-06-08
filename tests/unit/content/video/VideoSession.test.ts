@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import {
   SESSION_DRAFT_INDEX_KEY,
@@ -95,6 +95,7 @@ const createVideoPlatformAdapterMock = vi.hoisted(() =>
     dispose: vi.fn()
   }))
 );
+const originalMutationObserver = globalThis.MutationObserver;
 
 vi.mock('../../../../src/content/i18n/context', () => ({
   ensureContentI18n: ensureContentI18nMock,
@@ -388,6 +389,20 @@ async function flushMicrotasks(turns = 6): Promise<void> {
   }
 }
 
+class RecordingMutationObserver {
+  static instances: RecordingMutationObserver[] = [];
+  public readonly observe = vi.fn();
+  public readonly disconnect = vi.fn();
+
+  constructor(public readonly callback: MutationCallback) {
+    RecordingMutationObserver.instances.push(this);
+  }
+
+  static reset(): void {
+    RecordingMutationObserver.instances = [];
+  }
+}
+
 async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
   const candidates = await listVideoDraftCandidates(deps);
   return [...candidates].sort((left, right) => left.updatedAt - right.updatedAt).at(-1) ?? null;
@@ -480,6 +495,10 @@ describe('VideoSession', () => {
     __resetContentSessionRegistryForTests(document);
     vi.clearAllMocks();
     saveCaptureDataMock.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    globalThis.MutationObserver = originalMutationObserver;
   });
 
   it('requires explicit dependencies', () => {
@@ -1341,6 +1360,10 @@ describe('VideoSession', () => {
   it('rolls back a fragment capture, highlight wrapper, and editor state when saving fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const originalObserver = globalThis.MutationObserver;
+    RecordingMutationObserver.reset();
+    // @ts-expect-error test shim
+    globalThis.MutationObserver = RecordingMutationObserver;
     const deferredSave = createDeferred<void>();
     const deps = createDependencies();
     const view = createView();
@@ -1385,6 +1408,7 @@ describe('VideoSession', () => {
     expect(
       trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
     ).toBe(false);
+    expect(RecordingMutationObserver.instances).toHaveLength(1);
 
     deferredSave.resolve();
     await flushMutationWork();
@@ -1399,8 +1423,11 @@ describe('VideoSession', () => {
     expect(
       trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
     ).toBe(false);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(RecordingMutationObserver.instances).toHaveLength(1);
 
     sessionApi.cleanup();
+    globalThis.MutationObserver = originalObserver;
     vi.useRealTimers();
   });
 
@@ -2475,6 +2502,57 @@ describe('VideoSession', () => {
     expect(trackUsageEvent).toHaveBeenCalledWith('video_capture_removed', {
       capture_count_bucket: 'one'
     });
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('stops fragment restore observation when the last fragment capture is deleted', async () => {
+    vi.useFakeTimers();
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    RecordingMutationObserver.reset();
+    // @ts-expect-error test shim
+    globalThis.MutationObserver = RecordingMutationObserver;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+
+    const fragmentHost = document.createElement('p');
+    fragmentHost.textContent = 'Selected text for observer stop';
+    document.body.append(fragmentHost);
+    const textNode = fragmentHost.firstChild;
+    if (!(textNode instanceof Text)) {
+      throw new Error('expected fragment fixture text node');
+    }
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, 'Selected text'.length);
+
+    session.ingestTextCapture('<p>Selected text</p>', 'Selected text', 'fragment note', range);
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    const fragmentId = sessionApi.state.captures.find((capture) => capture.kind === 'fragment')?.id;
+    if (!fragmentId) {
+      throw new Error('expected fragment capture to be created');
+    }
+    expect(RecordingMutationObserver.instances).toHaveLength(1);
+
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(fragmentId);
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toEqual([]);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
 
     sessionApi.cleanup();
     vi.useRealTimers();

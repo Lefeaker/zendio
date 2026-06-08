@@ -266,6 +266,7 @@ export function ingestVideoSessionTextCapture(
     },
     rollback: () => {
       rollbackVideoSessionFragmentAdd(context, capture);
+      context.fragmentHighlightCoordinator.stopIfNoFragments();
     },
     onSaveError: (error) => {
       console.warn('[VideoSession] Failed to save fragment capture:', error);
@@ -321,6 +322,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
       if (removed?.kind === 'fragment' && removed.wrapperId) {
         context.fragmentHighlighter.removeById(removed.wrapperId);
       }
+      context.fragmentHighlightCoordinator.stopIfNoFragments();
       return { removed, previousDraft: draftToRestore, index };
     },
     afterApply: () => {

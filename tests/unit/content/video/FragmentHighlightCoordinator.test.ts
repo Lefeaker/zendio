@@ -67,10 +67,11 @@ describe('FragmentHighlightCoordinator', () => {
     coordinator.start();
 
     const observer = TestMutationObserver.instances[0];
-    expect(observer.observe).toHaveBeenCalledWith(
-      expect.any(Node),
-      expect.objectContaining({ childList: true })
-    );
+    expect(observer.observe).toHaveBeenCalledTimes(1);
+    expect(observer.observe).toHaveBeenCalledWith(document.body, {
+      childList: true,
+      subtree: true
+    });
     expect(observeDomChanges).toHaveBeenCalledWith(asType<MutationObserver>(observer));
 
     observer.callback([mutationRecord({ type: 'childList' })], asType(observer));
@@ -100,6 +101,33 @@ describe('FragmentHighlightCoordinator', () => {
     expect(decorateElement).toHaveBeenCalledWith(element);
   });
 
+  it('debounces repeated restore scheduling into a single restore pass', () => {
+    const capture = asType<VideoFragmentCapture>({ id: 'frag-debounce', wrapperId: 'missing' });
+    const ensureCaptureHighlight = vi.fn();
+    const coordinator = new FragmentHighlightCoordinator({
+      doc: document,
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(() => null),
+        decorateElement: vi.fn()
+      }),
+      getFragments: () => [capture],
+      ensureCaptureHighlight
+    });
+
+    coordinator.start();
+    coordinator.scheduleRestore();
+    coordinator.scheduleRestore();
+    coordinator.scheduleRestore();
+    vi.advanceTimersByTime(119);
+
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(2);
+
+    expect(ensureCaptureHighlight).toHaveBeenCalledTimes(1);
+    expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
+  });
+
   it('stops observation and clears pending restore timers', () => {
     const coordinator = new FragmentHighlightCoordinator({
       doc: document,
@@ -119,5 +147,64 @@ describe('FragmentHighlightCoordinator', () => {
     vi.advanceTimersByTime(200);
 
     expect(observer.disconnect).toHaveBeenCalled();
+  });
+
+  it('stops observation when fragment captures disappear before a pending restore runs', () => {
+    const fragments = [asType<VideoFragmentCapture>({ id: 'frag-stop', wrapperId: 'missing' })];
+    const ensureCaptureHighlight = vi.fn();
+    const coordinator = new FragmentHighlightCoordinator({
+      doc: document,
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(() => null),
+        decorateElement: vi.fn()
+      }),
+      getFragments: () => fragments,
+      ensureCaptureHighlight
+    });
+
+    coordinator.start();
+    coordinator.scheduleRestore();
+    const observer = TestMutationObserver.instances[0];
+
+    fragments.splice(0, fragments.length);
+    coordinator.stopIfNoFragments();
+    vi.advanceTimersByTime(200);
+
+    expect(observer.disconnect).toHaveBeenCalledTimes(1);
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+  });
+
+  it('lets platform adapters request scoped shadow-root observation through the coordinator observer', () => {
+    const host = document.createElement('bili-rich-text');
+    document.body.appendChild(host);
+    const root = host.attachShadow({ mode: 'open' });
+    const capture = asType<VideoFragmentCapture>({ id: 'frag-scope', wrapperId: 'missing' });
+    let coordinator: FragmentHighlightCoordinator;
+    const observeDomChanges = vi.fn();
+    coordinator = new FragmentHighlightCoordinator({
+      doc: document,
+      highlighter: asType<FragmentHighlighter>({
+        getElementByIdDeep: vi.fn(),
+        decorateElement: vi.fn()
+      }),
+      getFragments: () => [capture],
+      ensureCaptureHighlight: vi.fn()
+    });
+    observeDomChanges.mockImplementation(() => {
+      coordinator.observeWithCoordinator(root, { childList: true, subtree: true });
+    });
+
+    coordinator.updateAdapter(asType({ handleMutations: vi.fn(), observeDomChanges }));
+    coordinator.start();
+
+    const observer = TestMutationObserver.instances[0];
+    expect(observer.observe).toHaveBeenNthCalledWith(1, document.body, {
+      childList: true,
+      subtree: true
+    });
+    expect(observer.observe).toHaveBeenNthCalledWith(2, root, {
+      childList: true,
+      subtree: true
+    });
   });
 });
