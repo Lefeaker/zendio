@@ -9,7 +9,6 @@ import {
   createMessaging,
   findButton,
   findCardByTitle,
-  findCheckboxInText,
   findInputByValue,
   findYamlRowByField,
   flushPromises,
@@ -209,7 +208,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(420);
   });
 
-  it('renders Video Prompt & Entry switches in body rows instead of the card header', () => {
+  it('renders Video Prompt & Entry switches in one horizontal body row instead of the card header', () => {
     const controller = createController();
     mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -225,17 +224,18 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(header?.textContent).not.toContain('在视频网站显示笔记按钮');
     expect(header?.textContent).not.toContain('编辑批注时自动暂停视频播放');
 
-    const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
-    const promptRow = rows.find((row) => row.textContent?.includes('在视频网站显示笔记按钮'));
-    const autoPauseRow = rows.find((row) =>
-      row.textContent?.includes('编辑批注时自动暂停视频播放')
+    const videoEntryRow = requireElement(
+      card.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
     );
-    expect(promptRow?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(
-      true
+    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
+    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    const [promptSwitch, autoPauseSwitch] = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     );
-    expect(autoPauseRow?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(
-      true
-    );
+    expect([promptSwitch, autoPauseSwitch]).toHaveLength(2);
+    expect(promptSwitch?.checked).toBe(true);
+    expect(autoPauseSwitch?.checked).toBe(true);
     expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
     expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
   });
@@ -259,6 +259,14 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const card = findCardByTitle('Video Prompt & Entry');
+    expect(card.textContent).toContain('附件路径配置');
+    expect(card.textContent).toContain('Custom Attachment Location');
+    expect(
+      card.querySelector<HTMLAnchorElement>(
+        'a[href="https://github.com/mnaoumov/obsidian-custom-attachment-location"]'
+      )
+    ).toBeTruthy();
+
     const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
     const locationRow = rows.find((row) => row.textContent?.includes('附件位置模板'));
     const fileNameRow = rows.find((row) => row.textContent?.includes('附件文件名模板'));
@@ -288,8 +296,16 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     markdownInput.value = '![](${attachmentUrl})';
     markdownInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const promptCheckbox = findCheckboxInText('在视频网站显示笔记按钮');
-    const autoPauseCheckbox = findCheckboxInText('编辑批注时自动暂停视频播放');
+    const videoEntryRow = requireElement(
+      card.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
+    );
+    const videoEntrySwitches = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    );
+    expect(videoEntrySwitches).toHaveLength(2);
+    const promptCheckbox = requireElement(videoEntrySwitches[0], 'video prompt switch');
+    const autoPauseCheckbox = requireElement(videoEntrySwitches[1], 'video auto-pause switch');
     promptCheckbox.checked = true;
     promptCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
     autoPauseCheckbox.checked = true;
@@ -548,25 +564,28 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(text).toContain('编辑批注时自动暂停视频播放');
 
     const videoCard = findCardByTitle('Video Prompt & Entry');
-    const videoRows = Array.from(videoCard.querySelectorAll<HTMLElement>('.row'));
-    const videoSwitch = videoRows
-      .find((row) => row.textContent?.includes('在视频网站显示笔记按钮'))
-      ?.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    const commentEditorAutoPauseSwitch = videoRows
-      .find((row) => row.textContent?.includes('编辑批注时自动暂停视频播放'))
-      ?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const videoEntryRow = requireElement(
+      videoCard.querySelector<HTMLElement>('.video-entry-toggle-row'),
+      'video entry toggle row'
+    );
+    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
+    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    const videoEntrySwitches = Array.from(
+      videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    );
     expect(
       videoCard.querySelectorAll<HTMLInputElement>('.card-header input[type="checkbox"]')
     ).toHaveLength(0);
-    expect([videoSwitch, commentEditorAutoPauseSwitch].filter(Boolean)).toHaveLength(2);
-    if (videoSwitch) {
-      videoSwitch.checked = false;
-      videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if (commentEditorAutoPauseSwitch) {
-      commentEditorAutoPauseSwitch.checked = true;
-      commentEditorAutoPauseSwitch.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    expect(videoEntrySwitches).toHaveLength(2);
+    const videoSwitch = requireElement(videoEntrySwitches[0], 'video prompt switch');
+    const commentEditorAutoPauseSwitch = requireElement(
+      videoEntrySwitches[1],
+      'video auto-pause switch'
+    );
+    videoSwitch.checked = false;
+    videoSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    commentEditorAutoPauseSwitch.checked = true;
+    commentEditorAutoPauseSwitch.dispatchEvent(new Event('change', { bubbles: true }));
 
     const draft = mounted.collectDraft();
     expect(draft.video.floatingPromptEnabled).toBe(false);

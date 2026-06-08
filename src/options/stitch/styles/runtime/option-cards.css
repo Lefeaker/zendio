@@ -18,6 +18,29 @@
   margin-top: 0;
 }
 
+.video-entry-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  white-space: normal;
+}
+
+.video-entry-toggle .switch-line {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.video-entry-toggle-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: center;
+}
+
 .group-title {
   margin: 0 0 var(--space-4-5);
   color: var(--text-faint);

@@ -1,198 +1,111 @@
 export function getChangelogByLanguage(language: string): string {
   const changelogs: Record<string, string> = {
     'zh-CN': `
-      <h2>v0.2.0 - 2025-09-30</h2>
-      <h3>✨ 新增功能</h3>
+      <h2>v0.2.0 - 2026-06-10</h2>
+      <h3>✨ 主要更新</h3>
       <ul>
-        <li><strong>双 URL 配置</strong>: 现在可以分别配置 HTTPS 和 HTTP 两个 URL
-          <ul>
-            <li>在选项页面添加了 <code>HTTPS URL</code> 和 <code>HTTP URL</code> 两个独立字段</li>
-            <li>扩展会智能选择可用的连接方式</li>
-            <li>向后兼容旧的 <code>baseUrl</code> 配置</li>
-          </ul>
-        </li>
+        <li><strong>新版设置中心</strong>: 重构选项页，集中管理使用概览、界面语言、隐私数据、存储、采集、输出和维护工具。</li>
+        <li><strong>多 Vault 与智能路由</strong>: 支持配置多个 Obsidian 仓库，并按域名、关键词或 URL Pattern 自动选择目标仓库。</li>
+        <li><strong>更可靠的 Obsidian 写入</strong>: 支持 HTTPS / HTTP 双连接、连接测试和 REST API 回退。</li>
+        <li><strong>Chrome 本地路径写入</strong>: Chrome / Chromium 浏览器授权本地 Vault 文件夹后，可按模板路径直接写入本地目录，权限缺失或写入失败时自动回退 REST API。</li>
+        <li><strong>面板路径自由选择</strong>: 剪藏、阅读和视频面板可切换保存目标并预览输出路径，支持在 Vault、本地目录或下载路径之间选择。</li>
+        <li><strong>片段剪藏与阅读模式增强</strong>: 新增上下文捕捉、脚注格式、快捷键、高亮主题和阅读导出方式配置。</li>
+        <li><strong>视频笔记</strong>: 支持 YouTube / 哔哩哔哩时间点记录、字幕或评论片段捕捉，以及批注编辑。</li>
+        <li><strong>AI 对话导出扩展</strong>: 支持 ChatGPT、Claude、Gemini、Copilot、通义、DeepSeek、Kimi、豆包、Monica、Perplexity 等平台。</li>
+        <li><strong>结构化输出</strong>: 新增 YAML 配置、路径模板、域名映射、配置迁移和诊断修复工具。</li>
+        <li><strong>多语言界面</strong>: 正式支持 12 种界面语言，并覆盖新版设置页主要入口。</li>
       </ul>
 
-      <h3>🔧 改进</h3>
+      <h3>🔧 使用建议</h3>
       <ul>
-        <li><strong>智能容错机制增强</strong>
-          <ul>
-            <li>优先使用用户配置的 HTTPS 和 HTTP URL</li>
-            <li>自动在多个协议和端口之间切换</li>
-            <li>详细的日志输出，方便调试</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>📝 配置说明</h3>
-      <p><strong>新的配置方式</strong>（推荐）:</p>
-      <pre><code>HTTPS URL: https://127.0.0.1:27124/
-HTTP URL:  http://127.0.0.1:27123/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <p><strong>旧的配置方式</strong>（仍然支持）:</p>
-      <pre><code>Base URL:  https://127.0.0.1:27124/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <h3>🎯 使用建议</h3>
-      <ul>
-        <li>配置两个 URL（HTTPS 和 HTTP），让扩展自动选择可用的连接</li>
-        <li>如果不确定端口，可以在 Obsidian 的 Local REST API 插件设置中查看</li>
-        <li>通常 HTTPS 端口为 27124，HTTP 端口为 27123</li>
-      </ul>
-
-      <h3>📚 技术细节</h3>
-      <ul>
-        <li>修改了 <code>src/background/store.ts</code> 添加 <code>httpsUrl</code> 和 <code>httpUrl</code> 字段</li>
-        <li>更新了 <code>src/options/index.html</code> 和 <code>src/options/index.ts</code> 配置页面</li>
-        <li>增强了 <code>src/background/sinks/obsidianRest.ts</code> 的容错逻辑</li>
-        <li>改进了 <code>src/background/index.ts</code> 的连接测试功能</li>
+        <li>先在 Storage 中配置默认仓库，再按需要添加附加仓库和路由规则。</li>
+        <li>Chrome / Chromium 浏览器可选本地 Vault 文件夹写入；Firefox 继续使用 REST API 路径。</li>
+        <li>AI 页面总结、阅读顶部总结和字幕翻译仍在规划中，本版本不作为已发布能力开放。</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
 
-      <h2>v0.1.0 - 2025-09-26</h2>
+      <h2>v0.1.0 - 2025-10-13</h2>
       <h3>🎉 初始版本</h3>
       <ul>
-        <li>基本的网页剪藏功能</li>
+        <li>网页剪藏基础能力上线</li>
         <li>Obsidian Local REST API 集成</li>
-        <li>模板系统</li>
+        <li>基础路径模板和域名映射</li>
         <li>AI 分类器支持</li>
-        <li>多平台 AI 聊天记录导出（ChatGPT、Claude、Gemini 等）</li>
-        <li>域名映射配置</li>
-        <li>多语言支持（中文、英文、日文）</li>
+        <li>AI 对话导出起步支持</li>
+        <li>多语言界面起步支持</li>
       </ul>
     `,
     en: `
-      <h2>v0.2.0 - 2025-09-30</h2>
-      <h3>✨ New Features</h3>
+      <h2>v0.2.0 - 2026-06-10</h2>
+      <h3>✨ Highlights</h3>
       <ul>
-        <li><strong>Dual URL Configuration</strong>: Now you can configure HTTPS and HTTP URLs separately
-          <ul>
-            <li>Added separate <code>HTTPS URL</code> and <code>HTTP URL</code> fields in options page</li>
-            <li>Extension intelligently chooses available connection method</li>
-            <li>Backward compatible with old <code>baseUrl</code> configuration</li>
-          </ul>
-        </li>
+        <li><strong>New settings center</strong>: Rebuilt Options around overview, language, privacy, storage, capture, output, and maintenance workflows.</li>
+        <li><strong>Multi-vault routing</strong>: Configure multiple Obsidian vaults and route by domain, keyword, or URL pattern.</li>
+        <li><strong>More reliable Obsidian writes</strong>: Added HTTPS / HTTP dual endpoints, connection tests, and REST API fallback.</li>
+        <li><strong>Chrome local path writes</strong>: Chromium browsers can write directly into an authorized Local Vault folder using configured path templates, with REST fallback when permission or writing fails.</li>
+        <li><strong>Panel path choices</strong>: Clipper, Reader, and Video panels can switch save targets and preview output paths across Vault, local-folder, and download destinations.</li>
+        <li><strong>Fragment and reading upgrades</strong>: Configure context capture, footnote format, shortcuts, highlight themes, and reading export modes.</li>
+        <li><strong>Video notes</strong>: Capture YouTube / Bilibili timestamps, subtitle or comment fragments, and editable notes.</li>
+        <li><strong>Expanded AI chat export</strong>: Supports ChatGPT, Claude, Gemini, Copilot, Tongyi, DeepSeek, Kimi, Doubao, Monica, Perplexity, and more.</li>
+        <li><strong>Structured output</strong>: Added YAML configuration, path templates, domain mappings, configuration transfer, and diagnostics/repair tools.</li>
+        <li><strong>Multilingual UI</strong>: Officially supports 12 interface languages across the main Options flows.</li>
       </ul>
 
-      <h3>🔧 Improvements</h3>
+      <h3>🔧 Notes</h3>
       <ul>
-        <li><strong>Enhanced Smart Fallback Mechanism</strong>
-          <ul>
-            <li>Prioritize user-configured HTTPS and HTTP URLs</li>
-            <li>Automatically switch between multiple protocols and ports</li>
-            <li>Detailed logging output for easier debugging</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>📝 Configuration Guide</h3>
-      <p><strong>New Configuration Method</strong> (Recommended):</p>
-      <pre><code>HTTPS URL: https://127.0.0.1:27124/
-HTTP URL:  http://127.0.0.1:27123/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <p><strong>Old Configuration Method</strong> (Still Supported):</p>
-      <pre><code>Base URL:  https://127.0.0.1:27124/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <h3>🎯 Usage Recommendations</h3>
-      <ul>
-        <li>Configure both URLs (HTTPS and HTTP) to let the extension automatically choose available connection</li>
-        <li>If unsure about ports, check in Obsidian's Local REST API plugin settings</li>
-        <li>Usually HTTPS port is 27124, HTTP port is 27123</li>
-      </ul>
-
-      <h3>📚 Technical Details</h3>
-      <ul>
-        <li>Modified <code>src/background/store.ts</code> to add <code>httpsUrl</code> and <code>httpUrl</code> fields</li>
-        <li>Updated <code>src/options/index.html</code> and <code>src/options/index.ts</code> configuration pages</li>
-        <li>Enhanced fallback logic in <code>src/background/sinks/obsidianRest.ts</code></li>
-        <li>Improved connection testing functionality in <code>src/background/index.ts</code></li>
+        <li>Configure the default vault first, then add extra vaults and routing rules as needed.</li>
+        <li>Chrome / Chromium browsers can use optional Local Vault folder writes; Firefox continues to use the REST API path.</li>
+        <li>Page summary, reading overlay summary, and subtitle translation remain planned features and are not shipped as active v0.2.0 capabilities.</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
 
-      <h2>v0.1.0 - 2025-09-26</h2>
+      <h2>v0.1.0 - 2025-10-13</h2>
       <h3>🎉 Initial Release</h3>
       <ul>
-        <li>Basic web clipping functionality</li>
+        <li>Initial web clipping workflow</li>
         <li>Obsidian Local REST API integration</li>
-        <li>Template system</li>
+        <li>Basic path templates and domain mappings</li>
         <li>AI classifier support</li>
-        <li>Multi-platform AI chat export (ChatGPT, Claude, Gemini, etc.)</li>
-        <li>Domain mapping configuration</li>
-        <li>Multi-language support (Chinese, English, Japanese)</li>
+        <li>Early AI chat export support</li>
+        <li>Early multilingual UI support</li>
       </ul>
     `,
     ja: `
-      <h2>v0.2.0 - 2025-09-30</h2>
-      <h3>✨ 新機能</h3>
+      <h2>v0.2.0 - 2026-06-10</h2>
+      <h3>✨ 主な更新</h3>
       <ul>
-        <li><strong>デュアルURL設定</strong>: HTTPSとHTTPのURLを個別に設定可能
-          <ul>
-            <li>オプションページに<code>HTTPS URL</code>と<code>HTTP URL</code>の独立したフィールドを追加</li>
-            <li>拡張機能が利用可能な接続方法を自動選択</li>
-            <li>従来の<code>baseUrl</code>設定との後方互換性</li>
-          </ul>
-        </li>
+        <li><strong>新しい設定センター</strong>: 概要、言語、プライバシー、保存先、キャプチャ、出力、メンテナンスをまとめて管理できます。</li>
+        <li><strong>複数 Vault ルーティング</strong>: 複数の Obsidian Vault を設定し、ドメイン、キーワード、URL Pattern で保存先を自動選択できます。</li>
+        <li><strong>Obsidian 書き込みの信頼性向上</strong>: HTTPS / HTTP の二系統接続、接続テスト、REST API フォールバックに対応しました。</li>
+        <li><strong>Chrome ローカルパス書き込み</strong>: Chromium ブラウザーでは、許可したローカル Vault フォルダーへテンプレートパスに沿って直接書き込み、権限不足や失敗時は REST API に戻ります。</li>
+        <li><strong>パネル内の保存先選択</strong>: Clipper、Reader、Video パネルで保存先と出力パスを切り替え、Vault、ローカルフォルダー、ダウンロード先を選べます。</li>
+        <li><strong>フラグメントと読書モードの強化</strong>: コンテキスト取得、脚注形式、ショートカット、ハイライトテーマ、読書エクスポート方式を設定できます。</li>
+        <li><strong>動画ノート</strong>: YouTube / Bilibili のタイムスタンプ、字幕やコメントの断片、編集可能なメモを保存できます。</li>
+        <li><strong>AI チャット出力の拡張</strong>: ChatGPT、Claude、Gemini、Copilot、Tongyi、DeepSeek、Kimi、Doubao、Monica、Perplexity などに対応しました。</li>
+        <li><strong>構造化出力</strong>: YAML 設定、パステンプレート、ドメインマッピング、設定移行、診断と修復ツールを追加しました。</li>
+        <li><strong>多言語 UI</strong>: 主要な Options フローで 12 種類のインターフェース言語を正式サポートしました。</li>
       </ul>
 
-      <h3>🔧 改善</h3>
+      <h3>🔧 補足</h3>
       <ul>
-        <li><strong>スマートフォールバック機能の強化</strong>
-          <ul>
-            <li>ユーザー設定のHTTPSおよびHTTP URLを優先</li>
-            <li>複数のプロトコルとポート間で自動切り替え</li>
-            <li>デバッグしやすい詳細なログ出力</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>📝 設定ガイド</h3>
-      <p><strong>新しい設定方法</strong>（推奨）:</p>
-      <pre><code>HTTPS URL: https://127.0.0.1:27124/
-HTTP URL:  http://127.0.0.1:27123/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <p><strong>従来の設定方法</strong>（引き続きサポート）:</p>
-      <pre><code>Base URL:  https://127.0.0.1:27124/
-Vault:     your-vault-name
-API Key:   your-api-key</code></pre>
-
-      <h3>🎯 使用推奨事項</h3>
-      <ul>
-        <li>両方のURL（HTTPSとHTTP）を設定して、拡張機能が利用可能な接続を自動選択できるようにする</li>
-        <li>ポートが不明な場合は、ObsidianのLocal REST APIプラグイン設定で確認</li>
-        <li>通常、HTTPSポートは27124、HTTPポートは27123</li>
-      </ul>
-
-      <h3>📚 技術詳細</h3>
-      <ul>
-        <li><code>src/background/store.ts</code>を修正して<code>httpsUrl</code>と<code>httpUrl</code>フィールドを追加</li>
-        <li><code>src/options/index.html</code>と<code>src/options/index.ts</code>設定ページを更新</li>
-        <li><code>src/background/sinks/obsidianRest.ts</code>のフォールバックロジックを強化</li>
-        <li><code>src/background/index.ts</code>の接続テスト機能を改善</li>
+        <li>まずデフォルト Vault を設定し、必要に応じて追加 Vault とルーティングルールを追加してください。</li>
+        <li>Chromium ブラウザーでは任意のローカル Vault フォルダー書き込みを利用できます。Firefox は引き続き REST API 経由で保存します。</li>
+        <li>ページ要約、読書オーバーレイ要約、字幕翻訳は計画中の機能であり、v0.2.0 の有効な公開機能ではありません。</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
 
-      <h2>v0.1.0 - 2025-09-26</h2>
+      <h2>v0.1.0 - 2025-10-13</h2>
       <h3>🎉 初回リリース</h3>
       <ul>
-        <li>基本的なウェブクリッピング機能</li>
+        <li>基本的なウェブクリッピング機能を公開</li>
         <li>Obsidian Local REST API統合</li>
-        <li>テンプレートシステム</li>
+        <li>基本的なパステンプレートとドメインマッピング</li>
         <li>AI分類器サポート</li>
-        <li>マルチプラットフォームAIチャットエクスポート（ChatGPT、Claude、Geminiなど）</li>
-        <li>ドメインマッピング設定</li>
-        <li>多言語サポート（中国語、英語、日本語）</li>
+        <li>AIチャット出力の初期対応</li>
+        <li>多言語 UI の初期対応</li>
       </ul>
     `
   };

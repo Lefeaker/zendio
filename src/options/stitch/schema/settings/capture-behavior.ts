@@ -165,19 +165,13 @@ const schema: SettingsSchema = {
                           },
                           {
                             kind: 'field',
-                            label: t(
-                              'schemaCaptureBehaviorContextModeFieldLabel',
-                              'contextMode'
-                            ),
+                            label: t('schemaCaptureBehaviorContextModeFieldLabel', 'contextMode'),
                             control: boundSelect({
                               bind: 'fragmentContextMode',
                               options: [
                                 {
                                   value: 'chars',
-                                  label: t(
-                                    'schemaCaptureBehaviorContextModeCharsOption',
-                                    'chars'
-                                  )
+                                  label: t('schemaCaptureBehaviorContextModeCharsOption', 'chars')
                                 },
                                 {
                                   value: 'sentences',

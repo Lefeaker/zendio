@@ -158,6 +158,29 @@ td {
   font-size: var(--font-size-sm);
 }
 
+.path-template-section-title h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+
+.attachment-path-guidance {
+  margin: var(--space-2) 0 0;
+  line-height: var(--line-height-control);
+}
+
+.attachment-path-guidance a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.attachment-path-guidance a:hover,
+.attachment-path-guidance a:focus-visible {
+  text-decoration: underline;
+}
+
 .highlight-inline-example {
   color: var(--text-dim);
   font-size: var(--font-size-md);

@@ -13,10 +13,8 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   fragmentModifierKeyMeta: 'Cmd Sentinel',
   fragmentModifierKeyCtrl: 'Ctrl Sentinel',
   fragmentModifierKeyAlt: 'Alt Sentinel',
-  schemaCaptureBehaviorModifierConflictBrowser:
-    'Browser warning sentinel for {label}',
-  schemaCaptureBehaviorModifierConflictSystem:
-    'System warning sentinel for {label}'
+  schemaCaptureBehaviorModifierConflictBrowser: 'Browser warning sentinel for {label}',
+  schemaCaptureBehaviorModifierConflictSystem: 'System warning sentinel for {label}'
 };
 
 describe('fragment modifier Options helpers', () => {

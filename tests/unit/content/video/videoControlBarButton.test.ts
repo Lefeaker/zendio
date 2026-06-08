@@ -494,7 +494,9 @@ describe('ensureVideoControlBarButton', () => {
 
     lifecycle.syncButton();
     clickControlBarButton();
-    const input = queryRequired<HTMLInputElement>('[data-aiob-video-control-bar-note-input="true"]');
+    const input = queryRequired<HTMLInputElement>(
+      '[data-aiob-video-control-bar-note-input="true"]'
+    );
     input.value = 'submit note';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 

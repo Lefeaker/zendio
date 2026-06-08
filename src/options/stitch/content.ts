@@ -1,3 +1,4 @@
+import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
 import type { PreviewContent } from './types';
 
@@ -599,34 +600,7 @@ export const previewContent: PreviewContent = {
       ],
       note: '如果你认可这个产品，或想和作者交流，当前项目里的主要公开联系渠道是 Reddit、GitHub 和邮件。'
     },
-    changelog: {
-      hero: {
-        title: 'Changelog',
-        description: '这里直接使用项目中的更新日志重点内容，保持和真实版本记录一致。',
-        pills: ['v0.2.0', 'Dual URL', 'Fallback', 'v0.1.0'],
-        icon: 'history'
-      },
-      entries: [
-        {
-          version: 'v0.2.0',
-          date: '2025-09-30',
-          bullets: [
-            '新增双 URL 配置，可分别填写 HTTPS URL 与 HTTP URL',
-            '扩展会在多个协议和端口之间自动容错切换',
-            '连接测试与日志输出进一步增强'
-          ]
-        },
-        {
-          version: 'v0.1.0',
-          date: '2025-09-26',
-          bullets: [
-            '基础网页剪藏功能上线',
-            '集成 Obsidian Local REST API',
-            '支持模板系统、域名映射和多平台 AI 对话导出'
-          ]
-        }
-      ]
-    }
+    changelog: changelogResource
   },
   surfaces: {
     clipper: {
@@ -875,10 +849,7 @@ export const previewContent: PreviewContent = {
       status: 'success',
       statusMessage: '成功发送到 Research Vault',
       statusDetail: '整页内容已按当前仓库路由写入 `Articles/Research/2026/`，分类结果同步完成。',
-      progress: {
-        value: 100,
-        variant: 'success'
-      },
+      progress: { value: 100, variant: 'success' },
       feedbackLabel: '快速反馈',
       likeLabel: '赞一个',
       dislikeLabel: '倒赞',

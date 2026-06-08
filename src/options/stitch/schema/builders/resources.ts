@@ -77,6 +77,12 @@ export function stepCard(step: ResourceStep): NodeSchema {
 export function releaseCard(entry: ChangelogEntry): NodeSchema {
   return element('article', { className: 'release-card' }, [
     div('release-header', [strong(entry.version), span('release-date', entry.date)]),
-    { kind: 'list', items: entry.bullets, compact: true }
+    { kind: 'list', items: entry.bullets, compact: true },
+    ...(entry.notes ?? []).map((section) =>
+      div('release-note-section', [
+        strong(section.title),
+        { kind: 'list', items: section.items, compact: true }
+      ])
+    )
   ]);
 }

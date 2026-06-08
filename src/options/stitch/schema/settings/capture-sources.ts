@@ -2,7 +2,8 @@ import type { SettingsSchema, SchemaContext } from '../../types';
 import type { SchemaMessageKey, SchemaMessageValues } from '../i18n';
 import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
-import { boundInput, boundSwitch } from '../builders/controls';
+import { boundInput } from '../builders/controls';
+import { createVideoCaptureSourcesGroup } from './capture-sources-video';
 
 function translate(
   current: SchemaContext,
@@ -116,153 +117,7 @@ const schema: SettingsSchema = {
             }
           ]
         },
-        {
-          kind: 'group',
-          title: translate(ctx, 'schemaCaptureSourcesVideoGroupTitle', 'Video'),
-          children: [
-            {
-              kind: 'card',
-              title: translate(
-                ctx,
-                'schemaCaptureSourcesVideoPromptEntryTitle',
-                'Video Prompt & Entry'
-              ),
-              description: translate(
-                ctx,
-                'schemaCaptureSourcesVideoPromptEntryDescription',
-                '配置视频站点控制栏笔记入口。'
-              ),
-              body: [
-                {
-                  kind: 'rows',
-                  items: [
-                    {
-                      kind: 'row',
-                      title: translate(ctx, 'videoFloatingPromptLabel', '在视频网站显示笔记按钮'),
-                      description: translate(
-                        ctx,
-                        'videoFloatingPromptHint',
-                        '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。'
-                      ),
-                      control: boundSwitch({
-                        bind: 'videoFloatingPromptEnabled',
-                        compact: true,
-                        stateText: (current) =>
-                          current.state.videoFloatingPromptEnabled
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
-                        onChange: {
-                          id: 'options:updateField',
-                          args: ['video.floatingPromptEnabled'],
-                          valueFrom: 'target.checked'
-                        }
-                      })
-                    },
-                    {
-                      kind: 'row',
-                      title: translate(
-                        ctx,
-                        'schemaCaptureSourcesAutoPauseTitle',
-                        '编辑批注时自动暂停视频播放'
-                      ),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesAutoPauseDescription',
-                        '开启后在视频模式里编辑时间戳批注时会暂停当前视频。'
-                      ),
-                      control: boundSwitch({
-                        bind: 'videoCommentEditorAutoPause',
-                        compact: true,
-                        stateText: (current) =>
-                          current.state.videoCommentEditorAutoPause
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
-                        onChange: {
-                          id: 'options:updateField',
-                          args: ['video.commentEditorAutoPause'],
-                          valueFrom: 'target.checked'
-                        }
-                      })
-                    },
-                    {
-                      kind: 'row',
-                      title: translate(
-                        ctx,
-                        'schemaCaptureSourcesScreenshotLocationTitle',
-                        '附件位置模板'
-                      ),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesScreenshotLocationDescription',
-                        '例如 `./assets/${noteFileName}`，用于截图附件保存目录。'
-                      ),
-                      control: boundInput({
-                        bind: 'videoScreenshotAttachmentLocationTemplate',
-                        mono: true,
-                        onInput: {
-                          id: 'options:updateField',
-                          args: ['video.screenshotAttachment.locationTemplate'],
-                          valueFrom: 'target.value'
-                        }
-                      })
-                    },
-                    {
-                      kind: 'row',
-                      title: translate(
-                        ctx,
-                        'schemaCaptureSourcesScreenshotFilenameTitle',
-                        '附件文件名模板'
-                      ),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesScreenshotFilenameDescription',
-                        "例如 `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`，用于截图文件名。"
-                      ),
-                      control: boundInput({
-                        bind: 'videoScreenshotAttachmentFileNameTemplate',
-                        mono: true,
-                        onInput: {
-                          id: 'options:updateField',
-                          args: ['video.screenshotAttachment.fileNameTemplate'],
-                          valueFrom: 'target.value'
-                        }
-                      })
-                    },
-                    {
-                      kind: 'row',
-                      title: translate(
-                        ctx,
-                        'schemaCaptureSourcesMarkdownUrlTitle',
-                        'Markdown URL 格式'
-                      ),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesMarkdownUrlDescription',
-                        '留空时使用默认写法，可按当前导出链路填写 Markdown 链接模板。'
-                      ),
-                      control: boundInput({
-                        bind: 'videoScreenshotAttachmentMarkdownUrlFormat',
-                        mono: true,
-                        onInput: {
-                          id: 'options:updateField',
-                          args: ['video.screenshotAttachment.markdownUrlFormat'],
-                          valueFrom: 'target.value'
-                        }
-                      })
-                    }
-                  ]
-                },
-                emptyState(
-                  translate(
-                    ctx,
-                    'schemaCaptureSourcesVideoPromptHelper',
-                    '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。灰色圆点表示该时间戳尚未保存截图，绿色圆点表示该时间戳已有截图。'
-                  )
-                )
-              ]
-            }
-          ]
-        }
+        createVideoCaptureSourcesGroup(ctx)
       ]
     };
   }

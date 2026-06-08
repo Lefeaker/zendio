@@ -55,9 +55,7 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
 
     queryRequired<HTMLButtonElement>('[data-nav-panel="capture-behavior"]').click();
 
-    const schemaContext = schemaContextSpy.mock.results.at(-1)?.value as
-      | SchemaContext
-      | undefined;
+    const schemaContext = schemaContextSpy.mock.results.at(-1)?.value as SchemaContext | undefined;
     const requiredSchemaContext = requireSchemaContext(schemaContext);
     const captureBehaviorView = requireCaptureBehaviorView(requiredSchemaContext);
     const readingGroup = requireGroup(captureBehaviorView, 'Reading Group Sentinel');
@@ -118,7 +116,9 @@ function requireRow(group: GroupNode, title: string): RowNode {
 }
 
 function requireSelect(row: RowNode): SelectNode {
-  const select = collectNodes(row.control).find((node): node is SelectNode => isNodeKind(node, 'select'));
+  const select = collectNodes(row.control).find((node): node is SelectNode =>
+    isNodeKind(node, 'select')
+  );
   if (!select) {
     throw new Error(`Missing select control for row: ${String(row.title)}`);
   }
@@ -126,8 +126,8 @@ function requireSelect(row: RowNode): SelectNode {
 }
 
 function requireSwitch(row: RowNode): SwitchNode {
-  const switchNode = collectNodes(row.control).find(
-    (node): node is SwitchNode => isNodeKind(node, 'switch')
+  const switchNode = collectNodes(row.control).find((node): node is SwitchNode =>
+    isNodeKind(node, 'switch')
   );
   if (!switchNode) {
     throw new Error(`Missing switch control for row: ${String(row.title)}`);
@@ -157,7 +157,12 @@ function collectNodes(root: NodeChild | NodeChild[] | undefined): NodeChild[] {
   const nodes: NodeChild[] = [];
 
   for (const node of asArray(root)) {
-    if (!node || typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') {
+    if (
+      !node ||
+      typeof node === 'string' ||
+      typeof node === 'number' ||
+      typeof node === 'boolean'
+    ) {
       continue;
     }
     if (node instanceof HTMLElement) {

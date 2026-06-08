@@ -14,7 +14,10 @@ function parseStoredOptions(text: string): StoredOptions {
   return JSON.parse(text) as StoredOptions;
 }
 
-const defaultReadingSession = requireDefaultOption(DEFAULT_OPTIONS.readingSession, 'readingSession');
+const defaultReadingSession = requireDefaultOption(
+  DEFAULT_OPTIONS.readingSession,
+  'readingSession'
+);
 const defaultFragmentClipper = requireDefaultOption(
   DEFAULT_OPTIONS.fragmentClipper,
   'fragmentClipper'

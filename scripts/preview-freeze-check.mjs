@@ -66,11 +66,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The accepted video screenshot attachment location follow-up refreshes the generated preview JS hash after adding the Options controls, nested video screenshot attachment state wiring, and screenshot attachment copy needed for the feature while preserving the frozen reference and Stitch runtime contract. The final integration ratchet repair refreshes the generated preview JS hash after removing accepted feature-local unknown/cast debt and restoring the planner hotspot line budget without changing the frozen reference or Stitch runtime contract.',
         'The PR #26 main sync refreshes the generated preview JS hash after combining the accepted video screenshot attachment location controls with the Options fragment modifier and Vault guidance runtime while preserving the frozen reference and Stitch runtime contract.',
         'The video legacy recovery integration refreshes the generated preview JS hash after making video timestamp note inputs use the stable draft/comment value authority and preserving the screenshot-toggle-before-timestamp runtime contract without changing the frozen reference or Stitch runtime contract.',
-        'The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.'
+        'The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.',
+        'The video attachment layout i18n sync refreshes the generated preview JS hash after merging the accepted Options 12-language catalog baseline with the video entry/attachment path layout, hiding Output Presets, splitting the capture-sources video schema helper, and removing unnecessary helper-local type assertions while preserving the frozen reference and Stitch runtime contract.',
+        'The post-audit Options i18n repair refreshes the generated preview JS hash after restoring the full schema-backed changelog release notes across 12 languages and removing the stale Deep Research navigation hint while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // P14/main merge: video legacy recovery plus final Options i18n integration.
-      rightSha256: 'd9377308860f74ac8bdc2de7785956cc93721664b4e6338d11b38f5a544926c7'
+      // Post-main-merge Options i18n repair: hash refreshed after accepted changelog/nav-hint localization repair on latest main.
+      rightSha256: 'cd2d54b81547f22244e6414d9914d2a88867c075dfcda4ca12aa7c2a93833130'
     }
   ]
 ]);
