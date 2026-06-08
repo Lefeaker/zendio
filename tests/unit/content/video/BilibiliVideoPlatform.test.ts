@@ -433,6 +433,78 @@ describe('BilibiliVideoPlatform', () => {
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
   });
 
+  it('observes late-attached Bilibili shadow roots through scoped polling', () => {
+    vi.useFakeTimers();
+    const context = createContext(document);
+    const observer = new BilibiliShadowObserver(document, context);
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const host = document.createElement('bili-rich-text');
+    region.appendChild(host);
+    document.body.appendChild(region);
+
+    observer.ensureShadowHostObservationForTests(host);
+
+    vi.advanceTimersByTime(130);
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = '<div class="rich-text-content">late observer shadow</div>';
+    vi.advanceTimersByTime(200);
+
+    expect(context.__mocks.ensureHighlightStyles).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
+      childList: true,
+      subtree: true
+    });
+  });
+
+  it('cancels pending late-shadow polling work when the observer is disposed', () => {
+    vi.useFakeTimers();
+    const context = createContext(document);
+    const observer = new BilibiliShadowObserver(document, context);
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const host = document.createElement('bili-comment-renderer');
+    region.appendChild(host);
+    document.body.appendChild(region);
+
+    observer.ensureShadowHostObservationForTests(host);
+    observer.dispose();
+
+    vi.advanceTimersByTime(130);
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = '<div class="rich-text-content">disposed late shadow</div>';
+    vi.advanceTimersByTime(500);
+
+    expect(context.__mocks.ensureHighlightStyles).not.toHaveBeenCalled();
+    expect(context.__mocks.registerShadowSelectionBridge).not.toHaveBeenCalled();
+    expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
+  });
+
+  it('removes completed shadow-host timeout handles before later dispose runs', () => {
+    vi.useFakeTimers();
+    const context = createContext(document);
+    const observer = new BilibiliShadowObserver(document, context);
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const host = document.createElement('bili-rich-text');
+    region.appendChild(host);
+    document.body.appendChild(region);
+
+    observer.ensureShadowHostObservationForTests(host);
+
+    vi.advanceTimersByTime(130);
+    const root = host.attachShadow({ mode: 'open' });
+    root.innerHTML = '<div class="rich-text-content">cleanup shadow</div>';
+    vi.advanceTimersByTime(200);
+
+    observer.dispose();
+
+    expect(context.__mocks.ensureHighlightStyles).toHaveBeenCalledWith(root);
+    expect(clearTimeoutSpy).not.toHaveBeenCalled();
+  });
+
   it('lets the platform proactively register Bilibili selection shadow roots on session start', () => {
     const context = createContext(document);
     const { root, richText } = mountBiliCommentsFixture();
