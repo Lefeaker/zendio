@@ -20,10 +20,15 @@ export class FragmentHighlightCoordinator {
     if (this.observer || typeof MutationObserver === 'undefined' || !this.options.doc.body) {
       return;
     }
-    if (Array.from(this.options.getFragments()).length === 0) {
+    if (!this.hasFragments()) {
       return;
     }
     this.observer = new MutationObserver((mutations) => {
+      if (!this.hasFragments()) {
+        this.stop();
+        return;
+      }
+
       if (this.currentAdapter) {
         try {
           this.currentAdapter.handleMutations(mutations);
@@ -39,9 +44,7 @@ export class FragmentHighlightCoordinator {
 
     this.observer.observe(this.options.doc.body, {
       childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'data-*']
+      subtree: true
     });
 
     if (this.currentAdapter) {
@@ -54,23 +57,35 @@ export class FragmentHighlightCoordinator {
   }
 
   ensureStartedForFragments(): void {
-    if (Array.from(this.options.getFragments()).length > 0) {
-      this.start();
+    if (!this.hasFragments()) {
+      this.stopIfNoFragments();
+      return;
     }
+    this.start();
   }
 
   scheduleRestore(): void {
     if (this.restoreHandle !== null) {
       return;
     }
-    const hasFragments = Array.from(this.options.getFragments()).length > 0;
-    if (!hasFragments) {
+    if (!this.hasFragments()) {
+      this.stopIfNoFragments();
       return;
     }
     this.restoreHandle = window.setTimeout(() => {
       this.restoreHandle = null;
+      if (!this.hasFragments()) {
+        this.stopIfNoFragments();
+        return;
+      }
       this.restoreMissingHighlights();
     }, 120);
+  }
+
+  stopIfNoFragments(): void {
+    if (!this.hasFragments()) {
+      this.stop();
+    }
   }
 
   stop(): void {
@@ -104,6 +119,13 @@ export class FragmentHighlightCoordinator {
         console.warn('[FragmentHighlight] Platform observeDomChanges failed:', error);
       }
     }
+  }
+
+  private hasFragments(): boolean {
+    for (const _capture of this.options.getFragments()) {
+      return true;
+    }
+    return false;
   }
 
   private restoreMissingHighlights(): void {
