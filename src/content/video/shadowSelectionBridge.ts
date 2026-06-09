@@ -19,10 +19,16 @@ interface ShadowMouseEventData {
   clientY: number;
 }
 
+interface ShadowRootListeners {
+  syncSelection: () => void;
+  handleMouseDown: (event: Event) => void;
+  scheduleSync: (event: Event) => void;
+}
+
 export class ShadowSelectionBridge {
-  private registeredRoots: WeakSet<ShadowRoot> = new WeakSet();
-  private readonly pointerStarts = new WeakMap<ShadowRoot, ShadowPointerStart>();
-  private readonly activatedEvents = new WeakSet<Event>();
+  private registeredRoots = new Map<ShadowRoot, ShadowRootListeners>();
+  private pointerStarts = new WeakMap<ShadowRoot, ShadowPointerStart>();
+  private activatedEvents = new WeakSet<Event>();
 
   constructor(private readonly options: ShadowSelectionBridgeOptions) {}
 
@@ -91,11 +97,24 @@ export class ShadowSelectionBridge {
     root.addEventListener('mouseup', scheduleSync, true);
     root.addEventListener('touchend', scheduleSync, true);
     root.addEventListener('keyup', scheduleSync, true);
-    this.registeredRoots.add(root);
+    this.registeredRoots.set(root, {
+      syncSelection,
+      handleMouseDown,
+      scheduleSync
+    });
   }
 
   reset(): void {
-    this.registeredRoots = new WeakSet();
+    for (const [root, listeners] of this.registeredRoots) {
+      root.removeEventListener('selectionchange', listeners.syncSelection, true);
+      root.removeEventListener('mousedown', listeners.handleMouseDown, true);
+      root.removeEventListener('mouseup', listeners.scheduleSync, true);
+      root.removeEventListener('touchend', listeners.scheduleSync, true);
+      root.removeEventListener('keyup', listeners.scheduleSync, true);
+    }
+    this.registeredRoots.clear();
+    this.pointerStarts = new WeakMap();
+    this.activatedEvents = new WeakSet();
   }
 
   private getSelectionForRoot(root: ShadowRoot): Selection | null {

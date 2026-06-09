@@ -14,6 +14,7 @@ const YOUTUBE_URL = 'https://www.youtube.com/watch?v=browserListenerScope';
 const YOUTUBE_PAUSED_URL = 'https://www.youtube.com/watch?v=browserListenerScopePaused';
 const BILIBILI_URL = 'https://www.bilibili.com/video/BV1browser/';
 const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
+const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_STORAGE_PREFIX}.index.v1`;
 
 type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
@@ -35,6 +36,28 @@ type VideoPlaybackCounters = {
   play: number;
   playEvent: number;
   paused: boolean;
+};
+
+type VideoScreenshotProbeState = {
+  currentTimeWrites: number;
+  drawImageCalls: number;
+  toBlobCalls: number;
+  toDataUrlCalls: number;
+  pendingBlobCallbacks: number;
+};
+
+type VideoDraftEntry = {
+  key: string;
+  pageUrl: string | null;
+  captureCount: number;
+  requestedScreenshotCount: number;
+  containsScreenshotDataUrl: boolean;
+  json: string;
+};
+
+type StartVideoModeResponse = {
+  success: boolean;
+  alreadyActive?: boolean;
 };
 
 type DelayedVideoStorageWriteController = {
@@ -419,6 +442,255 @@ async function installDelayedVideoCaptureStorageWrites(
       }, tabId);
     }
   };
+}
+
+async function installVideoScreenshotProbe(extensionPage: Page, tabId: number): Promise<void> {
+  await extensionPage.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        const runtimeGlobal = globalThis as typeof globalThis & {
+          __aiobP09VideoScreenshotProbe?: Omit<VideoScreenshotProbeState, 'pendingBlobCallbacks'>;
+          __aiobP09VideoScreenshotPendingResolvers?: Array<(blob: Blob | null) => void>;
+          __aiobP09CanvasPatched?: boolean;
+        };
+
+        const video = document.querySelector('video');
+        if (!(video instanceof HTMLVideoElement)) {
+          throw new Error('Missing video element for screenshot probe.');
+        }
+
+        runtimeGlobal.__aiobP09VideoScreenshotProbe = {
+          currentTimeWrites: 0,
+          drawImageCalls: 0,
+          toBlobCalls: 0,
+          toDataUrlCalls: 0
+        };
+        runtimeGlobal.__aiobP09VideoScreenshotPendingResolvers = [];
+
+        let currentTime = 42;
+        Object.defineProperty(video, 'currentTime', {
+          configurable: true,
+          get: () => currentTime,
+          set: (value: number) => {
+            if (Number.isFinite(value)) {
+              currentTime = value;
+            }
+            runtimeGlobal.__aiobP09VideoScreenshotProbe!.currentTimeWrites += 1;
+            queueMicrotask(() => {
+              video.dispatchEvent(new Event('seeked', { bubbles: true }));
+            });
+          }
+        });
+        Object.defineProperty(video, 'videoWidth', {
+          configurable: true,
+          get: () => 320
+        });
+        Object.defineProperty(video, 'videoHeight', {
+          configurable: true,
+          get: () => 180
+        });
+
+        if (!runtimeGlobal.__aiobP09CanvasPatched) {
+          Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+            configurable: true,
+            value: function getContext(type: string) {
+              if (type !== '2d') {
+                return null;
+              }
+              return {
+                drawImage: () => {
+                  runtimeGlobal.__aiobP09VideoScreenshotProbe!.drawImageCalls += 1;
+                }
+              };
+            }
+          });
+          Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+            configurable: true,
+            value: (callback: (blob: Blob | null) => void) => {
+              runtimeGlobal.__aiobP09VideoScreenshotProbe!.toBlobCalls += 1;
+              runtimeGlobal.__aiobP09VideoScreenshotPendingResolvers?.push(callback);
+            }
+          });
+          Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
+            configurable: true,
+            value: () => {
+              runtimeGlobal.__aiobP09VideoScreenshotProbe!.toDataUrlCalls += 1;
+              return 'data:image/jpeg;base64,ZmFrZS1zY3JlZW5zaG90';
+            }
+          });
+          runtimeGlobal.__aiobP09CanvasPatched = true;
+        }
+      }
+    });
+  }, tabId);
+}
+
+async function readVideoScreenshotProbe(
+  extensionPage: Page,
+  tabId: number
+): Promise<VideoScreenshotProbeState> {
+  const results = await extensionPage.evaluate(async (targetTabId) => {
+    return await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        const runtimeGlobal = globalThis as typeof globalThis & {
+          __aiobP09VideoScreenshotProbe?: Omit<VideoScreenshotProbeState, 'pendingBlobCallbacks'>;
+          __aiobP09VideoScreenshotPendingResolvers?: Array<(blob: Blob | null) => void>;
+        };
+        const probe = runtimeGlobal.__aiobP09VideoScreenshotProbe;
+        if (!probe) {
+          return null;
+        }
+        return {
+          ...probe,
+          pendingBlobCallbacks: runtimeGlobal.__aiobP09VideoScreenshotPendingResolvers?.length ?? 0
+        };
+      }
+    });
+  }, tabId);
+
+  const probe = results[0]?.result;
+  if (!probe) {
+    throw new Error('Video screenshot probe was not installed in the content runtime.');
+  }
+  return probe;
+}
+
+async function releasePendingVideoScreenshotBlobs(
+  extensionPage: Page,
+  tabId: number,
+  outcome: 'success' | 'failure'
+): Promise<void> {
+  await extensionPage.evaluate(
+    async ({ targetTabId, nextOutcome }) => {
+      await chrome.scripting.executeScript({
+        target: { tabId: targetTabId },
+        func: (blobOutcome) => {
+          const runtimeGlobal = globalThis as typeof globalThis & {
+            __aiobP09VideoScreenshotPendingResolvers?: Array<(blob: Blob | null) => void>;
+          };
+          const pending = runtimeGlobal.__aiobP09VideoScreenshotPendingResolvers ?? [];
+          const blob =
+            blobOutcome === 'success'
+              ? new Blob([Uint8Array.of(255, 216, 255, 217)], { type: 'image/jpeg' })
+              : null;
+          while (pending.length > 0) {
+            pending.shift()?.(blob);
+          }
+        },
+        args: [nextOutcome]
+      });
+    },
+    { targetTabId: tabId, nextOutcome: outcome }
+  );
+}
+
+async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
+  return await extensionPage.evaluate(
+    async ({ storageKeyPrefix, indexKey }) => {
+      const storage = await chrome.storage.local.get(null);
+      return Object.entries(storage)
+        .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
+        .map(([key, value]) => {
+          const json = JSON.stringify(value);
+          const envelope =
+            typeof value === 'object' && value !== null
+              ? (value as {
+                  pageUrl?: unknown;
+                  payload?: { captures?: Array<{ screenshotRequested?: boolean }> };
+                })
+              : {};
+          const captures = Array.isArray(envelope.payload?.captures)
+            ? envelope.payload.captures
+            : [];
+          return {
+            key,
+            pageUrl: typeof envelope.pageUrl === 'string' ? envelope.pageUrl : null,
+            captureCount: captures.length,
+            requestedScreenshotCount: captures.filter(
+              (capture) =>
+                typeof capture === 'object' &&
+                capture !== null &&
+                capture.screenshotRequested === true
+            ).length,
+            containsScreenshotDataUrl: json.includes('data:image'),
+            json
+          };
+        });
+    },
+    { storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX, indexKey: SESSION_DRAFT_INDEX_KEY }
+  );
+}
+
+async function startVideoMode(extensionPage: Page, tabId: number): Promise<void> {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      const response = await extensionPage.evaluate(
+        async (targetTabId): Promise<StartVideoModeResponse> => {
+          const result: unknown = await chrome.tabs.sendMessage(targetTabId, {
+            action: 'startVideoMode'
+          });
+          if (result && typeof result === 'object' && 'success' in result) {
+            const payload = result as { success?: unknown; alreadyActive?: unknown };
+            return {
+              success: payload.success === true,
+              ...(payload.alreadyActive === true ? { alreadyActive: true } : {})
+            };
+          }
+          return { success: false };
+        },
+        tabId
+      );
+
+      expect(response.success).toBe(true);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isStartupRace = message.includes('Receiving end does not exist');
+      if (!isStartupRace || attempt === 11) {
+        throw error;
+      }
+      await extensionPage.waitForTimeout(250);
+    }
+  }
+}
+
+async function closeVideoPanel(page: Page): Promise<void> {
+  await page.locator('[data-role="close-btn"]').click();
+  await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(0);
+}
+
+async function captureFixtureSelectionWithShift(page: Page): Promise<void> {
+  await page.keyboard.down('Shift');
+  await selectFixtureText(page);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, shiftKey: true }));
+  });
+  await page.keyboard.up('Shift');
+}
+
+async function churnBilibiliRuntime(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const danmakuRoot = document.querySelector('.bpx-player-render-dm-wrap');
+    const commentRoot = document.getElementById('comment');
+    for (let index = 0; index < 200; index += 1) {
+      const dm = document.createElement('span');
+      dm.className = 'bili-danmaku-x-dm';
+      dm.textContent = `runtime-dm-${index}`;
+      danmakuRoot?.appendChild(dm);
+    }
+    for (let index = 0; index < 40; index += 1) {
+      const noise = document.createElement('div');
+      noise.className = `comment-transient-${index}`;
+      noise.textContent = `comment-noise-${index}`;
+      commentRoot?.appendChild(noise);
+      if (index % 2 === 0) {
+        noise.remove();
+      }
+    }
+  });
 }
 
 async function openFixtureWithRuntime(
@@ -897,6 +1169,226 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         BILIBILI_REPLY_COMMENT_TEXT
       );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'reply-rich-text')).toBe(1);
+      await expect
+        .poll(() => isBilibiliRichTextHighlightVisible(page, 'reply-rich-text'))
+        .toBe(true);
+    }
+  );
+
+  testWithExtension(
+    'keeps control-bar screenshot intent durable without mutating visible currentTime',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${YOUTUBE_URL}&p09=screenshot-intent`,
+        youtubeFixtureHtml()
+      );
+
+      await installVideoScreenshotProbe(extensionPage, tabId);
+      await openVideoPanelFromControlBar(page, 'Browser screenshot intent note');
+
+      const firstCapture = page.locator('[data-role="capture-item"]').first();
+      const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'screenshot preparation did not start in the background'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+
+      await expect
+        .poll(
+          async () => {
+            const entries = await readVideoDraftEntries(extensionPage);
+            return {
+              count: entries.length,
+              captureCount: entries[0]?.captureCount ?? 0,
+              requestedScreenshotCount: entries[0]?.requestedScreenshotCount ?? 0,
+              containsScreenshotDataUrl: entries[0]?.containsScreenshotDataUrl ?? false
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'pending screenshot intent was not persisted durably'
+          }
+        )
+        .toEqual({
+          count: 1,
+          captureCount: 1,
+          requestedScreenshotCount: 1,
+          containsScreenshotDataUrl: false
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'background screenshot preparation did not settle cleanly'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 0
+        });
+
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect
+        .poll(
+          async () => {
+            const entries = await readVideoDraftEntries(extensionPage);
+            return {
+              count: entries.length,
+              captureCount: entries[0]?.captureCount ?? 0,
+              requestedScreenshotCount: entries[0]?.requestedScreenshotCount ?? 0,
+              containsScreenshotDataUrl: entries[0]?.containsScreenshotDataUrl ?? false
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'completed screenshot intent stopped matching the durable draft state'
+          }
+        )
+        .toEqual({
+          count: 1,
+          captureCount: 1,
+          requestedScreenshotCount: 1,
+          containsScreenshotDataUrl: false
+        });
+    }
+  );
+
+  testWithExtension(
+    'cleans up the first session so a second YouTube session captures selection only once',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${YOUTUBE_URL}&p09=session-restart`,
+        youtubeFixtureHtml(),
+        createOptionsFixture({
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['shift']
+        })
+      );
+
+      await startVideoMode(extensionPage, tabId);
+      await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
+      await expandVideoPanel(page);
+      await closeVideoPanel(page);
+      await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+
+      await startVideoMode(extensionPage, tabId);
+      await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
+      await expandVideoPanel(page);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(0);
+
+      await captureFixtureSelectionWithShift(page);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        'Browser selected fragment text'
+      );
+    }
+  );
+
+  testWithExtension(
+    'restores Bilibili shadow rich-text capture after session restart without duplicate captures',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?p09=shadow-restart`,
+        bilibiliFixtureHtml(),
+        createOptionsFixture(
+          {
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['shift']
+          },
+          { highlightTheme: 'neonOrange' }
+        )
+      );
+
+      await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+      await startVideoMode(extensionPage, tabId);
+      await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
+      await expandVideoPanel(page);
+
+      await dragSelectBilibiliRichText(page, 'main-rich-text');
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_MAIN_COMMENT_TEXT
+      );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+
+      await closeVideoPanel(page);
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(0);
+
+      await startVideoMode(extensionPage, tabId);
+      await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
+      await expandVideoPanel(page);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(0);
+
+      await dragSelectBilibiliRichText(page, 'main-rich-text');
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_MAIN_COMMENT_TEXT
+      );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+      await expect
+        .poll(() => isBilibiliRichTextHighlightVisible(page, 'main-rich-text'))
+        .toBe(true);
+    }
+  );
+
+  testWithExtension(
+    'keeps Bilibili danmaku and comment churn from duplicating restores or capture listeners',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?p09=comment-churn`,
+        bilibiliFixtureHtml(),
+        createOptionsFixture(
+          {
+            selectionModifierEnabled: true,
+            selectionModifierKeys: ['shift']
+          },
+          { highlightTheme: 'neonOrange' }
+        )
+      );
+
+      await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+      await startVideoMode(extensionPage, tabId);
+      await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
+      await expandVideoPanel(page);
+
+      await dragSelectBilibiliRichText(page, 'main-rich-text');
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+
+      await churnBilibiliRuntime(page);
+      await page.waitForTimeout(350);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+
+      await dragSelectBilibiliRichText(page, 'reply-rich-text');
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(2);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_REPLY_COMMENT_TEXT
+      );
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
       await expect.poll(() => countBilibiliRichTextHighlights(page, 'reply-rich-text')).toBe(1);
       await expect
         .poll(() => isBilibiliRichTextHighlightVisible(page, 'reply-rich-text'))

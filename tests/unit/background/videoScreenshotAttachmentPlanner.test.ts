@@ -306,6 +306,57 @@ describe('prepareVideoClipAttachments', () => {
     });
   });
 
+  it('keeps non-video downloads attachments on the legacy path logic even when video templates are present', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+
+    const result = prepareVideoClipAttachments({
+      payload: createPayload({
+        type: 'article',
+        markdown: '# article\n![First](aiob-attachment:shot-1)\n![Second](aiob-attachment:shot-2)',
+        meta: {
+          url: 'https://example.com/articles/1',
+          attachments: [
+            {
+              ...baseAttachment,
+              fileName: 'capture.jpg'
+            },
+            {
+              ...baseAttachment,
+              id: 'shot-2',
+              fileName: 'capture.jpg',
+              dataUrl: 'data:image/jpeg;base64,bbb'
+            }
+          ]
+        }
+      }),
+      notePath: 'Articles/Deep/article-note.md',
+      destination: 'downloads',
+      screenshotAttachmentOptions: {
+        locationTemplate: 'attachments/video/${noteFileName}',
+        fileNameTemplate: '${originalAttachmentFileName}',
+        markdownUrlFormat:
+          'obsidian://vault/${generatedAttachmentFilePath}?file=${generatedAttachmentFileName}'
+      }
+    });
+
+    expect(result.markdown).toBe(
+      '# article\n![First](article-note/capture.jpg)\n![Second](article-note/capture-2.jpg)'
+    );
+    expect(result.attachments).toEqual([
+      expect.objectContaining({
+        outputPath: 'article-note/capture.jpg',
+        markdownPath: 'article-note/capture.jpg',
+        markdownUrl: 'article-note/capture.jpg'
+      }),
+      expect.objectContaining({
+        outputPath: 'article-note/capture-2.jpg',
+        markdownPath: 'article-note/capture-2.jpg',
+        markdownUrl: 'article-note/capture-2.jpg'
+      })
+    ]);
+  });
+
   it('keeps configured downloads paths aligned with the markdown path', async () => {
     const { prepareVideoClipAttachments } =
       await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
