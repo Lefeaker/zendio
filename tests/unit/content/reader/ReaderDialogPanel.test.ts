@@ -222,8 +222,7 @@ describe('ReaderDialogPanel', () => {
     input.value = 'finish draft';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPanelPersistence();
 
     expect(callbacks.onSubmitHighlightEdit).toHaveBeenCalledWith('h-1', 'finish draft');
     expect(callbacks.onFinish).toHaveBeenCalledTimes(1);

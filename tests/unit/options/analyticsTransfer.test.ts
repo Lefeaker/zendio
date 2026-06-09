@@ -33,7 +33,14 @@ describe('analyticsTransfer', () => {
 
   it('exports consent and debug mode when available', async () => {
     getUserConsentMock.mockResolvedValue({ analytics: true, errorReporting: false });
-    getConfigMock.mockReturnValue({ debugMode: true });
+    getConfigMock.mockReturnValue({
+      debugMode: true,
+      measurementId: 'G-1234567890',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://proxy.example/collect',
+      clientId: 'client-id',
+      sessionId: 'session-id'
+    });
 
     await expect(exportAnalyticsTransferPayload()).resolves.toEqual({
       consent: { analytics: true, errorReporting: false },
@@ -77,5 +84,22 @@ describe('analyticsTransfer', () => {
   it('returns early when payload is absent', async () => {
     await expect(applyAnalyticsTransferPayload(undefined)).resolves.toBeUndefined();
     expect(refreshFromStorageMock).not.toHaveBeenCalled();
+  });
+
+  it('does not export transport or identity fields', async () => {
+    getUserConsentMock.mockResolvedValue({ analytics: false, errorReporting: true });
+    getConfigMock.mockReturnValue({
+      debugMode: false,
+      measurementId: 'G-9999999999',
+      transportMode: 'directDebug',
+      proxyEndpoint: 'https://proxy.example/debug',
+      clientId: 'client',
+      sessionId: 'session'
+    });
+
+    await expect(exportAnalyticsTransferPayload()).resolves.toEqual({
+      consent: { analytics: false, errorReporting: true },
+      debugMode: false
+    });
   });
 });
