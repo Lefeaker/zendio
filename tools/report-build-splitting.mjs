@@ -18,7 +18,11 @@ const ENTRY_BUDGETS = new Map([
   // 2026-06-08 Options i18n/current-main merge exact dev-build stop gate.
   [join(DIST_DIR, 'onboarding', 'index.js'), 16395]
 ]);
-const MAX_CHUNK_COUNT = 114;
+// 2026-06-09: Video screenshot preparation now loads as an explicit lazy chunk.
+// esbuild also extracts the tiny shared screenshot-intent bridge used by both the
+// session runtime and screenshot queue. Keep size budgets strict while allowing
+// the two intentional chunks created by that split.
+const MAX_CHUNK_COUNT = 116;
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.
