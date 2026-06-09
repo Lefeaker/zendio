@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const initializeAnalyticsConfigMock = vi.hoisted(() =>
-  vi.fn(async () => ({
-    enabled: true,
-    debugMode: false,
-    measurementId: 'G-123',
-    clientId: 'client-1',
-    sessionId: 'session-1'
-  }))
+  vi.fn(() =>
+    Promise.resolve({
+      enabled: true,
+      debugMode: false,
+      measurementId: 'G-123',
+      clientId: 'client-1',
+      sessionId: 'session-1'
+    })
+  )
 );
 const shouldReportErrorsMock = vi.hoisted(() => vi.fn(() => true));
 const createGoogleAnalyticsReporterMock = vi.hoisted(() => vi.fn(() => ({ id: 'ga' })));
@@ -48,7 +50,7 @@ vi.mock('../../../../../src/shared/errors/analytics/sentryConfig', () => ({
 }));
 vi.mock('../../../../../src/shared/errors/index', () => ({
   getErrorHandlerInstance: getErrorHandlerInstanceMock,
-  handleError: vi.fn(async () => undefined)
+  handleError: vi.fn(() => Promise.resolve())
 }));
 
 describe('error analytics initialization', () => {

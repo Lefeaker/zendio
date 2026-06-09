@@ -7,8 +7,7 @@ import {
   type TelemetryEventDefinition,
   type TelemetryEventName,
   type TelemetryEventParamMap,
-  type UsageEventName,
-  type UsageEventParamMap
+  type UsageEventName
 } from '../types/analytics';
 import { TELEMETRY_EVENT_CATALOG } from './eventCatalog';
 
@@ -102,7 +101,7 @@ export function parseTelemetryValidationResponse(responseText: string | null): {
   }
 
   try {
-    const parsed = JSON.parse(responseText);
+    const parsed = JSON.parse(responseText) as unknown;
     if (hasValidationMessagesArray(parsed)) {
       return {
         validationMessageCount: parsed.validationMessages.length

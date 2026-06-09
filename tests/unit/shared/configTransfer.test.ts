@@ -67,7 +67,7 @@ describe('configTransfer service', () => {
       throw new Error('Clipboard writeText mock missing');
     }
     expect(clipboardMocks.writeText).toHaveBeenCalledTimes(1);
-    const maybeWritten = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
+    const maybeWritten: unknown = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
     if (typeof maybeWritten !== 'string') {
       throw new Error('Clipboard contents must be stringified JSON');
     }

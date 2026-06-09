@@ -5,16 +5,16 @@ type TelemetryEmitter = (params: Record<string, unknown>) => Promise<void>;
 
 function createStorageAreaStub(): StorageAreaService {
   return {
-    get: vi.fn(async <T>() => undefined as T | undefined) as StorageAreaService['get'],
-    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
-    getMany: vi.fn(
-      async <T>() => ({}) as Record<string, T | undefined>
+    get: vi.fn(<T>() => Promise.resolve(undefined as T | undefined)) as StorageAreaService['get'],
+    set: vi.fn(<T>(_key: string, _value: T) => Promise.resolve()) as StorageAreaService['set'],
+    getMany: vi.fn(<T>() =>
+      Promise.resolve({} as Record<string, T | undefined>)
     ) as StorageAreaService['getMany'],
-    setMany: vi.fn(
-      async <T>(_entries: Record<string, T>) => undefined
+    setMany: vi.fn(<T>(_entries: Record<string, T>) =>
+      Promise.resolve()
     ) as StorageAreaService['setMany'],
-    remove: vi.fn(async () => undefined) as StorageAreaService['remove'],
-    clear: vi.fn(async () => undefined) as StorageAreaService['clear'],
+    remove: vi.fn(() => Promise.resolve()) as StorageAreaService['remove'],
+    clear: vi.fn(() => Promise.resolve()) as StorageAreaService['clear'],
     watchKey: vi.fn(() => () => undefined),
     watchAll: vi.fn(() => () => undefined)
   };
@@ -54,12 +54,12 @@ const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() 
 const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
-const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
+const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
 const createUsageStatsStoreMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const registerGlobalErrorBoundaryMock = vi.hoisted(() => vi.fn(() => () => undefined));
-const trackTelemetryEventMock = vi.hoisted(() => vi.fn(async () => undefined));
+const trackTelemetryEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const storageMock = vi.hoisted(
   (): StorageService => ({
     sync: createStorageAreaStub(),

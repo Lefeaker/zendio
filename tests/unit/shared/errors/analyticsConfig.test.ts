@@ -26,22 +26,25 @@ function createWatchKeyStub(): StorageAreaService['watchKey'] {
 }
 
 function createLocalStorageArea(localStore: Map<string, StoredAnalyticsValue>): StorageAreaService {
-  const get: StorageAreaService['get'] = async <T>(key: string) =>
-    localStore.get(key) as T | undefined;
-  const getMany: StorageAreaService['getMany'] = async () => ({});
-  const setMany: StorageAreaService['setMany'] = async () => undefined;
-  const remove: StorageAreaService['remove'] = async (key) => {
+  const get: StorageAreaService['get'] = <T>(key: string) =>
+    Promise.resolve(localStore.get(key) as T | undefined);
+  const getMany: StorageAreaService['getMany'] = () => Promise.resolve({});
+  const setMany: StorageAreaService['setMany'] = () => Promise.resolve();
+  const remove: StorageAreaService['remove'] = (key) => {
     const keys = Array.isArray(key) ? key : [key];
     keys.forEach((entry) => localStore.delete(entry));
+    return Promise.resolve();
   };
-  const clear: StorageAreaService['clear'] = async () => {
+  const clear: StorageAreaService['clear'] = () => {
     localStore.clear();
+    return Promise.resolve();
   };
 
   return {
     get,
-    set: vi.fn(async <T>(key: string, value: T) => {
+    set: vi.fn(<T>(key: string, value: T) => {
       localStore.set(key, value as StoredAnalyticsValue);
+      return Promise.resolve();
     }) as StorageAreaService['set'],
     getMany,
     setMany,
@@ -53,15 +56,15 @@ function createLocalStorageArea(localStore: Map<string, StoredAnalyticsValue>): 
 }
 
 function createReadonlyStorageArea(): StorageAreaService {
-  const get: StorageAreaService['get'] = async () => undefined;
-  const setMany: StorageAreaService['setMany'] = async () => undefined;
-  const getMany: StorageAreaService['getMany'] = async () => ({});
-  const remove: StorageAreaService['remove'] = async () => undefined;
-  const clear: StorageAreaService['clear'] = async () => undefined;
+  const get: StorageAreaService['get'] = () => Promise.resolve(undefined);
+  const setMany: StorageAreaService['setMany'] = () => Promise.resolve();
+  const getMany: StorageAreaService['getMany'] = () => Promise.resolve({});
+  const remove: StorageAreaService['remove'] = () => Promise.resolve();
+  const clear: StorageAreaService['clear'] = () => Promise.resolve();
 
   return {
     get,
-    set: vi.fn(async <T>(_key: string, _value: T) => undefined) as StorageAreaService['set'],
+    set: vi.fn(<T>(_key: string, _value: T) => Promise.resolve()) as StorageAreaService['set'],
     getMany,
     setMany,
     remove,
