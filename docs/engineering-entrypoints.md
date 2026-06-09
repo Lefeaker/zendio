@@ -194,7 +194,7 @@ must not call Google debug endpoints directly from the extension.
 
 2026-06-09 video screenshot/session stability final build truth:
 
-- `quality`、`verify:preflight`、视频专项 Vitest `8` 文件 / `155` tests 与 `videoListenerScope.browser.test.ts` Chromium `11` tests 在 Node `v20.20.2` 下通过
+- `quality`、`verify:preflight`、P01 attachment + 视频专项 Vitest `11` 文件 / `201` tests 与 `videoListenerScope.browser.test.ts` Chromium `11` tests 在 Node `v20.20.2` 下通过
 - dev `build/dist/content/runtime.js`: `56.0 KB`（raw `57,348` bytes；raw stop gate `57,348`）
 - dev chunks: `116`
 - shared Top 3: `134.9 KB` / `128.1 KB` / `82.8 KB`
