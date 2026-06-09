@@ -384,9 +384,19 @@ async function flushMutationWork(): Promise<void> {
   await Promise.resolve();
 }
 
-async function flushMicrotasks(turns = 6): Promise<void> {
+async function waitForMockCalls(mock: Mock, expectedCalls = 1, turns = 30): Promise<void> {
   for (let index = 0; index < turns; index += 1) {
+    if (mock.mock.calls.length >= expectedCalls) {
+      return;
+    }
     await Promise.resolve();
+    if (vi.isFakeTimers()) {
+      await vi.advanceTimersByTimeAsync(0);
+      continue;
+    }
+    await new Promise<void>((resolve) => {
+      globalThis.setTimeout(resolve, 0);
+    });
   }
 }
 
@@ -664,7 +674,7 @@ describe('VideoSession', () => {
 
       try {
         await session.start();
-        await flushMicrotasks();
+        await waitForMockCalls(drawImage);
 
         expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
         expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
@@ -1826,6 +1836,7 @@ describe('VideoSession', () => {
       resumePlayback: true,
       collapseAfterCapture: true
     });
+    await waitForMockCalls(drawImage);
 
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalledTimes(1);
@@ -2285,6 +2296,7 @@ describe('VideoSession', () => {
     }
 
     await sessionApi.toggleCaptureScreenshot(timestampId);
+    await waitForMockCalls(drawImage);
     await sessionApi.toggleCaptureScreenshot(timestampId);
     requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(fragmentId);
     await flushMutationWork();
