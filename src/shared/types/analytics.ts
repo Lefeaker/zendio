@@ -3,7 +3,6 @@ import {
   isAllowedUsageEventName,
   sanitizeUsageEventParams,
   validateExtensionErrorEventParams,
-  type AnalyticsPrimitive,
   type TelemetryEventParamMap,
   type UsageEventName,
   type UsageEventParamMap
