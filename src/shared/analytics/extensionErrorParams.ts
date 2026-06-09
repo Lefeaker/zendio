@@ -9,12 +9,35 @@ import {
 import { TELEMETRY_EVENT_CATALOG, type ExtensionErrorEventParams } from './eventCatalog';
 
 type ExtensionErrorParamName = Extract<keyof ExtensionErrorEventParams, string>;
+type StringContextParamName =
+  | 'action'
+  | 'apiVersion'
+  | 'component'
+  | 'connectionType'
+  | 'extensionContext'
+  | 'extractor'
+  | 'feature'
+  | 'platform'
+  | 'step'
+  | 'theme'
+  | 'type';
+type NumberContextParamName =
+  | 'batchSize'
+  | 'duration'
+  | 'itemCount'
+  | 'memoryUsage'
+  | 'retryCount'
+  | 'statusCode'
+  | 'tabCount'
+  | 'timeout';
+type BooleanContextParamName = 'cacheHit' | 'isOnline';
 type ExtensionErrorParamDefinitions = Record<ExtensionErrorParamName, TelemetryParamDefinition>;
 type ExtensionErrorValidationReason = 'invalid-params' | 'missing-required-params';
 type ExtensionErrorValidationOptions = {
   allowServiceProvidedParams?: boolean;
 };
-type UntrustedTelemetryRecord = Record<string, unknown>;
+type UntrustedTelemetryValue = unknown;
+type UntrustedTelemetryRecord = Record<string, UntrustedTelemetryValue>;
 
 const SAFE_CONTEXT_STRING_PATTERN = /^[A-Za-z0-9_.:-]{1,80}$/;
 const SAFE_DESCRIPTION_PATTERN = /^[A-Za-z0-9 .,;:()_'<-]{1,160}$/;
@@ -25,7 +48,7 @@ const SAFE_RESOLUTION_PATTERN = /^\d{2,5}x\d{2,5}$/;
 const SAFE_STACK_LABEL_PATTERN = /^[A-Za-z0-9_$.:<-]{1,40}$/;
 const SAFE_STACK_LINE_PATTERN = /^at\s+([A-Za-z0-9_$.:<-]{1,40}):(\d{1,8})$/;
 const SAFE_BROWSER_NAMES = new Set(['chrome', 'firefox', 'safari', 'edge', 'unknown']);
-const SERVICE_PROVIDED_EXTENSION_ERROR_PARAM_NAMES = new Set<ExtensionErrorParamName>([
+const SERVICE_PROVIDED_EXTENSION_ERROR_PARAM_NAMES: ReadonlySet<string> = new Set([
   'extension_version',
   'session_id'
 ]);
@@ -34,7 +57,7 @@ const REQUIRED_EXTENSION_ERROR_PARAM_NAMES =
     (key) => !SERVICE_PROVIDED_EXTENSION_ERROR_PARAM_NAMES.has(key)
   );
 
-const STRING_CONTEXT_PARAM_NAMES = [
+const STRING_CONTEXT_PARAM_NAMES: ReadonlyArray<StringContextParamName> = [
   'action',
   'apiVersion',
   'component',
@@ -46,9 +69,9 @@ const STRING_CONTEXT_PARAM_NAMES = [
   'step',
   'theme',
   'type'
-] as const satisfies ReadonlyArray<ExtensionErrorParamName>;
+];
 
-const NUMBER_CONTEXT_PARAM_NAMES = [
+const NUMBER_CONTEXT_PARAM_NAMES: ReadonlyArray<NumberContextParamName> = [
   'batchSize',
   'duration',
   'itemCount',
@@ -57,12 +80,12 @@ const NUMBER_CONTEXT_PARAM_NAMES = [
   'statusCode',
   'tabCount',
   'timeout'
-] as const satisfies ReadonlyArray<ExtensionErrorParamName>;
+] satisfies ReadonlyArray<ExtensionErrorParamName>;
 
-const BOOLEAN_CONTEXT_PARAM_NAMES = [
+const BOOLEAN_CONTEXT_PARAM_NAMES: ReadonlyArray<BooleanContextParamName> = [
   'cacheHit',
   'isOnline'
-] as const satisfies ReadonlyArray<ExtensionErrorParamName>;
+];
 
 const EXTENSION_ERROR_PARAM_DEFINITIONS = {
   error_code: contextStringParam({ required: true }),
@@ -150,14 +173,10 @@ const EXTENSION_ERROR_PARAM_DEFINITIONS = {
   }
 } satisfies ExtensionErrorParamDefinitions;
 
-const RUNTIME_EXTENSION_ERROR_PARAM_DEFINITIONS = Object.fromEntries(
-  Object.entries(EXTENSION_ERROR_PARAM_DEFINITIONS).filter(
-    ([key]) => !SERVICE_PROVIDED_EXTENSION_ERROR_PARAM_NAMES.has(key as ExtensionErrorParamName)
-  )
-) as Record<string, TelemetryParamDefinition>;
+const RUNTIME_EXTENSION_ERROR_PARAM_DEFINITIONS = buildRuntimeExtensionErrorParamDefinitions();
 
 export function validateExtensionErrorEventParams(
-  params: unknown,
+  params: UntrustedTelemetryValue,
   options: ExtensionErrorValidationOptions = {}
 ):
   | { ok: true; params: Record<string, AnalyticsPrimitive> }
@@ -183,7 +202,7 @@ export function validateExtensionErrorEventParams(
 }
 
 export function sanitizeExtensionErrorEventParams(
-  params: unknown,
+  params: UntrustedTelemetryValue,
   options: ExtensionErrorValidationOptions = {}
 ): Record<string, AnalyticsPrimitive> {
   const definitions =
@@ -201,7 +220,7 @@ export function hasRequiredExtensionErrorEventParams(
 }
 
 export function sanitizeExtensionErrorContext(
-  context?: Record<string, unknown>
+  context?: UntrustedTelemetryRecord
 ): Partial<ExtensionErrorEventParams> {
   if (!context) {
     return {};
@@ -269,12 +288,16 @@ export function sanitizeExtensionErrorContext(
   return safeContext;
 }
 
-export function sanitizeExtensionErrorBrowserName(value: unknown): string | undefined {
+export function sanitizeExtensionErrorBrowserName(
+  value: UntrustedTelemetryValue
+): string | undefined {
   const normalized = sanitizeContextString(value)?.toLowerCase();
   return normalized !== undefined && SAFE_BROWSER_NAMES.has(normalized) ? normalized : undefined;
 }
 
-export function sanitizeExtensionErrorBrowserVersion(value: unknown): string | undefined {
+export function sanitizeExtensionErrorBrowserVersion(
+  value: UntrustedTelemetryValue
+): string | undefined {
   return sanitizeContextString(value);
 }
 
@@ -294,14 +317,14 @@ function descriptionParam(options: { required?: boolean }): TelemetryParamDefini
   };
 }
 
-function contextNumberParam(key: (typeof NUMBER_CONTEXT_PARAM_NAMES)[number]) {
+function contextNumberParam(key: NumberContextParamName) {
   return nonNegativeNumberParam({
     max: key === 'statusCode' ? 999 : 1_000_000_000,
     privacyNote: 'Allow only bounded non-negative context metrics.'
   });
 }
 
-function sanitizeContextString(value: unknown): string | undefined {
+function sanitizeContextString(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -317,7 +340,7 @@ function sanitizeContextString(value: unknown): string | undefined {
   return normalized;
 }
 
-function sanitizeDescription(value: unknown): string | undefined {
+function sanitizeDescription(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -330,7 +353,7 @@ function sanitizeDescription(value: unknown): string | undefined {
   return normalized;
 }
 
-function sanitizeHttpMethod(value: unknown): string | undefined {
+function sanitizeHttpMethod(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -339,7 +362,7 @@ function sanitizeHttpMethod(value: unknown): string | undefined {
   return SAFE_HTTP_METHOD_PATTERN.test(normalized) ? normalized : undefined;
 }
 
-function sanitizeLocale(value: unknown): string | undefined {
+function sanitizeLocale(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -348,7 +371,7 @@ function sanitizeLocale(value: unknown): string | undefined {
   return /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(normalized) ? normalized : undefined;
 }
 
-function sanitizeResolution(value: unknown): string | undefined {
+function sanitizeResolution(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -358,8 +381,8 @@ function sanitizeResolution(value: unknown): string | undefined {
 }
 
 function sanitizeContextNumber(
-  value: unknown,
-  key: (typeof NUMBER_CONTEXT_PARAM_NAMES)[number]
+  value: UntrustedTelemetryValue,
+  key: NumberContextParamName
 ): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return undefined;
@@ -369,7 +392,7 @@ function sanitizeContextNumber(
   return value <= max ? value : undefined;
 }
 
-function sanitizeDomain(value: unknown): string | undefined {
+function sanitizeDomain(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -386,7 +409,7 @@ function sanitizeDomain(value: unknown): string | undefined {
   return normalized;
 }
 
-function sanitizeProtocol(value: unknown): string | undefined {
+function sanitizeProtocol(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -455,7 +478,7 @@ function sanitizeStackLabel(value: string): string {
   return SAFE_STACK_LABEL_PATTERN.test(normalized) ? normalized : 'anonymous';
 }
 
-function sanitizeSanitizedStackTrace(value: unknown): string | undefined {
+function sanitizeSanitizedStackTrace(value: UntrustedTelemetryValue): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -486,6 +509,18 @@ function sanitizeSanitizedStackTrace(value: unknown): string | undefined {
   return allLinesAreSafe ? normalized : undefined;
 }
 
-function isPlainRecord(value: unknown): value is UntrustedTelemetryRecord {
+function isPlainRecord(value: UntrustedTelemetryValue): value is UntrustedTelemetryRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildRuntimeExtensionErrorParamDefinitions(): Record<string, TelemetryParamDefinition> {
+  const definitions: Record<string, TelemetryParamDefinition> = {};
+
+  for (const [key, definition] of Object.entries(EXTENSION_ERROR_PARAM_DEFINITIONS)) {
+    if (!SERVICE_PROVIDED_EXTENSION_ERROR_PARAM_NAMES.has(key)) {
+      definitions[key] = definition;
+    }
+  }
+
+  return definitions;
 }

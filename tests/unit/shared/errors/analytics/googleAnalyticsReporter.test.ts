@@ -2,10 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorSeverity } from '@shared/errors/types';
-import type { TelemetryEventParamMap } from '@shared/types/analytics';
+import type { RuntimeExtensionErrorParams } from '@shared/types/analytics';
+
+type ExtensionErrorParams = RuntimeExtensionErrorParams;
 
 const getServiceMock = vi.hoisted(() => vi.fn());
-const sanitizeErrorForAnalyticsMock = vi.hoisted(() => vi.fn((error: unknown) => error));
+const sanitizeErrorForAnalyticsMock = vi.hoisted(() => vi.fn(<Value>(error: Value) => error));
 const manifest: chrome.runtime.Manifest = {
   manifest_version: 3,
   name: 'AiiinOB Test',
@@ -18,11 +20,12 @@ vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({
 }));
 
 describe('GoogleAnalyticsReporter', () => {
-  const emitTelemetryEventMock = vi.fn();
+  const emitTelemetryEventMock = vi.fn<(params: ExtensionErrorParams) => Promise<void>>();
 
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    emitTelemetryEventMock.mockResolvedValue(undefined);
     getServiceMock.mockReturnValue({
       runtime: { getManifest: () => manifest }
     });
@@ -98,7 +101,10 @@ describe('GoogleAnalyticsReporter', () => {
         stackTrace: 'Error\nat fn:12\nat anonymous:22'
       })
     );
-    const emittedParams = emitTelemetryEventMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const emittedParams = emitTelemetryEventMock.mock.calls[0]?.[0];
+    if (emittedParams === undefined) {
+      throw new Error('Expected GA reporter to emit extension_error params.');
+    }
     const { isTrackTelemetryEventMessage } =
       await import('../../../../../src/shared/types/analytics');
     const { validateTelemetryEvent } =
@@ -110,19 +116,16 @@ describe('GoogleAnalyticsReporter', () => {
         params: emittedParams
       })
     ).toBe(true);
-    expect(
-      validateTelemetryEvent(
-        'extension_error',
-        emittedParams as unknown as TelemetryEventParamMap['extension_error']
-      )
-    ).toEqual(expect.objectContaining({ ok: true }));
-    expect(emittedParams.extension_version).toBeUndefined();
-    expect(emittedParams.session_id).toBeUndefined();
-    expect(emittedParams.debug_mode).toBeUndefined();
-    expect(emittedParams.engagement_time_msec).toBeUndefined();
-    expect(emittedParams.selectedText).toBeUndefined();
-    expect(emittedParams.markdown).toBeUndefined();
-    expect(emittedParams.filePath).toBeUndefined();
+    expect(validateTelemetryEvent('extension_error', emittedParams)).toEqual(
+      expect.objectContaining({ ok: true })
+    );
+    expect('extension_version' in emittedParams).toBe(false);
+    expect('session_id' in emittedParams).toBe(false);
+    expect('debug_mode' in emittedParams).toBe(false);
+    expect('engagement_time_msec' in emittedParams).toBe(false);
+    expect('selectedText' in emittedParams).toBe(false);
+    expect('markdown' in emittedParams).toBe(false);
+    expect('filePath' in emittedParams).toBe(false);
     expect(reporter.getConfig().measurementId).toBe('G-123');
     expect(reporter.isEnabled()).toBe(true);
     reporter.updateConfig({ enabled: false });
