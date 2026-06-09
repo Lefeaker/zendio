@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import {
   copyOptionsToClipboard,
   parseConfigInput,
@@ -22,16 +22,18 @@ declare global {
   var navigator: Navigator;
 }
 
-let clipboardMocks: {
-  writeText: ReturnType<typeof vi.fn>;
-  readText: ReturnType<typeof vi.fn>;
-} | null = null;
+type ClipboardMocks = {
+  writeText: Mock<(text: string) => Promise<void>>;
+  readText: Mock<() => Promise<string>>;
+};
+
+let clipboardMocks: ClipboardMocks | null = null;
 
 describe('configTransfer service', () => {
   beforeEach(() => {
-    const clipboard = {
-      writeText: vi.fn().mockResolvedValue(undefined),
-      readText: vi.fn().mockResolvedValue('{"value":42}')
+    const clipboard: ClipboardMocks = {
+      writeText: vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined),
+      readText: vi.fn<() => Promise<string>>().mockResolvedValue('{"value":42}')
     };
 
     clipboardMocks = clipboard;
@@ -67,7 +69,7 @@ describe('configTransfer service', () => {
       throw new Error('Clipboard writeText mock missing');
     }
     expect(clipboardMocks.writeText).toHaveBeenCalledTimes(1);
-    const maybeWritten: unknown = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
+    const maybeWritten = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
     if (typeof maybeWritten !== 'string') {
       throw new Error('Clipboard contents must be stringified JSON');
     }

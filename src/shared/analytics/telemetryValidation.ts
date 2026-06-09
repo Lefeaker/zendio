@@ -101,7 +101,7 @@ export function parseTelemetryValidationResponse(responseText: string | null): {
   }
 
   try {
-    const parsed = JSON.parse(responseText) as unknown;
+    const parsed: UntrustedTelemetryValue = JSON.parse(responseText);
     if (hasValidationMessagesArray(parsed)) {
       return {
         validationMessageCount: parsed.validationMessages.length
