@@ -398,12 +398,19 @@ function sanitizeProtocol(value: unknown): string | undefined {
 function sanitizeUrlContext(value: string): Pick<ExtensionErrorEventParams, 'domain' | 'protocol'> {
   try {
     const url = new URL(value);
-    return {
-      ...(sanitizeDomain(url.hostname) !== undefined && { domain: sanitizeDomain(url.hostname) }),
-      ...(sanitizeProtocol(url.protocol) !== undefined && {
-        protocol: sanitizeProtocol(url.protocol)
-      })
-    };
+    const domain = sanitizeDomain(url.hostname);
+    const protocol = sanitizeProtocol(url.protocol);
+    const result: Pick<ExtensionErrorEventParams, 'domain' | 'protocol'> = {};
+
+    if (domain !== undefined) {
+      result.domain = domain;
+    }
+
+    if (protocol !== undefined) {
+      result.protocol = protocol;
+    }
+
+    return result;
   } catch {
     return {};
   }
