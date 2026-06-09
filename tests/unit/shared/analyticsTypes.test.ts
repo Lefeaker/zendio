@@ -146,6 +146,56 @@ describe('usage telemetry contract', () => {
     ).toBe(false);
   });
 
+  it('rejects raw extension_error privacy fields at the runtime boundary', () => {
+    const unsafeParamCases = [
+      {
+        stackTrace: 'Error\n at run (file:///Users/mac/private/file.js:12:8)'
+      },
+      {
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X) Chrome/123 Safari/537.36'
+      },
+      {
+        domain: 'example.com/private/path'
+      },
+      {
+        protocol: 'javascript:'
+      },
+      {
+        error_description: 'api_key=sk_live_abcdefghi'
+      }
+    ];
+
+    for (const unsafeParams of unsafeParamCases) {
+      expect(
+        isTrackTelemetryEventMessage({
+          type: 'TRACK_TELEMETRY_EVENT',
+          event: 'extension_error',
+          params: {
+            ...extensionErrorParams,
+            ...unsafeParams
+          }
+        })
+      ).toBe(false);
+    }
+  });
+
+  it('accepts reporter-sanitized extension_error context fields at the runtime boundary', () => {
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: {
+          ...extensionErrorParams,
+          browser_name: 'chrome',
+          browser_version: '123',
+          domain: 'example.com',
+          protocol: 'https:',
+          stackTrace: 'Error\nat run:12\nat anonymous:22'
+        }
+      })
+    ).toBe(true);
+  });
+
   it('rejects messages when unsafe params were present in the original payload', () => {
     expect(
       isTrackUsageEventMessage({

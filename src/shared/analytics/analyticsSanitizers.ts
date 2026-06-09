@@ -154,7 +154,7 @@ function sanitizeIdentifier(value: UntrustedTelemetryValue, maxLength: number): 
     normalized.length === 0 ||
     normalized.length > maxLength ||
     !SAFE_IDENTIFIER_PATTERN.test(normalized) ||
-    containsUnsafeStringContent(normalized)
+    hasUnsafeTelemetryStringContent(normalized)
   ) {
     return undefined;
   }
@@ -202,7 +202,7 @@ function sanitizePositiveNumber(value: UntrustedTelemetryValue, max?: number): n
   return value;
 }
 
-function containsUnsafeStringContent(value: string): boolean {
+export function hasUnsafeTelemetryStringContent(value: string): boolean {
   const lowerValue = value.toLowerCase();
 
   if (
