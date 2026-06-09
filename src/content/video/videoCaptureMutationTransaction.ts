@@ -7,17 +7,16 @@ import {
   createTrackUsageEventMessage,
   type ExportDestination,
   type FailureCategory,
-  type TrackUsageEventPayload,
   type UsageEventName,
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
-import type { VideoSessionOperationContext } from './sessionOperations';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
+import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 
 export type VideoCaptureMutationFailure =
   | { reason: 'failure' }
@@ -111,12 +110,58 @@ export function restoreRemovedFragmentHighlight(
   context.fragmentHighlightCoordinator.scheduleRestore();
 }
 
-export function snapshotTimestampScreenshotState(capture: VideoTimestampCapture): {
+interface TimestampScreenshotStateSnapshot {
   hasScreenshotRequested: boolean;
   screenshotRequested: VideoTimestampCapture['screenshotRequested'];
   hasScreenshot: boolean;
   screenshot: VideoTimestampCapture['screenshot'];
-} {
+}
+
+function restoreTimestampScreenshotRequestedProperty(
+  capture: VideoTimestampCapture,
+  snapshot: TimestampScreenshotStateSnapshot
+): void {
+  if (!snapshot.hasScreenshotRequested) {
+    delete capture.screenshotRequested;
+    return;
+  }
+  if (snapshot.screenshotRequested !== undefined) {
+    capture.screenshotRequested = snapshot.screenshotRequested;
+    return;
+  }
+  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
+  Object.defineProperty(capture, 'screenshotRequested', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: undefined
+  });
+}
+
+function restoreTimestampScreenshotProperty(
+  capture: VideoTimestampCapture,
+  snapshot: TimestampScreenshotStateSnapshot
+): void {
+  if (!snapshot.hasScreenshot) {
+    delete capture.screenshot;
+    return;
+  }
+  if (snapshot.screenshot !== undefined) {
+    capture.screenshot = snapshot.screenshot;
+    return;
+  }
+  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
+  Object.defineProperty(capture, 'screenshot', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: undefined
+  });
+}
+
+export function snapshotTimestampScreenshotState(
+  capture: VideoTimestampCapture
+): TimestampScreenshotStateSnapshot {
   return {
     hasScreenshotRequested: Object.prototype.hasOwnProperty.call(capture, 'screenshotRequested'),
     screenshotRequested: capture.screenshotRequested,
@@ -129,16 +174,8 @@ export function restoreTimestampScreenshotState(
   capture: VideoTimestampCapture,
   snapshot: ReturnType<typeof snapshotTimestampScreenshotState>
 ): void {
-  if (snapshot.hasScreenshotRequested) {
-    capture.screenshotRequested = snapshot.screenshotRequested;
-  } else {
-    delete capture.screenshotRequested;
-  }
-  if (snapshot.hasScreenshot) {
-    capture.screenshot = snapshot.screenshot;
-  } else {
-    delete capture.screenshot;
-  }
+  restoreTimestampScreenshotRequestedProperty(capture, snapshot);
+  restoreTimestampScreenshotProperty(capture, snapshot);
 }
 
 function debugVideoAnalyticsFailure(error: unknown): void {
@@ -157,7 +194,7 @@ async function sendVideoUsageEvent<EventName extends UsageEventName>(
 
   const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
   const payload = createTrackUsageEventMessage(event, params);
-  await messaging.send(payload as TrackUsageEventPayload);
+  await messaging.send(payload);
 }
 
 export function emitVideoUsageEvent<EventName extends UsageEventName>(
