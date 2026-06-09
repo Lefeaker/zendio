@@ -29,6 +29,7 @@ import {
   isVideoSessionActive,
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
+import { setGlobal } from '../../../utils/typeHelpers';
 
 const ensureContentI18nMock = vi.hoisted(() =>
   vi.fn(() =>
@@ -389,12 +390,13 @@ async function flushMicrotasks(turns = 6): Promise<void> {
   }
 }
 
-class RecordingMutationObserver {
+class RecordingMutationObserver extends MutationObserver {
   static instances: RecordingMutationObserver[] = [];
   public readonly observe = vi.fn();
   public readonly disconnect = vi.fn();
 
   constructor(public readonly callback: MutationCallback) {
+    super(callback);
     RecordingMutationObserver.instances.push(this);
   }
 
@@ -1360,10 +1362,8 @@ describe('VideoSession', () => {
   it('rolls back a fragment capture, highlight wrapper, and editor state when saving fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const originalObserver = globalThis.MutationObserver;
     RecordingMutationObserver.reset();
-    // @ts-expect-error test shim
-    globalThis.MutationObserver = RecordingMutationObserver;
+    const restoreMutationObserver = setGlobal('MutationObserver', RecordingMutationObserver);
     const deferredSave = createDeferred<void>();
     const deps = createDependencies();
     const view = createView();
@@ -1427,7 +1427,7 @@ describe('VideoSession', () => {
     expect(RecordingMutationObserver.instances).toHaveLength(1);
 
     sessionApi.cleanup();
-    globalThis.MutationObserver = originalObserver;
+    restoreMutationObserver();
     vi.useRealTimers();
   });
 
@@ -2403,7 +2403,7 @@ describe('VideoSession', () => {
 
     const platformAdapter = createVideoPlatformAdapterMock.mock.results.at(-1)?.value as
       | {
-          restoreHighlight: ReturnType<typeof vi.fn>;
+          restoreHighlight: Mock<(capture: { id: string; selectedText: string }) => string>;
         }
       | undefined;
     if (!platformAdapter) {
@@ -2513,8 +2513,7 @@ describe('VideoSession', () => {
     const view = createView();
     let mountedCallbacks: VideoPanelCallbacks | null = null;
     RecordingMutationObserver.reset();
-    // @ts-expect-error test shim
-    globalThis.MutationObserver = RecordingMutationObserver;
+    const restoreMutationObserver = setGlobal('MutationObserver', RecordingMutationObserver);
     deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
       mountedCallbacks = callbacks;
       return view;
@@ -2555,6 +2554,7 @@ describe('VideoSession', () => {
     expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
 
     sessionApi.cleanup();
+    restoreMutationObserver();
     vi.useRealTimers();
   });
 

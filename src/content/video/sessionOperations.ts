@@ -1,33 +1,19 @@
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { bucketCount, createFeatureTimer } from '../../shared/analytics';
-import type { AnalyticsPlatform, AnalyticsSource } from '../../shared/analytics';
-import type { ExportDestination } from '../../shared/types/analytics';
-import type { VideoPlatform } from './utils';
+import type { AnalyticsSource } from '../../shared/analytics';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { FragmentHighlighter } from './fragmentHighlighter';
-import type { FragmentHighlightCoordinator } from './fragmentHighlightCoordinator';
-import type { SelectionCaptureController } from './selectionCaptureController';
-import type { VideoSessionLifecycle } from './sessionLifecycle';
-import type { VideoSessionExporter } from './videoSessionExporter';
-import type { VideoSessionMessages } from './sessionMessages';
-import type { VideoHintManager } from './videoHintManager';
-import type { VideoFragmentSelectionController } from './videoFragmentSelectionController';
-import type { PendingSelectionTracker } from './pendingSelectionTracker';
-import type { ShadowSelectionBridge } from './shadowSelectionBridge';
-import type { VideoSessionPlatformController } from './sessionPlatformController';
-import type { VideoSessionDomController } from './sessionDom';
 import { clearVideoSession } from '../runtime/contentSessionRegistry';
 import { resolveHighlightTheme, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
-import type { VideoHintState } from './videoHintManager';
 import type { ReaderHighlightTheme, StoredOptions } from '../../shared/types/options';
-import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { focusFragmentCapture, focusTimestampCapture } from './videoSessionCaptureFocus';
 import {
   createVideoTimestampCapture,
   rollbackVideoTimestampCaptureMutation
 } from './videoTimestampCaptureTransaction';
+import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import {
   emitVideoUsageEvent,
   mapVideoAnalyticsPlatform,
@@ -47,42 +33,6 @@ import {
   hasRequestedTimestampScreenshot,
   setRequestedTimestampScreenshot
 } from './screenshotIntent';
-
-export interface VideoSessionOperationContext {
-  session: object;
-  doc: Document;
-  state: VideoSessionState;
-  dependencies: VideoSessionDependencies;
-  dom: VideoSessionDomController;
-  exporter: VideoSessionExporter;
-  fragmentHighlighter: FragmentHighlighter;
-  fragmentHighlightCoordinator: FragmentHighlightCoordinator;
-  shadowSelectionBridge: ShadowSelectionBridge;
-  pendingSelection: PendingSelectionTracker;
-  selectionCaptureController: SelectionCaptureController;
-  fragmentSelectionController: VideoFragmentSelectionController;
-  lifecycle: VideoSessionLifecycle;
-  platformController: VideoSessionPlatformController;
-  hintManager: VideoHintManager;
-  messages: VideoSessionMessages;
-  updateVideoContext: () => void;
-  findVideoElement: () => HTMLVideoElement | null;
-  buildTimestampUrl: (timeSec: number) => string | null;
-  applyHint: (state: Parameters<VideoSessionDomController['applyHint']>[0]) => void;
-  syncPanel: () => void;
-  ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
-  getSelectionForNode: (node: Node | null) => Selection | null;
-  highlightFragmentText: (text: string) => void;
-  getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
-  syncCommentDrafts?: () => Record<string, string>;
-  scheduleDraftSave?: () => Promise<void>;
-  flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
-  removeDraft?: () => Promise<void>;
-  prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
-  beginPlaybackEditLease?: (captureId: string) => void;
-  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
-  resetPlaybackEditLease?: () => void;
-}
 
 export function beginVideoSessionAnalytics(
   context: VideoSessionOperationContext,
@@ -541,8 +491,7 @@ export async function loadVideoSessionHighlightTheme(
 ): Promise<ReaderHighlightTheme> {
   try {
     const options = await dependencies.optionsRepository.get();
-    const highlightTheme = (options.readingSession as { highlightTheme?: unknown } | undefined)
-      ?.highlightTheme;
+    const highlightTheme = options.readingSession?.highlightTheme;
     return resolveHighlightTheme(highlightTheme);
   } catch (error) {
     console.warn('[VideoSession] Failed to load highlight theme, using default:', error);
@@ -573,9 +522,7 @@ export function watchVideoSessionHighlightTheme(
     if (!nextOptions || !Object.prototype.hasOwnProperty.call(nextOptions, 'readingSession')) {
       return;
     }
-    const highlightTheme = resolveHighlightTheme(
-      (nextOptions.readingSession as { highlightTheme?: unknown } | undefined)?.highlightTheme
-    );
+    const highlightTheme = resolveHighlightTheme(nextOptions.readingSession?.highlightTheme);
     context.state.highlightTheme = highlightTheme;
     applyHighlightTheme(highlightTheme);
     context.fragmentHighlightCoordinator.scheduleRestore();
@@ -584,12 +531,12 @@ export function watchVideoSessionHighlightTheme(
   void context.dependencies.optionsRepository
     .get()
     .then((value) => {
-      applyOptions(value as StoredOptions);
+      applyOptions(value);
     })
     .catch((error) => {
       console.warn('[VideoSession] Failed to preload highlight theme options:', error);
     });
   context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange((value) => {
-    applyOptions(value as StoredOptions);
+    applyOptions(value);
   });
 }
