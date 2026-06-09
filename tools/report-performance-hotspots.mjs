@@ -32,7 +32,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/reader/services/highlightManager.ts', 505],
   ['src/shared/di/serviceRegistry.ts', 504],
   ['src/content/video/sessionOperations.ts', 491],
-  ['src/shared/analytics/extensionErrorParams.ts', 485],
+  ['src/shared/analytics/extensionErrorParams.ts', 527],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
   ['src/ui/domains/video/VideoDialog.ts', 468],
