@@ -7,17 +7,16 @@ import {
   createTrackUsageEventMessage,
   type ExportDestination,
   type FailureCategory,
-  type TrackUsageEventPayload,
   type UsageEventName,
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
-import type { VideoSessionOperationContext } from './sessionOperations';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
+import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 
 export type VideoCaptureMutationFailure =
   | { reason: 'failure' }
@@ -195,7 +194,7 @@ async function sendVideoUsageEvent<EventName extends UsageEventName>(
 
   const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
   const payload = createTrackUsageEventMessage(event, params);
-  await messaging.send(payload as TrackUsageEventPayload);
+  await messaging.send(payload);
 }
 
 export function emitVideoUsageEvent<EventName extends UsageEventName>(

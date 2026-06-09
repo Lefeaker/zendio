@@ -36,7 +36,7 @@ describe('videoCaptureMutationTransaction', () => {
   it('rolls back when save returns a failure hint', async () => {
     const apply = vi.fn(() => ({ id: 'capture-1' }));
     const afterApply = vi.fn();
-    const save = vi.fn(async () => 'failure' as const);
+    const save = vi.fn(() => Promise.resolve('failure' as const));
     const rollback = vi.fn();
     const commit = vi.fn();
 
@@ -60,9 +60,7 @@ describe('videoCaptureMutationTransaction', () => {
     const apply = vi.fn(() => ({ id: 'capture-1' }));
     const afterApply = vi.fn();
     const saveError = new Error('boom');
-    const save = vi.fn(async () => {
-      throw saveError;
-    });
+    const save = vi.fn(() => Promise.reject(saveError));
     const rollback = vi.fn();
     const commit = vi.fn();
     const onSaveError = vi.fn();
@@ -91,7 +89,7 @@ describe('videoCaptureMutationTransaction', () => {
   it('commits after a successful save', async () => {
     const apply = vi.fn(() => ({ id: 'capture-1' }));
     const afterApply = vi.fn();
-    const save = vi.fn(async () => 'ready' as const);
+    const save = vi.fn(() => Promise.resolve('ready' as const));
     const rollback = vi.fn();
     const commit = vi.fn();
 

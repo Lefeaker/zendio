@@ -32,7 +32,7 @@ interface CaptureCanvasHarness {
 }
 
 function createCaptureCanvasHarness(options?: {
-  toBlob?: ((callback: BlobCallback, type?: string, quality?: any) => void) | undefined;
+  toBlob?: ((callback: BlobCallback, type?: string, quality?: number) => void) | undefined;
   toDataURL?: (() => string) | undefined;
 }): CaptureCanvasHarness {
   const video = document.createElement('video');

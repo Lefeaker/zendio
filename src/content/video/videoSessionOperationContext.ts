@@ -13,10 +13,9 @@ import type { PendingSelectionTracker } from './pendingSelectionTracker';
 import type { ShadowSelectionBridge } from './shadowSelectionBridge';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
-import type { VideoSessionOperationContext } from './sessionOperations';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 
-interface CreateVideoSessionOperationContextArgs {
+export interface VideoSessionOperationContext {
   session: object;
   doc: Document;
   state: VideoSessionState;
@@ -42,8 +41,26 @@ interface CreateVideoSessionOperationContextArgs {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
+  syncCommentDrafts?: () => Record<string, string>;
+  scheduleDraftSave?: () => Promise<void>;
+  flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
+  removeDraft?: () => Promise<void>;
   prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
+  beginPlaybackEditLease?: (captureId: string) => void;
+  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
+  resetPlaybackEditLease?: () => void;
 }
+
+type CreateVideoSessionOperationContextArgs = Omit<
+  VideoSessionOperationContext,
+  | 'syncCommentDrafts'
+  | 'scheduleDraftSave'
+  | 'flushDraftNow'
+  | 'removeDraft'
+  | 'beginPlaybackEditLease'
+  | 'releasePlaybackEditLease'
+  | 'resetPlaybackEditLease'
+>;
 
 export function createVideoSessionOperationContext(
   args: CreateVideoSessionOperationContextArgs

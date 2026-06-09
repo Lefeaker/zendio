@@ -6,7 +6,7 @@ import type { VideoSessionDomController, VideoSessionDomListenerHandlers } from 
 import type { VideoSessionMessages } from './sessionMessages';
 import type { VideoSessionLifecycle } from './sessionLifecycle';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
-import type { VideoSessionOperationContext } from './sessionOperations';
+import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import type { FragmentHighlightCoordinator } from './fragmentHighlightCoordinator';
 import type { SelectionCaptureController } from './selectionCaptureController';
 import type { VideoHintState } from './videoHintManager';
