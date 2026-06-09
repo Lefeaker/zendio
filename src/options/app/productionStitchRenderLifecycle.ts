@@ -52,6 +52,7 @@ export function createProductionStitchRenderLifecycle(
   options: ProductionStitchRenderLifecycleOptions
 ): ProductionStitchRenderLifecycle {
   const { mountRoot } = options;
+  let explicitScrollIntentVersion = 0;
   const controls = createProductionStitchRenderControls({
     mountRoot,
     getState: () => options.getState()
@@ -111,6 +112,7 @@ export function createProductionStitchRenderLifecycle(
       x: window.scrollX,
       y: window.scrollY
     };
+    const restoreVersion = explicitScrollIntentVersion;
     options.widgetHost.flushDirtyWidgets();
     options.widgetHost.destroyWidgets();
     clear(mountRoot).append(
@@ -122,6 +124,9 @@ export function createProductionStitchRenderLifecycle(
     );
     const nextMain = mountRoot.querySelector('.main');
     const restoreScroll = () => {
+      if (restoreVersion !== explicitScrollIntentVersion) {
+        return;
+      }
       const currentMain = mountRoot.querySelector('.main');
       if (currentMain instanceof HTMLElement) {
         setScrollTopImmediately(currentMain, previousScrollTop);
@@ -180,6 +185,7 @@ export function createProductionStitchRenderLifecycle(
   }
 
   function scrollToPanel(panelId: string): void {
+    explicitScrollIntentVersion += 1;
     options.setState({
       ...getState(),
       activePanel: panelId
