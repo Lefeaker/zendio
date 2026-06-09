@@ -3,18 +3,20 @@ import {
   enumParam,
   hasRequiredTelemetryParams,
   identifierParam,
-  I18N_OVERFLOW_COMPONENTS,
-  I18N_OVERFLOW_PRIORITIES,
+  type AnalyticsPrimitive,
   languageParam,
   nonNegativeNumberParam,
   positiveNumberParam,
+  sanitizeTelemetryParams,
+  type TelemetryParamDefinition
+} from '../analytics/analyticsSanitizers';
+import {
+  I18N_OVERFLOW_COMPONENTS,
+  I18N_OVERFLOW_PRIORITIES,
   RUNTIME_HARNESS_SOURCES,
   RUNTIME_USAGE_EVENT_NAMES,
-  sanitizeTelemetryParams,
   SUPPORT_LINK_TARGETS,
   SUPPORT_TOAST_VARIANTS,
-  type TelemetryParamDefinition,
-  type AnalyticsPrimitive,
   type SupportLinkTarget,
   type SupportToastVariant,
   type TelemetryConsentKind,
@@ -28,7 +30,7 @@ import {
   type UsageEventParamMap,
   USAGE_DASHBOARD_CATEGORIES,
   VIDEO_EVENT_SOURCES
-} from '../analytics';
+} from '../analytics/eventCatalog';
 
 export type {
   AnalyticsPrimitive,
