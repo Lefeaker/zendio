@@ -31,6 +31,11 @@ import {
   USAGE_DASHBOARD_CATEGORIES,
   VIDEO_EVENT_SOURCES
 } from '../analytics/eventCatalog';
+export {
+  hasRequiredExtensionErrorEventParams,
+  sanitizeExtensionErrorEventParams,
+  validateExtensionErrorEventParams
+} from '../analytics/extensionErrorParams';
 
 export type {
   AnalyticsPrimitive,

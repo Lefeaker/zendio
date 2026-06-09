@@ -2,6 +2,7 @@ import {
   hasRequiredUsageEventParams,
   isAllowedUsageEventName,
   sanitizeUsageEventParams,
+  validateExtensionErrorEventParams,
   type AnalyticsPrimitive,
   type TelemetryConsentKind,
   type TelemetryEventDefinition,
@@ -77,7 +78,10 @@ export function validateTelemetryEvent(
     };
   }
 
-  const genericParams = validateGenericTelemetryParams(definition, params);
+  const genericParams =
+    eventName === 'extension_error'
+      ? validateExtensionErrorTelemetryParams(params)
+      : validateGenericTelemetryParams(definition, params);
   if (!genericParams.ok) {
     return genericParams;
   }
@@ -184,6 +188,25 @@ function validateGenericTelemetryParams(
   return {
     ok: true,
     params: sanitizedParams
+  };
+}
+
+function validateExtensionErrorTelemetryParams(
+  params: UntrustedTelemetryValue
+):
+  | { ok: true; params: Record<string, AnalyticsPrimitive> }
+  | { ok: false; reason: TelemetryValidationReason } {
+  const validation = validateExtensionErrorEventParams(params, {
+    allowServiceProvidedParams: true
+  });
+
+  if (!validation.ok) {
+    return validation;
+  }
+
+  return {
+    ok: true,
+    params: validation.params
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorSeverity } from '@shared/errors/types';
+import type { TelemetryEventParamMap } from '@shared/types/analytics';
 
 const getServiceMock = vi.hoisted(() => vi.fn());
 const sanitizeErrorForAnalyticsMock = vi.hoisted(() => vi.fn((error: unknown) => error));
@@ -98,6 +99,23 @@ describe('GoogleAnalyticsReporter', () => {
       })
     );
     const emittedParams = emitTelemetryEventMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const { isTrackTelemetryEventMessage } =
+      await import('../../../../../src/shared/types/analytics');
+    const { validateTelemetryEvent } =
+      await import('../../../../../src/shared/analytics/telemetryValidation');
+    expect(
+      isTrackTelemetryEventMessage({
+        type: 'TRACK_TELEMETRY_EVENT',
+        event: 'extension_error',
+        params: emittedParams
+      })
+    ).toBe(true);
+    expect(
+      validateTelemetryEvent(
+        'extension_error',
+        emittedParams as unknown as TelemetryEventParamMap['extension_error']
+      )
+    ).toEqual(expect.objectContaining({ ok: true }));
     expect(emittedParams.extension_version).toBeUndefined();
     expect(emittedParams.session_id).toBeUndefined();
     expect(emittedParams.debug_mode).toBeUndefined();

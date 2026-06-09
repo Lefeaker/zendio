@@ -2,12 +2,13 @@ import {
   hasRequiredUsageEventParams,
   isAllowedUsageEventName,
   sanitizeUsageEventParams,
+  validateExtensionErrorEventParams,
   type AnalyticsPrimitive,
   type TelemetryEventParamMap,
   type UsageEventName,
   type UsageEventParamMap
 } from './analyticsContract';
-import { RUNTIME_USAGE_EVENT_NAMES, TELEMETRY_EVENT_CATALOG } from '../analytics/eventCatalog';
+import { RUNTIME_USAGE_EVENT_NAMES } from '../analytics/eventCatalog';
 
 export const TRACK_USAGE_EVENT = 'TRACK_USAGE_EVENT';
 export const TRACK_TELEMETRY_EVENT = 'TRACK_TELEMETRY_EVENT';
@@ -23,15 +24,6 @@ const CANONICAL_RUNTIME_TELEMETRY_EVENT_NAMES = new Set<string>([
   ...RUNTIME_USAGE_EVENT_NAMES,
   'extension_error'
 ]);
-const EXTENSION_ERROR_ALLOWED_PARAM_NAMES = new Set<string>(
-  TELEMETRY_EVENT_CATALOG.extension_error.allowedParams.filter(
-    (key) => !isServiceProvidedRuntimeParamName(key)
-  )
-);
-const EXTENSION_ERROR_REQUIRED_PARAM_NAMES =
-  TELEMETRY_EVENT_CATALOG.extension_error.requiredParams.filter(
-    (key) => !isServiceProvidedRuntimeParamName(key)
-  );
 
 export type {
   AnalyticsPrimitive,
@@ -50,7 +42,8 @@ export {
   hasRequiredUsageEventParams,
   isAllowedUsageEventName,
   parseUsageEventParams,
-  sanitizeUsageEventParams
+  sanitizeUsageEventParams,
+  validateExtensionErrorEventParams
 } from './analyticsContract';
 
 export type AnalyticsEventParams = UsageEventParamMap[UsageEventName];
@@ -139,37 +132,13 @@ function hasValidUsageParams<EventName extends UsageEventName>(
 function hasValidExtensionErrorParams(
   params: RuntimeMessageValue
 ): params is RuntimeExtensionErrorParams {
-  if (!isPlainRecord(params)) {
-    return false;
-  }
-
-  const entries = Object.entries(params).filter(([, value]) => value !== undefined);
-  return (
-    entries.every(
-      ([key, value]) => EXTENSION_ERROR_ALLOWED_PARAM_NAMES.has(key) && isAnalyticsPrimitive(value)
-    ) && EXTENSION_ERROR_REQUIRED_PARAM_NAMES.every((key) => params[key] !== undefined)
-  );
+  return validateExtensionErrorEventParams(params, { allowServiceProvidedParams: false }).ok;
 }
 
 function isAllowedCanonicalRuntimeTelemetryEventName(
   eventName: RuntimeMessageValue
 ): eventName is UsageEventName | 'extension_error' {
   return typeof eventName === 'string' && CANONICAL_RUNTIME_TELEMETRY_EVENT_NAMES.has(eventName);
-}
-
-function isAnalyticsPrimitive(value: RuntimeMessageValue): value is AnalyticsPrimitive {
-  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
-}
-
-function isServiceProvidedRuntimeParamName(
-  value: string
-): value is ServiceProvidedRuntimeParamName {
-  return (
-    value === 'debug_mode' ||
-    value === 'engagement_time_msec' ||
-    value === 'extension_version' ||
-    value === 'session_id'
-  );
 }
 
 function isPlainRecord(value: RuntimeMessageValue): value is RuntimeMessageRecord {
