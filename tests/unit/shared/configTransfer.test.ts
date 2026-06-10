@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import {
   copyOptionsToClipboard,
   parseConfigInput,
@@ -22,16 +22,18 @@ declare global {
   var navigator: Navigator;
 }
 
-let clipboardMocks: {
-  writeText: ReturnType<typeof vi.fn>;
-  readText: ReturnType<typeof vi.fn>;
-} | null = null;
+type ClipboardMocks = {
+  writeText: Mock<(text: string) => Promise<void>>;
+  readText: Mock<() => Promise<string>>;
+};
+
+let clipboardMocks: ClipboardMocks | null = null;
 
 describe('configTransfer service', () => {
   beforeEach(() => {
-    const clipboard = {
-      writeText: vi.fn().mockResolvedValue(undefined),
-      readText: vi.fn().mockResolvedValue('{"value":42}')
+    const clipboard: ClipboardMocks = {
+      writeText: vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined),
+      readText: vi.fn<() => Promise<string>>().mockResolvedValue('{"value":42}')
     };
 
     clipboardMocks = clipboard;
@@ -44,10 +46,7 @@ describe('configTransfer service', () => {
   });
 
   afterEach(() => {
-    Reflect.deleteProperty(
-      globalThis as typeof globalThis & { navigator?: Navigator },
-      'navigator'
-    );
+    Reflect.deleteProperty(globalThis, 'navigator');
     clipboardMocks = null;
   });
 
@@ -70,7 +69,7 @@ describe('configTransfer service', () => {
       throw new Error('Clipboard writeText mock missing');
     }
     expect(clipboardMocks.writeText).toHaveBeenCalledTimes(1);
-    const maybeWritten: unknown = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
+    const maybeWritten = clipboardMocks.writeText.mock.calls.at(-1)?.[0];
     if (typeof maybeWritten !== 'string') {
       throw new Error('Clipboard contents must be stringified JSON');
     }
@@ -92,8 +91,8 @@ describe('configTransfer service', () => {
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(2);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
-    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
-    expect((parsed.options as Record<string, unknown>).analytics).toBeUndefined();
+    expect(parsed.options).not.toHaveProperty('customKey');
+    expect(parsed.options).not.toHaveProperty('analytics');
     expect(parsed.analytics).toEqual({
       consent: { analytics: true, errorReporting: false },
       debugMode: false
@@ -152,7 +151,7 @@ describe('configTransfer service', () => {
 
     expect(parsed.version).toBe(0);
     expect(parsed.options.yamlConfig?.contentTypes?.article?.fields?.[0]?.enabled).toBe(false);
-    expect((parsed.options as Record<string, unknown>).customKey).toBeUndefined();
+    expect(parsed.options).not.toHaveProperty('customKey');
   });
 
   it('imports known current settings and sensitive fields through the transfer sanitizer', () => {
@@ -224,8 +223,11 @@ describe('configTransfer service', () => {
     try {
       parseConfigInput('   ');
     } catch (error) {
+      if (!(error instanceof ConfigTransferError)) {
+        throw error;
+      }
       expect(error).toBeInstanceOf(ConfigTransferError);
-      expect((error as ConfigTransferError).code).toBe('EMPTY_IMPORT');
+      expect(error.code).toBe('EMPTY_IMPORT');
     }
   });
 
@@ -234,8 +236,11 @@ describe('configTransfer service', () => {
     try {
       parseConfigInput('not json');
     } catch (error) {
+      if (!(error instanceof ConfigTransferError)) {
+        throw error;
+      }
       expect(error).toBeInstanceOf(ConfigTransferError);
-      expect((error as ConfigTransferError).code).toBe('PARSE_FAILED');
+      expect(error.code).toBe('PARSE_FAILED');
     }
   });
 
@@ -275,5 +280,37 @@ describe('configTransfer service', () => {
     );
     expect(parsed.version).toBe(1);
     expect(parsed.analytics).toBeUndefined();
+  });
+
+  it('keeps analytics transfer payload limited to consent and debug mode', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          rest: { baseUrl: 'https://example.com' }
+        },
+        analytics: {
+          consent: {
+            analytics: true,
+            errorReporting: false
+          },
+          debugMode: true,
+          measurementId: 'G-1111111111',
+          transportMode: 'proxy',
+          proxyEndpoint: 'https://proxy.example/collect'
+        }
+      })
+    );
+
+    expect(parsed.analytics).toEqual({
+      consent: {
+        analytics: true,
+        errorReporting: false
+      },
+      debugMode: true
+    });
+    expect(parsed.analytics).not.toHaveProperty('measurementId');
+    expect(parsed.analytics).not.toHaveProperty('transportMode');
+    expect(parsed.analytics).not.toHaveProperty('proxyEndpoint');
   });
 });
