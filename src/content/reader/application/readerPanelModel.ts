@@ -2,7 +2,7 @@ export interface ReaderPanelCallbacks {
   onFinish: () => void | Promise<void>;
   onCancel: () => void;
   onSelectDestination?: (id: string) => void | Promise<void>;
-  onDeleteHighlight: (id: string) => void;
+  onDeleteHighlight: (id: string) => void | Promise<void>;
   onSubmitHighlightEdit: (id: string, comment: string) => void | Promise<void>;
   onFocusHighlight: (id: string) => void;
 }

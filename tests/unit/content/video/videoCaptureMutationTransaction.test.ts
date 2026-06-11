@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@content/sessionDrafts', async () => {
+  const actual = await vi.importActual<typeof import('@content/sessionDrafts')>(
+    '@content/sessionDrafts'
+  );
+  return {
+    ...actual,
+    runSessionMutationTransaction: vi.fn(actual.runSessionMutationTransaction)
+  };
+});
+
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
+import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import {
   restoreTimestampScreenshotState,
   runVideoCaptureMutationTransaction,
@@ -33,6 +44,24 @@ function hasOwnProperty(target: object, key: 'screenshotRequested' | 'screenshot
 }
 
 describe('videoCaptureMutationTransaction', () => {
+  it('delegates failure-hint handling to the shared session mutation runner', async () => {
+    const sharedRun = vi.mocked(runSessionMutationTransaction);
+    sharedRun.mockClear();
+
+    const result = await runVideoCaptureMutationTransaction({
+      apply: () => ({ id: 'capture-1' }),
+      save: async () => 'failure' as const,
+      rollback: vi.fn(),
+      commit: vi.fn()
+    });
+
+    expect(result).toBe(false);
+    expect(sharedRun).toHaveBeenCalledTimes(1);
+    const delegatedTransaction = sharedRun.mock.calls[0]?.[0];
+    expect(delegatedTransaction?.isSaveFailure?.('failure')).toBe(true);
+    expect(delegatedTransaction?.isSaveFailure?.('ready')).toBe(false);
+  });
+
   it('rolls back when save returns a failure hint', async () => {
     const apply = vi.fn(() => ({ id: 'capture-1' }));
     const afterApply = vi.fn();

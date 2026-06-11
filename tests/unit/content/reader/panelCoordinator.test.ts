@@ -7,7 +7,10 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '@content/reader/application/readerPanelModel';
-import type { ReaderSessionView } from '@content/reader/application/readerSessionView';
+import type {
+  ReaderPanelEditingSnapshot,
+  ReaderSessionView
+} from '@content/reader/application/readerSessionView';
 import type { ReaderSessionViewFactory } from '@content/reader/application/readerSessionView';
 import { ReaderPanelCoordinator } from '@content/reader/panelCoordinator';
 import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
@@ -20,6 +23,10 @@ class FakeReaderView implements ReaderSessionView {
   lastTexts: ReaderPanelTexts | null = null;
   lastHighlights: ReaderPanelHighlight[] = [];
   currentDrafts: Record<string, string> = {};
+  editingSnapshot: ReaderPanelEditingSnapshot = {
+    editingHighlightId: null,
+    pendingNoteFocusHighlightId: null
+  };
   editing = false;
   destroyed = false;
 
@@ -45,6 +52,37 @@ class FakeReaderView implements ReaderSessionView {
 
   hydrateCommentDrafts(drafts: Record<string, string>): void {
     this.currentDrafts = { ...drafts };
+  }
+
+  clearCommentDraft(id: string): void {
+    const remainingDrafts = { ...this.currentDrafts };
+    delete remainingDrafts[id];
+    this.currentDrafts = remainingDrafts;
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    if (draft === undefined) {
+      this.clearCommentDraft(id);
+      return;
+    }
+    this.currentDrafts = { ...this.currentDrafts, [id]: draft };
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return { ...this.editingSnapshot };
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.editingSnapshot = { ...snapshot };
+    this.editing = snapshot.editingHighlightId !== null;
+  }
+
+  finishEditing(): void {
+    this.editingSnapshot = {
+      editingHighlightId: null,
+      pendingNoteFocusHighlightId: null
+    };
+    this.editing = false;
   }
 
   stopEditing(): void {

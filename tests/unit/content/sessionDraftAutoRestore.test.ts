@@ -4,8 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StorageService } from '@platform/interfaces/storage';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import {
+  SESSION_DRAFT_INDEX_KEY,
   createSessionDraftPageKey,
   createSessionDraftRepository,
+  createSessionDraftStorageKey,
+  type SessionDraftEnvelope,
   type ReaderSessionDraftEnvelope
 } from '@content/sessionDrafts';
 import type {
@@ -48,6 +51,7 @@ function createHarness(initialUrl: string) {
 
   return {
     repository,
+    storage,
     currentUrl: () => href,
     setUrl: (url: string) => {
       href = url;
@@ -72,6 +76,35 @@ function createHarness(initialUrl: string) {
         isVideoCandidateUrl
       })
   };
+}
+
+async function seedStoredDraft(
+  harness: ReturnType<typeof createHarness>,
+  envelope: SessionDraftEnvelope
+): Promise<void> {
+  const storageKey = createSessionDraftStorageKey({
+    mode: envelope.mode,
+    pageKey: envelope.pageKey,
+    draftId: envelope.draftId
+  });
+
+  await harness.storage.local.setMany({
+    [storageKey]: envelope,
+    [SESSION_DRAFT_INDEX_KEY]: {
+      schemaVersion: 1,
+      entries: [
+        {
+          key: storageKey,
+          draftId: envelope.draftId,
+          mode: envelope.mode,
+          pageKey: envelope.pageKey,
+          updatedAt: envelope.updatedAt,
+          expiresAt: envelope.expiresAt,
+          status: envelope.status
+        }
+      ]
+    }
+  });
 }
 
 function createReaderDraftEnvelope(
@@ -172,6 +205,42 @@ describe('sessionDraftAutoRestore', () => {
     expect(harness.readerStart).toHaveBeenCalledTimes(1);
     expect(harness.readerStart.mock.calls[0]).toHaveLength(0);
     expect(harness.videoStart).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('ignores terminal reader drafts during auto-restore', async () => {
+    const url = 'https://example.com/article';
+    const harness = createHarness(url);
+
+    await seedStoredDraft(harness, {
+      ...createReaderDraftEnvelope(url),
+      status: 'discarded'
+    });
+
+    const stop = harness.start();
+    await flushAsyncWork();
+
+    expect(harness.readerStart).not.toHaveBeenCalled();
+    expect(harness.videoStart).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('ignores terminal video drafts during auto-restore', async () => {
+    const url = 'https://www.youtube.com/watch?v=video-1';
+    const harness = createHarness(url);
+    const videoDraft = createVideoDraftEnvelope(url);
+    document.body.appendChild(document.createElement('video'));
+
+    await seedStoredDraft(harness, {
+      ...videoDraft,
+      status: 'exported'
+    });
+
+    const stop = harness.start();
+    await flushAsyncWork();
+
+    expect(harness.videoStart).not.toHaveBeenCalled();
+    expect(harness.readerStart).not.toHaveBeenCalled();
     stop();
   });
 

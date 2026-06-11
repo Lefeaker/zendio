@@ -3,6 +3,7 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
+import type { ReaderPanelEditingSnapshot } from '../application/readerSessionView';
 import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
@@ -20,6 +21,10 @@ import {
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
+import {
+  applyReaderPanelCompatibilityAttributes,
+  bindReaderHighlightInteractions
+} from './readerDialogPanelDom';
 
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
@@ -159,8 +164,7 @@ export class ReaderDialogPanel implements UiMountable<
 
   stopEditing(): void {
     this.commentDrafts.clear(this.editingHighlightId);
-    this.editingHighlightId = null;
-    this.rerender({ captureDrafts: false });
+    this.finishEditing();
   }
 
   snapshotCommentDrafts(): SessionCommentDraftSnapshot {
@@ -169,6 +173,35 @@ export class ReaderDialogPanel implements UiMountable<
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
     this.commentDrafts.hydrate(drafts);
+    this.rerender({ captureDrafts: false });
+  }
+
+  clearCommentDraft(id: string): void {
+    this.commentDrafts.clear(id, { notify: false });
+    this.rerender({ captureDrafts: false });
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    this.commentDrafts.restore(id, draft, { notify: false });
+    this.rerender({ captureDrafts: false });
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return {
+      editingHighlightId: this.editingHighlightId,
+      pendingNoteFocusHighlightId: this.pendingNoteFocusHighlightId
+    };
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.editingHighlightId = snapshot.editingHighlightId;
+    this.pendingNoteFocusHighlightId = snapshot.pendingNoteFocusHighlightId;
+    this.rerender({ captureDrafts: false });
+  }
+
+  finishEditing(): void {
+    this.editingHighlightId = null;
+    this.pendingNoteFocusHighlightId = null;
     this.rerender({ captureDrafts: false });
   }
 
@@ -247,8 +280,7 @@ export class ReaderDialogPanel implements UiMountable<
         'reader:delete': (event) => {
           const id = this.resolveActionId(event, 'highlightId');
           if (id) {
-            this.commentDrafts.clear(id);
-            this.options.callbacks.onDeleteHighlight(id);
+            this.observeAsync(this.handleDeleteHighlight(id));
           }
         },
         'reader:save': (event) => {
@@ -262,8 +294,19 @@ export class ReaderDialogPanel implements UiMountable<
         }
       }
     });
-    this.applyCompatibilityAttributes(surface);
-    this.bindHighlightInteractions(surface);
+    applyReaderPanelCompatibilityAttributes(surface, {
+      collapsed: this.collapsePersistence.value,
+      onExpand: () => {
+        this.collapsePersistence.set(false, { persist: true });
+      }
+    });
+    bindReaderHighlightInteractions(surface, {
+      onFocusHighlight: (id) => this.options.callbacks.onFocusHighlight(id),
+      onInputFocus: (id) => {
+        this.editingHighlightId = id;
+      },
+      bindInput: (input, id) => this.commentDrafts.bindInput(input, id)
+    });
     return surface;
   }
 
@@ -273,44 +316,6 @@ export class ReaderDialogPanel implements UiMountable<
     } catch {
       return path;
     }
-  }
-
-  private applyCompatibilityAttributes(surface: HTMLElement): void {
-    const collapsed = this.collapsePersistence.value;
-    surface.style.pointerEvents = 'none';
-    const modal = surface.querySelector<HTMLElement>('.resource-modal--session');
-    modal?.classList.toggle('is-collapsed', collapsed);
-    const surfaceWindow = surface.querySelector<HTMLElement>('.reader-surface-window');
-    surfaceWindow?.classList.toggle('is-collapsed', collapsed);
-    const dialog = surface.querySelector<HTMLElement>('[role="dialog"]');
-    if (dialog) {
-      dialog.dataset.role = 'dialog-title';
-      dialog.style.pointerEvents = 'auto';
-    }
-    surfaceWindow?.style.setProperty('pointer-events', 'auto');
-    if (collapsed && surfaceWindow) {
-      surfaceWindow.addEventListener('click', () => {
-        this.collapsePersistence.set(false, { persist: true });
-      });
-    }
-    surface
-      .querySelector<HTMLElement>('[data-action-id="reader:finish"]')
-      ?.setAttribute('data-role', 'export-btn');
-    surface
-      .querySelector<HTMLElement>('[data-action-id="reader:cancel"]')
-      ?.setAttribute('data-role', 'close-btn');
-    const collapseTrigger = surface.querySelector<HTMLButtonElement>(
-      '[data-action-id="session:toggleCollapse"]'
-    );
-    if (collapseTrigger) {
-      collapseTrigger.hidden = collapsed;
-      collapseTrigger.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      collapseTrigger.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
-      collapseTrigger.textContent = collapsed ? '⌃' : '⌄';
-    }
-    surface.querySelectorAll<HTMLElement>('article[data-highlight-id]').forEach((item) => {
-      item.dataset.role = 'highlight-item';
-    });
   }
 
   private resolveActionId(
@@ -326,27 +331,6 @@ export class ReaderDialogPanel implements UiMountable<
       target?.closest<HTMLElement>('[data-highlight-id]')?.dataset.highlightId ??
       null
     );
-  }
-
-  private bindHighlightInteractions(surface: HTMLElement): void {
-    surface.querySelectorAll<HTMLElement>('[data-highlight-id]').forEach((item) => {
-      const id = item.dataset.highlightId;
-      if (!id) {
-        return;
-      }
-      item.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        if (this.isInteractiveHighlightTarget(target)) {
-          return;
-        }
-        this.options.callbacks.onFocusHighlight(id);
-      });
-      const input = item.querySelector<HTMLInputElement>('[data-highlight-input]');
-      input?.addEventListener('focus', () => {
-        this.editingHighlightId = id;
-      });
-      this.commentDrafts.bindInput(input, id);
-    });
   }
 
   private applyHighlights(highlights: ReaderPanelHighlight[]): ReaderPanelHighlight | undefined {
@@ -378,18 +362,22 @@ export class ReaderDialogPanel implements UiMountable<
     }
   }
 
-  private isInteractiveHighlightTarget(target: Element | null): boolean {
-    return Boolean(
-      target?.closest(
-        'button, input, textarea, select, a, [contenteditable="true"], [data-action-id]'
-      )
-    );
-  }
-
   private formatCounter(count: number): string {
     if (count <= 0) {
       return this.texts.counterZero;
     }
     return this.texts.counter.replace('{count}', String(count));
+  }
+
+  private async handleDeleteHighlight(id: string): Promise<void> {
+    this.commentDrafts.captureRenderedInputs();
+    await this.options.callbacks.onDeleteHighlight(id);
+    this.commentDrafts.clear(id);
+  }
+
+  private observeAsync(task: Promise<void>): void {
+    void task.catch((error) => {
+      console.warn('[ReaderDialogPanel] Failed to complete async panel action:', error);
+    });
   }
 }

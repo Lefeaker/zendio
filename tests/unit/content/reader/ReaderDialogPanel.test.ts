@@ -203,6 +203,58 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('keeps the note draft when delete fails through the real panel action', async () => {
+    const callbacks = createReaderPanelCallbacks();
+    callbacks.onDeleteHighlight = vi.fn().mockRejectedValueOnce(new Error('delete failed'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const observedDrafts: Array<Record<string, string>> = [];
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks,
+      onCommentDraftChange: (drafts) => {
+        observedDrafts.push({ ...drafts });
+      }
+    });
+    panel.mount(document.body);
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-highlight-input="h-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('highlight input missing');
+    }
+    input.value = 'draft to keep';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const deleteButton = panel.element.shadowRoot?.querySelector<HTMLButtonElement>(
+      '[data-highlight-id="h-1"] [data-action-id="reader:delete"]'
+    );
+    expect(deleteButton).toBeTruthy();
+    if (!deleteButton) {
+      throw new Error('delete button missing');
+    }
+
+    deleteButton.click();
+    await flushPanelPersistence();
+
+    expect(callbacks.onDeleteHighlight).toHaveBeenCalledWith('h-1');
+    expect(observedDrafts.at(-1)).toEqual({
+      'h-1': 'draft to keep'
+    });
+    expect(panel.snapshotCommentDrafts()).toEqual({
+      'h-1': 'draft to keep'
+    });
+    expect(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-highlight-input="h-1"]')
+        ?.value
+    ).toBe('draft to keep');
+
+    panel.destroy();
+    warnSpy.mockRestore();
+  });
+
   it('flushes unsaved highlight note drafts before finishing', async () => {
     const callbacks = createReaderPanelCallbacks();
     const panel = new ReaderDialogPanel({

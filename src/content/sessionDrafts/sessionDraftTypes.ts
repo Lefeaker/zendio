@@ -6,8 +6,14 @@ export const SESSION_DRAFT_MAX_ENTRIES = 100;
 export const SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 * 1024;
 
 export type SessionDraftMode = 'reader' | 'video';
-export type SessionDraftStatus = 'active' | 'restorable';
+export type SessionDraftActiveStatus = 'active' | 'restorable';
+export type SessionDraftTerminalStatus = 'discarded' | 'exported';
+export type SessionDraftStatus = SessionDraftActiveStatus | SessionDraftTerminalStatus;
 export type SessionCommentDraftSnapshot = Record<string, string>;
+
+export function isRestorableSessionDraftStatus(status: SessionDraftStatus): boolean {
+  return status === 'active' || status === 'restorable';
+}
 
 export interface SessionDraftOwnerContext {
   tabId?: number;

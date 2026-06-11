@@ -30,23 +30,36 @@ function createEnvelope(
   const updatedAt = overrides.updatedAt ?? BASE_TIME + 10;
   const pageKey = createSessionDraftPageKey(mode, pageUrl);
 
-  return {
+  const base = {
     schemaVersion: 1,
     draftId: overrides.draftId ?? `${mode}-${updatedAt}`,
-    mode,
     pageKey,
     pageUrl,
     pageTitle: overrides.pageTitle ?? `${mode} title`,
     createdAt: overrides.createdAt ?? updatedAt - 1,
     updatedAt,
     expiresAt: overrides.expiresAt ?? updatedAt + 7 * 24 * 60 * 60 * 1000,
-    status: overrides.status ?? 'active',
-    payload: overrides.payload ?? {
-      commentDrafts: {
-        [`${mode}-comment`]: `draft-${updatedAt}`
-      }
+    status: overrides.status ?? 'active'
+  } satisfies Omit<SessionDraftEnvelope, 'mode' | 'payload'>;
+  const payload = overrides.payload ?? {
+    commentDrafts: {
+      [`${mode}-comment`]: `draft-${updatedAt}`
     }
-  } as SessionDraftEnvelope;
+  };
+
+  if (mode === 'reader') {
+    return {
+      ...base,
+      mode: 'reader',
+      payload
+    };
+  }
+
+  return {
+    ...base,
+    mode: 'video',
+    payload
+  };
 }
 
 function createIndexEntry(envelope: SessionDraftEnvelope): SessionDraftIndexEntry {
@@ -86,6 +99,84 @@ describe('sessionDraftRepository', () => {
     await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
       schemaVersion: 1,
       entries: [expect.objectContaining({ draftId: 'reader-1', key: storageKey })]
+    });
+  });
+
+  it('stores discarded reader drafts in the index but excludes them from loadLatest', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('reader', {
+      draftId: 'discarded-reader',
+      pageUrl: 'https://example.com/post/discarded',
+      updatedAt: BASE_TIME + 101,
+      status: 'discarded'
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'discarded-reader',
+      status: 'discarded'
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      schemaVersion: 1,
+      entries: [expect.objectContaining({ draftId: 'discarded-reader', status: 'discarded' })]
+    });
+    await expect(
+      repository.loadLatest('reader', envelope.pageUrl, BASE_TIME + 102)
+    ).resolves.toBeNull();
+  });
+
+  it('stores exported video drafts in the index but excludes them from listCandidates', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('video', {
+      draftId: 'exported-video',
+      pageUrl: 'https://video.example/watch?v=exported',
+      updatedAt: BASE_TIME + 111,
+      status: 'exported'
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'exported-video',
+      status: 'exported'
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      schemaVersion: 1,
+      entries: [expect.objectContaining({ draftId: 'exported-video', status: 'exported' })]
+    });
+    await expect(
+      repository.listCandidates('video', envelope.pageUrl, BASE_TIME + 112)
+    ).resolves.toEqual([]);
+  });
+
+  it('returns the restorable same-page draft when a newer terminal draft also exists', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/terminal-and-restorable';
+    const restorable = createEnvelope('reader', {
+      draftId: 'restorable-same-page',
+      pageUrl,
+      updatedAt: BASE_TIME + 120,
+      status: 'restorable'
+    });
+    const terminal = createEnvelope('reader', {
+      draftId: 'terminal-same-page',
+      pageUrl,
+      updatedAt: BASE_TIME + 121,
+      status: 'discarded'
+    });
+
+    await repository.save(restorable);
+    await repository.save(terminal);
+
+    await expect(repository.loadLatest('reader', pageUrl, BASE_TIME + 122)).resolves.toMatchObject({
+      draftId: 'restorable-same-page',
+      status: 'restorable'
     });
   });
 
@@ -181,10 +272,10 @@ describe('sessionDraftRepository', () => {
       draftId: 'mismatch',
       updatedAt: BASE_TIME + 300
     });
-    const mismatchedEntry = {
+    const mismatchedEntry: SessionDraftIndexEntry = {
       ...createIndexEntry(envelope),
       key: 'aiob.sessionDraft.v1.reader.reader-page.mismatch',
-      mode: 'reader' as const,
+      mode: 'reader',
       pageKey: createSessionDraftPageKey('reader', readerUrl)
     };
 
@@ -470,7 +561,7 @@ describe('sessionDraftRepository', () => {
   it('keeps same-url active drafts separated by owner context instead of collapsing them', async () => {
     const storage = createMemoryStorageArea();
     const repository = createSessionDraftRepository(storage, {
-      isOwnerContextActive: vi.fn(async () => true)
+      isOwnerContextActive: vi.fn(() => Promise.resolve(true))
     });
     const pageUrl = 'https://example.com/post/multi-tab';
     const first = createEnvelope('reader', {
@@ -502,8 +593,8 @@ describe('sessionDraftRepository', () => {
 
   it('claims an active same-page draft only after the previous owner context is inactive', async () => {
     const storage = createMemoryStorageArea();
-    const isOwnerContextActive = vi.fn(
-      async (ownerContext: SessionDraftOwnerContext) => ownerContext.tabId === OWNER_B.tabId
+    const isOwnerContextActive = vi.fn((ownerContext: SessionDraftOwnerContext) =>
+      Promise.resolve(ownerContext.tabId === OWNER_B.tabId)
     );
     const repository = createSessionDraftRepository(storage, { isOwnerContextActive });
     const pageUrl = 'https://example.com/post/closed-tab';
@@ -566,6 +657,38 @@ describe('sessionDraftRepository', () => {
       payload: {
         ownerContext: OWNER_B
       }
+    });
+  });
+
+  it('ignores terminal candidates before any owner-context claim write', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/terminal-claim';
+    const terminal = createEnvelope('reader', {
+      draftId: 'terminal-no-owner',
+      pageUrl,
+      updatedAt: BASE_TIME + 740,
+      status: 'discarded'
+    });
+    const entry = createIndexEntry(terminal);
+
+    await storage.setMany({
+      [entry.key]: terminal,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [entry]
+      }
+    });
+
+    const setManySpy = vi.spyOn(storage, 'setMany');
+
+    await expect(
+      repository.loadLatest('reader', pageUrl, BASE_TIME + 741, { ownerContext: OWNER_C })
+    ).resolves.toBeNull();
+    expect(setManySpy).not.toHaveBeenCalled();
+    await expect(storage.get(entry.key)).resolves.toMatchObject({
+      draftId: 'terminal-no-owner',
+      status: 'discarded'
     });
   });
 });

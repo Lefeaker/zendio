@@ -53,6 +53,14 @@
 - retired Options compatibility classes 与旧 preview runtime 不得作为 experimental shell、fallback shell 或 verification shortcut 恢复
 - session / UI state 禁止重新使用 `window.__aiob*` 全局变量传递
 
+## 5.1 Content Session Mutation 与 Draft Terminal 边界
+
+- `src/content/sessionMutations/sessionMutationTransaction.ts` 是 reader / video 会话中“乐观 UI 变更 -> 持久化 -> commit/rollback”合同的共享边界；reader 通过 `ReaderSession.runDraftMutation` 进入该边界，video 通过 `runVideoCaptureMutationTransaction` 适配同一共享 runner。
+- Reader / video 的 draft-backed mutation 不得在 durable save 成功前发送成功 telemetry，也不得在 save 失败后保留已回滚的 UI / DOM / draft 状态。
+- `src/content/sessionDrafts/sessionDraftRepository.ts` 是 session draft restore 选择的唯一仓储边界；`discarded` 与 `exported` 属于 terminal 状态，允许留存在 exact storage key / index 中作为 cleanup evidence，但不得被 `loadLatest` 或 `listCandidates` 恢复。
+- Reader / video cancel 与 export success 必须先写入 exact-key terminal draft envelope，再执行 cleanup / success analytics；terminal 写入失败必须保留 mounted session 与 retryable visible state。
+- 已知 exact storage key 时不得用 draft id 做清理范围，因为同一 `draftId` 可能与不同 page / owner context 的 durable draft 共存。
+
 ## 6. registry 式协调的当前口径
 
 - `sectionRegistry.ts` 仅保留极少量兼容协调，不再接受新增职责
