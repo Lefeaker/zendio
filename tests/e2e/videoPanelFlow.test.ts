@@ -60,6 +60,11 @@ type VideoProbeState = {
   playCalls: number;
 };
 
+type ExportCaptureState = {
+  installed: boolean;
+  lastVideoClip: ExportedVideoClip;
+};
+
 type ExportedVideoClip = {
   title?: string;
   attachments?: Array<{
@@ -77,6 +82,30 @@ type ExportedVideoClip = {
 type StartVideoModeResponse = {
   success: boolean;
 };
+
+type VideoDraftCapture = {
+  screenshotRequested?: boolean;
+  comment?: string;
+};
+
+type VideoDraftEnvelope = {
+  pageUrl?: string;
+  payload?: {
+    captures?: VideoDraftCapture[];
+    commentDrafts?: Record<string, string>;
+  };
+};
+
+declare global {
+  interface Window {
+    __aiobP07VideoClipCapture?: ExportCaptureState;
+  }
+
+  // eslint-disable-next-line no-var
+  var __aiobP07VideoProbe: VideoProbeState | undefined;
+  // eslint-disable-next-line no-var
+  var __aiobP07CanvasPatched: boolean | undefined;
+}
 
 const testWithExtension = test.extend<{
   context: BrowserContext;
@@ -216,26 +245,24 @@ async function installExportCaptureListener(
 ): Promise<void> {
   await runStage(testInfo, 'install export capture listener', async () => {
     await extensionPage.evaluate(() => {
-      const runtimeWindow = window as Window & {
-        __aiobP07VideoClipCapture?: {
-          installed: boolean;
-          lastVideoClip: Record<string, unknown> | null;
-        };
-      };
-      const captureState = (runtimeWindow.__aiobP07VideoClipCapture ??= {
+      const captureState = (window.__aiobP07VideoClipCapture ?? {
         installed: false,
         lastVideoClip: null
-      });
+      }) satisfies ExportCaptureState;
+      window.__aiobP07VideoClipCapture = captureState;
       captureState.lastVideoClip = null;
       if (!captureState.installed) {
         chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-          if (
-            message &&
-            typeof message === 'object' &&
-            (message as { type?: unknown }).type === 'videoClip'
-          ) {
-            captureState.lastVideoClip = ((message as { data?: Record<string, unknown> }).data ??
-              null) as Record<string, unknown> | null;
+          const isVideoClipRuntimeMessage = (
+            candidate: unknown
+          ): candidate is { type: 'videoClip'; data?: ExportedVideoClip } =>
+            typeof candidate === 'object' &&
+            candidate !== null &&
+            'type' in candidate &&
+            candidate.type === 'videoClip';
+
+          if (isVideoClipRuntimeMessage(message)) {
+            captureState.lastVideoClip = message.data ?? null;
             sendResponse({ success: true });
             return true;
           }
@@ -249,12 +276,7 @@ async function installExportCaptureListener(
 
 async function readCapturedVideoClip(extensionPage: Page): Promise<ExportedVideoClip> {
   return extensionPage.evaluate(() => {
-    const runtimeWindow = window as Window & {
-      __aiobP07VideoClipCapture?: {
-        lastVideoClip: ExportedVideoClip;
-      };
-    };
-    return runtimeWindow.__aiobP07VideoClipCapture?.lastVideoClip ?? null;
+    return window.__aiobP07VideoClipCapture?.lastVideoClip ?? null;
   });
 }
 
@@ -296,30 +318,19 @@ async function installVideoProbe(
       await chrome.scripting.executeScript({
         target: { tabId: targetTabId },
         func: () => {
-          const runtimeGlobal = globalThis as typeof globalThis & {
-            __aiobP07VideoProbe?: {
-              toBlobCalls: number;
-              toDataUrlCalls: number;
-              drawImageCalls: number;
-              currentTimeWrites: number;
-              pauseCalls: number;
-              playCalls: number;
-            };
-            __aiobP07CanvasPatched?: boolean;
-          };
           const video = document.querySelector('video');
           if (!(video instanceof HTMLVideoElement)) {
             throw new Error('Missing video element for P07 video probe.');
           }
 
-          runtimeGlobal.__aiobP07VideoProbe = {
+          const probe = (globalThis.__aiobP07VideoProbe = {
             toBlobCalls: 0,
             toDataUrlCalls: 0,
             drawImageCalls: 0,
             currentTimeWrites: 0,
             pauseCalls: 0,
             playCalls: 0
-          };
+          });
 
           let currentTime = 42;
           Object.defineProperty(video, 'currentTime', {
@@ -329,7 +340,7 @@ async function installVideoProbe(
               if (Number.isFinite(value)) {
                 currentTime = value;
               }
-              runtimeGlobal.__aiobP07VideoProbe!.currentTimeWrites += 1;
+              probe.currentTimeWrites += 1;
               queueMicrotask(() => {
                 video.dispatchEvent(new Event('seeked', { bubbles: true }));
               });
@@ -353,19 +364,19 @@ async function installVideoProbe(
             configurable: true,
             value: () => {
               paused = true;
-              runtimeGlobal.__aiobP07VideoProbe!.pauseCalls += 1;
+              probe.pauseCalls += 1;
             }
           });
           Object.defineProperty(video, 'play', {
             configurable: true,
             value: () => {
               paused = false;
-              runtimeGlobal.__aiobP07VideoProbe!.playCalls += 1;
+              probe.playCalls += 1;
               return Promise.resolve();
             }
           });
 
-          if (!runtimeGlobal.__aiobP07CanvasPatched) {
+          if (!globalThis.__aiobP07CanvasPatched) {
             Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
               configurable: true,
               value: function getContext(type: string) {
@@ -374,7 +385,7 @@ async function installVideoProbe(
                 }
                 return {
                   drawImage: () => {
-                    runtimeGlobal.__aiobP07VideoProbe!.drawImageCalls += 1;
+                    probe.drawImageCalls += 1;
                   }
                 };
               }
@@ -382,18 +393,18 @@ async function installVideoProbe(
             Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
               configurable: true,
               value: (callback: (blob: Blob | null) => void) => {
-                runtimeGlobal.__aiobP07VideoProbe!.toBlobCalls += 1;
+                probe.toBlobCalls += 1;
                 callback(new Blob(['fake-screenshot'], { type: 'image/jpeg' }));
               }
             });
             Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
               configurable: true,
               value: () => {
-                runtimeGlobal.__aiobP07VideoProbe!.toDataUrlCalls += 1;
+                probe.toDataUrlCalls += 1;
                 return 'data:image/jpeg;base64,ZmFrZS1zY3JlZW5zaG90';
               }
             });
-            runtimeGlobal.__aiobP07CanvasPatched = true;
+            globalThis.__aiobP07CanvasPatched = true;
           }
         }
       });
@@ -405,12 +416,7 @@ async function readVideoProbe(extensionPage: Page, tabId: number): Promise<Video
   const results = await extensionPage.evaluate(async (targetTabId) => {
     return await chrome.scripting.executeScript({
       target: { tabId: targetTabId },
-      func: () => {
-        const runtimeGlobal = globalThis as typeof globalThis & {
-          __aiobP07VideoProbe?: VideoProbeState;
-        };
-        return runtimeGlobal.__aiobP07VideoProbe ?? null;
-      }
+      func: () => globalThis.__aiobP07VideoProbe ?? null
     });
   }, tabId);
 
@@ -431,18 +437,16 @@ async function resetVideoProbe(
       await chrome.scripting.executeScript({
         target: { tabId: targetTabId },
         func: () => {
-          const runtimeGlobal = globalThis as typeof globalThis & {
-            __aiobP07VideoProbe?: VideoProbeState;
-          };
-          if (!runtimeGlobal.__aiobP07VideoProbe) {
+          const probe = globalThis.__aiobP07VideoProbe;
+          if (!probe) {
             throw new Error('Video probe was not installed in the content runtime.');
           }
-          runtimeGlobal.__aiobP07VideoProbe.toBlobCalls = 0;
-          runtimeGlobal.__aiobP07VideoProbe.toDataUrlCalls = 0;
-          runtimeGlobal.__aiobP07VideoProbe.drawImageCalls = 0;
-          runtimeGlobal.__aiobP07VideoProbe.currentTimeWrites = 0;
-          runtimeGlobal.__aiobP07VideoProbe.pauseCalls = 0;
-          runtimeGlobal.__aiobP07VideoProbe.playCalls = 0;
+          probe.toBlobCalls = 0;
+          probe.toDataUrlCalls = 0;
+          probe.drawImageCalls = 0;
+          probe.currentTimeWrites = 0;
+          probe.pauseCalls = 0;
+          probe.playCalls = 0;
         }
       });
     }, tabId);
@@ -459,11 +463,11 @@ async function startVideoMode(
     `start video mode for tab ${tabId}`,
     () =>
       extensionPage.evaluate(async (targetTabId): Promise<StartVideoModeResponse> => {
-        const response: unknown = await chrome.tabs.sendMessage(targetTabId, {
+        const response = (await chrome.tabs.sendMessage(targetTabId, {
           action: 'startVideoMode'
-        });
-        if (response && typeof response === 'object' && 'success' in response) {
-          const success = (response as { success?: unknown }).success === true;
+        })) as unknown;
+        if (typeof response === 'object' && response !== null && 'success' in response) {
+          const success = response.success === true;
           return { success };
         }
         return { success: false };
@@ -483,18 +487,14 @@ async function simulateVisibilityRoundTrip(
       await chrome.scripting.executeScript({
         target: { tabId: targetTabId },
         func: () => {
-          const doc = document as Document & {
-            hidden?: boolean;
-            visibilityState?: DocumentVisibilityState;
-          };
-          const hiddenDescriptor = Object.getOwnPropertyDescriptor(doc, 'hidden');
-          const visibilityDescriptor = Object.getOwnPropertyDescriptor(doc, 'visibilityState');
+          const hiddenDescriptor = Object.getOwnPropertyDescriptor(document, 'hidden');
+          const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
 
-          Object.defineProperty(doc, 'hidden', {
+          Object.defineProperty(document, 'hidden', {
             configurable: true,
             get: () => true
           });
-          Object.defineProperty(doc, 'visibilityState', {
+          Object.defineProperty(document, 'visibilityState', {
             configurable: true,
             get: () => 'hidden'
           });
@@ -502,14 +502,14 @@ async function simulateVisibilityRoundTrip(
           window.dispatchEvent(new Event('pagehide'));
 
           if (hiddenDescriptor) {
-            Object.defineProperty(doc, 'hidden', hiddenDescriptor);
+            Object.defineProperty(document, 'hidden', hiddenDescriptor);
           } else {
-            Reflect.deleteProperty(doc, 'hidden');
+            Reflect.deleteProperty(document, 'hidden');
           }
           if (visibilityDescriptor) {
-            Object.defineProperty(doc, 'visibilityState', visibilityDescriptor);
+            Object.defineProperty(document, 'visibilityState', visibilityDescriptor);
           } else {
-            Reflect.deleteProperty(doc, 'visibilityState');
+            Reflect.deleteProperty(document, 'visibilityState');
           }
           document.dispatchEvent(new Event('visibilitychange'));
         }
@@ -526,46 +526,19 @@ async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEnt
         .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
         .map(([key, value]) => {
           const json = JSON.stringify(value);
-          const envelope =
-            typeof value === 'object' && value !== null
-              ? (value as {
-                  pageUrl?: unknown;
-                  payload?: {
-                    captures?: Array<{ screenshotRequested?: boolean }>;
-                    commentDrafts?: Record<string, unknown>;
-                  };
-                })
-              : {};
-          const captures = Array.isArray(envelope.payload?.captures)
-            ? envelope.payload.captures
-            : [];
+          const envelope: VideoDraftEnvelope | undefined =
+            typeof value === 'object' && value !== null ? (value as VideoDraftEnvelope) : undefined;
+          const captures = envelope?.payload?.captures ?? [];
           const captureComments = captures
-            .map((capture) =>
-              typeof capture === 'object' &&
-              capture !== null &&
-              typeof (capture as { comment?: unknown }).comment === 'string'
-                ? (capture as { comment: string }).comment
-                : ''
-            )
+            .map((capture) => capture.comment ?? '')
             .filter((comment) => comment.length > 0);
-          const rawDrafts = envelope.payload?.commentDrafts;
-          const commentDrafts =
-            rawDrafts && typeof rawDrafts === 'object'
-              ? (Object.fromEntries(
-                  Object.entries(rawDrafts)
-                    .filter(([, draftValue]) => typeof draftValue === 'string')
-                    .map(([draftKey, draftValue]) => [draftKey, draftValue])
-                ) as Record<string, string>)
-              : {};
+          const commentDrafts = envelope?.payload?.commentDrafts ?? {};
           return {
             key,
-            pageUrl: typeof envelope.pageUrl === 'string' ? envelope.pageUrl : null,
+            pageUrl: envelope?.pageUrl ?? null,
             captureCount: captures.length,
             requestedScreenshotCount: captures.filter(
-              (capture) =>
-                typeof capture === 'object' &&
-                capture !== null &&
-                capture.screenshotRequested === true
+              (capture) => capture.screenshotRequested === true
             ).length,
             captureComments,
             commentDrafts,
@@ -839,9 +812,10 @@ testWithExtension.describe('Video Panel browser flow', () => {
             message: 'video export payload was not captured'
           })
           .not.toBeNull();
-        const resolvedClip = (await readCapturedVideoClip(
-          extensionPage
-        )) as NonNullable<ExportedVideoClip>;
+        const resolvedClip = await readCapturedVideoClip(extensionPage);
+        if (!resolvedClip) {
+          throw new Error('Expected exported video clip payload.');
+        }
         expect(Array.isArray(resolvedClip.attachments)).toBe(true);
         expect(resolvedClip.attachments).toHaveLength(1);
         expect(resolvedClip.attachments?.[0]).toMatchObject({

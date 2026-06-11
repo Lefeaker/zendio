@@ -52,7 +52,7 @@ const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.
 const initializeErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn((_errorHandler?: Pick<ErrorHandler, 'addReporter'>) => Promise.resolve(undefined))
 );
-const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
 const createUsageStatsStoreMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
@@ -119,7 +119,7 @@ describe('background/bootstrap', () => {
     expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         domain: 'background',
-        metadata: expect.objectContaining({ extensionContext: 'background' })
+        metadata: { extensionContext: 'background' }
       })
     );
     expect(initializeErrorAnalyticsMock).toHaveBeenCalledTimes(1);

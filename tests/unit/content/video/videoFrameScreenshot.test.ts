@@ -84,7 +84,7 @@ function createCaptureCanvasHarness(options?: {
 }
 
 describe('captureVideoFrameScreenshot', () => {
-  it('uses the legacy test-only data URL fallback for synchronous capture', async () => {
+  it('uses the legacy test-only data URL fallback for synchronous capture', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const harness = createCaptureCanvasHarness();

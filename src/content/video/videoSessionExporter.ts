@@ -1,19 +1,32 @@
 import { formatDateTime } from '../clipper/utils/datetime';
 import { buildReaderHighlightsMarkdown } from '../reader/utils/markdownBuilder';
 import { generateYamlFrontMatter } from '../../shared/utils/yamlGenerator';
-import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionMessages } from './sessionMessages';
 import type { VideoPlatform } from './utils';
 import type { IVideoRepository, VideoClipData } from '../../shared/repositories/IVideoRepository';
 import type { ClipResult } from '../../shared/repositories/IClipRepository';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import type { ClipAttachment } from '../../shared/types';
+import { serializeVideoScreenshotAttachments } from './videoScreenshotExportAttachments';
+
+export interface ExportPayloadMeta {
+  url: string;
+  domain: string;
+  platform: VideoPlatform;
+  captureCount: number;
+  timestampCount: number;
+  fragmentCount: number;
+  storageKey?: string;
+  attachments?: ClipAttachment[];
+  exportDestination?: ExportDestinationMetadata;
+}
 
 export interface ExportPayload {
   markdown: string;
   title: string;
   type: string;
-  meta: Record<string, unknown>;
+  meta: ExportPayloadMeta;
 }
 
 export interface BuildPayloadContext {
@@ -46,43 +59,8 @@ export class VideoSessionExporter {
     const fragmentCaptures = sorted.filter(
       (capture): capture is VideoFragmentCapture => capture.kind === 'fragment'
     );
-    const serializedScreenshots = (
-      await Promise.all(
-        timestampCaptures.map(async (capture) => {
-          const screenshot = capture.screenshot;
-          if (!screenshot) {
-            return null;
-          }
-
-          if (screenshot.content?.kind === 'blob') {
-            try {
-              return {
-                id: screenshot.id,
-                fileName: screenshot.fileName,
-                mimeType: screenshot.mimeType,
-                content: await serializeBlobAttachmentContent(screenshot.content.blob)
-              };
-            } catch {
-              return null;
-            }
-          }
-
-          if (typeof screenshot.dataUrl === 'string') {
-            return {
-              id: screenshot.id,
-              fileName: screenshot.fileName,
-              mimeType: screenshot.mimeType,
-              dataUrl: screenshot.dataUrl
-            };
-          }
-
-          return null;
-        })
-      )
-    ).filter((attachment): attachment is NonNullable<typeof attachment> => attachment !== null);
-    const screenshotAttachmentIds = new Set(
-      serializedScreenshots.map((attachment) => attachment.id)
-    );
+    const { attachments: serializedScreenshots, attachmentIds: screenshotAttachmentIds } =
+      await serializeVideoScreenshotAttachments(timestampCaptures);
 
     const defaultTitle =
       ctx.platform === 'youtube'
@@ -162,7 +140,7 @@ export class VideoSessionExporter {
         captureCount: sorted.length,
         timestampCount: timestampCaptures.length,
         fragmentCount: fragmentCaptures.length,
-        storageKey: ctx.storageKey ?? undefined,
+        ...(ctx.storageKey ? { storageKey: ctx.storageKey } : {}),
         ...(serializedScreenshots.length ? { attachments: serializedScreenshots } : {}),
         ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
       }
@@ -171,17 +149,14 @@ export class VideoSessionExporter {
 
   async export(ctx: BuildPayloadContext): Promise<ClipResult> {
     const payload = await this.buildPayload(ctx);
-    const attachments = Array.isArray(payload.meta.attachments)
-      ? (payload.meta.attachments as NonNullable<VideoClipData['attachments']>)
-      : null;
     const clipData: VideoClipData = {
       content: payload.markdown,
       title: payload.title,
-      url: (payload.meta.url as string | undefined) ?? ctx.canonicalUrl ?? ctx.videoUrl ?? '',
+      url: payload.meta.url || ctx.canonicalUrl || ctx.videoUrl || '',
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
       platform: this.mapPlatform(ctx.platform),
-      ...(attachments ? { attachments } : {}),
+      ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
     return this.videoRepository.sendVideoClip(clipData);

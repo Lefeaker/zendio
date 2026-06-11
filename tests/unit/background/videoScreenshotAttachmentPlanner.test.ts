@@ -25,10 +25,19 @@ const base64Attachment = {
   fileName: 'capture-base64.jpg',
   mimeType: 'image/jpeg',
   content: {
-    encoding: 'base64' as const,
+    encoding: 'base64',
     data: 'YmFy',
     byteLength: 3
   }
+} satisfies {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  content: {
+    encoding: 'base64';
+    data: string;
+    byteLength: number;
+  };
 };
 
 function createPayload(overrides: Partial<ClipPayload> = {}): ClipPayload {

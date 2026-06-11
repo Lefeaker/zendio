@@ -1,7 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getServiceMock = vi.hoisted(() => vi.fn());
-const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const handleErrorMock = vi.hoisted(() =>
+  vi.fn<
+    (
+      error: {
+        domain?: string;
+        message?: string;
+        context?: {
+          endpoint?: string;
+          vault?: string;
+          method?: string;
+          filePath?: string;
+        };
+        cause?: Error;
+      },
+      options?: { suppressNotifications?: boolean }
+    ) => Promise<void>
+  >(() => Promise.resolve(undefined))
+);
 const trackUsageEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@shared/di', () => ({
@@ -97,20 +114,21 @@ describe('obsidianWriter', () => {
       )
     ).rejects.toThrow('network failed');
 
-    expect(handleErrorMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        domain: 'rest',
-        message: 'Failed to write file to vault: Articles/test.md',
-        context: expect.objectContaining({
-          endpoint: 'https://vault.example',
-          vault: 'Main',
-          method: 'PUT',
-          filePath: 'Articles/test.md'
-        }),
-        cause: error
-      }),
-      { suppressNotifications: true }
-    );
+    const firstHandleErrorCall = handleErrorMock.mock.calls.at(0);
+    expect(firstHandleErrorCall?.[0]).toMatchObject({
+      domain: 'rest',
+      message: 'Failed to write file to vault: Articles/test.md',
+      context: {
+        endpoint: 'https://vault.example',
+        vault: 'Main',
+        method: 'PUT',
+        filePath: 'Articles/test.md'
+      },
+      cause: error
+    });
+    expect(handleErrorMock).toHaveBeenCalledWith(expect.anything(), {
+      suppressNotifications: true
+    });
   });
 
   it('passes through fallback connection fields when optional urls are absent', async () => {
@@ -142,9 +160,8 @@ describe('obsidianWriter', () => {
   });
 
   it('decodes serialized attachment content into blobs for binary and legacy inputs', async () => {
-    const { serializedAttachmentContentToBlob } = await import(
-      '../../../src/shared/attachments/clipAttachmentBinary'
-    );
+    const { serializedAttachmentContentToBlob } =
+      await import('../../../src/shared/attachments/clipAttachmentBinary');
 
     const binaryBlob = serializedAttachmentContentToBlob(
       {
@@ -172,9 +189,8 @@ describe('obsidianWriter', () => {
   });
 
   it('throws deterministic errors for invalid serialized attachment content', async () => {
-    const { serializedAttachmentContentToBlob } = await import(
-      '../../../src/shared/attachments/clipAttachmentBinary'
-    );
+    const { serializedAttachmentContentToBlob } =
+      await import('../../../src/shared/attachments/clipAttachmentBinary');
 
     expect(() =>
       serializedAttachmentContentToBlob(
@@ -384,10 +400,12 @@ describe('obsidianWriter', () => {
     const attachmentBlob = new Blob(['png-data'], { type: 'image/png' });
 
     await session.writeAttachment('Articles/assets/test/image.png', attachmentBlob, 'image/png');
-    await expect(session.writeMarkdown('Articles/test.md', '# Hello')).rejects.toMatchObject({
-      code: 'LOCAL_VAULT_WRITE_FAILED',
-      userMessage: expect.stringContaining('本地目录写入失败')
-    });
+    const writeError = await session.writeMarkdown('Articles/test.md', '# Hello').then(
+      () => null,
+      (error: { code?: string; userMessage?: string }) => error
+    );
+    expect(writeError?.code).toBe('LOCAL_VAULT_WRITE_FAILED');
+    expect(writeError?.userMessage).toContain('本地目录写入失败');
     expect(writeFileMock).not.toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
@@ -414,10 +432,12 @@ describe('obsidianWriter', () => {
       .fn()
       .mockResolvedValueOnce('prompt')
       .mockResolvedValueOnce('granted');
-    const requestPermissionMock = vi.fn(async () => ({
-      action: 'granted' as const,
-      permissionState: 'granted' as const
-    }));
+    const requestPermissionMock = vi.fn(() =>
+      Promise.resolve({
+        action: 'granted' as const,
+        permissionState: 'granted' as const
+      })
+    );
     const writeLocalFileMock = vi.fn(() => Promise.resolve(undefined));
     getServiceMock.mockReturnValue({
       restClient: { writeFile: writeFileMock },
@@ -514,10 +534,12 @@ describe('obsidianWriter', () => {
       localFolderName: 'Main',
       fallbackReason: 'write-preflight-failed'
     });
-    await expect(session.writeMarkdown('Articles/test.md', '# Hello')).rejects.toMatchObject({
-      code: 'LOCAL_VAULT_REAUTH_REQUIRED',
-      userMessage: expect.stringContaining('本地目录需要重新授权')
-    });
+    const writeError = await session.writeMarkdown('Articles/test.md', '# Hello').then(
+      () => null,
+      (error: { code?: string; userMessage?: string }) => error
+    );
+    expect(writeError?.code).toBe('LOCAL_VAULT_REAUTH_REQUIRED');
+    expect(writeError?.userMessage).toContain('本地目录需要重新授权');
     expect(writeFileMock).toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],

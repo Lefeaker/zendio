@@ -1,27 +1,20 @@
 import {
-  type SerializedClipAttachmentContent,
-  isLegacyDataUrlForMimeType,
-  isSerializedClipAttachmentBinaryContent
-} from '../../shared/attachments/clipAttachmentBinary';
-import {
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_FILE_NAME_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_MARKDOWN_URL_FORMAT,
   disambiguateResolvedVideoScreenshotAttachmentTemplate,
   resolveVideoScreenshotAttachmentTemplate
 } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
+import type { SerializedClipAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
-import { isObjectRecord } from '../../shared/guards';
 import type { ClipMeta, ClipResultMessage } from '../../shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../shared/types/options';
+import {
+  parseVideoClipAttachments,
+  type ParsedClipAttachment
+} from './videoScreenshotAttachmentParser';
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
-type ClipAttachment = {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  content: SerializedClipAttachmentContent;
-  capturedAt?: number;
-};
+type ClipAttachment = ParsedClipAttachment;
 
 export type PreparedClipAttachment = {
   id: string;
@@ -155,40 +148,7 @@ function replaceAttachmentMarkers(markdown: string, attachments: PreparedClipAtt
   );
 }
 function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item): ClipAttachment[] => {
-    if (!isObjectRecord(item)) return [];
-    const candidate = item;
-    const content = parseAttachmentContent(candidate);
-    if (
-      typeof candidate.id !== 'string' ||
-      typeof candidate.fileName !== 'string' ||
-      typeof candidate.mimeType !== 'string' ||
-      content === null
-    ) {
-      return [];
-    }
-    return [
-      {
-        id: candidate.id,
-        fileName: candidate.fileName,
-        mimeType: candidate.mimeType,
-        content,
-        ...(typeof candidate.capturedAt === 'number' && Number.isFinite(candidate.capturedAt)
-          ? { capturedAt: candidate.capturedAt }
-          : {})
-      }
-    ];
-  });
-}
-function parseAttachmentContent(record: Record<string, unknown>): SerializedClipAttachmentContent | null {
-  if (isSerializedClipAttachmentBinaryContent(record.content)) {
-    return { kind: 'base64', binary: record.content };
-  }
-  if (isLegacyDataUrlForMimeType(record.dataUrl, String(record.mimeType ?? ''))) {
-    return { kind: 'legacyDataUrl', dataUrl: record.dataUrl };
-  }
-  return null;
+  return parseVideoClipAttachments(value);
 }
 function isDefaultScreenshotAttachmentOptions(options: VideoScreenshotAttachmentOptions): boolean {
   return (
