@@ -2517,6 +2517,141 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('resolves queued delete targets at apply time when same-call-stack deletes shift capture indexes', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    seedTimestampCaptures(sessionApi, 3);
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    callbacks.onDeleteCapture('timestamp-1');
+    callbacks.onDeleteCapture('timestamp-2');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual([
+      'timestamp-2',
+      'timestamp-3'
+    ]);
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    for (let index = 0; index < 10 && !saveEvents.includes('save-2:start'); index += 1) {
+      await flushMutationWork();
+    }
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-3']);
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+
+    secondSave.resolve('ready');
+    for (let index = 0; index < 10 && !saveEvents.includes('save-2:end'); index += 1) {
+      await flushMutationWork();
+    }
+    for (
+      let index = 0;
+      index < 10 && (sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving;
+      index += 1
+    ) {
+      await flushMutationWork();
+    }
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-3']);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('skips queued edit and screenshot toggle when an earlier queued delete removes the target before apply', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      if (saveIndex === 0) {
+        const result = await firstSave.promise;
+        saveEvents.push('save-1:end');
+        return result;
+      }
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return 'ready';
+    });
+    seedTimestampCaptures(sessionApi, 2);
+    sessionApi.state.commentDrafts = {
+      'timestamp-2': 'queued draft'
+    };
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    callbacks.onDeleteCapture('timestamp-2');
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('timestamp-2', 'edited'));
+    const togglePromise = sessionApi.toggleCaptureScreenshot('timestamp-2');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-1']);
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toEqual([
+      expect.objectContaining({ id: 'timestamp-1' })
+    ]);
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end']);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
   it('keeps capture edits committed and retries restored-draft cleanup after the durable save succeeds', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));

@@ -230,34 +230,49 @@ export async function submitVideoSessionCaptureEdit(
   id: string,
   comment: string
 ): Promise<void> {
-  const target = context.state.captures.find((capture) => capture.id === id);
-  if (!target) {
+  if (!context.state.captures.some((capture) => capture.id === id)) {
     return;
   }
-  const previousDraft = context.state.commentDrafts[id];
-  context.syncCommentDrafts?.();
-  const syncedDraft = context.state.commentDrafts[id];
-  const draftToRestore = syncedDraft ?? previousDraft;
   const nextComment = comment.trim();
+  let applied = false;
 
   await runVideoSessionCaptureMutation(context, {
     apply: () => {
+      const target = context.state.captures.find((capture) => capture.id === id);
+      if (!target) {
+        return null;
+      }
+      const previousDraft = context.state.commentDrafts[id];
+      context.syncCommentDrafts?.();
+      const syncedDraft = context.state.commentDrafts[id];
+      const draftToRestore = syncedDraft ?? previousDraft;
       delete context.state.commentDrafts[id];
       const previousComment = target.comment;
       target.comment = nextComment;
-      return { previousComment, previousDraft: draftToRestore };
+      applied = true;
+      return { target, previousComment, previousDraft: draftToRestore };
     },
-    afterApply: () => {
+    afterApply: (result) => {
+      if (!result) {
+        return;
+      }
       context.syncPanel();
       context.applyHint('saving');
     },
-    save: () => saveVideoSessionCaptures(context),
-    commit: () => {
+    save: () => (applied ? saveVideoSessionCaptures(context) : Promise.resolve(null)),
+    commit: (result) => {
+      if (!result) {
+        return;
+      }
       context.releasePlaybackEditLease?.(id, true);
       context.dom.stopEditing(id);
       context.syncPanel();
     },
-    rollback: ({ previousComment, previousDraft: draftSnapshot }) => {
+    rollback: (result) => {
+      if (!result) {
+        return;
+      }
+      const { target, previousComment, previousDraft: draftSnapshot } = result;
       target.comment = previousComment;
       if (draftSnapshot !== undefined) {
         context.state.commentDrafts[id] = draftSnapshot;
@@ -272,42 +287,55 @@ export async function submitVideoSessionCaptureEdit(
 }
 
 export function removeVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
-  const index = context.state.captures.findIndex((capture) => capture.id === id);
-  if (index === -1) {
+  if (!context.state.captures.some((capture) => capture.id === id)) {
     return;
   }
-  const previousDraft = context.state.commentDrafts[id];
-  context.syncCommentDrafts?.();
-  const syncedDraft = context.state.commentDrafts[id];
-  const draftToRestore = syncedDraft ?? previousDraft;
+  let applied = false;
   const saveTask = runVideoSessionCaptureMutation(context, {
     apply: () => {
+      const index = context.state.captures.findIndex((capture) => capture.id === id);
+      if (index === -1) {
+        return null;
+      }
+      const previousDraft = context.state.commentDrafts[id];
+      context.syncCommentDrafts?.();
+      const syncedDraft = context.state.commentDrafts[id];
+      const draftToRestore = syncedDraft ?? previousDraft;
       delete context.state.commentDrafts[id];
       const [removed] = context.state.captures.splice(index, 1);
+      if (!removed) {
+        return null;
+      }
       context.releasePlaybackEditLease?.(id, false);
       if (removed?.kind === 'fragment' && removed.wrapperId) {
         context.fragmentHighlighter.removeById(removed.wrapperId);
       }
       context.fragmentHighlightCoordinator.stopIfNoFragments();
+      applied = true;
       return { removed, previousDraft: draftToRestore, index };
     },
-    afterApply: () => {
+    afterApply: (result) => {
+      if (!result) {
+        return;
+      }
       context.syncPanel();
       context.applyHint('saving');
     },
-    save: () => saveVideoSessionCaptures(context),
-    commit: () => {
+    save: () => (applied ? saveVideoSessionCaptures(context) : Promise.resolve(null)),
+    commit: (result) => {
+      if (!result) {
+        return;
+      }
       context.syncPanel();
       emitVideoUsageEvent(context.dependencies, 'video_capture_removed', {
         capture_count_bucket: bucketCount(context.state.captures.length)
       });
     },
-    rollback: ({ removed, previousDraft: draftSnapshot }) => {
-      if (!removed) {
-        context.syncPanel();
-        context.applyHint('failure');
+    rollback: (result) => {
+      if (!result) {
         return;
       }
+      const { removed, previousDraft: draftSnapshot, index } = result;
       context.state.captures.splice(index, 0, removed);
       if (draftSnapshot !== undefined) {
         context.state.commentDrafts[id] = draftSnapshot;
@@ -327,37 +355,55 @@ export async function toggleVideoSessionCaptureScreenshot(
   context: VideoSessionOperationContext,
   id: string
 ): Promise<void> {
-  const target = context.state.captures.find(
-    (capture): capture is VideoTimestampCapture => capture.kind === 'timestamp' && capture.id === id
-  );
-  if (!target) {
+  if (
+    !context.state.captures.some(
+      (capture) => capture.kind === 'timestamp' && capture.id === id
+    )
+  ) {
     return;
   }
-  context.syncCommentDrafts?.();
-  const previousScreenshotState = snapshotTimestampScreenshotState(target);
-  const shouldPrepareScreenshot = !hasRequestedTimestampScreenshot(target);
+  let applied = false;
   await runVideoSessionCaptureMutation(context, {
     apply: () => {
+      const target = context.state.captures.find(
+        (capture): capture is VideoTimestampCapture =>
+          capture.kind === 'timestamp' && capture.id === id
+      );
+      if (!target) {
+        return null;
+      }
+      const previousScreenshotState = snapshotTimestampScreenshotState(target);
+      const shouldPrepareScreenshot = !hasRequestedTimestampScreenshot(target);
       if (shouldPrepareScreenshot) {
         setRequestedTimestampScreenshot(target, null);
       } else {
         clearRequestedTimestampScreenshot(target);
       }
-      return target;
+      applied = true;
+      return { target, previousScreenshotState, shouldPrepareScreenshot };
     },
-    afterApply: () => {
+    afterApply: (result) => {
+      if (!result) {
+        return;
+      }
       context.syncPanel();
       context.applyHint('saving');
     },
-    save: () => saveVideoSessionCaptures(context),
-    commit: () => {
+    save: () => (applied ? saveVideoSessionCaptures(context) : Promise.resolve(null)),
+    commit: (result) => {
+      if (!result) {
+        return;
+      }
       context.syncPanel();
-      if (shouldPrepareScreenshot) {
-        requestRequestedScreenshotPreparation(context, id);
+      if (result.shouldPrepareScreenshot) {
+        requestRequestedScreenshotPreparation(context, result.target.id);
       }
     },
-    rollback: () => {
-      restoreTimestampScreenshotState(target, previousScreenshotState);
+    rollback: (result) => {
+      if (!result) {
+        return;
+      }
+      restoreTimestampScreenshotState(result.target, result.previousScreenshotState);
       context.syncPanel();
       context.applyHint('failure');
     },
