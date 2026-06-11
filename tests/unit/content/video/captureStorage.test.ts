@@ -9,6 +9,7 @@ import {
 describe('captureStorage', () => {
   it('serializes and deserializes timestamp and fragment captures with fallbacks', () => {
     const now = Date.now();
+    const screenshotBlob = new Blob(['shot'], { type: 'image/jpeg' });
     const serialized = serializeCaptures([
       {
         kind: 'timestamp',
@@ -21,8 +22,12 @@ describe('captureStorage', () => {
           id: 'shot-1',
           fileName: 'video-0m12s-screenshot.png',
           mimeType: 'image/jpeg',
-          dataUrl: 'data:image/jpeg;base64,shot',
-          capturedAt: now
+          capturedAt: now,
+          content: {
+            kind: 'blob',
+            blob: screenshotBlob,
+            byteLength: screenshotBlob.size
+          }
         }
       },
       {
@@ -41,6 +46,7 @@ describe('captureStorage', () => {
       kind: 'timestamp',
       screenshotRequested: true
     });
+    expect(JSON.stringify(serialized[0])).not.toContain('byteLength');
     expect(serialized[0]).not.toHaveProperty('screenshot');
     expect(serialized[1]).toMatchObject({ kind: 'fragment', wrapperId: 'wrap-1' });
 

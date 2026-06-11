@@ -1,9 +1,16 @@
 import type {
   VideoCapture,
-  VideoCaptureScreenshot,
   VideoFragmentCapture,
   VideoTimestampCapture
 } from './types';
+
+interface LegacyStoredVideoScreenshot {
+  id?: string;
+  fileName?: string;
+  mimeType?: string;
+  dataUrl?: string;
+  capturedAt?: number;
+}
 
 export interface StoredVideoTimestampEntry {
   kind?: 'timestamp';
@@ -13,7 +20,7 @@ export interface StoredVideoTimestampEntry {
   url: string;
   createdAt: number;
   screenshotRequested?: boolean;
-  screenshot?: VideoCaptureScreenshot;
+  screenshot?: LegacyStoredVideoScreenshot;
 }
 
 export interface StoredVideoFragmentEntry {

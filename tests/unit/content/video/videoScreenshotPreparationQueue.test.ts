@@ -20,13 +20,18 @@ function createTimestampCapture(
 }
 
 function createScreenshot(timeSec: number): VideoCaptureScreenshot {
+  const blob = new Blob([`frame-${timeSec}`], { type: 'image/jpeg' });
   return {
     id: `shot-${timeSec}`,
     fileName: `file-${timeSec}.jpg`,
     mimeType: 'image/jpeg',
-    dataUrl: `data:image/jpeg;base64,frame-${timeSec}`,
-    capturedAt: timeSec
-  };
+    capturedAt: timeSec,
+    content: {
+      kind: 'blob',
+      blob,
+      byteLength: blob.size
+    }
+  } as unknown as VideoCaptureScreenshot;
 }
 
 function createDeferred<T>() {
@@ -179,7 +184,13 @@ describe('videoScreenshotPreparationQueue', () => {
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(captures[0]).toMatchObject({
       screenshotRequested: true,
-      screenshot: expect.objectContaining({ id: 'shot-42' })
+      screenshot: expect.objectContaining({
+        id: 'shot-42',
+        content: expect.objectContaining({
+          kind: 'blob',
+          byteLength: expect.any(Number)
+        })
+      })
     });
     expect(syncPanel).toHaveBeenCalledTimes(1);
 
@@ -221,7 +232,13 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(hidden.currentTimeSetSpy).toHaveBeenCalledWith(42);
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot).toMatchObject({
+      id: 'shot-42',
+      content: expect.objectContaining({
+        kind: 'blob',
+        byteLength: expect.any(Number)
+      })
+    });
     expect(document.body.contains(hidden.video)).toBe(false);
 
     queue.dispose();
@@ -288,7 +305,13 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(captureFrame).toHaveBeenCalledTimes(1);
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot).toMatchObject({
+      id: 'shot-42',
+      content: expect.objectContaining({
+        kind: 'blob',
+        byteLength: expect.any(Number)
+      })
+    });
     expect(syncPanel).toHaveBeenCalledTimes(1);
 
     queue.dispose();
@@ -374,7 +397,13 @@ describe('videoScreenshotPreparationQueue', () => {
     hidden.video.dispatchEvent(new Event('loadeddata'));
     await flushAsyncWork();
 
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot).toMatchObject({
+      id: 'shot-42',
+      content: expect.objectContaining({
+        kind: 'blob',
+        byteLength: expect.any(Number)
+      })
+    });
     expect(listenerTracker.getTotalActiveCount()).toBe(0);
     expect(clearTimeoutSpy).toHaveBeenCalled();
 

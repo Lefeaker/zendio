@@ -1,4 +1,4 @@
-import type { VideoCaptureScreenshot } from './types';
+import type { VideoCaptureScreenshot, VideoCaptureScreenshotContent } from './types';
 
 const SCREENSHOT_MIME_TYPE = 'image/jpeg';
 const SCREENSHOT_QUALITY = 0.88;
@@ -15,7 +15,9 @@ export function captureVideoFrameScreenshot(
     if (!canvas) {
       return null;
     }
-    return createScreenshotRecord(encodeCanvasToDataUrl(canvas), now);
+    // Legacy/test-only fallback. Production screenshot preparation uses the async
+    // Blob path below and must not route through data URL conversion.
+    return createScreenshotRecord(encodeCanvasToLegacyBlobContent(canvas), now);
   } catch (error) {
     console.warn('[VideoSession] Failed to capture video frame screenshot:', error);
     return null;
@@ -33,7 +35,7 @@ export async function captureVideoFrameScreenshotAsync(
     if (!canvas) {
       return null;
     }
-    return createScreenshotRecord(await encodeCanvasToDataUrlAsync(canvas), now);
+    return createScreenshotRecord(await encodeCanvasToBlobAsync(canvas), now);
   } catch (error) {
     console.warn('[VideoSession] Failed to capture video frame screenshot:', error);
     return null;
@@ -63,36 +65,68 @@ function encodeCanvasToDataUrl(canvas: HTMLCanvasElement): string | null {
   return isJpegDataUrl(dataUrl) ? dataUrl : null;
 }
 
-async function encodeCanvasToDataUrlAsync(canvas: HTMLCanvasElement): Promise<string | null> {
+function encodeCanvasToLegacyBlobContent(
+  canvas: HTMLCanvasElement
+): VideoCaptureScreenshotContent | null {
+  return createBlobContentFromDataUrl(encodeCanvasToDataUrl(canvas));
+}
+
+async function encodeCanvasToBlobAsync(
+  canvas: HTMLCanvasElement
+): Promise<VideoCaptureScreenshotContent | null> {
   if (typeof canvas.toBlob !== 'function') {
-    return encodeCanvasToDataUrl(canvas);
+    return null;
   }
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, SCREENSHOT_MIME_TYPE, SCREENSHOT_QUALITY);
   });
+  return createBlobContent(blob);
+}
+
+function createBlobContent(blob: Blob | null): VideoCaptureScreenshotContent | null {
   if (!blob) {
     return null;
   }
-  return readBlobAsDataUrl(blob);
+
+  const normalizedBlob =
+    blob.type === SCREENSHOT_MIME_TYPE ? blob : new Blob([blob], { type: SCREENSHOT_MIME_TYPE });
+  return {
+    kind: 'blob',
+    blob: normalizedBlob,
+    byteLength: normalizedBlob.size
+  };
 }
 
-async function readBlobAsDataUrl(blob: Blob): Promise<string | null> {
-  const dataUrl = await new Promise<string | null>((resolve) => {
-    const reader = new FileReader();
-    reader.addEventListener('load', () => {
-      resolve(typeof reader.result === 'string' ? reader.result : null);
-    });
-    reader.addEventListener('error', () => resolve(null));
-    reader.readAsDataURL(blob);
-  });
-  return isJpegDataUrl(dataUrl) ? dataUrl : null;
+function createBlobContentFromDataUrl(
+  dataUrl: string | null
+): VideoCaptureScreenshotContent | null {
+  if (!isJpegDataUrl(dataUrl) || typeof globalThis.atob !== 'function') {
+    return null;
+  }
+
+  try {
+    const buffer = decodeBase64(dataUrl.slice(SCREENSHOT_DATA_URL_PREFIX.length));
+    return createBlobContent(new Blob([buffer], { type: SCREENSHOT_MIME_TYPE }));
+  } catch {
+    return null;
+  }
+}
+
+function decodeBase64(base64: string): ArrayBuffer {
+  const binary = globalThis.atob(base64);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return buffer;
 }
 
 function createScreenshotRecord(
-  dataUrl: string | null,
+  content: VideoCaptureScreenshotContent | null,
   now: number
 ): VideoCaptureScreenshot | null {
-  if (!isJpegDataUrl(dataUrl)) {
+  if (!content) {
     return null;
   }
   const id = `screenshot-${now}-${Math.random().toString(16).slice(2)}`;
@@ -100,7 +134,7 @@ function createScreenshotRecord(
     id,
     fileName: `file-${formatTimestampSlug(now)}.jpg`,
     mimeType: SCREENSHOT_MIME_TYPE,
-    dataUrl,
+    content,
     capturedAt: now
   };
 }

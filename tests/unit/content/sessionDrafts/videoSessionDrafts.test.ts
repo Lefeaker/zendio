@@ -10,6 +10,21 @@ import {
 
 const BASE_TIME = 2_000_000_000_000;
 
+function createBlobScreenshot(id: string, fileName: string, capturedAt: number) {
+  const blob = new Blob(['frame'], { type: 'image/jpeg' });
+  return {
+    id,
+    fileName,
+    mimeType: 'image/jpeg' as const,
+    capturedAt,
+    content: {
+      kind: 'blob' as const,
+      blob,
+      byteLength: blob.size
+    }
+  };
+}
+
 function createCaptures(): VideoCapture[] {
   return [
     {
@@ -19,13 +34,7 @@ function createCaptures(): VideoCapture[] {
       url: 'https://video.example/watch?v=1&t=42',
       comment: 'Marker',
       createdAt: BASE_TIME,
-      screenshot: {
-        id: 'shot-1',
-        fileName: 'video-0m42s.jpg',
-        mimeType: 'image/jpeg',
-        dataUrl: 'data:image/jpeg;base64,frame',
-        capturedAt: BASE_TIME + 1
-      }
+      screenshot: createBlobScreenshot('shot-1', 'video-0m42s.jpg', BASE_TIME + 1) as never
     },
     {
       kind: 'fragment',
@@ -76,6 +85,7 @@ describe('videoSessionDrafts', () => {
     expect(JSON.stringify(payload)).not.toContain('data:image/');
     expect(JSON.stringify(payload)).not.toContain('video-0m42s.jpg');
     expect(JSON.stringify(payload)).not.toContain('mimeType');
+    expect(JSON.stringify(payload)).not.toContain('byteLength');
     expect(JSON.stringify(payload)).not.toContain('ArrayBuffer');
   });
 
