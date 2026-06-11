@@ -20,6 +20,7 @@ import type { ReaderSessionDependencies } from '@content/reader/session';
 import { buildReaderSessionDraftEnvelope } from '@content/reader/sessionDrafts';
 import { ReaderSessionLifecycle } from '@content/reader/sessionLifecycle';
 import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
+import type { SessionMutationTransaction } from '@content/sessionMutations';
 import { ReaderSessionExporter } from '@content/reader/services/exporter';
 import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
 import { ReaderSelectionController } from '@content/reader/services/selectionController';
@@ -57,6 +58,69 @@ type TestView = ReaderSessionView & {
   destroy: Mock<(...args: []) => void>;
   currentDrafts: SessionCommentDraftSnapshot;
 };
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve(value: T | PromiseLike<T>): void;
+  reject(reason?: unknown): void;
+}
+
+type ReaderSessionTestHarness = {
+  __setTestHighlights(
+    records: Array<{
+      id: string;
+      selectedHtml: string;
+      selectedText: string;
+      comment: string;
+      fragmentUrl: string;
+      wrapper: HTMLElement;
+    }>
+  ): void;
+  __testHighlights: Array<{
+    id: string;
+    selectedHtml: string;
+    selectedText: string;
+    comment: string;
+    fragmentUrl: string;
+    wrapper: HTMLElement;
+  }>;
+  handleSelection(payload: unknown): void | Promise<void>;
+  persistDraftMutation(): Promise<void>;
+  runDraftMutation<Result>(transaction: SessionMutationTransaction<Result, void>): Promise<boolean>;
+  draftId: string | null;
+  draftCreatedAt: number | null;
+  draftStorageKey: string | null;
+  state: {
+    saving?: boolean;
+  };
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: Deferred<T>['resolve'];
+  let reject!: Deferred<T>['reject'];
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function getSessionHarness(session: ReaderSession): ReaderSessionTestHarness {
+  return session as unknown as ReaderSessionTestHarness;
+}
+
+function getDraftIdentity(session: ReaderSession): {
+  draftId: string | null;
+  draftCreatedAt: number | null;
+  draftStorageKey: string | null;
+} {
+  const harness = getSessionHarness(session);
+  return {
+    draftId: harness.draftId,
+    draftCreatedAt: harness.draftCreatedAt,
+    draftStorageKey: harness.draftStorageKey
+  };
+}
 
 function createView(): TestView {
   let currentDrafts: SessionCommentDraftSnapshot = {};
@@ -745,6 +809,159 @@ describe('ReaderSession', () => {
     expect(context.view.setHighlights).toHaveBeenCalled();
   });
 
+  it('keeps selection draft persistence and current telemetry behavior before P04', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    await getSessionHarness(context.session).handleSelection(
+      createSelectionPayload(content.firstChild)
+    );
+    await flushDraftPersistence();
+
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      status: 'active',
+      payload: expect.objectContaining({
+        highlights: [
+          expect.objectContaining({
+            selectedText: 'Hello reader session world.',
+            comment: ''
+          })
+        ]
+      })
+    });
+
+    const highlightEvent = getTelemetryMessages(context).find(
+      (message) => message.event === 'reader_highlight_added'
+    );
+    expect(highlightEvent).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_highlight_added',
+      params: {
+        selection_length_bucket: 'twenty_one_to_fifty',
+        highlight_count_bucket: 'one'
+      }
+    });
+  });
+
+  it('rejects durable reader draft saves when storage persistence fails and keeps the session mounted for retry', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const wrapper = document.createElement('mark');
+    wrapper.dataset.readerHighlightId = 'retry-highlight';
+    wrapper.textContent = 'Retry highlight';
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'retry-highlight',
+        selectedHtml: '<mark>Retry highlight</mark>',
+        selectedText: 'Retry highlight',
+        comment: 'retry me',
+        fragmentUrl: '#retry-highlight',
+        wrapper
+      }
+    ]);
+
+    const saveError = new Error('durable save failed');
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(saveError);
+
+    const persistPromise = getSessionHarness(context.session).persistDraftMutation();
+    const persistExpectation = expect(persistPromise).rejects.toThrow(saveError);
+    await vi.advanceTimersByTimeAsync(250);
+
+    await persistExpectation;
+    expect(isReaderSessionActive(document)).toBe(true);
+    expect(getReaderSession()).toBe(context.session);
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
+    expect(getDraftIdentity(context.session)).toEqual({
+      draftId: expect.any(String),
+      draftCreatedAt: expect.any(Number),
+      draftStorageKey: expect.any(String)
+    });
+  });
+
+  it('serializes durable reader mutations and ignores new selections while saving is in flight', async () => {
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const firstSave = createDeferred<void>();
+    const events: string[] = [];
+
+    const firstRun = getSessionHarness(context.session).runDraftMutation({
+      apply: () => {
+        events.push('first:apply');
+        return 'first-result' as const;
+      },
+      save: async () => {
+        events.push('first:save:start');
+        await firstSave.promise;
+        events.push('first:save:end');
+      },
+      commit: (result) => {
+        events.push(`first:commit:${result}`);
+      },
+      rollback: () => {
+        events.push('first:rollback');
+      }
+    });
+
+    await Promise.resolve();
+
+    const secondRun = getSessionHarness(context.session).runDraftMutation({
+      apply: () => {
+        events.push('second:apply');
+        return 'second-result' as const;
+      },
+      save: async () => {
+        events.push('second:save');
+      },
+      commit: (result) => {
+        events.push(`second:commit:${result}`);
+      },
+      rollback: () => {
+        events.push('second:rollback');
+      }
+    });
+
+    await Promise.resolve();
+
+    expect(getSessionHarness(context.session).state.saving).toBe(true);
+    expect(events).toEqual(['first:apply', 'first:save:start']);
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+    setSelectionFor(content.firstChild);
+    content.dispatchEvent(new MouseEvent('mouseup', { button: 0, bubbles: true }));
+
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
+
+    firstSave.resolve();
+
+    await expect(firstRun).resolves.toBe(true);
+    await expect(secondRun).resolves.toBe(true);
+
+    expect(events).toEqual([
+      'first:apply',
+      'first:save:start',
+      'first:save:end',
+      'first:commit:first-result',
+      'second:apply',
+      'second:save',
+      'second:commit:second-result'
+    ]);
+    expect(getSessionHarness(context.session).state.saving).toBe(false);
+  });
+
   it('tracks highlight additions with canonical bucket params only', async () => {
     const context = createSessionContext();
     await context.session.initialize();
@@ -770,6 +987,74 @@ describe('ReaderSession', () => {
       }
     });
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+  });
+
+  it('keeps typed comment drafts visible, applies a failure hint, and preserves draft identity when autosave rejects', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    await getSessionHarness(context.session).handleSelection(
+      createSelectionPayload(content.firstChild)
+    );
+    await flushDraftPersistence();
+
+    const [highlight] = getSessionHarness(context.session).__testHighlights;
+    if (!highlight) {
+      throw new Error('reader highlight missing');
+    }
+
+    const draftIdentity = getDraftIdentity(context.session);
+    const saveError = new Error('autosave failed');
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(saveError);
+
+    context.emitCommentDraftChange({
+      [highlight.id]: 'typed note'
+    });
+    await flushDraftPersistence();
+
+    expect(context.view.currentDrafts).toEqual({
+      [highlight.id]: 'typed note'
+    });
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(getDraftIdentity(context.session)).toEqual(draftIdentity);
+  });
+
+  it('preserves draft identity when exact-key reader draft cleanup fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    await getSessionHarness(context.session).handleSelection(
+      createSelectionPayload(content.firstChild)
+    );
+    await flushDraftPersistence();
+
+    const persistedIdentity = getDraftIdentity(context.session);
+    if (!persistedIdentity.draftStorageKey) {
+      throw new Error('expected persisted draft key');
+    }
+
+    getSessionHarness(context.session).__setTestHighlights([]);
+
+    const removeError = new Error('remove failed');
+    const removeSpy = vi.spyOn(context.storageLocal, 'remove').mockRejectedValueOnce(removeError);
+
+    const removePromise = getSessionHarness(context.session).persistDraftMutation();
+    await expect(removePromise).rejects.toThrow(removeError);
+
+    expect(removeSpy).toHaveBeenCalledWith([persistedIdentity.draftStorageKey]);
+    expect(getDraftIdentity(context.session)).toEqual(persistedIdentity);
   });
 
   it('reports selection failures', async () => {
