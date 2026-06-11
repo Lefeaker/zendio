@@ -14,6 +14,7 @@ import type { ShadowSelectionBridge } from './shadowSelectionBridge';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -45,6 +46,7 @@ export interface VideoSessionOperationContext {
   scheduleDraftSave?: () => Promise<void>;
   flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
   removeDraft?: () => Promise<void>;
+  finalizeTerminalDraft?: (status: SessionDraftTerminalStatus) => Promise<boolean>;
   prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
@@ -57,6 +59,7 @@ type CreateVideoSessionOperationContextArgs = Omit<
   | 'scheduleDraftSave'
   | 'flushDraftNow'
   | 'removeDraft'
+  | 'finalizeTerminalDraft'
   | 'beginPlaybackEditLease'
   | 'releasePlaybackEditLease'
   | 'resetPlaybackEditLease'
