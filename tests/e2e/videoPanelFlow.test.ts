@@ -53,6 +53,7 @@ type VideoDraftEntry = {
 
 type VideoProbeState = {
   toDataUrlCalls: number;
+  toBlobCalls: number;
   drawImageCalls: number;
   currentTimeWrites: number;
   pauseCalls: number;
@@ -293,6 +294,7 @@ async function installVideoProbe(
           const runtimeGlobal = globalThis as typeof globalThis & {
             __aiobP07VideoProbe?: {
               toDataUrlCalls: number;
+              toBlobCalls: number;
               drawImageCalls: number;
               currentTimeWrites: number;
               pauseCalls: number;
@@ -307,6 +309,7 @@ async function installVideoProbe(
 
           runtimeGlobal.__aiobP07VideoProbe = {
             toDataUrlCalls: 0,
+            toBlobCalls: 0,
             drawImageCalls: 0,
             currentTimeWrites: 0,
             pauseCalls: 0,
@@ -378,6 +381,13 @@ async function installVideoProbe(
                 return 'data:image/jpeg;base64,ZmFrZS1zY3JlZW5zaG90';
               }
             });
+            Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+              configurable: true,
+              value: (callback: BlobCallback) => {
+                runtimeGlobal.__aiobP07VideoProbe!.toBlobCalls += 1;
+                callback(new Blob(['fake-screenshot'], { type: 'image/jpeg' }));
+              }
+            });
             runtimeGlobal.__aiobP07CanvasPatched = true;
           }
         }
@@ -423,6 +433,7 @@ async function resetVideoProbe(
             throw new Error('Video probe was not installed in the content runtime.');
           }
           runtimeGlobal.__aiobP07VideoProbe.toDataUrlCalls = 0;
+          runtimeGlobal.__aiobP07VideoProbe.toBlobCalls = 0;
           runtimeGlobal.__aiobP07VideoProbe.drawImageCalls = 0;
           runtimeGlobal.__aiobP07VideoProbe.currentTimeWrites = 0;
           runtimeGlobal.__aiobP07VideoProbe.pauseCalls = 0;
@@ -699,7 +710,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
           .poll(
             () =>
               readVideoProbe(extensionPage, tabId).then((probe) => ({
-                toDataUrlCalls: probe.toDataUrlCalls,
+                imageEncodeCalls: probe.toDataUrlCalls + probe.toBlobCalls,
+                drawImageCalls: probe.drawImageCalls,
                 currentTimeWrites: probe.currentTimeWrites,
                 pauseCalls: probe.pauseCalls,
                 playCalls: probe.playCalls
@@ -710,7 +722,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
             }
           )
           .toEqual({
-            toDataUrlCalls: 1,
+            imageEncodeCalls: 1,
+            drawImageCalls: 1,
             currentTimeWrites: 0,
             pauseCalls: 0,
             playCalls: 0
@@ -778,7 +791,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
           .poll(
             () =>
               readVideoProbe(extensionPage, reloadedTabId).then((probe) => ({
-                toDataUrlCalls: probe.toDataUrlCalls,
+                imageEncodeCalls: probe.toDataUrlCalls + probe.toBlobCalls,
+                drawImageCalls: probe.drawImageCalls,
                 currentTimeWrites: probe.currentTimeWrites
               })),
             {
@@ -786,7 +800,7 @@ testWithExtension.describe('Video Panel browser flow', () => {
               message: 'restore-time screenshot recapture did not run'
             }
           )
-          .toEqual({ toDataUrlCalls: 1, currentTimeWrites: 0 });
+          .toEqual({ imageEncodeCalls: 1, drawImageCalls: 1, currentTimeWrites: 0 });
 
         await resetVideoProbe(extensionPage, reloadedTabId, testInfo);
         const finishButton = page.locator('[data-role="finish-btn"]');
@@ -799,7 +813,7 @@ testWithExtension.describe('Video Panel browser flow', () => {
           .poll(
             () =>
               readVideoProbe(extensionPage, reloadedTabId).then((probe) => ({
-                toDataUrlCalls: probe.toDataUrlCalls,
+                imageEncodeCalls: probe.toDataUrlCalls + probe.toBlobCalls,
                 drawImageCalls: probe.drawImageCalls,
                 currentTimeWrites: probe.currentTimeWrites
               })),
@@ -808,7 +822,7 @@ testWithExtension.describe('Video Panel browser flow', () => {
               message: 'video export triggered an unexpected recapture/seek pass'
             }
           )
-          .toEqual({ toDataUrlCalls: 0, drawImageCalls: 0, currentTimeWrites: 0 });
+          .toEqual({ imageEncodeCalls: 0, drawImageCalls: 0, currentTimeWrites: 0 });
 
         await expect
           .poll(() => readCapturedVideoClip(extensionPage), {
