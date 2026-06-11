@@ -207,6 +207,24 @@ type SessionTestApi = {
   };
 };
 
+type TabContextProbeMessage = { type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE' };
+type TabContextProbeResponse = {
+  success: true;
+  active?: boolean;
+  tabId?: number;
+  windowId?: number;
+  frameId?: number;
+};
+
+function isTabContextProbeMessage(message: object | null): message is TabContextProbeMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
+  );
+}
+
 type DraftMutationAct = (
   api: SessionTestApi,
   ids: string[],
@@ -1313,17 +1331,15 @@ describe('VideoSession', () => {
       configurable: true,
       value: {
         runtime: {
-          sendMessage: vi.fn((message: unknown, callback?: (response: unknown) => void) => {
-            if (
-              typeof message === 'object' &&
-              message !== null &&
-              (message as { type?: unknown }).type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
-            ) {
-              callback?.({ success: true, active: true });
-              return;
+          sendMessage: vi.fn(
+            (message: object | null, callback?: (response: TabContextProbeResponse) => void) => {
+              if (isTabContextProbeMessage(message)) {
+                callback?.({ success: true, active: true });
+                return;
+              }
+              callback?.({ success: true, ...currentOwner });
             }
-            callback?.({ success: true, ...currentOwner });
-          })
+          )
         }
       }
     });

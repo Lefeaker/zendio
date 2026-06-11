@@ -30,23 +30,36 @@ function createEnvelope(
   const updatedAt = overrides.updatedAt ?? BASE_TIME + 10;
   const pageKey = createSessionDraftPageKey(mode, pageUrl);
 
-  return {
+  const base = {
     schemaVersion: 1,
     draftId: overrides.draftId ?? `${mode}-${updatedAt}`,
-    mode,
     pageKey,
     pageUrl,
     pageTitle: overrides.pageTitle ?? `${mode} title`,
     createdAt: overrides.createdAt ?? updatedAt - 1,
     updatedAt,
     expiresAt: overrides.expiresAt ?? updatedAt + 7 * 24 * 60 * 60 * 1000,
-    status: overrides.status ?? 'active',
-    payload: overrides.payload ?? {
-      commentDrafts: {
-        [`${mode}-comment`]: `draft-${updatedAt}`
-      }
+    status: overrides.status ?? 'active'
+  } satisfies Omit<SessionDraftEnvelope, 'mode' | 'payload'>;
+  const payload = overrides.payload ?? {
+    commentDrafts: {
+      [`${mode}-comment`]: `draft-${updatedAt}`
     }
-  } as SessionDraftEnvelope;
+  };
+
+  if (mode === 'reader') {
+    return {
+      ...base,
+      mode: 'reader',
+      payload
+    };
+  }
+
+  return {
+    ...base,
+    mode: 'video',
+    payload
+  };
 }
 
 function createIndexEntry(envelope: SessionDraftEnvelope): SessionDraftIndexEntry {
@@ -96,7 +109,7 @@ describe('sessionDraftRepository', () => {
       draftId: 'discarded-reader',
       pageUrl: 'https://example.com/post/discarded',
       updatedAt: BASE_TIME + 101,
-      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+      status: 'discarded'
     });
     const storageKey = createIndexEntry(envelope).key;
 
@@ -122,7 +135,7 @@ describe('sessionDraftRepository', () => {
       draftId: 'exported-video',
       pageUrl: 'https://video.example/watch?v=exported',
       updatedAt: BASE_TIME + 111,
-      status: 'exported' as unknown as SessionDraftEnvelope['status']
+      status: 'exported'
     });
     const storageKey = createIndexEntry(envelope).key;
 
@@ -155,7 +168,7 @@ describe('sessionDraftRepository', () => {
       draftId: 'terminal-same-page',
       pageUrl,
       updatedAt: BASE_TIME + 121,
-      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+      status: 'discarded'
     });
 
     await repository.save(restorable);
@@ -259,10 +272,10 @@ describe('sessionDraftRepository', () => {
       draftId: 'mismatch',
       updatedAt: BASE_TIME + 300
     });
-    const mismatchedEntry = {
+    const mismatchedEntry: SessionDraftIndexEntry = {
       ...createIndexEntry(envelope),
       key: 'aiob.sessionDraft.v1.reader.reader-page.mismatch',
-      mode: 'reader' as const,
+      mode: 'reader',
       pageKey: createSessionDraftPageKey('reader', readerUrl)
     };
 
@@ -655,7 +668,7 @@ describe('sessionDraftRepository', () => {
       draftId: 'terminal-no-owner',
       pageUrl,
       updatedAt: BASE_TIME + 740,
-      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+      status: 'discarded'
     });
     const entry = createIndexEntry(terminal);
 

@@ -1,22 +1,22 @@
-export type SessionMutationFailure = { reason: 'failure' } | { reason: 'error'; error: unknown };
+export type SessionMutationFailure = { reason: 'failure' } | { reason: 'error'; error: Error };
 
-export interface SessionMutationTransaction<Result, SaveResult = unknown> {
+export interface SessionMutationTransaction<Result, SaveResult = void> {
   apply(): Result;
   afterApply?(result: Result): void;
   save(): Promise<SaveResult>;
   isSaveFailure?(saveResult: SaveResult): boolean;
   commit?(result: Result, saveResult: SaveResult): void | Promise<void>;
   rollback(result: Result, failure: SessionMutationFailure): void | Promise<void>;
-  onSaveError?(error: unknown): void;
+  onSaveError?(error: Error): void;
 }
 
 export interface SessionMutationRunner {
-  run<Result, SaveResult = unknown>(
+  run<Result, SaveResult = void>(
     transaction: SessionMutationTransaction<Result, SaveResult>
   ): Promise<boolean>;
 }
 
-export async function runSessionMutationTransaction<Result, SaveResult = unknown>(
+export async function runSessionMutationTransaction<Result, SaveResult = void>(
   transaction: SessionMutationTransaction<Result, SaveResult>
 ): Promise<boolean> {
   const result = transaction.apply();
@@ -26,10 +26,11 @@ export async function runSessionMutationTransaction<Result, SaveResult = unknown
   try {
     saveResult = await transaction.save();
   } catch (error) {
+    const saveError = error instanceof Error ? error : new Error(String(error));
     try {
-      transaction.onSaveError?.(error);
+      transaction.onSaveError?.(saveError);
     } finally {
-      await transaction.rollback(result, { reason: 'error', error });
+      await transaction.rollback(result, { reason: 'error', error: saveError });
     }
     return false;
   }
@@ -47,7 +48,7 @@ export function createSessionMutationRunner(): SessionMutationRunner {
   let tail = Promise.resolve<void>(undefined);
 
   return {
-    run<Result, SaveResult = unknown>(
+    run<Result, SaveResult = void>(
       transaction: SessionMutationTransaction<Result, SaveResult>
     ): Promise<boolean> {
       const runTask = tail.then(() => runSessionMutationTransaction(transaction));
