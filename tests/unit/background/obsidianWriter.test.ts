@@ -141,6 +141,66 @@ describe('obsidianWriter', () => {
     );
   });
 
+  it('decodes serialized attachment content into blobs for binary and legacy inputs', async () => {
+    const { serializedAttachmentContentToBlob } = await import(
+      '../../../src/shared/attachments/clipAttachmentBinary'
+    );
+
+    const binaryBlob = serializedAttachmentContentToBlob(
+      {
+        kind: 'base64',
+        binary: {
+          encoding: 'base64',
+          data: 'YWFh',
+          byteLength: 3
+        }
+      },
+      'image/jpeg'
+    );
+    const legacyBlob = serializedAttachmentContentToBlob(
+      {
+        kind: 'legacyDataUrl',
+        dataUrl: 'data:image/png;base64,YmJi'
+      },
+      'image/png'
+    );
+
+    expect(binaryBlob.type).toBe('image/jpeg');
+    await expect(binaryBlob.text()).resolves.toBe('aaa');
+    expect(legacyBlob.type).toBe('image/png');
+    await expect(legacyBlob.text()).resolves.toBe('bbb');
+  });
+
+  it('throws deterministic errors for invalid serialized attachment content', async () => {
+    const { serializedAttachmentContentToBlob } = await import(
+      '../../../src/shared/attachments/clipAttachmentBinary'
+    );
+
+    expect(() =>
+      serializedAttachmentContentToBlob(
+        {
+          kind: 'base64',
+          binary: {
+            encoding: 'base64',
+            data: '%%%bad%%%',
+            byteLength: 3
+          }
+        },
+        'image/jpeg'
+      )
+    ).toThrow('Invalid base64 attachment content.');
+
+    expect(() =>
+      serializedAttachmentContentToBlob(
+        {
+          kind: 'legacyDataUrl',
+          dataUrl: 'not-a-data-url'
+        },
+        'image/jpeg'
+      )
+    ).toThrow('Invalid attachment data URL.');
+  });
+
   it('creates a local write session and writes every file to the same local folder', async () => {
     const writeFileMock = vi.fn(() => Promise.resolve(undefined));
     const queryPermissionMock = vi.fn(() => Promise.resolve('granted'));
@@ -164,12 +224,9 @@ describe('obsidianWriter', () => {
       localFolderId: 'folder-main',
       localFolderName: 'Main'
     } as never);
+    const attachmentBlob = new Blob(['png-data'], { type: 'image/png' });
 
-    await session.writeAttachment(
-      'Articles/assets/test/image.png',
-      'data:image/png;base64,aaa',
-      'image/png'
-    );
+    await session.writeAttachment('Articles/assets/test/image.png', attachmentBlob, 'image/png');
     await session.writeMarkdown('Articles/test.md', '# Hello');
 
     expect(session.target).toEqual({
@@ -182,7 +239,7 @@ describe('obsidianWriter', () => {
     expect(writeLocalFileMock).toHaveBeenNthCalledWith(1, {
       folderId: 'folder-main',
       filePath: 'Articles/assets/test/image.png',
-      content: expect.any(Blob),
+      content: attachmentBlob,
       contentType: 'image/png'
     });
     expect(writeLocalFileMock).toHaveBeenNthCalledWith(2, {
@@ -234,12 +291,9 @@ describe('obsidianWriter', () => {
       localFolderId: 'folder-main',
       localFolderName: 'Main'
     } as never);
+    const attachmentBlob = new Blob(['png-data'], { type: 'image/png' });
 
-    await session.writeAttachment(
-      'Articles/assets/test/image.png',
-      'data:image/png;base64,aaa',
-      'image/png'
-    );
+    await session.writeAttachment('Articles/assets/test/image.png', attachmentBlob, 'image/png');
     await session.writeMarkdown('Articles/test.md', '# Hello');
 
     expect(session.target).toEqual({
@@ -261,7 +315,7 @@ describe('obsidianWriter', () => {
         apiKey: 'secret'
       },
       'Articles/assets/test/image.png',
-      expect.any(Blob),
+      attachmentBlob,
       { contentType: 'image/png' }
     );
     expect(writeFileMock).toHaveBeenNthCalledWith(
@@ -327,12 +381,9 @@ describe('obsidianWriter', () => {
       localFolderId: 'folder-main',
       localFolderName: 'Main'
     } as never);
+    const attachmentBlob = new Blob(['png-data'], { type: 'image/png' });
 
-    await session.writeAttachment(
-      'Articles/assets/test/image.png',
-      'data:image/png;base64,aaa',
-      'image/png'
-    );
+    await session.writeAttachment('Articles/assets/test/image.png', attachmentBlob, 'image/png');
     await expect(session.writeMarkdown('Articles/test.md', '# Hello')).rejects.toMatchObject({
       code: 'LOCAL_VAULT_WRITE_FAILED',
       userMessage: expect.stringContaining('本地目录写入失败')

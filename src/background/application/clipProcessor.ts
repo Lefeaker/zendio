@@ -32,6 +32,7 @@ import type { AppError } from '../../shared/errors';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
+import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
 import { prepareVideoClipAttachments } from './videoScreenshotAttachmentPlanner';
 
 export interface ClipProcessingResult {
@@ -174,9 +175,10 @@ export async function processClipPayload(
       if (routed.prepared.attachments.length > 0) {
         await completeStage('write_attachments', async () => {
           for (const attachment of routed.prepared.attachments) {
+            const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
             await downloads.download({
               filename: attachment.outputPath,
-              url: attachment.dataUrl,
+              blob,
               mimeType: attachment.mimeType
             });
           }
@@ -227,9 +229,10 @@ export async function processClipPayload(
       hooks.onProgress?.({ value: 68, label: '正在写入附件' });
       await completeStage('write_attachments', async () => {
         for (const attachment of routed.prepared.attachments) {
+          const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
           await routed.writeSession.writeAttachment(
             attachment.outputPath,
-            attachment.dataUrl,
+            blob,
             attachment.mimeType
           );
         }

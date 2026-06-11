@@ -1,6 +1,7 @@
 export interface DownloadTextFileOptions {
   filename: string;
   content?: string;
+  blob?: Blob;
   url?: string;
   mimeType?: string;
 }
