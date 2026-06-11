@@ -1,5 +1,9 @@
 import type { ReaderPanelCallbacks } from './application/readerPanelModel';
-import type { ReaderSessionView, ReaderSessionViewFactory } from './application/readerSessionView';
+import type {
+  ReaderPanelEditingSnapshot,
+  ReaderSessionView,
+  ReaderSessionViewFactory
+} from './application/readerSessionView';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import type { ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderSessionMessages, ReaderHintState } from './sessionMessages';
@@ -68,6 +72,59 @@ export class ReaderPanelCoordinator {
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
     this.view?.hydrateCommentDrafts?.(drafts);
+  }
+
+  clearCommentDraft(id: string): void {
+    const view = this.view;
+    if (!view) {
+      return;
+    }
+    if (view.clearCommentDraft) {
+      view.clearCommentDraft(id);
+      return;
+    }
+    const drafts = view.snapshotCommentDrafts?.() ?? {};
+    delete drafts[id];
+    view.hydrateCommentDrafts?.(drafts);
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    const view = this.view;
+    if (!view) {
+      return;
+    }
+    if (view.restoreCommentDraft) {
+      view.restoreCommentDraft(id, draft);
+      return;
+    }
+    const drafts = view.snapshotCommentDrafts?.() ?? {};
+    if (draft === undefined) {
+      delete drafts[id];
+    } else {
+      drafts[id] = draft;
+    }
+    view.hydrateCommentDrafts?.(drafts);
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return (
+      this.view?.snapshotEditingState?.() ?? {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      }
+    );
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.view?.restoreEditingState?.(snapshot);
+  }
+
+  finishEditing(): void {
+    if (this.view?.finishEditing) {
+      this.view.finishEditing();
+      return;
+    }
+    this.view?.stopEditing();
   }
 
   getElement(): HTMLElement | null {

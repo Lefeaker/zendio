@@ -5,6 +5,7 @@ import type {
   ReaderPanelTexts
 } from '../application/readerPanelModel';
 import type {
+  ReaderPanelEditingSnapshot,
   ReaderSessionView,
   ReaderSessionViewFactory,
   ReaderSessionViewOptions
@@ -21,6 +22,11 @@ type ReaderPanelLike = {
   setHighlights(highlights: ReaderPanelHighlight[]): void;
   snapshotCommentDrafts?(): SessionCommentDraftSnapshot;
   hydrateCommentDrafts?(drafts: SessionCommentDraftSnapshot): void;
+  clearCommentDraft?(id: string): void;
+  restoreCommentDraft?(id: string, draft: string | undefined): void;
+  snapshotEditingState?(): ReaderPanelEditingSnapshot;
+  restoreEditingState?(snapshot: ReaderPanelEditingSnapshot): void;
+  finishEditing?(): void;
   stopEditing(): void;
   isEditing(): boolean;
   destroy(): void;
@@ -63,6 +69,31 @@ class ReaderPanelViewAdapter implements ReaderSessionView {
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
     this.panel.hydrateCommentDrafts?.(drafts);
+  }
+
+  clearCommentDraft(id: string): void {
+    this.panel.clearCommentDraft?.(id);
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    this.panel.restoreCommentDraft?.(id, draft);
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return (
+      this.panel.snapshotEditingState?.() ?? {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      }
+    );
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.panel.restoreEditingState?.(snapshot);
+  }
+
+  finishEditing(): void {
+    this.panel.finishEditing?.();
   }
 
   stopEditing(): void {

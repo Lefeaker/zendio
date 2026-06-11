@@ -2,6 +2,7 @@ import type { ReaderHighlightTheme } from '../../shared/types/options';
 import {
   createSessionDraftPersister,
   createSessionDraftRepository,
+  createSessionMutationRunner,
   finalizeTerminalSessionDraft,
   type SessionDraftEnvelope,
   type VideoSessionDraftEnvelope,
@@ -38,6 +39,7 @@ import {
   submitVideoSessionCaptureEdit,
   toggleVideoSessionCaptureScreenshot
 } from './sessionOperations';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTransaction';
 import {
   finalizeVideoSessionStart,
   initializeVideoSessionEnvironment
@@ -115,8 +117,10 @@ export class VideoSession {
   private readonly draftRepository = createSessionDraftRepository(this.dependencies.storage.local);
   private readonly draftId = createVideoSessionDraftId();
   private readonly draftPersister: SessionDraftPersister;
+  private readonly captureMutationRunner = createSessionMutationRunner();
   private activeDraftPageUrl: string;
   private pendingDraftStatus: SessionDraftStatus = 'active';
+  private pendingCaptureMutations = 0;
   private restoredDraftKey: string | null = null;
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
@@ -146,6 +150,8 @@ export class VideoSession {
       buildTimestampUrl: (timeSec: number) => this.platformController.buildTimestampUrl(timeSec),
       applyHint: (state: VideoHintState) => this.applyHint(state),
       syncPanel: () => this.syncPanel(),
+      runCaptureMutation: <Result>(transaction: VideoCaptureMutationTransaction<Result>) =>
+        this.runCaptureMutation(transaction),
       ensureCaptureHighlight: (capture: VideoFragmentCapture) =>
         this.ensureCaptureHighlight(capture),
       getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(this.doc, node),
@@ -579,7 +585,7 @@ export class VideoSession {
         removeDraft: () => this.removeDraft(),
         draftPersister: this.draftPersister,
         clearSupersededDurableSources: () => this.clearSupersededDurableSources(),
-        trackSavingState: status === 'active',
+        trackSavingState: status === 'active' && this.pendingCaptureMutations === 0,
         onPostSaveCleanupError: (error) => this.logSupersededDurableCleanupError(error)
       });
     } catch {
@@ -648,6 +654,23 @@ export class VideoSession {
 
   private createDestinationPayload(): ClipPayload {
     return createVideoSessionDestinationPayload(this.state, this.doc.location.href, this.doc.title);
+  }
+
+  private async runCaptureMutation<Result>(
+    transaction: VideoCaptureMutationTransaction<Result>
+  ): Promise<boolean> {
+    this.pendingCaptureMutations += 1;
+    this.state.saving = true;
+
+    try {
+      return await this.captureMutationRunner.run({
+        ...transaction,
+        isSaveFailure: (saveHint) => saveHint === 'failure'
+      });
+    } finally {
+      this.pendingCaptureMutations = Math.max(0, this.pendingCaptureMutations - 1);
+      this.state.saving = this.pendingCaptureMutations > 0;
+    }
   }
 
   ingestTextCapture(

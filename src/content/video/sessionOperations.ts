@@ -15,6 +15,7 @@ import {
 } from './videoTimestampCaptureTransaction';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import {
+  type VideoCaptureMutationTransaction,
   emitVideoUsageEvent,
   mapVideoAnalyticsPlatform,
   requestRequestedScreenshotPreparation,
@@ -24,7 +25,6 @@ import {
   restoreRemovedFragmentHighlight,
   restoreTimestampScreenshotState,
   rollbackVideoSessionFragmentAdd,
-  runVideoCaptureMutationTransaction,
   saveVideoSessionCaptures,
   snapshotTimestampScreenshotState
 } from './videoCaptureMutationTransaction';
@@ -56,7 +56,7 @@ export async function handleVideoSessionAddCapture(
     collapseAfterCapture?: boolean;
   } = {}
 ): Promise<VideoTimestampCapture | null> {
-  if (context.state.exporting || context.state.saving) {
+  if (context.state.exporting) {
     return null;
   }
 
@@ -94,7 +94,7 @@ export async function handleVideoSessionAddCapture(
     captureScreenshot: options.captureScreenshot
   });
 
-  const saved = await runVideoCaptureMutationTransaction({
+  const saved = await runVideoSessionCaptureMutation(context, {
     apply: () => {
       context.state.captures.push(capture);
       if (shouldLeasePlayback) {
@@ -194,7 +194,7 @@ export function ingestVideoSessionTextCapture(
     }
   }
 
-  const saveTask = runVideoCaptureMutationTransaction({
+  const saveTask = runVideoSessionCaptureMutation(context, {
     apply: () => {
       context.state.captures.push(capture);
       context.fragmentHighlightCoordinator.ensureStartedForFragments();
@@ -240,7 +240,7 @@ export async function submitVideoSessionCaptureEdit(
   const draftToRestore = syncedDraft ?? previousDraft;
   const nextComment = comment.trim();
 
-  await runVideoCaptureMutationTransaction({
+  await runVideoSessionCaptureMutation(context, {
     apply: () => {
       delete context.state.commentDrafts[id];
       const previousComment = target.comment;
@@ -280,7 +280,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
   context.syncCommentDrafts?.();
   const syncedDraft = context.state.commentDrafts[id];
   const draftToRestore = syncedDraft ?? previousDraft;
-  const saveTask = runVideoCaptureMutationTransaction({
+  const saveTask = runVideoSessionCaptureMutation(context, {
     apply: () => {
       delete context.state.commentDrafts[id];
       const [removed] = context.state.captures.splice(index, 1);
@@ -336,7 +336,7 @@ export async function toggleVideoSessionCaptureScreenshot(
   context.syncCommentDrafts?.();
   const previousScreenshotState = snapshotTimestampScreenshotState(target);
   const shouldPrepareScreenshot = !hasRequestedTimestampScreenshot(target);
-  await runVideoCaptureMutationTransaction({
+  await runVideoSessionCaptureMutation(context, {
     apply: () => {
       if (shouldPrepareScreenshot) {
         setRequestedTimestampScreenshot(target, null);
@@ -377,6 +377,13 @@ export function focusVideoSessionCapture(context: VideoSessionOperationContext, 
   } else {
     focusFragmentCapture(context, target);
   }
+}
+
+function runVideoSessionCaptureMutation<Result>(
+  context: VideoSessionOperationContext,
+  transaction: VideoCaptureMutationTransaction<Result>
+): Promise<boolean> {
+  return context.runCaptureMutation(transaction);
 }
 
 export async function finishVideoSession(

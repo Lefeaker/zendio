@@ -2196,7 +2196,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('marks draft-mode user saves as saving and blocks overlapping guarded mutations until the durable save finishes', async () => {
+  it('queues add timestamp mutations while a draft-mode user save is in flight', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deferredSave = createDeferred<void>();
@@ -2236,15 +2236,282 @@ describe('VideoSession', () => {
 
     expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
 
-    await sessionApi.addCurrentTimestamp('button', { beginEditing: false });
+    const addPromise = sessionApi.addCurrentTimestamp('button', { beginEditing: false });
+    await flushMutationWork();
 
     expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
     expect(sessionApi.state.captures).toHaveLength(1);
 
     deferredSave.resolve();
     await submitPromise;
+    await addPromise;
 
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(2);
+    expect(sessionApi.state.captures).toHaveLength(2);
+    expect(sessionApi.state.captures[1]).toMatchObject({
+      kind: 'timestamp',
+      timeSec: 52
+    });
     expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('queues screenshot toggles behind an in-flight capture edit and keeps saving true until both saves finish', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-toggle',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 2
+      }
+    ];
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'edited note' });
+    expect(saveEvents).toEqual(['save-1:start']);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+
+    const togglePromise = sessionApi.toggleCaptureScreenshot('ts-toggle');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).not.toHaveProperty('screenshotRequested');
+    expect(saveEvents).toEqual(['save-1:start']);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+
+    secondSave.resolve('ready');
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(saveEvents).toEqual([
+      'save-1:start',
+      'save-1:end',
+      'save-2:start',
+      'save-2:end'
+    ]);
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('runs queued mutations after a failed save rolls back the active video mutation', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'failure'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready' | 'failure'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-toggle',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 2
+      }
+    ];
+    sessionApi.state.commentDrafts = {
+      'ts-edit': 'draft note'
+    };
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+    const togglePromise = sessionApi.toggleCaptureScreenshot('ts-toggle');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'edited note' });
+    expect(sessionApi.state.captures[1]).not.toHaveProperty('screenshotRequested');
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('failure');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'original note' });
+    expect(sessionApi.state.commentDrafts).toEqual({
+      'ts-edit': 'draft note'
+    });
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+
+    secondSave.resolve('ready');
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('queues fragment adds behind the same video mutation runner', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      }
+    ];
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+
+    session.ingestTextCapture('<p>Queued fragment</p>', 'Queued fragment', 'fragment note');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toHaveLength(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toHaveLength(2);
+    expect(sessionApi.state.captures[1]).toMatchObject({
+      kind: 'fragment',
+      comment: 'fragment note',
+      selectedText: 'Queued fragment'
+    });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    secondSave.resolve('ready');
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_fragment_added', {
+      capture_count_bucket: 'two_to_five'
+    });
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2849,6 +3116,9 @@ describe('VideoSession', () => {
 
     await session.addCurrentTimestamp('button');
     session.ingestTextCapture('<p>Private fragment</p>', 'Private fragment', 'Private comment');
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
     const timestampId = sessionApi.state.captures.find(
       (capture) => capture.kind === 'timestamp'
     )?.id;

@@ -449,12 +449,11 @@ export async function removeReaderHighlight(
     return true;
   }
 
-  const draftSnapshot = context.panelCoordinator.snapshotCommentDrafts()[id];
-
   if (!context.runDraftMutation || !context.persistDraftMutation) {
     const [removed] = context.state.highlights.splice(index, 1);
     context.highlightManager.unwrapHighlight(removed);
     syncReaderHighlightsUi(context);
+    context.panelCoordinator.clearCommentDraft(id);
     context.panelCoordinator.applyHint(
       context.state.highlights.length ? 'panel' : 'noHighlights',
       context.state.highlights.length
@@ -465,13 +464,13 @@ export async function removeReaderHighlight(
 
   return context.runDraftMutation({
     apply: () => {
+      const editingSnapshot = context.panelCoordinator.snapshotEditingState();
+      const draftSnapshot = context.panelCoordinator.snapshotCommentDrafts()[id];
       const [removed] = context.state.highlights.splice(index, 1);
       const wrapperSnapshots = snapshotHighlightWrappers(removed);
       context.highlightManager.unwrapHighlight(removed);
       syncReaderHighlightsUi(context);
-      if (draftSnapshot !== undefined) {
-        restoreCommentDraft(context, id, draftSnapshot);
-      }
+      context.panelCoordinator.clearCommentDraft(id);
       context.panelCoordinator.applyHint(
         context.state.highlights.length ? 'panel' : 'noHighlights',
         context.state.highlights.length
@@ -479,23 +478,22 @@ export async function removeReaderHighlight(
       return {
         removed,
         wrapperSnapshots,
-        draftSnapshot
+        draftSnapshot,
+        editingSnapshot
       };
     },
     save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
-    commit: ({ draftSnapshot }) => {
-      if (draftSnapshot === undefined) {
-        return;
-      }
-      const drafts = context.panelCoordinator.snapshotCommentDrafts();
-      delete drafts[id];
-      context.panelCoordinator.hydrateCommentDrafts(drafts);
-    },
-    rollback: ({ removed, wrapperSnapshots, draftSnapshot: nextDraftSnapshot }) => {
+    rollback: ({
+      removed,
+      wrapperSnapshots,
+      draftSnapshot: nextDraftSnapshot,
+      editingSnapshot
+    }) => {
       restoreHighlightWrappers(wrapperSnapshots);
       context.state.highlights.splice(index, 0, removed);
       syncReaderHighlightsUi(context);
       restoreCommentDraft(context, id, nextDraftSnapshot);
+      context.panelCoordinator.restoreEditingState(editingSnapshot);
       context.panelCoordinator.applyHint('failure', context.state.highlights.length);
     },
     onSaveError: (error) => {
@@ -520,14 +518,16 @@ export async function submitReaderHighlightEdit(
   }
 
   const draftSnapshot = context.panelCoordinator.snapshotCommentDrafts()[id];
+  const editingSnapshot = context.panelCoordinator.snapshotEditingState();
   const previousComment = highlight.comment;
   const previousFootnoteIndex = highlight.footnoteIndex;
 
   if (!context.runDraftMutation || !context.persistDraftMutation) {
     context.highlightManager.updateComment(highlight, nextComment);
     syncReaderHighlightsUi(context);
+    context.panelCoordinator.clearCommentDraft(id);
     context.panelCoordinator.applyHint('panel', context.state.highlights.length);
-    context.panelCoordinator.stopEditing();
+    context.panelCoordinator.finishEditing();
     queueReaderDraftPersistence(context);
     return true;
   }
@@ -536,19 +536,22 @@ export async function submitReaderHighlightEdit(
     apply: () => {
       context.highlightManager.updateComment(highlight, nextComment);
       syncReaderHighlightsUi(context);
+      context.panelCoordinator.clearCommentDraft(id);
       context.panelCoordinator.applyHint('panel', context.state.highlights.length);
       return {
         draftSnapshot,
+        editingSnapshot,
         previousComment,
         previousFootnoteIndex
       };
     },
     save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
     commit: () => {
-      context.panelCoordinator.stopEditing();
+      context.panelCoordinator.finishEditing();
     },
     rollback: ({
       draftSnapshot: nextDraftSnapshot,
+      editingSnapshot,
       previousComment,
       previousFootnoteIndex
     }) => {
@@ -559,6 +562,7 @@ export async function submitReaderHighlightEdit(
       );
       syncReaderHighlightsUi(context);
       restoreCommentDraft(context, id, nextDraftSnapshot);
+      context.panelCoordinator.restoreEditingState(editingSnapshot);
       context.panelCoordinator.applyHint('failure', context.state.highlights.length);
     },
     onSaveError: (error) => {
@@ -630,14 +634,7 @@ function restoreCommentDraft(
   id: string,
   draftSnapshot: string | undefined
 ): void {
-  if (draftSnapshot === undefined) {
-    return;
-  }
-  const drafts = context.panelCoordinator.snapshotCommentDrafts();
-  context.panelCoordinator.hydrateCommentDrafts({
-    ...drafts,
-    [id]: draftSnapshot
-  });
+  context.panelCoordinator.restoreCommentDraft(id, draftSnapshot);
 }
 
 function snapshotHighlightWrappers(highlight: ReaderHighlightRecord): HighlightWrapperSnapshot[] {
