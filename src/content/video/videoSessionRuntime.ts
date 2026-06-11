@@ -15,12 +15,10 @@ import type { VideoFragmentCapture } from './types';
 import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
 import { VideoHintManager, type VideoHintState } from './videoHintManager';
-import type { VideoSessionDependencies } from './sessionTypes';
+import type { VideoSessionAddCaptureOptions, VideoSessionDependencies } from './sessionTypes';
 import { VideoSessionState } from './sessionState';
 import {
-  getSelectionForVideoNode,
   getVideoDocumentSelection,
-  highlightVideoFragmentText,
   isVideoRangeInsideUi,
   resolveVideoHintState
 } from './videoSessionSelection';
@@ -34,17 +32,19 @@ import {
   focusVideoSessionCapture,
   handleVideoSessionAddCapture,
   ingestVideoSessionTextCapture,
-  loadVideoSessionHighlightTheme,
+  loadVideoSessionHighlightTheme
+} from './sessionOperations';
+import {
   removeVideoSessionCapture,
   submitVideoSessionCaptureEdit,
   toggleVideoSessionCaptureScreenshot
-} from './sessionOperations';
+} from './videoSessionCaptureMutations';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTransaction';
 import {
   finalizeVideoSessionStart,
   initializeVideoSessionEnvironment
 } from './videoSessionBootstrap';
-import { createVideoSessionOperationContext } from './videoSessionOperationContext';
+import { createVideoSessionRuntimeOperationContext } from './videoSessionRuntimeOperationContext';
 import {
   ensureVideoSessionCaptureHighlight,
   getVideoSessionFragmentElement,
@@ -88,15 +88,6 @@ import {
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import type { VideoTimestampCapture } from './types';
 
-type VideoSessionAddCaptureOptions = {
-  comment?: string;
-  captureScreenshot?: boolean;
-  pauseVideo?: boolean;
-  beginEditing?: boolean;
-  resumePlayback?: boolean;
-  collapseAfterCapture?: boolean;
-};
-
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
   private messages: VideoSessionMessages = DEFAULT_SESSION_MESSAGES;
@@ -128,7 +119,7 @@ export class VideoSession {
   private isCleaningUp = false;
 
   private get operationContext() {
-    const context = createVideoSessionOperationContext({
+    return createVideoSessionRuntimeOperationContext({
       session: this,
       doc: this.doc,
       state: this.state,
@@ -145,35 +136,20 @@ export class VideoSession {
       platformController: this.platformController,
       hintManager: this.hintManager,
       messages: this.messages,
-      updateVideoContext: () => this.platformController.updateVideoContext(),
-      findVideoElement: () => this.doc.querySelector('video'),
-      buildTimestampUrl: (timeSec: number) => this.platformController.buildTimestampUrl(timeSec),
+      destinationState: this.destinationState,
+      commentEditorPlayback: this.commentEditorPlayback,
+      screenshotPreparation: this.screenshotPreparation,
       applyHint: (state: VideoHintState) => this.applyHint(state),
       syncPanel: () => this.syncPanel(),
       runCaptureMutation: <Result>(transaction: VideoCaptureMutationTransaction<Result>) =>
         this.runCaptureMutation(transaction),
       ensureCaptureHighlight: (capture: VideoFragmentCapture) =>
         this.ensureCaptureHighlight(capture),
-      getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(this.doc, node),
-      highlightFragmentText: (text: string) =>
-        highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
-      getExportDestinationMetadata: () => this.destinationState.metadata,
-      prepareRequestedScreenshot: (captureId: string) =>
-        this.screenshotPreparation.prepareRequestedScreenshot(captureId)
-    });
-
-    return Object.assign(context, {
-      syncCommentDrafts: () => syncVideoSessionCommentDraftsFromDom(this.state, this.dom),
       scheduleDraftSave: () => this.scheduleDraftSave(),
       flushDraftNow: (status?: 'active' | 'restorable') => this.flushDraftNow(status),
       removeDraft: () => this.removeDraft(),
       finalizeTerminalDraft: (status: SessionDraftTerminalStatus) =>
-        this.finalizeTerminalDraft(status),
-      beginPlaybackEditLease: (captureId: string) =>
-        this.commentEditorPlayback.beginPlaybackEditLease(captureId),
-      releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
-        this.commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
-      resetPlaybackEditLease: () => this.commentEditorPlayback.reset()
+        this.finalizeTerminalDraft(status)
     });
   }
 

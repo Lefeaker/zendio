@@ -11,6 +11,7 @@ import type {
   ReaderPanelTexts
 } from '@content/reader/application/readerPanelModel';
 import type {
+  ReaderPanelEditingSnapshot,
   ReaderSessionView,
   ReaderSessionViewOptions
 } from '@content/reader/application/readerSessionView';
@@ -60,6 +61,11 @@ type TestView = ReaderSessionView & {
   setHighlights: Mock<(...args: [highlights: ReaderPanelHighlight[]]) => void>;
   snapshotCommentDrafts: Mock<(...args: []) => SessionCommentDraftSnapshot>;
   hydrateCommentDrafts: Mock<(...args: [drafts: SessionCommentDraftSnapshot]) => void>;
+  clearCommentDraft: Mock<(...args: [id: string]) => void>;
+  restoreCommentDraft: Mock<(...args: [id: string, draft: string | undefined]) => void>;
+  snapshotEditingState: Mock<(...args: []) => ReaderPanelEditingSnapshot>;
+  restoreEditingState: Mock<(...args: [snapshot: ReaderPanelEditingSnapshot]) => void>;
+  finishEditing: Mock<(...args: []) => void>;
   stopEditing: Mock<(...args: []) => void>;
   isEditing: Mock<(...args: []) => boolean>;
   destroy: Mock<(...args: []) => void>;
@@ -132,6 +138,10 @@ function getDraftIdentity(session: ReaderSession): {
 
 function createView(): TestView {
   let currentDrafts: SessionCommentDraftSnapshot = {};
+  let editingSnapshot: ReaderPanelEditingSnapshot = {
+    editingHighlightId: null,
+    pendingNoteFocusHighlightId: null
+  };
   return {
     element: document.createElement('div'),
     updateCount: vi.fn(),
@@ -142,6 +152,30 @@ function createView(): TestView {
     snapshotCommentDrafts: vi.fn(() => ({ ...currentDrafts })),
     hydrateCommentDrafts: vi.fn((drafts: SessionCommentDraftSnapshot) => {
       currentDrafts = { ...drafts };
+    }),
+    clearCommentDraft: vi.fn((id: string) => {
+      const remainingDrafts = { ...currentDrafts };
+      delete remainingDrafts[id];
+      currentDrafts = remainingDrafts;
+    }),
+    restoreCommentDraft: vi.fn((id: string, draft: string | undefined) => {
+      if (draft === undefined) {
+        const remainingDrafts = { ...currentDrafts };
+        delete remainingDrafts[id];
+        currentDrafts = remainingDrafts;
+        return;
+      }
+      currentDrafts = { ...currentDrafts, [id]: draft };
+    }),
+    snapshotEditingState: vi.fn(() => ({ ...editingSnapshot })),
+    restoreEditingState: vi.fn((snapshot: ReaderPanelEditingSnapshot) => {
+      editingSnapshot = { ...snapshot };
+    }),
+    finishEditing: vi.fn(() => {
+      editingSnapshot = {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      };
     }),
     stopEditing: vi.fn(),
     isEditing: vi.fn(() => false),
@@ -845,7 +879,7 @@ describe('ReaderSession', () => {
     const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-1', '  updated memo  '));
     await flushDraftPersistence();
     await editPromise;
-    expect(context.view.stopEditing).toHaveBeenCalled();
+    expect(context.view.finishEditing).toHaveBeenCalled();
     expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.panel.hint);
 
     const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-1'));

@@ -67,48 +67,24 @@ export class ReaderPanelCoordinator {
   }
 
   snapshotCommentDrafts(): SessionCommentDraftSnapshot {
-    return this.view?.snapshotCommentDrafts?.() ?? {};
+    return this.view?.snapshotCommentDrafts() ?? {};
   }
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
-    this.view?.hydrateCommentDrafts?.(drafts);
+    this.view?.hydrateCommentDrafts(drafts);
   }
 
   clearCommentDraft(id: string): void {
-    const view = this.view;
-    if (!view) {
-      return;
-    }
-    if (view.clearCommentDraft) {
-      view.clearCommentDraft(id);
-      return;
-    }
-    const drafts = view.snapshotCommentDrafts?.() ?? {};
-    delete drafts[id];
-    view.hydrateCommentDrafts?.(drafts);
+    this.view?.clearCommentDraft(id);
   }
 
   restoreCommentDraft(id: string, draft: string | undefined): void {
-    const view = this.view;
-    if (!view) {
-      return;
-    }
-    if (view.restoreCommentDraft) {
-      view.restoreCommentDraft(id, draft);
-      return;
-    }
-    const drafts = view.snapshotCommentDrafts?.() ?? {};
-    if (draft === undefined) {
-      delete drafts[id];
-    } else {
-      drafts[id] = draft;
-    }
-    view.hydrateCommentDrafts?.(drafts);
+    this.view?.restoreCommentDraft(id, draft);
   }
 
   snapshotEditingState(): ReaderPanelEditingSnapshot {
     return (
-      this.view?.snapshotEditingState?.() ?? {
+      this.view?.snapshotEditingState() ?? {
         editingHighlightId: null,
         pendingNoteFocusHighlightId: null
       }
@@ -116,15 +92,11 @@ export class ReaderPanelCoordinator {
   }
 
   restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
-    this.view?.restoreEditingState?.(snapshot);
+    this.view?.restoreEditingState(snapshot);
   }
 
   finishEditing(): void {
-    if (this.view?.finishEditing) {
-      this.view.finishEditing();
-      return;
-    }
-    this.view?.stopEditing();
+    this.view?.finishEditing();
   }
 
   getElement(): HTMLElement | null {

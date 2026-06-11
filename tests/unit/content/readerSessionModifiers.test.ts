@@ -111,16 +111,57 @@ describe('ReaderSession selection modifiers', () => {
   async function createSessionWithConfig(config: Partial<FragmentClipperOptions>) {
     const dependencies: ReaderSessionDependencies = {
       viewFactory: {
-        createView: vi.fn(() => ({
-          element: document.createElement('div'),
-          updateCount: vi.fn(),
-          setHighlights: vi.fn(),
-          updateHint: vi.fn(),
-          updateTexts: vi.fn(),
-          stopEditing: vi.fn(),
-          isEditing: vi.fn(() => false),
-          destroy: vi.fn()
-        }))
+        createView: vi.fn(() => {
+          let currentDrafts: Record<string, string> = {};
+          let editingSnapshot = {
+            editingHighlightId: null as string | null,
+            pendingNoteFocusHighlightId: null as string | null
+          };
+
+          return {
+            element: document.createElement('div'),
+            updateCount: vi.fn(),
+            setHighlights: vi.fn(),
+            updateHint: vi.fn(),
+            updateTexts: vi.fn(),
+            snapshotCommentDrafts: vi.fn(() => ({ ...currentDrafts })),
+            hydrateCommentDrafts: vi.fn((drafts: Record<string, string>) => {
+              currentDrafts = { ...drafts };
+            }),
+            clearCommentDraft: vi.fn((id: string) => {
+              const remainingDrafts = { ...currentDrafts };
+              delete remainingDrafts[id];
+              currentDrafts = remainingDrafts;
+            }),
+            restoreCommentDraft: vi.fn((id: string, draft: string | undefined) => {
+              if (draft === undefined) {
+                const remainingDrafts = { ...currentDrafts };
+                delete remainingDrafts[id];
+                currentDrafts = remainingDrafts;
+                return;
+              }
+              currentDrafts = { ...currentDrafts, [id]: draft };
+            }),
+            snapshotEditingState: vi.fn(() => ({ ...editingSnapshot })),
+            restoreEditingState: vi.fn(
+              (snapshot: {
+                editingHighlightId: string | null;
+                pendingNoteFocusHighlightId: string | null;
+              }) => {
+                editingSnapshot = { ...snapshot };
+              }
+            ),
+            finishEditing: vi.fn(() => {
+              editingSnapshot = {
+                editingHighlightId: null,
+                pendingNoteFocusHighlightId: null
+              };
+            }),
+            stopEditing: vi.fn(),
+            isEditing: vi.fn(() => false),
+            destroy: vi.fn()
+          };
+        })
       },
       optionsRepository: {
         get: vi.fn(),

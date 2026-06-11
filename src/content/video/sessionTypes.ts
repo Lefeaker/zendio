@@ -5,6 +5,15 @@ import type { UsageEventName, UsageEventParamMap } from '../../shared/types/anal
 import type { VideoSessionViewFactory } from './application/videoSessionView';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 
+export type VideoSessionAddCaptureOptions = {
+  comment?: string;
+  captureScreenshot?: boolean;
+  pauseVideo?: boolean;
+  beginEditing?: boolean;
+  resumePlayback?: boolean;
+  collapseAfterCapture?: boolean;
+};
+
 export interface VideoSessionDependencies {
   viewFactory: VideoSessionViewFactory;
   optionsRepository: IOptionsRepository;
