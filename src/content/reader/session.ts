@@ -606,7 +606,10 @@ export class ReaderSession {
   }
 
   private async removeHighlightById(id: string): Promise<void> {
-    await removeReaderHighlight(this.operationContext, id);
+    const saved = await removeReaderHighlight(this.operationContext, id);
+    if (!saved) {
+      throw new Error('Failed to save reader highlight removal.');
+    }
   }
 
   private async submitHighlightEdit(id: string, nextComment: string): Promise<void> {

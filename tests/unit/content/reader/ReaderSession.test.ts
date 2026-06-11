@@ -888,6 +888,61 @@ describe('ReaderSession', () => {
     warnSpy.mockRestore();
   });
 
+  it('applies transactional add highlights while the draft mutation save boundary is active', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    const savingStatesDuringCreate: boolean[] = [];
+    const originalCreateHighlight = context.highlightManager.createHighlight.getMockImplementation();
+    if (!originalCreateHighlight) {
+      throw new Error('expected highlight manager createHighlight implementation');
+    }
+    context.highlightManager.createHighlight.mockImplementation(
+      (options: {
+        id: string;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        savingStatesDuringCreate.push(Boolean(getSessionHarness(context.session).state.saving));
+        return originalCreateHighlight(options);
+      }
+    );
+
+    const selectionPromise = Promise.resolve(
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+    );
+    await Promise.resolve();
+
+    expect(savingStatesDuringCreate).toEqual([true]);
+    expect(getSessionHarness(context.session).state.saving).toBe(true);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toBeUndefined();
+
+    await flushDraftPersistence();
+    await selectionPromise;
+
+    expect(getSessionHarness(context.session).state.saving).toBe(false);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toEqual({
+      type: 'TRACK_USAGE_EVENT',
+      event: 'reader_highlight_added',
+      params: {
+        selection_length_bucket: 'twenty_one_to_fifty',
+        highlight_count_bucket: 'one'
+      }
+    });
+  });
+
   it('rejects durable reader draft saves when storage persistence fails and keeps the session mounted for retry', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
@@ -1042,6 +1097,9 @@ describe('ReaderSession', () => {
     );
 
     const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-delete'));
+    const deleteExpectation = expect(deletePromise).rejects.toThrow(
+      'Failed to save reader highlight removal.'
+    );
     await Promise.resolve();
 
     expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
@@ -1051,7 +1109,7 @@ describe('ReaderSession', () => {
     expect(wrapper.isConnected).toBe(false);
 
     await flushDraftPersistence();
-    await deletePromise;
+    await deleteExpectation;
 
     expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
     expect(context.view.currentDrafts).toEqual({
@@ -1319,7 +1377,7 @@ describe('ReaderSession', () => {
     errorSpy.mockRestore();
   });
 
-  it('ingests external highlights and clears selection', () => {
+  it('ingests external highlights and clears selection', async () => {
     const context = createSessionContext();
     const content = document.getElementById('content');
     if (!content?.firstChild) {
@@ -1333,6 +1391,7 @@ describe('ReaderSession', () => {
     const removeSpy = vi.spyOn(selection, 'removeAllRanges');
 
     context.session.ingestExternalHighlight(range, '<p>ext</p>', 'ext', 'memo');
+    await Promise.resolve();
 
     const highlights = (
       context.session as {

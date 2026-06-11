@@ -247,8 +247,7 @@ export class ReaderDialogPanel implements UiMountable<
         'reader:delete': (event) => {
           const id = this.resolveActionId(event, 'highlightId');
           if (id) {
-            this.commentDrafts.clear(id);
-            this.options.callbacks.onDeleteHighlight(id);
+            this.observeAsync(this.handleDeleteHighlight(id));
           }
         },
         'reader:save': (event) => {
@@ -391,5 +390,17 @@ export class ReaderDialogPanel implements UiMountable<
       return this.texts.counterZero;
     }
     return this.texts.counter.replace('{count}', String(count));
+  }
+
+  private async handleDeleteHighlight(id: string): Promise<void> {
+    this.commentDrafts.captureRenderedInputs();
+    await this.options.callbacks.onDeleteHighlight(id);
+    this.commentDrafts.clear(id);
+  }
+
+  private observeAsync(task: Promise<void>): void {
+    void task.catch((error) => {
+      console.warn('[ReaderDialogPanel] Failed to complete async panel action:', error);
+    });
   }
 }

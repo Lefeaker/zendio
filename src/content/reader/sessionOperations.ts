@@ -63,8 +63,8 @@ export function handleReaderSessionSelection(
 
   context.state.handlingSelection = true;
 
-  return Promise.resolve()
-    .then(async () => {
+  return (async () => {
+    try {
       await addReaderHighlightFromRange(
         context,
         payload.range,
@@ -72,14 +72,13 @@ export function handleReaderSessionSelection(
         payload.selectedText,
         ''
       );
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error('[ReaderSession] Failed to capture selection:', error);
       context.panelCoordinator.applyHint('selectionFailure', context.state.highlights.length);
-    })
-    .finally(() => {
+    } finally {
       context.state.handlingSelection = false;
-    });
+    }
+  })();
 }
 
 export async function handleReaderSessionMouseUp(
@@ -185,22 +184,23 @@ export async function addReaderHighlightFromRange(
     return true;
   }
 
-  const highlight = applyReaderHighlightFromRange(
-    context,
-    range,
-    selectedHtml,
-    selectedText,
-    comment
-  );
-  const highlightAddedParams = {
-    selection_length_bucket: bucketCount(selectedText.length),
-    highlight_count_bucket: bucketCount(context.state.highlights.length)
-  } as const;
-
   return context.runDraftMutation({
-    apply: () => ({ highlight }),
+    apply: () => {
+      const highlight = applyReaderHighlightFromRange(
+        context,
+        range,
+        selectedHtml,
+        selectedText,
+        comment
+      );
+      const highlightAddedParams = {
+        selection_length_bucket: bucketCount(selectedText.length),
+        highlight_count_bucket: bucketCount(context.state.highlights.length)
+      } as const;
+      return { highlight, highlightAddedParams };
+    },
     save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
-    commit: () => {
+    commit: ({ highlightAddedParams }) => {
       if (clearSelectionOnCommit) {
         context.doc.defaultView?.getSelection()?.removeAllRanges();
       }
@@ -223,9 +223,9 @@ export async function ingestExternalReaderHighlight(
   payload: { range: Range; selectedHtml: string; selectedText: string; comment: string }
 ): Promise<boolean> {
   const selectionSnapshot = snapshotSelection(context.doc);
-  context.doc.defaultView?.getSelection()?.removeAllRanges();
 
   if (!context.runDraftMutation || !context.persistDraftMutation) {
+    context.doc.defaultView?.getSelection()?.removeAllRanges();
     applyReaderHighlightFromRange(
       context,
       payload.range,
@@ -241,25 +241,27 @@ export async function ingestExternalReaderHighlight(
     return true;
   }
 
-  const highlight = applyReaderHighlightFromRange(
-    context,
-    payload.range,
-    payload.selectedHtml,
-    payload.selectedText,
-    payload.comment
-  );
-  const highlightAddedParams = {
-    selection_length_bucket: bucketCount(payload.selectedText.length),
-    highlight_count_bucket: bucketCount(context.state.highlights.length)
-  } as const;
-
   return context.runDraftMutation({
-    apply: () => ({ highlight }),
+    apply: () => {
+      const highlight = applyReaderHighlightFromRange(
+        context,
+        payload.range,
+        payload.selectedHtml,
+        payload.selectedText,
+        payload.comment
+      );
+      context.doc.defaultView?.getSelection()?.removeAllRanges();
+      const highlightAddedParams = {
+        selection_length_bucket: bucketCount(payload.selectedText.length),
+        highlight_count_bucket: bucketCount(context.state.highlights.length)
+      } as const;
+      return { highlight, highlightAddedParams, selectionSnapshot };
+    },
     save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
-    commit: () => {
+    commit: ({ highlightAddedParams }) => {
       void trackReaderUsageEvent(context, 'reader_highlight_added', highlightAddedParams);
     },
-    rollback: ({ highlight }) => {
+    rollback: ({ highlight, selectionSnapshot }) => {
       removeHighlightFromState(context.state.highlights, highlight.id);
       context.highlightManager.unwrapHighlight(highlight);
       syncReaderHighlightsUi(context);
