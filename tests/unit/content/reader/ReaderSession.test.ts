@@ -1158,13 +1158,16 @@ describe('ReaderSession', () => {
         Object.entries(context.view.currentDrafts).filter(([id]) => validIds.has(id))
       );
     });
+    const initialPersist = getSessionHarness(context.session).persistDraftMutation();
+    await flushDraftPersistence();
+    await initialPersist;
     context.highlightManager.unwrapHighlight.mockImplementation(
       (highlight: ReaderHighlightRecord) => {
         highlight.wrapper.remove();
       }
     );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
+    vi.spyOn(context.storageLocal, 'remove').mockRejectedValueOnce(
       new Error('durable delete failed')
     );
 
@@ -1175,9 +1178,7 @@ describe('ReaderSession', () => {
     await Promise.resolve();
 
     expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
-    expect(context.view.currentDrafts).toEqual({
-      'h-delete': 'draft to keep'
-    });
+    expect(context.view.currentDrafts).toEqual({});
     expect(wrapper.isConnected).toBe(false);
 
     await flushDraftPersistence();
@@ -1190,6 +1191,143 @@ describe('ReaderSession', () => {
     expect(wrapper.isConnected).toBe(true);
     expect(document.querySelectorAll('[data-reader-highlight-id="h-delete"]')).toHaveLength(1);
     expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    warnSpy.mockRestore();
+  });
+
+  it('removes deleted highlight comment drafts from the durable reader draft before save', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const deleteWrapper = document.createElement('mark');
+    deleteWrapper.className = 'aiob-reader-highlight';
+    deleteWrapper.dataset.readerHighlightId = 'h-delete';
+    deleteWrapper.textContent = 'Delete me';
+    const keepWrapper = document.createElement('mark');
+    keepWrapper.className = 'aiob-reader-highlight';
+    keepWrapper.dataset.readerHighlightId = 'h-keep';
+    keepWrapper.textContent = 'Keep me';
+    document.body.append(deleteWrapper, keepWrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-delete',
+        selectedHtml: '<mark>Delete me</mark>',
+        selectedText: 'Delete me',
+        comment: 'delete note',
+        fragmentUrl: '#delete-me',
+        wrapper: deleteWrapper
+      },
+      {
+        id: 'h-keep',
+        selectedHtml: '<mark>Keep me</mark>',
+        selectedText: 'Keep me',
+        comment: 'keep note',
+        fragmentUrl: '#keep-me',
+        wrapper: keepWrapper
+      }
+    ]);
+    context.view.currentDrafts = {
+      'h-delete': 'orphan draft',
+      'h-keep': 'keep draft'
+    };
+    context.highlightManager.unwrapHighlight.mockImplementation(
+      (highlight: ReaderHighlightRecord) => {
+        highlight.wrapper.remove();
+      }
+    );
+
+    const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-delete'));
+    await flushDraftPersistence();
+    await deletePromise;
+
+    const draft = await loadLatestReaderDraft(context);
+    expect(draft).toMatchObject({
+      payload: expect.objectContaining({
+        highlights: [expect.objectContaining({ id: 'h-keep' })],
+        commentDrafts: {
+          'h-keep': 'keep draft'
+        }
+      })
+    });
+    expect(draft?.payload.highlights).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'h-delete' })])
+    );
+    expect(draft?.payload.commentDrafts).not.toHaveProperty('h-delete');
+  });
+
+  it('does not overwrite the durable reader draft with a deleted highlight when delete save fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const deleteWrapper = document.createElement('mark');
+    deleteWrapper.className = 'aiob-reader-highlight';
+    deleteWrapper.dataset.readerHighlightId = 'h-delete';
+    deleteWrapper.textContent = 'Delete me';
+    document.body.appendChild(deleteWrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-delete',
+        selectedHtml: '<mark>Delete me</mark>',
+        selectedText: 'Delete me',
+        comment: 'delete note',
+        fragmentUrl: '#delete-me',
+        wrapper: deleteWrapper
+      }
+    ]);
+    context.view.currentDrafts = {
+      'h-delete': 'draft to keep'
+    };
+
+    const initialPersist = getSessionHarness(context.session).persistDraftMutation();
+    await flushDraftPersistence();
+    await initialPersist;
+    const beforeDelete = await loadLatestReaderDraft(context);
+    expect(beforeDelete).toMatchObject({
+      payload: expect.objectContaining({
+        highlights: [expect.objectContaining({ id: 'h-delete' })],
+        commentDrafts: {
+          'h-delete': 'draft to keep'
+        }
+      })
+    });
+
+    context.highlightManager.unwrapHighlight.mockImplementation(
+      (highlight: ReaderHighlightRecord) => {
+        highlight.wrapper.remove();
+      }
+    );
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(context.storageLocal, 'remove').mockRejectedValueOnce(
+      new Error('durable delete failed')
+    );
+
+    const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-delete'));
+    const deleteExpectation = expect(deletePromise).rejects.toThrow(
+      'Failed to save reader highlight removal.'
+    );
+    await Promise.resolve();
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
+    expect(context.view.currentDrafts).toEqual({});
+    expect(deleteWrapper.isConnected).toBe(false);
+
+    await flushDraftPersistence();
+    await deleteExpectation;
+
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
+    expect(context.view.currentDrafts).toEqual({
+      'h-delete': 'draft to keep'
+    });
+    expect(deleteWrapper.isConnected).toBe(true);
+    await expect(loadLatestReaderDraft(context)).resolves.toEqual(beforeDelete);
     warnSpy.mockRestore();
   });
 
@@ -1290,6 +1428,127 @@ describe('ReaderSession', () => {
     });
     expect(context.view.stopEditing).not.toHaveBeenCalled();
     expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    warnSpy.mockRestore();
+  });
+
+  it('removes committed highlight input drafts from the durable reader draft before edit save', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-edit';
+    wrapper.dataset.readerComment = 'old memo';
+    wrapper.textContent = 'Edit me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-edit',
+        selectedHtml: '<mark>Edit me</mark>',
+        selectedText: 'Edit me',
+        comment: 'old memo',
+        fragmentUrl: '#edit-me',
+        wrapper
+      }
+    ]);
+    context.view.currentDrafts = {
+      'h-edit': 'new memo'
+    };
+
+    const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-edit', ' new memo '));
+    await flushDraftPersistence();
+    await editPromise;
+
+    const draft = await loadLatestReaderDraft(context);
+    expect(draft).toMatchObject({
+      payload: expect.objectContaining({
+        highlights: [expect.objectContaining({ id: 'h-edit', comment: 'new memo' })],
+        commentDrafts: {}
+      })
+    });
+    expect(draft?.payload.commentDrafts).not.toHaveProperty('h-edit');
+  });
+
+  it('does not overwrite the durable reader draft with an edited comment when edit save fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-edit';
+    wrapper.dataset.readerComment = 'old memo';
+    wrapper.dataset.readerFootnote = '3';
+    wrapper.textContent = 'Edit me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-edit',
+        selectedHtml: '<mark>Edit me</mark>',
+        selectedText: 'Edit me',
+        comment: 'old memo',
+        fragmentUrl: '#edit-me',
+        wrapper
+      }
+    ]);
+    const [highlight] = getSessionHarness(context.session).__testHighlights;
+    if (!highlight) {
+      throw new Error('reader highlight missing');
+    }
+    highlight.footnoteIndex = 3;
+    context.view.currentDrafts = {
+      'h-edit': 'new memo'
+    };
+
+    const initialPersist = getSessionHarness(context.session).persistDraftMutation();
+    await flushDraftPersistence();
+    await initialPersist;
+    const beforeEdit = await loadLatestReaderDraft(context);
+    expect(beforeEdit).toMatchObject({
+      payload: expect.objectContaining({
+        highlights: [expect.objectContaining({ id: 'h-edit', comment: 'old memo' })],
+        commentDrafts: {
+          'h-edit': 'new memo'
+        }
+      })
+    });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(new Error('edit failed'));
+
+    const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-edit', ' new memo '));
+    const editExpectation = expect(editPromise).rejects.toThrow(
+      'Failed to save reader highlight edit.'
+    );
+    await Promise.resolve();
+
+    expect(highlight.comment).toBe('new memo');
+    expect(context.view.currentDrafts).toEqual({});
+
+    await flushDraftPersistence();
+    await editExpectation;
+
+    expect(highlight.comment).toBe('old memo');
+    expect(highlight.footnoteIndex).toBe(3);
+    expect(wrapper.dataset.readerComment).toBe('old memo');
+    expect(wrapper.dataset.readerFootnote).toBe('3');
+    expect(context.view.currentDrafts).toEqual({
+      'h-edit': 'new memo'
+    });
+    expect(context.view.stopEditing).not.toHaveBeenCalled();
+    expect(getTelemetryMessages(context).map((message) => message.event)).toEqual([
+      'reader_session_started'
+    ]);
+    await expect(loadLatestReaderDraft(context)).resolves.toEqual(beforeEdit);
     warnSpy.mockRestore();
   });
 

@@ -3,6 +3,7 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
+import type { ReaderPanelEditingSnapshot } from '../application/readerSessionView';
 import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
@@ -159,8 +160,7 @@ export class ReaderDialogPanel implements UiMountable<
 
   stopEditing(): void {
     this.commentDrafts.clear(this.editingHighlightId);
-    this.editingHighlightId = null;
-    this.rerender({ captureDrafts: false });
+    this.finishEditing();
   }
 
   snapshotCommentDrafts(): SessionCommentDraftSnapshot {
@@ -169,6 +169,35 @@ export class ReaderDialogPanel implements UiMountable<
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
     this.commentDrafts.hydrate(drafts);
+    this.rerender({ captureDrafts: false });
+  }
+
+  clearCommentDraft(id: string): void {
+    this.commentDrafts.clear(id, { notify: false });
+    this.rerender({ captureDrafts: false });
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    this.commentDrafts.restore(id, draft, { notify: false });
+    this.rerender({ captureDrafts: false });
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return {
+      editingHighlightId: this.editingHighlightId,
+      pendingNoteFocusHighlightId: this.pendingNoteFocusHighlightId
+    };
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.editingHighlightId = snapshot.editingHighlightId;
+    this.pendingNoteFocusHighlightId = snapshot.pendingNoteFocusHighlightId;
+    this.rerender({ captureDrafts: false });
+  }
+
+  finishEditing(): void {
+    this.editingHighlightId = null;
+    this.pendingNoteFocusHighlightId = null;
     this.rerender({ captureDrafts: false });
   }
 
