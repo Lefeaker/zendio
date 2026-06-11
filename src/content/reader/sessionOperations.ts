@@ -46,31 +46,40 @@ type ReaderUsageEventName = Extract<
   | 'reader_session_cancelled'
 >;
 
+type HighlightWrapperSnapshot = {
+  wrapper: HTMLElement;
+  parent: ParentNode | null;
+  nextSibling: ChildNode | null;
+  childNodes: ChildNode[];
+};
+
 export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
   payload: ReaderSelectionPayload
-): void {
+): Promise<void> {
   if (context.state.saving) {
-    return;
+    return Promise.resolve();
   }
 
   context.state.handlingSelection = true;
 
-  try {
-    addReaderHighlightFromRange(
-      context,
-      payload.range,
-      payload.selectedHtml,
-      payload.selectedText,
-      ''
-    );
-    context.doc.defaultView?.getSelection()?.removeAllRanges();
-  } catch (error) {
-    console.error('[ReaderSession] Failed to capture selection:', error);
-    context.panelCoordinator.applyHint('selectionFailure', context.state.highlights.length);
-  } finally {
-    context.state.handlingSelection = false;
-  }
+  return Promise.resolve()
+    .then(async () => {
+      await addReaderHighlightFromRange(
+        context,
+        payload.range,
+        payload.selectedHtml,
+        payload.selectedText,
+        ''
+      );
+    })
+    .catch((error) => {
+      console.error('[ReaderSession] Failed to capture selection:', error);
+      context.panelCoordinator.applyHint('selectionFailure', context.state.highlights.length);
+    })
+    .finally(() => {
+      context.state.handlingSelection = false;
+    });
 }
 
 export async function handleReaderSessionMouseUp(
@@ -113,7 +122,7 @@ export async function handleReaderSessionMouseUp(
   const container = context.doc.createElement('div');
   container.appendChild(range.cloneContents());
 
-  handleReaderSessionSelection(context, {
+  await handleReaderSessionSelection(context, {
     range,
     selectedHtml: container.innerHTML,
     selectedText,
@@ -121,13 +130,13 @@ export async function handleReaderSessionMouseUp(
   });
 }
 
-export function addReaderHighlightFromRange(
+export function applyReaderHighlightFromRange(
   context: ReaderSessionOperationContext,
   range: Range,
   selectedHtml: string,
   selectedText: string,
   comment: string
-): void {
+): ReaderHighlightRecord {
   const id = createReaderHighlightId();
   const fragmentUrl = generateTextFragmentUrl(context.url, selectedText);
   const highlight =
@@ -147,28 +156,120 @@ export function addReaderHighlightFromRange(
       comment,
       fragmentUrl
     );
+
   context.state.highlights.push(highlight);
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
-  queueReaderDraftPersistence(context);
-  void trackReaderUsageEvent(context, 'reader_highlight_added', {
+  return highlight;
+}
+
+export async function addReaderHighlightFromRange(
+  context: ReaderSessionOperationContext,
+  range: Range,
+  selectedHtml: string,
+  selectedText: string,
+  comment: string,
+  options: { clearSelectionOnCommit?: boolean } = {}
+): Promise<boolean> {
+  const clearSelectionOnCommit = options.clearSelectionOnCommit ?? true;
+  if (!context.runDraftMutation || !context.persistDraftMutation) {
+    applyReaderHighlightFromRange(context, range, selectedHtml, selectedText, comment);
+    queueReaderDraftPersistence(context);
+    if (clearSelectionOnCommit) {
+      context.doc.defaultView?.getSelection()?.removeAllRanges();
+    }
+    void trackReaderUsageEvent(context, 'reader_highlight_added', {
+      selection_length_bucket: bucketCount(selectedText.length),
+      highlight_count_bucket: bucketCount(context.state.highlights.length)
+    });
+    return true;
+  }
+
+  const highlight = applyReaderHighlightFromRange(
+    context,
+    range,
+    selectedHtml,
+    selectedText,
+    comment
+  );
+  const highlightAddedParams = {
     selection_length_bucket: bucketCount(selectedText.length),
     highlight_count_bucket: bucketCount(context.state.highlights.length)
+  } as const;
+
+  return context.runDraftMutation({
+    apply: () => ({ highlight }),
+    save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
+    commit: () => {
+      if (clearSelectionOnCommit) {
+        context.doc.defaultView?.getSelection()?.removeAllRanges();
+      }
+      void trackReaderUsageEvent(context, 'reader_highlight_added', highlightAddedParams);
+    },
+    rollback: ({ highlight }) => {
+      removeHighlightFromState(context.state.highlights, highlight.id);
+      context.highlightManager.unwrapHighlight(highlight);
+      syncReaderHighlightsUi(context);
+      context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+    },
+    onSaveError: (error) => {
+      console.warn('[ReaderSession] Failed to persist highlighted selection:', error);
+    }
   });
 }
 
-export function ingestExternalReaderHighlight(
+export async function ingestExternalReaderHighlight(
   context: ReaderSessionOperationContext,
   payload: { range: Range; selectedHtml: string; selectedText: string; comment: string }
-): void {
-  addReaderHighlightFromRange(
+): Promise<boolean> {
+  const selectionSnapshot = snapshotSelection(context.doc);
+  context.doc.defaultView?.getSelection()?.removeAllRanges();
+
+  if (!context.runDraftMutation || !context.persistDraftMutation) {
+    applyReaderHighlightFromRange(
+      context,
+      payload.range,
+      payload.selectedHtml,
+      payload.selectedText,
+      payload.comment
+    );
+    queueReaderDraftPersistence(context);
+    void trackReaderUsageEvent(context, 'reader_highlight_added', {
+      selection_length_bucket: bucketCount(payload.selectedText.length),
+      highlight_count_bucket: bucketCount(context.state.highlights.length)
+    });
+    return true;
+  }
+
+  const highlight = applyReaderHighlightFromRange(
     context,
     payload.range,
     payload.selectedHtml,
     payload.selectedText,
     payload.comment
   );
-  context.doc.defaultView?.getSelection()?.removeAllRanges();
+  const highlightAddedParams = {
+    selection_length_bucket: bucketCount(payload.selectedText.length),
+    highlight_count_bucket: bucketCount(context.state.highlights.length)
+  } as const;
+
+  return context.runDraftMutation({
+    apply: () => ({ highlight }),
+    save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
+    commit: () => {
+      void trackReaderUsageEvent(context, 'reader_highlight_added', highlightAddedParams);
+    },
+    rollback: ({ highlight }) => {
+      removeHighlightFromState(context.state.highlights, highlight.id);
+      context.highlightManager.unwrapHighlight(highlight);
+      syncReaderHighlightsUi(context);
+      restoreSelection(context.doc, selectionSnapshot);
+      context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+    },
+    onSaveError: (error) => {
+      console.warn('[ReaderSession] Failed to persist external highlight:', error);
+    }
+  });
 }
 
 export async function finishReaderSession(
@@ -322,46 +423,135 @@ export function focusReaderHighlight(context: ReaderSessionOperationContext, id:
   );
 }
 
-export function removeReaderHighlight(context: ReaderSessionOperationContext, id: string): void {
+export async function removeReaderHighlight(
+  context: ReaderSessionOperationContext,
+  id: string
+): Promise<boolean> {
   if (context.state.exporting) {
-    return;
+    return true;
   }
 
   const index = context.state.highlights.findIndex((highlight) => highlight.id === id);
   if (index === -1) {
-    return;
+    return true;
   }
 
-  const [removed] = context.state.highlights.splice(index, 1);
-  context.highlightManager.unwrapHighlight(removed);
-  syncReaderHighlightsUi(context);
-  context.panelCoordinator.applyHint(
-    context.state.highlights.length ? 'panel' : 'noHighlights',
-    context.state.highlights.length
-  );
-  queueReaderDraftPersistence(context);
+  const draftSnapshot = context.panelCoordinator.snapshotCommentDrafts()[id];
+
+  if (!context.runDraftMutation || !context.persistDraftMutation) {
+    const [removed] = context.state.highlights.splice(index, 1);
+    context.highlightManager.unwrapHighlight(removed);
+    syncReaderHighlightsUi(context);
+    context.panelCoordinator.applyHint(
+      context.state.highlights.length ? 'panel' : 'noHighlights',
+      context.state.highlights.length
+    );
+    queueReaderDraftPersistence(context);
+    return true;
+  }
+
+  return context.runDraftMutation({
+    apply: () => {
+      const [removed] = context.state.highlights.splice(index, 1);
+      const wrapperSnapshots = snapshotHighlightWrappers(removed);
+      context.highlightManager.unwrapHighlight(removed);
+      syncReaderHighlightsUi(context);
+      if (draftSnapshot !== undefined) {
+        restoreCommentDraft(context, id, draftSnapshot);
+      }
+      context.panelCoordinator.applyHint(
+        context.state.highlights.length ? 'panel' : 'noHighlights',
+        context.state.highlights.length
+      );
+      return {
+        removed,
+        wrapperSnapshots,
+        draftSnapshot
+      };
+    },
+    save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
+    commit: ({ draftSnapshot }) => {
+      if (draftSnapshot === undefined) {
+        return;
+      }
+      const drafts = context.panelCoordinator.snapshotCommentDrafts();
+      delete drafts[id];
+      context.panelCoordinator.hydrateCommentDrafts(drafts);
+    },
+    rollback: ({ removed, wrapperSnapshots, draftSnapshot: nextDraftSnapshot }) => {
+      restoreHighlightWrappers(wrapperSnapshots);
+      context.state.highlights.splice(index, 0, removed);
+      syncReaderHighlightsUi(context);
+      restoreCommentDraft(context, id, nextDraftSnapshot);
+      context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+    },
+    onSaveError: (error) => {
+      console.warn('[ReaderSession] Failed to save highlight removal:', error);
+    }
+  });
 }
 
-export function submitReaderHighlightEdit(
+export async function submitReaderHighlightEdit(
   context: ReaderSessionOperationContext,
   id: string,
   nextComment: string
-): void {
+): Promise<boolean> {
   if (context.state.exporting) {
-    return;
+    return true;
   }
 
   const highlight = findReaderHighlight(context.state.highlights, id);
   if (!highlight) {
     context.panelCoordinator.stopEditing();
-    return;
+    return true;
   }
 
-  context.highlightManager.updateComment(highlight, nextComment);
-  syncReaderHighlightsUi(context);
-  context.panelCoordinator.applyHint('panel', context.state.highlights.length);
-  context.panelCoordinator.stopEditing();
-  queueReaderDraftPersistence(context);
+  const draftSnapshot = context.panelCoordinator.snapshotCommentDrafts()[id];
+  const previousComment = highlight.comment;
+  const previousFootnoteIndex = highlight.footnoteIndex;
+
+  if (!context.runDraftMutation || !context.persistDraftMutation) {
+    context.highlightManager.updateComment(highlight, nextComment);
+    syncReaderHighlightsUi(context);
+    context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+    context.panelCoordinator.stopEditing();
+    queueReaderDraftPersistence(context);
+    return true;
+  }
+
+  return context.runDraftMutation({
+    apply: () => {
+      context.highlightManager.updateComment(highlight, nextComment);
+      syncReaderHighlightsUi(context);
+      context.panelCoordinator.applyHint('panel', context.state.highlights.length);
+      return {
+        draftSnapshot,
+        previousComment,
+        previousFootnoteIndex
+      };
+    },
+    save: () => context.persistDraftMutation?.() ?? Promise.resolve(),
+    commit: () => {
+      context.panelCoordinator.stopEditing();
+    },
+    rollback: ({
+      draftSnapshot: nextDraftSnapshot,
+      previousComment,
+      previousFootnoteIndex
+    }) => {
+      context.highlightManager.assignFootnote(
+        highlight,
+        previousComment,
+        previousFootnoteIndex
+      );
+      syncReaderHighlightsUi(context);
+      restoreCommentDraft(context, id, nextDraftSnapshot);
+      context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+    },
+    onSaveError: (error) => {
+      console.warn('[ReaderSession] Failed to save highlight edit:', error);
+    }
+  });
 }
 
 function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
@@ -413,6 +603,76 @@ function findReaderHighlight(
   id: string
 ): ReaderHighlightRecord | undefined {
   return highlights.find((highlight) => highlight.id === id);
+}
+
+function removeHighlightFromState(highlights: ReaderHighlightRecord[], id: string): void {
+  const index = highlights.findIndex((highlight) => highlight.id === id);
+  if (index !== -1) {
+    highlights.splice(index, 1);
+  }
+}
+
+function restoreCommentDraft(
+  context: ReaderSessionOperationContext,
+  id: string,
+  draftSnapshot: string | undefined
+): void {
+  if (draftSnapshot === undefined) {
+    return;
+  }
+  const drafts = context.panelCoordinator.snapshotCommentDrafts();
+  context.panelCoordinator.hydrateCommentDrafts({
+    ...drafts,
+    [id]: draftSnapshot
+  });
+}
+
+function snapshotHighlightWrappers(highlight: ReaderHighlightRecord): HighlightWrapperSnapshot[] {
+  return highlight.wrapperSegments.map((wrapper) => ({
+    wrapper,
+    parent: wrapper.parentNode,
+    nextSibling: wrapper.nextSibling,
+    childNodes: Array.from(wrapper.childNodes)
+  }));
+}
+
+function restoreHighlightWrappers(snapshots: HighlightWrapperSnapshot[]): void {
+  for (const snapshot of snapshots) {
+    const { wrapper, parent, nextSibling, childNodes } = snapshot;
+    if (!parent || wrapper.isConnected) {
+      continue;
+    }
+    parent.insertBefore(
+      wrapper,
+      nextSibling && nextSibling.parentNode === parent ? nextSibling : null
+    );
+    for (const child of childNodes) {
+      if (child.parentNode === parent) {
+        wrapper.appendChild(child);
+      }
+    }
+  }
+}
+
+function snapshotSelection(doc: Document): Range[] {
+  const selection = doc.defaultView?.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return [];
+  }
+  return Array.from({ length: selection.rangeCount }, (_value, index) =>
+    selection.getRangeAt(index).cloneRange()
+  );
+}
+
+function restoreSelection(doc: Document, ranges: Range[]): void {
+  const selection = doc.defaultView?.getSelection();
+  if (!selection) {
+    return;
+  }
+  selection.removeAllRanges();
+  for (const range of ranges) {
+    selection.addRange(range);
+  }
 }
 
 export async function trackReaderUsageEvent<EventName extends ReaderUsageEventName>(

@@ -30,6 +30,7 @@ import {
 } from '../sessionDrafts';
 import {
   addReaderHighlightFromRange,
+  applyReaderHighlightFromRange,
   cancelReaderSession,
   finishReaderSession,
   focusReaderHighlight,
@@ -237,9 +238,9 @@ export class ReaderSession {
       void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
         source: this.state.analyticsSource
       });
-      this.bootstrapHighlights(initialHighlights);
+      const bootstrappedHighlights = this.bootstrapHighlights(initialHighlights);
       this.panelCoordinator.refreshHint(this.state.highlights.length);
-      if (loadedDraft) {
+      if (loadedDraft || bootstrappedHighlights > 0) {
         this.queueDraftPersistence();
       }
     } catch (error) {
@@ -252,7 +253,7 @@ export class ReaderSession {
 
   private bootstrapHighlights(
     initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
-  ): void {
+  ): number {
     const bootHighlights = initialHighlights
       ? Array.isArray(initialHighlights)
         ? initialHighlights
@@ -271,6 +272,7 @@ export class ReaderSession {
         console.error('[ReaderSession] Failed to add initial highlight:', error);
       }
     }
+    return bootHighlights.length;
   }
 
   private applyInitialDestination(
@@ -336,8 +338,8 @@ export class ReaderSession {
     this.highlightManager.applyTheme(config.highlightTheme);
   }
 
-  private handleSelection(payload: ReaderSelectionPayload): void {
-    handleReaderSessionSelection(this.operationContext, payload);
+  private async handleSelection(payload: ReaderSelectionPayload): Promise<void> {
+    await handleReaderSessionSelection(this.operationContext, payload);
   }
 
   private async handleMouseUp(event: MouseEvent): Promise<void> {
@@ -350,7 +352,7 @@ export class ReaderSession {
     selectedText: string,
     comment: string
   ): void {
-    addReaderHighlightFromRange(this.operationContext, range, selectedHtml, selectedText, comment);
+    applyReaderHighlightFromRange(this.operationContext, range, selectedHtml, selectedText, comment);
   }
 
   ingestExternalHighlight(
@@ -363,7 +365,7 @@ export class ReaderSession {
   }
 
   private ingestExternalHighlightPayload(payload: ExternalHighlightPayload): void {
-    ingestExternalReaderHighlight(this.operationContext, payload);
+    void ingestExternalReaderHighlight(this.operationContext, payload);
   }
 
   private syncHighlightsUi(): void {
@@ -385,9 +387,31 @@ export class ReaderSession {
   }
 
   private async selectDestination(id: string): Promise<void> {
-    this.destinationState.select(id);
-    await this.refreshDestinationPreview();
-    this.queueDraftPersistence();
+    const previousMetadata = this.destinationState.metadata;
+    const previousPreview = this.destinationState.currentPreview;
+
+    await this.runDraftMutation({
+      apply: () => {
+        this.destinationState.select(id);
+        return { previousMetadata, previousPreview };
+      },
+      save: async () => {
+        await this.refreshDestinationPreview();
+        await this.persistDraftMutation();
+      },
+      rollback: async ({ previousMetadata, previousPreview }) => {
+        this.destinationState.applyMetadata(previousMetadata);
+        if (previousMetadata) {
+          await this.refreshDestinationPreview();
+        } else {
+          this.panelCoordinator.updateDestination(previousPreview);
+        }
+        this.panelCoordinator.applyHint('failure', this.state.highlights.length);
+      },
+      onSaveError: (error) => {
+        console.warn('[ReaderSession] Failed to save export destination:', error);
+      }
+    });
   }
 
   private createDestinationPayload(): ClipPayload {
@@ -581,12 +605,15 @@ export class ReaderSession {
     focusReaderHighlight(this.operationContext, id);
   }
 
-  private removeHighlightById(id: string): void {
-    removeReaderHighlight(this.operationContext, id);
+  private async removeHighlightById(id: string): Promise<void> {
+    await removeReaderHighlight(this.operationContext, id);
   }
 
-  private submitHighlightEdit(id: string, nextComment: string): void {
-    submitReaderHighlightEdit(this.operationContext, id, nextComment);
+  private async submitHighlightEdit(id: string, nextComment: string): Promise<void> {
+    const saved = await submitReaderHighlightEdit(this.operationContext, id, nextComment);
+    if (!saved) {
+      throw new Error('Failed to save reader highlight edit.');
+    }
   }
 
   private findHighlight(id: string): ReaderHighlightRecord | undefined {
