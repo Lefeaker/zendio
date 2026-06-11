@@ -45,10 +45,12 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/trialLifecycle.ts', 272],
   ['src/shared/config/optionsMerger.ts', 417],
   ['src/dev/localVaultWriteHarness.ts', 411],
-  ['src/content/video/videoSessionRuntime.ts', 707],
+  // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
+  // finalization and shared transaction plumbing across reader/video surfaces.
+  ['src/content/video/videoSessionRuntime.ts', 746],
   ['src/content/video/videoScreenshotPreparationQueue.ts', 429],
-  ['src/content/reader/ui/ReaderDialogPanel.ts', 396],
-  ['src/content/reader/session.ts', 563],
+  ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
+  ['src/content/reader/session.ts', 711],
   ['src/content/video/videoControlBarButton.ts', 395],
   ['src/content/stitch/runtimeSurfaceContent.ts', 378],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
@@ -63,7 +65,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 422],
   ['src/background/vault-router.ts', 352],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 412],
+  ['src/content/reader/sessionOperations.ts', 712],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 331],
   ['src/options/services/connectionTester.ts', 328],
@@ -118,7 +120,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/schema/resources/onboarding.ts', 251],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 252],
   ['src/i18n/catalog/languages.ts', 280],
-  ['src/content/sessionDrafts/sessionDraftRepository.ts', 394],
+  ['src/content/sessionDrafts/sessionDraftRepository.ts', 399],
   ['src/content/reader/sessionDrafts.ts', 333]
 ]);
 
