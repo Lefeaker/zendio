@@ -20,16 +20,18 @@ import { clearHighlightThemeState } from '../shared/highlightThemeState';
 import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
-import { createSessionMutationRunner, type SessionMutationTransaction } from '../sessionMutations';
 import {
+  createSessionMutationRunner,
   createSessionDraftPersister,
   createSessionDraftRepository,
   createSessionDraftStorageKey,
+  finalizeTerminalSessionDraft,
   type ReaderSessionDraftEnvelope,
   type SessionDraftPersister,
   type SessionDraftRepository,
   type SessionDraftStatus,
-  type SessionDraftTerminalStatus
+  type SessionDraftTerminalStatus,
+  type SessionMutationTransaction
 } from '../sessionDrafts';
 import {
   applyReaderHighlightFromRange,
@@ -516,50 +518,50 @@ export class ReaderSession {
       return true;
     }
 
-    try {
-      await this.draftPersister.flushNow();
-    } catch (error) {
-      console.warn(
-        '[ReaderSession] Failed to flush session draft before terminal finalization:',
-        error
-      );
-      return false;
-    }
+    let draftStorageKey: string | null = null;
+    return finalizeTerminalSessionDraft<ReaderSessionDraftEnvelope>({
+      repository: this.draftRepository,
+      flushPendingDraft: () => this.draftPersister.flushNow(),
+      buildTerminalEnvelopes: async () => {
+        const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);
+        if (!terminalEnvelope) {
+          return [];
+        }
 
-    const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);
-    if (!terminalEnvelope) {
-      return true;
-    }
+        draftStorageKey =
+          this.draftStorageKey ??
+          createSessionDraftStorageKey({
+            mode: terminalEnvelope.mode,
+            pageKey: terminalEnvelope.pageKey,
+            draftId: terminalEnvelope.draftId
+          });
 
-    const draftStorageKey =
-      this.draftStorageKey ??
-      createSessionDraftStorageKey({
-        mode: terminalEnvelope.mode,
-        pageKey: terminalEnvelope.pageKey,
-        draftId: terminalEnvelope.draftId
-      });
-
-    this.draftId = terminalEnvelope.draftId;
-    this.draftCreatedAt = terminalEnvelope.createdAt;
-    this.draftStorageKey = draftStorageKey;
-
-    try {
-      await this.draftRepository.save(terminalEnvelope);
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to finalize terminal session draft:', error);
-      return false;
-    }
-
-    try {
-      await this.draftRepository.remove({ key: draftStorageKey });
-    } catch (error) {
-      console.warn(
-        '[ReaderSession] Failed to remove terminal session draft after finalization:',
-        error
-      );
-    }
-
-    return true;
+        this.draftId = terminalEnvelope.draftId;
+        this.draftCreatedAt = terminalEnvelope.createdAt;
+        this.draftStorageKey = draftStorageKey;
+        return [terminalEnvelope];
+      },
+      cleanupTerminalDrafts: async () => {
+        if (draftStorageKey) {
+          await this.draftRepository.remove({ key: draftStorageKey });
+        }
+      },
+      onFlushError: (error) => {
+        console.warn(
+          '[ReaderSession] Failed to flush session draft before terminal finalization:',
+          error
+        );
+      },
+      onSaveError: (error) => {
+        console.warn('[ReaderSession] Failed to finalize terminal session draft:', error);
+      },
+      onCleanupError: (error) => {
+        console.warn(
+          '[ReaderSession] Failed to remove terminal session draft after finalization:',
+          error
+        );
+      }
+    });
   }
 
   private async buildTerminalDraftEnvelope(

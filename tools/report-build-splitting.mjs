@@ -26,7 +26,10 @@ const MAX_CHUNK_COUNT = 116;
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.
-const SHARED_CHUNK_BUDGETS = [190 * 1024, 136 * 1024, 90 * 1024];
+// 2026-06-11: Reader terminal draft finalization now fail-closes export/cancel and
+// shares the session mutation contract with video. Keep chunk count strict while
+// allowing the reader shared chunk created by that production behavior.
+const SHARED_CHUNK_BUDGETS = [190 * 1024, 136 * 1024, 96 * 1024];
 const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
 const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
 const YAML_CONFIG_CHUNK_PATTERN = /^yaml-config-/;
