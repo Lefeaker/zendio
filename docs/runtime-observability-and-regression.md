@@ -1,6 +1,6 @@
 # 运行时观测与手动回归基线
 
-日期：2026-06-05
+日期：2026-06-11
 
 ## 1. 运行时观测
 
@@ -16,6 +16,15 @@ npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/share
 npm run build:dev
 ```
 
+当前 GA / video 定向验证命令：
+
+```bash
+npm run analytics:validate:prod
+npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+```
+
 ## 2. 浏览器手动回归口径
 
 建议至少覆盖：
@@ -26,7 +35,7 @@ npm run build:dev
 - Support Prompt / Reader / Video 核心弹层
 - YAML 配置交互
 
-## 3. 本轮浏览器验证记录
+## 3. 既有浏览器验证记录
 
 验证方式：Chrome DevTools MCP + 本地静态服务器
 
@@ -58,9 +67,10 @@ npm run build:dev
 - 页面：`http://localhost:4173/runtime-observability-harness.html`
 - 结果：
   - 点击 `Enable Reporting` 后，状态切到 `reporters=ga,sentry debugMode=true`
-  - 触发 `error` 与 `unhandledrejection` 后，页面会捕获到 Sentry envelope 和 GA4 debug endpoint 请求
-  - 触发 `Send Usage Event` 后，页面会新增 `runtime_harness_open` 的 GA4 debug request
-  - 控制台可见 `Google Analytics reporter initialized`、`Sentry reporter initialized`、`analytics-events Event sent (debug)`，且不再出现 platformServices 缺失警告
+  - 触发 `error` 与 `unhandledrejection` 后，页面会捕获到 Sentry envelope 和 owner debug proxy 请求
+  - 触发 `Send Usage Event` 后，页面会新增一条 owner debug proxy request
+  - 控制台可见 `Google Analytics reporter initialized`、`Sentry reporter initialized`、`[analytics-events] Event sent (debug):` summary，且不再出现 platformServices 缺失警告
+  - `directDebug` summary log 不输出 event params；生产 `proxy` 成功路径也没有对应的成功日志
 
 截图：
 
@@ -71,7 +81,13 @@ npm run build:dev
 
 ## 4. 自动化验证结果
 
-已通过：
+当前 GA / video 观测真值：
+
+- `analytics:validate:prod` 只验证 public-config wiring 与 owner env sanity，不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
+- runtime config 的 `enabled` 是 `analytics || errorReporting`；usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。
+- 视频截图的 durable state 只保存 `screenshotRequested` intent；runtime screenshot bytes 维持在 `Blob` / binary 路径，导出边界再序列化为兼容 payload。
+
+历史已通过：
 
 - `npm run typecheck:app`
 - `npm run typecheck:tests`

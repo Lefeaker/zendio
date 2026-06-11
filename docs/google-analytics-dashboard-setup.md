@@ -262,7 +262,7 @@ Video 事件：
 
 生产与 staging 以 proxy log 为主：
 
-- 确认请求打到 owner proxy，而不是产品文档要求的直接 Google endpoint
+- 确认请求打到 owner proxy，而不是由扩展 / 客户端直接请求 Google endpoint
 - 确认 event name、response code、version、transport mode 正常
 - 确认 payload 中没有正文、路径、token、secret
 
