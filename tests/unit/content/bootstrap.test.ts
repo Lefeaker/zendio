@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ErrorHandler } from '../../../src/shared/errors/errorHandler';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 
+type AnalyticsWatchConfig = {
+  enabled: boolean;
+  userConsent?: {
+    analytics?: boolean;
+    errorReporting?: boolean;
+  };
+};
 type TestErrorHandler = Pick<ErrorHandler, 'addReporter'> & {
   kind: 'error-handler';
 };
@@ -44,7 +51,20 @@ const registerGlobalErrorBoundaryMock = vi.hoisted(() =>
   vi.fn<(args: GlobalErrorBoundaryArgs) => () => void>(() => vi.fn())
 );
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
+const analyticsConfigWatchState = vi.hoisted(
+  (): {
+    onRefresh?: (config: AnalyticsWatchConfig) => void;
+  } => ({})
+);
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const stopWatchingAnalyticsConfigMock = vi.hoisted(() => vi.fn());
+const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
+  vi.fn((onRefresh: (config: AnalyticsWatchConfig) => void) => {
+    analyticsConfigWatchState.onRefresh = onRefresh;
+    return stopWatchingAnalyticsConfigMock;
+  })
+);
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
 const analyticsCleanupMock = vi.hoisted(() => vi.fn());
 const initializeContentErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn<
@@ -108,10 +128,12 @@ vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
   registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
 }));
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
-  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock
+  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock,
+  watchAnalyticsConfigStorage: watchAnalyticsConfigStorageMock
 }));
 vi.mock('../../../src/shared/errors/analytics', () => ({
-  initializeErrorAnalytics: initializeErrorAnalyticsMock
+  initializeErrorAnalytics: initializeErrorAnalyticsMock,
+  updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
 }));
 vi.mock('../../../src/shared/state/globalStateManager', () => ({
   createGlobalStateManager: createGlobalStateManagerMock,
@@ -136,6 +158,7 @@ describe('content/bootstrap', () => {
     vi.resetModules();
     vi.clearAllMocks();
     registryState.hasPlatform = true;
+    analyticsConfigWatchState.onRefresh = undefined;
     document.body.innerHTML = '';
   });
 
@@ -329,5 +352,27 @@ describe('content/bootstrap', () => {
     expect(() => new ContentScriptContext()).toThrow(
       '[ContentScript] StorageService is required for bootstrap.'
     );
+  });
+
+  it('passes the scoped content handler into live error consent restores', async () => {
+    const targetErrorHandler = {
+      addReporter: vi.fn(() => vi.fn())
+    };
+    const mod = await import('../../../src/content/contentErrorAnalyticsBootstrap');
+    const cleanup = await mod.initializeContentErrorAnalytics(storageMock, targetErrorHandler);
+
+    expect(configureAnalyticsConfigManagerMock).toHaveBeenCalledWith(storageMock);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledWith(targetErrorHandler);
+    expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(1);
+
+    analyticsConfigWatchState.onRefresh?.({
+      enabled: true,
+      userConsent: { analytics: false, errorReporting: true }
+    });
+
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true, targetErrorHandler);
+
+    cleanup();
+    expect(stopWatchingAnalyticsConfigMock).toHaveBeenCalledTimes(1);
   });
 });

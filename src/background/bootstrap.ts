@@ -52,17 +52,20 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
   configureGlobalStateManagerStorage(resolvedStorage);
   configureI18nStorage(resolvedStorage.sync);
   configureUsageStatsStorage(resolvedStorage);
+  const errorHandler = createErrorHandler();
 
   cleanupAnalyticsConfigStorageWatch?.();
   cleanupAnalyticsConfigStorageWatch = watchAnalyticsConfigStorage((config) => {
     clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
-    void updateErrorAnalyticsConfig(config.userConsent?.errorReporting === true).catch((error) => {
+    void updateErrorAnalyticsConfig(
+      config.userConsent?.errorReporting === true,
+      errorHandler
+    ).catch((error) => {
       console.warn('[Background] Failed to update error analytics config:', error);
     });
   });
 
   // 注册错误处理器
-  const errorHandler = createErrorHandler();
   registry.register(TOKENS.errorHandler, () => {
     // 可以在这里配置背景页特定的错误报告器
     // errorHandler.addReporter(createBackgroundErrorReporter());

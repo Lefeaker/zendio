@@ -14,7 +14,10 @@ export async function initializeContentErrorAnalytics(
   await initializeErrorAnalytics(errorHandler);
 
   const cleanupWatch = watchAnalyticsConfigStorage((config) => {
-    void updateErrorAnalyticsConfig(config.userConsent?.errorReporting === true).catch((error) => {
+    void updateErrorAnalyticsConfig(
+      config.userConsent?.errorReporting === true,
+      errorHandler
+    ).catch((error) => {
       console.warn('[ContentScript] Failed to update error analytics config:', error);
     });
   });

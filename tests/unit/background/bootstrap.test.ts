@@ -32,7 +32,12 @@ const registryMock = vi.hoisted(() => ({
     registryState.tokens.clear();
   })
 }));
-const createErrorHandlerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
+const createErrorHandlerMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    addReporter: vi.fn(() => vi.fn()),
+    dispose: vi.fn()
+  }))
+);
 const createGlobalStateManagerMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
 const configureGlobalStateManagerStorageMock = vi.hoisted(() => vi.fn());
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
@@ -129,6 +134,7 @@ describe('background/bootstrap', () => {
   it('clears usage analytics and live-updates error analytics when consent changes', async () => {
     const mod = await import('../../../src/background/bootstrap');
     mod.bootstrapBackgroundDependencies(storageMock);
+    const backgroundErrorHandler = initializeErrorAnalyticsMock.mock.calls[0]?.[0];
 
     expect(analyticsConfigWatchState.onRefresh).toBeTypeOf('function');
     analyticsConfigWatchState.onRefresh?.({
@@ -140,7 +146,7 @@ describe('background/bootstrap', () => {
       enabled: true,
       userConsent: { analytics: false, errorReporting: true }
     });
-    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true);
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true, backgroundErrorHandler);
   });
 
   it('ensures once, resets, and re-registers background dependencies', async () => {
