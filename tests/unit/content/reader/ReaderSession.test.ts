@@ -83,6 +83,7 @@ type ReaderSessionTestHarness = {
     comment: string;
     fragmentUrl: string;
     wrapper: HTMLElement;
+    footnoteIndex?: number;
   }>;
   handleSelection(payload: unknown): void | Promise<void>;
   persistDraftMutation(): Promise<void>;
@@ -453,6 +454,11 @@ async function flushDraftPersistence(): Promise<void> {
   await Promise.resolve();
 }
 
+async function settleReaderMutation<T>(task: Promise<T>): Promise<T> {
+  await flushDraftPersistence();
+  return await task;
+}
+
 describe('ReaderSession', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -698,10 +704,11 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
 
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
-    await flushDraftPersistence();
+    await settleReaderMutation(
+      (
+        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+      ).handleSelection(createSelectionPayload(content.firstChild))
+    );
 
     window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
     await Promise.resolve();
@@ -729,6 +736,7 @@ describe('ReaderSession', () => {
   });
 
   it('panel callbacks delegate to finish, cancel, delete, edit, and focus flows', async () => {
+    vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
     const callbacks = context.getCallbacks();
@@ -770,11 +778,15 @@ describe('ReaderSession', () => {
     callbacks.onFocusHighlight('h-1');
     expect(wrapper.classList.contains('aiob-reader-highlight--focus')).toBe(true);
 
-    void callbacks.onSubmitHighlightEdit('h-1', '  updated memo  ');
+    const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-1', '  updated memo  '));
+    await flushDraftPersistence();
+    await editPromise;
     expect(context.view.stopEditing).toHaveBeenCalled();
     expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.panel.hint);
 
-    callbacks.onDeleteHighlight('h-1');
+    const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-1'));
+    await flushDraftPersistence();
+    await deletePromise;
     expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
     expect(context.view.updateHint).toHaveBeenLastCalledWith(
       DEFAULT_SESSION_MESSAGES.hintNoHighlights
@@ -809,7 +821,7 @@ describe('ReaderSession', () => {
     expect(context.view.setHighlights).toHaveBeenCalled();
   });
 
-  it('keeps selection draft persistence and current telemetry behavior before P04', async () => {
+  it('rolls back added highlights, hint state, and telemetry when durable add save fails', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
@@ -819,29 +831,109 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
 
-    await getSessionHarness(context.session).handleSelection(
-      createSelectionPayload(content.firstChild)
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    context.highlightManager.unwrapHighlight.mockImplementation((highlight: ReaderHighlightRecord) => {
+      highlight.wrapper.remove();
+    });
+    context.highlightManager.createHighlight.mockImplementationOnce(
+      (options: {
+        id: string;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        const wrapper = document.createElement('mark');
+        wrapper.className = 'aiob-reader-highlight';
+        wrapper.dataset.readerHighlightId = options.id;
+        wrapper.dataset.readerComment = options.comment.trim();
+        wrapper.textContent = options.selectedText;
+        document.body.appendChild(wrapper);
+        return {
+          id: options.id,
+          selectedHtml: options.selectedHtml,
+          selectedText: options.selectedText,
+          comment: options.comment.trim(),
+          fragmentUrl: options.fragmentUrl,
+          wrapper,
+          wrapperSegments: [wrapper],
+          createdAt: Date.now()
+        } satisfies ReaderHighlightRecord;
+      }
     );
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(new Error('durable add failed'));
+
+    const selectionPromise = Promise.resolve(
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+    );
+    await Promise.resolve();
+
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toBeUndefined();
+
     await flushDraftPersistence();
+    await selectionPromise;
 
     await expect(
       context.draftRepository.loadLatest('reader', 'https://example.com/article')
-    ).resolves.toMatchObject({
-      status: 'active',
-      payload: expect.objectContaining({
-        highlights: [
-          expect.objectContaining({
-            selectedText: 'Hello reader session world.',
-            comment: ''
-          })
-        ]
-      })
-    });
+    ).resolves.toBeNull();
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
+    expect(document.querySelector('[data-reader-highlight-id]')).toBeNull();
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toBeUndefined();
+    warnSpy.mockRestore();
+  });
 
-    const highlightEvent = getTelemetryMessages(context).find(
-      (message) => message.event === 'reader_highlight_added'
+  it('applies transactional add highlights while the draft mutation save boundary is active', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const content = document.getElementById('content');
+    if (!content?.firstChild) {
+      throw new Error('content node missing');
+    }
+
+    const savingStatesDuringCreate: boolean[] = [];
+    const originalCreateHighlight = context.highlightManager.createHighlight.getMockImplementation();
+    if (!originalCreateHighlight) {
+      throw new Error('expected highlight manager createHighlight implementation');
+    }
+    context.highlightManager.createHighlight.mockImplementation(
+      (options: {
+        id: string;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        savingStatesDuringCreate.push(Boolean(getSessionHarness(context.session).state.saving));
+        return originalCreateHighlight(options);
+      }
     );
-    expect(highlightEvent).toEqual({
+
+    const selectionPromise = Promise.resolve(
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+    );
+    await Promise.resolve();
+
+    expect(savingStatesDuringCreate).toEqual([true]);
+    expect(getSessionHarness(context.session).state.saving).toBe(true);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toBeUndefined();
+
+    await flushDraftPersistence();
+    await selectionPromise;
+
+    expect(getSessionHarness(context.session).state.saving).toBe(false);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toEqual({
       type: 'TRACK_USAGE_EVENT',
       event: 'reader_highlight_added',
       params: {
@@ -962,7 +1054,75 @@ describe('ReaderSession', () => {
     expect(getSessionHarness(context.session).state.saving).toBe(false);
   });
 
-  it('tracks highlight additions with canonical bucket params only', async () => {
+  it('restores deleted highlights, wrapper presentation, and in-progress drafts when durable delete save fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-delete';
+    wrapper.dataset.readerComment = 'drafted note';
+    wrapper.textContent = 'Delete me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-delete',
+        selectedHtml: '<mark>Delete me</mark>',
+        selectedText: 'Delete me',
+        comment: 'drafted note',
+        fragmentUrl: '#delete-me',
+        wrapper
+      }
+    ]);
+    context.view.currentDrafts = {
+      'h-delete': 'draft to keep'
+    };
+    context.view.setHighlights.mockImplementation((highlights: ReaderPanelHighlight[]) => {
+      const validIds = new Set(highlights.map((highlight) => highlight.id));
+      context.view.currentDrafts = Object.fromEntries(
+        Object.entries(context.view.currentDrafts).filter(([id]) => validIds.has(id))
+      );
+    });
+    context.highlightManager.unwrapHighlight.mockImplementation((highlight: ReaderHighlightRecord) => {
+      highlight.wrapper.remove();
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
+      new Error('durable delete failed')
+    );
+
+    const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-delete'));
+    const deleteExpectation = expect(deletePromise).rejects.toThrow(
+      'Failed to save reader highlight removal.'
+    );
+    await Promise.resolve();
+
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(0);
+    expect(context.view.currentDrafts).toEqual({
+      'h-delete': 'draft to keep'
+    });
+    expect(wrapper.isConnected).toBe(false);
+
+    await flushDraftPersistence();
+    await deleteExpectation;
+
+    expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
+    expect(context.view.currentDrafts).toEqual({
+      'h-delete': 'draft to keep'
+    });
+    expect(wrapper.isConnected).toBe(true);
+    expect(document.querySelectorAll('[data-reader-highlight-id="h-delete"]')).toHaveLength(1);
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    warnSpy.mockRestore();
+  });
+
+  it('emits reader_highlight_added only after durable add save succeeds', async () => {
+    vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
 
@@ -971,9 +1131,19 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
 
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
+    const selectionPromise = Promise.resolve(
+      (
+        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+      ).handleSelection(createSelectionPayload(content.firstChild))
+    );
+    await Promise.resolve();
+
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
+    ).toBeUndefined();
+
+    await flushDraftPersistence();
+    await selectionPromise;
 
     const highlightEvent = getTelemetryMessages(context).find(
       (message) => message.event === 'reader_highlight_added'
@@ -989,6 +1159,133 @@ describe('ReaderSession', () => {
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
   });
 
+  it('rolls back edited comments and keeps editing state coherent when durable edit save fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-edit';
+    wrapper.dataset.readerComment = 'memo';
+    wrapper.dataset.readerFootnote = '2';
+    wrapper.textContent = 'Edit me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-edit',
+        selectedHtml: '<mark>Edit me</mark>',
+        selectedText: 'Edit me',
+        comment: 'memo',
+        fragmentUrl: '#edit-me',
+        wrapper
+      }
+    ]);
+    const [highlight] = getSessionHarness(context.session).__testHighlights;
+    if (!highlight) {
+      throw new Error('reader highlight missing');
+    }
+    highlight.footnoteIndex = 2;
+    context.view.currentDrafts = {
+      'h-edit': 'updated memo'
+    };
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(new Error('edit failed'));
+
+    const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-edit', ' updated memo '));
+    const editExpectation = expect(editPromise).rejects.toThrow();
+    await Promise.resolve();
+
+    expect(highlight.comment).toBe('updated memo');
+    expect(wrapper.dataset.readerComment).toBe('updated memo');
+    expect(wrapper.dataset.readerFootnote).toBeUndefined();
+
+    await flushDraftPersistence();
+    await editExpectation;
+
+    expect(highlight.comment).toBe('memo');
+    expect(highlight.footnoteIndex).toBe(2);
+    expect(wrapper.dataset.readerComment).toBe('memo');
+    expect(wrapper.dataset.readerFootnote).toBe('2');
+    expect(context.view.currentDrafts).toEqual({
+      'h-edit': 'updated memo'
+    });
+    expect(context.view.stopEditing).not.toHaveBeenCalled();
+    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    warnSpy.mockRestore();
+  });
+
+  it('restores the previous destination preview when durable destination save fails', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+    const callbacks = context.getCallbacks();
+    if (!callbacks?.onSelectDestination) {
+      throw new Error('destination callback missing');
+    }
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-destination';
+    wrapper.textContent = 'Destination highlight';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-destination',
+        selectedHtml: '<mark>Destination highlight</mark>',
+        selectedText: 'Destination highlight',
+        comment: '',
+        fragmentUrl: '#destination-highlight',
+        wrapper
+      }
+    ]);
+
+    const firstSelectionPromise = Promise.resolve(callbacks.onSelectDestination('research'));
+    await flushDraftPersistence();
+    await firstSelectionPromise;
+
+    expect(context.view.updateDestination).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
+      new Error('destination save failed')
+    );
+
+    const secondSelectionPromise = Promise.resolve(callbacks.onSelectDestination('downloads'));
+    await Promise.resolve();
+    await flushDraftPersistence();
+    await secondSelectionPromise;
+
+    expect(context.view.updateDestination).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'research',
+        kind: 'vault',
+        label: 'Research Vault'
+      })
+    );
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toMatchObject({
+      payload: expect.objectContaining({
+        destination: {
+          kind: 'vault',
+          vaultId: 'research'
+        }
+      })
+    });
+    warnSpy.mockRestore();
+  });
+
   it('keeps typed comment drafts visible, applies a failure hint, and preserves draft identity when autosave rejects', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
@@ -999,10 +1296,11 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
 
-    await getSessionHarness(context.session).handleSelection(
-      createSelectionPayload(content.firstChild)
+    await settleReaderMutation(
+      Promise.resolve(
+        getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+      )
     );
-    await flushDraftPersistence();
 
     const [highlight] = getSessionHarness(context.session).__testHighlights;
     if (!highlight) {
@@ -1035,10 +1333,11 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
 
-    await getSessionHarness(context.session).handleSelection(
-      createSelectionPayload(content.firstChild)
+    await settleReaderMutation(
+      Promise.resolve(
+        getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+      )
     );
-    await flushDraftPersistence();
 
     const persistedIdentity = getDraftIdentity(context.session);
     if (!persistedIdentity.draftStorageKey) {
@@ -1078,7 +1377,7 @@ describe('ReaderSession', () => {
     errorSpy.mockRestore();
   });
 
-  it('ingests external highlights and clears selection', () => {
+  it('ingests external highlights and clears selection', async () => {
     const context = createSessionContext();
     const content = document.getElementById('content');
     if (!content?.firstChild) {
@@ -1092,6 +1391,7 @@ describe('ReaderSession', () => {
     const removeSpy = vi.spyOn(selection, 'removeAllRanges');
 
     context.session.ingestExternalHighlight(range, '<p>ext</p>', 'ext', 'memo');
+    await Promise.resolve();
 
     const highlights = (
       context.session as {
@@ -1247,7 +1547,7 @@ describe('ReaderSession', () => {
       throw new Error('destination callback missing');
     }
 
-    await callbacks.onSelectDestination('downloads');
+    await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
     vi.setSystemTime(new Date('2026-06-05T00:00:01.500Z'));
     await callbacks.onFinish();
 
@@ -1308,8 +1608,7 @@ describe('ReaderSession', () => {
       throw new Error('destination callback missing');
     }
 
-    await callbacks.onSelectDestination('downloads');
-    await flushDraftPersistence();
+    await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
     await callbacks.onFinish();
 
     const failedEvent = getTelemetryMessages(context).find(
@@ -1394,10 +1693,11 @@ describe('ReaderSession', () => {
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
-    await flushDraftPersistence();
+    await settleReaderMutation(
+      (
+        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+      ).handleSelection(createSelectionPayload(content.firstChild))
+    );
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -1438,8 +1738,7 @@ describe('ReaderSession', () => {
       throw new Error('destination callback missing');
     }
 
-    await callbacks.onSelectDestination('downloads');
-    await flushDraftPersistence();
+    await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
 
     await expect(
       context.draftRepository.loadLatest('reader', 'https://example.com/article')
@@ -1458,13 +1757,15 @@ describe('ReaderSession', () => {
     }
     content.firstChild.textContent = 'Private Quote';
 
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection({
-      ...createSelectionPayload(content.firstChild),
-      selectedHtml: '<mark>Private Quote</mark>',
-      selectedText: 'Private Quote'
-    });
+    await settleReaderMutation(
+      (
+        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
+      ).handleSelection({
+        ...createSelectionPayload(content.firstChild),
+        selectedHtml: '<mark>Private Quote</mark>',
+        selectedText: 'Private Quote'
+      })
+    );
     const [restoredHighlight] = (context.session as { __testHighlights: Array<{ id: string }> })
       .__testHighlights;
     if (!restoredHighlight) {
@@ -1483,7 +1784,7 @@ describe('ReaderSession', () => {
       throw new Error('destination callback missing');
     }
 
-    await callbacks.onSelectDestination('downloads');
+    await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
     await callbacks.onFinish();
 
     const telemetryMessages = getTelemetryMessages(context);
