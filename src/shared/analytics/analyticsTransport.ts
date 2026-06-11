@@ -1,3 +1,4 @@
+import { hasConsentForAnalyticsEvent } from './analyticsConsent';
 import {
   hasRequiredAnalyticsEventParams,
   isAllowedAnalyticsEventName,
@@ -121,7 +122,7 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
     return { status: 'skipped', reason: 'config_disabled', transportMode };
   }
 
-  if (!hasAnalyticsTransportConsent(config)) {
+  if (!hasConsentForAnalyticsEvent(config, eventName)) {
     return { status: 'skipped', reason: 'missing_user_consent', transportMode };
   }
 
@@ -164,15 +165,6 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
 
   return { status: 'skipped', reason: 'transport_disabled', transportMode };
 }
-
-function hasAnalyticsTransportConsent(config: AnalyticsConfig): boolean {
-  const consent = config.userConsent;
-  if (!consent) {
-    return true;
-  }
-  return Boolean(consent.analytics || consent.errorReporting);
-}
-
 async function postAnalyticsPayload(
   endpoint: string,
   payload: unknown,

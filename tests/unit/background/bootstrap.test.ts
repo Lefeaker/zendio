@@ -44,6 +44,7 @@ const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
 );
 const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());
 const createUsageStatsStoreMock = vi.hoisted(() => vi.fn(() => ({ dispose: vi.fn() })));
@@ -67,7 +68,8 @@ vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
   watchAnalyticsConfigStorage: watchAnalyticsConfigStorageMock
 }));
 vi.mock('../../../src/shared/errors/analytics', () => ({
-  initializeErrorAnalytics: initializeErrorAnalyticsMock
+  initializeErrorAnalytics: initializeErrorAnalyticsMock,
+  updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
   clearQueuedUsageAnalyticsEventsIfConsentRevoked:
@@ -124,20 +126,21 @@ describe('background/bootstrap', () => {
     expect(mod.isBackgroundDependenciesInitialized()).toBe(true);
   });
 
-  it('clears queued usage analytics when analytics storage changes revoke consent', async () => {
+  it('clears usage analytics and live-updates error analytics when consent changes', async () => {
     const mod = await import('../../../src/background/bootstrap');
     mod.bootstrapBackgroundDependencies(storageMock);
 
     expect(analyticsConfigWatchState.onRefresh).toBeTypeOf('function');
     analyticsConfigWatchState.onRefresh?.({
-      enabled: false,
-      userConsent: { analytics: false, errorReporting: false }
+      enabled: true,
+      userConsent: { analytics: false, errorReporting: true }
     });
 
     expect(clearQueuedUsageAnalyticsEventsIfConsentRevokedMock).toHaveBeenCalledWith({
-      enabled: false,
-      userConsent: { analytics: false, errorReporting: false }
+      enabled: true,
+      userConsent: { analytics: false, errorReporting: true }
     });
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true);
   });
 
   it('ensures once, resets, and re-registers background dependencies', async () => {

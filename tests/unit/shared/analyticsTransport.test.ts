@@ -206,7 +206,7 @@ describe('analytics transport', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('skips configs that do not have analytics or error-reporting consent', async () => {
+  it('skips configs that do not have matching consent for the event class', async () => {
     const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
 
     await expect(
@@ -219,6 +219,53 @@ describe('analytics transport', () => {
             analytics: false,
             errorReporting: false,
             timestamp: 100,
+            version: '1.0'
+          }
+        },
+        { fetch: fetchMock }
+      )
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'missing_user_consent',
+      transportMode: 'proxy'
+    });
+
+    await expect(
+      sendAnalyticsTransportEvent(
+        'support_like_clicked',
+        { variant: 'first' },
+        {
+          ...baseConfig,
+          userConsent: {
+            analytics: false,
+            errorReporting: true,
+            timestamp: 1,
+            version: '1.0'
+          }
+        },
+        { fetch: fetchMock }
+      )
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'missing_user_consent',
+      transportMode: 'proxy'
+    });
+
+    await expect(
+      sendAnalyticsTransportEvent(
+        'extension_error',
+        {
+          error_code: 'REST_NETWORK_TIMEOUT',
+          error_domain: 'background',
+          error_severity: 'critical',
+          error_recoverable: true
+        },
+        {
+          ...baseConfig,
+          userConsent: {
+            analytics: true,
+            errorReporting: false,
+            timestamp: 1,
             version: '1.0'
           }
         },

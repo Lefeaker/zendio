@@ -78,7 +78,9 @@ export async function initializeErrorAnalytics(
         batchSize: config.batchSize,
         ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
         ...(config.clientId !== undefined && { clientId: config.clientId }),
-        ...(config.sessionId !== undefined && { sessionId: config.sessionId })
+        ...(config.sessionId !== undefined && { sessionId: config.sessionId }),
+        ...(config.userConsent ? { userConsent: config.userConsent } : {}),
+        resolveAnalyticsConfig: () => getAnalyticsConfigManager().getConfig()
       });
 
       registerReporter('ga', targetErrorHandler.addReporter(gaReporter));

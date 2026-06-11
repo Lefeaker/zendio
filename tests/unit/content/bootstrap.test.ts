@@ -11,7 +11,7 @@ type ContentAnalyticsModule = {
   initializeContentErrorAnalytics: (
     storage: StorageService,
     errorHandler: Pick<ErrorHandler, 'addReporter'>
-  ) => Promise<void>;
+  ) => Promise<() => void>;
 };
 type GlobalErrorBoundaryArgs = {
   domain: string;
@@ -45,10 +45,14 @@ const registerGlobalErrorBoundaryMock = vi.hoisted(() =>
 );
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const analyticsCleanupMock = vi.hoisted(() => vi.fn());
 const initializeContentErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn<
-    (storage: StorageService, errorHandler: Pick<ErrorHandler, 'addReporter'>) => Promise<void>
-  >(() => Promise.resolve(undefined))
+    (
+      storage: StorageService,
+      errorHandler: Pick<ErrorHandler, 'addReporter'>
+    ) => Promise<() => void>
+  >(() => Promise.resolve(analyticsCleanupMock))
 );
 const loadAnalyticsModuleMock = vi.hoisted(() =>
   vi.fn<() => Promise<ContentAnalyticsModule>>(() =>
@@ -85,6 +89,12 @@ const TOKENS = vi.hoisted(() => ({
   globalStateManager: Symbol('globalStateManager'),
   dialogRegistry: Symbol('dialogRegistry')
 }));
+
+async function flushMicrotasks(times = 6): Promise<void> {
+  for (let index = 0; index < times; index += 1) {
+    await Promise.resolve();
+  }
+}
 
 vi.mock('../../../src/shared/di', () => ({
   createScopedRegistry: createScopedRegistryMock,
@@ -183,6 +193,8 @@ describe('content/bootstrap', () => {
     expect(context.disposed).toBe(false);
 
     context.dispose();
+    await flushMicrotasks();
+    expect(analyticsCleanupMock).toHaveBeenCalledTimes(1);
   });
 
   it('exposes services, transient-closes popups during page visibility changes, and disposes on beforeunload', async () => {
@@ -234,6 +246,11 @@ describe('content/bootstrap', () => {
 
   it('reuses and resets the global content context helpers', async () => {
     const mod = await import('../../../src/content/bootstrap');
+    const firstCleanup = vi.fn();
+    const secondCleanup = vi.fn();
+    initializeContentErrorAnalyticsMock
+      .mockResolvedValueOnce(firstCleanup)
+      .mockResolvedValueOnce(secondCleanup);
     mod.__setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -249,14 +266,50 @@ describe('content/bootstrap', () => {
     const second = mod.getGlobalContentContext();
     expect(second).toBe(first);
     expect(mod.bootstrapContentScript()).toBe(first);
-    await Promise.resolve();
+    await flushMicrotasks();
     expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(1);
 
     mod.resetGlobalContentContext();
+    await flushMicrotasks();
+    expect(firstCleanup).toHaveBeenCalledTimes(1);
     const third = mod.getGlobalContentContext();
     expect(third).not.toBe(first);
-    await Promise.resolve();
+    await flushMicrotasks();
     expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(2);
+    mod.resetGlobalContentContext();
+    await flushMicrotasks();
+    expect(secondCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up analytics watchers when disposal wins the dynamic-import race', async () => {
+    let resolveCleanup: ((cleanup: () => void) => void) | undefined;
+    const lateCleanup = vi.fn();
+    initializeContentErrorAnalyticsMock.mockReturnValueOnce(
+      new Promise<() => void>((resolve) => {
+        resolveCleanup = resolve;
+      })
+    );
+
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadAnalyticsModule: loadAnalyticsModuleMock,
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+
+    const context = new ContentScriptContext(storageMock);
+    await flushMicrotasks();
+    expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(1);
+    context.dispose();
+    resolveCleanup?.(lateCleanup);
+    await flushMicrotasks();
+    expect(lateCleanup).toHaveBeenCalledTimes(1);
   });
 
   it('requires explicit storage configuration before bootstrap', async () => {

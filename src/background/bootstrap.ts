@@ -9,7 +9,7 @@ import {
   configureAnalyticsConfigManager,
   watchAnalyticsConfigStorage
 } from '../shared/errors/analytics/analyticsConfig';
-import { initializeErrorAnalytics } from '../shared/errors/analytics';
+import { initializeErrorAnalytics, updateErrorAnalyticsConfig } from '../shared/errors/analytics';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
 import {
   configureGlobalStateManagerStorage,
@@ -56,6 +56,9 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
   cleanupAnalyticsConfigStorageWatch?.();
   cleanupAnalyticsConfigStorageWatch = watchAnalyticsConfigStorage((config) => {
     clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
+    void updateErrorAnalyticsConfig(config.userConsent?.errorReporting === true).catch((error) => {
+      console.warn('[Background] Failed to update error analytics config:', error);
+    });
   });
 
   // 注册错误处理器
