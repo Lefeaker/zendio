@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-09
+最后更新：2026-06-11
 
 ## 正式入口
 
@@ -32,7 +32,7 @@
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - root `_locales/**` 已删除，不再作为 retained compatibility duplicate 保留；production build/package/release surface owner 为 `public/_locales/**` -> `build/dist/_locales/**` -> final Chrome ZIP / Firefox XPI
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
-- GA production release public config 真值：owner 本机使用 ignored `.env.production.local` 注入 `AIIINOB_GA_MEASUREMENT_ID`、`AIIINOB_GA_TRANSPORT_MODE`、`AIIINOB_GA_PROXY_ENDPOINT`；复用命令为 `analytics:validate:prod`、`build:prod:ga`、`package:prod:ga`、`package:firefox:prod:ga`、`release:prod:ga`。GA `api_secret` 仍只允许存在于 Cloudflare Worker secret `GA4_API_SECRET`；`directDebug` 也必须经 owner debug proxy，不允许扩展直连 Google debug endpoint。
+- GA production release public config 真值：owner 本机使用 ignored `.env.production.local` 注入 `AIIINOB_GA_MEASUREMENT_ID`、`AIIINOB_GA_TRANSPORT_MODE`、`AIIINOB_GA_PROXY_ENDPOINT`；复用命令为 `analytics:validate:prod`、`build:prod:ga`、`package:prod:ga`、`package:firefox:prod:ga`、`release:prod:ga`。GA `api_secret` 仍只允许存在于 Cloudflare Worker secret `GA4_API_SECRET`；`directDebug` 也必须经 owner debug proxy，不允许扩展直连 Google debug endpoint。`analytics:validate:prod` 只验证静态/public-config wiring 与 owner env sanity，不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入；`.env.production.local` 缺失时该命令仍会运行并把缺失 public 值记为 warning。
 - 2026-05-20 release readiness historical truth：Node `v20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`；当时 `npm audit --audit-level=low` 的 `26` vulnerabilities 仅作为历史 release handoff 证据保留
 - 2026-06-09 dependency-audit current truth：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 当前为 `0` vulnerabilities；`npm audit --audit-level=low` 当前因 dev tooling dependency `vitest <3.2.6` / `@vitest/coverage-v8 <=3.2.5` 返回 `2` critical findings。Production runtime release gate 仍以 `--omit=dev` green 为准；全量 dev audit 不是 `quality` / `verify:preflight` hard gate，后续若要消除该 advisory 应另开 dev toolchain dependency update。
 - 2026-06-01 Plan 09 governance current truth：`lint:hardcoded` standalone green with `0` errors / `6` warnings and is wired into both `quality` and CI; `audit:platform-boundary:report` is still report-only with `148` findings and unresolved `shared-runtime-helper` review items, so it is not a hard gate; all-dependency `npm audit --audit-level=low` is not wired into `quality` and currently has the dev tooling advisory recorded above.

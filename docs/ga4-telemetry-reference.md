@@ -1,6 +1,6 @@
 # GA4 Telemetry Reference
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
 
@@ -17,6 +17,7 @@
 - `api_secret` 只能存在于服务端 proxy；扩展不得存储、生成、请求、提示填写或发送它。
 - 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
 - `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
+- `analytics:validate:prod` 是静态/public-config + owner env sanity check；它不证明真实 GA4 property delivery 或 DebugView 可见性。
 - 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
 ## 共享字段与隐私边界

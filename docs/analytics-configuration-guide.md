@@ -1,6 +1,6 @@
 # Analytics Configuration Guide
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
@@ -47,6 +47,11 @@ AIIINOB_GA_PROXY_ENDPOINT=https://zendio.sxnian.com/api/ga4
 npm run analytics:validate:prod
 npm run package:prod:ga
 ```
+
+`npm run analytics:validate:prod` 只验证当前 repo 的静态/public-config contract
+与 owner 本机 `.env.production.local` / shell public env 是否自洽；它不证明真实
+GA4 property 已收到事件，也不证明 DebugView 可见性。若 `.env.production.local`
+缺失，该命令仍会运行，并把缺失的 public 值报告为 warning。
 
 Firefox 包使用：
 
@@ -166,6 +171,7 @@ npm run analytics:validate:prod
 - 校验 tracked config 未包含 client-side secret
 - 校验当前 privacy / build / transport 关键路径是否仍然存在
 - 校验当前 shell 环境中的 public config 是否自洽
+- 不证明真实 GA4 property delivery、DebugView 可见性或服务端 `api_secret` 注入已经成功
 
 脚本不会改写 tracked source，也不会生成本地 secret 文件。
 
