@@ -5,7 +5,6 @@ import {
   type AnalyticsConfig
 } from '../../shared/errors/analytics/analyticsConfig';
 import {
-  buildAnalyticsTransportPayload,
   createAnalyticsEventQueue,
   sendAnalyticsTransportEvent,
   type AnalyticsEventName,
@@ -116,34 +115,69 @@ async function sendQueuedUsageEvent(
   const result = await sendAnalyticsTransportEvent(eventName, params, config, {
     extensionVersion
   });
-  logAnalyticsTransportResult(eventName, params, config, extensionVersion, result);
+  logAnalyticsTransportResult(eventName, result);
   return result;
+}
+
+type SentAnalyticsTransportResult = Extract<AnalyticsTransportResult, { status: 'sent' }>;
+
+function summarizeDebugResponse(
+  debugResponse: unknown
+): {
+  hasMessages: boolean;
+  messageCount: number;
+} {
+  if (typeof debugResponse !== 'object' || debugResponse === null) {
+    return {
+      hasMessages: false,
+      messageCount: 0
+    };
+  }
+
+  const validationMessages = (debugResponse as { validationMessages?: unknown }).validationMessages;
+  if (!Array.isArray(validationMessages)) {
+    return {
+      hasMessages: false,
+      messageCount: 0
+    };
+  }
+
+  return {
+    hasMessages: validationMessages.length > 0,
+    messageCount: validationMessages.length
+  };
+}
+
+function buildAnalyticsTransportLogSummary(
+  eventName: AnalyticsEventName,
+  result: SentAnalyticsTransportResult
+): {
+  eventName: AnalyticsEventName;
+  transportMode: SentAnalyticsTransportResult['transportMode'];
+  responseStatus: number;
+  validation: ReturnType<typeof summarizeDebugResponse>;
+} {
+  return {
+    eventName,
+    transportMode: result.transportMode,
+    responseStatus: result.responseStatus,
+    validation: summarizeDebugResponse(result.debugResponse)
+  };
 }
 
 function logAnalyticsTransportResult(
   eventName: AnalyticsEventName,
-  params: QueuedAnalyticsEventParams,
-  config: AnalyticsConfig,
-  extensionVersion: string,
   result: AnalyticsTransportResult
 ): void {
   if (result.status === 'sent') {
-    const payload = buildAnalyticsTransportPayload(eventName, params, config, {
-      extensionVersion
-    });
-    const logPayload = {
-      eventName,
-      params: payload?.events[0]?.params ?? {},
-      transportMode: result.transportMode,
-      responseStatus: result.responseStatus,
-      ...(result.debugResponse !== undefined ? { response: result.debugResponse } : {})
-    };
-
-    if (result.transportMode === 'directDebug') {
-      console.info('[analytics-events] Event sent (debug):', logPayload);
-    } else {
-      console.info('[analytics-events] Event sent:', logPayload);
+    if (result.transportMode !== 'directDebug') {
+      return;
     }
+
+    console.info(
+      '[analytics-events] Event sent (debug):',
+      buildAnalyticsTransportLogSummary(eventName, result)
+    );
     return;
   }
 

@@ -126,7 +126,26 @@ describe('analyticsEvents', () => {
     renewSessionMock.mockRejectedValueOnce(new Error('renew failed'));
     fetchMock.mockResolvedValue({
       ok: true,
-      clone: () => ({ text: () => Promise.resolve('{"ok":true}') })
+      clone: () => ({
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              validationMessages: [
+                {
+                  description: 'session id should stay private',
+                  fieldPath: 'events[0].params.session_id'
+                }
+              ],
+              params: {
+                session_id: 'debug-session-raw',
+                client_id: 'debug-client-raw'
+              },
+              measurement_id: 'G-LEAKED',
+              url: 'https://www.google-analytics.com/debug/mp/collect',
+              token: 'secret-token'
+            })
+          )
+      })
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
@@ -142,7 +161,35 @@ describe('analyticsEvents', () => {
       '[analytics-events] Failed to renew analytics session id:',
       expect.any(Error)
     );
-    expect(consoleInfoSpy).toHaveBeenCalled();
+    expect(consoleInfoSpy).toHaveBeenCalledTimes(1);
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[analytics-events] Event sent (debug):',
+      expect.objectContaining({
+        eventName: 'support_like_clicked',
+        transportMode: 'directDebug',
+        responseStatus: 200,
+        validation: {
+          hasMessages: true,
+          messageCount: 1
+        }
+      })
+    );
+    const [, debugLogPayload] = consoleInfoSpy.mock.calls[0] ?? [];
+    expect(debugLogPayload).toBeDefined();
+    expect(Object.keys(debugLogPayload as Record<string, unknown>).sort()).toEqual([
+      'eventName',
+      'responseStatus',
+      'transportMode',
+      'validation'
+    ]);
+    const serializedDebugLog = JSON.stringify(debugLogPayload);
+    expect(serializedDebugLog).not.toContain('params');
+    expect(serializedDebugLog).not.toContain('session_id');
+    expect(serializedDebugLog).not.toContain('client_id');
+    expect(serializedDebugLog).not.toContain('measurement_id');
+    expect(serializedDebugLog).not.toContain('google-analytics.com');
+    expect(serializedDebugLog).not.toContain('token');
+    expect(serializedDebugLog).not.toContain('secret');
     consoleWarnSpy.mockRestore();
     consoleInfoSpy.mockRestore();
   });
@@ -177,6 +224,7 @@ describe('analyticsEvents', () => {
     expect(requestUrl).toBe('https://analytics.example.test/collect');
     expect(String(requestInit?.body)).toContain('"extension_version":"2.3.4"');
     expect(globalGetManifestMock).not.toHaveBeenCalled();
+    expect(consoleInfoSpy).not.toHaveBeenCalled();
 
     consoleInfoSpy.mockRestore();
     await resetRuntime();
