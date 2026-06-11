@@ -426,6 +426,17 @@ export async function finishVideoSession(
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }
+    const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
+    if (!terminalized) {
+      context.dependencies.showSupportProgress?.({
+        value: 100,
+        label: '发送失败',
+        variant: 'failure'
+      });
+      context.applyHint('failure');
+      context.state.exporting = false;
+      return;
+    }
     context.dependencies.showSupportProgress?.({
       value: 100,
       label: '成功发送到 Obsidian',
@@ -436,7 +447,6 @@ export async function finishVideoSession(
       destination: resolveVideoExportDestination(exportDestination),
       duration_bucket: resolveVideoSessionDurationBucket(context.state)
     });
-    await context.removeDraft?.();
     onCleanup();
   } catch (error) {
     console.error('[VideoSession] Export failed:', error);
@@ -459,11 +469,15 @@ export async function cancelVideoSession(context: VideoSessionOperationContext):
   if (context.state.exporting) {
     return;
   }
+  const terminalized = (await context.finalizeTerminalDraft?.('discarded')) ?? true;
+  if (!terminalized) {
+    context.applyHint('failure');
+    return;
+  }
   emitVideoUsageEvent(context.dependencies, 'video_session_cancelled', {
     platform: mapVideoAnalyticsPlatform(context.state.platform),
     duration_bucket: resolveVideoSessionDurationBucket(context.state)
   });
-  await context.removeDraft?.();
   cleanupVideoSession(context);
 }
 
