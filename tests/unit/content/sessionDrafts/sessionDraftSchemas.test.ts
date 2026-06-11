@@ -3,6 +3,7 @@ import {
   ReaderSessionDraftPayloadSchema,
   SessionDraftEnvelopeSchema,
   SessionDraftIndexSchema,
+  SessionDraftStatusSchema,
   VideoSessionDraftPayloadSchema,
   normalizeSessionDraftEnvelopeForSave
 } from '@content/sessionDrafts/sessionDraftSchemas';
@@ -146,5 +147,11 @@ describe('sessionDraftSchemas', () => {
         entries: []
       }).success
     ).toBe(false);
+  });
+
+  it('accepts terminal draft statuses and still rejects unknown status strings', () => {
+    expect(SessionDraftStatusSchema.safeParse('discarded').success).toBe(true);
+    expect(SessionDraftStatusSchema.safeParse('exported').success).toBe(true);
+    expect(SessionDraftStatusSchema.safeParse('terminal').success).toBe(false);
   });
 });
