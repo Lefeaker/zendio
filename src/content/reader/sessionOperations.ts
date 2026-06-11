@@ -16,6 +16,7 @@ import { bucketCount } from '@shared/analytics/featureTimer';
 import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
+import type { SessionMutationTransaction } from '../sessionMutations';
 
 interface ReaderSessionOperationContext {
   session: object;
@@ -28,9 +29,12 @@ interface ReaderSessionOperationContext {
   lifecycle: ReaderSessionLifecycle;
   dependencies: ReaderSessionDependencies;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
-  onDraftMutation?: () => void;
+  persistDraftMutation?: () => Promise<void>;
   disposeDraftPersistence?: () => Promise<void>;
   clearPersistedDraft?: () => Promise<void>;
+  runDraftMutation?: <Result>(
+    transaction: SessionMutationTransaction<Result, void>
+  ) => Promise<boolean>;
 }
 
 type ReaderUsageEventName = Extract<
@@ -46,6 +50,10 @@ export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
   payload: ReaderSelectionPayload
 ): void {
+  if (context.state.saving) {
+    return;
+  }
+
   context.state.handlingSelection = true;
 
   try {
@@ -69,7 +77,12 @@ export async function handleReaderSessionMouseUp(
   context: ReaderSessionOperationContext,
   event: MouseEvent
 ): Promise<void> {
-  if (context.state.handlingSelection || context.state.exporting || event.button !== 0) {
+  if (
+    context.state.handlingSelection ||
+    context.state.exporting ||
+    context.state.saving ||
+    event.button !== 0
+  ) {
     return;
   }
 
@@ -137,7 +150,7 @@ export function addReaderHighlightFromRange(
   context.state.highlights.push(highlight);
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
-  context.onDraftMutation?.();
+  queueReaderDraftPersistence(context);
   void trackReaderUsageEvent(context, 'reader_highlight_added', {
     selection_length_bucket: bucketCount(selectedText.length),
     highlight_count_bucket: bucketCount(context.state.highlights.length)
@@ -233,7 +246,11 @@ export async function finishReaderSession(
     });
     cleanupReaderSession(context);
     await context.disposeDraftPersistence?.();
-    await context.clearPersistedDraft?.();
+    try {
+      await context.clearPersistedDraft?.();
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to clear session draft after export:', error);
+    }
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
     void trackReaderUsageEvent(context, 'reader_export_failed', {
@@ -278,6 +295,7 @@ export function cleanupReaderSession(context: ReaderSessionOperationContext): vo
 
   clearReaderSession(context.session, context.doc);
   context.state.exporting = false;
+  context.state.saving = false;
   context.state.handlingSelection = false;
   context.state.analyticsTimer = null;
   context.state.analyticsSource = 'unknown';
@@ -321,7 +339,7 @@ export function removeReaderHighlight(context: ReaderSessionOperationContext, id
     context.state.highlights.length ? 'panel' : 'noHighlights',
     context.state.highlights.length
   );
-  context.onDraftMutation?.();
+  queueReaderDraftPersistence(context);
 }
 
 export function submitReaderHighlightEdit(
@@ -343,12 +361,21 @@ export function submitReaderHighlightEdit(
   syncReaderHighlightsUi(context);
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
   context.panelCoordinator.stopEditing();
-  context.onDraftMutation?.();
+  queueReaderDraftPersistence(context);
 }
 
 function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
   context.highlightManager.sortByDocumentOrder(context.state.highlights);
   context.panelCoordinator.updateHighlights(context.state.highlights);
+}
+
+function queueReaderDraftPersistence(context: ReaderSessionOperationContext): void {
+  if (!context.persistDraftMutation) {
+    return;
+  }
+  void context.persistDraftMutation().catch((error) => {
+    console.warn('[ReaderSession] Failed to persist session draft:', error);
+  });
 }
 
 export function createDetachedReaderHighlight(
