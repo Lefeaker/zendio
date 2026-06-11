@@ -15,7 +15,7 @@ import {
   runSessionMutationTransaction,
   type SessionMutationFailure,
   type SessionMutationTransaction
-} from '@content/sessionMutations';
+} from '@content/sessionDrafts';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';

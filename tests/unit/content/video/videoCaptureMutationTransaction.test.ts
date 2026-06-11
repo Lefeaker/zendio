@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@content/sessionMutations', async () => {
-  const actual = await vi.importActual<typeof import('@content/sessionMutations')>(
-    '@content/sessionMutations'
+vi.mock('@content/sessionDrafts', async () => {
+  const actual = await vi.importActual<typeof import('@content/sessionDrafts')>(
+    '@content/sessionDrafts'
   );
   return {
     ...actual,
@@ -11,7 +11,7 @@ vi.mock('@content/sessionMutations', async () => {
 });
 
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
-import { runSessionMutationTransaction } from '@content/sessionMutations';
+import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import {
   restoreTimestampScreenshotState,
   runVideoCaptureMutationTransaction,

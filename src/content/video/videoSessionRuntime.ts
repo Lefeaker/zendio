@@ -2,6 +2,7 @@ import type { ReaderHighlightTheme } from '../../shared/types/options';
 import {
   createSessionDraftPersister,
   createSessionDraftRepository,
+  finalizeTerminalSessionDraft,
   type SessionDraftEnvelope,
   type VideoSessionDraftEnvelope,
   type SessionDraftPersister,
@@ -549,25 +550,20 @@ export class VideoSession {
       }
     }
 
-    try {
-      for (const envelope of terminalEnvelopes.values()) {
-        await this.draftRepository.save(envelope);
+    return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
+      repository: this.draftRepository,
+      buildTerminalEnvelopes: () => terminalEnvelopes.values(),
+      cleanupTerminalDrafts: () => this.removeDraft(),
+      onSaveError: (error) => {
+        console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
+      },
+      onCleanupError: (error) => {
+        console.warn(
+          '[VideoSession] Failed to remove terminal session draft after finalization:',
+          error
+        );
       }
-    } catch (error) {
-      console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
-      return false;
-    }
-
-    try {
-      await this.removeDraft();
-    } catch (error) {
-      console.warn(
-        '[VideoSession] Failed to remove terminal session draft after finalization:',
-        error
-      );
-    }
-
-    return true;
+    });
   }
 
   private async flushDraftNow(

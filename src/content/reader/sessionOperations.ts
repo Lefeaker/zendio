@@ -7,7 +7,7 @@ import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderSessionDependencies } from './sessionTypes';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
-import type { SessionDraftTerminalStatus } from '../sessionDrafts';
+import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
 import {
   createTrackUsageEventMessage,
   type TrackUsageEventPayload,
@@ -17,7 +17,6 @@ import { bucketCount } from '@shared/analytics/featureTimer';
 import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
-import type { SessionMutationTransaction } from '../sessionMutations';
 
 interface ReaderSessionOperationContext {
   session: object;
