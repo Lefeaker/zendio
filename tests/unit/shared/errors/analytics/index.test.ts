@@ -27,23 +27,25 @@ const currentAnalyticsConfig = vi.hoisted(() => ({
   batchSize: 10
 }));
 const initializeAnalyticsConfigMock = vi.hoisted(() =>
-  vi.fn(async () => ({
-    enabled: true,
-    debugMode: false,
-    measurementId: 'G-123',
-    transportMode: 'proxy' as const,
-    proxyEndpoint: 'https://analytics.example.test/ga4',
-    clientId: 'client-1',
-    sessionId: 'session-1',
-    userConsent: {
-      analytics: true,
-      errorReporting: true,
-      timestamp: 100,
-      version: '1.0'
-    },
-    reportingInterval: 30000,
-    batchSize: 10
-  }))
+  vi.fn(() =>
+    Promise.resolve({
+      enabled: true,
+      debugMode: false,
+      measurementId: 'G-123',
+      transportMode: 'proxy' as const,
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      userConsent: {
+        analytics: true,
+        errorReporting: true,
+        timestamp: 100,
+        version: '1.0'
+      },
+      reportingInterval: 30000,
+      batchSize: 10
+    })
+  )
 );
 const getAnalyticsConfigManagerMock = vi.hoisted(() =>
   vi.fn(() => ({
@@ -116,52 +118,46 @@ describe('error analytics initialization', () => {
     await module.initializeErrorAnalytics({ addReporter });
 
     expect(createGoogleAnalyticsReporterMock).toHaveBeenCalledTimes(2);
-    expect(createGoogleAnalyticsReporterMock).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        measurementId: 'G-123',
-        transportMode: 'proxy',
-        proxyEndpoint: 'https://analytics.example.test/ga4',
-        clientId: 'client-1',
-        sessionId: 'session-1',
-        userConsent: {
-          analytics: true,
-          errorReporting: true,
-          timestamp: 100,
-          version: '1.0'
-        },
-        resolveAnalyticsConfig: expect.any(Function)
-      })
-    );
-    expect(createGoogleAnalyticsReporterMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        measurementId: 'G-123',
-        transportMode: 'proxy',
-        proxyEndpoint: 'https://analytics.example.test/ga4',
-        clientId: 'client-1',
-        sessionId: 'session-1',
-        userConsent: {
-          analytics: true,
-          errorReporting: true,
-          timestamp: 100,
-          version: '1.0'
-        },
-        resolveAnalyticsConfig: expect.any(Function)
-      })
-    );
     const firstReporterConfig = createGoogleAnalyticsReporterMock.mock.calls[0]?.[0];
+    const secondReporterConfig = createGoogleAnalyticsReporterMock.mock.calls[1]?.[0];
+    expect(firstReporterConfig).toMatchObject({
+      measurementId: 'G-123',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      userConsent: {
+        analytics: true,
+        errorReporting: true,
+        timestamp: 100,
+        version: '1.0'
+      }
+    });
+    expect(secondReporterConfig).toMatchObject({
+      measurementId: 'G-123',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      userConsent: {
+        analytics: true,
+        errorReporting: true,
+        timestamp: 100,
+        version: '1.0'
+      }
+    });
     expect(firstReporterConfig?.resolveAnalyticsConfig).toBeTypeOf('function');
+    expect(secondReporterConfig?.resolveAnalyticsConfig).toBeTypeOf('function');
     expect(firstReporterConfig?.resolveAnalyticsConfig?.()).toBe(currentAnalyticsConfig);
     expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(2);
     expect(addReporter).toHaveBeenCalledTimes(4);
     expect(unregisterGa1).toHaveBeenCalledTimes(1);
     expect(unregisterSentry1).toHaveBeenCalledTimes(1);
-    expect(module.getErrorAnalyticsStatus()).toMatchObject({
-      enabled: true,
-      hasReporter: true,
-      reporters: expect.arrayContaining(['ga', 'sentry'])
-    });
+    const analyticsStatus = module.getErrorAnalyticsStatus();
+    expect(analyticsStatus.enabled).toBe(true);
+    expect(analyticsStatus.hasReporter).toBe(true);
+    expect(analyticsStatus.reporters).toContain('ga');
+    expect(analyticsStatus.reporters).toContain('sentry');
   });
 
   it('requires errorReporting consent even when analytics consent keeps config enabled', async () => {

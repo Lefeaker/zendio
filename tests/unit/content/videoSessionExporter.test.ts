@@ -5,7 +5,7 @@ import {
   DEFAULT_SESSION_MESSAGES,
   type VideoSessionMessages
 } from '@content/video/sessionMessages';
-import type { VideoCapture } from '@content/video/types';
+import type { VideoCapture, VideoCaptureScreenshot } from '@content/video/types';
 import { VideoSessionExporter } from '@content/video/videoSessionExporter';
 import type { ClipResult } from '@shared/repositories/IClipRepository';
 import type { IVideoRepository, VideoClipData } from '@shared/repositories/IVideoRepository';
@@ -16,11 +16,23 @@ import {
 
 function createBlobLike(text: string): Blob {
   const bytes = new TextEncoder().encode(text);
-  return {
-    arrayBuffer: vi.fn(async () =>
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  const blob = new Blob([], { type: 'image/jpeg' });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: vi.fn(() =>
+      Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
     )
-  } as unknown as Blob;
+  });
+  return blob;
+}
+
+function createFailingBlob(_text: string): Blob {
+  const blob = new Blob([], { type: 'image/jpeg' });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: vi.fn().mockRejectedValue(new Error('blob read failed'))
+  });
+  return blob;
 }
 
 describe('VideoSessionExporter', () => {
@@ -143,14 +155,14 @@ describe('VideoSessionExporter', () => {
     const screenshot = {
       id: 'shot-1',
       fileName: 'file-20260314100000000.jpg',
-      mimeType: 'image/jpeg' as const,
+      mimeType: 'image/jpeg',
       content: {
-        kind: 'blob' as const,
+        kind: 'blob',
         blob: screenshotBlob,
         byteLength: 5
       },
       capturedAt: 1
-    };
+    } satisfies VideoCaptureScreenshot;
 
     const payload = await exporter.buildPayload({
       captures: [
@@ -220,10 +232,10 @@ describe('VideoSessionExporter', () => {
     const screenshot = {
       id: 'shot-legacy',
       fileName: 'file-20260314100000001.jpg',
-      mimeType: 'image/jpeg' as const,
+      mimeType: 'image/jpeg',
       dataUrl: 'data:image/jpeg;base64,frame',
       capturedAt: 2
-    };
+    } satisfies VideoCaptureScreenshot;
 
     const payload = await exporter.buildPayload({
       captures: [
@@ -310,9 +322,7 @@ describe('VideoSessionExporter', () => {
   it('skips screenshot attachments and markdown markers when Blob serialization fails', async () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
-    const screenshotBlob = {
-      arrayBuffer: vi.fn().mockRejectedValue(new Error('blob read failed'))
-    } as unknown as Blob;
+    const screenshotBlob = createFailingBlob('frame');
 
     const payload = await exporter.buildPayload({
       captures: [

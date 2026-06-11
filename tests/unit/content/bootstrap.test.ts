@@ -64,7 +64,7 @@ const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
     return stopWatchingAnalyticsConfigMock;
   })
 );
-const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const analyticsCleanupMock = vi.hoisted(() => vi.fn());
 const initializeContentErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn<

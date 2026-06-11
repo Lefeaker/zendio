@@ -36,6 +36,39 @@ type AnalyticsConfigSnapshot = {
   batchSize?: number;
 };
 
+type AnalyticsDebugLogPayload = {
+  eventName: string;
+  transportMode: string;
+  responseStatus: number;
+  validation: {
+    hasMessages: boolean;
+    messageCount: number;
+  };
+};
+
+type AnalyticsRequestBody = {
+  events?: Array<{
+    params?: Record<string, string>;
+  }>;
+};
+
+function isAnalyticsDebugLogPayload(
+  value: object | null | undefined
+): value is AnalyticsDebugLogPayload {
+  return Boolean(
+    value &&
+    'eventName' in value &&
+    'transportMode' in value &&
+    'responseStatus' in value &&
+    'validation' in value
+  );
+}
+
+function getFirstAnalyticsRequestParams(value: unknown): Record<string, string> {
+  const body = value as AnalyticsRequestBody;
+  return body.events?.[0]?.params ?? {};
+}
+
 function createAnalyticsConfig(
   overrides: Partial<AnalyticsConfigSnapshot> = {}
 ): AnalyticsConfigSnapshot {
@@ -174,15 +207,21 @@ describe('analyticsEvents', () => {
         }
       })
     );
-    const [, debugLogPayload] = consoleInfoSpy.mock.calls[0] ?? [];
+    const debugLogPayload = consoleInfoSpy.mock.calls[0]?.[1] as unknown;
     expect(debugLogPayload).toBeDefined();
-    expect(Object.keys(debugLogPayload as Record<string, unknown>).sort()).toEqual([
+    const payloadObject =
+      typeof debugLogPayload === 'object' && debugLogPayload !== null ? debugLogPayload : null;
+    expect(isAnalyticsDebugLogPayload(payloadObject)).toBe(true);
+    if (!isAnalyticsDebugLogPayload(payloadObject)) {
+      throw new Error('Expected analytics debug log payload');
+    }
+    expect(Object.keys(payloadObject).sort()).toEqual([
       'eventName',
       'responseStatus',
       'transportMode',
       'validation'
     ]);
-    const serializedDebugLog = JSON.stringify(debugLogPayload);
+    const serializedDebugLog = JSON.stringify(payloadObject);
     expect(serializedDebugLog).not.toContain('params');
     expect(serializedDebugLog).not.toContain('session_id');
     expect(serializedDebugLog).not.toContain('client_id');
@@ -389,17 +428,17 @@ describe('analyticsEvents', () => {
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('support_link_clicked', {
+    const invalidParams = {
       target: 'ko-fi',
       url: 'https://ko-fi.com/xiannian?user=reader'
-    } as never);
+    } satisfies { target: 'ko-fi'; url: string };
+    await trackUsageEvent('support_link_clicked', invalidParams);
 
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
-    const body = JSON.parse(String(requestInit?.body)) as {
-      events: Array<{ params: Record<string, unknown> }>;
-    };
-    expect(body.events[0]?.params).toMatchObject({ target: 'ko-fi' });
-    expect(body.events[0]?.params).not.toHaveProperty('url');
+    const parsedBody: unknown = JSON.parse(String(requestInit?.body));
+    const params = getFirstAnalyticsRequestParams(parsedBody);
+    expect(params).toMatchObject({ target: 'ko-fi' });
+    expect(params).not.toHaveProperty('url');
 
     await resetRuntime();
   });
