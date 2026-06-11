@@ -234,25 +234,41 @@ export async function submitVideoSessionCaptureEdit(
   if (!target) {
     return;
   }
-  context.syncCommentDrafts?.();
-  const previousComment = target.comment;
   const previousDraft = context.state.commentDrafts[id];
-  delete context.state.commentDrafts[id];
-  target.comment = comment.trim();
-  context.applyHint('saving');
-  const saveHint = await saveVideoSessionCaptures(context);
-  if (saveHint === 'failure') {
-    target.comment = previousComment;
-    if (previousDraft !== undefined) {
-      context.state.commentDrafts[id] = previousDraft;
+  context.syncCommentDrafts?.();
+  const syncedDraft = context.state.commentDrafts[id];
+  const draftToRestore = syncedDraft ?? previousDraft;
+  const nextComment = comment.trim();
+
+  await runVideoCaptureMutationTransaction({
+    apply: () => {
+      delete context.state.commentDrafts[id];
+      const previousComment = target.comment;
+      target.comment = nextComment;
+      return { previousComment, previousDraft: draftToRestore };
+    },
+    afterApply: () => {
+      context.syncPanel();
+      context.applyHint('saving');
+    },
+    save: () => saveVideoSessionCaptures(context),
+    commit: () => {
+      context.releasePlaybackEditLease?.(id, true);
+      context.dom.stopEditing(id);
+      context.syncPanel();
+    },
+    rollback: ({ previousComment, previousDraft: draftSnapshot }) => {
+      target.comment = previousComment;
+      if (draftSnapshot !== undefined) {
+        context.state.commentDrafts[id] = draftSnapshot;
+      }
+      context.syncPanel();
+      context.applyHint('failure');
+    },
+    onSaveError: (error) => {
+      console.warn('[VideoSession] Failed to save capture edit:', error);
     }
-    context.syncPanel();
-    context.applyHint('failure');
-    return;
-  }
-  context.releasePlaybackEditLease?.(id, true);
-  context.dom.stopEditing(id);
-  context.syncPanel();
+  });
 }
 
 export function removeVideoSessionCapture(context: VideoSessionOperationContext, id: string): void {
