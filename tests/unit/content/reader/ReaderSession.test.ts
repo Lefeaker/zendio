@@ -1044,11 +1044,10 @@ describe('ReaderSession', () => {
     expect(isReaderSessionActive(document)).toBe(true);
     expect(getReaderSession()).toBe(context.session);
     expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
-    expect(getDraftIdentity(context.session)).toEqual({
-      draftId: expect.any(String),
-      draftCreatedAt: expect.any(Number),
-      draftStorageKey: expect.any(String)
-    });
+    const draftIdentity = getDraftIdentity(context.session);
+    expect(typeof draftIdentity.draftId).toBe('string');
+    expect(typeof draftIdentity.draftCreatedAt).toBe('number');
+    expect(typeof draftIdentity.draftStorageKey).toBe('string');
   });
 
   it('serializes durable reader mutations and ignores new selections while saving is in flight', async () => {
@@ -1728,9 +1727,9 @@ describe('ReaderSession', () => {
     await flushDraftPersistence();
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
-      throw new Error('cancel terminal save failed');
-    });
+    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(() =>
+      Promise.reject(new Error('cancel terminal save failed'))
+    );
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -1875,12 +1874,16 @@ describe('ReaderSession', () => {
       ).resolves.toMatchObject({
         draftId: 'existing-draft'
       });
-      expect(await readDraftIndex(context)).toMatchObject({
-        entries: expect.arrayContaining([
+      const draftIndex = await readDraftIndex(context);
+      if (!draftIndex) {
+        throw new Error('Expected session draft index');
+      }
+      expect(draftIndex.entries).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({ draftId: 'existing-draft', status: 'active' }),
           expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })
         ])
-      });
+      );
       await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toMatchObject({
         draftId: currentDraft.draftId,
         status: 'discarded'
@@ -1939,9 +1942,7 @@ describe('ReaderSession', () => {
     context.view.updateHint.mockClear();
     const setManySpy = vi
       .spyOn(context.storageLocal, 'setMany')
-      .mockImplementationOnce(async () => {
-        throw new Error('cancel pending flush failed');
-      });
+      .mockImplementationOnce(() => Promise.reject(new Error('cancel pending flush failed')));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -2052,9 +2053,9 @@ describe('ReaderSession', () => {
     await flushDraftPersistence();
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
-      throw new Error('export terminal save failed');
-    });
+    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(() =>
+      Promise.reject(new Error('export terminal save failed'))
+    );
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -2109,9 +2110,7 @@ describe('ReaderSession', () => {
     context.view.updateHint.mockClear();
     const setManySpy = vi
       .spyOn(context.storageLocal, 'setMany')
-      .mockImplementationOnce(async () => {
-        throw new Error('export pending flush failed');
-      });
+      .mockImplementationOnce(() => Promise.reject(new Error('export pending flush failed')));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {

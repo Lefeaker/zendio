@@ -1254,12 +1254,16 @@ describe('VideoSession', () => {
     expect(isVideoSessionActive(document)).toBe(false);
     await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
     await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
-    expect(await readDraftIndex(deps)).toMatchObject({
-      entries: expect.arrayContaining([
+    const draftIndex = await readDraftIndex(deps);
+    if (!draftIndex) {
+      throw new Error('Expected session draft index');
+    }
+    expect(draftIndex.entries).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' }),
         expect.objectContaining({ draftId: restoredDraft.draftId, status: 'discarded' })
       ])
-    });
+    );
     await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
       draftId: currentDraft.draftId,
       status: 'discarded'
@@ -1304,9 +1308,9 @@ describe('VideoSession', () => {
     await sessionApi.handleAddCapture();
     trackUsageEvent.mockClear();
     view.updateHint.mockClear();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(async () => {
-      throw new Error('cancel terminal save failed');
-    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
+      Promise.reject(new Error('cancel terminal save failed'))
+    );
 
     requireMountedPanelCallbacks(mountedCallbacks).onCancel();
     await waitForMockCalls(view.updateHint);
@@ -1423,12 +1427,16 @@ describe('VideoSession', () => {
           draftId: existing.draftId
         })
       );
-      expect(await readDraftIndex(deps)).toMatchObject({
-        entries: expect.arrayContaining([
+      const draftIndex = await readDraftIndex(deps);
+      if (!draftIndex) {
+        throw new Error('Expected session draft index');
+      }
+      expect(draftIndex.entries).toEqual(
+        expect.arrayContaining([
           expect.objectContaining({ draftId: 'existing-draft', status: 'active' }),
           expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })
         ])
-      });
+      );
       await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
         draftId: currentDraft.draftId,
         status: 'discarded'
@@ -3360,12 +3368,16 @@ describe('VideoSession', () => {
     expect(isVideoSessionActive(document)).toBe(false);
     await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
     await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
-    expect(await readDraftIndex(deps)).toMatchObject({
-      entries: expect.arrayContaining([
+    const draftIndex = await readDraftIndex(deps);
+    if (!draftIndex) {
+      throw new Error('Expected session draft index');
+    }
+    expect(draftIndex.entries).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({ draftId: currentDraft.draftId, status: 'exported' }),
         expect.objectContaining({ draftId: restoredDraft.draftId, status: 'exported' })
       ])
-    });
+    );
     await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
       draftId: currentDraft.draftId,
       status: 'exported'
@@ -3448,9 +3460,9 @@ describe('VideoSession', () => {
     await sessionApi.handleAddCapture();
     trackUsageEvent.mockClear();
     view.updateHint.mockClear();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(async () => {
-      throw new Error('export terminal save failed');
-    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
+      Promise.reject(new Error('export terminal save failed'))
+    );
 
     await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
 

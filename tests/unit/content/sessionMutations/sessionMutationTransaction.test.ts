@@ -27,7 +27,7 @@ describe('sessionMutationTransaction', () => {
       events.push(`commit:${result.id}:${saveResult.status}`);
     });
 
-    const result = await runSessionMutationTransaction({
+    const result = await runSessionMutationTransaction<typeof applyResult, { status: 'ok' }>({
       apply: () => {
         events.push('apply');
         return applyResult;
@@ -35,9 +35,9 @@ describe('sessionMutationTransaction', () => {
       afterApply: (mutationResult) => {
         events.push(`afterApply:${mutationResult.id}`);
       },
-      save: async (): Promise<{ status: 'ok' }> => {
+      save: (): Promise<{ status: 'ok' }> => {
         events.push('save');
-        return { status: 'ok' };
+        return Promise.resolve({ status: 'ok' });
       },
       commit,
       rollback
@@ -56,9 +56,7 @@ describe('sessionMutationTransaction', () => {
 
     const result = await runSessionMutationTransaction({
       apply: () => ({ id: 'capture-1' }),
-      save: async () => {
-        throw saveError;
-      },
+      save: () => Promise.reject(saveError),
       rollback,
       onSaveError
     });
@@ -78,9 +76,9 @@ describe('sessionMutationTransaction', () => {
     const rollback = vi.fn();
     const commit = vi.fn();
 
-    const result = await runSessionMutationTransaction({
+    const result = await runSessionMutationTransaction<{ id: string }, { status: 'failure' }>({
       apply: () => ({ id: 'capture-1' }),
-      save: async (): Promise<{ status: 'failure' }> => ({ status: 'failure' }),
+      save: (): Promise<{ status: 'failure' }> => Promise.resolve({ status: 'failure' }),
       isSaveFailure: (saveResult) => saveResult.status === 'failure',
       rollback,
       commit
@@ -122,9 +120,9 @@ describe('sessionMutationTransaction', () => {
         events.push('second:apply');
         return 'second-result';
       },
-      save: async (): Promise<'saved'> => {
+      save: (): Promise<'saved'> => {
         events.push('second:save');
-        return 'saved';
+        return Promise.resolve('saved');
       },
       commit: (result, saveResult) => {
         events.push(`second:commit:${result}:${saveResult}`);
@@ -159,7 +157,7 @@ describe('sessionMutationTransaction', () => {
     await expect(
       runSessionMutationTransaction({
         apply: () => ({ id: 'capture-1' }),
-        save: async (): Promise<'saved'> => 'saved',
+        save: (): Promise<'saved'> => Promise.resolve('saved'),
         commit: () => {
           throw commitError;
         },
@@ -174,7 +172,7 @@ describe('sessionMutationTransaction', () => {
     await expect(
       runSessionMutationTransaction({
         apply: () => ({ id: 'capture-1' }),
-        save: async (): Promise<{ status: 'failure' }> => ({ status: 'failure' }),
+        save: (): Promise<{ status: 'failure' }> => Promise.resolve({ status: 'failure' }),
         isSaveFailure: (saveResult) => saveResult.status === 'failure',
         rollback: () => {
           throw rollbackError;

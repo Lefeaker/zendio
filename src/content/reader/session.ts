@@ -32,7 +32,6 @@ import {
   type SessionDraftTerminalStatus
 } from '../sessionDrafts';
 import {
-  addReaderHighlightFromRange,
   applyReaderHighlightFromRange,
   cancelReaderSession,
   finishReaderSession,
