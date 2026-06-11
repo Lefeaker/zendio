@@ -8,17 +8,14 @@ import {
 interface Deferred<T> {
   promise: Promise<T>;
   resolve(value: T | PromiseLike<T>): void;
-  reject(reason?: unknown): void;
 }
 
 function createDeferred<T>(): Deferred<T> {
   let resolve!: Deferred<T>['resolve'];
-  let reject!: Deferred<T>['reject'];
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+  const promise = new Promise<T>((resolvePromise) => {
     resolve = resolvePromise;
-    reject = rejectPromise;
   });
-  return { promise, resolve, reject };
+  return { promise, resolve };
 }
 
 describe('sessionMutationTransaction', () => {
@@ -38,9 +35,9 @@ describe('sessionMutationTransaction', () => {
       afterApply: (mutationResult) => {
         events.push(`afterApply:${mutationResult.id}`);
       },
-      save: async () => {
+      save: async (): Promise<{ status: 'ok' }> => {
         events.push('save');
-        return { status: 'ok' as const };
+        return { status: 'ok' };
       },
       commit,
       rollback
@@ -83,7 +80,7 @@ describe('sessionMutationTransaction', () => {
 
     const result = await runSessionMutationTransaction({
       apply: () => ({ id: 'capture-1' }),
-      save: async () => ({ status: 'failure' as const }),
+      save: async (): Promise<{ status: 'failure' }> => ({ status: 'failure' }),
       isSaveFailure: (saveResult) => saveResult.status === 'failure',
       rollback,
       commit
@@ -100,9 +97,9 @@ describe('sessionMutationTransaction', () => {
     const events: string[] = [];
 
     const firstRun = runner.run({
-      apply: () => {
+      apply: (): 'first-result' => {
         events.push('first:apply');
-        return 'first-result' as const;
+        return 'first-result';
       },
       save: async () => {
         events.push('first:save:start');
@@ -121,13 +118,13 @@ describe('sessionMutationTransaction', () => {
     await Promise.resolve();
 
     const secondRun = runner.run({
-      apply: () => {
+      apply: (): 'second-result' => {
         events.push('second:apply');
-        return 'second-result' as const;
+        return 'second-result';
       },
-      save: async () => {
+      save: async (): Promise<'saved'> => {
         events.push('second:save');
-        return 'saved' as const;
+        return 'saved';
       },
       commit: (result, saveResult) => {
         events.push(`second:commit:${result}:${saveResult}`);
@@ -162,7 +159,7 @@ describe('sessionMutationTransaction', () => {
     await expect(
       runSessionMutationTransaction({
         apply: () => ({ id: 'capture-1' }),
-        save: async () => 'saved' as const,
+        save: async (): Promise<'saved'> => 'saved',
         commit: () => {
           throw commitError;
         },
@@ -177,7 +174,7 @@ describe('sessionMutationTransaction', () => {
     await expect(
       runSessionMutationTransaction({
         apply: () => ({ id: 'capture-1' }),
-        save: async () => ({ status: 'failure' as const }),
+        save: async (): Promise<{ status: 'failure' }> => ({ status: 'failure' }),
         isSaveFailure: (saveResult) => saveResult.status === 'failure',
         rollback: () => {
           throw rollbackError;

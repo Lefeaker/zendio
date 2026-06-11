@@ -208,11 +208,29 @@ const FORBIDDEN_READER_PARAM_KEYS = new Set([
   'markdown'
 ]);
 
+type TabContextProbeMessage = { type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE' };
+type TabContextProbeResponse = {
+  success: true;
+  active?: boolean;
+  tabId?: number;
+  windowId?: number;
+  frameId?: number;
+};
+
 type TelemetryMessage = {
   type: 'TRACK_USAGE_EVENT';
   event: string;
   params?: Record<string, unknown>;
 };
+
+function isTabContextProbeMessage(message: object | null): message is TabContextProbeMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
+  );
+}
 
 function getTelemetryMessages(context: { messaging: { send: Mock } }): TelemetryMessage[] {
   return context.messaging.send.mock.calls.flatMap(([message]) => {
@@ -530,7 +548,7 @@ describe('ReaderSession', () => {
     expect(context.getCallbacks()).toBeDefined();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
     expect(context.view.setHighlights).toHaveBeenLastCalledWith([]);
-    expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([]);
   });
 
   it('tracks session start with the unknown source fallback', async () => {
@@ -833,7 +851,7 @@ describe('ReaderSession', () => {
     const deletePromise = Promise.resolve(callbacks.onDeleteHighlight('h-1'));
     await flushDraftPersistence();
     await deletePromise;
-    expect((context.session as { __testHighlights: unknown[] }).__testHighlights).toEqual([]);
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([]);
     expect(context.view.updateHint).toHaveBeenLastCalledWith(
       DEFAULT_SESSION_MESSAGES.hintNoHighlights
     );
@@ -1743,17 +1761,15 @@ describe('ReaderSession', () => {
       configurable: true,
       value: {
         runtime: {
-          sendMessage: vi.fn((message: unknown, callback?: (response: unknown) => void) => {
-            if (
-              typeof message === 'object' &&
-              message !== null &&
-              (message as { type?: unknown }).type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
-            ) {
-              callback?.({ success: true, active: true });
-              return;
+          sendMessage: vi.fn(
+            (message: object | null, callback?: (response: TabContextProbeResponse) => void) => {
+              if (isTabContextProbeMessage(message)) {
+                callback?.({ success: true, active: true });
+                return;
+              }
+              callback?.({ success: true, ...currentOwner });
             }
-            callback?.({ success: true, ...currentOwner });
-          })
+          )
         }
       }
     });

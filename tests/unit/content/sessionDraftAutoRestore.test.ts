@@ -214,7 +214,7 @@ describe('sessionDraftAutoRestore', () => {
 
     await seedStoredDraft(harness, {
       ...createReaderDraftEnvelope(url),
-      status: 'discarded' as unknown as ReaderSessionDraftEnvelope['status']
+      status: 'discarded'
     });
 
     const stop = harness.start();
@@ -233,7 +233,7 @@ describe('sessionDraftAutoRestore', () => {
 
     await seedStoredDraft(harness, {
       ...videoDraft,
-      status: 'exported' as unknown as typeof videoDraft.status
+      status: 'exported'
     });
 
     const stop = harness.start();
