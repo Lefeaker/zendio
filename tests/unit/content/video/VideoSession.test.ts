@@ -204,6 +204,7 @@ type SessionTestApi = {
       };
     }>;
     commentDrafts?: Record<string, string>;
+    saving?: boolean;
   };
 };
 
@@ -2234,7 +2235,7 @@ describe('VideoSession', () => {
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
 
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+    expect(sessionApi.state.saving).toBe(true);
 
     const addPromise = sessionApi.addCurrentTimestamp('button', { beginEditing: false });
     await flushMutationWork();
@@ -2252,7 +2253,7 @@ describe('VideoSession', () => {
       kind: 'timestamp',
       timeSec: 52
     });
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(false);
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2313,14 +2314,14 @@ describe('VideoSession', () => {
 
     expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'edited note' });
     expect(saveEvents).toEqual(['save-1:start']);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+    expect(sessionApi.state.saving).toBe(true);
 
     const togglePromise = sessionApi.toggleCaptureScreenshot('ts-toggle');
     await flushMutationWork();
 
     expect(sessionApi.state.captures[1]).not.toHaveProperty('screenshotRequested');
     expect(saveEvents).toEqual(['save-1:start']);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+    expect(sessionApi.state.saving).toBe(true);
 
     firstSave.resolve('ready');
     await editPromise;
@@ -2328,21 +2329,14 @@ describe('VideoSession', () => {
 
     expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
     expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+    expect(sessionApi.state.saving).toBe(true);
 
     secondSave.resolve('ready');
     await togglePromise;
     await flushMutationWork();
 
-    expect(saveEvents).toEqual([
-      'save-1:start',
-      'save-1:end',
-      'save-2:start',
-      'save-2:end'
-    ]);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
-      false
-    );
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start', 'save-2:end']);
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2426,9 +2420,7 @@ describe('VideoSession', () => {
     await flushMutationWork();
 
     expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
-      false
-    );
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2509,9 +2501,7 @@ describe('VideoSession', () => {
     expect(trackUsageEvent).toHaveBeenCalledWith('video_fragment_added', {
       capture_count_bucket: 'two_to_five'
     });
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
-      false
-    );
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2572,18 +2562,12 @@ describe('VideoSession', () => {
     for (let index = 0; index < 10 && !saveEvents.includes('save-2:end'); index += 1) {
       await flushMutationWork();
     }
-    for (
-      let index = 0;
-      index < 10 && (sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving;
-      index += 1
-    ) {
+    for (let index = 0; index < 10 && sessionApi.state.saving; index += 1) {
       await flushMutationWork();
     }
 
     expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-3']);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
-      false
-    );
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();
@@ -2640,13 +2624,9 @@ describe('VideoSession', () => {
     await togglePromise;
     await flushMutationWork();
 
-    expect(sessionApi.state.captures).toEqual([
-      expect.objectContaining({ id: 'timestamp-1' })
-    ]);
+    expect(sessionApi.state.captures).toEqual([expect.objectContaining({ id: 'timestamp-1' })]);
     expect(saveEvents).toEqual(['save-1:start', 'save-1:end']);
-    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
-      false
-    );
+    expect(sessionApi.state.saving).toBe(false);
 
     sessionApi.cleanup();
     vi.useRealTimers();

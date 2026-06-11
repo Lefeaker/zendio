@@ -15,7 +15,7 @@ import type { VideoSessionPlatformController } from './sessionPlatformController
 import type { VideoSessionDomController } from './sessionDom';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { SessionDraftTerminalStatus } from '../sessionDrafts';
-import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTransaction';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
 export interface VideoSessionOperationContext {
   session: object;

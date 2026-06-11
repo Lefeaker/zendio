@@ -1,8 +1,8 @@
 import { bucketCount } from '../../shared/analytics';
 import type { VideoTimestampCapture } from './types';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import {
-  type VideoCaptureMutationTransaction,
   emitVideoUsageEvent,
   requestRequestedScreenshotPreparation,
   restoreRemovedFragmentHighlight,

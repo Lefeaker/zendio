@@ -16,7 +16,7 @@ import type { VideoSessionDomController } from './sessionDom';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { VideoCommentEditorPlaybackController } from './videoCommentEditorPlaybackController';
 import type { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
-import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTransaction';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 import { getSelectionForVideoNode, highlightVideoFragmentText } from './videoSessionSelection';
 import { createVideoSessionOperationContext } from './videoSessionOperationContext';

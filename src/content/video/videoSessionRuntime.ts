@@ -39,7 +39,7 @@ import {
   submitVideoSessionCaptureEdit,
   toggleVideoSessionCaptureScreenshot
 } from './videoSessionCaptureMutations';
-import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTransaction';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import {
   finalizeVideoSessionStart,
   initializeVideoSessionEnvironment

@@ -99,7 +99,7 @@ type ReaderSessionTestHarness = {
     wrapper: HTMLElement;
     footnoteIndex?: number;
   }>;
-  handleSelection(payload: unknown): void | Promise<void>;
+  handleSelection(payload: unknown): Promise<void>;
   persistDraftMutation(): Promise<void>;
   runDraftMutation<Result>(transaction: SessionMutationTransaction<Result, void>): Promise<boolean>;
   draftId: string | null;
@@ -660,9 +660,7 @@ describe('ReaderSession', () => {
 
     await context.session.initialize();
 
-    expect(
-      (context.session as unknown as { __testHighlights: ReaderHighlightRecord[] }).__testHighlights
-    ).toEqual([
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([
       expect.objectContaining({
         id: 'saved-1',
         selectedText: 'Hello reader session world.',
@@ -739,9 +737,7 @@ describe('ReaderSession', () => {
       destination: { kind: 'downloads' }
     });
 
-    expect(
-      (context.session as unknown as { __testHighlights: ReaderHighlightRecord[] }).__testHighlights
-    ).toEqual([
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([
       expect.objectContaining({
         id: 'saved-1',
         selectedText: 'Hello reader session world.',
@@ -809,9 +805,7 @@ describe('ReaderSession', () => {
     }
 
     await settleReaderMutation(
-      (
-        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-      ).handleSelection(createSelectionPayload(content.firstChild))
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
     );
 
     window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
@@ -857,20 +851,7 @@ describe('ReaderSession', () => {
       wrapper as HTMLElement & { scrollIntoView: Mock<HTMLElement['scrollIntoView']> }
     ).scrollIntoView = vi.fn<HTMLElement['scrollIntoView']>();
     document.body.appendChild(wrapper);
-    (
-      context.session as {
-        __setTestHighlights(
-          records: Array<{
-            id: string;
-            selectedHtml: string;
-            selectedText: string;
-            comment: string;
-            fragmentUrl: string;
-            wrapper: HTMLElement;
-          }>
-        ): void;
-      }
-    ).__setTestHighlights([
+    getSessionHarness(context.session).__setTestHighlights([
       {
         id: 'h-1',
         selectedHtml: '<mark>Hello</mark>',
@@ -912,15 +893,11 @@ describe('ReaderSession', () => {
     if (!content?.firstChild) {
       throw new Error('content node missing');
     }
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
+    await getSessionHarness(context.session).handleSelection(
+      createSelectionPayload(content.firstChild)
+    );
 
-    const highlights = (
-      context.session as {
-        __testHighlights: Array<{ comment: string; selectedText: string }>;
-      }
-    ).__testHighlights;
+    const highlights = getSessionHarness(context.session).__testHighlights;
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.comment).toBe('');
     expect(highlights[0]?.selectedText).toContain('Hello reader session world.');
@@ -1102,7 +1079,7 @@ describe('ReaderSession', () => {
     const firstRun = getSessionHarness(context.session).runDraftMutation({
       apply: () => {
         events.push('first:apply');
-        return 'first-result' as const;
+        return 'first-result';
       },
       save: async () => {
         events.push('first:save:start');
@@ -1122,7 +1099,7 @@ describe('ReaderSession', () => {
     const secondRun = getSessionHarness(context.session).runDraftMutation({
       apply: () => {
         events.push('second:apply');
-        return 'second-result' as const;
+        return 'second-result';
       },
       save: async () => {
         events.push('second:save');
@@ -1379,9 +1356,7 @@ describe('ReaderSession', () => {
     }
 
     const selectionPromise = Promise.resolve(
-      (
-        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-      ).handleSelection(createSelectionPayload(content.firstChild))
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
     );
     await Promise.resolve();
 
@@ -1743,9 +1718,9 @@ describe('ReaderSession', () => {
     context.highlightManager.createHighlight.mockImplementationOnce(() => {
       throw new Error('network');
     });
-    await (
-      context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-    ).handleSelection(createSelectionPayload(content.firstChild));
+    await getSessionHarness(context.session).handleSelection(
+      createSelectionPayload(content.firstChild)
+    );
     expect(context.view.updateHint).toHaveBeenCalledWith(
       DEFAULT_SESSION_MESSAGES.hintSelectionFailure
     );
@@ -1768,11 +1743,7 @@ describe('ReaderSession', () => {
     context.session.ingestExternalHighlight(range, '<p>ext</p>', 'ext', 'memo');
     await Promise.resolve();
 
-    const highlights = (
-      context.session as {
-        __testHighlights: Array<{ selectedText: string; comment: string }>;
-      }
-    ).__testHighlights;
+    const highlights = getSessionHarness(context.session).__testHighlights;
     expect(highlights).toHaveLength(1);
     expect(highlights[0]?.comment).toBe('memo');
     expect(removeSpy).toHaveBeenCalledTimes(1);
@@ -1821,20 +1792,7 @@ describe('ReaderSession', () => {
     wrapper.dataset.readerHighlightId = 'h-export';
     wrapper.textContent = 'Export me';
     document.body.appendChild(wrapper);
-    (
-      context.session as {
-        __setTestHighlights(
-          records: Array<{
-            id: string;
-            selectedHtml: string;
-            selectedText: string;
-            comment: string;
-            fragmentUrl: string;
-            wrapper: HTMLElement;
-          }>
-        ): void;
-      }
-    ).__setTestHighlights([
+    getSessionHarness(context.session).__setTestHighlights([
       {
         id: 'h-export',
         selectedHtml: '<mark>Export me</mark>',
@@ -1890,20 +1848,7 @@ describe('ReaderSession', () => {
     wrapper.dataset.readerHighlightId = 'h-export';
     wrapper.textContent = 'Export me';
     document.body.appendChild(wrapper);
-    (
-      context.session as {
-        __setTestHighlights(
-          records: Array<{
-            id: string;
-            selectedHtml: string;
-            selectedText: string;
-            comment: string;
-            fragmentUrl: string;
-            wrapper: HTMLElement;
-          }>
-        ): void;
-      }
-    ).__setTestHighlights([
+    getSessionHarness(context.session).__setTestHighlights([
       {
         id: 'h-export',
         selectedHtml: '<mark>Export me</mark>',
@@ -2449,20 +2394,7 @@ describe('ReaderSession', () => {
     wrapper.dataset.readerHighlightId = 'h-fail';
     wrapper.textContent = 'Export me';
     document.body.appendChild(wrapper);
-    (
-      context.session as {
-        __setTestHighlights(
-          records: Array<{
-            id: string;
-            selectedHtml: string;
-            selectedText: string;
-            comment: string;
-            fragmentUrl: string;
-            wrapper: HTMLElement;
-          }>
-        ): void;
-      }
-    ).__setTestHighlights([
+    getSessionHarness(context.session).__setTestHighlights([
       {
         id: 'h-fail',
         selectedHtml: '<mark>Export me</mark>',
@@ -2529,20 +2461,7 @@ describe('ReaderSession', () => {
     wrapper.dataset.readerHighlightId = 'h-export';
     wrapper.textContent = 'Export me';
     document.body.appendChild(wrapper);
-    (
-      context.session as {
-        __setTestHighlights(
-          records: Array<{
-            id: string;
-            selectedHtml: string;
-            selectedText: string;
-            comment: string;
-            fragmentUrl: string;
-            wrapper: HTMLElement;
-          }>
-        ): void;
-      }
-    ).__setTestHighlights([
+    getSessionHarness(context.session).__setTestHighlights([
       {
         id: 'h-export',
         selectedHtml: '<mark>Export me</mark>',
@@ -2578,9 +2497,7 @@ describe('ReaderSession', () => {
       throw new Error('content node missing');
     }
     await settleReaderMutation(
-      (
-        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-      ).handleSelection(createSelectionPayload(content.firstChild))
+      getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
     );
 
     const callbacks = context.getCallbacks();
@@ -2642,16 +2559,13 @@ describe('ReaderSession', () => {
     content.firstChild.textContent = 'Private Quote';
 
     await settleReaderMutation(
-      (
-        context.session as unknown as { handleSelection(payload: unknown): Promise<void> }
-      ).handleSelection({
+      getSessionHarness(context.session).handleSelection({
         ...createSelectionPayload(content.firstChild),
         selectedHtml: '<mark>Private Quote</mark>',
         selectedText: 'Private Quote'
       })
     );
-    const [restoredHighlight] = (context.session as { __testHighlights: Array<{ id: string }> })
-      .__testHighlights;
+    const [restoredHighlight] = getSessionHarness(context.session).__testHighlights;
     if (!restoredHighlight) {
       throw new Error('reader highlight missing');
     }

@@ -11,24 +11,19 @@ import {
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import {
-  runSessionMutationTransaction,
-  type SessionMutationFailure,
-  type SessionMutationTransaction
-} from '@content/sessionDrafts';
+import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
-export type VideoCaptureMutationFailure = SessionMutationFailure;
-
-export type VideoCaptureMutationTransaction<Result> = SessionMutationTransaction<
-  Result,
-  VideoHintState | null
->;
+export type {
+  VideoCaptureMutationFailure,
+  VideoCaptureMutationTransaction
+} from './videoCaptureMutationTypes';
 
 export async function runVideoCaptureMutationTransaction<Result>(
   transaction: VideoCaptureMutationTransaction<Result>
