@@ -1,5 +1,6 @@
 import type { ClipResult } from './IClipRepository';
 import type { VideoOptions } from '../types/options';
+import type { ClipAttachment } from '../types';
 import type { ExportDestinationMetadata } from '../exportDestination';
 
 /**
@@ -13,12 +14,7 @@ export interface VideoClipData {
   timestamp: number;
   duration?: number;
   platform: 'youtube' | 'bilibili' | 'other';
-  attachments?: Array<{
-    id: string;
-    fileName: string;
-    mimeType: string;
-    dataUrl: string;
-  }>;
+  attachments?: ClipAttachment[];
   exportDestination?: ExportDestinationMetadata;
 }
 

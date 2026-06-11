@@ -2,6 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { ClipPayloadSchema } from '@shared/schemas';
 
 describe('ClipPayloadSchema', () => {
+  const legacyAttachment = {
+    id: 'shot-1',
+    fileName: 'frame.jpg',
+    mimeType: 'image/jpeg',
+    dataUrl: 'data:image/jpeg;base64,aaa'
+  };
+
   it('accepts minimal valid payload', () => {
     const res = ClipPayloadSchema.safeParse({ markdown: '# title' });
     expect(res.success).toBe(true);
@@ -36,10 +43,7 @@ describe('ClipPayloadSchema', () => {
         storageKey: 'video:1',
         attachments: [
           {
-            id: 'shot-1',
-            fileName: 'frame.jpg',
-            mimeType: 'image/jpeg',
-            dataUrl: 'data:image/jpeg;base64,aaa',
+            ...legacyAttachment,
             ignored: true
           }
         ],
@@ -53,12 +57,7 @@ describe('ClipPayloadSchema', () => {
       expect(res.data.meta?.platform).toBe('web');
       expect('extraTop' in res.data).toBe(false);
       expect('extra' in (res.data.meta ?? {})).toBe(false);
-      expect(res.data.meta?.attachments?.[0]).toEqual({
-        id: 'shot-1',
-        fileName: 'frame.jpg',
-        mimeType: 'image/jpeg',
-        dataUrl: 'data:image/jpeg;base64,aaa'
-      });
+      expect(res.data.meta?.attachments?.[0]).toEqual(legacyAttachment);
       expect(res.data.meta?.exportDestination).toEqual({
         kind: 'vault',
         vaultId: 'local-vault'
@@ -71,6 +70,43 @@ describe('ClipPayloadSchema', () => {
     expect(res.success).toBe(false);
   });
 
+  it('accepts binary attachment payloads and strips nested extras', () => {
+    const res = ClipPayloadSchema.safeParse({
+      markdown: 'content',
+      type: 'video',
+      meta: {
+        attachments: [
+          {
+            id: 'shot-2',
+            fileName: 'frame.jpg',
+            mimeType: 'image/jpeg',
+            content: {
+              encoding: 'base64',
+              data: 'Zm9v',
+              byteLength: 3,
+              ignored: true
+            },
+            ignored: true
+          }
+        ]
+      }
+    });
+
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.meta?.attachments?.[0]).toEqual({
+        id: 'shot-2',
+        fileName: 'frame.jpg',
+        mimeType: 'image/jpeg',
+        content: {
+          encoding: 'base64',
+          data: 'Zm9v',
+          byteLength: 3
+        }
+      });
+    }
+  });
+
   it('rejects malformed bounded meta fields', () => {
     expect(
       ClipPayloadSchema.safeParse({
@@ -78,6 +114,42 @@ describe('ClipPayloadSchema', () => {
         meta: {
           attachments: [{ id: 'shot-1', fileName: 'frame.jpg', mimeType: 'image/jpeg' }],
           exportDestination: { kind: 'external' }
+        }
+      }).success
+    ).toBe(false);
+
+    expect(
+      ClipPayloadSchema.safeParse({
+        markdown: 'content',
+        meta: {
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'frame.jpg',
+              mimeType: 'image/png',
+              dataUrl: 'data:image/jpeg;base64,aaa'
+            }
+          ]
+        }
+      }).success
+    ).toBe(false);
+
+    expect(
+      ClipPayloadSchema.safeParse({
+        markdown: 'content',
+        meta: {
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'frame.jpg',
+              mimeType: 'image/jpeg',
+              content: {
+                encoding: 'base64',
+                data: 'Zm9v',
+                byteLength: -1
+              }
+            }
+          ]
         }
       }).success
     ).toBe(false);

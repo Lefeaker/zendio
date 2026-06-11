@@ -1,5 +1,6 @@
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { AnalyticsSource } from '../../shared/analytics';
+import type { ClipAttachment } from '../../shared/types';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
@@ -13,7 +14,7 @@ export type ClipAnalyticsSource = Extract<
 export type ClipFlowResult = {
   markdown?: string;
   type?: string;
-  meta?: ({ attachments?: unknown[] } & Record<string, unknown>) | undefined;
+  meta?: ({ attachments?: ClipAttachment[] } & Record<string, unknown>) | undefined;
 };
 
 export interface SelectionPromptLifecycleHandlers {

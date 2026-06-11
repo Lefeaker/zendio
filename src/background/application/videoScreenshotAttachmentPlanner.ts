@@ -1,4 +1,9 @@
 import {
+  type SerializedClipAttachmentContent,
+  isLegacyDataUrlForMimeType,
+  isSerializedClipAttachmentBinaryContent
+} from '../../shared/attachments/clipAttachmentBinary';
+import {
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_FILE_NAME_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_LOCATION_TEMPLATE,
   DEFAULT_VIDEO_SCREENSHOT_ATTACHMENT_MARKDOWN_URL_FORMAT,
@@ -14,7 +19,7 @@ type ClipAttachment = {
   id: string;
   fileName: string;
   mimeType: string;
-  dataUrl: string;
+  content: SerializedClipAttachmentContent;
   capturedAt?: number;
 };
 
@@ -22,6 +27,8 @@ export type PreparedClipAttachment = {
   id: string;
   fileName: string;
   mimeType: string;
+  content: SerializedClipAttachmentContent;
+  // Compatibility bridge until background writers consume structured attachment content directly.
   dataUrl: string;
   outputPath: string;
   markdownPath: string;
@@ -110,7 +117,8 @@ function prepareConfiguredVideoAttachments(
     id: attachment.id,
     fileName: resolved.generatedFileName,
     mimeType: attachment.mimeType,
-    dataUrl: attachment.dataUrl,
+    content: attachment.content,
+    dataUrl: toLegacyDataUrlForPreparedAttachment(attachment),
     outputPath: resolved.outputPath,
     markdownPath: resolved.markdownPath,
     markdownUrl: resolved.markdownUrl
@@ -135,7 +143,8 @@ function prepareLegacyAttachments(
       id: attachment.id,
       fileName: getLastPathSegment(nextPath),
       mimeType: attachment.mimeType,
-      dataUrl: attachment.dataUrl,
+      content: attachment.content,
+      dataUrl: toLegacyDataUrlForPreparedAttachment(attachment),
       outputPath: destination === 'downloads' ? nextPath : joinPath(noteDirectory, nextPath),
       markdownPath: nextPath,
       markdownUrl: nextPath
@@ -154,12 +163,12 @@ function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] 
   return value.flatMap((item): ClipAttachment[] => {
     if (!isObjectRecord(item)) return [];
     const candidate = item;
+    const content = parseAttachmentContent(candidate);
     if (
       typeof candidate.id !== 'string' ||
       typeof candidate.fileName !== 'string' ||
       typeof candidate.mimeType !== 'string' ||
-      typeof candidate.dataUrl !== 'string' ||
-      !candidate.dataUrl.startsWith(`data:${candidate.mimeType};base64,`)
+      content === null
     ) {
       return [];
     }
@@ -168,13 +177,31 @@ function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] 
         id: candidate.id,
         fileName: candidate.fileName,
         mimeType: candidate.mimeType,
-        dataUrl: candidate.dataUrl,
+        content,
         ...(typeof candidate.capturedAt === 'number' && Number.isFinite(candidate.capturedAt)
           ? { capturedAt: candidate.capturedAt }
           : {})
       }
     ];
   });
+}
+function parseAttachmentContent(record: Record<string, unknown>): SerializedClipAttachmentContent | null {
+  if (isSerializedClipAttachmentBinaryContent(record.content)) {
+    return { kind: 'base64', binary: record.content };
+  }
+  if (isLegacyDataUrlForMimeType(record.dataUrl, String(record.mimeType ?? ''))) {
+    return { kind: 'legacyDataUrl', dataUrl: record.dataUrl };
+  }
+  return null;
+}
+function toLegacyDataUrlForPreparedAttachment(attachment: {
+  mimeType: string;
+  content: SerializedClipAttachmentContent;
+}): string {
+  if (attachment.content.kind === 'legacyDataUrl') {
+    return attachment.content.dataUrl;
+  }
+  return `data:${attachment.mimeType};base64,${attachment.content.binary.data}`;
 }
 function isDefaultScreenshotAttachmentOptions(options: VideoScreenshotAttachmentOptions): boolean {
   return (
