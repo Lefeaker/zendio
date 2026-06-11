@@ -78,7 +78,9 @@ export async function initializeErrorAnalytics(
         batchSize: config.batchSize,
         ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
         ...(config.clientId !== undefined && { clientId: config.clientId }),
-        ...(config.sessionId !== undefined && { sessionId: config.sessionId })
+        ...(config.sessionId !== undefined && { sessionId: config.sessionId }),
+        ...(config.userConsent ? { userConsent: config.userConsent } : {}),
+        resolveAnalyticsConfig: () => getAnalyticsConfigManager().getConfig()
       });
 
       registerReporter('ga', targetErrorHandler.addReporter(gaReporter));
@@ -123,19 +125,21 @@ export function disableErrorAnalytics(): void {
     console.warn('[Error Analytics] Failed to disable error reporting:', error);
   }
 }
-
 /**
  * 更新错误分析配置
  *
  * 当用户更改隐私设置时调用
  */
-export async function updateErrorAnalyticsConfig(enabled: boolean): Promise<void> {
+export async function updateErrorAnalyticsConfig(
+  enabled: boolean,
+  targetErrorHandler: Pick<ErrorHandler, 'addReporter'> = getErrorHandlerInstance()
+): Promise<void> {
   try {
     if (enabled && shouldReportErrors()) {
       // 如果启用且之前未初始化，重新初始化
       const registry = getReporterRegistry();
       if (!registry.ga && !registry.sentry) {
-        await initializeErrorAnalytics();
+        await initializeErrorAnalytics(targetErrorHandler);
       }
     } else {
       // 如果禁用，停用现有的报告器

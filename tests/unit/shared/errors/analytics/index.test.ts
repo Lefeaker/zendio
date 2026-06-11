@@ -1,5 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const currentAnalyticsConfig = vi.hoisted(() => ({
+  enabled: true,
+  debugMode: false,
+  measurementId: 'G-LIVE456',
+  transportMode: 'proxy' as const,
+  proxyEndpoint: 'https://analytics.example.test/live',
+  clientId: 'client-live',
+  sessionId: 'session-live',
+  userConsent: {
+    analytics: true,
+    errorReporting: true,
+    timestamp: 200,
+    version: '1.0'
+  },
+  reportingInterval: 30000,
+  maxErrorsPerSession: 50,
+  batchSize: 10
+}));
 const initializeAnalyticsConfigMock = vi.hoisted(() =>
   vi.fn(async () => ({
     enabled: true,
@@ -8,7 +26,20 @@ const initializeAnalyticsConfigMock = vi.hoisted(() =>
     transportMode: 'proxy' as const,
     proxyEndpoint: 'https://analytics.example.test/ga4',
     clientId: 'client-1',
-    sessionId: 'session-1'
+    sessionId: 'session-1',
+    userConsent: {
+      analytics: true,
+      errorReporting: true,
+      timestamp: 100,
+      version: '1.0'
+    },
+    reportingInterval: 30000,
+    batchSize: 10
+  }))
+);
+const getAnalyticsConfigManagerMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    getConfig: () => currentAnalyticsConfig
   }))
 );
 const shouldReportErrorsMock = vi.hoisted(() => vi.fn(() => true));
@@ -22,11 +53,14 @@ const getSentryBuildConfigMock = vi.hoisted(() =>
     release: '1.2.3'
   }))
 );
+const getErrorHandlerInstanceMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    addReporter: vi.fn(() => vi.fn())
+  }))
+);
 
 vi.mock('../../../../../src/shared/errors/analytics/analyticsConfig', () => ({
-  getAnalyticsConfigManager: vi.fn(() => ({
-    getConfig: () => ({ enabled: true, clientId: 'client-1' })
-  })),
+  getAnalyticsConfigManager: getAnalyticsConfigManagerMock,
   initializeAnalyticsConfig: initializeAnalyticsConfigMock,
   shouldReportErrors: shouldReportErrorsMock
 }));
@@ -43,10 +77,16 @@ vi.mock('../../../../../src/shared/errors/analytics/sentryConfig', () => ({
   getSentryBuildConfig: getSentryBuildConfigMock
 }));
 
+vi.mock('../../../../../src/shared/errors/index', () => ({
+  getErrorHandlerInstance: getErrorHandlerInstanceMock,
+  handleError: vi.fn()
+}));
+
 describe('error analytics initialization', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    delete (globalThis as { __errorReporterUnregisters?: unknown }).__errorReporterUnregisters;
   });
 
   it('registers GA and sentry reporters with stable session config across repeated initialization', async () => {
@@ -73,7 +113,14 @@ describe('error analytics initialization', () => {
         transportMode: 'proxy',
         proxyEndpoint: 'https://analytics.example.test/ga4',
         clientId: 'client-1',
-        sessionId: 'session-1'
+        sessionId: 'session-1',
+        userConsent: {
+          analytics: true,
+          errorReporting: true,
+          timestamp: 100,
+          version: '1.0'
+        },
+        resolveAnalyticsConfig: expect.any(Function)
       })
     );
     expect(createGoogleAnalyticsReporterMock).toHaveBeenNthCalledWith(
@@ -83,9 +130,18 @@ describe('error analytics initialization', () => {
         transportMode: 'proxy',
         proxyEndpoint: 'https://analytics.example.test/ga4',
         clientId: 'client-1',
-        sessionId: 'session-1'
+        sessionId: 'session-1',
+        userConsent: {
+          analytics: true,
+          errorReporting: true,
+          timestamp: 100,
+          version: '1.0'
+        },
+        resolveAnalyticsConfig: expect.any(Function)
       })
     );
+    const firstReporterConfig = createGoogleAnalyticsReporterMock.mock.calls[0]?.[0];
+    expect(firstReporterConfig?.resolveAnalyticsConfig()).toBe(currentAnalyticsConfig);
     expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(2);
     expect(addReporter).toHaveBeenCalledTimes(4);
     expect(unregisterGa1).toHaveBeenCalledTimes(1);
@@ -110,5 +166,22 @@ describe('error analytics initialization', () => {
     expect(module.getErrorAnalyticsStatus()).toMatchObject({
       hasReporter: false
     });
+  });
+
+  it('reinitializes against the provided handler when consent is restored without active reporters', async () => {
+    const targetAddReporter = vi.fn(() => vi.fn());
+    const targetErrorHandler = { addReporter: targetAddReporter };
+    getSentryBuildConfigMock.mockReturnValueOnce({
+      enabled: false,
+      dsn: undefined,
+      environment: 'test',
+      release: '1.2.3'
+    });
+
+    const module = await import('../../../../../src/shared/errors/analytics');
+    await module.updateErrorAnalyticsConfig(true, targetErrorHandler);
+
+    expect(targetAddReporter).toHaveBeenCalledTimes(1);
+    expect(getErrorHandlerInstanceMock).not.toHaveBeenCalled();
   });
 });

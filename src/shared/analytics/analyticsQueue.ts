@@ -1,3 +1,4 @@
+import { hasConsentForAnalyticsEvent } from './analyticsConsent';
 import { isAllowedAnalyticsEventName } from './analyticsSanitizers';
 import type { AnalyticsEventName } from './eventCatalog';
 import { sendAnalyticsTransportEvent, type AnalyticsTransportResult } from './analyticsTransport';
@@ -81,7 +82,7 @@ export function createAnalyticsEventQueue(
       let failed = 0;
 
       for (const entry of batch) {
-        if (!hasConsentForEvent(config, entry.eventName)) {
+        if (!hasConsentForAnalyticsEvent(config, entry.eventName)) {
           skipped += 1;
           continue;
         }
@@ -115,19 +116,6 @@ export function createAnalyticsEventQueue(
       return entries.map((entry) => ({ ...entry }));
     }
   };
-}
-
-function hasConsentForEvent(config: AnalyticsConfig, eventName: AnalyticsEventName): boolean {
-  if (!config.enabled) {
-    return false;
-  }
-  if (!config.userConsent) {
-    return true;
-  }
-  if (eventName === 'extension_error') {
-    return config.userConsent?.errorReporting === true;
-  }
-  return config.userConsent?.analytics === true;
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {

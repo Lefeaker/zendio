@@ -18,7 +18,7 @@ type ContentAnalyticsModule = {
   initializeContentErrorAnalytics: (
     storage: StorageService,
     errorHandler: Pick<ErrorHandler, 'addReporter'>
-  ) => Promise<void>;
+  ) => Promise<() => void>;
 };
 
 const defaultPlatformModuleLoader = (): PlatformModule => {
@@ -80,6 +80,7 @@ export class ContentScriptContext {
   private scopedRegistry: ScopedServiceRegistry;
   private isDisposed = false;
   private cleanupGlobalErrorBoundary: (() => void) | null = null;
+  private cleanupErrorAnalytics: (() => void) | null = null;
   private readonly handleVisibilityChange = (): void => {
     if (document.hidden) {
       this.closeActivePopups({ transient: true });
@@ -128,6 +129,8 @@ export class ContentScriptContext {
     this.scopedRegistry.disposeScope();
     this.cleanupGlobalErrorBoundary?.();
     this.cleanupGlobalErrorBoundary = null;
+    this.cleanupErrorAnalytics?.();
+    this.cleanupErrorAnalytics = null;
     this.removeCleanupListeners();
 
     console.log('[ContentScript] Context disposed');
@@ -170,6 +173,16 @@ export class ContentScriptContext {
       .then(({ initializeContentErrorAnalytics }) =>
         initializeContentErrorAnalytics(storage, errorHandler)
       )
+      .then((cleanupErrorAnalytics) => {
+        const cleanup =
+          typeof cleanupErrorAnalytics === 'function' ? cleanupErrorAnalytics : () => undefined;
+        if (this.isDisposed) {
+          cleanup();
+          return;
+        }
+        this.cleanupErrorAnalytics?.();
+        this.cleanupErrorAnalytics = cleanup;
+      })
       .catch((error) => {
         console.warn('[ContentScript] Failed to initialize error analytics:', error);
       });

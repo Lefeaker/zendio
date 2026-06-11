@@ -11,6 +11,7 @@ import { sanitizeErrorForAnalytics } from './dataSanitizer';
 import { DEFAULT_ANALYTICS_CONFIG, type AnalyticsConfig } from './analyticsConfig';
 import {
   createAnalyticsEventQueue,
+  hasConsentForAnalyticsEvent,
   sendAnalyticsTransportEvent,
   type AnalyticsEventQueue
 } from '../../analytics';
@@ -21,13 +22,14 @@ import type { PlatformServices } from '@platform/types';
 // GA4 配置接口
 export interface GoogleAnalyticsConfig extends Pick<
   AnalyticsConfig,
-  'measurementId' | 'enabled' | 'transportMode' | 'proxyEndpoint'
+  'measurementId' | 'enabled' | 'transportMode' | 'proxyEndpoint' | 'userConsent'
 > {
   debugMode?: boolean;
   sessionId?: string;
   clientId?: string;
   reportingInterval?: number;
   batchSize?: number;
+  resolveAnalyticsConfig?: () => AnalyticsConfig;
 }
 
 // GA4 事件参数接口
@@ -74,7 +76,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   }
 
   async report(error: AppError): Promise<void> {
-    if (!this.config.enabled) {
+    const transportConfig = this.createTransportConfig();
+    if (!hasConsentForAnalyticsEvent(transportConfig, 'extension_error')) {
+      this.eventQueue.clear();
       return;
     }
 
@@ -92,7 +96,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         return;
       }
 
-      if (this.config.debugMode && result.sent > 0) {
+      if (transportConfig.debugMode && result.sent > 0) {
         console.log('[GA Reporter] Error reported:', {
           code: eventParams.error_code,
           domain: eventParams.error_domain,
@@ -207,19 +211,42 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   }
 
   private createTransportConfig(): AnalyticsConfig {
+    const liveConfig = this.resolveLiveAnalyticsConfig();
     return {
-      enabled: this.config.enabled,
-      debugMode: this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
-      measurementId: this.config.measurementId,
-      transportMode: this.config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
-      ...(this.config.proxyEndpoint ? { proxyEndpoint: this.config.proxyEndpoint } : {}),
+      enabled: liveConfig?.enabled ?? this.config.enabled,
+      debugMode:
+        liveConfig?.debugMode ?? this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
+      measurementId: liveConfig?.measurementId ?? this.config.measurementId,
+      transportMode:
+        liveConfig?.transportMode ??
+        this.config.transportMode ??
+        DEFAULT_ANALYTICS_CONFIG.transportMode,
+      ...((liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint)
+        ? { proxyEndpoint: liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint }
+        : {}),
       clientId: this.clientId,
       sessionId: this.sessionId,
       reportingInterval:
-        this.config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
-      maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
-      batchSize: this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
+        liveConfig?.reportingInterval ??
+        this.config.reportingInterval ??
+        DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      maxErrorsPerSession:
+        liveConfig?.maxErrorsPerSession ?? DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
+      batchSize:
+        liveConfig?.batchSize ?? this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize,
+      ...((liveConfig?.userConsent ?? this.config.userConsent)
+        ? { userConsent: liveConfig?.userConsent ?? this.config.userConsent }
+        : {})
     };
+  }
+
+  private resolveLiveAnalyticsConfig(): AnalyticsConfig | null {
+    try {
+      return this.config.resolveAnalyticsConfig?.() ?? null;
+    } catch (error) {
+      console.warn('[GA Reporter] Failed to resolve live analytics config:', error);
+      return null;
+    }
   }
 
   private generateClientId(): string {
@@ -287,7 +314,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   // 获取当前配置状态
   getConfig(): GoogleAnalyticsConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      ...(this.config.userConsent ? { userConsent: { ...this.config.userConsent } } : {})
+    };
   }
 
   // 检查是否启用

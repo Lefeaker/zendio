@@ -111,6 +111,33 @@ describe('analytics queue', () => {
     expect(queue.size()).toBe(0);
   });
 
+  it('skips queued usage events when only error-reporting consent remains', async () => {
+    const { createAnalyticsEventQueue } = await import('../../../src/shared/analytics');
+    const sender = vi.fn(() =>
+      Promise.resolve({
+        status: 'sent' as const,
+        transportMode: 'proxy' as const,
+        responseStatus: 200
+      })
+    );
+    const queue = createAnalyticsEventQueue({
+      getConfig: () =>
+        createConfig({ userConsent: { ...consent, analytics: false, errorReporting: true } }),
+      send: sender,
+      now: () => 100000
+    });
+
+    queue.enqueue('support_like_clicked', { variant: 'first' });
+
+    expect(await queue.flush({ force: true })).toEqual({
+      sent: 0,
+      skipped: 1,
+      failed: 0,
+      remaining: 0
+    });
+    expect(sender).not.toHaveBeenCalled();
+  });
+
   it('allows error events with errorReporting consent but without usage analytics consent', async () => {
     const { createAnalyticsEventQueue } = await import('../../../src/shared/analytics');
     const sender = vi.fn(() =>
@@ -141,5 +168,37 @@ describe('analytics queue', () => {
       remaining: 0
     });
     expect(sender).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips queued error events when only analytics consent remains', async () => {
+    const { createAnalyticsEventQueue } = await import('../../../src/shared/analytics');
+    const sender = vi.fn(() =>
+      Promise.resolve({
+        status: 'sent' as const,
+        transportMode: 'proxy' as const,
+        responseStatus: 200
+      })
+    );
+    const queue = createAnalyticsEventQueue({
+      getConfig: () =>
+        createConfig({ userConsent: { ...consent, analytics: true, errorReporting: false } }),
+      send: sender,
+      now: () => 100000
+    });
+
+    queue.enqueue('extension_error', {
+      error_code: 'ERR_TEST',
+      error_domain: 'runtime',
+      error_severity: 'low',
+      error_recoverable: true
+    });
+
+    expect(await queue.flush({ force: true })).toEqual({
+      sent: 0,
+      skipped: 1,
+      failed: 0,
+      remaining: 0
+    });
+    expect(sender).not.toHaveBeenCalled();
   });
 });
