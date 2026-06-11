@@ -25,8 +25,11 @@ import {
   createSessionDraftPersister,
   createSessionDraftRepository,
   createSessionDraftStorageKey,
+  type ReaderSessionDraftEnvelope,
   type SessionDraftPersister,
-  type SessionDraftRepository
+  type SessionDraftRepository,
+  type SessionDraftStatus,
+  type SessionDraftTerminalStatus
 } from '../sessionDrafts';
 import {
   addReaderHighlightFromRange,
@@ -85,6 +88,8 @@ export class ReaderSession {
       persistDraftMutation: () => this.persistDraftMutation(),
       disposeDraftPersistence: () => this.disposeDraftPersistence(),
       clearPersistedDraft: () => this.clearPersistedDraft(),
+      finalizeTerminalDraft: (status: SessionDraftTerminalStatus) =>
+        this.finalizeTerminalDraft(status),
       runDraftMutation: <Result>(transaction: SessionMutationTransaction<Result, void>) =>
         this.runDraftMutation(transaction)
     };
@@ -444,10 +449,10 @@ export class ReaderSession {
   }
 
   private cancel(): void {
-    cancelReaderSession(this.operationContext);
+    void cancelReaderSession(this.operationContext);
   }
 
-  private buildDraftEnvelope(status: 'active' | 'restorable') {
+  private buildDraftEnvelope(status: SessionDraftStatus) {
     const now = Date.now();
     const draftId = this.draftId ?? createReaderSessionDraftId(now);
     const createdAt = this.draftCreatedAt ?? now;
@@ -505,6 +510,85 @@ export class ReaderSession {
       console.warn('[ReaderSession] Failed to persist session draft:', error);
       this.panelCoordinator.applyHint('failure', this.state.highlights.length);
     });
+  }
+
+  private async finalizeTerminalDraft(status: SessionDraftTerminalStatus): Promise<boolean> {
+    if (status === 'discarded' && !this.draftStorageKey) {
+      return true;
+    }
+
+    try {
+      await this.draftPersister.flushNow();
+    } catch (error) {
+      console.warn(
+        '[ReaderSession] Failed to flush session draft before terminal finalization:',
+        error
+      );
+      return false;
+    }
+
+    const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);
+    if (!terminalEnvelope) {
+      return true;
+    }
+
+    const draftStorageKey =
+      this.draftStorageKey ??
+      createSessionDraftStorageKey({
+        mode: terminalEnvelope.mode,
+        pageKey: terminalEnvelope.pageKey,
+        draftId: terminalEnvelope.draftId
+      });
+
+    this.draftId = terminalEnvelope.draftId;
+    this.draftCreatedAt = terminalEnvelope.createdAt;
+    this.draftStorageKey = draftStorageKey;
+
+    try {
+      await this.draftRepository.save(terminalEnvelope);
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to finalize terminal session draft:', error);
+      return false;
+    }
+
+    try {
+      await this.draftRepository.remove({ key: draftStorageKey });
+    } catch (error) {
+      console.warn(
+        '[ReaderSession] Failed to remove terminal session draft after finalization:',
+        error
+      );
+    }
+
+    return true;
+  }
+
+  private async buildTerminalDraftEnvelope(
+    status: SessionDraftTerminalStatus
+  ): Promise<ReaderSessionDraftEnvelope | null> {
+    const currentEnvelope = this.buildDraftEnvelope(status);
+    if (currentEnvelope) {
+      return currentEnvelope;
+    }
+
+    if (!this.draftStorageKey) {
+      return null;
+    }
+
+    const stored = await this.dependencies.storage.local.get<ReaderSessionDraftEnvelope>(
+      this.draftStorageKey
+    );
+    if (!stored || stored.mode !== 'reader') {
+      return null;
+    }
+
+    const now = Date.now();
+    return {
+      ...stored,
+      status,
+      updatedAt: now,
+      expiresAt: now
+    };
   }
 
   private async runDraftMutation<Result>(
