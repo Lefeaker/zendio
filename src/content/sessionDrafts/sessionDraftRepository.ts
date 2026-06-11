@@ -26,6 +26,7 @@ import {
   DEFAULT_SESSION_DRAFT_TTL_MS,
   SESSION_DRAFT_MAX_ENTRIES,
   SESSION_DRAFT_MAX_ENVELOPE_BYTES,
+  isRestorableSessionDraftStatus,
   type SessionDraftEnvelope,
   type SessionDraftIndexEntry,
   type SessionDraftMode,
@@ -246,6 +247,10 @@ export function createSessionDraftRepository(
         expectedKey !== entry.key
       ) {
         invalidKeys.push(entry.key);
+        continue;
+      }
+
+      if (!isRestorableSessionDraftStatus(envelope.status)) {
         continue;
       }
 

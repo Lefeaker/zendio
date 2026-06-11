@@ -15,7 +15,7 @@ const TimestampSchema = z.number().int().nonnegative().finite();
 const textEncoder = new TextEncoder();
 
 export const SessionDraftModeSchema = z.enum(['reader', 'video']);
-export const SessionDraftStatusSchema = z.enum(['active', 'restorable']);
+export const SessionDraftStatusSchema = z.enum(['active', 'restorable', 'discarded', 'exported']);
 export const SessionCommentDraftSnapshotSchema = z.record(z.string(), z.string());
 export const SessionDraftOwnerContextSchema = z
   .object({

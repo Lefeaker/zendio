@@ -11,48 +11,27 @@ import {
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
-export type VideoCaptureMutationFailure =
-  | { reason: 'failure' }
-  | { reason: 'error'; error: unknown };
-
-export interface VideoCaptureMutationTransaction<Result> {
-  apply(): Result;
-  afterApply?(result: Result): void;
-  save(): Promise<VideoHintState | null>;
-  commit?(result: Result, saveHint: VideoHintState | null): void | Promise<void>;
-  rollback(result: Result, failure: VideoCaptureMutationFailure): void;
-  onSaveError?(error: unknown): void;
-}
+export type {
+  VideoCaptureMutationFailure,
+  VideoCaptureMutationTransaction
+} from './videoCaptureMutationTypes';
 
 export async function runVideoCaptureMutationTransaction<Result>(
   transaction: VideoCaptureMutationTransaction<Result>
 ): Promise<boolean> {
-  const result = transaction.apply();
-  transaction.afterApply?.(result);
-
-  let saveHint: VideoHintState | null;
-  try {
-    saveHint = await transaction.save();
-  } catch (error) {
-    transaction.onSaveError?.(error);
-    transaction.rollback(result, { reason: 'error', error });
-    return false;
-  }
-
-  if (saveHint === 'failure') {
-    transaction.rollback(result, { reason: 'failure' });
-    return false;
-  }
-
-  await transaction.commit?.(result, saveHint);
-  return true;
+  return runSessionMutationTransaction({
+    ...transaction,
+    isSaveFailure: (saveHint) => saveHint === 'failure'
+  });
 }
 
 export async function saveVideoSessionCaptures(

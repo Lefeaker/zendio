@@ -1,5 +1,9 @@
 import type { ReaderPanelCallbacks } from './application/readerPanelModel';
-import type { ReaderSessionView, ReaderSessionViewFactory } from './application/readerSessionView';
+import type {
+  ReaderPanelEditingSnapshot,
+  ReaderSessionView,
+  ReaderSessionViewFactory
+} from './application/readerSessionView';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import type { ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderSessionMessages, ReaderHintState } from './sessionMessages';
@@ -63,11 +67,36 @@ export class ReaderPanelCoordinator {
   }
 
   snapshotCommentDrafts(): SessionCommentDraftSnapshot {
-    return this.view?.snapshotCommentDrafts?.() ?? {};
+    return this.view?.snapshotCommentDrafts() ?? {};
   }
 
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
-    this.view?.hydrateCommentDrafts?.(drafts);
+    this.view?.hydrateCommentDrafts(drafts);
+  }
+
+  clearCommentDraft(id: string): void {
+    this.view?.clearCommentDraft(id);
+  }
+
+  restoreCommentDraft(id: string, draft: string | undefined): void {
+    this.view?.restoreCommentDraft(id, draft);
+  }
+
+  snapshotEditingState(): ReaderPanelEditingSnapshot {
+    return (
+      this.view?.snapshotEditingState() ?? {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      }
+    );
+  }
+
+  restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
+    this.view?.restoreEditingState(snapshot);
+  }
+
+  finishEditing(): void {
+    this.view?.finishEditing();
   }
 
   getElement(): HTMLElement | null {

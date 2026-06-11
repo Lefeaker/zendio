@@ -9,6 +9,10 @@ export type SessionCommentDraftedItem<T extends SessionCommentDraftItem> = T & {
   draft?: string;
 };
 
+interface SessionCommentDraftMutationOptions {
+  notify?: boolean;
+}
+
 function isSessionCommentDraftMap(
   drafts: SessionCommentDraftSnapshot | ReadonlyMap<string, string>
 ): drafts is ReadonlyMap<string, string> {
@@ -103,8 +107,22 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     }
   }
 
-  clear(id: string | null | undefined): void {
-    if (this.store.clear(id)) {
+  clear(id: string | null | undefined, options: SessionCommentDraftMutationOptions = {}): void {
+    if (this.store.clear(id) && options.notify !== false) {
+      this.notifyChange();
+    }
+  }
+
+  restore(
+    id: string,
+    draft: string | undefined,
+    options: SessionCommentDraftMutationOptions = {}
+  ): void {
+    const changed =
+      draft === undefined
+        ? this.store.clear(id)
+        : this.store.set(id, draft, this.findCanonicalComment(id));
+    if (changed && options.notify !== false) {
       this.notifyChange();
     }
   }

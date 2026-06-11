@@ -14,6 +14,8 @@ import type { ShadowSelectionBridge } from './shadowSelectionBridge';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import type { SessionDraftTerminalStatus } from '../sessionDrafts';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -45,6 +47,10 @@ export interface VideoSessionOperationContext {
   scheduleDraftSave?: () => Promise<void>;
   flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
   removeDraft?: () => Promise<void>;
+  finalizeTerminalDraft?: (status: SessionDraftTerminalStatus) => Promise<boolean>;
+  runCaptureMutation: <Result>(
+    transaction: VideoCaptureMutationTransaction<Result>
+  ) => Promise<boolean>;
   prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
   beginPlaybackEditLease?: (captureId: string) => void;
   releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
@@ -57,6 +63,7 @@ type CreateVideoSessionOperationContextArgs = Omit<
   | 'scheduleDraftSave'
   | 'flushDraftNow'
   | 'removeDraft'
+  | 'finalizeTerminalDraft'
   | 'beginPlaybackEditLease'
   | 'releasePlaybackEditLease'
   | 'resetPlaybackEditLease'
@@ -87,6 +94,7 @@ export function createVideoSessionOperationContext(
     buildTimestampUrl: args.buildTimestampUrl,
     applyHint: args.applyHint,
     syncPanel: args.syncPanel,
+    runCaptureMutation: args.runCaptureMutation,
     ensureCaptureHighlight: args.ensureCaptureHighlight,
     getSelectionForNode: args.getSelectionForNode,
     highlightFragmentText: args.highlightFragmentText,

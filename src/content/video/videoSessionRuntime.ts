@@ -2,21 +2,23 @@ import type { ReaderHighlightTheme } from '../../shared/types/options';
 import {
   createSessionDraftPersister,
   createSessionDraftRepository,
+  createSessionMutationRunner,
+  finalizeTerminalSessionDraft,
+  type SessionDraftEnvelope,
   type VideoSessionDraftEnvelope,
   type SessionDraftPersister,
-  type SessionDraftStatus
+  type SessionDraftStatus,
+  type SessionDraftTerminalStatus
 } from '../sessionDrafts';
 import type { VideoAddCaptureSource } from './application/videoPanelModel';
 import type { VideoFragmentCapture } from './types';
 import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
 import { VideoHintManager, type VideoHintState } from './videoHintManager';
-import type { VideoSessionDependencies } from './sessionTypes';
+import type { VideoSessionAddCaptureOptions, VideoSessionDependencies } from './sessionTypes';
 import { VideoSessionState } from './sessionState';
 import {
-  getSelectionForVideoNode,
   getVideoDocumentSelection,
-  highlightVideoFragmentText,
   isVideoRangeInsideUi,
   resolveVideoHintState
 } from './videoSessionSelection';
@@ -30,16 +32,19 @@ import {
   focusVideoSessionCapture,
   handleVideoSessionAddCapture,
   ingestVideoSessionTextCapture,
-  loadVideoSessionHighlightTheme,
+  loadVideoSessionHighlightTheme
+} from './sessionOperations';
+import {
   removeVideoSessionCapture,
   submitVideoSessionCaptureEdit,
   toggleVideoSessionCaptureScreenshot
-} from './sessionOperations';
+} from './videoSessionCaptureMutations';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import {
   finalizeVideoSessionStart,
   initializeVideoSessionEnvironment
 } from './videoSessionBootstrap';
-import { createVideoSessionOperationContext } from './videoSessionOperationContext';
+import { createVideoSessionRuntimeOperationContext } from './videoSessionRuntimeOperationContext';
 import {
   ensureVideoSessionCaptureHighlight,
   getVideoSessionFragmentElement,
@@ -83,15 +88,6 @@ import {
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import type { VideoTimestampCapture } from './types';
 
-type VideoSessionAddCaptureOptions = {
-  comment?: string;
-  captureScreenshot?: boolean;
-  pauseVideo?: boolean;
-  beginEditing?: boolean;
-  resumePlayback?: boolean;
-  collapseAfterCapture?: boolean;
-};
-
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
   private messages: VideoSessionMessages = DEFAULT_SESSION_MESSAGES;
@@ -112,8 +108,10 @@ export class VideoSession {
   private readonly draftRepository = createSessionDraftRepository(this.dependencies.storage.local);
   private readonly draftId = createVideoSessionDraftId();
   private readonly draftPersister: SessionDraftPersister;
+  private readonly captureMutationRunner = createSessionMutationRunner();
   private activeDraftPageUrl: string;
   private pendingDraftStatus: SessionDraftStatus = 'active';
+  private pendingCaptureMutations = 0;
   private restoredDraftKey: string | null = null;
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
@@ -121,7 +119,7 @@ export class VideoSession {
   private isCleaningUp = false;
 
   private get operationContext() {
-    const context = createVideoSessionOperationContext({
+    return createVideoSessionRuntimeOperationContext({
       session: this,
       doc: this.doc,
       state: this.state,
@@ -138,31 +136,20 @@ export class VideoSession {
       platformController: this.platformController,
       hintManager: this.hintManager,
       messages: this.messages,
-      updateVideoContext: () => this.platformController.updateVideoContext(),
-      findVideoElement: () => this.doc.querySelector('video'),
-      buildTimestampUrl: (timeSec: number) => this.platformController.buildTimestampUrl(timeSec),
+      destinationState: this.destinationState,
+      commentEditorPlayback: this.commentEditorPlayback,
+      screenshotPreparation: this.screenshotPreparation,
       applyHint: (state: VideoHintState) => this.applyHint(state),
       syncPanel: () => this.syncPanel(),
+      runCaptureMutation: <Result>(transaction: VideoCaptureMutationTransaction<Result>) =>
+        this.runCaptureMutation(transaction),
       ensureCaptureHighlight: (capture: VideoFragmentCapture) =>
         this.ensureCaptureHighlight(capture),
-      getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(this.doc, node),
-      highlightFragmentText: (text: string) =>
-        highlightVideoFragmentText({ doc: this.doc, state: this.state, text }),
-      getExportDestinationMetadata: () => this.destinationState.metadata,
-      prepareRequestedScreenshot: (captureId: string) =>
-        this.screenshotPreparation.prepareRequestedScreenshot(captureId)
-    });
-
-    return Object.assign(context, {
-      syncCommentDrafts: () => syncVideoSessionCommentDraftsFromDom(this.state, this.dom),
       scheduleDraftSave: () => this.scheduleDraftSave(),
       flushDraftNow: (status?: 'active' | 'restorable') => this.flushDraftNow(status),
       removeDraft: () => this.removeDraft(),
-      beginPlaybackEditLease: (captureId: string) =>
-        this.commentEditorPlayback.beginPlaybackEditLease(captureId),
-      releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
-        this.commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
-      resetPlaybackEditLease: () => this.commentEditorPlayback.reset()
+      finalizeTerminalDraft: (status: SessionDraftTerminalStatus) =>
+        this.finalizeTerminalDraft(status)
     });
   }
 
@@ -420,9 +407,17 @@ export class VideoSession {
     };
   }
 
-  private buildDraftEnvelope(): VideoSessionDraftEnvelope | null {
+  private buildDraftEnvelope(
+    options: {
+      status?: SessionDraftStatus;
+      draftId?: string;
+      pageUrl?: string;
+      allowEmpty?: boolean;
+    } = {}
+  ): VideoSessionDraftEnvelope | null {
     const commentDrafts = this.state.commentDrafts;
     if (
+      !options.allowEmpty &&
       this.state.captures.length === 0 &&
       Object.keys(commentDrafts).length === 0 &&
       this.destinationState.metadata === undefined
@@ -430,14 +425,14 @@ export class VideoSession {
       return null;
     }
 
-    const pageUrl = this.activeDraftPageUrl || this.doc.location.href;
+    const pageUrl = (options.pageUrl ?? this.activeDraftPageUrl) || this.doc.location.href;
     const title = this.state.videoTitle || this.doc.title || 'Video Capture';
     return createVideoSessionDraftEnvelope({
-      draftId: this.draftId,
+      draftId: options.draftId ?? this.draftId,
       pageUrl,
       pageTitle: title,
       updatedAt: Date.now(),
-      status: this.pendingDraftStatus,
+      status: options.status ?? this.pendingDraftStatus,
       payload: buildVideoSessionDraftPayload({
         captures: this.state.captures,
         commentDrafts,
@@ -494,7 +489,63 @@ export class VideoSession {
       return;
     }
     await this.draftPersister.scheduleSave();
-    await this.clearSupersededDurableSources();
+    try {
+      await this.clearSupersededDurableSources();
+    } catch (error) {
+      this.logSupersededDurableCleanupError(error);
+    }
+  }
+
+  private async finalizeTerminalDraft(status: SessionDraftTerminalStatus): Promise<boolean> {
+    syncVideoSessionCommentDraftsFromDom(this.state, this.dom);
+
+    const hasTerminalTarget =
+      this.state.captures.length > 0 ||
+      Object.keys(this.state.commentDrafts).length > 0 ||
+      this.destinationState.metadata !== undefined ||
+      this.restoredDraftKey !== null ||
+      this.legacyCaptureStorageKey !== null;
+    if (!hasTerminalTarget) {
+      return true;
+    }
+
+    const currentEnvelope = this.buildDraftEnvelope({
+      status,
+      allowEmpty: true
+    });
+    const terminalEnvelopes = new Map<string, VideoSessionDraftEnvelope>();
+
+    if (currentEnvelope) {
+      terminalEnvelopes.set(
+        createVideoSessionDraftStorageKey(currentEnvelope.pageUrl, currentEnvelope.draftId),
+        currentEnvelope
+      );
+    }
+
+    if (this.restoredDraftKey) {
+      const restoredEnvelope = await this.buildTerminalEnvelopeForExactKey(
+        this.restoredDraftKey,
+        status
+      );
+      if (restoredEnvelope) {
+        terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
+      }
+    }
+
+    return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
+      repository: this.draftRepository,
+      buildTerminalEnvelopes: () => terminalEnvelopes.values(),
+      cleanupTerminalDrafts: () => this.removeDraft(),
+      onSaveError: (error) => {
+        console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
+      },
+      onCleanupError: (error) => {
+        console.warn(
+          '[VideoSession] Failed to remove terminal session draft after finalization:',
+          error
+        );
+      }
+    });
   }
 
   private async flushDraftNow(
@@ -509,13 +560,19 @@ export class VideoSession {
         buildDraftEnvelope: () => this.buildDraftEnvelope(),
         removeDraft: () => this.removeDraft(),
         draftPersister: this.draftPersister,
-        clearSupersededDurableSources: () => this.clearSupersededDurableSources()
+        clearSupersededDurableSources: () => this.clearSupersededDurableSources(),
+        trackSavingState: status === 'active' && this.pendingCaptureMutations === 0,
+        onPostSaveCleanupError: (error) => this.logSupersededDurableCleanupError(error)
       });
     } catch {
       return 'failure';
     } finally {
       this.pendingDraftStatus = 'active';
     }
+  }
+
+  private logSupersededDurableCleanupError(error: unknown): void {
+    console.warn('[VideoSession] Failed to clear superseded durable draft sources:', error);
   }
 
   private async clearSupersededDurableSources(): Promise<void> {
@@ -548,6 +605,23 @@ export class VideoSession {
     this.legacyCaptureStorageKey = null;
   }
 
+  private async buildTerminalEnvelopeForExactKey(
+    storageKey: string,
+    status: SessionDraftTerminalStatus
+  ): Promise<VideoSessionDraftEnvelope | null> {
+    const stored = await this.dependencies.storage.local.get<SessionDraftEnvelope>(storageKey);
+    if (!stored || stored.mode !== 'video') {
+      return null;
+    }
+
+    return this.buildDraftEnvelope({
+      draftId: stored.draftId,
+      pageUrl: stored.pageUrl,
+      status,
+      allowEmpty: true
+    });
+  }
+
   private getTimestampCaptures(): VideoTimestampCapture[] {
     return this.state.captures.filter(
       (capture): capture is VideoTimestampCapture => capture.kind === 'timestamp'
@@ -556,6 +630,23 @@ export class VideoSession {
 
   private createDestinationPayload(): ClipPayload {
     return createVideoSessionDestinationPayload(this.state, this.doc.location.href, this.doc.title);
+  }
+
+  private async runCaptureMutation<Result>(
+    transaction: VideoCaptureMutationTransaction<Result>
+  ): Promise<boolean> {
+    this.pendingCaptureMutations += 1;
+    this.state.saving = true;
+
+    try {
+      return await this.captureMutationRunner.run({
+        ...transaction,
+        isSaveFailure: (saveHint) => saveHint === 'failure'
+      });
+    } finally {
+      this.pendingCaptureMutations = Math.max(0, this.pendingCaptureMutations - 1);
+      this.state.saving = this.pendingCaptureMutations > 0;
+    }
   }
 
   ingestTextCapture(
@@ -644,7 +735,9 @@ export class VideoSession {
     this.isCleaningUp = true;
     this.screenshotPreparation.dispose();
     this.stopDraftPersistence?.();
-    void this.draftPersister.dispose();
+    void this.draftPersister.dispose().catch((error) => {
+      console.warn('[VideoSession] Failed to dispose draft persister:', error);
+    });
     this.commentEditorPlayback.dispose();
     cleanupVideoSession(this.operationContext);
   }

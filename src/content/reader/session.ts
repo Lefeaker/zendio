@@ -21,14 +21,20 @@ import { ContentExportDestinationState } from '../shared/exportDestinationState'
 import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
 import {
+  createSessionMutationRunner,
   createSessionDraftPersister,
   createSessionDraftRepository,
   createSessionDraftStorageKey,
+  finalizeTerminalSessionDraft,
+  type ReaderSessionDraftEnvelope,
   type SessionDraftPersister,
-  type SessionDraftRepository
+  type SessionDraftRepository,
+  type SessionDraftStatus,
+  type SessionDraftTerminalStatus,
+  type SessionMutationTransaction
 } from '../sessionDrafts';
 import {
-  addReaderHighlightFromRange,
+  applyReaderHighlightFromRange,
   cancelReaderSession,
   finishReaderSession,
   focusReaderHighlight,
@@ -61,9 +67,11 @@ export class ReaderSession {
   private readonly destinationState: ContentExportDestinationState;
   private readonly draftRepository: SessionDraftRepository;
   private readonly draftPersister: SessionDraftPersister;
+  private readonly draftMutationRunner = createSessionMutationRunner();
   private draftId: string | null = null;
   private draftCreatedAt: number | null = null;
   private draftStorageKey: string | null = null;
+  private pendingDraftMutations = 0;
   private removeDraftLifecycleListeners: (() => void) | null = null;
 
   private get operationContext() {
@@ -78,9 +86,13 @@ export class ReaderSession {
       lifecycle: this.lifecycle,
       dependencies: this.dependencies,
       getExportDestinationMetadata: () => this.destinationState.metadata,
-      onDraftMutation: () => this.syncDraftPersistence(),
+      persistDraftMutation: () => this.persistDraftMutation(),
       disposeDraftPersistence: () => this.disposeDraftPersistence(),
-      clearPersistedDraft: () => this.clearPersistedDraft()
+      clearPersistedDraft: () => this.clearPersistedDraft(),
+      finalizeTerminalDraft: (status: SessionDraftTerminalStatus) =>
+        this.finalizeTerminalDraft(status),
+      runDraftMutation: <Result>(transaction: SessionMutationTransaction<Result, void>) =>
+        this.runDraftMutation(transaction)
     };
   }
 
@@ -103,12 +115,13 @@ export class ReaderSession {
         onFocusHighlight: (id) => this.focusHighlight(id)
       },
       reconstructText: (highlight) => this.highlightManager.reconstructText(highlight),
-      onCommentDraftChange: () => this.syncDraftPersistence()
+      onCommentDraftChange: () => this.autosaveCommentDraftMutation()
     });
     this.selectionController = this.dependencies.createSelectionController({
       doc: this.doc,
       fragmentConfig: DEFAULT_FRAGMENT_CONFIG,
-      canHandleSelection: () => !this.state.handlingSelection && !this.state.exporting,
+      canHandleSelection: () =>
+        !this.state.handlingSelection && !this.state.exporting && !this.state.saving,
       isNodeInsideUi: (node) =>
         isNodeInsideReaderUi(node, this.panelCoordinator.getElement(), this.doc),
       onSelectionReady: (payload) => {
@@ -231,10 +244,10 @@ export class ReaderSession {
       void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
         source: this.state.analyticsSource
       });
-      this.bootstrapHighlights(initialHighlights);
+      const bootstrappedHighlights = this.bootstrapHighlights(initialHighlights);
       this.panelCoordinator.refreshHint(this.state.highlights.length);
-      if (loadedDraft) {
-        this.syncDraftPersistence();
+      if (loadedDraft || bootstrappedHighlights > 0) {
+        this.queueDraftPersistence();
       }
     } catch (error) {
       this.state.analyticsTimer = null;
@@ -246,7 +259,7 @@ export class ReaderSession {
 
   private bootstrapHighlights(
     initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
-  ): void {
+  ): number {
     const bootHighlights = initialHighlights
       ? Array.isArray(initialHighlights)
         ? initialHighlights
@@ -255,7 +268,8 @@ export class ReaderSession {
 
     for (const highlight of bootHighlights) {
       try {
-        this.addHighlightFromRange(
+        applyReaderHighlightFromRange(
+          this.operationContext,
           highlight.range,
           highlight.selectedHtml,
           highlight.selectedText,
@@ -265,6 +279,7 @@ export class ReaderSession {
         console.error('[ReaderSession] Failed to add initial highlight:', error);
       }
     }
+    return bootHighlights.length;
   }
 
   private applyInitialDestination(
@@ -330,21 +345,12 @@ export class ReaderSession {
     this.highlightManager.applyTheme(config.highlightTheme);
   }
 
-  private handleSelection(payload: ReaderSelectionPayload): void {
-    handleReaderSessionSelection(this.operationContext, payload);
+  private async handleSelection(payload: ReaderSelectionPayload): Promise<void> {
+    await handleReaderSessionSelection(this.operationContext, payload);
   }
 
   private async handleMouseUp(event: MouseEvent): Promise<void> {
     await handleReaderSessionMouseUp(this.operationContext, event);
-  }
-
-  private addHighlightFromRange(
-    range: Range,
-    selectedHtml: string,
-    selectedText: string,
-    comment: string
-  ): void {
-    addReaderHighlightFromRange(this.operationContext, range, selectedHtml, selectedText, comment);
   }
 
   ingestExternalHighlight(
@@ -357,7 +363,7 @@ export class ReaderSession {
   }
 
   private ingestExternalHighlightPayload(payload: ExternalHighlightPayload): void {
-    ingestExternalReaderHighlight(this.operationContext, payload);
+    void ingestExternalReaderHighlight(this.operationContext, payload);
   }
 
   private syncHighlightsUi(): void {
@@ -379,9 +385,31 @@ export class ReaderSession {
   }
 
   private async selectDestination(id: string): Promise<void> {
-    this.destinationState.select(id);
-    await this.refreshDestinationPreview();
-    this.syncDraftPersistence();
+    const previousMetadata = this.destinationState.metadata;
+    const previousPreview = this.destinationState.currentPreview;
+
+    await this.runDraftMutation({
+      apply: () => {
+        this.destinationState.select(id);
+        return { previousMetadata, previousPreview };
+      },
+      save: async () => {
+        await this.refreshDestinationPreview();
+        await this.persistDraftMutation();
+      },
+      rollback: async ({ previousMetadata, previousPreview }) => {
+        this.destinationState.applyMetadata(previousMetadata);
+        if (previousMetadata) {
+          await this.refreshDestinationPreview();
+        } else {
+          this.panelCoordinator.updateDestination(previousPreview);
+        }
+        this.panelCoordinator.applyHint('failure', this.state.highlights.length);
+      },
+      onSaveError: (error) => {
+        console.warn('[ReaderSession] Failed to save export destination:', error);
+      }
+    });
   }
 
   private createDestinationPayload(): ClipPayload {
@@ -414,10 +442,10 @@ export class ReaderSession {
   }
 
   private cancel(): void {
-    cancelReaderSession(this.operationContext);
+    void cancelReaderSession(this.operationContext);
   }
 
-  private buildDraftEnvelope(status: 'active' | 'restorable') {
+  private buildDraftEnvelope(status: SessionDraftStatus) {
     const now = Date.now();
     const draftId = this.draftId ?? createReaderSessionDraftId(now);
     const createdAt = this.draftCreatedAt ?? now;
@@ -448,18 +476,126 @@ export class ReaderSession {
     return envelope;
   }
 
-  private syncDraftPersistence(): void {
-    if (
-      this.state.highlights.length === 0 &&
-      Object.keys(this.panelCoordinator.snapshotCommentDrafts()).length === 0
-    ) {
-      void this.clearPersistedDraft();
+  private hasPersistableDraftContent(): boolean {
+    return (
+      this.state.highlights.length > 0 ||
+      Object.keys(this.panelCoordinator.snapshotCommentDrafts()).length > 0
+    );
+  }
+
+  private async persistDraftMutation(): Promise<void> {
+    if (!this.hasPersistableDraftContent()) {
+      await this.clearPersistedDraft();
       return;
     }
 
-    void this.draftPersister.scheduleSave().catch((error) => {
+    await this.draftPersister.scheduleSave();
+  }
+
+  private queueDraftPersistence(): void {
+    void this.persistDraftMutation().catch((error) => {
       console.warn('[ReaderSession] Failed to persist session draft:', error);
     });
+  }
+
+  private autosaveCommentDraftMutation(): void {
+    void this.persistDraftMutation().catch((error) => {
+      console.warn('[ReaderSession] Failed to persist session draft:', error);
+      this.panelCoordinator.applyHint('failure', this.state.highlights.length);
+    });
+  }
+
+  private async finalizeTerminalDraft(status: SessionDraftTerminalStatus): Promise<boolean> {
+    if (status === 'discarded' && !this.draftStorageKey) {
+      return true;
+    }
+
+    let draftStorageKey: string | null = null;
+    return finalizeTerminalSessionDraft<ReaderSessionDraftEnvelope>({
+      repository: this.draftRepository,
+      flushPendingDraft: () => this.draftPersister.flushNow(),
+      buildTerminalEnvelopes: async () => {
+        const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);
+        if (!terminalEnvelope) {
+          return [];
+        }
+
+        draftStorageKey =
+          this.draftStorageKey ??
+          createSessionDraftStorageKey({
+            mode: terminalEnvelope.mode,
+            pageKey: terminalEnvelope.pageKey,
+            draftId: terminalEnvelope.draftId
+          });
+
+        this.draftId = terminalEnvelope.draftId;
+        this.draftCreatedAt = terminalEnvelope.createdAt;
+        this.draftStorageKey = draftStorageKey;
+        return [terminalEnvelope];
+      },
+      cleanupTerminalDrafts: async () => {
+        if (draftStorageKey) {
+          await this.draftRepository.remove({ key: draftStorageKey });
+        }
+      },
+      onFlushError: (error) => {
+        console.warn(
+          '[ReaderSession] Failed to flush session draft before terminal finalization:',
+          error
+        );
+      },
+      onSaveError: (error) => {
+        console.warn('[ReaderSession] Failed to finalize terminal session draft:', error);
+      },
+      onCleanupError: (error) => {
+        console.warn(
+          '[ReaderSession] Failed to remove terminal session draft after finalization:',
+          error
+        );
+      }
+    });
+  }
+
+  private async buildTerminalDraftEnvelope(
+    status: SessionDraftTerminalStatus
+  ): Promise<ReaderSessionDraftEnvelope | null> {
+    const currentEnvelope = this.buildDraftEnvelope(status);
+    if (currentEnvelope) {
+      return currentEnvelope;
+    }
+
+    if (!this.draftStorageKey) {
+      return null;
+    }
+
+    const stored = await this.dependencies.storage.local.get<ReaderSessionDraftEnvelope>(
+      this.draftStorageKey
+    );
+    if (!stored || stored.mode !== 'reader') {
+      return null;
+    }
+
+    const now = Date.now();
+    return {
+      ...stored,
+      status,
+      updatedAt: now,
+      expiresAt: now
+    };
+  }
+
+  private async runDraftMutation<Result>(
+    transaction: SessionMutationTransaction<Result, void>
+  ): Promise<boolean> {
+    this.pendingDraftMutations += 1;
+    this.state.saving = true;
+
+    try {
+      return await this.draftMutationRunner.run(transaction);
+    } finally {
+      this.pendingDraftMutations = Math.max(0, this.pendingDraftMutations - 1);
+      this.state.saving = this.pendingDraftMutations > 0;
+    }
   }
 
   private async clearPersistedDraft(): Promise<void> {
@@ -467,11 +603,9 @@ export class ReaderSession {
       return;
     }
 
-    try {
-      await this.draftRepository.remove({ key: this.draftStorageKey });
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to remove session draft:', error);
-    } finally {
+    const draftStorageKey = this.draftStorageKey;
+    await this.draftRepository.remove({ key: draftStorageKey });
+    if (this.draftStorageKey === draftStorageKey) {
       this.draftId = null;
       this.draftCreatedAt = null;
       this.draftStorageKey = null;
@@ -548,12 +682,18 @@ export class ReaderSession {
     focusReaderHighlight(this.operationContext, id);
   }
 
-  private removeHighlightById(id: string): void {
-    removeReaderHighlight(this.operationContext, id);
+  private async removeHighlightById(id: string): Promise<void> {
+    const saved = await removeReaderHighlight(this.operationContext, id);
+    if (!saved) {
+      throw new Error('Failed to save reader highlight removal.');
+    }
   }
 
-  private submitHighlightEdit(id: string, nextComment: string): void {
-    submitReaderHighlightEdit(this.operationContext, id, nextComment);
+  private async submitHighlightEdit(id: string, nextComment: string): Promise<void> {
+    const saved = await submitReaderHighlightEdit(this.operationContext, id, nextComment);
+    if (!saved) {
+      throw new Error('Failed to save reader highlight edit.');
+    }
   }
 
   private findHighlight(id: string): ReaderHighlightRecord | undefined {

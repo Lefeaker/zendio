@@ -211,8 +211,27 @@ type SessionTestApi = {
       };
     }>;
     commentDrafts?: Record<string, string>;
+    saving?: boolean;
   };
 };
+
+type TabContextProbeMessage = { type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE' };
+type TabContextProbeResponse = {
+  success: true;
+  active?: boolean;
+  tabId?: number;
+  windowId?: number;
+  frameId?: number;
+};
+
+function isTabContextProbeMessage(message: object | null): message is TabContextProbeMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
+  );
+}
 
 type DraftMutationAct = (
   api: SessionTestApi,
@@ -324,6 +343,29 @@ async function readDraftIndex(
   return deps.storage.local.get<SessionDraftIndex>(SESSION_DRAFT_INDEX_KEY);
 }
 
+async function loadLatestVideoDraft(
+  deps: VideoSessionDependencies,
+  pageUrl = document.location.href,
+  ownerContext?: SessionDraftOwnerContext | null
+): Promise<VideoSessionDraftEnvelope | null> {
+  const repository = createSessionDraftRepository(deps.storage.local);
+  const candidate = await repository.loadLatest(
+    'video',
+    pageUrl,
+    undefined,
+    ownerContext === undefined ? undefined : { ownerContext }
+  );
+  return candidate?.mode === 'video' ? candidate : null;
+}
+
+async function readStoredVideoDraft(
+  deps: VideoSessionDependencies,
+  storageKey: string
+): Promise<VideoSessionDraftEnvelope | undefined> {
+  const value = await deps.storage.local.get<SessionDraftEnvelope>(storageKey);
+  return value?.mode === 'video' ? value : undefined;
+}
+
 function requireMountedPanelCallbacks(callbacks: VideoPanelCallbacks | null): VideoPanelCallbacks {
   if (!callbacks) {
     throw new Error('Video panel callbacks were not mounted');
@@ -405,6 +447,13 @@ function createBlobScreenshotFixture(
       byteLength: blob.size
     }
   };
+}
+
+function removalCallIncludesKey(value: unknown, key: string): boolean {
+  if (Array.isArray(value)) {
+    return value.includes(key);
+  }
+  return value === key;
 }
 
 async function flushMutationWork(): Promise<void> {
@@ -815,6 +864,64 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('cleans up after export when exact-key draft removal fails after the terminal envelope is written', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    await sessionApi.handleAddCapture();
+
+    const [currentDraft] = await listVideoDraftCandidates(deps, document.location.href, null);
+    if (!currentDraft) {
+      throw new Error('expected an active current draft');
+    }
+    const currentDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: currentDraft.pageKey,
+      draftId: currentDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (removalCallIncludesKey(value, currentDraftKey)) {
+        throw new Error('remove current exact key after terminal export failed');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
+
+    expect(view.destroy).toHaveBeenCalledTimes(1);
+    expect(isVideoSessionActive(document)).toBe(false);
+    await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
+    await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
+    expect(await readDraftIndex(deps)).toMatchObject({
+      entries: [expect.objectContaining({ draftId: currentDraft.draftId, status: 'exported' })]
+    });
+    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
+      draftId: currentDraft.draftId,
+      status: 'exported'
+    });
+
+    vi.useRealTimers();
+  });
+
   const draftMutationCases: DraftMutationCase[] = [
     {
       label: 'submit another capture',
@@ -1033,7 +1140,230 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('removes only the current exact video draft key on cancel when same-page drafts coexist', async () => {
+  it('cleans up after cancel when exact-key draft removal fails after the terminal envelope is written', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    await sessionApi.handleAddCapture();
+
+    const [currentDraft] = await listVideoDraftCandidates(deps, document.location.href, null);
+    if (!currentDraft) {
+      throw new Error('expected an active current draft');
+    }
+    const currentDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: currentDraft.pageKey,
+      draftId: currentDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (removalCallIncludesKey(value, currentDraftKey)) {
+        throw new Error('remove current exact key after terminal cancel failed');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+    await waitForMockCalls(view.destroy);
+
+    expect(view.destroy).toHaveBeenCalledTimes(1);
+    expect(isVideoSessionActive(document)).toBe(false);
+    await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
+    await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
+    expect(await readDraftIndex(deps)).toMatchObject({
+      entries: [expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })]
+    });
+    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
+      draftId: currentDraft.draftId,
+      status: 'discarded'
+    });
+
+    vi.useRealTimers();
+  });
+
+  it('writes discarded terminal envelopes to the current and restored exact draft keys before cleanup', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const restoredDraft = createVideoSessionDraftEnvelope({
+      draftId: 'restored-draft',
+      pageUrl: document.location.href,
+      pageTitle: 'Restored title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(restoredDraft);
+    const restoredDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: restoredDraft.pageKey,
+      draftId: restoredDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    let failSupersededCleanup = true;
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (failSupersededCleanup && removalCallIncludesKey(value, restoredDraftKey)) {
+        failSupersededCleanup = false;
+        throw new Error('keep restored exact key active before cancel');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    const session = new VideoSession(document, deps);
+    await session.start();
+    await requirePromise(
+      requireMountedPanelCallbacks(mountedCallbacks).onSubmitCaptureEdit('ts-1', 'committed note')
+    );
+
+    const beforeCancel = await listVideoDraftCandidates(deps, document.location.href, null);
+    expect(beforeCancel).toHaveLength(2);
+    const currentDraft = beforeCancel.find((candidate) => candidate.draftId !== 'restored-draft');
+    if (!currentDraft) {
+      throw new Error('expected a current replacement draft');
+    }
+    const currentDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: currentDraft.pageKey,
+      draftId: currentDraft.draftId
+    });
+
+    vi.mocked(deps.storage.local.remove).mockClear();
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (
+        removalCallIncludesKey(value, currentDraftKey) ||
+        removalCallIncludesKey(value, restoredDraftKey)
+      ) {
+        throw new Error('terminal cleanup should be best-effort');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+    await waitForMockCalls(view.destroy);
+
+    expect(view.destroy).toHaveBeenCalledTimes(1);
+    expect(isVideoSessionActive(document)).toBe(false);
+    await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
+    await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
+    const draftIndex = await readDraftIndex(deps);
+    if (!draftIndex) {
+      throw new Error('Expected session draft index');
+    }
+    expect(draftIndex.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' }),
+        expect.objectContaining({ draftId: restoredDraft.draftId, status: 'discarded' })
+      ])
+    );
+    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
+      draftId: currentDraft.draftId,
+      status: 'discarded'
+    });
+    await expect(readStoredVideoDraft(deps, restoredDraftKey)).resolves.toMatchObject({
+      draftId: restoredDraft.draftId,
+      status: 'discarded'
+    });
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, currentDraftKey))
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, restoredDraftKey))
+    ).toHaveLength(1);
+
+    vi.useRealTimers();
+  });
+
+  it('keeps the session active and suppresses cancel analytics when terminal draft persistence fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    await sessionApi.handleAddCapture();
+    trackUsageEvent.mockClear();
+    view.updateHint.mockClear();
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
+      Promise.reject(new Error('cancel terminal save failed'))
+    );
+
+    requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+    await waitForMockCalls(view.updateHint);
+
+    expect(view.destroy).not.toHaveBeenCalled();
+    expect(isVideoSessionActive(document)).toBe(true);
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+    await expect(loadLatestVideoDraft(deps)).resolves.toMatchObject({ status: 'active' });
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('preserves same-page other-owner drafts after cancel when the current exact-key cleanup fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const previousChrome = globalThis.chrome;
@@ -1043,25 +1373,24 @@ describe('VideoSession', () => {
       configurable: true,
       value: {
         runtime: {
-          sendMessage: vi.fn((message: unknown, callback?: (response: unknown) => void) => {
-            if (
-              typeof message === 'object' &&
-              message !== null &&
-              (message as { type?: unknown }).type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
-            ) {
-              callback?.({ success: true, active: true });
-              return;
+          sendMessage: vi.fn(
+            (message: object | null, callback?: (response: TabContextProbeResponse) => void) => {
+              if (isTabContextProbeMessage(message)) {
+                callback?.({ success: true, active: true });
+                return;
+              }
+              callback?.({ success: true, ...currentOwner });
             }
-            callback?.({ success: true, ...currentOwner });
-          })
+          )
         }
       }
     });
     const deps = createDependencies();
+    const view = createView();
     let mountedCallbacks: VideoPanelCallbacks | null = null;
     deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
       mountedCallbacks = callbacks;
-      return createView();
+      return view;
     });
     const repository = createSessionDraftRepository(deps.storage.local);
     const existing = createVideoSessionDraftEnvelope({
@@ -1089,17 +1418,40 @@ describe('VideoSession', () => {
       const video = requireVideoElement();
       Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
       await sessionApi.handleAddCapture();
-      await vi.advanceTimersByTimeAsync(200);
       const beforeCancel = await listVideoDraftCandidates(deps, document.location.href, null);
       expect(beforeCancel).toHaveLength(2);
+      const currentDraft = beforeCancel.find((candidate) => candidate.draftId !== 'existing-draft');
+      if (!currentDraft) {
+        throw new Error('expected a current draft to exist before cancel');
+      }
+      const currentDraftKey = createSessionDraftStorageKey({
+        mode: 'video',
+        pageKey: currentDraft.pageKey,
+        draftId: currentDraft.draftId
+      });
+      const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+      if (!passthroughRemove) {
+        throw new Error('expected storage remove implementation');
+      }
+      vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+        const [value] = args;
+        if (removalCallIncludesKey(value, currentDraftKey)) {
+          throw new Error('keep current key to verify terminal suppression');
+        }
+        return await passthroughRemove(...args);
+      });
 
       requireMountedPanelCallbacks(mountedCallbacks).onCancel();
-      await Promise.resolve();
-      await Promise.resolve();
+      await waitForMockCalls(view.destroy);
 
       const afterCancel = await listVideoDraftCandidates(deps, document.location.href, null);
       expect(afterCancel).toHaveLength(1);
       expect(afterCancel[0]?.draftId).toBe('existing-draft');
+      await expect(loadLatestVideoDraft(deps, document.location.href, null)).resolves.toMatchObject(
+        {
+          draftId: 'existing-draft'
+        }
+      );
       expect(
         createSessionDraftStorageKey({
           mode: 'video',
@@ -1113,8 +1465,19 @@ describe('VideoSession', () => {
           draftId: existing.draftId
         })
       );
-      expect(await readDraftIndex(deps)).toMatchObject({
-        entries: [expect.objectContaining({ draftId: 'existing-draft' })]
+      const draftIndex = await readDraftIndex(deps);
+      if (!draftIndex) {
+        throw new Error('Expected session draft index');
+      }
+      expect(draftIndex.entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ draftId: 'existing-draft', status: 'active' }),
+          expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })
+        ])
+      );
+      await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
+        draftId: currentDraft.draftId,
+        status: 'discarded'
       });
     } finally {
       sessionApi.cleanup();
@@ -1154,6 +1517,7 @@ describe('VideoSession', () => {
 
     vi.setSystemTime(new Date('2026-03-14T10:00:05Z'));
     requireMountedPanelCallbacks(mountedCallbacks).onCancel();
+    await waitForMockCalls(trackUsageEvent, 2);
 
     expect(trackUsageEvent).toHaveBeenNthCalledWith(2, 'video_session_cancelled', {
       platform: 'bilibili',
@@ -1816,6 +2180,591 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('rolls back capture comment edits and restores the previous draft when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1
+      }
+    ];
+    sessionApi.state.commentDrafts = {
+      'timestamp-1': 'panel draft note'
+    };
+    view.setCaptures.mockClear();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    await requirePromise(
+      requireMountedPanelCallbacks(mountedCallbacks).onSubmitCaptureEdit(
+        'timestamp-1',
+        'edited note'
+      )
+    );
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'original note' });
+    expect(sessionApi.state.commentDrafts).toEqual({
+      'timestamp-1': 'panel draft note'
+    });
+    const panelCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ comment?: string }>
+      | undefined;
+    expect(panelCaptures?.[0]).toMatchObject({ comment: 'original note' });
+    expect(view.stopEditing).not.toHaveBeenCalled();
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('queues add timestamp mutations while a draft-mode user save is in flight', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1
+      }
+    ];
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 52,
+      configurable: true
+    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const submitPromise = requirePromise(
+      callbacks.onSubmitCaptureEdit('timestamp-1', 'edited note')
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(sessionApi.state.saving).toBe(true);
+
+    const addPromise = sessionApi.addCurrentTimestamp('button', { beginEditing: false });
+    await flushMutationWork();
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(sessionApi.state.captures).toHaveLength(1);
+
+    deferredSave.resolve();
+    await submitPromise;
+    await addPromise;
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(2);
+    expect(sessionApi.state.captures).toHaveLength(2);
+    expect(sessionApi.state.captures[1]).toMatchObject({
+      kind: 'timestamp',
+      timeSec: 52
+    });
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('queues screenshot toggles behind an in-flight capture edit and keeps saving true until both saves finish', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-toggle',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 2
+      }
+    ];
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'edited note' });
+    expect(saveEvents).toEqual(['save-1:start']);
+    expect(sessionApi.state.saving).toBe(true);
+
+    const togglePromise = sessionApi.toggleCaptureScreenshot('ts-toggle');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).not.toHaveProperty('screenshotRequested');
+    expect(saveEvents).toEqual(['save-1:start']);
+    expect(sessionApi.state.saving).toBe(true);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+    expect(sessionApi.state.saving).toBe(true);
+
+    secondSave.resolve('ready');
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start', 'save-2:end']);
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('runs queued mutations after a failed save rolls back the active video mutation', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'failure'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready' | 'failure'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      },
+      {
+        kind: 'timestamp',
+        id: 'ts-toggle',
+        timeSec: 20,
+        comment: '',
+        url: 'https://video.example/watch?t=20',
+        createdAt: 2
+      }
+    ];
+    sessionApi.state.commentDrafts = {
+      'ts-edit': 'draft note'
+    };
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+    const togglePromise = sessionApi.toggleCaptureScreenshot('ts-toggle');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'edited note' });
+    expect(sessionApi.state.captures[1]).not.toHaveProperty('screenshotRequested');
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('failure');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'original note' });
+    expect(sessionApi.state.commentDrafts).toEqual({
+      'ts-edit': 'draft note'
+    });
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+
+    secondSave.resolve('ready');
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures[1]).toMatchObject({ screenshotRequested: true });
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('queues fragment adds behind the same video mutation runner', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'ts-edit',
+        timeSec: 10,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=10',
+        createdAt: 1
+      }
+    ];
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('ts-edit', 'edited note'));
+    await flushMutationWork();
+
+    session.ingestTextCapture('<p>Queued fragment</p>', 'Queued fragment', 'fragment note');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toHaveLength(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toHaveLength(2);
+    expect(sessionApi.state.captures[1]).toMatchObject({
+      kind: 'fragment',
+      comment: 'fragment note',
+      selectedText: 'Queued fragment'
+    });
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    secondSave.resolve('ready');
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
+
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_fragment_added', {
+      capture_count_bucket: 'two_to_five'
+    });
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('resolves queued delete targets at apply time when same-call-stack deletes shift capture indexes', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const secondSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      const gate = saveIndex === 0 ? firstSave : secondSave;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      const result = await gate.promise;
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return result;
+    });
+    seedTimestampCaptures(sessionApi, 3);
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    callbacks.onDeleteCapture('timestamp-1');
+    callbacks.onDeleteCapture('timestamp-2');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual([
+      'timestamp-2',
+      'timestamp-3'
+    ]);
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    for (let index = 0; index < 10 && !saveEvents.includes('save-2:start'); index += 1) {
+      await flushMutationWork();
+    }
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-3']);
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end', 'save-2:start']);
+
+    secondSave.resolve('ready');
+    for (let index = 0; index < 10 && !saveEvents.includes('save-2:end'); index += 1) {
+      await flushMutationWork();
+    }
+    for (let index = 0; index < 10 && sessionApi.state.saving; index += 1) {
+      await flushMutationWork();
+    }
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-3']);
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('skips queued edit and screenshot toggle when an earlier queued delete removes the target before apply', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const firstSave = createDeferred<'ready'>();
+    const saveEvents: string[] = [];
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    vi.spyOn(
+      session as unknown as {
+        flushDraftNow: () => Promise<'ready'>;
+      },
+      'flushDraftNow'
+    ).mockImplementation(async () => {
+      const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
+      saveEvents.push(`save-${saveIndex + 1}:start`);
+      if (saveIndex === 0) {
+        const result = await firstSave.promise;
+        saveEvents.push('save-1:end');
+        return result;
+      }
+      saveEvents.push(`save-${saveIndex + 1}:end`);
+      return 'ready';
+    });
+    seedTimestampCaptures(sessionApi, 2);
+    sessionApi.state.commentDrafts = {
+      'timestamp-2': 'queued draft'
+    };
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    callbacks.onDeleteCapture('timestamp-2');
+    const editPromise = requirePromise(callbacks.onSubmitCaptureEdit('timestamp-2', 'edited'));
+    const togglePromise = sessionApi.toggleCaptureScreenshot('timestamp-2');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-1']);
+    expect(saveEvents).toEqual(['save-1:start']);
+
+    firstSave.resolve('ready');
+    await editPromise;
+    await togglePromise;
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toEqual([expect.objectContaining({ id: 'timestamp-1' })]);
+    expect(saveEvents).toEqual(['save-1:start', 'save-1:end']);
+    expect(sessionApi.state.saving).toBe(false);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('keeps capture edits committed and retries restored-draft cleanup after the durable save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const restoredDraft = createVideoSessionDraftEnvelope({
+      draftId: 'restored-draft',
+      pageUrl: document.location.href,
+      pageTitle: 'Restored title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(restoredDraft);
+    const restoredDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: restoredDraft.pageKey,
+      draftId: restoredDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    let failCleanup = true;
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (failCleanup && removalCallIncludesKey(value, restoredDraftKey)) {
+        failCleanup = false;
+        throw new Error('cleanup failed after durable save');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    await requirePromise(callbacks.onSubmitCaptureEdit('ts-1', 'committed note'));
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'committed note' });
+    expect(view.stopEditing).toHaveBeenCalledWith('ts-1');
+    expect(view.updateHint.mock.calls.map(([message]) => message)).not.toContain(
+      DEFAULT_SESSION_MESSAGES.hintFailure
+    );
+    const draftIdsAfterFailedCleanup = (
+      await listVideoDraftCandidates(deps, document.location.href, null)
+    ).map((candidate) => candidate.draftId);
+    expect(draftIdsAfterFailedCleanup).toContain('restored-draft');
+    expect(draftIdsAfterFailedCleanup.length).toBeGreaterThanOrEqual(2);
+
+    view.stopEditing.mockClear();
+    await requirePromise(callbacks.onSubmitCaptureEdit('ts-1', 'committed note v2'));
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'committed note v2' });
+    expect(view.stopEditing).toHaveBeenCalledWith('ts-1');
+    const draftIdsAfterRetry = (
+      await listVideoDraftCandidates(deps, document.location.href, null)
+    ).map((candidate) => candidate.draftId);
+    expect(draftIdsAfterRetry).not.toContain('restored-draft');
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, restoredDraftKey))
+    ).toHaveLength(2);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
   it('persists screenshot intent before starting background screenshot preparation for control bar note captures', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -2014,13 +2963,9 @@ describe('VideoSession', () => {
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
-    const previousScreenshot = createBlobScreenshotFixture(
-      'cached-frame',
-      2_026_031_410_000,
-      {
-        fileName: 'file-20260314100000000.jpg'
-      }
-    );
+    const previousScreenshot = createBlobScreenshotFixture('cached-frame', 2_026_031_410_000, {
+      fileName: 'file-20260314100000000.jpg'
+    });
 
     await session.start();
     vi.spyOn(
@@ -2330,6 +3275,9 @@ describe('VideoSession', () => {
 
     await session.addCurrentTimestamp('button');
     session.ingestTextCapture('<p>Private fragment</p>', 'Private fragment', 'Private comment');
+    await flushMutationWork();
+    await vi.advanceTimersByTimeAsync(200);
+    await flushMutationWork();
     const timestampId = sessionApi.state.captures.find(
       (capture) => capture.kind === 'timestamp'
     )?.id;
@@ -2401,6 +3349,41 @@ describe('VideoSession', () => {
     createElementSpy.mockRestore();
     sessionApi.cleanup();
     vi.useRealTimers();
+  });
+
+  it('does not emit video_timestamp_added until the timestamp save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+
+    const addPromise = session.addCurrentTimestamp('button', { beginEditing: false });
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    deferredSave.resolve();
+    await addPromise;
+
+    expect(trackUsageEvent).toHaveBeenCalledTimes(1);
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_timestamp_added', {
+      capture_count_bucket: 'one'
+    });
   });
 
   it('rolls back fragment removal, restores drafts and highlights, and suppresses removal analytics when saving fails', async () => {
@@ -2725,6 +3708,130 @@ describe('VideoSession', () => {
     expect(playSpy).not.toHaveBeenCalled();
   });
 
+  it('writes exported terminal envelopes to the current and restored exact draft keys before cleanup', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const restoredDraft = createVideoSessionDraftEnvelope({
+      draftId: 'restored-draft',
+      pageUrl: document.location.href,
+      pageTitle: 'Restored title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(restoredDraft);
+    const restoredDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: restoredDraft.pageKey,
+      draftId: restoredDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    let failSupersededCleanup = true;
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (failSupersededCleanup && removalCallIncludesKey(value, restoredDraftKey)) {
+        failSupersededCleanup = false;
+        throw new Error('keep restored exact key active before export');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    const session = new VideoSession(document, deps);
+    await session.start();
+    await requirePromise(
+      requireMountedPanelCallbacks(mountedCallbacks).onSubmitCaptureEdit('ts-1', 'committed note')
+    );
+
+    const beforeFinish = await listVideoDraftCandidates(deps, document.location.href, null);
+    expect(beforeFinish).toHaveLength(2);
+    const currentDraft = beforeFinish.find((candidate) => candidate.draftId !== 'restored-draft');
+    if (!currentDraft) {
+      throw new Error('expected a current replacement draft');
+    }
+    const currentDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: currentDraft.pageKey,
+      draftId: currentDraft.draftId
+    });
+
+    vi.mocked(deps.storage.local.remove).mockClear();
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (
+        removalCallIncludesKey(value, currentDraftKey) ||
+        removalCallIncludesKey(value, restoredDraftKey)
+      ) {
+        throw new Error('terminal cleanup should be best-effort');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
+
+    expect(view.destroy).toHaveBeenCalledTimes(1);
+    expect(isVideoSessionActive(document)).toBe(false);
+    await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
+    await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
+    const draftIndex = await readDraftIndex(deps);
+    if (!draftIndex) {
+      throw new Error('Expected session draft index');
+    }
+    expect(draftIndex.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ draftId: currentDraft.draftId, status: 'exported' }),
+        expect.objectContaining({ draftId: restoredDraft.draftId, status: 'exported' })
+      ])
+    );
+    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
+      draftId: currentDraft.draftId,
+      status: 'exported'
+    });
+    await expect(readStoredVideoDraft(deps, restoredDraftKey)).resolves.toMatchObject({
+      draftId: restoredDraft.draftId,
+      status: 'exported'
+    });
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, currentDraftKey))
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, restoredDraftKey))
+    ).toHaveLength(1);
+
+    vi.useRealTimers();
+  });
+
   it('emits canonical export success analytics without leaking private fields', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
@@ -2760,6 +3867,45 @@ describe('VideoSession', () => {
       trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
     );
 
+    vi.useRealTimers();
+  });
+
+  it('keeps the session active and suppresses export success analytics when terminal draft persistence fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    await sessionApi.handleAddCapture();
+    trackUsageEvent.mockClear();
+    view.updateHint.mockClear();
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
+      Promise.reject(new Error('export terminal save failed'))
+    );
+
+    await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
+
+    expect(exportMock).toHaveBeenCalledTimes(1);
+    expect(view.destroy).not.toHaveBeenCalled();
+    expect(isVideoSessionActive(document)).toBe(true);
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+    await expect(loadLatestVideoDraft(deps)).resolves.toMatchObject({ status: 'active' });
+
+    sessionApi.cleanup();
     vi.useRealTimers();
   });
 
