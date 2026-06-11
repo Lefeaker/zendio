@@ -37,6 +37,7 @@ import {
 import {
   SESSION_DRAFT_INDEX_KEY,
   createSessionDraftRepository,
+  createSessionDraftStorageKey,
   type ReaderSessionDraftEnvelope,
   type SessionDraftEnvelope,
   type SessionDraftIndex
@@ -879,9 +880,11 @@ describe('ReaderSession', () => {
     }
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    context.highlightManager.unwrapHighlight.mockImplementation((highlight: ReaderHighlightRecord) => {
-      highlight.wrapper.remove();
-    });
+    context.highlightManager.unwrapHighlight.mockImplementation(
+      (highlight: ReaderHighlightRecord) => {
+        highlight.wrapper.remove();
+      }
+    );
     context.highlightManager.createHighlight.mockImplementationOnce(
       (options: {
         id: string;
@@ -908,7 +911,9 @@ describe('ReaderSession', () => {
         } satisfies ReaderHighlightRecord;
       }
     );
-    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(new Error('durable add failed'));
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
+      new Error('durable add failed')
+    );
 
     const selectionPromise = Promise.resolve(
       getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
@@ -946,7 +951,8 @@ describe('ReaderSession', () => {
     }
 
     const savingStatesDuringCreate: boolean[] = [];
-    const originalCreateHighlight = context.highlightManager.createHighlight.getMockImplementation();
+    const originalCreateHighlight =
+      context.highlightManager.createHighlight.getMockImplementation();
     if (!originalCreateHighlight) {
       throw new Error('expected highlight manager createHighlight implementation');
     }
@@ -1135,9 +1141,11 @@ describe('ReaderSession', () => {
         Object.entries(context.view.currentDrafts).filter(([id]) => validIds.has(id))
       );
     });
-    context.highlightManager.unwrapHighlight.mockImplementation((highlight: ReaderHighlightRecord) => {
-      highlight.wrapper.remove();
-    });
+    context.highlightManager.unwrapHighlight.mockImplementation(
+      (highlight: ReaderHighlightRecord) => {
+        highlight.wrapper.remove();
+      }
+    );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
       new Error('durable delete failed')
@@ -1243,7 +1251,9 @@ describe('ReaderSession', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(new Error('edit failed'));
 
-    const editPromise = Promise.resolve(callbacks.onSubmitHighlightEdit('h-edit', ' updated memo '));
+    const editPromise = Promise.resolve(
+      callbacks.onSubmitHighlightEdit('h-edit', ' updated memo ')
+    );
     const editExpectation = expect(editPromise).rejects.toThrow();
     await Promise.resolve();
 
@@ -1345,7 +1355,9 @@ describe('ReaderSession', () => {
 
     await settleReaderMutation(
       Promise.resolve(
-        getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+        getSessionHarness(context.session).handleSelection(
+          createSelectionPayload(content.firstChild)
+        )
       )
     );
 
@@ -1382,7 +1394,9 @@ describe('ReaderSession', () => {
 
     await settleReaderMutation(
       Promise.resolve(
-        getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))
+        getSessionHarness(context.session).handleSelection(
+          createSelectionPayload(content.firstChild)
+        )
       )
     );
 
@@ -1720,6 +1734,160 @@ describe('ReaderSession', () => {
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({ status: 'active' });
   });
 
+  it('preserves same-page other-owner drafts after cancel when the current exact-key cleanup fails', async () => {
+    vi.useFakeTimers();
+    const previousChrome = globalThis.chrome;
+    const currentOwner = { tabId: 11, windowId: 1, frameId: 0 };
+    const otherOwner = { tabId: 22, windowId: 2, frameId: 0 };
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      value: {
+        runtime: {
+          sendMessage: vi.fn((message: unknown, callback?: (response: unknown) => void) => {
+            if (
+              typeof message === 'object' &&
+              message !== null &&
+              (message as { type?: unknown }).type === 'AIIOB_IS_TAB_CONTEXT_ACTIVE'
+            ) {
+              callback?.({ success: true, active: true });
+              return;
+            }
+            callback?.({ success: true, ...currentOwner });
+          })
+        }
+      }
+    });
+
+    const context = createSessionContext();
+    const pageUrl = 'https://example.com/article';
+    const existing = buildReaderSessionDraftEnvelope({
+      draftId: 'existing-draft',
+      createdAt: 2_000_000_000_049,
+      now: 2_000_000_000_050,
+      pageUrl,
+      pageTitle: 'Existing title',
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'existing-highlight',
+          selectedText: 'Existing highlight',
+          selectedHtml: '<mark>Existing highlight</mark>',
+          comment: 'existing note',
+          fragmentUrl: '#existing-highlight',
+          createdAt: 2_000_000_000_050
+        })
+      ],
+      commentDrafts: {
+        'existing-highlight': 'existing note'
+      },
+      status: 'active'
+    });
+
+    if (!existing) {
+      throw new Error('expected existing reader draft envelope');
+    }
+
+    try {
+      await context.draftRepository.save(existing, { ownerContext: otherOwner });
+      await context.session.initialize();
+
+      const content = document.getElementById('content');
+      if (!content?.firstChild) {
+        throw new Error('content node missing');
+      }
+
+      await settleReaderMutation(
+        Promise.resolve(
+          getSessionHarness(context.session).handleSelection(
+            createSelectionPayload(content.firstChild)
+          )
+        )
+      );
+
+      const beforeCancel = await context.draftRepository.listCandidates(
+        'reader',
+        pageUrl,
+        undefined,
+        { ownerContext: null }
+      );
+      expect(beforeCancel).toHaveLength(2);
+
+      const currentDraft = beforeCancel.find((candidate) => candidate.draftId !== 'existing-draft');
+      if (!currentDraft) {
+        throw new Error('expected a current draft before cancel');
+      }
+
+      const currentDraftKey = createSessionDraftStorageKey({
+        mode: 'reader',
+        pageKey: currentDraft.pageKey,
+        draftId: currentDraft.draftId
+      });
+      const existingDraftKey = createSessionDraftStorageKey({
+        mode: 'reader',
+        pageKey: existing.pageKey,
+        draftId: existing.draftId
+      });
+      const passthroughRemove = context.storageLocal.remove.bind(context.storageLocal);
+      const removeSpy = vi
+        .spyOn(context.storageLocal, 'remove')
+        .mockImplementation(async (value) => {
+          if (removalCallIncludesKey(value, currentDraftKey)) {
+            throw new Error('keep current key to verify terminal suppression');
+          }
+          return await passthroughRemove(value);
+        });
+
+      const callbacks = context.getCallbacks();
+      if (!callbacks) {
+        throw new Error('panel callbacks missing');
+      }
+
+      callbacks.onCancel();
+      await vi.waitFor(() => {
+        expect(context.view.destroy).toHaveBeenCalledTimes(1);
+      });
+
+      const afterCancel = await context.draftRepository.listCandidates(
+        'reader',
+        pageUrl,
+        undefined,
+        { ownerContext: null }
+      );
+      expect(afterCancel).toHaveLength(1);
+      expect(afterCancel[0]?.draftId).toBe('existing-draft');
+      await expect(
+        context.draftRepository.loadLatest('reader', pageUrl, undefined, { ownerContext: null })
+      ).resolves.toMatchObject({
+        draftId: 'existing-draft'
+      });
+      expect(await readDraftIndex(context)).toMatchObject({
+        entries: expect.arrayContaining([
+          expect.objectContaining({ draftId: 'existing-draft', status: 'active' }),
+          expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })
+        ])
+      });
+      await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toMatchObject({
+        draftId: currentDraft.draftId,
+        status: 'discarded'
+      });
+      expect(
+        removeSpy.mock.calls.filter(([value]) => removalCallIncludesKey(value, currentDraftKey))
+      ).toHaveLength(1);
+      expect(
+        removeSpy.mock.calls.filter(([value]) => removalCallIncludesKey(value, existingDraftKey))
+      ).toHaveLength(0);
+    } finally {
+      if (previousChrome === undefined) {
+        Reflect.deleteProperty(globalThis, 'chrome');
+      } else {
+        Object.defineProperty(globalThis, 'chrome', {
+          configurable: true,
+          value: previousChrome
+        });
+      }
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps the session active when pending draft flush fails before cancel terminalization', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
@@ -1753,9 +1921,11 @@ describe('ReaderSession', () => {
     });
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    const setManySpy = vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
-      throw new Error('cancel pending flush failed');
-    });
+    const setManySpy = vi
+      .spyOn(context.storageLocal, 'setMany')
+      .mockImplementationOnce(async () => {
+        throw new Error('cancel pending flush failed');
+      });
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -1882,7 +2052,9 @@ describe('ReaderSession', () => {
     expect(isReaderSessionActive(document)).toBe(true);
     expect(getSessionHarness(context.session).__testHighlights).toHaveLength(1);
     expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
-    expect(getTelemetryMessages(context).find((message) => message.event === 'reader_exported')).toBeUndefined();
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_exported')
+    ).toBeUndefined();
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({ status: 'active' });
   });
 
@@ -1919,9 +2091,11 @@ describe('ReaderSession', () => {
     });
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    const setManySpy = vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
-      throw new Error('export pending flush failed');
-    });
+    const setManySpy = vi
+      .spyOn(context.storageLocal, 'setMany')
+      .mockImplementationOnce(async () => {
+        throw new Error('export pending flush failed');
+      });
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -1942,7 +2116,9 @@ describe('ReaderSession', () => {
       label: '发送失败',
       variant: 'failure'
     });
-    expect(getTelemetryMessages(context).find((message) => message.event === 'reader_exported')).toBeUndefined();
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_exported')
+    ).toBeUndefined();
     expect(setManySpy).toHaveBeenCalledTimes(1);
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
       draftId: currentDraftId,
