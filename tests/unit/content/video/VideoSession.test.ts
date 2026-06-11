@@ -198,9 +198,16 @@ type SessionTestApi = {
       wrapperId?: string;
       screenshotRequested?: boolean;
       screenshot?: {
+        id?: string;
         fileName: string;
         mimeType: 'image/jpeg';
-        dataUrl: string;
+        capturedAt?: number;
+        dataUrl?: string;
+        content?: {
+          kind: 'blob';
+          byteLength: number;
+          blob: Blob;
+        };
       };
     }>;
     commentDrafts?: Record<string, string>;
@@ -376,6 +383,28 @@ function createDeferred<T = void>(): {
     reject = nextReject;
   });
   return { promise, resolve, reject };
+}
+
+function createBlobScreenshotFixture(
+  text: string,
+  capturedAt: number,
+  options: {
+    id?: string;
+    fileName?: string;
+  } = {}
+) {
+  const blob = new Blob([text], { type: 'image/jpeg' });
+  return {
+    id: options.id ?? `shot-${capturedAt}`,
+    fileName: options.fileName ?? `file-${capturedAt}.jpg`,
+    mimeType: 'image/jpeg' as const,
+    capturedAt,
+    content: {
+      kind: 'blob' as const,
+      blob,
+      byteLength: blob.size
+    }
+  };
 }
 
 async function flushMutationWork(): Promise<void> {
@@ -570,13 +599,10 @@ describe('VideoSession', () => {
               url: 'https://video.example/watch?t=42',
               comment: 'Restored marker',
               createdAt: 2_000_000_000_100,
-              screenshot: {
+              screenshot: createBlobScreenshotFixture('frame', 2_000_000_000_101, {
                 id: 'shot-1',
-                fileName: 'video-0m42s.jpg',
-                mimeType: 'image/jpeg',
-                dataUrl: 'data:image/jpeg;base64,frame',
-                capturedAt: 2_000_000_000_101
-              }
+                fileName: 'video-0m42s.jpg'
+              }) as never
             },
             {
               kind: 'fragment',
@@ -602,6 +628,10 @@ describe('VideoSession', () => {
       const sessionApi = toSessionTestApi(session);
       const canvas = document.createElement('canvas');
       const drawImage = vi.fn();
+      const toBlob = vi.fn((callback: BlobCallback) => {
+        callback(new Blob(['restored-frame'], { type: 'image/jpeg' }));
+      });
+      const toDataURL = vi.fn();
       const hiddenVideo = createPreparationVideoHarness({
         currentTime: 0,
         sourceUrl: 'https://cdn.example/video.mp4'
@@ -618,11 +648,11 @@ describe('VideoSession', () => {
               configurable: true
             });
             Object.defineProperty(canvas, 'toBlob', {
-              value: undefined,
+              value: toBlob,
               configurable: true
             });
             Object.defineProperty(canvas, 'toDataURL', {
-              value: vi.fn(() => 'data:image/jpeg;base64,restored-frame'),
+              value: toDataURL,
               configurable: true
             });
             return canvas;
@@ -690,8 +720,15 @@ describe('VideoSession', () => {
         }
         expect(restoredTimestamp.screenshot).toMatchObject({
           mimeType: 'image/jpeg',
-          dataUrl: 'data:image/jpeg;base64,restored-frame'
+          content: {
+            kind: 'blob',
+            byteLength: 14
+          }
         });
+        expect(restoredTimestamp.screenshot?.content?.blob).toBeInstanceOf(Blob);
+        expect(restoredTimestamp.screenshot?.content?.blob.size).toBe(14);
+        expect(toBlob).toHaveBeenCalledTimes(1);
+        expect(toDataURL).not.toHaveBeenCalled();
         expect(restoredFragment).toMatchObject({
           kind: 'fragment',
           id: 'frag-1',
@@ -1977,11 +2014,13 @@ describe('VideoSession', () => {
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
-    const previousScreenshot = {
-      fileName: 'file-20260314100000000.jpg',
-      mimeType: 'image/jpeg' as const,
-      dataUrl: 'data:image/jpeg;base64,cached-frame'
-    };
+    const previousScreenshot = createBlobScreenshotFixture(
+      'cached-frame',
+      2_026_031_410_000,
+      {
+        fileName: 'file-20260314100000000.jpg'
+      }
+    );
 
     await session.start();
     vi.spyOn(
@@ -2191,11 +2230,9 @@ describe('VideoSession', () => {
         url: 'https://video.example/watch?t=42',
         createdAt: 1,
         screenshotRequested: true,
-        screenshot: {
-          fileName: 'file-20260314100000000.jpg',
-          mimeType: 'image/jpeg',
-          dataUrl: 'data:image/jpeg;base64,cached-frame'
-        }
+        screenshot: createBlobScreenshotFixture('cached-frame', 2_026_031_410_000, {
+          fileName: 'file-20260314100000000.jpg'
+        })
       }
     ];
 
@@ -2214,7 +2251,10 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]).toMatchObject({
       screenshotRequested: true,
       screenshot: {
-        dataUrl: 'data:image/jpeg;base64,cached-frame'
+        content: {
+          kind: 'blob',
+          byteLength: 12
+        }
       }
     });
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
@@ -2244,14 +2284,22 @@ describe('VideoSession', () => {
     const trackUsageEvent = getTrackUsageEventMock(deps);
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(new Blob(['private-frame'], { type: 'image/jpeg' }));
+    });
+    const toDataURL = vi.fn();
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName.toLowerCase() === 'canvas') {
         Object.defineProperty(canvas, 'getContext', {
           value: vi.fn(() => ({ drawImage })),
           configurable: true
         });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
         Object.defineProperty(canvas, 'toDataURL', {
-          value: vi.fn(() => 'data:image/jpeg;base64,private-frame'),
+          value: toDataURL,
           configurable: true
         });
         return canvas;
@@ -2322,13 +2370,16 @@ describe('VideoSession', () => {
     expect(pauseSpy).not.toHaveBeenCalled();
     expect(playSpy).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(toBlob).toHaveBeenCalledTimes(1);
+    expect(toDataURL).not.toHaveBeenCalled();
 
     const analyticsPayload = trackUsageEvent.mock.calls
       .map(([, params]) => JSON.stringify(params ?? {}))
       .join('\n');
     expect(analyticsPayload).not.toContain('Private fragment');
     expect(analyticsPayload).not.toContain('Private comment');
-    expect(analyticsPayload).not.toContain('data:image/jpeg;base64,private-frame');
+    expect(analyticsPayload).not.toContain('private-frame');
+    expect(analyticsPayload).not.toContain('byteLength');
     expect(analyticsPayload).not.toContain('https://video.example');
     expect(
       trackUsageEvent.mock.calls.some(

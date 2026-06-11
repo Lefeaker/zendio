@@ -23,6 +23,15 @@ function createTimestampCapture(): VideoTimestampCapture {
   };
 }
 
+function createBlobContent(text: string) {
+  const blob = new Blob([text], { type: 'image/jpeg' });
+  return {
+    kind: 'blob' as const,
+    blob,
+    byteLength: blob.size
+  };
+}
+
 interface CaptureCanvasHarness {
   video: HTMLVideoElement;
   drawImage: ReturnType<typeof vi.fn>;
@@ -42,7 +51,7 @@ function createCaptureCanvasHarness(options?: {
     options?.toBlob ??
       ((callback: BlobCallback) => callback(new Blob(['frame'], { type: 'image/jpeg' })))
   );
-  const toDataURL = vi.fn(options?.toDataURL ?? (() => 'data:image/jpeg;base64,frame'));
+  const toDataURL = vi.fn(options?.toDataURL ?? (() => 'data:image/jpeg;base64,ZnJhbWU='));
   const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
     if (tagName.toLowerCase() === 'canvas') {
       Object.defineProperty(canvas, 'getContext', {
@@ -75,7 +84,7 @@ function createCaptureCanvasHarness(options?: {
 }
 
 describe('captureVideoFrameScreenshot', () => {
-  it('captures a jpeg screenshot from the current video frame', () => {
+  it('uses the legacy test-only data URL fallback for synchronous capture', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const harness = createCaptureCanvasHarness();
@@ -85,8 +94,18 @@ describe('captureVideoFrameScreenshot', () => {
     expect(harness.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
     expect(screenshot).toMatchObject({
       mimeType: 'image/jpeg',
-      dataUrl: 'data:image/jpeg;base64,frame'
+      content: {
+        kind: 'blob',
+        byteLength: 5
+      }
     });
+    expect(harness.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.88);
+    const syncContent = screenshot?.content;
+    if (!syncContent) {
+      throw new Error('expected legacy fallback screenshot content');
+    }
+    expect(syncContent.blob).toBeInstanceOf(Blob);
+    expect(syncContent.blob.size).toBe(5);
     expect(screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/);
 
     harness.restore();
@@ -110,8 +129,17 @@ describe('captureVideoFrameScreenshot', () => {
     expect(screenshot).toMatchObject({
       mimeType: 'image/jpeg',
       capturedAt: 1,
-      dataUrl: 'data:image/jpeg;base64,ZnJhbWU='
+      content: {
+        kind: 'blob',
+        byteLength: 5
+      }
     });
+    const asyncContent = screenshot?.content;
+    if (!asyncContent) {
+      throw new Error('expected async blob screenshot content');
+    }
+    expect(asyncContent.blob).toBeInstanceOf(Blob);
+    expect(asyncContent.blob.size).toBe(5);
 
     harness.restore();
   });
@@ -128,19 +156,14 @@ describe('captureVideoFrameScreenshot', () => {
     harness.restore();
   });
 
-  it('falls back to toDataURL when toBlob is unavailable', async () => {
+  it('returns null when toBlob is unavailable on the async path', async () => {
     const harness = createCaptureCanvasHarness({
       toBlob: undefined
     });
 
-    const screenshot = await captureVideoFrameScreenshotAsync(harness.video, 42, 1);
-
-    expect(harness.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.88);
-    expect(screenshot).toMatchObject({
-      mimeType: 'image/jpeg',
-      capturedAt: 1,
-      dataUrl: 'data:image/jpeg;base64,frame'
-    });
+    await expect(captureVideoFrameScreenshotAsync(harness.video, 42, 1)).resolves.toBeNull();
+    expect(harness.toBlob).not.toHaveBeenCalled();
+    expect(harness.toDataURL).not.toHaveBeenCalled();
 
     harness.restore();
   });
@@ -162,9 +185,9 @@ describe('captureVideoFrameScreenshot', () => {
       id: 'shot-1',
       fileName: 'file-42.jpg',
       mimeType: 'image/jpeg',
-      dataUrl: 'data:image/jpeg;base64,frame',
-      capturedAt: 1
-    });
+      capturedAt: 1,
+      content: createBlobContent('frame')
+    } as unknown as NonNullable<VideoTimestampCapture['screenshot']>);
 
     expect(hasRequestedTimestampScreenshot(capture)).toBe(true);
     expect(capture.screenshot).toMatchObject({ id: 'shot-1' });

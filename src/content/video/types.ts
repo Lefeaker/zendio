@@ -1,10 +1,26 @@
-export interface VideoCaptureScreenshot {
+export interface VideoCaptureScreenshotContent {
+  kind: 'blob';
+  blob: Blob;
+  byteLength: number;
+}
+
+interface VideoCaptureScreenshotBase {
   id: string;
   fileName: string;
   mimeType: 'image/jpeg';
-  dataUrl: string;
   capturedAt: number;
 }
+
+export type VideoCaptureScreenshot =
+  | (VideoCaptureScreenshotBase & {
+      content: VideoCaptureScreenshotContent;
+      dataUrl?: string;
+    })
+  | (VideoCaptureScreenshotBase & {
+      // Legacy compatibility bridge for exporter/background follow-up work.
+      dataUrl: string;
+      content?: VideoCaptureScreenshotContent;
+    });
 
 export interface VideoTimestampCapture {
   kind: 'timestamp';
