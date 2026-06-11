@@ -1,6 +1,7 @@
 import { formatDateTime } from '../clipper/utils/datetime';
 import { buildReaderHighlightsMarkdown } from '../reader/utils/markdownBuilder';
 import { generateYamlFrontMatter } from '../../shared/utils/yamlGenerator';
+import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionMessages } from './sessionMessages';
 import type { VideoPlatform } from './utils';
@@ -29,7 +30,7 @@ export interface BuildPayloadContext {
 export class VideoSessionExporter {
   constructor(private readonly videoRepository: IVideoRepository) {}
 
-  buildPayload(ctx: BuildPayloadContext): ExportPayload {
+  async buildPayload(ctx: BuildPayloadContext): Promise<ExportPayload> {
     const sorted = [...ctx.captures].sort((a, b) => {
       const aTime = typeof a.timeSec === 'number' ? a.timeSec : Number.MAX_SAFE_INTEGER;
       const bTime = typeof b.timeSec === 'number' ? b.timeSec : Number.MAX_SAFE_INTEGER;
@@ -45,12 +46,43 @@ export class VideoSessionExporter {
     const fragmentCaptures = sorted.filter(
       (capture): capture is VideoFragmentCapture => capture.kind === 'fragment'
     );
-    const attachments = timestampCaptures
-      .map((capture) => capture.screenshot)
-      .filter((screenshot): screenshot is NonNullable<VideoTimestampCapture['screenshot']> =>
-        Boolean(screenshot)
+    const serializedScreenshots = (
+      await Promise.all(
+        timestampCaptures.map(async (capture) => {
+          const screenshot = capture.screenshot;
+          if (!screenshot) {
+            return null;
+          }
+
+          if (screenshot.content?.kind === 'blob') {
+            try {
+              return {
+                id: screenshot.id,
+                fileName: screenshot.fileName,
+                mimeType: screenshot.mimeType,
+                content: await serializeBlobAttachmentContent(screenshot.content.blob)
+              };
+            } catch {
+              return null;
+            }
+          }
+
+          if (typeof screenshot.dataUrl === 'string') {
+            return {
+              id: screenshot.id,
+              fileName: screenshot.fileName,
+              mimeType: screenshot.mimeType,
+              dataUrl: screenshot.dataUrl
+            };
+          }
+
+          return null;
+        })
       )
-      .map(({ id, fileName, mimeType, dataUrl }) => ({ id, fileName, mimeType, dataUrl }));
+    ).filter((attachment): attachment is NonNullable<typeof attachment> => attachment !== null);
+    const screenshotAttachmentIds = new Set(
+      serializedScreenshots.map((attachment) => attachment.id)
+    );
 
     const defaultTitle =
       ctx.platform === 'youtube'
@@ -92,7 +124,7 @@ export class VideoSessionExporter {
         const label = this.formatTime(capture.timeSec);
         const comment = capture.comment ? ` ${capture.comment}` : '';
         bodyLines.push(`${index + 1}. [${label}](${capture.url})${comment}`);
-        if (capture.screenshot) {
+        if (capture.screenshot && screenshotAttachmentIds.has(capture.screenshot.id)) {
           bodyLines.push(`\t![Screenshot](aiob-attachment:${capture.screenshot.id})`);
         }
         bodyLines.push('');
@@ -131,14 +163,14 @@ export class VideoSessionExporter {
         timestampCount: timestampCaptures.length,
         fragmentCount: fragmentCaptures.length,
         storageKey: ctx.storageKey ?? undefined,
-        ...(attachments.length ? { attachments } : {}),
+        ...(serializedScreenshots.length ? { attachments: serializedScreenshots } : {}),
         ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
       }
     };
   }
 
   async export(ctx: BuildPayloadContext): Promise<ClipResult> {
-    const payload = this.buildPayload(ctx);
+    const payload = await this.buildPayload(ctx);
     const attachments = Array.isArray(payload.meta.attachments)
       ? (payload.meta.attachments as NonNullable<VideoClipData['attachments']>)
       : null;
