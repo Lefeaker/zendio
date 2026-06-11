@@ -28,11 +28,13 @@ import { DI_TOKENS } from '../../src/shared/di/tokens';
 import type { ReaderHighlightManager } from '../../src/content/reader/services/highlightManager';
 import type { ReaderSelectionController } from '../../src/content/reader/services/selectionController';
 import type { ReaderPanelCoordinator } from '../../src/content/reader/panelCoordinator';
+import type { ReaderPanelEditingSnapshot } from '../../src/content/reader/application/readerSessionView';
 import type { ReaderEnvironmentController } from '../../src/content/reader/environmentController';
 import type { ReaderSessionLifecycle } from '../../src/content/reader/sessionLifecycle';
 import type { IOptionsRepository } from '../../src/shared/repositories/IOptionsRepository';
-import type { StorageService } from '../../src/platform/interfaces/storage';
+import { createMemoryStorageService } from '../../src/platform/preview/memoryStorage';
 import type { PlatformServices } from '../../src/platform/types';
+import type { SessionCommentDraftSnapshot } from '../../src/content/shared/panels/sessionCommentDrafts';
 
 type I18nContextModule = typeof import('../../src/content/i18n/context');
 type StyleSheetManagerModule = typeof import('../../src/content/clipper/shared/styleSheetManager');
@@ -309,16 +311,54 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
     updateFragmentConfig: vi.fn()
   };
 
+  const currentCommentDrafts: SessionCommentDraftSnapshot = {};
+  let currentEditingState: ReaderPanelEditingSnapshot = {
+    editingHighlightId: null,
+    pendingNoteFocusHighlightId: null
+  };
   const panelCoordinatorMocks = {
     getElement: vi.fn(() => null),
     updateMessages: vi.fn(),
     updateHighlights: vi.fn(),
+    updateDestination: vi.fn(),
     refreshHint: vi.fn(),
     applyHint: vi.fn(),
     mount: vi.fn(),
     destroy: vi.fn(),
-    isEditing: vi.fn(() => false),
-    stopEditing: vi.fn()
+    snapshotCommentDrafts: vi.fn(() => ({ ...currentCommentDrafts })),
+    hydrateCommentDrafts: vi.fn((drafts: SessionCommentDraftSnapshot) => {
+      Object.keys(currentCommentDrafts).forEach((id) => {
+        delete currentCommentDrafts[id];
+      });
+      Object.assign(currentCommentDrafts, drafts);
+    }),
+    clearCommentDraft: vi.fn((id: string) => {
+      delete currentCommentDrafts[id];
+    }),
+    restoreCommentDraft: vi.fn((id: string, draft: string | undefined) => {
+      if (draft === undefined) {
+        delete currentCommentDrafts[id];
+        return;
+      }
+      currentCommentDrafts[id] = draft;
+    }),
+    snapshotEditingState: vi.fn(() => ({ ...currentEditingState })),
+    restoreEditingState: vi.fn((snapshot: ReaderPanelEditingSnapshot) => {
+      currentEditingState = { ...snapshot };
+    }),
+    finishEditing: vi.fn(() => {
+      currentEditingState = {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      };
+    }),
+    isEditing: vi.fn(() => currentEditingState.editingHighlightId !== null),
+    stopEditing: vi.fn(() => {
+      currentEditingState = {
+        editingHighlightId: null,
+        pendingNoteFocusHighlightId: null
+      };
+    })
   };
 
   const environmentControllerMocks = {
@@ -375,7 +415,7 @@ function createReaderSessionHarness(overrides?: Partial<ReaderSessionDependencie
       overrides?.viewFactory ??
       ({ createView: vi.fn() } as ReaderSessionDependencies['viewFactory']),
     optionsRepository: overrides?.optionsRepository ?? ({} as IOptionsRepository),
-    storage: overrides?.storage ?? ({} as StorageService),
+    storage: overrides?.storage ?? createMemoryStorageService(),
     messaging:
       overrides?.messaging ?? ({ send: vi.fn() } as ReaderSessionDependencies['messaging']),
     readerRepository: overrides?.readerRepository ?? readerRepositoryMocks,
