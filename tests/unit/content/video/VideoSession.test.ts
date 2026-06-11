@@ -2895,6 +2895,41 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
+  it('does not emit video_timestamp_added until the timestamp save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    deps.viewFactory.createView = vi.fn(() => view);
+    const session = new VideoSession(document, deps);
+    const trackUsageEvent = getTrackUsageEventMock(deps);
+
+    await session.start();
+    trackUsageEvent.mockClear();
+
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 42,
+      configurable: true
+    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+
+    const addPromise = session.addCurrentTimestamp('button', { beginEditing: false });
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(trackUsageEvent).not.toHaveBeenCalled();
+
+    deferredSave.resolve();
+    await addPromise;
+
+    expect(trackUsageEvent).toHaveBeenCalledTimes(1);
+    expect(trackUsageEvent).toHaveBeenCalledWith('video_timestamp_added', {
+      capture_count_bucket: 'one'
+    });
+  });
+
   it('rolls back fragment removal, restores drafts and highlights, and suppresses removal analytics when saving fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
