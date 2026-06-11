@@ -29,6 +29,7 @@ import {
   buildReaderFullMarkdown,
   buildReaderHighlightsMarkdown
 } from '@content/reader/utils/markdownBuilder';
+import type { ReadingOptions } from '@shared/repositories/IReaderRepository';
 import {
   __resetContentSessionRegistryForTests,
   getReaderSession,
@@ -302,7 +303,7 @@ function createSessionContext() {
   const view = createView();
   let callbacks: ReaderPanelCallbacks | undefined;
   let viewOptions: ReaderSessionViewOptions | undefined;
-  const readerConfigListener = vi.fn();
+  const readerConfigListener = vi.fn<(config: ReadingOptions) => void>();
   const getReadingConfig = vi.fn().mockResolvedValue({
     exportMode: 'highlights',
     highlightTheme: 'gradient'
@@ -439,7 +440,7 @@ function createSessionContext() {
     readerRepository: {
       getReadingConfig,
       sendReadingClip: vi.fn(),
-      onConfigChange: vi.fn((listener) => {
+      onConfigChange: vi.fn((listener: (config: ReadingOptions) => void) => {
         readerConfigListener.mockImplementation(listener);
         return () => undefined;
       })
@@ -765,29 +766,36 @@ describe('ReaderSession', () => {
 
     await flushDraftPersistence();
 
-    await expect(
-      context.draftRepository.loadLatest('reader', 'https://example.com/article')
-    ).resolves.toMatchObject({
-      draftId: 'reader-draft-1',
-      status: 'active',
-      payload: expect.objectContaining({
-        destination: { kind: 'vault', vaultId: 'research' },
-        commentDrafts: {
-          'saved-1': 'unsaved note'
-        },
-        highlights: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'saved-1',
-            selectedText: 'Hello reader session world.',
-            comment: 'remember this'
-          }),
-          expect.objectContaining({
-            selectedText: 'reader session',
-            comment: 'fresh note'
-          })
-        ])
-      })
+    const persistedDraft = await context.draftRepository.loadLatest(
+      'reader',
+      'https://example.com/article'
+    );
+    if (!persistedDraft || persistedDraft.mode !== 'reader') {
+      throw new Error('reader draft missing');
+    }
+    expect(persistedDraft.draftId).toBe('reader-draft-1');
+    expect(persistedDraft.status).toBe('active');
+    expect(persistedDraft.payload.destination).toEqual({
+      kind: 'vault',
+      vaultId: 'research'
     });
+    expect(persistedDraft.payload.commentDrafts).toEqual({
+      'saved-1': 'unsaved note'
+    });
+    const persistedHighlights = persistedDraft.payload.highlights ?? [];
+    expect(
+      persistedHighlights.some(
+        ({ id, selectedText, comment }) =>
+          id === 'saved-1' &&
+          selectedText === 'Hello reader session world.' &&
+          comment === 'remember this'
+      )
+    ).toBe(true);
+    expect(
+      persistedHighlights.some(
+        ({ selectedText, comment }) => selectedText === 'reader session' && comment === 'fresh note'
+      )
+    ).toBe(true);
   });
 
   it('flushes a restorable reader draft on pagehide after prior mutation-time saves', async () => {
@@ -1279,18 +1287,14 @@ describe('ReaderSession', () => {
     await deletePromise;
 
     const draft = await loadLatestReaderDraft(context);
-    expect(draft).toMatchObject({
-      payload: expect.objectContaining({
-        highlights: [expect.objectContaining({ id: 'h-keep' })],
-        commentDrafts: {
-          'h-keep': 'keep draft'
-        }
-      })
+    if (!draft) {
+      throw new Error('reader draft missing after delete');
+    }
+    expect(draft.payload.highlights?.map(({ id }) => id)).toEqual(['h-keep']);
+    expect(draft.payload.commentDrafts).toEqual({
+      'h-keep': 'keep draft'
     });
-    expect(draft?.payload.highlights).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'h-delete' })])
-    );
-    expect(draft?.payload.commentDrafts).not.toHaveProperty('h-delete');
+    expect(draft.payload.commentDrafts).not.toHaveProperty('h-delete');
   });
 
   it('does not overwrite the durable reader draft with a deleted highlight when delete save fails', async () => {
@@ -1325,13 +1329,12 @@ describe('ReaderSession', () => {
     await flushDraftPersistence();
     await initialPersist;
     const beforeDelete = await loadLatestReaderDraft(context);
-    expect(beforeDelete).toMatchObject({
-      payload: expect.objectContaining({
-        highlights: [expect.objectContaining({ id: 'h-delete' })],
-        commentDrafts: {
-          'h-delete': 'draft to keep'
-        }
-      })
+    if (!beforeDelete) {
+      throw new Error('reader draft missing before delete');
+    }
+    expect(beforeDelete.payload.highlights?.map(({ id }) => id)).toEqual(['h-delete']);
+    expect(beforeDelete.payload.commentDrafts).toEqual({
+      'h-delete': 'draft to keep'
     });
 
     context.highlightManager.unwrapHighlight.mockImplementation(
@@ -1499,13 +1502,12 @@ describe('ReaderSession', () => {
     await editPromise;
 
     const draft = await loadLatestReaderDraft(context);
-    expect(draft).toMatchObject({
-      payload: expect.objectContaining({
-        highlights: [expect.objectContaining({ id: 'h-edit', comment: 'new memo' })],
-        commentDrafts: {}
-      })
-    });
-    expect(draft?.payload.commentDrafts).not.toHaveProperty('h-edit');
+    if (!draft) {
+      throw new Error('reader draft missing after edit');
+    }
+    expect(draft.payload.highlights?.find(({ id }) => id === 'h-edit')?.comment).toBe('new memo');
+    expect(draft.payload.commentDrafts).toEqual({});
+    expect(draft.payload.commentDrafts).not.toHaveProperty('h-edit');
   });
 
   it('does not overwrite the durable reader draft with an edited comment when edit save fails', async () => {
@@ -1547,13 +1549,14 @@ describe('ReaderSession', () => {
     await flushDraftPersistence();
     await initialPersist;
     const beforeEdit = await loadLatestReaderDraft(context);
-    expect(beforeEdit).toMatchObject({
-      payload: expect.objectContaining({
-        highlights: [expect.objectContaining({ id: 'h-edit', comment: 'old memo' })],
-        commentDrafts: {
-          'h-edit': 'new memo'
-        }
-      })
+    if (!beforeEdit) {
+      throw new Error('reader draft missing before edit');
+    }
+    expect(beforeEdit.payload.highlights?.find(({ id }) => id === 'h-edit')?.comment).toBe(
+      'old memo'
+    );
+    expect(beforeEdit.payload.commentDrafts).toEqual({
+      'h-edit': 'new memo'
     });
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1640,15 +1643,16 @@ describe('ReaderSession', () => {
         label: 'Research Vault'
       })
     );
-    await expect(
-      context.draftRepository.loadLatest('reader', 'https://example.com/article')
-    ).resolves.toMatchObject({
-      payload: expect.objectContaining({
-        destination: {
-          kind: 'vault',
-          vaultId: 'research'
-        }
-      })
+    const destinationDraft = await context.draftRepository.loadLatest(
+      'reader',
+      'https://example.com/article'
+    );
+    if (!destinationDraft || destinationDraft.mode !== 'reader') {
+      throw new Error('reader draft missing after destination rollback');
+    }
+    expect(destinationDraft.payload.destination).toEqual({
+      kind: 'vault',
+      vaultId: 'research'
     });
     warnSpy.mockRestore();
   });
