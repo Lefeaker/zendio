@@ -26,7 +26,7 @@ export interface VaultWriteTargetInfo {
 export interface VaultWriteSession {
   target: VaultWriteTargetInfo;
   writeMarkdown(filePath: string, markdown: string): Promise<void>;
-  writeAttachment(filePath: string, dataUrl: string, mimeType: string): Promise<void>;
+  writeAttachment(filePath: string, content: BodyInit | Blob, mimeType: string): Promise<void>;
 }
 
 export interface LocalVaultPermissionPromptRequest {
@@ -68,11 +68,11 @@ export async function writeMarkdownToVault(
 export async function writeAttachmentToVault(
   rest: Options['rest'],
   filePath: string,
-  dataUrl: string,
+  content: BodyInit | Blob,
   mimeType: string
 ): Promise<void> {
   const session = await createVaultWriteSession(rest);
-  await session.writeAttachment(filePath, dataUrl, mimeType);
+  await session.writeAttachment(filePath, content, mimeType);
 }
 
 export async function createVaultWriteSession(
@@ -194,8 +194,8 @@ function createLocalWriteSession(
     writeMarkdown(filePath: string, markdown: string): Promise<void> {
       return writeLocalFile(filePath, markdown, 'text/markdown; charset=utf-8');
     },
-    writeAttachment(filePath: string, dataUrl: string, mimeType: string): Promise<void> {
-      return writeLocalFile(filePath, dataUrlToBlob(dataUrl, mimeType), mimeType);
+    writeAttachment(filePath: string, content: BodyInit | Blob, mimeType: string): Promise<void> {
+      return writeLocalFile(filePath, content, mimeType);
     }
   };
 }
@@ -217,15 +217,8 @@ function createRestWriteSession(
         'text/markdown; charset=utf-8'
       );
     },
-    writeAttachment(filePath: string, dataUrl: string, mimeType: string): Promise<void> {
-      return writeVaultFile(
-        restClient,
-        connection,
-        target,
-        filePath,
-        dataUrlToBlob(dataUrl, mimeType),
-        mimeType
-      );
+    writeAttachment(filePath: string, content: BodyInit | Blob, mimeType: string): Promise<void> {
+      return writeVaultFile(restClient, connection, target, filePath, content, mimeType);
     }
   };
 }
@@ -394,7 +387,7 @@ function toDurationBucket(durationMs: number): DurationBucket {
   return '2m_plus';
 }
 
-function normalizeLocalContent(content: BodyInit): string | Blob | ArrayBuffer | Uint8Array {
+function normalizeLocalContent(content: BodyInit | Blob): string | Blob | ArrayBuffer | Uint8Array {
   if (
     typeof content === 'string' ||
     content instanceof Blob ||
@@ -404,18 +397,4 @@ function normalizeLocalContent(content: BodyInit): string | Blob | ArrayBuffer |
     return content;
   }
   throw new Error('Unsupported local vault content body.');
-}
-
-function dataUrlToBlob(dataUrl: string, fallbackMimeType: string): Blob {
-  const match = /^data:([^;,]+);base64,(.+)$/u.exec(dataUrl);
-  if (!match) {
-    throw new Error('Invalid attachment data URL.');
-  }
-  const [, mimeType, base64] = match;
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return new Blob([bytes], { type: mimeType || fallbackMimeType });
 }

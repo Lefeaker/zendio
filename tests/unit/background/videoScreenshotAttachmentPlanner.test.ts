@@ -14,7 +14,7 @@ const baseAttachment = {
   id: 'shot-1',
   fileName: 'file-20260606112233444.jpg',
   mimeType: 'image/jpeg',
-  dataUrl: 'data:image/jpeg;base64,aaa'
+  dataUrl: 'data:image/jpeg;base64,YWFh'
 };
 const baseLegacyContent: SerializedClipAttachmentContent = {
   kind: 'legacyDataUrl',
@@ -56,19 +56,18 @@ describe('prepareVideoClipAttachments', () => {
       screenshotAttachmentOptions: screenshotAttachmentDefaults
     });
 
-    expect(result).toEqual({
-      markdown: '# video\n![Screenshot](assets/Test/file-20260606112233444.jpg)',
-      attachments: [
-        {
-          ...baseAttachment,
-          content: baseLegacyContent,
-          fileName: 'file-20260606112233444.jpg',
-          outputPath: 'Videos/assets/Test/file-20260606112233444.jpg',
-          markdownPath: 'assets/Test/file-20260606112233444.jpg',
-          markdownUrl: 'assets/Test/file-20260606112233444.jpg'
-        }
-      ]
+    expect(result.markdown).toBe('# video\n![Screenshot](assets/Test/file-20260606112233444.jpg)');
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments[0]).toEqual({
+      id: 'shot-1',
+      fileName: 'file-20260606112233444.jpg',
+      mimeType: 'image/jpeg',
+      content: baseLegacyContent,
+      outputPath: 'Videos/assets/Test/file-20260606112233444.jpg',
+      markdownPath: 'assets/Test/file-20260606112233444.jpg',
+      markdownUrl: 'assets/Test/file-20260606112233444.jpg'
     });
+    expect(result.attachments[0]).not.toHaveProperty('dataUrl');
   });
 
   it('supports custom vault-relative screenshot locations', async () => {
@@ -192,13 +191,13 @@ describe('prepareVideoClipAttachments', () => {
             byteLength: 3
           }
         },
-        dataUrl: 'data:image/jpeg;base64,YmFy',
         outputPath: 'Videos/attachments/Test/capture-base64.jpg',
         markdownPath: 'attachments/Test/capture-base64.jpg',
         markdownUrl:
           'obsidian://vault/Videos/attachments/Test/capture-base64.jpg?file=capture-base64.jpg'
       })
     ]);
+    expect(result.attachments[0]).not.toHaveProperty('dataUrl');
   });
 
   it('falls back to the computed markdown path when markdownUrlFormat resolves to a full embed', async () => {
@@ -294,7 +293,7 @@ describe('prepareVideoClipAttachments', () => {
               ...baseAttachment,
               id: 'shot-2',
               fileName: 'capture.jpg',
-              dataUrl: 'data:image/jpeg;base64,bbb'
+              dataUrl: 'data:image/jpeg;base64,YmJi'
             }
           ]
         }
@@ -415,7 +414,7 @@ describe('prepareVideoClipAttachments', () => {
               ...baseAttachment,
               id: 'shot-2',
               fileName: 'capture.jpg',
-              dataUrl: 'data:image/jpeg;base64,bbb'
+              dataUrl: 'data:image/jpeg;base64,YmJi'
             }
           ]
         }

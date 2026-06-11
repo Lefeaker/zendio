@@ -28,8 +28,6 @@ export type PreparedClipAttachment = {
   fileName: string;
   mimeType: string;
   content: SerializedClipAttachmentContent;
-  // Compatibility bridge until background writers consume structured attachment content directly.
-  dataUrl: string;
   outputPath: string;
   markdownPath: string;
   markdownUrl: string;
@@ -118,7 +116,6 @@ function prepareConfiguredVideoAttachments(
     fileName: resolved.generatedFileName,
     mimeType: attachment.mimeType,
     content: attachment.content,
-    dataUrl: toLegacyDataUrlForPreparedAttachment(attachment),
     outputPath: resolved.outputPath,
     markdownPath: resolved.markdownPath,
     markdownUrl: resolved.markdownUrl
@@ -144,7 +141,6 @@ function prepareLegacyAttachments(
       fileName: getLastPathSegment(nextPath),
       mimeType: attachment.mimeType,
       content: attachment.content,
-      dataUrl: toLegacyDataUrlForPreparedAttachment(attachment),
       outputPath: destination === 'downloads' ? nextPath : joinPath(noteDirectory, nextPath),
       markdownPath: nextPath,
       markdownUrl: nextPath
@@ -193,15 +189,6 @@ function parseAttachmentContent(record: Record<string, unknown>): SerializedClip
     return { kind: 'legacyDataUrl', dataUrl: record.dataUrl };
   }
   return null;
-}
-function toLegacyDataUrlForPreparedAttachment(attachment: {
-  mimeType: string;
-  content: SerializedClipAttachmentContent;
-}): string {
-  if (attachment.content.kind === 'legacyDataUrl') {
-    return attachment.content.dataUrl;
-  }
-  return `data:${attachment.mimeType};base64,${attachment.content.binary.data}`;
 }
 function isDefaultScreenshotAttachmentOptions(options: VideoScreenshotAttachmentOptions): boolean {
   return (

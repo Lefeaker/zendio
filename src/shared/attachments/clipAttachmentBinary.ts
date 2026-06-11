@@ -10,6 +10,8 @@ export type SerializedClipAttachmentContent =
   | { kind: 'legacyDataUrl'; dataUrl: string }
   | { kind: 'base64'; binary: SerializedClipAttachmentBinaryContent };
 
+const LEGACY_DATA_URL_PATTERN = /^data:([^;,]+);base64,(.+)$/u;
+
 export function isSerializedClipAttachmentBinaryContent(
   value: unknown
 ): value is SerializedClipAttachmentBinaryContent {
@@ -63,4 +65,54 @@ export async function serializeBlobAttachmentContent(
     data: encodeBytesToBase64(bytes),
     byteLength: bytes.byteLength
   };
+}
+
+function decodeBase64ToBytes(base64: string): Uint8Array {
+  if (typeof globalThis.atob !== 'function') {
+    throw new Error('Base64 decoding is unavailable in this runtime.');
+  }
+
+  let binary: string;
+  try {
+    binary = globalThis.atob(base64);
+  } catch {
+    throw new Error('Invalid base64 attachment content.');
+  }
+
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function copyBytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
+export function serializedAttachmentContentToBlob(
+  content: SerializedClipAttachmentContent,
+  mimeType: string
+): Blob {
+  if (content.kind === 'legacyDataUrl') {
+    if (!isLegacyDataUrlForMimeType(content.dataUrl, mimeType)) {
+      throw new Error('Invalid attachment data URL.');
+    }
+    const match = LEGACY_DATA_URL_PATTERN.exec(content.dataUrl);
+    if (!match) {
+      throw new Error('Invalid attachment data URL.');
+    }
+    const [, dataUrlMimeType, base64] = match;
+    return new Blob([copyBytesToArrayBuffer(decodeBase64ToBytes(base64))], {
+      type: dataUrlMimeType || mimeType
+    });
+  }
+
+  const bytes = decodeBase64ToBytes(content.binary.data);
+  if (bytes.byteLength !== content.binary.byteLength) {
+    throw new Error('Attachment byteLength does not match decoded content.');
+  }
+  return new Blob([copyBytesToArrayBuffer(bytes)], { type: mimeType });
 }
