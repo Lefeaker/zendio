@@ -5,7 +5,7 @@ import {
   DEFAULT_SESSION_MESSAGES,
   type VideoSessionMessages
 } from '@content/video/sessionMessages';
-import type { VideoCapture } from '@content/video/types';
+import type { VideoCapture, VideoCaptureScreenshot } from '@content/video/types';
 import { VideoSessionExporter } from '@content/video/videoSessionExporter';
 import type { ClipResult } from '@shared/repositories/IClipRepository';
 import type { IVideoRepository, VideoClipData } from '@shared/repositories/IVideoRepository';
@@ -13,6 +13,27 @@ import {
   resetYamlConfigOverridesStore,
   setYamlConfigOverrides
 } from '@shared/state/yamlConfigOverridesStore';
+
+function createBlobLike(text: string): Blob {
+  const bytes = new TextEncoder().encode(text);
+  const blob = new Blob([], { type: 'image/jpeg' });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: vi.fn(() =>
+      Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+    )
+  });
+  return blob;
+}
+
+function createFailingBlob(_text: string): Blob {
+  const blob = new Blob([], { type: 'image/jpeg' });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: vi.fn().mockRejectedValue(new Error('blob read failed'))
+  });
+  return blob;
+}
 
 describe('VideoSessionExporter', () => {
   const sendVideoClipMock = vi.fn(
@@ -31,9 +52,10 @@ describe('VideoSessionExporter', () => {
     sendVideoClipMock.mockClear();
     setYamlConfigOverrides(null);
     resetYamlConfigOverridesStore();
+    vi.restoreAllMocks();
   });
 
-  it('injects custom YAML fields from overrides', () => {
+  it('injects custom YAML fields from overrides', async () => {
     setYamlConfigOverrides({
       contentTypes: {
         video: {
@@ -78,7 +100,7 @@ describe('VideoSessionExporter', () => {
       fragmentSectionTitle: 'Fragments'
     };
 
-    const payload = exporter.buildPayload({
+    const payload = await exporter.buildPayload({
       captures,
       videoTitle: 'Deep Talk',
       canonicalUrl: 'https://video.example/watch?v=1',
@@ -126,18 +148,23 @@ describe('VideoSessionExporter', () => {
     expect(typeof clipPayload.timestamp).toBe('number');
   });
 
-  it('adds current-frame screenshots to markdown and export attachments', async () => {
+  it('adds Blob-backed current-frame screenshots to markdown and export attachments', async () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+    const screenshotBlob = createBlobLike('frame');
     const screenshot = {
       id: 'shot-1',
       fileName: 'file-20260314100000000.jpg',
-      mimeType: 'image/jpeg' as const,
-      dataUrl: 'data:image/jpeg;base64,frame',
+      mimeType: 'image/jpeg',
+      content: {
+        kind: 'blob',
+        blob: screenshotBlob,
+        byteLength: 5
+      },
       capturedAt: 1
-    };
+    } satisfies VideoCaptureScreenshot;
 
-    const payload = exporter.buildPayload({
+    const payload = await exporter.buildPayload({
       captures: [
         {
           kind: 'timestamp',
@@ -163,9 +190,17 @@ describe('VideoSessionExporter', () => {
         id: 'shot-1',
         fileName: 'file-20260314100000000.jpg',
         mimeType: 'image/jpeg',
-        dataUrl: 'data:image/jpeg;base64,frame'
+        content: {
+          encoding: 'base64',
+          data: 'ZnJhbWU=',
+          byteLength: 5
+        }
       }
     ]);
+    expect(
+      Array.isArray(payload.meta.attachments) ? payload.meta.attachments[0] : undefined
+    ).not.toHaveProperty('dataUrl');
+    expect(JSON.stringify(payload.meta.attachments)).not.toContain('dataUrl');
 
     await exporter.export({
       captures: [
@@ -191,11 +226,52 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload?.attachments).toEqual(payload.meta.attachments);
   });
 
+  it('keeps legacy data-url screenshots compatible for export attachments', async () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+    const screenshot = {
+      id: 'shot-legacy',
+      fileName: 'file-20260314100000001.jpg',
+      mimeType: 'image/jpeg',
+      dataUrl: 'data:image/jpeg;base64,frame',
+      capturedAt: 2
+    } satisfies VideoCaptureScreenshot;
+
+    const payload = await exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-legacy',
+          timeSec: 43,
+          url: 'https://example.com/watch?t=43',
+          comment: 'Legacy frame note',
+          createdAt: 2,
+          screenshot
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    expect(payload.meta.attachments).toEqual([
+      {
+        id: 'shot-legacy',
+        fileName: 'file-20260314100000001.jpg',
+        mimeType: 'image/jpeg',
+        dataUrl: 'data:image/jpeg;base64,frame'
+      }
+    ]);
+  });
+
   it('omits missing requested screenshots without attachments or recapture work', async () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
 
-    const payload = exporter.buildPayload({
+    const payload = await exporter.buildPayload({
       captures: [
         {
           kind: 'timestamp',
@@ -243,13 +319,86 @@ describe('VideoSessionExporter', () => {
     expect(clipPayload?.content).not.toContain('![Screenshot]');
   });
 
-  it('separates video timestamp entries with blank lines and nests screenshots under each item', () => {
+  it('skips screenshot attachments and markdown markers when Blob serialization fails', async () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+    const screenshotBlob = createFailingBlob('frame');
+
+    const payload = await exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshot: {
+            id: 'shot-1',
+            fileName: 'file-20260314100000000.jpg',
+            mimeType: 'image/jpeg',
+            content: {
+              kind: 'blob',
+              blob: screenshotBlob,
+              byteLength: 5
+            },
+            capturedAt: 1
+          }
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    expect(payload.markdown).not.toContain('![Screenshot]');
+    expect(payload.meta).not.toHaveProperty('attachments');
+
+    await exporter.export({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshot: {
+            id: 'shot-1',
+            fileName: 'file-20260314100000000.jpg',
+            mimeType: 'image/jpeg',
+            content: {
+              kind: 'blob',
+              blob: screenshotBlob,
+              byteLength: 5
+            },
+            capturedAt: 1
+          }
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    const [clipPayload] = sendVideoClipMock.mock.calls.at(-1) ?? [];
+    expect(clipPayload?.attachments).toBeUndefined();
+    expect(clipPayload?.content).not.toContain('![Screenshot]');
+  });
+
+  it('separates video timestamp entries with blank lines and nests screenshots under each item', async () => {
     const exporter = new VideoSessionExporter(videoRepository);
     const messages: VideoSessionMessages = {
       ...DEFAULT_SESSION_MESSAGES,
       timestampSectionTitle: '视频时间点'
     };
-    const payload = exporter.buildPayload({
+    const payload = await exporter.buildPayload({
       captures: [
         {
           kind: 'timestamp',
@@ -313,9 +462,9 @@ describe('VideoSessionExporter', () => {
     );
   });
 
-  it('falls back to the unknown-platform defaults and empty canonical url handling', () => {
+  it('falls back to the unknown-platform defaults and empty canonical url handling', async () => {
     const exporter = new VideoSessionExporter(videoRepository);
-    const payload = exporter.buildPayload({
+    const payload = await exporter.buildPayload({
       captures: [
         {
           kind: 'fragment',

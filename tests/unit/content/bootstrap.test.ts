@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ErrorHandler } from '../../../src/shared/errors/errorHandler';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 
+type AnalyticsWatchConfig = {
+  enabled: boolean;
+  userConsent?: {
+    analytics?: boolean;
+    errorReporting?: boolean;
+  };
+};
 type TestErrorHandler = Pick<ErrorHandler, 'addReporter'> & {
   kind: 'error-handler';
 };
@@ -11,7 +18,7 @@ type ContentAnalyticsModule = {
   initializeContentErrorAnalytics: (
     storage: StorageService,
     errorHandler: Pick<ErrorHandler, 'addReporter'>
-  ) => Promise<void>;
+  ) => Promise<() => void>;
 };
 type GlobalErrorBoundaryArgs = {
   domain: string;
@@ -44,11 +51,28 @@ const registerGlobalErrorBoundaryMock = vi.hoisted(() =>
   vi.fn<(args: GlobalErrorBoundaryArgs) => () => void>(() => vi.fn())
 );
 const configureAnalyticsConfigManagerMock = vi.hoisted(() => vi.fn());
+const analyticsConfigWatchState = vi.hoisted(
+  (): {
+    onRefresh?: (config: AnalyticsWatchConfig) => void;
+  } => ({})
+);
 const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const stopWatchingAnalyticsConfigMock = vi.hoisted(() => vi.fn());
+const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
+  vi.fn((onRefresh: (config: AnalyticsWatchConfig) => void) => {
+    analyticsConfigWatchState.onRefresh = onRefresh;
+    return stopWatchingAnalyticsConfigMock;
+  })
+);
+const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const analyticsCleanupMock = vi.hoisted(() => vi.fn());
 const initializeContentErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn<
-    (storage: StorageService, errorHandler: Pick<ErrorHandler, 'addReporter'>) => Promise<void>
-  >(() => Promise.resolve(undefined))
+    (
+      storage: StorageService,
+      errorHandler: Pick<ErrorHandler, 'addReporter'>
+    ) => Promise<() => void>
+  >(() => Promise.resolve(analyticsCleanupMock))
 );
 const loadAnalyticsModuleMock = vi.hoisted(() =>
   vi.fn<() => Promise<ContentAnalyticsModule>>(() =>
@@ -86,6 +110,12 @@ const TOKENS = vi.hoisted(() => ({
   dialogRegistry: Symbol('dialogRegistry')
 }));
 
+async function flushMicrotasks(times = 6): Promise<void> {
+  for (let index = 0; index < times; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 vi.mock('../../../src/shared/di', () => ({
   createScopedRegistry: createScopedRegistryMock,
   registry: registryMock,
@@ -98,10 +128,12 @@ vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
   registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
 }));
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
-  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock
+  configureAnalyticsConfigManager: configureAnalyticsConfigManagerMock,
+  watchAnalyticsConfigStorage: watchAnalyticsConfigStorageMock
 }));
 vi.mock('../../../src/shared/errors/analytics', () => ({
-  initializeErrorAnalytics: initializeErrorAnalyticsMock
+  initializeErrorAnalytics: initializeErrorAnalyticsMock,
+  updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
 }));
 vi.mock('../../../src/shared/state/globalStateManager', () => ({
   createGlobalStateManager: createGlobalStateManagerMock,
@@ -126,6 +158,7 @@ describe('content/bootstrap', () => {
     vi.resetModules();
     vi.clearAllMocks();
     registryState.hasPlatform = true;
+    analyticsConfigWatchState.onRefresh = undefined;
     document.body.innerHTML = '';
   });
 
@@ -183,6 +216,8 @@ describe('content/bootstrap', () => {
     expect(context.disposed).toBe(false);
 
     context.dispose();
+    await flushMicrotasks();
+    expect(analyticsCleanupMock).toHaveBeenCalledTimes(1);
   });
 
   it('exposes services, transient-closes popups during page visibility changes, and disposes on beforeunload', async () => {
@@ -234,6 +269,11 @@ describe('content/bootstrap', () => {
 
   it('reuses and resets the global content context helpers', async () => {
     const mod = await import('../../../src/content/bootstrap');
+    const firstCleanup = vi.fn();
+    const secondCleanup = vi.fn();
+    initializeContentErrorAnalyticsMock
+      .mockResolvedValueOnce(firstCleanup)
+      .mockResolvedValueOnce(secondCleanup);
     mod.__setContentBootstrapLoadersForTests({
       loadPlatformModule: () => ({
         getPlatformServices: getPlatformServicesMock
@@ -249,14 +289,50 @@ describe('content/bootstrap', () => {
     const second = mod.getGlobalContentContext();
     expect(second).toBe(first);
     expect(mod.bootstrapContentScript()).toBe(first);
-    await Promise.resolve();
+    await flushMicrotasks();
     expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(1);
 
     mod.resetGlobalContentContext();
+    await flushMicrotasks();
+    expect(firstCleanup).toHaveBeenCalledTimes(1);
     const third = mod.getGlobalContentContext();
     expect(third).not.toBe(first);
-    await Promise.resolve();
+    await flushMicrotasks();
     expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(2);
+    mod.resetGlobalContentContext();
+    await flushMicrotasks();
+    expect(secondCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleans up analytics watchers when disposal wins the dynamic-import race', async () => {
+    let resolveCleanup: ((cleanup: () => void) => void) | undefined;
+    const lateCleanup = vi.fn();
+    initializeContentErrorAnalyticsMock.mockReturnValueOnce(
+      new Promise<() => void>((resolve) => {
+        resolveCleanup = resolve;
+      })
+    );
+
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadAnalyticsModule: loadAnalyticsModuleMock,
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+
+    const context = new ContentScriptContext(storageMock);
+    await flushMicrotasks();
+    expect(initializeContentErrorAnalyticsMock).toHaveBeenCalledTimes(1);
+    context.dispose();
+    resolveCleanup?.(lateCleanup);
+    await flushMicrotasks();
+    expect(lateCleanup).toHaveBeenCalledTimes(1);
   });
 
   it('requires explicit storage configuration before bootstrap', async () => {
@@ -276,5 +352,27 @@ describe('content/bootstrap', () => {
     expect(() => new ContentScriptContext()).toThrow(
       '[ContentScript] StorageService is required for bootstrap.'
     );
+  });
+
+  it('passes the scoped content handler into live error consent restores', async () => {
+    const targetErrorHandler = {
+      addReporter: vi.fn(() => vi.fn())
+    };
+    const mod = await import('../../../src/content/contentErrorAnalyticsBootstrap');
+    const cleanup = await mod.initializeContentErrorAnalytics(storageMock, targetErrorHandler);
+
+    expect(configureAnalyticsConfigManagerMock).toHaveBeenCalledWith(storageMock);
+    expect(initializeErrorAnalyticsMock).toHaveBeenCalledWith(targetErrorHandler);
+    expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(1);
+
+    analyticsConfigWatchState.onRefresh?.({
+      enabled: true,
+      userConsent: { analytics: false, errorReporting: true }
+    });
+
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true, targetErrorHandler);
+
+    cleanup();
+    expect(stopWatchingAnalyticsConfigMock).toHaveBeenCalledTimes(1);
   });
 });

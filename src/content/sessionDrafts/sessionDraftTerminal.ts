@@ -1,7 +1,4 @@
-import type {
-  SessionDraftEnvelope,
-  SessionDraftRepository
-} from './sessionDraftTypes';
+import type { SessionDraftEnvelope, SessionDraftRepository } from './sessionDraftTypes';
 
 type MaybePromise<T> = T | Promise<T>;
 

@@ -36,6 +36,39 @@ type AnalyticsConfigSnapshot = {
   batchSize?: number;
 };
 
+type AnalyticsDebugLogPayload = {
+  eventName: string;
+  transportMode: string;
+  responseStatus: number;
+  validation: {
+    hasMessages: boolean;
+    messageCount: number;
+  };
+};
+
+type AnalyticsRequestBody = {
+  events?: Array<{
+    params?: Record<string, string>;
+  }>;
+};
+
+function isAnalyticsDebugLogPayload(
+  value: object | null | undefined
+): value is AnalyticsDebugLogPayload {
+  return Boolean(
+    value &&
+    'eventName' in value &&
+    'transportMode' in value &&
+    'responseStatus' in value &&
+    'validation' in value
+  );
+}
+
+function getFirstAnalyticsRequestParams(value: unknown): Record<string, string> {
+  const body = value as AnalyticsRequestBody;
+  return body.events?.[0]?.params ?? {};
+}
+
 function createAnalyticsConfig(
   overrides: Partial<AnalyticsConfigSnapshot> = {}
 ): AnalyticsConfigSnapshot {
@@ -126,7 +159,26 @@ describe('analyticsEvents', () => {
     renewSessionMock.mockRejectedValueOnce(new Error('renew failed'));
     fetchMock.mockResolvedValue({
       ok: true,
-      clone: () => ({ text: () => Promise.resolve('{"ok":true}') })
+      clone: () => ({
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              validationMessages: [
+                {
+                  description: 'session id should stay private',
+                  fieldPath: 'events[0].params.session_id'
+                }
+              ],
+              params: {
+                session_id: 'debug-session-raw',
+                client_id: 'debug-client-raw'
+              },
+              measurement_id: 'G-LEAKED',
+              url: 'https://www.google-analytics.com/debug/mp/collect',
+              token: 'secret-token'
+            })
+          )
+      })
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
@@ -142,7 +194,41 @@ describe('analyticsEvents', () => {
       '[analytics-events] Failed to renew analytics session id:',
       expect.any(Error)
     );
-    expect(consoleInfoSpy).toHaveBeenCalled();
+    expect(consoleInfoSpy).toHaveBeenCalledTimes(1);
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      '[analytics-events] Event sent (debug):',
+      expect.objectContaining({
+        eventName: 'support_like_clicked',
+        transportMode: 'directDebug',
+        responseStatus: 200,
+        validation: {
+          hasMessages: true,
+          messageCount: 1
+        }
+      })
+    );
+    const debugLogPayload = consoleInfoSpy.mock.calls[0]?.[1] as unknown;
+    expect(debugLogPayload).toBeDefined();
+    const payloadObject =
+      typeof debugLogPayload === 'object' && debugLogPayload !== null ? debugLogPayload : null;
+    expect(isAnalyticsDebugLogPayload(payloadObject)).toBe(true);
+    if (!isAnalyticsDebugLogPayload(payloadObject)) {
+      throw new Error('Expected analytics debug log payload');
+    }
+    expect(Object.keys(payloadObject).sort()).toEqual([
+      'eventName',
+      'responseStatus',
+      'transportMode',
+      'validation'
+    ]);
+    const serializedDebugLog = JSON.stringify(payloadObject);
+    expect(serializedDebugLog).not.toContain('params');
+    expect(serializedDebugLog).not.toContain('session_id');
+    expect(serializedDebugLog).not.toContain('client_id');
+    expect(serializedDebugLog).not.toContain('measurement_id');
+    expect(serializedDebugLog).not.toContain('google-analytics.com');
+    expect(serializedDebugLog).not.toContain('token');
+    expect(serializedDebugLog).not.toContain('secret');
     consoleWarnSpy.mockRestore();
     consoleInfoSpy.mockRestore();
   });
@@ -177,6 +263,7 @@ describe('analyticsEvents', () => {
     expect(requestUrl).toBe('https://analytics.example.test/collect');
     expect(String(requestInit?.body)).toContain('"extension_version":"2.3.4"');
     expect(globalGetManifestMock).not.toHaveBeenCalled();
+    expect(consoleInfoSpy).not.toHaveBeenCalled();
 
     consoleInfoSpy.mockRestore();
     await resetRuntime();
@@ -341,17 +428,17 @@ describe('analyticsEvents', () => {
     });
 
     const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
-    await trackUsageEvent('support_link_clicked', {
+    const invalidParams = {
       target: 'ko-fi',
       url: 'https://ko-fi.com/xiannian?user=reader'
-    } as never);
+    } satisfies { target: 'ko-fi'; url: string };
+    await trackUsageEvent('support_link_clicked', invalidParams);
 
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
-    const body = JSON.parse(String(requestInit?.body)) as {
-      events: Array<{ params: Record<string, unknown> }>;
-    };
-    expect(body.events[0]?.params).toMatchObject({ target: 'ko-fi' });
-    expect(body.events[0]?.params).not.toHaveProperty('url');
+    const parsedBody: unknown = JSON.parse(String(requestInit?.body));
+    const params = getFirstAnalyticsRequestParams(parsedBody);
+    expect(params).toMatchObject({ target: 'ko-fi' });
+    expect(params).not.toHaveProperty('url');
 
     await resetRuntime();
   });

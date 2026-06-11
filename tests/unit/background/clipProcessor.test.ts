@@ -119,6 +119,30 @@ describe('clipProcessor', () => {
     };
   }
 
+  async function expectDownloadedBlob(
+    callIndex: number,
+    expectedFilename: string,
+    expectedMimeType: string,
+    expectedText: string
+  ): Promise<void> {
+    const options = downloadMock.mock.calls[callIndex]?.[0] as
+      | {
+          filename: string;
+          mimeType?: string;
+          blob?: Blob;
+          url?: string;
+        }
+      | undefined;
+
+    expect(options).toMatchObject({
+      filename: expectedFilename,
+      mimeType: expectedMimeType
+    });
+    expect(options?.blob).toBeInstanceOf(Blob);
+    expect(options?.url).toBeUndefined();
+    await expect(options?.blob?.text()).resolves.toBe(expectedText);
+  }
+
   function expectAnalyticsEvent(
     call: TrackUsageEventCall | undefined,
     expectedEvent: string,
@@ -495,12 +519,18 @@ describe('clipProcessor', () => {
               id: 'shot-1',
               fileName: 'frame-1.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,aaa'
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
             }
           ]
         }
       })
     );
+
+    await expectDownloadedBlob(0, 'frame-1.jpg', 'image/jpeg', 'aaa');
 
     expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
       'background_stage_completed',
@@ -713,29 +743,39 @@ describe('clipProcessor', () => {
               id: 'shot-1',
               fileName: 'file-20260509194226985.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,aaa'
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
             },
             {
               id: 'shot-2',
               fileName: 'file-20260509194227986.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,bbb'
+              content: {
+                encoding: 'base64',
+                data: 'YmJi',
+                byteLength: 3
+              }
             }
           ]
         }
       })
     );
 
-    expect(downloadMock).toHaveBeenNthCalledWith(1, {
-      filename: 'attachments/video/video-note/file-20260509194226985.jpg',
-      url: 'data:image/jpeg;base64,aaa',
-      mimeType: 'image/jpeg'
-    });
-    expect(downloadMock).toHaveBeenNthCalledWith(2, {
-      filename: 'attachments/video/video-note/file-20260509194227986.jpg',
-      url: 'data:image/jpeg;base64,bbb',
-      mimeType: 'image/jpeg'
-    });
+    await expectDownloadedBlob(
+      0,
+      'attachments/video/video-note/file-20260509194226985.jpg',
+      'image/jpeg',
+      'aaa'
+    );
+    await expectDownloadedBlob(
+      1,
+      'attachments/video/video-note/file-20260509194227986.jpg',
+      'image/jpeg',
+      'bbb'
+    );
     expect(downloadMock).toHaveBeenNthCalledWith(3, {
       filename: 'video-note.md',
       content:
@@ -775,29 +815,29 @@ describe('clipProcessor', () => {
               id: 'shot-1',
               fileName: '../escape.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,aaa'
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
             },
             {
               id: 'shot-2',
               fileName: '..',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,bbb'
+              content: {
+                encoding: 'base64',
+                data: 'YmJi',
+                byteLength: 3
+              }
             }
           ]
         }
       })
     );
 
-    expect(downloadMock).toHaveBeenNthCalledWith(1, {
-      filename: '.hidden/escape.jpg',
-      url: 'data:image/jpeg;base64,aaa',
-      mimeType: 'image/jpeg'
-    });
-    expect(downloadMock).toHaveBeenNthCalledWith(2, {
-      filename: '.hidden/attachment.jpg',
-      url: 'data:image/jpeg;base64,bbb',
-      mimeType: 'image/jpeg'
-    });
+    await expectDownloadedBlob(0, '.hidden/escape.jpg', 'image/jpeg', 'aaa');
+    await expectDownloadedBlob(1, '.hidden/attachment.jpg', 'image/jpeg', 'bbb');
     expect(downloadMock).toHaveBeenNthCalledWith(3, {
       filename: '.hidden.md',
       content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
@@ -845,29 +885,29 @@ describe('clipProcessor', () => {
               id: 'shot-1',
               fileName: '../escape.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,aaa'
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
             },
             {
               id: 'shot-2',
               fileName: '..',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,bbb'
+              content: {
+                encoding: 'base64',
+                data: 'YmJi',
+                byteLength: 3
+              }
             }
           ]
         }
       })
     );
 
-    expect(downloadMock).toHaveBeenNthCalledWith(1, {
-      filename: '.hidden/escape.jpg',
-      url: 'data:image/jpeg;base64,aaa',
-      mimeType: 'image/jpeg'
-    });
-    expect(downloadMock).toHaveBeenNthCalledWith(2, {
-      filename: '.hidden/attachment.jpg',
-      url: 'data:image/jpeg;base64,bbb',
-      mimeType: 'image/jpeg'
-    });
+    await expectDownloadedBlob(0, '.hidden/escape.jpg', 'image/jpeg', 'aaa');
+    await expectDownloadedBlob(1, '.hidden/attachment.jpg', 'image/jpeg', 'bbb');
     expect(downloadMock).toHaveBeenNthCalledWith(3, {
       filename: '.hidden.md',
       content: '# video\n![Screenshot](.hidden/escape.jpg)\n![Screenshot](.hidden/attachment.jpg)',
@@ -918,18 +958,24 @@ describe('clipProcessor', () => {
               id: 'shot-1',
               fileName: 'file-20260509194226985.jpg',
               mimeType: 'image/jpeg',
-              dataUrl: 'data:image/jpeg;base64,aaa'
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
             }
           ]
         }
       })
     );
 
-    expect(writeAttachmentMock).toHaveBeenCalledWith(
-      'Reading/公众号/2026/2026-05-05/attachments/test/file-20260509194226985.jpg',
-      'data:image/jpeg;base64,aaa',
-      'image/jpeg'
+    expect(writeAttachmentMock).toHaveBeenCalledTimes(1);
+    expect(writeAttachmentMock.mock.calls[0]?.[0]).toBe(
+      'Reading/公众号/2026/2026-05-05/attachments/test/file-20260509194226985.jpg'
     );
+    expect(writeAttachmentMock.mock.calls[0]?.[2]).toBe('image/jpeg');
+    expect(writeAttachmentMock.mock.calls[0]?.[1]).toBeInstanceOf(Blob);
+    await expect((writeAttachmentMock.mock.calls[0]?.[1] as Blob).text()).resolves.toBe('aaa');
     expect(writeMarkdownMock).toHaveBeenCalledWith(
       'Reading/公众号/2026/2026-05-05/test.md',
       '# video\n![Screenshot](attachments/test/file-20260509194226985.jpg)'

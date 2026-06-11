@@ -1,6 +1,6 @@
 # GA4 Telemetry Reference
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
 
@@ -8,15 +8,18 @@
 - 运行时导出契约：`src/shared/types/analytics.ts`
 - 参数清洗真值：`src/shared/analytics/analyticsSanitizers.ts`
 - 错误匿名化真值：`src/shared/errors/analytics/dataSanitizer.ts`
-- 集成分支校验基线：以 `codex/aiiinob-ga-production-telemetry-2026-06-04-integration` 作为当前分支真值；commit 级验证请查看本次 P13 final audit 与该分支的 `git log` / `git show`，不要在本文硬编码当前 HEAD。
+- 集成分支校验基线：commit 级验证请查看当前 integration branch 的里程碑 handoff、`git log` / `git show` 与 `docs/source-of-truth-index.md`；不要在本文硬编码某个历史 GA 分支 HEAD。
 
 ## 当前传输与同意真值
 
 - 扩展默认不发送遥测；是否可发送由用户 consent 和 build-time public analytics config 共同决定。
 - 生产路径是 owner-controlled `proxy` transport。扩展只持有公开的 `measurementId`、`transportMode`、`proxyEndpoint`。
 - `api_secret` 只能存在于服务端 proxy；扩展不得存储、生成、请求、提示填写或发送它。
+- runtime `enabled` 是 `analytics || errorReporting` 的 live OR；但 consent scope 仍按事件类别区分，usage/product 事件需要 `analytics`，错误事件需要 `errorReporting`。
 - 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
 - `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
+- `analytics:validate:prod` 是静态/public-config + owner env sanity check；它不证明真实 GA4 property delivery 或 DebugView 可见性。
+- 成功的生产 `proxy` 发送默认不输出事件参数或成功日志；只有 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且 summary 只包含 `eventName`、`transportMode`、`responseStatus` 与 validation message 数量。
 - 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
 ## 共享字段与隐私边界
@@ -208,6 +211,7 @@
 - `extension_error` 虽然 `Runtime=false`，仍是正式错误遥测事件；它通过错误 reporter 走 shared transport，不通过 runtime message path。
 - `dev-only` 事件只用于本地 harness / debug proxy / owner DebugView 验证，不进入生产 KPI。
 - `contract-only`、`inventory-only`、docs-only 行不得作为 owner dashboard 的主要维度来源。
+- `enabled` 必须按 live OR 语义理解，不能把它当作“当前所有事件都可发送”的单一代理指标；是否真正可发仍取决于对应事件的 consent scope。
 - 任何需要精确时长的分析必须走 proxy / server logs；产品遥测本身只提供 bucket。
 
 ## 维护规则

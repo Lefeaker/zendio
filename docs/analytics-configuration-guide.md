@@ -1,6 +1,6 @@
 # Analytics Configuration Guide
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
@@ -27,18 +27,18 @@ AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。
 
-当前生产 owner public config 已准备在 ignored local file：
+当前生产 owner public config 只应存在于 ignored local file：
 
 ```bash
 .env.production.local
 ```
 
-该文件不进入 git，当前值为：
+该文件不进入 git。长期文档只记录变量形状，不回写 owner 当前 release 值：
 
 ```bash
-AIIINOB_GA_MEASUREMENT_ID=G-3V2CHL13TC
+AIIINOB_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 AIIINOB_GA_TRANSPORT_MODE=proxy
-AIIINOB_GA_PROXY_ENDPOINT=https://zendio.sxnian.com/api/ga4
+AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
 生产构建与打包优先使用已封装脚本：
@@ -47,6 +47,15 @@ AIIINOB_GA_PROXY_ENDPOINT=https://zendio.sxnian.com/api/ga4
 npm run analytics:validate:prod
 npm run package:prod:ga
 ```
+
+`npm run analytics:validate:prod` 只验证当前 repo 的静态/public-config contract
+与 owner 本机 `.env.production.local` / shell public env 是否自洽；它不证明真实
+GA4 property 已收到事件，也不证明 DebugView 可见性。若 `.env.production.local`
+缺失，该命令仍会运行，并把缺失的 public 值报告为 warning。
+runtime `enabled` 采用 live OR 语义：只要 `analytics` 或 `errorReporting`
+任一 consent 为 `on`，config `enabled` 就会为 true；但产品事件仍然只在
+`analytics` consent 下发送，`extension_error` 仍然只在 `errorReporting`
+consent 下发送。
 
 Firefox 包使用：
 
@@ -125,6 +134,9 @@ export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
 `directDebug` 只用于开发验证，不应作为生产发布默认值。
 扩展不会直连 Google `debug/mp/collect`，也不会持有 `api_secret`。
 debug proxy 需要由 owner 服务端注入 `api_secret`，并按需转发到 GA validation / DebugView。
+成功的生产 `proxy` 发送默认不输出 event params 或成功日志；只有
+`directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且不包含
+event params。
 
 ## Consent 验证清单
 
@@ -146,6 +158,9 @@ debug proxy 需要由 owner 服务端注入 `api_secret`，并按需转发到 GA
 4. 再打开 `errorReporting`，触发受控错误或测试错误。
 5. 此时才应看到 `extension_error`。
 
+不要把 runtime `enabled=true` 误解为“所有事件都可发送”。它只表示至少有一类
+analytics feature consent 仍然开启。
+
 ## 验证工具
 
 运行只读校验脚本：
@@ -166,6 +181,7 @@ npm run analytics:validate:prod
 - 校验 tracked config 未包含 client-side secret
 - 校验当前 privacy / build / transport 关键路径是否仍然存在
 - 校验当前 shell 环境中的 public config 是否自洽
+- 不证明真实 GA4 property delivery、DebugView 可见性或服务端 `api_secret` 注入已经成功
 
 脚本不会改写 tracked source，也不会生成本地 secret 文件。
 
@@ -198,4 +214,5 @@ npm run analytics:validate:prod
 - 扩展网络只访问 owner proxy，不直接依赖生产态 Google endpoint
 - consent off 时无事件
 - consent on 时能看到 options / clip / reader / video / error 事件
+- 生产 `proxy` 成功路径不输出 event params；`directDebug` 最多输出 summary log
 - proxy log 中不出现正文、路径、token、`api_secret` 泄露到客户端侧的迹象

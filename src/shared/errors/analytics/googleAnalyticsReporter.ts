@@ -9,8 +9,10 @@ import { ErrorReporter, AppError } from '../types';
 import { parseErrorCode } from '../errorCodes';
 import { sanitizeErrorForAnalytics } from './dataSanitizer';
 import { DEFAULT_ANALYTICS_CONFIG, type AnalyticsConfig } from './analyticsConfig';
+import { extractSafeAnalyticsContext, resolveBrowserInfo } from './googleAnalyticsReporterContext';
 import {
   createAnalyticsEventQueue,
+  hasConsentForAnalyticsEvent,
   sendAnalyticsTransportEvent,
   type AnalyticsEventQueue
 } from '../../analytics';
@@ -21,13 +23,14 @@ import type { PlatformServices } from '@platform/types';
 // GA4 配置接口
 export interface GoogleAnalyticsConfig extends Pick<
   AnalyticsConfig,
-  'measurementId' | 'enabled' | 'transportMode' | 'proxyEndpoint'
+  'measurementId' | 'enabled' | 'transportMode' | 'proxyEndpoint' | 'userConsent'
 > {
   debugMode?: boolean;
   sessionId?: string;
   clientId?: string;
   reportingInterval?: number;
   batchSize?: number;
+  resolveAnalyticsConfig?: () => AnalyticsConfig;
 }
 
 // GA4 事件参数接口
@@ -39,7 +42,7 @@ type ErrorEventParams = {
   error_recoverable: boolean;
   browser_name?: string;
   browser_version?: string;
-} & Record<string, unknown>;
+} & Record<string, boolean | number | string>;
 
 export class GoogleAnalyticsReporter implements ErrorReporter {
   private config: GoogleAnalyticsConfig;
@@ -74,7 +77,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   }
 
   async report(error: AppError): Promise<void> {
-    if (!this.config.enabled) {
+    const transportConfig = this.createTransportConfig();
+    if (!hasConsentForAnalyticsEvent(transportConfig, 'extension_error')) {
+      this.eventQueue.clear();
       return;
     }
 
@@ -92,7 +97,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         return;
       }
 
-      if (this.config.debugMode && result.sent > 0) {
+      if (transportConfig.debugMode && result.sent > 0) {
         console.log('[GA Reporter] Error reported:', {
           code: eventParams.error_code,
           domain: eventParams.error_domain,
@@ -109,7 +114,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     const parsedCode = parseErrorCode(error.code);
 
     // 提取安全的上下文信息用于错误定位
-    const safeContext = this.extractSafeContext(error.context);
+    const safeContext = extractSafeAnalyticsContext(error.context);
 
     return {
       error_code: error.code,
@@ -124,102 +129,43 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
     };
   }
 
-  /**
-   * 提取安全的上下文信息，用于错误定位但不泄露隐私
-   */
-  private extractSafeContext(context?: Record<string, unknown>): Record<string, unknown> {
-    if (!context) return {};
-
-    const safeContext: Record<string, unknown> = {};
-
-    // 安全的技术信息（不包含用户隐私）
-    const safeKeys = [
-      'extractor', // 使用的提取器类型
-      'type', // 内容类型
-      'method', // HTTP 方法
-      'statusCode', // HTTP 状态码
-      'feature', // 使用的功能
-      'step', // 执行步骤
-      'component', // 组件名称
-      'action', // 执行的动作
-      'retryCount', // 重试次数
-      'timeout', // 超时时间
-      'batchSize', // 批处理大小
-      'itemCount', // 项目数量
-      'duration', // 执行时长
-      'memoryUsage', // 内存使用情况
-      'cacheHit', // 缓存命中
-      'apiVersion', // API 版本
-      'userAgent', // 用户代理（仅浏览器类型）
-      'platform', // 平台信息
-      'locale', // 语言设置
-      'theme', // 主题设置
-      'screenResolution', // 屏幕分辨率（用于UI错误定位）
-      'viewportSize', // 视口大小
-      'connectionType', // 连接类型
-      'isOnline', // 在线状态
-      'tabCount', // 标签页数量
-      'extensionContext' // 扩展上下文（background/content/popup）
-    ];
-
-    // 只提取安全的键值对
-    safeKeys.forEach((key) => {
-      if (key in context && context[key] !== undefined) {
-        safeContext[key] = context[key];
-      }
-    });
-
-    // 特殊处理：URL 域名（不包含路径和参数）
-    if (context.url && typeof context.url === 'string') {
-      try {
-        const url = new URL(context.url);
-        safeContext.domain = url.hostname;
-        safeContext.protocol = url.protocol;
-      } catch {
-        // 忽略无效 URL
-      }
-    }
-
-    // 特殊处理：错误堆栈（仅保留函数名和行号，移除文件路径）
-    if (context.stack && typeof context.stack === 'string') {
-      safeContext.stackTrace = this.sanitizeStackTrace(context.stack);
-    }
-
-    return safeContext;
-  }
-
-  /**
-   * 清理堆栈跟踪，只保留函数名和行号
-   */
-  private sanitizeStackTrace(stack: string): string {
-    return stack
-      .split('\n')
-      .slice(0, 5) // 只保留前5行
-      .map((line) => {
-        // 提取函数名和行号，移除文件路径
-        const match = line.match(/at\s+([^(]+)\s*\(.*:(\d+):\d+\)/);
-        if (match) {
-          return `at ${match[1].trim()}:${match[2]}`;
-        }
-        return line.replace(/https?:\/\/[^\s]+/g, '[URL]');
-      })
-      .join('\n');
-  }
-
   private createTransportConfig(): AnalyticsConfig {
+    const liveConfig = this.resolveLiveAnalyticsConfig();
     return {
-      enabled: this.config.enabled,
-      debugMode: this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
-      measurementId: this.config.measurementId,
-      transportMode: this.config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
-      ...(this.config.proxyEndpoint ? { proxyEndpoint: this.config.proxyEndpoint } : {}),
+      enabled: liveConfig?.enabled ?? this.config.enabled,
+      debugMode:
+        liveConfig?.debugMode ?? this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
+      measurementId: liveConfig?.measurementId ?? this.config.measurementId,
+      transportMode:
+        liveConfig?.transportMode ??
+        this.config.transportMode ??
+        DEFAULT_ANALYTICS_CONFIG.transportMode,
+      ...((liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint)
+        ? { proxyEndpoint: liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint }
+        : {}),
       clientId: this.clientId,
       sessionId: this.sessionId,
       reportingInterval:
-        this.config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
-      maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
-      batchSize: this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
+        liveConfig?.reportingInterval ??
+        this.config.reportingInterval ??
+        DEFAULT_ANALYTICS_CONFIG.reportingInterval,
+      maxErrorsPerSession:
+        liveConfig?.maxErrorsPerSession ?? DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
+      batchSize:
+        liveConfig?.batchSize ?? this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize,
+      ...((liveConfig?.userConsent ?? this.config.userConsent)
+        ? { userConsent: liveConfig?.userConsent ?? this.config.userConsent }
+        : {})
     };
+  }
+
+  private resolveLiveAnalyticsConfig(): AnalyticsConfig | null {
+    try {
+      return this.config.resolveAnalyticsConfig?.() ?? null;
+    } catch (error) {
+      console.warn('[GA Reporter] Failed to resolve live analytics config:', error);
+      return null;
+    }
   }
 
   private generateClientId(): string {
@@ -247,28 +193,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   private initializeBrowserInfo(): void {
     try {
-      if (typeof navigator !== 'undefined') {
-        const userAgent = navigator.userAgent;
-
-        // 简单的浏览器检测（不包含详细版本信息以保护隐私）
-        if (userAgent.includes('Chrome')) {
-          this.browserInfo.name = 'chrome';
-        } else if (userAgent.includes('Firefox')) {
-          this.browserInfo.name = 'firefox';
-        } else if (userAgent.includes('Safari')) {
-          this.browserInfo.name = 'safari';
-        } else if (userAgent.includes('Edge')) {
-          this.browserInfo.name = 'edge';
-        } else {
-          this.browserInfo.name = 'unknown';
-        }
-
-        // 只记录主版本号
-        const versionMatch = userAgent.match(/(?:Chrome|Firefox|Safari|Edge)\/(\d+)/);
-        if (versionMatch) {
-          this.browserInfo.version = versionMatch[1];
-        }
-      }
+      this.browserInfo = resolveBrowserInfo(
+        typeof navigator !== 'undefined' ? navigator.userAgent : undefined
+      );
     } catch {
       this.browserInfo = { name: 'unknown', version: 'unknown' };
     }
@@ -287,7 +214,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   // 获取当前配置状态
   getConfig(): GoogleAnalyticsConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      ...(this.config.userConsent ? { userConsent: { ...this.config.userConsent } } : {})
+    };
   }
 
   // 检查是否启用

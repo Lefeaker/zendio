@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@content/sessionDrafts', async () => {
-  const actual = await vi.importActual<typeof import('@content/sessionDrafts')>(
-    '@content/sessionDrafts'
-  );
+  const actual =
+    await vi.importActual<typeof import('@content/sessionDrafts')>('@content/sessionDrafts');
   return {
     ...actual,
     runSessionMutationTransaction: vi.fn(actual.runSessionMutationTransaction)

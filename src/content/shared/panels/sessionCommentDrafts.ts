@@ -107,10 +107,7 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
     }
   }
 
-  clear(
-    id: string | null | undefined,
-    options: SessionCommentDraftMutationOptions = {}
-  ): void {
+  clear(id: string | null | undefined, options: SessionCommentDraftMutationOptions = {}): void {
     if (this.store.clear(id) && options.notify !== false) {
       this.notifyChange();
     }

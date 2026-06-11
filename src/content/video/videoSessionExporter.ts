@@ -7,12 +7,26 @@ import type { VideoPlatform } from './utils';
 import type { IVideoRepository, VideoClipData } from '../../shared/repositories/IVideoRepository';
 import type { ClipResult } from '../../shared/repositories/IClipRepository';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import type { ClipAttachment } from '../../shared/types';
+import { serializeVideoScreenshotAttachments } from './videoScreenshotExportAttachments';
+
+export interface ExportPayloadMeta {
+  url: string;
+  domain: string;
+  platform: VideoPlatform;
+  captureCount: number;
+  timestampCount: number;
+  fragmentCount: number;
+  storageKey?: string;
+  attachments?: ClipAttachment[];
+  exportDestination?: ExportDestinationMetadata;
+}
 
 export interface ExportPayload {
   markdown: string;
   title: string;
   type: string;
-  meta: Record<string, unknown>;
+  meta: ExportPayloadMeta;
 }
 
 export interface BuildPayloadContext {
@@ -29,7 +43,7 @@ export interface BuildPayloadContext {
 export class VideoSessionExporter {
   constructor(private readonly videoRepository: IVideoRepository) {}
 
-  buildPayload(ctx: BuildPayloadContext): ExportPayload {
+  async buildPayload(ctx: BuildPayloadContext): Promise<ExportPayload> {
     const sorted = [...ctx.captures].sort((a, b) => {
       const aTime = typeof a.timeSec === 'number' ? a.timeSec : Number.MAX_SAFE_INTEGER;
       const bTime = typeof b.timeSec === 'number' ? b.timeSec : Number.MAX_SAFE_INTEGER;
@@ -45,12 +59,8 @@ export class VideoSessionExporter {
     const fragmentCaptures = sorted.filter(
       (capture): capture is VideoFragmentCapture => capture.kind === 'fragment'
     );
-    const attachments = timestampCaptures
-      .map((capture) => capture.screenshot)
-      .filter((screenshot): screenshot is NonNullable<VideoTimestampCapture['screenshot']> =>
-        Boolean(screenshot)
-      )
-      .map(({ id, fileName, mimeType, dataUrl }) => ({ id, fileName, mimeType, dataUrl }));
+    const { attachments: serializedScreenshots, attachmentIds: screenshotAttachmentIds } =
+      await serializeVideoScreenshotAttachments(timestampCaptures);
 
     const defaultTitle =
       ctx.platform === 'youtube'
@@ -92,7 +102,7 @@ export class VideoSessionExporter {
         const label = this.formatTime(capture.timeSec);
         const comment = capture.comment ? ` ${capture.comment}` : '';
         bodyLines.push(`${index + 1}. [${label}](${capture.url})${comment}`);
-        if (capture.screenshot) {
+        if (capture.screenshot && screenshotAttachmentIds.has(capture.screenshot.id)) {
           bodyLines.push(`\t![Screenshot](aiob-attachment:${capture.screenshot.id})`);
         }
         bodyLines.push('');
@@ -130,26 +140,23 @@ export class VideoSessionExporter {
         captureCount: sorted.length,
         timestampCount: timestampCaptures.length,
         fragmentCount: fragmentCaptures.length,
-        storageKey: ctx.storageKey ?? undefined,
-        ...(attachments.length ? { attachments } : {}),
+        ...(ctx.storageKey ? { storageKey: ctx.storageKey } : {}),
+        ...(serializedScreenshots.length ? { attachments: serializedScreenshots } : {}),
         ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
       }
     };
   }
 
   async export(ctx: BuildPayloadContext): Promise<ClipResult> {
-    const payload = this.buildPayload(ctx);
-    const attachments = Array.isArray(payload.meta.attachments)
-      ? (payload.meta.attachments as NonNullable<VideoClipData['attachments']>)
-      : null;
+    const payload = await this.buildPayload(ctx);
     const clipData: VideoClipData = {
       content: payload.markdown,
       title: payload.title,
-      url: (payload.meta.url as string | undefined) ?? ctx.canonicalUrl ?? ctx.videoUrl ?? '',
+      url: payload.meta.url || ctx.canonicalUrl || ctx.videoUrl || '',
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
       platform: this.mapPlatform(ctx.platform),
-      ...(attachments ? { attachments } : {}),
+      ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
     return this.videoRepository.sendVideoClip(clipData);

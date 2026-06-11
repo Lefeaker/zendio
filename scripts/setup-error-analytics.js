@@ -59,16 +59,42 @@ function exists(filePath) {
   return fs.existsSync(path.join(rootDir, filePath));
 }
 
+function hasAll(source, fragments) {
+  return fragments.every((fragment) => source.includes(fragment));
+}
+
+function hasAny(source, fragments) {
+  return fragments.some((fragment) => source.includes(fragment));
+}
+
+function sliceBetween(source, startMarker, endMarker) {
+  const startIndex = source.indexOf(startMarker);
+  if (startIndex === -1) {
+    return null;
+  }
+
+  const endIndex = source.indexOf(endMarker, startIndex);
+  if (endIndex === -1) {
+    return null;
+  }
+
+  return source.slice(startIndex, endIndex);
+}
+
 function validateRequiredFiles() {
   info('Checking required analytics files');
 
   const requiredFiles = [
     'src/shared/analytics/analyticsEnvironment.ts',
+    'src/shared/analytics/analyticsConsent.ts',
+    'src/shared/analytics/analyticsQueue.ts',
     'src/shared/analytics/analyticsTransport.ts',
     'src/shared/errors/analytics/analyticsConfig.ts',
     'src/shared/errors/analytics/googleAnalyticsReporter.ts',
+    'src/background/services/analyticsEvents.ts',
     'src/options/app/productionStitchPersistence.ts',
-    'src/ui/domains/privacy/PrivacySettingsView.ts',
+    'src/options/app/productionStitchFinalAnalyticsEvent.ts',
+    'src/options/app/productionStitchShellActionRuntime.ts',
     'scripts/build.mjs'
   ];
 
@@ -79,63 +105,171 @@ function validateRequiredFiles() {
       fail(`${file} is missing`);
     }
   }
+
+  const legacyPrivacyView = 'src/ui/domains/privacy/PrivacySettingsView.ts';
+  if (!exists(legacyPrivacyView)) {
+    warn(
+      `${legacyPrivacyView} is absent; production validation now relies on Stitch privacy wiring`
+    );
+    return;
+  }
+
+  const legacyPrivacySource = read(legacyPrivacyView);
+  if (hasAll(legacyPrivacySource, ['toggleDebugMode', 'saveSettings'])) {
+    warn(
+      `${legacyPrivacyView} still exists as a legacy compatibility surface; it is no longer the production privacy owner`
+    );
+  } else {
+    warn(
+      `${legacyPrivacyView} changed from the legacy consent actions; production validation no longer depends on it`
+    );
+  }
 }
 
 function validateTrackedConfig() {
-  info('Checking tracked analytics config');
+  info('Checking tracked analytics source contracts');
 
-  const config = read('src/shared/errors/analytics/analyticsConfig.ts');
-  const reporter = read('src/shared/errors/analytics/googleAnalyticsReporter.ts');
-  const environment = read('src/shared/analytics/analyticsEnvironment.ts');
-  const transport = read('src/shared/analytics/analyticsTransport.ts');
+  const analyticsEnvironment = read('src/shared/analytics/analyticsEnvironment.ts');
+  const analyticsConsent = read('src/shared/analytics/analyticsConsent.ts');
+  const analyticsQueue = read('src/shared/analytics/analyticsQueue.ts');
+  const analyticsTransport = read('src/shared/analytics/analyticsTransport.ts');
+  const analyticsConfig = read('src/shared/errors/analytics/analyticsConfig.ts');
+  const analyticsReporter = read('src/shared/errors/analytics/googleAnalyticsReporter.ts');
+  const analyticsEvents = read('src/background/services/analyticsEvents.ts');
+  const clientRuntimeSource = [
+    analyticsEnvironment,
+    analyticsConsent,
+    analyticsQueue,
+    analyticsTransport,
+    analyticsConfig,
+    analyticsReporter,
+    analyticsEvents,
+    read('src/options/app/productionStitchPersistence.ts'),
+    read('src/options/app/productionStitchFinalAnalyticsEvent.ts'),
+    read('src/options/app/productionStitchShellActionRuntime.ts')
+  ].join('\n');
 
-  if (/\bAPI_SECRET\b/.test(config) || /\bapiSecret\b/.test(config)) {
-    fail('tracked analytics config still contains a client-side secret field');
+  if (/\bapi_secret\b/i.test(clientRuntimeSource) || /\bapiSecret\b/.test(clientRuntimeSource)) {
+    fail('client runtime still contains api_secret/apiSecret/API_SECRET');
   } else {
-    ok('tracked analytics config has no client-side secret field');
+    ok('client runtime contains no api_secret/apiSecret/API_SECRET');
   }
 
-  if (config.includes('PUBLIC_BUILD_ANALYTICS_CONFIG.measurementId')) {
-    ok('tracked analytics config reads build-time measurementId');
+  if (
+    hasAll(analyticsConfig, [
+      'PUBLIC_BUILD_ANALYTICS_CONFIG.measurementId',
+      "PUBLIC_BUILD_ANALYTICS_CONFIG.transportMode ?? 'disabled'",
+      'PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint'
+    ])
+  ) {
+    ok('tracked analytics config reads only public build analytics config');
   } else {
-    fail('tracked analytics config is not reading build-time measurementId');
+    fail('tracked analytics config no longer matches the public build config contract');
   }
 
-  if (config.includes("PUBLIC_BUILD_ANALYTICS_CONFIG.transportMode ?? 'disabled'")) {
-    ok('tracked analytics config defaults transport mode safely');
-  } else {
-    fail('tracked analytics config is not defaulting transport mode safely');
-  }
-
-  if (config.includes('PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint')) {
-    ok('tracked analytics config supports proxy endpoint injection');
-  } else {
-    fail('tracked analytics config is not wired for proxy endpoint injection');
-  }
-
-  if (environment.includes("'disabled' | 'proxy' | 'directDebug'")) {
+  if (analyticsEnvironment.includes("'disabled' | 'proxy' | 'directDebug'")) {
     ok('analytics environment exposes the expected transport modes');
   } else {
     fail('analytics environment transport modes drifted');
   }
 
-  if (reporter.includes("sendAnalyticsTransportEvent(\n        'extension_error'")) {
-    ok('error reporter still uses shared analytics transport');
+  if (
+    hasAll(analyticsReporter, [
+      'createAnalyticsEventQueue',
+      'sendAnalyticsTransportEvent',
+      'resolveAnalyticsConfig',
+      'liveConfig?.userConsent ?? this.config.userConsent'
+    ])
+  ) {
+    ok('error reporter stays wired to the queue, transport, and live consent config');
   } else {
-    fail('error reporter no longer uses the shared analytics transport');
+    fail('error reporter drifted from the queue/transport/live consent contract');
   }
 
-  const forbiddenDirectDebugEndpoint = 'google-analytics.com/' + 'debug/mp/collect';
-  if (transport.includes(forbiddenDirectDebugEndpoint)) {
-    fail('directDebug transport must not call Google debug endpoints from the extension');
+  const forbiddenGoogleEndpoints = [
+    'google-analytics.com/mp/collect',
+    'google-analytics.com/debug/mp/collect'
+  ];
+  if (hasAny(analyticsTransport, forbiddenGoogleEndpoints)) {
+    fail('runtime transport must not call Google Measurement Protocol endpoints directly');
   } else {
-    ok('directDebug transport stays owner-proxy-backed');
+    ok('runtime transport does not call Google Measurement Protocol endpoints directly');
   }
 
-  if (transport.includes("validation_behavior: 'ENFORCE_RECOMMENDATIONS'")) {
+  if (
+    hasAll(analyticsTransport, [
+      "transportMode === 'proxy' || transportMode === 'directDebug'",
+      'normalizeProxyEndpoint(config.proxyEndpoint)',
+      'postAnalyticsPayload(proxyEndpoint, proxyPayload, transportMode, requestFetch)'
+    ])
+  ) {
+    ok('proxy and directDebug transports stay proxy-backed');
+  } else {
+    fail('proxy/directDebug routing no longer stays proxy-backed');
+  }
+
+  if (analyticsTransport.includes("validation_behavior: 'ENFORCE_RECOMMENDATIONS'")) {
     ok('directDebug transport marks debug validation intent for the owner proxy');
   } else {
     fail('directDebug transport is missing debug validation intent');
+  }
+
+  if (
+    hasAll(analyticsConsent, ['getConsentScopeForAnalyticsEvent', 'hasConsentForAnalyticsEvent'])
+  ) {
+    ok('event-class analytics consent helper exists');
+  } else {
+    fail('event-class analytics consent helper is missing');
+  }
+
+  if (
+    hasAll(analyticsQueue, [
+      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
+      'hasConsentForAnalyticsEvent(config, entry.eventName)',
+      'sendAnalyticsTransportEvent'
+    ])
+  ) {
+    ok('analytics queue uses the shared consent helper and transport sender');
+  } else {
+    fail('analytics queue no longer uses the shared consent helper contract');
+  }
+
+  if (
+    hasAll(analyticsTransport, [
+      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
+      'hasConsentForAnalyticsEvent(config, eventName)'
+    ])
+  ) {
+    ok('analytics transport applies event-class consent with eventName');
+  } else {
+    fail('analytics transport no longer applies event-class consent with eventName');
+  }
+
+  const analyticsLogSummaryBlock = sliceBetween(
+    analyticsEvents,
+    'function buildAnalyticsTransportLogSummary(',
+    'function logAnalyticsTransportResult('
+  );
+  if (!analyticsLogSummaryBlock) {
+    fail('analytics events success-log summary block could not be located');
+  } else if (
+    hasAll(analyticsLogSummaryBlock, [
+      'eventName',
+      'transportMode: result.transportMode',
+      'responseStatus: result.responseStatus',
+      'validation: summarizeDebugResponse(result.debugResponse)'
+    ]) &&
+    !hasAny(analyticsLogSummaryBlock, ['params', 'payload', 'client_id', 'measurement_id'])
+  ) {
+    ok('production debug success log summary excludes payload and params');
+  } else {
+    fail('production debug success log summary drifted from the redacted P02 contract');
+  }
+
+  if (analyticsEvents.includes("if (result.transportMode !== 'directDebug')")) {
+    ok('production success logging stays scoped to directDebug');
+  } else {
+    fail('production success logging is no longer scoped to directDebug');
   }
 }
 
@@ -159,6 +293,30 @@ function validateBuildInjection() {
       fail(`build no longer injects ${defineName}`);
     }
   }
+
+  if (
+    hasAll(buildScript, [
+      "resolveGaEnv('MEASUREMENT_ID')",
+      "resolveGaEnv('TRANSPORT_MODE')",
+      "resolveGaEnv('PROXY_ENDPOINT')"
+    ])
+  ) {
+    ok('build reads the expected public GA env aliases');
+  } else {
+    fail('build is no longer reading the expected public GA env aliases');
+  }
+
+  const forbiddenGaSecretBuildTokens = [
+    "resolveGaEnv('API_SECRET')",
+    "resolveGaEnv('GA4_API_SECRET')",
+    '__ZENDIO_GA_API_SECRET__',
+    '__AIIINOB_GA_API_SECRET__'
+  ];
+  if (hasAny(buildScript, forbiddenGaSecretBuildTokens)) {
+    fail('build script must not inject GA api_secret or secret-like aliases');
+  } else {
+    ok('build script injects only public GA measurement/transport/proxy config');
+  }
 }
 
 function validatePrivacyWiring() {
@@ -166,28 +324,33 @@ function validatePrivacyWiring() {
 
   const persistence = read('src/options/app/productionStitchPersistence.ts');
   const finalAnalyticsEvent = read('src/options/app/productionStitchFinalAnalyticsEvent.ts');
-  const privacyView = read('src/ui/domains/privacy/PrivacySettingsView.ts');
+  const shellActionRuntime = read('src/options/app/productionStitchShellActionRuntime.ts');
 
-  if (persistence.includes("createTrackUsageEventMessage('privacy_consent_changed'")) {
-    ok('privacy consent change event is wired');
+  if (
+    hasAll(persistence, [
+      "createTrackUsageEventMessage('privacy_consent_changed'",
+      'persistPrivacyConsentAction',
+      'setAnalyticsConsent',
+      'updateErrorAnalyticsConfig'
+    ])
+  ) {
+    ok('production Stitch privacy consent change wiring is present');
   } else {
-    fail('privacy consent change event wiring is missing');
+    fail('production Stitch privacy consent change wiring is missing');
   }
 
   if (
-    persistence.includes('prepareAnalyticsDataClearedEvent') &&
-    finalAnalyticsEvent.includes("'analytics_data_cleared'") &&
-    finalAnalyticsEvent.includes('sendAnalyticsTransportEvent')
+    hasAll(persistence, ['prepareAnalyticsDataClearedEvent', 'clearAnalyticsPrivacyData']) &&
+    hasAll(finalAnalyticsEvent, ["'analytics_data_cleared'", 'sendAnalyticsTransportEvent']) &&
+    hasAll(shellActionRuntime, [
+      'trackResourceOpen',
+      "'privacy-policy': 'privacy'",
+      "'data-usage': 'privacy'"
+    ])
   ) {
-    ok('analytics data cleared event is wired');
+    ok('production Stitch privacy resources and analytics data clear wiring are present');
   } else {
-    fail('analytics data cleared event wiring is missing');
-  }
-
-  if (privacyView.includes('toggleDebugMode') && privacyView.includes('saveSettings')) {
-    ok('privacy settings view still exposes the expected consent actions');
-  } else {
-    fail('privacy settings view no longer exposes the expected consent actions');
+    fail('production Stitch privacy resource or analytics data clear wiring is missing');
   }
 }
 
@@ -202,9 +365,31 @@ function validateEnvironmentVariables() {
   const transportMode = resolvePublicEnv('ZENDIO_GA_TRANSPORT_MODE', 'AIIINOB_GA_TRANSPORT_MODE');
   const proxyEndpoint = resolvePublicEnv('ZENDIO_GA_PROXY_ENDPOINT', 'AIIINOB_GA_PROXY_ENDPOINT');
   const secretLikePattern = /(bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|token|password|secret)/i;
+  const forbiddenSecretEnvNames = [
+    'GA4_API_SECRET',
+    'ZENDIO_GA_API_SECRET',
+    'AIIINOB_GA_API_SECRET',
+    'ZENDIO_GA_SECRET',
+    'AIIINOB_GA_SECRET'
+  ];
+
+  const populatedSecretEnvNames = forbiddenSecretEnvNames.filter((name) => {
+    const value = process.env[name];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+
+  if (populatedSecretEnvNames.length > 0) {
+    fail(
+      `server-only GA secret env vars are set in the local shell/build env: ${populatedSecretEnvNames.join(', ')}`
+    );
+  } else {
+    ok('local shell/build env contains only public GA config keys');
+  }
 
   if (!transportMode) {
-    warn('ZENDIO_GA_TRANSPORT_MODE/AIIINOB_GA_TRANSPORT_MODE is unset; builds will default to disabled');
+    warn(
+      'ZENDIO_GA_TRANSPORT_MODE/AIIINOB_GA_TRANSPORT_MODE is unset; builds will default to disabled'
+    );
   } else if (!['disabled', 'proxy', 'directDebug'].includes(transportMode)) {
     fail(`ZENDIO_GA_TRANSPORT_MODE/AIIINOB_GA_TRANSPORT_MODE is invalid: ${transportMode}`);
   } else {
@@ -246,7 +431,7 @@ function validateEnvironmentVariables() {
 function printSummary() {
   console.log('');
   if (failures > 0) {
-    fail(`Validation finished with ${failures} failure(s) and ${warnings} warning(s)`);
+    paint('red', `FAIL Validation finished with ${failures} failure(s) and ${warnings} warning(s)`);
     process.exitCode = 1;
     return;
   }

@@ -65,6 +65,13 @@ describe('preview platform services', () => {
     await expect(
       services.downloads.download({ filename: 'demo.md', url: 'blob:demo' })
     ).resolves.toBeUndefined();
+    await expect(
+      services.downloads.download({
+        filename: 'demo.jpg',
+        blob: new Blob(['aaa'], { type: 'image/jpeg' }),
+        mimeType: 'image/jpeg'
+      })
+    ).resolves.toBeUndefined();
   });
 
   it('reports file-system access as unsupported without pretending to write files', async () => {

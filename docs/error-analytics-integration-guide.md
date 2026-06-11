@@ -1,6 +1,6 @@
 # Error Analytics Integration Guide
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文面向 owner / release 维护者，说明当前错误遥测如何接入 GA4 proxy 流。
 
@@ -64,9 +64,12 @@ export AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 ```bash
 node scripts/setup-error-analytics.js
+npm run analytics:validate:prod
 ```
 
-该脚本不会生成本地配置文件，也不会写入 tracked source。
+这些命令不会生成本地配置文件，也不会写入 tracked source。
+它们只验证静态 wiring、public build config 与 owner 本机 public env 是否自洽，
+不证明真实 GA4 property delivery、DebugView 可见性或服务端 `api_secret` 注入。
 
 ## Error payload contract
 

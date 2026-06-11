@@ -20,13 +20,18 @@ function createTimestampCapture(
 }
 
 function createScreenshot(timeSec: number): VideoCaptureScreenshot {
+  const blob = new Blob([`frame-${timeSec}`], { type: 'image/jpeg' });
   return {
     id: `shot-${timeSec}`,
     fileName: `file-${timeSec}.jpg`,
     mimeType: 'image/jpeg',
-    dataUrl: `data:image/jpeg;base64,frame-${timeSec}`,
-    capturedAt: timeSec
-  };
+    capturedAt: timeSec,
+    content: {
+      kind: 'blob',
+      blob,
+      byteLength: blob.size
+    }
+  } as unknown as VideoCaptureScreenshot;
 }
 
 function createDeferred<T>() {
@@ -156,9 +161,9 @@ describe('videoScreenshotPreparationQueue', () => {
   it('captures immediately when the visible video is already near the requested time without writing currentTime', async () => {
     const captures = [createTimestampCapture('ts-1', 42)];
     const visible = createVideoHarness({ currentTime: 42.1 });
-    const captureFrame = vi.fn(async (video: HTMLVideoElement, timeSec: number) => {
+    const captureFrame = vi.fn((video: HTMLVideoElement, timeSec: number) => {
       expect(video).toBe(visible.video);
-      return createScreenshot(timeSec);
+      return Promise.resolve(createScreenshot(timeSec));
     });
     const syncPanel = vi.fn();
     const queue = createVideoScreenshotPreparationQueue({
@@ -177,10 +182,10 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(captureFrame).toHaveBeenCalledTimes(1);
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
-    expect(captures[0]).toMatchObject({
-      screenshotRequested: true,
-      screenshot: expect.objectContaining({ id: 'shot-42' })
-    });
+    expect(captures[0]?.screenshotRequested).toBe(true);
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(captures[0]?.screenshot?.content?.byteLength).toEqual(expect.any(Number));
     expect(syncPanel).toHaveBeenCalledTimes(1);
 
     queue.dispose();
@@ -221,7 +226,9 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(hidden.currentTimeSetSpy).toHaveBeenCalledWith(42);
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(captures[0]?.screenshot?.content?.byteLength).toEqual(expect.any(Number));
     expect(document.body.contains(hidden.video)).toBe(false);
 
     queue.dispose();
@@ -265,8 +272,8 @@ describe('videoScreenshotPreparationQueue', () => {
       currentTime: 8,
       sourceUrl: 'blob:https://video.example/runtime'
     });
-    const captureFrame = vi.fn(async (_video: HTMLVideoElement, timeSec: number) =>
-      createScreenshot(timeSec)
+    const captureFrame = vi.fn((_video: HTMLVideoElement, timeSec: number) =>
+      Promise.resolve(createScreenshot(timeSec))
     );
     const syncPanel = vi.fn();
     const queue = createVideoScreenshotPreparationQueue({
@@ -288,7 +295,9 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(captureFrame).toHaveBeenCalledTimes(1);
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(captures[0]?.screenshot?.content?.byteLength).toEqual(expect.any(Number));
     expect(syncPanel).toHaveBeenCalledTimes(1);
 
     queue.dispose();
@@ -374,7 +383,9 @@ describe('videoScreenshotPreparationQueue', () => {
     hidden.video.dispatchEvent(new Event('loadeddata'));
     await flushAsyncWork();
 
-    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(captures[0]?.screenshot?.content?.byteLength).toEqual(expect.any(Number));
     expect(listenerTracker.getTotalActiveCount()).toBe(0);
     expect(clearTimeoutSpy).toHaveBeenCalled();
 
@@ -482,10 +493,8 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(captureFrame).toHaveBeenCalledTimes(2);
     expect(captureFrame).toHaveBeenNthCalledWith(2, replacement.video, 42);
-    expect(capture).toMatchObject({
-      screenshotRequested: true,
-      screenshot: expect.objectContaining({ id: 'shot-replacement' })
-    });
+    expect(capture.screenshotRequested).toBe(true);
+    expect(capture.screenshot?.id).toBe('shot-replacement');
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(replacement.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(syncPanel).toHaveBeenCalledTimes(1);

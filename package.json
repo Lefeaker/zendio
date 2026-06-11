@@ -71,7 +71,7 @@
     "build:firefox": "npm run quality && node scripts/build.mjs --mode=prod --firefox",
     "build:firefox:fast": "node scripts/build.mjs --mode=prod --skip-checks --firefox",
     "build:firefox:dev": "node scripts/build.mjs --skip-checks --firefox",
-    "analytics:validate:prod": "node --env-file=.env.production.local scripts/setup-error-analytics.js",
+    "analytics:validate:prod": "node --env-file-if-exists=.env.production.local scripts/setup-error-analytics.js",
     "build:prod:ga": "npm run quality && node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks",
     "build:prod:ga:fast": "node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks",
     "build:firefox:prod:ga": "npm run quality && node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks --firefox",

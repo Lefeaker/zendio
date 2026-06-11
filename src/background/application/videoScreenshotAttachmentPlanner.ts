@@ -5,24 +5,22 @@ import {
   disambiguateResolvedVideoScreenshotAttachmentTemplate,
   resolveVideoScreenshotAttachmentTemplate
 } from '../../shared/attachments/videoScreenshotAttachmentTemplates';
+import type { SerializedClipAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import { sanitizeDownloadsPathSegment } from '../../shared/downloadsFilename';
-import { isObjectRecord } from '../../shared/guards';
 import type { ClipMeta, ClipResultMessage } from '../../shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../shared/types/options';
+import {
+  parseVideoClipAttachments,
+  type ParsedClipAttachment
+} from './videoScreenshotAttachmentParser';
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
-type ClipAttachment = {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  dataUrl: string;
-  capturedAt?: number;
-};
+type ClipAttachment = ParsedClipAttachment;
 
 export type PreparedClipAttachment = {
   id: string;
   fileName: string;
   mimeType: string;
-  dataUrl: string;
+  content: SerializedClipAttachmentContent;
   outputPath: string;
   markdownPath: string;
   markdownUrl: string;
@@ -110,7 +108,7 @@ function prepareConfiguredVideoAttachments(
     id: attachment.id,
     fileName: resolved.generatedFileName,
     mimeType: attachment.mimeType,
-    dataUrl: attachment.dataUrl,
+    content: attachment.content,
     outputPath: resolved.outputPath,
     markdownPath: resolved.markdownPath,
     markdownUrl: resolved.markdownUrl
@@ -135,7 +133,7 @@ function prepareLegacyAttachments(
       id: attachment.id,
       fileName: getLastPathSegment(nextPath),
       mimeType: attachment.mimeType,
-      dataUrl: attachment.dataUrl,
+      content: attachment.content,
       outputPath: destination === 'downloads' ? nextPath : joinPath(noteDirectory, nextPath),
       markdownPath: nextPath,
       markdownUrl: nextPath
@@ -150,31 +148,7 @@ function replaceAttachmentMarkers(markdown: string, attachments: PreparedClipAtt
   );
 }
 function parseClipAttachments(value: ClipMeta['attachments']): ClipAttachment[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item): ClipAttachment[] => {
-    if (!isObjectRecord(item)) return [];
-    const candidate = item;
-    if (
-      typeof candidate.id !== 'string' ||
-      typeof candidate.fileName !== 'string' ||
-      typeof candidate.mimeType !== 'string' ||
-      typeof candidate.dataUrl !== 'string' ||
-      !candidate.dataUrl.startsWith(`data:${candidate.mimeType};base64,`)
-    ) {
-      return [];
-    }
-    return [
-      {
-        id: candidate.id,
-        fileName: candidate.fileName,
-        mimeType: candidate.mimeType,
-        dataUrl: candidate.dataUrl,
-        ...(typeof candidate.capturedAt === 'number' && Number.isFinite(candidate.capturedAt)
-          ? { capturedAt: candidate.capturedAt }
-          : {})
-      }
-    ];
-  });
+  return parseVideoClipAttachments(value);
 }
 function isDefaultScreenshotAttachmentOptions(options: VideoScreenshotAttachmentOptions): boolean {
   return (

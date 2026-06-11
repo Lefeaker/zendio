@@ -1,6 +1,6 @@
 # Error Analytics System Overview
 
-最后更新：2026-06-05
+最后更新：2026-06-11
 
 本文给出 AiiinOB 当前错误遥测系统的结构化总览。
 
@@ -98,9 +98,12 @@
 
 ```bash
 node scripts/setup-error-analytics.js
+npm run analytics:validate:prod
 ```
 
-该脚本当前是只读 validator，不再生成本地配置文件，也不会改写 tracked source。
+这些命令当前都是只读 validator，不再生成本地配置文件，也不会改写 tracked source。
+它们验证的是静态/public-config contract 与 owner env sanity，不是对真实
+GA4 property delivery、DebugView 可见性或服务端 `api_secret` 注入的证明。
 
 ## 不应再出现的旧行为
 

@@ -390,11 +390,12 @@ export async function cancelReaderSession(context: ReaderSessionOperationContext
     duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
   });
   cleanupReaderSession(context);
-  void context
-    .disposeDraftPersistence?.()
-    .catch((error) => {
-      console.warn('[ReaderSession] Failed to dispose session draft persistence after cancel:', error);
-    });
+  void context.disposeDraftPersistence?.().catch((error) => {
+    console.warn(
+      '[ReaderSession] Failed to dispose session draft persistence after cancel:',
+      error
+    );
+  });
 }
 
 export function cleanupReaderSession(context: ReaderSessionOperationContext): void {
@@ -555,11 +556,7 @@ export async function submitReaderHighlightEdit(
       previousComment,
       previousFootnoteIndex
     }) => {
-      context.highlightManager.assignFootnote(
-        highlight,
-        previousComment,
-        previousFootnoteIndex
-      );
+      context.highlightManager.assignFootnote(highlight, previousComment, previousFootnoteIndex);
       syncReaderHighlightsUi(context);
       restoreCommentDraft(context, id, nextDraftSnapshot);
       context.panelCoordinator.restoreEditingState(editingSnapshot);

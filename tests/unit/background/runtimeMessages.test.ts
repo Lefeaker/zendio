@@ -348,6 +348,63 @@ describe('runtime message listener', () => {
     );
   });
 
+  it('accepts structured binary clip result attachments and strips unknown nested fields', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            attachments: [
+              {
+                id: 'shot-2',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                content: {
+                  encoding: 'base64',
+                  data: 'Zm9v',
+                  byteLength: 3,
+                  unsafe: true
+                },
+                unsafe: true
+              }
+            ]
+          }
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(handleClipResultMock).toHaveBeenCalledWith(
+      {
+        type: 'CLIP_RESULT',
+        payload: {
+          markdown: '# hello',
+          meta: {
+            attachments: [
+              {
+                id: 'shot-2',
+                fileName: 'frame.jpg',
+                mimeType: 'image/jpeg',
+                content: {
+                  encoding: 'base64',
+                  data: 'Zm9v',
+                  byteLength: 3
+                }
+              }
+            ]
+          }
+        }
+      },
+      12,
+      expect.any(Object)
+    );
+  });
+
   it('rejects unknown and unsafe analytics usage events', async () => {
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
@@ -420,6 +477,63 @@ describe('runtime message listener', () => {
           }
         ],
         exportDestination: { kind: 'downloads' }
+      }
+    });
+  });
+
+  it('returns clip results for repository video export messages with structured binary attachments', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const result = await listener?.(
+      {
+        type: 'videoClip',
+        data: {
+          content: '# video',
+          title: 'Video title',
+          url: 'https://youtube.com/watch?v=1',
+          videoUrl: 'https://youtube.com/watch?v=1',
+          timestamp: 1,
+          platform: 'youtube',
+          attachments: [
+            {
+              id: 'shot-2',
+              fileName: 'file-20260509194226985.jpg',
+              mimeType: 'image/jpeg',
+              content: {
+                encoding: 'base64',
+                data: 'Zm9v',
+                byteLength: 3
+              }
+            }
+          ]
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(result).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(processClipPayloadMock).toHaveBeenCalledWith({
+      markdown: '# video',
+      title: 'Video title',
+      type: 'video',
+      meta: {
+        url: 'https://youtube.com/watch?v=1',
+        sourceUrl: 'https://youtube.com/watch?v=1',
+        platform: 'youtube',
+        attachments: [
+          {
+            id: 'shot-2',
+            fileName: 'file-20260509194226985.jpg',
+            mimeType: 'image/jpeg',
+            content: {
+              encoding: 'base64',
+              data: 'Zm9v',
+              byteLength: 3
+            }
+          }
+        ]
       }
     });
   });

@@ -268,7 +268,8 @@ export class ReaderSession {
 
     for (const highlight of bootHighlights) {
       try {
-        this.addHighlightFromRange(
+        applyReaderHighlightFromRange(
+          this.operationContext,
           highlight.range,
           highlight.selectedHtml,
           highlight.selectedText,
@@ -350,15 +351,6 @@ export class ReaderSession {
 
   private async handleMouseUp(event: MouseEvent): Promise<void> {
     await handleReaderSessionMouseUp(this.operationContext, event);
-  }
-
-  private addHighlightFromRange(
-    range: Range,
-    selectedHtml: string,
-    selectedText: string,
-    comment: string
-  ): void {
-    applyReaderHighlightFromRange(this.operationContext, range, selectedHtml, selectedText, comment);
   }
 
   ingestExternalHighlight(

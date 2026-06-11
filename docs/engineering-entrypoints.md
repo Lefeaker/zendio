@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-09
+最后更新：2026-06-11
 
 ## 推荐运行环境
 
@@ -126,6 +126,32 @@ The file must only contain public build config (`measurementId`,
 Cloudflare Worker secret `GA4_API_SECRET`.
 `directDebug` is also proxy-backed: it requires an owner debug proxy endpoint and
 must not call Google debug endpoints directly from the extension.
+Runtime `enabled` is live OR semantics (`analytics || errorReporting`), but actual
+sendability stays event-scoped: usage/product events require `analytics` consent,
+and `extension_error` requires `errorReporting` consent.
+`analytics:validate:prod` is a static/public-config + owner env sanity check; it
+does not prove real GA property delivery, DebugView visibility, or server-side
+`api_secret` injection. If `.env.production.local` is absent, the validator still
+runs and reports missing public values as warnings.
+Successful production proxy sends are intentionally silent in the console. Only
+`directDebug` emits `[analytics-events] Event sent (debug):` with a summary
+(`eventName`, `transportMode`, `responseStatus`, validation message count) and
+never logs event params.
+
+## GA / Video Targeted Checks
+
+```bash
+npm run analytics:validate:prod
+npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+```
+
+Use these commands to validate the settled GA consent/transport contract and the
+video screenshot intent-to-attachment path. Screenshot attachment templates plan
+only export-time output paths / Markdown URLs; durable state persists
+`screenshotRequested`, while runtime screenshot bytes stay `Blob` / binary until
+background write/download boundaries.
 
 ## 当前 Lint / Type 债务真值
 
