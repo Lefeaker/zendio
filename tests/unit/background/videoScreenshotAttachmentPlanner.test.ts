@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ClipPayload } from '../../../src/shared/types';
 import type { VideoScreenshotAttachmentOptions } from '../../../src/shared/types/options';
+import type { SerializedClipAttachmentContent } from '../../../src/shared/attachments/clipAttachmentBinary';
 
 const screenshotAttachmentDefaults: VideoScreenshotAttachmentOptions = {
   locationTemplate: './assets/${noteFileName}',
@@ -14,6 +15,20 @@ const baseAttachment = {
   fileName: 'file-20260606112233444.jpg',
   mimeType: 'image/jpeg',
   dataUrl: 'data:image/jpeg;base64,aaa'
+};
+const baseLegacyContent: SerializedClipAttachmentContent = {
+  kind: 'legacyDataUrl',
+  dataUrl: baseAttachment.dataUrl
+};
+const base64Attachment = {
+  id: 'shot-2',
+  fileName: 'capture-base64.jpg',
+  mimeType: 'image/jpeg',
+  content: {
+    encoding: 'base64' as const,
+    data: 'YmFy',
+    byteLength: 3
+  }
 };
 
 function createPayload(overrides: Partial<ClipPayload> = {}): ClipPayload {
@@ -46,6 +61,7 @@ describe('prepareVideoClipAttachments', () => {
       attachments: [
         {
           ...baseAttachment,
+          content: baseLegacyContent,
           fileName: 'file-20260606112233444.jpg',
           outputPath: 'Videos/assets/Test/file-20260606112233444.jpg',
           markdownPath: 'assets/Test/file-20260606112233444.jpg',
@@ -134,6 +150,53 @@ describe('prepareVideoClipAttachments', () => {
         markdownPath: 'assets/Test/file-20260606112233444.jpg',
         markdownUrl:
           'obsidian://vault/Videos/assets/Test/file-20260606112233444.jpg?file=file-20260606112233444.jpg'
+      })
+    ]);
+  });
+
+  it('supports structured base64 attachment content for configured planning and markdown replacement', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+
+    const result = prepareVideoClipAttachments({
+      payload: createPayload({
+        markdown: '# video\n![Screenshot](aiob-attachment:shot-2)',
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          attachments: [base64Attachment]
+        }
+      }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault',
+      screenshotAttachmentOptions: {
+        locationTemplate: './attachments/${noteFileName}',
+        fileNameTemplate: '${originalAttachmentFileName}',
+        markdownUrlFormat:
+          'obsidian://vault/${generatedAttachmentFilePath}?file=${generatedAttachmentFileName}'
+      }
+    });
+
+    expect(result.markdown).toBe(
+      '# video\n![Screenshot](obsidian://vault/Videos/attachments/Test/capture-base64.jpg?file=capture-base64.jpg)'
+    );
+    expect(result.attachments).toEqual([
+      expect.objectContaining({
+        id: 'shot-2',
+        fileName: 'capture-base64.jpg',
+        mimeType: 'image/jpeg',
+        content: {
+          kind: 'base64',
+          binary: {
+            encoding: 'base64',
+            data: 'YmFy',
+            byteLength: 3
+          }
+        },
+        dataUrl: 'data:image/jpeg;base64,YmFy',
+        outputPath: 'Videos/attachments/Test/capture-base64.jpg',
+        markdownPath: 'attachments/Test/capture-base64.jpg',
+        markdownUrl:
+          'obsidian://vault/Videos/attachments/Test/capture-base64.jpg?file=capture-base64.jpg'
       })
     ]);
   });
@@ -258,6 +321,33 @@ describe('prepareVideoClipAttachments', () => {
         markdownPath: 'assets/Test/capture-2.jpg'
       })
     ]);
+  });
+
+  it('rejects legacy attachments whose dataUrl mime type does not match the declared mime type', async () => {
+    const { prepareVideoClipAttachments } =
+      await import('../../../src/background/application/videoScreenshotAttachmentPlanner');
+
+    const result = prepareVideoClipAttachments({
+      payload: createPayload({
+        meta: {
+          url: 'https://youtube.com/watch?v=1',
+          attachments: [
+            {
+              ...baseAttachment,
+              mimeType: 'image/png'
+            }
+          ]
+        }
+      }),
+      notePath: 'Videos/Test.md',
+      destination: 'vault',
+      screenshotAttachmentOptions: screenshotAttachmentDefaults
+    });
+
+    expect(result).toEqual({
+      markdown: '# video\n![Screenshot](aiob-attachment:shot-1)',
+      attachments: []
+    });
   });
 
   it('keeps non-video attachments on the legacy path logic and no-ops when attachments are missing', async () => {

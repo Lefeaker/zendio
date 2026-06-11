@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isLegacyDataUrlForMimeType } from '../attachments/clipAttachmentBinary';
 import { ClassificationResultSchema } from './classification.schema';
 import { AppErrorSchema } from './error.schema';
 
@@ -9,14 +10,40 @@ const MAX_ATTACHMENT_DATA_URL_LENGTH = 20 * 1024 * 1024;
 const BoundedMetaStringSchema = z.string().max(MAX_META_STRING_LENGTH);
 const NonNegativeIntegerSchema = z.number().int().nonnegative();
 
-const ClipAttachmentSchema = z
+const ClipAttachmentBaseSchema = z
   .object({
     id: z.string().min(1).max(256),
     fileName: z.string().min(1).max(512),
     mimeType: z.string().min(1).max(128),
-    dataUrl: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH)
+    capturedAt: NonNegativeIntegerSchema.optional()
   })
   .strip();
+
+const SerializedClipAttachmentBinaryContentSchema = z
+  .object({
+    encoding: z.literal('base64'),
+    data: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH),
+    byteLength: NonNegativeIntegerSchema
+  })
+  .strip();
+
+const LegacyClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
+  dataUrl: z.string().min(1).max(MAX_ATTACHMENT_DATA_URL_LENGTH)
+}).superRefine((attachment, context) => {
+  if (!isLegacyDataUrlForMimeType(attachment.dataUrl, attachment.mimeType)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Attachment dataUrl must match the declared mimeType.',
+      path: ['dataUrl']
+    });
+  }
+});
+
+const BinaryClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
+  content: SerializedClipAttachmentBinaryContentSchema
+});
+
+const ClipAttachmentSchema = z.union([LegacyClipAttachmentSchema, BinaryClipAttachmentSchema]);
 
 const ExportDestinationSchema = z
   .discriminatedUnion('kind', [

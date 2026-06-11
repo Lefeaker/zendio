@@ -1,7 +1,26 @@
 import type { VaultConfig } from './vault';
 import type { RestOptions } from './options';
 import type { AppError } from '../errors/types';
+import type { SerializedClipAttachmentBinaryContent } from '../attachments/clipAttachmentBinary';
 import { isNonEmptyString, isObjectRecord, isOptionalString } from '../guards';
+
+export interface LegacyDataUrlClipAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  capturedAt?: number;
+}
+
+export interface BinaryClipAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  content: SerializedClipAttachmentBinaryContent;
+  capturedAt?: number;
+}
+
+export type ClipAttachment = LegacyDataUrlClipAttachment | BinaryClipAttachment;
 
 export interface ClipMeta {
   url?: string;
@@ -9,6 +28,8 @@ export interface ClipMeta {
   platform?: string;
   sourceUrl?: string;
   resolvedUrl?: string;
+  createdAt?: string;
+  attachments?: ClipAttachment[];
   [key: string]: unknown;
 }
 
