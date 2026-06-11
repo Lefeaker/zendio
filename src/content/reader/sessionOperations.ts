@@ -7,6 +7,7 @@ import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderSessionDependencies } from './sessionTypes';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 import {
   createTrackUsageEventMessage,
   type TrackUsageEventPayload,
@@ -32,6 +33,7 @@ interface ReaderSessionOperationContext {
   persistDraftMutation?: () => Promise<void>;
   disposeDraftPersistence?: () => Promise<void>;
   clearPersistedDraft?: () => Promise<void>;
+  finalizeTerminalDraft?: (status: SessionDraftTerminalStatus) => Promise<boolean>;
   runDraftMutation?: <Result>(
     transaction: SessionMutationTransaction<Result, void>
   ) => Promise<boolean>;
@@ -343,17 +345,23 @@ export async function finishReaderSession(
       label: '正在发送到 Obsidian'
     });
     await context.dependencies.dispatchClipResult(payload);
+    const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
+    if (!terminalized) {
+      context.dependencies.showSupportProgress?.({
+        value: 100,
+        label: '发送失败',
+        variant: 'failure'
+      });
+      context.panelCoordinator.applyHint('failure', context.state.highlights.length);
+      context.state.exporting = false;
+      return;
+    }
     void trackReaderUsageEvent(context, 'reader_exported', {
       destination: resolveReaderExportDestination(exportDestination),
       duration_bucket: context.state.analyticsTimer?.durationBucket() ?? 'under_100ms'
     });
     cleanupReaderSession(context);
     await context.disposeDraftPersistence?.();
-    try {
-      await context.clearPersistedDraft?.();
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to clear session draft after export:', error);
-    }
   } catch (error) {
     console.error('[ReaderSession] Export failed:', error);
     void trackReaderUsageEvent(context, 'reader_export_failed', {
@@ -370,8 +378,13 @@ export async function finishReaderSession(
   }
 }
 
-export function cancelReaderSession(context: ReaderSessionOperationContext): void {
+export async function cancelReaderSession(context: ReaderSessionOperationContext): Promise<void> {
   if (context.state.exporting) {
+    return;
+  }
+  const terminalized = (await context.finalizeTerminalDraft?.('discarded')) ?? true;
+  if (!terminalized) {
+    context.panelCoordinator.applyHint('failure', context.state.highlights.length);
     return;
   }
   void trackReaderUsageEvent(context, 'reader_session_cancelled', {
@@ -380,9 +393,8 @@ export function cancelReaderSession(context: ReaderSessionOperationContext): voi
   cleanupReaderSession(context);
   void context
     .disposeDraftPersistence?.()
-    .then(() => context.clearPersistedDraft?.())
     .catch((error) => {
-      console.warn('[ReaderSession] Failed to clear session draft after cancel:', error);
+      console.warn('[ReaderSession] Failed to dispose session draft persistence after cancel:', error);
     });
 }
 
