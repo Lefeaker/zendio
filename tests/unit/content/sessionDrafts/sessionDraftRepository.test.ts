@@ -89,6 +89,84 @@ describe('sessionDraftRepository', () => {
     });
   });
 
+  it('stores discarded reader drafts in the index but excludes them from loadLatest', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('reader', {
+      draftId: 'discarded-reader',
+      pageUrl: 'https://example.com/post/discarded',
+      updatedAt: BASE_TIME + 101,
+      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'discarded-reader',
+      status: 'discarded'
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      schemaVersion: 1,
+      entries: [expect.objectContaining({ draftId: 'discarded-reader', status: 'discarded' })]
+    });
+    await expect(
+      repository.loadLatest('reader', envelope.pageUrl, BASE_TIME + 102)
+    ).resolves.toBeNull();
+  });
+
+  it('stores exported video drafts in the index but excludes them from listCandidates', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('video', {
+      draftId: 'exported-video',
+      pageUrl: 'https://video.example/watch?v=exported',
+      updatedAt: BASE_TIME + 111,
+      status: 'exported' as unknown as SessionDraftEnvelope['status']
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'exported-video',
+      status: 'exported'
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      schemaVersion: 1,
+      entries: [expect.objectContaining({ draftId: 'exported-video', status: 'exported' })]
+    });
+    await expect(
+      repository.listCandidates('video', envelope.pageUrl, BASE_TIME + 112)
+    ).resolves.toEqual([]);
+  });
+
+  it('returns the restorable same-page draft when a newer terminal draft also exists', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/terminal-and-restorable';
+    const restorable = createEnvelope('reader', {
+      draftId: 'restorable-same-page',
+      pageUrl,
+      updatedAt: BASE_TIME + 120,
+      status: 'restorable'
+    });
+    const terminal = createEnvelope('reader', {
+      draftId: 'terminal-same-page',
+      pageUrl,
+      updatedAt: BASE_TIME + 121,
+      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+    });
+
+    await repository.save(restorable);
+    await repository.save(terminal);
+
+    await expect(repository.loadLatest('reader', pageUrl, BASE_TIME + 122)).resolves.toMatchObject({
+      draftId: 'restorable-same-page',
+      status: 'restorable'
+    });
+  });
+
   it('prunes expired drafts from the index and excludes them from loadLatest', async () => {
     const storage = createMemoryStorageArea();
     const repository = createSessionDraftRepository(storage);
@@ -566,6 +644,38 @@ describe('sessionDraftRepository', () => {
       payload: {
         ownerContext: OWNER_B
       }
+    });
+  });
+
+  it('ignores terminal candidates before any owner-context claim write', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const pageUrl = 'https://example.com/post/terminal-claim';
+    const terminal = createEnvelope('reader', {
+      draftId: 'terminal-no-owner',
+      pageUrl,
+      updatedAt: BASE_TIME + 740,
+      status: 'discarded' as unknown as SessionDraftEnvelope['status']
+    });
+    const entry = createIndexEntry(terminal);
+
+    await storage.setMany({
+      [entry.key]: terminal,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [entry]
+      }
+    });
+
+    const setManySpy = vi.spyOn(storage, 'setMany');
+
+    await expect(
+      repository.loadLatest('reader', pageUrl, BASE_TIME + 741, { ownerContext: OWNER_C })
+    ).resolves.toBeNull();
+    expect(setManySpy).not.toHaveBeenCalled();
+    await expect(storage.get(entry.key)).resolves.toMatchObject({
+      draftId: 'terminal-no-owner',
+      status: 'discarded'
     });
   });
 });
