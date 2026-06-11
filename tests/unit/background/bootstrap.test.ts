@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
+import type { ErrorHandler } from '../../../src/shared/errors/errorHandler';
 
 const TOKENS = vi.hoisted(() => ({
   errorHandler: Symbol('errorHandler'),
@@ -48,7 +49,9 @@ const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
   })
 );
 const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.fn());
-const initializeErrorAnalyticsMock = vi.hoisted(() => vi.fn(async () => undefined));
+const initializeErrorAnalyticsMock = vi.hoisted(() =>
+  vi.fn((_errorHandler?: Pick<ErrorHandler, 'addReporter'>) => Promise.resolve(undefined))
+);
 const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(async () => undefined));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const configureUsageStatsStorageMock = vi.hoisted(() => vi.fn());

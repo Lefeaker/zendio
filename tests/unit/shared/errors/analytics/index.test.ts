@@ -1,4 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GoogleAnalyticsConfig } from '../../../../../src/shared/errors/analytics/googleAnalyticsReporter';
+
+interface TestSentryBuildConfig {
+  enabled: boolean;
+  dsn?: string;
+  environment?: string;
+  release?: string;
+}
 
 const currentAnalyticsConfig = vi.hoisted(() => ({
   enabled: true,
@@ -43,10 +51,12 @@ const getAnalyticsConfigManagerMock = vi.hoisted(() =>
   }))
 );
 const shouldReportErrorsMock = vi.hoisted(() => vi.fn(() => true));
-const createGoogleAnalyticsReporterMock = vi.hoisted(() => vi.fn(() => ({ id: 'ga' })));
+const createGoogleAnalyticsReporterMock = vi.hoisted(() =>
+  vi.fn((_config: GoogleAnalyticsConfig) => ({ id: 'ga' }))
+);
 const createSentryErrorReporterMock = vi.hoisted(() => vi.fn(() => ({ id: 'sentry' })));
 const getSentryBuildConfigMock = vi.hoisted(() =>
-  vi.fn(() => ({
+  vi.fn<() => TestSentryBuildConfig>(() => ({
     enabled: true,
     dsn: 'https://public@example.ingest.sentry.io/123456',
     environment: 'test',
@@ -141,7 +151,8 @@ describe('error analytics initialization', () => {
       })
     );
     const firstReporterConfig = createGoogleAnalyticsReporterMock.mock.calls[0]?.[0];
-    expect(firstReporterConfig?.resolveAnalyticsConfig()).toBe(currentAnalyticsConfig);
+    expect(firstReporterConfig?.resolveAnalyticsConfig).toBeTypeOf('function');
+    expect(firstReporterConfig?.resolveAnalyticsConfig?.()).toBe(currentAnalyticsConfig);
     expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(2);
     expect(addReporter).toHaveBeenCalledTimes(4);
     expect(unregisterGa1).toHaveBeenCalledTimes(1);
@@ -173,7 +184,6 @@ describe('error analytics initialization', () => {
     const targetErrorHandler = { addReporter: targetAddReporter };
     getSentryBuildConfigMock.mockReturnValueOnce({
       enabled: false,
-      dsn: undefined,
       environment: 'test',
       release: '1.2.3'
     });
