@@ -561,7 +561,7 @@ describe('sessionDraftRepository', () => {
   it('keeps same-url active drafts separated by owner context instead of collapsing them', async () => {
     const storage = createMemoryStorageArea();
     const repository = createSessionDraftRepository(storage, {
-      isOwnerContextActive: vi.fn(async () => true)
+      isOwnerContextActive: vi.fn(() => Promise.resolve(true))
     });
     const pageUrl = 'https://example.com/post/multi-tab';
     const first = createEnvelope('reader', {
@@ -593,8 +593,8 @@ describe('sessionDraftRepository', () => {
 
   it('claims an active same-page draft only after the previous owner context is inactive', async () => {
     const storage = createMemoryStorageArea();
-    const isOwnerContextActive = vi.fn(
-      async (ownerContext: SessionDraftOwnerContext) => ownerContext.tabId === OWNER_B.tabId
+    const isOwnerContextActive = vi.fn((ownerContext: SessionDraftOwnerContext) =>
+      Promise.resolve(ownerContext.tabId === OWNER_B.tabId)
     );
     const repository = createSessionDraftRepository(storage, { isOwnerContextActive });
     const pageUrl = 'https://example.com/post/closed-tab';
