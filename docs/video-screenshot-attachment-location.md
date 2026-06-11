@@ -15,6 +15,19 @@ is written into exported Markdown.
 | Attachment file name template | `video.screenshotAttachment.fileNameTemplate`  | `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg` | Chooses the generated screenshot file name. `.jpg` is added if the rendered value has no `.jpg` suffix.            |
 | Markdown URL format           | `video.screenshotAttachment.markdownUrlFormat` | empty                                                   | When left empty, the exporter writes the computed Markdown path. A custom value can rewrite the Markdown URL only. |
 
+## Planning Boundary
+
+- These settings are export-time path planners only. They decide the attachment
+  output path and the Markdown URL that replaces `aiob-attachment:<id>` markers.
+- They do not control capture-time screenshot bytes, video seeking, or durable
+  storage format.
+- Durable capture storage and session drafts persist screenshot intent
+  (`screenshotRequested`) rather than screenshot bytes.
+- Runtime screenshot bytes stay in `Blob` / binary form. The exporter serializes
+  them into compatibility payloads, and the background writer / downloads layer
+  reconstructs a `Blob` before writing. Legacy `dataUrl` exists only as a
+  compatibility bridge for older payloads / adapters.
+
 ## Supported Tokens
 
 | Category                    | Tokens                                                                         | Notes                                                                                   |
@@ -61,6 +74,8 @@ When the export target is browser downloads instead of an Obsidian vault:
 - The real download path stays browser-safe and reduced to the generated file name,
   or `<sanitized-note-name>/<generated-file-name>` when multiple screenshots are
   exported together when the default download behavior is used.
+- The screenshot content is still written as binary / `Blob`; downloads mode only
+  changes filename planning and the final output path.
 - A custom `locationTemplate` changes both the browser download filename and the
   Markdown path when the template resolves cleanly, so the downloaded attachment
   path stays aligned with the link written into the note.
