@@ -524,6 +524,7 @@ export class ReaderSession {
         '[ReaderSession] Failed to flush session draft before terminal finalization:',
         error
       );
+      return false;
     }
 
     const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);

@@ -1720,6 +1720,69 @@ describe('ReaderSession', () => {
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({ status: 'active' });
   });
 
+  it('keeps the session active when pending draft flush fails before cancel terminalization', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-cancel-flush-failure';
+    wrapper.textContent = 'Cancel me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-cancel-flush-failure',
+        selectedHtml: '<mark>Cancel me</mark>',
+        selectedText: 'Cancel me',
+        comment: 'persisted note',
+        fragmentUrl: '#cancel-flush-failure',
+        wrapper
+      }
+    ]);
+    context.emitCommentDraftChange({});
+    await flushDraftPersistence();
+
+    const { draftId: currentDraftId } = getDraftIdentity(context.session);
+    if (!currentDraftId) {
+      throw new Error('expected an active current draft');
+    }
+
+    context.emitCommentDraftChange({
+      'h-cancel-flush-failure': 'pending unsaved comment'
+    });
+    context.messaging.send.mockClear();
+    context.view.updateHint.mockClear();
+    const setManySpy = vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
+      throw new Error('cancel pending flush failed');
+    });
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    callbacks.onCancel();
+    await vi.waitFor(() => {
+      expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    });
+
+    expect(context.view.destroy).not.toHaveBeenCalled();
+    expect(isReaderSessionActive(document)).toBe(true);
+    expect(getReaderSession()).toBe(context.session);
+    expect(context.view.currentDrafts).toEqual({
+      'h-cancel-flush-failure': 'pending unsaved comment'
+    });
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_session_cancelled')
+    ).toBeUndefined();
+    expect(setManySpy).toHaveBeenCalledTimes(1);
+    await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
+      draftId: currentDraftId,
+      status: 'active'
+    });
+  });
+
   it('cleans up after export when exact-key draft removal fails after the terminal envelope is written', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
@@ -1821,6 +1884,70 @@ describe('ReaderSession', () => {
     expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
     expect(getTelemetryMessages(context).find((message) => message.event === 'reader_exported')).toBeUndefined();
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({ status: 'active' });
+  });
+
+  it('keeps the session active when pending draft flush fails after export dispatch succeeds', async () => {
+    vi.useFakeTimers();
+    const context = createSessionContext();
+    await context.session.initialize();
+
+    const wrapper = document.createElement('mark');
+    wrapper.className = 'aiob-reader-highlight';
+    wrapper.dataset.readerHighlightId = 'h-export-flush-failure';
+    wrapper.textContent = 'Export me';
+    document.body.appendChild(wrapper);
+    getSessionHarness(context.session).__setTestHighlights([
+      {
+        id: 'h-export-flush-failure',
+        selectedHtml: '<mark>Export me</mark>',
+        selectedText: 'Export me',
+        comment: 'persisted note',
+        fragmentUrl: '#export-flush-failure',
+        wrapper
+      }
+    ]);
+    context.emitCommentDraftChange({});
+    await flushDraftPersistence();
+
+    const { draftId: currentDraftId } = getDraftIdentity(context.session);
+    if (!currentDraftId) {
+      throw new Error('expected an active current draft');
+    }
+
+    context.emitCommentDraftChange({
+      'h-export-flush-failure': 'pending unsaved comment'
+    });
+    context.messaging.send.mockClear();
+    context.view.updateHint.mockClear();
+    const setManySpy = vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(async () => {
+      throw new Error('export pending flush failed');
+    });
+
+    const callbacks = context.getCallbacks();
+    if (!callbacks) {
+      throw new Error('panel callbacks missing');
+    }
+
+    await callbacks.onFinish();
+
+    expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+    expect(context.view.destroy).not.toHaveBeenCalled();
+    expect(isReaderSessionActive(document)).toBe(true);
+    expect(context.view.currentDrafts).toEqual({
+      'h-export-flush-failure': 'pending unsaved comment'
+    });
+    expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    expect(context.showSupportProgress).toHaveBeenCalledWith({
+      value: 100,
+      label: '发送失败',
+      variant: 'failure'
+    });
+    expect(getTelemetryMessages(context).find((message) => message.event === 'reader_exported')).toBeUndefined();
+    expect(setManySpy).toHaveBeenCalledTimes(1);
+    await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
+      draftId: currentDraftId,
+      status: 'active'
+    });
   });
 
   it('tracks failed exports without swallowing the existing failure behavior', async () => {
