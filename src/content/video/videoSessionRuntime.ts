@@ -494,7 +494,11 @@ export class VideoSession {
       return;
     }
     await this.draftPersister.scheduleSave();
-    await this.clearSupersededDurableSources();
+    try {
+      await this.clearSupersededDurableSources();
+    } catch (error) {
+      this.logSupersededDurableCleanupError(error);
+    }
   }
 
   private async flushDraftNow(
@@ -509,13 +513,19 @@ export class VideoSession {
         buildDraftEnvelope: () => this.buildDraftEnvelope(),
         removeDraft: () => this.removeDraft(),
         draftPersister: this.draftPersister,
-        clearSupersededDurableSources: () => this.clearSupersededDurableSources()
+        clearSupersededDurableSources: () => this.clearSupersededDurableSources(),
+        trackSavingState: status === 'active',
+        onPostSaveCleanupError: (error) => this.logSupersededDurableCleanupError(error)
       });
     } catch {
       return 'failure';
     } finally {
       this.pendingDraftStatus = 'active';
     }
+  }
+
+  private logSupersededDurableCleanupError(error: unknown): void {
+    console.warn('[VideoSession] Failed to clear superseded durable draft sources:', error);
   }
 
   private async clearSupersededDurableSources(): Promise<void> {
@@ -644,7 +654,9 @@ export class VideoSession {
     this.isCleaningUp = true;
     this.screenshotPreparation.dispose();
     this.stopDraftPersistence?.();
-    void this.draftPersister.dispose();
+    void this.draftPersister.dispose().catch((error) => {
+      console.warn('[VideoSession] Failed to dispose draft persister:', error);
+    });
     this.commentEditorPlayback.dispose();
     cleanupVideoSession(this.operationContext);
   }

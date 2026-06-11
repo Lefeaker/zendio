@@ -378,6 +378,13 @@ function createDeferred<T = void>(): {
   return { promise, resolve, reject };
 }
 
+function removalCallIncludesKey(value: unknown, key: string): boolean {
+  if (Array.isArray(value)) {
+    return value.includes(key);
+  }
+  return value === key;
+}
+
 async function flushMutationWork(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
@@ -1776,6 +1783,207 @@ describe('VideoSession', () => {
     expect(playSpy).toHaveBeenCalledTimes(1);
 
     callbacks.onCancel();
+    vi.useRealTimers();
+  });
+
+  it('rolls back capture comment edits and restores the previous draft when saving fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1
+      }
+    ];
+    sessionApi.state.commentDrafts = {
+      'timestamp-1': 'panel draft note'
+    };
+    view.setCaptures.mockClear();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    await requirePromise(
+      requireMountedPanelCallbacks(mountedCallbacks).onSubmitCaptureEdit('timestamp-1', 'edited note')
+    );
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'original note' });
+    expect(sessionApi.state.commentDrafts).toEqual({
+      'timestamp-1': 'panel draft note'
+    });
+    const panelCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
+      | Array<{ comment?: string }>
+      | undefined;
+    expect(panelCaptures?.[0]).toMatchObject({ comment: 'original note' });
+    expect(view.stopEditing).not.toHaveBeenCalled();
+    expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('marks draft-mode user saves as saving and blocks overlapping guarded mutations until the durable save finishes', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deferredSave = createDeferred<void>();
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    sessionApi.state.captures = [
+      {
+        kind: 'timestamp',
+        id: 'timestamp-1',
+        timeSec: 42,
+        comment: 'original note',
+        url: 'https://video.example/watch?t=42',
+        createdAt: 1
+      }
+    ];
+    Object.defineProperty(requireVideoElement(), 'currentTime', {
+      value: 52,
+      configurable: true
+    });
+    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    const submitPromise = requirePromise(callbacks.onSubmitCaptureEdit('timestamp-1', 'edited note'));
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(true);
+
+    await sessionApi.addCurrentTimestamp('button', { beginEditing: false });
+
+    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(sessionApi.state.captures).toHaveLength(1);
+
+    deferredSave.resolve();
+    await submitPromise;
+
+    expect((sessionApi.state as typeof sessionApi.state & { saving?: boolean }).saving).toBe(
+      false
+    );
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('keeps capture edits committed and retries restored-draft cleanup after the durable save succeeds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const restoredDraft = createVideoSessionDraftEnvelope({
+      draftId: 'restored-draft',
+      pageUrl: document.location.href,
+      pageTitle: 'Restored title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(restoredDraft);
+    const restoredDraftKey = createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: restoredDraft.pageKey,
+      draftId: restoredDraft.draftId
+    });
+    const passthroughRemove = vi.mocked(deps.storage.local.remove).getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    let failCleanup = true;
+    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
+      const [value] = args;
+      if (failCleanup && removalCallIncludesKey(value, restoredDraftKey)) {
+        failCleanup = false;
+        throw new Error('cleanup failed after durable save');
+      }
+      return await passthroughRemove(...args);
+    });
+
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    view.stopEditing.mockClear();
+    view.updateHint.mockClear();
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    await requirePromise(callbacks.onSubmitCaptureEdit('ts-1', 'committed note'));
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'committed note' });
+    expect(view.stopEditing).toHaveBeenCalledWith('ts-1');
+    expect(view.updateHint.mock.calls.map(([message]) => message)).not.toContain(
+      DEFAULT_SESSION_MESSAGES.hintFailure
+    );
+    const draftIdsAfterFailedCleanup = (
+      await listVideoDraftCandidates(deps, document.location.href, null)
+    ).map((candidate) => candidate.draftId);
+    expect(draftIdsAfterFailedCleanup).toContain('restored-draft');
+    expect(draftIdsAfterFailedCleanup.length).toBeGreaterThanOrEqual(2);
+
+    view.stopEditing.mockClear();
+    await requirePromise(callbacks.onSubmitCaptureEdit('ts-1', 'committed note v2'));
+
+    expect(sessionApi.state.captures[0]).toMatchObject({ comment: 'committed note v2' });
+    expect(view.stopEditing).toHaveBeenCalledWith('ts-1');
+    const draftIdsAfterRetry = (
+      await listVideoDraftCandidates(deps, document.location.href, null)
+    ).map((candidate) => candidate.draftId);
+    expect(draftIdsAfterRetry).not.toContain('restored-draft');
+    expect(
+      vi
+        .mocked(deps.storage.local.remove)
+        .mock.calls.filter(([value]) => removalCallIncludesKey(value, restoredDraftKey))
+    ).toHaveLength(2);
+
+    sessionApi.cleanup();
     vi.useRealTimers();
   });
 

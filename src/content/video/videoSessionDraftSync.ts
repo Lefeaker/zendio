@@ -53,17 +53,46 @@ export async function flushVideoSessionDraftNow(options: {
   removeDraft: () => Promise<void>;
   draftPersister: SessionDraftPersister;
   clearSupersededDurableSources: () => Promise<void>;
+  trackSavingState?: boolean;
+  onPostSaveCleanupError?: (error: unknown) => void;
 }): Promise<VideoHintState | null> {
   if (!options.isCleaningUp) {
     options.syncCommentDrafts();
   }
+
   if (!options.buildDraftEnvelope()) {
-    await options.removeDraft();
+    if (options.trackSavingState) {
+      options.state.saving = true;
+    }
+    try {
+      await options.removeDraft();
+    } finally {
+      if (options.trackSavingState) {
+        options.state.saving = false;
+      }
+    }
     return options.state.captures.length ? 'ready' : 'noCaptures';
   }
+
   const pending = options.draftPersister.scheduleSave();
-  await options.draftPersister.flushNow();
-  await pending;
-  await options.clearSupersededDurableSources();
+  if (options.trackSavingState) {
+    options.state.saving = true;
+  }
+  try {
+    await options.draftPersister.flushNow();
+    await pending;
+  } catch (error) {
+    await pending.catch(() => undefined);
+    throw error;
+  } finally {
+    if (options.trackSavingState) {
+      options.state.saving = false;
+    }
+  }
+  try {
+    await options.clearSupersededDurableSources();
+  } catch (error) {
+    options.onPostSaveCleanupError?.(error);
+  }
   return options.state.captures.length ? 'ready' : 'noCaptures';
 }
