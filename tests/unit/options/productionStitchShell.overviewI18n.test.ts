@@ -1,16 +1,16 @@
 /* @vitest-environment jsdom */
 
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import type { Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   asOptionsController,
   createController,
+  createEnglishPageMessages,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 
-const ENGLISH_SENTINEL_MESSAGES = {
-  ...DEFAULT_RUNTIME_MESSAGES,
+const ENGLISH_SENTINEL_MESSAGE_OVERRIDES = {
   schemaOverviewTitle: 'Overview Hero Sentinel',
   schemaOverviewHeroDescription: 'Overview Description Sentinel',
   schemaOverviewUsageGroupTitle: 'Usage Group Sentinel',
@@ -33,16 +33,20 @@ const ENGLISH_SENTINEL_MESSAGES = {
   clearAllAnalyticsData: 'Clear Data Sentinel',
   privacyPolicyLink: 'Privacy Policy Sentinel',
   dataUsageLink: 'Data Usage Sentinel'
-};
+} satisfies Partial<Messages>;
 
 describe('mountProductionStitchShell overview i18n', () => {
   beforeEach(setupProductionStitchShellTest);
 
-  it('renders overview copy from English messages instead of hardcoded Chinese strings', () => {
+  it('renders overview copy from English messages instead of hardcoded Chinese strings', async () => {
+    const englishSentinelMessages = await createEnglishPageMessages(
+      ENGLISH_SENTINEL_MESSAGE_OVERRIDES
+    );
+
     mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: null,
-      messages: ENGLISH_SENTINEL_MESSAGES,
+      messages: englishSentinelMessages,
       language: 'en'
     });
 
