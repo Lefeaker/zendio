@@ -3,11 +3,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/options/stitch/styles/runtime/video-control-bar.css?inline', async () => {
-  const { readFileSync } = await import('node:fs');
-  const { resolve } = await import('node:path');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
   return {
-    default: readFileSync(
-      resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
+    default: fs.readFileSync(
+      path.resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
       'utf8'
     )
   };
@@ -28,6 +28,7 @@ import type {
   VideoPlatformContext
 } from '../../src/content/video/platforms';
 import { asType, selection as mkSelection } from '../utils/typeHelpers';
+import { readVideoControlBarGeometry } from '../utils/videoControlBarGeometry';
 
 function queryRequired<T extends Element>(selector: string, root: ParentNode = document): T {
   const element = root.querySelector<T>(selector);
@@ -124,6 +125,11 @@ function createBilibiliMouseUp(path: readonly EventTarget[]): MouseEvent {
   return event;
 }
 
+function expectPxWithin(actual: number | null, expected: number): void {
+  expect(actual).not.toBeNull();
+  expect(Math.abs((actual ?? Number.NaN) - expected)).toBeLessThanOrEqual(1);
+}
+
 describe('video listener scope jsdom fixtures', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -153,20 +159,38 @@ describe('video listener scope jsdom fixtures', () => {
       })
     ).toBe(true);
 
-    const button = document.querySelector<HTMLButtonElement>(
-      '[data-aiob-video-control-bar-button="true"]'
-    );
-    const target = queryRequired<HTMLElement>('.ytp-right-controls');
-    expect(button).toBeTruthy();
-    expect(button?.parentElement).toBe(target);
-    expect(target.firstElementChild).toBe(button ?? null);
-    expect(button?.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
+    const button = queryRequired<HTMLButtonElement>('[data-aiob-video-control-bar-button="true"]');
+    const beforeOpen = readVideoControlBarGeometry({
+      targetSelector: '.ytp-right-controls'
+    });
+
+    expect(beforeOpen.button?.parentMatchesTarget).toBe(true);
+    expect(beforeOpen.button?.isFirstElementChild).toBe(true);
+    expect(button.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
     expect(document.querySelectorAll('#aiob-video-control-bar-button-style')).toHaveLength(1);
-    expect(window.getComputedStyle(button!).width).toBe('31px');
-    expect(window.getComputedStyle(button!).height).toBe('31px');
-    button?.click();
+    expectPxWithin(beforeOpen.button?.computed.width ?? null, 31);
+    expectPxWithin(beforeOpen.button?.computed.height ?? null, 31);
+    expectPxWithin(beforeOpen.button?.computed.marginLeft ?? null, 8);
+    expectPxWithin(beforeOpen.button?.computed.marginRight ?? null, 8);
+    button.click();
     expect(onPrimaryAction).not.toHaveBeenCalled();
-    expect(document.querySelector('[data-aiob-video-control-bar-popover="true"]')).toBeTruthy();
+
+    const afterOpen = readVideoControlBarGeometry({
+      targetSelector: '.ytp-right-controls'
+    });
+    expect(afterOpen.popover).not.toBeNull();
+    expectPxWithin(afterOpen.popover?.computed.width ?? null, 220);
+    expect(afterOpen.popover?.noteInputIsActive).toBe(true);
+    expect(afterOpen.popover?.noteInputIsFirstFocusable).toBe(true);
+    expect(afterOpen.popover?.focusableOrder).toEqual([
+      'note-input',
+      'toggle:autoPauseEnabled',
+      'toggle:captureScreenshotEnabled'
+    ]);
+    expect(afterOpen.popover?.toggleOrder).toEqual([
+      'autoPauseEnabled',
+      'captureScreenshotEnabled'
+    ]);
 
     const screenshotToggle = Array.from(
       document.querySelectorAll<HTMLInputElement>(
@@ -223,16 +247,21 @@ describe('video listener scope jsdom fixtures', () => {
     expect(document.querySelectorAll('[data-aiob-video-control-bar-button="true"]')).toHaveLength(
       1
     );
-    const button = document.querySelector<HTMLButtonElement>(
-      '[data-aiob-video-control-bar-button="true"]'
-    );
     const target = queryRequired<HTMLElement>('.bpx-player-control-bottom-right');
-    expect(button?.parentElement).toBe(target);
-    expect(target.firstElementChild).toBe(button ?? null);
-    expect(button?.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
+    const snapshot = readVideoControlBarGeometry({
+      targetSelector: '.bpx-player-control-bottom-right'
+    });
+    const button = queryRequired<HTMLButtonElement>('[data-aiob-video-control-bar-button="true"]');
+    expect(snapshot.button?.parentMatchesTarget).toBe(true);
+    expect(snapshot.button?.isFirstElementChild).toBe(true);
+    expect(target.firstElementChild).toBe(button);
+    expect(button.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
     expect(document.querySelectorAll('#aiob-video-control-bar-button-style')).toHaveLength(1);
-    expect(window.getComputedStyle(button!).width).toBe('25px');
-    expect(window.getComputedStyle(button!).transform.replace(/\s+/g, '')).toBe('translateY(-4px)');
+    expectPxWithin(snapshot.button?.computed.width ?? null, 25);
+    expectPxWithin(snapshot.button?.computed.height ?? null, 25);
+    expectPxWithin(snapshot.button?.computed.marginLeft ?? null, 6);
+    expectPxWithin(snapshot.button?.computed.marginRight ?? null, 6);
+    expectPxWithin(snapshot.button?.computed.translateY ?? null, -4);
     expect(findVideoControlTarget(document, 'https://www.bilibili.com/video/BV1abc/')).toBe(
       document.querySelector('.bpx-player-control-bottom-right')
     );
