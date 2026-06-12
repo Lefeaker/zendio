@@ -41,7 +41,7 @@ export async function submitVideoSessionCaptureEdit(
         return null;
       }
       const previousDraft = context.state.commentDrafts[id];
-      context.syncCommentDrafts?.();
+      context.drafts.syncCommentDrafts();
       const syncedDraft = context.state.commentDrafts[id];
       const draftToRestore = syncedDraft ?? previousDraft;
       delete context.state.commentDrafts[id];
@@ -62,7 +62,7 @@ export async function submitVideoSessionCaptureEdit(
       if (!result) {
         return;
       }
-      context.releasePlaybackEditLease?.(id, true);
+      context.playbackEditLease.release(id, true);
       context.dom.stopEditing(id);
       context.syncPanel();
     },
@@ -96,7 +96,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
         return null;
       }
       const previousDraft = context.state.commentDrafts[id];
-      context.syncCommentDrafts?.();
+      context.drafts.syncCommentDrafts();
       const syncedDraft = context.state.commentDrafts[id];
       const draftToRestore = syncedDraft ?? previousDraft;
       delete context.state.commentDrafts[id];
@@ -104,7 +104,7 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
       if (!removed) {
         return null;
       }
-      context.releasePlaybackEditLease?.(id, false);
+      context.playbackEditLease.release(id, false);
       if (removed.kind === 'fragment' && removed.wrapperId) {
         context.fragmentHighlighter.removeById(removed.wrapperId);
       }

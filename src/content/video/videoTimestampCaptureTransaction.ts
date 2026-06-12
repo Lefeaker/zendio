@@ -1,5 +1,6 @@
 import { setRequestedTimestampScreenshot } from './screenshotIntent';
 import type { VideoTimestampCapture } from './types';
+import type { VideoSessionPlaybackEditLeasePort } from './videoSessionRuntimePorts';
 
 interface VideoTimestampCaptureInput {
   video: HTMLVideoElement;
@@ -16,7 +17,7 @@ interface VideoTimestampCaptureTransactionContext {
   dom: {
     stopEditing(captureId?: string): void;
   };
-  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
+  playbackEditLease?: Pick<VideoSessionPlaybackEditLeasePort, 'release'>;
   syncPanel(): void;
   applyHint(state: 'failure'): void;
 }
@@ -49,7 +50,7 @@ export function rollbackVideoTimestampCaptureMutation(
     context.state.captures.splice(captureIndex, 1);
   }
   if (releasePlaybackLease) {
-    context.releasePlaybackEditLease?.(capture.id, true);
+    context.playbackEditLease?.release(capture.id, true);
   }
   context.dom.stopEditing(capture.id);
   context.syncPanel();
