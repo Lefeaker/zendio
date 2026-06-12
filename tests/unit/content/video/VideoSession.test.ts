@@ -7,6 +7,7 @@ import {
   createSessionDraftStorageKey
 } from '@content/sessionDrafts/sessionDraftKeys';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
+import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
@@ -214,6 +215,9 @@ type SessionTestApi = {
     saving?: boolean;
   };
 };
+
+type CaptureState = SessionTestApi['state']['captures'][number];
+type TimestampCaptureScreenshot = NonNullable<CaptureState['screenshot']>;
 
 type TabContextProbeMessage = { type: 'AIIOB_IS_TAB_CONTEXT_ACTIVE' };
 type TabContextProbeResponse = {
@@ -497,6 +501,27 @@ async function waitForMockCalls(mock: Mock, expectedCalls = 1, turns = 30): Prom
       globalThis.setTimeout(resolve, 0);
     });
   }
+}
+
+async function waitForTimestampScreenshot(
+  capture: CaptureState,
+  turns = 30
+): Promise<TimestampCaptureScreenshot> {
+  for (let index = 0; index < turns; index += 1) {
+    const screenshot = capture.screenshot;
+    if (screenshot) {
+      return screenshot;
+    }
+    await flushMutationWork();
+    if (vi.isFakeTimers()) {
+      await vi.advanceTimersByTimeAsync(0);
+      continue;
+    }
+    await new Promise<void>((resolve) => {
+      globalThis.setTimeout(resolve, 0);
+    });
+  }
+  throw new Error('expected restored timestamp screenshot to be populated');
 }
 
 class RecordingMutationObserver extends MutationObserver {
@@ -788,15 +813,16 @@ describe('VideoSession', () => {
         if (restoredTimestamp?.kind !== 'timestamp') {
           throw new Error('expected restored timestamp capture');
         }
-        expect(restoredTimestamp.screenshot).toMatchObject({
+        const restoredScreenshot = await waitForTimestampScreenshot(restoredTimestamp);
+        expect(restoredScreenshot).toMatchObject({
           mimeType: 'image/jpeg',
           content: {
             kind: 'blob',
             byteLength: 14
           }
         });
-        expect(restoredTimestamp.screenshot?.content?.blob).toBeInstanceOf(Blob);
-        expect(restoredTimestamp.screenshot?.content?.blob.size).toBe(14);
+        expect(restoredScreenshot.content?.blob).toBeInstanceOf(Blob);
+        expect(restoredScreenshot.content?.blob.size).toBe(14);
         expect(toBlob).toHaveBeenCalledTimes(1);
         expect(toDataURL).not.toHaveBeenCalled();
         expect(restoredFragment).toMatchObject({
@@ -1406,6 +1432,12 @@ describe('VideoSession', () => {
         }
       }
     });
+    configureSessionDraftRuntimeMessenger(async <TResult = unknown>(message: unknown) => {
+      if (isTabContextProbeMessage(message as object | null)) {
+        return { success: true, active: true } as TResult;
+      }
+      return { success: true, ...currentOwner } as TResult;
+    });
     const deps = createDependencies();
     const view = createView();
     let mountedCallbacks: VideoPanelCallbacks | null = null;
@@ -1501,6 +1533,7 @@ describe('VideoSession', () => {
         status: 'discarded'
       });
     } finally {
+      configureSessionDraftRuntimeMessenger(null);
       sessionApi.cleanup();
       if (previousChrome === undefined) {
         Reflect.deleteProperty(globalThis, 'chrome');
