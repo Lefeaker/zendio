@@ -1,5 +1,6 @@
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { findVideoControlTarget } from './videoPromptObserver';
+import { ensureVideoControlBarStyles } from './videoControlBarStyles';
 import {
   CONTROL_POPOVER_CLASS,
   closeVideoControlBarPopovers,
@@ -9,7 +10,6 @@ import {
 export type { VideoControlBarPopoverCloseReason } from './videoControlBarPopoverController';
 
 const CONTROL_BUTTON_CLASS = 'aiob-video-control-bar-button';
-const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
 type VideoControlBarPlatform = 'youtube' | 'bilibili' | 'generic';
 
 export interface VideoControlBarPreferences {
@@ -61,117 +61,6 @@ const DEFAULT_CONTROL_BAR_TEXTS: VideoControlBarButtonTexts = {
   autoPauseLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarAutoPauseLabel,
   screenshotLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarScreenshotLabel
 };
-
-function ensureStyle(doc: Document): void {
-  if (doc.getElementById(CONTROL_STYLE_ID)) {
-    return;
-  }
-
-  const style = doc.createElement('style');
-  style.id = CONTROL_STYLE_ID;
-  style.textContent = `
-.${CONTROL_BUTTON_CLASS} {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  flex: 0 0 auto;
-  width: 31px !important;
-  height: 31px !important;
-  min-width: 31px !important;
-  margin: 0 8px;
-  padding: 0;
-  border: 0 !important;
-  background: transparent !important;
-  color: #fff;
-  cursor: pointer;
-  opacity: 0.94;
-  vertical-align: middle;
-}
-.${CONTROL_BUTTON_CLASS}--youtube {
-  transform: translateY(0);
-}
-.${CONTROL_BUTTON_CLASS}--bilibili {
-  width: 25px !important;
-  height: 25px !important;
-  min-width: 25px !important;
-  margin: 0 6px;
-  transform: translateY(-4px);
-}
-.${CONTROL_BUTTON_CLASS}:hover,
-.${CONTROL_BUTTON_CLASS}:focus-visible {
-  opacity: 1;
-  outline: 0;
-}
-.${CONTROL_BUTTON_CLASS}__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 27px;
-  height: 27px;
-  background: center / contain no-repeat;
-  color: currentColor;
-  font: 700 13px/1 system-ui, sans-serif;
-  pointer-events: none;
-}
-.${CONTROL_BUTTON_CLASS}--bilibili .${CONTROL_BUTTON_CLASS}__icon {
-  width: 22px;
-  height: 22px;
-}
-.${CONTROL_POPOVER_CLASS} {
-  --aiob-video-control-accent: #8b5cf6;
-  position: fixed;
-  z-index: 2147483647;
-  display: grid;
-  gap: 10px;
-  width: 220px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  background: rgba(15, 17, 28, 0.96);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
-  color: #fff;
-  font: 13px/1.4 system-ui, sans-serif;
-}
-.${CONTROL_POPOVER_CLASS}[hidden] {
-  display: none;
-}
-.${CONTROL_POPOVER_CLASS}__note-input {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 34px;
-  padding: 7px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font: 13px/1.35 system-ui, sans-serif;
-}
-.${CONTROL_POPOVER_CLASS}__note-input::placeholder {
-  color: rgba(255, 255, 255, 0.46);
-}
-.${CONTROL_POPOVER_CLASS}__note-input:focus-visible {
-  border-color: var(--aiob-video-control-accent);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28);
-  outline: 0;
-}
-.${CONTROL_POPOVER_CLASS}__option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 24px;
-  color: rgba(255, 255, 255, 0.82);
-}
-.${CONTROL_POPOVER_CLASS}__option input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  accent-color: var(--aiob-video-control-accent);
-}
-`;
-  (doc.head ?? doc.documentElement).appendChild(style);
-}
 
 function resolvePlatform(url: string): VideoControlBarPlatform {
   try {
@@ -384,7 +273,7 @@ export function ensureVideoControlBarButton(options: VideoControlBarButtonOption
     return false;
   }
 
-  ensureStyle(options.doc);
+  ensureVideoControlBarStyles(options.doc);
 
   let button = options.doc.querySelector<HTMLButtonElement>(
     `.${CONTROL_BUTTON_CLASS}[data-aiob-video-control-bar-button="true"]`

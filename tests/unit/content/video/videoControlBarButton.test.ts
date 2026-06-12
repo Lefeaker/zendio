@@ -1,6 +1,18 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../../../src/options/stitch/styles/runtime/video-control-bar.css?inline', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  return {
+    default: readFileSync(
+      resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
+      'utf8'
+    )
+  };
+});
+
 import { ensureVideoControlBarButton } from '@content/video/videoControlBarButton';
 import { toControlBarCaptureOptions } from '@content/video/videoPromptControlBarAdapter';
 import { createVideoPromptControlTargetLifecycle } from '@content/video/videoPromptControlTargetLifecycle';
@@ -219,9 +231,7 @@ describe('ensureVideoControlBarButton', () => {
       autoPauseEnabled: true,
       captureScreenshotEnabled: true
     });
-    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
-      'accent-color: var(--aiob-video-control-accent'
-    );
+    expect(document.querySelectorAll('#aiob-video-control-bar-button-style')).toHaveLength(1);
   });
 
   it('renders provided runtime texts in the popover input and toggles', () => {

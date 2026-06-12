@@ -1,6 +1,18 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../src/options/stitch/styles/runtime/video-control-bar.css?inline', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  return {
+    default: readFileSync(
+      resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
+      'utf8'
+    )
+  };
+});
+
 import {
   ensureVideoControlBarButton,
   removeVideoControlBarButton
@@ -149,9 +161,9 @@ describe('video listener scope jsdom fixtures', () => {
     expect(button?.parentElement).toBe(target);
     expect(target.firstElementChild).toBe(button ?? null);
     expect(button?.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
-    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
-      'translateY(0)'
-    );
+    expect(document.querySelectorAll('#aiob-video-control-bar-button-style')).toHaveLength(1);
+    expect(window.getComputedStyle(button!).width).toBe('31px');
+    expect(window.getComputedStyle(button!).height).toBe('31px');
     button?.click();
     expect(onPrimaryAction).not.toHaveBeenCalled();
     expect(document.querySelector('[data-aiob-video-control-bar-popover="true"]')).toBeTruthy();
@@ -218,12 +230,9 @@ describe('video listener scope jsdom fixtures', () => {
     expect(button?.parentElement).toBe(target);
     expect(target.firstElementChild).toBe(button ?? null);
     expect(button?.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
-    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
-      'width: 25px !important'
-    );
-    expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
-      'translateY(-4px)'
-    );
+    expect(document.querySelectorAll('#aiob-video-control-bar-button-style')).toHaveLength(1);
+    expect(window.getComputedStyle(button!).width).toBe('25px');
+    expect(window.getComputedStyle(button!).transform.replace(/\s+/g, '')).toBe('translateY(-4px)');
     expect(findVideoControlTarget(document, 'https://www.bilibili.com/video/BV1abc/')).toBe(
       document.querySelector('.bpx-player-control-bottom-right')
     );
