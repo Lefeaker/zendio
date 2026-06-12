@@ -16,6 +16,7 @@ vi.mock('../../../../src/options/stitch/styles/runtime/video-control-bar.css?inl
 import { ensureVideoControlBarButton } from '@content/video/videoControlBarButton';
 import { toControlBarCaptureOptions } from '@content/video/videoPromptControlBarAdapter';
 import { createVideoPromptControlTargetLifecycle } from '@content/video/videoPromptControlTargetLifecycle';
+import type { RuntimeSurfaceRenderOptions } from '@content/stitch/runtimeSurfaceRenderer';
 
 const CUSTOM_CONTROL_BAR_TEXTS = {
   notePlaceholder: 'Write a marker',
@@ -324,7 +325,9 @@ describe('ensureVideoControlBarButton', () => {
     mountYoutubeControls();
     const onPrimaryAction = vi.fn();
     const onPreferencesChange = vi.fn();
-    const renderStitchRuntimeSurface = vi.fn(() => createMockPopoverSurfaceRoot());
+    const renderStitchRuntimeSurface = vi.fn(
+      (_options: RuntimeSurfaceRenderOptions): HTMLElement => createMockPopoverSurfaceRoot()
+    );
 
     vi.resetModules();
     vi.doMock('@content/stitch/runtimeSurfaceRenderer', () => ({
@@ -357,9 +360,8 @@ describe('ensureVideoControlBarButton', () => {
           surfaceId: 'video-control-bar-popover'
         })
       );
-      expect(renderStitchRuntimeSurface.mock.calls[0]?.[0]?.appData?.surfaces).toHaveProperty(
-        'videoControlBarPopover'
-      );
+      const surfaceCall = renderStitchRuntimeSurface.mock.calls[0]?.[0];
+      expect(surfaceCall?.appData.surfaces).toHaveProperty('videoControlBarPopover');
 
       const { popover, input } = getPopoverNoteInput();
       const autoPauseCheckbox = queryRequired<HTMLInputElement>(
