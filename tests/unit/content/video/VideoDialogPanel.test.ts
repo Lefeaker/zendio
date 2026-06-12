@@ -6,6 +6,8 @@ import type {
   VideoPanelTexts,
   VideoPanelCapture
 } from '@content/video/application/videoPanelModel';
+import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
@@ -134,6 +136,38 @@ describe('VideoDialogPanel', () => {
     expect(modal?.getAttribute('aria-modal')).toBe('false');
 
     panel.destroy();
+  });
+
+  it('renders static video compatibility roles directly from Stitch output', () => {
+    const surface = renderStitchRuntimeSurface({
+      surfaceId: 'video',
+      appData: createVideoSurfaceContent({
+        texts,
+        captures: [createCapture()],
+        counter: '1 capture',
+        actions: [
+          { id: 'video:finish', label: texts.finish, variant: 'primary' },
+          { id: 'video:cancel', label: texts.cancel, variant: 'ghost' }
+        ]
+      }),
+      actions: {
+        'video:add': vi.fn(),
+        'video:add-note': vi.fn(),
+        'video:finish': vi.fn(),
+        'video:cancel': vi.fn()
+      }
+    });
+
+    expect(surface.querySelector('[data-action-id="video:finish"]')?.dataset.role).toBe(
+      'finish-btn'
+    );
+    expect(surface.querySelector('[data-action-id="video:cancel"]')?.dataset.role).toBe(
+      'close-btn'
+    );
+    expect(surface.querySelector('[data-action-id="video:add"]')?.dataset.role).toBe('add-btn');
+    expect(surface.querySelector('[data-action-id="video:add-note"]')?.dataset.role).toBe(
+      'add-note-input'
+    );
   });
 
   it('routes the inline add and item close buttons to video callbacks', async () => {
