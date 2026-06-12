@@ -44,7 +44,9 @@
   height: 27px;
   background: center / contain no-repeat;
   color: currentColor;
-  font: 700 13px/1 system-ui, sans-serif;
+  font:
+    700 13px/1 system-ui,
+    sans-serif;
   pointer-events: none;
 }
 
@@ -66,7 +68,9 @@
   background: rgba(15, 17, 28, 0.96);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
   color: #fff;
-  font: 13px/1.4 system-ui, sans-serif;
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
 }
 
 .aiob-video-control-bar-popover[hidden] {
@@ -82,7 +86,9 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font: 13px/1.35 system-ui, sans-serif;
+  font:
+    13px/1.35 system-ui,
+    sans-serif;
 }
 
 .aiob-video-control-bar-popover__note-input::placeholder {

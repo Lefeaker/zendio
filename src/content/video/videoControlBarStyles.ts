@@ -1,4 +1,4 @@
-import videoControlBarCssText from '../../options/stitch/styles/runtime/video-control-bar.css?inline';
+import videoControlBarCssText from './video-control-bar.css?inline';
 
 const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
 

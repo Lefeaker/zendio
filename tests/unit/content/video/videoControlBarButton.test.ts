@@ -2,12 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../../src/options/stitch/styles/runtime/video-control-bar.css?inline', async () => {
-  const { readFileSync } = await import('node:fs');
-  const { resolve } = await import('node:path');
+vi.mock('../../../../src/content/video/video-control-bar.css?inline', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
   return {
-    default: readFileSync(
-      resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
+    default: fs.readFileSync(
+      path.resolve(process.cwd(), 'src/content/video/video-control-bar.css'),
       'utf8'
     )
   };
@@ -127,14 +127,15 @@ function mockBoundingClientRect(element: Element, rect: MockRectInit): void {
 
 function mockPopoverOffsetHeight(height: number): () => void {
   const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  const getOffsetHeight = function (this: HTMLElement): number {
+    if (this.classList.contains('aiob-video-control-bar-popover')) {
+      return height;
+    }
+    return 0;
+  };
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
     configurable: true,
-    get() {
-      if (this.classList.contains('aiob-video-control-bar-popover')) {
-        return height;
-      }
-      return 0;
-    }
+    get: getOffsetHeight
   });
   return () => {
     if (original) {

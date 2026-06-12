@@ -2,12 +2,12 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../src/options/stitch/styles/runtime/video-control-bar.css?inline', async () => {
+vi.mock('../../src/content/video/video-control-bar.css?inline', async () => {
   const fs = await import('node:fs');
   const path = await import('node:path');
   return {
     default: fs.readFileSync(
-      path.resolve(process.cwd(), 'src/options/stitch/styles/runtime/video-control-bar.css'),
+      path.resolve(process.cwd(), 'src/content/video/video-control-bar.css'),
       'utf8'
     )
   };
