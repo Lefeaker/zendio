@@ -17,6 +17,14 @@ import type {
 } from '../../src/content/video/platforms';
 import { asType, selection as mkSelection } from '../utils/typeHelpers';
 
+function queryRequired<T extends Element>(selector: string, root: ParentNode = document): T {
+  const element = root.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing element: ${selector}`);
+  }
+  return element;
+}
+
 function createRangeSelection(text = 'Selected text'): { range: Range; selection: Selection } {
   document.body.insertAdjacentHTML('beforeend', `<p id="selectable">${text}</p>`);
   const textNode = document.getElementById('selectable')?.firstChild;
@@ -136,7 +144,10 @@ describe('video listener scope jsdom fixtures', () => {
     const button = document.querySelector<HTMLButtonElement>(
       '[data-aiob-video-control-bar-button="true"]'
     );
+    const target = queryRequired<HTMLElement>('.ytp-right-controls');
     expect(button).toBeTruthy();
+    expect(button?.parentElement).toBe(target);
+    expect(target.firstElementChild).toBe(button ?? null);
     expect(button?.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
       'translateY(0)'
@@ -203,6 +214,9 @@ describe('video listener scope jsdom fixtures', () => {
     const button = document.querySelector<HTMLButtonElement>(
       '[data-aiob-video-control-bar-button="true"]'
     );
+    const target = queryRequired<HTMLElement>('.bpx-player-control-bottom-right');
+    expect(button?.parentElement).toBe(target);
+    expect(target.firstElementChild).toBe(button ?? null);
     expect(button?.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
       'width: 25px !important'

@@ -17,6 +17,10 @@ function clickControlBarButton(): void {
   queryRequired<HTMLButtonElement>('.aiob-video-control-bar-button').click();
 }
 
+function getControlBarButton(): HTMLButtonElement {
+  return queryRequired<HTMLButtonElement>('[data-aiob-video-control-bar-button="true"]');
+}
+
 function getPopoverNoteInput(): { popover: HTMLElement; input: HTMLInputElement } {
   const popover = queryRequired<HTMLElement>('.aiob-video-control-bar-popover');
   return {
@@ -28,6 +32,80 @@ function getPopoverNoteInput(): { popover: HTMLElement; input: HTMLInputElement 
 function mountYoutubeControls(): HTMLElement {
   document.body.innerHTML = '<div class="ytp-right-controls"></div>';
   return queryRequired<HTMLElement>('.ytp-right-controls');
+}
+
+function mountBilibiliControls(): HTMLElement {
+  document.body.innerHTML =
+    '<div class="bpx-player-control-bottom-right"><button>existing</button></div>';
+  return queryRequired<HTMLElement>('.bpx-player-control-bottom-right');
+}
+
+type MockRectInit = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+// M01 freezes jsdom geometry with explicit rect mocks and exact px assertions.
+// Browser-level geometry tolerance stays in later browser milestones at <= 1px.
+function mockBoundingClientRect(element: Element, rect: MockRectInit): void {
+  const right = rect.left + rect.width;
+  const bottom = rect.top + rect.height;
+  Object.defineProperty(element, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      x: rect.left,
+      y: rect.top,
+      left: rect.left,
+      top: rect.top,
+      right,
+      bottom,
+      width: rect.width,
+      height: rect.height,
+      toJSON: () => ({
+        x: rect.left,
+        y: rect.top,
+        left: rect.left,
+        top: rect.top,
+        right,
+        bottom,
+        width: rect.width,
+        height: rect.height
+      })
+    })
+  });
+}
+
+function mockPopoverOffsetHeight(height: number): () => void {
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get() {
+      if (this.classList.contains('aiob-video-control-bar-popover')) {
+        return height;
+      }
+      return 0;
+    }
+  });
+  return () => {
+    if (original) {
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', original);
+      return;
+    }
+    Reflect.deleteProperty(HTMLElement.prototype, 'offsetHeight');
+  };
+}
+
+function setViewportSize(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width
+  });
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: height
+  });
 }
 
 function mountControlledVideo(initiallyPaused: boolean): {
@@ -95,6 +173,8 @@ describe('ensureVideoControlBarButton', () => {
     document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
     document.body.innerHTML = '';
     document.head.innerHTML = '';
+    vi.restoreAllMocks();
+    setViewportSize(1024, 768);
   });
 
   it('opens a note-input popover without the legacy title or add button', () => {
@@ -129,6 +209,190 @@ describe('ensureVideoControlBarButton', () => {
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
       'accent-color: var(--aiob-video-control-accent'
     );
+  });
+
+  it('keeps the YouTube button as the target first child with current button geometry', () => {
+    const target = mountYoutubeControls();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    const button = getControlBarButton();
+    const style = window.getComputedStyle(button);
+
+    expect(button.parentElement).toBe(target);
+    expect(target.firstElementChild).toBe(button);
+    expect(button.dataset.aiobVideoControlBarButton).toBe('true');
+    expect(button.classList.contains('aiob-video-control-bar-button')).toBe(true);
+    expect(button.classList.contains('aiob-video-control-bar-button--youtube')).toBe(true);
+    expect(button.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(false);
+    expect(style.width).toBe('31px');
+    expect(style.height).toBe('31px');
+    expect(style.minWidth).toBe('31px');
+    expect(style.marginLeft).toBe('8px');
+    expect(style.marginRight).toBe('8px');
+  });
+
+  it('reclaims a moved button back into the YouTube target and closes its popover', () => {
+    const target = mountYoutubeControls();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    clickControlBarButton();
+    const strayOwner = document.createElement('div');
+    strayOwner.className = 'stray-owner';
+    document.body.appendChild(strayOwner);
+    strayOwner.appendChild(getControlBarButton());
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    const reclaimed = getControlBarButton();
+    expect(document.querySelector('[data-aiob-video-control-bar-popover="true"]')).toBeNull();
+    expect(document.querySelectorAll('[data-aiob-video-control-bar-button="true"]')).toHaveLength(
+      1
+    );
+    expect(reclaimed.parentElement).toBe(target);
+    expect(target.firstElementChild).toBe(reclaimed);
+  });
+
+  it('keeps the Bilibili button as the target first child with current platform geometry', () => {
+    const target = mountBilibiliControls();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.bilibili.com/video/BV1abc/',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    const button = getControlBarButton();
+    const style = window.getComputedStyle(button);
+
+    expect(button.parentElement).toBe(target);
+    expect(target.firstElementChild).toBe(button);
+    expect(button.dataset.aiobVideoControlBarButton).toBe('true');
+    expect(button.classList.contains('aiob-video-control-bar-button--bilibili')).toBe(true);
+    expect(button.classList.contains('aiob-video-control-bar-button--youtube')).toBe(false);
+    expect(style.width).toBe('25px');
+    expect(style.height).toBe('25px');
+    expect(style.minWidth).toBe('25px');
+    expect(style.marginLeft).toBe('6px');
+    expect(style.marginRight).toBe('6px');
+    expect(style.transform.replace(/\s+/g, '')).toBe('translateY(-4px)');
+  });
+
+  it('keeps the current popover width, data attributes, order, and left clamp contract', () => {
+    mountYoutubeControls();
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    const button = getControlBarButton();
+    mockBoundingClientRect(button, {
+      left: 4,
+      top: 180,
+      width: 31,
+      height: 31
+    });
+    setViewportSize(360, 300);
+    const restoreOffsetHeight = mockPopoverOffsetHeight(96);
+
+    try {
+      clickControlBarButton();
+    } finally {
+      restoreOffsetHeight();
+    }
+
+    const { popover, input } = getPopoverNoteInput();
+    const popoverStyle = window.getComputedStyle(popover);
+    const checkboxPreferences = Array.from(
+      popover.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+    ).map((checkbox) => checkbox.dataset.preference);
+
+    expect(popover.dataset.aiobVideoControlBarPopover).toBe('true');
+    expect(input.dataset.aiobVideoControlBarNoteInput).toBe('true');
+    expect(popover.children[0]).toBe(input);
+    expect(checkboxPreferences).toEqual(['autoPauseEnabled', 'captureScreenshotEnabled']);
+    expect(popoverStyle.width).toBe('220px');
+    expect(popover.style.left).toBe('8px');
+    expect(popover.style.top).toBe('72px');
+  });
+
+  it('keeps the current popover right-edge clamp and below-button fallback contract', () => {
+    mountYoutubeControls();
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    const button = getControlBarButton();
+    mockBoundingClientRect(button, {
+      left: 320,
+      top: 40,
+      width: 31,
+      height: 31
+    });
+    setViewportSize(360, 300);
+    const restoreOffsetHeight = mockPopoverOffsetHeight(96);
+
+    try {
+      clickControlBarButton();
+    } finally {
+      restoreOffsetHeight();
+    }
+
+    const popover = queryRequired<HTMLElement>('[data-aiob-video-control-bar-popover="true"]');
+    expect(popover.style.left).toBe('132px');
+    expect(popover.style.top).toBe('83px');
   });
 
   it('submits the typed note on Enter with current preferences', () => {
