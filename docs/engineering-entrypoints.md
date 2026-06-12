@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-11
+最后更新：2026-06-12
 
 ## 推荐运行环境
 
@@ -35,11 +35,13 @@
   - 显式包含 `i18n:catalog:check`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
 - `.github/workflows/ci.yml`
-  - 显式执行同一组三项 typecheck，不再依赖隐式覆盖
-  - `Verify generated i18n catalog artifacts are up to date` 显式运行 `npm run i18n:catalog:check`
+  - 采用并行 job 拓扑：`static-gates`、`coverage`、`visual`、`e2e` 并行执行，`package` 通过 `needs: [static-gates, coverage, visual, e2e]` 汇总后再打包
+  - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
+  - `static-gates` 显式运行 `npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
   - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
   - `Enforce hardcoded config guard` 显式运行 `npm run lint:hardcoded`
+  - `package` job 只在前置门禁通过后使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准

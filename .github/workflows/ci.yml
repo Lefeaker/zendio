@@ -7,13 +7,19 @@ on:
       - develop
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   issues: write
 
 jobs:
-  test:
+  static-gates:
+    name: Static gates
     runs-on: ubuntu-latest
+    timeout-minutes: 12
 
     steps:
       - name: Checkout repository
@@ -27,15 +33,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Typecheck app
-        run: npm run typecheck:app
-
-      - name: Typecheck tests
-        run: npm run typecheck:tests
-
-      - name: Typecheck strict baseline
-        run: npm run typecheck:strict
 
       - name: Verify generated i18n catalog artifacts are up to date
         run: npm run i18n:catalog:check
@@ -73,6 +70,34 @@ jobs:
 
       - name: Enforce lint warning guard
         run: npm run lint:warnings-guard
+
+      - name: Verify generated Chrome locales are up to date
+        run: |
+          npm run i18n:generate
+          git diff --exit-code -- public/_locales
+
+      - name: Verify generated browser manifests are up to date
+        run: |
+          npm run manifest:generate
+          git diff --exit-code -- public/manifest.json public/manifest.firefox.json
+
+  coverage:
+    name: Unit coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run unit tests with coverage thresholds
         run: npm run test:coverage
@@ -131,18 +156,100 @@ jobs:
               });
             }
 
+  visual:
+    name: Visual regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run i18n visual regression tests
+        run: npm run visual:test
+
+      - name: Upload visual reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-reports
+          path: |
+            build/reports/
+            tests/visual/__output__/
+          if-no-files-found: ignore
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: |
+          npm run test:e2e
+          npm run test:e2e:browser
+          npm run test:e2e:browser:reader-panel
+          npm run test:e2e:browser:smoke
+
+      - name: Upload e2e reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports
+          path: |
+            build/reports/
+            tests/visual/__output__/
+            build/reports/playwright/
+          if-no-files-found: ignore
+
+  package:
+    name: Package extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [static-gates, coverage, visual, e2e]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Build production bundle
-        run: npm run build
-
-      - name: Verify generated Chrome locales are up to date
-        run: |
-          npm run i18n:generate
-          git diff --exit-code -- public/_locales
-
-      - name: Verify generated browser manifests are up to date
-        run: |
-          npm run manifest:generate
-          git diff --exit-code -- public/manifest.json public/manifest.firefox.json
+        run: npm run build:fast
 
       - name: Validate text budgets
         run: npm run validate:i18n:budgets
@@ -153,32 +260,8 @@ jobs:
       - name: Generate layout summary
         run: npm run report:layout
 
-      - name: Install Playwright dependencies
-        run: npx playwright install --with-deps chromium
-
-      - name: Run i18n visual regression tests
-        run: npm run visual:test
-
-      - name: Run end-to-end tests
-        run: |
-          npm run test:e2e
-          npm run test:e2e:browser
-          npm run test:e2e:browser:reader-panel
-          npm run test:e2e:browser:smoke
-
       - name: Generate release summary
         run: npm run report:release-summary
-
-      - name: Upload i18n reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: i18n-reports
-          path: |
-            build/reports/
-            tests/visual/__output__/
-            build/reports/playwright/
-          if-no-files-found: ignore
 
       - name: Upload release summary
         uses: actions/upload-artifact@v4
@@ -190,6 +273,4 @@ jobs:
           if-no-files-found: error
 
       - name: Package extension artifacts
-        run: |
-          npm run build:fast
-          npm run package:ci
+        run: npm run package:ci
