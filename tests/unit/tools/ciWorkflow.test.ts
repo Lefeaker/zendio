@@ -34,4 +34,17 @@ describe('CI workflow wiring', () => {
     expect(workflow).toContain('run: npm run build:fast');
     expect(workflow).toContain('npm run package:ci');
   });
+
+  it('uses Node 24-compatible official actions', () => {
+    const workflow = readCiWorkflow();
+
+    expect(workflow).toContain('uses: actions/checkout@v6');
+    expect(workflow).toContain('uses: actions/setup-node@v6');
+    expect(workflow).toContain('uses: actions/upload-artifact@v7');
+    expect(workflow).toContain('uses: actions/github-script@v8');
+    expect(workflow).not.toMatch(/actions\/checkout@v[1-5]\b/);
+    expect(workflow).not.toMatch(/actions\/setup-node@v[1-5]\b/);
+    expect(workflow).not.toMatch(/actions\/upload-artifact@v[1-6]\b/);
+    expect(workflow).not.toMatch(/actions\/github-script@v[1-7]\b/);
+  });
 });
