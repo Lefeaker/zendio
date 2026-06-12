@@ -53,7 +53,7 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
 
   const video = context.state.videoElement ?? context.findVideoElement();
@@ -91,7 +91,7 @@ export async function handleVideoSessionAddCapture(
     apply: () => {
       context.state.captures.push(capture);
       if (shouldLeasePlayback) {
-        context.beginPlaybackEditLease?.(capture.id);
+        context.playbackEditLease.begin(capture.id);
       }
       if (options.collapseAfterCapture) {
         context.dom.collapsePanel();
@@ -140,7 +140,7 @@ export function ingestVideoSessionTextCapture(
   comment: string,
   selectionRange?: Range
 ): void {
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
   if (!normalizedText) {
@@ -242,7 +242,7 @@ export async function finishVideoSession(
     return;
   }
 
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const exportDestination = context.getExportDestinationMetadata?.();
   context.state.exporting = true;
@@ -277,7 +277,7 @@ export async function finishVideoSession(
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }
-    const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
+    const terminalized = await context.drafts.finalizeTerminal('exported');
     if (!terminalized) {
       context.dependencies.showSupportProgress?.({
         value: 100,
@@ -320,7 +320,7 @@ export async function cancelVideoSession(context: VideoSessionOperationContext):
   if (context.state.exporting) {
     return;
   }
-  const terminalized = (await context.finalizeTerminalDraft?.('discarded')) ?? true;
+  const terminalized = await context.drafts.finalizeTerminal('discarded');
   if (!terminalized) {
     context.applyHint('failure');
     return;
@@ -333,7 +333,7 @@ export async function cancelVideoSession(context: VideoSessionOperationContext):
 }
 
 export function cleanupVideoSession(context: VideoSessionOperationContext): void {
-  context.resetPlaybackEditLease?.();
+  context.playbackEditLease.reset();
   context.lifecycle.stop();
   context.state.stopOptionsWatcher?.();
   context.state.stopOptionsWatcher = null;

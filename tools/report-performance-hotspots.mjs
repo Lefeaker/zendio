@@ -78,6 +78,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/state/vaultRouterStore.ts', 308],
   ['src/components/trial-notice.ts', 305],
   ['src/content/clipper/services/contextCapture.ts', 305],
+  // 2026-06-12 P03: video session draft ownership moved into a focused controller.
+  ['src/content/video/videoSessionDraftController.ts', 310],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/stitch/schema/settings/overview.ts', 298],
   ['src/options/stitch/schema/settings/capture-behavior.ts', 294],
