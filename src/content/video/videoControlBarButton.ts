@@ -1,4 +1,6 @@
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { createVideoControlBarPopoverSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { findVideoControlTarget } from './videoPromptObserver';
 import { ensureVideoControlBarStyles } from './videoControlBarStyles';
 import {
@@ -128,27 +130,12 @@ function isPromiseLike(value: void | PromiseLike<void>): value is PromiseLike<vo
   return value !== undefined && typeof value.then === 'function';
 }
 
-function createPreferenceToggle(
-  doc: Document,
-  preference: keyof VideoControlBarPreferences,
-  label: string,
-  checked: boolean,
-  onChange: (preference: keyof VideoControlBarPreferences, checked: boolean) => void
-): HTMLLabelElement {
-  const row = doc.createElement('label');
-  row.className = `${CONTROL_POPOVER_CLASS}__option`;
-
-  const input = doc.createElement('input');
-  input.type = 'checkbox';
-  input.checked = checked;
-  input.dataset.preference = preference;
-  input.addEventListener('change', () => onChange(preference, input.checked));
-
-  const copy = doc.createElement('span');
-  copy.textContent = label;
-
-  row.append(input, copy);
-  return row;
+function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
+  const node = root.querySelector<T>(selector);
+  if (!node) {
+    throw new Error(`Missing Stitch runtime popover node: ${selector}`);
+  }
+  return node;
 }
 
 function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOptions): void {
@@ -175,13 +162,6 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     onPopoverClose: options.onPopoverClose
   });
 
-  const noteInput = doc.createElement('input');
-  noteInput.type = 'text';
-  noteInput.className = `${CONTROL_POPOVER_CLASS}__note-input`;
-  noteInput.dataset.aiobVideoControlBarNoteInput = 'true';
-  noteInput.placeholder = texts.notePlaceholder;
-  noteInput.setAttribute('aria-label', texts.noteAriaLabel);
-
   const onToggle = (preference: keyof VideoControlBarPreferences, checked: boolean): void => {
     preferences = {
       ...preferences,
@@ -190,19 +170,38 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     options.onPreferencesChange?.(preferences);
   };
 
-  const autoPause = createPreferenceToggle(
-    doc,
-    'autoPauseEnabled',
-    texts.autoPauseLabel,
-    preferences.autoPauseEnabled,
-    onToggle
+  const surface = renderStitchRuntimeSurface({
+    surfaceId: 'video-control-bar-popover',
+    appData: createVideoControlBarPopoverSurfaceContent({
+      texts,
+      preferences
+    })
+  });
+  for (const child of Array.from(surface.childNodes)) {
+    popover.append(child);
+  }
+
+  const noteInput = queryRequired<HTMLInputElement>(
+    popover,
+    `.${CONTROL_POPOVER_CLASS}__note-input`
   );
-  const screenshot = createPreferenceToggle(
-    doc,
-    'captureScreenshotEnabled',
-    texts.screenshotLabel,
-    preferences.captureScreenshotEnabled,
-    onToggle
+  noteInput.placeholder = texts.notePlaceholder;
+  noteInput.setAttribute('aria-label', texts.noteAriaLabel);
+
+  const autoPause = queryRequired<HTMLInputElement>(
+    popover,
+    '[data-preference="autoPauseEnabled"]'
+  );
+  autoPause.checked = preferences.autoPauseEnabled;
+  autoPause.addEventListener('change', () => onToggle('autoPauseEnabled', autoPause.checked));
+
+  const screenshot = queryRequired<HTMLInputElement>(
+    popover,
+    '[data-preference="captureScreenshotEnabled"]'
+  );
+  screenshot.checked = preferences.captureScreenshotEnabled;
+  screenshot.addEventListener('change', () =>
+    onToggle('captureScreenshotEnabled', screenshot.checked)
   );
 
   const submitNote = (): void => {
@@ -227,7 +226,6 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     submitNote();
   });
 
-  popover.append(noteInput, autoPause, screenshot);
   (doc.body ?? doc.documentElement).appendChild(popover);
   positionPopover(button, popover);
   options.onPopoverOpen?.(preferences);

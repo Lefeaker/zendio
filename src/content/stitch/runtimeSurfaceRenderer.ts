@@ -6,7 +6,13 @@ import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
 export interface RuntimeSurfaceRenderOptions {
-  surfaceId: 'clipper' | 'reader' | 'video' | 'video-floating-prompt' | 'task-success';
+  surfaceId:
+    | 'clipper'
+    | 'reader'
+    | 'video'
+    | 'video-control-bar-popover'
+    | 'video-floating-prompt'
+    | 'task-success';
   appData: PreviewContent;
   state?: Partial<PreviewStoreState>;
   actions?: Record<string, (event: Event) => void>;

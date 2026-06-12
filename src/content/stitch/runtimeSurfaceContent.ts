@@ -3,7 +3,9 @@ import type {
   ClipperSurfaceSource,
   ExportDestinationSurfacePreview,
   PreviewContent,
-  SurfaceAction
+  SurfaceAction,
+  VideoControlBarPopoverSurfacePreferences,
+  VideoControlBarPopoverSurfaceTexts
 } from '@options/stitch/types';
 import type {
   ReaderPanelHighlight,
@@ -191,6 +193,18 @@ function createRuntimeContent(): PreviewContent {
         captures: [],
         actions: []
       },
+      videoControlBarPopover: {
+        texts: {
+          notePlaceholder: '',
+          noteAriaLabel: '',
+          autoPauseLabel: '',
+          screenshotLabel: ''
+        },
+        preferences: {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: true
+        }
+      },
       videoFloatingPrompt: {
         label: '',
         shortcut: '',
@@ -365,6 +379,23 @@ export function createVideoFloatingPromptSurfaceContent(input: {
         label: input.label,
         shortcut: input.shortcut,
         dismissLabel: input.dismissLabel
+      }
+    }
+  };
+}
+
+export function createVideoControlBarPopoverSurfaceContent(input: {
+  texts: VideoControlBarPopoverSurfaceTexts;
+  preferences: VideoControlBarPopoverSurfacePreferences;
+}): PreviewContent {
+  const content = createRuntimeContent();
+  return {
+    ...content,
+    surfaces: {
+      ...content.surfaces,
+      videoControlBarPopover: {
+        texts: { ...input.texts },
+        preferences: { ...input.preferences }
       }
     }
   };

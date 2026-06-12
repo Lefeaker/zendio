@@ -48,6 +48,34 @@ function getPopoverNoteInput(): { popover: HTMLElement; input: HTMLInputElement 
   };
 }
 
+function createMockPopoverSurfaceRoot(texts = CUSTOM_CONTROL_BAR_TEXTS): HTMLElement {
+  const root = document.createElement('section');
+
+  const noteInput = document.createElement('input');
+  noteInput.type = 'text';
+  noteInput.className = 'aiob-video-control-bar-popover__note-input';
+  noteInput.dataset.aiobVideoControlBarNoteInput = 'true';
+
+  const autoPause = document.createElement('label');
+  autoPause.className = 'aiob-video-control-bar-popover__option';
+  const autoPauseInput = document.createElement('input');
+  autoPauseInput.type = 'checkbox';
+  autoPauseInput.dataset.preference = 'autoPauseEnabled';
+  autoPause.append(autoPauseInput, document.createElement('span'));
+  autoPause.lastElementChild!.textContent = texts.autoPauseLabel;
+
+  const screenshot = document.createElement('label');
+  screenshot.className = 'aiob-video-control-bar-popover__option';
+  const screenshotInput = document.createElement('input');
+  screenshotInput.type = 'checkbox';
+  screenshotInput.dataset.preference = 'captureScreenshotEnabled';
+  screenshot.append(screenshotInput, document.createElement('span'));
+  screenshot.lastElementChild!.textContent = texts.screenshotLabel;
+
+  root.append(noteInput, autoPause, screenshot);
+  return root;
+}
+
 function mountYoutubeControls(): HTMLElement {
   document.body.innerHTML = '<div class="ytp-right-controls"></div>';
   return queryRequired<HTMLElement>('.ytp-right-controls');
@@ -290,6 +318,88 @@ describe('ensureVideoControlBarButton', () => {
     expect(input.placeholder).toBe('Add note');
     expect(input.getAttribute('aria-label')).toBe('Add video note');
     expect(labels).toEqual(['Pause video while editing', 'Capture current video frame']);
+  });
+
+  it('renders the popover inner content through the Stitch runtime surface and binds returned nodes', async () => {
+    mountYoutubeControls();
+    const onPrimaryAction = vi.fn();
+    const onPreferencesChange = vi.fn();
+    const renderStitchRuntimeSurface = vi.fn(() => createMockPopoverSurfaceRoot());
+
+    vi.resetModules();
+    vi.doMock('@content/stitch/runtimeSurfaceRenderer', () => ({
+      renderStitchRuntimeSurface
+    }));
+
+    try {
+      const { ensureVideoControlBarButton: ensureVideoControlBarButtonWithSurface } =
+        await import('@content/video/videoControlBarButton');
+
+      ensureVideoControlBarButtonWithSurface({
+        doc: document,
+        url: 'https://www.youtube.com/watch?v=abc123',
+        label: '开启视频笔记',
+        shortcut: '',
+        texts: CUSTOM_CONTROL_BAR_TEXTS,
+        preferences: {
+          autoPauseEnabled: false,
+          captureScreenshotEnabled: true
+        },
+        onPreferencesChange,
+        onPrimaryAction
+      });
+
+      clickControlBarButton();
+
+      expect(renderStitchRuntimeSurface).toHaveBeenCalledTimes(1);
+      expect(renderStitchRuntimeSurface).toHaveBeenCalledWith(
+        expect.objectContaining({
+          surfaceId: 'video-control-bar-popover'
+        })
+      );
+      expect(renderStitchRuntimeSurface.mock.calls[0]?.[0]?.appData?.surfaces).toHaveProperty(
+        'videoControlBarPopover'
+      );
+
+      const { popover, input } = getPopoverNoteInput();
+      const autoPauseCheckbox = queryRequired<HTMLInputElement>(
+        '[data-preference="autoPauseEnabled"]',
+        popover
+      );
+      const screenshotCheckbox = queryRequired<HTMLInputElement>(
+        '[data-preference="captureScreenshotEnabled"]',
+        popover
+      );
+
+      expect(input.placeholder).toBe(CUSTOM_CONTROL_BAR_TEXTS.notePlaceholder);
+      expect(input.getAttribute('aria-label')).toBe(CUSTOM_CONTROL_BAR_TEXTS.noteAriaLabel);
+      expect(autoPauseCheckbox.checked).toBe(false);
+      expect(screenshotCheckbox.checked).toBe(true);
+
+      autoPauseCheckbox.checked = true;
+      autoPauseCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(onPreferencesChange).toHaveBeenCalledWith({
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      });
+
+      input.value = 'surface note';
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+      expect(onPrimaryAction).toHaveBeenCalledWith(
+        {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: true
+        },
+        {
+          comment: 'surface note',
+          source: 'note-input'
+        }
+      );
+    } finally {
+      vi.doUnmock('@content/stitch/runtimeSurfaceRenderer');
+      vi.resetModules();
+    }
   });
 
   it('keeps the YouTube button as the target first child with current button geometry', () => {

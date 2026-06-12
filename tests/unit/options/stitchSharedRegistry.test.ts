@@ -88,6 +88,7 @@ describe('Stitch shared registry contracts', () => {
       'clipper',
       'reader',
       'video',
+      'video-control-bar-popover',
       'video-floating-prompt',
       'task-success'
     ]);
