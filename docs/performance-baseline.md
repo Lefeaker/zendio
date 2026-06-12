@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-06-09
+日期：2026-06-13
 
 ## 1. 构建真值
 
@@ -40,6 +40,8 @@ npm run audit:build:report
 
 2026-06-12 P01 audit truth gate verification 复核重新采集 `build:dev`、`audit:build:report`、`audit:locales:report` 与 `audit:performance:report`。`report-build-splitting` 现已识别 `.generated-*` release locale chunks；generated locale modules 仅承载 non-schema runtime messages 与 WebExtension static messages，schema/options copy 改由 `schemaMessages.generated.ts` + `@i18n/messages` consumer path 提供，不再回灌到 content/runtime locale chunk。当前 dev build release locale chunks 全部低于 `60 KB`：`de 34.7 KB`、`es-419 34.6 KB`、`es-ES 34.7 KB`、`fr 35.5 KB`、`it 33.5 KB`、`ja 37.9 KB`、`ko 35.3 KB`、`pt-BR 34.1 KB`、`ru 48.4 KB`、`zh-CN 29.7 KB`、`zh-TW 29.2 KB`。
 
+2026-06-13 P06 final ratchet 复核重新采集 `build:dev`、`audit:build:report`、`lint:type-any:ratchet`、`typecheck:app`、`typecheck:tests` 与 `tests/unit/content/video/VideoSession.test.ts`。当前 integration dev-build exact stop gates 同步为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 117`；本次没有放宽 locale、single chunk、shared chunk 或 YAML chunk size budgets。P06 同时只在 `tests/unit/content/video/VideoSession.test.ts` 内收口了 inherited full-file restored screenshot async wait 与 same-page owner-context harness race，没有修改 production `src/**`。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -54,21 +56,21 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `56.0 KB`（raw `57,348` bytes；等于 `57,348` raw-byte stop gate）
+- `build/dist/content/runtime.js`: `56.0 KB`（raw `57,386` bytes；等于 `57,386` raw-byte stop gate）
 - `build/dist/options/index.js`: `1.2 KB`（raw `1,194` bytes）
-- `build/dist/onboarding/index.js`: `16.0 KB`（raw `16,395` bytes；等于 `16,395` raw-byte stop gate）
-- 总 chunk 数：`116`
-- `chunks/runtimeEntry-*.js`: `240.5 KB`
-- `chunks/videoSessionControllers-*.js`: `85.6 KB`
+- `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,459` bytes；等于 `16,459` raw-byte stop gate）
+- 总 chunk 数：`117`
+- `chunks/runtimeEntry-*.js`: `239.9 KB`
+- `chunks/videoSessionControllers-*.js`: `87.0 KB`
 - `chunks/qps-ploc-*.js`: `5.7 KB`
-- `chunks/videoLazyRuntime-*.js`: `44.8 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: `18.0 KB`
+- `chunks/videoLazyRuntime-*.js`: `46.6 KB`
+- `chunks/videoScreenshotPreparationQueue-*.js`: `16.4 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
 - 最大 shared chunk：`134.9 KB`
-- 第二大 shared chunk：`128.1 KB`
-- 第三大 shared chunk：`82.8 KB`
+- 第二大 shared chunk：`131.3 KB`
+- 第三大 shared chunk：`95.4 KB`
 
 当前重点功能 chunk：
 
@@ -83,16 +85,16 @@ npm run audit:build:report
 当前 `audit:build:report` 预算口径：
 
 - `content/index.js <= 1 KB`
-- `content/runtime.js <= 56 KB`（raw `57,348` bytes）
+- `content/runtime.js <= 56 KB`（raw `57,386` bytes）
 - `options/index.js <= 12 KB`
-- `onboarding/index.js <= 16 KB`（raw `16,395` bytes）
+- `onboarding/index.js <= 16 KB`（raw `16,459` bytes）
 - 任一 chunk `<= 320 KB`
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 90 KB`
 - locale chunk `<= 60 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 116`
+- `chunk count <= 117`
 
 ## 2. 热点真值
 
