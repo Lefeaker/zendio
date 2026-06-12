@@ -7,7 +7,7 @@ const ROOT = process.cwd();
 
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
-  ['src/i18n/generated/schemaMessages.generated.ts', 2173],
+  ['src/i18n/generated/schemaMessages.generated.ts', 457],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -33,7 +33,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/reader/services/highlightManager.ts', 505],
   ['src/shared/di/serviceRegistry.ts', 498],
   ['src/shared/analytics/eventCatalog.ts', 485],
-  ['src/content/video/sessionOperations.ts', 611],
+  ['src/content/video/sessionOperations.ts', 424],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
   ['src/ui/domains/video/VideoDialog.ts', 468],
@@ -48,7 +48,7 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
   ['src/content/video/videoSessionRuntime.ts', 746],
-  ['src/content/video/videoScreenshotPreparationQueue.ts', 429],
+  ['src/content/video/videoScreenshotPreparationQueue.ts', 398],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
   ['src/content/reader/session.ts', 711],
   ['src/content/video/videoControlBarButton.ts', 395],

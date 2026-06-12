@@ -229,6 +229,7 @@ describe('i18n generated artifact drift checks', () => {
     });
 
     const schemaArtifact = artifacts.get('src/i18n/generated/schemaMessages.generated.ts');
+    const localeArtifact = artifacts.get('src/i18n/generated/locales/en.generated.ts');
     expect(schemaArtifact).toContain(
       'export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES_EN;'
     );
@@ -236,10 +237,10 @@ describe('i18n generated artifact drift checks', () => {
       'export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES_DE;'
     );
     expect(schemaArtifact).toContain(
-      `parseGeneratedSchemaMessages(\n  '{"schemaOverviewTitle":"Overview"}'\n)`
+      'const GENERATED_RELEASE_SCHEMA_MESSAGES_EN_VALUES = parseSchemaMessageValues('
     );
-    expect(schemaArtifact).toContain(
-      `parseGeneratedSchemaMessages(\n  '{"schemaOverviewTitle":"Uebersicht"}'\n)`
-    );
+    expect(schemaArtifact).toContain('["Overview"]');
+    expect(localeArtifact).toContain(`'{"extensionName":"Alpha"}'`);
+    expect(localeArtifact).not.toContain('schemaOverviewTitle');
   });
 });

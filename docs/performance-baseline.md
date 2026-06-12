@@ -38,6 +38,8 @@ npm run audit:build:report
 
 2026-06-12 video control-bar UI debt final verification 复核重新采集 `verify:preflight`、`verify:stitch-secondary`、视频专项 Vitest / fixture / Chromium reader E2E 与 `test:e2e:browser`。本次仅同步 control-bar UI 结构化迁移直接触发的 exact hotspot line budgets：`src/options/stitch/types.ts <= 759`、`src/content/video/videoPromptLifecycle.ts <= 490`、`src/content/stitch/runtimeSurfaceContent.ts <= 407`；dev build chunk count 仍为 `<= 116`，entry/shared/locale/YAML chunk size budgets 未放宽。
 
+2026-06-12 P01 audit truth gate verification 复核重新采集 `build:dev`、`audit:build:report`、`audit:locales:report` 与 `audit:performance:report`。`report-build-splitting` 现已识别 `.generated-*` release locale chunks；generated locale modules 仅承载 non-schema runtime messages 与 WebExtension static messages，schema/options copy 改由 `schemaMessages.generated.ts` + `@i18n/messages` consumer path 提供，不再回灌到 content/runtime locale chunk。当前 dev build release locale chunks 全部低于 `60 KB`：`de 34.7 KB`、`es-419 34.6 KB`、`es-ES 34.7 KB`、`fr 35.5 KB`、`it 33.5 KB`、`ja 37.9 KB`、`ko 35.3 KB`、`pt-BR 34.1 KB`、`ru 48.4 KB`、`zh-CN 29.7 KB`、`zh-TW 29.2 KB`。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -103,14 +105,14 @@ npm run audit:performance:report
 当前热点摘要（完整 `src` >250 LOC 路径列表以 `tools/report-performance-hotspots.mjs` 为准）：
 
 - `src/options/stitch/content.ts`: `871` 行
-- `src/i18n/generated/messages.generated.ts`: `825` 行
+- `src/i18n/generated/messages.generated.ts`: `829` 行
 - `src/options/stitch/types.ts`: `759` 行
-- `src/content/video/videoSessionRuntime.ts`: `652` 行
-- `src/content/video/sessionOperations.ts`: `543` 行
+- `src/content/video/videoSessionRuntime.ts`: `745` 行
+- `src/content/video/sessionOperations.ts`: `424` 行
 - `src/options/stitch/ui/components.ts`: `592` 行
 - `src/options/yaml-config-editor/view.ts`: `586` 行
 - `src/third_party/ai-chat-exporter/platforms/gemini.ts`: `576` 行
-- `src/content/reader/session.ts`: `563` 行
+- `src/content/reader/session.ts`: `703` 行
 - `src/onboarding/bootstrap.ts`: `557` 行
 - `src/background/pipelines/connectionTest.ts`: `543` 行
 - `src/content/video/videoScreenshotPreparationQueue.ts`: `398` 行
@@ -125,7 +127,7 @@ npm run audit:performance:report
 - `src/content/video/videoPromptLifecycle.ts`: `490` 行
 - `src/content/stitch/runtimeSurfaceContent.ts`: `407` 行
 - `src/shared/analytics/analyticsSanitizers.ts`: `455` 行
-- `src/content/reader/sessionOperations.ts`: `412` 行
+- `src/content/reader/sessionOperations.ts`: `706` 行
 - `src/content/reader/ui/ReaderDialogPanel.ts`: `396` 行
 - `src/content/sessionDrafts/sessionDraftRepository.ts`: `394` 行
 - `src/content/reader/sessionDrafts.ts`: `333` 行
@@ -140,8 +142,8 @@ npm run audit:performance:report
 - 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-12 video control-bar UI debt final verification 复核后当前 sourceFiles=`747`、hotspotsOver250=`92`、registeredLineBudgets=`114`，预算以 `tools/report-performance-hotspots.mjs` 为准。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
 - 当前高信号热点实测：`stitch/content.ts = 871`、`messages.generated.ts = 829`、`stitch/types.ts = 759`、`videoSessionRuntime.ts = 745`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoScreenshotPreparationQueue.ts = 398`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
-- M12 current truth：`src/i18n/messages.ts` 已缩为 generated type shim，`src/i18n/schemaShellMessages.ts` 与手写 `src/i18n/locales/*.ts` 已删除；generated i18n 当前实测包括 `messages.generated.ts = 825` 与 `schemaMessages.generated.ts = 418`，并继续由 `tools/report-performance-hotspots.mjs` 管理 generated source upper-bound line budgets。
-- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 652`、`videoScreenshotPreparationQueue.ts = 398`、`VideoDialogPanel.ts = 404`、`videoControlBarButton.ts = 386`、`sessionDraftRepository.ts = 394`、`runtimeMessages.ts = 331`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`productionStitchShellMount.ts = 230`、`yaml-config-editor/rowModel.ts = 254`、`eventCatalog.ts = 485`、`analyticsSanitizers.ts = 455`、`analyticsConfig.ts = 369`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 317`。
+- M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 829` 与 `schemaMessages.generated.ts = 457`。P01 将 `schemaMessages.generated.ts` 从多千行 schema literal 压缩回当前 exact 预算，并保留 locale chunk 去 schema 化后的 build truth。
+- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 745`、`videoScreenshotPreparationQueue.ts = 398`、`VideoDialogPanel.ts = 404`、`videoControlBarButton.ts = 386`、`sessionDraftRepository.ts = 399`、`runtimeMessages.ts = 331`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`productionStitchShellMount.ts = 230`、`yaml-config-editor/rowModel.ts = 254`、`eventCatalog.ts = 485`、`analyticsSanitizers.ts = 455`、`analyticsConfig.ts = 369`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 317`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
 
 本轮有效收口结果：
@@ -149,7 +151,7 @@ npm run audit:performance:report
 - `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
 - `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
-- `videoSessionRuntime` 当前为 `652` 行，`videoScreenshotPreparationQueue` 当前为 `398` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，降低 session runtime 的常驻负载。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项。
+- `videoSessionRuntime` 当前为 `745` 行，`videoScreenshotPreparationQueue` 当前为 `398` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，降低 session runtime 的常驻负载。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
 
 ## 3. 浏览器验真

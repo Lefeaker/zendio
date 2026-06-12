@@ -106,4 +106,15 @@ describe('locale fallback characterization', () => {
     expect(zhAliasMessages).toEqual(zhMessages);
     expect(unknownMessages).toBe(DEFAULT_RUNTIME_MESSAGES);
   });
+
+  it('keeps schema copy out of runtime locale loads while exposing it through page messages', async () => {
+    const { loadMessagesWithFallback } = await import('../../../src/i18n/locales');
+    const { getMessagesForLanguage } = await import('../../../src/i18n');
+
+    const runtimeMessages = await loadMessagesWithFallback('en');
+    const pageMessages = await getMessagesForLanguage('en');
+
+    expect('schemaOverviewTitle' in runtimeMessages).toBe(false);
+    expect(pageMessages.schemaOverviewTitle).toBe('Overview');
+  });
 });
