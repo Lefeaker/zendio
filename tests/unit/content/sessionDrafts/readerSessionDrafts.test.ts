@@ -32,7 +32,7 @@ function createHighlightRecord(
 describe('readerSessionDrafts', () => {
   it('builds and loads a persisted reader draft with destination and comment drafts', async () => {
     const repository = createSessionDraftRepository(createMemoryStorageArea());
-    const now = 1_780_617_600_000;
+    const now = Date.now();
     const envelope = buildReaderSessionDraftEnvelope({
       draftId: 'reader-draft-1',
       createdAt: now - 10,
