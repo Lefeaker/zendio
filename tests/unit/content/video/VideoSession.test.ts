@@ -392,6 +392,27 @@ function toSessionTestApi(session: VideoSession): SessionTestApi {
   return session as unknown as SessionTestApi;
 }
 
+function toDraftControllerTestApi(session: VideoSession): {
+  flushNow: (
+    status?: 'active' | 'restorable'
+  ) => Promise<'ready' | 'failure' | 'noCaptures' | null>;
+} {
+  const draftController = (session as unknown as { draftController?: unknown }).draftController;
+  if (
+    !draftController ||
+    typeof draftController !== 'object' ||
+    !('flushNow' in draftController) ||
+    typeof draftController.flushNow !== 'function'
+  ) {
+    throw new Error('draft controller was not initialized');
+  }
+  return draftController as {
+    flushNow: (
+      status?: 'active' | 'restorable'
+    ) => Promise<'ready' | 'failure' | 'noCaptures' | null>;
+  };
+}
+
 function seedTimestampCaptures(sessionApi: SessionTestApi, count: number): string[] {
   const now = Date.now();
   sessionApi.state.captures = Array.from({ length: count }, (_, index) => ({
@@ -1786,8 +1807,8 @@ describe('VideoSession', () => {
     await session.start();
     trackUsageEvent.mockClear();
     vi.spyOn(
-      session as unknown as { flushDraftNow: () => Promise<'failure'> },
-      'flushDraftNow'
+      toDraftControllerTestApi(session) as { flushNow: () => Promise<'failure'> },
+      'flushNow'
     ).mockImplementation(async () => {
       await deferredSave.promise;
       return 'failure';
@@ -2314,10 +2335,10 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as {
-        flushDraftNow: () => Promise<'ready'>;
+      toDraftControllerTestApi(session) as {
+        flushNow: () => Promise<'ready'>;
       },
-      'flushDraftNow'
+      'flushNow'
     ).mockImplementation(async () => {
       const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
       const gate = saveIndex === 0 ? firstSave : secondSave;
@@ -2397,10 +2418,10 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as {
-        flushDraftNow: () => Promise<'ready' | 'failure'>;
+      toDraftControllerTestApi(session) as {
+        flushNow: () => Promise<'ready' | 'failure'>;
       },
-      'flushDraftNow'
+      'flushNow'
     ).mockImplementation(async () => {
       const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
       const gate = saveIndex === 0 ? firstSave : secondSave;
@@ -2483,10 +2504,10 @@ describe('VideoSession', () => {
     await session.start();
     trackUsageEvent.mockClear();
     vi.spyOn(
-      session as unknown as {
-        flushDraftNow: () => Promise<'ready'>;
+      toDraftControllerTestApi(session) as {
+        flushNow: () => Promise<'ready'>;
       },
-      'flushDraftNow'
+      'flushNow'
     ).mockImplementation(async () => {
       const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
       const gate = saveIndex === 0 ? firstSave : secondSave;
@@ -2562,10 +2583,10 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as {
-        flushDraftNow: () => Promise<'ready'>;
+      toDraftControllerTestApi(session) as {
+        flushNow: () => Promise<'ready'>;
       },
-      'flushDraftNow'
+      'flushNow'
     ).mockImplementation(async () => {
       const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
       const gate = saveIndex === 0 ? firstSave : secondSave;
@@ -2627,10 +2648,10 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as {
-        flushDraftNow: () => Promise<'ready'>;
+      toDraftControllerTestApi(session) as {
+        flushNow: () => Promise<'ready'>;
       },
-      'flushDraftNow'
+      'flushNow'
     ).mockImplementation(async () => {
       const saveIndex = saveEvents.filter((event) => event.endsWith(':start')).length;
       saveEvents.push(`save-${saveIndex + 1}:start`);
@@ -2969,8 +2990,8 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as { flushDraftNow: () => Promise<'failure'> },
-      'flushDraftNow'
+      toDraftControllerTestApi(session) as { flushNow: () => Promise<'failure'> },
+      'flushNow'
     ).mockImplementation(async () => {
       await deferredSave.promise;
       return 'failure';
@@ -3051,8 +3072,8 @@ describe('VideoSession', () => {
 
     await session.start();
     vi.spyOn(
-      session as unknown as { flushDraftNow: () => Promise<'failure'> },
-      'flushDraftNow'
+      toDraftControllerTestApi(session) as { flushNow: () => Promise<'failure'> },
+      'flushNow'
     ).mockImplementation(async () => {
       await deferredSave.promise;
       return 'failure';
@@ -3404,8 +3425,8 @@ describe('VideoSession', () => {
     await session.start();
     trackUsageEvent.mockClear();
     vi.spyOn(
-      session as unknown as { flushDraftNow: () => Promise<'failure'> },
-      'flushDraftNow'
+      toDraftControllerTestApi(session) as { flushNow: () => Promise<'failure'> },
+      'flushNow'
     ).mockImplementation(async () => {
       await deferredSave.promise;
       return 'failure';

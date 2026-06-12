@@ -37,9 +37,7 @@ export async function runVideoCaptureMutationTransaction<Result>(
 export async function saveVideoSessionCaptures(
   context: VideoSessionOperationContext
 ): Promise<VideoHintState | null> {
-  const hintState = context.flushDraftNow
-    ? await context.flushDraftNow('active')
-    : await context.platformController.saveCaptures();
+  const hintState = await context.drafts.flushNow('active');
   if (hintState) {
     context.applyHint(hintState);
   }
@@ -50,7 +48,7 @@ export function requestRequestedScreenshotPreparation(
   context: VideoSessionOperationContext,
   captureId: string
 ): void {
-  void Promise.resolve(context.prepareRequestedScreenshot?.(captureId)).catch((error) => {
+  void Promise.resolve(context.screenshots.prepareRequested(captureId)).catch((error) => {
     console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
   });
 }
