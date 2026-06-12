@@ -24,9 +24,7 @@ export interface SessionDraftOwnerContextActiveResponse {
 
 let runtimeMessageSender: RuntimeMessageSender | null = null;
 
-export function configureSessionDraftRuntimeMessenger(
-  sender: RuntimeMessageSender | null
-): void {
+export function configureSessionDraftRuntimeMessenger(sender: RuntimeMessageSender | null): void {
   runtimeMessageSender = sender;
 }
 

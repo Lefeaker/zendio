@@ -6,10 +6,8 @@ describe('sessionDraftTabContext', () => {
   });
 
   it('returns the current owner context through the configured runtime messenger', async () => {
-    const {
-      configureSessionDraftRuntimeMessenger,
-      getCurrentSessionDraftOwnerContext
-    } = await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
+    const { configureSessionDraftRuntimeMessenger, getCurrentSessionDraftOwnerContext } =
+      await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
 
     configureSessionDraftRuntimeMessenger(
       vi.fn().mockResolvedValue({
@@ -62,10 +60,8 @@ describe('sessionDraftTabContext', () => {
   });
 
   it('returns active=true only for valid configured responses', async () => {
-    const {
-      configureSessionDraftRuntimeMessenger,
-      isSessionDraftOwnerContextActive
-    } = await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
+    const { configureSessionDraftRuntimeMessenger, isSessionDraftOwnerContextActive } =
+      await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
 
     configureSessionDraftRuntimeMessenger(
       vi.fn().mockResolvedValue({

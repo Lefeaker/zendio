@@ -30,18 +30,15 @@ describe('exportDestination path preview', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-09T20:24:13'));
 
-    const path = resolveExportPath(
-      minimalPreset.templates,
-      {
-        markdown: '# video',
-        title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',
-        type: 'video',
-        meta: {
-          url: 'https://www.bilibili.com/video/BV129ReB1ExM',
-          platform: 'bilibili'
-        }
+    const path = resolveExportPath(minimalPreset.templates, {
+      markdown: '# video',
+      title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',
+      type: 'video',
+      meta: {
+        url: 'https://www.bilibili.com/video/BV129ReB1ExM',
+        platform: 'bilibili'
       }
-    );
+    });
 
     expect(path).toBe(
       'Clips/www.bilibili.com/2026/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'

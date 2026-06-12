@@ -38,8 +38,8 @@ describe('chromeRuntimeService', () => {
     vi.clearAllMocks();
     installListener = undefined;
     chromeApi.runtime.openOptionsPage = vi.fn((cb: () => void) => cb());
-    chromeApi.runtime.sendMessage.mockImplementation((_message: unknown, cb: (response: unknown) => void) =>
-      cb({ ok: true })
+    chromeApi.runtime.sendMessage.mockImplementation(
+      (_message: unknown, cb: (response: unknown) => void) => cb({ ok: true })
     );
     chromeApi.tabs.create.mockImplementation(
       (_props: chrome.tabs.CreateProperties, cb: () => void) => cb()
