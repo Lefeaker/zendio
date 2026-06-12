@@ -457,22 +457,12 @@ function videoFooterActionRole(actionId?: string): string | undefined {
 
 function videoFooterActionButton(action: SurfaceAction): NodeSchema {
   const role = videoFooterActionRole(action.id);
-  return element(
-    'button',
-    {
-      className: ['btn', action.variant ?? 'ghost'].filter(Boolean).join(' '),
-      type: 'button',
-      ...(action.id || role
-        ? {
-            dataset: {
-              ...(action.id ? { actionId: action.id } : {}),
-              ...(role ? { role } : {})
-            }
-          }
-        : {}),
-      ...(action.id ? { onClick: { id: action.id } } : {})
-    },
-    [element('span', { text: action.label })]
+  return buttonNode(
+    action.label,
+    action.variant ?? 'ghost',
+    action.id,
+    undefined,
+    role ? { role } : undefined
   );
 }
 

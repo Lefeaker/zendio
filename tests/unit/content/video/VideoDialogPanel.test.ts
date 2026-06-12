@@ -138,7 +138,7 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('renders static video compatibility roles directly from Stitch output', () => {
+  it('renders video footer actions through the normal Stitch button path with schema-owned roles', () => {
     const surface = renderStitchRuntimeSurface({
       surfaceId: 'video',
       appData: createVideoSurfaceContent({
@@ -158,16 +158,42 @@ describe('VideoDialogPanel', () => {
       }
     });
 
-    expect(surface.querySelector('[data-action-id="video:finish"]')?.dataset.role).toBe(
-      'finish-btn'
+    const finishButton = surface.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:finish"]'
     );
-    expect(surface.querySelector('[data-action-id="video:cancel"]')?.dataset.role).toBe(
-      'close-btn'
+    const cancelButton = surface.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:cancel"]'
     );
-    expect(surface.querySelector('[data-action-id="video:add"]')?.dataset.role).toBe('add-btn');
-    expect(surface.querySelector('[data-action-id="video:add-note"]')?.dataset.role).toBe(
-      'add-note-input'
+    const addButton = surface.querySelector<HTMLButtonElement>('[data-action-id="video:add"]');
+    const addNoteInput = surface.querySelector<HTMLInputElement>(
+      '[data-action-id="video:add-note"]'
     );
+
+    expect(finishButton?.dataset.role).toBe('finish-btn');
+    expect(cancelButton?.dataset.role).toBe('close-btn');
+    expect(addButton?.dataset.role).toBe('add-btn');
+    expect(addNoteInput?.dataset.role).toBe('add-note-input');
+    expect(finishButton?.className).toBe('btn primary');
+    expect(cancelButton?.className).toBe('btn ghost');
+    const footerButtons = Array.from(
+      surface.querySelectorAll('.session-footer-actions > button')
+    ).filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
+    expect(footerButtons.map((button) => button.dataset.actionId)).toEqual([
+      'video:finish',
+      'video:cancel'
+    ]);
+    expect(finishButton?.children).toHaveLength(1);
+    expect(finishButton?.firstElementChild?.tagName).toBe('SPAN');
+    expect(cancelButton?.children).toHaveLength(1);
+    expect(cancelButton?.firstElementChild?.tagName).toBe('SPAN');
+
+    const finishMouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    const cancelMouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    finishButton?.dispatchEvent(finishMouseDown);
+    cancelButton?.dispatchEvent(cancelMouseDown);
+
+    expect(finishMouseDown.defaultPrevented).toBe(true);
+    expect(cancelMouseDown.defaultPrevented).toBe(true);
   });
 
   it('routes the inline add and item close buttons to video callbacks', async () => {
