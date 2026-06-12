@@ -73,8 +73,8 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'This accepted cumulative hash refresh also includes P01 runtime/schema i18n split, P02 analytics contract bundling, and P05 shared template-default owner plus platform runtime-port import graph changes while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // Current integration plus P05 preview-freeze follow-up: hash refreshed after cumulative accepted bundle drift including runtime/schema i18n, analytics contract, and template/runtime-port imports.
-      rightSha256: '02889649e8b36bd0f7f63c231f78416227b4d222a841a120d1346fce16fe3b48'
+      // 2026-06-12 P05b: hash sampled from a standard per-worktree npm ci install; symlinked node_modules changes esbuild path comments and is not an allowlist source.
+      rightSha256: '453983438d21f61f6c054e8525c6b54471239bdb3bc699c9e0143bb49b186088'
     }
   ]
 ]);
