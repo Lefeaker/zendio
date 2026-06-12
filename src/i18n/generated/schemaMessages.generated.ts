@@ -2,6 +2,16 @@
 
 import type { ReleaseLangCode } from '../catalog/languages';
 
+export type GeneratedSchemaMessageKey = (typeof GENERATED_SCHEMA_MESSAGE_KEYS)[number];
+
+export type GeneratedSchemaMessages = Record<GeneratedSchemaMessageKey, string>;
+
+function buildSchemaMessages(values: readonly string[]): GeneratedSchemaMessages {
+  return Object.fromEntries(
+    GENERATED_SCHEMA_MESSAGE_KEYS.map((key, index) => [key, values[index] ?? ''])
+  ) as GeneratedSchemaMessages;
+}
+
 export const GENERATED_SCHEMA_MESSAGE_KEYS = [
   'schemaAiPlatformChatGptName',
   'schemaAiPlatformClaudeName',
@@ -315,16 +325,6 @@ export const GENERATED_SCHEMA_MESSAGE_KEYS = [
   'schemaYamlFilterClipperLabel',
   'schemaYamlFilterVideoLabel'
 ] as const;
-
-export type GeneratedSchemaMessageKey = (typeof GENERATED_SCHEMA_MESSAGE_KEYS)[number];
-
-export type GeneratedSchemaMessages = Record<GeneratedSchemaMessageKey, string>;
-
-function buildSchemaMessages(values: readonly string[]): GeneratedSchemaMessages {
-  return Object.fromEntries(
-    GENERATED_SCHEMA_MESSAGE_KEYS.map((key, index) => [key, values[index] ?? ''])
-  ) as GeneratedSchemaMessages;
-}
 
 function parseSchemaMessageValues(json: string): readonly string[] {
   return JSON.parse(json) as readonly string[];
