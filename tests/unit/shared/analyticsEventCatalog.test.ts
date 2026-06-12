@@ -5,6 +5,7 @@ import {
   CONTRACT_ONLY_EVENT_NAMES,
   DEV_ONLY_EVENT_NAMES,
   DOCS_ONLY_EVENT_NAMES,
+  EMITTED_PRODUCT_EVENT_NAMES,
   EMITTED_USAGE_EVENT_NAMES,
   ERROR_EVENT_NAMES,
   FUTURE_PRODUCT_EVENT_NAMES,
@@ -14,9 +15,16 @@ import {
 
 describe('analytics event catalog', () => {
   it('records a stable catalog version and current emitted event classifications', () => {
-    expect(ANALYTICS_CATALOG_VERSION).toBe(1);
+    expect(ANALYTICS_CATALOG_VERSION).toBe(2);
 
     for (const eventName of EMITTED_USAGE_EVENT_NAMES) {
+      expect(ANALYTICS_EVENT_CATALOG[eventName]).toMatchObject({
+        classification: 'emitted',
+        runtimeAllowed: true
+      });
+    }
+
+    for (const eventName of EMITTED_PRODUCT_EVENT_NAMES) {
       expect(ANALYTICS_EVENT_CATALOG[eventName]).toMatchObject({
         classification: 'emitted',
         runtimeAllowed: true
@@ -39,14 +47,16 @@ describe('analytics event catalog', () => {
     expect(ANALYTICS_EVENT_CATALOG.video_started.classification).toBe('contract-only');
   });
 
-  it('keeps future milestone events classified as future while opening the runtime contract', () => {
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('clip_started');
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('privacy_consent_changed');
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('reader_exported');
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('video_session_started');
+  it('keeps only inactive catalog rows classified as future while active product events stay emitted', () => {
+    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('extension_installed');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('video_screenshot_captured');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('clip_started');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('privacy_consent_changed');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('reader_exported');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('video_session_started');
 
     expect(ANALYTICS_EVENT_CATALOG.clip_started).toMatchObject({
-      classification: 'future',
+      classification: 'emitted',
       runtimeAllowed: true
     });
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('clip_started');
