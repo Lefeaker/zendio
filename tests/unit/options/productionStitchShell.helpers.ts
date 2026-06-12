@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { vi } from 'vitest';
+import { getMessagesForLanguage, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { OptionsController } from '@options/app/optionsController';
 import {
@@ -49,6 +50,15 @@ export function createController() {
     cancelAutoSave: vi.fn(),
     getSnapshot: vi.fn(),
     setSnapshot: vi.fn()
+  };
+}
+
+export async function createEnglishPageMessages(
+  overrides: Partial<Messages> = {}
+): Promise<Messages> {
+  return {
+    ...(await getMessagesForLanguage('en')),
+    ...overrides
   };
 }
 
