@@ -24,6 +24,7 @@ export function videoTimestampMarker(
       className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
       type: 'button',
       ariaLabel: hasScreenshot ? screenshotLabels.remove : screenshotLabels.capture,
+      ariaPressed: hasScreenshot ? 'true' : 'false',
       dataset: {
         actionId: 'video:toggle-screenshot',
         captureId: capture.id,

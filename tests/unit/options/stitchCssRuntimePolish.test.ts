@@ -84,10 +84,16 @@ describe('Stitch runtime polish CSS contracts', () => {
 
   it('uses green for active video screenshot timestamp dots', () => {
     expect(stitchCss).toContain('.video-screenshot-toggle.is-on');
+    expect(stitchCss).toContain('.video-screenshot-toggle.is-on::before');
     expect(stitchCss).toContain('background: var(--success);');
     expect(stitchCss).toContain('.video-timestamp-marker');
     expect(stitchCss).toContain('gap: 0;');
+    expect(stitchCss).toContain('--session-video-screenshot-dot-size: 8px;');
+    expect(stitchCss).toContain('--session-video-screenshot-hit-size: 24px;');
     expect(stitchCss).toContain('left: var(--session-video-screenshot-dot-offset, -2px);');
+    expect(stitchCss).toContain('width: var(--session-video-screenshot-hit-size, 24px);');
+    expect(stitchCss).toContain('height: var(--session-video-screenshot-hit-size, 24px);');
+    expect(stitchCss).toMatch(/\.video-screenshot-toggle::before\s*{[^}]*left:\s*0;/);
     expect(stitchCss).toContain('transform: translateY(-50%);');
   });
 

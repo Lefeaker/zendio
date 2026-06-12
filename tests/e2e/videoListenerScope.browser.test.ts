@@ -1261,6 +1261,38 @@ testWithExtension.describe('video listener scope browser runtime', () => {
   );
 
   testWithExtension(
+    'toggles Bilibili timestamp screenshots from the status dot hit area',
+    async ({ context, extensionPage }) => {
+      const { page } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?screenshot-dot-hit-area=1`,
+        bilibiliFixtureHtml()
+      );
+
+      await openVideoPanelFromControlBar(page, 'Bilibili screenshot dot toggle');
+      await expandVideoPanel(page);
+
+      const firstCapture = page.locator('[data-role="capture-item"]').first();
+      const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
+
+      const toggleBox = await screenshotToggle.boundingBox();
+      expect(toggleBox?.width).toBeGreaterThanOrEqual(24);
+      expect(toggleBox?.height).toBeGreaterThanOrEqual(24);
+      if (!toggleBox) {
+        throw new Error('Missing Bilibili screenshot toggle hit area.');
+      }
+
+      await page.mouse.click(toggleBox.x + 16, toggleBox.y + toggleBox.height / 2);
+
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'off');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'false');
+    }
+  );
+
+  testWithExtension(
     'keeps control-bar screenshot intent durable without mutating visible currentTime',
     async ({ context, extensionPage }) => {
       const { page, tabId } = await openFixtureWithRuntime(

@@ -238,10 +238,18 @@ describe('VideoDialogPanel', () => {
 
     expect(markerChildren[0]).toBe(off);
     expect(markerChildren[1]?.classList.contains('session-item-marker-time')).toBe(true);
+    expect(off).toBeInstanceOf(HTMLButtonElement);
+    expect(off?.type).toBe('button');
     expect(off?.classList.contains('is-off')).toBe(true);
     expect(off?.getAttribute('aria-label')).toBe('Capture screenshot');
+    expect(off?.getAttribute('aria-pressed')).toBe('false');
+    expect(off?.dataset.screenshotState).toBe('off');
+    expect(on).toBeInstanceOf(HTMLButtonElement);
+    expect(on?.type).toBe('button');
     expect(on?.classList.contains('is-on')).toBe(true);
     expect(on?.getAttribute('aria-label')).toBe('Remove screenshot');
+    expect(on?.getAttribute('aria-pressed')).toBe('true');
+    expect(on?.dataset.screenshotState).toBe('on');
 
     panel.destroy();
   });

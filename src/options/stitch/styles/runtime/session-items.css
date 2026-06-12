@@ -91,29 +91,51 @@
 }
 
 .video-screenshot-toggle {
+  --session-video-screenshot-dot-size: 8px;
+  --session-video-screenshot-hit-size: 24px;
   appearance: none;
   position: absolute;
   top: 50%;
   left: var(--session-video-screenshot-dot-offset, -2px);
-  width: 8px;
-  height: 8px;
-  margin-left: 0;
+  z-index: 1;
+  width: var(--session-video-screenshot-hit-size, 24px);
+  height: var(--session-video-screenshot-hit-size, 24px);
+  margin: 0;
   padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+  touch-action: manipulation;
+}
+
+.video-screenshot-toggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: var(--session-video-screenshot-dot-size, 8px);
+  height: var(--session-video-screenshot-dot-size, 8px);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: var(--runtime-subtle);
-  cursor: pointer;
+  box-sizing: border-box;
   transform: translateY(-50%);
 }
 
-.video-screenshot-toggle.is-on {
+.video-screenshot-toggle.is-on::before {
   background: var(--success);
 }
 
 .video-screenshot-toggle:hover,
 .video-screenshot-toggle:focus-visible {
-  border-color: var(--accent);
   outline: 0;
+}
+
+.video-screenshot-toggle:hover::before,
+.video-screenshot-toggle:focus-visible::before {
+  border-color: var(--accent);
 }
 
 .session-add-capture-button {
