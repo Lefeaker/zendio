@@ -95,7 +95,7 @@ classification. After rerunning `audit:production-build-graph:report` and
 longer appears as a false `migrate-test-owner`; its production owner is
 `src/content/video/videoControlBarStyles.ts` importing
 `./video-control-bar.css?inline`. Current decision counts are
-`migrate-import-owner: 134`, `retain-production: 620`, and
+`migrate-import-owner: 134`, `retain-production: 624`, and
 `retain-production-facade: 17`.
 
 ## Current Retained Contracts

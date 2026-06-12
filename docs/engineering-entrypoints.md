@@ -172,8 +172,8 @@ background write/download boundaries.
 - `npm run lint:type-any`：扫描当前 P06 worktree `1172` files；fresh overall 为 `any: 0`、`unknown: 1121`、assertions `1869`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/512/1239/36/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
 - `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1121/1869/45/3`、src `0/609/630/9/0`、tests `0/512/1239/36/3`。本次只提升 assertions 上限；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
-- `npm run audit:platform-boundary:report`：通过，当前为 `153` findings（composition-root `11`、migration-needed `5`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
-- `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 620`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
+- `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
+- `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 624`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
 ## 当前构建预算真值
 
