@@ -37,6 +37,7 @@
 - `.github/workflows/ci.yml`
   - 采用并行 job 拓扑：`static-gates`、`coverage`、`visual`、`e2e` 并行执行，`package` 通过 `needs: [static-gates, coverage, visual, e2e]` 汇总后再打包
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
+  - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
   - `static-gates` 显式运行 `npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
   - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
   - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
