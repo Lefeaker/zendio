@@ -1,6 +1,6 @@
 # GA4 Telemetry Reference
 
-最后更新：2026-06-11
+最后更新：2026-06-12
 
 本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
 
@@ -17,8 +17,10 @@
 - `api_secret` 只能存在于服务端 proxy；扩展不得存储、生成、请求、提示填写或发送它。
 - runtime `enabled` 是 `analytics || errorReporting` 的 live OR；但 consent scope 仍按事件类别区分，usage/product 事件需要 `analytics`，错误事件需要 `errorReporting`。
 - 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
+- `analytics_client_id` 与 `analytics_session_id` 会在本地扩展存储中预先建立，用于稳定 consent 恢复后的 send contract；在对应事件类别 consent 和 public build config 允许发送之前，这两个标识不会离开本地。
+- `clearAllData()` / analytics data clear 会移除 consent、config、client id、session id 与相关队列状态。
 - `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
-- `analytics:validate:prod` 是静态/public-config + owner env sanity check；它不证明真实 GA4 property delivery 或 DebugView 可见性。
+- `analytics:validate:prod` 是静态/public-config + owner env sanity check；它会校验 tracked transport/consent contract、负向 secret/Google endpoint 守卫和 owner env 公共配置形状，但仍不证明真实 GA4 property delivery 或 DebugView 可见性。
 - 成功的生产 `proxy` 发送默认不输出事件参数或成功日志；只有 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且 summary 只包含 `eventName`、`transportMode`、`responseStatus` 与 validation message 数量。
 - 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
@@ -83,7 +85,7 @@
 
 - `Class` 与 `Runtime` 列直接来自当前 `ANALYTICS_EVENT_CATALOG`
 - `Params` 列按 `AnalyticsEventParamMap` 与 sanitizer 允许值整理；带 `?` 的字段为可选
-- 当前 catalog 中大量新事件仍标记为 `future`，但本集成分支已经有对应 emitter；不要把这些行当作“未使用占位”
+- 只有当前无 active emitter 的 catalog 行才保留 `future` / `contract-only` / `inventory-only` / docs-only 分类；表内 active emitter 行已经与当前 runtime reality 对齐
 
 ### Support / Usage / Error
 
@@ -122,23 +124,23 @@
 - `src/options/app/productionStitchShellActionRuntime.ts`
 - `src/options/app/productionStitchPersistence.ts`
 
-| Event                          | Params                                 | Class    | Runtime |
-| ------------------------------ | -------------------------------------- | -------- | ------- |
-| `onboarding_started`           | `source`                               | `future` | `true`  |
-| `onboarding_step_completed`    | `step`, `duration_bucket`              | `future` | `true`  |
-| `onboarding_skipped`           | `step`                                 | `future` | `true`  |
-| `onboarding_support_action`    | `action`                               | `future` | `true`  |
-| `onboarding_completed`         | `duration_bucket`                      | `future` | `true`  |
-| `privacy_consent_changed`      | `field`, `enabled`                     | `future` | `true`  |
-| `analytics_data_cleared`       | `outcome`                              | `future` | `true`  |
-| `options_opened`               | `source`                               | `future` | `true`  |
-| `options_section_viewed`       | `section`                              | `future` | `true`  |
-| `options_action_completed`     | `action`, `outcome`, `section?`        | `future` | `true`  |
-| `options_theme_changed`        | `theme`                                | `future` | `true`  |
-| `options_language_changed`     | `language`                             | `future` | `true`  |
-| `config_export_completed`      | `outcome`                              | `future` | `true`  |
-| `config_import_completed`      | `outcome`, `analytics_payload_present` | `future` | `true`  |
-| `experimental_feature_toggled` | `feature_key`, `enabled`               | `future` | `true`  |
+| Event                          | Params                                 | Class     | Runtime |
+| ------------------------------ | -------------------------------------- | --------- | ------- |
+| `onboarding_started`           | `source`                               | `emitted` | `true`  |
+| `onboarding_step_completed`    | `step`, `duration_bucket`              | `emitted` | `true`  |
+| `onboarding_skipped`           | `step`                                 | `emitted` | `true`  |
+| `onboarding_support_action`    | `action`                               | `emitted` | `true`  |
+| `onboarding_completed`         | `duration_bucket`                      | `emitted` | `true`  |
+| `privacy_consent_changed`      | `field`, `enabled`                     | `emitted` | `true`  |
+| `analytics_data_cleared`       | `outcome`                              | `emitted` | `true`  |
+| `options_opened`               | `source`                               | `emitted` | `true`  |
+| `options_section_viewed`       | `section`                              | `emitted` | `true`  |
+| `options_action_completed`     | `action`, `outcome`, `section?`        | `emitted` | `true`  |
+| `options_theme_changed`        | `theme`                                | `emitted` | `true`  |
+| `options_language_changed`     | `language`                             | `emitted` | `true`  |
+| `config_export_completed`      | `outcome`                              | `emitted` | `true`  |
+| `config_import_completed`      | `outcome`, `analytics_payload_present` | `emitted` | `true`  |
+| `experimental_feature_toggled` | `feature_key`, `enabled`               | `emitted` | `true`  |
 
 ### Clip / Background / Connection / Storage
 
@@ -150,23 +152,23 @@
 - `src/background/pipelines/connectionTest.ts`
 - `src/background/services/obsidianWriter.ts`
 
-| Event                             | Params                                                                        | Class    | Runtime |
-| --------------------------------- | ----------------------------------------------------------------------------- | -------- | ------- |
-| `clip_started`                    | `operation_id`, `source`, `content_type`                                      | `future` | `true`  |
-| `clip_prompt_opened`              | `operation_id`, `content_type`                                                | `future` | `true`  |
-| `clip_prompt_submitted`           | `operation_id`, `content_type`                                                | `future` | `true`  |
-| `clip_prompt_cancelled`           | `operation_id`, `content_type`                                                | `future` | `true`  |
-| `extraction_completed`            | `operation_id`, `content_type`, `duration_bucket`, `attachment_count_bucket?` | `future` | `true`  |
-| `background_stage_completed`      | `operation_id`, `stage`, `duration_bucket`                                    | `future` | `true`  |
-| `clip_save_completed`             | `operation_id`, `storage_target`, `duration_bucket`                           | `future` | `true`  |
-| `clip_save_failed`                | `operation_id`, `storage_target`, `failure_category`                          | `future` | `true`  |
-| `ai_chat_detected`                | `platform`, `message_count_bucket`                                            | `future` | `true`  |
-| `ai_chat_exported`                | `platform`, `message_count_bucket`, `duration_bucket`                         | `future` | `true`  |
-| `connection_test_completed`       | `storage_target`, `outcome`, `duration_bucket`, `failure_category?`           | `future` | `true`  |
-| `local_vault_permission_prompted` | `source`                                                                      | `future` | `true`  |
-| `local_vault_permission_resolved` | `outcome`                                                                     | `future` | `true`  |
-| `vault_write_completed`           | `storage_target`, `duration_bucket`                                           | `future` | `true`  |
-| `vault_write_failed`              | `storage_target`, `failure_category`                                          | `future` | `true`  |
+| Event                             | Params                                                                        | Class     | Runtime |
+| --------------------------------- | ----------------------------------------------------------------------------- | --------- | ------- |
+| `clip_started`                    | `operation_id`, `source`, `content_type`                                      | `emitted` | `true`  |
+| `clip_prompt_opened`              | `operation_id`, `content_type`                                                | `emitted` | `true`  |
+| `clip_prompt_submitted`           | `operation_id`, `content_type`                                                | `emitted` | `true`  |
+| `clip_prompt_cancelled`           | `operation_id`, `content_type`                                                | `emitted` | `true`  |
+| `extraction_completed`            | `operation_id`, `content_type`, `duration_bucket`, `attachment_count_bucket?` | `emitted` | `true`  |
+| `background_stage_completed`      | `operation_id`, `stage`, `duration_bucket`                                    | `emitted` | `true`  |
+| `clip_save_completed`             | `operation_id`, `storage_target`, `duration_bucket`                           | `emitted` | `true`  |
+| `clip_save_failed`                | `operation_id`, `storage_target`, `failure_category`                          | `emitted` | `true`  |
+| `ai_chat_detected`                | `platform`, `message_count_bucket`                                            | `emitted` | `true`  |
+| `ai_chat_exported`                | `platform`, `message_count_bucket`, `duration_bucket`                         | `emitted` | `true`  |
+| `connection_test_completed`       | `storage_target`, `outcome`, `duration_bucket`, `failure_category?`           | `emitted` | `true`  |
+| `local_vault_permission_prompted` | `source`                                                                      | `emitted` | `true`  |
+| `local_vault_permission_resolved` | `outcome`                                                                     | `emitted` | `true`  |
+| `vault_write_completed`           | `storage_target`, `duration_bucket`                                           | `emitted` | `true`  |
+| `vault_write_failed`              | `storage_target`, `failure_category`                                          | `emitted` | `true`  |
 
 ### Reader / Video
 
@@ -176,32 +178,32 @@
 - `src/content/reader/sessionOperations.ts`
 - `src/content/video/sessionOperations.ts`
 
-| Event                       | Params                                              | Class    | Runtime |
-| --------------------------- | --------------------------------------------------- | -------- | ------- |
-| `reader_session_started`    | `source`                                            | `future` | `true`  |
-| `reader_highlight_added`    | `selection_length_bucket`, `highlight_count_bucket` | `future` | `true`  |
-| `reader_exported`           | `destination`, `duration_bucket`                    | `future` | `true`  |
-| `reader_export_failed`      | `destination`, `failure_category`                   | `future` | `true`  |
-| `reader_session_cancelled`  | `duration_bucket`                                   | `future` | `true`  |
-| `video_session_started`     | `platform`, `source`                                | `future` | `true`  |
-| `video_timestamp_added`     | `capture_count_bucket`                              | `future` | `true`  |
-| `video_fragment_added`      | `capture_count_bucket`                              | `future` | `true`  |
-| `video_screenshot_captured` | `screenshot_count_bucket`                           | `future` | `true`  |
-| `video_capture_removed`     | `capture_count_bucket`                              | `future` | `true`  |
-| `video_exported`            | `platform`, `destination`, `duration_bucket`        | `future` | `true`  |
-| `video_export_failed`       | `platform`, `destination`, `failure_category`       | `future` | `true`  |
-| `video_session_cancelled`   | `platform`, `duration_bucket`                       | `future` | `true`  |
+| Event                      | Params                                              | Class     | Runtime |
+| -------------------------- | --------------------------------------------------- | --------- | ------- |
+| `reader_session_started`   | `source`                                            | `emitted` | `true`  |
+| `reader_highlight_added`   | `selection_length_bucket`, `highlight_count_bucket` | `emitted` | `true`  |
+| `reader_exported`          | `destination`, `duration_bucket`                    | `emitted` | `true`  |
+| `reader_export_failed`     | `destination`, `failure_category`                   | `emitted` | `true`  |
+| `reader_session_cancelled` | `duration_bucket`                                   | `emitted` | `true`  |
+| `video_session_started`    | `platform`, `source`                                | `emitted` | `true`  |
+| `video_timestamp_added`    | `capture_count_bucket`                              | `emitted` | `true`  |
+| `video_fragment_added`     | `capture_count_bucket`                              | `emitted` | `true`  |
+| `video_capture_removed`    | `capture_count_bucket`                              | `emitted` | `true`  |
+| `video_exported`           | `platform`, `destination`, `duration_bucket`        | `emitted` | `true`  |
+| `video_export_failed`      | `platform`, `destination`, `failure_category`       | `emitted` | `true`  |
+| `video_session_cancelled`  | `platform`, `duration_bucket`                       | `emitted` | `true`  |
 
 ## Catalog-only Rows
 
 这些名字仍然在当前 telemetry source 中存在，但不能当作“当前生产 dashboard 的主统计事件”。
 
-| Event                   | Params                      | Class            | Runtime | Current branch truth                                           |
-| ----------------------- | --------------------------- | ---------------- | ------- | -------------------------------------------------------------- |
-| `video_started`         | `source`                    | `contract-only`  | `true`  | 保留 contract / compatibility row；当前分支没有 active emitter |
-| `extension_installed`   | `source`, `browser_family?` | `future`         | `true`  | catalog 预留行；当前分支没有 active emitter                    |
-| `extension_usage`       | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
-| `extension_performance` | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
+| Event                       | Params                      | Class            | Runtime | Current branch truth                                           |
+| --------------------------- | --------------------------- | ---------------- | ------- | -------------------------------------------------------------- |
+| `video_started`             | `source`                    | `contract-only`  | `true`  | 保留 contract / compatibility row；当前分支没有 active emitter |
+| `extension_installed`       | `source`, `browser_family?` | `future`         | `true`  | catalog 预留行；当前分支没有 active emitter                    |
+| `video_screenshot_captured` | `screenshot_count_bucket`   | `future`         | `true`  | catalog 行仍保留；当前分支没有 active emitter                  |
+| `extension_usage`           | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
+| `extension_performance`     | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
 
 另有一条 retired docs-only QR dislike row 被保留在 source 中用于历史分类，不应出现在任何 active 文档、setup 指南或 dashboard 中。
 

@@ -131,13 +131,18 @@ Runtime `enabled` is live OR semantics (`analytics || errorReporting`), but actu
 sendability stays event-scoped: usage/product events require `analytics` consent,
 and `extension_error` requires `errorReporting` consent.
 `analytics:validate:prod` is a static/public-config + owner env sanity check; it
-does not prove real GA property delivery, DebugView visibility, or server-side
-`api_secret` injection. If `.env.production.local` is absent, the validator still
-runs and reports missing public values as warnings.
+now validates the tracked transport/consent contract, proxy-only negative guards,
+and public env shape, but it still does not prove real GA property delivery,
+DebugView visibility, or server-side `api_secret` injection. If
+`.env.production.local` is absent, the validator still runs and reports missing
+public values as warnings.
 Successful production proxy sends are intentionally silent in the console. Only
 `directDebug` emits `[analytics-events] Event sent (debug):` with a summary
 (`eventName`, `transportMode`, `responseStatus`, validation message count) and
 never logs event params.
+`analytics_client_id` and `analytics_session_id` are local-only storage keys
+until the relevant event-class consent and public config make a send possible;
+`clearAllData()` / analytics data clear removes both ids.
 
 ## GA / Video Targeted Checks
 
