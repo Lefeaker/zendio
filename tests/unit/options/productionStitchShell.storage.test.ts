@@ -671,7 +671,9 @@ describe('mountProductionStitchShell storage', () => {
 
     expect(draft.templates.article).toBe(researchPreset.templates.article);
     expect(draft.templates.reading).toBe(researchPreset.templates.reading);
-    expect(draft.domainMappings).toEqual(expect.objectContaining(researchPreset.domainMappings));
+    expect(draft.domainMappings).toEqual(
+      expect.objectContaining(researchPreset.domainMappings)
+    );
     expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'status', enabled: true }),

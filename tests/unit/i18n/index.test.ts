@@ -49,8 +49,11 @@ describe('i18n storage fallbacks', () => {
 
   it('uses the configured runtime language provider when navigator candidates are unsupported', async () => {
     vi.stubGlobal('navigator', { languages: ['nl-NL'], language: 'sv-SE' });
-    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
     configureI18nRuntimeLanguageProvider(() => 'ja-JP');
     configureI18nStorage(null);
 
@@ -59,8 +62,11 @@ describe('i18n storage fallbacks', () => {
 
   it('ignores runtime language provider failures and falls back to navigator/default logic', async () => {
     vi.stubGlobal('navigator', { language: 'fr-FR' });
-    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
     configureI18nRuntimeLanguageProvider(() => {
       throw new Error('provider unavailable');
     });
@@ -113,8 +119,11 @@ describe('i18n storage fallbacks', () => {
   });
 
   it('handles storage write errors without throwing', async () => {
-    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, setCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      setCurrentLanguage
+    } = await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
     configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);

@@ -1,8 +1,4 @@
 import type { BilibiliSelectionHelpers } from './bilibiliSelectionTypes';
-import {
-  BILIBILI_COMMENT_SHADOW_HOST_SELECTOR,
-  isBilibiliCommentRegionNode
-} from './bilibiliCommentRestoreScope';
 
 export function findBilibiliTextRangeAcrossShadowRoots(
   text: string,
@@ -104,21 +100,10 @@ function searchInNode(root: Node, text: string, helpers: BilibiliSelectionHelper
 
 function traverseShadowInclusive(node: Node, visitor: (node: Node) => void): void {
   visitor(node);
-  if (node instanceof Element && shouldTraverseNestedShadowRoot(node)) {
+  if (node instanceof Element && node.shadowRoot) {
     traverseShadowInclusive(node.shadowRoot, visitor);
   }
   for (let child = node.firstChild; child; child = child.nextSibling) {
     traverseShadowInclusive(child, visitor);
   }
-}
-
-function shouldTraverseNestedShadowRoot(
-  node: Element
-): node is HTMLElement & { shadowRoot: ShadowRoot } {
-  return (
-    node instanceof HTMLElement &&
-    node.shadowRoot !== null &&
-    node.matches(BILIBILI_COMMENT_SHADOW_HOST_SELECTOR) &&
-    isBilibiliCommentRegionNode(node)
-  );
 }

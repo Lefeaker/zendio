@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let installListener: ((details: { reason?: string; previousVersion?: string }) => void) | undefined;
+let installListener:
+  | ((details: { reason?: string; previousVersion?: string }) => void)
+  | undefined;
 const firefoxApi = vi.hoisted(() => ({
   i18n: {
     getUILanguage: vi.fn(() => 'fr-FR')
