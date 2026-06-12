@@ -48,7 +48,7 @@ describe('production Stitch shell section coverage', () => {
       'Keyword',
       'URL Pattern',
       'Templates',
-      'Articles/{domain}/{yyyy}/{slug}.md',
+      previewContent.output.templateDefaults.articleVideo,
       'YAML Schema',
       'YAML configured',
       'article / clipper / video / ai_chat',

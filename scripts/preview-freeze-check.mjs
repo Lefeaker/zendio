@@ -69,11 +69,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.',
         'The video attachment layout i18n sync refreshes the generated preview JS hash after merging the accepted Options 12-language catalog baseline with the video entry/attachment path layout, hiding Output Presets, splitting the capture-sources video schema helper, and removing unnecessary helper-local type assertions while preserving the frozen reference and Stitch runtime contract.',
         'The post-audit Options i18n repair refreshes the generated preview JS hash after restoring the full schema-backed changelog release notes across 12 languages and removing the stale Deep Research navigation hint while preserving the frozen reference and Stitch runtime contract.',
-        'The video control-bar UI debt migration refreshes the generated preview JS hash after adding the schema-registered video-control-bar popover runtime surface, moving static video panel role attributes into Stitch-owned schema output, and threading optional ButtonNode datasets through the existing Stitch button renderer while preserving the frozen reference, control-bar geometry contract, and Stitch runtime behavior.'
+        'The video control-bar UI debt migration refreshes the generated preview JS hash after adding the schema-registered video-control-bar popover runtime surface, moving static video panel role attributes into Stitch-owned schema output, and threading optional ButtonNode datasets through the existing Stitch button renderer while preserving the frozen reference, control-bar geometry contract, and Stitch runtime behavior.',
+        'This accepted cumulative hash refresh also includes P01 runtime/schema i18n split, P02 analytics contract bundling, and P05 shared template-default owner plus platform runtime-port import graph changes while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // Video control-bar UI debt migration: hash refreshed after accepted runtime-surface and schema-owned role output repairs.
-      rightSha256: '0279388262a2c08fe2e77aa0a398dd56c6d1d92914024fec195f862c9de2e3e4'
+      // 2026-06-12 P05b: hash sampled from a standard per-worktree npm ci install; symlinked node_modules changes esbuild path comments and is not an allowlist source.
+      rightSha256: '453983438d21f61f6c054e8525c6b54471239bdb3bc699c9e0143bb49b186088'
     }
   ]
 ]);

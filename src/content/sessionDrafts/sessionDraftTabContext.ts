@@ -1,4 +1,5 @@
 import type { SessionDraftEnvelope, SessionDraftOwnerContext } from './sessionDraftTypes';
+import type { RuntimeMessageSender } from '@platform/interfaces/runtime';
 
 export const SESSION_DRAFT_TAB_CONTEXT_MESSAGE_TYPE = 'AIIOB_GET_TAB_CONTEXT';
 export const SESSION_DRAFT_OWNER_CONTEXT_ACTIVE_MESSAGE_TYPE = 'AIIOB_IS_TAB_CONTEXT_ACTIVE';
@@ -21,17 +22,10 @@ export interface SessionDraftOwnerContextActiveResponse {
   active: boolean;
 }
 
-interface BrowserRuntimeLike {
-  runtime?: {
-    sendMessage?: (message: unknown) => Promise<unknown>;
-  };
-}
+let runtimeMessageSender: RuntimeMessageSender | null = null;
 
-interface ChromeRuntimeLike {
-  runtime?: {
-    lastError?: { message?: string };
-    sendMessage?: (message: unknown, callback?: (response: unknown) => void) => void;
-  };
+export function configureSessionDraftRuntimeMessenger(sender: RuntimeMessageSender | null): void {
+  runtimeMessageSender = sender;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -42,38 +36,8 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
-function createChromeSendMessage(
-  runtime: NonNullable<ChromeRuntimeLike['runtime']>
-): ((message: unknown) => Promise<unknown>) | null {
-  if (typeof runtime.sendMessage !== 'function') {
-    return null;
-  }
-
-  return (message: unknown) =>
-    new Promise((resolve, reject) => {
-      try {
-        runtime.sendMessage?.(message, (response: unknown) => {
-          const lastError = runtime.lastError;
-          if (lastError) {
-            reject(new Error(lastError.message ?? 'runtime.sendMessage failed'));
-            return;
-          }
-          resolve(response);
-        });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-}
-
-function getRuntimeSendMessage(): ((message: unknown) => Promise<unknown>) | null {
-  const browserApi = (globalThis as typeof globalThis & { browser?: BrowserRuntimeLike }).browser;
-  if (typeof browserApi?.runtime?.sendMessage === 'function') {
-    return browserApi.runtime.sendMessage.bind(browserApi.runtime);
-  }
-
-  const chromeApi = (globalThis as typeof globalThis & { chrome?: ChromeRuntimeLike }).chrome;
-  return chromeApi?.runtime ? createChromeSendMessage(chromeApi.runtime) : null;
+function getRuntimeSendMessage(): RuntimeMessageSender | null {
+  return runtimeMessageSender;
 }
 
 export function normalizeSessionDraftOwnerContext(value: unknown): SessionDraftOwnerContext | null {

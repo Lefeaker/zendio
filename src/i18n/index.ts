@@ -1,4 +1,5 @@
 import type { StorageAreaService } from '../platform/interfaces/storage';
+import type { RuntimeLanguageProvider } from '../platform/interfaces/runtime';
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_RUNTIME_MESSAGES,
@@ -24,6 +25,7 @@ export { resolveLanguage } from './config';
 export { formatMessage } from './messageFormatter';
 
 let languageStorage: StorageAreaService | null = null;
+let runtimeLanguageProvider: RuntimeLanguageProvider | null = null;
 
 function isExtensionI18nPage(): boolean {
   const protocol =
@@ -42,19 +44,21 @@ export function configureI18nStorage(storage: StorageAreaService | null): void {
   languageStorage = storage;
 }
 
-function getChromeI18nLanguage(): string | undefined {
-  if (typeof chrome === 'undefined' || typeof chrome.i18n?.getUILanguage !== 'function') {
-    return undefined;
-  }
+export function configureI18nRuntimeLanguageProvider(
+  provider: RuntimeLanguageProvider | null
+): void {
+  runtimeLanguageProvider = provider;
+}
 
-  return chrome.i18n.getUILanguage();
+function getRuntimeLanguage(): string | undefined {
+  return runtimeLanguageProvider?.();
 }
 
 function getRuntimeLanguageService() {
   return createLanguageService({
     storage: languageStorage ? createStorageAdapter(languageStorage) : null,
     getNavigator: () => (typeof navigator === 'undefined' ? undefined : navigator),
-    getChromeI18nLanguage,
+    getChromeI18nLanguage: getRuntimeLanguage,
     onReadError: async (cause) => {
       await errorHandler.handle(
         i18nErrors.languageLoadFailed(cause, { storageKey: LANGUAGE_STORAGE_KEY }),
