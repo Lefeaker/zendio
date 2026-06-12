@@ -39,24 +39,50 @@ function createRecordingBindingAdapter(): I18nBindingAdapter & { resources: I18n
 describe('i18n storage fallbacks', () => {
   it('falls back to navigator language when storage is not configured', async () => {
     vi.stubGlobal('navigator', { language: 'zh-CN' });
-    const { configureI18nStorage, getCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
+      await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(null);
 
     await expect(getCurrentLanguage()).resolves.toBe('zh-CN');
   });
 
-  it('uses Chrome UI language when navigator candidates are unsupported', async () => {
+  it('uses the configured runtime language provider when navigator candidates are unsupported', async () => {
     vi.stubGlobal('navigator', { languages: ['nl-NL'], language: 'sv-SE' });
-    vi.stubGlobal('chrome', { i18n: { getUILanguage: () => 'ja-JP' } });
-    const { configureI18nStorage, getCurrentLanguage } = await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(() => 'ja-JP');
     configureI18nStorage(null);
 
     await expect(getCurrentLanguage()).resolves.toBe('ja');
   });
 
+  it('ignores runtime language provider failures and falls back to navigator/default logic', async () => {
+    vi.stubGlobal('navigator', { language: 'fr-FR' });
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(() => {
+      throw new Error('provider unavailable');
+    });
+    configureI18nStorage(null);
+
+    await expect(getCurrentLanguage()).resolves.toBe('fr');
+  });
+
   it('reads storage language and persists the resolved language through injected storage', async () => {
-    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage,
+      setCurrentLanguage
+    } = await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
 
     await harness.storage.sync.set('language', 'fr');
@@ -68,9 +94,14 @@ describe('i18n storage fallbacks', () => {
 
   it('falls back to navigator language and reports when storage read fails', async () => {
     vi.stubGlobal('navigator', { language: 'ja-JP' });
-    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      DEFAULT_LANGUAGE,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
     const getSpy = vi
       .spyOn(harness.storage.sync, 'get')
@@ -88,8 +119,13 @@ describe('i18n storage fallbacks', () => {
   });
 
   it('handles storage write errors without throwing', async () => {
-    const { configureI18nStorage, setCurrentLanguage } = await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      setCurrentLanguage
+    } = await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
     const setSpy = vi
       .spyOn(harness.storage.sync, 'set')

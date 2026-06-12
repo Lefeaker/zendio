@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CLIPPER_DEFAULTS } from '@shared/config/appConfig';
+import { getOutputTemplatePreset, getPreviewTemplateDefaults } from '@shared/config';
 import { createConfigProvider, loadOverrideFromEnv } from '@shared/config/provider';
 import type { ConfigOverrides } from '@shared/config/provider';
 
@@ -201,6 +202,49 @@ describe('configProvider', () => {
       expect(templates.fragment).toBe('Fragments/{yyyy}/{mm}/{dd}/{title}.md');
       expect(templates.reading).toBe('Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
       expect(templates.ai).toBe('AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md');
+    });
+
+    it('returns named output presets with the accepted template and domain defaults', () => {
+      const minimal = getOutputTemplatePreset('Minimal');
+      const research = getOutputTemplatePreset('Research');
+      const conversation = getOutputTemplatePreset('Conversation');
+
+      expect(minimal).toEqual({
+        name: 'Minimal',
+        templates: {
+          article: 'Articles/{domain}/{yyyy}/{slug}.md',
+          fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
+          reading: 'Reading/{domain}/{yyyy}/{slug}.md',
+          ai: 'AI/{platform}/{yyyy}/{title}.md'
+        },
+        domainMappings: {}
+      });
+      expect(research?.templates).toEqual({
+        article: 'Research/{domain}/{yyyy}/{slug}.md',
+        fragment: 'Research/Fragments/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+        reading: 'Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+        ai: 'Research/AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
+      });
+      expect(research?.domainMappings).toEqual({
+        'arxiv.org': 'Arxiv',
+        'mp.weixin.qq.com': '公众号',
+        'scholar.google.com': 'Scholar'
+      });
+      expect(conversation?.templates.ai).toBe('AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md');
+      expect(conversation?.domainMappings).toEqual({
+        'chatgpt.com': 'ChatGPT',
+        'claude.ai': 'Claude',
+        'gemini.google.com': 'Gemini'
+      });
+    });
+
+    it('returns preview template defaults that match the accepted preview behavior', () => {
+      expect(getPreviewTemplateDefaults()).toEqual({
+        articleVideo: 'Articles/{domain}/{yyyy}/{slug}.md',
+        fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+        readingCustom: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+        aiChat: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
+      });
     });
   });
 

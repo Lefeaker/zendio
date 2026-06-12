@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getOutputTemplatePreset } from '@shared/config';
 import {
   resolveExportPath,
   resolveTemplateKeyForPayloadType,
@@ -22,16 +23,15 @@ describe('exportDestination path preview', () => {
   });
 
   it('previews video paths with the same fragment template used by background writes', () => {
+    const minimalPreset = getOutputTemplatePreset('Minimal');
+    if (!minimalPreset) {
+      throw new Error('Missing Minimal preset');
+    }
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-09T20:24:13'));
 
     const path = resolveExportPath(
-      {
-        article: 'Articles/{domain}/{yyyy}/{slug}.md',
-        fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
-        reading: 'Reading/{domain}/{yyyy}/{slug}.md',
-        ai: 'AI/{platform}/{yyyy}/{title}.md'
-      },
+      minimalPreset.templates,
       {
         markdown: '# video',
         title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',

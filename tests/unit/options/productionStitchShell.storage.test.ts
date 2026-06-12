@@ -22,6 +22,7 @@ import {
 } from '@options/app/productionStitchShellState';
 import { createInitialStitchState } from '@options/app/productionStitchStateMapper';
 import { previewContent } from '@options/stitch/content';
+import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
@@ -638,6 +639,10 @@ describe('mountProductionStitchShell storage', () => {
   });
 
   it('keeps hidden output presets logic wired to templates, YAML configuration, and domain mappings', () => {
+    const researchPreset = getOutputTemplatePreset('Research');
+    if (!researchPreset) {
+      throw new Error('Missing Research preset');
+    }
     const draft = createInitialDraft({
       templates: {
         article: 'Old/{title}.md',
@@ -664,13 +669,10 @@ describe('mountProductionStitchShell storage', () => {
       name: 'Research'
     });
 
-    expect(draft.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
-    expect(draft.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+    expect(draft.templates.article).toBe(researchPreset.templates.article);
+    expect(draft.templates.reading).toBe(researchPreset.templates.reading);
     expect(draft.domainMappings).toEqual(
-      expect.objectContaining({
-        'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号'
-      })
+      expect.objectContaining(researchPreset.domainMappings)
     );
     expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
       expect.arrayContaining([
