@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "이것은 선택된 텍스트의 내용입니다",
   "fragmentFootnoteExampleComment": "이것은 내 댓글입니다",
   "fragmentContextHighlightExampleTitle": "컨텍스트 하이라이트 예시:",
-  "fragmentContextHighlightExampleContent": "앞 컨텍스트 ==이것은 선택된 텍스트입니다== 뒤 컨텍스트"
+  "fragmentContextHighlightExampleContent": "앞 컨텍스트 ==이것은 선택된 텍스트입니다== 뒤 컨텍스트",
+  "videoControlBarNotePlaceholder": "메모 추가",
+  "videoControlBarNoteAriaLabel": "동영상 메모 추가",
+  "videoControlBarAutoPauseLabel": "편집하는 동안 동영상 일시정지",
+  "videoControlBarScreenshotLabel": "현재 동영상 프레임 캡처"
 }

@@ -5,6 +5,13 @@ import { ensureVideoControlBarButton } from '@content/video/videoControlBarButto
 import { toControlBarCaptureOptions } from '@content/video/videoPromptControlBarAdapter';
 import { createVideoPromptControlTargetLifecycle } from '@content/video/videoPromptControlTargetLifecycle';
 
+const CUSTOM_CONTROL_BAR_TEXTS = {
+  notePlaceholder: 'Write a marker',
+  noteAriaLabel: 'Write a video marker',
+  autoPauseLabel: 'Pause while typing',
+  screenshotLabel: 'Grab the current frame'
+};
+
 function queryRequired<T extends Element>(selector: string, root: ParentNode = document): T {
   const element = root.querySelector<T>(selector);
   if (!element) {
@@ -159,6 +166,12 @@ function mountControlTargetLifecycle(
     getUrl: () => 'https://www.youtube.com/watch?v=abc123',
     getLabel: () => '开启视频笔记',
     getShortcut: () => '',
+    getTexts: () => ({
+      notePlaceholder: 'Add note',
+      noteAriaLabel: 'Add video note',
+      autoPauseLabel: 'Pause video while editing',
+      screenshotLabel: 'Capture current video frame'
+    }),
     getPreferences: () => preferences,
     setPreferences: vi.fn(),
     getIconUrl: () => null,
@@ -209,6 +222,64 @@ describe('ensureVideoControlBarButton', () => {
     expect(document.getElementById('aiob-video-control-bar-button-style')?.textContent).toContain(
       'accent-color: var(--aiob-video-control-accent'
     );
+  });
+
+  it('renders provided runtime texts in the popover input and toggles', () => {
+    mountYoutubeControls();
+    const options = {
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      texts: CUSTOM_CONTROL_BAR_TEXTS,
+      onPrimaryAction: vi.fn()
+    } as unknown as Parameters<typeof ensureVideoControlBarButton>[0];
+
+    ensureVideoControlBarButton(options);
+    clickControlBarButton();
+
+    const { popover, input } = getPopoverNoteInput();
+    const labels = Array.from(popover.querySelectorAll('label')).map((label) =>
+      label.textContent?.trim()
+    );
+
+    expect(input.placeholder).toBe(CUSTOM_CONTROL_BAR_TEXTS.notePlaceholder);
+    expect(input.getAttribute('aria-label')).toBe(CUSTOM_CONTROL_BAR_TEXTS.noteAriaLabel);
+    expect(labels).toEqual([
+      CUSTOM_CONTROL_BAR_TEXTS.autoPauseLabel,
+      CUSTOM_CONTROL_BAR_TEXTS.screenshotLabel
+    ]);
+  });
+
+  it('falls back to default runtime texts when texts are omitted', () => {
+    mountYoutubeControls();
+
+    ensureVideoControlBarButton({
+      doc: document,
+      url: 'https://www.youtube.com/watch?v=abc123',
+      label: '开启视频笔记',
+      shortcut: '',
+      preferences: {
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: true
+      },
+      onPrimaryAction: vi.fn()
+    });
+
+    clickControlBarButton();
+
+    const { popover, input } = getPopoverNoteInput();
+    const labels = Array.from(popover.querySelectorAll('label')).map((label) =>
+      label.textContent?.trim()
+    );
+
+    expect(input.placeholder).toBe('Add note');
+    expect(input.getAttribute('aria-label')).toBe('Add video note');
+    expect(labels).toEqual(['Pause video while editing', 'Capture current video frame']);
   });
 
   it('keeps the YouTube button as the target first child with current button geometry', () => {
@@ -744,6 +815,12 @@ describe('ensureVideoControlBarButton', () => {
       getUrl: () => 'https://www.youtube.com/watch?v=abc123',
       getLabel: () => '开启视频笔记',
       getShortcut: () => '',
+      getTexts: () => ({
+        notePlaceholder: 'Add note',
+        noteAriaLabel: 'Add video note',
+        autoPauseLabel: 'Pause video while editing',
+        screenshotLabel: 'Capture current video frame'
+      }),
       getPreferences: () => ({
         autoPauseEnabled: true,
         captureScreenshotEnabled: true
@@ -793,6 +870,12 @@ describe('ensureVideoControlBarButton', () => {
       getUrl: () => 'https://www.youtube.com/watch?v=abc123',
       getLabel: () => '开启视频笔记',
       getShortcut: () => '',
+      getTexts: () => ({
+        notePlaceholder: 'Add note',
+        noteAriaLabel: 'Add video note',
+        autoPauseLabel: 'Pause video while editing',
+        screenshotLabel: 'Capture current video frame'
+      }),
       getPreferences: () => ({
         autoPauseEnabled: true,
         captureScreenshotEnabled: true

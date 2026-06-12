@@ -1,3 +1,4 @@
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { findVideoControlTarget } from './videoPromptObserver';
 import {
   CONTROL_POPOVER_CLASS,
@@ -21,11 +22,19 @@ export interface VideoControlBarNotePayload {
   source: 'note-input';
 }
 
+export interface VideoControlBarButtonTexts {
+  notePlaceholder: string;
+  noteAriaLabel: string;
+  autoPauseLabel: string;
+  screenshotLabel: string;
+}
+
 export interface VideoControlBarButtonOptions {
   doc: Document;
   url: string;
   label: string;
   shortcut: string;
+  texts?: VideoControlBarButtonTexts;
   getIconUrl?: () => string | null;
   preferences?: VideoControlBarPreferences;
   onPreferencesChange?: (preferences: VideoControlBarPreferences) => void;
@@ -44,6 +53,13 @@ export interface VideoControlBarButtonOptions {
 const DEFAULT_PREFERENCES: VideoControlBarPreferences = {
   autoPauseEnabled: true,
   captureScreenshotEnabled: true
+};
+
+const DEFAULT_CONTROL_BAR_TEXTS: VideoControlBarButtonTexts = {
+  notePlaceholder: DEFAULT_RUNTIME_MESSAGES.videoControlBarNotePlaceholder,
+  noteAriaLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarNoteAriaLabel,
+  autoPauseLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarAutoPauseLabel,
+  screenshotLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarScreenshotLabel
 };
 
 function ensureStyle(doc: Document): void {
@@ -195,6 +211,15 @@ function resolvePreferences(
   };
 }
 
+function resolveTexts(texts: VideoControlBarButtonOptions['texts']): VideoControlBarButtonTexts {
+  return {
+    notePlaceholder: texts?.notePlaceholder ?? DEFAULT_CONTROL_BAR_TEXTS.notePlaceholder,
+    noteAriaLabel: texts?.noteAriaLabel ?? DEFAULT_CONTROL_BAR_TEXTS.noteAriaLabel,
+    autoPauseLabel: texts?.autoPauseLabel ?? DEFAULT_CONTROL_BAR_TEXTS.autoPauseLabel,
+    screenshotLabel: texts?.screenshotLabel ?? DEFAULT_CONTROL_BAR_TEXTS.screenshotLabel
+  };
+}
+
 function positionPopover(button: HTMLButtonElement, popover: HTMLElement): void {
   const rect = button.getBoundingClientRect();
   const width = 220;
@@ -246,6 +271,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   }
 
   let preferences = resolvePreferences(options.preferences);
+  const texts = resolveTexts(options.texts);
   const popover = doc.createElement('div');
   popover.className = CONTROL_POPOVER_CLASS;
   popover.dataset.aiobVideoControlBarPopover = 'true';
@@ -264,8 +290,8 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   noteInput.type = 'text';
   noteInput.className = `${CONTROL_POPOVER_CLASS}__note-input`;
   noteInput.dataset.aiobVideoControlBarNoteInput = 'true';
-  noteInput.placeholder = 'Add note';
-  noteInput.setAttribute('aria-label', 'Add video note');
+  noteInput.placeholder = texts.notePlaceholder;
+  noteInput.setAttribute('aria-label', texts.noteAriaLabel);
 
   const onToggle = (preference: keyof VideoControlBarPreferences, checked: boolean): void => {
     preferences = {
@@ -278,14 +304,14 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   const autoPause = createPreferenceToggle(
     doc,
     'autoPauseEnabled',
-    '自动暂停视频',
+    texts.autoPauseLabel,
     preferences.autoPauseEnabled,
     onToggle
   );
   const screenshot = createPreferenceToggle(
     doc,
     'captureScreenshotEnabled',
-    '捕捉当前视频截图',
+    texts.screenshotLabel,
     preferences.captureScreenshotEnabled,
     onToggle
   );
