@@ -1,5 +1,6 @@
 import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
+import { getPreviewTemplateDefaults } from '@shared/config';
 import type { PreviewContent } from './types';
 
 const usageHistoryValues = [
@@ -210,12 +211,7 @@ export const previewContent: PreviewContent = {
       pills: ['Templates', 'Domain Naming', 'YAML Schema'],
       icon: 'output'
     },
-    templateDefaults: {
-      articleVideo: 'Articles/{domain}/{yyyy}/{slug}.md',
-      fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-      readingCustom: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-      aiChat: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
-    },
+    templateDefaults: getPreviewTemplateDefaults(),
     tokens: [
       '{platform}',
       '{domain}',

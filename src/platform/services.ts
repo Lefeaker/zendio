@@ -14,6 +14,8 @@ import { createFirefoxServices } from './firefox';
 import type { PartialPlatformServices, PlatformServices } from './types';
 import { registry, TOKENS } from '../shared/di';
 import { createFetchRestClient } from '../infrastructure/restClient';
+import { configureSessionDraftRuntimeMessenger } from '../content/sessionDrafts/sessionDraftTabContext';
+import { configureI18nRuntimeLanguageProvider } from '../i18n';
 /**
  * 检测当前浏览器环境
  */
@@ -25,6 +27,17 @@ function detectBrowserEnvironment(): 'chrome' | 'firefox' | 'unknown' {
     return 'firefox';
   }
   return 'unknown';
+}
+
+function configureRuntimePorts(runtime: PlatformServices['runtime'] | null): void {
+  configureSessionDraftRuntimeMessenger(
+    runtime && typeof runtime.sendMessage === 'function'
+      ? (message) => runtime.sendMessage!(message)
+      : null
+  );
+  configureI18nRuntimeLanguageProvider(
+    runtime && typeof runtime.getUILanguage === 'function' ? () => runtime.getUILanguage!() : null
+  );
 }
 
 function createDefaultServices(): PlatformServices {
@@ -64,7 +77,9 @@ export function getPlatformServices(): PlatformServices {
     // 自动注册默认服务（向后兼容）
     registry.register(TOKENS.platformServices, createDefaultServices);
   }
-  return registry.resolve<PlatformServices>(TOKENS.platformServices);
+  const services = registry.resolve<PlatformServices>(TOKENS.platformServices);
+  configureRuntimePorts(services.runtime);
+  return services;
 }
 
 /**
@@ -73,10 +88,12 @@ export function getPlatformServices(): PlatformServices {
  */
 export function configurePlatformServices(overrides: PartialPlatformServices): void {
   registry.register(TOKENS.platformServices, () => {
-    return {
+    const services = {
       ...createDefaultServices(),
       ...overrides
     };
+    configureRuntimePorts(services.runtime);
+    return services;
   });
 }
 
@@ -84,6 +101,7 @@ export function configurePlatformServices(overrides: PartialPlatformServices): v
  * 重置平台服务为默认实现
  */
 export function resetPlatformServices(): void {
+  configureRuntimePorts(null);
   registry.dispose(TOKENS.platformServices);
   registry.register(TOKENS.platformServices, createDefaultServices);
 }
