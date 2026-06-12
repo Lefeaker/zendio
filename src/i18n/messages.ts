@@ -13,14 +13,19 @@ export type RuntimeMessages = GeneratedRuntimeMessages;
 export type SchemaMessages = GeneratedSchemaMessages;
 export type Messages = RuntimeMessages & Partial<SchemaMessages>;
 
-const PSEUDO_SCHEMA_MESSAGES = pseudoLocalizeRecord(GENERATED_RELEASE_SCHEMA_MESSAGES_EN);
+let pseudoSchemaMessages: SchemaMessages | null = null;
+
+function getPseudoSchemaMessages(): SchemaMessages {
+  pseudoSchemaMessages ??= pseudoLocalizeRecord(GENERATED_RELEASE_SCHEMA_MESSAGES_EN);
+  return pseudoSchemaMessages;
+}
 
 function resolveSchemaMessages(language: string): SchemaMessages {
   const fallbackChain = getRuntimeLanguageFallbackChain(language);
 
   for (const code of fallbackChain) {
-    if (code === 'qps-ploc') {
-      return PSEUDO_SCHEMA_MESSAGES;
+    if (process.env.NODE_ENV !== 'production' && code === 'qps-ploc') {
+      return getPseudoSchemaMessages();
     }
     if (isReleaseLanguage(code)) {
       return GENERATED_RELEASE_SCHEMA_MESSAGES[code];
