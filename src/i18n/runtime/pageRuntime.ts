@@ -1,7 +1,7 @@
 import { createDomBindingAdapter } from '../adapters/domBindingAdapter';
 import { DEFAULT_LANGUAGE, LANGUAGE_CONFIG, type LangCode } from '../config';
 import type { LocaleDefinition } from '../localeDefinition';
-import type { Messages } from '../messages';
+import type { Messages, RuntimeMessages } from '../messages';
 import { createPageI18nController, type PageI18nController } from '../pageController';
 import type { I18nBindingAdapter } from '../types';
 import { getRuntimeLanguageFallbackChain } from './fallback';
@@ -15,7 +15,7 @@ export interface RuntimeDocumentLike {
 export interface PageRuntimeOptions {
   defaultLanguage?: LangCode;
   loadLocaleDefinition(language: LangCode): Promise<LocaleDefinition>;
-  defaultRuntimeMessages: Messages;
+  defaultRuntimeMessages: RuntimeMessages;
   getMessagesForLanguage(language: string): Promise<Messages>;
   getCurrentLanguage(): Promise<LangCode>;
   setCurrentLanguage(language: LangCode): Promise<void>;
@@ -30,7 +30,7 @@ export interface PageRuntimeControllerOptions {
 }
 
 export interface PageRuntime {
-  loadLocale(language?: string): Promise<Messages>;
+  loadLocale(language?: string): Promise<RuntimeMessages>;
   createDefaultPageI18nController(options?: PageRuntimeControllerOptions): PageI18nController;
 }
 

@@ -31,7 +31,8 @@ const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // allowing the reader shared chunk created by that production behavior.
 const SHARED_CHUNK_BUDGETS = [190 * 1024, 136 * 1024, 96 * 1024];
 const MAX_LOCALE_CHUNK_SIZE = 60 * 1024;
-const LOCALE_CHUNK_PATTERN = /^(?:qps-ploc|en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)-/;
+const LOCALE_CHUNK_PATTERN =
+  /^(?:en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)(?:\.generated)?-/;
 const YAML_CONFIG_CHUNK_PATTERN = /^yaml-config-/;
 const YAML_CONFIG_CHUNK_BUDGET = 70 * 1024;
 

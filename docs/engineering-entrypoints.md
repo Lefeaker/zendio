@@ -60,6 +60,7 @@
 - 2026-06-07 video legacy recovery type-ratchet 真值：当前集成树 `lint:type-any` 实测扫描 `1111` files，overall `0/1125/1838/53/4`、src `0/612/622/7/0`、tests `0/513/1216/46/4`；`lint:type-any:ratchet` 的 checked-in 上限同步为这些 current truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`。
 - 2026-06-08 options i18n PR/main merge type-ratchet 真值：当前合并树 `lint:type-any` 实测扫描 `1133` files，fresh overall `0/1113/1819/38/4`、src `0/613/628/7/0`、tests `0/500/1191/31/4`；`lint:type-any:ratchet` 的 checked-in 上限守住 overall `0/1125/1838/53/4`、src `0/613/628/7/0`、tests `0/513/1216/46/4`，本次只同步 src merge truth，`any` 继续保持 `0`，`ts-expect-error` 继续保持 `4`。
 - 2026-06-07 video note stability 修复真值：`codex/aiiinob-video-note-stability-2026-06-07-integration` 解决了视频时间戳备注在第 6 个及后续 capture 上因 live draft flush、未 scoped editor stop、runtime mutation 绕过 draft sync 而不稳定的问题；最终行为要求新增时间戳、切换其他时间戳截图状态、勾选评论区文字、删除其他 capture、pagehide/visibility persistence 与 export preparation 均不得丢失任一 timestamp note，且截图状态切换不得 seek/pause/play 可见视频。该集成树已通过 `quality`、`verify:preflight`、`test:unit`、`tests/e2e/videoPanelFlow.test.ts` Chromium desktop、reader-panel browser E2E 与独立 closeout audit；P05/P06 的窄 helper extraction / test hardening 已在 workspace plan 中补充记录。
+- 2026-06-12 P01 audit truth gate verification：`report-build-splitting` 现已识别 `.generated-*` release locale chunks；generated locale modules 仅承载 non-schema runtime messages 与 WebExtension static messages，schema/options copy 改由 `schemaMessages.generated.ts` + `@i18n/messages` consumer path 提供，不再回灌到 content/runtime locale chunks。当前 dev build release locale chunks 全部低于 `60 KB`：`de 34.7 KB`、`es-419 34.6 KB`、`es-ES 34.7 KB`、`fr 35.5 KB`、`it 33.5 KB`、`ja 37.9 KB`、`ko 35.3 KB`、`pt-BR 34.1 KB`、`ru 48.4 KB`、`zh-CN 29.7 KB`、`zh-TW 29.2 KB`；`audit:build:report`、`audit:locales:report` 与 `audit:performance:report` 均通过。
 
 ## 当前推荐执行顺序
 
@@ -162,9 +163,11 @@ background write/download boundaries.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` errors / `6` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 video screenshot/session stability integration `1142` files；fresh overall 为 `any: 0`、`unknown: 1125`、assertions `1838`、non-null assertions `42`、`ts-expect-error: 3`；src 为 `0/613/623/7/0`；tests 为 `0/512/1215/35/3`。
+- `npm run lint:type-any`：扫描当前 P01 worktree `1162` files；fresh overall 为 `any: 0`、`unknown: 1109`、assertions `1828`、non-null assertions `41`、`ts-expect-error: 3`；src 为 `0/612/626/7/0`；tests 为 `0/497/1202/34/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限仍守住 overall `0/1125/1838/53/4`、src `0/613/628/7/0`、tests `0/513/1216/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1125/1838/42/3`、src `0/613/623/7/0`、tests `0/512/1215/35/3`。fresh count 低于 checked-in 上限时，不得把上限误写成当前实测，也不得用 tests 下降抵消 src 增长。
+- `npm run lint:type-any:ratchet`：当前 checked-in 上限仍守住 overall `0/1125/1838/53/4`、src `0/613/628/7/0`、tests `0/513/1216/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1109/1828/41/3`、src `0/612/626/7/0`、tests `0/497/1202/34/3`。fresh count 低于 checked-in 上限时，不得把上限误写成当前实测，也不得用 tests 下降抵消 src 增长。
+- `npm run audit:platform-boundary:report`：通过，当前为 `153` findings（composition-root `11`、migration-needed `5`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
+- `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 620`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
 ## 当前构建预算真值
 

@@ -1,11 +1,10 @@
-import type { Messages } from './messages';
-
+import type { RuntimeMessages } from './messages';
 export interface LocaleStaticMessages {
   extName: string;
   extDescription: string;
 }
 
 export interface LocaleDefinition {
-  runtime: Messages;
+  runtime: RuntimeMessages;
   static: LocaleStaticMessages;
 }

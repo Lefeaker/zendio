@@ -13,6 +13,7 @@ import ptBR from '@i18n/generated/locales/pt-BR.generated';
 import ru from '@i18n/generated/locales/ru.generated';
 import zhCN from '@i18n/generated/locales/zh-CN.generated';
 import zhTW from '@i18n/generated/locales/zh-TW.generated';
+import { getMessagesForLanguage } from '@i18n';
 import {
   schemaShellMessagesDe,
   schemaShellMessagesEn,
@@ -79,45 +80,44 @@ describe('schema i18n parity', () => {
     });
   });
 
-  it('keeps release runtime locale maps in sync with the generated schema catalogs', () => {
-    const localeSchemas = [
+  it('keeps generated runtime locale modules schema-free while page messages merge schema catalogs', async () => {
+    const runtimeLocales = [
       en.runtime,
-      schemaShellMessagesEnglish,
       zhCN.runtime,
-      schemaShellMessagesZhHans,
       ja.runtime,
-      schemaShellMessagesJa,
       de.runtime,
-      schemaShellMessagesDe,
       fr.runtime,
-      schemaShellMessagesFr,
       esES.runtime,
-      schemaShellMessagesEsEs,
       es419.runtime,
-      schemaShellMessagesEs419,
       itLocale.runtime,
-      schemaShellMessagesIt,
       ko.runtime,
-      schemaShellMessagesKo,
       ptBR.runtime,
-      schemaShellMessagesPtBr,
       ru.runtime,
-      schemaShellMessagesRu,
-      zhTW.runtime,
-      schemaShellMessagesZhHant
-    ];
+      zhTW.runtime
+    ] as Array<Record<string, string>>;
 
-    for (let index = 0; index < localeSchemas.length; index += 2) {
-      const runtime = localeSchemas[index] as Record<string, string>;
-      const schemaMessages = localeSchemas[index + 1] as Record<string, string>;
-
-      for (const [key, value] of Object.entries(schemaMessages)) {
-        expect(runtime[key]).toBe(value);
-      }
+    for (const runtime of runtimeLocales) {
+      expect('schemaOverviewTitle' in runtime).toBe(false);
+      expect('schemaRuntimeUiGroupTitle' in runtime).toBe(false);
+      expect('schemaStorageConnectionNotRun' in runtime).toBe(false);
     }
+
+    const englishMessages = await getMessagesForLanguage('en');
+    const zhHansMessages = await getMessagesForLanguage('zh-CN');
+
+    expect(englishMessages.schemaOverviewTitle).toBe(
+      schemaShellMessagesEnglish.schemaOverviewTitle
+    );
+    expect(englishMessages.schemaRuntimeUiGroupTitle).toBe(
+      schemaShellMessagesEnglish.schemaRuntimeUiGroupTitle
+    );
+    expect(zhHansMessages.schemaOverviewTitle).toBe(schemaShellMessagesZhHans.schemaOverviewTitle);
+    expect(zhHansMessages.schemaStorageConnectionNotRun).toBe(
+      schemaShellMessagesZhHans.schemaStorageConnectionNotRun
+    );
   });
 
-  it('publishes representative P03-P13 schema keys to both shell and runtime locale maps', () => {
+  it('publishes representative P03-P13 schema keys through the shell catalog and page-message merge path', async () => {
     const representativeKeys = [
       'schemaRendererResourceOpenAction',
       'schemaNavOverviewHint',
@@ -157,13 +157,16 @@ describe('schema i18n parity', () => {
       'schemaRuntimeVideoFloatingPromptTitle'
     ] as const;
 
+    const englishMessages = await getMessagesForLanguage('en');
+    const zhHansMessages = await getMessagesForLanguage('zh-CN');
+
     for (const key of representativeKeys) {
       expect(schemaShellMessagesEnglish[key]).toBeTypeOf('string');
       expect(schemaShellMessagesEn[key]).toBe(schemaShellMessagesEnglish[key]);
-      expect(en.runtime[key]).toBe(schemaShellMessagesEnglish[key]);
+      expect(englishMessages[key]).toBe(schemaShellMessagesEnglish[key]);
 
       expect(schemaShellMessagesZhHans[key]).toBeTypeOf('string');
-      expect(zhCN.runtime[key]).toBe(schemaShellMessagesZhHans[key]);
+      expect(zhHansMessages[key]).toBe(schemaShellMessagesZhHans[key]);
     }
   });
 
