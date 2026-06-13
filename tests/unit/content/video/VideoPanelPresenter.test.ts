@@ -24,6 +24,10 @@ function createView(): VideoSessionView & {
   };
 }
 
+function getRenderedCaptures(view: ReturnType<typeof createView>): VideoPanelCapture[] | undefined {
+  return view.setCaptures.mock.calls[0]?.[0];
+}
+
 describe('VideoPanelPresenter', () => {
   it('formats timestamp and fragment captures into view items', () => {
     const view = createView();
@@ -61,7 +65,7 @@ describe('VideoPanelPresenter', () => {
       ]
     });
 
-    const captures = view.setCaptures.mock.calls[0]?.[0] as VideoPanelCapture[] | undefined;
+    const captures = getRenderedCaptures(view);
 
     expect(count).toBe(2);
     expect(view.updateCount).toHaveBeenCalledWith(2);
@@ -97,7 +101,7 @@ describe('VideoPanelPresenter', () => {
       fragments: []
     });
 
-    const captures = view.setCaptures.mock.calls[0]?.[0] as VideoPanelCapture[] | undefined;
+    const captures = getRenderedCaptures(view);
 
     expect(captures?.[0]).toMatchObject({
       id: 'pending-shot',

@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { z } from 'zod';
 
-interface PackageJson {
-  scripts: Record<string, string>;
-}
+const PackageJsonSchema = z.object({
+  scripts: z.record(z.string())
+});
 
 const runtimeGuardPrefix = 'npm run verify:runtime && ';
 
-function readPackageJson(): PackageJson {
-  return JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as PackageJson;
+function readPackageJson(): z.infer<typeof PackageJsonSchema> {
+  return PackageJsonSchema.parse(JSON.parse(readFileSync(resolve('package.json'), 'utf8')));
 }
 
 describe('package test script runtime guards', () => {

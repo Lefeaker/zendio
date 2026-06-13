@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
+import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
 const handleClipResultMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -93,10 +94,12 @@ describe('runtime message listener', () => {
         success: true as const,
         active: ownerContext.tabId === 12
       })),
-      captureVisibleTabScreenshot: vi.fn(async () => ({
-        success: true as const,
-        dataUrl: 'data:image/jpeg;base64,dmlkZW8='
-      }))
+      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(
+        async () => ({
+          success: true,
+          dataUrl: 'data:image/jpeg;base64,dmlkZW8='
+        })
+      )
     };
   }
 

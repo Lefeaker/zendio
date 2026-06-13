@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
-import type { VideoCapture } from '@content/video/types';
+import type { VideoCapture, VideoCaptureScreenshot } from '@content/video/types';
 import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope,
@@ -10,7 +10,11 @@ import {
 
 const BASE_TIME = 2_000_000_000_000;
 
-function createBlobScreenshot(id: string, fileName: string, capturedAt: number) {
+function createBlobScreenshot(
+  id: string,
+  fileName: string,
+  capturedAt: number
+): VideoCaptureScreenshot {
   const blob = new Blob(['frame'], { type: 'image/jpeg' });
   return {
     id,
@@ -35,7 +39,7 @@ function createCaptures(): VideoCapture[] {
       comment: 'Marker',
       createdAt: BASE_TIME,
       screenshotRequested: true,
-      screenshot: createBlobScreenshot('shot-1', 'video-0m42s.jpg', BASE_TIME + 1) as never
+      screenshot: createBlobScreenshot('shot-1', 'video-0m42s.jpg', BASE_TIME + 1)
     },
     {
       kind: 'fragment',
@@ -132,7 +136,7 @@ describe('videoSessionDrafts', () => {
           url: 'https://video.example/watch?v=1&t=12',
           comment: 'Prepared but off',
           createdAt: BASE_TIME,
-          screenshot: createBlobScreenshot('shot-off', 'video-0m12s.jpg', BASE_TIME + 1) as never
+          screenshot: createBlobScreenshot('shot-off', 'video-0m12s.jpg', BASE_TIME + 1)
         }
       ],
       commentDrafts: {},

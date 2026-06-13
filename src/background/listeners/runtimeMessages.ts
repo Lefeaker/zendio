@@ -262,7 +262,7 @@ export function registerRuntimeMessageListener(
       'type' in message &&
       message.type === CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE
     ) {
-      return dependencies.captureVisibleTabScreenshot(sender as RuntimeMessageSender);
+      return dependencies.captureVisibleTabScreenshot(toRuntimeMessageSender(sender));
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {
