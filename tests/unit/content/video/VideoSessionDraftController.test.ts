@@ -95,7 +95,7 @@ function createHarness(
     controller,
     destinationState,
     cleanupState,
-    setDomDrafts(drafts: Record<string, string>) {
+    setDomDrafts: (drafts: Record<string, string>) => {
       domDrafts = { ...drafts };
     }
   };

@@ -178,9 +178,6 @@ async function installShadowListenerProbe(extensionPage: Page, tabId: number): P
         const bumpCounter = (bucket: Record<string, number>, key: string): void => {
           bucket[key] = (bucket[key] ?? 0) + 1;
         };
-        const originalAddEventListener = ShadowRoot.prototype.addEventListener;
-        const originalRemoveEventListener = ShadowRoot.prototype.removeEventListener;
-
         Object.defineProperty(ShadowRoot.prototype, 'addEventListener', {
           configurable: true,
           value: function addEventListener(
@@ -196,12 +193,7 @@ async function installShadowListenerProbe(extensionPage: Page, tabId: number): P
                 `${fixtureKey}:${type}`
               );
             }
-            return originalAddEventListener.call(
-              this,
-              type,
-              listener as EventListenerOrEventListenerObject,
-              options
-            );
+            return EventTarget.prototype.addEventListener.call(this, type, listener, options);
           }
         });
         Object.defineProperty(ShadowRoot.prototype, 'removeEventListener', {
@@ -219,12 +211,7 @@ async function installShadowListenerProbe(extensionPage: Page, tabId: number): P
                 `${fixtureKey}:${type}`
               );
             }
-            return originalRemoveEventListener.call(
-              this,
-              type,
-              listener as EventListenerOrEventListenerObject,
-              options
-            );
+            return EventTarget.prototype.removeEventListener.call(this, type, listener, options);
           }
         });
       }
