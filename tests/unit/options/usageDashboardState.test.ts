@@ -110,7 +110,7 @@ describe('usage dashboard state bridge', () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'usage_dashboard_increment',
       params: { category: 'ai_chat', increment: 3, total_after: 5 }
     });

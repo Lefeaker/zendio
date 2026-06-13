@@ -4,7 +4,7 @@ import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
-  createTrackUsageEventMessage,
+  createAnalyticsEventMessage,
   type ExportDestination,
   type FailureCategory,
   type UsageEventName,
@@ -170,7 +170,7 @@ async function sendVideoUsageEvent<EventName extends UsageEventName>(
   }
 
   const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
-  const payload = createTrackUsageEventMessage(event, params);
+  const payload = createAnalyticsEventMessage(event, params);
   await messaging.send(payload);
 }
 

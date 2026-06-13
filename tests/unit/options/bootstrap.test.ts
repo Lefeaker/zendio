@@ -198,14 +198,14 @@ describe('options bootstrap', () => {
     await bootstrapOptionsApp();
 
     expect(messagingSendMock).toHaveBeenNthCalledWith(1, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_opened',
       params: {
         source: 'unknown'
       }
     });
     expect(messagingSendMock).toHaveBeenNthCalledWith(2, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_section_viewed',
       params: {
         section: 'overview'

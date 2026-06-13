@@ -9,8 +9,8 @@ import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
 import {
-  createTrackUsageEventMessage,
-  type TrackUsageEventPayload,
+  createAnalyticsEventMessage,
+  type AnalyticsRuntimeEventPayload,
   type UsageEventParamMap
 } from '@shared/types/analytics';
 import { bucketCount } from '@shared/analytics/featureTimer';
@@ -688,8 +688,8 @@ export async function trackReaderUsageEvent<EventName extends ReaderUsageEventNa
   params: UsageEventParamMap[EventName]
 ): Promise<void> {
   try {
-    const payload = createTrackUsageEventMessage(event, params);
-    await context.dependencies.messaging.send(payload as TrackUsageEventPayload);
+    const payload = createAnalyticsEventMessage(event, params);
+    await context.dependencies.messaging.send(payload as AnalyticsRuntimeEventPayload);
   } catch (error) {
     console.debug('[ReaderSession] Failed to send analytics event:', error);
   }

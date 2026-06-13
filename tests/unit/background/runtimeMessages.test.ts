@@ -226,7 +226,7 @@ describe('runtime message listener', () => {
 
     await listener?.({ type: 'CLIP_RESULT', payload: { markdown: '# hello' } }, { tabId: 12 });
     await listener?.(
-      { type: 'TRACK_USAGE_EVENT', event: 'support_like_clicked', params: { variant: 'first' } },
+      { type: 'ANALYTICS_EVENT', event: 'support_like_clicked', params: { variant: 'first' } },
       { tabId: 12 }
     );
 
@@ -236,6 +236,32 @@ describe('runtime message listener', () => {
       expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('keeps legacy analytics runtime message types accepted for one release boundary', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      { type: 'TRACK_USAGE_EVENT', event: 'support_dislike_clicked' },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'track',
+        event: 'usage_dashboard_increment',
+        params: { category: 'ai_chat', increment: 1, total_after: 5 }
+      },
+      { tabId: 12 }
+    );
+
+    expect(trackUsageEventMock).toHaveBeenNthCalledWith(1, 'support_dislike_clicked', undefined);
+    expect(trackUsageEventMock).toHaveBeenNthCalledWith(2, 'usage_dashboard_increment', {
+      category: 'ai_chat',
+      increment: 1,
+      total_after: 5
+    });
   });
 
   it('returns sender tab context metadata for content-side owner resolution', async () => {

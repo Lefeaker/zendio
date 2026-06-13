@@ -366,21 +366,21 @@ describe('mountProductionStitchShell actions', () => {
     expect(scrollToPanelMock).toHaveBeenCalledWith('storage');
     expect(openResourceMock).toHaveBeenCalledWith('privacy-policy');
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_theme_changed',
       params: {
         theme: 'system'
       }
     });
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_language_changed',
       params: {
         language: 'ja'
       }
     });
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
       params: {
         action: 'maintenance_diagnose',
@@ -389,7 +389,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
       params: {
         action: 'resource_open',
@@ -398,14 +398,14 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_section_viewed',
       params: {
         section: 'storage'
       }
     });
     expect(trackUsageEventMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'experimental_feature_toggled',
       params: {
         feature_key: 'page_summary_enabled',
@@ -564,7 +564,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(analyticsMocks.setAnalyticsConsent).toHaveBeenLastCalledWith(true, false);
     expect(updateErrorAnalyticsConfigMock).toHaveBeenLastCalledWith(false);
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
       params: {
         field: 'analytics',
@@ -579,7 +579,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(analyticsMocks.setAnalyticsConsent).toHaveBeenLastCalledWith(true, true);
     expect(updateErrorAnalyticsConfigMock).toHaveBeenLastCalledWith(true);
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
       params: {
         field: 'errorReporting',
@@ -602,7 +602,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
       params: {
         field: 'debugMode',
@@ -715,7 +715,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).toContain('Localized clear error');
     expect(sendAnalyticsDataClearedEventMock).toHaveBeenCalledTimes(1);
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'analytics_data_cleared',
       params: {
         outcome: 'failed'
@@ -795,7 +795,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
     expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'clear_stats',
       params: { timestamp: 1234 }
     });
@@ -827,7 +827,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'config_export_completed',
       params: {
         outcome: 'completed'
@@ -842,7 +842,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'config_export_completed',
       params: {
         outcome: 'failed'
@@ -894,7 +894,7 @@ describe('mountProductionStitchShell actions', () => {
       debugMode: false
     });
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'config_import_completed',
       params: {
         outcome: 'completed',
@@ -943,7 +943,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).toContain('Import failed: Error: save failed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'config_import_completed',
       params: {
         outcome: 'failed',
@@ -990,7 +990,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).toContain('Import failed: Error: analytics failed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'config_import_completed',
       params: {
         outcome: 'failed',
@@ -1038,7 +1038,7 @@ describe('mountProductionStitchShell actions', () => {
       }) as unknown
     });
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
       params: {
         action: 'maintenance_repair',

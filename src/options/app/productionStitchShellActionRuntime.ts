@@ -1,7 +1,10 @@
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import type { Language, Messages } from '@i18n';
 import type { IOptionsRepository } from '@shared/repositories';
-import { createTrackUsageEventMessage, type TrackUsageEventPayload } from '@shared/types/analytics';
+import {
+  createAnalyticsEventMessage,
+  type AnalyticsRuntimeEventPayload
+} from '@shared/types/analytics';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
@@ -76,7 +79,7 @@ type AnalyticsSection =
   | 'advanced';
 
 type TrackablePersistence = ProductionStitchPersistence & {
-  trackUsageEvent?: (message: TrackUsageEventPayload) => Promise<void>;
+  trackUsageEvent?: (message: AnalyticsRuntimeEventPayload) => Promise<void>;
 };
 
 const PANEL_SECTION_MAP: Record<string, AnalyticsSection> = {
@@ -129,7 +132,7 @@ function sanitizeActionId(actionId: string): string {
 function createProductionOptionsTelemetry(persistence: ProductionStitchPersistence) {
   const trackablePersistence = persistence as TrackablePersistence;
 
-  async function send(message: TrackUsageEventPayload): Promise<void> {
+  async function send(message: AnalyticsRuntimeEventPayload): Promise<void> {
     try {
       await trackablePersistence.trackUsageEvent?.(message);
     } catch {
@@ -143,7 +146,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
       return;
     }
     void send(
-      createTrackUsageEventMessage('options_section_viewed', {
+      createAnalyticsEventMessage('options_section_viewed', {
         section
       })
     );
@@ -153,7 +156,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
     const action = sanitizeActionId('resource:open');
     const section = RESOURCE_SECTION_MAP[resourceId];
     void send(
-      createTrackUsageEventMessage('options_action_completed', {
+      createAnalyticsEventMessage('options_action_completed', {
         action,
         outcome: 'completed',
         ...(section ? { section } : {})
@@ -166,7 +169,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
       return;
     }
     void send(
-      createTrackUsageEventMessage('options_action_completed', {
+      createAnalyticsEventMessage('options_action_completed', {
         action: sanitizeActionId(actionId),
         outcome: 'completed',
         section: ACTION_SECTION_MAP[actionId]
@@ -179,7 +182,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
     outcome: 'completed' | 'failed'
   ): void {
     void send(
-      createTrackUsageEventMessage('options_action_completed', {
+      createAnalyticsEventMessage('options_action_completed', {
         action: sanitizeActionId(actionId),
         outcome,
         section: 'advanced'
@@ -189,7 +192,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
 
   function trackThemeChanged(theme: 'light' | 'dark' | 'system'): void {
     void send(
-      createTrackUsageEventMessage('options_theme_changed', {
+      createAnalyticsEventMessage('options_theme_changed', {
         theme
       })
     );
@@ -197,7 +200,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
 
   function trackLanguageChanged(language: Language): void {
     void send(
-      createTrackUsageEventMessage('options_language_changed', {
+      createAnalyticsEventMessage('options_language_changed', {
         language
       })
     );
@@ -205,7 +208,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
 
   function trackExperimentalFeatureToggle(featureKey: string, enabled: boolean): void {
     void send(
-      createTrackUsageEventMessage('experimental_feature_toggled', {
+      createAnalyticsEventMessage('experimental_feature_toggled', {
         feature_key: featureKey,
         enabled
       })

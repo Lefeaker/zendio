@@ -56,10 +56,15 @@ export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyti
 }
 
 export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
+  const analyticsEventMessage = readFromRoot(
+    projectRoot,
+    'src/shared/analytics/analyticsEventMessage.ts'
+  );
   const analyticsEnvironment = readFromRoot(projectRoot, 'src/shared/analytics/analyticsEnvironment.ts');
   const analyticsConsent = readFromRoot(projectRoot, 'src/shared/analytics/analyticsConsent.ts');
   const analyticsQueue = readFromRoot(projectRoot, 'src/shared/analytics/analyticsQueue.ts');
   const analyticsTransport = readFromRoot(projectRoot, 'src/shared/analytics/analyticsTransport.ts');
+  const analyticsTypes = readFromRoot(projectRoot, 'src/shared/types/analytics.ts');
   const analyticsConfig = readFromRoot(
     projectRoot,
     'src/shared/errors/analytics/analyticsConfig.ts'
@@ -89,6 +94,17 @@ export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
 
   return {
     transportModes: extractAnalyticsTransportModes(analyticsEnvironment),
+    typedAnalyticsEventMessageApiPresent:
+      hasAll(analyticsEventMessage, [
+        'ANALYTICS_EVENT_MESSAGE',
+        'createAnalyticsEventMessage',
+        'isAnalyticsRuntimeEventMessage'
+      ]) &&
+      hasAll(analyticsTypes, [
+        'ANALYTICS_EVENT_MESSAGE',
+        'createAnalyticsEventMessage',
+        'isAnalyticsRuntimeEventMessage'
+      ]),
     clientRuntimeContainsApiSecret:
       /\bapi_secret\b/i.test(clientRuntimeSource) || /\bapiSecret\b/.test(clientRuntimeSource),
     trackedConfigUsesPublicBuildConfigOnly: hasAll(analyticsConfig, [
@@ -198,6 +214,7 @@ function validateRequiredFiles() {
   info('Checking required analytics files');
 
   const requiredFiles = [
+    'src/shared/analytics/analyticsEventMessage.ts',
     'src/shared/analytics/analyticsEnvironment.ts',
     'src/shared/analytics/analyticsConsent.ts',
     'src/shared/analytics/analyticsQueue.ts',
@@ -254,6 +271,12 @@ function validateTrackedConfig() {
     ok('tracked analytics config reads only public build analytics config');
   } else {
     fail('tracked analytics config no longer matches the public build config contract');
+  }
+
+  if (trackedContract.typedAnalyticsEventMessageApiPresent) {
+    ok('typed analytics runtime message facade is present');
+  } else {
+    fail('typed analytics runtime message facade is missing');
   }
 
   if (
@@ -375,7 +398,7 @@ function validatePrivacyWiring() {
 
   if (
     hasAll(persistence, [
-      "createTrackUsageEventMessage('privacy_consent_changed'",
+      "createAnalyticsEventMessage('privacy_consent_changed'",
       'persistPrivacyConsentAction',
       'setAnalyticsConsent',
       'updateErrorAnalyticsConfig'

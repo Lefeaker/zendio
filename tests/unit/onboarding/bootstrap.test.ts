@@ -211,7 +211,7 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_started',
       params: { source: 'install' }
     });
@@ -223,7 +223,7 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
       params: {
         step: 'welcome',
@@ -231,7 +231,7 @@ describe('onboarding bootstrap', () => {
       }
     });
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
       params: {
         step: 'welcome',
@@ -247,14 +247,14 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_skipped',
       params: {
         step: 'vault'
       }
     });
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
       params: {
         step: 'vault',
@@ -270,14 +270,14 @@ describe('onboarding bootstrap', () => {
 
     expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
       params: {
         action: 'docs'
       }
     });
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
       params: {
         step: 'finish',
@@ -285,7 +285,7 @@ describe('onboarding bootstrap', () => {
       }
     });
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
       params: {
         action: 'docs',
@@ -300,7 +300,7 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_completed',
       params: {
         duration_bucket: '3s_to_9s'
@@ -356,14 +356,14 @@ describe('onboarding bootstrap', () => {
     );
     expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
       params: {
         action: 'contact'
       }
     });
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
       params: {
         step: 'finish',
@@ -377,7 +377,7 @@ describe('onboarding bootstrap', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     await waitForSentMessage(messagingRepository.send, {
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
       params: {
         action: 'feedback'

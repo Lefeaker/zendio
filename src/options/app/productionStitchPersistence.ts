@@ -7,7 +7,10 @@ import {
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
-import { createTrackUsageEventMessage, type TrackUsageEventPayload } from '@shared/types/analytics';
+import {
+  createAnalyticsEventMessage,
+  type AnalyticsRuntimeEventPayload
+} from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 import type { Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
@@ -57,14 +60,14 @@ export interface ProductionStitchPersistence {
   ): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
-  trackUsageEvent(message: TrackUsageEventPayload): Promise<void>;
+  trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
 }
 
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
   async function trackUsageEvent(
-    message: ReturnType<typeof createTrackUsageEventMessage>
+    message: ReturnType<typeof createAnalyticsEventMessage>
   ): Promise<void> {
     try {
       await options.messagingRepository.send(message);
@@ -142,7 +145,7 @@ export function createProductionStitchPersistence(
     await applyRuntimePrivacySnapshot(nextSnapshot, field);
     options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     await trackUsageEvent(
-      createTrackUsageEventMessage('privacy_consent_changed', {
+      createAnalyticsEventMessage('privacy_consent_changed', {
         field,
         enabled: nextSnapshot[field]
       })
@@ -259,7 +262,7 @@ export function createProductionStitchPersistence(
     try {
       await writeToClipboard(serializeOptionsFullBackup(options.collectDraftWithWidgets()));
       await trackUsageEvent(
-        createTrackUsageEventMessage('config_export_completed', {
+        createAnalyticsEventMessage('config_export_completed', {
           outcome: 'completed'
         })
       );
@@ -272,7 +275,7 @@ export function createProductionStitchPersistence(
       );
     } catch (error) {
       await trackUsageEvent(
-        createTrackUsageEventMessage('config_export_completed', {
+        createAnalyticsEventMessage('config_export_completed', {
           outcome: 'failed'
         })
       );
@@ -292,7 +295,7 @@ export function createProductionStitchPersistence(
       analyticsPayloadPresent = configuration.analyticsPayloadPresent;
       await importConfigurationFromClipboard(configuration);
       await trackUsageEvent(
-        createTrackUsageEventMessage('config_import_completed', {
+        createAnalyticsEventMessage('config_import_completed', {
           outcome: 'completed',
           analytics_payload_present: analyticsPayloadPresent
         })
@@ -306,7 +309,7 @@ export function createProductionStitchPersistence(
       );
     } catch (error) {
       await trackUsageEvent(
-        createTrackUsageEventMessage('config_import_completed', {
+        createAnalyticsEventMessage('config_import_completed', {
           outcome: 'failed',
           analytics_payload_present: analyticsPayloadPresent
         })

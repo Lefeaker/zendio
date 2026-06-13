@@ -17,6 +17,7 @@ type TrackedAnalyticsSourceContract = {
   directDebugValidationIntent: boolean;
   debugSuccessSummaryRedacted: boolean;
   successLoggingScopedToDirectDebug: boolean;
+  typedAnalyticsEventMessageApiPresent: boolean;
 };
 
 type SetupErrorAnalyticsModule = {
@@ -73,5 +74,11 @@ describe('setup-error-analytics script', () => {
 
     expect(contract.debugSuccessSummaryRedacted).toBe(true);
     expect(contract.successLoggingScopedToDirectDebug).toBe(true);
+  });
+
+  it('requires the typed analytics event message facade in tracked production wiring', async () => {
+    const contract = await collectTrackedContract();
+
+    expect(contract.typedAnalyticsEventMessageApiPresent).toBe(true);
   });
 });
