@@ -18,6 +18,7 @@ describe('captureStorage', () => {
         comment: 'mark',
         url: 'https://video.example?t=12',
         createdAt: now,
+        screenshotRequested: true,
         screenshot: {
           id: 'shot-1',
           fileName: 'video-0m12s-screenshot.png',

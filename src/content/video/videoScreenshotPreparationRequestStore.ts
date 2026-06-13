@@ -16,6 +16,7 @@ interface VideoScreenshotPreparationRequestState<
   TAttempt extends VideoScreenshotPreparationAttemptLike
 > {
   tracked: boolean;
+  explicitVisible: boolean;
   visibleAttempted: boolean;
   visibleInFlight: boolean;
   hiddenAttempt: TAttempt | null;
@@ -58,6 +59,7 @@ export class VideoScreenshotPreparationRequestStore<
     }
 
     request.tracked = false;
+    request.explicitVisible = false;
     request.visibleAttempted = false;
     request.visibleInFlight = false;
     this.disposeHiddenAttempt(request);
@@ -72,6 +74,7 @@ export class VideoScreenshotPreparationRequestStore<
         continue;
       }
       request.tracked = false;
+      request.explicitVisible = false;
       request.visibleAttempted = false;
       request.visibleInFlight = false;
       this.disposeHiddenAttempt(request);
@@ -89,6 +92,15 @@ export class VideoScreenshotPreparationRequestStore<
       return;
     }
     request.visibleAttempted = true;
+    this.emit();
+  }
+
+  markExplicitVisible(captureId: string): void {
+    const request = this.ensureRequest(captureId);
+    if (request.explicitVisible) {
+      return;
+    }
+    request.explicitVisible = true;
     this.emit();
   }
 
@@ -195,6 +207,7 @@ export class VideoScreenshotPreparationRequestStore<
         request.visibleInFlight ||
         Boolean(request.hiddenAttempt);
       request.tracked = false;
+      request.explicitVisible = false;
       request.visibleAttempted = false;
       request.visibleInFlight = false;
       this.disposeHiddenAttempt(request);
@@ -207,6 +220,10 @@ export class VideoScreenshotPreparationRequestStore<
 
   hasTracked(captureId: string): boolean {
     return this.requests.get(captureId)?.tracked === true;
+  }
+
+  hasExplicitVisible(captureId: string): boolean {
+    return this.requests.get(captureId)?.explicitVisible === true;
   }
 
   hasVisibleAttempted(captureId: string): boolean {
@@ -234,6 +251,7 @@ export class VideoScreenshotPreparationRequestStore<
     }
     const created: VideoScreenshotPreparationRequestState<TAttempt> = {
       tracked: false,
+      explicitVisible: false,
       visibleAttempted: false,
       visibleInFlight: false,
       hiddenAttempt: null
@@ -258,6 +276,7 @@ export class VideoScreenshotPreparationRequestStore<
     }
     if (
       request.tracked ||
+      request.explicitVisible ||
       request.visibleAttempted ||
       request.visibleInFlight ||
       request.hiddenAttempt

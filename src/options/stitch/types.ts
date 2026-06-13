@@ -11,7 +11,6 @@ export interface HeroData {
   pills: string[];
   icon?: string;
 }
-
 export interface NavItem {
   id: string;
   label: string;
@@ -176,6 +175,7 @@ export interface VideoSurfaceCapture {
   draft?: string;
   meta: string;
   hasScreenshot?: boolean;
+  screenshotState?: 'off' | 'pending' | 'on';
   editing?: boolean;
 }
 

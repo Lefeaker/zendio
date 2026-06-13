@@ -10,12 +10,21 @@ export interface TabsSendOptions {
   frameId?: number;
 }
 
+export interface VisibleTabCaptureOptions {
+  format?: 'jpeg' | 'png';
+  quality?: number;
+}
+
 export interface TabsService {
   create(createProperties: chrome.tabs.CreateProperties): Promise<chrome.tabs.Tab | undefined>;
   remove(tabId: number): Promise<void>;
   getCurrent(): Promise<chrome.tabs.Tab | undefined>;
   get(tabId: number): Promise<chrome.tabs.Tab | undefined>;
   query(queryInfo?: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>;
+  captureVisibleTab?(
+    windowId?: number,
+    options?: VisibleTabCaptureOptions
+  ): Promise<string | undefined>;
   sendMessage<TResult = unknown>(
     tabId: number,
     message: unknown,

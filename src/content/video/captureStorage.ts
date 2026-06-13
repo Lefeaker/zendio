@@ -1,8 +1,4 @@
-import type {
-  VideoCapture,
-  VideoFragmentCapture,
-  VideoTimestampCapture
-} from './types';
+import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
 
 interface LegacyStoredVideoScreenshot {
   id?: string;
@@ -58,14 +54,13 @@ type VideoTimestampCaptureWithScreenshotIntent = VideoTimestampCapture & {
 };
 
 function resolveScreenshotRequested(
-  capture:
-    | VideoTimestampCapture
-    | StoredVideoTimestampEntry
-    | VideoTimestampCaptureWithScreenshotIntent
+  capture: VideoTimestampCapture | VideoTimestampCaptureWithScreenshotIntent
 ): boolean {
-  return Boolean(
-    capture.screenshot || (capture as { screenshotRequested?: boolean }).screenshotRequested
-  );
+  return capture.screenshotRequested === true;
+}
+
+function resolveStoredScreenshotRequested(entry: StoredVideoTimestampEntry): boolean {
+  return Boolean(entry.screenshotRequested || entry.screenshot);
 }
 
 export function deserializeStoredCaptures(
@@ -99,7 +94,7 @@ export function deserializeStoredCaptures(
       comment: timestampEntry.comment ?? '',
       url: timestampEntry.url ?? ctx.fallbackUrl,
       createdAt: timestampEntry.createdAt ?? Date.now(),
-      ...(resolveScreenshotRequested(timestampEntry) ? { screenshotRequested: true } : {})
+      ...(resolveStoredScreenshotRequested(timestampEntry) ? { screenshotRequested: true } : {})
     };
     return capture;
   });

@@ -31,6 +31,12 @@ interface LazyRuntimeDependencies {
   showSupportProgress?: SupportProgressReporter;
 }
 
+type VideoPromptOnDemandDependencies = Pick<
+  LazyRuntimeDependencies,
+  'optionsRepository' | 'storage' | 'runtime' | 'showSupportProgress'
+> &
+  Partial<Pick<LazyRuntimeDependencies, 'messaging'>>;
+
 type VideoPromptRuntimeModule = typeof import('../video/videoLazyRuntime');
 type LoadVideoPromptRuntime = () => Promise<
   Pick<VideoPromptRuntimeModule, 'initializeVideoPromptRuntime'>
@@ -68,28 +74,12 @@ export function isVideoPromptCandidateUrl(href: string): boolean {
 }
 
 export function createVideoPromptOnDemandInitializer(loadRuntime: LoadVideoPromptRuntime) {
-  return async (
-    dependencies: Pick<
-      LazyRuntimeDependencies,
-      'optionsRepository' | 'storage' | 'runtime' | 'showSupportProgress'
-    >,
-    href: string
-  ): Promise<void> => {
+  return async (dependencies: VideoPromptOnDemandDependencies, href: string): Promise<void> => {
     if (!isVideoPromptCandidateUrl(href)) {
       return;
     }
     const { initializeVideoPromptRuntime } = await loadRuntime();
-    await initializeVideoPromptRuntime(
-      {
-        optionsRepository: dependencies.optionsRepository,
-        storage: dependencies.storage,
-        runtime: dependencies.runtime,
-        ...(dependencies.showSupportProgress
-          ? { showSupportProgress: dependencies.showSupportProgress }
-          : {})
-      },
-      href
-    );
+    await initializeVideoPromptRuntime(dependencies, href);
   };
 }
 
@@ -201,6 +191,7 @@ export function createLazyVideoSessionFactory(
           createVideoSessionAdapter(doc, {
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage,
+            messaging: dependencies.messaging,
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }
               : {})

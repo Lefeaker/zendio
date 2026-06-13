@@ -1,4 +1,5 @@
 export type VideoAddCaptureSource = 'button' | 'note-input';
+export type VideoScreenshotState = 'off' | 'pending' | 'on';
 
 export interface VideoPanelCallbacks {
   onAddCapture: (source?: VideoAddCaptureSource) => void | Promise<void>;
@@ -25,6 +26,7 @@ export interface VideoPanelCapture {
   fragmentUrl?: string;
   shareUrl?: string;
   hasScreenshot?: boolean;
+  screenshotState?: VideoScreenshotState;
   comment: string;
   commentPreview: string;
   selectionPreview?: string;

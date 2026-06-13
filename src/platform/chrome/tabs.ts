@@ -1,9 +1,15 @@
-import type { TabsSendOptions, TabsService } from '../interfaces/tabs';
+import type { TabsSendOptions, TabsService, VisibleTabCaptureOptions } from '../interfaces/tabs';
 import { ensureChrome, getChromeLastError, normalizePromise, suppressLastError } from './utils';
 
 function isPromiseLike<T>(value: unknown): value is Promise<T> {
   return Boolean(value && typeof (value as Promise<T>).then === 'function');
 }
+
+type CaptureVisibleTabCallback = (dataUrl?: string) => void;
+type CaptureVisibleTabApi = {
+  (windowId: number, options: VisibleTabCaptureOptions, callback: CaptureVisibleTabCallback): void;
+  (options: VisibleTabCaptureOptions, callback: CaptureVisibleTabCallback): void;
+};
 
 export const chromeTabsService: TabsService = {
   async create(
@@ -95,6 +101,38 @@ export const chromeTabsService: TabsService = {
           }
           resolve(Array.isArray(tabs) ? tabs : []);
         });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  },
+
+  async captureVisibleTab(
+    windowId?: number,
+    options?: VisibleTabCaptureOptions
+  ): Promise<string | undefined> {
+    const chromeApi = ensureChrome();
+    if (typeof chromeApi.tabs.captureVisibleTab !== 'function') {
+      return undefined;
+    }
+    const captureVisibleTab = chromeApi.tabs.captureVisibleTab.bind(
+      chromeApi.tabs
+    ) as CaptureVisibleTabApi;
+    return normalizePromise<string | undefined>((resolve, reject) => {
+      try {
+        const callback: CaptureVisibleTabCallback = (dataUrl) => {
+          const error = getChromeLastError();
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(dataUrl);
+        };
+        if (typeof windowId === 'number') {
+          captureVisibleTab(windowId, options ?? {}, callback);
+          return;
+        }
+        captureVisibleTab(options ?? {}, callback);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }

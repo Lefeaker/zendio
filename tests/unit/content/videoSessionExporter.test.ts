@@ -173,6 +173,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://example.com/watch?t=42',
           comment: 'Frame note',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot
         }
       ],
@@ -211,6 +212,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://example.com/watch?t=42',
           comment: 'Frame note',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot
         }
       ],
@@ -224,6 +226,46 @@ describe('VideoSessionExporter', () => {
 
     const [clipPayload] = sendVideoClipMock.mock.calls.at(-1) ?? [];
     expect(clipPayload?.attachments).toEqual(payload.meta.attachments);
+  });
+
+  it('omits prepared screenshots when the timestamp export intent is off', async () => {
+    const exporter = new VideoSessionExporter(videoRepository);
+    const messages: VideoSessionMessages = { ...DEFAULT_SESSION_MESSAGES };
+    const screenshotBlob = createBlobLike('frame');
+    const screenshot = {
+      id: 'shot-1',
+      fileName: 'file-20260314100000000.jpg',
+      mimeType: 'image/jpeg',
+      content: {
+        kind: 'blob',
+        blob: screenshotBlob,
+        byteLength: 5
+      },
+      capturedAt: 1
+    } satisfies VideoCaptureScreenshot;
+
+    const payload = await exporter.buildPayload({
+      captures: [
+        {
+          kind: 'timestamp',
+          id: 'ts-1',
+          timeSec: 42,
+          url: 'https://example.com/watch?t=42',
+          comment: 'Frame note',
+          createdAt: 1,
+          screenshot
+        }
+      ],
+      videoTitle: 'Example',
+      canonicalUrl: 'https://example.com/watch',
+      videoUrl: 'https://example.com/watch',
+      platform: 'youtube',
+      messages,
+      storageKey: 'video:1'
+    });
+
+    expect(payload.markdown).not.toContain('![Screenshot]');
+    expect(payload.meta).not.toHaveProperty('attachments');
   });
 
   it('keeps legacy data-url screenshots compatible for export attachments', async () => {
@@ -246,6 +288,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://example.com/watch?t=43',
           comment: 'Legacy frame note',
           createdAt: 2,
+          screenshotRequested: true,
           screenshot
         }
       ],
@@ -333,6 +376,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://example.com/watch?t=42',
           comment: 'Frame note',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot: {
             id: 'shot-1',
             fileName: 'file-20260314100000000.jpg',
@@ -366,6 +410,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://example.com/watch?t=42',
           comment: 'Frame note',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot: {
             id: 'shot-1',
             fileName: 'file-20260314100000000.jpg',
@@ -407,6 +452,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://www.bilibili.com/video/BV1?t=1',
           comment: '好看',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot: {
             id: 'shot-1',
             fileName: 'file-20260509202351868.jpg',
@@ -422,6 +468,7 @@ describe('VideoSessionExporter', () => {
           url: 'https://www.bilibili.com/video/BV1?t=10',
           comment: '确实好看',
           createdAt: 2,
+          screenshotRequested: true,
           screenshot: {
             id: 'shot-2',
             fileName: 'file-20260509202403524.jpg',

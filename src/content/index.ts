@@ -108,6 +108,7 @@ function initializeClipperRuntime(): void {
     {
       optionsRepository: primaryOptionsRepository,
       storage: platform.storage,
+      messaging: platform.messaging,
       runtime: platform.runtime,
       showSupportProgress
     },

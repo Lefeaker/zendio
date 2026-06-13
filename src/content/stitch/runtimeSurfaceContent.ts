@@ -19,11 +19,9 @@ import type {
 const VIDEO_PREVIEW_ABSENT_ACTIONS = new Set(['video:add', 'video:save', 'video:delete']);
 const CLIPPER_ICON_PATH = 'icons/60x60/zendio_icon_clipt.png';
 const READER_ICON_PATH = 'icons/60x60/zendio_icon_readingt.png';
-
 function hero(title: string): PreviewContent['overview']['hero'] {
   return { title, description: '', pills: [] };
 }
-
 function createRuntimeContent(): PreviewContent {
   return {
     brand: {
@@ -358,6 +356,8 @@ export function createVideoSurfaceContent(input: {
           comment: capture.comment ?? '',
           ...(capture.draft !== undefined ? { draft: capture.draft } : {}),
           hasScreenshot: capture.hasScreenshot ?? false,
+          screenshotState:
+            capture.screenshotState ?? (capture.hasScreenshot === true ? 'on' : 'off'),
           meta: capture.shareUrl || capture.fragmentUrl || ''
         }))
       }

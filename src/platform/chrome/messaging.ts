@@ -10,6 +10,9 @@ function toSenderInfo(sender: chrome.runtime.MessageSender | undefined): Message
   if (sender?.tab?.id !== undefined) {
     result.tabId = sender.tab.id;
   }
+  if (sender?.tab?.windowId !== undefined) {
+    result.windowId = sender.tab.windowId;
+  }
   if (sender?.frameId !== undefined) {
     result.frameId = sender.frameId;
   }
