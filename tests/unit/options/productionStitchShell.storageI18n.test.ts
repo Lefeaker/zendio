@@ -1,9 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Messages } from '@i18n';
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
-import { GENERATED_RELEASE_LOCALE_REGISTRY } from '@i18n/generated/localeRegistry.generated';
+import { getMessagesForLanguage, type Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { runVaultListConnectionTest } from '@options/app/vaultConnectionTests';
 import type { VaultRouterConfig } from '@shared/types/vault';
@@ -11,6 +9,7 @@ import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 import {
   asOptionsController,
   createController,
+  createEnglishPageMessages,
   createMessaging,
   findButton,
   findCardByTitle,
@@ -18,12 +17,24 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 
+const i18nMockState = vi.hoisted(() => ({
+  actualGetMessagesForLanguage: null as null | typeof getMessagesForLanguage
+}));
+
+vi.mock('@i18n', async () => {
+  const actual = await vi.importActual<typeof import('@i18n')>('@i18n');
+  i18nMockState.actualGetMessagesForLanguage = actual.getMessagesForLanguage;
+  return {
+    ...actual,
+    getMessagesForLanguage: vi.fn((language: string) => actual.getMessagesForLanguage(language))
+  };
+});
+
 const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
 const LOCAL_CERTIFICATE_URL = `${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt`;
 
-const STORAGE_SENTINEL_MESSAGES = {
-  ...DEFAULT_RUNTIME_MESSAGES,
+const STORAGE_SENTINEL_MESSAGE_OVERRIDES = {
   routingRulesTitle: 'Routing Rules Sentinel',
   schemaStorageConnectionNoticeTitle: 'Connection Notice Title Sentinel',
   schemaStorageCertificateDownloadTrustLink: 'Certificate Link Sentinel',
@@ -51,18 +62,37 @@ const STORAGE_SENTINEL_MESSAGES = {
   schemaStorageVaultLocalFolderColumnLabel: 'Vault Local Folder Column Sentinel',
   schemaStorageVaultNameColumnLabel: 'Vault Name Column Sentinel',
   schemaStorageVaultsGroupTitle: 'Vault Group Sentinel'
-} satisfies Messages;
+} satisfies Partial<Messages>;
+
+async function createStorageSentinelMessages(): Promise<Messages> {
+  return createEnglishPageMessages(STORAGE_SENTINEL_MESSAGE_OVERRIDES);
+}
+
+function restoreGetMessagesForLanguageMock(): void {
+  const actualGetMessagesForLanguage = i18nMockState.actualGetMessagesForLanguage;
+  if (!actualGetMessagesForLanguage) {
+    throw new Error('Missing actual getMessagesForLanguage implementation.');
+  }
+  vi.mocked(getMessagesForLanguage).mockImplementation((language: string) =>
+    actualGetMessagesForLanguage(language)
+  );
+}
 
 describe('mountProductionStitchShell storage i18n', () => {
-  beforeEach(setupProductionStitchShellTest);
+  beforeEach(() => {
+    setupProductionStitchShellTest();
+    vi.mocked(getMessagesForLanguage).mockClear();
+    restoreGetMessagesForLanguageMock();
+  });
 
-  it('mounts storage schema copy from messages', () => {
+  it('mounts storage schema copy from messages', async () => {
     const controller = createController();
+    const storageSentinelMessages = await createStorageSentinelMessages();
 
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
-      messages: STORAGE_SENTINEL_MESSAGES,
+      messages: storageSentinelMessages,
       language: 'en'
     } as never);
 
@@ -98,6 +128,7 @@ describe('mountProductionStitchShell storage i18n', () => {
   });
 
   it('resolves localized storage fallback messages without Chinese defaults', async () => {
+    const storageSentinelMessages = await createStorageSentinelMessages();
     const connectionSend = vi.fn(() => Promise.reject(new Error('network denied')));
     const router: VaultRouterConfig = {
       defaultVaultId: 'main',
@@ -119,7 +150,7 @@ describe('mountProductionStitchShell storage i18n', () => {
     const result = await runVaultListConnectionTest(
       router,
       { send: connectionSend },
-      STORAGE_SENTINEL_MESSAGES
+      storageSentinelMessages
     );
 
     expect(result.vaults?.[0]?.channels).toEqual([
@@ -144,6 +175,7 @@ describe('mountProductionStitchShell storage i18n', () => {
   });
 
   it('uses the localized no-enabled-vaults fallback', async () => {
+    const storageSentinelMessages = await createStorageSentinelMessages();
     const send = vi.fn((message: unknown) =>
       Promise.resolve({
         success: true,
@@ -160,7 +192,7 @@ describe('mountProductionStitchShell storage i18n', () => {
     const result = await runVaultListConnectionTest(
       { defaultVaultId: 'main', vaults: [], rules: [] },
       { send },
-      STORAGE_SENTINEL_MESSAGES
+      storageSentinelMessages
     );
 
     expect(result).toEqual({
@@ -172,6 +204,7 @@ describe('mountProductionStitchShell storage i18n', () => {
 
   it('renders the localized certificate link copy from messages', async () => {
     const controller = createController();
+    const storageSentinelMessages = await createStorageSentinelMessages();
     const messagingRepository = createMessaging({
       success: false,
       status: 401,
@@ -197,37 +230,30 @@ describe('mountProductionStitchShell storage i18n', () => {
         }
       ]
     });
-    const originalLinkLabel =
-      GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink;
-    GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink =
-      'Certificate Link Sentinel';
+    vi.mocked(getMessagesForLanguage).mockResolvedValue(storageSentinelMessages);
 
-    try {
-      mountProductionStitchShell({
-        controller: asOptionsController(controller),
-        initialOptions: {
-          rest: {
-            vault: 'Research Vault',
-            httpsUrl: LOCAL_HTTPS_URL,
-            apiKey: 'bad-token'
-          }
-        },
-        messages: STORAGE_SENTINEL_MESSAGES,
-        language: 'en',
-        messagingRepository
-      } as never);
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        rest: {
+          vault: 'Research Vault',
+          httpsUrl: LOCAL_HTTPS_URL,
+          apiKey: 'bad-token'
+        }
+      },
+      messages: storageSentinelMessages,
+      language: 'en',
+      messagingRepository
+    } as never);
 
-      findButton('Test Connection Sentinel').click();
-      await flushPromises();
-      await flushPromises();
-
+    findButton('Test Connection Sentinel').click();
+    await flushPromises();
+    await vi.waitFor(() => {
       const certificateLink = document.querySelector<HTMLAnchorElement>(
         `a[href="${LOCAL_CERTIFICATE_URL}"]`
       );
       expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
-    } finally {
-      GENERATED_RELEASE_LOCALE_REGISTRY.en.schemaStorageCertificateDownloadTrustLink =
-        originalLinkLabel;
-    }
+    });
+    expect(vi.mocked(getMessagesForLanguage)).toHaveBeenCalledWith('en');
   });
 });

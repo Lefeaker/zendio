@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
+import { getPreviewTemplateDefaults } from '@shared/config';
 import { previewContent } from '@options/stitch/content';
 import { renderNode } from '@options/stitch/render/nodeRenderers';
 import type { RendererContext } from '@options/stitch/render/renderStitchView';
@@ -65,6 +66,10 @@ describe('Stitch shared registry contracts', () => {
     expect(previewContent.brand.logo).toBe('../../AiiinOB/public/icons/bannerlogo-128.png');
   });
 
+  it('keeps preview template defaults owned by shared config data', () => {
+    expect(previewContent.output.templateDefaults).toEqual(getPreviewTemplateDefaults());
+  });
+
   it('keeps settings, resources, and runtime surfaces in the accepted order', () => {
     expect(Object.keys(settingsSchemas)).toEqual([
       'overview',
@@ -88,6 +93,7 @@ describe('Stitch shared registry contracts', () => {
       'clipper',
       'reader',
       'video',
+      'video-control-bar-popover',
       'video-floating-prompt',
       'task-success'
     ]);

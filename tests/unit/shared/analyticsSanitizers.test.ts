@@ -76,6 +76,34 @@ describe('analytics sanitizers', () => {
       source: 'toolbar',
       content_type: 'article'
     });
+
+    expect(
+      parseAnalyticsEventParams('options_action_completed', {
+        action: 'DailyNotes.md',
+        outcome: 'completed'
+      })
+    ).toBeNull();
+
+    expect(
+      parseAnalyticsEventParams('options_action_completed', {
+        action: 'vault/transcript',
+        outcome: 'completed'
+      })
+    ).toBeNull();
+
+    expect(
+      parseAnalyticsEventParams('options_action_completed', {
+        action: '```selected text```',
+        outcome: 'completed'
+      })
+    ).toBeNull();
+
+    expect(
+      parseAnalyticsEventParams('options_action_completed', {
+        action: 'bearer sk-live-secret',
+        outcome: 'completed'
+      })
+    ).toBeNull();
   });
 
   it('validates required params after sanitization', () => {
@@ -113,6 +141,48 @@ describe('analytics sanitizers', () => {
         operation_id: 'op_source1',
         source: 'popup-button',
         content_type: 'article'
+      })
+    ).toBeNull();
+  });
+
+  it('rejects transcript-like strings, file-ish identifiers, and unknown params while keeping canonical events valid', () => {
+    expect(
+      sanitizeAnalyticsEventParams('extension_error', {
+        error_code: 'REST_TIMEOUT',
+        error_domain: 'background',
+        error_severity: 'critical',
+        error_recoverable: true,
+        browser_name: 'chrome',
+        browser_version: '136.0.1',
+        transcript:
+          'This is a long user-selected transcript line that should never survive analytics sanitization.'
+      })
+    ).toEqual({
+      error_code: 'REST_TIMEOUT',
+      error_domain: 'background',
+      error_severity: 'critical',
+      error_recoverable: true,
+      browser_name: 'chrome',
+      browser_version: '136.0.1'
+    });
+
+    expect(
+      parseAnalyticsEventParams('video_exported', {
+        platform: 'youtube',
+        destination: 'downloads',
+        duration_bucket: '3s_to_9s',
+        note_file: 'meeting-notes.md'
+      })
+    ).toEqual({
+      platform: 'youtube',
+      destination: 'downloads',
+      duration_bucket: '3s_to_9s'
+    });
+
+    expect(
+      parseAnalyticsEventParams('options_action_completed', {
+        action: 'this transcript contains many words copied from a page and should not be accepted',
+        outcome: 'completed'
       })
     ).toBeNull();
   });

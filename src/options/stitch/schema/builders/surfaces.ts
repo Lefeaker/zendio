@@ -424,7 +424,7 @@ export function videoAddCaptureItem(label: string, placeholder: string): NodeSch
           type: 'button',
           text: '+',
           ariaLabel: label,
-          dataset: { actionId: 'video:add' },
+          dataset: { actionId: 'video:add', role: 'add-btn' },
           onClick: { id: 'video:add' }
         })
       ]),
@@ -436,11 +436,33 @@ export function videoAddCaptureItem(label: string, placeholder: string): NodeSch
           value: '',
           placeholder,
           readOnly: true,
-          dataset: { actionId: 'video:add-note' },
+          dataset: { actionId: 'video:add-note', role: 'add-note-input' },
           onClick: { id: 'video:add-note' }
         }
       ])
     ]
+  );
+}
+
+function videoFooterActionRole(actionId?: string): string | undefined {
+  switch (actionId) {
+    case 'video:finish':
+      return 'finish-btn';
+    case 'video:cancel':
+      return 'close-btn';
+    default:
+      return undefined;
+  }
+}
+
+function videoFooterActionButton(action: SurfaceAction): NodeSchema {
+  const role = videoFooterActionRole(action.id);
+  return buttonNode(
+    action.label,
+    action.variant ?? 'ghost',
+    action.id,
+    undefined,
+    role ? { role } : undefined
   );
 }
 
@@ -472,6 +494,29 @@ export function sessionFooterBar(
       div(
         classNames.session.footerActions,
         actions.map((action) => buttonNode(action.label, action.variant ?? 'ghost', action.id))
+      )
+    ])
+  ]);
+}
+
+export function videoFooterBar(
+  counter: string,
+  actions: SurfaceAction[],
+  linked?: NodeSchema | null,
+  destination?: ExportDestinationSurfacePreview,
+  destinationLabels?: {
+    saveToLabel: string;
+    configureVaultLabel: string;
+  }
+): NodeSchema {
+  return div(classNames.session.footerBar, [
+    linked ?? null,
+    exportDestinationRow(destination, destinationLabels),
+    surfaceFooter([
+      div(classNames.session.footerCounter, [counter]),
+      div(
+        classNames.session.footerActions,
+        actions.map((action) => videoFooterActionButton(action))
       )
     ])
   ]);

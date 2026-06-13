@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "Este es el contenido del texto seleccionado",
   "fragmentFootnoteExampleComment": "Este es mi comentario",
   "fragmentContextHighlightExampleTitle": "Ejemplo de Resaltado de Contexto:",
-  "fragmentContextHighlightExampleContent": "Contexto antes ==este es el texto seleccionado== contexto después"
+  "fragmentContextHighlightExampleContent": "Contexto antes ==este es el texto seleccionado== contexto después",
+  "videoControlBarNotePlaceholder": "Agregar nota",
+  "videoControlBarNoteAriaLabel": "Agregar nota de video",
+  "videoControlBarAutoPauseLabel": "Pausar el video mientras editas",
+  "videoControlBarScreenshotLabel": "Capturar el fotograma actual del video"
 }

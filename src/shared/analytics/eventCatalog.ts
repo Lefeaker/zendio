@@ -1,4 +1,4 @@
-export const ANALYTICS_CATALOG_VERSION = 1;
+export const ANALYTICS_CATALOG_VERSION = 2;
 
 export type AnalyticsPrimitive = string | number | boolean;
 
@@ -251,6 +251,56 @@ export const EMITTED_USAGE_EVENT_NAMES = [
   'usage_dashboard_increment'
 ] as const satisfies readonly AnalyticsEventName[];
 
+export const EMITTED_PRODUCT_EVENT_NAMES = [
+  'onboarding_started',
+  'onboarding_step_completed',
+  'onboarding_skipped',
+  'onboarding_support_action',
+  'onboarding_completed',
+  'privacy_consent_changed',
+  'analytics_data_cleared',
+  'options_opened',
+  'options_section_viewed',
+  'options_action_completed',
+  'options_theme_changed',
+  'options_language_changed',
+  'config_export_completed',
+  'config_import_completed',
+  'experimental_feature_toggled',
+  'clip_started',
+  'clip_prompt_opened',
+  'clip_prompt_submitted',
+  'clip_prompt_cancelled',
+  'extraction_completed',
+  'background_stage_completed',
+  'clip_save_completed',
+  'clip_save_failed',
+  'ai_chat_detected',
+  'ai_chat_exported',
+  'connection_test_completed',
+  'local_vault_permission_prompted',
+  'local_vault_permission_resolved',
+  'vault_write_completed',
+  'vault_write_failed',
+  'reader_session_started',
+  'reader_highlight_added',
+  'reader_exported',
+  'reader_export_failed',
+  'reader_session_cancelled',
+  'video_session_started',
+  'video_timestamp_added',
+  'video_fragment_added',
+  'video_capture_removed',
+  'video_exported',
+  'video_export_failed',
+  'video_session_cancelled'
+] as const satisfies readonly AnalyticsEventName[];
+
+export const EMITTED_RUNTIME_EVENT_NAMES = [
+  ...EMITTED_USAGE_EVENT_NAMES,
+  ...EMITTED_PRODUCT_EVENT_NAMES
+] as const satisfies readonly AnalyticsEventName[];
+
 export const ERROR_EVENT_NAMES = ['extension_error'] as const;
 export const DEV_ONLY_EVENT_NAMES = ['runtime_harness_open'] as const;
 export const CONTRACT_ONLY_EVENT_NAMES = ['video_started'] as const;
@@ -259,13 +309,13 @@ export const DOCS_ONLY_EVENT_NAMES = ['support_dislike_qr_clicked'] as const;
 
 export type FutureProductEventName = Exclude<
   AnalyticsEventName,
-  | (typeof EMITTED_USAGE_EVENT_NAMES)[number]
+  | (typeof EMITTED_RUNTIME_EVENT_NAMES)[number]
   | (typeof ERROR_EVENT_NAMES)[number]
   | (typeof DEV_ONLY_EVENT_NAMES)[number]
   | (typeof CONTRACT_ONLY_EVENT_NAMES)[number]
 >;
 export type RuntimeUsageEventName =
-  | (typeof EMITTED_USAGE_EVENT_NAMES)[number]
+  | (typeof EMITTED_RUNTIME_EVENT_NAMES)[number]
   | (typeof DEV_ONLY_EVENT_NAMES)[number]
   | (typeof CONTRACT_ONLY_EVENT_NAMES)[number]
   | FutureProductEventName;
@@ -342,7 +392,7 @@ export const ANALYTICS_REQUIRED_PARAMS = defineRequiredParams({
 });
 
 const NON_FUTURE_EVENT_NAMES = new Set<string>([
-  ...EMITTED_USAGE_EVENT_NAMES,
+  ...EMITTED_RUNTIME_EVENT_NAMES,
   ...ERROR_EVENT_NAMES,
   ...DEV_ONLY_EVENT_NAMES,
   ...CONTRACT_ONLY_EVENT_NAMES
@@ -385,6 +435,12 @@ export const ANALYTICS_OPTIONAL_PARAMS = Object.freeze(
     ])
   )
 ) as OptionalParamMap;
+
+export function getAnalyticsAllowedParams<EventName extends AnalyticsEventName>(
+  eventName: EventName
+): ReadonlyArray<string> {
+  return [...ANALYTICS_REQUIRED_PARAMS[eventName], ...ANALYTICS_OPTIONAL_PARAMS[eventName]];
+}
 
 const FEATURE_AREAS: Record<AnalyticsEventName, FeatureArea> = {
   extension_error: 'error',
@@ -467,7 +523,7 @@ function createDefinition<EventName extends AnalyticsEventName>(
 
 export const ANALYTICS_EVENT_CATALOG = Object.freeze({
   ...Object.fromEntries(
-    EMITTED_USAGE_EVENT_NAMES.map((name) => [name, createDefinition(name, 'emitted', true)])
+    EMITTED_RUNTIME_EVENT_NAMES.map((name) => [name, createDefinition(name, 'emitted', true)])
   ),
   extension_error: createDefinition('extension_error', 'error', false),
   runtime_harness_open: createDefinition('runtime_harness_open', 'dev-only', true),

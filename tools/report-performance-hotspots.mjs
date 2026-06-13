@@ -7,7 +7,7 @@ const ROOT = process.cwd();
 
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
-  ['src/i18n/generated/schemaMessages.generated.ts', 2173],
+  ['src/i18n/generated/schemaMessages.generated.ts', 457],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -23,7 +23,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/locales/zh-TW.generated.ts', 690],
   ['src/options/stitch/content.ts', 906],
   ['src/options/yaml-config-editor/view.ts', 746],
-  ['src/options/stitch/types.ts', 743],
+  ['src/options/stitch/types.ts', 759],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
@@ -32,13 +32,14 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/clipper/components/clipperDialogController.ts', 511],
   ['src/content/reader/services/highlightManager.ts', 505],
   ['src/shared/di/serviceRegistry.ts', 498],
-  ['src/shared/analytics/eventCatalog.ts', 485],
-  ['src/content/video/sessionOperations.ts', 611],
+  // 2026-06-12 P03b: accepted P02 telemetry contract schema growth.
+  ['src/shared/analytics/eventCatalog.ts', 541],
+  ['src/content/video/sessionOperations.ts', 424],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
   ['src/ui/domains/video/VideoDialog.ts', 468],
-  ['src/content/video/videoPromptLifecycle.ts', 458],
-  ['src/shared/analytics/analyticsSanitizers.ts', 456],
+  ['src/content/video/videoPromptLifecycle.ts', 490],
+  ['src/shared/analytics/analyticsSanitizers.ts', 460],
   ['src/background/pipelines/connectionTest.ts', 573],
   ['src/onboarding/bootstrap.ts', 584],
   ['src/background/services/notifications.ts', 424],
@@ -48,11 +49,15 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
   ['src/content/video/videoSessionRuntime.ts', 746],
-  ['src/content/video/videoScreenshotPreparationQueue.ts', 429],
+  ['src/content/video/videoScreenshotPreparationQueue.ts', 398],
+  // 2026-06-13 final integration: request state moved out of the lazy coordinator
+  // so dependency-cruiser can enforce the screenshot preparation split without cycles.
+  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 287],
+  ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
   ['src/content/reader/session.ts', 711],
   ['src/content/video/videoControlBarButton.ts', 395],
-  ['src/content/stitch/runtimeSurfaceContent.ts', 378],
+  ['src/content/stitch/runtimeSurfaceContent.ts', 407],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 372],
   ['src/ui/domains/reading/ReaderDialog.ts', 371],
@@ -78,6 +83,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/state/vaultRouterStore.ts', 308],
   ['src/components/trial-notice.ts', 305],
   ['src/content/clipper/services/contextCapture.ts', 305],
+  // 2026-06-12 P03: video session draft ownership moved into a focused controller.
+  ['src/content/video/videoSessionDraftController.ts', 310],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/stitch/schema/settings/overview.ts', 298],
   ['src/options/stitch/schema/settings/capture-behavior.ts', 294],

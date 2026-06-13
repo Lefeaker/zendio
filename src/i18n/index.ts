@@ -1,4 +1,5 @@
 import type { StorageAreaService } from '../platform/interfaces/storage';
+import type { RuntimeLanguageProvider } from '../platform/interfaces/runtime';
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_RUNTIME_MESSAGES,
@@ -24,24 +25,40 @@ export { resolveLanguage } from './config';
 export { formatMessage } from './messageFormatter';
 
 let languageStorage: StorageAreaService | null = null;
+let runtimeLanguageProvider: RuntimeLanguageProvider | null = null;
+
+function isExtensionI18nPage(): boolean {
+  const protocol =
+    typeof window !== 'undefined' && typeof window.location?.protocol === 'string'
+      ? window.location.protocol
+      : '';
+  return protocol === 'chrome-extension:' || protocol === 'moz-extension:';
+}
+
+export async function getMessagesForLanguage(language: string): Promise<Messages> {
+  const pageMessages = await import('./messages');
+  return pageMessages.getMessagesForLanguage(language);
+}
 
 export function configureI18nStorage(storage: StorageAreaService | null): void {
   languageStorage = storage;
 }
 
-function getChromeI18nLanguage(): string | undefined {
-  if (typeof chrome === 'undefined' || typeof chrome.i18n?.getUILanguage !== 'function') {
-    return undefined;
-  }
+export function configureI18nRuntimeLanguageProvider(
+  provider: RuntimeLanguageProvider | null
+): void {
+  runtimeLanguageProvider = provider;
+}
 
-  return chrome.i18n.getUILanguage();
+function getRuntimeLanguage(): string | undefined {
+  return runtimeLanguageProvider?.();
 }
 
 function getRuntimeLanguageService() {
   return createLanguageService({
     storage: languageStorage ? createStorageAdapter(languageStorage) : null,
     getNavigator: () => (typeof navigator === 'undefined' ? undefined : navigator),
-    getChromeI18nLanguage,
+    getChromeI18nLanguage: getRuntimeLanguage,
     onReadError: async (cause) => {
       await errorHandler.handle(
         i18nErrors.languageLoadFailed(cause, { storageKey: LANGUAGE_STORAGE_KEY }),
@@ -73,7 +90,7 @@ export async function setCurrentLanguage(language: Language): Promise<void> {
  */
 export async function getMessages(): Promise<Messages> {
   const language = await getCurrentLanguage();
-  return getMessagesForLanguage(language);
+  return loadMessagesWithFallback(language);
 }
 
 /**
@@ -87,10 +104,6 @@ export async function getMessage(key: keyof Messages): Promise<string> {
 /**
  * Get messages by language code with fallback to default language.
  */
-export async function getMessagesForLanguage(language: string): Promise<Messages> {
-  return loadMessagesWithFallback(language);
-}
-
 /**
  * Get all available languages
  */
@@ -126,7 +139,10 @@ function getPageRuntime(): ReturnType<typeof createPageRuntime> {
     pageRuntime = createPageRuntime({
       loadLocaleDefinition,
       defaultRuntimeMessages: DEFAULT_RUNTIME_MESSAGES,
-      getMessagesForLanguage: (language) => getMessagesForLanguage(language),
+      getMessagesForLanguage: (language) =>
+        isExtensionI18nPage()
+          ? getMessagesForLanguage(language)
+          : loadMessagesWithFallback(language),
       getCurrentLanguage: () => getCurrentLanguage(),
       setCurrentLanguage: (language) => setCurrentLanguage(language)
     });

@@ -501,10 +501,21 @@ function resolveAliasSpecifier(specifier) {
   return null;
 }
 
+function stripImportQueryHash(specifier) {
+  const queryIndex = specifier.indexOf('?');
+  const hashIndex = specifier.indexOf('#');
+  const suffixIndexCandidates = [queryIndex, hashIndex].filter((index) => index >= 0);
+  if (suffixIndexCandidates.length === 0) {
+    return specifier;
+  }
+  return specifier.slice(0, Math.min(...suffixIndexCandidates));
+}
+
 function resolveSourceImport(importerPath, specifier, sourceFileSet) {
-  const base = specifier.startsWith('.')
-    ? normalizePath(join(dirname(importerPath), specifier))
-    : resolveAliasSpecifier(specifier);
+  const normalizedSpecifier = stripImportQueryHash(specifier);
+  const base = normalizedSpecifier.startsWith('.')
+    ? normalizePath(join(dirname(importerPath), normalizedSpecifier))
+    : resolveAliasSpecifier(normalizedSpecifier);
   if (!base) {
     return null;
   }
@@ -1149,13 +1160,16 @@ async function main() {
 export {
   classifySourceFile,
   createNonProductionSourceSummary,
+  collectSourceImportGraph,
   formatNonProductionSourceJson,
   formatNonProductionSourceReport,
   validateNonProductionSourceCheck,
   validateNonProductionSourceThresholds,
   evaluateNonProductionSourceGates,
   buildNonProductionSourceRows,
-  parseArgs
+  parseArgs,
+  resolveSourceImport,
+  stripImportQueryHash
 };
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

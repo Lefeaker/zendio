@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVideoScreenshotPreparationQueue } from '@content/video/videoScreenshotPreparationQueue';
+import { VideoScreenshotPreparationRequestStore } from '@content/video/videoScreenshotPreparationRequestStore';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 
 function createTimestampCapture(
@@ -40,6 +41,44 @@ function createDeferred<T>() {
     resolve = nextResolve;
   });
   return { promise, resolve };
+}
+
+type QueueStateSnapshot = {
+  trackedCaptureIds: string[];
+  visibleAttemptedIds: string[];
+  inFlightVisibleIds: string[];
+  hiddenDuplicateAttemptIds: string[];
+};
+
+function createQueueStateRecorder(stateSnapshots: QueueStateSnapshot[]): Record<string, unknown> {
+  return {
+    __testHooks: {
+      onStateChange: (snapshot: QueueStateSnapshot) => {
+        stateSnapshots.push(snapshot);
+      }
+    }
+  };
+}
+
+function expectQueueStateToBeEmpty(snapshot: QueueStateSnapshot | undefined): void {
+  expect(snapshot).toEqual({
+    trackedCaptureIds: [],
+    visibleAttemptedIds: [],
+    inFlightVisibleIds: [],
+    hiddenDuplicateAttemptIds: []
+  });
+}
+
+function expectQueueStateToKeepTrackedOnly(
+  snapshot: QueueStateSnapshot | undefined,
+  captureIds: string[]
+): void {
+  expect(snapshot).toEqual({
+    trackedCaptureIds: captureIds,
+    visibleAttemptedIds: [],
+    inFlightVisibleIds: [],
+    hiddenDuplicateAttemptIds: []
+  });
 }
 
 function trackEventListeners(target: EventTarget) {
@@ -158,6 +197,24 @@ async function flushAsyncWork(turns = 12): Promise<void> {
 }
 
 describe('videoScreenshotPreparationQueue', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.restoreAllMocks();
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  it('returns false for missing ids when checking hidden duplicate attempts', () => {
+    const store = new VideoScreenshotPreparationRequestStore();
+
+    expect(store.hasHiddenAttempt('missing-id')).toBe(false);
+  });
+
   it('captures immediately when the visible video is already near the requested time without writing currentTime', async () => {
     const captures = [createTimestampCapture('ts-1', 42)];
     const visible = createVideoHarness({ currentTime: 42.1 });
@@ -411,6 +468,7 @@ describe('videoScreenshotPreparationQueue', () => {
     });
     const listenerTracker = trackEventListeners(hidden.video);
     const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
+    const stateSnapshots: QueueStateSnapshot[] = [];
     const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName.toLowerCase() === 'video') {
         return hidden.video;
@@ -423,7 +481,8 @@ describe('videoScreenshotPreparationQueue', () => {
       getVisibleVideo: () => visible.video,
       captureFrame: vi.fn((_video: HTMLVideoElement, timeSec: number) => createScreenshot(timeSec)),
       syncPanel: vi.fn(),
-      timeoutMs: 100
+      timeoutMs: 100,
+      ...createQueueStateRecorder(stateSnapshots)
     });
 
     document.body.append(visible.video);
@@ -432,6 +491,9 @@ describe('videoScreenshotPreparationQueue', () => {
     await flushAsyncWork();
 
     expect(listenerTracker.getTotalActiveCount()).toBe(HIDDEN_WAIT_EVENT_COUNT);
+    expect(
+      stateSnapshots.some((snapshot) => snapshot.hiddenDuplicateAttemptIds.includes('ts-1'))
+    ).toBe(true);
 
     await vi.advanceTimersByTimeAsync(100);
     await flushAsyncWork();
@@ -440,12 +502,62 @@ describe('videoScreenshotPreparationQueue', () => {
     expect(document.body.contains(hidden.video)).toBe(false);
     expect(listenerTracker.getTotalActiveCount()).toBe(0);
     expect(clearTimeoutSpy).toHaveBeenCalled();
+    expectQueueStateToKeepTrackedOnly(stateSnapshots.at(-1), ['ts-1']);
 
     queue.dispose();
     listenerTracker.restore();
     clearTimeoutSpy.mockRestore();
     createElementSpy.mockRestore();
     vi.useRealTimers();
+  });
+
+  it('cleans hidden duplicate state when hidden seek setup fails', async () => {
+    const captures = [createTimestampCapture('ts-1', 42)];
+    const visible = createVideoHarness({
+      currentTime: 8,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const stateSnapshots: QueueStateSnapshot[] = [];
+    Object.defineProperty(hidden.video, 'currentTime', {
+      get: () => 0,
+      set: () => {
+        throw new DOMException('seek failed');
+      },
+      configurable: true
+    });
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hidden.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn((_video: HTMLVideoElement, timeSec: number) => createScreenshot(timeSec)),
+      syncPanel: vi.fn(),
+      ...createQueueStateRecorder(stateSnapshots)
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(
+      stateSnapshots.some((snapshot) => snapshot.hiddenDuplicateAttemptIds.includes('ts-1'))
+    ).toBe(true);
+    expect(document.body.contains(hidden.video)).toBe(false);
+    expect(captures[0]?.screenshot).toBeUndefined();
+    expectQueueStateToKeepTrackedOnly(stateSnapshots.at(-1), ['ts-1']);
+
+    queue.dispose();
+    createElementSpy.mockRestore();
   });
 
   it('retries a pending visible screenshot against the replacement visible video without extra playback events', async () => {
@@ -548,6 +660,109 @@ describe('videoScreenshotPreparationQueue', () => {
     expect(document.body.contains(hidden.video)).toBe(false);
 
     createElementSpy.mockRestore();
+  });
+
+  it('clears tracked, hidden, and visible in-flight state when stale captures are pruned', async () => {
+    const visibleCapture = createTimestampCapture('visible-1', 42);
+    const hiddenCapture = createTimestampCapture('hidden-1', 99);
+    const captures = [visibleCapture, hiddenCapture];
+    const visible = createVideoHarness({
+      currentTime: 42,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const visibleDeferred = createDeferred<VideoCaptureScreenshot | null>();
+    const hiddenDeferred = createDeferred<VideoCaptureScreenshot | null>();
+    const stateSnapshots: QueueStateSnapshot[] = [];
+    const syncPanel = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hidden.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn((video: HTMLVideoElement, timeSec: number) => {
+        if (video === visible.video) {
+          return visibleDeferred.promise;
+        }
+        if (video === hidden.video) {
+          return hiddenDeferred.promise;
+        }
+        throw new Error(`unexpected capture target at ${timeSec}`);
+      }),
+      syncPanel,
+      ...createQueueStateRecorder(stateSnapshots)
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.requestAll();
+    await flushAsyncWork();
+
+    expect(
+      stateSnapshots.some((snapshot) => snapshot.inFlightVisibleIds.includes('visible-1'))
+    ).toBe(true);
+    expect(
+      stateSnapshots.some((snapshot) => snapshot.hiddenDuplicateAttemptIds.includes('hidden-1'))
+    ).toBe(true);
+    expect(document.body.contains(hidden.video)).toBe(true);
+
+    captures.splice(0, captures.length);
+    queue.requestAll();
+    await flushAsyncWork();
+
+    expect(document.body.contains(hidden.video)).toBe(false);
+    expectQueueStateToBeEmpty(stateSnapshots.at(-1));
+
+    visibleDeferred.resolve(createScreenshot(42));
+    hiddenDeferred.resolve(createScreenshot(99));
+    await flushAsyncWork();
+
+    expect(syncPanel).not.toHaveBeenCalled();
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
+  it('does not sync the panel when a visible capture resolves after dispose', async () => {
+    const capture = createTimestampCapture('ts-1', 42);
+    const captures = [capture];
+    const visible = createVideoHarness({ currentTime: 42 });
+    const deferred = createDeferred<VideoCaptureScreenshot | null>();
+    const syncPanel = vi.fn();
+    const stateSnapshots: QueueStateSnapshot[] = [];
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn(() => deferred.promise),
+      syncPanel,
+      ...createQueueStateRecorder(stateSnapshots)
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(stateSnapshots.some((snapshot) => snapshot.inFlightVisibleIds.includes('ts-1'))).toBe(
+      true
+    );
+
+    queue.dispose();
+    deferred.resolve(createScreenshot(42));
+    await flushAsyncWork();
+
+    expect(syncPanel).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+    expectQueueStateToBeEmpty(stateSnapshots.at(-1));
   });
 
   it('aborts a pending hidden duplicate immediately on dispose and cleans wait listeners before timeout', async () => {
@@ -665,6 +880,75 @@ describe('videoScreenshotPreparationQueue', () => {
     expect(syncPanel).not.toHaveBeenCalled();
     expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
     expect(replacement.currentTimeSetSpy).not.toHaveBeenCalled();
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
+  it('does not let a late hidden duplicate overwrite a visible screenshot that already succeeded', async () => {
+    const capture = createTimestampCapture('ts-1', 42);
+    const captures = [capture];
+    const visible = createVideoHarness({
+      currentTime: 8,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hidden = createVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hiddenDeferred = createDeferred<VideoCaptureScreenshot | null>();
+    const visibleScreenshot = {
+      ...createScreenshot(42),
+      id: 'visible-shot'
+    };
+    const hiddenScreenshot = {
+      ...createScreenshot(42),
+      id: 'hidden-shot'
+    };
+    const stateSnapshots: QueueStateSnapshot[] = [];
+    const syncPanel = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hidden.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn((video: HTMLVideoElement) => {
+        if (video === hidden.video) {
+          return hiddenDeferred.promise;
+        }
+        if (video === visible.video) {
+          return Promise.resolve(visibleScreenshot);
+        }
+        throw new Error('unexpected capture target');
+      }),
+      syncPanel,
+      ...createQueueStateRecorder(stateSnapshots)
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(
+      stateSnapshots.some((snapshot) => snapshot.hiddenDuplicateAttemptIds.includes('ts-1'))
+    ).toBe(true);
+    visible.setNaturalTime(42, 'timeupdate');
+    await flushAsyncWork();
+
+    expect(capture.screenshot?.id).toBe('visible-shot');
+
+    hiddenDeferred.resolve(hiddenScreenshot);
+    await flushAsyncWork();
+
+    expect(capture.screenshot?.id).toBe('visible-shot');
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+    expectQueueStateToBeEmpty(stateSnapshots.at(-1));
 
     queue.dispose();
     createElementSpy.mockRestore();

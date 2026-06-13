@@ -3,13 +3,19 @@ import {
   setRequestedTimestampScreenshot
 } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
-import type { VideoScreenshotPreparationQueue } from './videoScreenshotPreparationQueue';
 
 interface VideoScreenshotPreparationCoordinatorArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
   syncPanel: () => void;
+}
+
+interface VideoScreenshotPreparationQueue {
+  request(captureId: string): void;
+  requestAll(): void;
+  handleVideoElementChange(video: HTMLVideoElement | null): void;
+  dispose(): void;
 }
 
 export class VideoScreenshotPreparationCoordinator {

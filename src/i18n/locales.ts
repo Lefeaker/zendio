@@ -4,7 +4,7 @@ import { defaultLocaleService } from './runtime/localeService';
 
 export type Language = LangCode;
 
-export type { Messages } from './messages';
+export type { Messages, RuntimeMessages, SchemaMessages } from './messages';
 export { DEFAULT_LANGUAGE, AVAILABLE_LANGUAGES } from './config';
 export const DEFAULT_RUNTIME_MESSAGES = defaultLocaleService.defaultRuntimeMessages;
 export const DEFAULT_STATIC_MESSAGES = defaultLocaleService.defaultStaticMessages;

@@ -3,6 +3,7 @@ import type { ResourceSchema, SchemaContext, ViewSchema } from '../types';
 import clipper from './surfaces/clipper';
 import reader from './surfaces/reader';
 import video from './surfaces/video';
+import videoControlBarPopover from './surfaces/video-control-bar-popover';
 import videoFloatingPrompt from './surfaces/video-floating-prompt';
 import taskSuccess from './surfaces/task-success';
 
@@ -10,6 +11,7 @@ export const surfaceSchemas: Record<string, ResourceSchema> = {
   clipper,
   reader,
   video,
+  'video-control-bar-popover': videoControlBarPopover,
   'video-floating-prompt': videoFloatingPrompt,
   'task-success': taskSuccess
 };

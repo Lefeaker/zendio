@@ -28,6 +28,20 @@ export const firefoxRuntimeService: RuntimeService = {
     return firefoxApi.runtime.getURL(path);
   },
 
+  async sendMessage<TResult = unknown>(message: unknown): Promise<TResult> {
+    const firefoxApi = ensureFirefox();
+    const response: unknown = await firefoxApi.runtime.sendMessage(message);
+    return response as TResult;
+  },
+
+  getUILanguage() {
+    const firefoxApi = ensureFirefox();
+    if (typeof firefoxApi.i18n?.getUILanguage === 'function') {
+      return firefoxApi.i18n.getUILanguage();
+    }
+    return undefined;
+  },
+
   async openOptionsPage(): Promise<void> {
     const firefoxApi = ensureFirefox();
     if (typeof firefoxApi.runtime.openOptionsPage === 'function') {

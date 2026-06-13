@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, it, vi } from 'vitest';
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import type { Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import {
   createProductionStitchAppData,
@@ -22,6 +22,7 @@ import {
   asOptionsController,
   createCompleteOptions,
   createController,
+  createEnglishPageMessages,
   findButton,
   flushPromises,
   queryRequired,
@@ -55,11 +56,6 @@ const SURFACE_INITIAL_OPTIONS = {
   }
 };
 
-const RESOURCE_LINKS: Array<{ label: string; resourceId: string }> = [
-  { label: DEFAULT_RUNTIME_MESSAGES.privacyPolicyLink, resourceId: 'privacy-policy' },
-  { label: DEFAULT_RUNTIME_MESSAGES.dataUsageLink, resourceId: 'data-usage' }
-];
-
 function renderRequiredElement(
   rendered: ReturnType<typeof renderPreviewView>,
   description: string
@@ -74,7 +70,14 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function createEnglishSchemaContext() {
+function getResourceLinks(messages: Messages): Array<{ label: string; resourceId: string }> {
+  return [
+    { label: messages.privacyPolicyLink, resourceId: 'privacy-policy' },
+    { label: messages.dataUsageLink, resourceId: 'data-usage' }
+  ];
+}
+
+function createEnglishSchemaContext(messages: Messages) {
   const base = createBaseSchemaContext();
   return createProductionStitchSchemaContext({
     appData: base.appData,
@@ -83,12 +86,12 @@ function createEnglishSchemaContext() {
       previewLanguage: 'en'
     },
     language: 'en',
-    messages: DEFAULT_RUNTIME_MESSAGES
+    messages
   });
 }
 
-function renderOnboardingPage(): HTMLElement {
-  const context = createEnglishSchemaContext();
+function renderOnboardingPage(messages: Messages): HTMLElement {
+  const context = createEnglishSchemaContext(messages);
   const view = getResourceView('onboarding', context);
   if (!view) {
     throw new Error('Missing onboarding preview view.');
@@ -105,11 +108,11 @@ function renderOnboardingPage(): HTMLElement {
   );
 }
 
-function renderRuntimeSurface(surfaceId: RuntimeSurfaceId): HTMLElement {
+function renderRuntimeSurface(surfaceId: RuntimeSurfaceId, messages: Messages): HTMLElement {
   mountProductionStitchShell({
     controller: asOptionsController(createController()),
     initialOptions: SURFACE_INITIAL_OPTIONS,
-    messages: DEFAULT_RUNTIME_MESSAGES,
+    messages,
     language: 'en'
   });
 
@@ -128,7 +131,7 @@ function renderRuntimeSurface(surfaceId: RuntimeSurfaceId): HTMLElement {
   const context = createProductionStitchSchemaContext({
     appData,
     language: 'en',
-    messages: DEFAULT_RUNTIME_MESSAGES,
+    messages,
     state
   });
 
@@ -154,10 +157,12 @@ describe('mountProductionStitchShell English residual coverage', () => {
   beforeEach(setupProductionStitchShellTest);
 
   it('keeps all six settings panels free of residual Chinese outside language options in English mode', async () => {
+    const messages = await createEnglishPageMessages();
+
     mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: null,
-      messages: DEFAULT_RUNTIME_MESSAGES,
+      messages,
       language: 'en'
     });
 
@@ -178,15 +183,17 @@ describe('mountProductionStitchShell English residual coverage', () => {
     }
   });
 
-  it('keeps the onboarding page free of residual Chinese in English mode', () => {
-    expectNoChineseSettingsCopy(renderOnboardingPage());
+  it('keeps the onboarding page free of residual Chinese in English mode', async () => {
+    expectNoChineseSettingsCopy(renderOnboardingPage(await createEnglishPageMessages()));
   });
 
   it('keeps every resource modal free of residual Chinese in English mode', async () => {
+    const messages = await createEnglishPageMessages();
+
     mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: null,
-      messages: DEFAULT_RUNTIME_MESSAGES,
+      messages,
       language: 'en'
     });
 
@@ -207,7 +214,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
       await flushPromises();
     }
 
-    for (const { label, resourceId } of RESOURCE_LINKS) {
+    for (const { label, resourceId } of getResourceLinks(messages)) {
       findButton(label).click();
       await flushPromises();
 
@@ -227,13 +234,14 @@ describe('mountProductionStitchShell English residual coverage', () => {
     }
   });
 
-  it('keeps every runtime surface preview free of residual Chinese in English mode', () => {
+  it('keeps every runtime surface preview free of residual Chinese in English mode', async () => {
+    const messages = await createEnglishPageMessages();
     const failures: string[] = [];
 
     for (const surfaceId of RUNTIME_SURFACE_IDS) {
       let surface: HTMLElement | null = null;
       try {
-        surface = renderRuntimeSurface(surfaceId);
+        surface = renderRuntimeSurface(surfaceId, messages);
         expectNoChineseSettingsCopy(surface);
       } catch (error) {
         failures.push(`Surface ${surfaceId}: ${getErrorMessage(error)}`);

@@ -24,6 +24,32 @@ export const chromeRuntimeService: RuntimeService = {
     return chromeApi.runtime.getURL(path);
   },
 
+  async sendMessage<TResult = unknown>(message: unknown): Promise<TResult> {
+    const chromeApi = ensureChrome();
+    return normalizePromise<TResult>((resolve, reject) => {
+      try {
+        chromeApi.runtime.sendMessage(message, (response) => {
+          const error = getChromeLastError();
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(response as TResult);
+        });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  },
+
+  getUILanguage() {
+    const chromeApi = ensureChrome();
+    if (typeof chromeApi.i18n?.getUILanguage === 'function') {
+      return chromeApi.i18n.getUILanguage();
+    }
+    return undefined;
+  },
+
   getManifest() {
     const chromeApi = ensureChrome();
     if (typeof chromeApi.runtime.getManifest === 'function') {

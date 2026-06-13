@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { I18nBindingAdapter, I18nBindingHandle, I18nResource } from '../../../src/i18n';
 import { createTestPlatformHarness } from '../../utils/platformTestHarness';
 
 const harness = createTestPlatformHarness();
@@ -17,27 +18,65 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function createRecordingBindingAdapter(): I18nBindingAdapter & { resources: I18nResource[] } {
+  const resources: I18nResource[] = [];
+  const createHandle = (): I18nBindingHandle => ({
+    dispose: vi.fn()
+  });
+
+  return {
+    bindText: () => createHandle(),
+    bindAttribute: () => createHandle(),
+    bindHtml: () => createHandle(),
+    refresh: (resource) => {
+      resources.push(resource);
+    },
+    clear: vi.fn(),
+    resources
+  };
+}
+
 describe('i18n storage fallbacks', () => {
   it('falls back to navigator language when storage is not configured', async () => {
     vi.stubGlobal('navigator', { language: 'zh-CN' });
-    const { configureI18nStorage, getCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
+      await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(null);
 
     await expect(getCurrentLanguage()).resolves.toBe('zh-CN');
   });
 
-  it('uses Chrome UI language when navigator candidates are unsupported', async () => {
+  it('uses the configured runtime language provider when navigator candidates are unsupported', async () => {
     vi.stubGlobal('navigator', { languages: ['nl-NL'], language: 'sv-SE' });
-    vi.stubGlobal('chrome', { i18n: { getUILanguage: () => 'ja-JP' } });
-    const { configureI18nStorage, getCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
+      await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(() => 'ja-JP');
     configureI18nStorage(null);
 
     await expect(getCurrentLanguage()).resolves.toBe('ja');
   });
 
-  it('reads storage language and persists the resolved language through injected storage', async () => {
-    const { configureI18nStorage, getCurrentLanguage, setCurrentLanguage } =
+  it('ignores runtime language provider failures and falls back to navigator/default logic', async () => {
+    vi.stubGlobal('navigator', { language: 'fr-FR' });
+    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, getCurrentLanguage } =
       await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(() => {
+      throw new Error('provider unavailable');
+    });
+    configureI18nStorage(null);
+
+    await expect(getCurrentLanguage()).resolves.toBe('fr');
+  });
+
+  it('reads storage language and persists the resolved language through injected storage', async () => {
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      getCurrentLanguage,
+      setCurrentLanguage
+    } = await import('../../../src/i18n');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
 
     await harness.storage.sync.set('language', 'fr');
@@ -49,9 +88,14 @@ describe('i18n storage fallbacks', () => {
 
   it('falls back to navigator language and reports when storage read fails', async () => {
     vi.stubGlobal('navigator', { language: 'ja-JP' });
-    const { configureI18nStorage, DEFAULT_LANGUAGE, getCurrentLanguage } =
-      await import('../../../src/i18n');
+    const {
+      configureI18nRuntimeLanguageProvider,
+      configureI18nStorage,
+      DEFAULT_LANGUAGE,
+      getCurrentLanguage
+    } = await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
     const getSpy = vi
       .spyOn(harness.storage.sync, 'get')
@@ -69,8 +113,10 @@ describe('i18n storage fallbacks', () => {
   });
 
   it('handles storage write errors without throwing', async () => {
-    const { configureI18nStorage, setCurrentLanguage } = await import('../../../src/i18n');
+    const { configureI18nRuntimeLanguageProvider, configureI18nStorage, setCurrentLanguage } =
+      await import('../../../src/i18n');
     const { errorHandler } = await import('@shared/errors/errorHandler');
+    configureI18nRuntimeLanguageProvider(null);
     configureI18nStorage(harness.storage.sync);
     const setSpy = vi
       .spyOn(harness.storage.sync, 'set')
@@ -105,5 +151,57 @@ describe('locale fallback characterization', () => {
 
     expect(zhAliasMessages).toEqual(zhMessages);
     expect(unknownMessages).toBe(DEFAULT_RUNTIME_MESSAGES);
+  });
+
+  it('keeps content/runtime locale loads schema-free', async () => {
+    const { loadMessagesWithFallback } = await import('../../../src/i18n/locales');
+
+    const runtimeMessages = await loadMessagesWithFallback('en');
+
+    expect(runtimeMessages.extensionName).toBeTypeOf('string');
+    expect('schemaOverviewTitle' in runtimeMessages).toBe(false);
+    expect(runtimeMessages.schemaOverviewTitle).toBeUndefined();
+  });
+
+  it('returns merged runtime and schema messages through getMessagesForLanguage', async () => {
+    const { getMessagesForLanguage } = await import('../../../src/i18n');
+
+    const pageMessages = await getMessagesForLanguage('en');
+
+    expect(pageMessages.extensionName).toBeTypeOf('string');
+    expect(pageMessages.schemaOverviewTitle).toBe('Overview');
+  });
+
+  it('loads schema-backed resources for extension-page controllers', async () => {
+    vi.stubGlobal('window', { location: { protocol: 'chrome-extension:' } });
+    const { createDefaultPageI18nController } = await import('../../../src/i18n');
+    const bindingAdapter = createRecordingBindingAdapter();
+    const controller = createDefaultPageI18nController({ bindingAdapter });
+
+    await controller.load('en');
+
+    const resource = controller.getCurrentResource();
+    expect(resource?.messages.schemaOverviewTitle).toBe('Overview');
+    expect(resource?.get('schemaOverviewTitle')).toBe('Overview');
+    expect(bindingAdapter.resources.at(-1)?.messages.schemaOverviewTitle).toBe('Overview');
+    controller.dispose();
+  });
+
+  it('keeps non-extension controller resources schema-free unless explicit page-message loading is used', async () => {
+    vi.stubGlobal('window', { location: { protocol: 'https:' } });
+    const { createDefaultPageI18nController, getMessagesForLanguage } =
+      await import('../../../src/i18n');
+    const bindingAdapter = createRecordingBindingAdapter();
+    const controller = createDefaultPageI18nController({ bindingAdapter });
+
+    await controller.load('en');
+
+    const resource = controller.getCurrentResource();
+    expect(resource?.messages.schemaOverviewTitle).toBeUndefined();
+    expect(resource?.get('schemaOverviewTitle')).toBeUndefined();
+
+    const pageMessages = await getMessagesForLanguage('en');
+    expect(pageMessages.schemaOverviewTitle).toBe('Overview');
+    controller.dispose();
   });
 });

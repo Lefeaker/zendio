@@ -6,6 +6,7 @@ import {
 import {
   ensureVideoControlBarButton,
   removeVideoControlBarButton,
+  type VideoControlBarButtonTexts,
   type VideoControlBarNotePayload,
   type VideoControlBarPopoverCloseReason,
   type VideoControlBarPreferences
@@ -22,6 +23,7 @@ interface VideoPromptControlTargetLifecycleOptions {
   getUrl(): string;
   getLabel(): string;
   getShortcut(): string;
+  getTexts(): VideoControlBarButtonTexts;
   getPreferences(): VideoControlBarPreferences;
   setPreferences(preferences: VideoControlBarPreferences): void;
   getIconUrl(): string | null;
@@ -88,6 +90,7 @@ export function createVideoPromptControlTargetLifecycle(
       url: options.getUrl(),
       label: options.getLabel(),
       shortcut: options.getShortcut(),
+      texts: options.getTexts(),
       getIconUrl: () => options.getIconUrl(),
       preferences: options.getPreferences(),
       onPreferencesChange: (preferences) => options.setPreferences(preferences),

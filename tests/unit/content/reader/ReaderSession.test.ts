@@ -42,8 +42,10 @@ import {
   createSessionDraftStorageKey,
   type ReaderSessionDraftEnvelope,
   type SessionDraftEnvelope,
-  type SessionDraftIndex
+  type SessionDraftIndex,
+  type SessionDraftOwnerContext
 } from '@content/sessionDrafts';
+import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { mergeOptions } from '@shared/config/optionsMerger';
@@ -1996,8 +1998,8 @@ describe('ReaderSession', () => {
   it('preserves same-page other-owner drafts after cancel when the current exact-key cleanup fails', async () => {
     vi.useFakeTimers();
     const previousChrome = globalThis.chrome;
-    const currentOwner = { tabId: 11, windowId: 1, frameId: 0 };
-    const otherOwner = { tabId: 22, windowId: 2, frameId: 0 };
+    const currentOwner: SessionDraftOwnerContext = { tabId: 11, windowId: 1, frameId: 0 };
+    const otherOwner: SessionDraftOwnerContext = { tabId: 22, windowId: 2, frameId: 0 };
     Object.defineProperty(globalThis, 'chrome', {
       configurable: true,
       value: {
@@ -2013,6 +2015,9 @@ describe('ReaderSession', () => {
           )
         }
       }
+    });
+    configureSessionDraftRuntimeMessenger(async <TResult = unknown>() => {
+      return { success: true, active: true, ...currentOwner } as TResult;
     });
 
     const context = createSessionContext();
@@ -2137,6 +2142,7 @@ describe('ReaderSession', () => {
         removeSpy.mock.calls.filter(([value]) => removalCallIncludesKey(value, existingDraftKey))
       ).toHaveLength(0);
     } finally {
+      configureSessionDraftRuntimeMessenger(null);
       if (previousChrome === undefined) {
         Reflect.deleteProperty(globalThis, 'chrome');
       } else {

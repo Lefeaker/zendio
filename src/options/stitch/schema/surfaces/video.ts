@@ -1,7 +1,7 @@
 import type { ResourceSchema } from '../../types';
 import {
   sessionHeader,
-  sessionFooterBar,
+  videoFooterBar,
   sessionItemList,
   sessionPanelShell,
   surfaceBody,
@@ -87,7 +87,7 @@ const schema: ResourceSchema = {
                 videoAddCaptureItem(labels.addLabel, labels.emptyCapturePlaceholder)
               ])
             ]),
-            sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            videoFooterBar(counter, actions, null, surface.destination, destinationLabels)
           ])
         ])
       ]

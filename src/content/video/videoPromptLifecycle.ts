@@ -1,4 +1,4 @@
-import type { Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import type { VideoOptions } from '../../shared/types/options';
 import { detectVideoIdentity } from './utils';
 import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
@@ -9,6 +9,7 @@ import {
   isValidVideoPlayPage
 } from './videoPromptObserver';
 import type {
+  VideoControlBarButtonTexts,
   VideoControlBarNotePayload,
   VideoControlBarPreferences
 } from './videoControlBarButton';
@@ -89,6 +90,7 @@ let lifecycleListenersRegistered = false;
 let promptButtonLabel = VIDEO_PROMPT_DEFAULT_LABEL;
 let promptShortcut = VIDEO_PROMPT_DEFAULT_SHORTCUT;
 let controlBarPreferences = { ...VIDEO_CONTROL_BAR_DEFAULT_PREFERENCES };
+let controlBarTexts = toControlBarTexts(DEFAULT_RUNTIME_MESSAGES);
 
 const promptMountLifecycle = createVideoPromptMountLifecycle({
   getDocument: () => document,
@@ -123,6 +125,7 @@ const controlTargetLifecycle = createVideoPromptControlTargetLifecycle({
   getUrl: () => window.location.href,
   getLabel: () => promptButtonLabel,
   getShortcut: () => promptShortcut,
+  getTexts: () => controlBarTexts,
   getPreferences: () => controlBarPreferences,
   setPreferences: (preferences) => {
     controlBarPreferences = preferences;
@@ -146,11 +149,34 @@ const controlTargetLifecycle = createVideoPromptControlTargetLifecycle({
   }
 });
 
+function toControlBarTexts(
+  messages: Pick<
+    Messages,
+    | 'videoControlBarNotePlaceholder'
+    | 'videoControlBarNoteAriaLabel'
+    | 'videoControlBarAutoPauseLabel'
+    | 'videoControlBarScreenshotLabel'
+  >
+): VideoControlBarButtonTexts {
+  return {
+    notePlaceholder: messages.videoControlBarNotePlaceholder,
+    noteAriaLabel: messages.videoControlBarNoteAriaLabel,
+    autoPauseLabel: messages.videoControlBarAutoPauseLabel,
+    screenshotLabel: messages.videoControlBarScreenshotLabel
+  };
+}
+
+function cachePromptMessages(messages: Messages): Messages {
+  messagesCache = messages;
+  controlBarTexts = toControlBarTexts(messages);
+  return messages;
+}
+
 async function getPromptMessages(): Promise<Messages> {
   if (!messagesCache) {
     await ensureContentI18n(document);
     const resource = getContentI18nResource();
-    messagesCache = resource?.messages ?? (await getContentMessages());
+    return cachePromptMessages(resource?.messages ?? (await getContentMessages()));
   }
   return messagesCache;
 }
@@ -334,8 +360,14 @@ function setupVideoConfigListenerForTests(): () => void {
 function setupLanguageListener(): void {
   stopLanguageWatcher?.();
   stopLanguageWatcher = startLanguageWatcher(getStorageService(), () => {
-    invalidatePromptMessages();
-    evaluatePrompt(true);
+    void (async () => {
+      invalidatePromptMessages();
+      try {
+        await getPromptMessages();
+      } finally {
+        evaluatePrompt(true);
+      }
+    })();
   });
 }
 

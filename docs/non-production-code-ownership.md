@@ -86,6 +86,18 @@ resolved without weakening gates:
 - `src/ui/foundation/keyboard/index.ts` is explicitly retained as the UI foundation keyboard source-of-truth boundary.
 - `src/ui/hosts/options/index.ts` is explicitly retained as the Options UI host source-of-truth boundary.
 
+2026-06-12 P01 audit truth fix: `resolveSourceImport()` now normalizes import
+specifier query/hash suffixes such as `?inline` before retained-source import
+classification. After rerunning `audit:production-build-graph:report` and
+`audit:non-production-source:report`, the report exits 0 with counts
+`migrate-import-owner: 133`, `retain-production: 621`, and
+`retain-production-facade: 17`. `src/content/video/video-control-bar.css` no
+longer appears as a false `migrate-test-owner`; its production owner is
+`src/content/video/videoControlBarStyles.ts` importing
+`./video-control-bar.css?inline`. Current decision counts are
+`migrate-import-owner: 134`, `retain-production: 625`, and
+`retain-production-facade: 17`.
+
 ## Current Retained Contracts
 
 The 2026-05-17 technical-debt orchestration completed classification and deletion safety

@@ -1,6 +1,7 @@
 import {
   ANALYTICS_EVENT_CATALOG,
   ANALYTICS_REQUIRED_PARAMS,
+  getAnalyticsAllowedParams,
   type AnalyticsEventName,
   type AnalyticsEventParamMap,
   type AnalyticsPrimitive,
@@ -105,6 +106,8 @@ const BACKGROUND_STAGES = new Set([
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9_.:-]+$/;
 const OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/;
 const LANGUAGE_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
+const FILE_NAME_PATTERN =
+  /\.(md|markdown|txt|json|ya?ml|csv|tsv|png|jpe?g|gif|webp|svg|mp4|mov|mkv|srt|vtt|pdf|docx?)$/i;
 const SECRET_PATTERN = /(api[_-]?key|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|secret|token|password)/i;
 
 const PARAM_SANITIZERS: ParamSanitizerMap = {
@@ -321,7 +324,8 @@ export function sanitizeAnalyticsEventParams<EventName extends AnalyticsEventNam
 
   const sanitizers = PARAM_SANITIZERS[eventName];
   const sanitized: Record<string, AnalyticsPrimitive> = {};
-  for (const [key, value] of Object.entries(params)) {
+  for (const key of getAnalyticsAllowedParams(eventName)) {
+    const value = params[key];
     if (value === undefined) {
       continue;
     }
@@ -449,6 +453,7 @@ function hasForbiddenStringShape(value: string): boolean {
     lowerValue.includes('\n') ||
     lowerValue.includes('```') ||
     lowerValue.includes('---') ||
+    FILE_NAME_PATTERN.test(value) ||
     SECRET_PATTERN.test(lowerValue)
   );
 }

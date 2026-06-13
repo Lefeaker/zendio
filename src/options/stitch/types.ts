@@ -179,6 +179,18 @@ export interface VideoSurfaceCapture {
   editing?: boolean;
 }
 
+export interface VideoControlBarPopoverSurfaceTexts {
+  notePlaceholder: string;
+  noteAriaLabel: string;
+  autoPauseLabel: string;
+  screenshotLabel: string;
+}
+
+export interface VideoControlBarPopoverSurfacePreferences {
+  autoPauseEnabled: boolean;
+  captureScreenshotEnabled: boolean;
+}
+
 export type ToastPreview = { title: string; detail: string; actions?: string[] };
 
 export interface PreviewSurfaces {
@@ -214,6 +226,10 @@ export interface PreviewSurfaces {
     destination?: ExportDestinationSurfacePreview;
     captures: VideoSurfaceCapture[];
     actions: SurfaceAction[];
+  };
+  videoControlBarPopover?: {
+    texts: VideoControlBarPopoverSurfaceTexts;
+    preferences: VideoControlBarPopoverSurfacePreferences;
   };
   videoFloatingPrompt: {
     label: string;

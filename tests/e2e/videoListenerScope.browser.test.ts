@@ -6,6 +6,7 @@ import {
   BILIBILI_REPLY_COMMENT_TEXT,
   buildBilibiliCommentsShadowFixture
 } from './fixtures/bilibili-comments-shadow';
+import { readVideoControlBarGeometry } from '../utils/videoControlBarGeometry';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -794,6 +795,20 @@ async function openVideoPanelFromControlBar(
   await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible({ timeout: 10000 });
 }
 
+async function readControlBarGeometry(page: Page, targetSelector: string) {
+  return await page.evaluate(readVideoControlBarGeometry, { targetSelector });
+}
+
+function expectPxWithin(actual: number | null, expected: number): void {
+  expect(actual).not.toBeNull();
+  expect(Math.abs((actual ?? Number.NaN) - expected)).toBeLessThanOrEqual(1);
+}
+
+function expectHorizontallyCenteredUnlessClamped(horizontalCenterDelta: number | null): void {
+  expect(horizontalCenterDelta).not.toBeNull();
+  expect(horizontalCenterDelta ?? Number.NaN).toBeLessThanOrEqual(1.5);
+}
+
 async function expandVideoPanel(page: Page): Promise<void> {
   const surfaceWindow = page.locator('.video-surface-window').first();
   await expect(surfaceWindow).toBeVisible();
@@ -887,6 +902,58 @@ testWithExtension.describe('video listener scope browser runtime', () => {
   testWithExtension.setTimeout(60000);
 
   testWithExtension(
+    'keeps YouTube control-bar geometry and popover clamp parity in Chromium',
+    async ({ context, extensionPage }) => {
+      const { page } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        YOUTUBE_URL,
+        youtubeFixtureHtml()
+      );
+
+      await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+      const beforeOpen = await readControlBarGeometry(page, '.ytp-right-controls');
+      expect(beforeOpen.button?.parentMatchesTarget).toBe(true);
+      expect(beforeOpen.button?.isFirstElementChild).toBe(true);
+      expect(beforeOpen.icon).not.toBeNull();
+      expectPxWithin(beforeOpen.button?.computed.width ?? null, 31);
+      expectPxWithin(beforeOpen.button?.computed.height ?? null, 31);
+      expectPxWithin(beforeOpen.button?.computed.marginLeft ?? null, 8);
+      expectPxWithin(beforeOpen.button?.computed.marginRight ?? null, 8);
+
+      await page.locator('[data-aiob-video-control-bar-button="true"]').click();
+      const afterOpen = await readControlBarGeometry(page, '.ytp-right-controls');
+      expect(afterOpen.popover).not.toBeNull();
+      expectPxWithin(afterOpen.popover?.computed.width ?? null, 220);
+      expect(afterOpen.popover?.inlineLeft).not.toBeNull();
+      expect(afterOpen.popover?.inlineTop).not.toBeNull();
+      expect(afterOpen.popover?.horizontalClamp.withinRange).toBe(true);
+      expect(afterOpen.popover?.verticalClamp.withinRange).toBe(true);
+      if (afterOpen.popover?.horizontalClamp.clamped) {
+        const left = afterOpen.popover.inlineLeft ?? Number.NaN;
+        const rightClamp = afterOpen.popover.horizontalClamp.max;
+        expect(
+          Math.abs(left - afterOpen.popover.horizontalClamp.min) <= 1 ||
+            Math.abs(left - rightClamp) <= 1
+        ).toBe(true);
+      } else {
+        expectHorizontallyCenteredUnlessClamped(afterOpen.popover?.horizontalCenterDelta ?? null);
+      }
+      expect(afterOpen.popover?.noteInputIsActive).toBe(true);
+      expect(afterOpen.popover?.noteInputIsFirstFocusable).toBe(true);
+      expect(afterOpen.popover?.focusableOrder).toEqual([
+        'note-input',
+        'toggle:autoPauseEnabled',
+        'toggle:captureScreenshotEnabled'
+      ]);
+      expect(afterOpen.popover?.toggleOrder).toEqual([
+        'autoPauseEnabled',
+        'captureScreenshotEnabled'
+      ]);
+    }
+  );
+
+  testWithExtension(
     'opens real Video Mode from a YouTube-like control-bar note',
     async ({ context, extensionPage }) => {
       const { page } = await openFixtureWithRuntime(
@@ -917,6 +984,15 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
       await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(0);
       await expect(page.locator('#aiob-video-floating-prompt')).toHaveCount(0);
+      const beforeGeometry = await readControlBarGeometry(page, '.bpx-player-control-bottom-right');
+      expect(beforeGeometry.button?.parentMatchesTarget).toBe(true);
+      expect(beforeGeometry.button?.isFirstElementChild).toBe(true);
+      expect(beforeGeometry.icon).not.toBeNull();
+      expectPxWithin(beforeGeometry.button?.computed.width ?? null, 25);
+      expectPxWithin(beforeGeometry.button?.computed.height ?? null, 25);
+      expectPxWithin(beforeGeometry.button?.computed.marginLeft ?? null, 6);
+      expectPxWithin(beforeGeometry.button?.computed.marginRight ?? null, 6);
+      expectPxWithin(beforeGeometry.button?.computed.translateY ?? null, -4);
       const before = await readPromptCounters(extensionPage, tabId);
 
       await page.evaluate(() => {
@@ -931,9 +1007,17 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await page.waitForTimeout(250);
 
       const after = await readPromptCounters(extensionPage, tabId);
+      const afterGeometry = await readControlBarGeometry(page, '.bpx-player-control-bottom-right');
       await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
       await expect(page.locator('[data-stitch-surface="video"]')).toHaveCount(0);
       await expect(page.locator('#aiob-video-floating-prompt')).toHaveCount(0);
+      expect(afterGeometry.button?.parentMatchesTarget).toBe(true);
+      expect(afterGeometry.button?.isFirstElementChild).toBe(true);
+      expectPxWithin(afterGeometry.button?.computed.width ?? null, 25);
+      expectPxWithin(afterGeometry.button?.computed.height ?? null, 25);
+      expectPxWithin(afterGeometry.button?.computed.marginLeft ?? null, 6);
+      expectPxWithin(afterGeometry.button?.computed.marginRight ?? null, 6);
+      expectPxWithin(afterGeometry.button?.computed.translateY ?? null, -4);
       expect(after.evaluateCount).toBe(before.evaluateCount);
       expect(after.controlButtonSyncCount).toBe(before.controlButtonSyncCount);
       expect(after.floatingPromptMountCount).toBe(before.floatingPromptMountCount);

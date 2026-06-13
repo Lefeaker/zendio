@@ -1,6 +1,6 @@
 import { DEFAULT_LANGUAGE, type LangCode } from '../config';
-import type { LocaleDefinition, LocaleStaticMessages } from '../localeDefinition';
-import type { Messages } from '../messages';
+import { buildPseudoLocaleDefinition } from '../catalog/pseudoLocale';
+import type { LocaleDefinition, LocaleStaticMessages, RuntimeMessages } from '../localeDefinition';
 import en from '../generated/locales/en.generated';
 import { getRuntimeLanguageFallbackChain } from './fallback';
 
@@ -11,15 +11,15 @@ type LocaleCache = Partial<Record<LangCode, LocaleDefinition>>;
 
 export interface LocaleService {
   readonly defaultLanguage: LangCode;
-  readonly defaultRuntimeMessages: Messages;
+  readonly defaultRuntimeMessages: RuntimeMessages;
   readonly defaultStaticMessages: LocaleStaticMessages;
   getLocaleCodes(): LangCode[];
   hasLocaleLoader(language: string): language is LangCode;
   getCachedLocaleDefinition(language: LangCode): LocaleDefinition | null;
   loadLocaleDefinition(language: LangCode): Promise<LocaleDefinition>;
-  loadLocaleMessages(language: LangCode): Promise<Messages>;
+  loadLocaleMessages(language: LangCode): Promise<RuntimeMessages>;
   loadStaticMessages(language: LangCode): Promise<LocaleStaticMessages>;
-  loadMessagesWithFallback(language: string): Promise<Messages>;
+  loadMessagesWithFallback(language: string): Promise<RuntimeMessages>;
 }
 
 export interface LocaleServiceOptions {
@@ -129,8 +129,7 @@ const localeLoaders: LocaleLoaderMap = {
 };
 
 if (process.env.NODE_ENV !== 'production') {
-  localeLoaders['qps-ploc'] = async () =>
-    (await import('../generated/locales/qps-ploc.generated')).default;
+  localeLoaders['qps-ploc'] = () => Promise.resolve(buildPseudoLocaleDefinition());
 }
 
 export const defaultLocaleService = createLocaleService({
