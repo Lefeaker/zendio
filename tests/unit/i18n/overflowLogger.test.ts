@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdaptiveTextResult } from '@shared/i18n/textAdaptation';
-
-const resolveRepositoryMock = vi.hoisted(() => vi.fn());
-
-vi.mock('../../../src/shared/di/serviceRegistry', () => ({
-  resolveRepository: resolveRepositoryMock
-}));
+import { repositoryContainer } from '../../../src/shared/di/serviceRegistry';
+import { DI_TOKENS } from '../../../src/shared/di/tokens';
+import type { IMessagingRepository, Message } from '../../../src/shared/repositories';
 
 function createElementStub(dataset: Record<string, string> = {}): HTMLElement {
   const attrs = new Map<string, string>();
@@ -23,9 +20,33 @@ describe('overflowLogger', () => {
     });
   });
 
+  function registerMessagingRepository(send: IMessagingRepository['send']): void {
+    repositoryContainer.registerSingleton<IMessagingRepository>(
+      DI_TOKENS.IMessagingRepository,
+      () => ({
+        send,
+        onMessage: () => () => {}
+      })
+    );
+  }
+
+  function createMessagingHarness(): {
+    send: IMessagingRepository['send'];
+    sendMock: ReturnType<typeof vi.fn<(message: Message) => Promise<void>>>;
+  } {
+    const sendMock = vi.fn<(message: Message) => Promise<void>>(async () => undefined);
+    return {
+      send: async <T>(message: Message) => {
+        await sendMock(message);
+        return undefined as T;
+      },
+      sendMock
+    };
+  }
+
   it('sends one overflow usage event through the messaging repository', async () => {
-    const sendMock = vi.fn(() => Promise.resolve(undefined));
-    resolveRepositoryMock.mockReturnValue({ send: sendMock });
+    const { send, sendMock } = createMessagingHarness();
+    registerMessagingRepository(send);
     const { logTextOverflowEvent } = await import('../../../src/shared/i18n/overflowLogger');
 
     const element = createElementStub({
@@ -46,7 +67,7 @@ describe('overflowLogger', () => {
 
     await Promise.resolve();
 
-    expect(resolveRepositoryMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
     expect(sendMock).toHaveBeenCalledWith({
       type: 'TRACK_USAGE_EVENT',
       event: 'i18n_text_overflow',
@@ -62,8 +83,8 @@ describe('overflowLogger', () => {
   });
 
   it('deduplicates overflow events per element and key', async () => {
-    const sendMock = vi.fn(() => Promise.resolve(undefined));
-    resolveRepositoryMock.mockReturnValue({ send: sendMock });
+    const { send, sendMock } = createMessagingHarness();
+    registerMessagingRepository(send);
     const { logTextOverflowEvent } = await import('../../../src/shared/i18n/overflowLogger');
 
     const element = createElementStub({ budgetKey: 'readerPanel' });
@@ -86,8 +107,8 @@ describe('overflowLogger', () => {
   });
 
   it('does not send overflow events when the key looks like a path', async () => {
-    const sendMock = vi.fn(() => Promise.resolve(undefined));
-    resolveRepositoryMock.mockReturnValue({ send: sendMock });
+    const { send, sendMock } = createMessagingHarness();
+    registerMessagingRepository(send);
     const { logTextOverflowEvent } = await import('../../../src/shared/i18n/overflowLogger');
 
     const element = createElementStub({ budgetKey: '/options/index.html' });
