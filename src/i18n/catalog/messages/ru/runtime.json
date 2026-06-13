@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "Это содержимое выделенного текста",
   "fragmentFootnoteExampleComment": "Это мой комментарий",
   "fragmentContextHighlightExampleTitle": "Пример выделения контекста:",
-  "fragmentContextHighlightExampleContent": "Контекст до ==это выделенный текст== контекст после"
+  "fragmentContextHighlightExampleContent": "Контекст до ==это выделенный текст== контекст после",
+  "videoControlBarNotePlaceholder": "Добавить заметку",
+  "videoControlBarNoteAriaLabel": "Добавить заметку к видео",
+  "videoControlBarAutoPauseLabel": "Приостанавливать видео во время редактирования",
+  "videoControlBarScreenshotLabel": "Захватить текущий кадр видео"
 }

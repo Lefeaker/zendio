@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "これは選択されたテキストの内容です",
   "fragmentFootnoteExampleComment": "これは私のコメントです",
   "fragmentContextHighlightExampleTitle": "コンテキストハイライトの例：",
-  "fragmentContextHighlightExampleContent": "前のコンテキスト ==これは選択されたテキスト== 後のコンテキスト"
+  "fragmentContextHighlightExampleContent": "前のコンテキスト ==これは選択されたテキスト== 後のコンテキスト",
+  "videoControlBarNotePlaceholder": "メモを追加",
+  "videoControlBarNoteAriaLabel": "動画メモを追加",
+  "videoControlBarAutoPauseLabel": "編集中は動画を一時停止",
+  "videoControlBarScreenshotLabel": "現在の動画フレームをキャプチャ"
 }

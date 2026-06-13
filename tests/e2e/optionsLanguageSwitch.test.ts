@@ -2,11 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
-import en from '@i18n/generated/locales/en.generated';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { MountedProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
-import type { Language } from '@i18n';
+import { getMessagesForLanguage, type Language } from '@i18n';
+import { schemaShellMessagesEnglish } from '@i18n/generated/schemaMessages.generated';
 import { e2ePlatformHarness } from './setup';
 import { getLanguageSelectValues } from '../utils/optionsI18nTextAssertions';
 
@@ -32,12 +32,18 @@ async function installProductionStitchTestAssets(): Promise<void> {
 
 const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
 const POST_SWITCH_PANEL_EXPECTATIONS = [
-  { panelId: 'overview', text: en.runtime.schemaOverviewTitle },
-  { panelId: 'storage', text: en.runtime.schemaStorageVaultListTitle },
-  { panelId: 'capture-sources', text: en.runtime.schemaCaptureSourcesAiChatGroupTitle },
-  { panelId: 'capture-behavior', text: en.runtime.schemaCaptureBehaviorReadingGroupTitle },
-  { panelId: 'output', text: en.runtime.schemaOutputTemplatesGroupTitle },
-  { panelId: 'maintenance', text: en.runtime.schemaMaintenanceTransferGroupTitle }
+  { panelId: 'overview', text: schemaShellMessagesEnglish.schemaOverviewTitle },
+  { panelId: 'storage', text: schemaShellMessagesEnglish.schemaStorageVaultListTitle },
+  {
+    panelId: 'capture-sources',
+    text: schemaShellMessagesEnglish.schemaCaptureSourcesAiChatGroupTitle
+  },
+  {
+    panelId: 'capture-behavior',
+    text: schemaShellMessagesEnglish.schemaCaptureBehaviorReadingGroupTitle
+  },
+  { panelId: 'output', text: schemaShellMessagesEnglish.schemaOutputTemplatesGroupTitle },
+  { panelId: 'maintenance', text: schemaShellMessagesEnglish.schemaMaintenanceTransferGroupTitle }
 ] as const;
 
 function createController(): OptionsController {
@@ -132,7 +138,7 @@ describe('options language switching e2e', () => {
         languageChanges.push(language);
         await e2ePlatformHarness.storage.sync.set('language', language);
         return {
-          messages: language === 'en' ? en.runtime : null,
+          messages: language === 'en' ? await getMessagesForLanguage(language) : null,
           language
         };
       }

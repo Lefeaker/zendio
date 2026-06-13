@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "Ceci est le contenu du texte sélectionné",
   "fragmentFootnoteExampleComment": "Ceci est mon commentaire",
   "fragmentContextHighlightExampleTitle": "Exemple de surlignage de contexte :",
-  "fragmentContextHighlightExampleContent": "Contexte avant ==ceci est le texte sélectionné== contexte après"
+  "fragmentContextHighlightExampleContent": "Contexte avant ==ceci est le texte sélectionné== contexte après",
+  "videoControlBarNotePlaceholder": "Ajouter une note",
+  "videoControlBarNoteAriaLabel": "Ajouter une note vidéo",
+  "videoControlBarAutoPauseLabel": "Mettre la vidéo en pause pendant la modification",
+  "videoControlBarScreenshotLabel": "Capturer l'image actuelle de la vidéo"
 }

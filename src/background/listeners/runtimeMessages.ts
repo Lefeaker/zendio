@@ -30,6 +30,11 @@ import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
 import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
 import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
+import {
+  CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE,
+  type CaptureVisibleTabScreenshotResponse
+} from '../../shared/types/videoScreenshotMessages';
+import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
 
@@ -156,11 +161,14 @@ export interface RuntimeMessageListenerDependencies {
   openOptionsPage(section?: string): Promise<void>;
   getTabContext(sender: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
   isTabContextActive(ownerContext: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
+  captureVisibleTabScreenshot(
+    sender: RuntimeMessageSender
+  ): Promise<CaptureVisibleTabScreenshotResponse>;
 }
 
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
-  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage'>,
+  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
   runtime: Pick<RuntimeService, 'getURL'>
 ): RuntimeMessageListenerDependencies {
   return {
@@ -209,6 +217,9 @@ export function createRuntimeMessageListenerDependencies(
       } catch {
         return { success: true, active: false };
       }
+    },
+    captureVisibleTabScreenshot(sender) {
+      return captureVisibleTabScreenshotForSender(tabs, sender);
     }
   };
 }
@@ -243,6 +254,15 @@ export function registerRuntimeMessageListener(
 
     if (isTabContextActiveMessage(message)) {
       return dependencies.isTabContextActive(toRuntimeMessageSender(message.ownerContext));
+    }
+
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      message.type === CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE
+    ) {
+      return dependencies.captureVisibleTabScreenshot(toRuntimeMessageSender(sender));
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {

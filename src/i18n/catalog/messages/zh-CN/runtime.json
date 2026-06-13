@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "这是选中的文本内容",
   "fragmentFootnoteExampleComment": "这是我的评论",
   "fragmentContextHighlightExampleTitle": "上下文高亮示例：",
-  "fragmentContextHighlightExampleContent": "前面的上下文 ==这是选中的文本== 后面的上下文"
+  "fragmentContextHighlightExampleContent": "前面的上下文 ==这是选中的文本== 后面的上下文",
+  "videoControlBarNotePlaceholder": "添加备注",
+  "videoControlBarNoteAriaLabel": "添加视频备注",
+  "videoControlBarAutoPauseLabel": "自动暂停视频",
+  "videoControlBarScreenshotLabel": "捕捉当前视频截图"
 }

@@ -8,6 +8,7 @@ import {
   isBilibiliCommentRegionNode,
   isBilibiliDanmakuNode
 } from '@content/video/platforms/bilibiliPlatformObserver';
+import * as bilibiliRestoreScope from '@content/video/platforms/bilibiliCommentRestoreScope';
 import {
   flattenBilibiliContentNode,
   parseBilibiliDataContent,
@@ -907,6 +908,49 @@ describe('BilibiliVideoPlatform', () => {
     expect(range?.toString()).toBe(targetText);
   });
 
+  it('checks observed comment roots before scoped restore fallback when shadow text is found', () => {
+    const targetText = 'shadow-first restore target';
+    const { commentsHost } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const platformAny = platform as unknown as {
+      ensureShadowHostObservation: (host: Element) => void;
+    };
+    const observedSpy = vi.spyOn(
+      BilibiliShadowObserver.prototype,
+      'getObservedCommentRootsForSearch'
+    );
+    const fallbackSpy = vi.spyOn(bilibiliRestoreScope, 'collectBilibiliCommentRestoreRoots');
+
+    platform.observeDomChanges({} as MutationObserver);
+    platformAny.ensureShadowHostObservation(commentsHost);
+    const range = platform.findTextRange(targetText);
+
+    expect(range?.toString()).toBe(targetText);
+    expect(observedSpy).toHaveBeenCalled();
+    expect(fallbackSpy).not.toHaveBeenCalled();
+
+    observedSpy.mockRestore();
+    fallbackSpy.mockRestore();
+  });
+
+  it('does not search unrelated nested shadow roots inside observed comment roots', () => {
+    const targetText = 'nested unrelated shadow target';
+    const { commentsHost, content } = mountBiliCommentWithRichText('<span>fixture comment</span>');
+    const unrelatedHost = document.createElement('x-unrelated-shadow-host');
+    const unrelatedRoot = unrelatedHost.attachShadow({ mode: 'open' });
+    unrelatedRoot.innerHTML = `<span>${targetText}</span>`;
+    content.append(unrelatedHost);
+
+    const platform = new BilibiliVideoPlatform(createContext(document));
+    const platformAny = platform as unknown as {
+      ensureShadowHostObservation: (host: Element) => void;
+    };
+    platform.observeDomChanges({} as MutationObserver);
+    platformAny.ensureShadowHostObservation(commentsHost);
+
+    expect(platform.findTextRange(targetText)).toBeNull();
+  });
+
   it('does not restore from unrelated page body text outside Bilibili comment regions', () => {
     const targetText = 'outside body restore target';
     document.body.innerHTML = `<main><p>${targetText}</p></main>`;
@@ -1396,6 +1440,41 @@ describe('BilibiliVideoPlatform', () => {
     expect(restored).toBe('restored-by-text');
     expect(context.__mocks.highlightSelection).toHaveBeenCalledTimes(1);
     expect(context.__mocks.scheduleFragmentHighlightRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores from observed comment roots before scoped restore fallback lookup', () => {
+    const targetText = 'Observed comment root restore text';
+    const { commentsHost } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    const context = createContext(document);
+    context.__mocks.getElementByIdDeep.mockReturnValue(null);
+    context.__mocks.querySelectorDeep.mockReturnValue(null);
+    context.__mocks.highlightSelection.mockReturnValue('restored-from-shadow');
+
+    const platform = new BilibiliVideoPlatform(context);
+    const platformAny = platform as unknown as {
+      ensureShadowHostObservation: (host: Element) => void;
+    };
+    const fallbackSpy = vi.spyOn(bilibiliRestoreScope, 'collectBilibiliCommentRestoreRoots');
+    platform.observeDomChanges({} as MutationObserver);
+    platformAny.ensureShadowHostObservation(commentsHost);
+
+    const restored = platform.restoreHighlight({
+      kind: 'fragment',
+      id: 'fragment-shadow-restore',
+      comment: '',
+      selectedText: targetText,
+      selectedHtml: `<p>${targetText}</p>`,
+      fragmentUrl:
+        'https://www.bilibili.com/video/BV1/#:~:text=Observed%20comment%20root%20restore%20text',
+      wrapperId: 'missing-shadow-wrapper',
+      createdAt: 1
+    });
+
+    expect(restored).toBe('restored-from-shadow');
+    expect(context.__mocks.highlightSelection).toHaveBeenCalledTimes(1);
+    expect(fallbackSpy).not.toHaveBeenCalled();
+
+    fallbackSpy.mockRestore();
   });
 
   it('prefers range fallback text and event fallback html when both sources partially recover selection', () => {

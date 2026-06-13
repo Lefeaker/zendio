@@ -10,4 +10,14 @@ export {
   resolveRestUrls
 } from './appConfig';
 export { configProvider, createConfigProvider, loadOverrideFromEnv } from './provider';
+export {
+  getOutputTemplatePreset,
+  getPreviewTemplateDefaults,
+  OUTPUT_TEMPLATE_PRESET_NAMES
+} from './templatePresets';
+export type {
+  OutputTemplatePreset,
+  OutputTemplatePresetName,
+  PreviewTemplateDefaults
+} from './templatePresets';
 export { DEFAULT_YAML_CONFIG } from './yamlDefaults';

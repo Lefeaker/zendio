@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsConfig } from '../../../src/shared/errors/analytics/analyticsConfig';
 
+type SendAnalyticsTransportEventMock = (
+  eventName: 'analytics_data_cleared',
+  params: { outcome: 'completed' },
+  config: AnalyticsConfig
+) => Promise<void>;
+
 const refreshFromStorageMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const getConfigMock = vi.hoisted(() => vi.fn());
-const sendAnalyticsTransportEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const sendAnalyticsTransportEventMock = vi.hoisted(() =>
+  vi.fn<SendAnalyticsTransportEventMock>(() => Promise.resolve())
+);
 
 vi.mock('@shared/errors/analytics/analyticsConfig', () => ({
   getAnalyticsConfigManager: () => ({
@@ -64,6 +72,8 @@ describe('prepareAnalyticsDataClearedEvent', () => {
         userConsent: expect.objectContaining({ analytics: true })
       })
     );
+    const sentParams = sendAnalyticsTransportEventMock.mock.calls[0]?.[1];
+    expect(Object.keys(sentParams ?? {})).toEqual(['outcome']);
   });
 
   it('does not send without prior analytics consent', async () => {

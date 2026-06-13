@@ -1,3 +1,4 @@
+import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { DI_TOKENS } from '@shared/di/tokens';
@@ -132,54 +133,18 @@ export function applyOutputPresetToDraft(options: {
   name: string;
 }): void {
   const { draft, state, name } = options;
-  switch (name) {
-    case 'Minimal':
-      draft.templates = {
-        ...draft.templates,
-        article: 'Articles/{domain}/{yyyy}/{slug}.md',
-        fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
-        reading: 'Reading/{domain}/{yyyy}/{slug}.md',
-        ai: 'AI/{platform}/{yyyy}/{title}.md'
-      };
-      draft.domainMappings = {};
-      options.setDomainMappingRows([]);
-      draft.yamlConfig = createPresetYamlConfig('Minimal');
-      break;
-    case 'Research':
-      draft.templates = {
-        ...draft.templates,
-        article: 'Research/{domain}/{yyyy}/{slug}.md',
-        fragment: 'Research/Fragments/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-        reading: 'Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
-        ai: 'Research/AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
-      };
-      draft.domainMappings = {
-        'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号',
-        'scholar.google.com': 'Scholar'
-      };
-      options.setDomainMappingRows(Object.entries(draft.domainMappings));
-      draft.yamlConfig = createPresetYamlConfig('Research');
-      break;
-    case 'Conversation':
-      draft.templates = {
-        ...draft.templates,
-        article: 'Articles/{domain}/{yyyy}/{slug}.md',
-        fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
-        reading: 'Reading/{domain}/{yyyy}/{slug}.md',
-        ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
-      };
-      draft.domainMappings = {
-        'chatgpt.com': 'ChatGPT',
-        'claude.ai': 'Claude',
-        'gemini.google.com': 'Gemini'
-      };
-      options.setDomainMappingRows(Object.entries(draft.domainMappings));
-      draft.yamlConfig = createPresetYamlConfig('Conversation');
-      break;
-    default:
-      return;
+  const preset = getOutputTemplatePreset(name);
+  if (!preset) {
+    return;
   }
+
+  draft.templates = {
+    ...draft.templates,
+    ...preset.templates
+  };
+  draft.domainMappings = { ...preset.domainMappings };
+  options.setDomainMappingRows(Object.entries(draft.domainMappings));
+  draft.yamlConfig = createPresetYamlConfig(preset.name);
   state.templateValues = toTemplateValues(draft);
   state.readingPathMode = resolveReadingPathMode(draft);
   options.refreshAppData();

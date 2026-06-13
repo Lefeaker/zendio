@@ -17,10 +17,13 @@ import type { ContentExportDestinationState } from '../shared/exportDestinationS
 import type { VideoCommentEditorPlaybackController } from './videoCommentEditorPlaybackController';
 import type { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
-import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 import { getSelectionForVideoNode, highlightVideoFragmentText } from './videoSessionSelection';
 import { createVideoSessionOperationContext } from './videoSessionOperationContext';
-import { syncVideoSessionCommentDraftsFromDom } from './videoSessionDraftSync';
+import type {
+  VideoSessionDraftRuntimePort,
+  VideoSessionPlaybackEditLeasePort,
+  VideoSessionScreenshotsPort
+} from './videoSessionRuntimePorts';
 
 interface VideoSessionRuntimeOperationContextOptions {
   session: object;
@@ -48,10 +51,7 @@ interface VideoSessionRuntimeOperationContextOptions {
     transaction: VideoCaptureMutationTransaction<Result>
   ) => Promise<boolean>;
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
-  scheduleDraftSave: () => Promise<void>;
-  flushDraftNow: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
-  removeDraft: () => Promise<void>;
-  finalizeTerminalDraft: (status: SessionDraftTerminalStatus) => Promise<boolean>;
+  drafts: VideoSessionDraftRuntimePort;
 }
 
 export function createVideoSessionRuntimeOperationContext({
@@ -78,12 +78,20 @@ export function createVideoSessionRuntimeOperationContext({
   syncPanel,
   runCaptureMutation,
   ensureCaptureHighlight,
-  scheduleDraftSave,
-  flushDraftNow,
-  removeDraft,
-  finalizeTerminalDraft
+  drafts
 }: VideoSessionRuntimeOperationContextOptions) {
-  const context = createVideoSessionOperationContext({
+  const playbackEditLease: VideoSessionPlaybackEditLeasePort = {
+    begin: (captureId: string) => commentEditorPlayback.beginPlaybackEditLease(captureId),
+    release: (captureId: string, restorePlayback: boolean) =>
+      commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
+    reset: () => commentEditorPlayback.reset()
+  };
+  const screenshots: VideoSessionScreenshotsPort = {
+    prepareRequested: (captureId: string) =>
+      screenshotPreparation.prepareRequestedScreenshot(captureId)
+  };
+
+  return createVideoSessionOperationContext({
     session,
     doc,
     state,
@@ -110,20 +118,8 @@ export function createVideoSessionRuntimeOperationContext({
     getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(doc, node),
     highlightFragmentText: (text: string) => highlightVideoFragmentText({ doc, state, text }),
     getExportDestinationMetadata: () => destinationState.metadata,
-    prepareRequestedScreenshot: (captureId: string) =>
-      screenshotPreparation.prepareRequestedScreenshot(captureId)
-  });
-
-  return Object.assign(context, {
-    syncCommentDrafts: () => syncVideoSessionCommentDraftsFromDom(state, dom),
-    scheduleDraftSave,
-    flushDraftNow,
-    removeDraft,
-    finalizeTerminalDraft,
-    beginPlaybackEditLease: (captureId: string) =>
-      commentEditorPlayback.beginPlaybackEditLease(captureId),
-    releasePlaybackEditLease: (captureId: string, restorePlayback: boolean) =>
-      commentEditorPlayback.releaseForCapture(captureId, restorePlayback),
-    resetPlaybackEditLease: () => commentEditorPlayback.reset()
+    drafts,
+    playbackEditLease,
+    screenshots
   });
 }

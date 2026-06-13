@@ -1,15 +1,20 @@
-import {
-  hasRequestedTimestampScreenshot,
-  setRequestedTimestampScreenshot
-} from './screenshotIntent';
+import { setTimestampScreenshot } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
-import type { VideoScreenshotPreparationQueue } from './videoScreenshotPreparationQueue';
+import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 
 interface VideoScreenshotPreparationCoordinatorArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
   syncPanel: () => void;
+  captureVisibleFrame?: VideoVisibleFrameScreenshotCapture | undefined;
+}
+
+interface VideoScreenshotPreparationQueue {
+  request(captureId: string): void;
+  requestAll(): void;
+  handleVideoElementChange(video: HTMLVideoElement | null): void;
+  dispose(): void;
 }
 
 export class VideoScreenshotPreparationCoordinator {
@@ -44,7 +49,7 @@ export class VideoScreenshotPreparationCoordinator {
 
     const cachedScreenshot = this.cache.get(id);
     if (cachedScreenshot) {
-      setRequestedTimestampScreenshot(capture, cachedScreenshot);
+      setTimestampScreenshot(capture, cachedScreenshot);
       this.args.syncPanel();
       return;
     }
@@ -103,6 +108,7 @@ export class VideoScreenshotPreparationCoordinator {
           doc: this.args.doc,
           getCaptures: this.args.getCaptures,
           getVisibleVideo: this.args.getVisibleVideo,
+          captureVisibleFrame: this.args.captureVisibleFrame,
           syncPanel: this.args.syncPanel
         });
 
@@ -136,6 +142,6 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   private isPendingCapture(capture: VideoTimestampCapture): boolean {
-    return hasRequestedTimestampScreenshot(capture) && !capture.screenshot;
+    return !capture.screenshot;
   }
 }

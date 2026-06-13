@@ -18,16 +18,18 @@ export function videoTimestampMarker(
     remove: 'Remove screenshot'
   }
 ): NodeSchema {
-  const hasScreenshot = Boolean(capture.hasScreenshot);
+  const screenshotState = capture.screenshotState ?? (capture.hasScreenshot ? 'on' : 'off');
+  const hasScreenshotIntent = screenshotState !== 'off';
   return div([classNames.session.marker, 'video-timestamp-marker'].join(' '), [
     element('button', {
-      className: ['video-screenshot-toggle', hasScreenshot ? 'is-on' : 'is-off'].join(' '),
+      className: ['video-screenshot-toggle', `is-${screenshotState}`].join(' '),
       type: 'button',
-      ariaLabel: hasScreenshot ? screenshotLabels.remove : screenshotLabels.capture,
+      ariaLabel: hasScreenshotIntent ? screenshotLabels.remove : screenshotLabels.capture,
+      ariaPressed: hasScreenshotIntent ? 'true' : 'false',
       dataset: {
         actionId: 'video:toggle-screenshot',
         captureId: capture.id,
-        screenshotState: hasScreenshot ? 'on' : 'off'
+        screenshotState
       },
       onClick: { id: 'video:toggle-screenshot' }
     }),

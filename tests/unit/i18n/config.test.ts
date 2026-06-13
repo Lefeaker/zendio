@@ -111,10 +111,14 @@ describe('i18n config', () => {
   it('omits pseudo locale metadata from production i18n bundles', async () => {
     const configBundle = await buildProductionBundle('src/i18n/config.ts');
     const localesBundle = await buildProductionBundle('src/i18n/locales.ts');
+    const messagesBundle = await buildProductionBundle('src/i18n/messages.ts');
 
     expect(configBundle).not.toContain('qps-ploc');
     expect(configBundle).not.toContain('qps_ploc');
     expect(localesBundle).not.toContain('qps-ploc');
     expect(localesBundle).not.toContain('qps_ploc');
+    expect(messagesBundle).not.toContain('qps-ploc');
+    expect(messagesBundle).not.toContain('qps_ploc');
+    expect(messagesBundle).not.toContain('Çòːñƒ');
   });
 });

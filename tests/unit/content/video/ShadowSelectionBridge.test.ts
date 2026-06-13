@@ -63,7 +63,7 @@ function createHarness() {
       isCollapsed: false,
       getRangeAt: () => range
     });
-    return range;
+    return currentSelection;
   };
 
   return {
@@ -118,6 +118,25 @@ describe('ShadowSelectionBridge', () => {
     expect(activatePendingSelection).not.toHaveBeenCalled();
   });
 
+  it('cancels queued activation callbacks when reset runs after mouseup but before timers flush', async () => {
+    const { bridge, root, activatePendingSelection } = createHarness();
+
+    bridge.register(root);
+    root.dispatchEvent(
+      new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        clientX: 12,
+        clientY: 18
+      })
+    );
+
+    bridge.reset();
+    await vi.runAllTimersAsync();
+
+    expect(activatePendingSelection).not.toHaveBeenCalled();
+  });
+
   it('allows a root to be registered again after reset with one active listener set', () => {
     const { bridge, root, pendingSelection, setActiveSelection } = createHarness();
 
@@ -130,5 +149,38 @@ describe('ShadowSelectionBridge', () => {
     root.dispatchEvent(new Event('selectionchange', { bubbles: true }));
 
     expect(pendingSelection.capture).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the owning shadow selection to activation so accepted captures can clear it', async () => {
+    const { bridge, root, activatePendingSelection, setActiveSelection } = createHarness();
+    const sourceSelection = setActiveSelection();
+
+    bridge.register(root);
+    root.dispatchEvent(
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        clientX: 10,
+        clientY: 10
+      })
+    );
+    root.dispatchEvent(
+      new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        clientX: 40,
+        clientY: 10,
+        shiftKey: true
+      })
+    );
+    await vi.runAllTimersAsync();
+
+    expect(activatePendingSelection).toHaveBeenCalledWith(
+      expect.any(Event),
+      expect.objectContaining({
+        allowEventFallback: true,
+        sourceSelection
+      })
+    );
   });
 });

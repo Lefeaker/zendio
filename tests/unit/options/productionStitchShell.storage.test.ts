@@ -22,6 +22,7 @@ import {
 } from '@options/app/productionStitchShellState';
 import { createInitialStitchState } from '@options/app/productionStitchStateMapper';
 import { previewContent } from '@options/stitch/content';
+import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
@@ -472,7 +473,9 @@ describe('mountProductionStitchShell storage', () => {
       vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
     ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
-    expect(document.body.textContent).toContain('Local Folder needs permission again');
+    expect(document.body.textContent).toMatch(
+      /Local Folder needs permission again|本地目录需要重新授权/
+    );
     deleteButton?.click();
     await flushPromises();
 
@@ -638,6 +641,10 @@ describe('mountProductionStitchShell storage', () => {
   });
 
   it('keeps hidden output presets logic wired to templates, YAML configuration, and domain mappings', () => {
+    const researchPreset = getOutputTemplatePreset('Research');
+    if (!researchPreset) {
+      throw new Error('Missing Research preset');
+    }
     const draft = createInitialDraft({
       templates: {
         article: 'Old/{title}.md',
@@ -664,14 +671,9 @@ describe('mountProductionStitchShell storage', () => {
       name: 'Research'
     });
 
-    expect(draft.templates.article).toBe('Research/{domain}/{yyyy}/{slug}.md');
-    expect(draft.templates.reading).toBe('Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
-    expect(draft.domainMappings).toEqual(
-      expect.objectContaining({
-        'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号'
-      })
-    );
+    expect(draft.templates.article).toBe(researchPreset.templates.article);
+    expect(draft.templates.reading).toBe(researchPreset.templates.reading);
+    expect(draft.domainMappings).toEqual(expect.objectContaining(researchPreset.domainMappings));
     expect(draft.yamlConfig?.contentTypes?.article?.customFields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'status', enabled: true }),

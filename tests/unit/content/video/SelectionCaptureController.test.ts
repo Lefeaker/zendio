@@ -227,4 +227,35 @@ describe('SelectionCaptureController', () => {
       })
     );
   });
+
+  it('lets shadow event fallback reach modifier validation when tracked modifier state is stale', () => {
+    const pendingSelection = {
+      capture: vi.fn(),
+      consume: vi.fn((): Range | null => null),
+      reset: vi.fn(),
+      hasActiveRange: vi.fn(() => false),
+      scheduleClear: vi.fn()
+    };
+    const { selection } = createSelection(document.createRange(), true);
+    const onSelectionActivated = vi.fn();
+    const controller = new SelectionCaptureController({
+      doc: document,
+      pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
+      shouldTrackSelection: () => false,
+      suppressSelectionCapture: () => false,
+      isRangeInsideUi: () => false,
+      getDocumentSelection: () => selection,
+      onSelectionActivated
+    });
+    const event = new MouseEvent('mouseup', { bubbles: true, button: 0, shiftKey: true });
+
+    controller.activatePendingSelection(event, { allowEventFallback: true });
+
+    expect(onSelectionActivated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        range: null,
+        event
+      })
+    );
+  });
 });

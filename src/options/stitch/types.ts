@@ -11,7 +11,6 @@ export interface HeroData {
   pills: string[];
   icon?: string;
 }
-
 export interface NavItem {
   id: string;
   label: string;
@@ -176,7 +175,20 @@ export interface VideoSurfaceCapture {
   draft?: string;
   meta: string;
   hasScreenshot?: boolean;
+  screenshotState?: 'off' | 'pending' | 'on';
   editing?: boolean;
+}
+
+export interface VideoControlBarPopoverSurfaceTexts {
+  notePlaceholder: string;
+  noteAriaLabel: string;
+  autoPauseLabel: string;
+  screenshotLabel: string;
+}
+
+export interface VideoControlBarPopoverSurfacePreferences {
+  autoPauseEnabled: boolean;
+  captureScreenshotEnabled: boolean;
 }
 
 export type ToastPreview = { title: string; detail: string; actions?: string[] };
@@ -214,6 +226,10 @@ export interface PreviewSurfaces {
     destination?: ExportDestinationSurfacePreview;
     captures: VideoSurfaceCapture[];
     actions: SurfaceAction[];
+  };
+  videoControlBarPopover?: {
+    texts: VideoControlBarPopoverSurfaceTexts;
+    preferences: VideoControlBarPopoverSurfacePreferences;
   };
   videoFloatingPrompt: {
     label: string;

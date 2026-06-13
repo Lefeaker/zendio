@@ -14,8 +14,12 @@ import type { ShadowSelectionBridge } from './shadowSelectionBridge';
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
+import type {
+  VideoSessionDraftRuntimePort,
+  VideoSessionPlaybackEditLeasePort,
+  VideoSessionScreenshotsPort
+} from './videoSessionRuntimePorts';
 
 export interface VideoSessionOperationContext {
   session: object;
@@ -43,31 +47,15 @@ export interface VideoSessionOperationContext {
   getSelectionForNode: (node: Node | null) => Selection | null;
   highlightFragmentText: (text: string) => void;
   getExportDestinationMetadata?: () => ExportDestinationMetadata | undefined;
-  syncCommentDrafts?: () => Record<string, string>;
-  scheduleDraftSave?: () => Promise<void>;
-  flushDraftNow?: (status?: 'active' | 'restorable') => Promise<VideoHintState | null>;
-  removeDraft?: () => Promise<void>;
-  finalizeTerminalDraft?: (status: SessionDraftTerminalStatus) => Promise<boolean>;
+  drafts: VideoSessionDraftRuntimePort;
+  playbackEditLease: VideoSessionPlaybackEditLeasePort;
+  screenshots: VideoSessionScreenshotsPort;
   runCaptureMutation: <Result>(
     transaction: VideoCaptureMutationTransaction<Result>
   ) => Promise<boolean>;
-  prepareRequestedScreenshot?: (captureId: string) => void | Promise<void>;
-  beginPlaybackEditLease?: (captureId: string) => void;
-  releasePlaybackEditLease?: (captureId: string, restorePlayback: boolean) => void;
-  resetPlaybackEditLease?: () => void;
 }
 
-type CreateVideoSessionOperationContextArgs = Omit<
-  VideoSessionOperationContext,
-  | 'syncCommentDrafts'
-  | 'scheduleDraftSave'
-  | 'flushDraftNow'
-  | 'removeDraft'
-  | 'finalizeTerminalDraft'
-  | 'beginPlaybackEditLease'
-  | 'releasePlaybackEditLease'
-  | 'resetPlaybackEditLease'
->;
+type CreateVideoSessionOperationContextArgs = VideoSessionOperationContext;
 
 export function createVideoSessionOperationContext(
   args: CreateVideoSessionOperationContextArgs
@@ -94,13 +82,13 @@ export function createVideoSessionOperationContext(
     buildTimestampUrl: args.buildTimestampUrl,
     applyHint: args.applyHint,
     syncPanel: args.syncPanel,
+    drafts: args.drafts,
+    playbackEditLease: args.playbackEditLease,
+    screenshots: args.screenshots,
     runCaptureMutation: args.runCaptureMutation,
     ensureCaptureHighlight: args.ensureCaptureHighlight,
     getSelectionForNode: args.getSelectionForNode,
     highlightFragmentText: args.highlightFragmentText,
-    ...(args.prepareRequestedScreenshot
-      ? { prepareRequestedScreenshot: args.prepareRequestedScreenshot }
-      : {}),
     ...(args.getExportDestinationMetadata
       ? { getExportDestinationMetadata: args.getExportDestinationMetadata }
       : {})

@@ -7,6 +7,13 @@ type NonProductionSourceModule = {
     owner?: string;
     deletionCondition?: string;
   };
+  collectSourceImportGraph: (
+    files: Array<{ path: string; source: string }>,
+    sourceFiles: string[]
+  ) => {
+    ownersByTarget: Map<string, string[]>;
+    targetsByOwner: Map<string, string[]>;
+  };
   formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
   formatNonProductionSourceJson: (rows: Array<Record<string, unknown>>) => string;
   validateNonProductionSourceCheck: (rows: Array<Record<string, unknown>>) => {
@@ -33,14 +40,23 @@ type NonProductionSourceModule = {
     ok: boolean;
     violations: object[];
   };
+  resolveSourceImport: (
+    importerPath: string,
+    specifier: string,
+    sourceFileSet: Set<string>
+  ) => string | null;
+  stripImportQueryHash: (specifier: string) => string;
 };
 
 const {
   classifySourceFile,
+  collectSourceImportGraph,
   evaluateNonProductionSourceGates,
   formatNonProductionSourceJson,
   formatNonProductionSourceReport,
   parseArgs,
+  resolveSourceImport,
+  stripImportQueryHash,
   validateNonProductionSourceCheck,
   validateNonProductionSourceThresholds
 } = (await import(
@@ -276,6 +292,61 @@ describe('report-non-production-source', () => {
         })
       ).decision
     ).toBe('stop-unknown');
+  });
+
+  it('strips query/hash suffixes before resolving source imports', () => {
+    const sourceFileSet = new Set([
+      'src/content/video/videoControlBarStyles.ts',
+      'src/content/video/video-control-bar.css'
+    ]);
+
+    expect(stripImportQueryHash('./video-control-bar.css?inline')).toBe('./video-control-bar.css');
+    expect(stripImportQueryHash('./video-control-bar.css?inline#v=1')).toBe(
+      './video-control-bar.css'
+    );
+    expect(
+      resolveSourceImport(
+        'src/content/video/videoControlBarStyles.ts',
+        './video-control-bar.css?inline',
+        sourceFileSet
+      )
+    ).toBe('src/content/video/video-control-bar.css');
+  });
+
+  it('treats css imported via ?inline from a production source as production-owned', () => {
+    const sourceFiles = [
+      'src/content/video/videoControlBarStyles.ts',
+      'src/content/video/video-control-bar.css'
+    ];
+    const importGraph = collectSourceImportGraph(
+      [
+        {
+          path: 'src/content/video/videoControlBarStyles.ts',
+          source:
+            "import cssText from './video-control-bar.css?inline';\nexport const style = cssText;\n"
+        },
+        {
+          path: 'src/content/video/video-control-bar.css',
+          source: '.video-control-bar { color: white; }\n'
+        }
+      ],
+      sourceFiles
+    );
+
+    const result = classifySourceFile(
+      input({
+        file: 'src/content/video/video-control-bar.css',
+        productionImportOwners:
+          importGraph.ownersByTarget.get('src/content/video/video-control-bar.css') ?? [],
+        testOwners: [
+          'tests/e2e/videoListenerScope.fixture.test.ts',
+          'tests/unit/content/video/videoControlBarButton.test.ts'
+        ]
+      })
+    );
+
+    expect(result.decision).toBe('retain-production');
+    expect(result.requiredAction).toContain('production ownership');
   });
 
   it('does not allow delete-now when one owner proof is unknown', () => {

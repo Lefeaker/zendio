@@ -4,6 +4,7 @@ import type { IVideoRepository } from '../../shared/repositories/IVideoRepositor
 import type { UsageEventName, UsageEventParamMap } from '../../shared/types/analytics';
 import type { VideoSessionViewFactory } from './application/videoSessionView';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
+import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 
 export type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -23,6 +24,7 @@ export interface VideoSessionDependencies {
     local: StorageAreaService;
     sync: StorageAreaService;
   };
+  captureVisibleVideoFrameScreenshot?: VideoVisibleFrameScreenshotCapture;
   showSupportProgress?: SupportProgressReporter;
   trackUsageEvent?: <EventName extends UsageEventName>(
     event: EventName,

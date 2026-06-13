@@ -84,10 +84,22 @@ describe('Stitch runtime polish CSS contracts', () => {
 
   it('uses green for active video screenshot timestamp dots', () => {
     expect(stitchCss).toContain('.video-screenshot-toggle.is-on');
+    expect(stitchCss).toContain('.video-screenshot-toggle.is-on::before');
+    expect(stitchCss).toContain('.video-screenshot-toggle.is-pending::before');
     expect(stitchCss).toContain('background: var(--success);');
+    expect(stitchCss).toContain('var(--warning)');
     expect(stitchCss).toContain('.video-timestamp-marker');
     expect(stitchCss).toContain('gap: 0;');
-    expect(stitchCss).toContain('left: var(--session-video-screenshot-dot-offset, -2px);');
+    expect(stitchCss).toContain('--session-video-screenshot-dot-size: 8px;');
+    expect(stitchCss).toContain('--session-video-screenshot-hit-size: 24px;');
+    expect(stitchCss).toContain('--session-video-screenshot-hit-inset: 8px;');
+    expect(stitchCss).toContain('var(--session-video-screenshot-dot-offset, -2px) -');
+    expect(stitchCss).toContain('(var(--session-video-screenshot-hit-inset, 8px) * 2)');
+    expect(stitchCss).toContain('height: var(--session-video-screenshot-hit-size, 24px);');
+    expect(stitchCss).toContain('z-index: 5;');
+    expect(stitchCss).toMatch(
+      /\.video-screenshot-toggle::before\s*{[^}]*left:\s*var\(--session-video-screenshot-hit-inset,\s*8px\);/
+    );
     expect(stitchCss).toContain('transform: translateY(-50%);');
   });
 
@@ -105,6 +117,21 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
     expect(stitchCss).toContain('margin-top: var(--session-video-timestamp-adjacent-gap, 0);');
     expect(stitchCss).toContain('min-height: var(--session-video-timestamp-row-min-height, 28px);');
+  });
+
+  it('keeps the video add-note row aligned with timestamp note inputs', () => {
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s*{[^}]*grid-template-columns:\s*var\(--session-video-marker-track-width,\s*40px\)\s+minmax\(0,\s*1fr\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s*{[^}]*align-items:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s+\.session-item-content\s*{[^}]*align-items:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s+\.session-item-comment-input\s*{[^}]*margin-top:\s*0;/
+    );
   });
 
   it('centers video fragment marker chips inside the video marker track', () => {

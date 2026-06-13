@@ -1,5 +1,4 @@
-import type { LocaleStaticMessages } from './localeDefinition';
-import type { Messages } from './messages';
+import type { LocaleStaticMessages, RuntimeMessages } from './localeDefinition';
 
 const ACCENT_MAP: Record<string, string> = {
   a: 'à',
@@ -217,13 +216,13 @@ export function pseudoLocalizeRecord<T extends StringRecordShape<T>>(base: T): T
   return Object.fromEntries(entries) as T;
 }
 
-export function pseudoLocalizeMessages(base: Messages): Messages {
+export function pseudoLocalizeMessages(base: RuntimeMessages): RuntimeMessages {
   const entries = Object.keys(base).map((key) => {
-    const typedKey = key as keyof Messages;
+    const typedKey = key as keyof RuntimeMessages;
     const value = base[typedKey];
     return [typedKey, pseudoLocalizeString(value ?? '')];
   });
-  return Object.fromEntries(entries) as Messages;
+  return Object.fromEntries(entries) as RuntimeMessages;
 }
 
 export function pseudoLocalizeStatic(base: LocaleStaticMessages): LocaleStaticMessages {

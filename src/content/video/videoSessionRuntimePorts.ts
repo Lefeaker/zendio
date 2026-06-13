@@ -1,0 +1,53 @@
+import type { SessionDraftTerminalStatus } from '../sessionDrafts';
+import type { ContentExportDestinationState } from '../shared/exportDestinationState';
+import type { StorageAreaService } from '../../platform/interfaces/storage';
+import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
+import type { VideoSessionState } from './sessionState';
+import type { VideoHintState } from './videoHintManager';
+
+export interface VideoSessionDraftDomPort {
+  readCommentDrafts(): Record<string, string>;
+  setCommentDrafts(drafts: Record<string, string>): void;
+}
+
+export interface VideoSessionDraftCleanupState {
+  isCleaningUp: boolean;
+  shouldTrackSavingState: boolean;
+}
+
+export type ReadVideoSessionDraftCleanupState = () => VideoSessionDraftCleanupState;
+
+export interface VideoSessionDraftControllerOptions {
+  doc: Document;
+  state: VideoSessionState;
+  destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
+  storageArea: StorageAreaService;
+  dom: VideoSessionDraftDomPort;
+  applyHint: (state: VideoHintState) => void;
+  readCleanupState: ReadVideoSessionDraftCleanupState;
+}
+
+export interface VideoSessionDraftRuntimePort {
+  syncCommentDrafts(): Record<string, string>;
+  scheduleSave(): Promise<void>;
+  flushNow(status?: 'active' | 'restorable'): Promise<VideoHintState | null>;
+  remove(): Promise<void>;
+  finalizeTerminal(status: SessionDraftTerminalStatus): Promise<boolean>;
+}
+
+export interface VideoSessionPlaybackEditLeasePort {
+  begin(captureId: string): void;
+  release(captureId: string, restorePlayback: boolean): void;
+  reset(): void;
+}
+
+export interface VideoSessionScreenshotsPort {
+  prepareRequested(captureId: string): void | Promise<void>;
+}
+
+export interface VideoSessionMutationPort {
+  runCaptureMutation<Result>(
+    transaction: VideoCaptureMutationTransaction<Result>
+  ): Promise<boolean>;
+  hasPendingMutations(): boolean;
+}

@@ -503,5 +503,9 @@
   "fragmentFootnoteExampleContent": "這是選取文字的內容",
   "fragmentFootnoteExampleComment": "這是我的註解",
   "fragmentContextHighlightExampleTitle": "上下文高亮範例：",
-  "fragmentContextHighlightExampleContent": "前面上下文 ==這是選取的文字== 後面上下文"
+  "fragmentContextHighlightExampleContent": "前面上下文 ==這是選取的文字== 後面上下文",
+  "videoControlBarNotePlaceholder": "新增備註",
+  "videoControlBarNoteAriaLabel": "新增影片備註",
+  "videoControlBarAutoPauseLabel": "自動暫停影片",
+  "videoControlBarScreenshotLabel": "擷取目前影片畫面"
 }

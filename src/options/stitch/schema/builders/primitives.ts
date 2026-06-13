@@ -115,14 +115,16 @@ export function buttonNode(
   label: DynamicValue<string>,
   variant?: DynamicValue<ButtonVariant>,
   action?: DynamicValue<ActionReference>,
-  disabled?: DynamicValue<boolean>
+  disabled?: DynamicValue<boolean>,
+  dataset?: DynamicValue<Record<string, string | number | boolean>>
 ): NodeSchema {
   return {
     kind: 'button',
     label,
     ...(variant ? { variant } : {}),
     ...(action ? { action } : {}),
-    ...(disabled !== undefined ? { disabled } : {})
+    ...(disabled !== undefined ? { disabled } : {}),
+    ...(dataset ? { dataset } : {})
   };
 }
 

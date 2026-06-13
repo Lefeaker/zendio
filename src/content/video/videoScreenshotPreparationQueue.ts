@@ -1,7 +1,8 @@
+import { setTimestampScreenshot } from './screenshotIntent';
 import {
-  hasRequestedTimestampScreenshot,
-  setRequestedTimestampScreenshot
-} from './screenshotIntent';
+  VideoScreenshotPreparationRequestStore,
+  type VideoScreenshotPreparationQueueStateSnapshot
+} from './videoScreenshotPreparationRequestStore';
 import {
   configureHiddenDuplicateVideo,
   createAbortableVideoScope,
@@ -14,6 +15,7 @@ import { captureVideoFrameScreenshotAsync } from './videoFrameScreenshot';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 
 const DEFAULT_TOLERANCE_SEC = 0.25;
+const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
 const VISIBLE_TIME_EVENTS = ['timeupdate', 'seeked'] as const;
 const VISIBLE_READY_EVENTS = ['loadedmetadata', 'loadeddata', 'canplay'] as const;
@@ -34,9 +36,19 @@ interface CreateVideoScreenshotPreparationQueueArgs {
     timeSec: number,
     now?: number
   ) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
+  captureVisibleFrame?:
+    | ((
+        video: HTMLVideoElement,
+        timeSec: number,
+        now?: number
+      ) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>)
+    | undefined;
   syncPanel: () => void;
   toleranceSec?: number;
   timeoutMs?: number;
+  __testHooks?: {
+    onStateChange?: (snapshot: VideoScreenshotPreparationQueueStateSnapshot) => void;
+  };
 }
 
 interface HiddenDuplicateCaptureAttempt {
@@ -47,10 +59,10 @@ interface HiddenDuplicateCaptureAttempt {
 class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPreparationQueue {
   private visibleVideo: HTMLVideoElement | null = null;
   private disposed = false;
-  private readonly trackedCaptureIds = new Set<string>();
-  private readonly visibleAttemptedIds = new Set<string>();
-  private readonly inFlightVisibleIds = new Set<string>();
-  private readonly hiddenDuplicateAttempts = new Map<string, HiddenDuplicateCaptureAttempt>();
+  private readonly requestStore =
+    new VideoScreenshotPreparationRequestStore<HiddenDuplicateCaptureAttempt>(
+      this.args.__testHooks?.onStateChange
+    );
   private readonly handleVisibleTimeProgress = () => void this.captureFromVisibleVideo('time');
   private readonly handleVisibleFrameReady = () => void this.captureFromVisibleVideo('ready');
   constructor(private readonly args: CreateVideoScreenshotPreparationQueueArgs) {}
@@ -60,19 +72,18 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     const capture = this.findPendingCapture(captureId);
     if (!capture) {
-      this.clearTrackedCapture(captureId);
+      this.requestStore.clearTracked(captureId);
       return;
     }
-    this.trackedCaptureIds.add(capture.id);
+    this.requestStore.track(capture.id);
+    this.requestStore.markExplicitVisible(capture.id);
     this.processRequests();
   }
   requestAll(): void {
     if (this.disposed) {
       return;
     }
-    for (const capture of this.listPendingCaptures()) {
-      this.trackedCaptureIds.add(capture.id);
-    }
+    this.requestStore.trackAll(this.listPendingCaptures().map((capture) => capture.id));
     this.pruneTrackedCaptures();
     this.processRequests();
   }
@@ -83,9 +94,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (this.visibleVideo !== video) {
       const previousVisibleVideo = this.visibleVideo;
       this.detachVisibleVideoListeners();
-      this.abortHiddenDuplicateCapturesForVideo(previousVisibleVideo);
+      this.requestStore.abortAttemptsForVideo(previousVisibleVideo);
       this.visibleVideo = video;
-      this.visibleAttemptedIds.clear();
+      this.requestStore.resetVisibleAttempts();
       this.attachVisibleVideoListeners();
     }
     this.processRequests();
@@ -96,18 +107,15 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     this.disposed = true;
     this.detachVisibleVideoListeners();
-    this.abortAllHiddenDuplicateCaptures();
+    this.requestStore.disposeAll();
     this.visibleVideo = null;
-    this.trackedCaptureIds.clear();
-    this.visibleAttemptedIds.clear();
-    this.inFlightVisibleIds.clear();
   }
   private processRequests(): void {
     if (this.disposed) {
       return;
     }
     this.pruneTrackedCaptures();
-    if (this.trackedCaptureIds.size === 0) {
+    if (this.requestStore.getTrackedIds().length === 0) {
       return;
     }
     void this.captureFromVisibleVideo('manual');
@@ -120,7 +128,10 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     for (const capture of this.listTrackedPendingCaptures()) {
-      if (this.hiddenDuplicateAttempts.has(capture.id) || this.inFlightVisibleIds.has(capture.id)) {
+      if (
+        this.requestStore.hasHiddenAttempt(capture.id) ||
+        this.requestStore.hasVisibleInFlight(capture.id)
+      ) {
         continue;
       }
       this.enqueueHiddenDuplicateCapture(visibleVideo, sourceUrl, capture.id);
@@ -138,22 +149,34 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     let didUpdate = false;
     for (const capture of this.listTrackedPendingCaptures()) {
       if (!approximatelyEqual(visibleVideo.currentTime, capture.timeSec, this.getToleranceSec())) {
-        this.visibleAttemptedIds.delete(capture.id);
+        const explicitTolerance = this.getExplicitVisibleTolerance(
+          capture.id,
+          reason,
+          visibleVideo
+        );
+        if (
+          explicitTolerance === null ||
+          !approximatelyEqual(visibleVideo.currentTime, capture.timeSec, explicitTolerance)
+        ) {
+          this.requestStore.clearVisibleAttempted(capture.id);
+          continue;
+        }
+      }
+      if (reason === 'time' && this.requestStore.hasVisibleAttempted(capture.id)) {
         continue;
       }
-      if (reason === 'time' && this.visibleAttemptedIds.has(capture.id)) {
-        continue;
-      }
-      if (this.inFlightVisibleIds.has(capture.id)) {
+      if (this.requestStore.hasVisibleInFlight(capture.id)) {
         continue;
       }
       if (reason === 'time') {
-        this.visibleAttemptedIds.add(capture.id);
+        this.requestStore.markVisibleAttempted(capture.id);
       }
-      this.inFlightVisibleIds.add(capture.id);
+      this.requestStore.markVisibleInFlight(capture.id);
       let shouldReprocess = false;
       try {
-        const screenshot = await this.getCaptureFrame()(visibleVideo, capture.timeSec);
+        const screenshot =
+          (await this.getCaptureFrame()(visibleVideo, capture.timeSec)) ??
+          (await this.getVisibleFrameCapture()(visibleVideo, capture.timeSec));
         if (
           this.disposed ||
           this.resolveVisibleVideo() !== visibleVideo ||
@@ -166,11 +189,11 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
           this.enqueueHiddenDuplicateFallback(visibleVideo, capture.id);
           continue;
         }
-        setRequestedTimestampScreenshot(capture, screenshot);
-        this.clearTrackedCapture(capture.id);
+        setTimestampScreenshot(capture, screenshot);
+        this.requestStore.clearTracked(capture.id);
         didUpdate = true;
       } finally {
-        this.inFlightVisibleIds.delete(capture.id);
+        this.requestStore.finishVisible(capture.id);
         if (shouldReprocess) {
           this.processRequests();
         }
@@ -186,7 +209,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     sourceUrl: string,
     captureId: string
   ): void {
-    if (this.disposed || this.hiddenDuplicateAttempts.has(captureId)) {
+    if (this.disposed || this.requestStore.hasHiddenAttempt(captureId)) {
       return;
     }
 
@@ -194,12 +217,12 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       sourceVideo,
       scope: createAbortableVideoScope()
     };
-    this.hiddenDuplicateAttempts.set(captureId, attempt);
+    if (!this.requestStore.startHiddenAttempt(captureId, attempt)) {
+      return;
+    }
 
     void this.attemptHiddenDuplicateCapture(attempt, sourceUrl, captureId).finally(() => {
-      if (this.hiddenDuplicateAttempts.get(captureId) === attempt) {
-        this.hiddenDuplicateAttempts.delete(captureId);
-      }
+      this.requestStore.finishHiddenAttempt(captureId, attempt);
     });
   }
   private async attemptHiddenDuplicateCapture(
@@ -216,7 +239,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     const capture = this.findPendingCapture(captureId);
     if (!capture) {
-      this.clearTrackedCapture(captureId);
+      this.requestStore.clearTracked(captureId);
       return;
     }
 
@@ -257,8 +280,8 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       if (!screenshot) {
         return;
       }
-      setRequestedTimestampScreenshot(capture, screenshot);
-      this.clearTrackedCapture(capture.id);
+      setTimestampScreenshot(capture, screenshot);
+      this.requestStore.clearTracked(capture.id);
       this.args.syncPanel();
     } catch (error) {
       console.warn('[VideoSession] Failed to prepare requested screenshot in background:', error);
@@ -273,57 +296,21 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     return this.listPendingCaptures().find((capture) => capture.id === id) ?? null;
   }
   private listPendingCaptures(): VideoTimestampCapture[] {
-    return this.args
-      .getCaptures()
-      .filter((capture) => hasRequestedTimestampScreenshot(capture) && !capture.screenshot);
+    return this.args.getCaptures().filter((capture) => !capture.screenshot);
   }
   private listTrackedPendingCaptures(): VideoTimestampCapture[] {
     const pendingById = new Map(this.listPendingCaptures().map((capture) => [capture.id, capture]));
-    return Array.from(this.trackedCaptureIds)
+    return this.requestStore
+      .getTrackedIds()
       .map((id) => pendingById.get(id) ?? null)
       .filter((capture): capture is VideoTimestampCapture => capture !== null);
   }
   private pruneTrackedCaptures(): void {
     const pendingIds = new Set(this.listPendingCaptures().map((capture) => capture.id));
-    for (const captureId of Array.from(this.trackedCaptureIds)) {
-      if (!pendingIds.has(captureId)) {
-        this.clearTrackedCapture(captureId);
-      }
-    }
-  }
-  private clearTrackedCapture(captureId: string): void {
-    this.abortHiddenDuplicateCapture(captureId);
-    this.trackedCaptureIds.delete(captureId);
-    this.visibleAttemptedIds.delete(captureId);
-    this.inFlightVisibleIds.delete(captureId);
-  }
-  private abortHiddenDuplicateCapture(captureId: string): void {
-    const attempt = this.hiddenDuplicateAttempts.get(captureId);
-    if (!attempt) {
-      return;
-    }
-
-    this.hiddenDuplicateAttempts.delete(captureId);
-    attempt.scope.dispose();
-  }
-  private abortAllHiddenDuplicateCaptures(): void {
-    for (const captureId of Array.from(this.hiddenDuplicateAttempts.keys())) {
-      this.abortHiddenDuplicateCapture(captureId);
-    }
-  }
-  private abortHiddenDuplicateCapturesForVideo(sourceVideo: HTMLVideoElement | null): void {
-    if (!sourceVideo) {
-      return;
-    }
-
-    for (const [captureId, attempt] of Array.from(this.hiddenDuplicateAttempts.entries())) {
-      if (attempt.sourceVideo === sourceVideo) {
-        this.abortHiddenDuplicateCapture(captureId);
-      }
-    }
+    this.requestStore.pruneTracked(pendingIds);
   }
   private isTrackedPendingCaptureId(captureId: string): boolean {
-    return this.trackedCaptureIds.has(captureId) && Boolean(this.findPendingCapture(captureId));
+    return this.requestStore.hasTracked(captureId) && Boolean(this.findPendingCapture(captureId));
   }
   private shouldKeepHiddenDuplicateCapture(
     captureId: string,
@@ -356,11 +343,30 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   private getCaptureFrame() {
     return this.args.captureFrame ?? captureVideoFrameScreenshotAsync;
   }
+  private getVisibleFrameCapture(): NonNullable<
+    CreateVideoScreenshotPreparationQueueArgs['captureVisibleFrame']
+  > {
+    return this.args.captureVisibleFrame ?? (() => null);
+  }
   private getToleranceSec(): number {
     return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC;
   }
   private getTimeoutMs(): number {
     return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+  private getExplicitVisibleTolerance(
+    captureId: string,
+    reason: 'manual' | 'ready' | 'time',
+    visibleVideo: HTMLVideoElement
+  ): number | null {
+    if (
+      reason === 'time' ||
+      !this.requestStore.hasExplicitVisible(captureId) ||
+      resolveDuplicableVideoSource(visibleVideo, this.args.doc.location.href)
+    ) {
+      return null;
+    }
+    return Math.max(this.getToleranceSec(), DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC);
   }
   private shouldReprocessAfterVisibleCaptureDrop(
     captureId: string,
