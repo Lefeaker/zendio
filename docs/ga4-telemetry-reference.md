@@ -1,6 +1,6 @@
 # GA4 Telemetry Reference
 
-最后更新：2026-06-12
+最后更新：2026-06-13
 
 本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
 
@@ -18,7 +18,7 @@
 - runtime `enabled` 是 `analytics || errorReporting` 的 live OR；但 consent scope 仍按事件类别区分，usage/product 事件需要 `analytics`，错误事件需要 `errorReporting`。
 - 产品事件要求 `analytics` consent；错误事件要求 `errorReporting` consent。
 - `analytics_client_id` 与 `analytics_session_id` 会在本地扩展存储中预先建立，用于稳定 consent 恢复后的 send contract；在对应事件类别 consent 和 public build config 允许发送之前，这两个标识不会离开本地。
-- `clearAllData()` / analytics data clear 会移除 consent、config、client id、session id 与相关队列状态。
+- `clearAllData()` / analytics data clear 会移除 consent、config、client id、session id 与相关队列状态。清空 analytics 数据时，如果清空前已有 `analytics` consent，Options 会 best-effort 发送一次 `analytics_data_cleared` 完成事件；该事件使用清空前捕获的 consented public config，payload 只能包含 `outcome: completed`，不得包含 client id、session id、measurement id、参数明细、页面内容、路径或其他原始数据字段。
 - `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
 - `analytics:validate:prod` 是静态/public-config + owner env sanity check；它会校验 tracked transport/consent contract、负向 secret/Google endpoint 守卫和 owner env 公共配置形状，但仍不证明真实 GA4 property delivery 或 DebugView 可见性。
 - 成功的生产 `proxy` 发送默认不输出事件参数或成功日志；只有 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且 summary 只包含 `eventName`、`transportMode`、`responseStatus` 与 validation message 数量。

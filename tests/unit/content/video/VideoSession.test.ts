@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import {
   SESSION_DRAFT_INDEX_KEY,
   createSessionDraftStorageKey
@@ -11,6 +11,7 @@ import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/se
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
+import { VideoScreenshotPreparationCoordinator } from '@content/video/videoScreenshotPreparationCoordinator';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type {
@@ -185,6 +186,7 @@ type SessionTestApi = {
     }
   ) => Promise<void>;
   finish: () => Promise<void>;
+  cancel: () => void;
   state: {
     captures: Array<{
       kind: 'timestamp' | 'fragment';
@@ -487,7 +489,7 @@ async function flushMutationWork(): Promise<void> {
   await Promise.resolve();
 }
 
-async function waitForMockCalls(mock: Mock, expectedCalls = 1, turns = 30): Promise<void> {
+async function waitForMockCalls(mock: MockInstance, expectedCalls = 1, turns = 30): Promise<void> {
   for (let index = 0; index < turns; index += 1) {
     if (mock.mock.calls.length >= expectedCalls) {
       return;
@@ -1408,6 +1410,57 @@ describe('VideoSession', () => {
 
     sessionApi.cleanup();
     vi.useRealTimers();
+  });
+
+  it('runs outer cleanup once after successful cancel and disables draft and screenshot cleanup hooks', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+    const deps = createDependencies();
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const cleanupSpy = vi.spyOn(sessionApi, 'cleanup');
+    const screenshotDisposeSpy = vi.spyOn(
+      VideoScreenshotPreparationCoordinator.prototype,
+      'dispose'
+    );
+    let cancelCleanupCompleted = false;
+
+    try {
+      await session.start();
+      Object.defineProperty(requireVideoElement(), 'currentTime', {
+        value: 42,
+        configurable: true
+      });
+      await sessionApi.handleAddCapture();
+      await vi.advanceTimersByTimeAsync(200);
+      await flushMutationWork();
+      await expect(loadLatestVideoDraft(deps)).resolves.toMatchObject({ status: 'active' });
+
+      vi.mocked(deps.storage.local.setMany).mockClear();
+      sessionApi.cancel();
+      await waitForMockCalls(cleanupSpy);
+      cancelCleanupCompleted = true;
+
+      expect(cleanupSpy).toHaveBeenCalledTimes(1);
+      expect(screenshotDisposeSpy).toHaveBeenCalledTimes(1);
+      expect(isVideoSessionActive(document)).toBe(false);
+      await expect(listVideoDraftCandidates(deps)).resolves.toEqual([]);
+
+      vi.mocked(deps.storage.local.setMany).mockClear();
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('beforeunload'));
+      await vi.advanceTimersByTimeAsync(200);
+      await flushMutationWork();
+
+      expect(deps.storage.local.setMany).not.toHaveBeenCalled();
+      await expect(listVideoDraftCandidates(deps)).resolves.toEqual([]);
+    } finally {
+      screenshotDisposeSpy.mockRestore();
+      if (!cancelCleanupCompleted) {
+        sessionApi.cleanup();
+      }
+      vi.useRealTimers();
+    }
   });
 
   it('preserves same-page other-owner drafts after cancel when the current exact-key cleanup fails', async () => {

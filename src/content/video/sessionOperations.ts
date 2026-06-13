@@ -1,6 +1,5 @@
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
-import { bucketCount, createFeatureTimer } from '../../shared/analytics';
-import type { AnalyticsSource } from '../../shared/analytics';
+import { bucketCount, createFeatureTimer, type AnalyticsSource } from '../../shared/analytics';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
@@ -316,7 +315,10 @@ export async function finishVideoSession(
   }
 }
 
-export async function cancelVideoSession(context: VideoSessionOperationContext): Promise<void> {
+export async function cancelVideoSession(
+  context: VideoSessionOperationContext,
+  onCleanup: () => void
+): Promise<void> {
   if (context.state.exporting) {
     return;
   }
@@ -329,7 +331,7 @@ export async function cancelVideoSession(context: VideoSessionOperationContext):
     platform: mapVideoAnalyticsPlatform(context.state.platform),
     duration_bucket: resolveVideoSessionDurationBucket(context.state)
   });
-  cleanupVideoSession(context);
+  onCleanup();
 }
 
 export function cleanupVideoSession(context: VideoSessionOperationContext): void {
@@ -417,7 +419,5 @@ export function watchVideoSessionHighlightTheme(
     .catch((error) => {
       console.warn('[VideoSession] Failed to preload highlight theme options:', error);
     });
-  context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange((value) => {
-    applyOptions(value);
-  });
+  context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange(applyOptions);
 }

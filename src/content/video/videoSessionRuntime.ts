@@ -459,10 +459,13 @@ export class VideoSession {
   }
 
   private cancel(): void {
-    void cancelVideoSession(this.operationContext);
+    void cancelVideoSession(this.operationContext, () => this.cleanup());
   }
 
   private cleanup(): void {
+    if (this.isCleaningUp) {
+      return;
+    }
     this.isCleaningUp = true;
     this.screenshotPreparation.dispose();
     void this.draftController.dispose().catch((error) => {

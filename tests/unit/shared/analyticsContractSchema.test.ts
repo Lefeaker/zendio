@@ -9,6 +9,7 @@ import {
   sanitizeAnalyticsEventParams
 } from '../../../src/shared/analytics';
 import { getConsentScopeForAnalyticsEvent } from '../../../src/shared/analytics/analyticsConsent';
+import type { AnalyticsConfig } from '../../../src/shared/errors/analytics/analyticsConfig';
 import type {
   AnalyticsEventDefinition,
   AnalyticsEventName,
@@ -214,6 +215,22 @@ function asCatalogEntries(): Array<[AnalyticsEventName, AnalyticsEventDefinition
   >;
 }
 
+function createAnalyticsConfig(overrides: Partial<AnalyticsConfig> = {}): AnalyticsConfig {
+  return {
+    enabled: true,
+    debugMode: false,
+    measurementId: 'G-TEST1234',
+    transportMode: 'proxy',
+    proxyEndpoint: 'https://analytics.example.test/ga4',
+    clientId: 'client-1',
+    sessionId: 'session-1',
+    reportingInterval: 30000,
+    maxErrorsPerSession: 50,
+    batchSize: 10,
+    ...overrides
+  };
+}
+
 async function importAnalyticsValidationModule(): Promise<AnalyticsValidationModule> {
   return (await import(ANALYTICS_VALIDATOR_MODULE_URL.href)) as AnalyticsValidationModule;
 }
@@ -254,34 +271,59 @@ describe('analytics contract schema', () => {
     expect(ANALYTICS_EVENT_CATALOG.extension_error.classification).toBe('error');
     expect(getConsentScopeForAnalyticsEvent('extension_error')).toBe('errorReporting');
 
-    const errorOnlyConfig = {
-      enabled: true,
-      debugMode: false,
-      measurementId: 'G-TEST1234',
-      transportMode: 'proxy' as const,
-      proxyEndpoint: 'https://analytics.example.test/ga4',
+    const errorOnlyConfig = createAnalyticsConfig({
       userConsent: {
         analytics: false,
         errorReporting: true,
         timestamp: 1,
         version: '1.0'
-      },
-      reportingInterval: 30000,
-      maxErrorsPerSession: 50,
-      batchSize: 10
-    };
-    const analyticsOnlyConfig = {
-      ...errorOnlyConfig,
+      }
+    });
+    const analyticsOnlyConfig = createAnalyticsConfig({
       userConsent: {
         analytics: true,
         errorReporting: false,
         timestamp: 1,
         version: '1.0'
       }
-    };
+    });
 
     expect(hasConsentForAnalyticsEvent(errorOnlyConfig, 'extension_error')).toBe(true);
     expect(hasConsentForAnalyticsEvent(analyticsOnlyConfig, 'extension_error')).toBe(false);
+  });
+
+  it('fails closed for every event class when runtime is enabled without stored consent', () => {
+    const missingConsentConfig = createAnalyticsConfig({
+      enabled: true,
+      userConsent: undefined
+    });
+
+    expect(hasConsentForAnalyticsEvent(missingConsentConfig, 'video_session_started')).toBe(false);
+    expect(hasConsentForAnalyticsEvent(missingConsentConfig, 'extension_error')).toBe(false);
+  });
+
+  it('keeps analytics and error-reporting consent scoped to their event classes', () => {
+    const analyticsOnlyConfig = createAnalyticsConfig({
+      userConsent: {
+        analytics: true,
+        errorReporting: false,
+        timestamp: 1,
+        version: '1.0'
+      }
+    });
+    const errorOnlyConfig = createAnalyticsConfig({
+      userConsent: {
+        analytics: false,
+        errorReporting: true,
+        timestamp: 1,
+        version: '1.0'
+      }
+    });
+
+    expect(hasConsentForAnalyticsEvent(analyticsOnlyConfig, 'video_session_started')).toBe(true);
+    expect(hasConsentForAnalyticsEvent(analyticsOnlyConfig, 'extension_error')).toBe(false);
+    expect(hasConsentForAnalyticsEvent(errorOnlyConfig, 'video_session_started')).toBe(false);
+    expect(hasConsentForAnalyticsEvent(errorOnlyConfig, 'extension_error')).toBe(true);
   });
 
   it('keeps the production validator aligned with the tracked transport contract', async () => {
