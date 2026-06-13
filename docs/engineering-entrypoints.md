@@ -22,7 +22,7 @@
   - Chrome ZIP 与 Firefox XPI package 脚本会解包最终产物并通过 `tools/audit-release-archive.mjs` 复用 release-surface 审计
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
-  - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` errors / `6` warnings，warning-only 不阻塞该 hard gate
+  - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
@@ -169,10 +169,10 @@ background write/download boundaries.
 - `npm run lint:warnings-guard`：通过；当前 video screenshot/session stability integration fresh warning count 为 `141`，gate 输出为 `Warning 总量下降 6 条（现在 141 条）`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
-- `npm run lint:hardcoded`：通过；当前为 `0` errors / `6` warning-only findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 final integration worktree `1173` files；fresh overall 为 `any: 0`、`unknown: 1121`、assertions `1869`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/512/1239/36/3`。
+- `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
+- `npm run lint:type-any`：扫描当前 final integration worktree `1173` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1869`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1239/36/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1121/1869/45/3`、src `0/609/630/9/0`、tests `0/512/1239/36/3`。本次只提升 assertions 上限；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
+- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1869/45/3`、src `0/609/630/9/0`、tests `0/513/1239/36/3`。本次只提升 assertions 上限；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 625`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
@@ -249,7 +249,7 @@ background write/download boundaries.
 - dev chunks: `117`
 - `chunks/messages-*.js`: `202.4 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `22.3 KB`
-- `lint:type-any` 扫描 `1173` files；fresh overall `0/1121/1869/45/3`、src `0/609/630/9/0`、tests `0/512/1239/36/3`
+- `lint:type-any` 扫描 `1173` files；fresh overall `0/1122/1869/45/3`、src `0/609/630/9/0`、tests `0/513/1239/36/3`
 - `lint:type-any:ratchet` checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`；本次只同步 assertions gate，`any` 继续保持 `0`，`ts-expect-error` 未放宽
 
 ## 核心命令
