@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-12
+最后更新：2026-06-13
 
 ## 正式入口
 
@@ -20,7 +20,7 @@
 ## 当前执行主线
 
 - 当前统一门禁以 `quality` / `verify:preflight` / CI 三者一致为准
-- 当前本地 runtime hard gate 以 `verify:runtime` 为准；该命令读取 `package.json` 的 `engines.node`，并已接入 `quality` 与 `verify:preflight`
+- 当前本地 runtime hard gate 以 `verify:runtime` 为准；该命令读取 `package.json` 的 `engines.node`，并已接入 `quality`、`verify:preflight`、`test` / `test:*` 与 `visual:*` npm scripts
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
@@ -38,6 +38,7 @@
 - Video screenshot attachment 真值：durable capture storage 与 session drafts 只持久化 screenshot intent（`screenshotRequested`），不持久化截图 bytes。`video.screenshotAttachment.{locationTemplate,fileNameTemplate,markdownUrlFormat}` 只负责 export-time 的附件输出路径与 Markdown URL 规划；runtime screenshot bytes 以 `Blob` / binary 形式存在，exporter/background writer/download boundary 通过 serialized binary content 与 `serializedAttachmentContentToBlob()` 兼容写入，legacy `dataUrl` 只保留兼容解码 / adapter fallback。
 - 2026-05-20 release readiness historical truth：Node `v20.20.2` / npm `10.8.2` 下全量 release gate 通过，`npm audit --omit=dev` 为 `0`；当时 `npm audit --audit-level=low` 的 `26` vulnerabilities 仅作为历史 release handoff 证据保留
 - 2026-06-09 dependency-audit current truth：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 当前为 `0` vulnerabilities；`npm audit --audit-level=low` 当前因 dev tooling dependency `vitest <3.2.6` / `@vitest/coverage-v8 <=3.2.5` 返回 `2` critical findings。Production runtime release gate 仍以 `--omit=dev` green 为准；全量 dev audit 不是 `quality` / `verify:preflight` hard gate，后续若要消除该 advisory 应另开 dev toolchain dependency update。
+- 2026-06-13 test runtime guard current truth：`package.json` 中所有 `test` / `test:*` / `visual:*` npm scripts 均显式前置 `verify:runtime`；直接运行本地测试时若 PATH 指向 Node 23 等不支持版本，入口会先失败在 runtime guard，不启动 Vitest / Playwright。
 - 2026-06-01 Plan 09 governance current truth：`lint:hardcoded` standalone green with `0` errors / `6` warnings and is wired into both `quality` and CI; `audit:platform-boundary:report` is still report-only with `148` findings and unresolved `shared-runtime-helper` review items, so it is not a hard gate; all-dependency `npm audit --audit-level=low` is not wired into `quality` and currently has the dev tooling advisory recorded above.
 - 2026-05-29 Plan 11 G4 preflight current truth：`audit:imports:check` 当前 green，输出 `No deep relative imports found.`；`verify:preflight` 已通过 import-boundary hard check
 - 2026-06-04 i18n-v2 M11 type-ratchet truth：M02-M10 accepted i18n generated source/test expansion 后，`lint:type-any:ratchet` 当前守住 overall `0/991/1658/41/4`、src `0/549/579/5/0`、tests `0/442/1079/36/4`；本次只同步 current truth，M11 自身新增 gate test 不增加 type-debt 计数，且没有放宽 `any` 或 `ts-expect-error` 上限

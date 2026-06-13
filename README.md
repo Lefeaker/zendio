@@ -83,6 +83,7 @@
 
 - Recommended Node.js: `20.20.2` (`.nvmrc`); package engines allow `>=20.19 <21`
 - Recommended npm: `10.8.2`; package engines allow `>=10 <11`
+- `npm run test*` and `npm run visual*` entrypoints run `verify:runtime` first, so unsupported local Node versions fail before Vitest or Playwright starts.
 - Minimum preflight gate before large refactors:
   - `npm run verify:preflight`
   - `npm run test:e2e:browser`
