@@ -36,6 +36,7 @@ const forbiddenSecretFieldPattern = new RegExp(
   ].join('|'),
   'i'
 );
+const forbiddenGoogleTransportPattern = /google-analytics\.com|debug\/mp\/collect|mp\/collect/i;
 
 describe('analytics transport', () => {
   const fetchMock = vi.fn<TransportFetch>();
@@ -133,6 +134,47 @@ describe('analytics transport', () => {
     expect(String(requestInit?.body)).toContain('"measurement_id":"G-ABCD1234"');
     expect(String(requestInit?.body)).toContain('"validation_behavior":"ENFORCE_RECOMMENDATIONS"');
     expect(String(requestInit?.body)).not.toMatch(forbiddenSecretFieldPattern);
+  });
+
+  it('adds only validation_behavior when directDebug goes through the debug proxy', async () => {
+    const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    await sendAnalyticsTransportEvent('support_like_clicked', { variant: 'first' }, baseConfig, {
+      fetch: fetchMock,
+      extensionVersion: '2.0.0',
+      now: () => 42
+    });
+
+    await sendAnalyticsTransportEvent(
+      'support_like_clicked',
+      { variant: 'first' },
+      {
+        ...baseConfig,
+        transportMode: 'directDebug',
+        proxyEndpoint: 'https://analytics.example.test/ga4-debug'
+      },
+      { fetch: fetchMock, extensionVersion: '2.0.0', now: () => 42 }
+    );
+
+    const [proxyUrl, proxyInit] = fetchMock.mock.calls[0] ?? [];
+    const [debugUrl, debugInit] = fetchMock.mock.calls[1] ?? [];
+    const proxyPayload = JSON.parse(String(proxyInit?.body));
+    const debugPayload = JSON.parse(String(debugInit?.body));
+
+    expect(String(proxyUrl)).toBe('https://analytics.example.test/ga4');
+    expect(String(debugUrl)).toBe('https://analytics.example.test/ga4-debug');
+    expect(String(proxyUrl)).not.toMatch(forbiddenGoogleTransportPattern);
+    expect(String(debugUrl)).not.toMatch(forbiddenGoogleTransportPattern);
+    expect(JSON.stringify(proxyPayload)).not.toMatch(forbiddenGoogleTransportPattern);
+    expect(JSON.stringify(debugPayload)).not.toMatch(forbiddenGoogleTransportPattern);
+    expect(debugPayload).toEqual({
+      ...proxyPayload,
+      validation_behavior: 'ENFORCE_RECOMMENDATIONS'
+    });
   });
 
   it('skips disabled, invalid endpoint, and invalid measurement id states', async () => {
