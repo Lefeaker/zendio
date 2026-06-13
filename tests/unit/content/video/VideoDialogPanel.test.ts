@@ -6,6 +6,8 @@ import type {
   VideoPanelTexts,
   VideoPanelCapture
 } from '@content/video/application/videoPanelModel';
+import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
@@ -136,6 +138,64 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('renders video footer actions through the normal Stitch button path with schema-owned roles', () => {
+    const surface = renderStitchRuntimeSurface({
+      surfaceId: 'video',
+      appData: createVideoSurfaceContent({
+        texts,
+        captures: [createCapture()],
+        counter: '1 capture',
+        actions: [
+          { id: 'video:finish', label: texts.finish, variant: 'primary' },
+          { id: 'video:cancel', label: texts.cancel, variant: 'ghost' }
+        ]
+      }),
+      actions: {
+        'video:add': vi.fn(),
+        'video:add-note': vi.fn(),
+        'video:finish': vi.fn(),
+        'video:cancel': vi.fn()
+      }
+    });
+
+    const finishButton = surface.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:finish"]'
+    );
+    const cancelButton = surface.querySelector<HTMLButtonElement>(
+      '[data-action-id="video:cancel"]'
+    );
+    const addButton = surface.querySelector<HTMLButtonElement>('[data-action-id="video:add"]');
+    const addNoteInput = surface.querySelector<HTMLInputElement>(
+      '[data-action-id="video:add-note"]'
+    );
+
+    expect(finishButton?.dataset.role).toBe('finish-btn');
+    expect(cancelButton?.dataset.role).toBe('close-btn');
+    expect(addButton?.dataset.role).toBe('add-btn');
+    expect(addNoteInput?.dataset.role).toBe('add-note-input');
+    expect(finishButton?.className).toBe('btn primary');
+    expect(cancelButton?.className).toBe('btn ghost');
+    const footerButtons = Array.from(
+      surface.querySelectorAll('.session-footer-actions > button')
+    ).filter((button): button is HTMLButtonElement => button instanceof HTMLButtonElement);
+    expect(footerButtons.map((button) => button.dataset.actionId)).toEqual([
+      'video:finish',
+      'video:cancel'
+    ]);
+    expect(finishButton?.children).toHaveLength(1);
+    expect(finishButton?.firstElementChild?.tagName).toBe('SPAN');
+    expect(cancelButton?.children).toHaveLength(1);
+    expect(cancelButton?.firstElementChild?.tagName).toBe('SPAN');
+
+    const finishMouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    const cancelMouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    finishButton?.dispatchEvent(finishMouseDown);
+    cancelButton?.dispatchEvent(cancelMouseDown);
+
+    expect(finishMouseDown.defaultPrevented).toBe(true);
+    expect(cancelMouseDown.defaultPrevented).toBe(true);
+  });
+
   it('routes the inline add and item close buttons to video callbacks', async () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
@@ -157,17 +217,21 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('renders timestamp screenshot toggles before the timestamp as gray or green dots', () => {
+  it('renders timestamp screenshot toggles before the timestamp as off, pending, or ready dots', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
     panel.setCaptures([
       createCapture({ id: 'no-shot', hasScreenshot: false }),
+      createCapture({ id: 'pending-shot', hasScreenshot: false, screenshotState: 'pending' }),
       createCapture({ id: 'with-shot', hasScreenshot: true })
     ]);
 
     const shadow = panel.element.shadowRoot;
     const off = shadow?.querySelector<HTMLButtonElement>(
       '[data-capture-id="no-shot"] [data-action-id="video:toggle-screenshot"]'
+    );
+    const pending = shadow?.querySelector<HTMLButtonElement>(
+      '[data-capture-id="pending-shot"] [data-action-id="video:toggle-screenshot"]'
     );
     const on = shadow?.querySelector<HTMLButtonElement>(
       '[data-capture-id="with-shot"] [data-action-id="video:toggle-screenshot"]'
@@ -178,10 +242,25 @@ describe('VideoDialogPanel', () => {
 
     expect(markerChildren[0]).toBe(off);
     expect(markerChildren[1]?.classList.contains('session-item-marker-time')).toBe(true);
+    expect(off).toBeInstanceOf(HTMLButtonElement);
+    expect(off?.type).toBe('button');
     expect(off?.classList.contains('is-off')).toBe(true);
     expect(off?.getAttribute('aria-label')).toBe('Capture screenshot');
+    expect(off?.getAttribute('aria-pressed')).toBe('false');
+    expect(off?.dataset.screenshotState).toBe('off');
+    expect(pending).toBeInstanceOf(HTMLButtonElement);
+    expect(pending?.type).toBe('button');
+    expect(pending?.classList.contains('is-pending')).toBe(true);
+    expect(pending?.classList.contains('is-on')).toBe(false);
+    expect(pending?.getAttribute('aria-label')).toBe('Remove screenshot');
+    expect(pending?.getAttribute('aria-pressed')).toBe('true');
+    expect(pending?.dataset.screenshotState).toBe('pending');
+    expect(on).toBeInstanceOf(HTMLButtonElement);
+    expect(on?.type).toBe('button');
     expect(on?.classList.contains('is-on')).toBe(true);
     expect(on?.getAttribute('aria-label')).toBe('Remove screenshot');
+    expect(on?.getAttribute('aria-pressed')).toBe('true');
+    expect(on?.dataset.screenshotState).toBe('on');
 
     panel.destroy();
   });
@@ -226,6 +305,39 @@ describe('VideoDialogPanel', () => {
     expect(input?.value).toBe('draft');
     expect(panel.element.shadowRoot?.querySelector('textarea[data-capture-input]')).toBeNull();
     await Promise.resolve();
+    expect(panel.element.shadowRoot?.activeElement).toBe(input);
+
+    panel.destroy();
+  });
+
+  it('keeps a newly added add-note capture focused across the first capture refresh', async () => {
+    let panel: VideoDialogPanel | null = null;
+    const newCapture = createCapture({ id: 'capture-2', index: 2, timeLabel: '01:23' });
+    const panelCallbacks: VideoPanelCallbacks = {
+      ...callbacks,
+      onAddCapture: vi.fn((source?: string) => {
+        expect(source).toBe('note-input');
+        panel?.setCaptures([newCapture]);
+        panel?.beginEditingCapture(newCapture.id, '');
+        queueMicrotask(() => {
+          panel?.setCaptures([{ ...newCapture, hasScreenshot: true }]);
+        });
+      })
+    };
+
+    panel = new VideoDialogPanel({ callbacks: panelCallbacks, texts });
+    panel.show();
+    panel.element.shadowRoot
+      ?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')
+      ?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const input =
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+        '[data-capture-input="capture-2"]'
+      ) ?? null;
+    expect(input).toBeTruthy();
     expect(panel.element.shadowRoot?.activeElement).toBe(input);
 
     panel.destroy();
@@ -307,10 +419,14 @@ describe('VideoDialogPanel', () => {
     expect(panel.element.shadowRoot?.activeElement).toBe(input);
 
     panel.updateHint('Saving');
+    await Promise.resolve();
 
     expect(lifecycleCallbacks.onCaptureEditorBlur).not.toHaveBeenCalledWith(
       'capture-1',
       'outside-panel'
+    );
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-capture-input="capture-1"]')
     );
 
     panel.destroy();

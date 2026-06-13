@@ -3,7 +3,8 @@ import type {
   TabRemovedListener,
   TabsSendOptions,
   TabsService,
-  TabUpdatedListener
+  TabUpdatedListener,
+  VisibleTabCaptureOptions
 } from '../interfaces/tabs';
 import { ensureFirefox } from './utils';
 
@@ -58,6 +59,22 @@ export const firefoxTabsService: TabsService = {
     }
     const tabs = await firefoxApi.tabs.query((queryInfo ?? {}) as browser.tabs._QueryQueryInfo);
     return (tabs as unknown as chrome.tabs.Tab[]) ?? [];
+  },
+
+  async captureVisibleTab(
+    windowId?: number,
+    options?: VisibleTabCaptureOptions
+  ): Promise<string | undefined> {
+    const firefoxApi = ensureFirefox();
+    if (typeof firefoxApi.tabs.captureVisibleTab !== 'function') {
+      return undefined;
+    }
+    const captureOptions = options ?? {};
+    const dataUrl =
+      typeof windowId === 'number'
+        ? await firefoxApi.tabs.captureVisibleTab(windowId, captureOptions)
+        : await firefoxApi.tabs.captureVisibleTab(captureOptions);
+    return typeof dataUrl === 'string' ? dataUrl : undefined;
   },
 
   async sendMessage<TResult = unknown>(

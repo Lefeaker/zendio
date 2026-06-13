@@ -22,18 +22,6 @@ export function applyVideoDialogPanelCompatibilityAttributes(
   if (collapsed && surfaceWindow) {
     surfaceWindow.addEventListener('click', expandCollapsedPanel);
   }
-  surface
-    .querySelector<HTMLElement>('[data-action-id="video:finish"]')
-    ?.setAttribute('data-role', 'finish-btn');
-  surface
-    .querySelector<HTMLElement>('[data-action-id="video:cancel"]')
-    ?.setAttribute('data-role', 'close-btn');
-  surface
-    .querySelector<HTMLElement>('[data-action-id="video:add"]')
-    ?.setAttribute('data-role', 'add-btn');
-  surface
-    .querySelector<HTMLElement>('[data-action-id="video:add-note"]')
-    ?.setAttribute('data-role', 'add-note-input');
   const collapseTrigger = surface.querySelector<HTMLButtonElement>(
     '[data-action-id="session:toggleCollapse"]'
   );

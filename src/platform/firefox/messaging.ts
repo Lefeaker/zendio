@@ -10,6 +10,7 @@ function mapSender(sender: browser.runtime.MessageSender): MessageSenderInfo {
   return {
     ...(sender.id !== undefined && { id: sender.id }),
     ...(sender.tab?.id !== undefined && { tabId: sender.tab.id }),
+    ...(sender.tab?.windowId !== undefined && { windowId: sender.tab.windowId }),
     ...(sender.frameId !== undefined && { frameId: sender.frameId }),
     ...(sender.url !== undefined && { url: sender.url })
   };

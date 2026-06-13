@@ -657,6 +657,31 @@ testWithExtension.describe('Video Panel browser flow', () => {
           await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
         });
 
+        await expect
+          .poll(
+            () =>
+              readVideoProbe(extensionPage, tabId).then((probe) => ({
+                toBlobCalls: probe.toBlobCalls,
+                toDataUrlCalls: probe.toDataUrlCalls,
+                drawImageCalls: probe.drawImageCalls,
+                currentTimeWrites: probe.currentTimeWrites,
+                pauseCalls: probe.pauseCalls,
+                playCalls: probe.playCalls
+              })),
+            {
+              timeout: 10000,
+              message: 'timestamp creation did not prepare a reusable screenshot'
+            }
+          )
+          .toEqual({
+            toBlobCalls: 1,
+            toDataUrlCalls: 0,
+            drawImageCalls: 1,
+            currentTimeWrites: 0,
+            pauseCalls: 0,
+            playCalls: 0
+          });
+
         const timestampInput = page.locator('[data-capture-input]').first();
         const timestampDraft = 'Video timestamp unsaved draft note';
         await runStage(testInfo, 'fill timestamp draft', async () => {
@@ -697,13 +722,13 @@ testWithExtension.describe('Video Panel browser flow', () => {
               })),
             {
               timeout: 10000,
-              message: 'initial screenshot toggle disturbed visible playback'
+              message: 'initial screenshot toggle did not reuse the prepared frame'
             }
           )
           .toEqual({
-            toBlobCalls: 1,
+            toBlobCalls: 0,
             toDataUrlCalls: 0,
-            drawImageCalls: 1,
+            drawImageCalls: 0,
             currentTimeWrites: 0,
             pauseCalls: 0,
             playCalls: 0

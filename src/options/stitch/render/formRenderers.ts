@@ -111,6 +111,12 @@ export function renderButtonNode(node: ButtonNode, ctx: RendererContext): HTMLBu
         }
       : undefined
   });
+  const dataset = resolveValue(node.dataset, ctx);
+  if (dataset) {
+    Object.entries(dataset).forEach(([key, value]) => {
+      button.dataset[key] = String(value);
+    });
+  }
   if (typeof action === 'string') {
     button.dataset.actionId = action;
   } else if (action?.id) {

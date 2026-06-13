@@ -73,11 +73,15 @@ const configProviderMock = {
   }))
 };
 
-vi.mock('../../../src/shared/config', () => ({
-  configProvider: configProviderMock,
-  createConfigProvider: vi.fn(),
-  loadOverrideFromEnv: vi.fn()
-}));
+vi.mock('../../../src/shared/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/shared/config')>();
+  return {
+    ...actual,
+    configProvider: configProviderMock,
+    createConfigProvider: vi.fn(),
+    loadOverrideFromEnv: vi.fn()
+  };
+});
 
 const mockLoadFragmentConfig = vi.fn();
 
@@ -97,9 +101,8 @@ describe('Keyboard Shortcuts Integration', () => {
   });
 
   it('loads keyboard shortcuts configuration correctly', async () => {
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -109,9 +112,8 @@ describe('Keyboard Shortcuts Integration', () => {
     mockOptions.fragmentClipper.keyboardShortcutsEnabled = false;
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(false);
@@ -122,9 +124,8 @@ describe('Keyboard Shortcuts Integration', () => {
     mockOptions.fragmentClipper.selectionModifierKeys = ['alt', 'meta'];
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -134,9 +135,8 @@ describe('Keyboard Shortcuts Integration', () => {
 
   it('configuration changes are reflected in loaded config', async () => {
     // Initial state
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
 
     let config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -156,9 +156,8 @@ describe('Keyboard Shortcuts Integration', () => {
     delete configWithoutShortcuts.keyboardShortcutsEnabled;
     mockLoadFragmentConfig.mockResolvedValue(configWithoutShortcuts as FragmentClipperOptions);
 
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
 
     const config = await loadFragmentConfig();
     // Should return undefined for missing property (handled by defaults elsewhere)
@@ -238,9 +237,8 @@ describe('End-to-End Configuration Flow', () => {
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify configuration is updated
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(true);
@@ -259,9 +257,8 @@ describe('End-to-End Configuration Flow', () => {
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify configuration is updated
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(false);
@@ -289,9 +286,8 @@ describe('End-to-End Configuration Flow', () => {
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
     // Verify only keyboard shortcuts changed
-    const { loadFragmentConfig } = await import(
-      '../../../src/content/clipper/services/fragmentConfig'
-    );
+    const { loadFragmentConfig } =
+      await import('../../../src/content/clipper/services/fragmentConfig');
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(false);

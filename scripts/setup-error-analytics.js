@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +29,118 @@ const COLORS = {
 
 let failures = 0;
 let warnings = 0;
+
+function readFromRoot(projectRoot, filePath) {
+  return fs.readFileSync(path.join(projectRoot, filePath), 'utf8');
+}
+
+export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyticsEnvironment.ts') {
+  const sourceFile = ts.createSourceFile(sourcePath, sourceText, ts.ScriptTarget.Latest, true);
+  for (const statement of sourceFile.statements) {
+    if (!ts.isTypeAliasDeclaration(statement) || statement.name.text !== 'AnalyticsTransportMode') {
+      continue;
+    }
+    if (!ts.isUnionTypeNode(statement.type)) {
+      return [];
+    }
+    return statement.type.types
+      .filter(ts.isLiteralTypeNode)
+      .map((node) =>
+        ts.isStringLiteral(node.literal) || ts.isNoSubstitutionTemplateLiteral(node.literal)
+          ? node.literal.text
+          : null
+      )
+      .filter((value) => typeof value === 'string');
+  }
+  return [];
+}
+
+export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
+  const analyticsEnvironment = readFromRoot(projectRoot, 'src/shared/analytics/analyticsEnvironment.ts');
+  const analyticsConsent = readFromRoot(projectRoot, 'src/shared/analytics/analyticsConsent.ts');
+  const analyticsQueue = readFromRoot(projectRoot, 'src/shared/analytics/analyticsQueue.ts');
+  const analyticsTransport = readFromRoot(projectRoot, 'src/shared/analytics/analyticsTransport.ts');
+  const analyticsConfig = readFromRoot(
+    projectRoot,
+    'src/shared/errors/analytics/analyticsConfig.ts'
+  );
+  const analyticsReporter = readFromRoot(
+    projectRoot,
+    'src/shared/errors/analytics/googleAnalyticsReporter.ts'
+  );
+  const analyticsEvents = readFromRoot(projectRoot, 'src/background/services/analyticsEvents.ts');
+  const clientRuntimeSource = [
+    analyticsEnvironment,
+    analyticsConsent,
+    analyticsQueue,
+    analyticsTransport,
+    analyticsConfig,
+    analyticsReporter,
+    analyticsEvents,
+    readFromRoot(projectRoot, 'src/options/app/productionStitchPersistence.ts'),
+    readFromRoot(projectRoot, 'src/options/app/productionStitchFinalAnalyticsEvent.ts'),
+    readFromRoot(projectRoot, 'src/options/app/productionStitchShellActionRuntime.ts')
+  ].join('\n');
+  const analyticsLogSummaryBlock = sliceBetween(
+    analyticsEvents,
+    'function buildAnalyticsTransportLogSummary(',
+    'function logAnalyticsTransportResult('
+  );
+
+  return {
+    transportModes: extractAnalyticsTransportModes(analyticsEnvironment),
+    clientRuntimeContainsApiSecret:
+      /\bapi_secret\b/i.test(clientRuntimeSource) || /\bapiSecret\b/.test(clientRuntimeSource),
+    trackedConfigUsesPublicBuildConfigOnly: hasAll(analyticsConfig, [
+      'PUBLIC_BUILD_ANALYTICS_CONFIG.measurementId',
+      "PUBLIC_BUILD_ANALYTICS_CONFIG.transportMode ?? 'disabled'",
+      'PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint'
+    ]),
+    errorReporterUsesQueueTransportAndLiveConsent: hasAll(analyticsReporter, [
+      'createAnalyticsEventQueue',
+      'sendAnalyticsTransportEvent',
+      'resolveAnalyticsConfig',
+      'liveConfig?.userConsent ?? this.config.userConsent'
+    ]),
+    runtimeCallsGoogleEndpointsDirectly: hasAny(analyticsTransport, [
+      'google-analytics.com/mp/collect',
+      'google-analytics.com/debug/mp/collect'
+    ]),
+    proxyBackedTransports: hasAll(analyticsTransport, [
+      "transportMode === 'proxy' || transportMode === 'directDebug'",
+      'normalizeProxyEndpoint(config.proxyEndpoint)',
+      'postAnalyticsPayload(proxyEndpoint, proxyPayload, transportMode, requestFetch)'
+    ]),
+    directDebugValidationIntent: analyticsTransport.includes(
+      "validation_behavior: 'ENFORCE_RECOMMENDATIONS'"
+    ),
+    consentHelperExists: hasAll(analyticsConsent, [
+      'getConsentScopeForAnalyticsEvent',
+      'hasConsentForAnalyticsEvent'
+    ]),
+    queueUsesSharedConsentHelper: hasAll(analyticsQueue, [
+      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
+      'hasConsentForAnalyticsEvent(config, entry.eventName)',
+      'sendAnalyticsTransportEvent'
+    ]),
+    transportAppliesEventClassConsent: hasAll(analyticsTransport, [
+      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
+      'hasConsentForAnalyticsEvent(config, eventName)'
+    ]),
+    debugSuccessSummaryRedacted:
+      analyticsLogSummaryBlock !== null &&
+      hasAll(analyticsLogSummaryBlock, [
+        'eventName',
+        'transportMode: result.transportMode',
+        'responseStatus: result.responseStatus',
+        'validation: summarizeDebugResponse(result.debugResponse)'
+      ]) &&
+      !hasAny(analyticsLogSummaryBlock, ['params', 'payload', 'client_id', 'measurement_id']),
+    successLoggingScopedToDirectDebug: analyticsEvents.includes(
+      "if (result.transportMode !== 'directDebug')"
+    )
+  };
+}
 
 function paint(color, message) {
   console.log(`${COLORS[color]}${message}${COLORS.reset}`);
@@ -129,144 +242,78 @@ function validateRequiredFiles() {
 function validateTrackedConfig() {
   info('Checking tracked analytics source contracts');
 
-  const analyticsEnvironment = read('src/shared/analytics/analyticsEnvironment.ts');
-  const analyticsConsent = read('src/shared/analytics/analyticsConsent.ts');
-  const analyticsQueue = read('src/shared/analytics/analyticsQueue.ts');
-  const analyticsTransport = read('src/shared/analytics/analyticsTransport.ts');
-  const analyticsConfig = read('src/shared/errors/analytics/analyticsConfig.ts');
-  const analyticsReporter = read('src/shared/errors/analytics/googleAnalyticsReporter.ts');
-  const analyticsEvents = read('src/background/services/analyticsEvents.ts');
-  const clientRuntimeSource = [
-    analyticsEnvironment,
-    analyticsConsent,
-    analyticsQueue,
-    analyticsTransport,
-    analyticsConfig,
-    analyticsReporter,
-    analyticsEvents,
-    read('src/options/app/productionStitchPersistence.ts'),
-    read('src/options/app/productionStitchFinalAnalyticsEvent.ts'),
-    read('src/options/app/productionStitchShellActionRuntime.ts')
-  ].join('\n');
+  const trackedContract = collectTrackedAnalyticsSourceContract(rootDir);
 
-  if (/\bapi_secret\b/i.test(clientRuntimeSource) || /\bapiSecret\b/.test(clientRuntimeSource)) {
+  if (trackedContract.clientRuntimeContainsApiSecret) {
     fail('client runtime still contains api_secret/apiSecret/API_SECRET');
   } else {
     ok('client runtime contains no api_secret/apiSecret/API_SECRET');
   }
 
-  if (
-    hasAll(analyticsConfig, [
-      'PUBLIC_BUILD_ANALYTICS_CONFIG.measurementId',
-      "PUBLIC_BUILD_ANALYTICS_CONFIG.transportMode ?? 'disabled'",
-      'PUBLIC_BUILD_ANALYTICS_CONFIG.proxyEndpoint'
-    ])
-  ) {
+  if (trackedContract.trackedConfigUsesPublicBuildConfigOnly) {
     ok('tracked analytics config reads only public build analytics config');
   } else {
     fail('tracked analytics config no longer matches the public build config contract');
   }
 
-  if (analyticsEnvironment.includes("'disabled' | 'proxy' | 'directDebug'")) {
+  if (
+    trackedContract.transportModes.length === 3 &&
+    trackedContract.transportModes.join(',') === 'disabled,proxy,directDebug'
+  ) {
     ok('analytics environment exposes the expected transport modes');
   } else {
     fail('analytics environment transport modes drifted');
   }
 
-  if (
-    hasAll(analyticsReporter, [
-      'createAnalyticsEventQueue',
-      'sendAnalyticsTransportEvent',
-      'resolveAnalyticsConfig',
-      'liveConfig?.userConsent ?? this.config.userConsent'
-    ])
-  ) {
+  if (trackedContract.errorReporterUsesQueueTransportAndLiveConsent) {
     ok('error reporter stays wired to the queue, transport, and live consent config');
   } else {
     fail('error reporter drifted from the queue/transport/live consent contract');
   }
 
-  const forbiddenGoogleEndpoints = [
-    'google-analytics.com/mp/collect',
-    'google-analytics.com/debug/mp/collect'
-  ];
-  if (hasAny(analyticsTransport, forbiddenGoogleEndpoints)) {
+  if (trackedContract.runtimeCallsGoogleEndpointsDirectly) {
     fail('runtime transport must not call Google Measurement Protocol endpoints directly');
   } else {
     ok('runtime transport does not call Google Measurement Protocol endpoints directly');
   }
 
-  if (
-    hasAll(analyticsTransport, [
-      "transportMode === 'proxy' || transportMode === 'directDebug'",
-      'normalizeProxyEndpoint(config.proxyEndpoint)',
-      'postAnalyticsPayload(proxyEndpoint, proxyPayload, transportMode, requestFetch)'
-    ])
-  ) {
+  if (trackedContract.proxyBackedTransports) {
     ok('proxy and directDebug transports stay proxy-backed');
   } else {
     fail('proxy/directDebug routing no longer stays proxy-backed');
   }
 
-  if (analyticsTransport.includes("validation_behavior: 'ENFORCE_RECOMMENDATIONS'")) {
+  if (trackedContract.directDebugValidationIntent) {
     ok('directDebug transport marks debug validation intent for the owner proxy');
   } else {
     fail('directDebug transport is missing debug validation intent');
   }
 
-  if (
-    hasAll(analyticsConsent, ['getConsentScopeForAnalyticsEvent', 'hasConsentForAnalyticsEvent'])
-  ) {
+  if (trackedContract.consentHelperExists) {
     ok('event-class analytics consent helper exists');
   } else {
     fail('event-class analytics consent helper is missing');
   }
 
-  if (
-    hasAll(analyticsQueue, [
-      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
-      'hasConsentForAnalyticsEvent(config, entry.eventName)',
-      'sendAnalyticsTransportEvent'
-    ])
-  ) {
+  if (trackedContract.queueUsesSharedConsentHelper) {
     ok('analytics queue uses the shared consent helper and transport sender');
   } else {
     fail('analytics queue no longer uses the shared consent helper contract');
   }
 
-  if (
-    hasAll(analyticsTransport, [
-      "import { hasConsentForAnalyticsEvent } from './analyticsConsent';",
-      'hasConsentForAnalyticsEvent(config, eventName)'
-    ])
-  ) {
+  if (trackedContract.transportAppliesEventClassConsent) {
     ok('analytics transport applies event-class consent with eventName');
   } else {
     fail('analytics transport no longer applies event-class consent with eventName');
   }
 
-  const analyticsLogSummaryBlock = sliceBetween(
-    analyticsEvents,
-    'function buildAnalyticsTransportLogSummary(',
-    'function logAnalyticsTransportResult('
-  );
-  if (!analyticsLogSummaryBlock) {
-    fail('analytics events success-log summary block could not be located');
-  } else if (
-    hasAll(analyticsLogSummaryBlock, [
-      'eventName',
-      'transportMode: result.transportMode',
-      'responseStatus: result.responseStatus',
-      'validation: summarizeDebugResponse(result.debugResponse)'
-    ]) &&
-    !hasAny(analyticsLogSummaryBlock, ['params', 'payload', 'client_id', 'measurement_id'])
-  ) {
+  if (trackedContract.debugSuccessSummaryRedacted) {
     ok('production debug success log summary excludes payload and params');
   } else {
     fail('production debug success log summary drifted from the redacted P02 contract');
   }
 
-  if (analyticsEvents.includes("if (result.transportMode !== 'directDebug')")) {
+  if (trackedContract.successLoggingScopedToDirectDebug) {
     ok('production success logging stays scoped to directDebug');
   } else {
     fail('production success logging is no longer scoped to directDebug');
@@ -440,9 +487,18 @@ function printSummary() {
   info('The repo remains proxy-first and client-side public-config-only.');
 }
 
-validateRequiredFiles();
-validateTrackedConfig();
-validateBuildInjection();
-validatePrivacyWiring();
-validateEnvironmentVariables();
-printSummary();
+export function runAnalyticsValidation() {
+  failures = 0;
+  warnings = 0;
+  validateRequiredFiles();
+  validateTrackedConfig();
+  validateBuildInjection();
+  validatePrivacyWiring();
+  validateEnvironmentVariables();
+  printSummary();
+  return { failures, warnings };
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  runAnalyticsValidation();
+}

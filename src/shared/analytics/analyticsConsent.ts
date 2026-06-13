@@ -21,7 +21,7 @@ export function hasConsentForAnalyticsEvent(
 
   const consent = config.userConsent;
   if (!consent) {
-    return true;
+    return false;
   }
 
   return getConsentScopeForAnalyticsEvent(eventName) === 'errorReporting'

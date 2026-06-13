@@ -102,6 +102,22 @@ describe('analyticsConfig', () => {
     expect(storage.local.set).toHaveBeenCalledWith('analytics_session_id', expect.any(String));
   });
 
+  it('creates client and session ids locally before consent while keeping sends disabled', async () => {
+    const storage = createStorageService();
+
+    const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
+    const manager = module.configureAnalyticsConfigManager(storage);
+    await manager.initialize();
+
+    const config = manager.getConfig();
+    expect(config.enabled).toBe(false);
+    expect(config.userConsent).toBeUndefined();
+    expect(config.clientId).toMatch(/^ext-/);
+    expect(config.sessionId).toBeTruthy();
+    await expect(storage.local.get('analytics_client_id')).resolves.toBe(config.clientId);
+    await expect(storage.local.get('analytics_session_id')).resolves.toBe(config.sessionId);
+  });
+
   it('reads public GA build globals without adding secret fields', async () => {
     vi.stubGlobal('__ZENDIO_GA_MEASUREMENT_ID__', 'G-BUILD1234');
     vi.stubGlobal('__ZENDIO_GA_TRANSPORT_MODE__', 'proxy');
@@ -217,5 +233,36 @@ describe('analyticsConfig', () => {
     expect(
       vi.mocked(storage.local.set).mock.calls.some(([key]) => key === 'analytics_session_id')
     ).toBe(false);
+  });
+
+  it('clears consent, config, client id, and session id together', async () => {
+    const storage = createStorageService();
+    await storage.local.set('analytics_user_consent', {
+      analytics: true,
+      errorReporting: true,
+      timestamp: 100,
+      version: '1.0'
+    });
+    await storage.local.set('analytics_config', {
+      measurementId: 'G-CLEAR001',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://proxy.example.test/collect'
+    });
+
+    const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
+    const manager = module.configureAnalyticsConfigManager(storage);
+    await manager.initialize();
+
+    await manager.clearAllData();
+
+    const clearedConfig = manager.getConfig();
+    expect(clearedConfig.enabled).toBe(false);
+    expect(clearedConfig.userConsent).toBeUndefined();
+    expect(clearedConfig.clientId).toBeUndefined();
+    expect(clearedConfig.sessionId).toBeUndefined();
+    await expect(storage.local.get('analytics_user_consent')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_config')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_client_id')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_session_id')).resolves.toBeUndefined();
   });
 });

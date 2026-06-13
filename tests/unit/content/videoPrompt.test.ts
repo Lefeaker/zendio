@@ -108,9 +108,13 @@ const ensureContentI18nMock = vi.hoisted(() =>
 );
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
 const getContentMessagesMock = vi.hoisted(() =>
-  vi.fn<(...args: []) => Promise<{ videoPromptTitle: string }>>(() =>
+  vi.fn<(...args: []) => Promise<Record<string, string>>>(() =>
     Promise.resolve({
-      videoPromptTitle: 'Clip video'
+      videoPromptTitle: 'Clip video',
+      videoControlBarNotePlaceholder: 'Add note',
+      videoControlBarNoteAriaLabel: 'Add video note',
+      videoControlBarAutoPauseLabel: 'Pause video while editing',
+      videoControlBarScreenshotLabel: 'Capture current video frame'
     })
   )
 );
@@ -158,6 +162,12 @@ const ensureVideoControlBarButtonMock = vi.hoisted(() =>
     (options: {
       doc: Document;
       preferences: { autoPauseEnabled: boolean; captureScreenshotEnabled: boolean };
+      texts?: {
+        notePlaceholder: string;
+        noteAriaLabel: string;
+        autoPauseLabel: string;
+        screenshotLabel: string;
+      };
       onPreferencesChange(preferences: {
         autoPauseEnabled: boolean;
         captureScreenshotEnabled: boolean;
@@ -842,19 +852,56 @@ describe('video prompt', () => {
   });
 
   it('re-evaluates when language setting changes', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    let locale = 'en';
+    getContentMessagesMock.mockImplementation(() =>
+      Promise.resolve(
+        locale === 'en'
+          ? {
+              videoPromptTitle: 'Clip video',
+              videoControlBarNotePlaceholder: 'Add note',
+              videoControlBarNoteAriaLabel: 'Add video note',
+              videoControlBarAutoPauseLabel: 'Pause video while editing',
+              videoControlBarScreenshotLabel: 'Capture current video frame'
+            }
+          : {
+              videoPromptTitle: 'Clip video',
+              videoControlBarNotePlaceholder: '添加备注',
+              videoControlBarNoteAriaLabel: '添加视频备注',
+              videoControlBarAutoPauseLabel: '自动暂停视频',
+              videoControlBarScreenshotLabel: '捕捉当前视频截图'
+            }
+      )
+    );
+
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
     currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
 
     await module.initVideoPrompt();
-    observerCallbacks.forEach((callback) => callback());
     await flushMicrotasks();
-    const initialCalls = matchesSupportedVideoHostMock.mock.calls.length;
+    const initialCalls = ensureVideoControlBarButtonMock.mock.calls.length;
+    expect(ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0]?.texts).toEqual({
+      notePlaceholder: 'Add note',
+      noteAriaLabel: 'Add video note',
+      autoPauseLabel: 'Pause video while editing',
+      screenshotLabel: 'Capture current video frame'
+    });
 
+    locale = 'zh-CN';
     deps.triggerLanguageChange();
     await flushMicrotasks();
-    expect(matchesSupportedVideoHostMock.mock.calls.length).toBeGreaterThan(initialCalls);
+    expect(ensureVideoControlBarButtonMock.mock.calls.length).toBeGreaterThan(initialCalls);
+    expect(ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0]?.texts).toEqual({
+      notePlaceholder: '添加备注',
+      noteAriaLabel: '添加视频备注',
+      autoPauseLabel: '自动暂停视频',
+      screenshotLabel: '捕捉当前视频截图'
+    });
   });
 
   it('re-evaluates on YouTube navigation finish events', async () => {

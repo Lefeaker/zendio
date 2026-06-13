@@ -3,7 +3,9 @@ import type {
   ClipperSurfaceSource,
   ExportDestinationSurfacePreview,
   PreviewContent,
-  SurfaceAction
+  SurfaceAction,
+  VideoControlBarPopoverSurfacePreferences,
+  VideoControlBarPopoverSurfaceTexts
 } from '@options/stitch/types';
 import type {
   ReaderPanelHighlight,
@@ -17,11 +19,9 @@ import type {
 const VIDEO_PREVIEW_ABSENT_ACTIONS = new Set(['video:add', 'video:save', 'video:delete']);
 const CLIPPER_ICON_PATH = 'icons/60x60/zendio_icon_clipt.png';
 const READER_ICON_PATH = 'icons/60x60/zendio_icon_readingt.png';
-
 function hero(title: string): PreviewContent['overview']['hero'] {
   return { title, description: '', pills: [] };
 }
-
 function createRuntimeContent(): PreviewContent {
   return {
     brand: {
@@ -191,6 +191,18 @@ function createRuntimeContent(): PreviewContent {
         captures: [],
         actions: []
       },
+      videoControlBarPopover: {
+        texts: {
+          notePlaceholder: '',
+          noteAriaLabel: '',
+          autoPauseLabel: '',
+          screenshotLabel: ''
+        },
+        preferences: {
+          autoPauseEnabled: true,
+          captureScreenshotEnabled: true
+        }
+      },
       videoFloatingPrompt: {
         label: '',
         shortcut: '',
@@ -344,6 +356,8 @@ export function createVideoSurfaceContent(input: {
           comment: capture.comment ?? '',
           ...(capture.draft !== undefined ? { draft: capture.draft } : {}),
           hasScreenshot: capture.hasScreenshot ?? false,
+          screenshotState:
+            capture.screenshotState ?? (capture.hasScreenshot === true ? 'on' : 'off'),
           meta: capture.shareUrl || capture.fragmentUrl || ''
         }))
       }
@@ -365,6 +379,23 @@ export function createVideoFloatingPromptSurfaceContent(input: {
         label: input.label,
         shortcut: input.shortcut,
         dismissLabel: input.dismissLabel
+      }
+    }
+  };
+}
+
+export function createVideoControlBarPopoverSurfaceContent(input: {
+  texts: VideoControlBarPopoverSurfaceTexts;
+  preferences: VideoControlBarPopoverSurfacePreferences;
+}): PreviewContent {
+  const content = createRuntimeContent();
+  return {
+    ...content,
+    surfaces: {
+      ...content.surfaces,
+      videoControlBarPopover: {
+        texts: { ...input.texts },
+        preferences: { ...input.preferences }
       }
     }
   };

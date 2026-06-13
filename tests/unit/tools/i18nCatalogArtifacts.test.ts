@@ -10,6 +10,7 @@ import {
   diffGeneratedArtifacts
 } from '../../../tools/i18n/generatedArtifacts';
 import { compileCatalog } from '../../../tools/i18n/compileCatalog';
+import { emitGeneratedSchemaMessages } from '../../../tools/i18n/emitGeneratedSchemaMessages';
 
 function createLocaleCatalog(
   language: string,
@@ -229,6 +230,19 @@ describe('i18n generated artifact drift checks', () => {
     });
 
     const schemaArtifact = artifacts.get('src/i18n/generated/schemaMessages.generated.ts');
+    const localeArtifact = artifacts.get('src/i18n/generated/locales/en.generated.ts');
+    const rawSchemaArtifact = emitGeneratedSchemaMessages(schemaCompiled);
+    const schemaArtifactPath = resolve(
+      process.cwd(),
+      'src/i18n/generated/schemaMessages.generated.ts'
+    );
+    const schemaPrettierOptions = await prettier.resolveConfig(schemaArtifactPath);
+    const formattedSchemaArtifact = await prettier.format(rawSchemaArtifact, {
+      ...schemaPrettierOptions,
+      filepath: schemaArtifactPath
+    });
+
+    expect(schemaArtifact).toBe(formattedSchemaArtifact);
     expect(schemaArtifact).toContain(
       'export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES_EN;'
     );
@@ -236,10 +250,17 @@ describe('i18n generated artifact drift checks', () => {
       'export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES_DE;'
     );
     expect(schemaArtifact).toContain(
-      `parseGeneratedSchemaMessages(\n  '{"schemaOverviewTitle":"Overview"}'\n)`
+      'export type GeneratedSchemaMessageKey = (typeof GENERATED_SCHEMA_MESSAGE_KEYS)[number];'
     );
     expect(schemaArtifact).toContain(
-      `parseGeneratedSchemaMessages(\n  '{"schemaOverviewTitle":"Uebersicht"}'\n)`
+      'const GENERATED_RELEASE_SCHEMA_MESSAGES_EN_VALUES = parseSchemaMessageValues('
     );
+    expect(schemaArtifact).not.toContain(
+      "import type { SchemaMessageKey } from '../catalog/schemaKeys';"
+    );
+    expect(schemaArtifact).not.toContain('parseGeneratedSchemaMessages');
+    expect(schemaArtifact).toContain('["Overview"]');
+    expect(localeArtifact).toContain(`'{"extensionName":"Alpha"}'`);
+    expect(localeArtifact).not.toContain('schemaOverviewTitle');
   });
 });

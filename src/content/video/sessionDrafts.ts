@@ -186,7 +186,7 @@ function serializeVideoDraftCapture(capture: VideoCapture): VideoSessionDraftCap
     url: capture.url,
     comment: capture.comment,
     createdAt: capture.createdAt,
-    ...((capture.screenshotRequested || capture.screenshot) && { screenshotRequested: true })
+    ...(capture.screenshotRequested ? { screenshotRequested: true } : {})
   };
 }
 

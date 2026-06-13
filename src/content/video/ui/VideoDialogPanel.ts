@@ -160,9 +160,7 @@ export class VideoDialogPanel implements UiMountable<
     this.editingCaptureId = id;
     this.commentDrafts.remember(id, draft);
     this.rerender({ captureDrafts: false });
-    queueMicrotask(() =>
-      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id)
-    );
+    this.queueCaptureInputFocus(id);
   }
 
   stopEditing(captureId?: string): void {
@@ -208,6 +206,7 @@ export class VideoDialogPanel implements UiMountable<
     if (!shadow) {
       return;
     }
+    const restoreFocusCaptureId = this.resolveFocusedEditingCaptureId(shadow);
     if (options.captureDrafts !== false) {
       this.commentDrafts.captureRenderedInputs();
     }
@@ -221,6 +220,9 @@ export class VideoDialogPanel implements UiMountable<
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
+    if (restoreFocusCaptureId) {
+      this.queueCaptureInputFocus(restoreFocusCaptureId);
+    }
   }
 
   private suppressCaptureEditorBlurForInternalRender(): void {
@@ -319,6 +321,25 @@ export class VideoDialogPanel implements UiMountable<
       target?.closest<HTMLElement>('[data-capture-id]')?.dataset.captureId ??
       null
     );
+  }
+
+  private resolveFocusedEditingCaptureId(shadow: ShadowRoot): string | null {
+    if (!this.editingCaptureId) {
+      return null;
+    }
+    const activeElement = shadow.activeElement instanceof HTMLElement ? shadow.activeElement : null;
+    return activeElement?.dataset.captureInput === this.editingCaptureId
+      ? this.editingCaptureId
+      : null;
+  }
+
+  private queueCaptureInputFocus(id: string): void {
+    queueMicrotask(() => {
+      if (this.editingCaptureId !== id) {
+        return;
+      }
+      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id);
+    });
   }
 
   private bindCaptureInteractions(surface: HTMLElement): void {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
+import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
 const handleClipResultMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -92,7 +93,13 @@ describe('runtime message listener', () => {
       isTabContextActive: vi.fn(async (ownerContext: { tabId?: number }) => ({
         success: true as const,
         active: ownerContext.tabId === 12
-      }))
+      })),
+      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(
+        async () => ({
+          success: true,
+          dataUrl: 'data:image/jpeg;base64,dmlkZW8='
+        })
+      )
     };
   }
 
@@ -291,6 +298,24 @@ describe('runtime message listener', () => {
       tabId: 12,
       windowId: 4,
       frameId: 0
+    });
+  });
+
+  it('returns a visible-tab screenshot for video frame fallback requests', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.({ type: 'AIIOB_CAPTURE_VISIBLE_TAB_SCREENSHOT' }, { tabId: 12, windowId: 4 })
+    ).resolves.toEqual({
+      success: true,
+      dataUrl: 'data:image/jpeg;base64,dmlkZW8='
+    });
+    expect(dependencies.captureVisibleTabScreenshot).toHaveBeenCalledWith({
+      tabId: 12,
+      windowId: 4
     });
   });
 

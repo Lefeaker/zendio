@@ -68,11 +68,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The video legacy recovery integration refreshes the generated preview JS hash after making video timestamp note inputs use the stable draft/comment value authority and preserving the screenshot-toggle-before-timestamp runtime contract without changing the frozen reference or Stitch runtime contract.',
         'The P14 final integration refreshes the generated preview JS hash after accepted i18n finalization, stop-unknown orphan deletion, dependency-cruiser cycle repair, and lint-only callback/parser tightening while preserving the frozen reference and Stitch runtime contract.',
         'The video attachment layout i18n sync refreshes the generated preview JS hash after merging the accepted Options 12-language catalog baseline with the video entry/attachment path layout, hiding Output Presets, splitting the capture-sources video schema helper, and removing unnecessary helper-local type assertions while preserving the frozen reference and Stitch runtime contract.',
-        'The post-audit Options i18n repair refreshes the generated preview JS hash after restoring the full schema-backed changelog release notes across 12 languages and removing the stale Deep Research navigation hint while preserving the frozen reference and Stitch runtime contract.'
+        'The post-audit Options i18n repair refreshes the generated preview JS hash after restoring the full schema-backed changelog release notes across 12 languages and removing the stale Deep Research navigation hint while preserving the frozen reference and Stitch runtime contract.',
+        'The video control-bar UI debt migration refreshes the generated preview JS hash after adding the schema-registered video-control-bar popover runtime surface, moving static video panel role attributes into Stitch-owned schema output, and threading optional ButtonNode datasets through the existing Stitch button renderer while preserving the frozen reference, control-bar geometry contract, and Stitch runtime behavior.',
+        'This accepted cumulative hash refresh also includes P01 runtime/schema i18n split, P02 analytics contract bundling, P05 shared template-default owner plus platform runtime-port import graph changes, and the video screenshot export-state repair with explicit off/pending/on screenshot state through the Video runtime surface and Stitch timestamp marker schema while preserving the frozen reference, existing toggle geometry, export-without-recapture contract, control-bar geometry contract, and Stitch runtime behavior.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // Post-main-merge Options i18n repair: hash refreshed after accepted changelog/nav-hint localization repair on latest main.
-      rightSha256: 'cd2d54b81547f22244e6414d9914d2a88867c075dfcda4ca12aa7c2a93833130'
+      // 2026-06-13 final integration: hash sampled from a standard per-worktree npm ci install; symlinked node_modules changes esbuild path comments and is not an allowlist source.
+      rightSha256: '44c6d7863817721c1af15b229b69bb22554d6742a343fee0d6c9ffa082f668e8'
     }
   ]
 ]);

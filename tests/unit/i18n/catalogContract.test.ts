@@ -149,7 +149,10 @@ describe('i18n catalog contract', () => {
       throw new Error('Unexpected pseudo catalog shape');
     }
     expect(pseudoCatalog.language).toBe(PSEUDO_LOCALE_CODE);
-    expect(Object.keys(pseudoCatalog.runtime).sort()).toEqual([...GENERATED_MESSAGE_KEYS].sort());
+    expect(Object.keys(pseudoCatalog.runtime).sort()).toEqual(
+      Object.keys(DEFAULT_RUNTIME_MESSAGES).sort()
+    );
+    expect(Object.keys(pseudoCatalog.runtime).every((key) => !key.startsWith('schema'))).toBe(true);
     expect(pseudoCatalog.static.extName).toContain('Ž');
     expect(pseudoCatalog.static.extDescription).toContain('À');
   });

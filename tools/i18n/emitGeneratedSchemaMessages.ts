@@ -43,10 +43,6 @@ function renderPackedArray(values: string[], indent = '  ', groupSize = 6): stri
   return lines;
 }
 
-function renderJsonParse(value: unknown, parserName: string): string {
-  return `${parserName}(${renderCatalogJsonStringLiteral(value)})`;
-}
-
 function renderCatalogJsonStringLiteral(value: unknown): string {
   return splitLocalizedRestExampleEndpoints(JSON.stringify(JSON.stringify(value)));
 }
@@ -60,8 +56,16 @@ function splitLocalizedRestExampleEndpoints(serialized: string): string {
 export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
   const localeConstantLines = compiled.localeCodes.flatMap((code) => {
     const locale = compiled.locales[code];
+    const values = compiled.messageKeys.map((key) => locale[key] ?? '');
+
     return [
-      `export const ${renderSchemaConstantName(code)} = ${renderJsonParse(locale, 'parseGeneratedSchemaMessages')};`,
+      `const ${renderSchemaConstantName(code)}_VALUES = parseSchemaMessageValues(${renderCatalogJsonStringLiteral(
+        values
+      )});`,
+      '',
+      `export const ${renderSchemaConstantName(code)} = buildSchemaMessages(${renderSchemaConstantName(
+        code
+      )}_VALUES);`,
       ''
     ];
   });
@@ -79,22 +83,24 @@ export function emitGeneratedSchemaMessages(compiled: CompiledCatalog): string {
     FILE_HEADER,
     '',
     "import type { ReleaseLangCode } from '../catalog/languages';",
-    "import type { SchemaMessageKey } from '../catalog/schemaKeys';",
     '',
-    'export type GeneratedSchemaMessages = Record<SchemaMessageKey, string>;',
+    'export type GeneratedSchemaMessageKey = (typeof GENERATED_SCHEMA_MESSAGE_KEYS)[number];',
     '',
-    'function parseGeneratedSchemaMessages(json: string): GeneratedSchemaMessages {',
-    '  // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- generated JSON is typed by this helper signature.',
-    '  return JSON.parse(json);',
+    'export type GeneratedSchemaMessages = Record<GeneratedSchemaMessageKey, string>;',
+    '',
+    'function buildSchemaMessages(values: readonly string[]): GeneratedSchemaMessages {',
+    '  return Object.fromEntries(',
+    '    GENERATED_SCHEMA_MESSAGE_KEYS.map((key, index) => [key, values[index] ?? \'\'])',
+    '  ) as GeneratedSchemaMessages;',
     '}',
     '',
     'export const GENERATED_SCHEMA_MESSAGE_KEYS = [',
     ...renderPackedArray(compiled.messageKeys),
-    '] as const satisfies readonly SchemaMessageKey[];',
+    '] as const;',
     '',
-    'export const GENERATED_RELEASE_SCHEMA_MESSAGE_CODES = [',
-    ...renderPackedArray(compiled.localeCodes),
-    '] as const satisfies readonly ReleaseLangCode[];',
+    'function parseSchemaMessageValues(json: string): readonly string[] {',
+    '  return JSON.parse(json) as readonly string[];',
+    '}',
     '',
     ...localeConstantLines,
     'export const GENERATED_RELEASE_SCHEMA_MESSAGES: Record<ReleaseLangCode, GeneratedSchemaMessages> = {',

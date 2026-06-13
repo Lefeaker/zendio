@@ -1,6 +1,5 @@
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
-import { bucketCount, createFeatureTimer } from '../../shared/analytics';
-import type { AnalyticsSource } from '../../shared/analytics';
+import { bucketCount, createFeatureTimer, type AnalyticsSource } from '../../shared/analytics';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
@@ -24,7 +23,6 @@ import {
   rollbackVideoSessionFragmentAdd,
   saveVideoSessionCaptures
 } from './videoCaptureMutationTransaction';
-import { hasRequestedTimestampScreenshot } from './screenshotIntent';
 import { runVideoSessionCaptureMutation } from './videoSessionCaptureMutations';
 
 export function beginVideoSessionAnalytics(
@@ -53,7 +51,7 @@ export async function handleVideoSessionAddCapture(
     return null;
   }
 
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
 
   const video = context.state.videoElement ?? context.findVideoElement();
@@ -91,7 +89,7 @@ export async function handleVideoSessionAddCapture(
     apply: () => {
       context.state.captures.push(capture);
       if (shouldLeasePlayback) {
-        context.beginPlaybackEditLease?.(capture.id);
+        context.playbackEditLease.begin(capture.id);
       }
       if (options.collapseAfterCapture) {
         context.dom.collapsePanel();
@@ -104,7 +102,7 @@ export async function handleVideoSessionAddCapture(
     },
     save: () => saveVideoSessionCaptures(context),
     commit: () => {
-      if (hasRequestedTimestampScreenshot(capture) && !capture.screenshot) {
+      if (!capture.screenshot) {
         requestRequestedScreenshotPreparation(context, capture.id);
       }
       emitVideoUsageEvent(context.dependencies, 'video_timestamp_added', {
@@ -140,7 +138,7 @@ export function ingestVideoSessionTextCapture(
   comment: string,
   selectionRange?: Range
 ): void {
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
   if (!normalizedText) {
@@ -242,7 +240,7 @@ export async function finishVideoSession(
     return;
   }
 
-  context.syncCommentDrafts?.();
+  context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const exportDestination = context.getExportDestinationMetadata?.();
   context.state.exporting = true;
@@ -277,7 +275,7 @@ export async function finishVideoSession(
     if (!result.success) {
       throw new Error(result.error ?? 'Video clip failed');
     }
-    const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
+    const terminalized = await context.drafts.finalizeTerminal('exported');
     if (!terminalized) {
       context.dependencies.showSupportProgress?.({
         value: 100,
@@ -316,11 +314,14 @@ export async function finishVideoSession(
   }
 }
 
-export async function cancelVideoSession(context: VideoSessionOperationContext): Promise<void> {
+export async function cancelVideoSession(
+  context: VideoSessionOperationContext,
+  onCleanup: () => void
+): Promise<void> {
   if (context.state.exporting) {
     return;
   }
-  const terminalized = (await context.finalizeTerminalDraft?.('discarded')) ?? true;
+  const terminalized = await context.drafts.finalizeTerminal('discarded');
   if (!terminalized) {
     context.applyHint('failure');
     return;
@@ -329,11 +330,11 @@ export async function cancelVideoSession(context: VideoSessionOperationContext):
     platform: mapVideoAnalyticsPlatform(context.state.platform),
     duration_bucket: resolveVideoSessionDurationBucket(context.state)
   });
-  cleanupVideoSession(context);
+  onCleanup();
 }
 
 export function cleanupVideoSession(context: VideoSessionOperationContext): void {
-  context.resetPlaybackEditLease?.();
+  context.playbackEditLease.reset();
   context.lifecycle.stop();
   context.state.stopOptionsWatcher?.();
   context.state.stopOptionsWatcher = null;
@@ -417,7 +418,5 @@ export function watchVideoSessionHighlightTheme(
     .catch((error) => {
       console.warn('[VideoSession] Failed to preload highlight theme options:', error);
     });
-  context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange((value) => {
-    applyOptions(value);
-  });
+  context.state.stopOptionsWatcher = context.dependencies.optionsRepository.onChange(applyOptions);
 }

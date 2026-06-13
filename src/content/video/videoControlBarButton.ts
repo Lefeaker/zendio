@@ -1,4 +1,8 @@
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { createVideoControlBarPopoverSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { findVideoControlTarget } from './videoPromptObserver';
+import { ensureVideoControlBarStyles } from './videoControlBarStyles';
 import {
   CONTROL_POPOVER_CLASS,
   closeVideoControlBarPopovers,
@@ -8,7 +12,6 @@ import {
 export type { VideoControlBarPopoverCloseReason } from './videoControlBarPopoverController';
 
 const CONTROL_BUTTON_CLASS = 'aiob-video-control-bar-button';
-const CONTROL_STYLE_ID = 'aiob-video-control-bar-button-style';
 type VideoControlBarPlatform = 'youtube' | 'bilibili' | 'generic';
 
 export interface VideoControlBarPreferences {
@@ -21,11 +24,19 @@ export interface VideoControlBarNotePayload {
   source: 'note-input';
 }
 
+export interface VideoControlBarButtonTexts {
+  notePlaceholder: string;
+  noteAriaLabel: string;
+  autoPauseLabel: string;
+  screenshotLabel: string;
+}
+
 export interface VideoControlBarButtonOptions {
   doc: Document;
   url: string;
   label: string;
   shortcut: string;
+  texts?: VideoControlBarButtonTexts;
   getIconUrl?: () => string | null;
   preferences?: VideoControlBarPreferences;
   onPreferencesChange?: (preferences: VideoControlBarPreferences) => void;
@@ -46,116 +57,12 @@ const DEFAULT_PREFERENCES: VideoControlBarPreferences = {
   captureScreenshotEnabled: true
 };
 
-function ensureStyle(doc: Document): void {
-  if (doc.getElementById(CONTROL_STYLE_ID)) {
-    return;
-  }
-
-  const style = doc.createElement('style');
-  style.id = CONTROL_STYLE_ID;
-  style.textContent = `
-.${CONTROL_BUTTON_CLASS} {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  flex: 0 0 auto;
-  width: 31px !important;
-  height: 31px !important;
-  min-width: 31px !important;
-  margin: 0 8px;
-  padding: 0;
-  border: 0 !important;
-  background: transparent !important;
-  color: #fff;
-  cursor: pointer;
-  opacity: 0.94;
-  vertical-align: middle;
-}
-.${CONTROL_BUTTON_CLASS}--youtube {
-  transform: translateY(0);
-}
-.${CONTROL_BUTTON_CLASS}--bilibili {
-  width: 25px !important;
-  height: 25px !important;
-  min-width: 25px !important;
-  margin: 0 6px;
-  transform: translateY(-4px);
-}
-.${CONTROL_BUTTON_CLASS}:hover,
-.${CONTROL_BUTTON_CLASS}:focus-visible {
-  opacity: 1;
-  outline: 0;
-}
-.${CONTROL_BUTTON_CLASS}__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 27px;
-  height: 27px;
-  background: center / contain no-repeat;
-  color: currentColor;
-  font: 700 13px/1 system-ui, sans-serif;
-  pointer-events: none;
-}
-.${CONTROL_BUTTON_CLASS}--bilibili .${CONTROL_BUTTON_CLASS}__icon {
-  width: 22px;
-  height: 22px;
-}
-.${CONTROL_POPOVER_CLASS} {
-  --aiob-video-control-accent: #8b5cf6;
-  position: fixed;
-  z-index: 2147483647;
-  display: grid;
-  gap: 10px;
-  width: 220px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  background: rgba(15, 17, 28, 0.96);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
-  color: #fff;
-  font: 13px/1.4 system-ui, sans-serif;
-}
-.${CONTROL_POPOVER_CLASS}[hidden] {
-  display: none;
-}
-.${CONTROL_POPOVER_CLASS}__note-input {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 34px;
-  padding: 7px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font: 13px/1.35 system-ui, sans-serif;
-}
-.${CONTROL_POPOVER_CLASS}__note-input::placeholder {
-  color: rgba(255, 255, 255, 0.46);
-}
-.${CONTROL_POPOVER_CLASS}__note-input:focus-visible {
-  border-color: var(--aiob-video-control-accent);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.28);
-  outline: 0;
-}
-.${CONTROL_POPOVER_CLASS}__option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 24px;
-  color: rgba(255, 255, 255, 0.82);
-}
-.${CONTROL_POPOVER_CLASS}__option input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  accent-color: var(--aiob-video-control-accent);
-}
-`;
-  (doc.head ?? doc.documentElement).appendChild(style);
-}
+const DEFAULT_CONTROL_BAR_TEXTS: VideoControlBarButtonTexts = {
+  notePlaceholder: DEFAULT_RUNTIME_MESSAGES.videoControlBarNotePlaceholder,
+  noteAriaLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarNoteAriaLabel,
+  autoPauseLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarAutoPauseLabel,
+  screenshotLabel: DEFAULT_RUNTIME_MESSAGES.videoControlBarScreenshotLabel
+};
 
 function resolvePlatform(url: string): VideoControlBarPlatform {
   try {
@@ -195,6 +102,15 @@ function resolvePreferences(
   };
 }
 
+function resolveTexts(texts: VideoControlBarButtonOptions['texts']): VideoControlBarButtonTexts {
+  return {
+    notePlaceholder: texts?.notePlaceholder ?? DEFAULT_CONTROL_BAR_TEXTS.notePlaceholder,
+    noteAriaLabel: texts?.noteAriaLabel ?? DEFAULT_CONTROL_BAR_TEXTS.noteAriaLabel,
+    autoPauseLabel: texts?.autoPauseLabel ?? DEFAULT_CONTROL_BAR_TEXTS.autoPauseLabel,
+    screenshotLabel: texts?.screenshotLabel ?? DEFAULT_CONTROL_BAR_TEXTS.screenshotLabel
+  };
+}
+
 function positionPopover(button: HTMLButtonElement, popover: HTMLElement): void {
   const rect = button.getBoundingClientRect();
   const width = 220;
@@ -214,27 +130,12 @@ function isPromiseLike(value: void | PromiseLike<void>): value is PromiseLike<vo
   return value !== undefined && typeof value.then === 'function';
 }
 
-function createPreferenceToggle(
-  doc: Document,
-  preference: keyof VideoControlBarPreferences,
-  label: string,
-  checked: boolean,
-  onChange: (preference: keyof VideoControlBarPreferences, checked: boolean) => void
-): HTMLLabelElement {
-  const row = doc.createElement('label');
-  row.className = `${CONTROL_POPOVER_CLASS}__option`;
-
-  const input = doc.createElement('input');
-  input.type = 'checkbox';
-  input.checked = checked;
-  input.dataset.preference = preference;
-  input.addEventListener('change', () => onChange(preference, input.checked));
-
-  const copy = doc.createElement('span');
-  copy.textContent = label;
-
-  row.append(input, copy);
-  return row;
+function queryRequired<T extends Element>(root: ParentNode, selector: string): T {
+  const node = root.querySelector<T>(selector);
+  if (!node) {
+    throw new Error(`Missing Stitch runtime popover node: ${selector}`);
+  }
+  return node;
 }
 
 function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOptions): void {
@@ -246,6 +147,7 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
   }
 
   let preferences = resolvePreferences(options.preferences);
+  const texts = resolveTexts(options.texts);
   const popover = doc.createElement('div');
   popover.className = CONTROL_POPOVER_CLASS;
   popover.dataset.aiobVideoControlBarPopover = 'true';
@@ -260,13 +162,6 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     onPopoverClose: options.onPopoverClose
   });
 
-  const noteInput = doc.createElement('input');
-  noteInput.type = 'text';
-  noteInput.className = `${CONTROL_POPOVER_CLASS}__note-input`;
-  noteInput.dataset.aiobVideoControlBarNoteInput = 'true';
-  noteInput.placeholder = 'Add note';
-  noteInput.setAttribute('aria-label', 'Add video note');
-
   const onToggle = (preference: keyof VideoControlBarPreferences, checked: boolean): void => {
     preferences = {
       ...preferences,
@@ -275,19 +170,38 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     options.onPreferencesChange?.(preferences);
   };
 
-  const autoPause = createPreferenceToggle(
-    doc,
-    'autoPauseEnabled',
-    '自动暂停视频',
-    preferences.autoPauseEnabled,
-    onToggle
+  const surface = renderStitchRuntimeSurface({
+    surfaceId: 'video-control-bar-popover',
+    appData: createVideoControlBarPopoverSurfaceContent({
+      texts,
+      preferences
+    })
+  });
+  for (const child of Array.from(surface.childNodes)) {
+    popover.append(child);
+  }
+
+  const noteInput = queryRequired<HTMLInputElement>(
+    popover,
+    `.${CONTROL_POPOVER_CLASS}__note-input`
   );
-  const screenshot = createPreferenceToggle(
-    doc,
-    'captureScreenshotEnabled',
-    '捕捉当前视频截图',
-    preferences.captureScreenshotEnabled,
-    onToggle
+  noteInput.placeholder = texts.notePlaceholder;
+  noteInput.setAttribute('aria-label', texts.noteAriaLabel);
+
+  const autoPause = queryRequired<HTMLInputElement>(
+    popover,
+    '[data-preference="autoPauseEnabled"]'
+  );
+  autoPause.checked = preferences.autoPauseEnabled;
+  autoPause.addEventListener('change', () => onToggle('autoPauseEnabled', autoPause.checked));
+
+  const screenshot = queryRequired<HTMLInputElement>(
+    popover,
+    '[data-preference="captureScreenshotEnabled"]'
+  );
+  screenshot.checked = preferences.captureScreenshotEnabled;
+  screenshot.addEventListener('change', () =>
+    onToggle('captureScreenshotEnabled', screenshot.checked)
   );
 
   const submitNote = (): void => {
@@ -312,7 +226,6 @@ function openPopover(button: HTMLButtonElement, options: VideoControlBarButtonOp
     submitNote();
   });
 
-  popover.append(noteInput, autoPause, screenshot);
   (doc.body ?? doc.documentElement).appendChild(popover);
   positionPopover(button, popover);
   options.onPopoverOpen?.(preferences);
@@ -358,7 +271,7 @@ export function ensureVideoControlBarButton(options: VideoControlBarButtonOption
     return false;
   }
 
-  ensureStyle(options.doc);
+  ensureVideoControlBarStyles(options.doc);
 
   let button = options.doc.querySelector<HTMLButtonElement>(
     `.${CONTROL_BUTTON_CLASS}[data-aiob-video-control-bar-button="true"]`

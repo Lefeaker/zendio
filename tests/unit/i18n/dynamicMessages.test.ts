@@ -12,17 +12,6 @@ import { createPageI18nController } from '../../../src/i18n/pageController';
 import type { Language } from '../../../src/i18n/locales';
 import { pseudoLocalizeString } from '../../../src/i18n/pseudoLocalization';
 
-// Mock the configProvider
-vi.mock('../../../src/shared/config/provider', () => ({
-  configProvider: {
-    getRestDefaults: () => ({
-      httpsPort: 27124,
-      httpPort: 27123,
-      vault: 'TestVault'
-    })
-  }
-}));
-
 async function buildProductionBundle(entryPoint: string): Promise<string> {
   const result = await build({
     entryPoints: [join(process.cwd(), entryPoint)],
@@ -48,7 +37,7 @@ describe('dynamicMessages', () => {
 
       expect(messages.httpsUrlHint).toBe('通常端口为 27124，适用于安全连接');
       expect(messages.httpUrlHint).toBe('通常端口为 27123，作为备用连接');
-      expect(messages.vaultNamePlaceholder).toBe('TestVault');
+      expect(messages.vaultNamePlaceholder).toBe('Zendio');
     });
 
     it('generates English messages with correct port numbers', () => {
@@ -56,7 +45,7 @@ describe('dynamicMessages', () => {
 
       expect(messages.httpsUrlHint).toBe('Usually port 27124, for secure connections');
       expect(messages.httpUrlHint).toBe('Usually port 27123, as fallback connection');
-      expect(messages.vaultNamePlaceholder).toBe('TestVault');
+      expect(messages.vaultNamePlaceholder).toBe('Zendio');
     });
 
     it('generates Japanese messages with correct port numbers', () => {
@@ -64,7 +53,7 @@ describe('dynamicMessages', () => {
 
       expect(messages.httpsUrlHint).toBe('通常はポート 27124、セキュア接続用');
       expect(messages.httpUrlHint).toBe('通常はポート 27123、フォールバック接続用');
-      expect(messages.vaultNamePlaceholder).toBe('TestVault');
+      expect(messages.vaultNamePlaceholder).toBe('Zendio');
     });
 
     it('generates French messages with correct port numbers', () => {
@@ -72,7 +61,7 @@ describe('dynamicMessages', () => {
 
       expect(messages.httpsUrlHint).toBe('Généralement port 27124, pour les connexions sécurisées');
       expect(messages.httpUrlHint).toBe('Généralement port 27123, comme connexion de secours');
-      expect(messages.vaultNamePlaceholder).toBe('TestVault');
+      expect(messages.vaultNamePlaceholder).toBe('Zendio');
     });
 
     it('keeps qps-ploc coverage dev-only via pseudo-localized English templates', () => {
@@ -93,7 +82,7 @@ describe('dynamicMessages', () => {
       expect(messages.vaultNamePlaceholder).toBe(
         pseudoLocalizeString(DYNAMIC_MESSAGE_TEMPLATES.en.vaultNamePlaceholder).replace(
           '{vault}',
-          'TestVault'
+          'Zendio'
         )
       );
     });
@@ -110,7 +99,7 @@ describe('dynamicMessages', () => {
 
       expect(messages.httpsUrlHint).toBe('Usually port 27124, for secure connections');
       expect(messages.httpUrlHint).toBe('Usually port 27123, as fallback connection');
-      expect(messages.vaultNamePlaceholder).toBe('TestVault');
+      expect(messages.vaultNamePlaceholder).toBe('Zendio');
     });
   });
 
@@ -225,7 +214,7 @@ describe('dynamicMessages', () => {
       expect(mockDocument.querySelectorAll).toHaveBeenCalledWith(
         'input[id*="vault"], input[placeholder*="Vault"]'
       );
-      expect(mockInput.placeholder).toBe('TestVault');
+      expect(mockInput.placeholder).toBe('Zendio');
     });
 
     it('still updates dynamic DOM nodes after pageController language changes', async () => {
@@ -302,7 +291,7 @@ describe('dynamicMessages', () => {
 
       expect(httpsElement.textContent).toBe('Usually port 27124, for secure connections');
       expect(httpElement.textContent).toBe('Usually port 27123, as fallback connection');
-      expect(vaultInput.placeholder).toBe('TestVault');
+      expect(vaultInput.placeholder).toBe('Zendio');
     });
   });
 });
