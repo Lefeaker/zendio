@@ -59,8 +59,11 @@ export class VideoSessionExporter {
     const fragmentCaptures = sorted.filter(
       (capture): capture is VideoFragmentCapture => capture.kind === 'fragment'
     );
+    const requestedScreenshotCaptures = timestampCaptures.filter(
+      (capture) => capture.screenshotRequested === true
+    );
     const { attachments: serializedScreenshots, attachmentIds: screenshotAttachmentIds } =
-      await serializeVideoScreenshotAttachments(timestampCaptures);
+      await serializeVideoScreenshotAttachments(requestedScreenshotCaptures);
 
     const defaultTitle =
       ctx.platform === 'youtube'

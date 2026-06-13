@@ -1325,6 +1325,7 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         options
       );
 
+      await installVideoScreenshotProbe(extensionPage, tabId);
       await startVideoMode(extensionPage, tabId);
       await expandVideoPanel(page);
       await page.locator('[data-role="add-btn"]').click();
@@ -1333,6 +1334,34 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       const firstCapture = page.locator('[data-role="capture-item"]').first();
       const marker = firstCapture.locator('.video-timestamp-marker');
       const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'off');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'false');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'Bilibili timestamp screenshot preparation did not start'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'Bilibili timestamp screenshot preparation did not complete'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 0
+        });
       await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'off');
       await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'false');
 
@@ -1344,9 +1373,7 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await page.mouse.click(markerBox.x - 17, markerBox.y + markerBox.height / 2);
 
       await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
-      await expect
-        .poll(async () => await screenshotToggle.getAttribute('data-screenshot-state'))
-        .toMatch(/^(pending|on)$/);
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
       await expect
         .poll(async () => {
           const entries = await readVideoDraftEntries(extensionPage);

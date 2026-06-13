@@ -648,6 +648,7 @@ describe('VideoSession', () => {
               url: 'https://video.example/watch?t=42',
               comment: 'Restored marker',
               createdAt: 2_000_000_000_100,
+              screenshotRequested: true,
               screenshot: createBlobScreenshotFixture('frame', 2_000_000_000_101, {
                 id: 'shot-1',
                 fileName: 'video-0m42s.jpg'
@@ -2960,7 +2961,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('rolls back screenshot removal and restores the previous screenshot state when saving fails', async () => {
+  it('rolls back screenshot export intent and restores the previous screenshot state when saving fails', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deferredSave = createDeferred<void>();
@@ -2999,7 +3000,7 @@ describe('VideoSession', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
-    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    expect(sessionApi.state.captures[0]?.screenshot).toBe(previousScreenshot);
     const toggledOffCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
       | Array<{ hasScreenshot?: boolean; screenshotState?: string }>
       | undefined;
@@ -3198,7 +3199,12 @@ describe('VideoSession', () => {
 
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
 
-    expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
+    expect(sessionApi.state.captures[0]?.screenshot).toMatchObject({
+      content: {
+        kind: 'blob',
+        byteLength: 12
+      }
+    });
     expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
 
     await sessionApi.toggleCaptureScreenshot('timestamp-1');

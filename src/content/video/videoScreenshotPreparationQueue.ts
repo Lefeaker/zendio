@@ -1,7 +1,4 @@
-import {
-  hasRequestedTimestampScreenshot,
-  setRequestedTimestampScreenshot
-} from './screenshotIntent';
+import { setTimestampScreenshot } from './screenshotIntent';
 import {
   configureHiddenDuplicateVideo,
   createAbortableVideoScope,
@@ -14,6 +11,7 @@ import { captureVideoFrameScreenshotAsync } from './videoFrameScreenshot';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 
 const DEFAULT_TOLERANCE_SEC = 0.25;
+const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
 const VISIBLE_TIME_EVENTS = ['timeupdate', 'seeked'] as const;
 const VISIBLE_READY_EVENTS = ['loadedmetadata', 'loadeddata', 'canplay'] as const;
@@ -55,6 +53,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   private visibleVideo: HTMLVideoElement | null = null;
   private disposed = false;
   private readonly trackedCaptureIds = new Set<string>();
+  private readonly explicitVisibleCaptureIds = new Set<string>();
   private readonly visibleAttemptedIds = new Set<string>();
   private readonly inFlightVisibleIds = new Set<string>();
   private readonly hiddenDuplicateAttempts = new Map<string, HiddenDuplicateCaptureAttempt>();
@@ -71,6 +70,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     this.trackedCaptureIds.add(capture.id);
+    this.explicitVisibleCaptureIds.add(capture.id);
     this.processRequests();
   }
   requestAll(): void {
@@ -145,8 +145,18 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     let didUpdate = false;
     for (const capture of this.listTrackedPendingCaptures()) {
       if (!approximatelyEqual(visibleVideo.currentTime, capture.timeSec, this.getToleranceSec())) {
-        this.visibleAttemptedIds.delete(capture.id);
-        continue;
+        const explicitTolerance = this.getExplicitVisibleTolerance(
+          capture.id,
+          reason,
+          visibleVideo
+        );
+        if (
+          explicitTolerance === null ||
+          !approximatelyEqual(visibleVideo.currentTime, capture.timeSec, explicitTolerance)
+        ) {
+          this.visibleAttemptedIds.delete(capture.id);
+          continue;
+        }
       }
       if (reason === 'time' && this.visibleAttemptedIds.has(capture.id)) {
         continue;
@@ -175,7 +185,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
           this.enqueueHiddenDuplicateFallback(visibleVideo, capture.id);
           continue;
         }
-        setRequestedTimestampScreenshot(capture, screenshot);
+        setTimestampScreenshot(capture, screenshot);
         this.clearTrackedCapture(capture.id);
         didUpdate = true;
       } finally {
@@ -266,7 +276,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       if (!screenshot) {
         return;
       }
-      setRequestedTimestampScreenshot(capture, screenshot);
+      setTimestampScreenshot(capture, screenshot);
       this.clearTrackedCapture(capture.id);
       this.args.syncPanel();
     } catch (error) {
@@ -282,9 +292,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     return this.listPendingCaptures().find((capture) => capture.id === id) ?? null;
   }
   private listPendingCaptures(): VideoTimestampCapture[] {
-    return this.args
-      .getCaptures()
-      .filter((capture) => hasRequestedTimestampScreenshot(capture) && !capture.screenshot);
+    return this.args.getCaptures().filter((capture) => !capture.screenshot);
   }
   private listTrackedPendingCaptures(): VideoTimestampCapture[] {
     const pendingById = new Map(this.listPendingCaptures().map((capture) => [capture.id, capture]));
@@ -303,6 +311,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   private clearTrackedCapture(captureId: string): void {
     this.abortHiddenDuplicateCapture(captureId);
     this.trackedCaptureIds.delete(captureId);
+    this.explicitVisibleCaptureIds.delete(captureId);
     this.visibleAttemptedIds.delete(captureId);
     this.inFlightVisibleIds.delete(captureId);
   }
@@ -375,6 +384,20 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   }
   private getTimeoutMs(): number {
     return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+  private getExplicitVisibleTolerance(
+    captureId: string,
+    reason: 'manual' | 'ready' | 'time',
+    visibleVideo: HTMLVideoElement
+  ): number | null {
+    if (
+      reason === 'time' ||
+      !this.explicitVisibleCaptureIds.has(captureId) ||
+      resolveDuplicableVideoSource(visibleVideo, this.args.doc.location.href)
+    ) {
+      return null;
+    }
+    return Math.max(this.getToleranceSec(), DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC);
   }
   private shouldReprocessAfterVisibleCaptureDrop(
     captureId: string,

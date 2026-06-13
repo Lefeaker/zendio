@@ -92,11 +92,8 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
   }
 
   private resolveScreenshotState(capture: VideoTimestampCapture): VideoScreenshotState {
-    if (capture.screenshot) {
-      return 'on';
-    }
     if (capture.screenshotRequested) {
-      return 'pending';
+      return capture.screenshot ? 'on' : 'pending';
     }
     return 'off';
   }

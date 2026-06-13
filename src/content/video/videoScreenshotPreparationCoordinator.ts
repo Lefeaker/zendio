@@ -1,7 +1,4 @@
-import {
-  hasRequestedTimestampScreenshot,
-  setRequestedTimestampScreenshot
-} from './screenshotIntent';
+import { setTimestampScreenshot } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 import type { VideoScreenshotPreparationQueue } from './videoScreenshotPreparationQueue';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
@@ -46,7 +43,7 @@ export class VideoScreenshotPreparationCoordinator {
 
     const cachedScreenshot = this.cache.get(id);
     if (cachedScreenshot) {
-      setRequestedTimestampScreenshot(capture, cachedScreenshot);
+      setTimestampScreenshot(capture, cachedScreenshot);
       this.args.syncPanel();
       return;
     }
@@ -139,6 +136,6 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   private isPendingCapture(capture: VideoTimestampCapture): boolean {
-    return hasRequestedTimestampScreenshot(capture) && !capture.screenshot;
+    return !capture.screenshot;
   }
 }

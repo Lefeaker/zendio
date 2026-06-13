@@ -38,6 +38,7 @@ describe('VideoPanelPresenter', () => {
           url: 'https://example.com?t=3671',
           comment: '  note  ',
           createdAt: 1,
+          screenshotRequested: true,
           screenshot: {
             id: 'shot-1',
             fileName: 'video-61m11s-screenshot.png',

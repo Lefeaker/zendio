@@ -1,9 +1,9 @@
 import type { VideoTimestampCapture } from './types';
 
 export function hasRequestedTimestampScreenshot(
-  capture: Pick<VideoTimestampCapture, 'screenshotRequested' | 'screenshot'>
+  capture: Pick<VideoTimestampCapture, 'screenshotRequested'>
 ): boolean {
-  return Boolean(capture.screenshotRequested || capture.screenshot);
+  return capture.screenshotRequested === true;
 }
 
 export function setRequestedTimestampScreenshot(
@@ -13,12 +13,16 @@ export function setRequestedTimestampScreenshot(
   capture.screenshotRequested = true;
   if (screenshot) {
     capture.screenshot = screenshot;
-    return;
   }
-  delete capture.screenshot;
 }
 
 export function clearRequestedTimestampScreenshot(capture: VideoTimestampCapture): void {
   delete capture.screenshotRequested;
-  delete capture.screenshot;
+}
+
+export function setTimestampScreenshot(
+  capture: VideoTimestampCapture,
+  screenshot: NonNullable<VideoTimestampCapture['screenshot']>
+): void {
+  capture.screenshot = screenshot;
 }

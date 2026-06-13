@@ -191,6 +191,46 @@ describe('videoScreenshotPreparationQueue', () => {
     queue.dispose();
   });
 
+  it('prepares an unrequested timestamp screenshot without enabling export intent', async () => {
+    const captures: VideoTimestampCapture[] = [
+      {
+        kind: 'timestamp',
+        id: 'ts-1',
+        timeSec: 42,
+        url: 'https://video.example/watch?t=42',
+        comment: '',
+        createdAt: 1
+      }
+    ];
+    const visible = createVideoHarness({
+      currentTime: 42,
+      sourceUrl: 'blob:https://video.example/runtime'
+    });
+    const captureFrame = vi.fn((_video: HTMLVideoElement, timeSec: number) =>
+      Promise.resolve(createScreenshot(timeSec))
+    );
+    const syncPanel = vi.fn();
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame,
+      syncPanel
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(captureFrame).toHaveBeenCalledWith(visible.video, 42);
+    expect(captures[0]?.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(captures[0]).not.toHaveProperty('screenshotRequested');
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+
+    queue.dispose();
+  });
+
   it('uses a hidden duplicate video for safe URL sources and removes it after capture', async () => {
     const captures = [createTimestampCapture('ts-1', 42)];
     const visible = createVideoHarness({
@@ -294,6 +334,47 @@ describe('videoScreenshotPreparationQueue', () => {
 
     expect(captureFrame).toHaveBeenCalledWith(visible.video, 42);
     expect(captureVisibleFrame).toHaveBeenCalledWith(visible.video, 42);
+    expect(
+      createElementSpy.mock.calls.filter(([tagName]) => String(tagName).toLowerCase() === 'video')
+    ).toHaveLength(0);
+    expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
+  it('uses a visible frame for an explicit blob-source request after slight playback drift', async () => {
+    const captures = [createTimestampCapture('ts-1', 42)];
+    const visible = createVideoHarness({
+      currentTime: 43.2,
+      sourceUrl: 'blob:https://video.example/runtime'
+    });
+    const captureFrame = vi.fn((_video: HTMLVideoElement, timeSec: number) =>
+      Promise.resolve(createScreenshot(timeSec))
+    );
+    const captureVisibleFrame = vi.fn();
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const syncPanel = vi.fn();
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame,
+      captureVisibleFrame,
+      syncPanel,
+      toleranceSec: 0.25
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(captureFrame).toHaveBeenCalledWith(visible.video, 42);
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
     expect(
       createElementSpy.mock.calls.filter(([tagName]) => String(tagName).toLowerCase() === 'video')
     ).toHaveLength(0);

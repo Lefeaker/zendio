@@ -176,7 +176,7 @@ describe('captureVideoFrameScreenshot', () => {
     expect(captureVideoFrameScreenshot(video, 42)).toBeNull();
   });
 
-  it('tracks screenshot intent separately from transient screenshot bytes', () => {
+  it('tracks screenshot export intent separately from transient screenshot bytes', () => {
     const capture = createTimestampCapture();
 
     expect(hasRequestedTimestampScreenshot(capture)).toBe(false);
@@ -196,6 +196,6 @@ describe('captureVideoFrameScreenshot', () => {
 
     expect(hasRequestedTimestampScreenshot(capture)).toBe(false);
     expect(capture).not.toHaveProperty('screenshotRequested');
-    expect(capture).not.toHaveProperty('screenshot');
+    expect(capture.screenshot).toMatchObject({ id: 'shot-1' });
   });
 });
