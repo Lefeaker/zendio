@@ -93,12 +93,19 @@
 .video-screenshot-toggle {
   --session-video-screenshot-dot-size: 8px;
   --session-video-screenshot-hit-size: 24px;
+  --session-video-screenshot-hit-inset: 8px;
   appearance: none;
   position: absolute;
   top: 50%;
-  left: var(--session-video-screenshot-dot-offset, -2px);
-  z-index: 1;
-  width: var(--session-video-screenshot-hit-size, 24px);
+  left: calc(
+    var(--session-video-screenshot-dot-offset, -2px) -
+      var(--session-video-screenshot-hit-inset, 8px)
+  );
+  z-index: 5;
+  width: calc(
+    var(--session-video-screenshot-hit-size, 24px) +
+      (var(--session-video-screenshot-hit-inset, 8px) * 2)
+  );
   height: var(--session-video-screenshot-hit-size, 24px);
   margin: 0;
   padding: 0;
@@ -114,7 +121,7 @@
   content: '';
   position: absolute;
   top: 50%;
-  left: 0;
+  left: var(--session-video-screenshot-hit-inset, 8px);
   width: var(--session-video-screenshot-dot-size, 8px);
   height: var(--session-video-screenshot-dot-size, 8px);
   border: 1px solid transparent;
