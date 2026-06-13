@@ -30,6 +30,7 @@ interface ShadowRootListeners {
 
 export class ShadowSelectionBridge {
   private registeredRoots = new Map<ShadowRoot, ShadowRootListeners>();
+  private scheduledTimeouts = new Map<ShadowRoot, Set<number>>();
   private pointerStarts = new WeakMap<ShadowRoot, ShadowPointerStart>();
   private activatedEvents = new WeakSet<Event>();
 
@@ -96,8 +97,23 @@ export class ShadowSelectionBridge {
       const view = root.ownerDocument.defaultView ?? window;
       const allowEventFallback = this.isDragSelectionEnd(root, event);
       const activationEvent = snapshotShadowSelectionEvent(event);
-      view.setTimeout(syncSelection, 0);
-      view.setTimeout(() => {
+      const rootTimeouts = this.scheduledTimeouts.get(root) ?? new Set<number>();
+      this.scheduledTimeouts.set(root, rootTimeouts);
+      const scheduleRootTimeout = (callback: () => void, delayMs: number) => {
+        const timerId = view.setTimeout(() => {
+          rootTimeouts.delete(timerId);
+          if (rootTimeouts.size === 0) {
+            this.scheduledTimeouts.delete(root);
+          }
+          if (!this.registeredRoots.has(root)) {
+            return;
+          }
+          callback();
+        }, delayMs);
+        rootTimeouts.add(timerId);
+      };
+      scheduleRootTimeout(syncSelection, 0);
+      scheduleRootTimeout(() => {
         syncSelection();
         activateOnce(event, activationEvent, allowEventFallback, this.getSelectionForRoot(root));
       }, 32);
@@ -117,6 +133,13 @@ export class ShadowSelectionBridge {
 
   reset(): void {
     for (const [root, listeners] of this.registeredRoots) {
+      const view = root.ownerDocument.defaultView ?? window;
+      const rootTimeouts = this.scheduledTimeouts.get(root);
+      if (rootTimeouts) {
+        for (const timerId of rootTimeouts) {
+          view.clearTimeout(timerId);
+        }
+      }
       root.removeEventListener('selectionchange', listeners.syncSelection, true);
       root.removeEventListener('mousedown', listeners.handleMouseDown, true);
       root.removeEventListener('mouseup', listeners.scheduleSync, true);
@@ -124,6 +147,7 @@ export class ShadowSelectionBridge {
       root.removeEventListener('keyup', listeners.scheduleSync, true);
     }
     this.registeredRoots.clear();
+    this.scheduledTimeouts.clear();
     this.pointerStarts = new WeakMap();
     this.activatedEvents = new WeakSet();
   }

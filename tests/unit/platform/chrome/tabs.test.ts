@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { VisibleTabCaptureOptions } from '../../../../src/platform/interfaces/tabs';
 
 function createTab(overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
   return {
@@ -26,6 +27,7 @@ const chromeApi = vi.hoisted(() => ({
     getCurrent: vi.fn(),
     get: vi.fn(),
     query: vi.fn(),
+    captureVisibleTab: vi.fn(),
     sendMessage: vi.fn(),
     onActivated: {
       addListener: vi.fn((listener: (info: chrome.tabs.OnActivatedInfo) => void) => {
@@ -56,6 +58,7 @@ describe('chromeTabsService', () => {
     vi.resetModules();
     vi.clearAllMocks();
     activatedListener = undefined;
+    chromeApi.tabs.captureVisibleTab = vi.fn();
     chromeApi.tabs.create.mockImplementation(
       (props: chrome.tabs.CreateProperties, cb: (tab?: chrome.tabs.Tab) => void) =>
         cb(createTab({ id: 1, ...props }))
@@ -70,6 +73,18 @@ describe('chromeTabsService', () => {
     chromeApi.tabs.query.mockImplementation(
       (_info: chrome.tabs.QueryInfo, cb: (tabs: chrome.tabs.Tab[]) => void) =>
         cb([createTab({ id: 3 })])
+    );
+    chromeApi.tabs.captureVisibleTab.mockImplementation(
+      (
+        windowIdOrOptions: number | VisibleTabCaptureOptions,
+        optionsOrCallback: VisibleTabCaptureOptions | ((dataUrl?: string) => void | undefined),
+        maybeCallback?: (dataUrl?: string) => void
+      ) => {
+        void windowIdOrOptions;
+        const callback =
+          typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
+        callback?.('data:image/jpeg;base64,frame');
+      }
     );
     chromeApi.tabs.sendMessage.mockImplementation(
       (
@@ -105,5 +120,37 @@ describe('chromeTabsService', () => {
     await expect(chromeTabsService.create({ url: 'https://example.com' })).rejects.toMatchObject({
       message: 'boom'
     });
+  });
+
+  it('wraps visible-tab capture with the expected chrome overloads and unsupported fallback', async () => {
+    const { chromeTabsService } = await import('../../../../src/platform/chrome/tabs');
+    if (!chromeTabsService.captureVisibleTab) {
+      throw new Error('captureVisibleTab missing');
+    }
+
+    await expect(
+      chromeTabsService.captureVisibleTab(5, { format: 'jpeg', quality: 88 })
+    ).resolves.toBe('data:image/jpeg;base64,frame');
+    expect(chromeApi.tabs.captureVisibleTab).toHaveBeenCalledWith(
+      5,
+      { format: 'jpeg', quality: 88 },
+      expect.any(Function)
+    );
+
+    await expect(chromeTabsService.captureVisibleTab(undefined, { format: 'png' })).resolves.toBe(
+      'data:image/jpeg;base64,frame'
+    );
+    expect(chromeApi.tabs.captureVisibleTab).toHaveBeenLastCalledWith(
+      { format: 'png' },
+      expect.any(Function)
+    );
+
+    Object.defineProperty(chromeApi.tabs, 'captureVisibleTab', {
+      configurable: true,
+      value: undefined
+    });
+    await expect(
+      chromeTabsService.captureVisibleTab(5, { format: 'jpeg' })
+    ).resolves.toBeUndefined();
   });
 });

@@ -118,6 +118,25 @@ describe('ShadowSelectionBridge', () => {
     expect(activatePendingSelection).not.toHaveBeenCalled();
   });
 
+  it('cancels queued activation callbacks when reset runs after mouseup but before timers flush', async () => {
+    const { bridge, root, activatePendingSelection } = createHarness();
+
+    bridge.register(root);
+    root.dispatchEvent(
+      new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        clientX: 12,
+        clientY: 18
+      })
+    );
+
+    bridge.reset();
+    await vi.runAllTimersAsync();
+
+    expect(activatePendingSelection).not.toHaveBeenCalled();
+  });
+
   it('allows a root to be registered again after reset with one active listener set', () => {
     const { bridge, root, pendingSelection, setActiveSelection } = createHarness();
 
