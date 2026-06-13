@@ -1275,8 +1275,10 @@ testWithExtension.describe('video listener scope browser runtime', () => {
 
       const firstCapture = page.locator('[data-role="capture-item"]').first();
       const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
-      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
       await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
+      await expect
+        .poll(async () => await screenshotToggle.getAttribute('data-screenshot-state'))
+        .toMatch(/^(pending|on)$/);
 
       const toggleBox = await screenshotToggle.boundingBox();
       expect(toggleBox?.width).toBeGreaterThanOrEqual(24);
@@ -1308,7 +1310,8 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       const firstCapture = page.locator('[data-role="capture-item"]').first();
       const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
-      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'pending');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
 
       await expect
         .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
@@ -1361,6 +1364,7 @@ testWithExtension.describe('video listener scope browser runtime', () => {
         });
 
       await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
       await expect
         .poll(
           async () => {

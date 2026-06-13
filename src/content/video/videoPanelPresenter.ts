@@ -1,4 +1,8 @@
-import type { VideoPanelCapture, VideoPanelTexts } from './application/videoPanelModel';
+import type {
+  VideoPanelCapture,
+  VideoPanelTexts,
+  VideoScreenshotState
+} from './application/videoPanelModel';
 import type { VideoSessionView } from './application/videoSessionView';
 import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import { BasePanelPresenter } from '../shared/panels/basePanelPresenter';
@@ -23,6 +27,7 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
 
     for (const capture of timestamps) {
       const draft = commentDrafts?.[capture.id];
+      const screenshotState = this.resolveScreenshotState(capture);
       items.push({
         id: capture.id,
         index: items.length + 1,
@@ -30,7 +35,8 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
         timeLabel: this.formatTime(capture.timeSec),
         timeSeconds: capture.timeSec,
         shareUrl: capture.url,
-        hasScreenshot: Boolean(capture.screenshot || capture.screenshotRequested),
+        hasScreenshot: screenshotState === 'on',
+        screenshotState,
         comment: capture.comment,
         commentPreview: this.buildCommentPreview(capture.comment),
         ...(draft !== undefined ? { draft } : {})
@@ -83,5 +89,15 @@ export class VideoPanelPresenter extends BasePanelPresenter<VideoSessionView> {
 
   private pad(value: number): string {
     return value < 10 ? `0${value}` : String(value);
+  }
+
+  private resolveScreenshotState(capture: VideoTimestampCapture): VideoScreenshotState {
+    if (capture.screenshot) {
+      return 'on';
+    }
+    if (capture.screenshotRequested) {
+      return 'pending';
+    }
+    return 'off';
   }
 }

@@ -2935,9 +2935,12 @@ describe('VideoSession', () => {
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
     const panelCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string; screenshot?: unknown }>
       | undefined;
-    expect(panelCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(panelCaptures?.[0]).toMatchObject({
+      hasScreenshot: false,
+      screenshotState: 'pending'
+    });
     expect(panelCaptures?.[0]?.screenshot).toBeUndefined();
 
     await sessionApi.toggleCaptureScreenshot('timestamp-1');
@@ -2945,9 +2948,12 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
     expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
     const toggledOffCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string }>
       | undefined;
-    expect(toggledOffCaptures?.[0]).toMatchObject({ hasScreenshot: false });
+    expect(toggledOffCaptures?.[0]).toMatchObject({
+      hasScreenshot: false,
+      screenshotState: 'off'
+    });
 
     createElementSpy.mockRestore();
     sessionApi.cleanup();
@@ -2995,9 +3001,12 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
     expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
     const toggledOffCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string }>
       | undefined;
-    expect(toggledOffCaptures?.[0]).toMatchObject({ hasScreenshot: false });
+    expect(toggledOffCaptures?.[0]).toMatchObject({
+      hasScreenshot: false,
+      screenshotState: 'off'
+    });
 
     deferredSave.resolve();
     await togglePromise;
@@ -3007,9 +3016,9 @@ describe('VideoSession', () => {
       screenshot: previousScreenshot
     });
     const restoredCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string; screenshot?: unknown }>
       | undefined;
-    expect(restoredCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(restoredCaptures?.[0]).toMatchObject({ hasScreenshot: true, screenshotState: 'on' });
     expect(restoredCaptures?.[0]?.screenshot).toBeUndefined();
     expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
 
@@ -3097,9 +3106,12 @@ describe('VideoSession', () => {
 
     expect(sessionApi.state.captures[0]).toMatchObject({ screenshotRequested: true });
     const toggledOnCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string }>
       | undefined;
-    expect(toggledOnCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(toggledOnCaptures?.[0]).toMatchObject({
+      hasScreenshot: false,
+      screenshotState: 'pending'
+    });
 
     deferredSave.resolve();
     await togglePromise;
@@ -3108,9 +3120,12 @@ describe('VideoSession', () => {
     expect(sessionApi.state.captures[0]).not.toHaveProperty('screenshotRequested');
     expect(sessionApi.state.captures[0]?.screenshot).toBeUndefined();
     const rolledBackCaptures = view.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string }>
       | undefined;
-    expect(rolledBackCaptures?.[0]).toMatchObject({ hasScreenshot: false });
+    expect(rolledBackCaptures?.[0]).toMatchObject({
+      hasScreenshot: false,
+      screenshotState: 'off'
+    });
     expect(view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
     expect(currentTimeSetSpy).not.toHaveBeenCalled();
     expect(pauseSpy).not.toHaveBeenCalled();
@@ -3205,9 +3220,9 @@ describe('VideoSession', () => {
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
     const panelCaptures = view?.setCaptures.mock.calls.at(-1)?.[0] as
-      | Array<{ hasScreenshot?: boolean; screenshot?: unknown }>
+      | Array<{ hasScreenshot?: boolean; screenshotState?: string; screenshot?: unknown }>
       | undefined;
-    expect(panelCaptures?.[0]).toMatchObject({ hasScreenshot: true });
+    expect(panelCaptures?.[0]).toMatchObject({ hasScreenshot: true, screenshotState: 'on' });
     expect(panelCaptures?.[0]?.screenshot).toBeUndefined();
 
     createElementSpy.mockRestore();

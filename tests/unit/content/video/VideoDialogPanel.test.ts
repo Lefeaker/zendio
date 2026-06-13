@@ -217,17 +217,21 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
-  it('renders timestamp screenshot toggles before the timestamp as gray or green dots', () => {
+  it('renders timestamp screenshot toggles before the timestamp as off, pending, or ready dots', () => {
     const panel = new VideoDialogPanel({ callbacks, texts });
     panel.show();
     panel.setCaptures([
       createCapture({ id: 'no-shot', hasScreenshot: false }),
+      createCapture({ id: 'pending-shot', hasScreenshot: false, screenshotState: 'pending' }),
       createCapture({ id: 'with-shot', hasScreenshot: true })
     ]);
 
     const shadow = panel.element.shadowRoot;
     const off = shadow?.querySelector<HTMLButtonElement>(
       '[data-capture-id="no-shot"] [data-action-id="video:toggle-screenshot"]'
+    );
+    const pending = shadow?.querySelector<HTMLButtonElement>(
+      '[data-capture-id="pending-shot"] [data-action-id="video:toggle-screenshot"]'
     );
     const on = shadow?.querySelector<HTMLButtonElement>(
       '[data-capture-id="with-shot"] [data-action-id="video:toggle-screenshot"]'
@@ -244,6 +248,13 @@ describe('VideoDialogPanel', () => {
     expect(off?.getAttribute('aria-label')).toBe('Capture screenshot');
     expect(off?.getAttribute('aria-pressed')).toBe('false');
     expect(off?.dataset.screenshotState).toBe('off');
+    expect(pending).toBeInstanceOf(HTMLButtonElement);
+    expect(pending?.type).toBe('button');
+    expect(pending?.classList.contains('is-pending')).toBe(true);
+    expect(pending?.classList.contains('is-on')).toBe(false);
+    expect(pending?.getAttribute('aria-label')).toBe('Remove screenshot');
+    expect(pending?.getAttribute('aria-pressed')).toBe('true');
+    expect(pending?.dataset.screenshotState).toBe('pending');
     expect(on).toBeInstanceOf(HTMLButtonElement);
     expect(on?.type).toBe('button');
     expect(on?.classList.contains('is-on')).toBe(true);

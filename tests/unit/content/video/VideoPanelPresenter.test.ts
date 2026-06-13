@@ -70,10 +70,39 @@ describe('VideoPanelPresenter', () => {
       kind: 'timestamp',
       timeLabel: '01:01:11',
       commentPreview: 'note',
-      hasScreenshot: true
+      hasScreenshot: true,
+      screenshotState: 'on'
     });
     expect(captures?.[1]).toMatchObject({ id: 'f1', kind: 'fragment', commentPreview: '' });
     expect(captures?.[1]?.fragmentLabel).toContain('a very long fragment');
+  });
+
+  it('marks requested-only screenshots as pending instead of ready', () => {
+    const view = createView();
+    const presenter = new VideoPanelPresenter(view);
+
+    presenter.render({
+      timestamps: [
+        {
+          id: 'pending-shot',
+          kind: 'timestamp',
+          timeSec: 42,
+          url: 'https://example.com?t=42',
+          comment: '',
+          createdAt: 1,
+          screenshotRequested: true
+        }
+      ],
+      fragments: []
+    });
+
+    const captures = view.setCaptures.mock.calls[0]?.[0] as VideoPanelCapture[] | undefined;
+
+    expect(captures?.[0]).toMatchObject({
+      id: 'pending-shot',
+      hasScreenshot: false,
+      screenshotState: 'pending'
+    });
   });
 
   it('updates texts through the view and uses empty label fallback for blank fragments', () => {
