@@ -20,6 +20,12 @@ const manifest: chrome.runtime.Manifest = {
   name: 'AiiinOB Test',
   version: '3.2.1'
 };
+const createGrantedErrorReportingConsent = () => ({
+  analytics: true,
+  errorReporting: true,
+  timestamp: 100,
+  version: '1.0'
+});
 
 vi.mock('../../../../../src/shared/di', () => ({ getService: getServiceMock }));
 vi.mock('../../../../../src/shared/errors/analytics/dataSanitizer', () => ({
@@ -78,7 +84,8 @@ describe('GoogleAnalyticsReporter', () => {
       transportMode: 'proxy',
       proxyEndpoint: 'https://analytics.example.test/ga4',
       clientId: 'client',
-      sessionId: 'session'
+      sessionId: 'session',
+      userConsent: createGrantedErrorReportingConsent()
     });
 
     await reporter.report({
@@ -226,7 +233,8 @@ describe('GoogleAnalyticsReporter', () => {
         reportingInterval: 60000,
         batchSize: 1,
         clientId: 'client',
-        sessionId: 'session'
+        sessionId: 'session',
+        userConsent: createGrantedErrorReportingConsent()
       });
 
       await reporter.report({
@@ -388,7 +396,8 @@ describe('GoogleAnalyticsReporter', () => {
       enabled: true,
       measurementId: 'G-123',
       transportMode: 'proxy',
-      proxyEndpoint: 'https://analytics.example.test/ga4'
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      userConsent: createGrantedErrorReportingConsent()
     });
 
     await reporter.report({

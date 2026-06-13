@@ -473,7 +473,9 @@ describe('mountProductionStitchShell storage', () => {
       vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
     ).find((button) => button.textContent?.trim() === '删除本地目录');
     expect(deleteButton).toBeTruthy();
-    expect(document.body.textContent).toContain('Local Folder needs permission again');
+    expect(document.body.textContent).toMatch(
+      /Local Folder needs permission again|本地目录需要重新授权/
+    );
     deleteButton?.click();
     await flushPromises();
 
