@@ -27,11 +27,11 @@ const ENTRY_BUDGETS = new Map([
 // esbuild also extracts the tiny shared screenshot-intent bridge used by both the
 // session runtime and screenshot queue. Keep size budgets strict while allowing
 // the two intentional chunks created by that split.
-// 2026-06-13 P06 current-integration exact dev-build stop gate. The extra chunk
-// already reproduced before the P04-safe merge and reflects accepted merged
-// output, so keep the cap tight to 117 rather than broadening other chunk
-// budgets.
-const MAX_CHUNK_COUNT = 117;
+// 2026-06-13 final combined integration exact dev-build stop gate. The current
+// branch combines the structural-debt split with the visible-tab screenshot
+// export path; only the dev chunk count changes, while entry/shared/locale/YAML
+// size budgets stay unchanged.
+const MAX_CHUNK_COUNT = 118;
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.

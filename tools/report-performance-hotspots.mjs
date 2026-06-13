@@ -49,10 +49,13 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
   ['src/content/video/videoSessionRuntime.ts', 746],
-  ['src/content/video/videoScreenshotPreparationQueue.ts', 398],
-  // 2026-06-13 final integration: request state moved out of the lazy coordinator
-  // so dependency-cruiser can enforce the screenshot preparation split without cycles.
-  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 287],
+  // 2026-06-13 final combined integration: queue now carries explicit visible
+  // capture request tracking while preserving the lazy screenshot preparation split.
+  ['src/content/video/videoScreenshotPreparationQueue.ts', 404],
+  // 2026-06-13 final combined integration: request state moved out of the lazy
+  // coordinator and now tracks explicit visible requests so dependency-cruiser can
+  // enforce the screenshot preparation split without cycles.
+  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 306],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
   ['src/content/reader/session.ts', 711],
@@ -61,7 +64,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 372],
   ['src/ui/domains/reading/ReaderDialog.ts', 371],
-  ['src/content/video/ui/VideoDialogPanel.ts', 407],
+  // 2026-06-13 final combined integration: screenshot status dots and add-note
+  // focus/layout regressions are covered in the panel while retaining the current UI.
+  ['src/content/video/ui/VideoDialogPanel.ts', 425],
   ['src/options/app/productionStitchPersistence.ts', 387],
   ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
   ['src/shared/errors/analytics/analyticsConfig.ts', 369],
@@ -104,7 +109,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/schema/settings/capture-sources.ts', 272],
   ['src/options/yaml-config-editor/validation.ts', 270],
   ['src/background/llm/classifier.ts', 268],
-  ['src/background/listeners/runtimeMessages.ts', 350],
+  // 2026-06-13 final combined integration: runtime messages own the visible-tab
+  // screenshot request boundary used by video export preparation.
+  ['src/background/listeners/runtimeMessages.ts', 351],
   ['src/background/services/usageStats.ts', 266],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 265],

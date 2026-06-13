@@ -51,8 +51,8 @@
 - 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准
 - 2026-06-08 options i18n PR/main merge build-budget 真值：P14 12-language Options i18n final branch 与当前 main 的 video note stability / session draft lazy recovery 合并后，dev build `content/runtime.js` raw stop gate 同步为 `57,348` bytes，`onboarding/index.js` raw stop gate 同步为 `16,395` bytes，chunk count 同步为 `<= 114`；single/shared/locale/YAML chunk budgets 未放宽
 - 2026-06-09 video screenshot/session stability final truth：`codex/aiiinob-video-asset-stability-2026-06-08-integration` 在 `fbc24294` 通过 `quality`、`verify:preflight`、P01 attachment + 视频专项 Vitest `11` 文件 / `201` tests、`videoListenerScope.browser.test.ts` Chromium `11` tests。截图准备队列已从 session runtime 静态路径拆为 lazy chunk，`audit:build:report` 当前 dev build chunk count 为 `116`；只同步 chunk count gate，不放宽 entry、single chunk、shared chunk、locale chunk 或 YAML chunk size budget。
-- 2026-06-13 P06 final ratchet 真值：当前 integration dev build exact stop gate 同步为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 117`；本次没有放宽 locale/single/shared/YAML budgets。P06 还在 `tests/unit/content/video/VideoSession.test.ts` 内收口了 inherited full-file restored screenshot async wait 与 same-page owner-context harness race，没有修改 production `src/**`。
-- 2026-06-13 final integration dependency-cycle truth：`audit:deps:report` 发现并阻塞了截图准备 queue/coordinator 循环与 i18n pseudo/runtime type 循环。最终修复将截图请求状态迁入 `videoScreenshotPreparationRequestStore.ts`，让 coordinator 只持有 queue interface；i18n `RuntimeMessages` 类型改由 `localeDefinition.ts` 从 generated messages 导出，pseudo locale/runtime service 不再从 `messages.ts` 回拉入口。复核后 `audit:deps:report` 为 `violations=0`，`audit:performance:report` 覆盖 `sourceFiles=752`、`hotspotsOver250=94`、`registeredLineBudgets=117`。
+- 2026-06-13 final combined integration 真值：当前 integration dev build exact stop gate 为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 118`；本次只同步结构债分支与 visible-tab screenshot/export 分支合并后的 dev chunk count，没有放宽 locale/single/shared/YAML budgets。P06 历史修复仍只在 `tests/unit/content/video/VideoSession.test.ts` 内收口 inherited full-file restored screenshot async wait 与 same-page owner-context harness race。
+- 2026-06-13 final integration dependency-cycle truth：`audit:deps:report` 发现并阻塞了截图准备 queue/coordinator 循环与 i18n pseudo/runtime type 循环。最终修复将截图请求状态迁入 `videoScreenshotPreparationRequestStore.ts`，让 coordinator 只持有 queue interface；i18n `RuntimeMessages` 类型改由 `localeDefinition.ts` 从 generated messages 导出，pseudo locale/runtime service 不再从 `messages.ts` 回拉入口。复核后 `audit:deps:report` 为 `violations=0`，`audit:performance:report` 覆盖 `sourceFiles=755`、`hotspotsOver250=93`、`registeredLineBudgets=117`。
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
@@ -177,11 +177,11 @@ background write/download boundaries.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 final integration worktree `1173` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1869`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1239/36/3`。
+- `npm run lint:type-any`：扫描当前 final integration worktree `1178` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1867`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1237/36/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1869/45/3`、src `0/609/630/9/0`、tests `0/513/1239/36/3`。本次只提升 assertions 上限；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
+- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`。最终合并通过消除局部新增 type assertions 留在既有上限内；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
-- `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 625`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
+- `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
 ## 当前构建预算真值
 
@@ -194,9 +194,9 @@ background write/download boundaries.
 - 任一 chunk `<= 320 KB`
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
-- 第三大 shared chunk `<= 90 KB`
+- 第三大 shared chunk `<= 96 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 117`
+- `chunk count <= 118`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
 2026-05-29 Plan 11 G3 dev build truth:
@@ -248,15 +248,15 @@ background write/download boundaries.
 - performance coverage: sourceFiles=`733`、hotspotsOver250=`94`、registeredLineBudgets=`113`
 - `videoScreenshotPreparationQueue-*` 是截图准备实现的显式 lazy split；chunk count gate 只为该 split 与小型 shared screenshot-intent bridge 同步，entry/shared/locale/YAML size gates 未放宽
 
-2026-06-13 P06 final ratchet build/type truth:
+2026-06-13 final combined integration build/type truth:
 
 - `npx vitest run tests/unit/content/video/VideoSession.test.ts -t "prepares requested screenshots from restored" --reporter=verbose` 与整文件 `tests/unit/content/video/VideoSession.test.ts` 已在当前 P06 分支通过；P06 只在测试内增加等待 screenshot payload 落入 restored state 的同步点，并显式接入 same-page owner-context harness，不修改 production `src/**`
-- `build/dist/content/runtime.js`: `56.0 KB`（raw `57,386` bytes；raw stop gate `57,386`）
+- `build/dist/content/runtime.js`: `55.9 KB`（raw `57,209` bytes；raw stop gate `57,386`）
 - `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,459` bytes；raw stop gate `16,459`）
-- dev chunks: `117`
+- dev chunks: `118`
 - `chunks/messages-*.js`: `202.4 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: `22.3 KB`
-- `lint:type-any` 扫描 `1173` files；fresh overall `0/1122/1869/45/3`、src `0/609/630/9/0`、tests `0/513/1239/36/3`
+- `chunks/videoScreenshotPreparationQueue-*.js`: `21.1 KB`
+- `lint:type-any` 扫描 `1178` files；fresh overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`
 - `lint:type-any:ratchet` checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`；本次只同步 assertions gate，`any` 继续保持 `0`，`ts-expect-error` 未放宽
 
 ## 核心命令

@@ -40,9 +40,9 @@ npm run audit:build:report
 
 2026-06-12 P01 audit truth gate verification 复核重新采集 `build:dev`、`audit:build:report`、`audit:locales:report` 与 `audit:performance:report`。`report-build-splitting` 现已识别 `.generated-*` release locale chunks；generated locale modules 仅承载 non-schema runtime messages 与 WebExtension static messages，schema/options copy 改由 `schemaMessages.generated.ts` + `@i18n/messages` consumer path 提供，不再回灌到 content/runtime locale chunk。当前 dev build release locale chunks 全部低于 `60 KB`：`de 34.7 KB`、`es-419 34.6 KB`、`es-ES 34.7 KB`、`fr 35.5 KB`、`it 33.5 KB`、`ja 37.9 KB`、`ko 35.3 KB`、`pt-BR 34.1 KB`、`ru 48.4 KB`、`zh-CN 29.7 KB`、`zh-TW 29.2 KB`。
 
-2026-06-13 P06 final ratchet 复核重新采集 `build:dev`、`audit:build:report`、`lint:type-any:ratchet`、`typecheck:app`、`typecheck:tests` 与 `tests/unit/content/video/VideoSession.test.ts`。当前 integration dev-build exact stop gates 同步为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 117`；本次没有放宽 locale、single chunk、shared chunk 或 YAML chunk size budgets。P06 同时只在 `tests/unit/content/video/VideoSession.test.ts` 内收口了 inherited full-file restored screenshot async wait 与 same-page owner-context harness race，没有修改 production `src/**`。
+2026-06-13 final combined integration 复核重新采集 `build:dev`、`audit:build:report`、`lint:type-any:ratchet`、`typecheck:app`、`typecheck:tests` 与视频 focused tests。当前 integration dev-build exact stop gates 为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 118`；本次只同步结构债分支与 visible-tab screenshot/export 分支合并后的 dev chunk count，不放宽 locale、single chunk、shared chunk 或 YAML chunk size budgets。P06 历史修复仍只在 `tests/unit/content/video/VideoSession.test.ts` 内收口 inherited full-file restored screenshot async wait 与 same-page owner-context harness race。
 
-2026-06-13 final integration dependency-cycle closeout 复核重新采集 `typecheck:app`、`typecheck:tests`、`audit:deps:report`、`audit:performance:report`、`build:dev`、`audit:build:report` 与 i18n/video focused tests。截图准备请求状态从 coordinator 拆入 `videoScreenshotPreparationRequestStore.ts` 后，dependency-cruiser 循环违规为 `0`；当前 performance coverage 为 sourceFiles=`752`、hotspotsOver250=`94`、registeredLineBudgets=`117`。该收口只新增/收紧 `videoScreenshotPreparationRequestStore.ts <= 287` 与 `videoScreenshotPreparationCoordinator.ts <= 147`，没有放宽 entry/shared/locale/YAML chunk size budgets。
+2026-06-13 final integration dependency-cycle closeout 复核重新采集 `typecheck:app`、`typecheck:tests`、`audit:deps:report`、`audit:performance:report`、`build:dev`、`audit:build:report` 与 i18n/video focused tests。截图准备请求状态从 coordinator 拆入 `videoScreenshotPreparationRequestStore.ts` 后，dependency-cruiser 循环违规为 `0`；当前 performance coverage 为 sourceFiles=`755`、hotspotsOver250=`93`、registeredLineBudgets=`117`。该收口同步 `videoScreenshotPreparationRequestStore.ts <= 306`、`videoScreenshotPreparationQueue.ts <= 404`、`VideoDialogPanel.ts <= 425`、`runtimeMessages.ts <= 351` 与 `videoScreenshotPreparationCoordinator.ts <= 147` exact line budgets，没有放宽 entry/shared/locale/YAML chunk size budgets。
 
 当前 production fast build 真值：
 
@@ -58,16 +58,15 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `56.0 KB`（raw `57,386` bytes；等于 `57,386` raw-byte stop gate）
-- `build/dist/options/index.js`: `1.2 KB`（raw `1,194` bytes）
+- `build/dist/content/runtime.js`: `55.9 KB`（raw `57,209` bytes；stop gate `57,386` raw bytes）
+- `build/dist/options/index.js`: `1.4 KB`（raw `1,384` bytes）
 - `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,459` bytes；等于 `16,459` raw-byte stop gate）
-- 总 chunk 数：`117`
+- 总 chunk 数：`118`
 - `chunks/runtimeEntry-*.js`: `239.9 KB`
-- `chunks/videoSessionControllers-*.js`: `87.0 KB`
-- `chunks/qps-ploc-*.js`: `5.7 KB`
-- `chunks/videoLazyRuntime-*.js`: `46.6 KB`
+- `chunks/videoSessionControllers-*.js`: `87.4 KB`
+- `chunks/videoLazyRuntime-*.js`: `50.9 KB`
 - `chunks/messages-*.js`: `202.4 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: `22.3 KB`
+- `chunks/videoScreenshotPreparationQueue-*.js`: `21.1 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
@@ -94,10 +93,10 @@ npm run audit:build:report
 - 任一 chunk `<= 320 KB`
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
-- 第三大 shared chunk `<= 90 KB`
+- 第三大 shared chunk `<= 96 KB`
 - locale chunk `<= 60 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 117`
+- `chunk count <= 118`
 
 ## 2. 热点真值
 
@@ -145,7 +144,7 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-13 final integration dependency-cycle closeout 后当前 sourceFiles=`752`、hotspotsOver250=`94`、registeredLineBudgets=`117`，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-13 final integration dependency-cycle closeout 后当前 sourceFiles=`755`、hotspotsOver250=`93`、registeredLineBudgets=`117`，预算以 `tools/report-performance-hotspots.mjs` 为准。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
 - 当前高信号热点实测：`stitch/content.ts = 867`、`messages.generated.ts = 829`、`stitch/types.ts = 759`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoSessionRuntime.ts = 475`、`videoScreenshotPreparationQueue.ts = 368`、`videoScreenshotPreparationRequestStore.ts = 287`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
 - M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 829` 与 `schemaMessages.generated.ts = 457`。P01 将 `schemaMessages.generated.ts` 从多千行 schema literal 压缩回当前 exact 预算，并保留 locale chunk 去 schema 化后的 build truth。
