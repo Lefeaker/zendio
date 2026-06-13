@@ -5,7 +5,10 @@ interface ShadowSelectionBridgeOptions {
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range) => boolean;
   pendingSelection: PendingSelectionTracker;
-  activatePendingSelection: (event: Event, options?: { allowEventFallback?: boolean }) => void;
+  activatePendingSelection: (
+    event: Event,
+    options?: { allowEventFallback?: boolean; sourceSelection?: Selection | null }
+  ) => void;
 }
 
 interface ShadowPointerStart {
@@ -73,12 +76,20 @@ export class ShadowSelectionBridge {
       this.pointerStarts.set(root, { x: mouse.clientX, y: mouse.clientY });
     };
 
-    const activateOnce = (eventKey: Event, activationEvent: Event, allowEventFallback: boolean) => {
+    const activateOnce = (
+      eventKey: Event,
+      activationEvent: Event,
+      allowEventFallback: boolean,
+      sourceSelection: Selection | null
+    ) => {
       if (this.activatedEvents.has(eventKey)) {
         return;
       }
       this.activatedEvents.add(eventKey);
-      this.options.activatePendingSelection(activationEvent, { allowEventFallback });
+      this.options.activatePendingSelection(activationEvent, {
+        allowEventFallback,
+        sourceSelection
+      });
     };
 
     const scheduleSync = (event: Event) => {
@@ -88,7 +99,7 @@ export class ShadowSelectionBridge {
       view.setTimeout(syncSelection, 0);
       view.setTimeout(() => {
         syncSelection();
-        activateOnce(event, activationEvent, allowEventFallback);
+        activateOnce(event, activationEvent, allowEventFallback, this.getSelectionForRoot(root));
       }, 32);
     };
 

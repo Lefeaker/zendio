@@ -8,6 +8,7 @@ export interface SelectionActivationPayload {
 
 interface SelectionActivationOptions {
   allowEventFallback?: boolean;
+  sourceSelection?: Selection | null;
 }
 
 interface SelectionCaptureControllerOptions {
@@ -69,11 +70,13 @@ export class SelectionCaptureController {
       return;
     }
 
-    if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
+    const shouldTrack = this.shouldTrackSelection();
+    const suppress = this.suppressSelectionCapture();
+    if ((!shouldTrack && !options.allowEventFallback) || suppress) {
       return;
     }
 
-    const selection = this.getDocumentSelection();
+    const selection = options.sourceSelection ?? this.getDocumentSelection();
     let activeRange: Range | null = null;
 
     if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
