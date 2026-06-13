@@ -28,6 +28,19 @@ is written into exported Markdown.
   reconstructs a `Blob` before writing. Legacy `dataUrl` exists only as a
   compatibility bridge for older payloads / adapters.
 
+## Capture-Time Screenshot State
+
+- The video capture state is green only after runtime code has produced actual
+  screenshot bytes. A requested screenshot without bytes remains pending and must
+  not be exported as an attachment.
+- Runtime capture first tries the visible `<video>` frame without mutating
+  playback. When canvas capture cannot read the frame and the source is a browser
+  runtime URL such as `blob:` / MSE, the content runtime requests a visible-tab
+  screenshot from the background service and crops it to the visible video bounds.
+- The visible-tab fallback is best-effort. If the browser API is unavailable, the
+  video is offscreen, or the crop cannot produce a `Blob`, export keeps the note
+  Markdown valid but does not synthesize a fake attachment.
+
 ## Supported Tokens
 
 | Category                    | Tokens                                                                         | Notes                                                                                   |

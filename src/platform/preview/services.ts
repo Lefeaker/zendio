@@ -63,6 +63,9 @@ function createPreviewTabsService(): TabsService {
     query() {
       return Promise.resolve([]);
     },
+    captureVisibleTab() {
+      return Promise.resolve(undefined);
+    },
     sendMessage<TResult = unknown>(): Promise<TResult> {
       return Promise.resolve(undefined as TResult);
     },

@@ -42,6 +42,13 @@ export async function captureVideoFrameScreenshotAsync(
   }
 }
 
+export function createVideoFrameScreenshotFromBlob(
+  blob: Blob | null,
+  now = Date.now()
+): VideoCaptureScreenshot | null {
+  return createScreenshotRecord(createBlobContent(blob), now);
+}
+
 function renderVideoFrameToCanvas(video: HTMLVideoElement): HTMLCanvasElement | null {
   const width = Math.floor(video.videoWidth || video.clientWidth || 0);
   const height = Math.floor(video.videoHeight || video.clientHeight || 0);

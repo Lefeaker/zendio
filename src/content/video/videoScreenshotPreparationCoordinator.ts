@@ -4,12 +4,14 @@ import {
 } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 import type { VideoScreenshotPreparationQueue } from './videoScreenshotPreparationQueue';
+import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 
 interface VideoScreenshotPreparationCoordinatorArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
   syncPanel: () => void;
+  captureVisibleFrame?: VideoVisibleFrameScreenshotCapture | undefined;
 }
 
 export class VideoScreenshotPreparationCoordinator {
@@ -103,6 +105,7 @@ export class VideoScreenshotPreparationCoordinator {
           doc: this.args.doc,
           getCaptures: this.args.getCaptures,
           getVisibleVideo: this.args.getVisibleVideo,
+          captureVisibleFrame: this.args.captureVisibleFrame,
           syncPanel: this.args.syncPanel
         });
 

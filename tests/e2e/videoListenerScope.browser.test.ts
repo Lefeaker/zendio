@@ -80,6 +80,7 @@ type StoredOptionsFixture = {
     promptButtonLabel: string;
     promptShortcut: string;
     commentEditorAutoPause: boolean;
+    controlBarScreenshot?: boolean;
   };
   fragmentClipper: {
     useFootnoteFormat: boolean;
@@ -779,19 +780,30 @@ async function selectFixtureText(page: Page): Promise<void> {
   });
 }
 
-async function submitControlBarNote(page: Page, note: string): Promise<void> {
+async function submitControlBarNote(
+  page: Page,
+  note: string,
+  options: { captureScreenshotEnabled?: boolean } = {}
+): Promise<void> {
   await page.locator('[data-aiob-video-control-bar-button="true"]').click();
   const input = page.locator('[data-aiob-video-control-bar-note-input="true"]');
   await expect(input).toBeVisible();
+  if (options.captureScreenshotEnabled !== undefined) {
+    await page
+      .locator('[data-aiob-video-control-bar-popover="true"]')
+      .locator('[data-preference="captureScreenshotEnabled"]')
+      .setChecked(options.captureScreenshotEnabled);
+  }
   await input.fill(note);
   await input.press('Enter');
 }
 
 async function openVideoPanelFromControlBar(
   page: Page,
-  note = 'Browser control bar note'
+  note = 'Browser control bar note',
+  options: { captureScreenshotEnabled?: boolean } = {}
 ): Promise<void> {
-  await submitControlBarNote(page, note);
+  await submitControlBarNote(page, note, options);
   await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible({ timeout: 10000 });
 }
 
@@ -1291,6 +1303,45 @@ testWithExtension.describe('video listener scope browser runtime', () => {
 
       await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'off');
       await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'false');
+
+      await page.mouse.click(toggleBox.x + 16, toggleBox.y + toggleBox.height / 2);
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
+      await expect
+        .poll(async () => await screenshotToggle.getAttribute('data-screenshot-state'))
+        .toMatch(/^(pending|on)$/);
+    }
+  );
+
+  testWithExtension(
+    'creates Bilibili control-bar captures with screenshot intent after enabling the popover option',
+    async ({ context, extensionPage }) => {
+      const options = createOptionsFixture();
+      options.video.controlBarScreenshot = false;
+      const { page } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?screenshot-popover-toggle=1`,
+        bilibiliFixtureHtml(),
+        options
+      );
+
+      await openVideoPanelFromControlBar(page, 'Bilibili checkbox screenshot', {
+        captureScreenshotEnabled: true
+      });
+      await expandVideoPanel(page);
+
+      const firstCapture = page.locator('[data-role="capture-item"]').first();
+      const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(screenshotToggle).toHaveAttribute('aria-pressed', 'true');
+      await expect
+        .poll(async () => await screenshotToggle.getAttribute('data-screenshot-state'))
+        .toMatch(/^(pending|on)$/);
+      await expect
+        .poll(async () => {
+          const entries = await readVideoDraftEntries(extensionPage);
+          return entries[0]?.requestedScreenshotCount ?? 0;
+        })
+        .toBe(1);
     }
   );
 

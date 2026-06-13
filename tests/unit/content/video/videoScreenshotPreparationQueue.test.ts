@@ -266,6 +266,46 @@ describe('videoScreenshotPreparationQueue', () => {
     createElementSpy.mockRestore();
   });
 
+  it('uses a visible-tab frame fallback for blob sources when visible canvas capture fails', async () => {
+    const captures = [createTimestampCapture('ts-1', 42)];
+    const visible = createVideoHarness({
+      currentTime: 42,
+      sourceUrl: 'blob:https://video.example/runtime'
+    });
+    const captureFrame = vi.fn(() => Promise.resolve(null));
+    const captureVisibleFrame = vi.fn((_video: HTMLVideoElement, timeSec: number) =>
+      Promise.resolve(createScreenshot(timeSec))
+    );
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const syncPanel = vi.fn();
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame,
+      captureVisibleFrame,
+      syncPanel
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.request('ts-1');
+    await flushAsyncWork();
+
+    expect(captureFrame).toHaveBeenCalledWith(visible.video, 42);
+    expect(captureVisibleFrame).toHaveBeenCalledWith(visible.video, 42);
+    expect(
+      createElementSpy.mock.calls.filter(([tagName]) => String(tagName).toLowerCase() === 'video')
+    ).toHaveLength(0);
+    expect(visible.currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(captures[0]?.screenshot?.id).toBe('shot-42');
+    expect(captures[0]?.screenshot?.content?.kind).toBe('blob');
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
   it('captures from natural playback when the visible video later reaches the requested time', async () => {
     const captures = [createTimestampCapture('ts-1', 42)];
     const visible = createVideoHarness({

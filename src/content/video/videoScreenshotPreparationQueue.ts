@@ -34,6 +34,13 @@ interface CreateVideoScreenshotPreparationQueueArgs {
     timeSec: number,
     now?: number
   ) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
+  captureVisibleFrame?:
+    | ((
+        video: HTMLVideoElement,
+        timeSec: number,
+        now?: number
+      ) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>)
+    | undefined;
   syncPanel: () => void;
   toleranceSec?: number;
   timeoutMs?: number;
@@ -153,7 +160,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       this.inFlightVisibleIds.add(capture.id);
       let shouldReprocess = false;
       try {
-        const screenshot = await this.getCaptureFrame()(visibleVideo, capture.timeSec);
+        const screenshot =
+          (await this.getCaptureFrame()(visibleVideo, capture.timeSec)) ??
+          (await this.getVisibleFrameCapture()(visibleVideo, capture.timeSec));
         if (
           this.disposed ||
           this.resolveVisibleVideo() !== visibleVideo ||
@@ -355,6 +364,11 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
   }
   private getCaptureFrame() {
     return this.args.captureFrame ?? captureVideoFrameScreenshotAsync;
+  }
+  private getVisibleFrameCapture(): NonNullable<
+    CreateVideoScreenshotPreparationQueueArgs['captureVisibleFrame']
+  > {
+    return this.args.captureVisibleFrame ?? (() => null);
   }
   private getToleranceSec(): number {
     return this.args.toleranceSec ?? DEFAULT_TOLERANCE_SEC;

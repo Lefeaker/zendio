@@ -172,6 +172,7 @@ export class VideoSession {
       doc: this.doc,
       getCaptures: () => this.getTimestampCaptures(),
       getVisibleVideo: () => this.state.videoElement,
+      captureVisibleFrame: this.dependencies.captureVisibleVideoFrameScreenshot,
       syncPanel: () => this.syncPanel()
     });
     this.draftPersister = createSessionDraftPersister<VideoSessionDraftEnvelope>({

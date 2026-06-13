@@ -1,6 +1,7 @@
 export interface MessageSenderInfo {
   id?: string;
   tabId?: number;
+  windowId?: number;
   frameId?: number;
   url?: string;
   origin?: string;
