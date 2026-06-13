@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ANALYTICS_CATALOG_VERSION,
   ANALYTICS_EVENT_CATALOG,
+  ANALYTICS_OPTIONAL_PARAMS,
+  ANALYTICS_REQUIRED_PARAMS,
   CONTRACT_ONLY_EVENT_NAMES,
   DEV_ONLY_EVENT_NAMES,
   DOCS_ONLY_EVENT_NAMES,
@@ -12,6 +14,8 @@ import {
   INVENTORY_ONLY_EVENT_NAMES,
   RUNTIME_USAGE_EVENT_NAMES
 } from '../../../src/shared/analytics';
+import type { AnalyticsEventName } from '../../../src/shared/analytics/eventCatalog';
+import { ANALYTICS_SCHEMA } from '../../../src/shared/analytics/schema/analyticsSchema';
 
 describe('analytics event catalog', () => {
   it('records a stable catalog version and current emitted event classifications', () => {
@@ -117,6 +121,24 @@ describe('analytics event catalog', () => {
       expect(
         definition.optionalParams.filter((param) => definition.requiredParams.includes(param))
       ).toEqual([]);
+    }
+  });
+
+  it('derives classification and param tables from the schema source of truth', () => {
+    for (const eventName of Object.keys(ANALYTICS_SCHEMA) as AnalyticsEventName[]) {
+      const schemaDefinition = ANALYTICS_SCHEMA[eventName];
+      const requiredParams = Object.entries(schemaDefinition.params)
+        .filter(([, paramDefinition]) => paramDefinition.required)
+        .map(([paramName]) => paramName);
+      const optionalParams = Object.entries(schemaDefinition.params)
+        .filter(([, paramDefinition]) => !paramDefinition.required)
+        .map(([paramName]) => paramName);
+
+      expect(ANALYTICS_EVENT_CATALOG[eventName].classification).toBe(
+        schemaDefinition.classification
+      );
+      expect(ANALYTICS_REQUIRED_PARAMS[eventName]).toEqual(requiredParams);
+      expect(ANALYTICS_OPTIONAL_PARAMS[eventName]).toEqual(optionalParams);
     }
   });
 });
