@@ -1,7 +1,6 @@
 import { DEFAULT_LANGUAGE, type LangCode } from '../config';
 import { buildPseudoLocaleDefinition } from '../catalog/pseudoLocale';
-import type { LocaleDefinition, LocaleStaticMessages } from '../localeDefinition';
-import type { RuntimeMessages } from '../messages';
+import type { LocaleDefinition, LocaleStaticMessages, RuntimeMessages } from '../localeDefinition';
 import en from '../generated/locales/en.generated';
 import { getRuntimeLanguageFallbackChain } from './fallback';
 

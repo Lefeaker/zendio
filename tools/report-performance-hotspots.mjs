@@ -50,8 +50,10 @@ const MAX_LINE_BUDGETS = new Map([
   // finalization and shared transaction plumbing across reader/video surfaces.
   ['src/content/video/videoSessionRuntime.ts', 746],
   ['src/content/video/videoScreenshotPreparationQueue.ts', 398],
-  // 2026-06-13 P04 audit-gap fix: exact current structured request-store split size.
-  ['src/content/video/videoScreenshotPreparationCoordinator.ts', 429],
+  // 2026-06-13 final integration: request state moved out of the lazy coordinator
+  // so dependency-cruiser can enforce the screenshot preparation split without cycles.
+  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 287],
+  ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
   ['src/content/reader/session.ts', 711],
   ['src/content/video/videoControlBarButton.ts', 395],

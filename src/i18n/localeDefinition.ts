@@ -1,4 +1,6 @@
-import type { RuntimeMessages } from './messages';
+import type { GeneratedMessages as RuntimeMessages } from './generated/messages.generated';
+
+export type { RuntimeMessages };
 export interface LocaleStaticMessages {
   extName: string;
   extDescription: string;

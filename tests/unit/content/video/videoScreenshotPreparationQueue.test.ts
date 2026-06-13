@@ -1,8 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VideoScreenshotPreparationRequestStore } from '@content/video/videoScreenshotPreparationCoordinator';
 import { createVideoScreenshotPreparationQueue } from '@content/video/videoScreenshotPreparationQueue';
+import { VideoScreenshotPreparationRequestStore } from '@content/video/videoScreenshotPreparationRequestStore';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 
 function createTimestampCapture(

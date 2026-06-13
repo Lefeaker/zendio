@@ -5,7 +5,7 @@ import {
 import {
   VideoScreenshotPreparationRequestStore,
   type VideoScreenshotPreparationQueueStateSnapshot
-} from './videoScreenshotPreparationCoordinator';
+} from './videoScreenshotPreparationRequestStore';
 import {
   configureHiddenDuplicateVideo,
   createAbortableVideoScope,

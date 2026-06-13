@@ -42,6 +42,8 @@ npm run audit:build:report
 
 2026-06-13 P06 final ratchet 复核重新采集 `build:dev`、`audit:build:report`、`lint:type-any:ratchet`、`typecheck:app`、`typecheck:tests` 与 `tests/unit/content/video/VideoSession.test.ts`。当前 integration dev-build exact stop gates 同步为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 117`；本次没有放宽 locale、single chunk、shared chunk 或 YAML chunk size budgets。P06 同时只在 `tests/unit/content/video/VideoSession.test.ts` 内收口了 inherited full-file restored screenshot async wait 与 same-page owner-context harness race，没有修改 production `src/**`。
 
+2026-06-13 final integration dependency-cycle closeout 复核重新采集 `typecheck:app`、`typecheck:tests`、`audit:deps:report`、`audit:performance:report`、`build:dev`、`audit:build:report` 与 i18n/video focused tests。截图准备请求状态从 coordinator 拆入 `videoScreenshotPreparationRequestStore.ts` 后，dependency-cruiser 循环违规为 `0`；当前 performance coverage 为 sourceFiles=`752`、hotspotsOver250=`94`、registeredLineBudgets=`117`。该收口只新增/收紧 `videoScreenshotPreparationRequestStore.ts <= 287` 与 `videoScreenshotPreparationCoordinator.ts <= 147`，没有放宽 entry/shared/locale/YAML chunk size budgets。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -64,7 +66,8 @@ npm run audit:build:report
 - `chunks/videoSessionControllers-*.js`: `87.0 KB`
 - `chunks/qps-ploc-*.js`: `5.7 KB`
 - `chunks/videoLazyRuntime-*.js`: `46.6 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: `16.4 KB`
+- `chunks/messages-*.js`: `202.4 KB`
+- `chunks/videoScreenshotPreparationQueue-*.js`: `22.3 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
@@ -80,7 +83,7 @@ npm run audit:build:report
 - `chunks/clipFlowAnalytics-*.js`: `2.5 KB`
 - `chunks/onboardingAnalytics-*.js`: `1.8 KB`
 - `chunks/sessionDraftAutoRestore-*.js`: dev `4.5 KB` / production fast `2.0 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: dev `18.0 KB`
+- `chunks/videoScreenshotPreparationQueue-*.js`: dev `22.3 KB`
 
 当前 `audit:build:report` 预算口径：
 
@@ -106,10 +109,10 @@ npm run audit:performance:report
 
 当前热点摘要（完整 `src` >250 LOC 路径列表以 `tools/report-performance-hotspots.mjs` 为准）：
 
-- `src/options/stitch/content.ts`: `871` 行
+- `src/options/stitch/content.ts`: `867` 行
 - `src/i18n/generated/messages.generated.ts`: `829` 行
 - `src/options/stitch/types.ts`: `759` 行
-- `src/content/video/videoSessionRuntime.ts`: `745` 行
+- `src/content/video/videoSessionRuntime.ts`: `475` 行
 - `src/content/video/sessionOperations.ts`: `424` 行
 - `src/options/stitch/ui/components.ts`: `592` 行
 - `src/options/yaml-config-editor/view.ts`: `586` 行
@@ -117,7 +120,8 @@ npm run audit:performance:report
 - `src/content/reader/session.ts`: `703` 行
 - `src/onboarding/bootstrap.ts`: `557` 行
 - `src/background/pipelines/connectionTest.ts`: `543` 行
-- `src/content/video/videoScreenshotPreparationQueue.ts`: `398` 行
+- `src/content/video/videoScreenshotPreparationQueue.ts`: `368` 行
+- `src/content/video/videoScreenshotPreparationRequestStore.ts`: `287` 行
 - `src/shared/attachments/videoScreenshotAttachmentTemplates.ts`: `523` 行
 - `src/content/clipper/components/clipperDialogController.ts`: `511` 行
 - `src/content/reader/services/highlightManager.ts`: `505` 行
@@ -141,11 +145,11 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-12 video control-bar UI debt final verification 复核后当前 sourceFiles=`747`、hotspotsOver250=`92`、registeredLineBudgets=`114`，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-13 final integration dependency-cycle closeout 后当前 sourceFiles=`752`、hotspotsOver250=`94`、registeredLineBudgets=`117`，预算以 `tools/report-performance-hotspots.mjs` 为准。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
-- 当前高信号热点实测：`stitch/content.ts = 871`、`messages.generated.ts = 829`、`stitch/types.ts = 759`、`videoSessionRuntime.ts = 745`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoScreenshotPreparationQueue.ts = 398`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
+- 当前高信号热点实测：`stitch/content.ts = 867`、`messages.generated.ts = 829`、`stitch/types.ts = 759`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoSessionRuntime.ts = 475`、`videoScreenshotPreparationQueue.ts = 368`、`videoScreenshotPreparationRequestStore.ts = 287`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
 - M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 829` 与 `schemaMessages.generated.ts = 457`。P01 将 `schemaMessages.generated.ts` 从多千行 schema literal 压缩回当前 exact 预算，并保留 locale chunk 去 schema 化后的 build truth。
-- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 745`、`videoScreenshotPreparationQueue.ts = 398`、`VideoDialogPanel.ts = 404`、`videoControlBarButton.ts = 386`、`sessionDraftRepository.ts = 399`、`runtimeMessages.ts = 331`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`productionStitchShellMount.ts = 230`、`yaml-config-editor/rowModel.ts = 254`、`eventCatalog.ts = 485`、`analyticsSanitizers.ts = 455`、`analyticsConfig.ts = 369`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 317`。
+- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 475`、`videoScreenshotPreparationQueue.ts = 368`、`videoScreenshotPreparationRequestStore.ts = 287`、`VideoDialogPanel.ts = 404`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 399`、`runtimeMessages.ts = 331`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`productionStitchShellMount.ts = 230`、`yaml-config-editor/rowModel.ts = 254`、`eventCatalog.ts = 541`、`analyticsSanitizers.ts = 460`、`analyticsConfig.ts = 369`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 317`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
 
 本轮有效收口结果：
@@ -153,7 +157,7 @@ npm run audit:performance:report
 - `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
 - `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
-- `videoSessionRuntime` 当前为 `745` 行，`videoScreenshotPreparationQueue` 当前为 `398` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，降低 session runtime 的常驻负载。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项。
+- `videoSessionRuntime` 当前为 `475` 行，`videoScreenshotPreparationQueue` 当前为 `368` 行，`videoScreenshotPreparationRequestStore` 当前为 `287` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，最终集成又把请求状态从 coordinator 拆出以消除 dependency-cruiser 循环。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
 
 ## 3. 浏览器验真
