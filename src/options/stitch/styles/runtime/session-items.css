@@ -185,6 +185,24 @@
   margin-inline: auto;
 }
 
+.video-surface-window .session-add-capture-card {
+  grid-template-columns: var(--session-video-marker-track-width, 40px) minmax(0, 1fr);
+  align-items: center;
+  min-height: var(--session-video-timestamp-row-min-height, 28px);
+}
+
+.video-surface-window .session-add-capture-card .session-item-marker,
+.video-surface-window .session-add-capture-card .session-item-content {
+  align-items: center;
+  min-height: var(--session-video-timestamp-row-min-height, 28px);
+  padding-bottom: 0;
+}
+
+.video-surface-window .session-add-capture-card .session-item-comment-input {
+  align-self: center;
+  margin-top: 0;
+}
+
 .video-surface-window .video-fragment-session-item-card .session-item-marker {
   justify-content: center;
 }

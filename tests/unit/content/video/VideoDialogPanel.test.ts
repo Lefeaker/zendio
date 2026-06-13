@@ -310,6 +310,39 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('keeps a newly added add-note capture focused across the first capture refresh', async () => {
+    let panel: VideoDialogPanel | null = null;
+    const newCapture = createCapture({ id: 'capture-2', index: 2, timeLabel: '01:23' });
+    const panelCallbacks: VideoPanelCallbacks = {
+      ...callbacks,
+      onAddCapture: vi.fn((source?: string) => {
+        expect(source).toBe('note-input');
+        panel?.setCaptures([newCapture]);
+        panel?.beginEditingCapture(newCapture.id, '');
+        queueMicrotask(() => {
+          panel?.setCaptures([{ ...newCapture, hasScreenshot: true }]);
+        });
+      })
+    };
+
+    panel = new VideoDialogPanel({ callbacks: panelCallbacks, texts });
+    panel.show();
+    panel.element.shadowRoot
+      ?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')
+      ?.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const input =
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+        '[data-capture-input="capture-2"]'
+      ) ?? null;
+    expect(input).toBeTruthy();
+    expect(panel.element.shadowRoot?.activeElement).toBe(input);
+
+    panel.destroy();
+  });
+
   it('reports capture editor focus and blur lifecycle events', async () => {
     const lifecycleCallbacks: VideoPanelCallbacks & {
       onCaptureEditorFocus: ReturnType<typeof vi.fn>;
@@ -386,10 +419,14 @@ describe('VideoDialogPanel', () => {
     expect(panel.element.shadowRoot?.activeElement).toBe(input);
 
     panel.updateHint('Saving');
+    await Promise.resolve();
 
     expect(lifecycleCallbacks.onCaptureEditorBlur).not.toHaveBeenCalledWith(
       'capture-1',
       'outside-panel'
+    );
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-capture-input="capture-1"]')
     );
 
     panel.destroy();

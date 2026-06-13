@@ -1050,10 +1050,26 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await expandVideoPanel(page);
       const before = await readHostShortcutCounters(page);
 
+      const addButton = page.locator('.session-add-capture-card [data-role="add-btn"]');
+      const addNoteInput = page.locator(
+        '.session-add-capture-card [data-action-id="video:add-note"]'
+      );
+      const addButtonBox = await addButton.boundingBox();
+      const addNoteInputBox = await addNoteInput.boundingBox();
+      expect(addButtonBox).not.toBeNull();
+      expect(addNoteInputBox).not.toBeNull();
+      expect(
+        Math.abs(
+          (addButtonBox?.y ?? Number.NaN) +
+            (addButtonBox?.height ?? Number.NaN) / 2 -
+            ((addNoteInputBox?.y ?? Number.NaN) + (addNoteInputBox?.height ?? Number.NaN) / 2)
+        )
+      ).toBeLessThanOrEqual(1.5);
+
       await page.locator('[data-action-id="video:add-note"]').click();
-      const input = page.locator('[data-capture-input]').first();
+      const input = page.locator('[data-capture-input]').last();
       await expect(input).toBeVisible();
-      await input.click();
+      await expect(input).toBeFocused();
       await page.keyboard.type('lm test');
 
       const after = await readHostShortcutCounters(page);

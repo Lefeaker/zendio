@@ -119,6 +119,21 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('min-height: var(--session-video-timestamp-row-min-height, 28px);');
   });
 
+  it('keeps the video add-note row aligned with timestamp note inputs', () => {
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s*{[^}]*grid-template-columns:\s*var\(--session-video-marker-track-width,\s*40px\)\s+minmax\(0,\s*1fr\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s*{[^}]*align-items:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s+\.session-item-content\s*{[^}]*align-items:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.video-surface-window\s+\.session-add-capture-card\s+\.session-item-comment-input\s*{[^}]*margin-top:\s*0;/
+    );
+  });
+
   it('centers video fragment marker chips inside the video marker track', () => {
     expect(stitchCss).toMatch(
       /\.video-surface-window\s+\.video-fragment-session-item-card\s+\.session-item-marker\s*{[^}]*justify-content:\s*center;/
