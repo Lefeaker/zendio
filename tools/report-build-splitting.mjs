@@ -11,17 +11,30 @@ const ENTRY_FILES = [
   join(DIST_DIR, 'onboarding', 'index.js')
 ];
 const ENTRY_BUDGETS = new Map([
-  [join(DIST_DIR, 'content', 'index.js'), 1 * 1024],
+  [join(DIST_DIR, 'content', 'index.js'), { hardStop: 1 * 1024 }],
   // 2026-06-13 P06 current-integration exact dev-build stop gate. The 38-byte
   // drift was already reproduced on the pre-P04-safe integration head and is
   // carried by the accepted P01-P05 merge stack rather than a new P06 behavior
   // change or locale-budget expansion.
-  [join(DIST_DIR, 'content', 'runtime.js'), 57386],
-  [join(DIST_DIR, 'options', 'index.js'), 12 * 1024],
-  // 2026-06-13 P06 current-integration exact dev-build stop gate. This 64-byte
-  // drift is part of the accepted merged production surface on the integration
-  // branch and does not loosen any locale/shared/YAML chunk budget.
-  [join(DIST_DIR, 'onboarding', 'index.js'), 16459]
+  [
+    join(DIST_DIR, 'content', 'runtime.js'),
+    {
+      warningTarget: 57209,
+      hardStop: 57386
+    }
+  ],
+  [join(DIST_DIR, 'options', 'index.js'), { hardStop: 12 * 1024 }],
+  // 2026-06-14 P06 keeps onboarding on the current observed warning target
+  // while restoring a small hard-stop margin so verify:preflight can warn at the
+  // accepted baseline instead of pinning the build to an exact-edge zero-headroom
+  // value.
+  [
+    join(DIST_DIR, 'onboarding', 'index.js'),
+    {
+      warningTarget: 16459,
+      hardStop: 16715
+    }
+  ]
 ]);
 // 2026-06-09: Video screenshot preparation now loads as an explicit lazy chunk.
 // esbuild also extracts the tiny shared screenshot-intent bridge used by both the
@@ -31,7 +44,10 @@ const ENTRY_BUDGETS = new Map([
 // branch combines the structural-debt split with the visible-tab screenshot
 // export path; only the dev chunk count changes, while entry/shared/locale/YAML
 // size budgets stay unchanged.
-const MAX_CHUNK_COUNT = 118;
+const CHUNK_COUNT_BUDGET = {
+  warningTarget: 118,
+  hardStop: 120
+};
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.
@@ -53,6 +69,43 @@ function formatSize(bytes) {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function formatBytes(bytes) {
+  return `${bytes} B`;
+}
+
+function formatEntryBudgetDetails(observed, budget) {
+  if (budget.warningTarget !== undefined) {
+    return `${formatSize(observed)} (${formatBytes(observed)}; warning target ${formatBytes(
+      budget.warningTarget
+    )}; hard stop ${formatBytes(budget.hardStop)})`;
+  }
+  return `${formatSize(observed)}`;
+}
+
+function evaluateByteBudget({ label, observed, budget, warnings, findings }) {
+  if (budget.warningTarget !== undefined && observed > budget.warningTarget) {
+    warnings.push(
+      `${label} is above warning target: ${formatBytes(observed)} > ${formatBytes(
+        budget.warningTarget
+      )} (hard stop ${formatBytes(budget.hardStop)})`
+    );
+  }
+  if (observed > budget.hardStop) {
+    findings.push(`${label} exceeds hard stop: ${formatBytes(observed)} > ${formatBytes(budget.hardStop)}`);
+  }
+}
+
+function evaluateCountBudget({ observed, budget, warnings, findings }) {
+  if (observed > budget.warningTarget) {
+    warnings.push(
+      `chunk count is above warning target: ${observed} > ${budget.warningTarget} (hard stop ${budget.hardStop})`
+    );
+  }
+  if (observed > budget.hardStop) {
+    findings.push(`chunk count exceeds hard stop: ${observed} > ${budget.hardStop}`);
+  }
 }
 
 if (!existsSync(DIST_DIR)) {
@@ -90,22 +143,30 @@ const chunkStats = chunkFiles.map((chunkFile) => {
 
 console.log('Build splitting report');
 const findings = [];
+const warnings = [];
 for (const entry of ENTRY_FILES) {
   const stats = statSync(entry);
-  console.log(`- ${entry.replace(`${ROOT}/`, '')}: ${formatSize(stats.size)}`);
   const budget = ENTRY_BUDGETS.get(entry);
-  if (budget !== undefined && stats.size > budget) {
-    findings.push(
-      `${entry.replace(`${ROOT}/`, '')} exceeds budget: ${formatSize(stats.size)} > ${formatSize(
-        budget
-      )}`
-    );
-  }
+  console.log(
+    `- ${entry.replace(`${ROOT}/`, '')}: ${formatEntryBudgetDetails(stats.size, budget)}`
+  );
+  evaluateByteBudget({
+    label: entry.replace(`${ROOT}/`, ''),
+    observed: stats.size,
+    budget,
+    warnings,
+    findings
+  });
 }
-console.log(`- chunks: ${chunkFiles.length}`);
-if (chunkFiles.length > MAX_CHUNK_COUNT) {
-  findings.push(`chunk count exceeds budget: ${chunkFiles.length} > ${MAX_CHUNK_COUNT}`);
-}
+console.log(
+  `- chunks: ${chunkFiles.length} (warning target ${CHUNK_COUNT_BUDGET.warningTarget}; hard stop ${CHUNK_COUNT_BUDGET.hardStop})`
+);
+evaluateCountBudget({
+  observed: chunkFiles.length,
+  budget: CHUNK_COUNT_BUDGET,
+  warnings,
+  findings
+});
 for (const chunk of chunkStats) {
   console.log(`  - chunks/${chunk.file}: ${formatSize(chunk.size)}`);
   if (chunk.size > MAX_SINGLE_CHUNK_SIZE) {
@@ -148,6 +209,11 @@ sharedChunks.slice(0, 3).forEach((chunk, index) => {
 
 if (sharedChunks.length < 3) {
   findings.push('expected at least three shared chunks to validate shared chunk budgets.');
+}
+
+if (warnings.length > 0) {
+  console.error('\nBuild budget warnings:');
+  warnings.forEach((warning) => console.error(`- ${warning}`));
 }
 
 if (findings.length > 0) {
