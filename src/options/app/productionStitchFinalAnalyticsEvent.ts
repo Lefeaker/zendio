@@ -1,6 +1,9 @@
 import { sendAnalyticsTransportEvent } from '@shared/analytics';
+import {
+  createAnalyticsTransportConfig,
+  hasAnalyticsSendConsent
+} from '@shared/analytics/analyticsRuntimeConfig';
 import { getAnalyticsConfigManager } from '@shared/errors/analytics/analyticsConfig';
-import type { AnalyticsConfig } from '@shared/errors/analytics/analyticsConfig';
 
 type FinalAnalyticsEventSender = () => Promise<void>;
 
@@ -10,16 +13,10 @@ export async function prepareAnalyticsDataClearedEvent(): Promise<FinalAnalytics
   try {
     const manager = getAnalyticsConfigManager();
     await manager.refreshFromStorage();
-    const config = manager.getConfig();
-
-    if (config.userConsent?.analytics !== true) {
+    const eventConfig = createAnalyticsTransportConfig(manager.getConfig());
+    if (!hasAnalyticsSendConsent(eventConfig, 'analytics_data_cleared')) {
       return noopFinalAnalyticsEventSender;
     }
-
-    const eventConfig: AnalyticsConfig = {
-      ...config,
-      ...(config.userConsent ? { userConsent: { ...config.userConsent } } : {})
-    };
 
     return async () => {
       try {

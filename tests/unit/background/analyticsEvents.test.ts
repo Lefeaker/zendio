@@ -354,7 +354,7 @@ describe('analyticsEvents', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
       const revokedConfig = createAnalyticsConfig({
-        userConsent: { analytics: false, errorReporting: false },
+        userConsent: { analytics: false, errorReporting: true },
         reportingInterval: 60000,
         batchSize: 1
       });

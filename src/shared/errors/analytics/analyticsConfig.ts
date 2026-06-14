@@ -1,12 +1,19 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
-  normalizeAnalyticsTransportMode,
-  normalizeMeasurementId,
-  normalizeProxyEndpoint,
   readAnalyticsPublicBuildConfig,
   type AnalyticsTransportMode
 } from '../../analytics/analyticsEnvironment';
+import {
+  createAnalyticsClientId,
+  createAnalyticsSessionId,
+  redactAnalyticsIdentity
+} from '../../analytics/analyticsIdentity';
+import {
+  hasAnalyticsSendConsent,
+  normalizeStoredAnalyticsConfig,
+  resolveAnalyticsRuntimeEnabled
+} from '../../analytics/analyticsRuntimeConfig';
 
 export const GA4_CONFIG = {
   MEASUREMENT_ID: DEFAULT_ANALYTICS_MEASUREMENT_ID,
@@ -90,20 +97,20 @@ export class AnalyticsConfigManager {
     const storedConsent = await this.storage.local.get<UserConsent>(USER_CONSENT);
     const storedClientId = await this.storage.local.get<string>(CLIENT_ID);
     const storedSessionId = await this.storage.local.get<string>(SESSION_ID);
+    const normalizedConfig = normalizeAnalyticsConfig({
+      ...(storedConfig ?? {}),
+      userConsent: undefined
+    });
+    const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
+    const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;
 
-    this.config = normalizeAnalyticsConfig(storedConfig ?? {});
-
-    if (storedClientId) {
-      this.config.clientId = storedClientId;
-    }
-    if (storedSessionId) {
-      this.config.sessionId = storedSessionId;
-    }
-    if (storedConsent) {
-      this.config.userConsent = storedConsent;
-    }
-
-    this.config.enabled = Boolean(storedConsent?.analytics || storedConsent?.errorReporting);
+    this.config = {
+      ...normalizedConfig,
+      ...(clientId ? { clientId } : {}),
+      ...(sessionId ? { sessionId } : {}),
+      ...(storedConsent ? { userConsent: storedConsent } : {}),
+      enabled: resolveAnalyticsRuntimeEnabled(storedConsent)
+    };
   }
 
   getConfig(): AnalyticsConfig {
@@ -114,10 +121,7 @@ export class AnalyticsConfigManager {
   }
 
   async updateConfig(updates: Partial<AnalyticsConfig>): Promise<void> {
-    this.config = normalizeAnalyticsConfig({
-      ...this.config,
-      ...updates
-    });
+    this.config = normalizeAnalyticsConfig({ ...this.config, ...updates });
     await this.saveConfig();
   }
 
@@ -129,8 +133,11 @@ export class AnalyticsConfigManager {
       version: '1.0'
     };
 
-    this.config.userConsent = nextConsent;
-    this.config.enabled = nextConsent.analytics || nextConsent.errorReporting;
+    this.config = {
+      ...this.config,
+      userConsent: nextConsent,
+      enabled: resolveAnalyticsRuntimeEnabled(nextConsent)
+    };
 
     await Promise.all([
       this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.USER_CONSENT, nextConsent),
@@ -144,13 +151,13 @@ export class AnalyticsConfigManager {
   }
 
   async renewSession(): Promise<void> {
-    const sessionId = this.generateSessionId();
+    const sessionId = createAnalyticsSessionId();
     this.config.sessionId = sessionId;
     await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.SESSION_ID, sessionId);
   }
 
   hasUserConsent(): boolean {
-    return Boolean(this.config.userConsent?.analytics || this.config.userConsent?.errorReporting);
+    return resolveAnalyticsRuntimeEnabled(this.config.userConsent);
   }
 
   hasAnalyticsConsent(): boolean {
@@ -176,8 +183,10 @@ export class AnalyticsConfigManager {
     return {
       enabled: this.config.enabled,
       hasConsent: this.hasUserConsent(),
-      ...(this.config.clientId ? { clientId: `${this.config.clientId.slice(0, 10)}...` } : {}),
-      ...(this.config.sessionId ? { sessionId: `${this.config.sessionId.slice(0, 10)}...` } : {}),
+      ...(this.config.clientId ? { clientId: redactAnalyticsIdentity(this.config.clientId) } : {}),
+      ...(this.config.sessionId
+        ? { sessionId: redactAnalyticsIdentity(this.config.sessionId) }
+        : {}),
       measurementId: this.config.measurementId,
       debugMode: this.config.debugMode,
       reportingInterval: this.config.reportingInterval,
@@ -197,7 +206,7 @@ export class AnalyticsConfigManager {
     const existingClientId =
       this.config.clientId ??
       (await this.storage.local.get<string>(GA4_CONFIG.STORAGE_KEYS.CLIENT_ID));
-    const clientId = existingClientId ?? this.generateClientId();
+    const clientId = existingClientId ?? createAnalyticsClientId();
 
     this.config.clientId = clientId;
     if (!existingClientId) {
@@ -218,14 +227,6 @@ export class AnalyticsConfigManager {
 
   private async saveConfig(): Promise<void> {
     await this.storage.local.set(GA4_CONFIG.STORAGE_KEYS.CONFIG, this.config);
-  }
-
-  private generateClientId(): string {
-    return `ext-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
-  }
-
-  private generateSessionId(): string {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 }
 
@@ -296,8 +297,7 @@ export function watchAnalyticsConfigStorage(
 }
 
 export function shouldReportErrors(): boolean {
-  const config = getAnalyticsConfigManager().getConfig();
-  return Boolean(config.enabled && config.userConsent?.errorReporting);
+  return hasAnalyticsSendConsent(getAnalyticsConfigManager().getConfig(), 'extension_error');
 }
 
 export async function setAnalyticsConsent(
@@ -313,56 +313,5 @@ export function getAnalyticsConfig(): AnalyticsConfig {
 }
 
 function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
-  const defaultConfigWithoutProxyEndpoint = {
-    enabled: DEFAULT_ANALYTICS_CONFIG.enabled,
-    debugMode: DEFAULT_ANALYTICS_CONFIG.debugMode,
-    measurementId: DEFAULT_ANALYTICS_CONFIG.measurementId,
-    transportMode: DEFAULT_ANALYTICS_CONFIG.transportMode,
-    reportingInterval: DEFAULT_ANALYTICS_CONFIG.reportingInterval,
-    maxErrorsPerSession: DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
-    batchSize: DEFAULT_ANALYTICS_CONFIG.batchSize
-  } satisfies AnalyticsConfig;
-  const hasStoredTransportMode = Object.prototype.hasOwnProperty.call(
-    storedConfig,
-    'transportMode'
-  );
-  const transportMode = hasStoredTransportMode
-    ? (normalizeAnalyticsTransportMode(storedConfig.transportMode, 'disabled') ?? 'disabled')
-    : DEFAULT_ANALYTICS_CONFIG.transportMode;
-  const proxyEndpoint =
-    transportMode === 'proxy' || transportMode === 'directDebug'
-      ? Object.prototype.hasOwnProperty.call(storedConfig, 'proxyEndpoint')
-        ? normalizeProxyEndpoint(storedConfig.proxyEndpoint)
-        : DEFAULT_ANALYTICS_CONFIG.proxyEndpoint
-      : undefined;
-
-  return {
-    ...defaultConfigWithoutProxyEndpoint,
-    enabled: typeof storedConfig.enabled === 'boolean' ? storedConfig.enabled : false,
-    debugMode:
-      typeof storedConfig.debugMode === 'boolean'
-        ? storedConfig.debugMode
-        : DEFAULT_ANALYTICS_CONFIG.debugMode,
-    measurementId:
-      normalizeMeasurementId(storedConfig.measurementId, DEFAULT_ANALYTICS_CONFIG.measurementId) ??
-      DEFAULT_ANALYTICS_CONFIG.measurementId,
-    transportMode,
-    ...(proxyEndpoint ? { proxyEndpoint } : {}),
-    reportingInterval: normalizePositiveInteger(
-      storedConfig.reportingInterval,
-      DEFAULT_ANALYTICS_CONFIG.reportingInterval
-    ),
-    maxErrorsPerSession: normalizePositiveInteger(
-      storedConfig.maxErrorsPerSession,
-      DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession
-    ),
-    batchSize: normalizePositiveInteger(storedConfig.batchSize, DEFAULT_ANALYTICS_CONFIG.batchSize),
-    ...(storedConfig.clientId ? { clientId: storedConfig.clientId } : {}),
-    ...(storedConfig.sessionId ? { sessionId: storedConfig.sessionId } : {}),
-    ...(storedConfig.userConsent ? { userConsent: { ...storedConfig.userConsent } } : {})
-  };
-}
-
-function normalizePositiveInteger(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
+  return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG);
 }

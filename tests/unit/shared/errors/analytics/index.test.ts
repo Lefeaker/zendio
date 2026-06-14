@@ -101,7 +101,7 @@ describe('error analytics initialization', () => {
     delete (globalThis as { __errorReporterUnregisters?: unknown }).__errorReporterUnregisters;
   });
 
-  it('registers GA and sentry reporters with stable session config across repeated initialization', async () => {
+  it('registers GA and sentry reporters with live resolver wiring instead of constructor identity fallback', async () => {
     const unregisterGa1 = vi.fn();
     const unregisterSentry1 = vi.fn();
     const unregisterGa2 = vi.fn();
@@ -124,8 +124,6 @@ describe('error analytics initialization', () => {
       measurementId: 'G-123',
       transportMode: 'proxy',
       proxyEndpoint: 'https://analytics.example.test/ga4',
-      clientId: 'client-1',
-      sessionId: 'session-1',
       userConsent: {
         analytics: true,
         errorReporting: true,
@@ -137,8 +135,6 @@ describe('error analytics initialization', () => {
       measurementId: 'G-123',
       transportMode: 'proxy',
       proxyEndpoint: 'https://analytics.example.test/ga4',
-      clientId: 'client-1',
-      sessionId: 'session-1',
       userConsent: {
         analytics: true,
         errorReporting: true,
@@ -149,6 +145,10 @@ describe('error analytics initialization', () => {
     expect(firstReporterConfig?.resolveAnalyticsConfig).toBeTypeOf('function');
     expect(secondReporterConfig?.resolveAnalyticsConfig).toBeTypeOf('function');
     expect(firstReporterConfig?.resolveAnalyticsConfig?.()).toBe(currentAnalyticsConfig);
+    expect(firstReporterConfig).not.toHaveProperty('clientId');
+    expect(firstReporterConfig).not.toHaveProperty('sessionId');
+    expect(secondReporterConfig).not.toHaveProperty('clientId');
+    expect(secondReporterConfig).not.toHaveProperty('sessionId');
     expect(createSentryErrorReporterMock).toHaveBeenCalledTimes(2);
     expect(addReporter).toHaveBeenCalledTimes(4);
     expect(unregisterGa1).toHaveBeenCalledTimes(1);

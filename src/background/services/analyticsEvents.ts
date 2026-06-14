@@ -12,6 +12,10 @@ import {
   type AnalyticsEventQueueOptions,
   type AnalyticsTransportResult
 } from '../../shared/analytics';
+import {
+  createAnalyticsTransportConfig,
+  hasAnalyticsSendConsent
+} from '../../shared/analytics/analyticsRuntimeConfig';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
@@ -24,6 +28,7 @@ import {
 let initializationPromise: Promise<void> | null = null;
 let usageEventQueue: AnalyticsEventQueue | null = null;
 let usageEventQueueVersion = 'unknown';
+const USAGE_ANALYTICS_CONSENT_PROBE_EVENT: UsageEventName = 'support_dislike_clicked';
 
 type QueuedAnalyticsEventParams = Parameters<NonNullable<AnalyticsEventQueueOptions['send']>>[1];
 type UsageAnalyticsConsentSnapshot = {
@@ -87,7 +92,7 @@ function getUsageEventQueue(extensionVersion: string): AnalyticsEventQueue {
 
   usageEventQueueVersion = extensionVersion;
   usageEventQueue = createAnalyticsEventQueue({
-    getConfig: () => getAnalyticsConfigManager().getConfig(),
+    getConfig: () => createAnalyticsTransportConfig(getAnalyticsConfigManager().getConfig()),
     send: (eventName, params, config) =>
       sendQueuedUsageEvent(eventName, params, config, extensionVersion)
   });
@@ -101,7 +106,12 @@ export function clearQueuedUsageAnalyticsEvents(): void {
 export function clearQueuedUsageAnalyticsEventsIfConsentRevoked(
   config: UsageAnalyticsConsentSnapshot
 ): void {
-  if (config.enabled !== true || config.userConsent?.analytics !== true) {
+  if (
+    !hasAnalyticsSendConsent(
+      createAnalyticsTransportConfig(config),
+      USAGE_ANALYTICS_CONSENT_PROBE_EVENT
+    )
+  ) {
     clearQueuedUsageAnalyticsEvents();
   }
 }
@@ -112,18 +122,21 @@ async function sendQueuedUsageEvent(
   config: AnalyticsConfig,
   extensionVersion: string
 ): Promise<AnalyticsTransportResult> {
-  const result = await sendAnalyticsTransportEvent(eventName, params, config, {
-    extensionVersion
-  });
+  const result = await sendAnalyticsTransportEvent(
+    eventName,
+    params,
+    createAnalyticsTransportConfig(config),
+    {
+      extensionVersion
+    }
+  );
   logAnalyticsTransportResult(eventName, result);
   return result;
 }
 
 type SentAnalyticsTransportResult = Extract<AnalyticsTransportResult, { status: 'sent' }>;
 
-function summarizeDebugResponse(
-  debugResponse: unknown
-): {
+function summarizeDebugResponse(debugResponse: unknown): {
   hasMessages: boolean;
   messageCount: number;
 } {
@@ -217,8 +230,8 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
     return;
   }
 
-  const hasAnalyticsConsent = config.userConsent?.analytics === true;
-  if (!hasAnalyticsConsent) {
+  const runtimeConfig = createAnalyticsTransportConfig(config);
+  if (!hasAnalyticsSendConsent(runtimeConfig, eventName)) {
     clearQueuedUsageAnalyticsEvents();
     return;
   }

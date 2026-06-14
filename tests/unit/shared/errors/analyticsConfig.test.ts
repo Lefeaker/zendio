@@ -135,6 +135,57 @@ describe('analyticsConfig', () => {
     );
   });
 
+  it('creates deterministic analytics ids and redacts them for safe status output', async () => {
+    const identityModule = await import('../../../../src/shared/analytics/analyticsIdentity');
+
+    expect(
+      identityModule.createAnalyticsClientId(
+        () => 1700000000000,
+        () => 0.123456789
+      )
+    ).toBe('ext-loyw3v28-4fzzzxjyl');
+    expect(
+      identityModule.createAnalyticsSessionId(
+        () => 1700000000000,
+        () => 0.987654321
+      )
+    ).toBe('loyw3v28-zk000');
+    expect(identityModule.redactAnalyticsIdentity('ext-loyw3v28-4fzzzxjyl')).toBe('ext-loyw3v...');
+    expect(identityModule.redactAnalyticsIdentity(undefined)).toBeUndefined();
+  });
+
+  it('normalizes runtime consent and event-scoped sendability through shared helpers', async () => {
+    const runtimeConfigModule =
+      await import('../../../../src/shared/analytics/analyticsRuntimeConfig');
+
+    const errorOnlyRuntimeConfig = runtimeConfigModule.createAnalyticsTransportConfig({
+      enabled: false,
+      debugMode: false,
+      measurementId: 'G-ERROR1234',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      clientId: 'client-1',
+      sessionId: 'session-1',
+      userConsent: {
+        analytics: false,
+        errorReporting: true,
+        timestamp: 1,
+        version: '1.0'
+      },
+      reportingInterval: 30000,
+      maxErrorsPerSession: 50,
+      batchSize: 10
+    });
+
+    expect(errorOnlyRuntimeConfig.enabled).toBe(true);
+    expect(
+      runtimeConfigModule.hasAnalyticsSendConsent(errorOnlyRuntimeConfig, 'extension_error')
+    ).toBe(true);
+    expect(
+      runtimeConfigModule.hasAnalyticsSendConsent(errorOnlyRuntimeConfig, 'support_like_clicked')
+    ).toBe(false);
+  });
+
   it('retains the public proxy endpoint when stored config uses proxy-backed directDebug mode', async () => {
     vi.stubGlobal('__AIIINOB_GA_MEASUREMENT_ID__', 'G-BUILD1234');
     vi.stubGlobal('__AIIINOB_GA_TRANSPORT_MODE__', 'proxy');
