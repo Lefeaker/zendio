@@ -120,6 +120,10 @@ function runReport(sourceDir: string, distDir: string, archivePaths: string[] = 
 describe('report-ga-client-secret', () => {
   it('passes clean client source, build output, and package artifacts', () => {
     const fixture = createFixture({
+      sourceFiles: {
+        'shared/analytics/ownerProxy.ts':
+          'export const ownerProxy = "https://analytics.example.test/debug/mp/collect";\n'
+      },
       archives: [
         {
           fileName: 'clean.zip',
@@ -161,6 +165,40 @@ describe('report-ga-client-secret', () => {
       expect(result.stdout + result.stderr).toContain('build/dist');
       expect(result.stdout + result.stderr).toContain('google endpoint');
       expect(result.stdout + result.stderr).toContain('GA4_API_SECRET');
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails on canonical-equivalent Google endpoint variants in source, dist, and archives', () => {
+    const fixture = createFixture({
+      sourceFiles: {
+        'shared/analytics/sourceLeak.ts':
+          'export const endpoint = "https://www.google-analytics.com./mp/collect";\n'
+      },
+      distFiles: {
+        'content/runtime.js':
+          'const endpoint = "https://www.google-analytics.com/%6d%70/%63ollect";\n'
+      },
+      archives: [
+        {
+          fileName: 'encoded.zip',
+          entries: {
+            'content/runtime.js': 'fetch("https://google-analytics.com./debug/%6d%70/collect");\n'
+          }
+        }
+      ]
+    });
+
+    try {
+      const result = runReport(fixture.sourceDir, fixture.distDir, fixture.archivePaths);
+      const output = result.stdout + result.stderr;
+
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('src');
+      expect(output).toContain('build/dist');
+      expect(output).toContain('encoded.zip');
+      expect(output.match(/google endpoint/g)?.length).toBeGreaterThanOrEqual(3);
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }

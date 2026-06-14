@@ -118,16 +118,38 @@ export function normalizeProxyEndpoint(value: unknown): string | undefined {
 }
 
 function isGoogleMeasurementProtocolEndpoint(url: URL): boolean {
-  const hostname = url.hostname.toLowerCase();
-  const pathParts = url.pathname
-    .toLowerCase()
+  const hostname = canonicalizeEndpointHostname(url.hostname);
+  if (!isGoogleAnalyticsHost(hostname)) {
+    return false;
+  }
+
+  const pathParts = canonicalizeEndpointPathParts(url.pathname);
+  if (!pathParts) {
+    return true;
+  }
+
+  return (
+    pathParts.length > 0 &&
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some((parts) => pathParts.join('/') === parts.join('/'))
+  );
+}
+
+function canonicalizeEndpointHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname: string): string[] | undefined {
+  const parts = pathname
+    .replace(/\/+$/, '')
     .split('/')
     .map((part) => part.trim())
     .filter(Boolean);
-  return (
-    isGoogleAnalyticsHost(hostname) &&
-    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some((parts) => pathParts.join('/') === parts.join('/'))
-  );
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
 }
 
 function isGoogleAnalyticsHost(hostname: string): boolean {

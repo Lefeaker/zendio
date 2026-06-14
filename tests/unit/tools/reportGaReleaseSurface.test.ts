@@ -96,6 +96,11 @@ describe('report-ga-release-surface', () => {
     const fixture = createFixture();
     const chromeZip = join(fixture.root, 'fixture.zip');
     const firefoxXpi = join(fixture.root, 'fixture.xpi');
+    writeFile(
+      fixture.distDir,
+      'content/owner-proxy.js',
+      'fetch("https://analytics.example.test/debug/mp/collect");\n'
+    );
     createZipArchive(chromeZip, { 'content/runtime.js': 'console.info("chrome clean");\n' });
     createZipArchive(firefoxXpi, { 'content/runtime.js': 'console.info("firefox clean");\n' });
 
@@ -125,6 +130,31 @@ describe('report-ga-release-surface', () => {
       expect(result.status).not.toBe(0);
       expect(result.stdout + result.stderr).toContain('build/dist');
       expect(result.stdout + result.stderr).toContain('google endpoint');
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when build output or archives contain canonical-equivalent Google endpoints', () => {
+    const fixture = createFixture();
+    const chromeZip = join(fixture.root, 'fixture.zip');
+    writeFile(
+      fixture.distDir,
+      'content/runtime.js',
+      'fetch("https://www.google-analytics.com./mp/%63ollect");\n'
+    );
+    createZipArchive(chromeZip, {
+      'content/runtime.js': 'fetch("https://www.google-analytics.com/debug/%6d%70/collect");\n'
+    });
+
+    try {
+      const result = runReport(fixture.distDir, [chromeZip]);
+      const output = result.stdout + result.stderr;
+
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('build/dist');
+      expect(output).toContain('fixture.zip');
+      expect(output.match(/google endpoint/g)?.length).toBeGreaterThanOrEqual(2);
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });
     }

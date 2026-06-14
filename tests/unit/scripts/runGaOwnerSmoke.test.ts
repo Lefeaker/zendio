@@ -127,14 +127,30 @@ describe('run-ga-owner-smoke script', () => {
   });
 
   it('rejects Google Measurement Protocol endpoints as owner proxy endpoints', async () => {
-    const result = await runOwnerSmoke(['--mode', 'proxy', '--event', 'runtime_harness_open'], {
-      AIIINOB_GA_PROXY_ENDPOINT: 'https://www.google-analytics.com/debug/mp/collect',
-      ZENDIO_GA_PROXY_ENDPOINT: ''
-    });
+    const endpoints = [
+      'https://www.google-analytics.com/debug/mp/collect',
+      'https://www.google-analytics.com./mp/collect',
+      'https://google-analytics.com./debug/mp/collect',
+      'https://www.google-analytics.com/%6d%70/collect',
+      'https://www.google-analytics.com/mp/%63ollect',
+      'https://www.google-analytics.com/debug/%6d%70/collect'
+    ];
 
-    expect(result.status).not.toBe(0);
-    expect(`${result.stdout}${result.stderr}`).toContain('Google Measurement Protocol endpoint');
-    expect(`${result.stdout}${result.stderr}`).toContain('proxy endpoint');
+    for (const endpoint of endpoints) {
+      const result = await runOwnerSmoke(['--mode', 'proxy', '--event', 'runtime_harness_open'], {
+        AIIINOB_GA_PROXY_ENDPOINT: endpoint,
+        AIIINOB_GA_OWNER_SMOKE_TIMEOUT_MS: '25',
+        ZENDIO_GA_PROXY_ENDPOINT: ''
+      });
+
+      const output = `${result.stdout}${result.stderr}`;
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('invalid_configuration');
+      expect(output).toContain('Google Measurement Protocol endpoint');
+      expect(output).toContain('proxy endpoint');
+      expect(output).not.toContain('network_error');
+      expect(output).not.toContain('timed out');
+    }
   });
 
   it('rejects server-only GA secrets in the local environment', async () => {

@@ -258,6 +258,26 @@ describe('analytics transport', () => {
       {
         transportMode: 'directDebug' as const,
         proxyEndpoint: 'https://www.google-analytics.com/debug/mp/collect'
+      },
+      {
+        transportMode: 'proxy' as const,
+        proxyEndpoint: 'https://www.google-analytics.com./mp/collect'
+      },
+      {
+        transportMode: 'directDebug' as const,
+        proxyEndpoint: 'https://google-analytics.com./debug/mp/collect'
+      },
+      {
+        transportMode: 'proxy' as const,
+        proxyEndpoint: 'https://www.google-analytics.com/%6d%70/collect'
+      },
+      {
+        transportMode: 'proxy' as const,
+        proxyEndpoint: 'https://www.google-analytics.com/mp/%63ollect'
+      },
+      {
+        transportMode: 'directDebug' as const,
+        proxyEndpoint: 'https://www.google-analytics.com/debug/%6d%70/collect'
       }
     ];
 
@@ -277,6 +297,30 @@ describe('analytics transport', () => {
     }
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('allows owner proxy endpoints even when their path resembles Measurement Protocol', async () => {
+    const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    const result = await sendAnalyticsTransportEvent(
+      'support_dislike_clicked',
+      {},
+      {
+        ...baseConfig,
+        proxyEndpoint: 'https://analytics.example.test/debug/mp/collect'
+      },
+      { fetch: fetchMock }
+    );
+
+    expect(result).toEqual({ status: 'sent', transportMode: 'proxy', responseStatus: 200 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://analytics.example.test/debug/mp/collect',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('skips configs that do not have matching consent for the event class', async () => {

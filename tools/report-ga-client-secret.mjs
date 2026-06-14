@@ -5,12 +5,17 @@ import { inflateRawSync } from 'node:zlib';
 const DEFAULT_SOURCE_DIR = 'src';
 const DEFAULT_DIST_DIR = 'build/dist';
 const TEXT_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.html', '.css']);
+const URL_CANDIDATE_PATTERN = /https?:\/\/[^\s"'`<>()]+/gi;
+const GOOGLE_ANALYTICS_HOST_PARTS = ['google-analytics', 'com'];
+const GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS = [
+  ['mp', 'collect'],
+  ['debug', 'mp', 'collect']
+];
 
 export const CLIENT_SECRET_PATTERNS = Object.freeze([
   {
     label: 'google endpoint',
-    regex:
-      /https?:\/\/www\.google-analytics\.com\/(?:debug\/mp\/collect|mp\/collect)|google-analytics\.com\/(?:debug\/mp\/collect|mp\/collect)/gi
+    scan: scanGoogleEndpointCandidates
   },
   {
     label: 'secret-like GA token',
@@ -106,6 +111,11 @@ export function scanTextWithPatterns(scope, filePath, contents, patterns) {
   const findings = [];
 
   for (const pattern of patterns) {
+    if (typeof pattern.scan === 'function') {
+      findings.push(...pattern.scan(scope, filePath, contents));
+      continue;
+    }
+
     pattern.regex.lastIndex = 0;
     for (const match of contents.matchAll(pattern.regex)) {
       const index = match.index ?? 0;
@@ -123,6 +133,84 @@ export function scanTextWithPatterns(scope, filePath, contents, patterns) {
   }
 
   return findings;
+}
+
+function scanGoogleEndpointCandidates(scope, filePath, contents) {
+  const findings = [];
+
+  URL_CANDIDATE_PATTERN.lastIndex = 0;
+  for (const match of contents.matchAll(URL_CANDIDATE_PATTERN)) {
+    const rawCandidate = match[0];
+    const candidate = trimUrlCandidate(rawCandidate);
+    if (!isGoogleMeasurementProtocolEndpointCandidate(candidate)) {
+      continue;
+    }
+
+    const index = match.index ?? 0;
+    const { line, column } = findLineAndColumn(contents, index);
+    findings.push({
+      scope,
+      path: filePath,
+      label: 'google endpoint',
+      match: rawCandidate,
+      line,
+      column,
+      snippet: lineAt(contents, line)
+    });
+  }
+
+  return findings;
+}
+
+function trimUrlCandidate(candidate) {
+  return candidate.replace(/[.,;:!?]+$/g, '');
+}
+
+function isGoogleMeasurementProtocolEndpointCandidate(candidate) {
+  try {
+    const url = new URL(candidate);
+    const hostname = canonicalizeEndpointHostname(url.hostname);
+    if (!isGoogleAnalyticsHost(hostname)) {
+      return false;
+    }
+
+    const pathParts = canonicalizeEndpointPathParts(url.pathname);
+    if (!pathParts) {
+      return true;
+    }
+
+    return (
+      pathParts.length > 0 &&
+      GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some(
+        (parts) => pathParts.join('/') === parts.join('/')
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function canonicalizeEndpointHostname(hostname) {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname) {
+  const parts = pathname
+    .replace(/\/+$/, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
+}
+
+function isGoogleAnalyticsHost(hostname) {
+  const googleAnalyticsHost = GOOGLE_ANALYTICS_HOST_PARTS.join('.');
+  return hostname === googleAnalyticsHost || hostname.endsWith(`.${googleAnalyticsHost}`);
 }
 
 export function scanDirectoryWithPatterns(root, scope, patterns) {

@@ -66,6 +66,39 @@ describe('setup-error-analytics script', () => {
   });
 
   it('rejects Google Measurement Protocol endpoints as public proxy endpoint env', () => {
+    const endpoints = [
+      'https://www.google-analytics.com/mp/collect',
+      'https://www.google-analytics.com./mp/collect',
+      'https://google-analytics.com./debug/mp/collect',
+      'https://www.google-analytics.com/%6d%70/collect',
+      'https://www.google-analytics.com/mp/%63ollect',
+      'https://www.google-analytics.com/debug/%6d%70/collect'
+    ];
+
+    for (const endpoint of endpoints) {
+      const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+        cwd: PROJECT_ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ZENDIO_GA_MEASUREMENT_ID: '',
+          ZENDIO_GA_TRANSPORT_MODE: '',
+          ZENDIO_GA_PROXY_ENDPOINT: '',
+          AIIINOB_GA_MEASUREMENT_ID: 'G-ABCD1234',
+          AIIINOB_GA_TRANSPORT_MODE: 'proxy',
+          AIIINOB_GA_PROXY_ENDPOINT: endpoint
+        }
+      });
+
+      const output = stripAnsi(`${result.stdout}${result.stderr}`);
+
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('Google Measurement Protocol endpoint');
+      expect(output).toContain('proxy endpoint');
+    }
+  });
+
+  it('accepts owner proxy endpoint paths that resemble Measurement Protocol on non-Google hosts', () => {
     const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
@@ -76,15 +109,14 @@ describe('setup-error-analytics script', () => {
         ZENDIO_GA_PROXY_ENDPOINT: '',
         AIIINOB_GA_MEASUREMENT_ID: 'G-ABCD1234',
         AIIINOB_GA_TRANSPORT_MODE: 'proxy',
-        AIIINOB_GA_PROXY_ENDPOINT: 'https://www.google-analytics.com/mp/collect'
+        AIIINOB_GA_PROXY_ENDPOINT: 'https://analytics.example.test/debug/mp/collect'
       }
     });
 
     const output = stripAnsi(`${result.stdout}${result.stderr}`);
 
-    expect(result.status).not.toBe(0);
-    expect(output).toContain('Google Measurement Protocol endpoint');
-    expect(output).toContain('proxy endpoint');
+    expect(result.status).toBe(0);
+    expect(output).toContain('proxy endpoint format looks valid');
   });
 
   it('keeps client runtime free of server-only GA secrets', async () => {

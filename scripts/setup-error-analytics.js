@@ -18,8 +18,11 @@ import ts from 'typescript';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.join(__dirname, '..');
-const GOOGLE_ANALYTICS_HOST_SUFFIX = '.google-analytics.com';
-const GOOGLE_MEASUREMENT_PROTOCOL_PATHS = new Set(['/mp/collect', '/debug/mp/collect']);
+const GOOGLE_ANALYTICS_HOST_PARTS = ['google-analytics', 'com'];
+const GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS = [
+  ['mp', 'collect'],
+  ['debug', 'mp', 'collect']
+];
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -590,13 +593,45 @@ function resolvePublicEnv(newName, oldName) {
 }
 
 function isGoogleMeasurementProtocolEndpointUrl(url) {
-  const hostname = url.hostname.toLowerCase();
-  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
-  return isGoogleAnalyticsHost(hostname) && GOOGLE_MEASUREMENT_PROTOCOL_PATHS.has(pathname);
+  const hostname = canonicalizeEndpointHostname(url.hostname);
+  if (!isGoogleAnalyticsHost(hostname)) {
+    return false;
+  }
+
+  const pathParts = canonicalizeEndpointPathParts(url.pathname);
+  if (!pathParts) {
+    return true;
+  }
+
+  return (
+    pathParts.length > 0 &&
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some(
+      (parts) => pathParts.join('/') === parts.join('/')
+    )
+  );
+}
+
+function canonicalizeEndpointHostname(hostname) {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname) {
+  const parts = pathname
+    .replace(/\/+$/, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
 }
 
 function isGoogleAnalyticsHost(hostname) {
-  return hostname === 'google-analytics.com' || hostname.endsWith(GOOGLE_ANALYTICS_HOST_SUFFIX);
+  const googleAnalyticsHost = GOOGLE_ANALYTICS_HOST_PARTS.join('.');
+  return hostname === googleAnalyticsHost || hostname.endsWith(`.${googleAnalyticsHost}`);
 }
 
 function validateEnvironmentVariables() {

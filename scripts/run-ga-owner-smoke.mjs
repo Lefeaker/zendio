@@ -7,8 +7,11 @@ const SUPPORTED_MODES = /** @type {const} */ (['proxy', 'directDebug']);
 const SUPPORTED_EVENTS = /** @type {const} */ (['runtime_harness_open']);
 const PUBLIC_ENV_FORBIDDEN_PATTERN =
   /(api[_-]?key|api[_-]?secret|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|secret|token|password)/i;
-const GOOGLE_ANALYTICS_HOST_SUFFIX = '.google-analytics.com';
-const GOOGLE_MEASUREMENT_PROTOCOL_PATHS = new Set(['/mp/collect', '/debug/mp/collect']);
+const GOOGLE_ANALYTICS_HOST_PARTS = ['google-analytics', 'com'];
+const GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS = [
+  ['mp', 'collect'],
+  ['debug', 'mp', 'collect']
+];
 const FORBIDDEN_SECRET_ENV_NAMES = Object.freeze([
   'GA4_API_SECRET',
   'ZENDIO_GA_API_SECRET',
@@ -177,13 +180,45 @@ function isGoogleMeasurementProtocolEndpoint(value) {
 }
 
 function isGoogleMeasurementProtocolEndpointUrl(url) {
-  const hostname = url.hostname.toLowerCase();
-  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
-  return isGoogleAnalyticsHost(hostname) && GOOGLE_MEASUREMENT_PROTOCOL_PATHS.has(pathname);
+  const hostname = canonicalizeEndpointHostname(url.hostname);
+  if (!isGoogleAnalyticsHost(hostname)) {
+    return false;
+  }
+
+  const pathParts = canonicalizeEndpointPathParts(url.pathname);
+  if (!pathParts) {
+    return true;
+  }
+
+  return (
+    pathParts.length > 0 &&
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some(
+      (parts) => pathParts.join('/') === parts.join('/')
+    )
+  );
+}
+
+function canonicalizeEndpointHostname(hostname) {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname) {
+  const parts = pathname
+    .replace(/\/+$/, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
 }
 
 function isGoogleAnalyticsHost(hostname) {
-  return hostname === 'google-analytics.com' || hostname.endsWith(GOOGLE_ANALYTICS_HOST_SUFFIX);
+  const googleAnalyticsHost = GOOGLE_ANALYTICS_HOST_PARTS.join('.');
+  return hostname === googleAnalyticsHost || hostname.endsWith(`.${googleAnalyticsHost}`);
 }
 
 export function parseOwnerSmokeArgs(argv) {
