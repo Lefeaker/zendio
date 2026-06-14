@@ -28,10 +28,8 @@ import {
   flushVideoSessionDraftNow,
   syncVideoSessionCommentDraftsFromDom
 } from './videoSessionDraftSync';
-import {
-  cleanupVideoDraftTerminalArtifacts,
-  restoreVideoDraftCachedScreenshots
-} from './videoSessionDraftScreenshotCache';
+import { cleanupVideoDraftTerminalArtifacts } from './videoSessionDraftScreenshotCache';
+import { scheduleRestoredVideoDraftScreenshotHydration } from './videoSessionDraftScreenshotHydration';
 import { buildVideoTerminalEnvelopeForExactKey } from './videoSessionDraftTerminal';
 
 export class VideoSessionDraftController implements VideoSessionDraftRuntimePort {
@@ -122,14 +120,8 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    applyVideoSessionCommentDrafts(
-      this.options.state,
-      {},
-      {
-        hydrateDom: true,
-        dom: this.options.dom
-      }
-    );
+    const dom = this.options.dom;
+    applyVideoSessionCommentDrafts(this.options.state, {}, { hydrateDom: true, dom });
   }
 
   async scheduleSave(): Promise<void> {
@@ -303,34 +295,15 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   }
 
   private scheduleRestoredScreenshotHydration(captures: VideoCapture[]): void {
-    const generation = this.screenshotHydrationGeneration + 1;
-    this.screenshotHydrationGeneration = generation;
-    void this.hydrateRestoredScreenshots(captures, generation);
-  }
-
-  private async hydrateRestoredScreenshots(
-    captures: VideoCapture[],
-    generation: number
-  ): Promise<void> {
-    const result = await restoreVideoDraftCachedScreenshots(captures, this.options.screenshotCache);
-    if (
-      generation !== this.screenshotHydrationGeneration ||
-      this.options.state.captures !== captures
-    ) {
-      return;
-    }
-
-    const removedRefCount = result.invalidRefCount + result.staleRefCount;
-    if (result.hydratedCount > 0 || removedRefCount > 0) {
-      this.options.onScreenshotHydrationChange?.();
-    }
-    if (removedRefCount > 0) {
-      void this.scheduleSave().catch((error) => {
-        console.warn(
-          '[VideoSession] Failed to save draft after clearing stale screenshot refs:',
-          error
-        );
-      });
-    }
+    const generation = ++this.screenshotHydrationGeneration;
+    scheduleRestoredVideoDraftScreenshotHydration({
+      captures,
+      screenshotCache: this.options.screenshotCache,
+      isCurrent: () =>
+        generation === this.screenshotHydrationGeneration &&
+        this.options.state.captures === captures,
+      onScreenshotHydrationChange: this.options.onScreenshotHydrationChange,
+      scheduleSave: () => this.scheduleSave()
+    });
   }
 }

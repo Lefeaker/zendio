@@ -1,15 +1,12 @@
-import {
-  markTimestampScreenshotPreparationFailed,
-  setTimestampScreenshot
-} from './screenshotIntent';
+import { setTimestampScreenshot } from './screenshotIntent';
 import { VideoScreenshotPreparationRequestStore } from './videoScreenshotPreparationRequestStore';
-import type { VideoScreenshotPreparationQueueStateSnapshot } from './videoScreenshotPreparationRequestSnapshots';
-import {
-  notifyVideoScreenshotPrepared,
-  type VideoScreenshotPreparedCallback
-} from './videoScreenshotPreparationCallbacks';
+import { notifyVideoScreenshotPrepared } from './videoScreenshotPreparationCallbacks';
 import { VideoScreenshotPreparationCaptureIndex } from './videoScreenshotPreparationCaptureIndex';
 import { scheduleHiddenDuplicateCaptures } from './videoScreenshotPreparationHiddenSlots';
+import {
+  VideoScreenshotHiddenRetryController,
+  type HiddenDuplicateCaptureOutcome
+} from './videoScreenshotPreparationHiddenRetry';
 import { approximatelyEqualVideoTime } from './videoTimeMath';
 import {
   configureHiddenDuplicateVideo,
@@ -20,13 +17,15 @@ import {
   type AbortableVideoScope
 } from './videoAbortableWait';
 import { captureVideoFrameScreenshotAsync } from './videoFrameScreenshot';
-import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
+import type {
+  CreateVideoScreenshotPreparationQueueArgs,
+  VideoScreenshotFrameCapture
+} from './videoScreenshotPreparationQueueTypes';
+import type { VideoTimestampCapture } from './types';
 
 const DEFAULT_TOLERANCE_SEC = 0.25;
 const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
-const DEFAULT_HIDDEN_DUPLICATE_MAX_ATTEMPTS = 2;
-const DEFAULT_HIDDEN_DUPLICATE_RETRY_BACKOFF_MS = 250;
 const VISIBLE_TIME_EVENTS = ['timeupdate', 'seeked'] as const;
 const VISIBLE_READY_EVENTS = ['loadedmetadata', 'loadeddata', 'canplay'] as const;
 
@@ -37,41 +36,14 @@ export interface VideoScreenshotPreparationQueue {
   dispose(): void;
 }
 
-type VideoScreenshotFrameCapture = (
-  video: HTMLVideoElement,
-  timeSec: number,
-  now?: number
-) => VideoCaptureScreenshot | null | Promise<VideoCaptureScreenshot | null>;
-
-interface CreateVideoScreenshotPreparationQueueArgs {
-  doc: Document;
-  getCaptures: () => VideoTimestampCapture[];
-  getVisibleVideo: () => HTMLVideoElement | null;
-  captureFrame?: VideoScreenshotFrameCapture;
-  captureVisibleFrame?: VideoScreenshotFrameCapture | undefined;
-  syncPanel: () => void;
-  maxHiddenDuplicateConcurrency?: number;
-  maxHiddenDuplicateAttempts?: number;
-  hiddenRetryBackoffMs?: number;
-  onScreenshotPrepared?: VideoScreenshotPreparedCallback;
-  toleranceSec?: number;
-  timeoutMs?: number;
-  __testHooks?: {
-    onStateChange?: (snapshot: VideoScreenshotPreparationQueueStateSnapshot) => void;
-  };
-}
-
 interface HiddenDuplicateCaptureAttempt {
   scope: AbortableVideoScope;
   sourceVideo: HTMLVideoElement;
 }
 
-type HiddenDuplicateCaptureOutcome = 'succeeded' | 'failed' | 'aborted';
-
 class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPreparationQueue {
   private visibleVideo: HTMLVideoElement | null = null;
   private disposed = false;
-  private hiddenRetryTimer: ReturnType<Window['setTimeout']> | null = null;
   private readonly requestStore =
     new VideoScreenshotPreparationRequestStore<HiddenDuplicateCaptureAttempt>(
       this.args.__testHooks?.onStateChange
@@ -80,6 +52,15 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     () => this.args.getCaptures(),
     this.requestStore
   );
+  private readonly hiddenRetry = new VideoScreenshotHiddenRetryController({
+    doc: this.args.doc,
+    requestStore: this.requestStore,
+    findPendingCapture: (captureId) => this.captureIndex.findPending(captureId),
+    syncPanel: this.args.syncPanel,
+    processRequests: () => this.processRequests(),
+    maxHiddenDuplicateAttempts: this.args.maxHiddenDuplicateAttempts,
+    hiddenRetryBackoffMs: this.args.hiddenRetryBackoffMs
+  });
   private readonly handleVisibleTimeProgress = () => void this.captureFromVisibleVideo('time');
   private readonly handleVisibleFrameReady = () => void this.captureFromVisibleVideo('ready');
   constructor(private readonly args: CreateVideoScreenshotPreparationQueueArgs) {}
@@ -123,7 +104,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     this.disposed = true;
-    this.clearHiddenRetryTimer();
+    this.hiddenRetry.dispose();
     this.detachVisibleVideoListeners();
     this.requestStore.disposeAll();
     this.visibleVideo = null;
@@ -134,7 +115,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     this.captureIndex.pruneTracked();
     if (this.requestStore.getTrackedIds().length === 0) {
-      this.clearHiddenRetryTimer();
+      this.hiddenRetry.clear();
       return;
     }
     void this.captureFromVisibleVideo('manual');
@@ -157,7 +138,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       enqueue: (sourceVideo, duplicateSourceUrl, captureId) =>
         this.enqueueHiddenDuplicateCapture(sourceVideo, duplicateSourceUrl, captureId)
     });
-    this.scheduleNextHiddenRetry(operationTime);
+    this.hiddenRetry.schedule(operationTime);
   }
   private async captureFromVisibleVideo(reason: 'manual' | 'ready' | 'time'): Promise<void> {
     if (this.disposed) {
@@ -253,7 +234,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     void this.attemptHiddenDuplicateCapture(attempt, sourceUrl, captureId).then((outcome) => {
       this.requestStore.finishHiddenAttempt(captureId, attempt);
-      this.handleHiddenDuplicateOutcome(captureId, outcome);
+      if (!this.disposed) {
+        this.hiddenRetry.handleOutcome(captureId, outcome);
+      }
       if (this.disposed || this.requestStore.getTrackedIds().length === 0) {
         return;
       }
@@ -376,20 +359,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
   }
 
-  private getMaxHiddenDuplicateAttempts(): number {
-    const value = this.args.maxHiddenDuplicateAttempts;
-    return Number.isInteger(value) && typeof value === 'number' && value > 0
-      ? value
-      : DEFAULT_HIDDEN_DUPLICATE_MAX_ATTEMPTS;
-  }
-
-  private getHiddenRetryBackoffMs(): number {
-    const value = this.args.hiddenRetryBackoffMs;
-    return Number.isInteger(value) && typeof value === 'number' && value >= 0
-      ? value
-      : DEFAULT_HIDDEN_DUPLICATE_RETRY_BACKOFF_MS;
-  }
-
   private getExplicitVisibleTolerance(
     captureId: string,
     reason: 'manual' | 'ready' | 'time',
@@ -422,61 +391,6 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (sourceUrl) {
       this.enqueueHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId);
     }
-  }
-
-  private handleHiddenDuplicateOutcome(
-    captureId: string,
-    outcome: HiddenDuplicateCaptureOutcome
-  ): void {
-    if (outcome !== 'failed' || this.disposed) {
-      return;
-    }
-    const capture = this.captureIndex.findPending(captureId);
-    if (!capture) {
-      this.requestStore.clearTracked(captureId);
-      return;
-    }
-
-    const failureResult = this.requestStore.recordHiddenAttemptFailure(captureId, {
-      maxAttempts: this.getMaxHiddenDuplicateAttempts(),
-      retryAvailableAt: Date.now() + this.getHiddenRetryBackoffMs()
-    });
-
-    if (failureResult === 'terminal') {
-      markTimestampScreenshotPreparationFailed(capture);
-      this.requestStore.clearTracked(captureId);
-      this.args.syncPanel();
-      return;
-    }
-
-    if (failureResult === 'retry') {
-      this.scheduleNextHiddenRetry();
-    }
-  }
-
-  private scheduleNextHiddenRetry(now = Date.now()): void {
-    this.clearHiddenRetryTimer();
-    const retryAt = this.requestStore.getNextHiddenRetryAt(now);
-    if (retryAt === null || this.disposed) {
-      return;
-    }
-    const view = this.args.doc.defaultView ?? window;
-    this.hiddenRetryTimer = view.setTimeout(
-      () => {
-        this.hiddenRetryTimer = null;
-        this.processRequests();
-      },
-      Math.max(0, retryAt - now)
-    );
-  }
-
-  private clearHiddenRetryTimer(): void {
-    if (this.hiddenRetryTimer === null) {
-      return;
-    }
-    const view = this.args.doc.defaultView ?? window;
-    view.clearTimeout(this.hiddenRetryTimer);
-    this.hiddenRetryTimer = null;
   }
 }
 
