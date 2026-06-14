@@ -76,6 +76,39 @@ describe('prepareAnalyticsDataClearedEvent', () => {
     expect(Object.keys(sentParams ?? {})).toEqual(['outcome']);
   });
 
+  it('keeps using the pre-clear snapshot after later config changes', async () => {
+    const config = createConfig();
+    getConfigMock.mockReturnValue(config);
+
+    const sendFinalEvent = await prepareAnalyticsDataClearedEvent();
+    getConfigMock.mockReturnValue(
+      createConfig({
+        enabled: false,
+        clientId: undefined,
+        sessionId: undefined,
+        userConsent: {
+          analytics: false,
+          errorReporting: false,
+          timestamp: 2,
+          version: '1.0'
+        }
+      })
+    );
+
+    await sendFinalEvent();
+
+    expect(sendAnalyticsTransportEventMock).toHaveBeenCalledWith(
+      'analytics_data_cleared',
+      { outcome: 'completed' },
+      expect.objectContaining({
+        clientId: 'client-1',
+        sessionId: 'session-1',
+        measurementId: 'G-1234567890',
+        userConsent: expect.objectContaining({ analytics: true })
+      })
+    );
+  });
+
   it('does not send without prior analytics consent', async () => {
     getConfigMock.mockReturnValue(
       createConfig({

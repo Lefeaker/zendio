@@ -151,7 +151,15 @@ describe('GoogleAnalyticsReporter', () => {
     expect(JSON.stringify(params)).not.toContain('PrivateFolder');
     expect(reporter.getConfig().measurementId).toBe('G-123');
     expect(reporter.isEnabled()).toBe(true);
-    reporter.updateConfig({ enabled: false });
+    reporter.updateConfig({
+      enabled: false,
+      userConsent: {
+        analytics: false,
+        errorReporting: false,
+        timestamp: 101,
+        version: '1.0'
+      }
+    });
     expect(reporter.isEnabled()).toBe(false);
     reporter.renewSession();
   });
@@ -211,6 +219,67 @@ describe('GoogleAnalyticsReporter', () => {
         proxyEndpoint: 'https://analytics.example.test/live',
         clientId: 'reporter-client',
         sessionId: 'reporter-session',
+        userConsent: liveConfig.userConsent
+      }),
+      expect.objectContaining({
+        extensionVersion: '3.2.1'
+      })
+    );
+  });
+
+  it('prefers live manager identity over minting fallback ids when reporter config omits them', async () => {
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const liveConfig = {
+      enabled: true,
+      debugMode: false,
+      measurementId: 'G-LIVE999',
+      transportMode: 'proxy' as const,
+      proxyEndpoint: 'https://analytics.example.test/live',
+      clientId: 'manager-client',
+      sessionId: 'manager-session',
+      userConsent: {
+        analytics: true,
+        errorReporting: true,
+        timestamp: 300,
+        version: '1.0'
+      },
+      reportingInterval: 45000,
+      maxErrorsPerSession: 50,
+      batchSize: 3
+    };
+    const reporter = new GoogleAnalyticsReporter({
+      enabled: true,
+      measurementId: 'G-123',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      userConsent: {
+        analytics: true,
+        errorReporting: true,
+        timestamp: 100,
+        version: '1.0'
+      },
+      resolveAnalyticsConfig: () => liveConfig
+    });
+
+    await reporter.report({
+      code: 'REST_NETWORK_TIMEOUT',
+      domain: 'background',
+      severity: ErrorSeverity.CRITICAL,
+      recoverable: true,
+      message: 'oops',
+      timestamp: Date.now()
+    });
+
+    expect(sendAnalyticsTransportEventMock).toHaveBeenCalledWith(
+      'extension_error',
+      expect.any(Object),
+      expect.objectContaining({
+        measurementId: 'G-LIVE999',
+        transportMode: 'proxy',
+        proxyEndpoint: 'https://analytics.example.test/live',
+        clientId: 'manager-client',
+        sessionId: 'manager-session',
         userConsent: liveConfig.userConsent
       }),
       expect.objectContaining({
