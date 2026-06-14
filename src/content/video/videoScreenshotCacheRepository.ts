@@ -5,6 +5,11 @@ import {
 import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { VideoCaptureScreenshot } from './types';
 import {
+  pruneVideoScreenshotCacheIndexEntries,
+  type VideoScreenshotCacheIndexState
+} from './videoScreenshotCacheIndex';
+import { runSerializedVideoScreenshotCacheIndexMutation } from './videoScreenshotCacheIndexMutationQueue';
+import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
   VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES,
   VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES,
@@ -71,34 +76,8 @@ export interface VideoScreenshotCacheRepository {
   pruneToLimits(): Promise<void>;
 }
 
-interface IndexState {
-  entries: VideoScreenshotCacheIndexEntry[];
-  dirty: boolean;
-}
-
-interface PruneOptions {
-  now: number;
-  maxGlobalEntries: number;
-  maxPageEntries: number;
-  applyLimits: boolean;
-}
-
 function normalizePositiveInteger(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
-}
-
-function sortNewestFirst(
-  entries: readonly VideoScreenshotCacheIndexEntry[]
-): VideoScreenshotCacheIndexEntry[] {
-  return [...entries].sort((left, right) => {
-    if (right.updatedAt !== left.updatedAt) {
-      return right.updatedAt - left.updatedAt;
-    }
-    if (right.createdAt !== left.createdAt) {
-      return right.createdAt - left.createdAt;
-    }
-    return right.capturedAt - left.capturedAt;
-  });
 }
 
 function hasBlobContent(
@@ -164,78 +143,6 @@ function matchesRef(entry: VideoScreenshotCacheEntry, ref: VideoScreenshotCacheR
   );
 }
 
-function pruneIndexEntries(
-  entries: readonly VideoScreenshotCacheIndexEntry[],
-  options: PruneOptions
-): { entries: VideoScreenshotCacheIndexEntry[]; removedKeys: string[]; dirty: boolean } {
-  const newestFirst = sortNewestFirst(entries);
-  const uniqueEntries: VideoScreenshotCacheIndexEntry[] = [];
-  const seenKeys = new Set<string>();
-
-  for (const entry of newestFirst) {
-    if (seenKeys.has(entry.key)) {
-      continue;
-    }
-    seenKeys.add(entry.key);
-    uniqueEntries.push(entry);
-  }
-
-  const removedKeys: string[] = [];
-  let retained = uniqueEntries.filter((entry) => {
-    if (entry.expiresAt <= options.now) {
-      removedKeys.push(entry.key);
-      return false;
-    }
-    return true;
-  });
-
-  if (options.applyLimits) {
-    const perPageRetained: VideoScreenshotCacheIndexEntry[] = [];
-    const groupedByPage = new Map<string, VideoScreenshotCacheIndexEntry[]>();
-
-    for (const entry of retained) {
-      const pageEntries = groupedByPage.get(entry.pageKey);
-      if (pageEntries) {
-        pageEntries.push(entry);
-      } else {
-        groupedByPage.set(entry.pageKey, [entry]);
-      }
-    }
-
-    for (const pageEntries of groupedByPage.values()) {
-      const sorted = sortNewestFirst(pageEntries);
-      perPageRetained.push(...sorted.slice(0, options.maxPageEntries));
-      for (const entry of sorted.slice(options.maxPageEntries)) {
-        removedKeys.push(entry.key);
-      }
-    }
-
-    retained = sortNewestFirst(perPageRetained);
-
-    if (retained.length > options.maxGlobalEntries) {
-      for (const entry of retained.slice(options.maxGlobalEntries)) {
-        removedKeys.push(entry.key);
-      }
-      retained = retained.slice(0, options.maxGlobalEntries);
-    }
-  }
-
-  const finalEntries = sortNewestFirst(retained);
-  const originalKeys = entries.map((entry) => entry.key);
-  const finalKeys = finalEntries.map((entry) => entry.key);
-  const dirty =
-    removedKeys.length > 0 ||
-    uniqueEntries.length !== entries.length ||
-    originalKeys.length !== finalKeys.length ||
-    originalKeys.some((key, index) => finalKeys[index] !== key);
-
-  return {
-    entries: finalEntries,
-    removedKeys: Array.from(new Set(removedKeys)),
-    dirty
-  };
-}
-
 export function createVideoScreenshotCacheRepository(
   area: StorageAreaService,
   options: VideoScreenshotCacheRepositoryOptions = {}
@@ -255,7 +162,7 @@ export function createVideoScreenshotCacheRepository(
   );
   const now = options.now ?? (() => Date.now());
 
-  async function readIndexState(): Promise<IndexState> {
+  async function readIndexState(): Promise<VideoScreenshotCacheIndexState> {
     const raw = await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY);
     if (raw === undefined) {
       return {
@@ -298,29 +205,33 @@ export function createVideoScreenshotCacheRepository(
       return;
     }
 
-    const indexState = await readIndexState();
-    const nextEntries = indexState.entries.filter((entry) => !keySet.has(entry.key));
-    await persistIndex(
-      nextEntries,
-      [...keySet],
-      indexState.dirty || nextEntries.length !== indexState.entries.length
-    );
+    await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
+      const indexState = await readIndexState();
+      const nextEntries = indexState.entries.filter((entry) => !keySet.has(entry.key));
+      await persistIndex(
+        nextEntries,
+        [...keySet],
+        indexState.dirty || nextEntries.length !== indexState.entries.length
+      );
+    });
   }
 
   async function prune(applyLimits: boolean): Promise<void> {
-    const indexState = await readIndexState();
-    const nextState = pruneIndexEntries(indexState.entries, {
-      now: now(),
-      maxGlobalEntries,
-      maxPageEntries,
-      applyLimits
+    await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
+      const indexState = await readIndexState();
+      const nextState = pruneVideoScreenshotCacheIndexEntries(indexState.entries, {
+        now: now(),
+        maxGlobalEntries,
+        maxPageEntries,
+        applyLimits
+      });
+
+      if (!indexState.dirty && !nextState.dirty && nextState.removedKeys.length === 0) {
+        return;
+      }
+
+      await persistIndex(nextState.entries, nextState.removedKeys, true);
     });
-
-    if (!indexState.dirty && !nextState.dirty && nextState.removedKeys.length === 0) {
-      return;
-    }
-
-    await persistIndex(nextState.entries, nextState.removedKeys, true);
   }
 
   return {
@@ -403,47 +314,49 @@ export function createVideoScreenshotCacheRepository(
 
       const ref = buildRef(entry);
       const nextIndexEntry = buildIndexEntry(entry);
-      const indexState = await readIndexState();
-      const replacedKeys = indexState.entries
-        .filter(
-          (currentEntry) =>
-            currentEntry.key !== nextIndexEntry.key &&
-            currentEntry.pageKey === nextIndexEntry.pageKey &&
-            currentEntry.captureId === nextIndexEntry.captureId
-        )
-        .map((currentEntry) => currentEntry.key);
-
-      const nextState = pruneIndexEntries(
-        [
-          nextIndexEntry,
-          ...indexState.entries.filter(
+      await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
+        const indexState = await readIndexState();
+        const replacedKeys = indexState.entries
+          .filter(
             (currentEntry) =>
               currentEntry.key !== nextIndexEntry.key &&
-              !(
-                currentEntry.pageKey === nextIndexEntry.pageKey &&
-                currentEntry.captureId === nextIndexEntry.captureId
-              )
+              currentEntry.pageKey === nextIndexEntry.pageKey &&
+              currentEntry.captureId === nextIndexEntry.captureId
           )
-        ],
-        {
-          now: operationTime,
-          maxGlobalEntries,
-          maxPageEntries,
-          applyLimits: true
+          .map((currentEntry) => currentEntry.key);
+
+        const nextState = pruneVideoScreenshotCacheIndexEntries(
+          [
+            nextIndexEntry,
+            ...indexState.entries.filter(
+              (currentEntry) =>
+                currentEntry.key !== nextIndexEntry.key &&
+                !(
+                  currentEntry.pageKey === nextIndexEntry.pageKey &&
+                  currentEntry.captureId === nextIndexEntry.captureId
+                )
+            )
+          ],
+          {
+            now: operationTime,
+            maxGlobalEntries,
+            maxPageEntries,
+            applyLimits: true
+          }
+        );
+
+        await area.setMany({
+          [entry.key]: entry,
+          [VIDEO_SCREENSHOT_CACHE_INDEX_KEY]: createVideoScreenshotCacheIndex(nextState.entries)
+        });
+
+        const removedKeys = Array.from(
+          new Set([...replacedKeys, ...nextState.removedKeys.filter((key) => key !== entry.key)])
+        );
+        if (removedKeys.length > 0) {
+          await area.remove(removedKeys);
         }
-      );
-
-      await area.setMany({
-        [entry.key]: entry,
-        [VIDEO_SCREENSHOT_CACHE_INDEX_KEY]: createVideoScreenshotCacheIndex(nextState.entries)
       });
-
-      const removedKeys = Array.from(
-        new Set([...replacedKeys, ...nextState.removedKeys.filter((key) => key !== entry.key)])
-      );
-      if (removedKeys.length > 0) {
-        await area.remove(removedKeys);
-      }
 
       return {
         status: 'saved',

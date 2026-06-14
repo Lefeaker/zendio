@@ -68,6 +68,73 @@ class MemoryStorageArea implements StorageAreaService {
   }
 }
 
+class DelayedIndexReadStorageArea implements StorageAreaService {
+  private readonly area = new MemoryStorageArea();
+  private pendingIndexResolvers: Array<() => void> = [];
+  private releaseScheduled = false;
+
+  async get<T = StoredValue>(key: string): Promise<T | undefined> {
+    if (key === VIDEO_SCREENSHOT_CACHE_INDEX_KEY) {
+      await this.waitForIndexReadTurn();
+    }
+    return this.area.get<T>(key);
+  }
+
+  set<T = StoredValue>(key: string, value: T): Promise<void> {
+    return this.area.set(key, value);
+  }
+
+  getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
+    return this.area.getMany<T>(keys);
+  }
+
+  setMany<T = StoredValue>(entries: Record<string, T>): Promise<void> {
+    return this.area.setMany<T>(entries);
+  }
+
+  remove(key: string | string[]): Promise<void> {
+    return this.area.remove(key);
+  }
+
+  clear(): Promise<void> {
+    return this.area.clear();
+  }
+
+  watchKey(): () => void {
+    return () => undefined;
+  }
+
+  watchAll(): () => void {
+    return () => undefined;
+  }
+
+  snapshotKeys(): string[] {
+    return this.area.snapshotKeys();
+  }
+
+  private waitForIndexReadTurn(): Promise<void> {
+    return new Promise((resolve) => {
+      this.pendingIndexResolvers.push(resolve);
+      if (this.pendingIndexResolvers.length >= 2) {
+        this.releasePendingIndexReads();
+        return;
+      }
+      if (!this.releaseScheduled) {
+        this.releaseScheduled = true;
+        setTimeout(() => this.releasePendingIndexReads(), 0);
+      }
+    });
+  }
+
+  private releasePendingIndexReads(): void {
+    const resolvers = this.pendingIndexResolvers.splice(0);
+    this.releaseScheduled = false;
+    for (const resolve of resolvers) {
+      resolve();
+    }
+  }
+}
+
 function requireCacheRef(
   ref: VideoScreenshotCacheRef | undefined,
   label = 'expected cache ref'
@@ -97,11 +164,14 @@ function createScreenshot(
   };
 }
 
-async function readIndex(area: MemoryStorageArea) {
+async function readIndex(area: Pick<StorageAreaService, 'get'>) {
   return normalizeVideoScreenshotCacheIndex(await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY));
 }
 
-async function expectRemoved(area: MemoryStorageArea, ref: VideoScreenshotCacheRef): Promise<void> {
+async function expectRemoved(
+  area: Pick<StorageAreaService, 'get'>,
+  ref: VideoScreenshotCacheRef
+): Promise<void> {
   expect(await area.get(ref.key)).toBeUndefined();
   const index = await readIndex(area);
   expect(index?.entries.find((entry) => entry.key === ref.key)).toBeUndefined();
@@ -445,5 +515,50 @@ describe('videoScreenshotCacheRepository', () => {
     expect((await readIndex(area))?.entries).toEqual([]);
     expect(await area.get(requireCacheRef(savedRefs[1]).key)).toBeUndefined();
     expect(await area.get(requireCacheRef(savedRefs[2]).key)).toBeUndefined();
+  });
+
+  it('serializes concurrent saves so the index retains all saved entries and prune can remove them', async () => {
+    const area = new DelayedIndexReadStorageArea();
+    let nowMs = BASE_TIME;
+    const repository = createVideoScreenshotCacheRepository(area, {
+      now: () => nowMs,
+      ttlMs: 20
+    });
+
+    const [first, second] = await Promise.all([
+      repository.save({
+        pageKey: 'page-a',
+        captureId: 'capture-a',
+        screenshot: createScreenshot('shot-a', 'frame-a')
+      }),
+      repository.save({
+        pageKey: 'page-a',
+        captureId: 'capture-b',
+        screenshot: createScreenshot('shot-b', 'frame-b')
+      })
+    ]);
+
+    expect(first.status).toBe('saved');
+    expect(second.status).toBe('saved');
+    if (first.status !== 'saved' || second.status !== 'saved') {
+      throw new Error('expected both concurrent saves to succeed');
+    }
+
+    expect((await readIndex(area))?.entries.map((entry) => entry.captureId).sort()).toEqual([
+      'capture-a',
+      'capture-b'
+    ]);
+    expect(await area.get(first.ref.key)).not.toBeUndefined();
+    expect(await area.get(second.ref.key)).not.toBeUndefined();
+
+    nowMs += 25;
+    await repository.pruneExpired();
+
+    expect(await area.get(first.ref.key)).toBeUndefined();
+    expect(await area.get(second.ref.key)).toBeUndefined();
+    expect((await readIndex(area))?.entries).toEqual([]);
+    expect(area.snapshotKeys().filter((key) => key !== VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toEqual(
+      []
+    );
   });
 });
