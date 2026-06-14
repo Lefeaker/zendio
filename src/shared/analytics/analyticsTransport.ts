@@ -75,6 +75,8 @@ export interface AnalyticsTransportResponse {
   clone: () => { text: () => Promise<string> };
 }
 
+type ProxyBackedAnalyticsTransportMode = Exclude<AnalyticsTransportMode, 'disabled'>;
+
 export function buildAnalyticsTransportPayload<EventName extends AnalyticsEventName>(
   eventName: EventName,
   params: AnalyticsEventParamMap[EventName] | Record<string, unknown> | undefined,
@@ -153,13 +155,8 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
     if (!proxyEndpoint) {
       return { status: 'skipped', reason: 'invalid_proxy_endpoint', transportMode };
     }
-    const proxyPayload =
-      transportMode === 'directDebug'
-        ? {
-            ...payload,
-            validation_behavior: 'ENFORCE_RECOMMENDATIONS'
-          }
-        : payload;
+
+    const proxyPayload = buildProxyBackedAnalyticsPayload(payload, transportMode);
     return postAnalyticsPayload(proxyEndpoint, proxyPayload, transportMode, requestFetch);
   }
 
@@ -168,7 +165,7 @@ export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEve
 async function postAnalyticsPayload(
   endpoint: string,
   payload: unknown,
-  transportMode: Exclude<AnalyticsTransportMode, 'disabled'>,
+  transportMode: ProxyBackedAnalyticsTransportMode,
   requestFetch: AnalyticsTransportFetch
 ): Promise<AnalyticsTransportResult> {
   try {
@@ -205,6 +202,18 @@ async function postAnalyticsPayload(
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+function buildProxyBackedAnalyticsPayload(
+  payload: AnalyticsTransportPayload,
+  transportMode: ProxyBackedAnalyticsTransportMode
+): AnalyticsTransportPayload | (AnalyticsTransportPayload & { validation_behavior: string }) {
+  return transportMode === 'directDebug'
+    ? {
+        ...payload,
+        validation_behavior: 'ENFORCE_RECOMMENDATIONS'
+      }
+    : payload;
 }
 
 async function readResponseBody(response: AnalyticsTransportResponse): Promise<string | undefined> {
