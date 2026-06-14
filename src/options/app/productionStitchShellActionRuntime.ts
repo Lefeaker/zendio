@@ -1,10 +1,8 @@
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import type { Language, Messages } from '@i18n';
 import type { IOptionsRepository } from '@shared/repositories';
-import {
-  createAnalyticsEventMessage,
-  type AnalyticsRuntimeEventPayload
-} from '@shared/types/analytics';
+import { createAnalyticsEventMessage } from '@shared/types/analytics';
+import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
@@ -81,7 +79,6 @@ type AnalyticsSection =
 type TrackablePersistence = ProductionStitchPersistence & {
   trackUsageEvent?: (message: AnalyticsRuntimeEventPayload) => Promise<void>;
 };
-
 const PANEL_SECTION_MAP: Record<string, AnalyticsSection> = {
   overview: 'overview',
   storage: 'storage',
