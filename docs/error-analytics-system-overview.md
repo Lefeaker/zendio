@@ -1,8 +1,10 @@
 # Error Analytics System Overview
 
-最后更新：2026-06-11
+最后更新：2026-06-14
 
-本文给出 AiiinOB 当前错误遥测系统的结构化总览。
+本文给出 AiiinOB 当前错误遥测系统的结构化总览。P06 起，错误事件文档也受
+同一条 schema -> proxy contract -> docs contract 校验链保护，不再依赖手写表格
+自行保持同步。
 
 ## 系统目标
 
@@ -58,12 +60,14 @@
 来源：
 
 - `src/shared/analytics/analyticsTransport.ts`
+- `src/shared/analytics/analyticsProxyContract.ts`
 
 职责：
 
 - 构建 GA payload
 - 按 `proxy` / owner debug proxy (`directDebug`) 发送
 - 对 payload 做最终合法性判断
+- 为 owner proxy 与 docs checker 提供同一份 event/param contract
 
 ## 数据流
 
@@ -99,6 +103,8 @@
 ```bash
 node scripts/setup-error-analytics.js
 npm run analytics:validate:prod
+node tools/report-ga-proxy-contract.mjs
+node tools/report-ga-docs-contract.mjs --check
 ```
 
 这些命令当前都是只读 validator，不再生成本地配置文件，也不会改写 tracked source。

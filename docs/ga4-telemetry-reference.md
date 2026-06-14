@@ -1,8 +1,11 @@
 # GA4 Telemetry Reference
 
-最后更新：2026-06-13
+最后更新：2026-06-14
 
-本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。
+本文是 Zendio 当前 GA 产品遥测与错误遥测的文档真值。P06 起，事件表由
+schema / proxy contract 驱动校验；提交前请先运行
+`node tools/report-ga-proxy-contract.mjs`，再运行
+`node tools/report-ga-docs-contract.mjs --check`。
 
 - 事件目录真值：`src/shared/analytics/eventCatalog.ts`
 - 运行时导出契约：`src/shared/types/analytics.ts`
@@ -37,7 +40,8 @@
 
 - 原始页面正文、用户剪藏内容、阅读高亮正文、视频片段正文
 - Obsidian 文件路径、vault 名称、目录结构、导出后的 markdown 正文
-- 完整 URL、查询参数、认证 token、cookie、密码、密钥、`api_secret`
+- 完整 URL、查询参数、认证 token、cookie、密码、密钥，以及任何服务端 proxy
+  `api_secret`
 - 邮箱、IP、用户名、电话、信用卡号、SSN 等个人信息
 - 原始 `duration_ms`
 
@@ -98,6 +102,8 @@
 - `src/dev/runtimeObservabilityHarness.ts`
 - `src/shared/errors/analytics/googleAnalyticsReporter.ts`
 
+<!-- GA_SCHEMA_TABLE_START:support_usage_error -->
+
 | Event                                 | Params                                                                                                                                                                 | Class      | Runtime |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------- |
 | `support_link_clicked`                | `target`                                                                                                                                                               | `emitted`  | `true`  |
@@ -115,6 +121,8 @@
 | `runtime_harness_open`                | `source`                                                                                                                                                               | `dev-only` | `true`  |
 | `extension_error`                     | `error_code`, `error_domain`, `error_severity`, `error_recoverable`, `error_category?`, `extension_version?`, `browser_name?`, `browser_version?`, `failure_category?` | `error`    | `false` |
 
+<!-- GA_SCHEMA_TABLE_END:support_usage_error -->
+
 ### Onboarding / Privacy / Options
 
 集成分支 emitter 入口：
@@ -123,6 +131,8 @@
 - `src/options/app/bootstrap.ts`
 - `src/options/app/productionStitchShellActionRuntime.ts`
 - `src/options/app/productionStitchPersistence.ts`
+
+<!-- GA_SCHEMA_TABLE_START:onboarding_privacy_options -->
 
 | Event                          | Params                                 | Class     | Runtime |
 | ------------------------------ | -------------------------------------- | --------- | ------- |
@@ -142,6 +152,8 @@
 | `config_import_completed`      | `outcome`, `analytics_payload_present` | `emitted` | `true`  |
 | `experimental_feature_toggled` | `feature_key`, `enabled`               | `emitted` | `true`  |
 
+<!-- GA_SCHEMA_TABLE_END:onboarding_privacy_options -->
+
 ### Clip / Background / Connection / Storage
 
 集成分支 emitter 入口：
@@ -151,6 +163,8 @@
 - `src/options/services/connectionTester.ts`
 - `src/background/pipelines/connectionTest.ts`
 - `src/background/services/obsidianWriter.ts`
+
+<!-- GA_SCHEMA_TABLE_START:clip_background_connection_storage -->
 
 | Event                             | Params                                                                        | Class     | Runtime |
 | --------------------------------- | ----------------------------------------------------------------------------- | --------- | ------- |
@@ -170,6 +184,8 @@
 | `vault_write_completed`           | `storage_target`, `duration_bucket`                                           | `emitted` | `true`  |
 | `vault_write_failed`              | `storage_target`, `failure_category`                                          | `emitted` | `true`  |
 
+<!-- GA_SCHEMA_TABLE_END:clip_background_connection_storage -->
+
 ### Reader / Video
 
 集成分支 emitter 入口：
@@ -177,6 +193,8 @@
 - `src/content/reader/session.ts`
 - `src/content/reader/sessionOperations.ts`
 - `src/content/video/sessionOperations.ts`
+
+<!-- GA_SCHEMA_TABLE_START:reader_video -->
 
 | Event                      | Params                                              | Class     | Runtime |
 | -------------------------- | --------------------------------------------------- | --------- | ------- |
@@ -193,19 +211,27 @@
 | `video_export_failed`      | `platform`, `destination`, `failure_category`       | `emitted` | `true`  |
 | `video_session_cancelled`  | `platform`, `duration_bucket`                       | `emitted` | `true`  |
 
+<!-- GA_SCHEMA_TABLE_END:reader_video -->
+
 ## Catalog-only Rows
 
-这些名字仍然在当前 telemetry source 中存在，但不能当作“当前生产 dashboard 的主统计事件”。
+这些名字仍然在当前 telemetry contract 中存在，但不能当作“当前生产
+dashboard 的主统计事件”。
 
-| Event                       | Params                      | Class            | Runtime | Current branch truth                                           |
-| --------------------------- | --------------------------- | ---------------- | ------- | -------------------------------------------------------------- |
-| `video_started`             | `source`                    | `contract-only`  | `true`  | 保留 contract / compatibility row；当前分支没有 active emitter |
-| `extension_installed`       | `source`, `browser_family?` | `future`         | `true`  | catalog 预留行；当前分支没有 active emitter                    |
-| `video_screenshot_captured` | `screenshot_count_bucket`   | `future`         | `true`  | catalog 行仍保留；当前分支没有 active emitter                  |
-| `extension_usage`           | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
-| `extension_performance`     | n/a                         | `inventory-only` | n/a     | 仅 inventory name；无 active catalog definition                |
+<!-- GA_SCHEMA_TABLE_START:catalog_only -->
 
-另有一条 retired docs-only QR dislike row 被保留在 source 中用于历史分类，不应出现在任何 active 文档、setup 指南或 dashboard 中。
+| Event                       | Params                      | Class           | Runtime | Current branch truth                                           |
+| --------------------------- | --------------------------- | --------------- | ------- | -------------------------------------------------------------- |
+| `video_started`             | `source`                    | `contract-only` | `true`  | 保留 contract / compatibility row；当前分支没有 active emitter |
+| `extension_installed`       | `source`, `browser_family?` | `future`        | `true`  | catalog 预留行；当前分支没有 active emitter                    |
+| `video_screenshot_captured` | `screenshot_count_bucket`   | `future`        | `true`  | catalog 行仍保留；当前分支没有 active emitter                  |
+
+<!-- GA_SCHEMA_TABLE_END:catalog_only -->
+
+`extension_usage` 与 `extension_performance` 只是历史 inventory 名称，不是当前
+schema/proxy contract 事件，不能出现在 active 文档、setup 指南或 dashboard。
+另有一条 retired docs-only QR dislike row 被保留在 source 中用于历史分类，不应
+出现在任何 active 文档、setup 指南或 dashboard 中。
 
 ## Dashboard / QA 使用规则
 

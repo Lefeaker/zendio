@@ -1,6 +1,6 @@
 # Google Analytics Dashboard Setup
 
-最后更新：2026-06-05
+最后更新：2026-06-14
 
 本文说明如何基于当前 AiiinOB telemetry contract 建立 GA4 自定义定义、Exploration 与 owner dashboard。
 
@@ -15,7 +15,12 @@
 
 - 所有时长分析只使用 `duration_bucket`
 - 不要求、不假设、不回填产品侧 `duration_ms`
+- 不把原始正文、原始 URL、vault path、file path、screenshot bytes 作为 dimension
+  或 metric
 - `dev-only`、contract-only、inventory-only、docs-only 行不进入生产 KPI
+- 推荐事件必须来自 `ga4-telemetry-reference.md` 中当前 active emitted / error
+  rows；`runtime_harness_open`、`video_started`、`video_screenshot_captured` 只能留在
+  dev-only / contract-only / future 说明里，不能作为 KPI 事件
 - owner 若需要精确服务端耗时，应查看 proxy / backend logs，不要把要求转嫁给扩展产品遥测
 
 ## 推荐自定义定义
@@ -49,7 +54,6 @@ GA4 definition quota 有上限。先注册会被正式 dashboard 使用的字段
 | `message_count_bucket`      | AI chat 消息量 bucket                                       |
 | `attachment_count_bucket`   | clip 附件量 bucket                                          |
 | `capture_count_bucket`      | video capture 量级                                          |
-| `screenshot_count_bucket`   | video screenshot 量级                                       |
 | `selection_length_bucket`   | reader 高亮长度 bucket                                      |
 | `highlight_count_bucket`    | reader 高亮数 bucket                                        |
 | `error_domain`              | 错误域趋势                                                  |
@@ -187,7 +191,6 @@ Video 事件：
 - `video_session_started`
 - `video_timestamp_added`
 - `video_fragment_added`
-- `video_screenshot_captured`
 - `video_capture_removed`
 - `video_exported`
 - `video_export_failed`
@@ -201,6 +204,11 @@ Video 事件：
 - `selection_length_bucket`
 - `highlight_count_bucket`
 - `duration_bucket`
+
+当前不进入生产 KPI 的 video contract rows 仍包括 `video_started` 与
+`video_screenshot_captured`。它们在 schema / proxy contract 中仍保留为
+contract-only / future catalog rows；最终 active status 由 P09 收口之前不得放进
+正式 dashboard。
 
 ### 7. Connection / Local Vault friction
 
