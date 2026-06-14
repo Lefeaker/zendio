@@ -47,8 +47,8 @@ async function runOwnerSmoke(
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
-  const stdoutChunks = [];
-  const stderrChunks = [];
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
   child.stdout.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
   child.stderr.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
   const [status] = await once(child, 'close');
