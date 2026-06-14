@@ -34,6 +34,7 @@ export interface VideoTimestampCapture {
   screenshotRequested?: boolean;
   screenshot?: VideoCaptureScreenshot;
   screenshotRef?: VideoScreenshotCacheRef;
+  screenshotPreparationFailed?: true;
 }
 
 export interface VideoFragmentCapture {

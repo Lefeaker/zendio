@@ -94,6 +94,8 @@ interface TimestampScreenshotStateSnapshot {
   screenshotRequested: VideoTimestampCapture['screenshotRequested'];
   hasScreenshot: boolean;
   screenshot: VideoTimestampCapture['screenshot'];
+  hasScreenshotPreparationFailed: boolean;
+  screenshotPreparationFailed: VideoTimestampCapture['screenshotPreparationFailed'];
 }
 
 function restoreTimestampScreenshotRequestedProperty(
@@ -138,6 +140,26 @@ function restoreTimestampScreenshotProperty(
   });
 }
 
+function restoreTimestampScreenshotPreparationFailureProperty(
+  capture: VideoTimestampCapture,
+  snapshot: TimestampScreenshotStateSnapshot
+): void {
+  if (!snapshot.hasScreenshotPreparationFailed) {
+    delete capture.screenshotPreparationFailed;
+    return;
+  }
+  if (snapshot.screenshotPreparationFailed !== undefined) {
+    capture.screenshotPreparationFailed = snapshot.screenshotPreparationFailed;
+    return;
+  }
+  Object.defineProperty(capture, 'screenshotPreparationFailed', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: undefined
+  });
+}
+
 export function snapshotTimestampScreenshotState(
   capture: VideoTimestampCapture
 ): TimestampScreenshotStateSnapshot {
@@ -145,7 +167,12 @@ export function snapshotTimestampScreenshotState(
     hasScreenshotRequested: Object.prototype.hasOwnProperty.call(capture, 'screenshotRequested'),
     screenshotRequested: capture.screenshotRequested,
     hasScreenshot: Object.prototype.hasOwnProperty.call(capture, 'screenshot'),
-    screenshot: capture.screenshot
+    screenshot: capture.screenshot,
+    hasScreenshotPreparationFailed: Object.prototype.hasOwnProperty.call(
+      capture,
+      'screenshotPreparationFailed'
+    ),
+    screenshotPreparationFailed: capture.screenshotPreparationFailed
   };
 }
 
@@ -155,6 +182,7 @@ export function restoreTimestampScreenshotState(
 ): void {
   restoreTimestampScreenshotRequestedProperty(capture, snapshot);
   restoreTimestampScreenshotProperty(capture, snapshot);
+  restoreTimestampScreenshotPreparationFailureProperty(capture, snapshot);
 }
 
 function debugVideoAnalyticsFailure(error: UntrustedValue): void {

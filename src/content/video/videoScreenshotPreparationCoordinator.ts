@@ -146,6 +146,6 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   private isPendingCapture(capture: VideoTimestampCapture): boolean {
-    return !capture.screenshot;
+    return !capture.screenshot && capture.screenshotPreparationFailed !== true;
   }
 }

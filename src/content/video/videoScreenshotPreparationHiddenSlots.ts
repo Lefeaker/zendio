@@ -2,9 +2,7 @@ import type { VideoTimestampCapture } from './types';
 
 interface HiddenDuplicateRequestStorePort {
   getHiddenAttemptCount(): number;
-  hasHiddenAttempt(captureId: string): boolean;
-  hasHiddenAttempted(captureId: string): boolean;
-  hasVisibleInFlight(captureId: string): boolean;
+  canStartHiddenAttempt(captureId: string, now: number): boolean;
 }
 
 interface ScheduleHiddenDuplicateCapturesArgs {
@@ -12,6 +10,7 @@ interface ScheduleHiddenDuplicateCapturesArgs {
   sourceVideo: HTMLVideoElement;
   sourceUrl: string;
   maxConcurrency: number | undefined;
+  now: number;
   requestStore: HiddenDuplicateRequestStorePort;
   enqueue: (sourceVideo: HTMLVideoElement, sourceUrl: string, captureId: string) => void;
 }
@@ -21,16 +20,13 @@ export function scheduleHiddenDuplicateCaptures({
   sourceVideo,
   sourceUrl,
   maxConcurrency,
+  now,
   requestStore,
   enqueue
 }: ScheduleHiddenDuplicateCapturesArgs): void {
   let availableSlots = Math.max(1, maxConcurrency ?? 2) - requestStore.getHiddenAttemptCount();
   for (const capture of captures) {
-    if (
-      requestStore.hasHiddenAttempt(capture.id) ||
-      requestStore.hasHiddenAttempted(capture.id) ||
-      requestStore.hasVisibleInFlight(capture.id)
-    ) {
+    if (!requestStore.canStartHiddenAttempt(capture.id, now)) {
       continue;
     }
     if (availableSlots <= 0) {

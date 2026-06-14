@@ -110,6 +110,35 @@ describe('VideoPanelPresenter', () => {
     });
   });
 
+  it('does not keep terminal screenshot preparation failures in the pending state', () => {
+    const view = createView();
+    const presenter = new VideoPanelPresenter(view);
+
+    presenter.render({
+      timestamps: [
+        {
+          id: 'failed-shot',
+          kind: 'timestamp',
+          timeSec: 42,
+          url: 'https://example.com?t=42',
+          comment: '',
+          createdAt: 1,
+          screenshotRequested: true,
+          screenshotPreparationFailed: true
+        }
+      ],
+      fragments: []
+    });
+
+    const captures = getRenderedCaptures(view);
+
+    expect(captures?.[0]).toMatchObject({
+      id: 'failed-shot',
+      hasScreenshot: false,
+      screenshotState: 'off'
+    });
+  });
+
   it('updates texts through the view and uses empty label fallback for blank fragments', () => {
     const view = createView();
     const presenter = new VideoPanelPresenter(view);

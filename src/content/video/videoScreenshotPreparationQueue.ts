@@ -1,4 +1,7 @@
-import { setTimestampScreenshot } from './screenshotIntent';
+import {
+  markTimestampScreenshotPreparationFailed,
+  setTimestampScreenshot
+} from './screenshotIntent';
 import { VideoScreenshotPreparationRequestStore } from './videoScreenshotPreparationRequestStore';
 import type { VideoScreenshotPreparationQueueStateSnapshot } from './videoScreenshotPreparationRequestSnapshots';
 import {
@@ -22,6 +25,8 @@ import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 const DEFAULT_TOLERANCE_SEC = 0.25;
 const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
+const DEFAULT_HIDDEN_DUPLICATE_MAX_ATTEMPTS = 2;
+const DEFAULT_HIDDEN_DUPLICATE_RETRY_BACKOFF_MS = 250;
 const VISIBLE_TIME_EVENTS = ['timeupdate', 'seeked'] as const;
 const VISIBLE_READY_EVENTS = ['loadedmetadata', 'loadeddata', 'canplay'] as const;
 
@@ -46,6 +51,8 @@ interface CreateVideoScreenshotPreparationQueueArgs {
   captureVisibleFrame?: VideoScreenshotFrameCapture | undefined;
   syncPanel: () => void;
   maxHiddenDuplicateConcurrency?: number;
+  maxHiddenDuplicateAttempts?: number;
+  hiddenRetryBackoffMs?: number;
   onScreenshotPrepared?: VideoScreenshotPreparedCallback;
   toleranceSec?: number;
   timeoutMs?: number;
@@ -59,9 +66,12 @@ interface HiddenDuplicateCaptureAttempt {
   sourceVideo: HTMLVideoElement;
 }
 
+type HiddenDuplicateCaptureOutcome = 'succeeded' | 'failed' | 'aborted';
+
 class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPreparationQueue {
   private visibleVideo: HTMLVideoElement | null = null;
   private disposed = false;
+  private hiddenRetryTimer: ReturnType<Window['setTimeout']> | null = null;
   private readonly requestStore =
     new VideoScreenshotPreparationRequestStore<HiddenDuplicateCaptureAttempt>(
       this.args.__testHooks?.onStateChange
@@ -113,6 +123,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       return;
     }
     this.disposed = true;
+    this.clearHiddenRetryTimer();
     this.detachVisibleVideoListeners();
     this.requestStore.disposeAll();
     this.visibleVideo = null;
@@ -123,6 +134,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     }
     this.captureIndex.pruneTracked();
     if (this.requestStore.getTrackedIds().length === 0) {
+      this.clearHiddenRetryTimer();
       return;
     }
     void this.captureFromVisibleVideo('manual');
@@ -134,15 +146,18 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (!sourceUrl) {
       return;
     }
+    const operationTime = Date.now();
     scheduleHiddenDuplicateCaptures({
       captures: this.captureIndex.listTrackedPending(),
       sourceVideo: visibleVideo,
       sourceUrl,
       maxConcurrency: this.args.maxHiddenDuplicateConcurrency,
+      now: operationTime,
       requestStore: this.requestStore,
       enqueue: (sourceVideo, duplicateSourceUrl, captureId) =>
         this.enqueueHiddenDuplicateCapture(sourceVideo, duplicateSourceUrl, captureId)
     });
+    this.scheduleNextHiddenRetry(operationTime);
   }
   private async captureFromVisibleVideo(reason: 'manual' | 'ready' | 'time'): Promise<void> {
     if (this.disposed) {
@@ -236,8 +251,9 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (!this.requestStore.startHiddenAttempt(captureId, attempt)) {
       return;
     }
-    void this.attemptHiddenDuplicateCapture(attempt, sourceUrl, captureId).finally(() => {
+    void this.attemptHiddenDuplicateCapture(attempt, sourceUrl, captureId).then((outcome) => {
       this.requestStore.finishHiddenAttempt(captureId, attempt);
+      this.handleHiddenDuplicateOutcome(captureId, outcome);
       if (this.disposed || this.requestStore.getTrackedIds().length === 0) {
         return;
       }
@@ -248,18 +264,18 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     attempt: HiddenDuplicateCaptureAttempt,
     sourceUrl: string,
     captureId: string
-  ): Promise<void> {
+  ): Promise<HiddenDuplicateCaptureOutcome> {
     if (
       attempt.scope.signal.aborted ||
       this.disposed ||
       this.resolveVisibleVideo() !== attempt.sourceVideo
     ) {
-      return;
+      return 'aborted';
     }
     const capture = this.captureIndex.findPending(captureId);
     if (!capture) {
       this.requestStore.clearTracked(captureId);
-      return;
+      return 'aborted';
     }
 
     const duplicateVideo = this.args.doc.createElement('video');
@@ -272,7 +288,7 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       if (
         !(await waitForUsableVideoFrame(duplicateVideo, this.getTimeoutMs(), attempt.scope.signal))
       ) {
-        return;
+        return 'failed';
       }
       if (
         !(await seekHiddenVideo(
@@ -282,22 +298,22 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
           attempt.scope.signal
         ))
       ) {
-        return;
+        return 'failed';
       }
       if (
         !(await waitForUsableVideoFrame(duplicateVideo, this.getTimeoutMs(), attempt.scope.signal))
       ) {
-        return;
+        return 'failed';
       }
       if (!this.shouldKeepHiddenDuplicateCapture(capture.id, attempt)) {
-        return;
+        return 'aborted';
       }
       const screenshot = await this.getCaptureFrame()(duplicateVideo, capture.timeSec);
       if (!this.shouldKeepHiddenDuplicateCapture(capture.id, attempt)) {
-        return;
+        return 'aborted';
       }
       if (!screenshot) {
-        return;
+        return 'failed';
       }
       setTimestampScreenshot(capture, screenshot);
       notifyVideoScreenshotPrepared(
@@ -308,8 +324,10 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
       );
       this.requestStore.clearTracked(capture.id);
       this.args.syncPanel();
+      return 'succeeded';
     } catch (error) {
       console.warn('[VideoSession] Failed to prepare requested screenshot in background:', error);
+      return 'failed';
     } finally {
       attempt.scope.dispose();
     }
@@ -358,6 +376,20 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     return this.args.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
   }
 
+  private getMaxHiddenDuplicateAttempts(): number {
+    const value = this.args.maxHiddenDuplicateAttempts;
+    return Number.isInteger(value) && typeof value === 'number' && value > 0
+      ? value
+      : DEFAULT_HIDDEN_DUPLICATE_MAX_ATTEMPTS;
+  }
+
+  private getHiddenRetryBackoffMs(): number {
+    const value = this.args.hiddenRetryBackoffMs;
+    return Number.isInteger(value) && typeof value === 'number' && value >= 0
+      ? value
+      : DEFAULT_HIDDEN_DUPLICATE_RETRY_BACKOFF_MS;
+  }
+
   private getExplicitVisibleTolerance(
     captureId: string,
     reason: 'manual' | 'ready' | 'time',
@@ -390,6 +422,61 @@ class BackgroundVideoScreenshotPreparationQueue implements VideoScreenshotPrepar
     if (sourceUrl) {
       this.enqueueHiddenDuplicateCapture(sourceVideo, sourceUrl, captureId);
     }
+  }
+
+  private handleHiddenDuplicateOutcome(
+    captureId: string,
+    outcome: HiddenDuplicateCaptureOutcome
+  ): void {
+    if (outcome !== 'failed' || this.disposed) {
+      return;
+    }
+    const capture = this.captureIndex.findPending(captureId);
+    if (!capture) {
+      this.requestStore.clearTracked(captureId);
+      return;
+    }
+
+    const failureResult = this.requestStore.recordHiddenAttemptFailure(captureId, {
+      maxAttempts: this.getMaxHiddenDuplicateAttempts(),
+      retryAvailableAt: Date.now() + this.getHiddenRetryBackoffMs()
+    });
+
+    if (failureResult === 'terminal') {
+      markTimestampScreenshotPreparationFailed(capture);
+      this.requestStore.clearTracked(captureId);
+      this.args.syncPanel();
+      return;
+    }
+
+    if (failureResult === 'retry') {
+      this.scheduleNextHiddenRetry();
+    }
+  }
+
+  private scheduleNextHiddenRetry(now = Date.now()): void {
+    this.clearHiddenRetryTimer();
+    const retryAt = this.requestStore.getNextHiddenRetryAt(now);
+    if (retryAt === null || this.disposed) {
+      return;
+    }
+    const view = this.args.doc.defaultView ?? window;
+    this.hiddenRetryTimer = view.setTimeout(
+      () => {
+        this.hiddenRetryTimer = null;
+        this.processRequests();
+      },
+      Math.max(0, retryAt - now)
+    );
+  }
+
+  private clearHiddenRetryTimer(): void {
+    if (this.hiddenRetryTimer === null) {
+      return;
+    }
+    const view = this.args.doc.defaultView ?? window;
+    view.clearTimeout(this.hiddenRetryTimer);
+    this.hiddenRetryTimer = null;
   }
 }
 

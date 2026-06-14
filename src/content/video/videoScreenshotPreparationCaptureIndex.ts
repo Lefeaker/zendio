@@ -21,7 +21,9 @@ export class VideoScreenshotPreparationCaptureIndex {
   }
 
   listPending(): VideoTimestampCapture[] {
-    return this.getCaptures().filter((capture) => !capture.screenshot);
+    return this.getCaptures().filter(
+      (capture) => !capture.screenshot && capture.screenshotPreparationFailed !== true
+    );
   }
 
   listTrackedPending(): VideoTimestampCapture[] {
