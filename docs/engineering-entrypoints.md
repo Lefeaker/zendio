@@ -53,6 +53,7 @@
 - 2026-06-09 video screenshot/session stability final truth：`codex/aiiinob-video-asset-stability-2026-06-08-integration` 在 `fbc24294` 通过 `quality`、`verify:preflight`、P01 attachment + 视频专项 Vitest `11` 文件 / `201` tests、`videoListenerScope.browser.test.ts` Chromium `11` tests。截图准备队列已从 session runtime 静态路径拆为 lazy chunk，`audit:build:report` 当前 dev build chunk count 为 `116`；只同步 chunk count gate，不放宽 entry、single chunk、shared chunk、locale chunk 或 YAML chunk size budget。
 - 2026-06-13 final combined integration 真值：当前 integration dev build exact stop gate 为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 118`；本次只同步结构债分支与 visible-tab screenshot/export 分支合并后的 dev chunk count，没有放宽 locale/single/shared/YAML budgets。P06 历史修复仍只在 `tests/unit/content/video/VideoSession.test.ts` 内收口 inherited full-file restored screenshot async wait 与 same-page owner-context harness race。
 - 2026-06-13 final integration dependency-cycle truth：`audit:deps:report` 发现并阻塞了截图准备 queue/coordinator 循环与 i18n pseudo/runtime type 循环。最终修复将截图请求状态迁入 `videoScreenshotPreparationRequestStore.ts`，让 coordinator 只持有 queue interface；i18n `RuntimeMessages` 类型改由 `localeDefinition.ts` 从 generated messages 导出，pseudo locale/runtime service 不再从 `messages.ts` 回拉入口。复核后 `audit:deps:report` 为 `violations=0`，`audit:performance:report` 覆盖 `sourceFiles=755`、`hotspotsOver250=93`、`registeredLineBudgets=117`。
+- 2026-06-14 P06 performance budget guard 真值：`audit:build:report` 现在对 tight gates 同时输出 observed、warning target 与 hard stop。当前 dev build observed/warning 为 `content/runtime.js raw 57,209 bytes`、`onboarding/index.js raw 16,459 bytes`、`chunk count 118`；对应 hard stop 为 `57,386`、`16,715` 与 `120`。本次未放宽 locale/single/shared/YAML budgets。`audit:performance:report` 当前为 `sourceFiles=764`、`hotspotsOver250=96`、`registeredLineBudgets=120`，并补齐 `videoCaptureMutationTransaction.ts <= 283` 与 `runtimeMessages.ts <= 356`。
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
@@ -204,15 +205,15 @@ fall back to low-concurrency screenshot preparation.
 `npm run audit:build:report` 当前执行以下预算：
 
 - `content/index.js <= 1 KB`
-- `content/runtime.js <= 56 KB`（raw `57,386` bytes）
+- `content/runtime.js`: warning target `57,209` raw bytes；hard stop `57,386` raw bytes
 - `options/index.js <= 12 KB`
-- `onboarding/index.js <= 16 KB`（raw `16,459` bytes）
+- `onboarding/index.js`: warning target `16,459` raw bytes；hard stop `16,715` raw bytes
 - 任一 chunk `<= 320 KB`
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 96 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 118`
+- `chunk count`: warning target `118`；hard stop `120`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
 2026-05-29 Plan 11 G3 dev build truth:
