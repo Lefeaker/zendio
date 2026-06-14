@@ -7,6 +7,8 @@ const SUPPORTED_MODES = /** @type {const} */ (['proxy', 'directDebug']);
 const SUPPORTED_EVENTS = /** @type {const} */ (['runtime_harness_open']);
 const PUBLIC_ENV_FORBIDDEN_PATTERN =
   /(api[_-]?key|api[_-]?secret|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|secret|token|password)/i;
+const GOOGLE_ANALYTICS_HOST_SUFFIX = '.google-analytics.com';
+const GOOGLE_MEASUREMENT_PROTOCOL_PATHS = new Set(['/mp/collect', '/debug/mp/collect']);
 const FORBIDDEN_SECRET_ENV_NAMES = Object.freeze([
   'GA4_API_SECRET',
   'ZENDIO_GA_API_SECRET',
@@ -152,11 +154,36 @@ export function normalizeProxyEndpoint(value) {
     if (!isHttps && !isLocalHttp) {
       return undefined;
     }
+    if (isGoogleMeasurementProtocolEndpointUrl(url)) {
+      return undefined;
+    }
     url.hash = '';
     return url.toString();
   } catch {
     return undefined;
   }
+}
+
+function isGoogleMeasurementProtocolEndpoint(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    return isGoogleMeasurementProtocolEndpointUrl(new URL(value.trim()));
+  } catch {
+    return false;
+  }
+}
+
+function isGoogleMeasurementProtocolEndpointUrl(url) {
+  const hostname = url.hostname.toLowerCase();
+  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  return isGoogleAnalyticsHost(hostname) && GOOGLE_MEASUREMENT_PROTOCOL_PATHS.has(pathname);
+}
+
+function isGoogleAnalyticsHost(hostname) {
+  return hostname === 'google-analytics.com' || hostname.endsWith(GOOGLE_ANALYTICS_HOST_SUFFIX);
 }
 
 export function parseOwnerSmokeArgs(argv) {
@@ -273,6 +300,11 @@ export function resolveOwnerSmokePublicConfig(env, mode) {
   }
 
   const normalizedProxyEndpoint = normalizeProxyEndpoint(rawProxyEndpoint);
+  if (isGoogleMeasurementProtocolEndpoint(rawProxyEndpoint)) {
+    throw new Error(
+      'Google Measurement Protocol endpoint is not allowed as an owner proxy endpoint.'
+    );
+  }
   if (!normalizedProxyEndpoint) {
     throw new Error(
       `${mode} mode requires a valid public proxy endpoint via ZENDIO_GA_PROXY_ENDPOINT/AIIINOB_GA_PROXY_ENDPOINT.`

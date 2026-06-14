@@ -248,6 +248,37 @@ describe('analytics transport', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('rejects Google Measurement Protocol endpoints as proxy endpoints without calling fetch', async () => {
+    const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
+    const cases = [
+      {
+        transportMode: 'proxy' as const,
+        proxyEndpoint: 'https://www.google-analytics.com/mp/collect'
+      },
+      {
+        transportMode: 'directDebug' as const,
+        proxyEndpoint: 'https://www.google-analytics.com/debug/mp/collect'
+      }
+    ];
+
+    for (const { transportMode, proxyEndpoint } of cases) {
+      await expect(
+        sendAnalyticsTransportEvent(
+          'support_dislike_clicked',
+          {},
+          { ...baseConfig, transportMode, proxyEndpoint },
+          { fetch: fetchMock }
+        )
+      ).resolves.toEqual({
+        status: 'skipped',
+        reason: 'invalid_proxy_endpoint',
+        transportMode
+      });
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('skips configs that do not have matching consent for the event class', async () => {
     const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
 

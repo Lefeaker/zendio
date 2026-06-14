@@ -1,9 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const ownerSmokeScript = 'scripts/run-ga-owner-smoke.mjs';
+const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 type FixtureRequest = {
   method: string;
@@ -37,7 +39,7 @@ async function runOwnerSmoke(
   env: Record<string, string | undefined> = {}
 ): Promise<SmokeRunResult> {
   const child = spawn(process.execPath, [ownerSmokeScript, ...args], {
-    cwd: '/Users/mac/Documents/Dev/AI2OB_Plg/.worktrees/AiiinOB/codex/aiiinob-ga-p08-owner-smoke-harness-2026-06-13',
+    cwd: PROJECT_ROOT,
     env: {
       ...process.env,
       AIIINOB_GA_MEASUREMENT_ID: 'G-TEST1234',
@@ -122,6 +124,17 @@ describe('run-ga-owner-smoke script', () => {
       expect(resolved.status).not.toBe(0);
       expect(`${resolved.stdout}${resolved.stderr}`).toContain('proxy endpoint');
     });
+  });
+
+  it('rejects Google Measurement Protocol endpoints as owner proxy endpoints', async () => {
+    const result = await runOwnerSmoke(['--mode', 'proxy', '--event', 'runtime_harness_open'], {
+      AIIINOB_GA_PROXY_ENDPOINT: 'https://www.google-analytics.com/debug/mp/collect',
+      ZENDIO_GA_PROXY_ENDPOINT: ''
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toContain('Google Measurement Protocol endpoint');
+    expect(`${result.stdout}${result.stderr}`).toContain('proxy endpoint');
   });
 
   it('rejects server-only GA secrets in the local environment', async () => {

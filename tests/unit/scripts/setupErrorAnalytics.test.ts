@@ -41,6 +41,7 @@ async function collectTrackedContract(): Promise<TrackedAnalyticsSourceContract>
 describe('setup-error-analytics script', () => {
   it('accepts the current proxy-first production analytics contracts without public env vars', () => {
     const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+      cwd: PROJECT_ROOT,
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -62,6 +63,28 @@ describe('setup-error-analytics script', () => {
       'analytics proxy contract source/barrel/report anchors stay wired to the public allowlist contract'
     );
     expect(output).toContain('typed analytics runtime message facade is present');
+  });
+
+  it('rejects Google Measurement Protocol endpoints as public proxy endpoint env', () => {
+    const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ZENDIO_GA_MEASUREMENT_ID: '',
+        ZENDIO_GA_TRANSPORT_MODE: '',
+        ZENDIO_GA_PROXY_ENDPOINT: '',
+        AIIINOB_GA_MEASUREMENT_ID: 'G-ABCD1234',
+        AIIINOB_GA_TRANSPORT_MODE: 'proxy',
+        AIIINOB_GA_PROXY_ENDPOINT: 'https://www.google-analytics.com/mp/collect'
+      }
+    });
+
+    const output = stripAnsi(`${result.stdout}${result.stderr}`);
+
+    expect(result.status).not.toBe(0);
+    expect(output).toContain('Google Measurement Protocol endpoint');
+    expect(output).toContain('proxy endpoint');
   });
 
   it('keeps client runtime free of server-only GA secrets', async () => {

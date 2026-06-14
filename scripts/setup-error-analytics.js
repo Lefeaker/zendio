@@ -18,6 +18,8 @@ import ts from 'typescript';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.join(__dirname, '..');
+const GOOGLE_ANALYTICS_HOST_SUFFIX = '.google-analytics.com';
+const GOOGLE_MEASUREMENT_PROTOCOL_PATHS = new Set(['/mp/collect', '/debug/mp/collect']);
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -587,6 +589,16 @@ function resolvePublicEnv(newName, oldName) {
   return (process.env[newName] || process.env[oldName] || '').trim();
 }
 
+function isGoogleMeasurementProtocolEndpointUrl(url) {
+  const hostname = url.hostname.toLowerCase();
+  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  return isGoogleAnalyticsHost(hostname) && GOOGLE_MEASUREMENT_PROTOCOL_PATHS.has(pathname);
+}
+
+function isGoogleAnalyticsHost(hostname) {
+  return hostname === 'google-analytics.com' || hostname.endsWith(GOOGLE_ANALYTICS_HOST_SUFFIX);
+}
+
 function validateEnvironmentVariables() {
   info('Checking current shell environment');
 
@@ -644,6 +656,10 @@ function validateEnvironmentVariables() {
         fail(`proxy endpoint must be https or localhost http: ${proxyEndpoint}`);
       } else if (secretLikePattern.test(proxyEndpoint)) {
         fail('proxy endpoint looks like it embeds a secret-like value');
+      } else if (isGoogleMeasurementProtocolEndpointUrl(url)) {
+        fail(
+          'proxy endpoint must be an owner proxy endpoint, not a Google Measurement Protocol endpoint'
+        );
       } else {
         ok(`proxy endpoint format looks valid: ${proxyEndpoint}`);
       }
