@@ -6,7 +6,10 @@ import {
   clearTimestampScreenshotRef,
   setTimestampScreenshotRef
 } from '@content/video/screenshotIntent';
-import { DEFAULT_SESSION_DRAFT_TTL_MS, SESSION_DRAFT_MAX_ENTRIES } from '@content/sessionDrafts/sessionDraftTypes';
+import {
+  DEFAULT_SESSION_DRAFT_TTL_MS,
+  SESSION_DRAFT_MAX_ENTRIES
+} from '@content/sessionDrafts/sessionDraftTypes';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,

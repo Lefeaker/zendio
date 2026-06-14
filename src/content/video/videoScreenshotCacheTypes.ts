@@ -1,6 +1,9 @@
 import type { SerializedClipAttachmentBinaryContent } from '../../shared/attachments/clipAttachmentBinary';
 import { isObjectRecord } from '../../shared/guards/object';
-import { DEFAULT_SESSION_DRAFT_TTL_MS, SESSION_DRAFT_MAX_ENTRIES } from '../sessionDrafts/sessionDraftTypes';
+import {
+  DEFAULT_SESSION_DRAFT_TTL_MS,
+  SESSION_DRAFT_MAX_ENTRIES
+} from '../sessionDrafts/sessionDraftTypes';
 
 export const VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION = 1 as const;
 export const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
@@ -107,7 +110,11 @@ export function normalizeVideoScreenshotCacheEntry(
   if (createdAt === null || updatedAt === null || content === null) {
     return null;
   }
-  if (updatedAt < createdAt || ref.expiresAt <= updatedAt || content.byteLength !== ref.byteLength) {
+  if (
+    updatedAt < createdAt ||
+    ref.expiresAt <= updatedAt ||
+    content.byteLength !== ref.byteLength
+  ) {
     return null;
   }
 
@@ -157,8 +164,12 @@ export function normalizeVideoScreenshotCacheIndexEntry(
 function encodeKeyPart(value: string): string {
   return encodeURIComponent(value);
 }
-function normalizeSchemaVersion(value: unknown): typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION | null {
-  return value === VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION ? VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION : null;
+function normalizeSchemaVersion(
+  value: unknown
+): typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION | null {
+  return value === VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION
+    ? VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION
+    : null;
 }
 function normalizeIdentity(value: Record<string, unknown>): VideoScreenshotCacheIdentity | null {
   const pageKey = normalizeNonEmptyString(value.pageKey);
@@ -183,9 +194,7 @@ function normalizeStorageKey(
   });
   return value === expected ? expected : null;
 }
-function normalizeMimeType(
-  value: unknown
-): typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE | null {
+function normalizeMimeType(value: unknown): typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE | null {
   return value === VIDEO_SCREENSHOT_CACHE_MIME_TYPE ? VIDEO_SCREENSHOT_CACHE_MIME_TYPE : null;
 }
 function normalizeNonEmptyString(value: unknown): string | null {
