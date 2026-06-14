@@ -1,6 +1,7 @@
 import type { VideoPlatformContext } from './platforms';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
+import { createSessionDraftPageKey } from '../sessionDrafts';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import { PendingSelectionTracker } from './pendingSelectionTracker';
@@ -18,6 +19,8 @@ import { VideoSessionDomController } from './sessionDom';
 import { createVideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 import { VideoSessionDraftController } from './videoSessionDraftController';
 import type { VideoHintState } from './videoHintManager';
+import type { VideoCaptureScreenshot } from './types';
+import type { VideoScreenshotCacheSaveResult } from './videoScreenshotCacheRepository';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -32,6 +35,10 @@ export interface VideoSessionControllers {
   platformController: VideoSessionPlatformController;
   dom: VideoSessionDomController;
   draftController: VideoSessionDraftController;
+  persistPreparedScreenshot: (
+    captureId: string,
+    screenshot: VideoCaptureScreenshot
+  ) => Promise<VideoScreenshotCacheSaveResult>;
 }
 
 export function createVideoSessionControllers(args: {
@@ -131,6 +138,15 @@ export function createVideoSessionControllers(args: {
   );
   const exporter = new VideoSessionExporter(dependencies.videoRepository);
   const screenshotCache = createVideoScreenshotCacheRepository(dependencies.storage.local);
+  const persistPreparedScreenshot = (
+    captureId: string,
+    screenshot: VideoCaptureScreenshot
+  ): Promise<VideoScreenshotCacheSaveResult> =>
+    screenshotCache.save({
+      pageKey: createSessionDraftPageKey('video', doc.location.href),
+      captureId,
+      screenshot
+    });
   const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
   const draftController = new VideoSessionDraftController({
     doc,
@@ -171,6 +187,7 @@ export function createVideoSessionControllers(args: {
     exporter,
     platformController,
     dom,
-    draftController
+    draftController,
+    persistPreparedScreenshot
   };
 }

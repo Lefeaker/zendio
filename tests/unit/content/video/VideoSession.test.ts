@@ -23,8 +23,11 @@ import type {
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 import {
   buildVideoSessionDraftPayload,
-  createVideoSessionDraftEnvelope
+  createVideoSessionDraftEnvelope,
+  type VideoSessionDraftPayloadShape
 } from '@content/video/sessionDrafts';
+import type { VideoScreenshotCacheSaveResult } from '@content/video/videoScreenshotCacheRepository';
+import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
 import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics';
 import {
   __resetContentSessionRegistryForTests,
@@ -212,6 +215,7 @@ type SessionTestApi = {
           blob: Blob;
         };
       };
+      screenshotRef?: VideoScreenshotCacheRef;
     }>;
     commentDrafts?: Record<string, string>;
     saving?: boolean;
@@ -3340,6 +3344,376 @@ describe('VideoSession', () => {
 
     createElementSpy.mockRestore();
     sessionApi.cleanup();
+  });
+
+  it('writes through prepared screenshots asynchronously, assigns screenshot refs after save, and schedules draft persistence', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const saveDeferred = createDeferred<{ status: 'saved'; ref: VideoScreenshotCacheRef }>();
+    const cacheRepositoryModule =
+      await import('../../../../src/content/video/videoScreenshotCacheRepository');
+    const cacheTypesModule =
+      await import('../../../../src/content/video/videoScreenshotCacheTypes');
+    const saveSpy = vi.fn(
+      async (): Promise<VideoScreenshotCacheSaveResult> => saveDeferred.promise
+    );
+    const createRepositorySpy = vi
+      .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
+      .mockReturnValue({
+        save: saveSpy,
+        load: vi.fn(async () => null),
+        remove: vi.fn(async () => undefined),
+        removeMany: vi.fn(async () => undefined),
+        pruneExpired: vi.fn(async () => undefined),
+        pruneToLimits: vi.fn(async () => undefined)
+      });
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-write-through-1',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_200,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(new Blob(['prepared-frame'], { type: 'image/jpeg' }));
+    });
+    const toDataURL = vi.fn();
+    const hiddenVideo = createPreparationVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hiddenVideo.video;
+      }
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: toDataURL,
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const video = requireVideoElement();
+    let currentTime = 8;
+    let paused = false;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      get: () => paused,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      value: 4,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', {
+      value: 640,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoHeight', {
+      value: 360,
+      configurable: true
+    });
+    Object.defineProperty(video, 'currentSrc', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    Object.defineProperty(video, 'src', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+    const savedRef = {
+      schemaVersion: 1 as const,
+      pageKey: 'video-example',
+      captureId: 'ts-1',
+      id: 'shot-42',
+      key: cacheTypesModule.createVideoScreenshotCacheStorageKey({
+        pageKey: 'video-example',
+        captureId: 'ts-1',
+        screenshotId: 'shot-42'
+      }),
+      fileName: 'video-0m42s.jpg',
+      mimeType: 'image/jpeg' as const,
+      byteLength: 14,
+      capturedAt: 2_000_000_000_300,
+      expiresAt: 2_000_000_000_300 + 60_000
+    };
+
+    try {
+      await session.start();
+      await waitForMockCalls(drawImage);
+
+      expect(sessionApi.state.captures).toHaveLength(1);
+      const restoredTimestamp = sessionApi.state.captures[0];
+      if (!restoredTimestamp || restoredTimestamp.kind !== 'timestamp') {
+        throw new Error('expected restored timestamp capture');
+      }
+      const screenshot = await waitForTimestampScreenshot(restoredTimestamp);
+
+      expect(saveSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          captureId: 'ts-1',
+          pageKey: expect.any(String),
+          screenshot
+        })
+      );
+      expect(restoredTimestamp.screenshot).toBe(screenshot);
+      expect(restoredTimestamp.screenshotRef).toBeUndefined();
+      expect(currentTime).toBe(8);
+      expect(currentTimeSetSpy).not.toHaveBeenCalled();
+      expect(pauseSpy).not.toHaveBeenCalled();
+      expect(playSpy).not.toHaveBeenCalled();
+
+      saveDeferred.resolve({
+        status: 'saved',
+        ref: savedRef
+      });
+      await flushMutationWork();
+      await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, 200);
+      });
+      await flushMutationWork();
+
+      expect(restoredTimestamp.screenshotRef).toEqual(savedRef);
+      let latestCandidate = await readLatestVideoDraftCandidate(deps);
+      for (let index = 0; index < 20; index += 1) {
+        const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
+        const latestCapture = latestPayload?.captures[0] as
+          | { screenshotRef?: VideoScreenshotCacheRef }
+          | undefined;
+        if (latestCapture?.screenshotRef) {
+          break;
+        }
+        await flushMutationWork();
+        latestCandidate = await readLatestVideoDraftCandidate(deps);
+      }
+      const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
+      expect(
+        latestPayload?.captures[0] as
+          | {
+              id?: string;
+              screenshotRequested?: boolean;
+              screenshotRef?: VideoScreenshotCacheRef;
+            }
+          | undefined
+      ).toMatchObject({
+        id: 'ts-1',
+        screenshotRequested: true,
+        screenshotRef: savedRef
+      });
+      expect(toDataURL).not.toHaveBeenCalled();
+    } finally {
+      createElementSpy.mockRestore();
+      createRepositorySpy.mockRestore();
+      sessionApi.cleanup();
+    }
+  });
+
+  it('keeps prepared screenshots in memory when cache write-through fails', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const cacheRepositoryModule =
+      await import('../../../../src/content/video/videoScreenshotCacheRepository');
+    const saveSpy = vi.fn(async (): Promise<VideoScreenshotCacheSaveResult> => {
+      throw new Error('cache write failed');
+    });
+    const createRepositorySpy = vi
+      .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
+      .mockReturnValue({
+        save: saveSpy,
+        load: vi.fn(async () => null),
+        remove: vi.fn(async () => undefined),
+        removeMany: vi.fn(async () => undefined),
+        pruneExpired: vi.fn(async () => undefined),
+        pruneToLimits: vi.fn(async () => undefined)
+      });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-write-through-failure-1',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_200,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(new Blob(['prepared-frame'], { type: 'image/jpeg' }));
+    });
+    const toDataURL = vi.fn();
+    const hiddenVideo = createPreparationVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hiddenVideo.video;
+      }
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: toDataURL,
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const video = requireVideoElement();
+    let currentTime = 8;
+    let paused = false;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      get: () => paused,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      value: 4,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', {
+      value: 640,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoHeight', {
+      value: 360,
+      configurable: true
+    });
+    Object.defineProperty(video, 'currentSrc', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    Object.defineProperty(video, 'src', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+
+    try {
+      await session.start();
+      await waitForMockCalls(drawImage);
+
+      const restoredTimestamp = sessionApi.state.captures[0];
+      if (!restoredTimestamp || restoredTimestamp.kind !== 'timestamp') {
+        throw new Error('expected restored timestamp capture');
+      }
+      const screenshot = await waitForTimestampScreenshot(restoredTimestamp);
+      await flushMutationWork();
+
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      expect(restoredTimestamp.screenshot).toBe(screenshot);
+      expect(restoredTimestamp.screenshotRef).toBeUndefined();
+      expect(currentTime).toBe(8);
+      expect(currentTimeSetSpy).not.toHaveBeenCalled();
+      expect(pauseSpy).not.toHaveBeenCalled();
+      expect(playSpy).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[VideoSession] Failed to persist prepared screenshot:',
+        expect.any(Error)
+      );
+      const latestCandidate = await readLatestVideoDraftCandidate(deps);
+      const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
+      expect(latestPayload?.captures[0]).toMatchObject({
+        id: 'ts-1',
+        screenshotRequested: true
+      });
+      expect(latestPayload?.captures[0]).not.toHaveProperty('screenshotRef');
+      expect(toDataURL).not.toHaveBeenCalled();
+    } finally {
+      createElementSpy.mockRestore();
+      createRepositorySpy.mockRestore();
+      warnSpy.mockRestore();
+      sessionApi.cleanup();
+    }
   });
 
   it('emits only canonical capture analytics events without privacy-sensitive params', async () => {

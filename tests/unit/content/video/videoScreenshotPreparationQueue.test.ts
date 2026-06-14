@@ -1074,6 +1074,183 @@ describe('videoScreenshotPreparationQueue', () => {
     queue.dispose();
     createElementSpy.mockRestore();
   });
+
+  it('caps hidden duplicate preparation at two concurrent attempts and starts the next capture after one finishes', async () => {
+    const captures = [
+      createTimestampCapture('ts-1', 41),
+      createTimestampCapture('ts-2', 42),
+      createTimestampCapture('ts-3', 43)
+    ];
+    const visible = createVideoHarness({
+      currentTime: 8,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hiddenVideos = [
+      createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' }),
+      createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' }),
+      createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' })
+    ];
+    const hiddenDeferreds = [
+      createDeferred<VideoCaptureScreenshot | null>(),
+      createDeferred<VideoCaptureScreenshot | null>(),
+      createDeferred<VideoCaptureScreenshot | null>()
+    ];
+    const stateSnapshots: QueueStateSnapshot[] = [];
+    const onScreenshotPrepared = vi.fn();
+    let hiddenIndex = 0;
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        const harness = hiddenVideos.at(hiddenIndex);
+        hiddenIndex += 1;
+        if (!harness) {
+          throw new Error('unexpected extra hidden duplicate video');
+        }
+        return harness.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn((video: HTMLVideoElement) => {
+        const index = hiddenVideos.findIndex((harness) => harness.video === video);
+        if (index === -1) {
+          throw new Error('unexpected capture target');
+        }
+        return hiddenDeferreds[index]!.promise;
+      }),
+      syncPanel: vi.fn(),
+      maxHiddenDuplicateConcurrency: 2,
+      onScreenshotPrepared,
+      ...createQueueStateRecorder(stateSnapshots)
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.requestAll();
+    await flushAsyncWork();
+
+    expect(hiddenVideos[0]?.currentTimeSetSpy).toHaveBeenCalledWith(41);
+    expect(hiddenVideos[1]?.currentTimeSetSpy).toHaveBeenCalledWith(42);
+    expect(hiddenVideos[2]?.currentTimeSetSpy).not.toHaveBeenCalled();
+    expect(stateSnapshots.at(-1)?.hiddenDuplicateAttemptIds).toEqual(['ts-1', 'ts-2']);
+    expect(stateSnapshots.every((snapshot) => snapshot.hiddenDuplicateAttemptIds.length <= 2)).toBe(
+      true
+    );
+
+    hiddenDeferreds[0]?.resolve(createScreenshot(41));
+    await flushAsyncWork();
+
+    expect(onScreenshotPrepared).toHaveBeenCalledWith(
+      captures[0],
+      captures[0]?.screenshot,
+      'hidden-duplicate'
+    );
+    expect(hiddenVideos[2]?.currentTimeSetSpy).toHaveBeenCalledWith(43);
+    expect(captures[0]?.screenshot?.id).toBe('shot-41');
+    expect(stateSnapshots.at(-1)?.hiddenDuplicateAttemptIds).toEqual(['ts-2', 'ts-3']);
+
+    hiddenDeferreds[1]?.resolve(createScreenshot(42));
+    hiddenDeferreds[2]?.resolve(createScreenshot(43));
+    await flushAsyncWork();
+
+    expect(captures.map((capture) => capture.screenshot?.id)).toEqual([
+      'shot-41',
+      'shot-42',
+      'shot-43'
+    ]);
+    expectQueueStateToBeEmpty(stateSnapshots.at(-1));
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
+
+  it('keeps visible opportunistic capture running while hidden duplicate slots are full', async () => {
+    const visibleCapture = createTimestampCapture('visible-1', 42);
+    const hiddenCaptureA = createTimestampCapture('hidden-1', 99);
+    const hiddenCaptureB = createTimestampCapture('hidden-2', 120);
+    const captures = [visibleCapture, hiddenCaptureA, hiddenCaptureB];
+    const visible = createVideoHarness({
+      currentTime: 42,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const hiddenVideos = [
+      createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' }),
+      createVideoHarness({ currentTime: 0, sourceUrl: 'https://cdn.example/video.mp4' })
+    ];
+    const visibleDeferred = createDeferred<VideoCaptureScreenshot | null>();
+    const hiddenDeferreds = [
+      createDeferred<VideoCaptureScreenshot | null>(),
+      createDeferred<VideoCaptureScreenshot | null>()
+    ];
+    const onScreenshotPrepared = vi.fn();
+    let hiddenIndex = 0;
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        const harness = hiddenVideos.at(hiddenIndex);
+        hiddenIndex += 1;
+        if (!harness) {
+          throw new Error('unexpected extra hidden duplicate video');
+        }
+        return harness.video;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const syncPanel = vi.fn();
+    const queue = createVideoScreenshotPreparationQueue({
+      doc: document,
+      getCaptures: () => captures,
+      getVisibleVideo: () => visible.video,
+      captureFrame: vi.fn((video: HTMLVideoElement) => {
+        if (video === visible.video) {
+          return visibleDeferred.promise;
+        }
+        const index = hiddenVideos.findIndex((harness) => harness.video === video);
+        if (index === -1) {
+          throw new Error('unexpected capture target');
+        }
+        return hiddenDeferreds[index]!.promise;
+      }),
+      syncPanel,
+      maxHiddenDuplicateConcurrency: 2,
+      onScreenshotPrepared
+    });
+
+    document.body.append(visible.video);
+    queue.handleVideoElementChange(visible.video);
+    queue.requestAll();
+    await flushAsyncWork();
+
+    expect(hiddenVideos[0]?.currentTimeSetSpy).toHaveBeenCalledWith(99);
+    expect(hiddenVideos[1]?.currentTimeSetSpy).toHaveBeenCalledWith(120);
+    expect(visibleCapture.screenshot).toBeUndefined();
+    expect(hiddenCaptureA.screenshot).toBeUndefined();
+    expect(hiddenCaptureB.screenshot).toBeUndefined();
+
+    const visibleScreenshot = {
+      ...createScreenshot(42),
+      id: 'visible-shot'
+    };
+    visibleDeferred.resolve(visibleScreenshot);
+    await flushAsyncWork();
+
+    expect(visibleCapture.screenshot?.id).toBe('visible-shot');
+    expect(onScreenshotPrepared).toHaveBeenCalledWith(visibleCapture, visibleScreenshot, 'visible');
+    expect(hiddenCaptureA.screenshot).toBeUndefined();
+    expect(hiddenCaptureB.screenshot).toBeUndefined();
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+
+    hiddenDeferreds[0]?.resolve(createScreenshot(99));
+    hiddenDeferreds[1]?.resolve(createScreenshot(120));
+    await flushAsyncWork();
+
+    expect(hiddenCaptureA.screenshot?.id).toBe('shot-99');
+    expect(hiddenCaptureB.screenshot?.id).toBe('shot-120');
+
+    queue.dispose();
+    createElementSpy.mockRestore();
+  });
 });
 
 const HIDDEN_WAIT_EVENT_COUNT = 3;
