@@ -15,7 +15,9 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
+  - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
   - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
@@ -33,7 +35,8 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式包含 `i18n:catalog:check`
-  - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
+  - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
+  - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
@@ -147,6 +150,15 @@ and public env shape, but it still does not prove real GA property delivery,
 DebugView visibility, or server-side `api_secret` injection. If
 `.env.production.local` is absent, the validator still runs and reports missing
 public values as warnings.
+`audit:ga:proxy-contract` / `audit:ga:docs` / `audit:ga:legacy-api` are
+deterministic static gates and are wired into `quality` and `verify:preflight`.
+`audit:ga:client-secret` scans client runtime `src/**` plus the current
+`build/dist` for secret-like GA tokens and direct Google Measurement Protocol
+endpoints. `audit:ga:release-surface` scans the same `build/dist` surface and
+can additionally check Chrome ZIP / Firefox XPI archives via repeated
+`--archive <path>` arguments for secret/direct-endpoint leaks and debug success
+log payload exposure. Neither gate requires live proxy success or owner-only
+credentials.
 Successful production proxy sends are intentionally silent in the console. Only
 `directDebug` emits `[analytics-events] Event sent (debug):` with a summary
 (`eventName`, `transportMode`, `responseStatus`, validation message count) and
@@ -159,6 +171,11 @@ until the relevant event-class consent and public config make a send possible;
 
 ```bash
 npm run analytics:validate:prod
+npm run audit:ga:proxy-contract
+npm run audit:ga:docs
+npm run audit:ga:legacy-api
+npm run audit:ga:client-secret
+npm run audit:ga:release-surface
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --help
@@ -179,6 +196,11 @@ DebugView visibility, or server-side `api_secret` injection. Screenshot
 attachment templates plan only export-time output paths / Markdown URLs; durable
 state persists `screenshotRequested`, while runtime screenshot bytes stay `Blob`
 / binary until background write/download boundaries.
+For package/release surfaces, run `npm run package:prod:ga` or
+`npm run package:firefox:prod:ga` first, then pass the produced archive path(s)
+to `npm run audit:ga:release-surface -- --archive <zip-or-xpi>`. Chrome ZIP and
+Firefox XPI must be scanned against their own artifacts; do not reuse the wrong
+browser target output.
 `run-ga-owner-smoke.mjs` is an owner CLI harness: it rejects client-side
 secret env vars, sends only to the configured proxy endpoint, and prints a
 redacted summary. Its local output proves request shape and local proxy behavior
