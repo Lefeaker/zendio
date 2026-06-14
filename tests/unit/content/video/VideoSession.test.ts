@@ -3464,6 +3464,11 @@ describe('VideoSession', () => {
     ).toBe(false);
     expect(
       trackUsageEvent.mock.calls.some(
+        ([eventName]) => String(eventName) === 'video_screenshot_captured'
+      )
+    ).toBe(false);
+    expect(
+      trackUsageEvent.mock.calls.some(
         ([eventName]) => String(eventName) === 'video_session_exported'
       )
     ).toBe(false);
@@ -4072,48 +4077,113 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
-  it('emits canonical export failure analytics with an unknown failure bucket', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
-      success: boolean;
-      error: string;
-    });
-    const deps = createDependencies();
-    const session = new VideoSession(document, deps);
-    const sessionApi = toSessionTestApi(session);
-    const trackUsageEvent = getTrackUsageEventMock(deps);
+  it.each([
+    {
+      name: 'validation failures from invalid payload responses',
+      configureFailure: () =>
+        exportMock.mockResolvedValueOnce({
+          success: false,
+          error: 'Invalid clip payload received.'
+        } as {
+          success: boolean;
+          error: string;
+        }),
+      expectedCategory: 'validation'
+    },
+    {
+      name: 'unsupported export surfaces',
+      configureFailure: () =>
+        exportMock.mockRejectedValueOnce(
+          new Error('Visible tab screenshot capture is unsupported.')
+        ),
+      expectedCategory: 'unsupported'
+    },
+    {
+      name: 'permission-denied export surfaces',
+      configureFailure: () => exportMock.mockRejectedValueOnce(new Error('permission denied')),
+      expectedCategory: 'permission'
+    },
+    {
+      name: 'message timeout failures',
+      configureFailure: () =>
+        exportMock.mockRejectedValueOnce(new Error('Message timeout after waiting for response')),
+      expectedCategory: 'timeout'
+    },
+    {
+      name: 'local write failures',
+      configureFailure: () =>
+        exportMock.mockRejectedValueOnce({
+          code: 'LOCAL_VAULT_WRITE_FAILED',
+          domain: 'background',
+          message: 'Local vault write failed: Vault/video.md',
+          severity: 'error',
+          recoverable: true
+        }),
+      expectedCategory: 'write'
+    },
+    {
+      name: 'rest connectivity failures',
+      configureFailure: () =>
+        exportMock.mockRejectedValueOnce({
+          code: 'REST_NETWORK_OFFLINE',
+          domain: 'rest',
+          message: 'rest offline',
+          severity: 'error',
+          recoverable: true
+        }),
+      expectedCategory: 'connection'
+    },
+    {
+      name: 'opaque export errors',
+      configureFailure: () =>
+        exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
+          success: boolean;
+          error: string;
+        }),
+      expectedCategory: 'unknown'
+    }
+  ])(
+    'emits canonical export failure analytics with actionable category for $name',
+    async ({ configureFailure, expectedCategory }) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
+      configureFailure();
+      const deps = createDependencies();
+      const session = new VideoSession(document, deps);
+      const sessionApi = toSessionTestApi(session);
+      const trackUsageEvent = getTrackUsageEventMock(deps);
 
-    await session.start();
-    sessionApi.state.captures = [
-      {
-        kind: 'timestamp',
-        id: 'timestamp-1',
-        timeSec: 12,
-        comment: 'private export note',
-        url: 'https://video.example/watch?t=12',
-        createdAt: 1
-      }
-    ];
-    vi.setSystemTime(new Date('2026-03-14T10:00:06Z'));
+      await session.start();
+      sessionApi.state.captures = [
+        {
+          kind: 'timestamp',
+          id: 'timestamp-1',
+          timeSec: 12,
+          comment: 'private export note',
+          url: 'https://video.example/watch?t=12',
+          createdAt: 1
+        }
+      ];
+      vi.setSystemTime(new Date('2026-03-14T10:00:06Z'));
 
-    await sessionApi.finish();
+      await sessionApi.finish();
 
-    expect(trackUsageEvent).toHaveBeenLastCalledWith('video_export_failed', {
-      platform: 'bilibili',
-      destination: 'downloads',
-      failure_category: 'unknown'
-    });
-    expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
-      'private export note'
-    );
-    expectNoForbiddenAnalyticsKeys(
-      trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
-    );
+      expect(trackUsageEvent).toHaveBeenLastCalledWith('video_export_failed', {
+        platform: 'bilibili',
+        destination: 'downloads',
+        failure_category: expectedCategory
+      });
+      expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
+        'private export note'
+      );
+      expectNoForbiddenAnalyticsKeys(
+        trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
+      );
 
-    sessionApi.cleanup();
-    vi.useRealTimers();
-  });
+      sessionApi.cleanup();
+      vi.useRealTimers();
+    }
+  );
 
   it('keeps the session alive when the exporter returns an invalid empty response', async () => {
     exportMock.mockResolvedValueOnce(null as never);
