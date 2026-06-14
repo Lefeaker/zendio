@@ -304,8 +304,7 @@ export async function setAnalyticsConsent(
   analytics: boolean,
   errorReporting: boolean
 ): Promise<void> {
-  const manager = getAnalyticsConfigManager();
-  await manager.setUserConsent({ analytics, errorReporting });
+  await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting });
 }
 
 export function getAnalyticsConfig(): AnalyticsConfig {
@@ -316,50 +315,53 @@ function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): Analy
   return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG);
 }
 
-function resolveAnalyticsRuntimeEnabled(consent: Partial<UserConsent> | undefined): boolean {
-  return Boolean(consent?.analytics || consent?.errorReporting);
-}
+const hasOwn = (value: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
+const normalizeOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.length > 0 ? value : undefined;
+const normalizePositiveInteger = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
+const resolveAnalyticsRuntimeEnabled = (consent: Partial<UserConsent> | undefined): boolean =>
+  Boolean(consent?.analytics || consent?.errorReporting);
 
 function normalizeStoredAnalyticsConfig(
   storedConfig: Partial<AnalyticsConfig> | undefined,
   defaults: AnalyticsConfig
 ): AnalyticsConfig {
-  const consent = normalizeUserConsent(storedConfig?.userConsent);
-  const transportMode = Object.prototype.hasOwnProperty.call(storedConfig ?? {}, 'transportMode')
-    ? (normalizeAnalyticsTransportMode(storedConfig?.transportMode, 'disabled') ?? 'disabled')
+  const config = storedConfig ?? {};
+  const consent = normalizeUserConsent(config.userConsent);
+  const transportMode = hasOwn(config, 'transportMode')
+    ? (normalizeAnalyticsTransportMode(config.transportMode, 'disabled') ?? 'disabled')
     : defaults.transportMode;
+  const clientId = normalizeOptionalString(config.clientId);
+  const sessionId = normalizeOptionalString(config.sessionId);
   const proxyEndpoint =
     transportMode === 'proxy' || transportMode === 'directDebug'
-      ? Object.prototype.hasOwnProperty.call(storedConfig ?? {}, 'proxyEndpoint')
-        ? normalizeProxyEndpoint(storedConfig?.proxyEndpoint)
+      ? hasOwn(config, 'proxyEndpoint')
+        ? normalizeProxyEndpoint(config.proxyEndpoint)
         : defaults.proxyEndpoint
       : undefined;
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
-    debugMode:
-      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode,
+    debugMode: typeof config.debugMode === 'boolean' ? config.debugMode : defaults.debugMode,
     measurementId:
-      normalizeMeasurementId(storedConfig?.measurementId, defaults.measurementId) ??
+      normalizeMeasurementId(config.measurementId, defaults.measurementId) ??
       defaults.measurementId,
     transportMode,
     ...(proxyEndpoint ? { proxyEndpoint } : {}),
-    ...(normalizeOptionalString(storedConfig?.clientId)
-      ? { clientId: normalizeOptionalString(storedConfig?.clientId) }
-      : {}),
-    ...(normalizeOptionalString(storedConfig?.sessionId)
-      ? { sessionId: normalizeOptionalString(storedConfig?.sessionId) }
-      : {}),
+    ...(clientId ? { clientId } : {}),
+    ...(sessionId ? { sessionId } : {}),
     ...(consent ? { userConsent: consent } : {}),
     reportingInterval: normalizePositiveInteger(
-      storedConfig?.reportingInterval,
+      config.reportingInterval,
       defaults.reportingInterval
     ),
     maxErrorsPerSession: normalizePositiveInteger(
-      storedConfig?.maxErrorsPerSession,
+      config.maxErrorsPerSession,
       defaults.maxErrorsPerSession
     ),
-    batchSize: normalizePositiveInteger(storedConfig?.batchSize, defaults.batchSize)
+    batchSize: normalizePositiveInteger(config.batchSize, defaults.batchSize)
   };
 }
 
@@ -367,7 +369,6 @@ function normalizeUserConsent(value: unknown): UserConsent | undefined {
   if (typeof value !== 'object' || value === null) {
     return undefined;
   }
-
   const consent = value as Partial<UserConsent>;
   return {
     analytics: consent.analytics === true,
@@ -375,12 +376,4 @@ function normalizeUserConsent(value: unknown): UserConsent | undefined {
     timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0,
     version: typeof consent.version === 'string' ? consent.version : '1.0'
   };
-}
-
-function normalizeOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function normalizePositiveInteger(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
