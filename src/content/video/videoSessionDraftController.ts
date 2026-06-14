@@ -2,7 +2,6 @@ import {
   createSessionDraftPersister,
   createSessionDraftRepository,
   finalizeTerminalSessionDraft,
-  type SessionDraftEnvelope,
   type SessionDraftPersister,
   type SessionDraftStatus,
   type SessionDraftTerminalStatus,
@@ -17,17 +16,22 @@ import {
   pickVideoSessionDraftCandidate,
   type VideoSessionDraftPayloadShape
 } from './sessionDrafts';
+import type {
+  VideoSessionDraftControllerOptions,
+  VideoSessionDraftRuntimePort
+} from './videoSessionRuntimePorts';
+import type { VideoHintState } from './videoHintManager';
 import {
   applyVideoSessionCommentDrafts,
   bindVideoSessionDraftPersistence,
   flushVideoSessionDraftNow,
   syncVideoSessionCommentDraftsFromDom
 } from './videoSessionDraftSync';
-import type {
-  VideoSessionDraftControllerOptions,
-  VideoSessionDraftRuntimePort
-} from './videoSessionRuntimePorts';
-import type { VideoHintState } from './videoHintManager';
+import {
+  cleanupVideoDraftTerminalArtifacts,
+  restoreVideoDraftCachedScreenshots
+} from './videoSessionDraftScreenshotCache';
+import { buildVideoTerminalEnvelopeForExactKey } from './videoSessionDraftTerminal';
 
 export class VideoSessionDraftController implements VideoSessionDraftRuntimePort {
   private readonly draftRepository = createSessionDraftRepository(this.options.storageArea);
@@ -46,23 +50,18 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       buildEnvelope: () => this.buildDraftEnvelope()
     });
   }
-
   isTrackingPageUrl(url: string): boolean {
     return this.activeDraftPageUrl === url;
   }
-
   updateActivePageUrl(url: string): void {
     this.activeDraftPageUrl = url;
   }
-
   clearRestoredDraftKey(): void {
     this.restoredDraftKey = null;
   }
-
   syncCommentDrafts(): Record<string, string> {
     return syncVideoSessionCommentDraftsFromDom(this.options.state, this.options.dom);
   }
-
   bindPersistence(): void {
     this.stopDraftPersistence?.();
     const view = this.options.doc.defaultView;
@@ -100,6 +99,10 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       this.options.doc.location.href
     );
     this.options.state.captures = hydrated.captures;
+    await restoreVideoDraftCachedScreenshots(
+      this.options.state.captures,
+      this.options.screenshotCache
+    );
     applyVideoSessionCommentDrafts(this.options.state, hydrated.commentDrafts, {
       hydrateDom: true,
       dom: this.options.dom
@@ -205,9 +208,11 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     }
 
     if (this.restoredDraftKey) {
-      const restoredEnvelope = await this.buildTerminalEnvelopeForExactKey(
+      const restoredEnvelope = await buildVideoTerminalEnvelopeForExactKey(
+        this.options.storageArea,
         this.restoredDraftKey,
-        status
+        status,
+        (options) => this.buildDraftEnvelope(options)
       );
       if (restoredEnvelope) {
         terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
@@ -217,7 +222,12 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
       repository: this.draftRepository,
       buildTerminalEnvelopes: () => terminalEnvelopes.values(),
-      cleanupTerminalDrafts: () => this.remove(),
+      cleanupTerminalDrafts: () =>
+        cleanupVideoDraftTerminalArtifacts({
+          removeDraft: () => this.remove(),
+          captures: this.options.state.captures,
+          screenshotCache: this.options.screenshotCache
+        }),
       onSaveError: (error) => {
         console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
       },
@@ -268,23 +278,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
         canonicalUrl: this.options.state.canonicalUrl || pageUrl,
         videoTitle: title
       })
-    });
-  }
-
-  private async buildTerminalEnvelopeForExactKey(
-    storageKey: string,
-    status: SessionDraftTerminalStatus
-  ): Promise<VideoSessionDraftEnvelope | null> {
-    const stored = await this.options.storageArea.get<SessionDraftEnvelope>(storageKey);
-    if (!stored || stored.mode !== 'video') {
-      return null;
-    }
-
-    return this.buildDraftEnvelope({
-      draftId: stored.draftId,
-      pageUrl: stored.pageUrl,
-      status,
-      allowEmpty: true
     });
   }
 
