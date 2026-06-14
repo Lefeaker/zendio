@@ -192,7 +192,7 @@ fall back to low-concurrency screenshot preparation.
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
 - `npm run lint:warnings-guard`：2026-06-14 P09 final verification isolated worktree fresh run 通过；checked-in baseline 仍为 `147`，当前 warning 总数为 `131`，gate 输出为 `Warning 总量下降 16 条（现在 131 条）`。当前规则族为 `@typescript-eslint/require-await: 100`、`@typescript-eslint/no-unsafe-assignment: 19`、`@typescript-eslint/no-unsafe-return: 6`、`@typescript-eslint/no-unsafe-argument: 2`、`@typescript-eslint/no-unsafe-member-access: 3`、`@typescript-eslint/no-unsafe-call: 1`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
+- 当前 fresh warning 主要规则族：`require-await`（`100`）与 unsafe type warnings（`no-unsafe-assignment: 19`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
 - `npm run lint:type-any`：2026-06-14 P09 final verification isolated worktree fresh run 扫描 `1193` files；fresh overall 为 `any: 0`、`unknown: 1119`、assertions `1861`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/606/630/9/0`；tests 为 `0/513/1231/38/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
