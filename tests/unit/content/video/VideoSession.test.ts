@@ -839,7 +839,10 @@ describe('VideoSession', () => {
 
       try {
         await session.start();
-        await waitForMockCalls(drawImage);
+        await waitForMockCalls(drawImage, 1, 120);
+        if (drawImage.mock.calls.length === 0) {
+          throw new Error('expected restored draft screenshot fallback to draw hidden video frame');
+        }
 
         expect(drawImage).toHaveBeenCalledWith(hiddenVideo.video, 0, 0, 640, 360);
         expect(hiddenVideo.currentTimeSetSpy).toHaveBeenCalledWith(42);
