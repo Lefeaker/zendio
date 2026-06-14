@@ -12,14 +12,18 @@ export const VIDEO_SCREENSHOT_CACHE_TTL_MS = DEFAULT_SESSION_DRAFT_TTL_MS;
 export const VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES = SESSION_DRAFT_MAX_ENTRIES;
 export const VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES = 50;
 export const VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES = 1024 * 1024;
+
 const VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.v${VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION}.`;
 const VIDEO_SCREENSHOT_CACHE_MIME_TYPE = 'image/jpeg' as const;
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
+const PAGE_KEY_PATTERN = /^[A-Za-z0-9_-]+$/u;
+
 interface VideoScreenshotCacheIdentity {
   pageKey: string;
   captureId: string;
   id: string;
 }
+
 export interface VideoScreenshotCacheRef extends VideoScreenshotCacheIdentity {
   schemaVersion: typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION;
   key: string;
@@ -29,16 +33,28 @@ export interface VideoScreenshotCacheRef extends VideoScreenshotCacheIdentity {
   capturedAt: number;
   expiresAt: number;
 }
-export interface VideoScreenshotCacheEntry extends VideoScreenshotCacheRef {
+
+export interface VideoScreenshotCacheIndexEntry extends VideoScreenshotCacheRef {
   createdAt: number;
   updatedAt: number;
+}
+
+export interface VideoScreenshotCacheIndex {
+  schemaVersion: typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION;
+  entries: VideoScreenshotCacheIndexEntry[];
+}
+
+export interface VideoScreenshotCacheEntry extends VideoScreenshotCacheIndexEntry {
   content: SerializedClipAttachmentBinaryContent;
 }
-export interface VideoScreenshotCacheIndexEntry extends VideoScreenshotCacheIdentity {
-  key: string;
-  updatedAt: number;
-  expiresAt: number;
-  byteLength: number;
+
+export function createVideoScreenshotCacheIndex(
+  entries: VideoScreenshotCacheIndexEntry[] = []
+): VideoScreenshotCacheIndex {
+  return {
+    schemaVersion: VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION,
+    entries
+  };
 }
 
 export function createVideoScreenshotCacheStorageKey(options: {
@@ -47,14 +63,21 @@ export function createVideoScreenshotCacheStorageKey(options: {
   screenshotId: string;
 }): string {
   const { pageKey, captureId, screenshotId } = options;
-  return `${VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX}${pageKey}.${encodeKeyPart(captureId)}.${encodeKeyPart(screenshotId)}`;
+  return `${VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX}${encodeKeyPart(pageKey)}.${encodeKeyPart(captureId)}.${encodeKeyPart(screenshotId)}`;
 }
+
 export function isVideoScreenshotCacheStorageKey(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith(VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX);
 }
+
+export function isVideoScreenshotCachePageKey(value: unknown): value is string {
+  return normalizePageKey(value) !== null;
+}
+
 export function isVideoScreenshotCacheRef(value: unknown): value is VideoScreenshotCacheRef {
   return normalizeVideoScreenshotCacheRef(value) !== null;
 }
+
 export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreenshotCacheRef | null {
   if (!isObjectRecord(value)) {
     return null;
@@ -81,6 +104,7 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
   ) {
     return null;
   }
+
   return {
     schemaVersion,
     key,
@@ -94,26 +118,30 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
     expiresAt
   };
 }
-export function isVideoScreenshotCacheEntry(value: unknown): value is VideoScreenshotCacheEntry {
-  return normalizeVideoScreenshotCacheEntry(value) !== null;
-}
-export function normalizeVideoScreenshotCacheEntry(
+
+export function isVideoScreenshotCacheIndexEntry(
   value: unknown
-): VideoScreenshotCacheEntry | null {
+): value is VideoScreenshotCacheIndexEntry {
+  return normalizeVideoScreenshotCacheIndexEntry(value) !== null;
+}
+
+export function normalizeVideoScreenshotCacheIndexEntry(
+  value: unknown
+): VideoScreenshotCacheIndexEntry | null {
   const ref = normalizeVideoScreenshotCacheRef(value);
   if (ref === null || !isObjectRecord(value)) {
     return null;
   }
+
   const createdAt = normalizeTimestamp(value.createdAt);
   const updatedAt = normalizeTimestamp(value.updatedAt);
-  const content = normalizeBinaryContent(value.content);
-  if (createdAt === null || updatedAt === null || content === null) {
-    return null;
-  }
+
   if (
+    createdAt === null ||
+    updatedAt === null ||
+    createdAt < ref.capturedAt ||
     updatedAt < createdAt ||
-    ref.expiresAt <= updatedAt ||
-    content.byteLength !== ref.byteLength
+    ref.expiresAt <= updatedAt
   ) {
     return null;
   }
@@ -121,49 +149,65 @@ export function normalizeVideoScreenshotCacheEntry(
   return {
     ...ref,
     createdAt,
-    updatedAt,
-    content
+    updatedAt
   };
 }
-export function isVideoScreenshotCacheIndexEntry(
-  value: unknown
-): value is VideoScreenshotCacheIndexEntry {
-  return normalizeVideoScreenshotCacheIndexEntry(value) !== null;
+
+export function isVideoScreenshotCacheIndex(value: unknown): value is VideoScreenshotCacheIndex {
+  return normalizeVideoScreenshotCacheIndex(value) !== null;
 }
-export function normalizeVideoScreenshotCacheIndexEntry(
+
+export function normalizeVideoScreenshotCacheIndex(
   value: unknown
-): VideoScreenshotCacheIndexEntry | null {
+): VideoScreenshotCacheIndex | null {
   if (!isObjectRecord(value)) {
     return null;
   }
-  const identity = normalizeIdentity(value);
-  const key = normalizeStorageKey(value.key, identity);
-  const updatedAt = normalizeTimestamp(value.updatedAt);
-  const expiresAt = normalizeTimestamp(value.expiresAt);
-  const byteLength = normalizeByteLength(value.byteLength);
-  if (
-    identity === null ||
-    key === null ||
-    updatedAt === null ||
-    expiresAt === null ||
-    byteLength === null ||
-    expiresAt <= updatedAt
-  ) {
+
+  const schemaVersion = normalizeSchemaVersion(value.schemaVersion);
+  const entries =
+    Array.isArray(value.entries) &&
+    value.entries.every((entry) => normalizeVideoScreenshotCacheIndexEntry(entry) !== null)
+      ? value.entries.map((entry) => normalizeVideoScreenshotCacheIndexEntry(entry)!)
+      : null;
+
+  if (schemaVersion === null || entries === null) {
     return null;
   }
+
   return {
-    key,
-    pageKey: identity.pageKey,
-    captureId: identity.captureId,
-    id: identity.id,
-    updatedAt,
-    expiresAt,
-    byteLength
+    schemaVersion,
+    entries
   };
 }
+
+export function isVideoScreenshotCacheEntry(value: unknown): value is VideoScreenshotCacheEntry {
+  return normalizeVideoScreenshotCacheEntry(value) !== null;
+}
+
+export function normalizeVideoScreenshotCacheEntry(
+  value: unknown
+): VideoScreenshotCacheEntry | null {
+  const indexEntry = normalizeVideoScreenshotCacheIndexEntry(value);
+  if (indexEntry === null || !isObjectRecord(value)) {
+    return null;
+  }
+
+  const content = normalizeBinaryContent(value.content);
+  if (content === null || content.byteLength !== indexEntry.byteLength) {
+    return null;
+  }
+
+  return {
+    ...indexEntry,
+    content
+  };
+}
+
 function encodeKeyPart(value: string): string {
   return encodeURIComponent(value);
 }
+
 function normalizeSchemaVersion(
   value: unknown
 ): typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION | null {
@@ -171,8 +215,9 @@ function normalizeSchemaVersion(
     ? VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION
     : null;
 }
+
 function normalizeIdentity(value: Record<string, unknown>): VideoScreenshotCacheIdentity | null {
-  const pageKey = normalizeNonEmptyString(value.pageKey);
+  const pageKey = normalizePageKey(value.pageKey);
   const captureId = normalizeNonEmptyString(value.captureId);
   const id = normalizeNonEmptyString(value.id);
   if (pageKey === null || captureId === null || id === null) {
@@ -180,6 +225,15 @@ function normalizeIdentity(value: Record<string, unknown>): VideoScreenshotCache
   }
   return { pageKey, captureId, id };
 }
+
+function normalizePageKey(value: unknown): string | null {
+  const normalized = normalizeNonEmptyString(value);
+  if (normalized === null || !PAGE_KEY_PATTERN.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
 function normalizeStorageKey(
   value: unknown,
   identity: VideoScreenshotCacheIdentity | null
@@ -194,15 +248,24 @@ function normalizeStorageKey(
   });
   return value === expected ? expected : null;
 }
+
 function normalizeMimeType(value: unknown): typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE | null {
   return value === VIDEO_SCREENSHOT_CACHE_MIME_TYPE ? VIDEO_SCREENSHOT_CACHE_MIME_TYPE : null;
 }
+
 function normalizeNonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
+
 function normalizeTimestamp(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    Number.isFinite(value) &&
+    value >= 0
+    ? value
+    : null;
 }
+
 function normalizeByteLength(value: unknown): number | null {
   return typeof value === 'number' &&
     Number.isInteger(value) &&
@@ -211,12 +274,15 @@ function normalizeByteLength(value: unknown): number | null {
     ? value
     : null;
 }
+
 function normalizeBinaryContent(value: unknown): SerializedClipAttachmentBinaryContent | null {
   if (!isObjectRecord(value)) {
     return null;
   }
+
   const { encoding, data, byteLength } = value;
   const normalizedByteLength = normalizeByteLength(byteLength);
+
   if (
     encoding !== 'base64' ||
     typeof data !== 'string' ||
@@ -226,5 +292,10 @@ function normalizeBinaryContent(value: unknown): SerializedClipAttachmentBinaryC
   ) {
     return null;
   }
-  return { encoding: 'base64', data, byteLength: normalizedByteLength };
+
+  return {
+    encoding: 'base64',
+    data,
+    byteLength: normalizedByteLength
+  };
 }
