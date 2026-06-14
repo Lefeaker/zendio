@@ -170,16 +170,8 @@ export function buildSyntheticSmokeEvent(eventName = DEFAULT_DELIVERY_SMOKE_EVEN
 export function collectPublicAnalyticsEnv(env = process.env) {
   return {
     measurementId: resolveEnvAlias(env, 'ZENDIO_GA_MEASUREMENT_ID', 'AIIINOB_GA_MEASUREMENT_ID'),
-    transportMode: resolveEnvAlias(
-      env,
-      'ZENDIO_GA_TRANSPORT_MODE',
-      'AIIINOB_GA_TRANSPORT_MODE'
-    ),
-    proxyEndpoint: resolveEnvAlias(
-      env,
-      'ZENDIO_GA_PROXY_ENDPOINT',
-      'AIIINOB_GA_PROXY_ENDPOINT'
-    ),
+    transportMode: resolveEnvAlias(env, 'ZENDIO_GA_TRANSPORT_MODE', 'AIIINOB_GA_TRANSPORT_MODE'),
+    proxyEndpoint: resolveEnvAlias(env, 'ZENDIO_GA_PROXY_ENDPOINT', 'AIIINOB_GA_PROXY_ENDPOINT'),
     forbiddenSecretEnvNames: FORBIDDEN_SECRET_ENV_NAMES.filter((name) => {
       const value = env[name];
       return typeof value === 'string' && value.trim().length > 0;
@@ -462,7 +454,10 @@ export async function runAnalyticsDeliverySmoke(options = {}) {
       eventName: args.eventName,
       transportMode: environment.transportMode
     });
-    stderr('Analytics delivery smoke failed before proxy response:', JSON.stringify(networkSummary));
+    stderr(
+      'Analytics delivery smoke failed before proxy response:',
+      JSON.stringify(networkSummary)
+    );
     return {
       status: 'failed',
       exitCode: 1,
