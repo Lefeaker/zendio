@@ -1,6 +1,9 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
+  normalizeAnalyticsTransportMode,
+  normalizeMeasurementId,
+  normalizeProxyEndpoint,
   readAnalyticsPublicBuildConfig,
   type AnalyticsTransportMode
 } from '../../analytics/analyticsEnvironment';
@@ -9,11 +12,6 @@ import {
   createAnalyticsSessionId,
   redactAnalyticsIdentity
 } from '../../analytics/analyticsIdentity';
-import {
-  hasAnalyticsSendConsent,
-  normalizeStoredAnalyticsConfig,
-  resolveAnalyticsRuntimeEnabled
-} from '../../analytics/analyticsRuntimeConfig';
 
 export const GA4_CONFIG = {
   MEASUREMENT_ID: DEFAULT_ANALYTICS_MEASUREMENT_ID,
@@ -39,6 +37,7 @@ export const GA4_CONFIG = {
     CONFIG: 'analytics_config',
     CLIENT_ID: 'analytics_client_id',
     SESSION_ID: 'analytics_session_id',
+    ANALYTICS_QUEUE: 'analytics_event_queue',
     ERROR_QUEUE: 'analytics_error_queue',
     LAST_REPORT_TIME: 'analytics_last_report_time'
   }
@@ -297,21 +296,72 @@ export function watchAnalyticsConfigStorage(
 }
 
 export function shouldReportErrors(): boolean {
-  return hasAnalyticsSendConsent(getAnalyticsConfigManager().getConfig(), 'extension_error');
+  const config = getAnalyticsConfigManager().getConfig();
+  return config.enabled && config.userConsent?.errorReporting === true;
 }
 
-export async function setAnalyticsConsent(
-  analytics: boolean,
-  errorReporting: boolean
-): Promise<void> {
-  const manager = getAnalyticsConfigManager();
-  await manager.setUserConsent({ analytics, errorReporting });
+// prettier-ignore
+export async function setAnalyticsConsent(analytics: boolean, errorReporting: boolean): Promise<void> { await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting }); }
+
+// prettier-ignore
+export function getAnalyticsConfig(): AnalyticsConfig { return getAnalyticsConfigManager().getConfig(); }
+
+// prettier-ignore
+function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig { return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG); }
+
+const hasOwn = (value: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
+const normalizeOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.length > 0 ? value : undefined;
+const normalizePositiveInteger = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
+const resolveAnalyticsRuntimeEnabled = (consent: Partial<UserConsent> | undefined): boolean =>
+  Boolean(consent?.analytics || consent?.errorReporting);
+
+function normalizeStoredAnalyticsConfig(
+  storedConfig: Partial<AnalyticsConfig> | undefined,
+  defaults: AnalyticsConfig
+): AnalyticsConfig {
+  const config = storedConfig ?? {};
+  const consent = normalizeUserConsent(config.userConsent);
+  const transportMode = hasOwn(config, 'transportMode')
+    ? (normalizeAnalyticsTransportMode(config.transportMode, 'disabled') ?? 'disabled')
+    : defaults.transportMode;
+  const clientId = normalizeOptionalString(config.clientId);
+  const sessionId = normalizeOptionalString(config.sessionId);
+  const proxyEndpoint =
+    transportMode === 'proxy' || transportMode === 'directDebug'
+      ? hasOwn(config, 'proxyEndpoint')
+        ? normalizeProxyEndpoint(config.proxyEndpoint)
+        : defaults.proxyEndpoint
+      : undefined;
+
+  return {
+    enabled: resolveAnalyticsRuntimeEnabled(consent),
+    debugMode: typeof config.debugMode === 'boolean' ? config.debugMode : defaults.debugMode,
+    measurementId:
+      normalizeMeasurementId(config.measurementId, defaults.measurementId) ??
+      defaults.measurementId,
+    transportMode,
+    ...(proxyEndpoint ? { proxyEndpoint } : {}),
+    ...(clientId ? { clientId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(consent ? { userConsent: consent } : {}),
+    reportingInterval: normalizePositiveInteger(
+      config.reportingInterval,
+      defaults.reportingInterval
+    ),
+    maxErrorsPerSession: normalizePositiveInteger(
+      config.maxErrorsPerSession,
+      defaults.maxErrorsPerSession
+    ),
+    batchSize: normalizePositiveInteger(config.batchSize, defaults.batchSize)
+  };
 }
 
-export function getAnalyticsConfig(): AnalyticsConfig {
-  return getAnalyticsConfigManager().getConfig();
-}
-
-function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
-  return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG);
+function normalizeUserConsent(value: unknown): UserConsent | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const consent = value as Partial<UserConsent>;
+  // prettier-ignore
+  return { analytics: consent.analytics === true, errorReporting: consent.errorReporting === true, timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0, version: typeof consent.version === 'string' ? consent.version : '1.0' };
 }

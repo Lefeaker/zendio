@@ -121,10 +121,7 @@ describe('GoogleAnalyticsReporter', () => {
         error_severity: 'critical',
         error_recoverable: true,
         browser_name: 'chrome',
-        browser_version: '123',
-        extractor: 'reader',
-        domain: 'example.com',
-        protocol: 'https:'
+        browser_version: '123'
       }),
       expect.objectContaining({
         measurementId: 'G-123',
@@ -140,15 +137,10 @@ describe('GoogleAnalyticsReporter', () => {
     const transportCall = sendAnalyticsTransportEventMock.mock.calls[0];
     expect(transportCall).toBeDefined();
     const params = (transportCall?.[1] ?? {}) as Record<string, unknown>;
-    const stackTrace = String(params.stackTrace ?? '');
-    expect(stackTrace.split('\n')).toHaveLength(5);
-    expect(stackTrace).toContain('at fn:12');
-    expect(stackTrace).toContain('at saveFile:34');
-    expect(stackTrace).not.toContain('https://example.com/file.js');
-    expect(stackTrace).not.toContain('/Users/mac/SecretVault');
-    expect(stackTrace).not.toContain('api_key');
     expect(JSON.stringify(params)).not.toContain('SecretVault');
     expect(JSON.stringify(params)).not.toContain('PrivateFolder');
+    expect(JSON.stringify(params)).not.toContain('stackTrace');
+    expect(JSON.stringify(params)).not.toContain('url');
     expect(reporter.getConfig().measurementId).toBe('G-123');
     expect(reporter.isEnabled()).toBe(true);
     reporter.updateConfig({

@@ -16,7 +16,10 @@ import {
   createGlobalStateManager
 } from '../shared/state/globalStateManager';
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
-import { clearQueuedUsageAnalyticsEventsIfConsentRevoked } from './services/analyticsEvents';
+import {
+  clearQueuedUsageAnalyticsEventsIfConsentRevoked,
+  configureUsageAnalyticsQueueStorage
+} from './services/analyticsEvents';
 import { configureI18nStorage } from '@i18n';
 import type { StorageService } from '../platform/interfaces/storage';
 
@@ -52,11 +55,12 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
   configureGlobalStateManagerStorage(resolvedStorage);
   configureI18nStorage(resolvedStorage.sync);
   configureUsageStatsStorage(resolvedStorage);
+  configureUsageAnalyticsQueueStorage(resolvedStorage);
   const errorHandler = createErrorHandler();
 
   cleanupAnalyticsConfigStorageWatch?.();
   cleanupAnalyticsConfigStorageWatch = watchAnalyticsConfigStorage((config) => {
-    clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
+    void clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
     void updateErrorAnalyticsConfig(
       config.userConsent?.errorReporting === true,
       errorHandler

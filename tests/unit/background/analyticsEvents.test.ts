@@ -17,6 +17,11 @@ type AnalyticsFetch = (input: string, init?: RequestInit) => Promise<AnalyticsFe
 vi.mock('../../../src/shared/errors/analytics/analyticsConfig', () => ({
   initializeAnalyticsConfig: initializeAnalyticsConfigMock,
   refreshAnalyticsConfig: refreshAnalyticsConfigMock,
+  GA4_CONFIG: {
+    STORAGE_KEYS: {
+      ANALYTICS_QUEUE: 'analytics_event_queue'
+    }
+  },
   getAnalyticsConfigManager: () => ({
     getConfig: getConfigMock,
     renewSession: renewSessionMock
@@ -84,6 +89,31 @@ function createAnalyticsConfig(
     reportingInterval: 30000,
     batchSize: 10,
     ...overrides
+  };
+}
+
+function clone<T>(value: T): T {
+  if (value === undefined) {
+    return value;
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createQueueStorageService() {
+  const values = new Map<string, unknown>();
+
+  return {
+    local: {
+      get: vi.fn(async <T>(key: string) => values.get(key) as T | undefined),
+      set: vi.fn(async <T>(key: string, value: T) => {
+        values.set(key, clone(value));
+      }),
+      remove: vi.fn(async (key: string | string[]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((entry) => values.delete(entry));
+      })
+    },
+    snapshot: (key: string) => clone(values.get(key))
   };
 }
 
@@ -376,6 +406,93 @@ describe('analyticsEvents', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('rehydrates persisted failed usage events after module reload when queue storage is configured', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(400000);
+      const queuedConfig = createAnalyticsConfig({
+        reportingInterval: 30000,
+        batchSize: 1
+      });
+      getConfigMock.mockReturnValue(queuedConfig);
+      refreshAnalyticsConfigMock.mockResolvedValue(queuedConfig);
+      const storage = createQueueStorageService();
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'fail',
+        clone: () => ({ text: () => Promise.resolve('broken') })
+      });
+
+      const firstModule = await import('../../../src/background/services/analyticsEvents');
+      firstModule.configureUsageAnalyticsQueueStorage(storage as never);
+      await firstModule.trackUsageEvent('support_link_clicked', {
+        target: 'ko-fi'
+      } as { target: 'ko-fi' } & Record<string, unknown>);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(storage.snapshot('analytics_event_queue')).toEqual([
+        expect.objectContaining({
+          eventName: 'support_link_clicked',
+          params: { target: 'ko-fi' },
+          attemptCount: 1,
+          nextAttemptAt: 430000
+        })
+      ]);
+
+      vi.resetModules();
+      fetchMock.mockReset();
+      vi.stubGlobal('fetch', fetchMock);
+      getConfigMock.mockReturnValue(queuedConfig);
+      refreshAnalyticsConfigMock.mockResolvedValue(queuedConfig);
+      fetchMock.mockResolvedValue({
+        ok: true,
+        clone: () => ({ text: () => Promise.resolve('') })
+      });
+
+      const secondModule = await import('../../../src/background/services/analyticsEvents');
+      secondModule.configureUsageAnalyticsQueueStorage(storage as never);
+      vi.setSystemTime(430001);
+      await secondModule.trackUsageEvent('support_github_feedback_clicked');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+      expect(String(requestInit?.body)).toContain('"name":"support_link_clicked"');
+      expect(String(requestInit?.body)).not.toContain('"name":"support_github_feedback_clicked"');
+      expect(storage.snapshot('analytics_event_queue')).toEqual([
+        expect.objectContaining({
+          eventName: 'support_github_feedback_clicked',
+          attemptCount: 0
+        })
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears persisted usage queue storage when analytics consent is revoked before queue creation', async () => {
+    const storage = createQueueStorageService();
+    await storage.local.set('analytics_event_queue', [
+      {
+        id: 'persisted-1',
+        eventName: 'support_dislike_clicked',
+        enqueuedAt: 100000,
+        attemptCount: 0
+      }
+    ]);
+
+    const { clearQueuedUsageAnalyticsEventsIfConsentRevoked, configureUsageAnalyticsQueueStorage } =
+      await import('../../../src/background/services/analyticsEvents');
+    configureUsageAnalyticsQueueStorage(storage as never);
+
+    await clearQueuedUsageAnalyticsEventsIfConsentRevoked({
+      enabled: true,
+      userConsent: { analytics: false }
+    });
+
+    expect(storage.snapshot('analytics_event_queue')).toBeUndefined();
   });
 
   it('warns when initialization or request handling fails and can retry afterwards', async () => {
