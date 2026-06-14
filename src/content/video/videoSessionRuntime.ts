@@ -62,7 +62,6 @@ import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparat
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import type { VideoTimestampCapture } from './types';
-import { VideoSessionDraftController } from './videoSessionDraftController';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 
 export class VideoSession {
@@ -82,7 +81,7 @@ export class VideoSession {
   private readonly destinationState: ContentExportDestinationState;
   private readonly commentEditorPlayback: VideoCommentEditorPlaybackController;
   private readonly screenshotPreparation: VideoScreenshotPreparationCoordinator;
-  private draftController!: VideoSessionDraftController;
+  private draftController!: VideoSessionControllers['draftController'];
   private readonly mutationCoordinator: VideoSessionMutationCoordinator;
   private controllersReadyPromise: Promise<void> | null = null;
   private isCleaningUp = false;
@@ -153,7 +152,14 @@ export class VideoSession {
           doc: this.doc,
           dependencies: this.dependencies,
           state: this.state,
+          destinationState: this.destinationState,
           getMessages: () => this.messages,
+          applyHint: (state) => this.applyHint(state),
+          readCleanupState: () => ({
+            isCleaningUp: this.isCleaningUp,
+            shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
+          }),
+          onDraftRestored: () => this.screenshotPreparation.requestPendingScreenshots(),
           createPlatformContext: () =>
             createVideoSessionPlatformContext({
               doc: this.doc,
@@ -167,21 +173,12 @@ export class VideoSession {
           onSelectionAccepted: ({ selectedHtml, selectedText, range }) => {
             this.ingestTextCapture(selectedHtml, selectedText, '', range ?? undefined);
           },
-          restoreDraftState: async () => {
-            const restored = await this.draftController.restoreDraftState();
-            if (restored) {
-              this.screenshotPreparation.requestPendingScreenshots();
-            }
-            return restored;
-          },
-          onLegacyRestore: (storageKey) => this.draftController.handleLegacyRestore(storageKey),
           findVideoElement: () => this.doc.querySelector('video'),
           handleUrlChange: () => {
             void this.handleUrlChange();
           },
           handleVideoElementChange: (element) => this.handleVideoElementChange(element)
         });
-
         this.fragmentHighlighter = controllers.fragmentHighlighter;
         this.hintManager = controllers.hintManager;
         this.pendingSelection = controllers.pendingSelection;
@@ -193,18 +190,7 @@ export class VideoSession {
         this.exporter = controllers.exporter;
         this.platformController = controllers.platformController;
         this.dom = controllers.dom;
-        this.draftController = new VideoSessionDraftController({
-          doc: this.doc,
-          state: this.state,
-          destinationState: this.destinationState,
-          storageArea: this.dependencies.storage.local,
-          dom: this.dom,
-          applyHint: (state) => this.applyHint(state),
-          readCleanupState: () => ({
-            isCleaningUp: this.isCleaningUp,
-            shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
-          })
-        });
+        this.draftController = controllers.draftController;
       })
       .finally(() => {
         this.controllersReadyPromise = null;

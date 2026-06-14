@@ -4,6 +4,7 @@ import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoHintState } from './videoHintManager';
+import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 
 export interface VideoSessionDraftDomPort {
   readCommentDrafts(): Record<string, string>;
@@ -22,6 +23,7 @@ export interface VideoSessionDraftControllerOptions {
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   storageArea: StorageAreaService;
+  screenshotCache?: Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'>;
   dom: VideoSessionDraftDomPort;
   applyHint: (state: VideoHintState) => void;
   readCleanupState: ReadVideoSessionDraftCleanupState;

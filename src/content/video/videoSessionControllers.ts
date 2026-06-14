@@ -1,6 +1,7 @@
 import type { VideoPlatformContext } from './platforms';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
+import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import { PendingSelectionTracker } from './pendingSelectionTracker';
 import { ShadowSelectionBridge } from './shadowSelectionBridge';
@@ -14,6 +15,9 @@ import { VideoFragmentSelectionController } from './videoFragmentSelectionContro
 import { VideoSessionState } from './sessionState';
 import { VideoSessionPlatformController } from './sessionPlatformController';
 import { VideoSessionDomController } from './sessionDom';
+import { createVideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
+import { VideoSessionDraftController } from './videoSessionDraftController';
+import type { VideoHintState } from './videoHintManager';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -27,13 +31,18 @@ export interface VideoSessionControllers {
   exporter: VideoSessionExporter;
   platformController: VideoSessionPlatformController;
   dom: VideoSessionDomController;
+  draftController: VideoSessionDraftController;
 }
 
 export function createVideoSessionControllers(args: {
   doc: Document;
   dependencies: VideoSessionDependencies;
   state: VideoSessionState;
+  destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   getMessages: () => VideoSessionMessages;
+  applyHint: (state: VideoHintState) => void;
+  readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
+  onDraftRestored?: () => void;
   createPlatformContext: () => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
@@ -43,8 +52,6 @@ export function createVideoSessionControllers(args: {
     selectedText: string;
     range?: Range | null;
   }) => void;
-  restoreDraftState?: () => Promise<boolean>;
-  onLegacyRestore?: (storageKey: string) => void;
   findVideoElement: () => HTMLVideoElement | null;
   handleUrlChange: () => void;
   handleVideoElementChange: (element: HTMLVideoElement | null) => void;
@@ -53,14 +60,16 @@ export function createVideoSessionControllers(args: {
     doc,
     dependencies,
     state,
+    destinationState,
     getMessages,
+    applyHint,
+    readCleanupState,
+    onDraftRestored,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
     ensureCaptureHighlight,
     onSelectionAccepted,
-    restoreDraftState,
-    onLegacyRestore,
     findVideoElement,
     handleUrlChange,
     handleVideoElementChange
@@ -121,6 +130,18 @@ export function createVideoSessionControllers(args: {
     }
   );
   const exporter = new VideoSessionExporter(dependencies.videoRepository);
+  const screenshotCache = createVideoScreenshotCacheRepository(dependencies.storage.local);
+  const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
+  const draftController = new VideoSessionDraftController({
+    doc,
+    state,
+    destinationState,
+    storageArea: dependencies.storage.local,
+    screenshotCache,
+    dom,
+    applyHint,
+    readCleanupState
+  });
   const platformController = new VideoSessionPlatformController({
     doc,
     storage: dependencies.storage.local,
@@ -128,10 +149,15 @@ export function createVideoSessionControllers(args: {
     createPlatformContext,
     onAdapterChange: (adapter) => fragmentHighlightCoordinator.updateAdapter(adapter),
     ensureCaptureHighlight,
-    ...(restoreDraftState ? { restoreDraftState } : {}),
-    ...(onLegacyRestore ? { onLegacyRestore } : {})
+    restoreDraftState: async () => {
+      const restored = await draftController.restoreDraftState();
+      if (restored) {
+        onDraftRestored?.();
+      }
+      return restored;
+    },
+    onLegacyRestore: (storageKey) => draftController.handleLegacyRestore(storageKey)
   });
-  const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
 
   return {
     fragmentHighlighter,
@@ -144,6 +170,7 @@ export function createVideoSessionControllers(args: {
     lifecycle,
     exporter,
     platformController,
-    dom
+    dom,
+    draftController
   };
 }
