@@ -67,6 +67,7 @@ describe('analytics event catalog', () => {
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('privacy_consent_changed');
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('reader_exported');
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('video_session_started');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).not.toContain('video_screenshot_captured');
   });
 
   it('declares required params for representative current and future events', () => {

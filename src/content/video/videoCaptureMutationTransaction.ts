@@ -2,6 +2,7 @@ import { createFeatureTimer } from '../../shared/analytics';
 import type { AnalyticsPlatform } from '../../shared/analytics';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
+import { isAppError } from '../../shared/errors';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
   createAnalyticsEventMessage,
@@ -38,9 +39,7 @@ export async function saveVideoSessionCaptures(
   context: VideoSessionOperationContext
 ): Promise<VideoHintState | null> {
   const hintState = await context.drafts.flushNow('active');
-  if (hintState) {
-    context.applyHint(hintState);
-  }
+  if (hintState) context.applyHint(hintState);
   return hintState;
 }
 
@@ -48,9 +47,9 @@ export function requestRequestedScreenshotPreparation(
   context: VideoSessionOperationContext,
   captureId: string
 ): void {
-  void Promise.resolve(context.screenshots.prepareRequested(captureId)).catch((error) => {
-    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
-  });
+  void Promise.resolve(context.screenshots.prepareRequested(captureId)).catch((error) =>
+    console.warn('[VideoSession] Failed to prepare requested screenshot:', error)
+  );
 }
 
 export function rollbackVideoSessionFragmentAdd(
@@ -94,45 +93,21 @@ interface TimestampScreenshotStateSnapshot {
   screenshot: VideoTimestampCapture['screenshot'];
 }
 
-function restoreTimestampScreenshotRequestedProperty(
+function restoreOptionalTimestampScreenshotProperty(
   capture: VideoTimestampCapture,
-  snapshot: TimestampScreenshotStateSnapshot
+  key: 'screenshotRequested' | 'screenshot',
+  hasValue: boolean,
+  value: VideoTimestampCapture['screenshotRequested'] | VideoTimestampCapture['screenshot']
 ): void {
-  if (!snapshot.hasScreenshotRequested) {
-    delete capture.screenshotRequested;
+  if (!hasValue) {
+    delete capture[key];
     return;
   }
-  if (snapshot.screenshotRequested !== undefined) {
-    capture.screenshotRequested = snapshot.screenshotRequested;
-    return;
-  }
-  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
-  Object.defineProperty(capture, 'screenshotRequested', {
+  Object.defineProperty(capture, key, {
     configurable: true,
     enumerable: true,
     writable: true,
-    value: undefined
-  });
-}
-
-function restoreTimestampScreenshotProperty(
-  capture: VideoTimestampCapture,
-  snapshot: TimestampScreenshotStateSnapshot
-): void {
-  if (!snapshot.hasScreenshot) {
-    delete capture.screenshot;
-    return;
-  }
-  if (snapshot.screenshot !== undefined) {
-    capture.screenshot = snapshot.screenshot;
-    return;
-  }
-  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
-  Object.defineProperty(capture, 'screenshot', {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: undefined
+    value
   });
 }
 
@@ -151,12 +126,18 @@ export function restoreTimestampScreenshotState(
   capture: VideoTimestampCapture,
   snapshot: ReturnType<typeof snapshotTimestampScreenshotState>
 ): void {
-  restoreTimestampScreenshotRequestedProperty(capture, snapshot);
-  restoreTimestampScreenshotProperty(capture, snapshot);
-}
-
-function debugVideoAnalyticsFailure(error: unknown): void {
-  console.debug('[VideoSession] Failed to send analytics event:', error);
+  restoreOptionalTimestampScreenshotProperty(
+    capture,
+    'screenshotRequested',
+    snapshot.hasScreenshotRequested,
+    snapshot.screenshotRequested
+  );
+  restoreOptionalTimestampScreenshotProperty(
+    capture,
+    'screenshot',
+    snapshot.hasScreenshot,
+    snapshot.screenshot
+  );
 }
 
 async function sendVideoUsageEvent<EventName extends UsageEventName>(
@@ -179,28 +160,82 @@ export function emitVideoUsageEvent<EventName extends UsageEventName>(
   event: EventName,
   params?: UsageEventParamMap[EventName]
 ): void {
-  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch(
-    debugVideoAnalyticsFailure
+  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch((error) =>
+    console.debug('[VideoSession] Failed to send analytics event:', error)
   );
 }
 
 export function mapVideoAnalyticsPlatform(platform: VideoPlatform): AnalyticsPlatform {
-  if (platform === 'youtube' || platform === 'bilibili') {
-    return platform;
-  }
-  return 'unknown';
+  return platform === 'youtube' || platform === 'bilibili' ? platform : 'unknown';
 }
 
 export function resolveVideoExportDestination(
   exportDestination?: ExportDestinationMetadata
 ): ExportDestination {
-  if (exportDestination?.kind === 'downloads') {
-    return 'downloads';
-  }
-  return 'unknown';
+  return exportDestination?.kind === 'downloads' ? 'downloads' : 'unknown';
 }
 
-export function resolveVideoFailureCategory(_error: unknown): FailureCategory {
+const FAILURE_HINTS = {
+  timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
+  unsupported: 'unsupported|not supported|unavailable in this runtime'.split('|'),
+  permission:
+    'permission denied|permission-denied|access denied|not granted|forbidden|denied'.split('|'),
+  validation: 'invalid|missing|malformed|expected|not configured|no image|payload'.split('|'),
+  write: 'local_vault_write_failed|write failed|write-preflight-failed|save failed'.split('|'),
+  connection: 'offline|network|connection|failed to send message to background|rest '.split('|')
+} as const;
+
+function collectFailureHints(error: unknown, seen = new Set<unknown>()): string {
+  if (error == null || seen.has(error)) return '';
+  seen.add(error);
+  const hints: string[] = [];
+  const push = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) hints.push(value.trim().toLowerCase());
+  };
+  if (typeof error === 'string') {
+    push(error);
+  } else if (error instanceof Error) {
+    push(error.name);
+    push(error.message);
+    push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
+  } else if (typeof error === 'object') {
+    const candidate = error as Record<string, unknown> & { cause?: unknown; context?: unknown };
+    [
+      candidate.code,
+      candidate.domain,
+      candidate.name,
+      candidate.message,
+      candidate.userMessage
+    ].forEach(push);
+    if (typeof candidate.context === 'object' && candidate.context !== null) {
+      const context = candidate.context as Record<string, unknown>;
+      [context.fallbackReason, context.error, context.message].forEach(push);
+    }
+    push(collectFailureHints(candidate.cause, seen));
+  }
+  return hints.join('\n');
+}
+
+function hasFailureHint(text: string, candidates: readonly string[]): boolean {
+  return candidates.some((candidate) => text.includes(candidate));
+}
+
+export function resolveVideoFailureCategory(error: unknown): FailureCategory {
+  const failureHints = collectFailureHints(error);
+
+  if (isAppError(error)) {
+    if (error.domain === 'classifier') return 'classification';
+    if (error.code === 'LOCAL_VAULT_WRITE_FAILED') return 'write';
+    if (error.code.includes('TIMEOUT')) return 'timeout';
+    if (error.domain === 'rest')
+      return hasFailureHint(failureHints, FAILURE_HINTS.timeout) ? 'timeout' : 'connection';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.timeout)) return 'timeout';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.unsupported)) return 'unsupported';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.permission)) return 'permission';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.validation)) return 'validation';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.write)) return 'write';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.connection)) return 'connection';
   return 'unknown';
 }
 
