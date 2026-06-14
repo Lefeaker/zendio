@@ -21,11 +21,14 @@ import {
   VIDEO_SCREENSHOT_CACHE_TTL_MS,
   createVideoScreenshotCacheStorageKey,
   isVideoScreenshotCacheEntry,
+  isVideoScreenshotCacheIndex,
   isVideoScreenshotCacheIndexEntry,
   isVideoScreenshotCacheRef,
   normalizeVideoScreenshotCacheEntry,
+  normalizeVideoScreenshotCacheIndex,
   normalizeVideoScreenshotCacheIndexEntry,
   normalizeVideoScreenshotCacheRef,
+  type VideoScreenshotCacheIndex,
   type VideoScreenshotCacheEntry,
   type VideoScreenshotCacheIndexEntry,
   type VideoScreenshotCacheRef
@@ -92,13 +95,27 @@ function createIndexEntry(
 ): VideoScreenshotCacheIndexEntry {
   const entry = createCacheEntry(overrides);
   return {
+    schemaVersion: overrides.schemaVersion ?? entry.schemaVersion,
     key: overrides.key ?? entry.key,
     pageKey: overrides.pageKey ?? entry.pageKey,
     captureId: overrides.captureId ?? entry.captureId,
     id: overrides.id ?? entry.id,
+    fileName: overrides.fileName ?? entry.fileName,
+    mimeType: overrides.mimeType ?? entry.mimeType,
+    capturedAt: overrides.capturedAt ?? entry.capturedAt,
+    createdAt: overrides.createdAt ?? entry.createdAt,
     updatedAt: overrides.updatedAt ?? entry.updatedAt,
     expiresAt: overrides.expiresAt ?? entry.expiresAt,
     byteLength: overrides.byteLength ?? entry.byteLength
+  };
+}
+
+function createIndex(
+  overrides: Partial<VideoScreenshotCacheIndex> = {}
+): VideoScreenshotCacheIndex {
+  return {
+    schemaVersion: overrides.schemaVersion ?? VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION,
+    entries: overrides.entries ?? [createIndexEntry()]
   };
 }
 
@@ -193,11 +210,16 @@ describe('videoScreenshotCacheTypes', () => {
   it('accepts valid cache entries and index entries', () => {
     const entry = createCacheEntry();
     const indexEntry = createIndexEntry();
+    const index = createIndex({
+      entries: [indexEntry]
+    });
 
     expect(isVideoScreenshotCacheEntry(entry)).toBe(true);
     expect(normalizeVideoScreenshotCacheEntry(entry)).toEqual(entry);
     expect(isVideoScreenshotCacheIndexEntry(indexEntry)).toBe(true);
     expect(normalizeVideoScreenshotCacheIndexEntry(indexEntry)).toEqual(indexEntry);
+    expect(isVideoScreenshotCacheIndex(index)).toBe(true);
+    expect(normalizeVideoScreenshotCacheIndex(index)).toEqual(index);
   });
 
   it('rejects invalid cache entries when content is malformed, oversized, or stale', () => {
@@ -239,6 +261,20 @@ describe('videoScreenshotCacheTypes', () => {
         ...createIndexEntry(),
         updatedAt: BASE_TIME + 10,
         expiresAt: BASE_TIME + 10
+      })
+    ).toBeNull();
+    expect(
+      normalizeVideoScreenshotCacheIndex({
+        schemaVersion: VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION,
+        entries: [
+          createIndexEntry(),
+          {
+            ...createIndexEntry({
+              id: 'broken'
+            }),
+            fileName: ''
+          }
+        ]
       })
     ).toBeNull();
   });

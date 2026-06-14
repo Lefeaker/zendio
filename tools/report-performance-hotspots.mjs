@@ -52,6 +52,10 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
   ['src/content/video/videoScreenshotPreparationQueue.ts', 404],
+  // 2026-06-14 video screenshot cache P02: storage repository is lazy-owned by
+  // draft restore/write-through milestones and keeps image bytes outside drafts.
+  ['src/content/video/videoScreenshotCacheRepository.ts', 525],
+  ['src/content/video/videoScreenshotCacheTypes.ts', 302],
   // 2026-06-13 final combined integration: request state moved out of the lazy
   // coordinator and now tracks explicit visible requests so dependency-cruiser can
   // enforce the screenshot preparation split without cycles.
