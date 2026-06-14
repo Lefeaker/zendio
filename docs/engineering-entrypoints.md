@@ -129,6 +129,8 @@ npm run build:prod:ga
 npm run package:prod:ga
 npm run package:firefox:prod:ga
 npm run release:prod:ga
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
 ```
 
 The file must only contain public build config (`measurementId`,
@@ -157,6 +159,10 @@ until the relevant event-class consent and public config make a send possible;
 
 ```bash
 npm run analytics:validate:prod
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --help
+npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
 node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
@@ -173,6 +179,11 @@ DebugView visibility, or server-side `api_secret` injection. Screenshot
 attachment templates plan only export-time output paths / Markdown URLs; durable
 state persists `screenshotRequested`, while runtime screenshot bytes stay `Blob`
 / binary until background write/download boundaries.
+`run-ga-owner-smoke.mjs` is an owner CLI harness: it rejects client-side
+secret env vars, sends only to the configured proxy endpoint, and prints a
+redacted summary. Its local output proves request shape and local proxy behavior
+only; it does not prove real GA property delivery, DebugView visibility, or
+server-side `api_secret` injection unless the owner adds external evidence.
 
 ## 当前 Lint / Type 债务真值
 

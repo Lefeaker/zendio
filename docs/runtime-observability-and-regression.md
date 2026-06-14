@@ -20,6 +20,9 @@ npm run build:dev
 
 ```bash
 npm run analytics:validate:prod
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
+npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
 node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
@@ -86,11 +89,36 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
 当前 GA / video 观测真值：
 
 - `analytics:validate:prod` 只验证 public-config wiring 与 owner env sanity，不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
+- `run-ga-owner-smoke.mjs` 只证明本地 proxy request shape、public env guard 与
+  redacted CLI summary，不证明真实 GA property delivery、DebugView 可见性或
+  服务端 `api_secret` 注入。
 - `report-ga-docs-contract` 会把 `ga4-telemetry-reference.md` 与
   `google-analytics-dashboard-setup.md` 绑定到当前 schema / proxy contract，但它不替代
   owner proxy / DebugView smoke checks。
 - runtime config 的 `enabled` 是 `analytics || errorReporting`；usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。
 - 视频截图的 durable state 只保存 `screenshotRequested` intent；runtime screenshot bytes 维持在 `Blob` / binary 路径，导出边界再序列化为兼容 payload。
+
+## 5. Owner Smoke Evidence Template
+
+将 owner smoke evidence 记录在 ignored path（例如 workspace `.tmp/`）时，至少保留：
+
+- build/package hash 或安装包文件名
+- smoke command 与 mode：
+  - `node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open`
+  - `node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open`
+- proxy request ids / server log references
+- observed event names
+- consent matrix：
+  - consent off: no proxy request
+  - analytics on only: usage/product events only
+  - analytics + errorReporting on: controlled `extension_error` allowed
+- owner DebugView screenshot/reference，或显式标记 skipped
+- server-side `api_secret` injection proof，或显式标记 skipped
+- any skipped owner-only checks with reason
+
+本模板必须显式声明：本地 smoke command 不证明真实 GA property delivery、
+DebugView 可见性或 server-side `api_secret` 注入；这些结论只能来自 owner 提供的
+proxy/backend evidence。
 
 历史已通过：
 
@@ -108,7 +136,7 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
 - `npm run test:e2e`
 - `npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
 
-## 5. 已知非阻塞警告
+## 6. 已知非阻塞警告
 
 - 若在纯 JSDOM / 非扩展上下文执行 content 面板测试，样式资源会报告 URL 解析警告；当前不会阻断测试通过。
 - content-scripts repository e2e 中 `aiob-shortcut-usage-count` 的 mock storage 警告已被错误链路正确吸收，不影响通过判定。
