@@ -15,18 +15,14 @@ const SOURCE_FILES_TO_SCAN = [
 const GOOGLE_ENDPOINT_PATTERN = /google-analytics\.com|debug\/mp\/collect|mp\/collect/i;
 const SECRET_LIKE_VALUE_PATTERN =
   /api[_-]?secret|ga4?_api_secret|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+/i;
-const FORBIDDEN_KEY_NAMES = new Set([
-  'api_secret',
-  'ga_api_secret',
-  'ga4_api_secret',
-  'client_id',
-  'clientId',
-  'session_id',
-  'sessionId',
-  'measurement_id',
-  'proxyEndpoint',
-  'endpoint'
-]);
+const SECRET_LIKE_KEY_TOKENS = new Set(['secret', 'token', 'password']);
+const FORBIDDEN_KEY_TOKEN_SEQUENCES = [
+  ['client', 'id'],
+  ['session', 'id'],
+  ['measurement', 'id'],
+  ['endpoint'],
+  ['proxy', 'endpoint']
+];
 
 function parseArgs(args) {
   const parsed = {
@@ -90,7 +86,7 @@ function collectContractProblems(contract) {
 
   walkContract(contract, [], (value, path) => {
     const key = path[path.length - 1];
-    if (typeof key === 'string' && FORBIDDEN_KEY_NAMES.has(key)) {
+    if (typeof key === 'string' && isForbiddenContractKeyName(key)) {
       problems.push(`forbidden key ${path.join('.')}`);
     }
 
@@ -108,6 +104,38 @@ function collectContractProblems(contract) {
   });
 
   return problems;
+}
+
+export function isForbiddenContractKeyName(keyName) {
+  const tokens = tokenizeContractKeyName(keyName);
+  if (tokens.length === 0) {
+    return false;
+  }
+
+  if (tokens.join('.') === 'measurement.id.pattern') {
+    return false;
+  }
+
+  if (tokens.some((token) => SECRET_LIKE_KEY_TOKENS.has(token))) {
+    return true;
+  }
+
+  return FORBIDDEN_KEY_TOKEN_SEQUENCES.some((sequence) => matchesTokenSequence(tokens, sequence));
+}
+
+function tokenizeContractKeyName(keyName) {
+  return keyName
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .split(/[^A-Za-z0-9]+/)
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function matchesTokenSequence(tokens, sequence) {
+  return (
+    tokens.length === sequence.length &&
+    tokens.every((token, index) => token === sequence[index])
+  );
 }
 
 function collectSourceScanProblems() {
@@ -189,4 +217,12 @@ async function main() {
   );
 }
 
-await main();
+function isDirectExecution() {
+  return process.argv[1]
+    ? import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+    : false;
+}
+
+if (isDirectExecution()) {
+  await main();
+}

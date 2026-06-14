@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { pathToFileURL } from 'node:url';
 import {
   ANALYTICS_EVENT_CATALOG,
   getAnalyticsAllowedParams,
@@ -99,5 +100,36 @@ describe('analytics proxy contract', () => {
     expect(serialized).not.toContain('G-ABCD1234');
     expect(serialized).not.toContain('session-1');
     expect(serialized).not.toContain('client-1');
+  });
+
+  it('covers generic forbidden key variants while allowing measurementIdPattern', async () => {
+    const toolModuleUrl = pathToFileURL(
+      new URL('../../../tools/report-ga-proxy-contract.mjs', import.meta.url).pathname
+    ).href;
+    const { isForbiddenContractKeyName } = (await import(toolModuleUrl)) as {
+      isForbiddenContractKeyName: (keyName: string) => boolean;
+    };
+
+    const forbiddenKeys = [
+      'secret',
+      'apiSecret',
+      'api_secret',
+      'token',
+      'password',
+      'clientId',
+      'client_id',
+      'sessionId',
+      'session_id',
+      'measurementId',
+      'measurement_id',
+      'endpoint',
+      'proxyEndpoint'
+    ];
+
+    for (const keyName of forbiddenKeys) {
+      expect(isForbiddenContractKeyName(keyName), keyName).toBe(true);
+    }
+
+    expect(isForbiddenContractKeyName('measurementIdPattern')).toBe(false);
   });
 });
