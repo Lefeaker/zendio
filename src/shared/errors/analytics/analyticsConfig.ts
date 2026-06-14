@@ -300,20 +300,14 @@ export function shouldReportErrors(): boolean {
   return config.enabled && config.userConsent?.errorReporting === true;
 }
 
-export async function setAnalyticsConsent(
-  analytics: boolean,
-  errorReporting: boolean
-): Promise<void> {
-  await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting });
-}
+// prettier-ignore
+export async function setAnalyticsConsent(analytics: boolean, errorReporting: boolean): Promise<void> { await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting }); }
 
-export function getAnalyticsConfig(): AnalyticsConfig {
-  return getAnalyticsConfigManager().getConfig();
-}
+// prettier-ignore
+export function getAnalyticsConfig(): AnalyticsConfig { return getAnalyticsConfigManager().getConfig(); }
 
-function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
-  return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG);
-}
+// prettier-ignore
+function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig { return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG); }
 
 const hasOwn = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key);
@@ -366,14 +360,8 @@ function normalizeStoredAnalyticsConfig(
 }
 
 function normalizeUserConsent(value: unknown): UserConsent | undefined {
-  if (typeof value !== 'object' || value === null) {
-    return undefined;
-  }
+  if (typeof value !== 'object' || value === null) return undefined;
   const consent = value as Partial<UserConsent>;
-  return {
-    analytics: consent.analytics === true,
-    errorReporting: consent.errorReporting === true,
-    timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0,
-    version: typeof consent.version === 'string' ? consent.version : '1.0'
-  };
+  // prettier-ignore
+  return { analytics: consent.analytics === true, errorReporting: consent.errorReporting === true, timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0, version: typeof consent.version === 'string' ? consent.version : '1.0' };
 }
