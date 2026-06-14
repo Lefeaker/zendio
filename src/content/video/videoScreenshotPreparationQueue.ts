@@ -21,7 +21,6 @@ import type {
   CreateVideoScreenshotPreparationQueueArgs,
   VideoScreenshotFrameCapture
 } from './videoScreenshotPreparationQueueTypes';
-import type { VideoTimestampCapture } from './types';
 
 const DEFAULT_TOLERANCE_SEC = 0.25;
 const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;

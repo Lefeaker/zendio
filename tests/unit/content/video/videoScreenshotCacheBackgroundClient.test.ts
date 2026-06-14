@@ -151,8 +151,8 @@ function createStaticMessaging(
   response: VideoScreenshotCacheResponse
 ): Pick<MessagingService, 'send'> {
   return {
-    async send<TResult>(): Promise<TResult> {
-      return response as TResult;
+    send<TResult>(): Promise<TResult> {
+      return Promise.resolve(response as TResult);
     }
   };
 }

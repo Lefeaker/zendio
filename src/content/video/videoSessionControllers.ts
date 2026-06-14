@@ -51,12 +51,12 @@ const SCREENSHOT_CACHE_UNAVAILABLE_RESULT: VideoScreenshotCacheSaveResult = {
 
 function createUnavailableVideoScreenshotCacheRepository(): VideoScreenshotCacheRepository {
   return {
-    save: async () => SCREENSHOT_CACHE_UNAVAILABLE_RESULT,
-    load: async () => null,
-    remove: async () => undefined,
-    removeMany: async () => undefined,
-    pruneExpired: async () => undefined,
-    pruneToLimits: async () => undefined
+    save: () => Promise.resolve(SCREENSHOT_CACHE_UNAVAILABLE_RESULT),
+    load: () => Promise.resolve(null),
+    remove: () => Promise.resolve(undefined),
+    removeMany: () => Promise.resolve(undefined),
+    pruneExpired: () => Promise.resolve(undefined),
+    pruneToLimits: () => Promise.resolve(undefined)
   };
 }
 
