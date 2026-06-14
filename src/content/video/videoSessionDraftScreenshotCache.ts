@@ -1,5 +1,6 @@
 import type { VideoCapture } from './types';
 import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
+import { clearTimestampScreenshotRef, setTimestampScreenshot } from './screenshotIntent';
 import {
   normalizeVideoScreenshotCacheRef,
   type VideoScreenshotCacheRef
@@ -10,14 +11,37 @@ export type VideoSessionDraftScreenshotCache = Pick<
   'load' | 'removeMany'
 >;
 
+export interface VideoDraftCachedScreenshotRestoreResult {
+  hydratedCount: number;
+  invalidRefCount: number;
+  staleRefCount: number;
+  failedCount: number;
+}
+
+interface VideoDraftCachedScreenshotRestoreCandidate {
+  capture: Extract<VideoCapture, { kind: 'timestamp' }>;
+  ref: VideoScreenshotCacheRef;
+}
+
+const DEFAULT_DRAFT_SCREENSHOT_RESTORE_CONCURRENCY = 4;
+
 export async function restoreVideoDraftCachedScreenshots(
   captures: VideoCapture[],
-  screenshotCache?: Pick<VideoSessionDraftScreenshotCache, 'load'>
-): Promise<void> {
+  screenshotCache?: Pick<VideoSessionDraftScreenshotCache, 'load'>,
+  options: { concurrency?: number } = {}
+): Promise<VideoDraftCachedScreenshotRestoreResult> {
+  const result: VideoDraftCachedScreenshotRestoreResult = {
+    hydratedCount: 0,
+    invalidRefCount: 0,
+    staleRefCount: 0,
+    failedCount: 0
+  };
+
   if (!screenshotCache) {
-    return;
+    return result;
   }
 
+  const candidates: VideoDraftCachedScreenshotRestoreCandidate[] = [];
   for (const capture of captures) {
     if (capture.kind !== 'timestamp') {
       continue;
@@ -25,19 +49,40 @@ export async function restoreVideoDraftCachedScreenshots(
 
     const screenshotRef = normalizeVideoScreenshotCacheRef(capture.screenshotRef);
     if (!screenshotRef) {
-      delete capture.screenshotRef;
+      if (Object.prototype.hasOwnProperty.call(capture, 'screenshotRef')) {
+        clearTimestampScreenshotRef(capture);
+        result.invalidRefCount += 1;
+      }
       continue;
     }
 
-    try {
-      const screenshot = await screenshotCache.load(screenshotRef);
-      if (screenshot) {
-        capture.screenshot = screenshot;
-      }
-    } catch (error) {
-      console.warn('[VideoSession] Failed to load cached screenshot during draft restore:', error);
-    }
+    candidates.push({ capture, ref: screenshotRef });
   }
+
+  await runBounded(
+    candidates,
+    normalizeConcurrency(options.concurrency),
+    async ({ capture, ref }) => {
+      try {
+        const screenshot = await screenshotCache.load(ref);
+        if (screenshot) {
+          setTimestampScreenshot(capture, screenshot);
+          result.hydratedCount += 1;
+          return;
+        }
+        clearTimestampScreenshotRef(capture);
+        result.staleRefCount += 1;
+      } catch (error) {
+        result.failedCount += 1;
+        console.warn(
+          '[VideoSession] Failed to load cached screenshot during draft restore:',
+          error
+        );
+      }
+    }
+  );
+
+  return result;
 }
 
 export async function cleanupVideoDraftTerminalArtifacts(options: {
@@ -97,4 +142,30 @@ export function collectVideoDraftScreenshotRefs(
   }
 
   return refs;
+}
+
+function normalizeConcurrency(value: number | undefined): number {
+  return Number.isInteger(value) && typeof value === 'number' && value > 0
+    ? value
+    : DEFAULT_DRAFT_SCREENSHOT_RESTORE_CONCURRENCY;
+}
+
+async function runBounded<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex];
+        nextIndex += 1;
+        if (item !== undefined) {
+          await worker(item);
+        }
+      }
+    })
+  );
 }

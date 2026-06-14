@@ -29,6 +29,7 @@ export interface VideoSessionDraftControllerOptions {
     | undefined;
   dom: VideoSessionDraftDomPort;
   applyHint: (state: VideoHintState) => void;
+  onScreenshotHydrationChange?: (() => void) | undefined;
   readCleanupState: ReadVideoSessionDraftCleanupState;
 }
 

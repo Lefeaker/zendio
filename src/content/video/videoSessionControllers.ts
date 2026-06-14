@@ -50,6 +50,7 @@ export function createVideoSessionControllers(args: {
   applyHint: (state: VideoHintState) => void;
   readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
   onDraftRestored?: () => void;
+  onDraftScreenshotHydrated?: () => void;
   createPlatformContext: () => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
@@ -72,6 +73,7 @@ export function createVideoSessionControllers(args: {
     applyHint,
     readCleanupState,
     onDraftRestored,
+    onDraftScreenshotHydrated,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
@@ -156,6 +158,7 @@ export function createVideoSessionControllers(args: {
     screenshotCache,
     dom,
     applyHint,
+    onScreenshotHydrationChange: onDraftScreenshotHydrated,
     readCleanupState
   });
   const platformController = new VideoSessionPlatformController({

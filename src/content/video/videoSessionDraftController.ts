@@ -20,6 +20,7 @@ import type {
   VideoSessionDraftControllerOptions,
   VideoSessionDraftRuntimePort
 } from './videoSessionRuntimePorts';
+import type { VideoCapture } from './types';
 import type { VideoHintState } from './videoHintManager';
 import {
   applyVideoSessionCommentDrafts,
@@ -42,6 +43,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   private restoredDraftKey: string | null = null;
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
+  private screenshotHydrationGeneration = 0;
 
   constructor(private readonly options: VideoSessionDraftControllerOptions) {
     this.activeDraftPageUrl = this.options.doc.location.href;
@@ -80,6 +82,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   async dispose(options: { flush?: boolean } = {}): Promise<void> {
     this.stopDraftPersistence?.();
+    this.screenshotHydrationGeneration += 1;
     await this.draftPersister.dispose(options);
   }
 
@@ -91,6 +94,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     const draft = pickVideoSessionDraftCandidate(candidates);
     if (!draft) {
       this.restoredDraftKey = null;
+      this.screenshotHydrationGeneration += 1;
       return false;
     }
 
@@ -99,10 +103,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       this.options.doc.location.href
     );
     this.options.state.captures = hydrated.captures;
-    await restoreVideoDraftCachedScreenshots(
-      this.options.state.captures,
-      this.options.screenshotCache
-    );
     applyVideoSessionCommentDrafts(this.options.state, hydrated.commentDrafts, {
       hydrateDom: true,
       dom: this.options.dom
@@ -116,6 +116,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     this.options.destinationState.applyMetadata(hydrated.destination);
     this.restoredDraftKey = createVideoSessionDraftStorageKey(draft.pageUrl, draft.draftId);
     this.legacyCaptureStorageKey = null;
+    this.scheduleRestoredScreenshotHydration(this.options.state.captures);
     return true;
   }
 
@@ -179,6 +180,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     }
     this.restoredDraftKey = null;
     this.legacyCaptureStorageKey = null;
+    this.screenshotHydrationGeneration += 1;
   }
 
   async finalizeTerminal(status: SessionDraftTerminalStatus): Promise<boolean> {
@@ -298,5 +300,37 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   private logSupersededDurableCleanupError(error: unknown): void {
     console.warn('[VideoSession] Failed to clear superseded durable draft sources:', error);
+  }
+
+  private scheduleRestoredScreenshotHydration(captures: VideoCapture[]): void {
+    const generation = this.screenshotHydrationGeneration + 1;
+    this.screenshotHydrationGeneration = generation;
+    void this.hydrateRestoredScreenshots(captures, generation);
+  }
+
+  private async hydrateRestoredScreenshots(
+    captures: VideoCapture[],
+    generation: number
+  ): Promise<void> {
+    const result = await restoreVideoDraftCachedScreenshots(captures, this.options.screenshotCache);
+    if (
+      generation !== this.screenshotHydrationGeneration ||
+      this.options.state.captures !== captures
+    ) {
+      return;
+    }
+
+    const removedRefCount = result.invalidRefCount + result.staleRefCount;
+    if (result.hydratedCount > 0 || removedRefCount > 0) {
+      this.options.onScreenshotHydrationChange?.();
+    }
+    if (removedRefCount > 0) {
+      void this.scheduleSave().catch((error) => {
+        console.warn(
+          '[VideoSession] Failed to save draft after clearing stale screenshot refs:',
+          error
+        );
+      });
+    }
   }
 }

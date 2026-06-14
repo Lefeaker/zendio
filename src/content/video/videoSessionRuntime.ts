@@ -167,6 +167,7 @@ export class VideoSession {
             shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
           }),
           onDraftRestored: () => this.screenshotPreparation.requestPendingScreenshots(),
+          onDraftScreenshotHydrated: () => this.syncPanel(),
           createPlatformContext: () =>
             createVideoSessionPlatformContext({
               doc: this.doc,

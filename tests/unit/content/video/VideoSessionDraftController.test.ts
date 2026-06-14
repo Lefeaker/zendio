@@ -131,6 +131,7 @@ function createHarness(
   options: {
     destinationMetadata?: ExportDestinationMetadata;
     screenshotCache?: Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'>;
+    onScreenshotHydrationChange?: () => void;
   } = {}
 ) {
   const state = new VideoSessionState('gradient');
@@ -154,6 +155,7 @@ function createHarness(
     storageArea: storage,
     dom,
     applyHint: vi.fn(),
+    onScreenshotHydrationChange: options.onScreenshotHydrationChange,
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
   });
@@ -262,9 +264,17 @@ function matchesRemovalKey(value: unknown, key: string): boolean {
 }
 
 async function waitForAsyncWork(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }
 
 describe('VideoSessionDraftController', () => {
@@ -479,6 +489,7 @@ describe('VideoSessionDraftController', () => {
     );
 
     const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
 
     expect(restored).toBe(true);
     expect(screenshotCache.load).toHaveBeenCalledWith(screenshotRef);
@@ -493,13 +504,15 @@ describe('VideoSessionDraftController', () => {
     ]);
   });
 
-  it('keeps screenshot requests pending when a referenced cache entry is missing', async () => {
+  it('restores base capture state before cached screenshot hydration resolves', async () => {
     const screenshotRef = createScreenshotCacheRef();
+    const deferred = createDeferred<VideoCaptureScreenshot | null>();
+    const onScreenshotHydrationChange = vi.fn();
     const screenshotCache = {
-      load: vi.fn().mockResolvedValue(null),
+      load: vi.fn().mockReturnValue(deferred.promise),
       removeMany: vi.fn()
     };
-    const harness = createHarness({ screenshotCache });
+    const harness = createHarness({ screenshotCache, onScreenshotHydrationChange });
     await seedRestorableDraftWithPayload(
       harness.storage,
       buildVideoSessionDraftPayload({
@@ -527,16 +540,151 @@ describe('VideoSessionDraftController', () => {
     const restored = await harness.controller.restoreDraftState();
 
     expect(restored).toBe(true);
+    expect(harness.state.captures[0]).toEqual(
+      expect.objectContaining({
+        id: 'ts-1',
+        screenshotRequested: true,
+        screenshotRef
+      })
+    );
+    expect(harness.state.captures[0]).not.toHaveProperty('screenshot');
+
+    const restoredScreenshot = createBlobScreenshotFixture('late-cached-frame');
+    deferred.resolve(restoredScreenshot);
+    await waitForAsyncWork();
+
+    expect(harness.state.captures[0]).toEqual(
+      expect.objectContaining({
+        screenshot: restoredScreenshot
+      })
+    );
+    expect(onScreenshotHydrationChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates cached screenshots with bounded parallelism during restore', async () => {
+    const screenshotRefs = Array.from({ length: 6 }, (_, index) =>
+      createScreenshotCacheRef({
+        captureId: `ts-${index + 1}`,
+        id: `shot-${index + 1}`
+      })
+    );
+    let activeLoads = 0;
+    let maxActiveLoads = 0;
+    const screenshotCache = {
+      load: vi.fn(async (ref: VideoScreenshotCacheRef) => {
+        activeLoads += 1;
+        maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+        await Promise.resolve();
+        activeLoads -= 1;
+        return createBlobScreenshotFixture(`cached-frame-${ref.captureId}`, ref.capturedAt);
+      }),
+      removeMany: vi.fn()
+    };
+    const harness = createHarness({ screenshotCache });
+    await seedRestorableDraftWithPayload(
+      harness.storage,
+      buildVideoSessionDraftPayload({
+        captures: screenshotRefs.map((screenshotRef, index) => ({
+          kind: 'timestamp',
+          id: screenshotRef.captureId,
+          timeSec: 40 + index,
+          url: `https://video.example/watch?t=${40 + index}`,
+          comment: 'restored note',
+          createdAt: 2_000_000_000_100 + index,
+          screenshotRequested: true,
+          screenshotRef
+        })),
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    );
+
+    const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
+
+    expect(restored).toBe(true);
+    expect(maxActiveLoads).toBeLessThanOrEqual(4);
+    expect(screenshotCache.load).toHaveBeenCalledTimes(6);
+    for (const capture of harness.state.captures) {
+      expect(capture).toEqual(
+        expect.objectContaining({
+          kind: 'timestamp',
+          screenshotRequested: true,
+          screenshot: expect.objectContaining({
+            content: expect.objectContaining({ kind: 'blob' })
+          })
+        })
+      );
+    }
+  });
+
+  it('clears stale screenshot refs and keeps screenshot requests pending when cache entries are missing', async () => {
+    const screenshotRef = createScreenshotCacheRef();
+    const onScreenshotHydrationChange = vi.fn();
+    const screenshotCache = {
+      load: vi.fn().mockResolvedValue(null),
+      removeMany: vi.fn()
+    };
+    const harness = createHarness({ screenshotCache, onScreenshotHydrationChange });
+    await seedRestorableDraftWithPayload(
+      harness.storage,
+      buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    );
+
+    const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
+
+    expect(restored).toBe(true);
     expect(screenshotCache.load).toHaveBeenCalledWith(screenshotRef);
     expect(harness.state.captures).toEqual([
       expect.objectContaining({
         kind: 'timestamp',
         id: 'ts-1',
-        screenshotRequested: true,
-        screenshotRef
+        screenshotRequested: true
       })
     ]);
     expect(harness.state.captures[0]).not.toHaveProperty('screenshot');
+    expect(harness.state.captures[0]).not.toHaveProperty('screenshotRef');
+    expect(onScreenshotHydrationChange).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(150);
+    await waitForAsyncWork();
+    const storedDraft = await harness.repository.loadLatest('video', document.location.href);
+    if (!storedDraft || storedDraft.mode !== 'video') {
+      throw new Error('expected saved video draft after stale ref cleanup');
+    }
+    const payload = requireVideoDraftPayload(storedDraft);
+    expect(payload.captures[0]).toEqual(
+      expect.objectContaining({
+        kind: 'timestamp',
+        id: 'ts-1',
+        screenshotRequested: true
+      })
+    );
+    expect(payload.captures[0]).not.toHaveProperty('screenshotRef');
   });
 
   it('ignores invalid screenshot refs while preserving the restored capture', async () => {
@@ -581,6 +729,7 @@ describe('VideoSessionDraftController', () => {
     );
 
     const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
 
     expect(restored).toBe(true);
     expect(screenshotCache.load).not.toHaveBeenCalled();
@@ -627,6 +776,7 @@ describe('VideoSessionDraftController', () => {
     );
 
     const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
 
     expect(restored).toBe(true);
     expect(screenshotCache.load).toHaveBeenCalledWith(screenshotRef);
