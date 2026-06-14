@@ -17,6 +17,11 @@ type TrackedAnalyticsSourceContract = {
   directDebugValidationIntent: boolean;
   debugSuccessSummaryRedacted: boolean;
   successLoggingScopedToDirectDebug: boolean;
+  proxyContractSourcePresent: boolean;
+  proxyContractBarrelExportPresent: boolean;
+  proxyContractPublicAllowlistContractPresent: boolean;
+  proxyContractSourceLeaksSensitiveAnchors: boolean;
+  proxyContractReportSourceAnchorsPresent: boolean;
   typedAnalyticsEventMessageApiPresent: boolean;
 };
 
@@ -53,6 +58,10 @@ describe('setup-error-analytics script', () => {
     expect(result.status).toBe(0);
     expect(output).toContain('Validation finished with 0 failures');
     expect(output).toContain('proxy-first');
+    expect(output).toContain(
+      'analytics proxy contract source/barrel/report anchors stay wired to the public allowlist contract'
+    );
+    expect(output).toContain('typed analytics runtime message facade is present');
   });
 
   it('keeps client runtime free of server-only GA secrets', async () => {
@@ -74,6 +83,16 @@ describe('setup-error-analytics script', () => {
 
     expect(contract.debugSuccessSummaryRedacted).toBe(true);
     expect(contract.successLoggingScopedToDirectDebug).toBe(true);
+  });
+
+  it('requires the proxy contract source, barrel export, and report anchors in tracked production wiring', async () => {
+    const contract = await collectTrackedContract();
+
+    expect(contract.proxyContractSourcePresent).toBe(true);
+    expect(contract.proxyContractBarrelExportPresent).toBe(true);
+    expect(contract.proxyContractPublicAllowlistContractPresent).toBe(true);
+    expect(contract.proxyContractSourceLeaksSensitiveAnchors).toBe(false);
+    expect(contract.proxyContractReportSourceAnchorsPresent).toBe(true);
   });
 
   it('requires the typed analytics event message facade in tracked production wiring', async () => {

@@ -34,6 +34,10 @@ function readFromRoot(projectRoot, filePath) {
   return fs.readFileSync(path.join(projectRoot, filePath), 'utf8');
 }
 
+function existsFromRoot(projectRoot, filePath) {
+  return fs.existsSync(path.join(projectRoot, filePath));
+}
+
 export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyticsEnvironment.ts') {
   const sourceFile = ts.createSourceFile(sourcePath, sourceText, ts.ScriptTarget.Latest, true);
   for (const statement of sourceFile.statements) {
@@ -55,15 +59,96 @@ export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyti
   return [];
 }
 
+function extractNamedExports(sourceText, sourcePath = 'module.ts') {
+  const sourceFile = ts.createSourceFile(sourcePath, sourceText, ts.ScriptTarget.Latest, true);
+  const exportNames = new Set();
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          exportNames.add(element.name.text);
+        }
+      }
+      continue;
+    }
+
+    if (!hasExportModifier(statement)) {
+      continue;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectExportedBindingNames(declaration.name, exportNames);
+      }
+      continue;
+    }
+
+    if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    ) {
+      exportNames.add(statement.name.text);
+    }
+  }
+
+  return exportNames;
+}
+
+function hasExportModifier(statement) {
+  return (
+    Array.isArray(statement.modifiers) &&
+    statement.modifiers.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+  );
+}
+
+function collectExportedBindingNames(bindingName, exportNames) {
+  if (ts.isIdentifier(bindingName)) {
+    exportNames.add(bindingName.text);
+    return;
+  }
+
+  if (ts.isObjectBindingPattern(bindingName) || ts.isArrayBindingPattern(bindingName)) {
+    for (const element of bindingName.elements) {
+      if (!ts.isBindingElement(element)) {
+        continue;
+      }
+      collectExportedBindingNames(element.name, exportNames);
+    }
+  }
+}
+
+function hasAllExportedNames(exportNames, expectedNames) {
+  return expectedNames.every((name) => exportNames.has(name));
+}
+
 export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
   const analyticsEventMessage = readFromRoot(
     projectRoot,
     'src/shared/analytics/analyticsEventMessage.ts'
   );
+  const analyticsIndex = readFromRoot(projectRoot, 'src/shared/analytics/index.ts');
   const analyticsEnvironment = readFromRoot(projectRoot, 'src/shared/analytics/analyticsEnvironment.ts');
   const analyticsConsent = readFromRoot(projectRoot, 'src/shared/analytics/analyticsConsent.ts');
   const analyticsQueue = readFromRoot(projectRoot, 'src/shared/analytics/analyticsQueue.ts');
   const analyticsTransport = readFromRoot(projectRoot, 'src/shared/analytics/analyticsTransport.ts');
+  const analyticsProxyContractPath = 'src/shared/analytics/analyticsProxyContract.ts';
+  const analyticsProxyContractExists = existsFromRoot(projectRoot, analyticsProxyContractPath);
+  const analyticsProxyContract = analyticsProxyContractExists
+    ? readFromRoot(projectRoot, analyticsProxyContractPath)
+    : '';
+  const analyticsProxyContractReportPath = 'tools/report-ga-proxy-contract.mjs';
+  const analyticsProxyContractReportExists = existsFromRoot(
+    projectRoot,
+    analyticsProxyContractReportPath
+  );
+  const analyticsProxyContractReport = analyticsProxyContractReportExists
+    ? readFromRoot(projectRoot, analyticsProxyContractReportPath)
+    : '';
   const analyticsTypes = readFromRoot(projectRoot, 'src/shared/types/analytics.ts');
   const analyticsConfig = readFromRoot(
     projectRoot,
@@ -90,6 +175,11 @@ export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
     analyticsEvents,
     'function buildAnalyticsTransportLogSummary(',
     'function logAnalyticsTransportResult('
+  );
+  const analyticsBarrelExports = extractNamedExports(analyticsIndex, 'index.ts');
+  const analyticsProxyContractExports = extractNamedExports(
+    analyticsProxyContract,
+    'analyticsProxyContract.ts'
   );
 
   return {
@@ -154,7 +244,43 @@ export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
       !hasAny(analyticsLogSummaryBlock, ['params', 'payload', 'client_id', 'measurement_id']),
     successLoggingScopedToDirectDebug: analyticsEvents.includes(
       "if (result.transportMode !== 'directDebug')"
-    )
+    ),
+    proxyContractSourcePresent: analyticsProxyContractExists,
+    proxyContractBarrelExportPresent: hasAllExportedNames(analyticsBarrelExports, [
+      'analyticsProxyContract',
+      'buildAnalyticsProxyContract',
+      'AnalyticsProxyContract',
+      'AnalyticsProxyEventContract'
+    ]),
+    proxyContractPublicAllowlistContractPresent:
+      analyticsProxyContractExists &&
+      hasAllExportedNames(analyticsProxyContractExports, [
+        'ANALYTICS_PROXY_CONTRACT',
+        'buildAnalyticsProxyContract',
+        'AnalyticsProxyContract',
+        'AnalyticsProxyEventContract'
+      ]) &&
+      hasAll(analyticsProxyContract, [
+        "generatedAtSource: 'extension-schema'",
+        'transports: ANALYTICS_PROXY_CONTRACT_TRANSPORTS',
+        'measurementIdPattern: ANALYTICS_PROXY_MEASUREMENT_ID_PATTERN',
+        'allowedParams',
+        'paramValidators',
+        'events'
+      ]),
+    proxyContractSourceLeaksSensitiveAnchors:
+      /\bproxyEndpoint\b|\bclientId\b|\bsessionId\b|\bapi_secret\b|\bapiSecret\b|\bAPI_SECRET\b/.test(
+        analyticsProxyContract
+      ) || /(?:\bmeasurementId\b|['"]measurementId['"])\s*:/.test(analyticsProxyContract),
+    proxyContractReportSourceAnchorsPresent:
+      analyticsProxyContractReportExists &&
+      hasAll(analyticsProxyContractReport, [
+        "CONTRACT_ENTRYPOINT = 'src/shared/analytics/analyticsProxyContract.ts'",
+        'SOURCE_FILES_TO_SCAN = [',
+        "'src/shared/analytics/analyticsProxyContract.ts'",
+        'contractModule.ANALYTICS_PROXY_CONTRACT',
+        'contractModule.buildAnalyticsProxyContract'
+      ])
   };
 }
 
@@ -215,17 +341,20 @@ function validateRequiredFiles() {
 
   const requiredFiles = [
     'src/shared/analytics/analyticsEventMessage.ts',
+    'src/shared/analytics/index.ts',
     'src/shared/analytics/analyticsEnvironment.ts',
     'src/shared/analytics/analyticsConsent.ts',
     'src/shared/analytics/analyticsQueue.ts',
     'src/shared/analytics/analyticsTransport.ts',
+    'src/shared/analytics/analyticsProxyContract.ts',
     'src/shared/errors/analytics/analyticsConfig.ts',
     'src/shared/errors/analytics/googleAnalyticsReporter.ts',
     'src/background/services/analyticsEvents.ts',
     'src/options/app/productionStitchPersistence.ts',
     'src/options/app/productionStitchFinalAnalyticsEvent.ts',
     'src/options/app/productionStitchShellActionRuntime.ts',
-    'scripts/build.mjs'
+    'scripts/build.mjs',
+    'tools/report-ga-proxy-contract.mjs'
   ];
 
   for (const file of requiredFiles) {
@@ -277,6 +406,36 @@ function validateTrackedConfig() {
     ok('typed analytics runtime message facade is present');
   } else {
     fail('typed analytics runtime message facade is missing');
+  }
+
+  if (
+    trackedContract.proxyContractSourcePresent &&
+    trackedContract.proxyContractBarrelExportPresent &&
+    trackedContract.proxyContractPublicAllowlistContractPresent &&
+    !trackedContract.proxyContractSourceLeaksSensitiveAnchors &&
+    trackedContract.proxyContractReportSourceAnchorsPresent
+  ) {
+    ok('analytics proxy contract source/barrel/report anchors stay wired to the public allowlist contract');
+  } else {
+    if (!trackedContract.proxyContractSourcePresent) {
+      fail('analytics proxy contract source is missing');
+    }
+
+    if (!trackedContract.proxyContractBarrelExportPresent) {
+      fail('analytics barrel is missing the public analyticsProxyContract export contract');
+    }
+
+    if (!trackedContract.proxyContractPublicAllowlistContractPresent) {
+      fail('analytics proxy contract source drifted from the public allowlist contract anchors');
+    }
+
+    if (trackedContract.proxyContractSourceLeaksSensitiveAnchors) {
+      fail('analytics proxy contract source must not expose endpoint/id/secret-like anchors');
+    }
+
+    if (!trackedContract.proxyContractReportSourceAnchorsPresent) {
+      fail('proxy contract report tool drifted from the proxy contract source anchors');
+    }
   }
 
   if (
