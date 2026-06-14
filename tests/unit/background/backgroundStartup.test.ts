@@ -79,6 +79,12 @@ describe('backgroundStartup', () => {
       expect.objectContaining({ optionsRepository: expect.any(Object) })
     );
     expect(registerContextMenuListenersMock).toHaveBeenCalledTimes(1);
+    expect(createRuntimeMessageListenerDependenciesMock).toHaveBeenCalledWith(
+      deps.messaging,
+      deps.tabs,
+      deps.runtime,
+      deps.storage
+    );
     expect(registerRuntimeMessageListenerMock).toHaveBeenCalledTimes(1);
     expect(ensureUsageStatsInitializedMock).toHaveBeenCalledTimes(1);
   });

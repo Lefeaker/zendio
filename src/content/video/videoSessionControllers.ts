@@ -16,11 +16,13 @@ import { VideoFragmentSelectionController } from './videoFragmentSelectionContro
 import { VideoSessionState } from './sessionState';
 import { VideoSessionPlatformController } from './sessionPlatformController';
 import { VideoSessionDomController } from './sessionDom';
-import { createVideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 import { VideoSessionDraftController } from './videoSessionDraftController';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoCaptureScreenshot } from './types';
-import type { VideoScreenshotCacheSaveResult } from './videoScreenshotCacheRepository';
+import type {
+  VideoScreenshotCacheRepository,
+  VideoScreenshotCacheSaveResult
+} from './videoScreenshotCacheRepository';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -39,6 +41,23 @@ export interface VideoSessionControllers {
     captureId: string,
     screenshot: VideoCaptureScreenshot
   ) => Promise<VideoScreenshotCacheSaveResult>;
+}
+
+const SCREENSHOT_CACHE_UNAVAILABLE_RESULT: VideoScreenshotCacheSaveResult = {
+  status: 'skipped',
+  reason: 'serialize-failed',
+  error: 'Video screenshot cache repository is unavailable.'
+};
+
+function createUnavailableVideoScreenshotCacheRepository(): VideoScreenshotCacheRepository {
+  return {
+    save: async () => SCREENSHOT_CACHE_UNAVAILABLE_RESULT,
+    load: async () => null,
+    remove: async () => undefined,
+    removeMany: async () => undefined,
+    pruneExpired: async () => undefined,
+    pruneToLimits: async () => undefined
+  };
 }
 
 export function createVideoSessionControllers(args: {
@@ -139,7 +158,10 @@ export function createVideoSessionControllers(args: {
     }
   );
   const exporter = new VideoSessionExporter(dependencies.videoRepository);
-  const screenshotCache = createVideoScreenshotCacheRepository(dependencies.storage.local);
+  // Production content sessions inject the background-owned client. No-messaging harnesses that
+  // need durable screenshot cache behavior must inject a repository explicitly.
+  const screenshotCache =
+    dependencies.screenshotCacheRepository ?? createUnavailableVideoScreenshotCacheRepository();
   const persistPreparedScreenshot = (
     captureId: string,
     screenshot: VideoCaptureScreenshot

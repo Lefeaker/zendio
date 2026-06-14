@@ -5,6 +5,7 @@ import type { UsageEventName, UsageEventParamMap } from '../../shared/types/anal
 import type { VideoSessionViewFactory } from './application/videoSessionView';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
+import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 
 export type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -25,6 +26,7 @@ export interface VideoSessionDependencies {
     sync: StorageAreaService;
   };
   captureVisibleVideoFrameScreenshot?: VideoVisibleFrameScreenshotCapture;
+  screenshotCacheRepository?: VideoScreenshotCacheRepository;
   showSupportProgress?: SupportProgressReporter;
   trackUsageEvent?: <EventName extends UsageEventName>(
     event: EventName,

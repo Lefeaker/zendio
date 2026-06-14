@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
+import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
 import { asType } from '../../utils/typeHelpers';
 
@@ -137,6 +138,15 @@ describe('runtime message listener', () => {
           success: true,
           dataUrl: 'data:image/jpeg;base64,dmlkZW8='
         })
+      ),
+      handleVideoScreenshotCacheMessage: vi.fn(
+        async (message: unknown): Promise<VideoScreenshotCacheResponse | undefined> =>
+          typeof message === 'object' &&
+          message !== null &&
+          'type' in message &&
+          message.type === 'AIIOB_VIDEO_SCREENSHOT_CACHE'
+            ? { success: true, operation: 'pruneExpired' }
+            : undefined
       )
     };
   }
@@ -357,6 +367,24 @@ describe('runtime message listener', () => {
     });
   });
 
+  it('routes video screenshot cache messages through the background cache owner', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.({ type: 'AIIOB_VIDEO_SCREENSHOT_CACHE', operation: 'pruneExpired' }, {})
+    ).resolves.toEqual({
+      success: true,
+      operation: 'pruneExpired'
+    });
+    expect(dependencies.handleVideoScreenshotCacheMessage).toHaveBeenCalledWith({
+      type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
+      operation: 'pruneExpired'
+    });
+  });
+
   it('routes visible-tab screenshot runtime messages through the concrete sender-window capture dependency', async () => {
     const tabs = {
       create: vi.fn(),
@@ -372,7 +400,8 @@ describe('runtime message listener', () => {
     const dependencies = createRuntimeMessageListenerDependencies(
       { addListener: addListenerMock },
       asType<Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>>(tabs),
-      runtime
+      runtime,
+      asType({ local: {} })
     );
     registerRuntimeMessageListener(dependencies);
 

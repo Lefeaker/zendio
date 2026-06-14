@@ -49,7 +49,8 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
     createRuntimeMessageListenerDependencies(
       dependencies.messaging,
       dependencies.tabs,
-      dependencies.runtime
+      dependencies.runtime,
+      dependencies.storage
     )
   );
 

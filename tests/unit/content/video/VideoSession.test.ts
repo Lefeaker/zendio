@@ -27,6 +27,7 @@ import {
   type VideoSessionDraftPayloadShape
 } from '@content/video/sessionDrafts';
 import type {
+  VideoScreenshotCacheRepository,
   VideoScreenshotCacheSaveInput,
   VideoScreenshotCacheSaveResult
 } from '@content/video/videoScreenshotCacheRepository';
@@ -649,6 +650,25 @@ function readFirstCacheSaveInput(
   return input;
 }
 
+function createScreenshotCacheRepositoryMock(
+  overrides: Partial<VideoScreenshotCacheRepository>
+): VideoScreenshotCacheRepository {
+  const defaultSaveResult: VideoScreenshotCacheSaveResult = {
+    status: 'skipped',
+    reason: 'serialize-failed',
+    error: 'not configured'
+  };
+  return {
+    save: vi.fn(() => Promise.resolve(defaultSaveResult)),
+    load: vi.fn(() => Promise.resolve(null)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
+    removeMany: vi.fn(() => Promise.resolve(undefined)),
+    pruneExpired: vi.fn(() => Promise.resolve(undefined)),
+    pruneToLimits: vi.fn(() => Promise.resolve(undefined)),
+    ...overrides
+  };
+}
+
 function expectNoForbiddenAnalyticsKeys(params: Record<string, unknown> | undefined): void {
   const keys = Object.keys(params ?? {});
   expect(keys).not.toContain('timestamp_count_bucket');
@@ -720,8 +740,6 @@ describe('VideoSession', () => {
     async (status) => {
       const deps = createDependencies();
       const repository = createSessionDraftRepository(deps.storage.local);
-      const cacheRepositoryModule =
-        await import('../../../../src/content/video/videoScreenshotCacheRepository');
       const cacheTypesModule =
         await import('../../../../src/content/video/videoScreenshotCacheTypes');
       const savedRef: VideoScreenshotCacheRef = {
@@ -748,16 +766,10 @@ describe('VideoSession', () => {
             ref: savedRef
           })
       );
-      const createRepositorySpy = vi
-        .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
-        .mockReturnValue({
-          save: saveSpy,
-          load: loadSpy,
-          remove: vi.fn(() => Promise.resolve(undefined)),
-          removeMany: vi.fn(() => Promise.resolve(undefined)),
-          pruneExpired: vi.fn(() => Promise.resolve(undefined)),
-          pruneToLimits: vi.fn(() => Promise.resolve(undefined))
-        });
+      deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+        save: saveSpy,
+        load: loadSpy
+      });
       const envelope = createVideoSessionDraftEnvelope({
         draftId: 'draft-start-1',
         pageUrl: document.location.href,
@@ -953,7 +965,6 @@ describe('VideoSession', () => {
         expect(latestPayload?.captures[0]).not.toHaveProperty('content');
       } finally {
         createElementSpy.mockRestore();
-        createRepositorySpy.mockRestore();
         sessionApi.cleanup();
       }
     }
@@ -962,8 +973,6 @@ describe('VideoSession', () => {
   it('hydrates cached screenshot refs from restored drafts without touching visible playback or recapturing', async () => {
     const deps = createDependencies();
     const repository = createSessionDraftRepository(deps.storage.local);
-    const cacheRepositoryModule =
-      await import('../../../../src/content/video/videoScreenshotCacheRepository');
     const cacheTypesModule =
       await import('../../../../src/content/video/videoScreenshotCacheTypes');
     const restoredScreenshot = createBlobScreenshotFixture('cached-frame', 2_000_000_000_101, {
@@ -991,16 +1000,10 @@ describe('VideoSession', () => {
       (): Promise<VideoScreenshotCacheSaveResult> =>
         Promise.reject(new Error('cache save should not run for cache-hit restore'))
     );
-    const createRepositorySpy = vi
-      .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
-      .mockReturnValue({
-        save: saveSpy,
-        load: loadSpy,
-        remove: vi.fn(() => Promise.resolve(undefined)),
-        removeMany: vi.fn(() => Promise.resolve(undefined)),
-        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
-        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
-      });
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      save: saveSpy,
+      load: loadSpy
+    });
     const envelope = createVideoSessionDraftEnvelope({
       draftId: 'draft-cache-hit-1',
       pageUrl: document.location.href,
@@ -1139,7 +1142,6 @@ describe('VideoSession', () => {
       expect(latestCapture).not.toHaveProperty('content');
     } finally {
       createElementSpy.mockRestore();
-      createRepositorySpy.mockRestore();
       sessionApi.cleanup();
     }
   });
@@ -3644,23 +3646,14 @@ describe('VideoSession', () => {
     const deps = createDependencies();
     const repository = createSessionDraftRepository(deps.storage.local);
     const saveDeferred = createDeferred<{ status: 'saved'; ref: VideoScreenshotCacheRef }>();
-    const cacheRepositoryModule =
-      await import('../../../../src/content/video/videoScreenshotCacheRepository');
     const cacheTypesModule =
       await import('../../../../src/content/video/videoScreenshotCacheTypes');
     const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
       (): Promise<VideoScreenshotCacheSaveResult> => saveDeferred.promise
     );
-    const createRepositorySpy = vi
-      .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
-      .mockReturnValue({
-        save: saveSpy,
-        load: vi.fn(() => Promise.resolve(null)),
-        remove: vi.fn(() => Promise.resolve(undefined)),
-        removeMany: vi.fn(() => Promise.resolve(undefined)),
-        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
-        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
-      });
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      save: saveSpy
+    });
     const envelope = createVideoSessionDraftEnvelope({
       draftId: 'draft-write-through-1',
       pageUrl: document.location.href,
@@ -3831,7 +3824,6 @@ describe('VideoSession', () => {
       expect(toDataURL).not.toHaveBeenCalled();
     } finally {
       createElementSpy.mockRestore();
-      createRepositorySpy.mockRestore();
       sessionApi.cleanup();
     }
   });
@@ -3839,21 +3831,12 @@ describe('VideoSession', () => {
   it('keeps prepared screenshots in memory when cache write-through fails', async () => {
     const deps = createDependencies();
     const repository = createSessionDraftRepository(deps.storage.local);
-    const cacheRepositoryModule =
-      await import('../../../../src/content/video/videoScreenshotCacheRepository');
     const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
       (): Promise<VideoScreenshotCacheSaveResult> => Promise.reject(new Error('cache write failed'))
     );
-    const createRepositorySpy = vi
-      .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
-      .mockReturnValue({
-        save: saveSpy,
-        load: vi.fn(() => Promise.resolve(null)),
-        remove: vi.fn(() => Promise.resolve(undefined)),
-        removeMany: vi.fn(() => Promise.resolve(undefined)),
-        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
-        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
-      });
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      save: saveSpy
+    });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const envelope = createVideoSessionDraftEnvelope({
       draftId: 'draft-write-through-failure-1',
@@ -3990,7 +3973,6 @@ describe('VideoSession', () => {
       expect(toDataURL).not.toHaveBeenCalled();
     } finally {
       createElementSpy.mockRestore();
-      createRepositorySpy.mockRestore();
       warnSpy.mockRestore();
       sessionApi.cleanup();
     }
