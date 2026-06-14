@@ -96,8 +96,9 @@ export class AnalyticsConfigManager {
     const storedConsent = await this.storage.local.get<UserConsent>(USER_CONSENT);
     const storedClientId = await this.storage.local.get<string>(CLIENT_ID);
     const storedSessionId = await this.storage.local.get<string>(SESSION_ID);
-    const { userConsent: _ignoredStoredConsent, ...storedConfigWithoutConsent } =
-      storedConfig ?? {};
+    const { userConsent: storedConfigConsent, ...storedConfigWithoutConsent } = storedConfig ?? {};
+    // Consent is intentionally sourced from the dedicated storage key, not legacy config payloads.
+    void storedConfigConsent;
     const normalizedConfig = normalizeAnalyticsConfig(storedConfigWithoutConsent);
     const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
     const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;

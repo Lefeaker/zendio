@@ -24,7 +24,7 @@ import {
 export const ANALYTICS_CATALOG_VERSION = 2;
 
 export type AnalyticsEventParamMap = AnalyticsEventParamMapFromSchema<typeof ANALYTICS_SCHEMA>;
-export type AnalyticsEventName = keyof AnalyticsEventParamMap & string;
+export type AnalyticsEventName = Extract<keyof AnalyticsEventParamMap, string>;
 export type FutureProductEventName = AnalyticsEventNamesMatching<
   typeof ANALYTICS_SCHEMA,
   { classification: 'future' }

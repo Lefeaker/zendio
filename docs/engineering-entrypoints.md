@@ -190,13 +190,13 @@ server-side `api_secret` injection unless the owner adds external evidence.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；当前 video screenshot/session stability integration fresh warning count 为 `141`，gate 输出为 `Warning 总量下降 6 条（现在 141 条）`。
+- `npm run lint:warnings-guard`：通过；当前 GA production rewrite pre-P07 checked-in baseline 与 fresh warning count 均为 `160`（`src: 27`、`tests: 133`），gate 输出为 `Warning 总量保持在基线 160 条`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
+- 当前 fresh warning 主要规则族：`require-await`（`111`）与 unsafe type warnings（`no-unsafe-assignment: 24`、`no-unsafe-return: 6`、`no-unsafe-argument: 4`、`no-unsafe-member-access: 12`、`no-unsafe-call: 1`），另有 `no-floating-promises: 1`、`no-misused-promises: 1`。本次同步前已清掉 GA schema/config 中可机械修复的 production unused/redundant-type warning，剩余 warning 主要集中在既有测试/工具 mock 与 async shape。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 final integration worktree `1178` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1867`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1237/36/3`。
+- `npm run lint:type-any`：扫描当前 GA production rewrite integration worktree `1193` files；fresh overall 为 `any: 0`、`unknown: 1138`、assertions `1934`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/623/678/9/0`；tests 为 `0/515/1256/36/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`。最终合并通过消除局部新增 type assertions 留在既有上限内；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
+- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1138/1934/45/3`、src `0/623/678/9/0`、tests `0/515/1256/36/3`。本次同步只反映 P01-P09 GA schema/proxy/docs/queue/video/tests 集成后的 current truth；`any` 继续保持 `0`，`ts-expect-error` 未放宽，non-null ceilings 继续守住更高历史上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
@@ -273,8 +273,9 @@ server-side `api_secret` injection unless the owner adds external evidence.
 - dev chunks: `118`
 - `chunks/messages-*.js`: `202.4 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `21.1 KB`
-- `lint:type-any` 扫描 `1178` files；fresh overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`
-- `lint:type-any:ratchet` checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`；本次只同步 assertions gate，`any` 继续保持 `0`，`ts-expect-error` 未放宽
+- `lint:type-any` 扫描 `1193` files；fresh overall `0/1138/1934/45/3`、src `0/623/678/9/0`、tests `0/515/1256/36/3`
+- `lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；本次只同步 GA production rewrite integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未放宽
+- `lint:warnings-guard` checked-in baseline 与 fresh warning count 均为 `160`（`src: 27`、`tests: 133`）；本次同步只反映 P01-P09 集成后的 warning truth，并先清掉可机械修复的 production lint warning
 
 ## 核心命令
 
