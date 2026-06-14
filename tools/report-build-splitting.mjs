@@ -12,10 +12,11 @@ const ENTRY_FILES = [
 ];
 const ENTRY_BUDGETS = new Map([
   [join(DIST_DIR, 'content', 'index.js'), { hardStop: 1 * 1024 }],
-  // 2026-06-13 P06 current-integration exact dev-build stop gate. The 38-byte
-  // drift was already reproduced on the pre-P04-safe integration head and is
-  // carried by the accepted P01-P05 merge stack rather than a new P06 behavior
-  // change or locale-budget expansion.
+  // 2026-06-13 P06 keeps the current integration size as the warning target and
+  // restores a small hard-stop margin. The 38-byte drift was already reproduced
+  // on the pre-P04-safe integration head and is carried by the accepted P01-P05
+  // merge stack rather than a new P06 behavior change or locale-budget
+  // expansion.
   [
     join(DIST_DIR, 'content', 'runtime.js'),
     {
@@ -40,10 +41,10 @@ const ENTRY_BUDGETS = new Map([
 // esbuild also extracts the tiny shared screenshot-intent bridge used by both the
 // session runtime and screenshot queue. Keep size budgets strict while allowing
 // the two intentional chunks created by that split.
-// 2026-06-13 final combined integration exact dev-build stop gate. The current
-// branch combines the structural-debt split with the visible-tab screenshot
-// export path; only the dev chunk count changes, while entry/shared/locale/YAML
-// size budgets stay unchanged.
+// 2026-06-13 final combined integration budget. The current branch combines the
+// structural-debt split with the visible-tab screenshot export path; only the
+// dev chunk count needs a warning target plus hard stop, while
+// entry/shared/locale/YAML size budgets stay unchanged.
 const CHUNK_COUNT_BUDGET = {
   warningTarget: 118,
   hardStop: 120
