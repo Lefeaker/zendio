@@ -1,6 +1,6 @@
 # 运行时观测与手动回归基线
 
-日期：2026-06-11
+日期：2026-06-14
 
 ## 1. 运行时观测
 
@@ -20,6 +20,8 @@ npm run build:dev
 
 ```bash
 npm run analytics:validate:prod
+node tools/report-ga-proxy-contract.mjs
+node tools/report-ga-docs-contract.mjs --check
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
 npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
@@ -84,6 +86,9 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
 当前 GA / video 观测真值：
 
 - `analytics:validate:prod` 只验证 public-config wiring 与 owner env sanity，不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
+- `report-ga-docs-contract` 会把 `ga4-telemetry-reference.md` 与
+  `google-analytics-dashboard-setup.md` 绑定到当前 schema / proxy contract，但它不替代
+  owner proxy / DebugView smoke checks。
 - runtime config 的 `enabled` 是 `analytics || errorReporting`；usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。
 - 视频截图的 durable state 只保存 `screenshotRequested` intent；runtime screenshot bytes 维持在 `Blob` / binary 路径，导出边界再序列化为兼容 payload。
 

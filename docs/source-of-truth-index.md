@@ -1,11 +1,12 @@
 # Source of Truth 索引
 
-最后更新：2026-06-13
+最后更新：2026-06-14
 
 ## 正式入口
 
 - 工程命令与门禁：[`engineering-entrypoints.md`](./engineering-entrypoints.md)
 - GA telemetry 事件与字段真值：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
+- GA docs / dashboard contract checker：`node tools/report-ga-docs-contract.mjs --check`
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
 - 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
@@ -38,6 +39,7 @@
 - root `_locales/**` 已删除，不再作为 retained compatibility duplicate 保留；production build/package/release surface owner 为 `public/_locales/**` -> `build/dist/_locales/**` -> final Chrome ZIP / Firefox XPI
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
 - GA production release public config 真值：owner 本机使用 ignored `.env.production.local` 注入 `AIIINOB_GA_MEASUREMENT_ID`、`AIIINOB_GA_TRANSPORT_MODE`、`AIIINOB_GA_PROXY_ENDPOINT`；复用命令为 `analytics:validate:prod`、`build:prod:ga`、`package:prod:ga`、`package:firefox:prod:ga`、`release:prod:ga`。GA `api_secret` 仍只允许存在于 Cloudflare Worker secret `GA4_API_SECRET`；`directDebug` 也必须经 owner debug proxy，不允许扩展直连 Google debug endpoint。`analytics:validate:prod` 现在验证静态/public-config wiring、tracked transport/consent contract、负向 secret/endpoint 守卫与 owner env sanity，但仍不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入；`.env.production.local` 缺失时该命令仍会运行并把缺失 public 值记为 warning。
+- GA docs / dashboard current truth：`ga4-telemetry-reference.md` 的 active tables 现在只允许记录 schema/proxy contract 中 `emitted`、`error`、`dev-only` rows；`google-analytics-dashboard-setup.md` 只允许推荐 active emitted / error KPI 事件。提交前必须先运行 `node tools/report-ga-proxy-contract.mjs`，再运行 `node tools/report-ga-docs-contract.mjs --check`，防止 docs 与 schema/proxy contract 静默漂移；该检查同样不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
 - GA live consent / local id 真值：`analytics_client_id` 与 `analytics_session_id` 会在本地扩展存储中预先建立，但在对应事件类别 consent 与 public config 允许发送前不会离开本地；`clearAllData()` / analytics data clear 会清除 consent、client id、session id 与相关本地状态。
 - GA live consent / logging 真值：runtime config 的 `enabled` 是 `analytics || errorReporting`；但实际发送仍按事件类别分别受 consent 控制，usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。生产 `proxy` 成功路径默认不输出事件参数或成功 telemetry log；只有 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，内容只含 `eventName`、`transportMode`、`responseStatus` 与 validation message 数量，不包含事件字段明细。
 - Video screenshot attachment 真值：durable capture storage 与 session drafts 只持久化 screenshot intent（`screenshotRequested`），不持久化截图 bytes。`video.screenshotAttachment.{locationTemplate,fileNameTemplate,markdownUrlFormat}` 只负责 export-time 的附件输出路径与 Markdown URL 规划；runtime screenshot bytes 以 `Blob` / binary 形式存在，exporter/background writer/download boundary 通过 serialized binary content 与 `serializedAttachmentContentToBlob()` 兼容写入，legacy `dataUrl` 只保留兼容解码 / adapter fallback。

@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-13
+最后更新：2026-06-14
 
 ## 推荐运行环境
 
@@ -157,16 +157,22 @@ until the relevant event-class consent and public config make a send possible;
 
 ```bash
 npm run analytics:validate:prod
+node tools/report-ga-proxy-contract.mjs
+node tools/report-ga-docs-contract.mjs
+node tools/report-ga-docs-contract.mjs --check
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
 npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
-video screenshot intent-to-attachment path. Screenshot attachment templates plan
-only export-time output paths / Markdown URLs; durable state persists
-`screenshotRequested`, while runtime screenshot bytes stay `Blob` / binary until
-background write/download boundaries.
+video screenshot intent-to-attachment path. `report-ga-docs-contract` binds
+`ga4-telemetry-reference.md` and `google-analytics-dashboard-setup.md` to the
+current schema / proxy contract; it does not prove real GA property delivery,
+DebugView visibility, or server-side `api_secret` injection. Screenshot
+attachment templates plan only export-time output paths / Markdown URLs; durable
+state persists `screenshotRequested`, while runtime screenshot bytes stay `Blob`
+/ binary until background write/download boundaries.
 
 ## 当前 Lint / Type 债务真值
 

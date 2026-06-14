@@ -1,6 +1,6 @@
 # Analytics Configuration Guide
 
-最后更新：2026-06-11
+最后更新：2026-06-14
 
 本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
@@ -33,7 +33,9 @@ AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 .env.production.local
 ```
 
-该文件不进入 git。长期文档只记录变量形状，不回写 owner 当前 release 值：
+该文件不进入 git，且只能保存 public build config。不要在这里加入
+`GA4_API_SECRET`、`AIIINOB_GA_API_SECRET` 或任何 server secret 赋值。长期文档只记录
+变量形状，不回写 owner 当前 release 值：
 
 ```bash
 AIIINOB_GA_MEASUREMENT_ID=G-XXXXXXXXXX
