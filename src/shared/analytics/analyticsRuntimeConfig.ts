@@ -3,8 +3,7 @@ import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
   normalizeAnalyticsTransportMode,
   normalizeMeasurementId,
-  normalizeProxyEndpoint,
-  type AnalyticsTransportMode
+  normalizeProxyEndpoint
 } from './analyticsEnvironment';
 import type { AnalyticsEventName } from './eventCatalog';
 import type { AnalyticsConfig, UserConsent } from '../errors/analytics/analyticsConfig';

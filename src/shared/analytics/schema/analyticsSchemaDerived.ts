@@ -10,7 +10,10 @@ import {
 } from './analyticsSchema';
 
 type AnalyticsSchemaType = typeof ANALYTICS_SCHEMA;
-type AnalyticsEventName = keyof AnalyticsEventParamMapFromSchema<AnalyticsSchemaType> & string;
+type AnalyticsEventName = Extract<
+  keyof AnalyticsEventParamMapFromSchema<AnalyticsSchemaType>,
+  string
+>;
 type SchemaEntry = [AnalyticsEventName, AnalyticsSchemaType[AnalyticsEventName]];
 
 export type AnalyticsDerivedEventDefinition<
