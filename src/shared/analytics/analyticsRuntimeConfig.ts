@@ -44,6 +44,8 @@ export function normalizeStoredAnalyticsConfig(
         ? normalizeProxyEndpoint(storedConfig?.proxyEndpoint)
         : defaults.proxyEndpoint
       : undefined;
+  const clientId = normalizeOptionalString(storedConfig?.clientId);
+  const sessionId = normalizeOptionalString(storedConfig?.sessionId);
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
@@ -54,12 +56,8 @@ export function normalizeStoredAnalyticsConfig(
       defaults.measurementId,
     transportMode,
     ...(proxyEndpoint ? { proxyEndpoint } : {}),
-    ...(normalizeOptionalString(storedConfig?.clientId)
-      ? { clientId: normalizeOptionalString(storedConfig?.clientId) }
-      : {}),
-    ...(normalizeOptionalString(storedConfig?.sessionId)
-      ? { sessionId: normalizeOptionalString(storedConfig?.sessionId) }
-      : {}),
+    ...(clientId ? { clientId } : {}),
+    ...(sessionId ? { sessionId } : {}),
     ...(consent ? { userConsent: consent } : {}),
     reportingInterval: normalizePositiveInteger(
       storedConfig?.reportingInterval,
