@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-13
+最后更新：2026-06-14
 
 ## 推荐运行环境
 
@@ -125,6 +125,7 @@ GA production release public config is loaded from ignored
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery
 npm run build:prod:ga
 npm run package:prod:ga
 npm run package:firefox:prod:ga
@@ -145,6 +146,13 @@ and public env shape, but it still does not prove real GA property delivery,
 DebugView visibility, or server-side `api_secret` injection. If
 `.env.production.local` is absent, the validator still runs and reports missing
 public values as warnings.
+`analytics:smoke:delivery` is an opt-in owner-run proxy acceptance smoke. It is
+not wired into `quality`, `verify:preflight`, build, package, release, or CI.
+By default it skips cleanly when the public env is incomplete; `--require-env`
+turns incomplete env into failure; `--dry-run` prints only a redacted summary;
+`--event-name` is limited to allowlisted synthetic events. It never accepts
+`api_secret`, never prints event params, and refuses direct Google Measurement
+Protocol hosts.
 Successful production proxy sends are intentionally silent in the console. Only
 `directDebug` emits `[analytics-events] Event sent (debug):` with a summary
 (`eventName`, `transportMode`, `responseStatus`, validation message count) and
@@ -157,13 +165,18 @@ until the relevant event-class consent and public config make a send possible;
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery -- --dry-run
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
 npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
-video screenshot intent-to-attachment path. Screenshot attachment templates plan
+video screenshot intent-to-attachment path. `analytics:validate:prod` remains the
+static/public-config contract check; `analytics:smoke:delivery` only proves that
+an owner proxy accepted a synthetic event under the current public env. GA4
+property delivery, DebugView visibility, and server-side `api_secret` injection
+still require owner-side proof. Screenshot attachment templates plan
 only export-time output paths / Markdown URLs; durable state persists
 `screenshotRequested`, while runtime screenshot bytes stay `Blob` / binary until
 background write/download boundaries.
