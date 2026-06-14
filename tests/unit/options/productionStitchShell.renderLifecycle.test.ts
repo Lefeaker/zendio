@@ -838,7 +838,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       document.querySelector('[data-nav-panel="storage"]')?.classList.contains('is-active')
     ).toBe(true);
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
       params: {
         action: 'resource_open',
@@ -847,7 +847,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       }
     });
     expect(messagingRepository.send).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'options_section_viewed',
       params: {
         section: 'storage'

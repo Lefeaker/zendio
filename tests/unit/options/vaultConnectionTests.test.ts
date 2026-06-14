@@ -284,7 +284,7 @@ function expectAnalyticsMessage(
   allowedKeys: string[]
 ): void {
   const analyticsCall = calls.find(([message]) => {
-    return message.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+    return message.type === 'ANALYTICS_EVENT' && message.event === expectedEvent;
   });
   expect(analyticsCall).toBeDefined();
   const message = analyticsCall?.[0];
