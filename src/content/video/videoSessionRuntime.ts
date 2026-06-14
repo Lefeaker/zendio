@@ -61,6 +61,7 @@ import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlayba
 import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
+import { setTimestampScreenshotRef } from './screenshotIntent';
 import type { VideoTimestampCapture } from './types';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 
@@ -82,6 +83,9 @@ export class VideoSession {
   private readonly commentEditorPlayback: VideoCommentEditorPlaybackController;
   private readonly screenshotPreparation: VideoScreenshotPreparationCoordinator;
   private draftController!: VideoSessionControllers['draftController'];
+  private persistPreparedScreenshotCache:
+    | VideoSessionControllers['persistPreparedScreenshot']
+    | null = null;
   private readonly mutationCoordinator: VideoSessionMutationCoordinator;
   private controllersReadyPromise: Promise<void> | null = null;
   private isCleaningUp = false;
@@ -137,6 +141,9 @@ export class VideoSession {
       getCaptures: () => this.getTimestampCaptures(),
       getVisibleVideo: () => this.state.videoElement,
       captureVisibleFrame: this.dependencies.captureVisibleVideoFrameScreenshot,
+      onScreenshotPrepared: (capture, screenshot) => {
+        void this.persistPreparedScreenshot(capture, screenshot);
+      },
       syncPanel: () => this.syncPanel()
     });
   }
@@ -191,6 +198,7 @@ export class VideoSession {
         this.platformController = controllers.platformController;
         this.dom = controllers.dom;
         this.draftController = controllers.draftController;
+        this.persistPreparedScreenshotCache = controllers.persistPreparedScreenshot;
       })
       .finally(() => {
         this.controllersReadyPromise = null;
@@ -365,6 +373,37 @@ export class VideoSession {
 
   private createDestinationPayload(): ClipPayload {
     return createVideoSessionDestinationPayload(this.state, this.doc.location.href, this.doc.title);
+  }
+
+  private async persistPreparedScreenshot(
+    capture: VideoTimestampCapture,
+    screenshot: NonNullable<VideoTimestampCapture['screenshot']>
+  ): Promise<void> {
+    const persistPreparedScreenshotCache = this.persistPreparedScreenshotCache;
+    if (!persistPreparedScreenshotCache) {
+      return;
+    }
+
+    let saveResult;
+    try {
+      saveResult = await persistPreparedScreenshotCache(capture.id, screenshot);
+    } catch (error) {
+      console.warn('[VideoSession] Failed to persist prepared screenshot:', error);
+      return;
+    }
+    if (saveResult.status !== 'saved') {
+      console.debug('[VideoSession] Skipped prepared screenshot cache persistence:', saveResult);
+      return;
+    }
+
+    if (capture.screenshot !== screenshot) {
+      return;
+    }
+
+    setTimestampScreenshotRef(capture, saveResult.ref);
+    void this.draftController.scheduleSave().catch((error) => {
+      console.warn('[VideoSession] Failed to schedule screenshot ref draft save:', error);
+    });
   }
 
   ingestTextCapture(

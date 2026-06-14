@@ -23,7 +23,10 @@ export interface VideoSessionDraftControllerOptions {
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   storageArea: StorageAreaService;
-  screenshotCache?: Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'>;
+  screenshotCache?:
+    | (Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'> &
+        Partial<Pick<VideoScreenshotCacheRepository, 'save'>>)
+    | undefined;
   dom: VideoSessionDraftDomPort;
   applyHint: (state: VideoHintState) => void;
   readCleanupState: ReadVideoSessionDraftCleanupState;
