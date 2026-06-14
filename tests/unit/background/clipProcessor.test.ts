@@ -592,10 +592,11 @@ describe('clipProcessor', () => {
     const downloadError = new Error('download failed');
     downloadMock.mockRejectedValue(downloadError);
 
-    const { processClipPayload } =
+    const { processClipPayload, readClipProcessingFailureCategory } =
       await import('../../../src/background/application/clipProcessor');
-    await expect(
-      processClipPayload(
+    let caught: unknown;
+    try {
+      await processClipPayload(
         createPayload({
           markdown: 'private failing markdown',
           title: 'Failure Secret',
@@ -605,8 +606,13 @@ describe('clipProcessor', () => {
             operationId: 'op_fail1234'
           }
         })
-      )
-    ).rejects.toThrow('download failed');
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBe(downloadError);
+    expect(readClipProcessingFailureCategory(caught)).toBe('write');
+    expect(Object.keys(caught as object)).not.toContain('failureCategory');
 
     const failedCall = trackUsageEventMock.mock.calls.at(-1);
     expectAnalyticsEvent(

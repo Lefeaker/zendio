@@ -22,7 +22,10 @@ import {
   notificationErrors
 } from '../../shared/errors';
 import { trackUsageEvent } from '../services/analyticsEvents';
-import { processClipPayload } from '../application/clipProcessor';
+import {
+  processClipPayload,
+  readClipProcessingFailureCategory
+} from '../application/clipProcessor';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
@@ -148,9 +151,11 @@ async function processRepositoryClipPayload(payload: unknown): Promise<MessagePa
     const result = await processClipPayload(parsedPayload);
     return { success: true, filePath: result.filePath };
   } catch (error) {
+    const failureCategory = readClipProcessingFailureCategory(error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      ...(failureCategory ? { failureCategory } : {})
     };
   }
 }

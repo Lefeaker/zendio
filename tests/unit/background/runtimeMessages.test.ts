@@ -25,6 +25,13 @@ const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined))
 const processClipPayloadMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ filePath: 'Video/example.md' }))
 );
+const readClipProcessingFailureCategoryMock = vi.hoisted(() =>
+  vi.fn((error: unknown) =>
+    typeof error === 'object' && error !== null && 'failureCategory' in error
+      ? (error as { failureCategory?: unknown }).failureCategory
+      : undefined
+  )
+);
 const isAppErrorMock = vi.hoisted(() => vi.fn(() => false));
 const normalizeToAppErrorMock = vi.hoisted(() =>
   vi.fn((error: unknown) => ({
@@ -55,7 +62,8 @@ vi.mock('../../../src/background/services/analyticsEvents', () => ({
   trackUsageEvent: trackUsageEventMock
 }));
 vi.mock('../../../src/background/application/clipProcessor', () => ({
-  processClipPayload: processClipPayloadMock
+  processClipPayload: processClipPayloadMock,
+  readClipProcessingFailureCategory: readClipProcessingFailureCategoryMock
 }));
 vi.mock('../../../src/shared/errors', () => ({
   errorHandler: { handle: handleErrorMock },
@@ -76,6 +84,11 @@ describe('runtime message listener', () => {
     vi.resetModules();
     vi.clearAllMocks();
     processClipPayloadMock.mockResolvedValue({ filePath: 'Video/example.md' });
+    readClipProcessingFailureCategoryMock.mockImplementation((error: unknown) =>
+      typeof error === 'object' && error !== null && 'failureCategory' in error
+        ? (error as { failureCategory?: unknown }).failureCategory
+        : undefined
+    );
     listener = undefined;
     addListenerMock.mockImplementation((cb: typeof listener) => {
       listener = cb;
@@ -595,6 +608,36 @@ describe('runtime message listener', () => {
           }
         ]
       }
+    });
+  });
+
+  it('preserves structured failure categories for repository video export failures', async () => {
+    const failure = new Error('vault write failed') as Error & { failureCategory: 'write' };
+    failure.failureCategory = 'write';
+    processClipPayloadMock.mockRejectedValueOnce(failure);
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const result = await listener?.(
+      {
+        type: 'videoClip',
+        data: {
+          content: '# video',
+          title: 'Video title',
+          url: 'https://youtube.com/watch?v=1',
+          videoUrl: 'https://youtube.com/watch?v=1',
+          timestamp: 1,
+          platform: 'youtube'
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'vault write failed',
+      failureCategory: 'write'
     });
   });
 

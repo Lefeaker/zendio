@@ -1,5 +1,6 @@
 import type { FragmentClipperOptions, TemplateOptions } from '../types/options';
 import type { ClipPayload } from '../types/clip';
+import type { FailureCategory } from '../types/analytics';
 
 /**
  * Fragment 配置别名，便于在仓库接口中表达领域含义。
@@ -18,6 +19,7 @@ export interface ClipResult {
   success: boolean;
   filePath?: string;
   error?: string;
+  failureCategory?: FailureCategory;
 }
 
 /**
