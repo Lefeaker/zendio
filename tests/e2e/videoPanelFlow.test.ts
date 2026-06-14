@@ -15,6 +15,8 @@ const EXTENSION_PATH = path.resolve(__dirname, '../../build/dist');
 const EXTENSION_HARNESS_PATH = 'content-orchestrator-harness.html';
 const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_STORAGE_PREFIX}.index.v1`;
+const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
+const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=p07BrowserVideoFlow';
 
 type ServiceWorker = ReturnType<BrowserContext['serviceWorkers']>[number];
@@ -46,9 +48,16 @@ type VideoDraftEntry = {
   pageUrl: string | null;
   captureCount: number;
   requestedScreenshotCount: number;
+  screenshotRefCount: number;
+  containsInlineScreenshotPayload: boolean;
   captureComments: string[];
   commentDrafts: Record<string, string>;
-  json: string;
+};
+
+type VideoStorageSummary = {
+  drafts: VideoDraftEntry[];
+  cacheEntryCount: number;
+  cacheIndexEntryCount: number;
 };
 
 type VideoProbeState = {
@@ -85,6 +94,10 @@ type StartVideoModeResponse = {
 
 type VideoDraftCapture = {
   screenshotRequested?: boolean;
+  screenshotRef?: unknown;
+  screenshot?: unknown;
+  dataUrl?: unknown;
+  content?: unknown;
   comment?: string;
 };
 
@@ -518,14 +531,13 @@ async function simulateVisibilityRoundTrip(
   });
 }
 
-async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
+async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorageSummary> {
   return extensionPage.evaluate(
-    async ({ storageKeyPrefix, indexKey }) => {
+    async ({ storageKeyPrefix, indexKey, cacheKeyPrefix, cacheIndexKey }) => {
       const storage = await chrome.storage.local.get(null);
-      return Object.entries(storage)
+      const drafts = Object.entries(storage)
         .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
         .map(([key, value]) => {
-          const json = JSON.stringify(value);
           const envelope: VideoDraftEnvelope | undefined =
             typeof value === 'object' && value !== null ? (value as VideoDraftEnvelope) : undefined;
           const captures = envelope?.payload?.captures ?? [];
@@ -540,14 +552,48 @@ async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEnt
             requestedScreenshotCount: captures.filter(
               (capture) => capture.screenshotRequested === true
             ).length,
+            screenshotRefCount: captures.filter(
+              (capture) =>
+                typeof capture.screenshotRef === 'object' && capture.screenshotRef !== null
+            ).length,
+            containsInlineScreenshotPayload: captures.some((capture) => {
+              return (
+                capture.screenshot !== undefined ||
+                capture.dataUrl !== undefined ||
+                capture.content !== undefined ||
+                Object.values(capture).some(
+                  (field) => typeof field === 'string' && field.startsWith('data:image')
+                )
+              );
+            }),
             captureComments,
-            commentDrafts,
-            json
+            commentDrafts
           };
         });
+      const cacheKeys = Object.keys(storage).filter(
+        (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
+      );
+      const cacheIndex =
+        typeof storage[cacheIndexKey] === 'object' && storage[cacheIndexKey] !== null
+          ? (storage[cacheIndexKey] as { entries?: unknown[] })
+          : null;
+      return {
+        drafts,
+        cacheEntryCount: cacheKeys.length,
+        cacheIndexEntryCount: Array.isArray(cacheIndex?.entries) ? cacheIndex.entries.length : 0
+      };
     },
-    { storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX, indexKey: SESSION_DRAFT_INDEX_KEY }
+    {
+      storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
+      indexKey: SESSION_DRAFT_INDEX_KEY,
+      cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX,
+      cacheIndexKey: VIDEO_SCREENSHOT_CACHE_INDEX_KEY
+    }
   );
+}
+
+async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
+  return (await readVideoStorageSummary(extensionPage)).drafts;
 }
 
 async function openFixtureWithRuntime(
@@ -737,18 +783,21 @@ testWithExtension.describe('Video Panel browser flow', () => {
         await expect
           .poll(
             async () => {
-              const entries = await readVideoDraftEntries(extensionPage);
+              const summary = await readVideoStorageSummary(extensionPage);
+              const matchingDraft = summary.drafts.find(
+                (entry) =>
+                  entry.pageUrl?.includes('p07BrowserVideoFlow') &&
+                  entry.captureCount === 2 &&
+                  entry.requestedScreenshotCount === 1
+              );
               return {
-                count: entries.length,
-                hasDraft: entries.some(
-                  (entry) =>
-                    entry.pageUrl?.includes('p07BrowserVideoFlow') &&
-                    entry.captureCount === 2 &&
-                    entry.requestedScreenshotCount === 1
-                ),
-                containsScreenshotDataUrl: entries.some((entry) =>
-                  entry.json.includes('data:image')
-                )
+                count: summary.drafts.length,
+                hasDraft: matchingDraft !== undefined,
+                screenshotRefCount: matchingDraft?.screenshotRefCount ?? 0,
+                containsInlineScreenshotPayload:
+                  matchingDraft?.containsInlineScreenshotPayload ?? false,
+                cacheEntryCount: summary.cacheEntryCount,
+                cacheIndexEntryCount: summary.cacheIndexEntryCount
               };
             },
             {
@@ -756,7 +805,14 @@ testWithExtension.describe('Video Panel browser flow', () => {
               message: 'video draft did not persist expected captures'
             }
           )
-          .toEqual({ count: 1, hasDraft: true, containsScreenshotDataUrl: false });
+          .toEqual({
+            count: 1,
+            hasDraft: true,
+            screenshotRefCount: 1,
+            containsInlineScreenshotPayload: false,
+            cacheEntryCount: 1,
+            cacheIndexEntryCount: 1
+          });
 
         await simulateVisibilityRoundTrip(extensionPage, tabId, testInfo);
         await expect(page.locator('[data-role="finish-btn"]')).toBeVisible();
@@ -803,10 +859,45 @@ testWithExtension.describe('Video Panel browser flow', () => {
               })),
             {
               timeout: 10000,
-              message: 'restore-time screenshot recapture did not run'
+              message: 'restore-time cache hit unexpectedly recaptured the screenshot'
             }
           )
-          .toEqual({ toBlobCalls: 1, toDataUrlCalls: 0, drawImageCalls: 1, currentTimeWrites: 0 });
+          .toEqual({ toBlobCalls: 0, toDataUrlCalls: 0, drawImageCalls: 0, currentTimeWrites: 0 });
+
+        const restoredScreenshotToggle = page
+          .locator('[data-role="capture-item"]')
+          .first()
+          .locator('[data-action-id="video:toggle-screenshot"]');
+        await runStage(testInfo, 'disable restored screenshot before export', async () => {
+          await restoredScreenshotToggle.click();
+          await expect(restoredScreenshotToggle).toHaveAttribute('data-screenshot-state', 'off');
+        });
+        await expect
+          .poll(
+            async () => {
+              const summary = await readVideoStorageSummary(extensionPage);
+              const matchingDraft = summary.drafts.find((entry) =>
+                entry.pageUrl?.includes('p07BrowserVideoFlow')
+              );
+              return {
+                requestedScreenshotCount: matchingDraft?.requestedScreenshotCount ?? 0,
+                screenshotRefCount: matchingDraft?.screenshotRefCount ?? 0,
+                containsInlineScreenshotPayload:
+                  matchingDraft?.containsInlineScreenshotPayload ?? false,
+                cacheEntryCount: summary.cacheEntryCount
+              };
+            },
+            {
+              timeout: 10000,
+              message: 'disabling the restored screenshot did not update the durable draft state'
+            }
+          )
+          .toEqual({
+            requestedScreenshotCount: 0,
+            screenshotRefCount: 1,
+            containsInlineScreenshotPayload: false,
+            cacheEntryCount: 1
+          });
 
         await resetVideoProbe(extensionPage, reloadedTabId, testInfo);
         const finishButton = page.locator('[data-role="finish-btn"]');
@@ -841,17 +932,7 @@ testWithExtension.describe('Video Panel browser flow', () => {
         if (!resolvedClip) {
           throw new Error('Expected exported video clip payload.');
         }
-        expect(Array.isArray(resolvedClip.attachments)).toBe(true);
-        expect(resolvedClip.attachments).toHaveLength(1);
-        expect(resolvedClip.attachments?.[0]).toMatchObject({
-          mimeType: 'image/jpeg',
-          content: {
-            encoding: 'base64',
-            data: 'ZmFrZS1zY3JlZW5zaG90',
-            byteLength: 15
-          }
-        });
-        expect(resolvedClip.attachments?.[0]).not.toHaveProperty('dataUrl');
+        expect(resolvedClip.attachments ?? []).toHaveLength(0);
 
         await expect
           .poll(() => readVideoDraftEntries(extensionPage).then((entries) => entries.length), {

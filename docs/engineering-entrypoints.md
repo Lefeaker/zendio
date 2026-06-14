@@ -167,7 +167,7 @@ until the relevant event-class consent and public config make a send possible;
 npm run analytics:validate:prod
 npm run analytics:smoke:delivery -- --dry-run
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
@@ -177,9 +177,12 @@ static/public-config contract check; `analytics:smoke:delivery` only proves that
 an owner proxy accepted a synthetic event under the current public env. GA4
 property delivery, DebugView visibility, and server-side `api_secret` injection
 still require owner-side proof. Screenshot attachment templates plan
-only export-time output paths / Markdown URLs; durable state persists
-`screenshotRequested`, while runtime screenshot bytes stay `Blob` / binary until
-background write/download boundaries.
+only export-time output paths / Markdown URLs; durable draft state persists
+`screenshotRequested` plus metadata-only `screenshotRef`, while screenshot bytes
+live in the expiring browser storage cache and runtime `Blob` / binary flow
+until background write/download boundaries. Cache hits restore without immediate
+visible-video seek; legacy ref-less drafts and missing/expired cache entries
+fall back to low-concurrency screenshot preparation.
 
 ## 当前 Lint / Type 债务真值
 
