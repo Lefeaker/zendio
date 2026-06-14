@@ -12,36 +12,43 @@ import { createVideoScreenshotCacheRepository } from '@content/video/videoScreen
 import type { VideoCaptureScreenshot } from '@content/video/types';
 
 const BASE_TIME = 2_000_000_000_000;
+type StoredValue = Parameters<StorageAreaService['set']>[1];
 
 class MemoryStorageArea implements StorageAreaService {
-  private readonly values = new Map<string, unknown>();
+  private readonly values = new Map<string, StoredValue>();
 
-  async get<T = unknown>(key: string): Promise<T | undefined> {
-    return this.values.get(key) as T | undefined;
+  get<T = StoredValue>(key: string): Promise<T | undefined> {
+    return Promise.resolve(this.values.get(key) as T | undefined);
   }
 
-  async set<T = unknown>(key: string, value: T): Promise<void> {
+  set<T = StoredValue>(key: string, value: T): Promise<void> {
     this.values.set(key, value);
+    return Promise.resolve();
   }
 
-  async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
-    return Object.fromEntries(keys.map((key) => [key, this.values.get(key) as T | undefined]));
+  getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
+    return Promise.resolve(
+      Object.fromEntries(keys.map((key) => [key, this.values.get(key) as T | undefined]))
+    );
   }
 
-  async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
+  setMany<T = StoredValue>(entries: Record<string, T>): Promise<void> {
     for (const [key, value] of Object.entries(entries)) {
       this.values.set(key, value);
     }
+    return Promise.resolve();
   }
 
-  async remove(key: string | string[]): Promise<void> {
+  remove(key: string | string[]): Promise<void> {
     for (const currentKey of Array.isArray(key) ? key : [key]) {
       this.values.delete(currentKey);
     }
+    return Promise.resolve();
   }
 
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     this.values.clear();
+    return Promise.resolve();
   }
 
   watchKey(): () => void {
@@ -52,13 +59,23 @@ class MemoryStorageArea implements StorageAreaService {
     return () => undefined;
   }
 
-  peek(key: string): unknown {
+  peek(key: string): StoredValue {
     return this.values.get(key);
   }
 
   snapshotKeys(): string[] {
     return [...this.values.keys()].sort();
   }
+}
+
+function requireCacheRef(
+  ref: VideoScreenshotCacheRef | undefined,
+  label = 'expected cache ref'
+): VideoScreenshotCacheRef {
+  if (!ref) {
+    throw new Error(label);
+  }
+  return ref;
 }
 
 function createScreenshot(
@@ -110,7 +127,7 @@ describe('videoScreenshotCacheRepository', () => {
     }
 
     const ref = saved.ref;
-    const refValues = Object.values({ ...ref }) as unknown[];
+    const refValues = Object.values(ref);
     expect(ref).not.toHaveProperty('content');
     expect(ref).not.toHaveProperty('dataUrl');
     expect(refValues.some((value) => value instanceof Blob)).toBe(false);
@@ -355,7 +372,7 @@ describe('videoScreenshotCacheRepository', () => {
 
     const index = await readIndex(area);
     expect(index?.entries.map((entry) => entry.id)).toEqual(['shot-3', 'shot-2']);
-    await expectRemoved(area, refs[0]!);
+    await expectRemoved(area, requireCacheRef(refs[0]));
   });
 
   it('prunes oldest entries globally when a lower global limit is applied', async () => {
@@ -396,7 +413,7 @@ describe('videoScreenshotCacheRepository', () => {
 
     const index = await readIndex(area);
     expect(index?.entries.map((entry) => entry.id)).toEqual(['shot-4', 'shot-3', 'shot-2']);
-    await expectRemoved(area, refs[0]!);
+    await expectRemoved(area, requireCacheRef(refs[0]));
   });
 
   it('removes one or many refs and keeps the index in sync', async () => {
@@ -420,13 +437,13 @@ describe('videoScreenshotCacheRepository', () => {
       nowMs += 1;
     }
 
-    await repository.remove(savedRefs[0]!);
+    await repository.remove(requireCacheRef(savedRefs[0]));
     expect((await readIndex(area))?.entries.map((entry) => entry.id)).toEqual(['shot-3', 'shot-2']);
-    expect(await area.get(savedRefs[0]!.key)).toBeUndefined();
+    expect(await area.get(requireCacheRef(savedRefs[0]).key)).toBeUndefined();
 
     await repository.removeMany(savedRefs.slice(1));
     expect((await readIndex(area))?.entries).toEqual([]);
-    expect(await area.get(savedRefs[1]!.key)).toBeUndefined();
-    expect(await area.get(savedRefs[2]!.key)).toBeUndefined();
+    expect(await area.get(requireCacheRef(savedRefs[1]).key)).toBeUndefined();
+    expect(await area.get(requireCacheRef(savedRefs[2]).key)).toBeUndefined();
   });
 });

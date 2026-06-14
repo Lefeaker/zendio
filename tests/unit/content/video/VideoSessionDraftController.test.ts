@@ -13,9 +13,9 @@ import {
   type VideoSessionDraftPayloadShape
 } from '@content/video/sessionDrafts';
 import { VideoSessionState } from '@content/video/sessionState';
-import type { StorageAreaService } from '@platform/interfaces/storage';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import type { StorageAreaService } from '@platform/interfaces/storage';
 import { VideoSessionDraftController } from '@content/video/videoSessionDraftController';
 import type { VideoCaptureScreenshot } from '@content/video/types';
 import {
@@ -24,26 +24,40 @@ import {
 } from '@content/video/videoScreenshotCacheTypes';
 import type { VideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
 
-type TrackedStorageArea = ReturnType<typeof createTrackedStorageArea>;
+type TrackedStorageArea = StorageAreaService & {
+  setMany: StorageAreaService['setMany'] & ReturnType<typeof vi.fn>;
+  remove: StorageAreaService['remove'] & ReturnType<typeof vi.fn<StorageAreaService['remove']>>;
+};
+type TimestampDraftCapture = Extract<
+  VideoSessionDraftPayloadShape['captures'][number],
+  { kind: 'timestamp' }
+>;
 
-function createTrackedStorageArea() {
+function createTrackedStorageArea(): TrackedStorageArea {
   const area = createMemoryStorageArea();
   return {
     ...area,
-    get: vi.fn(area.get),
-    set: vi.fn(area.set),
-    getMany: vi.fn(area.getMany),
-    setMany: vi.fn(area.setMany),
-    remove: vi.fn(area.remove),
-    clear: vi.fn(area.clear),
-    watchKey: vi.fn(area.watchKey),
-    watchAll: vi.fn(area.watchAll)
+    setMany: vi.fn(area.setMany) as TrackedStorageArea['setMany'],
+    remove: vi.fn(area.remove) as TrackedStorageArea['remove']
   };
 }
 
-function createTimestampCapture(id = 'timestamp-1') {
+function isVideoDraftPayloadShape(
+  payload: VideoSessionDraftEnvelope['payload']
+): payload is VideoSessionDraftPayloadShape {
+  return payload.mode === 'video' && Array.isArray(payload.captures);
+}
+
+function requireVideoDraftPayload(draft: VideoSessionDraftEnvelope): VideoSessionDraftPayloadShape {
+  if (!isVideoDraftPayloadShape(draft.payload)) {
+    throw new Error('expected video draft payload shape');
+  }
+  return draft.payload;
+}
+
+function createTimestampCapture(id = 'timestamp-1'): TimestampDraftCapture {
   return {
-    kind: 'timestamp' as const,
+    kind: 'timestamp',
     id,
     timeSec: 42,
     comment: 'note',
@@ -137,13 +151,13 @@ function createHarness(
     doc: document,
     state,
     destinationState,
-    storageArea: storage as unknown as StorageAreaService,
+    storageArea: storage,
     dom,
     applyHint: vi.fn(),
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
   });
-  const repository = createSessionDraftRepository(storage as unknown as StorageAreaService);
+  const repository = createSessionDraftRepository(storage);
 
   return {
     state,
@@ -166,7 +180,7 @@ async function seedRestorableDraft(
     commentDrafts?: Record<string, string>;
   } = {}
 ) {
-  const repository = createSessionDraftRepository(storage as unknown as StorageAreaService);
+  const repository = createSessionDraftRepository(storage);
   const draft = createVideoSessionDraftEnvelope({
     draftId: 'restored-draft',
     pageUrl: document.location.href,
@@ -209,7 +223,7 @@ async function seedRestorableDraftWithPayload(
   storage: TrackedStorageArea,
   payload: ReturnType<typeof buildVideoSessionDraftPayload>
 ) {
-  const repository = createSessionDraftRepository(storage as unknown as StorageAreaService);
+  const repository = createSessionDraftRepository(storage);
   const draft = createVideoSessionDraftEnvelope({
     draftId: 'restored-draft',
     pageUrl: document.location.href,
@@ -395,7 +409,7 @@ describe('VideoSessionDraftController', () => {
     if (!storedDraft || storedDraft.mode !== 'video') {
       throw new Error('expected an active video draft');
     }
-    const payload = storedDraft.payload as VideoSessionDraftPayloadShape;
+    const payload = requireVideoDraftPayload(storedDraft);
 
     expect(payload.captures).toEqual([
       expect.objectContaining({
@@ -554,7 +568,7 @@ describe('VideoSessionDraftController', () => {
               byteLength: 12,
               capturedAt: 2_000_000_000_101,
               expiresAt: 2_000_000_060_101
-            } as never
+            }
           }
         ],
         commentDrafts: {},
@@ -678,15 +692,11 @@ describe('VideoSessionDraftController', () => {
 
     expect(terminalized).toBe(true);
     await expect(repository.loadLatest('video', document.location.href)).resolves.toBeNull();
-    await expect(
-      (storage as unknown as StorageAreaService).get<VideoSessionDraftEnvelope>(currentDraftKey)
-    ).resolves.toMatchObject({
+    await expect(storage.get<VideoSessionDraftEnvelope>(currentDraftKey)).resolves.toMatchObject({
       draftId: currentDraft.draftId,
       status: 'exported'
     });
-    await expect(
-      (storage as unknown as StorageAreaService).get<VideoSessionDraftEnvelope>(restoredDraftKey)
-    ).resolves.toMatchObject({
+    await expect(storage.get<VideoSessionDraftEnvelope>(restoredDraftKey)).resolves.toMatchObject({
       draftId: restoredDraft.draftId,
       status: 'exported'
     });

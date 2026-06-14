@@ -190,13 +190,13 @@ fall back to low-concurrency screenshot preparation.
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；当前 video screenshot/session stability integration fresh warning count 为 `141`，gate 输出为 `Warning 总量下降 6 条（现在 141 条）`。
+- `npm run lint:warnings-guard`：2026-06-14 P09 final verification isolated worktree fresh run 通过；checked-in baseline 仍为 `147`，当前 warning 总数为 `131`，gate 输出为 `Warning 总量下降 16 条（现在 131 条）`。当前规则族为 `@typescript-eslint/require-await: 100`、`@typescript-eslint/no-unsafe-assignment: 19`、`@typescript-eslint/no-unsafe-return: 6`、`@typescript-eslint/no-unsafe-argument: 2`、`@typescript-eslint/no-unsafe-member-access: 3`、`@typescript-eslint/no-unsafe-call: 1`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 final integration worktree `1178` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1867`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1237/36/3`。
+- `npm run lint:type-any`：2026-06-14 P09 final verification isolated worktree fresh run 扫描 `1193` files；fresh overall 为 `any: 0`、`unknown: 1119`、assertions `1861`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/606/630/9/0`；tests 为 `0/513/1231/38/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`。最终合并通过消除局部新增 type assertions 留在既有上限内；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
+- `npm run lint:type-any:ratchet`：checked-in 上限仍为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；2026-06-14 P09 final verification isolated worktree fresh run 通过，fresh 实测为 overall `0/1119/1861/47/3`、src `0/606/630/9/0`、tests `0/513/1231/38/3`。本次未放宽 `any`、`ts-expect-error`、warning baseline 或 type ratchet 上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 

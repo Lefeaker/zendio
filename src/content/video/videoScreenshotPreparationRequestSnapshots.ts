@@ -9,7 +9,7 @@ interface VideoScreenshotPreparationRequestSnapshotState {
   tracked: boolean;
   visibleAttempted: boolean;
   visibleInFlight: boolean;
-  hiddenAttempt: unknown | null;
+  hiddenAttempt: object | null;
 }
 
 export function collectVideoScreenshotPreparationRequestIds<

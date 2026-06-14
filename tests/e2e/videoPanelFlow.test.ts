@@ -573,14 +573,18 @@ async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorag
       const cacheKeys = Object.keys(storage).filter(
         (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
       );
-      const cacheIndex =
-        typeof storage[cacheIndexKey] === 'object' && storage[cacheIndexKey] !== null
-          ? (storage[cacheIndexKey] as { entries?: unknown[] })
-          : null;
+      const cacheIndexValue = storage[cacheIndexKey];
+      const cacheIndexEntries =
+        typeof cacheIndexValue === 'object' &&
+        cacheIndexValue !== null &&
+        'entries' in cacheIndexValue &&
+        Array.isArray(cacheIndexValue.entries)
+          ? cacheIndexValue.entries
+          : [];
       return {
         drafts,
         cacheEntryCount: cacheKeys.length,
-        cacheIndexEntryCount: Array.isArray(cacheIndex?.entries) ? cacheIndex.entries.length : 0
+        cacheIndexEntryCount: cacheIndexEntries.length
       };
     },
     {

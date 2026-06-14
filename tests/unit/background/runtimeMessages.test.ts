@@ -25,23 +25,38 @@ const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined))
 const processClipPayloadMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ filePath: 'Video/example.md' }))
 );
+type UntrustedValue = Parameters<typeof asType>[0];
+type FailureCarrier = { failureCategory?: UntrustedValue };
+type TabContextSuccess = {
+  success: true;
+  tabId?: number;
+  frameId?: number;
+  windowId?: number;
+};
+
+function hasFailureCategory(error: object): error is FailureCarrier {
+  return 'failureCategory' in error;
+}
+
+function readMockFailureCategory(error: UntrustedValue): UntrustedValue {
+  return typeof error === 'object' && error !== null && hasFailureCategory(error)
+    ? error.failureCategory
+    : undefined;
+}
+
 const readClipProcessingFailureCategoryMock = vi.hoisted(() =>
-  vi.fn((error: unknown) =>
-    typeof error === 'object' && error !== null && 'failureCategory' in error
-      ? (error as { failureCategory?: unknown }).failureCategory
-      : undefined
-  )
+  vi.fn((error: UntrustedValue) => readMockFailureCategory(error))
 );
 const isAppErrorMock = vi.hoisted(() => vi.fn(() => false));
 const normalizeToAppErrorMock = vi.hoisted(() =>
-  vi.fn((error: unknown) => ({
+  vi.fn((error: UntrustedValue) => ({
     message: String(error),
     userMessage: 'normalized user',
     code: 'CONTENT_CLIP_FAILURE'
   }))
 );
 const dispatchFailedMock = vi.hoisted(() =>
-  vi.fn((_message: string, _meta: unknown, options: { cause?: unknown }) => ({
+  vi.fn((_message: string, _meta: UntrustedValue, options: { cause?: UntrustedValue }) => ({
     message: 'dispatch failed',
     cause: options.cause
   }))
@@ -84,10 +99,8 @@ describe('runtime message listener', () => {
     vi.resetModules();
     vi.clearAllMocks();
     processClipPayloadMock.mockResolvedValue({ filePath: 'Video/example.md' });
-    readClipProcessingFailureCategoryMock.mockImplementation((error: unknown) =>
-      typeof error === 'object' && error !== null && 'failureCategory' in error
-        ? (error as { failureCategory?: unknown }).failureCategory
-        : undefined
+    readClipProcessingFailureCategoryMock.mockImplementation((error: UntrustedValue) =>
+      readMockFailureCategory(error)
     );
     listener = undefined;
     addListenerMock.mockImplementation((cb: typeof listener) => {
@@ -102,17 +115,23 @@ describe('runtime message listener', () => {
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
       openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
       getTabContext: vi.fn(
-        async (sender: { tabId?: number; frameId?: number; windowId?: number }) => ({
-          success: true as const,
+        async (sender: {
+          tabId?: number;
+          frameId?: number;
+          windowId?: number;
+        }): Promise<TabContextSuccess> => ({
+          success: true,
           ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
           ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
           ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
         })
       ),
-      isTabContextActive: vi.fn(async (ownerContext: { tabId?: number }) => ({
-        success: true as const,
-        active: ownerContext.tabId === 12
-      })),
+      isTabContextActive: vi.fn(
+        async (ownerContext: { tabId?: number }): Promise<{ success: true; active: boolean }> => ({
+          success: true,
+          active: ownerContext.tabId === 12
+        })
+      ),
       captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(
         async () => ({
           success: true,
@@ -612,8 +631,12 @@ describe('runtime message listener', () => {
   });
 
   it('preserves structured failure categories for repository video export failures', async () => {
-    const failure = new Error('vault write failed') as Error & { failureCategory: 'write' };
-    failure.failureCategory = 'write';
+    const failure = new Error('vault write failed');
+    Object.defineProperty(failure, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: 'write'
+    });
     processClipPayloadMock.mockRejectedValueOnce(failure);
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');

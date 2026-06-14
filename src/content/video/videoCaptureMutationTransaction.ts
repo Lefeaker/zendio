@@ -20,6 +20,8 @@ import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
+type UntrustedValue = unknown;
+
 export type {
   VideoCaptureMutationFailure,
   VideoCaptureMutationTransaction
@@ -155,7 +157,7 @@ export function restoreTimestampScreenshotState(
   restoreTimestampScreenshotProperty(capture, snapshot);
 }
 
-function debugVideoAnalyticsFailure(error: unknown): void {
+function debugVideoAnalyticsFailure(error: UntrustedValue): void {
   console.debug('[VideoSession] Failed to send analytics event:', error);
 }
 
@@ -200,34 +202,32 @@ export function resolveVideoExportDestination(
   return 'unknown';
 }
 
-const FAILURE_CATEGORIES = new Set<FailureCategory>([
-  'permission',
-  'connection',
-  'validation',
-  'classification',
-  'extraction',
-  'write',
-  'timeout',
-  'unsupported',
-  'unknown'
-]);
+const FAILURE_CATEGORIES: ReadonlySet<string> = new Set(
+  'permission connection validation classification extraction write timeout unsupported unknown'.split(
+    ' '
+  )
+);
+
+function isFailureCategory(value: UntrustedValue): value is FailureCategory {
+  return typeof value === 'string' && FAILURE_CATEGORIES.has(value);
+}
 
 interface VideoExportFailureLike {
   name?: string;
   message?: string;
   code?: string;
-  failureCategory?: unknown;
+  failureCategory?: UntrustedValue;
 }
 
-function isFailureCategory(value: unknown): value is FailureCategory {
-  return typeof value === 'string' && FAILURE_CATEGORIES.has(value as FailureCategory);
+function isVideoExportFailureLike(error: UntrustedValue): error is VideoExportFailureLike {
+  return typeof error === 'object' && error !== null;
 }
 
 function readErrorText(error: VideoExportFailureLike): string {
   return `${error.name ?? ''} ${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
 }
 
-export function createVideoExportFailure(message: string, failureCategory?: unknown): Error {
+export function createVideoExportFailure(message: string, failureCategory?: UntrustedValue): Error {
   const error = new Error(message);
   if (isFailureCategory(failureCategory)) {
     Object.defineProperty(error, 'failureCategory', {
@@ -240,17 +240,16 @@ export function createVideoExportFailure(message: string, failureCategory?: unkn
   return error;
 }
 
-export function resolveVideoFailureCategory(error: unknown): FailureCategory {
-  if (typeof error !== 'object' || error === null) {
+export function resolveVideoFailureCategory(error: UntrustedValue): FailureCategory {
+  if (!isVideoExportFailureLike(error)) {
     return 'unknown';
   }
 
-  const candidate = error as VideoExportFailureLike;
-  if (isFailureCategory(candidate.failureCategory)) {
-    return candidate.failureCategory;
+  if (isFailureCategory(error.failureCategory)) {
+    return error.failureCategory;
   }
 
-  const errorText = readErrorText(candidate);
+  const errorText = readErrorText(error);
   if (errorText.includes('invalid video export response')) {
     return 'validation';
   }
