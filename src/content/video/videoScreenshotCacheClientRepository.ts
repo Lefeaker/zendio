@@ -94,7 +94,13 @@ export function createVideoScreenshotCacheClientRepository({
   }
 
   async function sendMutation(message: VideoScreenshotCacheMessage): Promise<void> {
-    await send(message);
+    const response = await send(message);
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    if (response.operation !== message.operation) {
+      throw new Error(`Unexpected ${message.operation} response.`);
+    }
   }
 
   return {

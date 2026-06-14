@@ -8,10 +8,12 @@ import type { StorageAreaService } from '@platform/interfaces/storage';
 import type { MessagingService } from '@platform/interfaces/messaging';
 import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
+  createVideoScreenshotCacheStorageKey,
   normalizeVideoScreenshotCacheEntry,
   normalizeVideoScreenshotCacheIndex,
   type VideoScreenshotCacheRef
 } from '@content/video/videoScreenshotCacheTypes';
+import type { VideoScreenshotCacheResponse } from '@content/video/videoScreenshotCacheMessages';
 import { createBackgroundVideoScreenshotCacheHandler } from '../../../../src/background/services/videoScreenshotCacheService';
 import type { BackgroundVideoScreenshotCacheHandler } from '../../../../src/background/services/videoScreenshotCacheService';
 
@@ -142,6 +144,35 @@ function createClientMessaging(
     async send<TResult = unknown>(message: unknown): Promise<TResult> {
       return (await handleMessage(message)) as TResult;
     }
+  };
+}
+
+function createStaticMessaging(
+  response: VideoScreenshotCacheResponse
+): Pick<MessagingService, 'send'> {
+  return {
+    async send<TResult = unknown>(): Promise<TResult> {
+      return response as TResult;
+    }
+  };
+}
+
+function createRef(): VideoScreenshotCacheRef {
+  return {
+    schemaVersion: 1,
+    pageKey: 'page-a',
+    captureId: 'capture-a',
+    id: 'shot-a',
+    key: createVideoScreenshotCacheStorageKey({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshotId: 'shot-a'
+    }),
+    fileName: 'shot-a.jpg',
+    mimeType: 'image/jpeg',
+    byteLength: 1,
+    capturedAt: BASE_TIME,
+    expiresAt: BASE_TIME + 1_000
   };
 }
 
@@ -355,5 +386,38 @@ describe('background-owned video screenshot cache client', () => {
     await expect(client.load(retainedRef)).resolves.toMatchObject({
       id: 'shot-retained'
     });
+  });
+
+  it('rejects removeMany when the background mutation response fails', async () => {
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createStaticMessaging({
+        success: false,
+        error: 'background cleanup failed'
+      })
+    });
+
+    await expect(client.removeMany([createRef()])).rejects.toThrow('background cleanup failed');
+  });
+
+  it('rejects pruneExpired when the background mutation operation mismatches', async () => {
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createStaticMessaging({
+        success: true,
+        operation: 'pruneToLimits'
+      })
+    });
+
+    await expect(client.pruneExpired()).rejects.toThrow('Unexpected pruneExpired response.');
+  });
+
+  it('resolves mutation requests only after a matching background response', async () => {
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createStaticMessaging({
+        success: true,
+        operation: 'removeMany'
+      })
+    });
+
+    await expect(client.removeMany([createRef()])).resolves.toBeUndefined();
   });
 });
