@@ -140,10 +140,6 @@ export function restoreTimestampScreenshotState(
   );
 }
 
-function debugVideoAnalyticsFailure(error: unknown): void {
-  console.debug('[VideoSession] Failed to send analytics event:', error);
-}
-
 async function sendVideoUsageEvent<EventName extends UsageEventName>(
   dependencies: VideoSessionDependencies,
   event: EventName,
@@ -164,49 +160,29 @@ export function emitVideoUsageEvent<EventName extends UsageEventName>(
   event: EventName,
   params?: UsageEventParamMap[EventName]
 ): void {
-  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch(
-    debugVideoAnalyticsFailure
+  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch((error) =>
+    console.debug('[VideoSession] Failed to send analytics event:', error)
   );
 }
 
 export function mapVideoAnalyticsPlatform(platform: VideoPlatform): AnalyticsPlatform {
-  if (platform === 'youtube' || platform === 'bilibili') {
-    return platform;
-  }
-  return 'unknown';
+  return platform === 'youtube' || platform === 'bilibili' ? platform : 'unknown';
 }
 
 export function resolveVideoExportDestination(
   exportDestination?: ExportDestinationMetadata
 ): ExportDestination {
-  if (exportDestination?.kind === 'downloads') {
-    return 'downloads';
-  }
-  return 'unknown';
+  return exportDestination?.kind === 'downloads' ? 'downloads' : 'unknown';
 }
 
 const FAILURE_HINTS = {
-  timeout: ['timeout', 'timed out', 'message timeout', 'aborterror', 'aborted'],
-  unsupported: ['unsupported', 'not supported', 'unavailable in this runtime'],
-  permission: [
-    'permission denied',
-    'permission-denied',
-    'access denied',
-    'not granted',
-    'forbidden',
-    'denied'
-  ],
-  validation: [
-    'invalid',
-    'missing',
-    'malformed',
-    'expected',
-    'not configured',
-    'no image',
-    'payload'
-  ],
-  write: ['local_vault_write_failed', 'write failed', 'write-preflight-failed', 'save failed'],
-  connection: ['offline', 'network', 'connection', 'failed to send message to background', 'rest ']
+  timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
+  unsupported: 'unsupported|not supported|unavailable in this runtime'.split('|'),
+  permission:
+    'permission denied|permission-denied|access denied|not granted|forbidden|denied'.split('|'),
+  validation: 'invalid|missing|malformed|expected|not configured|no image|payload'.split('|'),
+  write: 'local_vault_write_failed|write failed|write-preflight-failed|save failed'.split('|'),
+  connection: 'offline|network|connection|failed to send message to background|rest '.split('|')
 } as const;
 
 function collectFailureHints(error: unknown, seen = new Set<unknown>()): string {
@@ -223,15 +199,7 @@ function collectFailureHints(error: unknown, seen = new Set<unknown>()): string 
     push(error.message);
     push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
   } else if (typeof error === 'object') {
-    const candidate = error as {
-      code?: unknown;
-      domain?: unknown;
-      message?: unknown;
-      name?: unknown;
-      userMessage?: unknown;
-      cause?: unknown;
-      context?: unknown;
-    };
+    const candidate = error as Record<string, unknown> & { cause?: unknown; context?: unknown };
     [
       candidate.code,
       candidate.domain,
