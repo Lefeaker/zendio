@@ -96,10 +96,9 @@ export class AnalyticsConfigManager {
     const storedConsent = await this.storage.local.get<UserConsent>(USER_CONSENT);
     const storedClientId = await this.storage.local.get<string>(CLIENT_ID);
     const storedSessionId = await this.storage.local.get<string>(SESSION_ID);
-    const normalizedConfig = normalizeAnalyticsConfig({
-      ...(storedConfig ?? {}),
-      userConsent: undefined
-    });
+    const { userConsent: _ignoredStoredConsent, ...storedConfigWithoutConsent } =
+      storedConfig ?? {};
+    const normalizedConfig = normalizeAnalyticsConfig(storedConfigWithoutConsent);
     const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
     const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;
 
@@ -179,13 +178,13 @@ export class AnalyticsConfigManager {
     transportMode: AnalyticsTransportMode;
     proxyEndpoint?: string;
   } {
+    const clientId = redactAnalyticsIdentity(this.config.clientId);
+    const sessionId = redactAnalyticsIdentity(this.config.sessionId);
     return {
       enabled: this.config.enabled,
       hasConsent: this.hasUserConsent(),
-      ...(this.config.clientId ? { clientId: redactAnalyticsIdentity(this.config.clientId) } : {}),
-      ...(this.config.sessionId
-        ? { sessionId: redactAnalyticsIdentity(this.config.sessionId) }
-        : {}),
+      ...(clientId ? { clientId } : {}),
+      ...(sessionId ? { sessionId } : {}),
       measurementId: this.config.measurementId,
       debugMode: this.config.debugMode,
       reportingInterval: this.config.reportingInterval,
