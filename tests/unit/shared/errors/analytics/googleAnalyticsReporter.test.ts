@@ -164,7 +164,7 @@ describe('GoogleAnalyticsReporter', () => {
     reporter.renewSession();
   });
 
-  it('uses the live analytics config resolver while preserving reporter client and session ids', async () => {
+  it('prefers live manager identity over stale constructor ids when a live resolver is available', async () => {
     const { GoogleAnalyticsReporter } =
       await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
     const liveConfig = {
@@ -217,8 +217,8 @@ describe('GoogleAnalyticsReporter', () => {
         measurementId: 'G-LIVE456',
         transportMode: 'proxy',
         proxyEndpoint: 'https://analytics.example.test/live',
-        clientId: 'reporter-client',
-        sessionId: 'reporter-session',
+        clientId: 'manager-client',
+        sessionId: 'manager-session',
         userConsent: liveConfig.userConsent
       }),
       expect.objectContaining({
@@ -281,6 +281,42 @@ describe('GoogleAnalyticsReporter', () => {
         clientId: 'manager-client',
         sessionId: 'manager-session',
         userConsent: liveConfig.userConsent
+      }),
+      expect.objectContaining({
+        extensionVersion: '3.2.1'
+      })
+    );
+  });
+
+  it('keeps explicitly injected constructor ids when no live resolver is provided', async () => {
+    const { GoogleAnalyticsReporter } =
+      await import('../../../../../src/shared/errors/analytics/googleAnalyticsReporter');
+    const reporter = new GoogleAnalyticsReporter({
+      enabled: true,
+      measurementId: 'G-STANDALONE1',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4',
+      clientId: 'standalone-client',
+      sessionId: 'standalone-session',
+      userConsent: createGrantedErrorReportingConsent()
+    });
+
+    await reporter.report({
+      code: 'REST_NETWORK_TIMEOUT',
+      domain: 'background',
+      severity: ErrorSeverity.CRITICAL,
+      recoverable: true,
+      message: 'standalone',
+      timestamp: Date.now()
+    });
+
+    expect(sendAnalyticsTransportEventMock).toHaveBeenCalledWith(
+      'extension_error',
+      expect.any(Object),
+      expect.objectContaining({
+        measurementId: 'G-STANDALONE1',
+        clientId: 'standalone-client',
+        sessionId: 'standalone-session'
       }),
       expect.objectContaining({
         extensionVersion: '3.2.1'

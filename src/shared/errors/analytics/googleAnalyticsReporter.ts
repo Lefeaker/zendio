@@ -141,9 +141,9 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   private createTransportConfig(): AnalyticsConfig {
     const liveConfig = this.resolveLiveAnalyticsConfig();
     const liveConsent = liveConfig?.userConsent ?? this.config.userConsent;
-    const clientId = this.fallbackIdentity.clientId ?? liveConfig?.clientId ?? this.config.clientId;
+    const clientId = liveConfig?.clientId ?? this.fallbackIdentity.clientId ?? this.config.clientId;
     const sessionId =
-      this.fallbackIdentity.sessionId ?? liveConfig?.sessionId ?? this.config.sessionId;
+      liveConfig?.sessionId ?? this.fallbackIdentity.sessionId ?? this.config.sessionId;
 
     return createAnalyticsTransportConfig(liveConfig ?? this.config, {
       enabled: liveConfig?.enabled ?? this.config.enabled,

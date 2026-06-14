@@ -78,8 +78,6 @@ export async function initializeErrorAnalytics(
         reportingInterval: config.reportingInterval,
         batchSize: config.batchSize,
         ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
-        ...(config.clientId !== undefined && { clientId: config.clientId }),
-        ...(config.sessionId !== undefined && { sessionId: config.sessionId }),
         ...(config.userConsent ? { userConsent: config.userConsent } : {}),
         resolveAnalyticsConfig: () => getAnalyticsConfigManager().getConfig()
       });
