@@ -88,7 +88,7 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   async report(error: AppError): Promise<void> {
     const transportConfig = this.createTransportConfig();
     if (!hasAnalyticsSendConsent(transportConfig, 'extension_error')) {
-      this.eventQueue.clear();
+      await this.eventQueue.clear();
       return;
     }
 

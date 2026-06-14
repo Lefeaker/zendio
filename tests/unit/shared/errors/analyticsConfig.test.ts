@@ -299,6 +299,22 @@ describe('analyticsConfig', () => {
       transportMode: 'proxy',
       proxyEndpoint: 'https://proxy.example.test/collect'
     });
+    await storage.local.set('analytics_error_queue', [
+      {
+        id: 'legacy-error-entry',
+        eventName: 'extension_error',
+        enqueuedAt: 100000,
+        attemptCount: 0
+      }
+    ]);
+    await storage.local.set('analytics_event_queue', [
+      {
+        id: 'usage-entry',
+        eventName: 'support_dislike_clicked',
+        enqueuedAt: 100001,
+        attemptCount: 0
+      }
+    ]);
 
     const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
     const manager = module.configureAnalyticsConfigManager(storage);
@@ -315,5 +331,7 @@ describe('analyticsConfig', () => {
     await expect(storage.local.get('analytics_config')).resolves.toBeUndefined();
     await expect(storage.local.get('analytics_client_id')).resolves.toBeUndefined();
     await expect(storage.local.get('analytics_session_id')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_error_queue')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_event_queue')).resolves.toBeUndefined();
   });
 });

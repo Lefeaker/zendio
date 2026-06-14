@@ -6,19 +6,23 @@ import {
 } from '../../shared/errors/analytics/analyticsConfig';
 import {
   createAnalyticsEventQueue,
+  createStorageAnalyticsQueueStorage,
   sendAnalyticsTransportEvent,
   type AnalyticsEventName,
   type AnalyticsEventQueue,
   type AnalyticsEventQueueOptions,
+  type AnalyticsQueueStorage,
   type AnalyticsTransportResult
 } from '../../shared/analytics';
 import {
   createAnalyticsTransportConfig,
   hasAnalyticsSendConsent
 } from '../../shared/analytics/analyticsRuntimeConfig';
+import { GA4_CONFIG } from '../../shared/errors/analytics/analyticsConfig';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
+import type { StorageService } from '../../platform/interfaces/storage';
 import {
   isAllowedUsageEventName,
   type UsageEventName,
@@ -28,6 +32,7 @@ import {
 let initializationPromise: Promise<void> | null = null;
 let usageEventQueue: AnalyticsEventQueue | null = null;
 let usageEventQueueVersion = 'unknown';
+let usageEventQueueStorage: AnalyticsQueueStorage | null = null;
 const USAGE_ANALYTICS_CONSENT_PROBE_EVENT: UsageEventName = 'support_dislike_clicked';
 
 type QueuedAnalyticsEventParams = Parameters<NonNullable<AnalyticsEventQueueOptions['send']>>[1];
@@ -94,25 +99,43 @@ function getUsageEventQueue(extensionVersion: string): AnalyticsEventQueue {
   usageEventQueue = createAnalyticsEventQueue({
     getConfig: () => createAnalyticsTransportConfig(getAnalyticsConfigManager().getConfig()),
     send: (eventName, params, config) =>
-      sendQueuedUsageEvent(eventName, params, config, extensionVersion)
+      sendQueuedUsageEvent(eventName, params, config, extensionVersion),
+    ...(usageEventQueueStorage ? { storage: usageEventQueueStorage } : {})
   });
   return usageEventQueue;
 }
 
-export function clearQueuedUsageAnalyticsEvents(): void {
-  usageEventQueue?.clear();
+export function configureUsageAnalyticsQueueStorage(storage: Pick<StorageService, 'local'>): void {
+  usageEventQueueStorage = createStorageAnalyticsQueueStorage(
+    storage.local,
+    GA4_CONFIG.STORAGE_KEYS.ANALYTICS_QUEUE
+  );
+  usageEventQueue = null;
+  usageEventQueueVersion = 'unknown';
 }
 
-export function clearQueuedUsageAnalyticsEventsIfConsentRevoked(
+export async function clearQueuedUsageAnalyticsEvents(): Promise<void> {
+  try {
+    if (usageEventQueue) {
+      await usageEventQueue.clear();
+      return;
+    }
+    await usageEventQueueStorage?.clear();
+  } catch (error) {
+    console.warn('[analytics-events] Failed to clear queued usage analytics events:', error);
+  }
+}
+
+export async function clearQueuedUsageAnalyticsEventsIfConsentRevoked(
   config: UsageAnalyticsConsentSnapshot
-): void {
+): Promise<void> {
   if (
     !hasAnalyticsSendConsent(
       createAnalyticsTransportConfig(config),
       USAGE_ANALYTICS_CONSENT_PROBE_EVENT
     )
   ) {
-    clearQueuedUsageAnalyticsEvents();
+    await clearQueuedUsageAnalyticsEvents();
   }
 }
 
@@ -232,7 +255,7 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
 
   const runtimeConfig = createAnalyticsTransportConfig(config);
   if (!hasAnalyticsSendConsent(runtimeConfig, eventName)) {
-    clearQueuedUsageAnalyticsEvents();
+    await clearQueuedUsageAnalyticsEvents();
     return;
   }
 

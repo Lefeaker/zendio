@@ -48,6 +48,7 @@ const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
     return stopWatchingAnalyticsConfigMock;
   })
 );
+const configureUsageAnalyticsQueueStorageMock = vi.hoisted(() => vi.fn());
 const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.fn());
 const initializeErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn((_errorHandler?: Pick<ErrorHandler, 'addReporter'>) => Promise.resolve(undefined))
@@ -80,6 +81,7 @@ vi.mock('../../../src/shared/errors/analytics', () => ({
   updateErrorAnalyticsConfig: updateErrorAnalyticsConfigMock
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  configureUsageAnalyticsQueueStorage: configureUsageAnalyticsQueueStorageMock,
   clearQueuedUsageAnalyticsEventsIfConsentRevoked:
     clearQueuedUsageAnalyticsEventsIfConsentRevokedMock
 }));
@@ -114,6 +116,7 @@ describe('background/bootstrap', () => {
     expect(configureAnalyticsConfigManagerMock).toHaveBeenCalledWith(storageMock);
     expect(configureI18nStorageMock).toHaveBeenCalledWith(storageMock.sync);
     expect(configureUsageStatsStorageMock).toHaveBeenCalledWith(storageMock);
+    expect(configureUsageAnalyticsQueueStorageMock).toHaveBeenCalledWith(storageMock);
     expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(1);
     expect(registryMock.register).toHaveBeenCalledWith(TOKENS.errorHandler, expect.any(Function));
     expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(

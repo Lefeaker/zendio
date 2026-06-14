@@ -1,6 +1,9 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
+  normalizeAnalyticsTransportMode,
+  normalizeMeasurementId,
+  normalizeProxyEndpoint,
   readAnalyticsPublicBuildConfig,
   type AnalyticsTransportMode
 } from '../../analytics/analyticsEnvironment';
@@ -9,11 +12,6 @@ import {
   createAnalyticsSessionId,
   redactAnalyticsIdentity
 } from '../../analytics/analyticsIdentity';
-import {
-  hasAnalyticsSendConsent,
-  normalizeStoredAnalyticsConfig,
-  resolveAnalyticsRuntimeEnabled
-} from '../../analytics/analyticsRuntimeConfig';
 
 export const GA4_CONFIG = {
   MEASUREMENT_ID: DEFAULT_ANALYTICS_MEASUREMENT_ID,
@@ -39,6 +37,7 @@ export const GA4_CONFIG = {
     CONFIG: 'analytics_config',
     CLIENT_ID: 'analytics_client_id',
     SESSION_ID: 'analytics_session_id',
+    ANALYTICS_QUEUE: 'analytics_event_queue',
     ERROR_QUEUE: 'analytics_error_queue',
     LAST_REPORT_TIME: 'analytics_last_report_time'
   }
@@ -297,7 +296,8 @@ export function watchAnalyticsConfigStorage(
 }
 
 export function shouldReportErrors(): boolean {
-  return hasAnalyticsSendConsent(getAnalyticsConfigManager().getConfig(), 'extension_error');
+  const config = getAnalyticsConfigManager().getConfig();
+  return config.enabled && config.userConsent?.errorReporting === true;
 }
 
 export async function setAnalyticsConsent(
@@ -314,4 +314,73 @@ export function getAnalyticsConfig(): AnalyticsConfig {
 
 function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
   return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG);
+}
+
+function resolveAnalyticsRuntimeEnabled(consent: Partial<UserConsent> | undefined): boolean {
+  return Boolean(consent?.analytics || consent?.errorReporting);
+}
+
+function normalizeStoredAnalyticsConfig(
+  storedConfig: Partial<AnalyticsConfig> | undefined,
+  defaults: AnalyticsConfig
+): AnalyticsConfig {
+  const consent = normalizeUserConsent(storedConfig?.userConsent);
+  const transportMode = Object.prototype.hasOwnProperty.call(storedConfig ?? {}, 'transportMode')
+    ? (normalizeAnalyticsTransportMode(storedConfig?.transportMode, 'disabled') ?? 'disabled')
+    : defaults.transportMode;
+  const proxyEndpoint =
+    transportMode === 'proxy' || transportMode === 'directDebug'
+      ? Object.prototype.hasOwnProperty.call(storedConfig ?? {}, 'proxyEndpoint')
+        ? normalizeProxyEndpoint(storedConfig?.proxyEndpoint)
+        : defaults.proxyEndpoint
+      : undefined;
+
+  return {
+    enabled: resolveAnalyticsRuntimeEnabled(consent),
+    debugMode:
+      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode,
+    measurementId:
+      normalizeMeasurementId(storedConfig?.measurementId, defaults.measurementId) ??
+      defaults.measurementId,
+    transportMode,
+    ...(proxyEndpoint ? { proxyEndpoint } : {}),
+    ...(normalizeOptionalString(storedConfig?.clientId)
+      ? { clientId: normalizeOptionalString(storedConfig?.clientId) }
+      : {}),
+    ...(normalizeOptionalString(storedConfig?.sessionId)
+      ? { sessionId: normalizeOptionalString(storedConfig?.sessionId) }
+      : {}),
+    ...(consent ? { userConsent: consent } : {}),
+    reportingInterval: normalizePositiveInteger(
+      storedConfig?.reportingInterval,
+      defaults.reportingInterval
+    ),
+    maxErrorsPerSession: normalizePositiveInteger(
+      storedConfig?.maxErrorsPerSession,
+      defaults.maxErrorsPerSession
+    ),
+    batchSize: normalizePositiveInteger(storedConfig?.batchSize, defaults.batchSize)
+  };
+}
+
+function normalizeUserConsent(value: unknown): UserConsent | undefined {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+
+  const consent = value as Partial<UserConsent>;
+  return {
+    analytics: consent.analytics === true,
+    errorReporting: consent.errorReporting === true,
+    timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0,
+    version: typeof consent.version === 'string' ? consent.version : '1.0'
+  };
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }

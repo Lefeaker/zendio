@@ -6,6 +6,7 @@ export * from './featureTimer';
 export * from './analyticsEnvironment';
 export * from './analyticsTransport';
 export * from './analyticsQueue';
+export * from './analyticsQueueStorage';
 export {
   ANALYTICS_PROXY_CONTRACT as analyticsProxyContract,
   buildAnalyticsProxyContract
