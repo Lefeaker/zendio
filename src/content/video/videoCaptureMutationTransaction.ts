@@ -200,7 +200,80 @@ export function resolveVideoExportDestination(
   return 'unknown';
 }
 
-export function resolveVideoFailureCategory(_error: unknown): FailureCategory {
+const FAILURE_CATEGORIES = new Set<FailureCategory>([
+  'permission',
+  'connection',
+  'validation',
+  'classification',
+  'extraction',
+  'write',
+  'timeout',
+  'unsupported',
+  'unknown'
+]);
+
+interface VideoExportFailureLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  failureCategory?: unknown;
+}
+
+function isFailureCategory(value: unknown): value is FailureCategory {
+  return typeof value === 'string' && FAILURE_CATEGORIES.has(value as FailureCategory);
+}
+
+function readErrorText(error: VideoExportFailureLike): string {
+  return `${error.name ?? ''} ${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
+}
+
+export function createVideoExportFailure(message: string, failureCategory?: unknown): Error {
+  const error = new Error(message);
+  if (isFailureCategory(failureCategory)) {
+    Object.defineProperty(error, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: failureCategory,
+      writable: false
+    });
+  }
+  return error;
+}
+
+export function resolveVideoFailureCategory(error: unknown): FailureCategory {
+  if (typeof error !== 'object' || error === null) {
+    return 'unknown';
+  }
+
+  const candidate = error as VideoExportFailureLike;
+  if (isFailureCategory(candidate.failureCategory)) {
+    return candidate.failureCategory;
+  }
+
+  const errorText = readErrorText(candidate);
+  if (errorText.includes('invalid video export response')) {
+    return 'validation';
+  }
+  if (
+    errorText.includes('timeout') ||
+    errorText.includes('timed out') ||
+    errorText.includes('aborterror') ||
+    errorText.includes('aborted')
+  ) {
+    return 'timeout';
+  }
+  if (
+    errorText.includes('could not establish connection') ||
+    errorText.includes('receiving end does not exist') ||
+    errorText.includes('extension context invalidated') ||
+    errorText.includes('message port closed') ||
+    errorText.includes('runtime.lasterror') ||
+    errorText.includes('failed to fetch') ||
+    errorText.includes('networkerror')
+  ) {
+    return 'connection';
+  }
+
   return 'unknown';
 }
 

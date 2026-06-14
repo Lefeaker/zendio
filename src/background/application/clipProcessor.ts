@@ -75,6 +75,57 @@ interface AiChatTelemetryMetadata {
 }
 
 const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
+const FAILURE_CATEGORIES = new Set<FailureCategory>([
+  'permission',
+  'connection',
+  'validation',
+  'classification',
+  'extraction',
+  'write',
+  'timeout',
+  'unsupported',
+  'unknown'
+]);
+
+export interface ClipProcessingFailure extends Error {
+  readonly failureCategory?: FailureCategory;
+}
+
+export function readClipProcessingFailureCategory(error: unknown): FailureCategory | undefined {
+  if (typeof error !== 'object' || error === null || !('failureCategory' in error)) {
+    return undefined;
+  }
+  const category = (error as { failureCategory?: unknown }).failureCategory;
+  return typeof category === 'string' && FAILURE_CATEGORIES.has(category as FailureCategory)
+    ? (category as FailureCategory)
+    : undefined;
+}
+
+function withClipProcessingFailureCategory(
+  error: unknown,
+  failureCategory: FailureCategory
+): ClipProcessingFailure {
+  const failure =
+    error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error));
+  try {
+    Object.defineProperty(failure, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: failureCategory,
+      writable: false
+    });
+    return failure as ClipProcessingFailure;
+  } catch {
+    const fallback = new Error(failure.message);
+    Object.defineProperty(fallback, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: failureCategory,
+      writable: false
+    });
+    return fallback as ClipProcessingFailure;
+  }
+}
 
 function getDownloadsService(): PlatformServices['downloads'] {
   return getService<PlatformServices>(TOKENS.platformServices).downloads;
@@ -301,12 +352,13 @@ export async function processClipPayload(
 
     return result;
   } catch (error) {
+    const failureCategory = resolveFailureCategory(error, currentStage, storageTarget);
     trackClipTelemetryEvent('clip_save_failed', {
       operation_id: operationId,
       storage_target: storageTarget,
-      failure_category: resolveFailureCategory(error, currentStage, storageTarget)
+      failure_category: failureCategory
     });
-    throw error;
+    throw withClipProcessingFailureCategory(error, failureCategory);
   }
 }
 

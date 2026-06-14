@@ -194,6 +194,11 @@
 | `video_export_failed`      | `platform`, `destination`, `failure_category`       | `emitted` | `true`  |
 | `video_session_cancelled`  | `platform`, `duration_bucket`                       | `emitted` | `true`  |
 
+`video_export_failed.failure_category` 优先使用后台剪藏写入链路已经计算出的结构化失败分类
+（例如 `write`、`connection`、`classification`）。如果 runtime response 没有可验证分类，内容侧只使用窄范围本地兜底：
+无效导出响应归为 `validation`，超时 / abort 归为 `timeout`，扩展消息传输失败归为 `connection`，其余保留 `unknown`。
+该字段不得从用户正文、标题、完整 URL、文件路径、时间戳备注、选中文本、截图 bytes 或 secret 中派生。
+
 ## Catalog-only Rows
 
 这些名字仍然在当前 telemetry source 中存在，但不能当作“当前生产 dashboard 的主统计事件”。

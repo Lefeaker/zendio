@@ -4724,12 +4724,17 @@ describe('VideoSession', () => {
     sessionApi.cleanup();
   });
 
-  it('emits canonical export failure analytics with an unknown failure bucket', async () => {
+  it('emits canonical export failure analytics with a propagated failure bucket', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    exportMock.mockResolvedValueOnce({ success: false, error: 'boom' } as {
+    exportMock.mockResolvedValueOnce({
+      success: false,
+      error: 'boom',
+      failureCategory: 'write'
+    } as {
       success: boolean;
       error: string;
+      failureCategory: 'write';
     });
     const deps = createDependencies();
     const session = new VideoSession(document, deps);
@@ -4754,7 +4759,7 @@ describe('VideoSession', () => {
     expect(trackUsageEvent).toHaveBeenLastCalledWith('video_export_failed', {
       platform: 'bilibili',
       destination: 'downloads',
-      failure_category: 'unknown'
+      failure_category: 'write'
     });
     expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
       'private export note'

@@ -12,6 +12,8 @@ vi.mock('@content/sessionDrafts', async () => {
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import {
+  createVideoExportFailure,
+  resolveVideoFailureCategory,
   restoreTimestampScreenshotState,
   runVideoCaptureMutationTransaction,
   snapshotTimestampScreenshotState
@@ -195,5 +197,31 @@ describe('videoCaptureMutationTransaction', () => {
     expect(hasOwnProperty(capture, 'screenshot')).toBe(true);
     expect(capture.screenshotRequested).toBe(false);
     expect(capture.screenshot).toEqual(screenshot);
+  });
+
+  it('prefers validated propagated export failure categories', () => {
+    const error = createVideoExportFailure('background write failed', 'write');
+
+    expect(resolveVideoFailureCategory(error)).toBe('write');
+    expect(Object.keys(error)).not.toContain('failureCategory');
+  });
+
+  it('ignores invalid propagated export failure categories', () => {
+    const error = new Error('background failed') as Error & { failureCategory: string };
+    error.failureCategory = 'private-url-leak';
+
+    expect(resolveVideoFailureCategory(error)).toBe('unknown');
+  });
+
+  it('classifies narrow local validation, timeout, and connection failures', () => {
+    expect(resolveVideoFailureCategory(new Error('Invalid video export response'))).toBe(
+      'validation'
+    );
+    expect(resolveVideoFailureCategory(new DOMException('timed out', 'AbortError'))).toBe(
+      'timeout'
+    );
+    expect(resolveVideoFailureCategory(new Error('Could not establish connection.'))).toBe(
+      'connection'
+    );
   });
 });
