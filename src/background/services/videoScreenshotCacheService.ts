@@ -23,10 +23,14 @@ export type BackgroundVideoScreenshotCacheHandler = (
   message: unknown
 ) => Promise<VideoScreenshotCacheResponse | undefined>;
 
-function toMessageError(error: unknown): VideoScreenshotCacheResponse {
+function errorMessage(error: Error | string): string {
+  return error instanceof Error ? error.message : error;
+}
+
+function toMessageError(error: Error | string): VideoScreenshotCacheResponse {
   return {
     success: false,
-    error: error instanceof Error ? error.message : String(error)
+    error: errorMessage(error)
   };
 }
 
@@ -168,7 +172,7 @@ export function createBackgroundVideoScreenshotCacheHandler(
     try {
       return await enqueue(() => handleMessage(message));
     } catch (error) {
-      return toMessageError(error);
+      return toMessageError(error instanceof Error ? error : String(error));
     }
   };
 }

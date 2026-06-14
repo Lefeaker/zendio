@@ -141,7 +141,7 @@ function createClientMessaging(
   handleMessage: BackgroundVideoScreenshotCacheHandler
 ): Pick<MessagingService, 'send'> {
   return {
-    async send<TResult = unknown>(message: unknown): Promise<TResult> {
+    async send<TResult>(message: Parameters<MessagingService['send']>[0]): Promise<TResult> {
       return (await handleMessage(message)) as TResult;
     }
   };
@@ -151,7 +151,7 @@ function createStaticMessaging(
   response: VideoScreenshotCacheResponse
 ): Pick<MessagingService, 'send'> {
   return {
-    async send<TResult = unknown>(): Promise<TResult> {
+    async send<TResult>(): Promise<TResult> {
       return response as TResult;
     }
   };

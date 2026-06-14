@@ -26,8 +26,8 @@ import type { VideoTimestampCapture } from './types';
 const DEFAULT_TOLERANCE_SEC = 0.25;
 const DEFAULT_EXPLICIT_VISIBLE_TOLERANCE_SEC = 2;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_000;
-const VISIBLE_TIME_EVENTS = ['timeupdate', 'seeked'] as const;
-const VISIBLE_READY_EVENTS = ['loadedmetadata', 'loadeddata', 'canplay'] as const;
+const VISIBLE_TIME_EVENTS: readonly string[] = ['timeupdate', 'seeked'];
+const VISIBLE_READY_EVENTS: readonly string[] = ['loadedmetadata', 'loadeddata', 'canplay'];
 
 export interface VideoScreenshotPreparationQueue {
   request(captureId: string): void;

@@ -2,7 +2,7 @@ import {
   isSerializedClipAttachmentBinaryContent,
   type SerializedClipAttachmentBinaryContent
 } from '../../shared/attachments/clipAttachmentBinary';
-import { isObjectRecord } from '../../shared/guards/object';
+import { isObjectRecord, type RuntimePropertyValue } from '../../shared/guards/object';
 import type { VideoScreenshotCacheSaveResult } from './videoScreenshotCacheRepository';
 import type { VideoScreenshotCacheRef } from './videoScreenshotCacheTypes';
 import type { VideoCaptureScreenshot } from './types';
@@ -79,11 +79,11 @@ export type VideoScreenshotCacheResponse =
       error: string;
     };
 
-function normalizeNonEmptyString(value: unknown): string | null {
+function normalizeNonEmptyString(value: RuntimePropertyValue): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-function normalizeTimestamp(value: unknown): number | null {
+function normalizeTimestamp(value: RuntimePropertyValue): number | null {
   return typeof value === 'number' &&
     Number.isInteger(value) &&
     Number.isFinite(value) &&
@@ -92,7 +92,7 @@ function normalizeTimestamp(value: unknown): number | null {
     : null;
 }
 
-function normalizeByteLength(value: unknown): number | null {
+function normalizeByteLength(value: RuntimePropertyValue): number | null {
   return typeof value === 'number' &&
     Number.isInteger(value) &&
     value > 0 &&
@@ -101,7 +101,7 @@ function normalizeByteLength(value: unknown): number | null {
     : null;
 }
 
-function normalizePageKey(value: unknown): string | null {
+function normalizePageKey(value: RuntimePropertyValue): string | null {
   const normalized = normalizeNonEmptyString(value);
   return normalized !== null && PAGE_KEY_PATTERN.test(normalized) ? normalized : null;
 }
@@ -116,7 +116,9 @@ function createExpectedVideoScreenshotCacheStorageKey(options: {
   )}.${encodeURIComponent(options.captureId)}.${encodeURIComponent(options.screenshotId)}`;
 }
 
-function isVideoScreenshotCacheRefMessage(value: unknown): value is VideoScreenshotCacheRef {
+function isVideoScreenshotCacheRefMessage(
+  value: RuntimePropertyValue
+): value is VideoScreenshotCacheRef {
   if (!isObjectRecord(value) || value.schemaVersion !== VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION) {
     return false;
   }
@@ -157,7 +159,7 @@ function isVideoScreenshotCacheRefMessage(value: unknown): value is VideoScreens
 }
 
 function normalizeSerializedScreenshot(
-  value: unknown
+  value: RuntimePropertyValue
 ): SerializedVideoScreenshotCacheScreenshot | null {
   if (!isObjectRecord(value)) {
     return null;

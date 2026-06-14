@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVideoScreenshotPreparationQueue } from '@content/video/videoScreenshotPreparationQueue';
 import { VideoScreenshotPreparationRequestStore } from '@content/video/videoScreenshotPreparationRequestStore';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
+import type { CreateVideoScreenshotPreparationQueueArgs } from '@content/video/videoScreenshotPreparationQueueTypes';
 
 function createTimestampCapture(
   id: string,
@@ -50,7 +51,9 @@ type QueueStateSnapshot = {
   hiddenDuplicateAttemptIds: string[];
 };
 
-function createQueueStateRecorder(stateSnapshots: QueueStateSnapshot[]): Record<string, unknown> {
+function createQueueStateRecorder(
+  stateSnapshots: QueueStateSnapshot[]
+): Pick<CreateVideoScreenshotPreparationQueueArgs, '__testHooks'> {
   return {
     __testHooks: {
       onStateChange: (snapshot: QueueStateSnapshot) => {

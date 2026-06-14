@@ -29,15 +29,21 @@ function hasBlobContent(
   return screenshot.content?.kind === 'blob';
 }
 
-function messageFailure(error: unknown): VideoScreenshotCacheSaveResult {
+function errorMessage(error: Error | string): string {
+  return error instanceof Error ? error.message : error;
+}
+
+function messageFailure(error: Error | string): VideoScreenshotCacheSaveResult {
   return {
     status: 'skipped',
     reason: 'serialize-failed',
-    error: error instanceof Error ? error.message : String(error)
+    error: errorMessage(error)
   };
 }
 
-function isVideoScreenshotCacheResponse(value: unknown): value is VideoScreenshotCacheResponse {
+function isVideoScreenshotCacheResponse(
+  value: VideoScreenshotCacheResponse | object | null | undefined
+): value is VideoScreenshotCacheResponse {
   return typeof value === 'object' && value !== null && 'success' in value;
 }
 
@@ -116,7 +122,7 @@ export function createVideoScreenshotCacheClientRepository({
       try {
         screenshot = await serializeScreenshot(input.screenshot);
       } catch (error) {
-        return messageFailure(error);
+        return messageFailure(error instanceof Error ? error : String(error));
       }
 
       try {
@@ -135,7 +141,7 @@ export function createVideoScreenshotCacheClientRepository({
         }
         return messageFailure(response.success ? 'Unexpected save response.' : response.error);
       } catch (error) {
-        return messageFailure(error);
+        return messageFailure(error instanceof Error ? error : String(error));
       }
     },
 
