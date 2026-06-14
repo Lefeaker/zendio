@@ -36,6 +36,7 @@ function createCacheRef(overrides: Partial<VideoScreenshotCacheRef> = {}): Video
   const screenshotId = overrides.id ?? 'shot-1';
   const pageKey = overrides.pageKey ?? BASE_PAGE_KEY;
   const captureId = overrides.captureId ?? BASE_CAPTURE_ID;
+  const capturedAt = overrides.capturedAt ?? BASE_TIME;
   return {
     schemaVersion: VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION,
     key:
@@ -51,7 +52,8 @@ function createCacheRef(overrides: Partial<VideoScreenshotCacheRef> = {}): Video
     fileName: overrides.fileName ?? 'file-1.jpg',
     mimeType: overrides.mimeType ?? 'image/jpeg',
     byteLength: overrides.byteLength ?? 128,
-    capturedAt: overrides.capturedAt ?? BASE_TIME
+    capturedAt,
+    expiresAt: overrides.expiresAt ?? capturedAt + VIDEO_SCREENSHOT_CACHE_TTL_MS
   };
 }
 
@@ -73,7 +75,7 @@ function createCacheEntry(
     capturedAt: overrides.capturedAt ?? ref.capturedAt,
     createdAt,
     updatedAt,
-    expiresAt: overrides.expiresAt ?? updatedAt + VIDEO_SCREENSHOT_CACHE_TTL_MS,
+    expiresAt: overrides.expiresAt ?? ref.expiresAt,
     content: overrides.content ?? {
       encoding: 'base64',
       data: 'ZmFrZS1qcGVn',
@@ -152,7 +154,7 @@ describe('videoScreenshotCacheTypes', () => {
     ).toBe(false);
   });
 
-  it('rejects invalid cache refs for key, schema, mime type, and byte length', () => {
+  it('rejects invalid cache refs for key, schema, mime type, byte length, and expiry', () => {
     expect(
       normalizeVideoScreenshotCacheRef({
         ...createCacheRef(),
@@ -177,6 +179,12 @@ describe('videoScreenshotCacheTypes', () => {
         byteLength: VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES + 1
       })
     ).toBeNull();
+    expect(
+      normalizeVideoScreenshotCacheRef({
+        ...createCacheRef(),
+        expiresAt: BASE_TIME
+      })
+    ).toBeNull();
   });
 
   it('accepts valid cache entries and index entries', () => {
@@ -189,7 +197,7 @@ describe('videoScreenshotCacheTypes', () => {
     expect(normalizeVideoScreenshotCacheIndexEntry(indexEntry)).toEqual(indexEntry);
   });
 
-  it('rejects invalid cache entries when content is malformed or oversized', () => {
+  it('rejects invalid cache entries when content is malformed, oversized, or stale', () => {
     expect(
       normalizeVideoScreenshotCacheEntry({
         ...createCacheEntry(),
@@ -215,6 +223,19 @@ describe('videoScreenshotCacheTypes', () => {
       normalizeVideoScreenshotCacheIndexEntry({
         ...createIndexEntry(),
         byteLength: VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES + 1
+      })
+    ).toBeNull();
+    expect(
+      normalizeVideoScreenshotCacheEntry({
+        ...createCacheEntry(),
+        expiresAt: BASE_TIME + 1
+      })
+    ).toBeNull();
+    expect(
+      normalizeVideoScreenshotCacheIndexEntry({
+        ...createIndexEntry(),
+        updatedAt: BASE_TIME + 10,
+        expiresAt: BASE_TIME + 10
       })
     ).toBeNull();
   });

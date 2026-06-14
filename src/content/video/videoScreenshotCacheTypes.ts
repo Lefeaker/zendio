@@ -24,11 +24,11 @@ export interface VideoScreenshotCacheRef extends VideoScreenshotCacheIdentity {
   mimeType: typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE;
   byteLength: number;
   capturedAt: number;
+  expiresAt: number;
 }
 export interface VideoScreenshotCacheEntry extends VideoScreenshotCacheRef {
   createdAt: number;
   updatedAt: number;
-  expiresAt: number;
   content: SerializedClipAttachmentBinaryContent;
 }
 export interface VideoScreenshotCacheIndexEntry extends VideoScreenshotCacheIdentity {
@@ -63,6 +63,7 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
   const mimeType = normalizeMimeType(value.mimeType);
   const byteLength = normalizeByteLength(value.byteLength);
   const capturedAt = normalizeTimestamp(value.capturedAt);
+  const expiresAt = normalizeTimestamp(value.expiresAt);
 
   if (
     schemaVersion === null ||
@@ -71,7 +72,9 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
     fileName === null ||
     mimeType === null ||
     byteLength === null ||
-    capturedAt === null
+    capturedAt === null ||
+    expiresAt === null ||
+    expiresAt <= capturedAt
   ) {
     return null;
   }
@@ -84,7 +87,8 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
     fileName,
     mimeType,
     byteLength,
-    capturedAt
+    capturedAt,
+    expiresAt
   };
 }
 export function isVideoScreenshotCacheEntry(value: unknown): value is VideoScreenshotCacheEntry {
@@ -99,12 +103,11 @@ export function normalizeVideoScreenshotCacheEntry(
   }
   const createdAt = normalizeTimestamp(value.createdAt);
   const updatedAt = normalizeTimestamp(value.updatedAt);
-  const expiresAt = normalizeTimestamp(value.expiresAt);
   const content = normalizeBinaryContent(value.content);
-  if (createdAt === null || updatedAt === null || expiresAt === null || content === null) {
+  if (createdAt === null || updatedAt === null || content === null) {
     return null;
   }
-  if (updatedAt < createdAt || content.byteLength !== ref.byteLength) {
+  if (updatedAt < createdAt || ref.expiresAt <= updatedAt || content.byteLength !== ref.byteLength) {
     return null;
   }
 
@@ -112,7 +115,6 @@ export function normalizeVideoScreenshotCacheEntry(
     ...ref,
     createdAt,
     updatedAt,
-    expiresAt: expiresAt > updatedAt ? expiresAt : updatedAt + VIDEO_SCREENSHOT_CACHE_TTL_MS,
     content
   };
 }
@@ -137,7 +139,8 @@ export function normalizeVideoScreenshotCacheIndexEntry(
     key === null ||
     updatedAt === null ||
     expiresAt === null ||
-    byteLength === null
+    byteLength === null ||
+    expiresAt <= updatedAt
   ) {
     return null;
   }
@@ -147,7 +150,7 @@ export function normalizeVideoScreenshotCacheIndexEntry(
     captureId: identity.captureId,
     id: identity.id,
     updatedAt,
-    expiresAt: expiresAt > updatedAt ? expiresAt : updatedAt + VIDEO_SCREENSHOT_CACHE_TTL_MS,
+    expiresAt,
     byteLength
   };
 }
