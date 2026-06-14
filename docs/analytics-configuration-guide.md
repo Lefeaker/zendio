@@ -122,6 +122,22 @@ export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4
 ```
 
 这能验证真实 consent gating、public config 注入、proxy log 与 request body。
+若要在 owner 本机对同一 public config 做单次、可记录的 proxy-only smoke：
+
+```bash
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+```
+
+可选本地控制项：
+
+```bash
+export AIIINOB_GA_OWNER_SMOKE_TIMEOUT_MS=8000
+export AIIINOB_GA_OWNER_SMOKE_RETRIES=1
+```
+
+该命令会拒绝 `GA4_API_SECRET`、`AIIINOB_GA_API_SECRET`、`ZENDIO_GA_API_SECRET`
+等 server-only env，且默认只输出 redacted summary，不打印 raw response body、
+event params、client id、session id 或完整 `measurementId`。
 
 ### DebugView 验证
 
@@ -133,12 +149,18 @@ export AIIINOB_GA_TRANSPORT_MODE=directDebug
 export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
 ```
 
+```bash
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
+```
+
 `directDebug` 只用于开发验证，不应作为生产发布默认值。
 扩展不会直连 Google `debug/mp/collect`，也不会持有 `api_secret`。
 debug proxy 需要由 owner 服务端注入 `api_secret`，并按需转发到 GA validation / DebugView。
 成功的生产 `proxy` 发送默认不输出 event params 或成功日志；只有
 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且不包含
-event params。
+event params。`run-ga-owner-smoke.mjs` 是独立 owner CLI，会输出 redacted
+validation summary；如需更详细的安全元数据，可加
+`--show-redacted-response-summary`，但它仍不会打印 raw response body。
 
 ## Consent 验证清单
 
@@ -186,6 +208,32 @@ npm run analytics:validate:prod
 - 不证明真实 GA4 property delivery、DebugView 可见性或服务端 `api_secret` 注入已经成功
 
 脚本不会改写 tracked source，也不会生成本地 secret 文件。
+
+## Owner smoke harness
+
+推荐 owner smoke 顺序：
+
+1. `npm run analytics:validate:prod`
+2. `node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open`
+3. 安装带 public config 的构建，手动验证 consent off/on 行为
+4. 如 owner 持有 DebugView / debug proxy，再运行 `--mode directDebug`
+5. 在 owner proxy / backend logs 中确认服务端 `api_secret` 注入证据
+
+`run-ga-owner-smoke.mjs` 本地能证明的范围：
+
+- public env 形状有效
+- 没有 client-side secret env 混入
+- 请求只发往配置的 owner proxy / local proxy
+- `directDebug` 只多带 validation intent，不会让扩展直连 Google
+- CLI 输出是 redacted summary，不会打印 raw response body
+
+它不能单独证明：
+
+- 真实 GA4 property delivery
+- DebugView 可见性
+- 服务端 `api_secret` 注入是否成功
+
+这些 owner-only evidence 模板见 [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)。
 
 ## 常见误区
 
