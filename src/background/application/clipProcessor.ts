@@ -48,6 +48,7 @@ export interface ClipProcessingResult {
 }
 
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
+type UntrustedValue = Parameters<typeof isAppError>[0];
 
 export interface ClipProcessingProgress {
   value: number;
@@ -75,55 +76,66 @@ interface AiChatTelemetryMetadata {
 }
 
 const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
-const FAILURE_CATEGORIES = new Set<FailureCategory>([
-  'permission',
-  'connection',
-  'validation',
-  'classification',
-  'extraction',
-  'write',
-  'timeout',
-  'unsupported',
-  'unknown'
-]);
-
 export interface ClipProcessingFailure extends Error {
   readonly failureCategory?: FailureCategory;
 }
 
-export function readClipProcessingFailureCategory(error: unknown): FailureCategory | undefined {
-  if (typeof error !== 'object' || error === null || !('failureCategory' in error)) {
+function isFailureCategory(value: UntrustedValue): value is FailureCategory {
+  switch (value) {
+    case 'permission':
+    case 'connection':
+    case 'validation':
+    case 'classification':
+    case 'extraction':
+    case 'write':
+    case 'timeout':
+    case 'unsupported':
+    case 'unknown':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function hasFailureCategory(error: object): error is { failureCategory?: UntrustedValue } {
+  return 'failureCategory' in error;
+}
+
+function defineClipProcessingFailureCategory(
+  failure: Error,
+  failureCategory: FailureCategory
+): asserts failure is ClipProcessingFailure {
+  Object.defineProperty(failure, 'failureCategory', {
+    configurable: true,
+    enumerable: false,
+    value: failureCategory,
+    writable: false
+  });
+}
+
+export function readClipProcessingFailureCategory(
+  error: UntrustedValue
+): FailureCategory | undefined {
+  if (typeof error !== 'object' || error === null || !hasFailureCategory(error)) {
     return undefined;
   }
-  const category = (error as { failureCategory?: unknown }).failureCategory;
-  return typeof category === 'string' && FAILURE_CATEGORIES.has(category as FailureCategory)
-    ? (category as FailureCategory)
-    : undefined;
+  const category = error.failureCategory;
+  return isFailureCategory(category) ? category : undefined;
 }
 
 function withClipProcessingFailureCategory(
-  error: unknown,
+  error: UntrustedValue,
   failureCategory: FailureCategory
 ): ClipProcessingFailure {
   const failure =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error));
   try {
-    Object.defineProperty(failure, 'failureCategory', {
-      configurable: true,
-      enumerable: false,
-      value: failureCategory,
-      writable: false
-    });
-    return failure as ClipProcessingFailure;
+    defineClipProcessingFailureCategory(failure, failureCategory);
+    return failure;
   } catch {
     const fallback = new Error(failure.message);
-    Object.defineProperty(fallback, 'failureCategory', {
-      configurable: true,
-      enumerable: false,
-      value: failureCategory,
-      writable: false
-    });
-    return fallback as ClipProcessingFailure;
+    defineClipProcessingFailureCategory(fallback, failureCategory);
+    return fallback;
   }
 }
 
@@ -386,7 +398,7 @@ function resolveAiChatTelemetry(payload: ClipPayload): AiChatTelemetryMetadata |
   };
 }
 
-function toAnalyticsPlatform(value: unknown): AnalyticsPlatform {
+function toAnalyticsPlatform(value: UntrustedValue): AnalyticsPlatform {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return 'unknown';
   }
@@ -414,7 +426,7 @@ function toAnalyticsStorageTarget(
 }
 
 function resolveFailureCategory(
-  error: unknown,
+  error: UntrustedValue,
   stage: BackgroundStage | null,
   storageTarget: StorageTarget
 ): FailureCategory {

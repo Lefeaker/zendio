@@ -256,7 +256,7 @@ export function createVideoScreenshotCacheRepository(
   const now = options.now ?? (() => Date.now());
 
   async function readIndexState(): Promise<IndexState> {
-    const raw = await area.get<unknown>(VIDEO_SCREENSHOT_CACHE_INDEX_KEY);
+    const raw = await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY);
     if (raw === undefined) {
       return {
         entries: [],
@@ -458,7 +458,7 @@ export function createVideoScreenshotCacheRepository(
       }
 
       const operationTime = now();
-      const rawEntry = await area.get<unknown>(normalizedRef.key);
+      const rawEntry = await area.get(normalizedRef.key);
       if (rawEntry === undefined) {
         await removeKeys([normalizedRef.key]);
         return null;

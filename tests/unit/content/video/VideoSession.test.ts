@@ -26,7 +26,10 @@ import {
   createVideoSessionDraftEnvelope,
   type VideoSessionDraftPayloadShape
 } from '@content/video/sessionDrafts';
-import type { VideoScreenshotCacheSaveResult } from '@content/video/videoScreenshotCacheRepository';
+import type {
+  VideoScreenshotCacheSaveInput,
+  VideoScreenshotCacheSaveResult
+} from '@content/video/videoScreenshotCacheRepository';
 import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
 import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics';
 import {
@@ -550,6 +553,24 @@ async function readLatestVideoDraftCandidate(deps: VideoSessionDependencies) {
   return [...candidates].sort((left, right) => left.updatedAt - right.updatedAt).at(-1) ?? null;
 }
 
+function isVideoDraftPayloadShape(
+  payload: VideoSessionDraftEnvelope['payload']
+): payload is VideoSessionDraftPayloadShape {
+  return payload.mode === 'video' && Array.isArray(payload.captures);
+}
+
+function readVideoDraftPayload(
+  candidate: VideoSessionDraftEnvelope | null | undefined
+): VideoSessionDraftPayloadShape | undefined {
+  if (!candidate) {
+    return undefined;
+  }
+  if (!isVideoDraftPayloadShape(candidate.payload)) {
+    throw new Error('expected video draft payload shape');
+  }
+  return candidate.payload;
+}
+
 function createPreparationVideoHarness(
   options: {
     currentTime?: number;
@@ -612,6 +633,20 @@ function getTrackUsageEventMock(
   ) => Promise<void>
 > {
   return deps.trackUsageEvent as ReturnType<typeof vi.fn>;
+}
+
+type VideoScreenshotCacheSaveMock = Mock<
+  (input: VideoScreenshotCacheSaveInput) => Promise<VideoScreenshotCacheSaveResult>
+>;
+
+function readFirstCacheSaveInput(
+  saveSpy: VideoScreenshotCacheSaveMock
+): VideoScreenshotCacheSaveInput {
+  const input = saveSpy.mock.calls[0]?.[0];
+  if (!input) {
+    throw new Error('expected video screenshot cache save call');
+  }
+  return input;
 }
 
 function expectNoForbiddenAnalyticsKeys(params: Record<string, unknown> | undefined): void {
@@ -689,8 +724,8 @@ describe('VideoSession', () => {
         await import('../../../../src/content/video/videoScreenshotCacheRepository');
       const cacheTypesModule =
         await import('../../../../src/content/video/videoScreenshotCacheTypes');
-      const savedRef = {
-        schemaVersion: 1 as const,
+      const savedRef: VideoScreenshotCacheRef = {
+        schemaVersion: 1,
         pageKey: 'video-example',
         captureId: 'ts-1',
         id: 'shot-restore-legacy',
@@ -700,27 +735,28 @@ describe('VideoSession', () => {
           screenshotId: 'shot-restore-legacy'
         }),
         fileName: 'video-0m42s.jpg',
-        mimeType: 'image/jpeg' as const,
+        mimeType: 'image/jpeg',
         byteLength: 14,
         capturedAt: 2_000_000_000_300,
         expiresAt: 2_000_000_000_300 + 60_000
       };
-      const loadSpy = vi.fn(async () => null);
-      const saveSpy = vi.fn(
-        async (): Promise<VideoScreenshotCacheSaveResult> => ({
-          status: 'saved',
-          ref: savedRef
-        })
+      const loadSpy = vi.fn(() => Promise.resolve(null));
+      const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
+        (): Promise<VideoScreenshotCacheSaveResult> =>
+          Promise.resolve({
+            status: 'saved',
+            ref: savedRef
+          })
       );
       const createRepositorySpy = vi
         .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
         .mockReturnValue({
           save: saveSpy,
           load: loadSpy,
-          remove: vi.fn(async () => undefined),
-          removeMany: vi.fn(async () => undefined),
-          pruneExpired: vi.fn(async () => undefined),
-          pruneToLimits: vi.fn(async () => undefined)
+          remove: vi.fn(() => Promise.resolve(undefined)),
+          removeMany: vi.fn(() => Promise.resolve(undefined)),
+          pruneExpired: vi.fn(() => Promise.resolve(undefined)),
+          pruneToLimits: vi.fn(() => Promise.resolve(undefined))
         });
       const envelope = createVideoSessionDraftEnvelope({
         draftId: 'draft-start-1',
@@ -867,13 +903,10 @@ describe('VideoSession', () => {
         expect(restoredScreenshot.content?.blob).toBeInstanceOf(Blob);
         expect(restoredScreenshot.content?.blob.size).toBe(14);
         expect(loadSpy).not.toHaveBeenCalled();
-        expect(saveSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            captureId: 'ts-1',
-            pageKey: expect.any(String),
-            screenshot: restoredScreenshot
-          })
-        );
+        const cacheSaveInput = readFirstCacheSaveInput(saveSpy);
+        expect(cacheSaveInput.captureId).toBe('ts-1');
+        expect(typeof cacheSaveInput.pageKey).toBe('string');
+        expect(cacheSaveInput.screenshot).toBe(restoredScreenshot);
         expect(toBlob).toHaveBeenCalledTimes(1);
         expect(toDataURL).not.toHaveBeenCalled();
         expect(restoredFragment).toMatchObject({
@@ -900,11 +933,8 @@ describe('VideoSession', () => {
           const candidates = await listVideoDraftCandidates(deps);
           candidateWithRef =
             candidates.find((candidate) => {
-              const payload = candidate.payload as VideoSessionDraftPayloadShape | undefined;
-              const capture = payload?.captures[0] as
-                | { screenshotRef?: VideoScreenshotCacheRef }
-                | undefined;
-              return capture?.screenshotRef !== undefined;
+              const capture = readVideoDraftPayload(candidate)?.captures[0];
+              return capture?.kind === 'timestamp' && capture.screenshotRef !== undefined;
             }) ?? null;
           if (candidateWithRef) {
             break;
@@ -912,18 +942,8 @@ describe('VideoSession', () => {
           await flushMutationWork();
         }
 
-        const latestPayload = candidateWithRef?.payload as
-          | VideoSessionDraftPayloadShape
-          | undefined;
-        expect(
-          latestPayload?.captures[0] as
-            | {
-                id?: string;
-                screenshotRequested?: boolean;
-                screenshotRef?: VideoScreenshotCacheRef;
-              }
-            | undefined
-        ).toMatchObject({
+        const latestPayload = readVideoDraftPayload(candidateWithRef);
+        expect(latestPayload?.captures[0]).toMatchObject({
           id: 'ts-1',
           screenshotRequested: true,
           screenshotRef: savedRef
@@ -950,8 +970,8 @@ describe('VideoSession', () => {
       id: 'shot-cached',
       fileName: 'video-0m42s.jpg'
     });
-    const savedRef = {
-      schemaVersion: 1 as const,
+    const savedRef: VideoScreenshotCacheRef = {
+      schemaVersion: 1,
       pageKey: 'video-example',
       captureId: 'ts-1',
       id: 'shot-cached',
@@ -961,24 +981,25 @@ describe('VideoSession', () => {
         screenshotId: 'shot-cached'
       }),
       fileName: 'video-0m42s.jpg',
-      mimeType: 'image/jpeg' as const,
+      mimeType: 'image/jpeg',
       byteLength: restoredScreenshot.content.byteLength,
       capturedAt: restoredScreenshot.capturedAt,
       expiresAt: restoredScreenshot.capturedAt + 60_000
     };
-    const loadSpy = vi.fn(async () => restoredScreenshot);
-    const saveSpy = vi.fn(async (): Promise<VideoScreenshotCacheSaveResult> => {
-      throw new Error('cache save should not run for cache-hit restore');
-    });
+    const loadSpy = vi.fn(() => Promise.resolve(restoredScreenshot));
+    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
+      (): Promise<VideoScreenshotCacheSaveResult> =>
+        Promise.reject(new Error('cache save should not run for cache-hit restore'))
+    );
     const createRepositorySpy = vi
       .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
       .mockReturnValue({
         save: saveSpy,
         load: loadSpy,
-        remove: vi.fn(async () => undefined),
-        removeMany: vi.fn(async () => undefined),
-        pruneExpired: vi.fn(async () => undefined),
-        pruneToLimits: vi.fn(async () => undefined)
+        remove: vi.fn(() => Promise.resolve(undefined)),
+        removeMany: vi.fn(() => Promise.resolve(undefined)),
+        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
+        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
       });
     const envelope = createVideoSessionDraftEnvelope({
       draftId: 'draft-cache-hit-1',
@@ -1107,23 +1128,15 @@ describe('VideoSession', () => {
       expect(loadStoredCaptureDataMock).not.toHaveBeenCalled();
 
       const latestCandidate = await readLatestVideoDraftCandidate(deps);
-      const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
-      expect(
-        latestPayload?.captures[0] as
-          | {
-              id?: string;
-              screenshotRequested?: boolean;
-              screenshotRef?: VideoScreenshotCacheRef;
-            }
-          | undefined
-      ).toMatchObject({
+      const latestCapture = readVideoDraftPayload(latestCandidate)?.captures[0];
+      expect(latestCapture).toMatchObject({
         id: 'ts-1',
         screenshotRequested: true,
         screenshotRef: savedRef
       });
-      expect(latestPayload?.captures[0]).not.toHaveProperty('screenshot');
-      expect(latestPayload?.captures[0]).not.toHaveProperty('dataUrl');
-      expect(latestPayload?.captures[0]).not.toHaveProperty('content');
+      expect(latestCapture).not.toHaveProperty('screenshot');
+      expect(latestCapture).not.toHaveProperty('dataUrl');
+      expect(latestCapture).not.toHaveProperty('content');
     } finally {
       createElementSpy.mockRestore();
       createRepositorySpy.mockRestore();
@@ -1771,11 +1784,11 @@ describe('VideoSession', () => {
         }
       }
     });
-    configureSessionDraftRuntimeMessenger(async <TResult = unknown>(message: unknown) => {
+    configureSessionDraftRuntimeMessenger(<TResult = unknown>(message: unknown) => {
       if (isTabContextProbeMessage(message as object | null)) {
-        return { success: true, active: true } as TResult;
+        return Promise.resolve({ success: true, active: true } as TResult);
       }
-      return { success: true, ...currentOwner } as TResult;
+      return Promise.resolve({ success: true, ...currentOwner } as TResult);
     });
     const deps = createDependencies();
     const view = createView();
@@ -3635,18 +3648,18 @@ describe('VideoSession', () => {
       await import('../../../../src/content/video/videoScreenshotCacheRepository');
     const cacheTypesModule =
       await import('../../../../src/content/video/videoScreenshotCacheTypes');
-    const saveSpy = vi.fn(
-      async (): Promise<VideoScreenshotCacheSaveResult> => saveDeferred.promise
+    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
+      (): Promise<VideoScreenshotCacheSaveResult> => saveDeferred.promise
     );
     const createRepositorySpy = vi
       .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
       .mockReturnValue({
         save: saveSpy,
-        load: vi.fn(async () => null),
-        remove: vi.fn(async () => undefined),
-        removeMany: vi.fn(async () => undefined),
-        pruneExpired: vi.fn(async () => undefined),
-        pruneToLimits: vi.fn(async () => undefined)
+        load: vi.fn(() => Promise.resolve(null)),
+        remove: vi.fn(() => Promise.resolve(undefined)),
+        removeMany: vi.fn(() => Promise.resolve(undefined)),
+        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
+        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
       });
     const envelope = createVideoSessionDraftEnvelope({
       draftId: 'draft-write-through-1',
@@ -3750,8 +3763,8 @@ describe('VideoSession', () => {
       paused = false;
       return Promise.resolve();
     });
-    const savedRef = {
-      schemaVersion: 1 as const,
+    const savedRef: VideoScreenshotCacheRef = {
+      schemaVersion: 1,
       pageKey: 'video-example',
       captureId: 'ts-1',
       id: 'shot-42',
@@ -3761,7 +3774,7 @@ describe('VideoSession', () => {
         screenshotId: 'shot-42'
       }),
       fileName: 'video-0m42s.jpg',
-      mimeType: 'image/jpeg' as const,
+      mimeType: 'image/jpeg',
       byteLength: 14,
       capturedAt: 2_000_000_000_300,
       expiresAt: 2_000_000_000_300 + 60_000
@@ -3778,13 +3791,10 @@ describe('VideoSession', () => {
       }
       const screenshot = await waitForTimestampScreenshot(restoredTimestamp);
 
-      expect(saveSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          captureId: 'ts-1',
-          pageKey: expect.any(String),
-          screenshot
-        })
-      );
+      const cacheSaveInput = readFirstCacheSaveInput(saveSpy);
+      expect(cacheSaveInput.captureId).toBe('ts-1');
+      expect(typeof cacheSaveInput.pageKey).toBe('string');
+      expect(cacheSaveInput.screenshot).toBe(screenshot);
       expect(restoredTimestamp.screenshot).toBe(screenshot);
       expect(restoredTimestamp.screenshotRef).toBeUndefined();
       expect(currentTime).toBe(8);
@@ -3805,26 +3815,15 @@ describe('VideoSession', () => {
       expect(restoredTimestamp.screenshotRef).toEqual(savedRef);
       let latestCandidate = await readLatestVideoDraftCandidate(deps);
       for (let index = 0; index < 20; index += 1) {
-        const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
-        const latestCapture = latestPayload?.captures[0] as
-          | { screenshotRef?: VideoScreenshotCacheRef }
-          | undefined;
-        if (latestCapture?.screenshotRef) {
+        const latestCapture = readVideoDraftPayload(latestCandidate)?.captures[0];
+        if (latestCapture?.kind === 'timestamp' && latestCapture.screenshotRef) {
           break;
         }
         await flushMutationWork();
         latestCandidate = await readLatestVideoDraftCandidate(deps);
       }
-      const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
-      expect(
-        latestPayload?.captures[0] as
-          | {
-              id?: string;
-              screenshotRequested?: boolean;
-              screenshotRef?: VideoScreenshotCacheRef;
-            }
-          | undefined
-      ).toMatchObject({
+      const latestCapture = readVideoDraftPayload(latestCandidate)?.captures[0];
+      expect(latestCapture).toMatchObject({
         id: 'ts-1',
         screenshotRequested: true,
         screenshotRef: savedRef
@@ -3842,18 +3841,18 @@ describe('VideoSession', () => {
     const repository = createSessionDraftRepository(deps.storage.local);
     const cacheRepositoryModule =
       await import('../../../../src/content/video/videoScreenshotCacheRepository');
-    const saveSpy = vi.fn(async (): Promise<VideoScreenshotCacheSaveResult> => {
-      throw new Error('cache write failed');
-    });
+    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
+      (): Promise<VideoScreenshotCacheSaveResult> => Promise.reject(new Error('cache write failed'))
+    );
     const createRepositorySpy = vi
       .spyOn(cacheRepositoryModule, 'createVideoScreenshotCacheRepository')
       .mockReturnValue({
         save: saveSpy,
-        load: vi.fn(async () => null),
-        remove: vi.fn(async () => undefined),
-        removeMany: vi.fn(async () => undefined),
-        pruneExpired: vi.fn(async () => undefined),
-        pruneToLimits: vi.fn(async () => undefined)
+        load: vi.fn(() => Promise.resolve(null)),
+        remove: vi.fn(() => Promise.resolve(undefined)),
+        removeMany: vi.fn(() => Promise.resolve(undefined)),
+        pruneExpired: vi.fn(() => Promise.resolve(undefined)),
+        pruneToLimits: vi.fn(() => Promise.resolve(undefined))
       });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const envelope = createVideoSessionDraftEnvelope({
@@ -3982,7 +3981,7 @@ describe('VideoSession', () => {
         expect.any(Error)
       );
       const latestCandidate = await readLatestVideoDraftCandidate(deps);
-      const latestPayload = latestCandidate?.payload as VideoSessionDraftPayloadShape | undefined;
+      const latestPayload = readVideoDraftPayload(latestCandidate);
       expect(latestPayload?.captures[0]).toMatchObject({
         id: 'ts-1',
         screenshotRequested: true

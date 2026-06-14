@@ -15,25 +15,33 @@ type FetchResponse = {
 type FetchMock = ReturnType<
   typeof vi.fn<(input: string, init?: RequestInit) => Promise<FetchResponse>>
 >;
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type LogValue = Parameters<StringConstructor>[0];
+type SmokePayload = {
+  client_id: string;
+  measurement_id: string;
+  events: Array<{ name: string; params: Record<string, JsonValue> }>;
+  validation_behavior?: string;
+};
 
 type SmokeModule = {
   DEFAULT_DELIVERY_SMOKE_EVENT_NAME: string;
   buildSyntheticSmokeEvent: (eventName?: string) => {
     eventName: string;
-    params: Record<string, unknown>;
+    params: Record<string, JsonValue>;
   };
   runAnalyticsDeliverySmoke: (options?: {
     argv?: string[];
     env?: NodeJS.ProcessEnv;
     fetchImpl?: (input: string, init?: RequestInit) => Promise<FetchResponse>;
     now?: () => number;
-    stdout?: (...args: unknown[]) => void;
-    stderr?: (...args: unknown[]) => void;
+    stdout?: (...args: LogValue[]) => void;
+    stderr?: (...args: LogValue[]) => void;
   }) => Promise<{
     status: string;
     exitCode: number;
     responseStatus?: number;
-    summary?: Record<string, unknown>;
+    summary?: Record<string, JsonValue>;
   }>;
 };
 
@@ -57,7 +65,7 @@ function createEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEn
 
 function createLogger() {
   const messages: string[] = [];
-  const write = (...args: unknown[]) => {
+  const write = (...args: LogValue[]) => {
     messages.push(args.map((value) => String(value)).join(' '));
   };
   return {
@@ -69,6 +77,18 @@ function createLogger() {
 
 async function loadModule(): Promise<SmokeModule> {
   return (await import(analyticsDeliverySmokeModuleUrl.href)) as SmokeModule;
+}
+
+function parseSmokePayload(body: BodyInit | null | undefined): SmokePayload {
+  const payload = JSON.parse(String(body)) as SmokePayload;
+  if (
+    typeof payload.client_id !== 'string' ||
+    typeof payload.measurement_id !== 'string' ||
+    !Array.isArray(payload.events)
+  ) {
+    throw new Error('Expected analytics smoke request payload.');
+  }
+  return payload;
 }
 
 describe('analytics-delivery-smoke script', () => {
@@ -213,12 +233,7 @@ describe('analytics-delivery-smoke script', () => {
     );
 
     const [, requestInit] = fetchMock.mock.calls[0] ?? [];
-    const payload = JSON.parse(String(requestInit?.body)) as {
-      client_id: string;
-      measurement_id: string;
-      events: Array<{ name: string; params: Record<string, unknown> }>;
-      validation_behavior?: string;
-    };
+    const payload = parseSmokePayload(requestInit?.body);
 
     expect(payload.validation_behavior).toBeUndefined();
     expect(payload.client_id).toMatch(/^owner-smoke-/);

@@ -600,47 +600,36 @@ async function releasePendingVideoScreenshotBlobs(
 async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorageSummary> {
   return await extensionPage.evaluate(
     async ({ storageKeyPrefix, indexKey, cacheKeyPrefix, cacheIndexKey }) => {
-      const storage = await chrome.storage.local.get(null);
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        typeof value === 'object' && value !== null;
+      const toUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+      const rawStorage = await chrome.storage.local.get(null);
+      const storage = isRecord(rawStorage) ? rawStorage : {};
       const drafts = Object.entries(storage)
         .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
         .map(([key, value]) => {
-          const envelope =
-            typeof value === 'object' && value !== null
-              ? (value as {
-                  pageUrl?: unknown;
-                  payload?: {
-                    captures?: Array<{
-                      screenshotRequested?: boolean;
-                      screenshotRef?: unknown;
-                      screenshot?: unknown;
-                      dataUrl?: unknown;
-                      content?: unknown;
-                    }>;
-                  };
-                })
-              : {};
-          const captures = Array.isArray(envelope.payload?.captures)
-            ? envelope.payload.captures
-            : [];
+          const envelope = isRecord(value) ? value : null;
+          const payload = envelope && isRecord(envelope.payload) ? envelope.payload : null;
+          const captures = payload ? toUnknownArray(payload.captures) : [];
           return {
             key,
-            pageUrl: typeof envelope.pageUrl === 'string' ? envelope.pageUrl : null,
+            pageUrl:
+              envelope && 'pageUrl' in envelope && typeof envelope.pageUrl === 'string'
+                ? envelope.pageUrl
+                : null,
             captureCount: captures.length,
             requestedScreenshotCount: captures.filter(
-              (capture) =>
-                typeof capture === 'object' &&
-                capture !== null &&
-                capture.screenshotRequested === true
+              (capture) => isRecord(capture) && capture.screenshotRequested === true
             ).length,
             screenshotRefCount: captures.filter(
               (capture) =>
-                typeof capture === 'object' &&
-                capture !== null &&
+                isRecord(capture) &&
                 typeof capture.screenshotRef === 'object' &&
                 capture.screenshotRef !== null
             ).length,
             containsInlineScreenshotPayload: captures.some((capture) => {
-              if (typeof capture !== 'object' || capture === null) {
+              if (!isRecord(capture)) {
                 return false;
               }
               return (
@@ -657,14 +646,18 @@ async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorag
       const cacheKeys = Object.keys(storage).filter(
         (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
       );
-      const cacheIndex =
-        typeof storage[cacheIndexKey] === 'object' && storage[cacheIndexKey] !== null
-          ? (storage[cacheIndexKey] as { entries?: unknown[] })
-          : null;
+      const cacheIndexValue = storage[cacheIndexKey];
+      const cacheIndexEntries =
+        typeof cacheIndexValue === 'object' &&
+        cacheIndexValue !== null &&
+        'entries' in cacheIndexValue &&
+        Array.isArray(cacheIndexValue.entries)
+          ? cacheIndexValue.entries
+          : [];
       return {
         drafts,
         cacheEntryCount: cacheKeys.length,
-        cacheIndexEntryCount: Array.isArray(cacheIndex?.entries) ? cacheIndex.entries.length : 0,
+        cacheIndexEntryCount: cacheIndexEntries.length,
         cacheKeys
       };
     },
@@ -712,37 +705,27 @@ async function removeDraftScreenshotRefs(extensionPage: Page, pageUrl: string): 
       throw new Error(`Missing stored draft for ${targetPageUrl}`);
     }
     const [draftKey, rawDraftValue] = draftEntry;
-    const draftValue = rawDraftValue as {
-      payload?: unknown;
-      [key: string]: unknown;
-    };
     if (
-      typeof draftValue !== 'object' ||
-      draftValue === null ||
-      typeof draftValue.payload !== 'object' ||
-      draftValue.payload === null
+      typeof rawDraftValue !== 'object' ||
+      rawDraftValue === null ||
+      !('payload' in rawDraftValue) ||
+      typeof rawDraftValue.payload !== 'object' ||
+      rawDraftValue.payload === null
     ) {
       throw new Error(`Stored draft for ${targetPageUrl} is not a video draft envelope.`);
     }
 
-    const payload = draftValue.payload as {
-      captures?: Array<Record<string, unknown>>;
-    };
-    const captures = Array.isArray(payload.captures) ? payload.captures : [];
-    const nextCaptures = captures.map((capture) => {
-      const {
-        screenshotRef: _screenshotRef,
-        screenshot: _screenshot,
-        dataUrl: _dataUrl,
-        content: _content,
-        ...rest
-      } = capture;
-      return rest;
-    });
+    const payload = rawDraftValue.payload;
+    const captures =
+      'captures' in payload && Array.isArray(payload.captures) ? payload.captures : [];
+    const screenshotPayloadKeys = new Set(['screenshotRef', 'screenshot', 'dataUrl', 'content']);
+    const nextCaptures = captures.map((capture) =>
+      Object.fromEntries(Object.entries(capture).filter(([key]) => !screenshotPayloadKeys.has(key)))
+    );
 
     await chrome.storage.local.set({
       [draftKey]: {
-        ...draftValue,
+        ...rawDraftValue,
         payload: {
           ...payload,
           captures: nextCaptures

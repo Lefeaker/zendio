@@ -5,7 +5,9 @@ import {
   SESSION_DRAFT_MAX_ENTRIES
 } from '../sessionDrafts/sessionDraftTypes';
 
-export const VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION = 1 as const;
+type Raw = Parameters<typeof isObjectRecord>[0];
+
+export const VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION = 1;
 export const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
 export const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
 export const VIDEO_SCREENSHOT_CACHE_TTL_MS = DEFAULT_SESSION_DRAFT_TTL_MS;
@@ -14,7 +16,7 @@ export const VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES = 50;
 export const VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES = 1024 * 1024;
 
 const VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.v${VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION}.`;
-const VIDEO_SCREENSHOT_CACHE_MIME_TYPE = 'image/jpeg' as const;
+const VIDEO_SCREENSHOT_CACHE_MIME_TYPE = 'image/jpeg';
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const PAGE_KEY_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
@@ -66,19 +68,19 @@ export function createVideoScreenshotCacheStorageKey(options: {
   return `${VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX}${encodeKeyPart(pageKey)}.${encodeKeyPart(captureId)}.${encodeKeyPart(screenshotId)}`;
 }
 
-export function isVideoScreenshotCacheStorageKey(value: unknown): value is string {
+export function isVideoScreenshotCacheStorageKey(value: Raw): value is string {
   return typeof value === 'string' && value.startsWith(VIDEO_SCREENSHOT_CACHE_KEY_VERSION_PREFIX);
 }
 
-export function isVideoScreenshotCachePageKey(value: unknown): value is string {
+export function isVideoScreenshotCachePageKey(value: Raw): value is string {
   return normalizePageKey(value) !== null;
 }
 
-export function isVideoScreenshotCacheRef(value: unknown): value is VideoScreenshotCacheRef {
+export function isVideoScreenshotCacheRef(value: Raw): value is VideoScreenshotCacheRef {
   return normalizeVideoScreenshotCacheRef(value) !== null;
 }
 
-export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreenshotCacheRef | null {
+export function normalizeVideoScreenshotCacheRef(value: Raw): VideoScreenshotCacheRef | null {
   if (!isObjectRecord(value)) {
     return null;
   }
@@ -120,13 +122,13 @@ export function normalizeVideoScreenshotCacheRef(value: unknown): VideoScreensho
 }
 
 export function isVideoScreenshotCacheIndexEntry(
-  value: unknown
+  value: Raw
 ): value is VideoScreenshotCacheIndexEntry {
   return normalizeVideoScreenshotCacheIndexEntry(value) !== null;
 }
 
 export function normalizeVideoScreenshotCacheIndexEntry(
-  value: unknown
+  value: Raw
 ): VideoScreenshotCacheIndexEntry | null {
   const ref = normalizeVideoScreenshotCacheRef(value);
   if (ref === null || !isObjectRecord(value)) {
@@ -153,25 +155,25 @@ export function normalizeVideoScreenshotCacheIndexEntry(
   };
 }
 
-export function isVideoScreenshotCacheIndex(value: unknown): value is VideoScreenshotCacheIndex {
+export function isVideoScreenshotCacheIndex(value: Raw): value is VideoScreenshotCacheIndex {
   return normalizeVideoScreenshotCacheIndex(value) !== null;
 }
 
-export function normalizeVideoScreenshotCacheIndex(
-  value: unknown
-): VideoScreenshotCacheIndex | null {
+export function normalizeVideoScreenshotCacheIndex(value: Raw): VideoScreenshotCacheIndex | null {
   if (!isObjectRecord(value)) {
     return null;
   }
 
   const schemaVersion = normalizeSchemaVersion(value.schemaVersion);
-  const entries =
-    Array.isArray(value.entries) &&
-    value.entries.every((entry) => normalizeVideoScreenshotCacheIndexEntry(entry) !== null)
-      ? value.entries.map((entry) => normalizeVideoScreenshotCacheIndexEntry(entry)!)
-      : null;
+  const entries = Array.isArray(value.entries)
+    ? value.entries.map(normalizeVideoScreenshotCacheIndexEntry)
+    : null;
 
-  if (schemaVersion === null || entries === null) {
+  if (
+    schemaVersion === null ||
+    entries === null ||
+    !entries.every((entry): entry is VideoScreenshotCacheIndexEntry => entry !== null)
+  ) {
     return null;
   }
 
@@ -181,13 +183,11 @@ export function normalizeVideoScreenshotCacheIndex(
   };
 }
 
-export function isVideoScreenshotCacheEntry(value: unknown): value is VideoScreenshotCacheEntry {
+export function isVideoScreenshotCacheEntry(value: Raw): value is VideoScreenshotCacheEntry {
   return normalizeVideoScreenshotCacheEntry(value) !== null;
 }
 
-export function normalizeVideoScreenshotCacheEntry(
-  value: unknown
-): VideoScreenshotCacheEntry | null {
+export function normalizeVideoScreenshotCacheEntry(value: Raw): VideoScreenshotCacheEntry | null {
   const indexEntry = normalizeVideoScreenshotCacheIndexEntry(value);
   if (indexEntry === null || !isObjectRecord(value)) {
     return null;
@@ -208,15 +208,13 @@ function encodeKeyPart(value: string): string {
   return encodeURIComponent(value);
 }
 
-function normalizeSchemaVersion(
-  value: unknown
-): typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION | null {
+function normalizeSchemaVersion(value: Raw): typeof VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION | null {
   return value === VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION
     ? VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION
     : null;
 }
 
-function normalizeIdentity(value: Record<string, unknown>): VideoScreenshotCacheIdentity | null {
+function normalizeIdentity(value: Record<string, Raw>): VideoScreenshotCacheIdentity | null {
   const pageKey = normalizePageKey(value.pageKey);
   const captureId = normalizeNonEmptyString(value.captureId);
   const id = normalizeNonEmptyString(value.id);
@@ -226,7 +224,7 @@ function normalizeIdentity(value: Record<string, unknown>): VideoScreenshotCache
   return { pageKey, captureId, id };
 }
 
-function normalizePageKey(value: unknown): string | null {
+function normalizePageKey(value: Raw): string | null {
   const normalized = normalizeNonEmptyString(value);
   if (normalized === null || !PAGE_KEY_PATTERN.test(normalized)) {
     return null;
@@ -235,7 +233,7 @@ function normalizePageKey(value: unknown): string | null {
 }
 
 function normalizeStorageKey(
-  value: unknown,
+  value: Raw,
   identity: VideoScreenshotCacheIdentity | null
 ): string | null {
   if (identity === null || typeof value !== 'string' || !isVideoScreenshotCacheStorageKey(value)) {
@@ -249,15 +247,15 @@ function normalizeStorageKey(
   return value === expected ? expected : null;
 }
 
-function normalizeMimeType(value: unknown): typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE | null {
+function normalizeMimeType(value: Raw): typeof VIDEO_SCREENSHOT_CACHE_MIME_TYPE | null {
   return value === VIDEO_SCREENSHOT_CACHE_MIME_TYPE ? VIDEO_SCREENSHOT_CACHE_MIME_TYPE : null;
 }
 
-function normalizeNonEmptyString(value: unknown): string | null {
+function normalizeNonEmptyString(value: Raw): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-function normalizeTimestamp(value: unknown): number | null {
+function normalizeTimestamp(value: Raw): number | null {
   return typeof value === 'number' &&
     Number.isInteger(value) &&
     Number.isFinite(value) &&
@@ -266,7 +264,7 @@ function normalizeTimestamp(value: unknown): number | null {
     : null;
 }
 
-function normalizeByteLength(value: unknown): number | null {
+function normalizeByteLength(value: Raw): number | null {
   return typeof value === 'number' &&
     Number.isInteger(value) &&
     value > 0 &&
@@ -275,7 +273,7 @@ function normalizeByteLength(value: unknown): number | null {
     : null;
 }
 
-function normalizeBinaryContent(value: unknown): SerializedClipAttachmentBinaryContent | null {
+function normalizeBinaryContent(value: Raw): SerializedClipAttachmentBinaryContent | null {
   if (!isObjectRecord(value)) {
     return null;
   }
