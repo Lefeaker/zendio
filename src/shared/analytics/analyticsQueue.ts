@@ -1,13 +1,18 @@
 import { hasConsentForAnalyticsEvent } from './analyticsConsent';
 import { isAllowedAnalyticsEventName, parseAnalyticsEventParams } from './analyticsSanitizers';
 import type { AnalyticsEventName, AnalyticsPrimitive } from './eventCatalog';
-import type { AnalyticsQueueStorage, PersistedAnalyticsQueueEntry } from './analyticsQueueStorage';
+import {
+  boundPersistedAnalyticsQueueEntries,
+  clonePersistedAnalyticsQueueEntry,
+  DEFAULT_ANALYTICS_QUEUE_MAX_AGE_MS,
+  resolveAnalyticsQueueRetryBackoffMs,
+  type AnalyticsQueueStorage,
+  type PersistedAnalyticsQueueEntry
+} from './analyticsQueueStorage';
 import { sendAnalyticsTransportEvent, type AnalyticsTransportResult } from './analyticsTransport';
 import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
 
 const DEFAULT_ANALYTICS_QUEUE_MAX_ENTRIES = 50;
-const DEFAULT_ANALYTICS_QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const MAX_ANALYTICS_QUEUE_RETRY_BACKOFF_MS = 15 * 60 * 1000;
 
 export interface AnalyticsQueueEntry<
   EventName extends AnalyticsEventName = AnalyticsEventName
@@ -66,10 +71,9 @@ export function createAnalyticsEventQueue(
   let hydrationPromise: Promise<void> | null = null;
 
   const persistEntries = async (): Promise<void> => {
-    if (!storage) {
-      return;
+    if (storage) {
+      await storage.save(entries.map(clonePersistedAnalyticsQueueEntry));
     }
-    await storage.save(entries.map(cloneQueueEntry));
   };
 
   const hydrate = async (): Promise<void> => {
@@ -77,23 +81,19 @@ export function createAnalyticsEventQueue(
       hydrated = true;
       return;
     }
-
     if (hydrationPromise) {
       await hydrationPromise;
       return;
     }
-
     hydrationPromise = (async () => {
-      const loadedEntries = await storage.load();
-      entries = boundEntries(
-        [...loadedEntries.map(cloneQueueEntry), ...entries],
+      entries = boundPersistedAnalyticsQueueEntries(
+        [...(await storage.load()).map(clonePersistedAnalyticsQueueEntry), ...entries],
         now(),
         maxEntries,
         maxAgeMs
-      );
+      ) as AnalyticsQueueEntry[];
       hydrated = true;
     })();
-
     try {
       await hydrationPromise;
     } finally {
@@ -102,10 +102,7 @@ export function createAnalyticsEventQueue(
   };
 
   return {
-    async hydrate() {
-      await hydrate();
-    },
-
+    hydrate,
     enqueue(eventName, params) {
       if (!isAllowedAnalyticsEventName(eventName)) {
         return false;
@@ -114,25 +111,35 @@ export function createAnalyticsEventQueue(
       if (parsedParams === null) {
         return false;
       }
-      const entry: AnalyticsQueueEntry = {
-        id: `analytics-queue-${now()}-${entrySequence++}`,
-        eventName,
-        enqueuedAt: now(),
-        attemptCount: 0,
-        ...(Object.keys(parsedParams).length > 0 ? { params: parsedParams } : {})
-      };
-      entries = boundEntries([...entries, entry], now(), maxEntries, maxAgeMs);
+      entries = boundPersistedAnalyticsQueueEntries(
+        [
+          ...entries,
+          {
+            id: `analytics-queue-${now()}-${entrySequence++}`,
+            eventName,
+            enqueuedAt: now(),
+            attemptCount: 0,
+            ...(Object.keys(parsedParams).length > 0 ? { params: parsedParams } : {})
+          }
+        ],
+        now(),
+        maxEntries,
+        maxAgeMs
+      ) as AnalyticsQueueEntry[];
       return true;
     },
-
     async flush(flushOptions = {}) {
       await hydrate();
       const config = options.getConfig();
       const currentTime = now();
       const reportingInterval = normalizePositiveInteger(config.reportingInterval, 30000);
       const batchSize = normalizePositiveInteger(config.batchSize, 1);
-      entries = boundEntries(entries, currentTime, maxEntries, maxAgeMs);
-
+      entries = boundPersistedAnalyticsQueueEntries(
+        entries,
+        currentTime,
+        maxEntries,
+        maxAgeMs
+      ) as AnalyticsQueueEntry[];
       if (!flushOptions.force && lastFlushAt > 0 && currentTime - lastFlushAt < reportingInterval) {
         const result = {
           sent: 0,
@@ -149,17 +156,12 @@ export function createAnalyticsEventQueue(
       for (const entry of entries) {
         if (entry.nextAttemptAt !== undefined && entry.nextAttemptAt > currentTime) {
           deferredEntries.push(entry);
-          continue;
-        }
-
-        if (batch.length < batchSize) {
+        } else if (batch.length < batchSize) {
           batch.push(entry);
-          continue;
+        } else {
+          deferredEntries.push(entry);
         }
-
-        deferredEntries.push(entry);
       }
-
       if (batch.length === 0) {
         const result = {
           sent: 0,
@@ -175,13 +177,11 @@ export function createAnalyticsEventQueue(
       let sent = 0;
       let skipped = 0;
       let failed = 0;
-
       for (const entry of batch) {
         if (!hasConsentForAnalyticsEvent(config, entry.eventName)) {
           skipped += 1;
           continue;
         }
-
         const result = await send(entry.eventName, entry.params, config);
         if (result.status === 'sent') {
           sent += 1;
@@ -192,7 +192,7 @@ export function createAnalyticsEventQueue(
             attemptCount: entry.attemptCount + 1,
             nextAttemptAt:
               currentTime +
-              resolveRetryBackoffMs(
+              resolveAnalyticsQueueRetryBackoffMs(
                 entry.attemptCount + 1,
                 reportingInterval,
                 options.retryBackoffMs
@@ -203,17 +203,16 @@ export function createAnalyticsEventQueue(
         }
       }
 
-      entries = boundEntries(
+      entries = boundPersistedAnalyticsQueueEntries(
         [...retryEntries, ...deferredEntries],
         currentTime,
         maxEntries,
         maxAgeMs
-      );
+      ) as AnalyticsQueueEntry[];
       lastFlushAt = currentTime;
       await persistEntries();
       return { sent, skipped, failed, remaining: entries.length };
     },
-
     async clear() {
       entries = [];
       lastFlushAt = 0;
@@ -223,43 +222,13 @@ export function createAnalyticsEventQueue(
         await storage.clear();
       }
     },
-
     size() {
       return entries.length;
     },
-
     snapshot() {
-      return entries.map(cloneQueueEntry);
+      return entries.map(clonePersistedAnalyticsQueueEntry);
     }
   };
-}
-
-function boundEntries(
-  entries: readonly AnalyticsQueueEntry[],
-  now: number,
-  maxEntries: number,
-  maxAgeMs: number
-): AnalyticsQueueEntry[] {
-  return entries.filter((entry) => now - entry.enqueuedAt <= maxAgeMs).slice(-maxEntries);
-}
-
-function cloneQueueEntry(entry: AnalyticsQueueEntry): AnalyticsQueueEntry {
-  return {
-    ...entry,
-    ...(entry.params ? { params: { ...entry.params } } : {})
-  };
-}
-
-function resolveRetryBackoffMs(
-  attemptCount: number,
-  reportingInterval: number,
-  retryBackoffMs: ((attemptCount: number) => number) | undefined
-): number {
-  const baseBackoff = normalizePositiveInteger(
-    retryBackoffMs?.(attemptCount),
-    reportingInterval * Math.max(1, attemptCount)
-  );
-  return Math.min(Math.max(baseBackoff, reportingInterval), MAX_ANALYTICS_QUEUE_RETRY_BACKOFF_MS);
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {

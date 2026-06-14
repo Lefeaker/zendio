@@ -153,4 +153,35 @@ describe('analyticsQueueStorage', () => {
 
     expect(storageArea.snapshot()).toBeUndefined();
   });
+
+  it('provides a shared usage-queue storage binding and clear helper', async () => {
+    const storageArea = createLocalStorageArea();
+    const activeQueue = {
+      clear: vi.fn(async () => undefined)
+    };
+    const { clearAnalyticsQueueStorage, createUsageAnalyticsQueueStorage } =
+      await import('../../../src/shared/analytics/analyticsQueueStorage');
+    const queueStorage = createUsageAnalyticsQueueStorage(storageArea, { now: () => 200000 });
+
+    await queueStorage.save([
+      {
+        id: 'binding-1',
+        eventName: 'support_dislike_clicked',
+        enqueuedAt: 199000,
+        attemptCount: 0
+      }
+    ]);
+    await expect(storageArea.get('analytics_event_queue')).resolves.toEqual([
+      expect.objectContaining({
+        id: 'binding-1',
+        eventName: 'support_dislike_clicked'
+      })
+    ]);
+
+    await clearAnalyticsQueueStorage(activeQueue, queueStorage);
+    expect(activeQueue.clear).toHaveBeenCalledTimes(1);
+
+    await clearAnalyticsQueueStorage(null, queueStorage);
+    await expect(storageArea.get('analytics_event_queue')).resolves.toBeUndefined();
+  });
 });

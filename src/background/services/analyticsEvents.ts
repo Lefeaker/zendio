@@ -5,24 +5,24 @@ import {
   type AnalyticsConfig
 } from '../../shared/errors/analytics/analyticsConfig';
 import {
+  clearAnalyticsQueueStorage,
+  clearUsageAnalyticsQueueIfConsentRevoked,
   createAnalyticsEventQueue,
-  createStorageAnalyticsQueueStorage,
+  createUsageAnalyticsQueueStorage,
   sendAnalyticsTransportEvent,
   type AnalyticsEventName,
   type AnalyticsEventQueue,
   type AnalyticsEventQueueOptions,
-  type AnalyticsQueueStorage,
   type AnalyticsTransportResult
 } from '../../shared/analytics';
 import {
   createAnalyticsTransportConfig,
   hasAnalyticsSendConsent
 } from '../../shared/analytics/analyticsRuntimeConfig';
-import { GA4_CONFIG } from '../../shared/errors/analytics/analyticsConfig';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
-import type { PlatformServices } from '../../platform/types';
 import type { StorageService } from '../../platform/interfaces/storage';
+import type { PlatformServices } from '../../platform/types';
 import {
   isAllowedUsageEventName,
   type UsageEventName,
@@ -32,16 +32,10 @@ import {
 let initializationPromise: Promise<void> | null = null;
 let usageEventQueue: AnalyticsEventQueue | null = null;
 let usageEventQueueVersion = 'unknown';
-let usageEventQueueStorage: AnalyticsQueueStorage | null = null;
-const USAGE_ANALYTICS_CONSENT_PROBE_EVENT: UsageEventName = 'support_dislike_clicked';
+let usageEventQueueStorage: ReturnType<typeof createUsageAnalyticsQueueStorage> | null = null;
 
 type QueuedAnalyticsEventParams = Parameters<NonNullable<AnalyticsEventQueueOptions['send']>>[1];
-type UsageAnalyticsConsentSnapshot = {
-  enabled?: boolean;
-  userConsent?: {
-    analytics?: boolean;
-  };
-};
+type SentAnalyticsTransportResult = Extract<AnalyticsTransportResult, { status: 'sent' }>;
 
 async function ensureAnalyticsReady(): Promise<void> {
   if (initializationPromise === null) {
@@ -54,11 +48,9 @@ async function ensureAnalyticsReady(): Promise<void> {
       }
     })();
   }
-
   try {
     await initializationPromise;
   } catch (error) {
-    // Reset on failure so we can retry next time
     initializationPromise = null;
     throw error;
   }
@@ -66,9 +58,8 @@ async function ensureAnalyticsReady(): Promise<void> {
 
 async function ensureSessionId(): Promise<string | undefined> {
   const manager = getAnalyticsConfigManager();
-  const config = manager.getConfig();
-  if (config.sessionId) {
-    return config.sessionId;
+  if (manager.getConfig().sessionId) {
+    return manager.getConfig().sessionId;
   }
   try {
     await manager.renewSession();
@@ -94,7 +85,6 @@ function getUsageEventQueue(extensionVersion: string): AnalyticsEventQueue {
   if (usageEventQueue && usageEventQueueVersion === extensionVersion) {
     return usageEventQueue;
   }
-
   usageEventQueueVersion = extensionVersion;
   usageEventQueue = createAnalyticsEventQueue({
     getConfig: () => createAnalyticsTransportConfig(getAnalyticsConfigManager().getConfig()),
@@ -106,37 +96,24 @@ function getUsageEventQueue(extensionVersion: string): AnalyticsEventQueue {
 }
 
 export function configureUsageAnalyticsQueueStorage(storage: Pick<StorageService, 'local'>): void {
-  usageEventQueueStorage = createStorageAnalyticsQueueStorage(
-    storage.local,
-    GA4_CONFIG.STORAGE_KEYS.ANALYTICS_QUEUE
-  );
+  usageEventQueueStorage = createUsageAnalyticsQueueStorage(storage.local);
   usageEventQueue = null;
   usageEventQueueVersion = 'unknown';
 }
 
 export async function clearQueuedUsageAnalyticsEvents(): Promise<void> {
   try {
-    if (usageEventQueue) {
-      await usageEventQueue.clear();
-      return;
-    }
-    await usageEventQueueStorage?.clear();
+    await clearAnalyticsQueueStorage(usageEventQueue, usageEventQueueStorage);
   } catch (error) {
     console.warn('[analytics-events] Failed to clear queued usage analytics events:', error);
   }
 }
 
-export async function clearQueuedUsageAnalyticsEventsIfConsentRevoked(
-  config: UsageAnalyticsConsentSnapshot
-): Promise<void> {
-  if (
-    !hasAnalyticsSendConsent(
-      createAnalyticsTransportConfig(config),
-      USAGE_ANALYTICS_CONSENT_PROBE_EVENT
-    )
-  ) {
-    await clearQueuedUsageAnalyticsEvents();
-  }
+export async function clearQueuedUsageAnalyticsEventsIfConsentRevoked(config: {
+  enabled?: boolean;
+  userConsent?: { analytics?: boolean };
+}): Promise<void> {
+  await clearUsageAnalyticsQueueIfConsentRevoked(config, usageEventQueue, usageEventQueueStorage);
 }
 
 async function sendQueuedUsageEvent(
@@ -149,39 +126,23 @@ async function sendQueuedUsageEvent(
     eventName,
     params,
     createAnalyticsTransportConfig(config),
-    {
-      extensionVersion
-    }
+    { extensionVersion }
   );
   logAnalyticsTransportResult(eventName, result);
   return result;
 }
-
-type SentAnalyticsTransportResult = Extract<AnalyticsTransportResult, { status: 'sent' }>;
 
 function summarizeDebugResponse(debugResponse: unknown): {
   hasMessages: boolean;
   messageCount: number;
 } {
   if (typeof debugResponse !== 'object' || debugResponse === null) {
-    return {
-      hasMessages: false,
-      messageCount: 0
-    };
+    return { hasMessages: false, messageCount: 0 };
   }
-
   const validationMessages = (debugResponse as { validationMessages?: unknown }).validationMessages;
-  if (!Array.isArray(validationMessages)) {
-    return {
-      hasMessages: false,
-      messageCount: 0
-    };
-  }
-
-  return {
-    hasMessages: validationMessages.length > 0,
-    messageCount: validationMessages.length
-  };
+  return Array.isArray(validationMessages)
+    ? { hasMessages: validationMessages.length > 0, messageCount: validationMessages.length }
+    : { hasMessages: false, messageCount: 0 };
 }
 
 function buildAnalyticsTransportLogSummary(
@@ -209,14 +170,12 @@ function logAnalyticsTransportResult(
     if (result.transportMode !== 'directDebug') {
       return;
     }
-
     console.info(
       '[analytics-events] Event sent (debug):',
       buildAnalyticsTransportLogSummary(eventName, result)
     );
     return;
   }
-
   if (result.status === 'failed') {
     if (result.responseStatus !== undefined) {
       console.warn(`[analytics-events] Analytics transport failed: ${result.responseStatus}`);
@@ -225,7 +184,6 @@ function logAnalyticsTransportResult(
     }
     return;
   }
-
   if (result.reason === 'missing_client_id') {
     console.warn('[analytics-events] Missing analytics client id.');
   }
@@ -238,7 +196,6 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
   if (!isAllowedUsageEventName(eventName)) {
     return;
   }
-
   try {
     await ensureAnalyticsReady();
   } catch {
@@ -253,16 +210,13 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
     return;
   }
 
-  const runtimeConfig = createAnalyticsTransportConfig(config);
-  if (!hasAnalyticsSendConsent(runtimeConfig, eventName)) {
+  if (!hasAnalyticsSendConsent(createAnalyticsTransportConfig(config), eventName)) {
     await clearQueuedUsageAnalyticsEvents();
     return;
   }
 
   await ensureSessionId();
-  const extensionVersion = resolveExtensionVersion();
-  const queue = getUsageEventQueue(extensionVersion);
-
+  const queue = getUsageEventQueue(resolveExtensionVersion());
   try {
     if (queue.enqueue(eventName, params)) {
       await queue.flush();
