@@ -19,7 +19,7 @@ describe('deepseek parser', () => {
     expect(result.messages).toEqual([]);
   });
 
-  it('uses the configured fallback title when no product title is available', async () => {
+  it('uses an injected fallback title when no product title is available', async () => {
     const { deepseekParser } = await import(
       '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
     );
@@ -36,10 +36,30 @@ describe('deepseek parser', () => {
       'text/html'
     );
 
-    const result = deepseekParser.parse(doc, { fallbackTitle: 'DeepSeek Chat' });
+    const result = deepseekParser.parse(doc, { fallbackTitle: 'Catalog DeepSeek Title' });
 
-    expect(result.title).toBe('DeepSeek Chat');
+    expect(result.title).toBe('Catalog DeepSeek Title');
     expect(result.messages).toHaveLength(2);
+  });
+
+  it('throws when no source title or injected fallback title is available', async () => {
+    const { deepseekParser } = await import(
+      '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
+    );
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title></title></head>
+        <body>
+          <div class="message user"><div class="content">Question</div></div>
+          <div class="message assistant"><div class="markdown"><p>Answer</p></div></div>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+
+    expect(() => deepseekParser.parse(doc)).toThrow('Missing fallback title for deepseek export');
   });
 
   it('preserves user-provided Chinese titles instead of replacing them', async () => {
@@ -59,7 +79,7 @@ describe('deepseek parser', () => {
       'text/html'
     );
 
-    const result = deepseekParser.parse(doc, { fallbackTitle: 'DeepSeek Chat' });
+    const result = deepseekParser.parse(doc, { fallbackTitle: 'Catalog DeepSeek Title' });
 
     expect(result.title).toBe('研究计划');
     expect(result.messages[0]?.role).toBe('user');

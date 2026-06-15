@@ -38,7 +38,11 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
       const firstQuestion = questionItems[0].textContent?.trim() || '';
       title = firstQuestion.substring(0, 50) + (firstQuestion.length > 50 ? '...' : '');
     } else {
-      title = config?.fallbackTitle?.trim() || 'Tongyi Chat';
+      const fallbackTitle = config?.fallbackTitle?.trim();
+      if (!fallbackTitle) {
+        throw new Error('Missing fallback title for tongyi export');
+      }
+      title = fallbackTitle;
     }
   }
 

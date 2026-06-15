@@ -147,7 +147,10 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
   }
 
   if (!config.useFootnoteFormat && userComment?.trim()) {
-    const resolvedCommentHeading = commentHeading?.trim() || 'My Comment';
+    const resolvedCommentHeading = commentHeading?.trim();
+    if (!resolvedCommentHeading) {
+      throw new Error('Missing fragment comment heading');
+    }
     markdown += `
 ---
 

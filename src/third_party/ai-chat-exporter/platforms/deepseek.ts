@@ -22,7 +22,11 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
     }
   }
   if (!title) {
-    title = config?.fallbackTitle?.trim() || 'DeepSeek Chat';
+    const fallbackTitle = config?.fallbackTitle?.trim();
+    if (!fallbackTitle) {
+      throw new Error('Missing fallback title for deepseek export');
+    }
+    title = fallbackTitle;
   }
 
   let model = '';

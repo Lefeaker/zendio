@@ -100,7 +100,7 @@ describe('extractAIChat', () => {
 
   it('detects Kimi domains and forwards the correct platform', async () => {
     mockParseChatDOMAsync.mockResolvedValueOnce({
-      title: 'Kimi Chat',
+      title: 'Catalog Kimi Title',
       messages: [
         { id: 'u1', role: 'user', md: 'hello kimi', timestamp: '2024-01-01T00:00:00Z' },
         { id: 'a1', role: 'assistant', md: '你好' }
@@ -113,9 +113,9 @@ describe('extractAIChat', () => {
     await module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
       optionsRepository: createOptionsRepository(),
       getMessages: vi.fn(async () => ({
-        exportAiChatFallbackTitleDeepseek: 'DeepSeek Chat',
-        exportAiChatFallbackTitleKimi: 'Kimi Chat',
-        exportAiChatFallbackTitleTongyi: 'Tongyi Chat'
+        exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
+        exportAiChatFallbackTitleKimi: 'Catalog Kimi Title',
+        exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
       }))
     });
 
@@ -124,7 +124,7 @@ describe('extractAIChat', () => {
       document,
       expect.objectContaining({
         deepResearch: { pureMode: true },
-        fallbackTitle: 'Kimi Chat'
+        fallbackTitle: 'Catalog Kimi Title'
       })
     );
 
@@ -135,6 +135,23 @@ describe('extractAIChat', () => {
       throw new Error('Expected buildChatMarkdown to be called for Kimi platform');
     }
     expect(kimiArgs.platform).toBe('kimi');
+  });
+
+  it('fails fast when a required localized fallback title is missing', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    await expect(
+      module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
+        optionsRepository: createOptionsRepository(),
+        getMessages: vi.fn(async () => ({
+          exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
+          exportAiChatFallbackTitleKimi: '',
+          exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
+        }))
+      })
+    ).rejects.toThrow('Missing localized AI chat fallback title for kimi');
+
+    expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
   });
 
   it('canHandle filters requests by AI chat hostname', async () => {

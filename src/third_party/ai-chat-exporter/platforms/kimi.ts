@@ -172,7 +172,11 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
     }
   }
   if (!title) {
-    title = config?.fallbackTitle?.trim() || 'Kimi Chat';
+    const fallbackTitle = config?.fallbackTitle?.trim();
+    if (!fallbackTitle) {
+      throw new Error('Missing fallback title for kimi export');
+    }
+    title = fallbackTitle;
   }
 
   let model = '';

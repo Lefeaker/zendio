@@ -19,13 +19,17 @@ import {
 
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
-async function resolveFragmentCommentHeading(): Promise<string | undefined> {
+async function resolveFragmentCommentHeading(): Promise<string> {
   try {
     const messages = getContentI18nResource()?.messages ?? (await getContentMessages());
-    return messages.exportFragmentCommentHeading;
+    const heading = messages.exportFragmentCommentHeading?.trim();
+    if (!heading) {
+      throw new Error('Missing fragment comment heading');
+    }
+    return heading;
   } catch (error) {
     console.warn('[selection-controller] Failed to resolve fragment comment heading:', error);
-    return undefined;
+    throw new Error('Missing fragment comment heading');
   }
 }
 
@@ -158,7 +162,10 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     }
 
     const fragmentConfig = await loadFragmentConfig(deps.optionsRepository);
-    const commentHeading = await resolveFragmentCommentHeading();
+    const commentHeading =
+      !fragmentConfig.useFootnoteFormat && comment
+        ? await resolveFragmentCommentHeading()
+        : undefined;
     promptLifecycle?.onPromptSubmitted?.();
 
     const clip = await extractSelectionClip({

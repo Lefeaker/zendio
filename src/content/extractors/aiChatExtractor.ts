@@ -177,6 +177,19 @@ function resolveFallbackTitle(
   }
 }
 
+function requireFallbackTitle(platform: string, messages: AIChatFallbackMessages): string | undefined {
+  const fallbackTitle = resolveFallbackTitle(platform, messages)?.trim();
+  if (fallbackTitle) {
+    return fallbackTitle;
+  }
+
+  if (platform === 'deepseek' || platform === 'kimi' || platform === 'tongyi') {
+    throw new Error(`Missing localized AI chat fallback title for ${platform}`);
+  }
+
+  return undefined;
+}
+
 export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): ContentExtractor => {
   const optionsProvider =
     deps?.optionsProvider ??
@@ -195,7 +208,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     const platform = resolvedDeps.detectPlatform(url);
     const storedOptions = await resolvedDeps.optionsProvider.get();
     const options = storedOptions as OptionsState;
-    const fallbackTitle = resolveFallbackTitle(platform, await resolvedDeps.getMessages());
+    const fallbackTitle = requireFallbackTitle(platform, await resolvedDeps.getMessages());
 
     const parseConfig = {
       deepResearch: {
