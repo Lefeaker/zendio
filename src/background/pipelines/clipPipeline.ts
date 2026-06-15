@@ -21,7 +21,8 @@ import {
 import {
   buildLocalVaultPermissionPromptMessage,
   dispatchSupportPrompt,
-  type ClipPipelineDependencies
+  type ClipPipelineDependencies,
+  type SupportPromptOptions
 } from './clipPipelineSupport';
 import {
   isLocalVaultPermissionPromptSuppressed,
@@ -93,12 +94,15 @@ async function requestCurrentPageLocalVaultPermission(
     return { action: 'use-rest' as const };
   }
 
-  dispatchClipProgress(
-    dependencies,
-    tabId,
-    60,
-    `正在请求本地目录授权：${request.folderName ?? request.vaultName ?? '本地仓库'}`
-  );
+  const folderName = request.folderName ?? request.vaultName ?? 'Local Folder';
+  dispatchClipProgress(dependencies, tabId, {
+    value: 60,
+    message: {
+      key: 'supportProgressLocalVaultPermissionRequest',
+      values: { folderName },
+      fallback: `Requesting local folder access: ${folderName}`
+    }
+  });
 
   try {
     const result = await dependencies.requestLocalVaultPermission(
@@ -118,14 +122,12 @@ async function requestCurrentPageLocalVaultPermission(
 function dispatchClipProgress(
   dependencies: ClipPipelineDependencies,
   tabId: number | undefined,
-  value: number,
-  label: string
+  progress: NonNullable<SupportPromptOptions['progress']>
 ): void {
   dispatchSupportPrompt(dependencies, tabId, {
     status: 'progress',
     progress: {
-      value,
-      label,
+      ...progress,
       variant: 'progress'
     }
   });
@@ -145,10 +147,16 @@ export async function handleClipResult(
   }
 
   try {
-    dispatchClipProgress(dependencies, tabId, 40, '正在接收剪藏内容');
+    dispatchClipProgress(dependencies, tabId, {
+      value: 40,
+      message: {
+        key: 'supportProgressReceivingClipContent',
+        fallback: 'Receiving clip content'
+      }
+    });
     const result = await processClipPayload(payload, {
       onProgress: (progress) => {
-        dispatchClipProgress(dependencies, tabId, progress.value, progress.label);
+        dispatchClipProgress(dependencies, tabId, progress);
       },
       requestLocalVaultPermission: (request) => {
         return requestCurrentPageLocalVaultPermission(dependencies, tabId, request);

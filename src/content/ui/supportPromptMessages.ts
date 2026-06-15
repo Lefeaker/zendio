@@ -1,6 +1,9 @@
-import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
+import { formatUserVisibleMessage } from '../../i18n';
+import type { Messages } from '../../i18n/messages';
 import type { AppError } from '../../shared/errors';
 import { ErrorSeverity } from '../../shared/errors';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
+import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
 import type {
   PromptStatus,
   ResolvedStatusMessage,
@@ -9,32 +12,34 @@ import type {
 } from './supportPrompt/types';
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
-  dialogLabel: '支持 Zendio',
-  title: '支持 Zendio',
+  dialogLabel: 'Support Zendio',
+  title: 'Support Zendio',
   koFiTitle: 'Ko-fi',
-  koFiDescription: '请我喝杯咖啡',
-  afdianTitle: '爱发电',
-  afdianDescription: '国内赞助渠道',
+  koFiDescription: 'Buy me a coffee',
+  afdianTitle: 'Afdian',
+  afdianDescription: 'CN sponsor',
   githubTitle: 'GitHub',
-  githubDescription: '提交反馈',
-  feedbackGroupLabel: '快速反馈',
-  likeLabel: '赞一个',
-  dislikeLabel: '倒赞',
-  dismiss: '点击页面其他区域即可关闭',
-  statusSuccess: '发送成功',
-  statusSuccessWithVault: '成功发送到 {vault}',
-  statusWarning: '已保存，但分类结果已回退',
-  statusWarningWithReason: '已保存，但分类失败：{reason}',
-  statusFailure: '发送失败',
-  statusFailureWithReason: '发送失败，{reason}',
-  likeThankYou: '感谢鼓励！',
-  reviewLinkLabel: '撰写评论',
-  reviewAcknowledgedLabel: '我已写过评论',
-  dislikeToastTitle: '反馈问题',
-  dislikeRedditLinkLabel: '在 Reddit 讨论',
-  dislikeQrLinkLabel: '扫码反馈',
-  dislikeQrPlaceholder: '二维码暂不可用'
+  githubDescription: 'File feedback',
+  feedbackGroupLabel: 'Quick feedback',
+  likeLabel: 'Thumbs up',
+  dislikeLabel: 'Thumbs down',
+  dismiss: 'Click outside to close',
+  statusSuccess: 'Send succeeded',
+  statusSuccessWithVault: 'Successfully sent to {vault}',
+  statusWarning: 'Saved, but classification fell back',
+  statusWarningWithReason: 'Saved, but classification failed: {reason}',
+  statusFailure: 'Send failed',
+  statusFailureWithReason: 'Send failed, {reason}',
+  likeThankYou: 'Thanks!',
+  reviewLinkLabel: 'Write review',
+  reviewAcknowledgedLabel: 'I already reviewed',
+  dislikeToastTitle: 'Share feedback',
+  dislikeRedditLinkLabel: 'Discuss on Reddit',
+  dislikeQrLinkLabel: 'Join Xiaohongshu',
+  dislikeQrPlaceholder: 'QR soon'
 };
+
+const DEFAULT_PROGRESS_FALLBACK = 'Sending to Obsidian';
 
 const SEVERITY_STATUS_MAP: Record<ErrorSeverity, PromptStatus> = {
   [ErrorSeverity.INFO]: 'success',
@@ -64,9 +69,20 @@ export function resolveStatusMessage(input: {
   reason?: string;
   messages: SupportPromptMessages;
   error?: AppError;
+  runtimeMessages?: Messages;
+  progressMessage?: UserVisibleMessageDescriptor;
   progressLabel?: string;
 }): ResolvedStatusMessage {
-  const { status, vaultLabel, reason, messages, error, progressLabel } = input;
+  const {
+    status,
+    vaultLabel,
+    reason,
+    messages,
+    error,
+    runtimeMessages,
+    progressMessage,
+    progressLabel
+  } = input;
   let text: string;
 
   const fill = (template: string, token: string, value: string): string => {
@@ -77,10 +93,12 @@ export function resolveStatusMessage(input: {
     return `${template}${template.endsWith('：') || template.endsWith(':') ? '' : '：'}${value}`;
   };
 
-  if (progressLabel?.trim()) {
-    text = progressLabel.trim();
+  const resolvedProgressText = resolveProgressText(progressMessage, runtimeMessages, progressLabel);
+
+  if (resolvedProgressText) {
+    text = resolvedProgressText;
   } else if (status === 'progress') {
-    text = '正在发送到 Obsidian';
+    text = resolveProgressFallback(runtimeMessages);
   } else if (status === 'failure') {
     text = reason
       ? fill(messages.statusFailureWithReason, 'reason', reason)
@@ -102,7 +120,7 @@ export function resolveStatusMessage(input: {
 
   const result: ResolvedStatusMessage = { text };
   if (error && status !== 'success') {
-    result.codeSuffix = `（代码: ${error.code}）`;
+    result.codeSuffix = resolveErrorCodeSuffix(error.code, runtimeMessages);
   }
   if (contextMessage && contextMessage.length > 0) {
     result.extraLine = contextMessage;
@@ -194,4 +212,58 @@ function clampProgressValue(value: number | undefined, fallback: number): number
     return fallback;
   }
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function resolveProgressText(
+  descriptor: UserVisibleMessageDescriptor | undefined,
+  runtimeMessages: Messages | undefined,
+  legacyLabel: string | undefined
+): string | undefined {
+  if (descriptor) {
+    const fallback = descriptor.fallback ?? legacyLabel ?? '';
+    const resolved = runtimeMessages
+      ? formatUserVisibleMessage(descriptor, runtimeMessages, fallback)
+      : fallback;
+    if (resolved.trim().length > 0) {
+      return resolved.trim();
+    }
+  }
+
+  if (legacyLabel?.trim()) {
+    return legacyLabel.trim();
+  }
+
+  return undefined;
+}
+
+function resolveProgressFallback(runtimeMessages: Messages | undefined): string {
+  if (!runtimeMessages) {
+    return DEFAULT_PROGRESS_FALLBACK;
+  }
+
+  return formatUserVisibleMessage(
+    {
+      key: 'supportProgressSendingToObsidian',
+      fallback: DEFAULT_PROGRESS_FALLBACK
+    },
+    runtimeMessages,
+    DEFAULT_PROGRESS_FALLBACK
+  );
+}
+
+function resolveErrorCodeSuffix(code: string, runtimeMessages: Messages | undefined): string {
+  const fallback = ` (code: ${code})`;
+  if (!runtimeMessages) {
+    return fallback;
+  }
+
+  return formatUserVisibleMessage(
+    {
+      key: 'supportProgressErrorCodeSuffix',
+      values: { code },
+      fallback
+    },
+    runtimeMessages,
+    fallback
+  );
 }
