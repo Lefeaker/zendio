@@ -1211,14 +1211,6 @@ describe('VideoSession', () => {
     await repository.save(envelope);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
-    vi.spyOn(
-      (
-        session as unknown as {
-          screenshotPreparation: { requestPendingScreenshots(): void };
-        }
-      ).screenshotPreparation,
-      'requestPendingScreenshots'
-    );
     const canvas = document.createElement('canvas');
     const drawImage = vi.fn();
     const toBlob = vi.fn();

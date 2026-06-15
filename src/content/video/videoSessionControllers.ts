@@ -17,7 +17,6 @@ import { VideoSessionState } from './sessionState';
 import { VideoSessionPlatformController } from './sessionPlatformController';
 import { VideoSessionDomController } from './sessionDom';
 import { VideoSessionDraftController } from './videoSessionDraftController';
-import type { VideoHintState } from './videoHintManager';
 import type { VideoCaptureScreenshot } from './types';
 import type {
   VideoScreenshotCacheRepository,
@@ -66,7 +65,6 @@ export function createVideoSessionControllers(args: {
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   getMessages: () => VideoSessionMessages;
-  applyHint: (state: VideoHintState) => void;
   readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
   onDraftRestored?: () => void;
   onDraftScreenshotHydrationStart?: () => void;

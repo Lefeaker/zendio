@@ -68,7 +68,9 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     if (!view) {
       return;
     }
-    const flush = () => void this.flushNow('restorable');
+    const flush = () => {
+      void this.flushNow('restorable');
+    };
     const stop = bindVideoSessionDraftPersistence(view, flush);
     this.stopDraftPersistence = () => {
       stop();
@@ -118,11 +120,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    applyVideoSessionCommentDrafts(
-      this.options.state,
-      {},
-      { hydrateDom: true, dom: this.options.dom }
-    );
   }
 
   async scheduleSave(): Promise<void> {
@@ -209,7 +206,9 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
         status,
         (options) => this.buildDraftEnvelope(options)
       );
-      if (restoredEnvelope) terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
+      if (restoredEnvelope) {
+        terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
+      }
     }
 
     return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
@@ -221,13 +220,15 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
           captures: this.options.state.captures,
           screenshotCache: this.options.screenshotCache
         }),
-      onSaveError: (error) =>
-        console.warn('[VideoSession] Failed to finalize terminal session draft:', error),
-      onCleanupError: (error) =>
+      onSaveError: (error) => {
+        console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
+      },
+      onCleanupError: (error) => {
         console.warn(
           '[VideoSession] Failed to remove terminal session draft after finalization:',
           error
-        )
+        );
+      }
     });
   }
 

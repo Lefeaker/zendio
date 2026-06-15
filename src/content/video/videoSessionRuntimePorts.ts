@@ -28,7 +28,6 @@ export interface VideoSessionDraftControllerOptions {
         Partial<Pick<VideoScreenshotCacheRepository, 'save'>>)
     | undefined;
   dom: VideoSessionDraftDomPort;
-  applyHint?: (state: VideoHintState) => void;
   onScreenshotHydrationStart?: (() => void) | undefined;
   onScreenshotHydrationChange?: (() => void) | undefined;
   onScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;

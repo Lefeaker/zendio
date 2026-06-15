@@ -161,7 +161,6 @@ export class VideoSession {
           state: this.state,
           destinationState: this.destinationState,
           getMessages: () => this.messages,
-          applyHint: (state) => this.applyHint(state),
           readCleanupState: () => ({
             isCleaningUp: this.isCleaningUp,
             shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
