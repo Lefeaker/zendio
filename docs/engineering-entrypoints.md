@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-14
+最后更新：2026-06-15
 
 ## 推荐运行环境
 
@@ -15,9 +15,11 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `lint:type-any:ratchet`；当前 checked-in 阈值为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
+  - 显式包含 `lint:warnings-guard`；当前 checked-in warning baseline 为 `160`
   - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
@@ -36,6 +38,7 @@
   - 显式包含 `typecheck:strict`
   - 显式包含 `i18n:catalog:check`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
+  - 当前不执行 `lint:type-any:ratchet` 或 `lint:warnings-guard`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
@@ -62,7 +65,7 @@
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
 - 2026-06-13 test runtime guard 真值：`package.json` 中 `test` / `test:*` / `visual:*` npm scripts 均显式前置 `verify:runtime`；本地 PATH 指向 Node 23 等不支持版本时，测试入口会先失败在 runtime guard，不会启动 Vitest / Playwright。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
-- 2026-06-15 P02 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，P02 已将 dev toolchain targeted update 到 `vitest 3.2.6`、`@vitest/coverage-v8 3.2.6`、`web-ext 10.4.0` 与 root `esbuild 0.28.1`；`npm audit --omit=dev` 当前仍为 `0` vulnerabilities，production runtime release gate 保持 green。`npm audit --audit-level=low` 仍退出 `1`，残留 `6` 个 `high` advisory，仅位于 dev/build/test-only 链：`@vitest/coverage-v8 -> vitest -> @vitest/mocker / vite-node -> vite 7.3.5 -> vite/node_modules/esbuild 0.27.7`。`npm audit` 的 fixAvailable 指向 `vitest@4.1.8` major，因此 `0.2.0` 当前将该问题作为 release exception 处理，不得擅自跳到 Vitest 4 / Vite major；后续 owner milestone 应单独执行 Vitest 4 / Vite compatibility migration。P02 已验证保持 green 的命令包括 `verify:runtime`、`typecheck:app`、`typecheck:tests`、`typecheck:strict`、`lint -- --quiet`、`test:unit`、`test:e2e`、`test:coverage`、`build:dev`、`audit:build:report`、`audit:performance:report` 与 `git diff --check`。P01 type-ratchet 修复与 P02 toolchain update 合入本轮 integration 后，`build`、`build:firefox` 与 `package:firefox` 已重新通过；`package:firefox` 会生成 ignored local XPI 验证产物，不作为 source-of-truth 文件提交。
+- 2026-06-15 P02 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，P02 已将 dev toolchain targeted update 到 `vitest 3.2.6`、`@vitest/coverage-v8 3.2.6`、`web-ext 10.4.0` 与 root `esbuild 0.28.1`；`npm audit --omit=dev` 当前仍为 `0` vulnerabilities，production runtime release gate 保持 green。`npm audit --audit-level=low` 仍退出 `1`，报告 `6` 个 `high` / `0` 个 `critical` / total `6`，涉及 `@vitest/coverage-v8`、`@vitest/mocker`、`esbuild`、`vite`、`vite-node` 与 `vitest`，且残留链仍位于 dev/build/test-only 路径：`@vitest/coverage-v8 -> vitest -> @vitest/mocker / vite-node -> vite 7.3.5 -> vite/node_modules/esbuild 0.27.7`。`npm audit` 的 fixAvailable 指向 semver-major `vitest@4.1.9`，因此 `0.2.0` 当前将该问题作为 release exception 处理，不得擅自跳到 Vitest 4 / Vite major；后续 owner milestone 应单独执行 Vitest 4 / Vite compatibility migration。P01 type-ratchet 修复与 P02 toolchain update 合入本轮 integration 后，`build`、`build:firefox` 与 `package:firefox` 已重新通过；`package:firefox` 会生成 ignored local XPI 验证产物，不作为 source-of-truth 文件提交。
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；全量 `npm audit --audit-level=low` 不是 `quality` hard gate，当前 dev tooling advisory 见上一条。
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
@@ -222,16 +225,16 @@ low-concurrency screenshot preparation.
 
 ## 当前 Lint / Type 债务真值
 
-2026-05-29 post-remediation governance truth:
+2026-06-15 final release-debt current truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：2026-06-14 P09 final verification isolated worktree fresh run 通过；checked-in baseline 仍为 `147`，当前 warning 总数为 `131`，gate 输出为 `Warning 总量下降 16 条（现在 131 条）`。当前规则族为 `@typescript-eslint/require-await: 100`、`@typescript-eslint/no-unsafe-assignment: 19`、`@typescript-eslint/no-unsafe-return: 6`、`@typescript-eslint/no-unsafe-argument: 2`、`@typescript-eslint/no-unsafe-member-access: 3`、`@typescript-eslint/no-unsafe-call: 1`。
+- `npm run lint:warnings-guard`：fresh run 通过；checked-in baseline 为 `160`，当前 warning 总数为 `158`，gate 输出为 `Warning 总量下降 2 条（现在 158 条）`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 fresh warning 主要规则族：`require-await`（`100`）与 unsafe type warnings（`no-unsafe-assignment: 19`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
+- 当前 warning 仍主要集中在 `@typescript-eslint/require-await` 与 `@typescript-eslint/no-unsafe-*` 规则族；精确基线快照以 checked-in `tools/baselines/lint-warnings.json` 为准，普通里程碑不得通过 `lint:warnings-report` 随意重写它。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：2026-06-14 P09 final verification isolated worktree fresh run 扫描 `1193` files；fresh overall 为 `any: 0`、`unknown: 1119`、assertions `1861`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/606/630/9/0`；tests 为 `0/513/1231/38/3`。
+- `npm run lint:type-any`：fresh run 扫描 `1223` files；fresh overall 为 `any: 0`、`unknown: 1127`、assertions `1925`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/621/677/9/0`；tests 为 `0/506/1248/38/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：checked-in 上限仍为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；2026-06-14 P09 final verification isolated worktree fresh run 通过，fresh 实测为 overall `0/1119/1861/47/3`、src `0/606/630/9/0`、tests `0/513/1231/38/3`。本次未放宽 `any`、`ts-expect-error`、warning baseline 或 type ratchet 上限。
+- `npm run lint:type-any:ratchet`：checked-in 上限当前为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`，并已接入 `quality` 作为 type-debt hard gate；fresh run 通过，实测为 overall `0/1127/1925/47/3`、src `0/621/677/9/0`、tests `0/506/1248/38/3`。`verify:preflight` 当前不执行该 gate；本次没有放宽 `any`、`ts-expect-error`、warning baseline 或 checked-in type ratchet 上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
@@ -300,17 +303,15 @@ low-concurrency screenshot preparation.
 - performance coverage: sourceFiles=`733`、hotspotsOver250=`94`、registeredLineBudgets=`113`
 - `videoScreenshotPreparationQueue-*` 是截图准备实现的显式 lazy split；chunk count gate 只为该 split 与小型 shared screenshot-intent bridge 同步，entry/shared/locale/YAML size gates 未放宽
 
-2026-06-13 final combined integration build/type truth:
+2026-06-15 final release-debt build/type/regression truth:
 
-- `npx vitest run tests/unit/content/video/VideoSession.test.ts -t "prepares requested screenshots from restored" --reporter=verbose` 与整文件 `tests/unit/content/video/VideoSession.test.ts` 已在当前 P06 分支通过；P06 只在测试内增加等待 screenshot payload 落入 restored state 的同步点，并显式接入 same-page owner-context harness，不修改 production `src/**`
-- `build/dist/content/runtime.js`: `55.9 KB`（raw `57,209` bytes；raw stop gate `57,386`）
-- `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,459` bytes；raw stop gate `16,459`）
-- dev chunks: `118`
-- `chunks/messages-*.js`: `202.4 KB`
-- `chunks/videoScreenshotPreparationQueue-*.js`: `21.1 KB`
-- `lint:type-any` 扫描 `1193` files；fresh overall `0/1138/1934/45/3`、src `0/623/678/9/0`、tests `0/515/1256/36/3`
-- `lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；本次只同步 GA production rewrite integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未放宽
-- `lint:warnings-guard` checked-in baseline 与 fresh warning count 均为 `160`（`src: 27`、`tests: 133`）；本次同步只反映 P01-P09 集成后的 warning truth，并先清掉可机械修复的 production lint warning
+- `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop` 已在 P06 final ledger 中通过 `19` tests；isolated reload/cache-hit browser proof 也已通过。P06 最终只有一处 production 修复：restored screenshot hydration 期间阻止过早 fallback screenshot recapture。
+- `node scripts/run-playwright.mjs test tests/e2e/readerPanelFlow.test.ts --project=chromium-desktop` 已在 P07 final ledger 中通过；reader unit / ratchet / typecheck gates 也已通过。
+- production `audit:build:report`：`build/dist/content/runtime.js = 48.2 KB`（raw `49,317` bytes）、`build/dist/onboarding/index.js = 9.3 KB`（raw `9,559` bytes）、`chunks = 103`
+- production `audit:release-surface:report`：`Files = 170`，forbidden harness members `none`，forbidden dev/test pseudo-locale members `none`
+- dev `audit:build:report`：`build/dist/content/runtime.js = 55.9 KB`（raw `57,209` bytes；warning target `57,209`；hard stop `57,386`）、`build/dist/onboarding/index.js = 16.1 KB`（raw `16,459` bytes；warning target `16,459`；hard stop `16,715`）、`chunks = 118`（warning target `118`；hard stop `120`）
+- fresh dev chunk truth：`chunks/messages-*.js = 202.4 KB`、`chunks/videoSessionControllers-*.js = 111.7 KB`、`chunks/videoLazyRuntime-*.js = 55.6 KB`、`chunks/videoScreenshotPreparationQueue-*.js = 29.3 KB`
+- fresh current type/warning truth：`lint:type-any` 扫描 `1223` files，overall `0/1127/1925/47/3`、src `0/621/677/9/0`、tests `0/506/1248/38/3`；`lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；`lint:warnings-guard` checked-in baseline `160`，fresh warning count `158`
 
 ## 核心命令
 
