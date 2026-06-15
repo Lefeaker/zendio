@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const KIMI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message"], [class*="Message"], [class*="chat-content-item"]';
@@ -158,7 +158,7 @@ function extractHeaderLabel(header: Element): string | undefined {
   return undefined;
 }
 
-function extractKimiChatData(doc: Document): ParsedResult {
+function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const messageContainers = Array.from(doc.querySelectorAll(KIMI_MESSAGE_CONTAINER_SELECTOR));
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -172,7 +172,11 @@ function extractKimiChatData(doc: Document): ParsedResult {
     }
   }
   if (!title) {
-    title = 'Kimi 对话';
+    const fallbackTitle = config?.fallbackTitle?.trim();
+    if (!fallbackTitle) {
+      throw new Error('Missing fallback title for kimi export');
+    }
+    title = fallbackTitle;
   }
 
   let model = '';
@@ -247,5 +251,5 @@ function extractKimiChatData(doc: Document): ParsedResult {
 
 export const kimiParser: ChatPlatformParser = {
   id: 'kimi',
-  parse: (doc) => extractKimiChatData(doc)
+  parse: (doc, config) => extractKimiChatData(doc, config)
 };

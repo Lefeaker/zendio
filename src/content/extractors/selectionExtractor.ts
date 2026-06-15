@@ -19,6 +19,7 @@ export interface SelectionClipParams {
   selectedHtml: string;
   selectedText: string;
   userComment?: string;
+  commentHeading?: string;
   config: FragmentClipperOptions;
   selectionRange?: Selection | Range | null;
 }
@@ -48,6 +49,7 @@ export function extractSelectionClip(params: SelectionClipParams): Promise<Selec
     selectedHtml,
     selectedText,
     userComment,
+    commentHeading,
     config = DEFAULT_FRAGMENT_CONFIG,
     selectionRange
   } = params;
@@ -81,6 +83,7 @@ export function extractSelectionClip(params: SelectionClipParams): Promise<Selec
     fragmentUrl,
     clippedAt,
     selectedHtml,
+    ...(commentHeading !== undefined ? { commentHeading } : {}),
     config: clipperConfig,
     turndown,
     context,

@@ -48,6 +48,7 @@ describe('buildFragmentMarkdown', () => {
       clippedAt: '2024-01-02T00:00:00Z',
       selectedHtml: '<p>Snippet</p>',
       userComment: 'Commentary',
+      commentHeading: 'Catalog Comment Heading',
       config: { ...baseConfig, useFootnoteFormat: false },
       turndown,
       context: null,
@@ -56,7 +57,46 @@ describe('buildFragmentMarkdown', () => {
     });
 
     expect(markdown).toContain('Snippet');
-    expect(markdown).toContain('我的评论');
+    expect(markdown).toContain('Catalog Comment Heading');
+    expect(markdown).not.toContain('我的评论');
+  });
+
+  it('throws when plain markdown comment heading is missing', () => {
+    const turndown = createClipperTurndown('https://example.com');
+
+    expect(() =>
+      buildFragmentMarkdown({
+        pageTitle: 'Plain Page',
+        fragmentUrl: 'https://example.com/#plain',
+        clippedAt: '2024-01-02T00:00:00Z',
+        selectedHtml: '<p>Snippet</p>',
+        userComment: 'Commentary',
+        config: { ...baseConfig, useFootnoteFormat: false },
+        turndown,
+        context: null,
+        ancestorMarkdown: '',
+        ancestorDepth: 0
+      })
+    ).toThrow('Missing fragment comment heading');
+  });
+
+  it('uses the provided localized comment heading when supplied', () => {
+    const turndown = createClipperTurndown('https://example.com');
+    const markdown = buildFragmentMarkdown({
+      pageTitle: 'Localized Page',
+      fragmentUrl: 'https://example.com/#localized',
+      clippedAt: '2024-01-03T00:00:00Z',
+      selectedHtml: '<p>Snippet</p>',
+      userComment: 'Commentary',
+      commentHeading: '我的评论',
+      config: { ...baseConfig, useFootnoteFormat: false },
+      turndown,
+      context: null,
+      ancestorMarkdown: '',
+      ancestorDepth: 0
+    });
+
+    expect(markdown).toContain('## 💭 我的评论');
   });
 
   it('respects clipper YAML overrides for arrays and value paths', () => {
