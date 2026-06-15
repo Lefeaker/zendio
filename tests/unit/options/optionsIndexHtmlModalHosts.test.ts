@@ -45,9 +45,12 @@ describe('options index modal hosts', () => {
 
     expect(source).toContain('../options/stitch/styles/stitch.css');
     expect(source).toContain('../options/stitch/styles/variants/stitch-secondary.css');
-    expect(source).toContain('<html lang="zh-CN" data-route="onboarding"');
+    expect(source).toContain('<html lang="en" data-route="onboarding"');
+    expect(source).toContain('<title>Zendio</title>');
     expect(source).toContain('data-preview-skin="stitch-secondary"');
     expect(source).not.toContain('../styles/global.tailwind.css');
     expect(source).not.toContain('../styles/design-tokens.css');
+    expect(source).not.toContain('欢迎使用 Zendio');
+    expect(source).not.toContain('Zendio - 欢迎使用');
   });
 });
