@@ -86,7 +86,7 @@ describe('mountProductionStitchShell storage', () => {
     );
     expect(restLink?.textContent).toBe('Local REST API with MCP');
 
-    const readingExport = findCardByTitle('Reading Export');
+    const readingExport = findCardByTitle('Reading Mode');
     expect(readingExport.textContent).toContain(
       'Saved highlights work best with the Obsidian plugin'
     );
@@ -540,7 +540,7 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    const card = findCardByTitle('Domain Mappings');
+    const card = findCardByTitle('Domain Mapping Configuration');
     expect(card.querySelector('table')).toBeTruthy();
     expect(card.querySelector('.domain-mapping-table-scroll')).toBeTruthy();
     expect(card.querySelector('thead')?.textContent).toContain('Domain');
@@ -566,7 +566,7 @@ describe('mountProductionStitchShell storage', () => {
     });
 
     findButton('Remove').click();
-    const card = findCardByTitle('Domain Mappings');
+    const card = findCardByTitle('Domain Mapping Configuration');
 
     const inputs = Array.from(card.querySelectorAll<HTMLInputElement>('tbody input'));
     expect(inputs).toHaveLength(2);

@@ -12,8 +12,9 @@ export type SchemaTranslator = (
 ) => string;
 
 export function createSchemaTranslator(messages: Messages | null): SchemaTranslator {
+  const resolvedMessages = messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES;
   return (key, fallback, values = {}) => {
-    const raw = messages?.[key];
+    const raw = resolvedMessages[key];
     const template = typeof raw === 'string' && raw.length > 0 ? raw : fallback;
     return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
   };

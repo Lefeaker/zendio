@@ -811,7 +811,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Page content and clipped text'
+      'Clipped content or page text'
     );
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
@@ -821,7 +821,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     dataUsage.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Data Usage');
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Anonymous feature usage'
+      'Anonymous Usage Counts'
     );
   });
 
