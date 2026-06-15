@@ -94,11 +94,14 @@ export function resolveStatusMessage(input: {
   };
 
   const resolvedProgressText = resolveProgressText(progressMessage, runtimeMessages, progressLabel);
+  const resolvedErrorText = resolveDescriptorErrorText(error, runtimeMessages, reason);
 
   if (resolvedProgressText) {
     text = resolvedProgressText;
   } else if (status === 'progress') {
     text = resolveProgressFallback(runtimeMessages);
+  } else if (resolvedErrorText) {
+    text = resolvedErrorText;
   } else if (status === 'failure') {
     text = reason
       ? fill(messages.statusFailureWithReason, 'reason', reason)
@@ -231,6 +234,28 @@ function resolveProgressText(
 
   if (legacyLabel?.trim()) {
     return legacyLabel.trim();
+  }
+
+  return undefined;
+}
+
+function resolveDescriptorErrorText(
+  error: AppError | undefined,
+  runtimeMessages: Messages | undefined,
+  fallbackReason: string | undefined
+): string | undefined {
+  const descriptor = error?.userMessageDescriptor;
+  if (!descriptor) {
+    return undefined;
+  }
+
+  const fallback = error.userMessage ?? descriptor.fallback ?? fallbackReason ?? '';
+  const resolved = runtimeMessages
+    ? formatUserVisibleMessage(descriptor, runtimeMessages, fallback)
+    : fallback;
+
+  if (resolved.trim().length > 0) {
+    return resolved.trim();
   }
 
   return undefined;

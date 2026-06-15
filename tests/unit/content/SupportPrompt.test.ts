@@ -70,6 +70,9 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportProgressWritingNote: 'Writing note',
       supportProgressSendingToObsidian: 'Sending to Obsidian',
       supportProgressErrorCodeSuffix: ' (code: {code})',
+      localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
+      localVaultWriteReauthorizationRequired:
+        'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.',
       supportPromptLikeThankYou: 'Thanks!',
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
@@ -265,6 +268,37 @@ describe('SupportPrompt', () => {
       '(code: FAIL_X)'
     );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
+  });
+
+  it('prefers descriptor-based failure copy over legacy error strings', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({
+      status: 'failure',
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: 'Local vault write failed: Articles/test.md',
+        userMessage: 'Legacy local write failure',
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' },
+          fallback: 'Legacy local write failure'
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now(),
+        context: { contextMessage: 'disk full' }
+      }
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
+    expect(statusText).toContain('Failed to write to the local folder: Main');
+    expect(statusText).toContain('(code: LOCAL_VAULT_WRITE_FAILED)');
+    expect(statusText).not.toContain('Legacy local write failure');
+    expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
   });
 
   it('shows like toast and review actions', async () => {
