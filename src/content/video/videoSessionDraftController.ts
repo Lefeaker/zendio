@@ -302,7 +302,9 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       isCurrent: () =>
         generation === this.screenshotHydrationGeneration &&
         this.options.state.captures === captures,
+      onScreenshotHydrationStart: this.options.onScreenshotHydrationStart,
       onScreenshotHydrationChange: this.options.onScreenshotHydrationChange,
+      onScreenshotHydrationSettled: this.options.onScreenshotHydrationSettled,
       scheduleSave: () => this.scheduleSave()
     });
   }

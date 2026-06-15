@@ -24,6 +24,7 @@ export class VideoScreenshotPreparationCoordinator {
   private queuePromise: Promise<VideoScreenshotPreparationQueue | null> | null = null;
   private generation = 0;
   private disposed = false;
+  private pendingRequestSuspendCount = 0;
   private readonly cache = new Map<string, VideoCaptureScreenshot>();
 
   constructor(private readonly args: VideoScreenshotPreparationCoordinatorArgs) {}
@@ -33,7 +34,18 @@ export class VideoScreenshotPreparationCoordinator {
       this.queue.handleVideoElementChange(element);
       return;
     }
+    if (this.hasSuspendedPendingRequests()) {
+      return;
+    }
     this.requestPendingScreenshots();
+  }
+
+  suspendPendingRequests(): void {
+    this.pendingRequestSuspendCount += 1;
+  }
+
+  resumePendingRequests(): void {
+    this.pendingRequestSuspendCount = Math.max(0, this.pendingRequestSuspendCount - 1);
   }
 
   cacheRequestedScreenshot(id: string): void {
@@ -63,6 +75,9 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   requestPendingScreenshots(): void {
+    if (this.hasSuspendedPendingRequests()) {
+      return;
+    }
     if (!this.hasPendingCaptures()) {
       return;
     }
@@ -134,6 +149,10 @@ export class VideoScreenshotPreparationCoordinator {
 
   private hasPendingCaptures(): boolean {
     return this.args.getCaptures().some((capture) => this.isPendingCapture(capture));
+  }
+
+  private hasSuspendedPendingRequests(): boolean {
+    return this.pendingRequestSuspendCount > 0;
   }
 
   private findPendingCapture(id: string): VideoTimestampCapture | null {
