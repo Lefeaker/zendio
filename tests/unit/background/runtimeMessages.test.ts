@@ -181,36 +181,78 @@ describe('runtime message listener', () => {
     handleVaultConnectionTestMock.mockResolvedValueOnce({
       success: false,
       message: '[Research] 连接失败',
+      messageDescriptor: {
+        key: 'connection.vault.failed',
+        values: { vaultName: 'Research' },
+        fallback: '[Research] Connection failed'
+      },
       error: 'network error: request failed',
+      errorDescriptor: {
+        key: 'connection.vault.failedReason',
+        values: { reason: 'network error: request failed' },
+        fallback: 'network error: request failed'
+      },
       channels: [
         {
           channel: 'localFolder',
           label: '本地目录',
+          labelDescriptor: {
+            key: 'connection.channel.localFolder',
+            fallback: 'Local folder'
+          },
           configured: true,
           success: true,
-          message: '本地目录可用：Research'
+          message: '本地目录可用：Research',
+          messageDescriptor: {
+            key: 'connection.channel.localFolder.success',
+            values: { vaultName: 'Research' },
+            fallback: 'Local folder ready: Research'
+          }
         },
         {
           channel: 'https',
           label: 'HTTPS',
+          labelDescriptor: {
+            key: 'connection.channel.https',
+            fallback: 'HTTPS'
+          },
           configured: true,
           success: false,
           message: 'network error: request failed',
+          messageDescriptor: {
+            key: 'connection.channel.https.failed',
+            values: { reason: 'network error: request failed' },
+            fallback: 'network error: request failed'
+          },
           error: 'network error: request failed',
+          errorDescriptor: {
+            key: 'connection.channel.https.failed',
+            values: { reason: 'network error: request failed' },
+            fallback: 'network error: request failed'
+          },
           url: 'https://vault.example',
           certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
         },
         {
           channel: 'http',
           label: 'HTTP',
+          labelDescriptor: {
+            key: 'connection.channel.http',
+            fallback: 'HTTP'
+          },
           configured: true,
           success: true,
           message: 'REST API HTTP 连接成功，状态码: 200',
+          messageDescriptor: {
+            key: 'connection.channel.http.success',
+            values: { status: 200 },
+            fallback: 'REST API HTTP connected, status: 200'
+          },
           status: 200,
           url: 'http://vault.example'
         }
       ]
-    });
+    } as ConnectionTestResult);
 
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
@@ -228,15 +270,64 @@ describe('runtime message listener', () => {
     expect(response).toEqual({
       success: false,
       message: '[Research] 连接失败',
+      messageDescriptor: {
+        key: 'connection.vault.failed',
+        values: { vaultName: 'Research' },
+        fallback: '[Research] Connection failed'
+      },
       error: 'network error: request failed',
+      errorDescriptor: {
+        key: 'connection.vault.failedReason',
+        values: { reason: 'network error: request failed' },
+        fallback: 'network error: request failed'
+      },
       channels: [
-        expect.objectContaining({ channel: 'localFolder', success: true }),
+        expect.objectContaining({
+          channel: 'localFolder',
+          success: true,
+          labelDescriptor: {
+            key: 'connection.channel.localFolder',
+            fallback: 'Local folder'
+          },
+          messageDescriptor: {
+            key: 'connection.channel.localFolder.success',
+            values: { vaultName: 'Research' },
+            fallback: 'Local folder ready: Research'
+          }
+        }),
         expect.objectContaining({
           channel: 'https',
           success: false,
-          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt'
+          certificateUrl: 'https://vault.example/obsidian-local-rest-api.crt',
+          labelDescriptor: {
+            key: 'connection.channel.https',
+            fallback: 'HTTPS'
+          },
+          messageDescriptor: {
+            key: 'connection.channel.https.failed',
+            values: { reason: 'network error: request failed' },
+            fallback: 'network error: request failed'
+          },
+          errorDescriptor: {
+            key: 'connection.channel.https.failed',
+            values: { reason: 'network error: request failed' },
+            fallback: 'network error: request failed'
+          }
         }),
-        expect.objectContaining({ channel: 'http', success: true, status: 200 })
+        expect.objectContaining({
+          channel: 'http',
+          success: true,
+          status: 200,
+          labelDescriptor: {
+            key: 'connection.channel.http',
+            fallback: 'HTTP'
+          },
+          messageDescriptor: {
+            key: 'connection.channel.http.success',
+            values: { status: 200 },
+            fallback: 'REST API HTTP connected, status: 200'
+          }
+        })
       ]
     });
   });

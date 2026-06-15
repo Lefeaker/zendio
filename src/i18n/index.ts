@@ -23,6 +23,7 @@ export type { Messages, Language } from './locales';
 export { DEFAULT_LANGUAGE, DEFAULT_RUNTIME_MESSAGES };
 export { resolveLanguage } from './config';
 export { formatMessage } from './messageFormatter';
+export { formatUserVisibleMessage } from './userVisibleMessageFormatter';
 
 let languageStorage: StorageAreaService | null = null;
 let runtimeLanguageProvider: RuntimeLanguageProvider | null = null;
