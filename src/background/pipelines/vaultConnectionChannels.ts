@@ -1,4 +1,5 @@
 import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import { isLocalAddress } from '../utils/restCandidates';
 import type { ConnectionTestConfig } from './vaultConnectionTypes';
 import {
@@ -17,12 +18,23 @@ export async function executeVaultStorageTargetTest(
 ): Promise<ConnectionTestResult> {
   const channels: ConnectionChannelResult[] = [
     await executeLocalFolderChannelTest(config),
-    await executeRestChannelTest('https', 'HTTPS', config.httpsUrl, config),
-    await executeRestChannelTest('http', 'HTTP', config.httpUrl, config)
+    await executeRestChannelTest('https', config.httpsUrl, config),
+    await executeRestChannelTest('http', config.httpUrl, config)
   ];
   const configuredChannels = channels.filter((channel) => channel.configured);
-  const success =
-    configuredChannels.length > 0 && configuredChannels.every((channel) => channel.success);
+  if (configuredChannels.length === 0) {
+    const errorDescriptor = createDescriptor('connectionNoUsableAddress');
+    return {
+      success: false,
+      message: '',
+      messageDescriptor: createDescriptor('connectionResultHeaderFailure'),
+      error: 'no_usable_address',
+      errorDescriptor,
+      channels
+    };
+  }
+
+  const success = configuredChannels.every((channel) => channel.success);
   const errors = configuredChannels
     .filter((channel) => !channel.success)
     .map((channel) => channel.error || channel.message)
@@ -34,44 +46,52 @@ export async function executeVaultStorageTargetTest(
   const firstRestResponse = channels.find(
     (channel) => channel.channel !== 'localFolder' && channel.response !== undefined
   );
+  const errorDescriptor = !success ? selectPrimaryErrorDescriptor(channels) : undefined;
 
   return {
     success,
     ...(firstRestSuccess?.status !== undefined ? { status: firstRestSuccess.status } : {}),
-    message: formatVaultChannelSummary(config, success, channels),
+    message: '',
+    messageDescriptor: createDescriptor(
+      success ? 'connectionResultHeaderSuccess' : 'connectionResultHeaderFailure'
+    ),
     ...(firstRestResponse?.response !== undefined ? { response: firstRestResponse.response } : {}),
     ...(errors.length ? { error: errors.join('\n') } : {}),
+    ...(errorDescriptor ? { errorDescriptor } : {}),
     channels
   };
 }
 
 async function executeRestChannelTest(
   channel: 'https' | 'http',
-  label: 'HTTPS' | 'HTTP',
   url: string | undefined,
   config: ConnectionTestConfig
 ): Promise<ConnectionChannelResult> {
+  const protocolLabel = channel.toUpperCase();
+  const labelDescriptor = createDescriptor('connectionChannelRestLabel');
   if (!url) {
     return {
       channel,
-      label,
+      label: 'rest',
+      labelDescriptor: createDescriptor('connectionChannelRestLabel'),
       configured: false,
       success: false,
-      message: `未配置 ${label} URL`
+      message: '',
+      messageDescriptor: createDescriptor('connectionRestUrlMissing', { label: protocolLabel })
     };
   }
 
   const vaultName = (config.vault ?? '').trim();
   if (!vaultName) {
-    return buildRestChannelFailure(channel, label, url, 'config error', '未配置 Vault 名称');
+    return buildRestChannelFailure(channel, url, 'config error', 'Vault Name is missing');
   }
   if (!config.apiKey || config.apiKey.trim() === '') {
-    return buildRestChannelFailure(channel, label, url, 'config error', '未配置 API Key');
+    return buildRestChannelFailure(channel, url, 'config error', 'API Key is missing');
   }
 
   const testUrl = normalizeRootEndpoint(url);
   try {
-    console.log(`[connectionTest] Testing URL (${label}):`, testUrl);
+    console.log(`[connectionTest] Testing URL (${protocolLabel}):`, testUrl);
     const { response, text } = await testConnection(testUrl, config.apiKey);
     if (!response.ok) {
       const detail = sanitizeSnippet(text);
@@ -79,7 +99,6 @@ async function executeRestChannelTest(
       const message = detail ? `${statusLine} - ${detail}` : statusLine;
       return buildRestChannelFailure(
         channel,
-        label,
         url,
         'HTTP error',
         normalizeFailureDetail('HTTP error', message),
@@ -88,12 +107,14 @@ async function executeRestChannelTest(
     }
     return {
       channel,
-      label,
+      label: 'rest',
+      labelDescriptor,
       configured: true,
       success: true,
       url,
       status: response.status,
-      message: `REST API ${label} 连接成功，状态码: ${response.status}`,
+      message: '',
+      messageDescriptor: createDescriptor('connectionRestSuccess', { status: response.status }),
       response: text.slice(0, 200)
     };
   } catch (error) {
@@ -101,7 +122,6 @@ async function executeRestChannelTest(
     const category = deriveExternalCategory(error);
     return buildRestChannelFailure(
       channel,
-      label,
       url,
       category,
       normalizeFailureDetail(category, detail)
@@ -111,22 +131,25 @@ async function executeRestChannelTest(
 
 function buildRestChannelFailure(
   channel: 'https' | 'http',
-  label: 'HTTPS' | 'HTTP',
   url: string,
   category: FailureCategory,
   detail?: string,
   status?: number
 ): ConnectionChannelResult {
-  const message = formatCategoryMessage(category, detail);
+  const message = resolveRestFailureFallback(category, detail);
+  const descriptor = createRestFailureDescriptor(category, detail);
   const certificateUrl = buildCertificateUrlForFailure(channel, url, category, detail);
   return {
     channel,
-    label,
+    label: 'rest',
+    labelDescriptor: createDescriptor('connectionChannelRestLabel'),
     configured: true,
     success: false,
     url,
-    message,
+    message: '',
+    messageDescriptor: descriptor,
     error: message,
+    errorDescriptor: descriptor,
     ...(status !== undefined ? { status } : {}),
     ...(certificateUrl ? { certificateUrl } : {})
   };
@@ -147,8 +170,7 @@ function buildCertificateUrlForFailure(
     category === 'network error' ||
     normalizedDetail.includes('cert') ||
     normalizedDetail.includes('certificate') ||
-    normalizedDetail.includes('err_cert') ||
-    normalizedDetail.includes('证书');
+    normalizedDetail.includes('err_cert');
   if (!looksLikeCertificateFailure || !isLocalAddress(url)) {
     return undefined;
   }
@@ -160,17 +182,41 @@ function buildCertificateUrlForFailure(
   }
 }
 
-function formatVaultChannelSummary(
-  config: ConnectionTestConfig,
-  success: boolean,
-  channels: ConnectionChannelResult[]
-): string {
-  const label = config.label || config.vault;
-  const header = label ? `[${label}] ${success ? '连接测试成功' : '连接失败'}` : '连接测试结果';
-  return [header, ...channels.map(formatChannelLine)].join('\n');
+function createRestFailureDescriptor(
+  category: FailureCategory,
+  detail?: string
+): UserVisibleMessageDescriptor {
+  if (detail === 'API Key is missing') {
+    return createDescriptor('connectionRestApiKeyMissing');
+  }
+  if (detail === 'Vault Name is missing') {
+    return createDescriptor('connectionRestVaultNameMissing');
+  }
+
+  const reason = formatCategoryMessage(category, detail);
+  return createDescriptor('connectionRestFailure', { reason });
 }
 
-function formatChannelLine(channel: ConnectionChannelResult): string {
-  const emoji = channel.success ? '✅' : '❌';
-  return `${emoji} ${channel.label}：${channel.message}`;
+function resolveRestFailureFallback(category: FailureCategory, detail?: string): string {
+  if (category === 'config error' && detail) {
+    return `config error: ${detail}`;
+  }
+
+  return formatCategoryMessage(category, detail);
+}
+
+function selectPrimaryErrorDescriptor(
+  channels: ConnectionChannelResult[]
+): UserVisibleMessageDescriptor | undefined {
+  return channels.find((channel) => channel.configured && !channel.success)?.errorDescriptor;
+}
+
+function createDescriptor<Key extends string>(
+  key: Key,
+  values?: Record<string, string | number | boolean>
+): UserVisibleMessageDescriptor<Key> {
+  return {
+    key,
+    ...(values ? { values } : {})
+  };
 }

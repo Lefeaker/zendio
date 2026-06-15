@@ -260,7 +260,15 @@ export function registerRuntimeMessageListener(
           return {
             success: false,
             error: msg,
-            message: `连接失败: ${msg}`
+            errorDescriptor: {
+              key: 'connectionRestFailure',
+              values: { reason: msg }
+            },
+            message: '',
+            messageDescriptor: {
+              key: 'connectionFailureWithReason',
+              values: { reason: msg }
+            }
           } satisfies MessagePayload;
         });
     }
@@ -273,7 +281,15 @@ export function registerRuntimeMessageListener(
           return {
             success: false,
             error: msg,
-            message: `连接失败: ${msg}`
+            errorDescriptor: {
+              key: 'connectionRestFailure',
+              values: { reason: msg }
+            },
+            message: '',
+            messageDescriptor: {
+              key: 'connectionFailureWithReason',
+              values: { reason: msg }
+            }
           } satisfies MessagePayload;
         });
     }
@@ -305,7 +321,6 @@ export function registerRuntimeMessageListener(
       return;
     }
 
-    // 处理打开选项页面的消息
     if (isOpenOptionsPageMessage(message)) {
       try {
         await dependencies.openOptionsPage(message.section);

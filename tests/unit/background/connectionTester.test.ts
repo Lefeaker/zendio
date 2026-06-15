@@ -89,6 +89,61 @@ describe('options connectionTester service', () => {
     expect(module.isVaultConnectionTestRunning('vault-1')).toBe(false);
   });
 
+  it('preserves top-level and channel descriptors when the response is valid', async () => {
+    const response = {
+      success: false,
+      message: 'Connection failed',
+      messageDescriptor: {
+        key: 'connectionResultHeaderFailure'
+      },
+      error: 'API Key is missing',
+      errorDescriptor: {
+        key: 'connectionRestApiKeyMissing'
+      },
+      channels: [
+        {
+          channel: 'localFolder',
+          label: 'localFolder',
+          labelDescriptor: {
+            key: 'connectionChannelLocalFolderLabel'
+          },
+          configured: false,
+          success: false,
+          message: '',
+          messageDescriptor: {
+            key: 'connectionLocalFolderSkipped'
+          }
+        },
+        {
+          channel: 'https',
+          label: 'rest',
+          labelDescriptor: {
+            key: 'connectionChannelRestLabel'
+          },
+          configured: true,
+          success: false,
+          message: '',
+          messageDescriptor: {
+            key: 'connectionRestApiKeyMissing'
+          },
+          error: 'API Key is missing',
+          errorDescriptor: {
+            key: 'connectionRestApiKeyMissing'
+          }
+        }
+      ]
+    };
+    messageHandler = () => Promise.resolve(response);
+
+    const module = await import('../../../src/options/services/connectionTester');
+    module.__resetConnectionTesterStateForTests?.();
+    module.setConnectionTesterMessagingRepository?.(messagingRepo);
+
+    const result = await module.requestConnectionTest();
+
+    expect(result).toEqual(response);
+  });
+
   it('prevents concurrent connection tests', async () => {
     let resolver: ((value: unknown) => void) | null = null;
     const pending = new Promise((resolve) => {
@@ -152,6 +207,38 @@ describe('options connectionTester service', () => {
 
   it('throws when background response is malformed', async () => {
     messageHandler = () => Promise.resolve({ success: true });
+
+    const module = await import('../../../src/options/services/connectionTester');
+    module.__resetConnectionTesterStateForTests?.();
+    module.setConnectionTesterMessagingRepository?.(messagingRepo);
+
+    await expect(module.requestConnectionTest()).rejects.toMatchObject({
+      code: 'OPTIONS_CONNECTION_RESPONSE_INVALID'
+    });
+  });
+
+  it('rejects malformed top-level or channel descriptors as invalid responses', async () => {
+    messageHandler = () =>
+      Promise.resolve({
+        success: false,
+        message: 'Connection failed',
+        messageDescriptor: {
+          key: 'connectionResultHeaderFailure',
+          values: ['bad-shape']
+        },
+        channels: [
+          {
+            channel: 'https',
+            label: 'REST API',
+            configured: true,
+            success: false,
+            message: 'offline',
+            errorDescriptor: {
+              key: 42
+            }
+          }
+        ]
+      });
 
     const module = await import('../../../src/options/services/connectionTester');
     module.__resetConnectionTesterStateForTests?.();

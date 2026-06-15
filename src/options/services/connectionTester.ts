@@ -7,6 +7,10 @@ import {
   type FailureCategory,
   type StorageTarget
 } from '../../shared/types/analytics';
+import {
+  isUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../../shared/i18n/userVisibleMessageDescriptor';
 import { bucketDurationMs } from '../../shared/analytics/featureTimer';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
@@ -209,9 +213,23 @@ function validateResponse(
     });
   }
 
+  const messageDescriptor = validateDescriptorField(
+    response.messageDescriptor,
+    'Field "messageDescriptor"',
+    context,
+    response
+  );
+  const errorDescriptor = validateDescriptorField(
+    response.errorDescriptor,
+    'Field "errorDescriptor"',
+    context,
+    response
+  );
+
   const result: ConnectionTestResult = {
     success: response.success,
-    message: response.message
+    message: response.message,
+    ...(messageDescriptor ? { messageDescriptor } : {})
   };
 
   if (response.status !== undefined) {
@@ -223,6 +241,9 @@ function validateResponse(
   if (response.error !== undefined) {
     result.error = response.error;
   }
+  if (errorDescriptor) {
+    result.errorDescriptor = errorDescriptor;
+  }
   if (response.channels !== undefined) {
     result.channels = response.channels.map((channel, index) =>
       validateChannelResult(channel, context, index)
@@ -230,6 +251,26 @@ function validateResponse(
   }
 
   return result;
+}
+
+function validateDescriptorField(
+  descriptor: unknown,
+  fieldName: string,
+  context: ConnectionContext,
+  response: unknown
+): UserVisibleMessageDescriptor | undefined {
+  if (descriptor === undefined) {
+    return undefined;
+  }
+
+  if (!isUserVisibleMessageDescriptor(descriptor)) {
+    throw optionsErrors.responseInvalid(`${fieldName} must be a valid descriptor.`, {
+      ...context,
+      response
+    });
+  }
+
+  return descriptor;
 }
 
 /** @internal */

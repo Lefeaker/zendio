@@ -52,8 +52,20 @@ function createChannelResult(args: {
   configured: boolean;
   success: boolean;
   message: string;
+  labelDescriptor?: { key: string; fallback?: string };
+  messageDescriptor?: {
+    key: string;
+    fallback?: string;
+    values?: Record<string, string | number | boolean>;
+  };
   url?: string;
+  status?: number;
   error?: string;
+  errorDescriptor?: {
+    key: string;
+    fallback?: string;
+    values?: Record<string, string | number | boolean>;
+  };
   certificateUrl?: string;
 }) {
   return args;
@@ -72,8 +84,14 @@ describe('runVaultListConnectionTest', () => {
 
     expect(result).toEqual({
       success: false,
-      message: 'No enabled vaults are available for testing.',
-      error: 'No enabled vaults are available for testing.'
+      message: '',
+      messageDescriptor: {
+        key: 'schemaStorageNoEnabledVaults'
+      },
+      error: '',
+      errorDescriptor: {
+        key: 'schemaStorageNoEnabledVaults'
+      }
     });
     expectAnalyticsMessage(
       send.mock.calls,
@@ -198,31 +216,64 @@ describe('runVaultListConnectionTest', () => {
         Promise.resolve({
           success: false,
           message: `${message.vaultId} partial`,
+          messageDescriptor: {
+            key: 'connectionResultHeaderFailure'
+          },
           error: 'HTTPS: network error: request failed',
+          errorDescriptor: {
+            key: 'connectionRestFailure',
+            values: { reason: 'network error: request failed' }
+          },
           channels: [
             createChannelResult({
               channel: 'localFolder',
               label: '本地目录',
+              labelDescriptor: {
+                key: 'connectionChannelLocalFolderLabel'
+              },
               configured: true,
               success: true,
-              message: '本地目录可用：Research Folder'
+              message: '本地目录可用：Research Folder',
+              messageDescriptor: {
+                key: 'connectionLocalFolderAvailable',
+                values: { folderName: 'Research Folder' }
+              }
             }),
             createChannelResult({
               channel: 'https',
               label: 'HTTPS',
+              labelDescriptor: {
+                key: 'connectionChannelRestLabel'
+              },
               configured: true,
               success: false,
               message: 'network error: request failed',
+              messageDescriptor: {
+                key: 'connectionRestFailure',
+                values: { reason: 'network error: request failed' }
+              },
               url: LOCAL_HTTPS_URL,
               error: 'network error: request failed',
+              errorDescriptor: {
+                key: 'connectionRestFailure',
+                values: { reason: 'network error: request failed' }
+              },
               certificateUrl: LOCAL_CERTIFICATE_URL
             }),
             createChannelResult({
               channel: 'http',
               label: 'HTTP',
+              labelDescriptor: {
+                key: 'connectionChannelRestLabel'
+              },
               configured: true,
               success: true,
               message: 'HTTP 连接成功',
+              messageDescriptor: {
+                key: 'connectionRestSuccess',
+                values: { status: 200 }
+              },
+              status: 200,
               url: LOCAL_HTTP_URL
             })
           ]
@@ -241,14 +292,52 @@ describe('runVaultListConnectionTest', () => {
       expect.objectContaining({
         vaultId: 'research',
         vaultName: 'Research',
+        messageDescriptor: {
+          key: 'connectionResultHeaderFailure'
+        },
+        errorDescriptor: {
+          key: 'connectionRestFailure',
+          values: { reason: 'network error: request failed' }
+        },
         channels: [
-          expect.objectContaining({ channel: 'localFolder', success: true }),
+          expect.objectContaining({
+            channel: 'localFolder',
+            success: true,
+            labelDescriptor: {
+              key: 'connectionChannelLocalFolderLabel'
+            },
+            messageDescriptor: {
+              key: 'connectionLocalFolderAvailable',
+              values: { folderName: 'Research Folder' }
+            }
+          }),
           expect.objectContaining({
             channel: 'https',
             success: false,
-            certificateUrl: LOCAL_CERTIFICATE_URL
+            certificateUrl: LOCAL_CERTIFICATE_URL,
+            labelDescriptor: {
+              key: 'connectionChannelRestLabel'
+            },
+            messageDescriptor: {
+              key: 'connectionRestFailure',
+              values: { reason: 'network error: request failed' }
+            },
+            errorDescriptor: {
+              key: 'connectionRestFailure',
+              values: { reason: 'network error: request failed' }
+            }
           }),
-          expect.objectContaining({ channel: 'http', success: true })
+          expect.objectContaining({
+            channel: 'http',
+            success: true,
+            labelDescriptor: {
+              key: 'connectionChannelRestLabel'
+            },
+            messageDescriptor: {
+              key: 'connectionRestSuccess',
+              values: { status: 200 }
+            }
+          })
         ]
       })
     ]);

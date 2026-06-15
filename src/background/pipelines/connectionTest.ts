@@ -1,12 +1,9 @@
 import { getOptions } from '../store';
-import type { ConnectionTestResult } from '../../shared/types/connection';
+import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import type { TestVaultConnectionMessage, VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
 import { createRestCandidates, type RestConfig } from '../utils/restCandidates';
-import { getService } from '../../shared/di';
-import { TOKENS } from '../../shared/di/tokens';
-import type { PlatformServices } from '../../platform/types';
-import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
 import { trackUsageEvent } from '../services/analyticsEvents';
 import type {
   FailureCategory as AnalyticsFailureCategory,
@@ -14,6 +11,7 @@ import type {
 } from '../../shared/types/analytics';
 import { bucketDurationMs } from '../../shared/analytics/featureTimer';
 import { executeVaultStorageTargetTest } from './vaultConnectionChannels';
+import { executeLocalFolderChannelTest } from './vaultLocalFolderChannel';
 import type { ConnectionTestConfig } from './vaultConnectionTypes';
 import { summarizeVaultStorageTargetTest } from './connectionTestAnalytics';
 
@@ -27,15 +25,21 @@ type ConnectionResultSummary = {
   result: ConnectionTestResult;
   failureCategory?: AnalyticsFailureCategory;
 };
-type LocalConnectionResultSummary = {
-  result: ConnectionTestResult | null;
-  failureCategory?: AnalyticsFailureCategory;
-};
+type ConnectionErrorInput = Error | object | string | number | boolean | null | undefined;
+
+interface UrlCandidate {
+  url: string;
+  protocol: string;
+}
 
 const RESPONSE_SNIPPET_LIMIT = 120;
 const NETWORK_FAILURE_DETAIL = 'request failed';
 const HTTP_FAILURE_DETAIL = 'response unavailable';
 const CONFIG_FAILURE_DETAIL = 'configuration invalid';
+const NO_USABLE_ADDRESS_DETAIL = 'No usable address is configured.';
+const REST_API_KEY_MISSING_DETAIL = 'API Key is missing';
+const REST_VAULT_NAME_MISSING_DETAIL = 'Vault Name is missing';
+const EXTRA_VAULT_MISSING_DETAIL = 'Additional vault configuration not found.';
 
 function sanitizeSnippet(raw: string): string | undefined {
   const normalized = raw.replace(/\s+/g, ' ').trim();
@@ -87,9 +91,37 @@ function isKnownNetworkFailure(message: string): boolean {
   return message.includes('failed to fetch') || message.includes('networkerror');
 }
 
-interface UrlCandidate {
-  url: string;
-  protocol: string;
+function createDescriptor<Key extends string>(
+  key: Key,
+  values?: Record<string, string | number | boolean>
+): UserVisibleMessageDescriptor<Key> {
+  return {
+    key,
+    ...(values ? { values } : {})
+  };
+}
+
+function createHeaderDescriptor(success: boolean): UserVisibleMessageDescriptor {
+  return createDescriptor(
+    success ? 'connectionResultHeaderSuccess' : 'connectionResultHeaderFailure'
+  );
+}
+
+function createFailureReasonDescriptor(detail: string): UserVisibleMessageDescriptor {
+  if (detail === NO_USABLE_ADDRESS_DETAIL) {
+    return createDescriptor('connectionNoUsableAddress');
+  }
+  if (detail === REST_API_KEY_MISSING_DETAIL) {
+    return createDescriptor('connectionRestApiKeyMissing');
+  }
+  if (detail === REST_VAULT_NAME_MISSING_DETAIL) {
+    return createDescriptor('connectionRestVaultNameMissing');
+  }
+  if (detail === EXTRA_VAULT_MISSING_DETAIL) {
+    return createDescriptor('connectionExtraVaultMissing');
+  }
+
+  return createDescriptor('connectionRestFailure', { reason: detail });
 }
 
 export async function handleConnectionTest(
@@ -115,16 +147,32 @@ export async function handleConnectionTest(
       trackConnectionTestCompleted(summary, startedAt);
       return summary.result;
     } catch (error) {
-      const summary = buildFailureSummary(
-        error,
-        rest.vault,
-        rest.localFolderId ? 'local_folder' : 'rest_api'
-      );
+      const errorInput: ConnectionErrorInput =
+        error instanceof Error ||
+        typeof error === 'string' ||
+        typeof error === 'number' ||
+        typeof error === 'boolean' ||
+        error === null ||
+        error === undefined ||
+        typeof error === 'object'
+          ? error
+          : undefined;
+      const summary = buildFailureSummary(errorInput, 'rest_api');
       trackConnectionTestCompleted(summary, startedAt);
       return summary.result;
     }
   } catch (error) {
-    const summary = buildFailureSummary(error, undefined, 'unknown');
+    const errorInput: ConnectionErrorInput =
+      error instanceof Error ||
+      typeof error === 'string' ||
+      typeof error === 'number' ||
+      typeof error === 'boolean' ||
+      error === null ||
+      error === undefined ||
+      typeof error === 'object'
+        ? error
+        : undefined;
+    const summary = buildFailureSummary(errorInput, 'unknown');
     trackConnectionTestCompleted(summary, startedAt);
     return summary.result;
   }
@@ -140,10 +188,6 @@ export async function handleVaultConnectionTest(
     const vault = resolveVaultConfig(message, activeVaults);
     const httpsUrl = sanitizeUrl(vault.httpsUrl);
     const httpUrl = sanitizeUrl(vault.httpUrl);
-    if (!httpsUrl && !httpUrl && !vault.localFolderId) {
-      throw new Error('未配置可用的地址');
-    }
-
     const baseUrl = httpsUrl ?? httpUrl ?? options.rest.baseUrl;
     const label = vault.name || vault.vault;
     const apiKey = (vault.apiKey ?? '').trim();
@@ -167,18 +211,36 @@ export async function handleVaultConnectionTest(
       );
       return result;
     } catch (error) {
+      const errorInput: ConnectionErrorInput =
+        error instanceof Error ||
+        typeof error === 'string' ||
+        typeof error === 'number' ||
+        typeof error === 'boolean' ||
+        error === null ||
+        error === undefined ||
+        typeof error === 'object'
+          ? error
+          : undefined;
       const summary = buildFailureSummary(
-        error,
-        label,
+        errorInput,
         vault.localFolderId ? 'local_folder' : 'rest_api'
       );
       trackConnectionTestCompleted(summary, startedAt);
       return summary.result;
     }
   } catch (error) {
+    const errorInput: ConnectionErrorInput =
+      error instanceof Error ||
+      typeof error === 'string' ||
+      typeof error === 'number' ||
+      typeof error === 'boolean' ||
+      error === null ||
+      error === undefined ||
+      typeof error === 'object'
+        ? error
+        : undefined;
     const summary = buildFailureSummary(
-      error,
-      undefined,
+      errorInput,
       message.vault?.localFolderId ? 'local_folder' : 'unknown'
     );
     trackConnectionTestCompleted(summary, startedAt);
@@ -190,106 +252,51 @@ async function executeStorageTargetTest(
   config: ConnectionTestConfig
 ): Promise<ConnectionTestSummary> {
   const restResult = await executeConnectionTest(config);
-  const localResult = await executeLocalFolderTest(config);
+  const localChannel = config.localFolderId
+    ? await executeLocalFolderChannelTest(config)
+    : buildSkippedLocalFolderChannel();
+  const channels = [localChannel, ...(restResult.result.channels ?? [])];
+  const success = restResult.result.success && (!config.localFolderId || localChannel.success);
+  const errors = channels
+    .filter((channel) => channel.configured && !channel.success)
+    .map((channel) => channel.error || channel.message)
+    .filter((message): message is string => typeof message === 'string' && message.length > 0);
+  const errorDescriptor = !success ? selectPrimaryErrorDescriptor(channels) : undefined;
   const storageTarget: StorageTarget = config.localFolderId ? 'local_folder' : 'rest_api';
-
-  if (!localResult.result) {
-    return {
-      result: {
-        ...restResult.result,
-        message: `${formatRestMessage(restResult.result)}\n本地目录：未配置，已跳过。`
-      },
-      storageTarget,
-      ...(restResult.failureCategory ? { failureCategory: restResult.failureCategory } : {})
-    };
-  }
-
-  const success = restResult.result.success && localResult.result.success;
-  const messages = [formatRestMessage(restResult.result), localResult.result.message];
-  const errors = [restResult.result.error, localResult.result.error].filter(
-    (message): message is string => typeof message === 'string' && message.length > 0
-  );
-
-  const failureCategory = !success
-    ? (localResult.failureCategory ?? restResult.failureCategory)
-    : undefined;
 
   return {
     result: {
       success,
-      ...(restResult.result.status !== undefined && { status: restResult.result.status }),
-      message: messages.join('\n'),
+      message: '',
+      messageDescriptor: createHeaderDescriptor(success),
+      ...(restResult.result.status !== undefined ? { status: restResult.result.status } : {}),
       ...(restResult.result.response !== undefined ? { response: restResult.result.response } : {}),
-      ...(errors.length ? { error: errors.join('\n') } : {})
+      ...(errors.length ? { error: errors.join('\n') } : {}),
+      ...(errorDescriptor ? { errorDescriptor } : {}),
+      channels
     },
     storageTarget,
-    ...(failureCategory ? { failureCategory } : {})
+    ...(!success
+      ? {
+          failureCategory:
+            config.localFolderId && !localChannel.success
+              ? inferLocalFailureCategory(localChannel)
+              : restResult.failureCategory
+        }
+      : {})
   };
 }
 
-function formatRestMessage(result: ConnectionTestResult): string {
-  return `REST API：${result.message || result.error || (result.success ? '连接成功。' : '连接失败。')}`;
-}
-
-async function executeLocalFolderTest(
-  config: ConnectionTestConfig
-): Promise<LocalConnectionResultSummary> {
-  if (!config.localFolderId) {
-    return { result: null };
-  }
-
-  const folderName = config.localFolderName || config.label || config.vault;
-  try {
-    const permission = await getService<PlatformServices>(
-      TOKENS.platformServices
-    ).fileSystemAccess.queryPermission(config.localFolderId);
-    if (permission === 'granted') {
-      return {
-        result: {
-          success: true,
-          message: `本地目录可用：${folderName}`
-        }
-      };
-    }
-    return {
-      result: {
-        success: false,
-        message: formatLocalFolderFailure(permission, folderName),
-        error: formatLocalFolderFailure(permission, folderName)
-      },
-      failureCategory: permission === 'unsupported' ? 'unsupported' : 'permission'
-    };
-  } catch (error) {
-    const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
-    const message = `本地目录测试失败：${folderName}${detail ? ` - ${detail}` : ''}`;
-    return {
-      result: {
-        success: false,
-        message,
-        error: message
-      },
-      failureCategory: 'unknown'
-    };
-  }
-}
-
-function formatLocalFolderFailure(
-  permission: LocalVaultPermissionState,
-  folderName: string
-): string {
-  if (permission === 'prompt') {
-    return `本地目录需要重新授权：${folderName}`;
-  }
-  if (permission === 'denied') {
-    return `本地目录权限被拒绝：${folderName}`;
-  }
-  if (permission === 'missing') {
-    return `本地目录记录不存在，请重新选择：${folderName}`;
-  }
-  if (permission === 'unsupported') {
-    return '当前浏览器不支持本地目录测试。';
-  }
-  return `本地目录不可用：${folderName}`;
+function buildSkippedLocalFolderChannel(): ConnectionChannelResult {
+  return {
+    channel: 'localFolder',
+    label: 'localFolder',
+    labelDescriptor: createDescriptor('connectionChannelLocalFolderLabel'),
+    configured: false,
+    success: false,
+    message: '',
+    messageDescriptor: createDescriptor('connectionLocalFolderSkipped')
+  };
 }
 
 async function executeConnectionTest(
@@ -299,17 +306,62 @@ async function executeConnectionTest(
   const httpsUrl = sanitizeUrl(config.httpsUrl);
   const httpUrl = sanitizeUrl(config.httpUrl);
   const baseForConfig = trimmedBase || httpsUrl || httpUrl;
+
   if (!baseForConfig) {
-    throw new Error('未配置可用的基础地址');
+    return {
+      result: {
+        success: false,
+        message: '',
+        messageDescriptor: createHeaderDescriptor(false),
+        error: 'config error: no_usable_address',
+        errorDescriptor: createFailureReasonDescriptor(NO_USABLE_ADDRESS_DETAIL)
+      },
+      failureCategory: 'validation'
+    };
   }
 
   const vaultName = (config.vault ?? '').trim();
+  const restChannel = primaryRestChannel(baseForConfig);
   if (!vaultName) {
-    throw new Error('未配置 Vault 名称');
+    return {
+      result: {
+        success: false,
+        message: '',
+        messageDescriptor: createHeaderDescriptor(false),
+        error: `config error: ${REST_VAULT_NAME_MISSING_DETAIL}`,
+        errorDescriptor: createFailureReasonDescriptor(REST_VAULT_NAME_MISSING_DETAIL),
+        channels: [
+          buildRestChannelFailure(
+            restChannel,
+            baseForConfig,
+            'config error',
+            REST_VAULT_NAME_MISSING_DETAIL
+          )
+        ]
+      },
+      failureCategory: 'validation'
+    };
   }
 
   if (!config.apiKey || config.apiKey.trim() === '') {
-    throw new Error('未配置 API Key');
+    return {
+      result: {
+        success: false,
+        message: '',
+        messageDescriptor: createHeaderDescriptor(false),
+        error: `config error: ${REST_API_KEY_MISSING_DETAIL}`,
+        errorDescriptor: createFailureReasonDescriptor(REST_API_KEY_MISSING_DETAIL),
+        channels: [
+          buildRestChannelFailure(
+            restChannel,
+            baseForConfig,
+            'config error',
+            REST_API_KEY_MISSING_DETAIL
+          )
+        ]
+      },
+      failureCategory: 'validation'
+    };
   }
 
   const restConfig: RestConfig = {
@@ -327,12 +379,10 @@ async function executeConnectionTest(
   }
 
   const urlsToTry = createConnectionCandidates(restConfig);
-  const prefix = config.label ? `[${config.label}] ` : '';
   const errors: string[] = [];
 
   for (const candidate of urlsToTry) {
     try {
-      // createConnectionCandidates 已经返回正确格式的URL，直接使用
       console.log(`[connectionTest] Testing URL (${candidate.protocol}):`, candidate.url);
       const { response, text } = await testConnection(candidate.url, config.apiKey);
       if (!response.ok) {
@@ -354,13 +404,27 @@ async function executeConnectionTest(
         result: {
           success: true,
           status: response.status,
-          message: `${prefix}✅ 通过 ${candidate.protocol} 连接成功！状态码: ${response.status}`,
-          response: text.slice(0, 200)
+          message: '',
+          messageDescriptor: createHeaderDescriptor(true),
+          response: text.slice(0, 200),
+          channels: [
+            buildRestChannelSuccess(candidate.protocol, candidate.url, response.status, text)
+          ]
         }
       };
     } catch (error) {
+      const errorInput: ConnectionErrorInput =
+        error instanceof Error ||
+        typeof error === 'string' ||
+        typeof error === 'number' ||
+        typeof error === 'boolean' ||
+        error === null ||
+        error === undefined ||
+        typeof error === 'object'
+          ? error
+          : undefined;
       const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
-      const category = deriveExternalCategory(error);
+      const category = deriveExternalCategory(errorInput);
       const formatted = `${candidate.protocol}: ${formatCategoryMessage(
         category,
         normalizeFailureDetail(category, detail)
@@ -371,19 +435,69 @@ async function executeConnectionTest(
       );
       errors.push(formatted);
 
-      if (!isRecoverableNetworkError(error)) {
-        throw error;
+      if (!isRecoverableNetworkError(errorInput)) {
+        break;
       }
     }
   }
 
+  const joined =
+    errors.join('; ') || formatCategoryMessage('network error', NETWORK_FAILURE_DETAIL);
   return {
     result: {
       success: false,
-      error: errors.join('\n'),
-      message: `${prefix}连接失败，已尝试：\n${errors.join('\n')}`
+      message: '',
+      messageDescriptor: createHeaderDescriptor(false),
+      error: joined,
+      errorDescriptor: createDescriptor('connectionRestFailure', { reason: joined }),
+      channels: [buildRestChannelFailure(restChannel, baseForConfig, 'network error', joined)]
     },
     failureCategory: 'connection'
+  };
+}
+
+function buildRestChannelSuccess(
+  protocol: string,
+  url: string,
+  status: number,
+  text: string
+): ConnectionChannelResult {
+  const channel = protocol === 'HTTP' ? 'http' : 'https';
+  return {
+    channel,
+    label: 'rest',
+    labelDescriptor: createDescriptor('connectionChannelRestLabel'),
+    configured: true,
+    success: true,
+    url,
+    status,
+    message: '',
+    messageDescriptor: createDescriptor('connectionRestSuccess', { status }),
+    response: text.slice(0, 200)
+  };
+}
+
+function buildRestChannelFailure(
+  channel: 'https' | 'http',
+  url: string,
+  category: FailureCategory,
+  detail?: string
+): ConnectionChannelResult {
+  const normalizedReason = detail ?? defaultFailureDetail(category);
+  const descriptor = createFailureReasonDescriptor(normalizedReason);
+  const certificateUrl = buildCertificateUrlForFailure(channel, url, category, normalizedReason);
+  return {
+    channel,
+    label: 'rest',
+    labelDescriptor: createDescriptor('connectionChannelRestLabel'),
+    configured: true,
+    success: false,
+    url,
+    message: '',
+    messageDescriptor: descriptor,
+    error: normalizedReason,
+    errorDescriptor: descriptor,
+    ...(certificateUrl ? { certificateUrl } : {})
   };
 }
 
@@ -431,36 +545,33 @@ function mergeRestOptions(rest: RestOptions, draft?: Partial<RestOptions>): Rest
 }
 
 function createConnectionCandidates(config: RestConfig): UrlCandidate[] {
-  // ===== 修复:连接测试应该测试根端点,不拼接 vault 路径 =====
-  // 传入 null 作为特殊标记,让 createRestCandidates 跳过 vault 路径拼接
   const candidates = createRestCandidates(config, '', null);
   if (candidates.length > 0) {
     return candidates.map((candidate) => ({
       url: candidate.url,
-      protocol: candidate.protocol
+      protocol: normalizeProtocolLabel(candidate.protocol)
     }));
   }
 
-  // Fallback:直接使用 baseUrl,不拼接 vault
   const trimmed = config.baseUrl.trim();
   const fallbackUrl = trimmed.replace(/\/+$/, '') + '/';
   return [
     {
       url: fallbackUrl,
-      protocol: config.baseUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
+      protocol: fallbackUrl.startsWith('https://') ? 'HTTPS' : 'HTTP'
     }
   ];
 }
 
-function isRecoverableNetworkError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return isKnownNetworkFailure(error.message.toLowerCase());
+function normalizeProtocolLabel(protocol: string): string {
+  return protocol.toUpperCase().startsWith('HTTPS') ? 'HTTPS' : 'HTTP';
 }
 
-function deriveExternalCategory(error: unknown): FailureCategory {
+function isRecoverableNetworkError(error: ConnectionErrorInput): boolean {
+  return error instanceof Error && isKnownNetworkFailure(error.message.toLowerCase());
+}
+
+function deriveExternalCategory(error: ConnectionErrorInput): FailureCategory {
   if (error instanceof Error) {
     const normalized = error.message.toLowerCase();
     if (normalized.includes('failed to fetch') || normalized.includes('networkerror')) {
@@ -481,30 +592,62 @@ function formatCategoryMessage(category: FailureCategory, detail?: string): stri
 }
 
 function buildFailureSummary(
-  error: unknown,
-  label: string | undefined,
+  error: ConnectionErrorInput,
   storageTarget: StorageTarget
 ): ConnectionTestSummary {
   const category = deriveExternalCategory(error);
   const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
-  const formatted = formatCategoryMessage(category, normalizeFailureDetail(category, detail));
-  const prefix = label ? `[${label}] ` : '';
-  console.error(`[connectionTest] unexpected error${label ? ` (${label})` : ''}:`, error);
+  const normalized = normalizeFailureDetail(category, detail) ?? defaultFailureDetail(category);
+  const formatted = formatCategoryMessage(category, normalized);
+  console.error('[connectionTest] unexpected error:', error);
   return {
     result: {
       success: false,
+      message: '',
+      messageDescriptor: createHeaderDescriptor(false),
       error: formatted,
-      message: `${prefix}连接失败: ${formatted}`
+      errorDescriptor: createFailureReasonDescriptor(normalized)
     },
     storageTarget,
     failureCategory: toAnalyticsFailureCategory(category)
   };
 }
 
+function primaryRestChannel(baseUrl: string): 'https' | 'http' {
+  return baseUrl.startsWith('http://') ? 'http' : 'https';
+}
+
+function buildCertificateUrlForFailure(
+  channel: 'https' | 'http',
+  url: string,
+  category: FailureCategory,
+  detail?: string
+): string | undefined {
+  if (channel !== 'https') {
+    return undefined;
+  }
+
+  const normalizedDetail = detail?.toLowerCase() ?? '';
+  const looksLikeCertificateFailure =
+    category === 'network error' ||
+    normalizedDetail.includes('cert') ||
+    normalizedDetail.includes('certificate') ||
+    normalizedDetail.includes('err_cert');
+  if (!looksLikeCertificateFailure || (!url.includes('localhost') && !url.includes('127.0.0.1'))) {
+    return undefined;
+  }
+
+  try {
+    return new URL('/obsidian-local-rest-api.crt', url.replace(/\/+$/, '') + '/').toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function findVaultConfig(vaults: VaultConfig[], vaultId: string): VaultConfig {
   const vault = vaults.find((item) => item.id === vaultId);
   if (!vault) {
-    throw new Error('未找到对应的额外仓库配置');
+    throw new Error(EXTRA_VAULT_MISSING_DETAIL);
   }
   return vault;
 }
@@ -539,4 +682,15 @@ function toAnalyticsFailureCategory(category: FailureCategory): AnalyticsFailure
     return 'validation';
   }
   return 'connection';
+}
+
+function selectPrimaryErrorDescriptor(
+  channels: ConnectionChannelResult[]
+): UserVisibleMessageDescriptor | undefined {
+  return channels.find((channel) => channel.configured && !channel.success)?.errorDescriptor;
+}
+
+function inferLocalFailureCategory(channel: ConnectionChannelResult): AnalyticsFailureCategory {
+  const detail = `${channel.error ?? channel.message}`.toLowerCase();
+  return detail.includes('not supported') ? 'unsupported' : 'permission';
 }
