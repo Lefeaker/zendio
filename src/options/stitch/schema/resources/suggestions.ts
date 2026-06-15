@@ -18,13 +18,13 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: shouldLocalize
         ? (ctx.t?.('schemaResourceSuggestionsTitle', 'Suggestions') ?? 'Suggestions')
-        : '提出建议',
+        : 'Suggestions',
       description: shouldLocalize
         ? (ctx.t?.(
             'schemaResourceSuggestionsDescription',
             'Send feedback through the currently supported public channels.'
           ) ?? 'Send feedback through the currently supported public channels.')
-        : '感谢你愿意反馈想法，以下渠道都可以快速联系到作者。',
+        : 'Send feedback through the currently supported public channels.',
       children: [
         shouldLocalize
           ? resourceModalStack([

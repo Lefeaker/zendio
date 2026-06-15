@@ -124,7 +124,7 @@ export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig 
     const newVaultId = initial?.id ?? generateId();
     const newVault: VaultConfig = normalizeVault({
       id: newVaultId,
-      name: initial?.name ?? '新仓库',
+      name: initial?.name ?? 'New Vault',
       httpsUrl: initial?.httpsUrl ?? REST_DEFAULTS.httpsUrl,
       httpUrl: initial?.httpUrl ?? REST_DEFAULTS.httpUrl,
       vault: initial?.vault ?? REST_DEFAULTS.vault,

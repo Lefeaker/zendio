@@ -1,6 +1,7 @@
 import type { ResourceSchema } from '../../types';
 import { htmlParagraph } from '../builders/primitives';
 import { modalSection, resourceCardGrid, resourceModalStack } from '../builders/resources';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -15,15 +16,18 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: shouldLocalize
         ? (ctx.t?.('schemaResourceContactTitle', 'Contact') ?? 'Contact')
-        : '联系作者',
+        : 'Contact',
       description: shouldLocalize
         ? (ctx.t?.('schemaResourceContactHint', 'Contact the author') ?? 'Contact the author')
-        : resource.note,
+        : 'Contact the author',
       children: [
         shouldLocalize
           ? resourceModalStack([
               htmlParagraph(
-                ctx.t?.('schemaResourceContactDescription', resource.note) ?? resource.note
+                ctx.t?.(
+                  'schemaResourceContactDescription',
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactDescription
+                ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactDescription
               ),
               modalSection(
                 ctx.t?.('schemaResourceContactChannelsGroupTitle', 'Public Channels') ??

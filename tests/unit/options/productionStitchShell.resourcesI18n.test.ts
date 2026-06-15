@@ -376,4 +376,34 @@ describe('mountProductionStitchShell resource i18n', () => {
     );
     expectNoText(dataUsage, '匿名功能使用次数');
   });
+
+  it('falls back to English resource copy when selected catalog keys are missing', async () => {
+    const fallbackProbeMessages: Messages = {
+      ...ENGLISH_SENTINEL_MESSAGES,
+      schemaResourceSupportTitle: '',
+      schemaResourceSupportDescription: '',
+      schemaResourceChangelogTitle: '',
+      schemaResourceChangelogDescription: ''
+    };
+
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: fallbackProbeMessages,
+      language: 'en'
+    });
+
+    const support = await openResource('Support');
+    expectText(support, 'Support', 'Support the project through the available public channels.');
+    expectNoText(support, '感谢支持', '开发不易，如果这个插件对你有帮助，欢迎通过以下方式支持。');
+    await closeResource();
+
+    const changelog = await openResource('Changelog');
+    expectText(
+      changelog,
+      'Changelog',
+      'This modal highlights the latest shipped updates from the project changelog.'
+    );
+    expectNoText(changelog, '更新日志', '这里直接使用项目中的更新日志重点内容。');
+  });
 });

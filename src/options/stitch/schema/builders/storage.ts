@@ -5,6 +5,7 @@ import type {
   TableRowSchema,
   VaultRecord
 } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import { buttonNode, element, state, stack } from './primitives';
 import { buttonCell, switchCell } from './table';
 import { boundInput, boundSwitch, routingBoundInput, routingBoundSelect } from './controls';
@@ -85,11 +86,15 @@ export function vaultRow(
       },
       {
         node: vault.isDefault
-          ? state(t('defaultVaultBadge', '默认'))
-          : buttonNode(t('deleteVaultButton', '删除'), 'secondary', {
-              id: 'storage:removeVault',
-              args: [index]
-            })
+          ? state(t('defaultVaultBadge', DEFAULT_PRODUCTION_ENGLISH_MESSAGES.defaultVaultBadge))
+          : buttonNode(
+              t('deleteVaultButton', DEFAULT_PRODUCTION_ENGLISH_MESSAGES.deleteVaultButton),
+              'secondary',
+              {
+                id: 'storage:removeVault',
+                args: [index]
+              }
+            )
       }
     ]
   };
@@ -99,9 +104,18 @@ function localFolderCell(vault: VaultRecord, index: number, current: SchemaConte
   const t = current.t ?? ((_key, fallback: string) => fallback);
   const hasFolder = Boolean(vault.localFolderId);
   const isConfirming = current.state.activeLocalFolderVaultIndex === index;
-  const chooseLocalFolderLabel = t('schemaStorageLocalFolderChooseAction', '选择目录');
-  const deleteLocalFolderLabel = t('schemaStorageLocalFolderDeleteAction', '删除本地目录');
-  const manageLocalFolderLabel = t('schemaStorageLocalFolderManageAction', '管理本地目录');
+  const chooseLocalFolderLabel = t(
+    'schemaStorageLocalFolderChooseAction',
+    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageLocalFolderChooseAction
+  );
+  const deleteLocalFolderLabel = t(
+    'schemaStorageLocalFolderDeleteAction',
+    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageLocalFolderDeleteAction
+  );
+  const manageLocalFolderLabel = t(
+    'schemaStorageLocalFolderManageAction',
+    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageLocalFolderManageAction
+  );
   const folderTitle = vault.localFolderName
     ? `${vault.localFolderName}\n${manageLocalFolderLabel}`
     : chooseLocalFolderLabel;
@@ -155,7 +169,10 @@ export function routingField(
     mono: true,
     ...(field === 'pattern'
       ? {
-          placeholder: t('rulePatternPlaceholder', '输入域名、关键词或 URL pattern')
+          placeholder: t(
+            'rulePatternPlaceholder',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.rulePatternPlaceholder
+          )
         }
       : {})
   });
@@ -215,10 +232,14 @@ export function routingRuleRow(
         )
       },
       { node: routingPriorityInput(index, rule.priority) },
-      buttonCell(t('deleteRuleButton', '删除'), 'secondary', {
-        id: 'routing:remove',
-        args: [index]
-      })
+      buttonCell(
+        t('deleteRuleButton', DEFAULT_PRODUCTION_ENGLISH_MESSAGES.deleteRuleButton),
+        'secondary',
+        {
+          id: 'routing:remove',
+          args: [index]
+        }
+      )
     ]
   };
 }

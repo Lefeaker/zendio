@@ -1,6 +1,7 @@
 import type { SettingsSchema } from '../../types';
 import { element, htmlParagraph } from '../builders/primitives';
 import { routingRuleRow, vaultRow } from '../builders/storage';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 function linkLocalRestApiRecommendation(value: string): string {
   return value.replace(
@@ -31,18 +32,24 @@ const schema: SettingsSchema = {
               title: t('schemaStorageVaultListTitle', 'Vault List'),
               description: t(
                 'schemaStorageVaultListDescription',
-                '第一行是默认仓库，其余行为附加仓库。'
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageVaultListDescription
               ),
               actions: [
                 {
                   kind: 'button',
-                  label: t('schemaStorageTestConnectionButton', '测试连接'),
+                  label: t(
+                    'schemaStorageTestConnectionButton',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageTestConnectionButton
+                  ),
                   variant: 'primary',
                   action: { id: 'storage:testConnection' }
                 },
                 {
                   kind: 'button',
-                  label: t('schemaStorageAddVaultButton', '添加仓库'),
+                  label: t(
+                    'schemaStorageAddVaultButton',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageAddVaultButton
+                  ),
                   variant: 'secondary',
                   action: { id: 'storage:addVault' }
                 }
@@ -73,8 +80,11 @@ const schema: SettingsSchema = {
                   kind: 'notice',
                   title: (current) =>
                     current.appData.storage.connectionNotice?.title ||
-                    (current.t?.('schemaStorageConnectionNoticeTitle', '连接测试结果') ??
-                      '连接测试结果'),
+                    (current.t?.(
+                      'schemaStorageConnectionNoticeTitle',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNoticeTitle
+                    ) ??
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNoticeTitle),
                   body: (current) => {
                     const notice = current.appData.storage.connectionNotice;
                     if (notice?.html) {
@@ -87,14 +97,26 @@ const schema: SettingsSchema = {
                       return notice.body;
                     }
                     if (notice?.variant === 'success') {
-                      return current.t?.('connectionSuccessShort', '连接成功') ?? '连接成功';
+                      return (
+                        current.t?.(
+                          'connectionSuccessShort',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionSuccessShort
+                        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionSuccessShort
+                      );
                     }
                     if (notice?.variant && notice.variant !== 'info') {
-                      return current.t?.('connectionFailed', '连接失败') ?? '连接失败';
+                      return (
+                        current.t?.(
+                          'connectionFailed',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionFailed
+                        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionFailed
+                      );
                     }
                     return (
-                      current.t?.('schemaStorageConnectionNotRun', '尚未运行连接测试。') ??
-                      '尚未运行连接测试。'
+                      current.t?.(
+                        'schemaStorageConnectionNotRun',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNotRun
+                      ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNotRun
                     );
                   },
                   variant: (current) => current.appData.storage.connectionNotice?.variant ?? 'info'
@@ -103,7 +125,7 @@ const schema: SettingsSchema = {
                   linkLocalRestApiRecommendation(
                     t(
                       'schemaStorageLocalFolderRecommendation',
-                      '推荐优先使用 Local Folder 通道；REST API 功能由 Obsidian 插件 Local REST API with MCP 支持。'
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageLocalFolderRecommendation
                     )
                   ),
                   'option-support-note'
@@ -121,12 +143,15 @@ const schema: SettingsSchema = {
               title: t('routingRulesTitle', 'Routing Rules'),
               description: t(
                 'routingRulesHint',
-                '根据域名、关键词或 URL pattern 自动选择目标仓库。表格中的每一项都可以直接编辑。'
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.routingRulesHint
               ),
               actions: [
                 {
                   kind: 'button',
-                  label: t('schemaStorageAddRuleButton', '添加规则'),
+                  label: t(
+                    'schemaStorageAddRuleButton',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageAddRuleButton
+                  ),
                   variant: 'primary',
                   action: { id: 'routing:add' }
                 }
@@ -134,10 +159,13 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'notice',
-                  title: t('schemaStorageRoutingTipTitle', '路由提示'),
+                  title: t(
+                    'schemaStorageRoutingTipTitle',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageRoutingTipTitle
+                  ),
                   body: t(
                     'schemaStorageRoutingTipBody',
-                    '优先级越高越先匹配；每条规则都支持行内修改，不需要先删除再重建。'
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageRoutingTipBody
                   ),
                   variant: 'warning'
                 },

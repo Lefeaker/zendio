@@ -2,6 +2,7 @@ import type { SettingsSchema } from '../../types';
 import type { Messages } from '@i18n';
 import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import {
   fragmentModifierChipItems,
   fragmentModifierStateWarning
@@ -32,28 +33,40 @@ const schema: SettingsSchema = {
             {
               kind: 'card',
               title: t('readingConfigTitle', 'Reading Export'),
-              description: t('readingConfigHint', '设置阅读模式导出方式和高亮主题。'),
+              description: t(
+                'readingConfigHint',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingConfigHint
+              ),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t('readingExportModeLabel', '导出内容'),
+                      title: t(
+                        'readingExportModeLabel',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeLabel
+                      ),
                       description: t(
                         'readingExportModeDescription',
-                        '决定保存高亮片段，还是保存全文并标注高亮。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeDescription
                       ),
                       control: {
                         kind: 'select',
                         options: [
                           {
                             value: 'highlights',
-                            label: t('readingExportModeHighlights', '仅保存高亮片段')
+                            label: t(
+                              'readingExportModeHighlights',
+                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeHighlights
+                            )
                           },
                           {
                             value: 'full',
-                            label: t('readingExportModeFull', '保存全文并标注高亮')
+                            label: t(
+                              'readingExportModeFull',
+                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeFull
+                            )
                           }
                         ],
                         bind: 'readingExportMode',
@@ -66,10 +79,13 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('readingHighlightThemeLabel', '高亮主题'),
+                      title: t(
+                        'readingHighlightThemeLabel',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingHighlightThemeLabel
+                      ),
                       description: t(
                         'readingHighlightThemeDescription',
-                        '仅影响阅读模式页面里的高亮呈现，不改变导出的 Markdown 内容。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingHighlightThemeDescription
                       ),
                       control: stack([
                         {
@@ -104,7 +120,7 @@ const schema: SettingsSchema = {
                 htmlParagraph(
                   t(
                     'schemaCaptureBehaviorSidebarHighlightsNote',
-                    '存储内容高亮与 Obsidian 插件 Sidebar Highlights 配合使用更佳。'
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorSidebarHighlightsNote
                   ).replace(
                     'Sidebar Highlights',
                     '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>'
@@ -122,17 +138,23 @@ const schema: SettingsSchema = {
             {
               kind: 'card',
               title: t('fragmentConfigTitle', 'Fragment Interaction Model'),
-              description: t('fragmentConfigHint', '设置上下文、辅助键和对话框快捷键。'),
+              description: t(
+                'fragmentConfigHint',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentConfigHint
+              ),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t('schemaCaptureBehaviorCaptureContextTitle', '捕捉上下文'),
+                      title: t(
+                        'schemaCaptureBehaviorCaptureContextTitle',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorCaptureContextTitle
+                      ),
                       description: t(
                         'fragmentCaptureContextHint',
-                        '开启后需要继续配置上下文长度和单位。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentCaptureContextHint
                       ),
                       control: grid(
                         3,
@@ -194,10 +216,13 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('fragmentModifierToggleLabel', '启用辅助键触发'),
+                      title: t(
+                        'fragmentModifierToggleLabel',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentModifierToggleLabel
+                      ),
                       description: t(
                         'fragmentModifierToggleDescription',
-                        '选择用于触发自动剪藏或阅读高亮的辅助键。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentModifierToggleDescription
                       ),
                       control: stack(
                         (current) => [
@@ -227,17 +252,28 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('fragmentKeyboardShortcutsLabel', '启用剪藏对话框快捷键'),
+                      title: t(
+                        'fragmentKeyboardShortcutsLabel',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentKeyboardShortcutsLabel
+                      ),
                       description: t(
                         'fragmentKeyboardShortcutsHint',
-                        '双击回车进入阅读模式，Cmd / Alt + 回车直接剪藏。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentKeyboardShortcutsHint
                       ),
                       control: boundSwitch({
                         bind: 'fragmentKeyboardShortcutsEnabled',
                         stateText: (current) =>
                           current.state.fragmentKeyboardShortcutsEnabled
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
+                            ? translate(
+                                current,
+                                'schemaCommonEnabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
+                              )
+                            : translate(
+                                current,
+                                'schemaCommonDisabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
+                              ),
                         onChange: {
                           id: 'options:updateField',
                           args: ['fragmentClipper.keyboardShortcutsEnabled'],
@@ -252,22 +288,31 @@ const schema: SettingsSchema = {
                   [
                     {
                       kind: 'miniCard',
-                      title: t('fragmentFootnoteExampleTitle', '脚注格式示例'),
+                      title: t(
+                        'fragmentFootnoteExampleTitle',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleTitle
+                      ),
                       content: htmlParagraph(
-                        `${t('fragmentFootnoteExampleContent', '这是选中的文本')}[^1]<br><br>[^1]: ${t(
+                        `${t(
+                          'fragmentFootnoteExampleContent',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleContent
+                        )}[^1]<br><br>[^1]: ${t(
                           'fragmentFootnoteExampleComment',
-                          '这是我的评论'
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleComment
                         )}`,
                         'mono'
                       )
                     },
                     {
                       kind: 'miniCard',
-                      title: t('fragmentContextHighlightExampleTitle', '上下文高亮示例'),
+                      title: t(
+                        'fragmentContextHighlightExampleTitle',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentContextHighlightExampleTitle
+                      ),
                       content: paragraph(
                         t(
                           'fragmentContextHighlightExampleContent',
-                          '前面的上下文 ==这是选中的文本== 后面的上下文'
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentContextHighlightExampleContent
                         ),
                         'mono'
                       )

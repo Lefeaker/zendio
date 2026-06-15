@@ -12,7 +12,7 @@ import {
   type AnalyticsRuntimeEventPayload
 } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
-import type { Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import { writeToClipboard } from '@options/services/configTransfer';
@@ -156,7 +156,11 @@ export function createProductionStitchPersistence(
     const shouldClear =
       typeof window.confirm === 'function'
         ? window.confirm(
-            getMessage(options.getCurrentMessages(), 'confirmClearAllData', '清空全部分析数据？')
+            getMessage(
+              options.getCurrentMessages(),
+              'confirmClearAllData',
+              DEFAULT_RUNTIME_MESSAGES.confirmClearAllData
+            )
           )
         : true;
     if (!shouldClear) {
@@ -180,7 +184,7 @@ export function createProductionStitchPersistence(
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'allDataCleared',
-        '所有分析数据已清除。'
+        DEFAULT_RUNTIME_MESSAGES.allDataCleared
       );
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     } catch (error) {
@@ -188,7 +192,7 @@ export function createProductionStitchPersistence(
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'clearDataError',
-        '清除数据失败，请稍后重试。'
+        DEFAULT_RUNTIME_MESSAGES.clearDataError
       );
     }
   }

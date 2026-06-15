@@ -229,7 +229,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
     });
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
 
     const vaultList = findCardByTitle('Vault List');
@@ -253,7 +253,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
     });
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
 
     const vaultList = findCardByTitle('Vault List');
@@ -518,7 +518,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    const analytics = findCheckboxInText('匿名使用统计');
+    const analytics = findCheckboxInText('Usage analytics');
     expect(analytics.disabled).toBe(false);
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
@@ -553,11 +553,11 @@ describe('mountProductionStitchShell actions', () => {
       },
       messages: null,
       language: 'en',
-      messagingRepository,
+      messagingRepository: messagingRepository as never,
       optionsRepository
-    } as never);
+    });
 
-    const analytics = findCheckboxInText('匿名使用统计');
+    const analytics = findCheckboxInText('Usage analytics');
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
@@ -572,7 +572,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    const errorReporting = findCheckboxInText('错误报告');
+    const errorReporting = findCheckboxInText('Error reporting');
     errorReporting.checked = true;
     errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
@@ -587,7 +587,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    const debugMode = findCheckboxInText('调试模式');
+    const debugMode = findCheckboxInText('Debug mode');
     expect(debugMode.disabled).toBe(false);
     debugMode.checked = true;
     debugMode.dispatchEvent(new Event('change', { bubbles: true }));
@@ -643,7 +643,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
@@ -697,7 +697,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(confirmSpy).toHaveBeenCalledWith('Localized clear all?');
@@ -709,7 +709,7 @@ describe('mountProductionStitchShell actions', () => {
     });
 
     analyticsMocks.clearAllData.mockRejectedValueOnce(new Error('clear failed'));
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(document.body.textContent).toContain('Localized clear error');
@@ -721,6 +721,36 @@ describe('mountProductionStitchShell actions', () => {
         outcome: 'failed'
       }
     });
+  });
+
+  it('falls back to English privacy clear-all copy when messages are missing', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
+    const confirmSpy = vi.mocked(window.confirm);
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: true,
+          debugMode: true
+        }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository,
+      optionsRepository
+    } as never);
+
+    findButton('Clear all data').click();
+    await flushPromises();
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Clear all analytics data? This action cannot be undone.'
+    );
+    expect(document.body.textContent).toContain('All analytics data has been cleared.');
   });
 
   it('does not report analytics data cleared when error analytics cleanup fails', async () => {
@@ -748,7 +778,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
@@ -781,7 +811,7 @@ describe('mountProductionStitchShell actions', () => {
       now: () => 1234
     } as never);
 
-    findButton('清除使用数据').click();
+    findButton('Clear Usage Data').click();
     await flushPromises();
 
     const zeroStats = {

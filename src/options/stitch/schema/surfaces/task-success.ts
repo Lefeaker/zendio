@@ -8,6 +8,7 @@ import type {
 import { actionRow, surfaceBody, surfaceStage, surfaceWindow } from '../builders/surfaces';
 import { div, element, strong } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 type TaskSuccessSurface = PreviewContent['surfaces']['taskSuccess'];
 
@@ -16,7 +17,9 @@ const schema: ResourceSchema = {
   createView(ctx) {
     const surface = ctx.appData.surfaces.taskSuccess;
     const supportLinks = localizeSupportLinks(ctx.appData.resources.support.channels, ctx);
-    const supportTitle = ctx.t?.('supportPromptTitle', '支持 Zendio') ?? '支持 Zendio';
+    const supportTitle =
+      ctx.t?.('supportPromptTitle', DEFAULT_PRODUCTION_ENGLISH_MESSAGES.supportPromptTitle) ??
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.supportPromptTitle;
     const statusMessage = resolveStatusMessage(surface, ctx);
     const likeLabel = ctx.t?.('supportPromptLikeLabel', surface.likeLabel) ?? surface.likeLabel;
     const dislikeLabel =
@@ -35,8 +38,10 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: ctx.t?.('schemaRuntimeTaskSuccessTitle', 'Task Success') ?? 'Task Success',
       description:
-        ctx.t?.('schemaRuntimeTaskSuccessDescription', '任务完成后的成功提示层。') ??
-        '任务完成后的成功提示层。',
+        ctx.t?.(
+          'schemaRuntimeTaskSuccessDescription',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessDescription
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'task-success',
       children: [

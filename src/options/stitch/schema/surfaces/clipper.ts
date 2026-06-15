@@ -12,6 +12,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -19,8 +20,16 @@ const schema: ResourceSchema = {
     const surface = ctx.appData.surfaces.clipper;
     const t = ctx.t;
     const destinationLabels = {
-      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
-      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+      saveToLabel:
+        t?.(
+          'schemaRuntimeSurfaceSaveToLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+      configureVaultLabel:
+        t?.(
+          'schemaRuntimeSurfaceConfigureVaultLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const actions = surface.actions.map((action) => ({
       ...action,
@@ -39,8 +48,10 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: t?.('schemaRuntimeClipperTitle', 'Clipper Dialog') ?? 'Clipper Dialog',
       description:
-        t?.('schemaRuntimeClipperDescription', '用户在网页上选中文本后首先看到的剪藏浮窗。') ??
-        '用户在网页上选中文本后首先看到的剪藏浮窗。',
+        t?.(
+          'schemaRuntimeClipperDescription',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperDescription
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperDescription,
       surfacePlacement: 'dialog',
       surfaceSkin: 'clipper',
       children: [

@@ -110,5 +110,5 @@ export function getChangelogByLanguage(language: string): string {
     `
   };
 
-  return changelogs[language] || changelogs['zh-CN'];
+  return language === 'zh-CN' ? changelogs['zh-CN'] : changelogs[language] || changelogs.en;
 }

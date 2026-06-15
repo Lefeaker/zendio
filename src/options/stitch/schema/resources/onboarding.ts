@@ -45,7 +45,7 @@ const schema: ResourceSchema = {
                   label: shouldLocalize
                     ? (ctx.t?.('schemaResourcePluginSetupGoToStorageButton', 'Go To Storage') ??
                       'Go To Storage')
-                    : '跳到 Storage',
+                    : 'Go To Storage',
                   variant: 'secondary',
                   action: { id: 'navigation:openMainAtPanel', args: ['storage'] }
                 }

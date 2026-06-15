@@ -62,4 +62,13 @@ describe('fragment modifier Options helpers', () => {
       'System warning sentinel for Alt Sentinel'
     );
   });
+
+  it('falls back to English modifier conflict warnings when localized messages are missing', () => {
+    expect(fragmentModifierConflictWarning('ctrl', null, false)).toBe(
+      'Ctrl may conflict with browser or page shortcuts. If it is unstable, use Shift.'
+    );
+    expect(fragmentModifierConflictWarning('alt', null, true)).toBe(
+      'Option may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'
+    );
+  });
 });

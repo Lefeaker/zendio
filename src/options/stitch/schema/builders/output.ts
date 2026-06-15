@@ -1,4 +1,5 @@
 import type { NodeSchema, SchemaContext, YamlDomainRule } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import type { SchemaMessageKey } from '../i18n';
 import { code, div, element, stack } from './primitives';
 import { classNames } from './classNames';
@@ -40,7 +41,7 @@ export function templateTokenBlock(
     | number
     | ((
         ctx: SchemaContext
-      ) => string | number) = '将鼠标放到上方任一路径输入框，再点击下方字段快速插入。'
+      ) => string | number) = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputTemplateHelperText
 ): NodeSchema {
   return stack(
     [

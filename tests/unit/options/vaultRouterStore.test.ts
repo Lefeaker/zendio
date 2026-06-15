@@ -93,6 +93,13 @@ describe('vaultRouterStore', () => {
     expect(config?.defaultVaultId).toBe(vault.id);
   });
 
+  it('uses an English default name when adding a vault without an explicit label', () => {
+    const vault = addAdditionalVault();
+
+    expect(vault.name).toBe('New Vault');
+    expect(getVaultRouterConfig()?.vaults[0]?.name).toBe('New Vault');
+  });
+
   it('removes associated rules when a vault is deleted', () => {
     const vault = addAdditionalVault({ name: 'To Remove' });
     addRoutingRule({ vaultId: vault.id, pattern: 'remove.me', type: 'keyword' });

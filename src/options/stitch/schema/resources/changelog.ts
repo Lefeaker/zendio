@@ -1,11 +1,8 @@
 import type { SchemaMessageKey } from '../i18n';
-import type {
-  ChangelogEntry,
-  ResourceSchema,
-  SchemaContext
-} from '../../types';
+import type { ChangelogEntry, ResourceSchema, SchemaContext } from '../../types';
 import { div } from '../builders/primitives';
 import { releaseCard } from '../builders/resources';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 type ChangelogNoteSection = NonNullable<ChangelogEntry['notes']>[number];
 
@@ -43,13 +40,17 @@ function localizeText(
   key: SchemaMessageKey | undefined,
   fallback: string
 ): string {
+  const englishFallback = key ? (DEFAULT_PRODUCTION_ENGLISH_MESSAGES[key] ?? fallback) : fallback;
   if (!ctx.messages || !key) {
-    return fallback;
+    return englishFallback;
   }
-  return ctx.t?.(key, fallback) ?? fallback;
+  return ctx.t?.(key, englishFallback) ?? englishFallback;
 }
 
-function localizeNoteSection(ctx: SchemaContext, section: ChangelogNoteSection): ChangelogNoteSection {
+function localizeNoteSection(
+  ctx: SchemaContext,
+  section: ChangelogNoteSection
+): ChangelogNoteSection {
   return {
     ...section,
     title: localizeText(ctx, USAGE_ADVICE_TITLE_KEY, section.title),
@@ -82,13 +83,13 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: shouldLocalize
         ? (ctx.t?.('schemaResourceChangelogTitle', 'Changelog') ?? 'Changelog')
-        : '更新日志',
+        : 'Changelog',
       description: shouldLocalize
         ? (ctx.t?.(
             'schemaResourceChangelogDescription',
             'This modal highlights the latest shipped updates from the project changelog.'
           ) ?? 'This modal highlights the latest shipped updates from the project changelog.')
-        : '这里直接使用项目中的更新日志重点内容。',
+        : 'This modal highlights the latest shipped updates from the project changelog.',
       size: 'large',
       children: [
         div(
