@@ -1,26 +1,22 @@
-export interface VideoScreenshotPreparationQueueStateSnapshot {
-  trackedCaptureIds: string[];
-  visibleAttemptedIds: string[];
-  inFlightVisibleIds: string[];
-  hiddenDuplicateAttemptIds: string[];
-}
-
-export interface VideoScreenshotPreparationAttemptLike {
-  sourceVideo: HTMLVideoElement;
-  scope: {
-    dispose(): void;
-  };
-}
-
-interface VideoScreenshotPreparationRequestState<
-  TAttempt extends VideoScreenshotPreparationAttemptLike
-> {
-  tracked: boolean;
-  explicitVisible: boolean;
-  visibleAttempted: boolean;
-  visibleInFlight: boolean;
-  hiddenAttempt: TAttempt | null;
-}
+import {
+  collectVideoScreenshotPreparationRequestIds,
+  createVideoScreenshotPreparationQueueStateSnapshot,
+  type VideoScreenshotPreparationQueueStateSnapshot
+} from './videoScreenshotPreparationRequestSnapshots';
+import {
+  canStartVideoScreenshotHiddenAttempt,
+  createVideoScreenshotPreparationRequestState,
+  disposeVideoScreenshotHiddenAttempt,
+  getNextVideoScreenshotHiddenRetryAt,
+  recordVideoScreenshotHiddenAttemptFailure,
+  resetVideoScreenshotHiddenProgress,
+  resetVideoScreenshotPreparationRequestState,
+  shouldRetainVideoScreenshotPreparationRequest,
+  type VideoScreenshotHiddenAttemptFailureOptions,
+  type VideoScreenshotHiddenAttemptFailureResult,
+  type VideoScreenshotPreparationAttemptLike,
+  type VideoScreenshotPreparationRequestState
+} from './videoScreenshotPreparationRequestState';
 
 export class VideoScreenshotPreparationRequestStore<
   TAttempt extends VideoScreenshotPreparationAttemptLike
@@ -34,7 +30,9 @@ export class VideoScreenshotPreparationRequestStore<
   ) {}
 
   track(captureId: string): void {
-    this.ensureRequest(captureId).tracked = true;
+    const request = this.ensureRequest(captureId);
+    request.tracked = true;
+    resetVideoScreenshotHiddenProgress(request);
     this.emit();
   }
 
@@ -44,6 +42,7 @@ export class VideoScreenshotPreparationRequestStore<
       const request = this.ensureRequest(captureId);
       if (!request.tracked) {
         request.tracked = true;
+        resetVideoScreenshotHiddenProgress(request);
         didChange = true;
       }
     }
@@ -57,12 +56,8 @@ export class VideoScreenshotPreparationRequestStore<
     if (!request) {
       return;
     }
-
-    request.tracked = false;
-    request.explicitVisible = false;
-    request.visibleAttempted = false;
-    request.visibleInFlight = false;
-    this.disposeHiddenAttempt(request);
+    resetVideoScreenshotPreparationRequestState(request);
+    disposeVideoScreenshotHiddenAttempt(request);
     this.compact(captureId, request);
     this.emit();
   }
@@ -73,11 +68,8 @@ export class VideoScreenshotPreparationRequestStore<
       if (!request.tracked || pendingIds.has(captureId)) {
         continue;
       }
-      request.tracked = false;
-      request.explicitVisible = false;
-      request.visibleAttempted = false;
-      request.visibleInFlight = false;
-      this.disposeHiddenAttempt(request);
+      resetVideoScreenshotPreparationRequestState(request);
+      disposeVideoScreenshotHiddenAttempt(request);
       this.compact(captureId, request);
       didChange = true;
     }
@@ -150,9 +142,10 @@ export class VideoScreenshotPreparationRequestStore<
 
   startHiddenAttempt(captureId: string, attempt: TAttempt): boolean {
     const request = this.ensureRequest(captureId);
-    if (request.hiddenAttempt) {
+    if (request.hiddenAttempt || request.hiddenTerminalFailed) {
       return false;
     }
+    request.hiddenAttemptCount += 1;
     request.hiddenAttempt = attempt;
     this.emit();
     return true;
@@ -168,12 +161,23 @@ export class VideoScreenshotPreparationRequestStore<
     this.emit();
   }
 
+  recordHiddenAttemptFailure(
+    captureId: string,
+    options: VideoScreenshotHiddenAttemptFailureOptions
+  ): VideoScreenshotHiddenAttemptFailureResult {
+    const result = recordVideoScreenshotHiddenAttemptFailure(this.requests.get(captureId), options);
+    if (result !== 'ignored') {
+      this.emit();
+    }
+    return result;
+  }
+
   abortHiddenAttempt(captureId: string): void {
     const request = this.requests.get(captureId);
     if (!request || !request.hiddenAttempt) {
       return;
     }
-    this.disposeHiddenAttempt(request);
+    disposeVideoScreenshotHiddenAttempt(request);
     this.compact(captureId, request);
     this.emit();
   }
@@ -182,13 +186,12 @@ export class VideoScreenshotPreparationRequestStore<
     if (!sourceVideo) {
       return;
     }
-
     let didChange = false;
     for (const [captureId, request] of this.requests) {
       if (request.hiddenAttempt?.sourceVideo !== sourceVideo) {
         continue;
       }
-      this.disposeHiddenAttempt(request);
+      disposeVideoScreenshotHiddenAttempt(request);
       this.compact(captureId, request);
       didChange = true;
     }
@@ -203,14 +206,15 @@ export class VideoScreenshotPreparationRequestStore<
       didChange =
         didChange ||
         request.tracked ||
+        request.hiddenAttemptCount > 0 ||
+        request.hiddenRetryAvailableAt > 0 ||
+        request.hiddenTerminalFailed ||
+        request.explicitVisible ||
         request.visibleAttempted ||
         request.visibleInFlight ||
         Boolean(request.hiddenAttempt);
-      request.tracked = false;
-      request.explicitVisible = false;
-      request.visibleAttempted = false;
-      request.visibleInFlight = false;
-      this.disposeHiddenAttempt(request);
+      resetVideoScreenshotPreparationRequestState(request);
+      disposeVideoScreenshotHiddenAttempt(request);
       this.requests.delete(captureId);
     }
     if (didChange) {
@@ -221,7 +225,9 @@ export class VideoScreenshotPreparationRequestStore<
   hasTracked(captureId: string): boolean {
     return this.requests.get(captureId)?.tracked === true;
   }
-
+  hasHiddenAttempted(captureId: string): boolean {
+    return (this.requests.get(captureId)?.hiddenAttemptCount ?? 0) > 0;
+  }
   hasExplicitVisible(captureId: string): boolean {
     return this.requests.get(captureId)?.explicitVisible === true;
   }
@@ -238,10 +244,22 @@ export class VideoScreenshotPreparationRequestStore<
     return Boolean(this.requests.get(captureId)?.hiddenAttempt);
   }
 
+  canStartHiddenAttempt(captureId: string, now: number): boolean {
+    return canStartVideoScreenshotHiddenAttempt(this.requests.get(captureId), now);
+  }
+
+  getHiddenAttemptCount(): number {
+    return collectVideoScreenshotPreparationRequestIds(
+      this.requests,
+      (request) => request.hiddenAttempt !== null
+    ).length;
+  }
   getTrackedIds(): string[] {
-    return Array.from(this.requests.entries())
-      .filter(([, request]) => request.tracked)
-      .map(([captureId]) => captureId);
+    return collectVideoScreenshotPreparationRequestIds(this.requests, (request) => request.tracked);
+  }
+
+  getNextHiddenRetryAt(now: number): number | null {
+    return getNextVideoScreenshotHiddenRetryAt(this.requests.values(), now);
   }
 
   private ensureRequest(captureId: string): VideoScreenshotPreparationRequestState<TAttempt> {
@@ -249,20 +267,9 @@ export class VideoScreenshotPreparationRequestStore<
     if (existing) {
       return existing;
     }
-    const created: VideoScreenshotPreparationRequestState<TAttempt> = {
-      tracked: false,
-      explicitVisible: false,
-      visibleAttempted: false,
-      visibleInFlight: false,
-      hiddenAttempt: null
-    };
+    const created = createVideoScreenshotPreparationRequestState<TAttempt>();
     this.requests.set(captureId, created);
     return created;
-  }
-
-  private disposeHiddenAttempt(request: VideoScreenshotPreparationRequestState<TAttempt>): void {
-    request.hiddenAttempt?.scope.dispose();
-    request.hiddenAttempt = null;
   }
 
   private compact(
@@ -274,32 +281,13 @@ export class VideoScreenshotPreparationRequestStore<
     if (!request) {
       return;
     }
-    if (
-      request.tracked ||
-      request.explicitVisible ||
-      request.visibleAttempted ||
-      request.visibleInFlight ||
-      request.hiddenAttempt
-    ) {
+    if (shouldRetainVideoScreenshotPreparationRequest(request)) {
       return;
     }
     this.requests.delete(captureId);
   }
 
   private emit(): void {
-    this.onStateChange?.({
-      trackedCaptureIds: this.collectIds((request) => request.tracked),
-      visibleAttemptedIds: this.collectIds((request) => request.visibleAttempted),
-      inFlightVisibleIds: this.collectIds((request) => request.visibleInFlight),
-      hiddenDuplicateAttemptIds: this.collectIds((request) => request.hiddenAttempt !== null)
-    });
-  }
-
-  private collectIds(
-    predicate: (request: VideoScreenshotPreparationRequestState<TAttempt>) => boolean
-  ): string[] {
-    return Array.from(this.requests.entries())
-      .filter(([, request]) => predicate(request))
-      .map(([captureId]) => captureId);
+    this.onStateChange?.(createVideoScreenshotPreparationQueueStateSnapshot(this.requests));
   }
 }

@@ -47,6 +47,7 @@ AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery -- --dry-run
 npm run package:prod:ga
 ```
 
@@ -54,6 +55,9 @@ npm run package:prod:ga
 与 owner 本机 `.env.production.local` / shell public env 是否自洽；它不证明真实
 GA4 property 已收到事件，也不证明 DebugView 可见性。若 `.env.production.local`
 缺失，该命令仍会运行，并把缺失的 public 值报告为 warning。
+`npm run analytics:smoke:delivery` 是 opt-in owner-run proxy acceptance smoke：
+默认在 public env 不完整时 clean skip；`--require-env` 才把缺失 public env
+视为 failure；`--dry-run` 只输出 redacted summary，不发网络请求。
 runtime `enabled` 采用 live OR 语义：只要 `analytics` 或 `errorReporting`
 任一 consent 为 `on`，config `enabled` 就会为 true；但产品事件仍然只在
 `analytics` consent 下发送，`extension_error` 仍然只在 `errorReporting`
@@ -96,6 +100,7 @@ proxy 至少应满足：
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery -- --dry-run
 npm run package:prod:ga
 ```
 
@@ -199,6 +204,15 @@ node scripts/setup-error-analytics.js
 npm run analytics:validate:prod
 ```
 
+执行 owner proxy acceptance smoke：
+
+```bash
+npm run analytics:smoke:delivery
+npm run analytics:smoke:delivery -- --dry-run
+npm run analytics:smoke:delivery -- --require-env
+npm run analytics:smoke:delivery -- --event-name support_link_clicked
+```
+
 该脚本当前只做以下事情：
 
 - 校验当前 repo 的 public analytics wiring 是否存在
@@ -209,15 +223,16 @@ npm run analytics:validate:prod
 
 脚本不会改写 tracked source，也不会生成本地 secret 文件。
 
-## Owner smoke harness
+## Owner smoke harness and delivery smoke
 
 推荐 owner smoke 顺序：
 
 1. `npm run analytics:validate:prod`
 2. `node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open`
-3. 安装带 public config 的构建，手动验证 consent off/on 行为
-4. 如 owner 持有 DebugView / debug proxy，再运行 `--mode directDebug`
-5. 在 owner proxy / backend logs 中确认服务端 `api_secret` 注入证据
+3. `npm run analytics:smoke:delivery -- --dry-run`
+4. 安装带 public config 的构建，手动验证 consent off/on 行为
+5. 如 owner 持有 DebugView / debug proxy，再运行 `--mode directDebug`
+6. 在 owner proxy / backend logs 中确认服务端 `api_secret` 注入证据
 
 `run-ga-owner-smoke.mjs` 本地能证明的范围：
 
@@ -233,7 +248,19 @@ npm run analytics:validate:prod
 - DebugView 可见性
 - 服务端 `api_secret` 注入是否成功
 
-这些 owner-only evidence 模板见 [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)。
+`analytics:smoke:delivery` / `scripts/analytics-delivery-smoke.mjs` 只做以下事情：
+
+- 只读取 public env：`measurementId`、`transportMode`、`proxyEndpoint`
+- 如果 `.env.production.local` / shell public env 不完整，默认 clean skip
+- `--require-env` 时改为 failure，便于 owner 在 release shell 中显式验真
+- 只允许 `proxy` 或 `directDebug`，拒绝 `disabled`
+- 拒绝 canonical、trailing-dot 与 encoded-path direct Google Measurement Protocol endpoints，必须命中 owner proxy endpoint
+- 只发送 allowlisted synthetic event；默认是 `options_action_completed`
+- request body 只包含 synthetic event name、允许的安全 params、synthetic `client_id` / `session_id`、`engagement_time_msec`、`extension_version` 与 `timestamp_micros`
+- log 只允许 redacted summary：`eventName`、`transportMode`、`responseStatus`、validation message count
+- 不接受、记录、打印或回显 `api_secret`
+
+它证明的是“当前 owner proxy endpoint 接受了一个 synthetic analytics request”，不是“GA4 property 一定已经看到真实产品事件”。这些 owner-only evidence 模板见 [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)。
 
 ## 常见误区
 
@@ -254,6 +281,7 @@ npm run analytics:validate:prod
 以下事项在当前 repo 验证通过后仍然属于 owner-only residual risk，不应被表述为已经在本地工程验证中完成：
 
 - `GA4 DebugView`：本地 debug proxy 模式只能证明客户端事件路径、字段形状和 proxy 请求；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限、debug proxy 服务端 `api_secret` 注入，以及 consent-enabled 测试 profile。
+- `Proxy acceptance smoke`：`analytics:smoke:delivery` 只证明 owner proxy endpoint 接受 synthetic payload；它不证明 server-side forwarding 成功、GA4 property 已接收事件，或 dashboard / DebugView 已可见。
 - `Proxy api_secret injection`：只有 owner 控制的 staging/production proxy log 或 server trace 才能证明 `api_secret` 由服务端注入，且没有回流到扩展源码、构建产物或客户端请求参数。
 - `Chrome Web Store credentials`：repo 内只能安全验证 dry-run 与脚本接线；真实上传/发布仍需要 owner 的 Chrome Web Store dashboard credential 与人工确认。
 - `Real Obsidian vault / proxy credentials`：任何涉及真实 local-folder handle、REST API key、vault name、proxy secret 或 owner endpoint 的联调都必须由 owner 在受控环境下执行，且不得回写到 tracked source、fixtures 或 handoff 日志。
@@ -261,6 +289,8 @@ npm run analytics:validate:prod
 ## 最小 release 检查
 
 - build-time env 已注入
+- `analytics:validate:prod` 为 green
+- `analytics:smoke:delivery` 在 owner env 下至少完成一次 `sent` 或 `directDebug` redacted acceptance
 - 扩展网络只访问 owner proxy，不直接依赖生产态 Google endpoint
 - consent off 时无事件
 - consent on 时能看到 options / clip / reader / video / error 事件

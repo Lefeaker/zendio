@@ -1,3 +1,5 @@
+import type { VideoScreenshotCacheRef } from './videoScreenshotCacheTypes';
+
 export interface VideoCaptureScreenshotContent {
   kind: 'blob';
   blob: Blob;
@@ -31,6 +33,8 @@ export interface VideoTimestampCapture {
   createdAt: number;
   screenshotRequested?: boolean;
   screenshot?: VideoCaptureScreenshot;
+  screenshotRef?: VideoScreenshotCacheRef;
+  screenshotPreparationFailed?: true;
 }
 
 export interface VideoFragmentCapture {

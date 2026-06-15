@@ -1,9 +1,10 @@
 import type { VideoTimestampCapture } from './types';
+import type { VideoScreenshotCacheRef } from './videoScreenshotCacheTypes';
 
 export function hasRequestedTimestampScreenshot(
-  capture: Pick<VideoTimestampCapture, 'screenshotRequested'>
+  capture: Pick<VideoTimestampCapture, 'screenshotPreparationFailed' | 'screenshotRequested'>
 ): boolean {
-  return capture.screenshotRequested === true;
+  return capture.screenshotRequested === true && capture.screenshotPreparationFailed !== true;
 }
 
 export function setRequestedTimestampScreenshot(
@@ -11,6 +12,7 @@ export function setRequestedTimestampScreenshot(
   screenshot: VideoTimestampCapture['screenshot'] | null
 ): void {
   capture.screenshotRequested = true;
+  clearTimestampScreenshotPreparationFailure(capture);
   if (screenshot) {
     capture.screenshot = screenshot;
   }
@@ -18,6 +20,7 @@ export function setRequestedTimestampScreenshot(
 
 export function clearRequestedTimestampScreenshot(capture: VideoTimestampCapture): void {
   delete capture.screenshotRequested;
+  clearTimestampScreenshotPreparationFailure(capture);
 }
 
 export function setTimestampScreenshot(
@@ -25,4 +28,35 @@ export function setTimestampScreenshot(
   screenshot: NonNullable<VideoTimestampCapture['screenshot']>
 ): void {
   capture.screenshot = screenshot;
+  clearTimestampScreenshotPreparationFailure(capture);
+}
+
+export function setTimestampScreenshotRef(
+  capture: VideoTimestampCapture,
+  ref: VideoScreenshotCacheRef
+): void {
+  capture.screenshotRef = ref;
+}
+
+export function clearTimestampScreenshotRef(capture: VideoTimestampCapture): void {
+  delete capture.screenshotRef;
+}
+
+export function clearTimestampScreenshot(
+  capture: VideoTimestampCapture,
+  options: { keepRef?: boolean } = {}
+): void {
+  delete capture.screenshot;
+  clearTimestampScreenshotPreparationFailure(capture);
+  if (!options.keepRef) {
+    delete capture.screenshotRef;
+  }
+}
+
+export function markTimestampScreenshotPreparationFailed(capture: VideoTimestampCapture): void {
+  capture.screenshotPreparationFailed = true;
+}
+
+export function clearTimestampScreenshotPreparationFailure(capture: VideoTimestampCapture): void {
+  delete capture.screenshotPreparationFailed;
 }

@@ -16,6 +16,8 @@ const YOUTUBE_PAUSED_URL = 'https://www.youtube.com/watch?v=browserListenerScope
 const BILIBILI_URL = 'https://www.bilibili.com/video/BV1browser/';
 const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_STORAGE_PREFIX}.index.v1`;
+const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
+const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
 
 type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
@@ -52,8 +54,15 @@ type VideoDraftEntry = {
   pageUrl: string | null;
   captureCount: number;
   requestedScreenshotCount: number;
-  containsScreenshotDataUrl: boolean;
-  json: string;
+  screenshotRefCount: number;
+  containsInlineScreenshotPayload: boolean;
+};
+
+type VideoStorageSummary = {
+  drafts: VideoDraftEntry[];
+  cacheEntryCount: number;
+  cacheIndexEntryCount: number;
+  cacheKeys: string[];
 };
 
 type StartVideoModeResponse = {
@@ -588,41 +597,142 @@ async function releasePendingVideoScreenshotBlobs(
   );
 }
 
-async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
+async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorageSummary> {
   return await extensionPage.evaluate(
-    async ({ storageKeyPrefix, indexKey }) => {
-      const storage = await chrome.storage.local.get(null);
-      return Object.entries(storage)
+    async ({ storageKeyPrefix, indexKey, cacheKeyPrefix, cacheIndexKey }) => {
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        typeof value === 'object' && value !== null;
+      const toUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+      const rawStorage = await chrome.storage.local.get(null);
+      const storage = isRecord(rawStorage) ? rawStorage : {};
+      const drafts = Object.entries(storage)
         .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
         .map(([key, value]) => {
-          const json = JSON.stringify(value);
-          const envelope =
-            typeof value === 'object' && value !== null
-              ? (value as {
-                  pageUrl?: unknown;
-                  payload?: { captures?: Array<{ screenshotRequested?: boolean }> };
-                })
-              : {};
-          const captures = Array.isArray(envelope.payload?.captures)
-            ? envelope.payload.captures
-            : [];
+          const envelope = isRecord(value) ? value : null;
+          const payload = envelope && isRecord(envelope.payload) ? envelope.payload : null;
+          const captures = payload ? toUnknownArray(payload.captures) : [];
           return {
             key,
-            pageUrl: typeof envelope.pageUrl === 'string' ? envelope.pageUrl : null,
+            pageUrl:
+              envelope && 'pageUrl' in envelope && typeof envelope.pageUrl === 'string'
+                ? envelope.pageUrl
+                : null,
             captureCount: captures.length,
             requestedScreenshotCount: captures.filter(
-              (capture) =>
-                typeof capture === 'object' &&
-                capture !== null &&
-                capture.screenshotRequested === true
+              (capture) => isRecord(capture) && capture.screenshotRequested === true
             ).length,
-            containsScreenshotDataUrl: json.includes('data:image'),
-            json
+            screenshotRefCount: captures.filter(
+              (capture) =>
+                isRecord(capture) &&
+                typeof capture.screenshotRef === 'object' &&
+                capture.screenshotRef !== null
+            ).length,
+            containsInlineScreenshotPayload: captures.some((capture) => {
+              if (!isRecord(capture)) {
+                return false;
+              }
+              return (
+                'screenshot' in capture ||
+                'dataUrl' in capture ||
+                'content' in capture ||
+                Object.values(capture).some(
+                  (field) => typeof field === 'string' && field.startsWith('data:image')
+                )
+              );
+            })
           };
         });
+      const cacheKeys = Object.keys(storage).filter(
+        (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
+      );
+      const cacheIndexValue = storage[cacheIndexKey];
+      const cacheIndexEntries =
+        typeof cacheIndexValue === 'object' &&
+        cacheIndexValue !== null &&
+        'entries' in cacheIndexValue &&
+        Array.isArray(cacheIndexValue.entries)
+          ? cacheIndexValue.entries
+          : [];
+      return {
+        drafts,
+        cacheEntryCount: cacheKeys.length,
+        cacheIndexEntryCount: cacheIndexEntries.length,
+        cacheKeys
+      };
     },
-    { storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX, indexKey: SESSION_DRAFT_INDEX_KEY }
+    {
+      storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
+      indexKey: SESSION_DRAFT_INDEX_KEY,
+      cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX,
+      cacheIndexKey: VIDEO_SCREENSHOT_CACHE_INDEX_KEY
+    }
   );
+}
+
+async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
+  return (await readVideoStorageSummary(extensionPage)).drafts;
+}
+
+async function clearVideoScreenshotCacheStorage(extensionPage: Page): Promise<void> {
+  await extensionPage.evaluate(
+    async ({ cacheKeyPrefix }) => {
+      const storage = await chrome.storage.local.get(null);
+      const keys = Object.keys(storage).filter((key) => key.startsWith(cacheKeyPrefix));
+      if (keys.length > 0) {
+        await chrome.storage.local.remove(keys);
+      }
+    },
+    { cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX }
+  );
+}
+
+async function removeDraftScreenshotRefs(extensionPage: Page, pageUrl: string): Promise<void> {
+  await extensionPage.evaluate(async (targetPageUrl) => {
+    const storage = await chrome.storage.local.get(null);
+    const draftEntry = Object.entries(storage).find(([key, value]) => {
+      if (!key.startsWith('aiob.sessionDraft') || key === 'aiob.sessionDraft.index.v1') {
+        return false;
+      }
+      return (
+        typeof value === 'object' &&
+        value !== null &&
+        'pageUrl' in value &&
+        value.pageUrl === targetPageUrl
+      );
+    });
+    if (!draftEntry) {
+      throw new Error(`Missing stored draft for ${targetPageUrl}`);
+    }
+    const [draftKey, rawDraftValue] = draftEntry;
+    if (
+      typeof rawDraftValue !== 'object' ||
+      rawDraftValue === null ||
+      !('payload' in rawDraftValue) ||
+      typeof rawDraftValue.payload !== 'object' ||
+      rawDraftValue.payload === null
+    ) {
+      throw new Error(`Stored draft for ${targetPageUrl} is not a video draft envelope.`);
+    }
+
+    const payload = rawDraftValue.payload;
+    const captures =
+      'captures' in payload && Array.isArray(payload.captures) ? payload.captures : [];
+    const screenshotPayloadKeys = new Set(['screenshotRef', 'screenshot', 'dataUrl', 'content']);
+    const nextCaptures = captures.map((capture) =>
+      Object.fromEntries(Object.entries(capture).filter(([key]) => !screenshotPayloadKeys.has(key)))
+    );
+
+    await chrome.storage.local.set({
+      [draftKey]: {
+        ...rawDraftValue,
+        payload: {
+          ...payload,
+          captures: nextCaptures
+        }
+      }
+    });
+  }, pageUrl);
 }
 
 async function startVideoMode(extensionPage: Page, tabId: number): Promise<void> {
@@ -1467,12 +1577,15 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await expect
         .poll(
           async () => {
-            const entries = await readVideoDraftEntries(extensionPage);
+            const summary = await readVideoStorageSummary(extensionPage);
+            const firstDraft = summary.drafts[0];
             return {
-              count: entries.length,
-              captureCount: entries[0]?.captureCount ?? 0,
-              requestedScreenshotCount: entries[0]?.requestedScreenshotCount ?? 0,
-              containsScreenshotDataUrl: entries[0]?.containsScreenshotDataUrl ?? false
+              count: summary.drafts.length,
+              captureCount: firstDraft?.captureCount ?? 0,
+              requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+              screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+              containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+              cacheEntryCount: summary.cacheEntryCount
             };
           },
           {
@@ -1484,7 +1597,9 @@ testWithExtension.describe('video listener scope browser runtime', () => {
           count: 1,
           captureCount: 1,
           requestedScreenshotCount: 1,
-          containsScreenshotDataUrl: false
+          screenshotRefCount: 0,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 0
         });
 
       await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
@@ -1506,12 +1621,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
       await expect
         .poll(
           async () => {
-            const entries = await readVideoDraftEntries(extensionPage);
+            const summary = await readVideoStorageSummary(extensionPage);
+            const firstDraft = summary.drafts[0];
             return {
-              count: entries.length,
-              captureCount: entries[0]?.captureCount ?? 0,
-              requestedScreenshotCount: entries[0]?.requestedScreenshotCount ?? 0,
-              containsScreenshotDataUrl: entries[0]?.containsScreenshotDataUrl ?? false
+              count: summary.drafts.length,
+              captureCount: firstDraft?.captureCount ?? 0,
+              requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+              screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+              containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+              cacheEntryCount: summary.cacheEntryCount,
+              cacheIndexEntryCount: summary.cacheIndexEntryCount
             };
           },
           {
@@ -1523,8 +1642,262 @@ testWithExtension.describe('video listener scope browser runtime', () => {
           count: 1,
           captureCount: 1,
           requestedScreenshotCount: 1,
-          containsScreenshotDataUrl: false
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 1,
+          cacheIndexEntryCount: 1
         });
+    }
+  );
+
+  testWithExtension(
+    'restores legacy screenshotRequested-only drafts through fallback preparation without mutating visible currentTime',
+    async ({ context, extensionPage }) => {
+      const url = `${YOUTUBE_URL}&p09=legacy-screenshot-draft`;
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        url,
+        youtubeFixtureHtml()
+      );
+
+      await installVideoScreenshotProbe(extensionPage, tabId);
+      await openVideoPanelFromControlBar(page, 'Legacy screenshot restore note');
+
+      const firstCapture = page.locator('[data-role="capture-item"]').first();
+      const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'pending');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'initial screenshot preparation did not reach the delayed probe'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 1
+        });
+
+      await page.close();
+      await removeDraftScreenshotRefs(extensionPage, url);
+      await clearVideoScreenshotCacheStorage(extensionPage);
+
+      const restoredPage = await context.newPage();
+      await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
+      const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
+      await installVideoScreenshotProbe(extensionPage, restoredTabId);
+      await injectContentRuntime(extensionPage, restoredTabId);
+      await expect(restoredPage.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(
+        1
+      );
+      await expect(restoredPage.locator('[data-stitch-surface="video"]')).toBeVisible({
+        timeout: 10000
+      });
+      await expandVideoPanel(restoredPage);
+
+      const restoredToggle = restoredPage
+        .locator('[data-role="capture-item"]')
+        .first()
+        .locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(restoredToggle).toHaveAttribute('data-screenshot-state', 'pending');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, restoredTabId), {
+          timeout: 10000,
+          message: 'legacy screenshot restore did not trigger fallback preparation'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 0,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 0
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, restoredTabId, 'success');
+      await expect(restoredToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 1
+        });
+
+      await restoredPage.close();
+    }
+  );
+
+  testWithExtension(
+    'restores drafts with missing screenshot cache entries into pending state and recovers via fallback preparation',
+    async ({ context, extensionPage }) => {
+      const url = `${YOUTUBE_URL}&p09=missing-screenshot-cache`;
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        url,
+        youtubeFixtureHtml()
+      );
+
+      await installVideoScreenshotProbe(extensionPage, tabId);
+      await openVideoPanelFromControlBar(page, 'Missing screenshot cache note');
+
+      const firstCapture = page.locator('[data-role="capture-item"]').first();
+      const screenshotToggle = firstCapture.locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'pending');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, tabId), {
+          timeout: 10000,
+          message: 'initial screenshot preparation did not reach the delayed probe'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+      await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 1
+        });
+
+      await page.close();
+      await clearVideoScreenshotCacheStorage(extensionPage);
+
+      const restoredPage = await context.newPage();
+      await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
+      const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
+      await installVideoScreenshotProbe(extensionPage, restoredTabId);
+      await injectContentRuntime(extensionPage, restoredTabId);
+      await expect(restoredPage.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(
+        1
+      );
+      await expect(restoredPage.locator('[data-stitch-surface="video"]')).toBeVisible({
+        timeout: 10000
+      });
+      await expandVideoPanel(restoredPage);
+
+      const restoredToggle = restoredPage
+        .locator('[data-role="capture-item"]')
+        .first()
+        .locator('[data-action-id="video:toggle-screenshot"]');
+      await expect(restoredToggle).toHaveAttribute('data-screenshot-state', 'pending');
+      await expect
+        .poll(() => readVideoScreenshotProbe(extensionPage, restoredTabId), {
+          timeout: 10000,
+          message: 'missing screenshot cache restore did not trigger fallback preparation'
+        })
+        .toMatchObject({
+          currentTimeWrites: 0,
+          drawImageCalls: 1,
+          toBlobCalls: 1,
+          toDataUrlCalls: 0,
+          pendingBlobCallbacks: 1
+        });
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 0
+        });
+
+      await releasePendingVideoScreenshotBlobs(extensionPage, restoredTabId, 'success');
+      await expect(restoredToggle).toHaveAttribute('data-screenshot-state', 'on');
+      await expect
+        .poll(async () => {
+          const summary = await readVideoStorageSummary(extensionPage);
+          const firstDraft = summary.drafts[0];
+          return {
+            requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+            screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+            containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+            cacheEntryCount: summary.cacheEntryCount
+          };
+        })
+        .toEqual({
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          cacheEntryCount: 1
+        });
+
+      await restoredPage.close();
     }
   );
 

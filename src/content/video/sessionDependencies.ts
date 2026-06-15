@@ -8,6 +8,7 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 import { createVisibleTabVideoFrameScreenshotCapture } from './videoVisibleTabScreenshot';
+import { createVideoScreenshotCacheClientRepository } from './videoScreenshotCacheClientRepository';
 
 export interface VideoSessionPlatformDependencies {
   // Content composition root now passes the primary repository contract.
@@ -30,6 +31,9 @@ export function createVideoSessionDependencies(
     ...(deps.messaging
       ? {
           captureVisibleVideoFrameScreenshot: createVisibleTabVideoFrameScreenshotCapture({
+            messaging: deps.messaging
+          }),
+          screenshotCacheRepository: createVideoScreenshotCacheClientRepository({
             messaging: deps.messaging
           })
         }

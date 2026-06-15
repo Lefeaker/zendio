@@ -24,6 +24,7 @@ schema / proxy contract 驱动校验；提交前请先运行
 - `clearAllData()` / analytics data clear 会移除 consent、config、client id、session id 与相关队列状态。清空 analytics 数据时，如果清空前已有 `analytics` consent，Options 会 best-effort 发送一次 `analytics_data_cleared` 完成事件；该事件使用清空前捕获的 consented public config，payload 只能包含 `outcome: completed`，不得包含 client id、session id、measurement id、参数明细、页面内容、路径或其他原始数据字段。
 - `directDebug` 仅用于本地 debug proxy 验证，不是生产 release 默认路径；扩展仍只发往配置的 owner proxy endpoint，不能直连 Google debug endpoint 或携带 `api_secret`。
 - `analytics:validate:prod` 是静态/public-config + owner env sanity check；它会校验 tracked transport/consent contract、负向 secret/Google endpoint 守卫和 owner env 公共配置形状，但仍不证明真实 GA4 property delivery 或 DebugView 可见性。
+- `analytics:smoke:delivery` 是 opt-in owner-run proxy acceptance smoke；它默认在 public env 不完整时 skip，`--require-env` 才把缺失 public env 视为 failure；它只发送 allowlisted synthetic event，拒绝 direct Google Measurement Protocol hosts，也不证明真实 GA4 property delivery 或 DebugView 可见性。
 - 成功的生产 `proxy` 发送默认不输出事件参数或成功日志；只有 `directDebug` 会输出 `[analytics-events] Event sent (debug):` summary，且 summary 只包含 `eventName`、`transportMode`、`responseStatus` 与 validation message 数量。
 - 所有产品时长分析统一使用 `duration_bucket`。产品遥测不采集 `duration_ms`。
 
@@ -212,6 +213,11 @@ schema / proxy contract 驱动校验；提交前请先运行
 | `video_session_cancelled`  | `platform`, `duration_bucket`                       | `emitted` | `true`  |
 
 <!-- GA_SCHEMA_TABLE_END:reader_video -->
+
+`video_export_failed.failure_category` 优先使用后台剪藏写入链路已经计算出的结构化失败分类
+（例如 `write`、`connection`、`classification`）。如果 runtime response 没有可验证分类，内容侧只使用窄范围本地兜底：
+无效导出响应归为 `validation`，超时 / abort 归为 `timeout`，扩展消息传输失败归为 `connection`，其余保留 `unknown`。
+该字段不得从用户正文、标题、完整 URL、文件路径、时间戳备注、选中文本、截图 bytes 或 secret 中派生。
 
 ## Catalog-only Rows
 

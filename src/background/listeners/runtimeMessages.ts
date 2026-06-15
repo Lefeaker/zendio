@@ -6,7 +6,6 @@ import {
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyExtractionError } from '../services/notifications';
-import { z } from 'zod';
 import {
   isClipErrorMessage,
   isClipResultMessage,
@@ -22,7 +21,10 @@ import {
   notificationErrors
 } from '../../shared/errors';
 import { trackUsageEvent } from '../services/analyticsEvents';
-import { processClipPayload } from '../application/clipProcessor';
+import {
+  processClipPayload,
+  readClipProcessingFailureCategory
+} from '../application/clipProcessor';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
@@ -35,62 +37,21 @@ import {
   type CaptureVisibleTabScreenshotResponse
 } from '../../shared/types/videoScreenshotMessages';
 import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
+import {
+  createBackgroundVideoScreenshotCacheHandler,
+  type BackgroundVideoScreenshotCacheHandler
+} from '../services/videoScreenshotCacheService';
+import type { StorageService } from '../../platform/interfaces/storage';
+import {
+  isGetTabContextMessage,
+  isOpenOptionsPageMessage,
+  isTabContextActiveMessage,
+  toRuntimeMessageSender,
+  type RuntimeMessageSender,
+  type RuntimeTabContextPayload
+} from './runtimeMessageContracts';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
-
-const OpenOptionsPageMessageSchema = z.object({
-  type: z.literal('openOptionsPage'),
-  section: z.string().optional()
-});
-
-const GetTabContextMessageSchema = z.object({
-  type: z.literal('AIIOB_GET_TAB_CONTEXT')
-});
-const RuntimeOwnerContextSchema = z
-  .object({
-    tabId: z.number().int().nonnegative().optional(),
-    windowId: z.number().int().nonnegative().optional(),
-    frameId: z.number().int().nonnegative().optional()
-  })
-  .refine(
-    (value) =>
-      value.tabId !== undefined || value.windowId !== undefined || value.frameId !== undefined
-  );
-const IsTabContextActiveMessageSchema = z.object({
-  type: z.literal('AIIOB_IS_TAB_CONTEXT_ACTIVE'),
-  ownerContext: RuntimeOwnerContextSchema
-});
-
-type OpenOptionsPageMessage = z.infer<typeof OpenOptionsPageMessageSchema>;
-type GetTabContextMessage = z.infer<typeof GetTabContextMessageSchema>;
-type IsTabContextActiveMessage = z.infer<typeof IsTabContextActiveMessageSchema>;
-type RuntimeMessageSender = { tabId?: number; frameId?: number; windowId?: number };
-type RuntimeMessageSenderInput = {
-  tabId?: number | undefined;
-  frameId?: number | undefined;
-  windowId?: number | undefined;
-};
-type RuntimeTabContextPayload = Record<string, MessagePayload>;
-
-function toRuntimeMessageSender(value: RuntimeMessageSenderInput): RuntimeMessageSender {
-  return {
-    ...(typeof value.tabId === 'number' ? { tabId: value.tabId } : {}),
-    ...(typeof value.frameId === 'number' ? { frameId: value.frameId } : {}),
-    ...(typeof value.windowId === 'number' ? { windowId: value.windowId } : {})
-  };
-}
-
-function isOpenOptionsPageMessage(message: unknown): message is OpenOptionsPageMessage {
-  return OpenOptionsPageMessageSchema.safeParse(message).success;
-}
-
-function isGetTabContextMessage(message: unknown): message is GetTabContextMessage {
-  return GetTabContextMessageSchema.safeParse(message).success;
-}
-
-function isTabContextActiveMessage(message: unknown): message is IsTabContextActiveMessage {
-  return IsTabContextActiveMessageSchema.safeParse(message).success;
-}
 
 function isRepositoryContentMessage(
   message: unknown,
@@ -148,9 +109,11 @@ async function processRepositoryClipPayload(payload: unknown): Promise<MessagePa
     const result = await processClipPayload(parsedPayload);
     return { success: true, filePath: result.filePath };
   } catch (error) {
+    const failureCategory = readClipProcessingFailureCategory(error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      ...(failureCategory ? { failureCategory } : {})
     };
   }
 }
@@ -164,16 +127,19 @@ export interface RuntimeMessageListenerDependencies {
   captureVisibleTabScreenshot(
     sender: RuntimeMessageSender
   ): Promise<CaptureVisibleTabScreenshotResponse>;
+  handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
 }
 
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
   tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
-  runtime: Pick<RuntimeService, 'getURL'>
+  runtime: Pick<RuntimeService, 'getURL'>,
+  storage: Pick<StorageService, 'local'>
 ): RuntimeMessageListenerDependencies {
   return {
     messaging,
     clipPipeline: createClipPipelineDependencies(tabs),
+    handleVideoScreenshotCacheMessage: createBackgroundVideoScreenshotCacheHandler(storage),
     async openOptionsPage(section) {
       const optionsUrl = runtime.getURL('options/index.html');
       const normalizedSection = section?.trim();
@@ -263,6 +229,11 @@ export function registerRuntimeMessageListener(
       message.type === CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE
     ) {
       return dependencies.captureVisibleTabScreenshot(toRuntimeMessageSender(sender));
+    }
+
+    const screenshotCacheResponse = await dependencies.handleVideoScreenshotCacheMessage(message);
+    if (screenshotCacheResponse !== undefined) {
+      return screenshotCacheResponse as MessagePayload;
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {

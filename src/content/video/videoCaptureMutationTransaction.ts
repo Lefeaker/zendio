@@ -21,6 +21,13 @@ import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 
+export {
+  restoreTimestampScreenshotState,
+  snapshotTimestampScreenshotState
+} from './videoTimestampScreenshotStateSnapshot';
+
+type UntrustedValue = unknown;
+
 export type {
   VideoCaptureMutationFailure,
   VideoCaptureMutationTransaction
@@ -86,60 +93,6 @@ export function restoreRemovedFragmentHighlight(
   context.fragmentHighlightCoordinator.scheduleRestore();
 }
 
-interface TimestampScreenshotStateSnapshot {
-  hasScreenshotRequested: boolean;
-  screenshotRequested: VideoTimestampCapture['screenshotRequested'];
-  hasScreenshot: boolean;
-  screenshot: VideoTimestampCapture['screenshot'];
-}
-
-function restoreOptionalTimestampScreenshotProperty(
-  capture: VideoTimestampCapture,
-  key: 'screenshotRequested' | 'screenshot',
-  hasValue: boolean,
-  value: VideoTimestampCapture['screenshotRequested'] | VideoTimestampCapture['screenshot']
-): void {
-  if (!hasValue) {
-    delete capture[key];
-    return;
-  }
-  Object.defineProperty(capture, key, {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value
-  });
-}
-
-export function snapshotTimestampScreenshotState(
-  capture: VideoTimestampCapture
-): TimestampScreenshotStateSnapshot {
-  return {
-    hasScreenshotRequested: Object.prototype.hasOwnProperty.call(capture, 'screenshotRequested'),
-    screenshotRequested: capture.screenshotRequested,
-    hasScreenshot: Object.prototype.hasOwnProperty.call(capture, 'screenshot'),
-    screenshot: capture.screenshot
-  };
-}
-
-export function restoreTimestampScreenshotState(
-  capture: VideoTimestampCapture,
-  snapshot: ReturnType<typeof snapshotTimestampScreenshotState>
-): void {
-  restoreOptionalTimestampScreenshotProperty(
-    capture,
-    'screenshotRequested',
-    snapshot.hasScreenshotRequested,
-    snapshot.screenshotRequested
-  );
-  restoreOptionalTimestampScreenshotProperty(
-    capture,
-    'screenshot',
-    snapshot.hasScreenshot,
-    snapshot.screenshot
-  );
-}
-
 async function sendVideoUsageEvent<EventName extends UsageEventName>(
   dependencies: VideoSessionDependencies,
   event: EventName,
@@ -175,44 +128,75 @@ export function resolveVideoExportDestination(
   return exportDestination?.kind === 'downloads' ? 'downloads' : 'unknown';
 }
 
+const FAILURE_CATEGORIES: ReadonlySet<string> = new Set(
+  'permission connection validation classification extraction write timeout unsupported unknown'.split(
+    ' '
+  )
+);
+
 const FAILURE_HINTS = {
   timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
   unsupported: 'unsupported|not supported|unavailable in this runtime'.split('|'),
   permission:
     'permission denied|permission-denied|access denied|not granted|forbidden|denied'.split('|'),
-  validation: 'invalid|missing|malformed|expected|not configured|no image|payload'.split('|'),
+  validation:
+    'invalid video export response|invalid clip payload received|invalid|missing|malformed|expected|not configured|no image|payload'.split(
+      '|'
+    ),
   write: 'local_vault_write_failed|write failed|write-preflight-failed|save failed'.split('|'),
-  connection: 'offline|network|connection|failed to send message to background|rest '.split('|')
+  connection:
+    'offline|network|connection|failed to send message to background|rest |could not establish connection|receiving end does not exist|extension context invalidated|message port closed|runtime.lasterror|failed to fetch|networkerror'.split(
+      '|'
+    )
 } as const;
 
-function collectFailureHints(error: unknown, seen = new Set<unknown>()): string {
+function isFailureCategory(value: UntrustedValue): value is FailureCategory {
+  return typeof value === 'string' && FAILURE_CATEGORIES.has(value);
+}
+
+interface VideoExportFailureLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  domain?: string;
+  userMessage?: string;
+  context?: unknown;
+  cause?: unknown;
+  failureCategory?: UntrustedValue;
+}
+
+function isVideoExportFailureLike(error: UntrustedValue): error is VideoExportFailureLike {
+  return typeof error === 'object' && error !== null;
+}
+
+function collectFailureHints(error: UntrustedValue, seen = new Set<UntrustedValue>()): string {
   if (error == null || seen.has(error)) return '';
   seen.add(error);
+
   const hints: string[] = [];
   const push = (value: unknown) => {
     if (typeof value === 'string' && value.trim()) hints.push(value.trim().toLowerCase());
   };
+
   if (typeof error === 'string') {
     push(error);
   } else if (error instanceof Error) {
     push(error.name);
     push(error.message);
     push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
-  } else if (typeof error === 'object') {
-    const candidate = error as Record<string, unknown> & { cause?: unknown; context?: unknown };
-    [
-      candidate.code,
-      candidate.domain,
-      candidate.name,
-      candidate.message,
-      candidate.userMessage
-    ].forEach(push);
-    if (typeof candidate.context === 'object' && candidate.context !== null) {
-      const context = candidate.context as Record<string, unknown>;
+  } else if (isVideoExportFailureLike(error)) {
+    push(error.code);
+    push(error.domain);
+    push(error.name);
+    push(error.message);
+    push(error.userMessage);
+    if (typeof error.context === 'object' && error.context !== null) {
+      const context = error.context as Record<string, unknown>;
       [context.fallbackReason, context.error, context.message].forEach(push);
     }
-    push(collectFailureHints(candidate.cause, seen));
+    push(collectFailureHints(error.cause, seen));
   }
+
   return hints.join('\n');
 }
 
@@ -220,7 +204,24 @@ function hasFailureHint(text: string, candidates: readonly string[]): boolean {
   return candidates.some((candidate) => text.includes(candidate));
 }
 
-export function resolveVideoFailureCategory(error: unknown): FailureCategory {
+export function createVideoExportFailure(message: string, failureCategory?: UntrustedValue): Error {
+  const error = new Error(message);
+  if (isFailureCategory(failureCategory)) {
+    Object.defineProperty(error, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: failureCategory,
+      writable: false
+    });
+  }
+  return error;
+}
+
+export function resolveVideoFailureCategory(error: UntrustedValue): FailureCategory {
+  if (isVideoExportFailureLike(error) && isFailureCategory(error.failureCategory)) {
+    return error.failureCategory;
+  }
+
   const failureHints = collectFailureHints(error);
 
   if (isAppError(error)) {

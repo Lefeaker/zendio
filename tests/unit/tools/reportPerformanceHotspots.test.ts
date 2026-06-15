@@ -36,7 +36,9 @@ describe('report-performance-hotspots', () => {
     expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
     expect(output).toContain('src/options/app/productionStitchStateMapper.ts');
     expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
+    expect(output).toContain('src/content/video/videoCaptureMutationTransaction.ts');
     expect(output).toContain('src/content/video/videoScreenshotPreparationRequestStore.ts');
+    expect(output).toContain('src/background/listeners/runtimeMessages.ts');
     expect(output).not.toContain('src/options/app/productionStitchShellMount.ts: lines=');
     expect(output).not.toContain('src/i18n/schemaShellMessages.ts: lines=');
   });

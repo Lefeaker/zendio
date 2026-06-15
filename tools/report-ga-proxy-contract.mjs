@@ -212,6 +212,7 @@ async function main() {
     throw new Error(`ga proxy contract check failed:\n- ${problems.join('\n- ')}`);
   }
 
+  writeReport(args.outPath, contract);
   console.log(
     `[ga-proxy-contract] Check passed (${contract.events.length} events, scanned ${SOURCE_FILES_TO_SCAN.length} source files)`
   );
