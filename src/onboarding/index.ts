@@ -17,13 +17,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
   registerFallbackRepositories();
 }
 
-if ((document.body?.dataset.route ?? 'options') === 'onboarding') {
-  const run = () => {
-    void bootstrapOnboardingApp();
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
-  } else {
-    run();
-  }
+const run = () => {
+  void bootstrapOnboardingApp();
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', run, { once: true });
+} else {
+  run();
 }

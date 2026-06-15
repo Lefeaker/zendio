@@ -149,4 +149,63 @@ describe('VideoScreenshotPreparationCoordinator', () => {
     expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
     expect(syncPanel).toHaveBeenCalledTimes(1);
   });
+
+  it('runs a deferred pending request after out-of-order restored screenshot hydration settles', async () => {
+    const capture = createPendingTimestampCapture('ts-1', 42);
+    const visibleVideo = createVisibleVideo(42);
+    document.body.append(visibleVideo);
+    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const coordinator = new VideoScreenshotPreparationCoordinator({
+      doc: document,
+      getCaptures: () => [capture],
+      getVisibleVideo: () => visibleVideo,
+      captureVisibleFrame,
+      syncPanel: vi.fn()
+    });
+
+    coordinator.suspendPendingRequests(); // hydration A
+    coordinator.suspendPendingRequests(); // hydration B
+
+    coordinator.resumePendingRequests(); // hydration B settles first and is current
+    coordinator.requestPendingScreenshots();
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests(); // hydration A settles later and is stale
+    await vi.waitFor(() => {
+      expect(captureVisibleFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
+  });
+
+  it('runs a deferred video element change request after suspended hydration resumes', async () => {
+    const capture = createPendingTimestampCapture('ts-1', 42);
+    const visibleVideo = createVisibleVideo(42);
+    document.body.append(visibleVideo);
+    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const coordinator = new VideoScreenshotPreparationCoordinator({
+      doc: document,
+      getCaptures: () => [capture],
+      getVisibleVideo: () => visibleVideo,
+      captureVisibleFrame,
+      syncPanel: vi.fn()
+    });
+
+    coordinator.suspendPendingRequests();
+    coordinator.handleVideoElementChange(visibleVideo);
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests();
+    await vi.waitFor(() => {
+      expect(captureVisibleFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
+  });
 });
