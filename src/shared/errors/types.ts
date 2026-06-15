@@ -1,4 +1,7 @@
-import type { UserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
+import {
+  isUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../i18n/userVisibleMessageDescriptor';
 
 export enum ErrorSeverity {
   INFO = 'info',
@@ -49,10 +52,14 @@ export function isAppError(candidate: unknown): candidate is AppError {
     return false;
   }
   const value = candidate as Record<string, unknown>;
+  const hasValidUserMessageDescriptor =
+    value.userMessageDescriptor === undefined ||
+    isUserVisibleMessageDescriptor(value.userMessageDescriptor);
   return (
     typeof value.code === 'string' &&
     typeof value.domain === 'string' &&
     typeof value.severity === 'string' &&
-    typeof value.recoverable === 'boolean'
+    typeof value.recoverable === 'boolean' &&
+    hasValidUserMessageDescriptor
   );
 }
