@@ -1,4 +1,5 @@
 import { AppError, ErrorSeverity, ErrorDomain, isAppError } from './types';
+import { toSerializableUserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
 
 interface UnknownErrorOptions {
   code?: string;
@@ -86,6 +87,12 @@ export function toSerializableAppError(error: AppError): AppError {
   if (error.userMessage !== undefined) {
     serializable.userMessage = error.userMessage;
   }
+  const userMessageDescriptor = toSerializableUserVisibleMessageDescriptor(
+    error.userMessageDescriptor
+  );
+  if (userMessageDescriptor !== undefined) {
+    serializable.userMessageDescriptor = userMessageDescriptor;
+  }
   if (error.timestamp !== undefined) {
     serializable.timestamp = error.timestamp;
   }
@@ -110,6 +117,9 @@ export function toSerializableAppError(error: AppError): AppError {
 
     if (error.userMessage !== undefined) {
       fallback.userMessage = error.userMessage;
+    }
+    if (userMessageDescriptor !== undefined) {
+      fallback.userMessageDescriptor = userMessageDescriptor;
     }
     if (error.timestamp !== undefined) {
       fallback.timestamp = error.timestamp;

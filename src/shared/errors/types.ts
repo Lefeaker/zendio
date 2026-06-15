@@ -1,3 +1,5 @@
+import type { UserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
+
 export enum ErrorSeverity {
   INFO = 'info',
   WARNING = 'warning',
@@ -24,6 +26,7 @@ export interface AppError {
   severity: ErrorSeverity;
   recoverable: boolean;
   userMessage?: string;
+  userMessageDescriptor?: UserVisibleMessageDescriptor;
   context?: Record<string, unknown>;
   cause?: unknown;
   timestamp?: number;
