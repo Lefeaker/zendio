@@ -923,7 +923,7 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
   );
 
   testWithExtension(
-    'exports an edited reader note and records exported terminal status',
+    'exports an edited reader note and clears active draft state',
     async ({ page, context, extensionPage }, testInfo) => {
       await seedOptions(extensionPage, testInfo);
       await installReaderExportCaptureListener(extensionPage, testInfo);
